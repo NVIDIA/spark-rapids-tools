@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spark-rapids-user-tools"
+authors = [
+  { name="Raza Jafri", email="raza.jafri@gmail.com" },
+  { name="Ahmed Hussein", email="a@ahussein.me" },
+]
+description = "A simple wrapper process around gcloud to process the event logs from local or GCS"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dependencies = ["fire==0.4.0", "pandas==1.4.3", "pyYAML==6.0", "tabulate==0.8.10", "importlib-resources"]
+dynamic=["entry-points", "version"]
+[tool.setuptools.dynamic]
+version = {attr = "spark_rapids_dataproc_tools.__version__"}

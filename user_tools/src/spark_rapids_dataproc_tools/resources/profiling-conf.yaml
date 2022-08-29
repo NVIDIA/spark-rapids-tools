@@ -1,0 +1,56 @@
+toolOutput:
+  subFolder: rapids_4_spark_profile
+  recommendations:
+    fileName: profile.log
+    headers:
+      section: '### D. Recommended Configuration ###'
+      sparkProperties: 'Spark Properties:'
+      comments: 'Comments:'
+sparkRapids:
+  # Autotuner is available for 22.10+ releases
+  version: 22.10.0
+  jarFile: 'rapids-4-spark-tools_2.12-{}.jar'
+  repoUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/{}/rapids-4-spark-tools_2.12-{}.jar'
+  mainClass: 'com.nvidia.spark.rapids.tool.profiling.ProfileMain'
+  outputDocURL: 'https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html#understanding-profiling-tool-detailed-output-and-examples'
+  gpu:
+    device: 't4'
+    workersPerNode: 2
+    cudaVersion: '11.5'
+    initializationScripts: 'gs://goog-dataproc-initialization-actions-{}/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-{}/rapids/rapids.sh'
+  cli:
+    tool_options:
+      - csv
+      - any
+      - a
+      - application-name
+      - f
+      - filter-criteria
+      - g
+      - generate-dot
+      - generate-timeline
+      - m
+      - match-event-logs
+      - n
+      - num-output-rows
+      - num-threads
+      - order
+      - p
+      - print-plans
+      - s
+      - start-app-time
+      - t
+      - timeout
+local:
+  output:
+    cleanUp: true
+    fileName: rapids_4_dataproc_profiling_output.log
+    summaryColumns:
+      - 'App ID'
+      - 'App Name'
+      - 'Recommendations'
+      - 'Comments'
+platform:
+  workDir: spark_rapids_dataproc_profiling
+  outputDir: profiling_tool_output
+  cleanUp: true

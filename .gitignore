@@ -1,0 +1,29 @@
+# Created by .ignore support plugin (hsz.mobi)
+### Python template
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.tox
+
+# virtualenv
+venv/
+ENV/
+
+# intellij
+/.idea/
+/gpu-savings-estimator.iml
+
+# data
+/cluster-properties.yaml
+wrapper-output/
+
+### macOS ###
+*.DS_Store
+
+### packaging ### 
+dist
+build
+src/*.egg-info
+build
+.coverage
