@@ -19,7 +19,6 @@ A clear and concise description of what you expected to happen.
 
 **Environment details (please complete the following information)**
  - Environment location: [Standalone, YARN, Kubernetes, Cloud(specify cloud provider)]
- - Spark configuration settings related to the issue
 
 **Additional context**
 Add any other context about the problem here.
