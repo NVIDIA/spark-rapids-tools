@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Create a bug report to help us improve RAPIDS Accelerator for Apache Spark Tools
+about: Create a bug report to help us improve Tools of RAPIDS Accelerator for Apache Spark
 title: "[BUG]"
 labels: "? - Needs Triage, bug"
 assignees: ''
