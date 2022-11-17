@@ -30,9 +30,10 @@ import spark_rapids_dataproc_tools.bootstrap as srdt_bootstrap
 from spark_rapids_dataproc_tools.cost_estimator import DataprocCatalogContainer, DataprocPriceProvider, \
     DataprocSavingsEstimator
 from spark_rapids_dataproc_tools.dataproc_utils import validate_dataproc_sdk, get_default_region, \
-    validate_region, CMDRunner, DataprocClusterPropContainer
+    validate_region, CMDRunner, DataprocClusterPropContainer, DataprocShadowClusterPropContainer, \
+    get_incompatible_criteria
 from spark_rapids_dataproc_tools.utilities import bail, \
-    get_log_dict, remove_dir, make_dirs, resource_path, YAMLPropertiesContainer
+    get_log_dict, remove_dir, make_dirs, resource_path, YAMLPropertiesContainer, gen_random_string
 
 
 @dataclass
@@ -104,7 +105,8 @@ class ToolContext(YAMLPropertiesContainer):
         return local_folder
 
     def set_remote_workdir(self, parent: str):
-        remote_work_dir = os.path.join(parent, self.get_value('platform', 'workDir'))
+        static_prefix = os.path.join(parent, self.get_value('platform', 'workDir'))
+        remote_work_dir = f"{static_prefix}_{gen_random_string(12)}"
         self.set_remote('depFolder', remote_work_dir)
 
     def get_local_work_dir(self) -> str:
@@ -139,7 +141,7 @@ class RapidsTool(object):
     tool_options: dict = field(default_factory=dict)
     name: str = field(default=None, init=False)
     ctxt: ToolContext = field(default=None, init=False)
-    dataproc_props: DataprocClusterPropContainer = field(default=None, init=False)
+    exec_cluster_proxy: DataprocClusterPropContainer = field(default=None, init=False)
 
     def set_tool_options(self, tool_args: Dict[str, Any]) -> None:
         """
@@ -262,9 +264,15 @@ class RapidsTool(object):
     def _init_cluster_dataproc_props(self):
         self.ctxt.logdebug("Initializing Dataproc Properties")
         raw_props = self._pull_cluster_properties()
-        self.dataproc_props = DataprocClusterPropContainer(prop_arg=raw_props,
-                                                           file_load=False,
-                                                           cli=self.ctxt.cli)
+        self.exec_cluster_proxy = DataprocClusterPropContainer(prop_arg=raw_props,
+                                                               file_load=False,
+                                                               cli=self.ctxt.cli)
+        # check if the cluster has incompatible image version
+        incompatible_version = get_incompatible_criteria(
+            imageVersion=self.exec_cluster_proxy.get_image_version())
+        if len(incompatible_version) > 0:
+            msg = f'{incompatible_version.get("comments")["imageVersion"]}'
+            self.ctxt.cli.fail_action(ValueError(msg), "Tool cannot execute on the execution cluster.")
 
     def _process_output_arg(self):
         self.ctxt.logdebug("Processing Output Arguments")
@@ -276,6 +284,7 @@ class RapidsTool(object):
             # we should download the jar file
             local_jar_path = os.path.join(self.ctxt.get_local_work_dir(), self.ctxt.get_default_jar_name())
             wget_cmd = 'wget -O "{}" "{}"'.format(local_jar_path, self.ctxt.get_rapids_jar_url())
+            self.ctxt.logdebug(f'Downloading tools jar from {self.ctxt.get_rapids_jar_url()} to {local_jar_path}')
             self.ctxt.cli.run(wget_cmd,
                               msg_fail='Failed downloading tools jar url')
             jar_file_name = self.ctxt.get_default_jar_name()
@@ -284,7 +293,8 @@ class RapidsTool(object):
             if self.tools_jar.startswith('gs://'):
                 # this is a gstorage_path
                 # use gsutil command to get it on local disk first
-                self.ctxt.logdebug(f'Downloading the toolsJar {self.tools_jar} to local disk')
+                self.ctxt.logdebug(f'Downloading the toolsJar {self.tools_jar} to local disk '
+                                   f'{self.ctxt.get_local_work_dir()}')
                 self.ctxt.cli.gcloud_cp(self.tools_jar,
                                         self.ctxt.get_local_work_dir(),
                                         is_dir=False)
@@ -301,7 +311,7 @@ class RapidsTool(object):
         logs_dir = self.eventlogs
         if self.eventlogs is None:
             # find the default event logs
-            logs_dir = self.dataproc_props.get_default_hs_dir()
+            logs_dir = self.exec_cluster_proxy.get_default_hs_dir()
         if isinstance(logs_dir, tuple):
             processed_logs = List[logs_dir]
         elif isinstance(logs_dir, str):
@@ -327,7 +337,7 @@ class RapidsTool(object):
     def _prepare_remote_env(self):
         self.ctxt.loginfo("Preparing remote work env")
         # set the staging directory
-        self.ctxt.set_remote_workdir(self.dataproc_props.get_temp_gs_storage())
+        self.ctxt.set_remote_workdir(self.exec_cluster_proxy.get_temp_gs_storage())
         self.ctxt.logdebug(f"cleaning up the remote work dir if it exists {self.ctxt.get_remote_work_dir()}")
         self.ctxt.cli.gcloud_rm(self.ctxt.get_remote_work_dir(), fail_ok=True)
 
@@ -441,7 +451,7 @@ class Profiling(RapidsTool):
 
     def __generate_autotuner_input(self):
         self.ctxt.logdebug(f'generating input files for Auto-tuner')
-        cluster_info = self.dataproc_props.convert_props_to_dict()
+        cluster_info = self.exec_cluster_proxy.convert_props_to_dict()
         cluster_info_path = os.path.join(self.ctxt.get_local_work_dir(),
                                          'dataproc_worker_info.yaml')
         with open(cluster_info_path, 'w') as worker_info_file:
@@ -675,7 +685,7 @@ class QualificationSummary:
                           ["Overall estimated cost savings", f"{format_float(estimated_gpu_savings)}%"]]
         report_content.append(tabulate(report_summary, colalign=("left", "right")))
         if self.comments is not None and len(self.comments) > 0:
-            report_content.extend(self.comments)
+            report_content.extend(f"- {line}" for line in self.comments)
         if self.has_gpu_recommendation() and config_provider is not None:
             report_content.append(config_provider())
 
@@ -688,7 +698,10 @@ class Qualification(RapidsTool):
     filter_apps: str = None
     gpu_device: str = None
     gpu_per_machine: int = None
+    migration_clusters_props: dict = field(default_factory=dict)
     cuda: str = None
+    cpu_cluster_proxy: DataprocClusterPropContainer = field(default=None, init=False)
+    gpu_cluster_proxy: DataprocClusterPropContainer = field(default=None, init=False)
 
     def dump_str(self) -> str:
         return f'this is the {self.name} tool running {self.config_path}'
@@ -696,7 +709,75 @@ class Qualification(RapidsTool):
     def __write_cluster_properties(self):
         self.ctxt.set_local('cluster_props',
                             os.path.join(self.ctxt.get_local_work_dir(), "cluster_props.yaml"))
-        self.dataproc_props.write_as_yaml_file(self.ctxt.get_local('cluster_props'))
+        self.exec_cluster_proxy.write_as_yaml_file(self.ctxt.get_local('cluster_props'))
+
+    def __process_offline_clusters_arguments(self):
+        """
+        Process the argument pointing to the location of the CPU clusters.
+        """
+        def construct_offline_prop_container(
+                cluster_type: str,
+                config_file_path: str) -> DataprocShadowClusterPropContainer:
+            pretty_type = cluster_type.upper()
+            is_file_load = True
+            prop_arg = config_file_path
+            self.ctxt.loginfo(f"The {pretty_type} cluster is an offline cluster. "
+                              f"Properties are loaded from {config_file_path}.")
+            if config_file_path.startswith('gs://'):
+                # This is a cloud storage. Get the data from the cloud using gsutil
+                self.ctxt.loginfo(f"Loading {pretty_type} cluster properties from remote url {config_file_path}.")
+                fail_msg = f"Failed reading content of cluster properties located in {config_file_path}."
+                prop_arg = self.ctxt.cli.gcloud_cat(config_file_path, msg_fail=fail_msg)
+                is_file_load = False
+
+            prop_container = DataprocShadowClusterPropContainer(prop_arg=prop_arg,
+                                                                file_load=is_file_load,
+                                                                cli=self.ctxt.cli)
+            # set the region and zones of the offline clusters if necessary
+            proxy_region = self.migration_clusters_props.get(f"{cluster_type}_cluster_region")
+            proxy_zone = self.migration_clusters_props.get(f"{cluster_type}_cluster_zone")
+            if proxy_region is None:
+                proxy_region = self.region
+            if proxy_zone is None:
+                proxy_zone = self.exec_cluster_proxy.get_zone()
+            prop_container.set_container_region("master", proxy_region)
+            prop_container.set_container_region("worker", proxy_region)
+            prop_container.set_container_zone("master", proxy_zone)
+            prop_container.set_container_zone("worker", proxy_zone)
+            self.ctxt.logdebug(f"Configurations used to construct {pretty_type} cluster: {prop_container.props}")
+            return prop_container
+
+        # Start of main method body
+        cpu_cluster_props_path = self.migration_clusters_props.get("cpu_cluster_props_path")
+        if cpu_cluster_props_path is None:
+            # The argument is not set, then the dataproc properties is going to be same as
+            # the submission job.
+            self.ctxt.loginfo(f"The original CPU cluster is the same as the submission cluster on which the tool runs. "
+                              f"To update the configuration of the CPU cluster, make sure to pass the "
+                              f"properties file to the CLI arguments.")
+            self.cpu_cluster_proxy = self.exec_cluster_proxy
+        else:
+            self.cpu_cluster_proxy = construct_offline_prop_container(cluster_type="cpu",
+                                                                      config_file_path=cpu_cluster_props_path)
+        # process the GPU cluster configurations
+        gpu_cluster_props_path = self.migration_clusters_props.get("gpu_cluster_props_path")
+        if gpu_cluster_props_path is None:
+            # The argument is not set, then the dataproc properties is going to be same as
+            # the CPU cluster.
+            self.gpu_cluster_proxy = self.cpu_cluster_proxy
+            props_origin_msg = f"the submission cluster on which the RAPIDS tool is running [{self.cluster}]"
+            if cpu_cluster_props_path is not None:
+                props_origin_msg = f"the original CPU cluster properties loaded from {cpu_cluster_props_path}"
+            self.ctxt.loginfo(f"The GPU cluster is the same as {props_origin_msg}. "
+                              f"To update the configuration of the GPU cluster, make sure to pass the "
+                              f"properties file to the CLI arguments.")
+        else:
+            self.gpu_cluster_proxy = construct_offline_prop_container(cluster_type="gpu",
+                                                                      config_file_path=gpu_cluster_props_path)
+
+    def _init_cluster_dataproc_props(self):
+        super()._init_cluster_dataproc_props()
+        self.__process_offline_clusters_arguments()
 
     def _process_custom_args(self):
         def process_filter_opt(arg_val: str):
@@ -743,15 +824,19 @@ class Qualification(RapidsTool):
         return instructions_str
 
     def _report_results_are_empty(self) -> None:
-        super()._report_results_are_empty()
         # check if we should report unsupported
         try:
-            worker_machine, converted = self.dataproc_props.convert_worker_machine_if_not_supported()
-            if converted:
-                print(f"To support acceleration with T4 GPUs, you will need to switch "
-                      f"your worker node instance type to {worker_machine}")
+            all_incompatibilities = self.gpu_cluster_proxy.check_all_incompatibilities()
+            if len(all_incompatibilities):
+                report_content = ["Configuration Incompatibilities:"]
+                incompatibility_summary = []
+                for key, comment in all_incompatibilities.get("comments").items():
+                    incompatibility_summary.append([key, f"- {comment}"])
+                report_content.append(tabulate(incompatibility_summary))
+                print('\n'.join(report_content))
         except Exception as e:
             self.ctxt.logdebug("Exception converting worker machine type {}".format(e))
+        super()._report_results_are_empty()
 
     def _process_tool_output(self):
         def get_costs_for_single_app(df_row,
@@ -843,8 +928,15 @@ class Qualification(RapidsTool):
                 dataproc_catalog = DataprocCatalogContainer(resource_path(snapshot_file))
             price_provider = DataprocPriceProvider(name="dataprocCostEstimator",
                                                    catalog=dataproc_catalog)
-            savings_estimator = DataprocSavingsEstimator(price_provider=price_provider)
-            savings_estimator.setup_calculations(self.dataproc_props)
+            self.ctxt.loginfo(
+                self.gpu_cluster_proxy.worker_pretty_print(extra_args={'GPU device': self.gpu_device,
+                                                                       'GPU per worker nodes': self.gpu_per_machine},
+                                                           prefix='Building cost model based on:\n',
+                                                           headers=('Worker Properties', '')))
+            savings_estimator = DataprocSavingsEstimator(price_provider=price_provider,
+                                                         gpu_device=self.gpu_device,
+                                                         gpu_per_machine=self.gpu_per_machine)
+            savings_estimator.setup_calculations(self.cpu_cluster_proxy, self.gpu_cluster_proxy)
             return savings_estimator
 
         def build_global_report_summary(

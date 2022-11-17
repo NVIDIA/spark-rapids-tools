@@ -14,12 +14,15 @@
 
 import logging
 import os
+import secrets
+import string
 import sys
 from dataclasses import dataclass, field
 import subprocess
 from functools import reduce
 from json import JSONDecodeError
 from operator import getitem
+from pathlib import Path
 from shutil import rmtree
 from typing import Any
 import json
@@ -52,24 +55,6 @@ def get_log_dict(args):
 logger = logging.getLogger(__name__)
 
 
-def execute_cmd(cmd,
-                expected=0,
-                quiet_mode=True):
-    """
-    Executes a command line through os module and raise an exception if the return code is not equal
-    to the expected argument.
-    :param cmd: the string command to be executed.
-    :param expected: the return of the command execution to verify that the command was successful
-    :param quiet_mode: suppress output
-    :return: returns the code resulting from the execution command
-    """
-    run_cmd = f'{cmd} > /dev/null 2>&1' if quiet_mode else cmd
-    ret = os.system(run_cmd)
-    if ret != expected:
-        raise Exception(f'Invalid result {ret} while running cmd: {cmd}')
-    return ret
-
-
 def bail(msg, err):
     """
     Print message and the error before terminating the program.
@@ -94,6 +79,29 @@ def get_elem_non_safe(data, keys):
         return reduce(getitem, keys, data)
     except LookupError:
         return None
+
+
+def convert_dict_to_camel_case(curr_dict: dict) -> dict:
+    """
+    Given a dictionary with underscore keys. This method converts the keys to a camelcase.
+    Example, gce_cluster_config -> gceClusterConfig
+    :param curr_dict: the dictionary to be converted
+    :return: a dictionary where all the keys are camelcase.
+    """
+    def to_camel_case(word: str) -> str:
+        return word.split('_')[0] + ''.join(x.capitalize() or '_' for x in word.split('_')[1:])
+
+    res = dict()
+    for key, value in curr_dict.items():
+        if isinstance(value, dict):
+            res[to_camel_case(key)] = convert_dict_to_camel_case(value)
+        else:
+            res[to_camel_case(key)] = value
+    return res
+
+
+def gen_random_string(str_length: int) -> str:
+    return ''.join(secrets.choice(string.hexdigits) for _ in range(str_length))
 
 
 def get_gpu_device_list():
@@ -155,17 +163,45 @@ class AbstractPropertiesContainer(object):
     def _init_fields(self):
         pass
 
+    def _load_properties_from_file(self):
+        """
+        In some case, we want to be able to accept both json and yaml format when the properties are saved as a file.
+        :return:
+        """
+        file_suffix = Path(self.prop_arg).suffix
+        if file_suffix == ".yaml" or file_suffix == ".yml":
+            # this is a yaml property
+            self.__open_yaml_file()
+        else:
+            # this is a jso file
+            self.__open_json_file()
+
+    def __open_json_file(self):
+        try:
+            with open(self.prop_arg, 'r') as json_file:
+                try:
+                    self.props = json.load(json_file)
+                except JSONDecodeError as e:
+                    bail('Incorrect format of JSON File', e)
+                except TypeError as e:
+                    bail('Incorrect Type of JSON content', e)
+        except OSError as err:
+            bail('Please ensure the json file exists and you have the required access privileges.', err)
+
+    def __open_yaml_file(self):
+        try:
+            with open(self.prop_arg, 'r') as yaml_file:
+                try:
+                    self.props = yaml.safe_load(yaml_file)
+                except yaml.YAMLError as e:
+                    bail('Incorrect format of Yaml File', e)
+        except OSError as err:
+            bail('Please ensure the properties file exists and you have the required access privileges.', err)
+
     def _load_as_yaml(self):
         if self.file_load:
             # this is a file argument
-            try:
-                with open(self.prop_arg, 'r') as yaml_file:
-                    try:
-                        self.props = yaml.safe_load(yaml_file)
-                    except yaml.YAMLError as e:
-                        bail('Incorrect format of Yaml File', e)
-            except OSError as err:
-                bail('Please ensure the properties file exists and you have the required access privileges.', err)
+            self._load_properties_from_file()
         else:
             try:
                 self.props = yaml.safe_load(self.prop_arg)
@@ -175,16 +211,7 @@ class AbstractPropertiesContainer(object):
     def _load_as_json(self):
         if self.file_load:
             # this is a file argument
-            try:
-                with open(self.prop_arg, 'r') as json_file:
-                    try:
-                        self.props = json.load(json_file)
-                    except JSONDecodeError as e:
-                        bail('Incorrect format of JSON File', e)
-                    except TypeError as e:
-                        bail('Incorrect Type of JSON content', e)
-            except OSError as err:
-                bail('Please ensure the json file exists and you have the required access privileges.', err)
+            self._load_properties_from_file()
         else:
             try:
                 self.props = json.loads(self.prop_arg)
@@ -208,6 +235,7 @@ class JSONPropertiesContainer(AbstractPropertiesContainer):
     def __post_init__(self):
         self._load_as_json()
         self._init_fields()
+
 
 def run_cmd(cmd, check=True, capture=''):
     """Run command and check return code, capture output etc."""
