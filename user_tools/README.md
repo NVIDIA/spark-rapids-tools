@@ -63,8 +63,8 @@ Default properties can be set in `resources/qual-conf.yaml`
     ```
     NAME
         spark_rapids_dataproc qualification - The Qualification tool analyzes Spark events generated from
-        CPU based Spark applications to help quantify the expected acceleration and costs savings of
-        migrating a Spark application or query to GPU.
+        CPU based Spark applications to help quantify the expected acceleration and costs savings of migrating
+        a Spark application or query to GPU.
     
     SYNOPSIS
         spark_rapids_dataproc qualification CLUSTER REGION <flags>
@@ -80,7 +80,8 @@ Default properties can be set in `resources/qual-conf.yaml`
     POSITIONAL ARGUMENTS
         CLUSTER
             Type: str
-            Name of the dataproc cluster
+            Name of the dataproc cluster on which the Qualification tool is executed. Note that the cluster
+            has to: 1- be running; and 2- support Spark3.x+.
         REGION
             Type: str
             Compute region (e.g. us-central1) for the cluster.
@@ -121,111 +122,339 @@ Default properties can be set in `resources/qual-conf.yaml`
             Type: str
             Default: '11.5'
             cuda version to be used with the GPU accelerator.
+        --cpu_cluster_props=CPU_CLUSTER_PROPS
+            Type: Optional[str]
+            Default: None
+            Path to a file (json/yaml) containing configurations of the CPU cluster on which the Spark applications
+            were executed.
+            The path is a local filesystem, or gstorage url.
+            This option does not require the cluster to be live.
+            When missing, the configurations are pulled from the live cluster on which the
+            Qualification tool is submitted.
+        --cpu_cluster_region=CPU_CLUSTER_REGION
+            Type: Optional[str]
+            Default: None
+            The region where the CPU cluster belongs to. Note that this parameter requires 'cpu_cluster_props' to be
+            defined.
+            When missing, the region is set to the value passed in the 'region' argument.
+        --cpu_cluster_zone=CPU_CLUSTER_ZONE
+            Type: Optional[str]
+            Default: None
+            The zone where the CPU cluster belongs to. Note that this parameter requires 'cpu_cluster_props' to be
+            defined.
+            When missing, the zone is set to the same zone as the 'cluster' on which the Qualification tool is submitted.
+        --gpu_cluster_props=GPU_CLUSTER_PROPS
+            Type: Optional[str]
+            Default: None
+            Path of a file (json/yaml) containing configurations of the GPU cluster on which the Spark
+            applications is planned to be migrated.
+            The path is a local filesystem, or gstorage url.
+            This option does not require the cluster to be live.
+            When missing, the configurations are considered the same as the ones used by the 'cpu_cluster_props'.
+        --gpu_cluster_region=GPU_CLUSTER_REGION
+            Type: Optional[str]
+            Default: None
+            The region where the GPU cluster belongs to. Note that this parameter requires 'gpu_cluster_props' to be
+            defined.
+            When missing, the region is set to the value passed in the 'region' argument.
+        --gpu_cluster_zone=GPU_CLUSTER_ZONE
+            Type: Optional[str]
+            Default: None
+            The zone where the GPU cluster belongs to. Note that this parameter requires 'gpu_cluster_props' to be
+            defined.
+            When missing, the zone is set to the same zone as the 'cluster' on which the Qualification tool is submitted.
         --debug=DEBUG
             Type: bool
             Default: False
             True or False to enable verbosity to the wrapper script.
         Additional flags are accepted.
-            A list of valid Qualification tool options. Note that the wrapper ignores the
-            “output-directory“ flag, and it does not support multiple “spark-property“ arguments.
-            For more details on Qualification tool options, please visit
-            https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#qualification-tool-options.
+            A list of valid Qualification tool options. Note that the wrapper ignores the “output-directory“
+            flag, and it does not support multiple “spark-property“ arguments. For more details on
+            Qualification tool options, please visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#qualification-tool-options.
+    
+    ```
+
+- Example: Running Qualification tool on cluster that does not support Spark3.x
+    ```
+      spark_rapids_dataproc qualification \
+            --cluster ahussein-dp-spark2 \
+            --region us-central1 \
+            --cpu_cluster_props=/tmp/test_cpu_cluster_prop.yaml \
+            --gpu_cluster_props=/tmp/test_gpu_cluster_prop_e2.yaml \
+            --eventlogs=gs://mahrens-test/qualification_testing/dlrm_cpu/,gs://mahrens-test/qualification_testing/tpcds_100in1/
+      2022-11-04 16:27:44,196 WARNING qualification: The cluster image 1.5.75-debian10 is not supported. To support the RAPIDS user tools, you will need to use an image that runs Spark3.x.
+      Failure Running Rapids Tool.
+              Tool cannot execute on the execution cluster.
+              Run Terminated with error.
+              The cluster image 1.5.75-debian10 is not supported. To support the RAPIDS user tools, you will need to use an image that runs Spark3.x.
     ```
 
 - Example: Running Qualification tool passing list of google storage directories
-  - Note that the wrapper lists the applications with positive recommendations.
-    To list all the applications, set the argument `--filter_apps=NONE`
-  - cmd
-    ```
-    spark_rapids_dataproc \
-        qualification \
-        --cluster=ahussein-jobs-test-003 \
-        --region=us-central1 \
-        --eventlogs=gs://mahrens-test/qualification_testing/dlrm_cpu/,gs://mahrens-test/qualification_testing/tpcds_100in1/
-    ```
-  - result
-    ```
-    Qualification tool output is saved to local disk /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_spark_qualification_output
-            rapids_4_spark_qualification_output/
-                    ├── rapids_4_spark_qualification_output.log
-                    ├── rapids_4_spark_qualification_output.csv
-                    ├── rapids_4_spark_qualification_output_execs.csv
-                    ├── rapids_4_spark_qualification_output_stages.csv
-                    └── ui/
-    - To learn more about the output details, visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output
-    Full savings and speedups CSV report: /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
-    +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
-    |    | App ID                  | App Name            | Recommendation       |   Estimated GPU |   Estimated GPU |           App |   Estimated GPU |
-    |    |                         |                     |                      |         Speedup |     Duration(s) |   Duration(s) |      Savings(%) |
-    |----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------|
-    |  0 | app-20200423035604-0002 | spark_data_utils.py | Strongly Recommended |            3.66 |          651.24 |       2384.32 |           64.04 |
-    |  1 | app-20200423035119-0001 | spark_data_utils.py | Strongly Recommended |            3.14 |           89.61 |        281.62 |           58.11 |
-    |  2 | app-20200423033538-0000 | spark_data_utils.py | Strongly Recommended |            3.12 |          300.39 |        939.21 |           57.89 |
-    |  3 | app-20210509200722-0001 | Spark shell         | Strongly Recommended |            2.55 |          698.16 |       1783.65 |           48.47 |
-    +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
-    Report Summary:
-    ------------------------------  ------
-    Total applications                   4
-    RAPIDS candidates                    4
-    Overall estimated speedup         3.10
-    Overall estimated cost savings  57.50%
-    ------------------------------  ------
-    To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the following to your cluster creation script:
-            --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh \ 
-            --worker-accelerator type=nvidia-tesla-t4,count=2 \ 
-            --metadata gpu-driver-provider="NVIDIA" \ 
-            --metadata rapids-runtime=SPARK \ 
-            --cuda-version=11.5
-    ```
+    - Note that the wrapper lists the applications with positive recommendations.
+      To list all the applications, set the argument `--filter_apps=NONE`
+    - cmd
+      ```
+      spark_rapids_dataproc \
+          qualification \
+          --cluster=ahussein-jobs-test-003 \
+          --region=us-central1 \
+          --eventlogs=gs://mahrens-test/qualification_testing/dlrm_cpu/,gs://mahrens-test/qualification_testing/tpcds_100in1/
+      ```
+    - result
+      ```
+      Qualification tool output is saved to local disk /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_spark_qualification_output
+              rapids_4_spark_qualification_output/
+                      ├── rapids_4_spark_qualification_output.log
+                      ├── rapids_4_spark_qualification_output.csv
+                      ├── rapids_4_spark_qualification_output_execs.csv
+                      ├── rapids_4_spark_qualification_output_stages.csv
+                      └── ui/
+      - To learn more about the output details, visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output
+      Full savings and speedups CSV report: /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
+      +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
+      |    | App ID                  | App Name            | Recommendation       |   Estimated GPU |   Estimated GPU |           App |   Estimated GPU |
+      |    |                         |                     |                      |         Speedup |     Duration(s) |   Duration(s) |      Savings(%) |
+      |----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------|
+      |  0 | app-20200423035604-0002 | spark_data_utils.py | Strongly Recommended |            3.66 |          651.24 |       2384.32 |           64.04 |
+      |  1 | app-20200423035119-0001 | spark_data_utils.py | Strongly Recommended |            3.14 |           89.61 |        281.62 |           58.11 |
+      |  2 | app-20200423033538-0000 | spark_data_utils.py | Strongly Recommended |            3.12 |          300.39 |        939.21 |           57.89 |
+      |  3 | app-20210509200722-0001 | Spark shell         | Strongly Recommended |            2.55 |          698.16 |       1783.65 |           48.47 |
+      +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
+      Report Summary:
+      ------------------------------  ------
+      Total applications                   4
+      RAPIDS candidates                    4
+      Overall estimated speedup         3.10
+      Overall estimated cost savings  57.50%
+      ------------------------------  ------
+      To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the following to your cluster creation script:
+              --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh \ 
+              --worker-accelerator type=nvidia-tesla-t4,count=2 \ 
+              --metadata gpu-driver-provider="NVIDIA" \ 
+              --metadata rapids-runtime=SPARK \ 
+              --cuda-version=11.5
+      ```
 
-        
-- Example: Running Qualification tool a passing list of google storage directories when cluster is running an n2 instance. N2 instances don't support GPU at the time of writing this tool and so the tool will recommend an equivalent n1 instance and run the qualification using that instance.
-  - Note that the wrapper lists the applications with positive recommendations.
-    To list all the applications, set the argument `--filter_apps=NONE`.
-  - cmd
-    ```
-    spark_rapids_dataproc \
-        qualification \
-        --cluster=dataproc-wrapper-test \
-        --region=us-central1 \
-        --eventlogs=gs://mahrens-test/qualification_testing/dlrm_cpu/,gs://mahrens-test/qualification_testing/tpcds_100in1/
-    ```
-  - result
-    ```
-    Qualification tool output is saved to local disk /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_spark_qualification_output
-            rapids_4_spark_qualification_output/
-                    ├── rapids_4_spark_qualification_output.log
-                    ├── rapids_4_spark_qualification_output.csv
-                    ├── rapids_4_spark_qualification_output_execs.csv
-                    ├── rapids_4_spark_qualification_output_stages.csv
-                    └── ui/
-    - To learn more about the output details, visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output
-    Full savings and speedups CSV report: /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
-    +----+---------------------+-------------------------+----------------------+-----------------+-----------------+---------------+-----------------+
-    |    | App Name            | App ID                  | Recommendation       |   Estimated GPU |   Estimated GPU |           App |   Estimated GPU |
-    |    |                     |                         |                      |         Speedup |     Duration(s) |   Duration(s) |      Savings(%) |
-    |----+---------------------+-------------------------+----------------------+-----------------+-----------------+---------------+-----------------|
-    |  0 | spark_data_utils.py | app-20200423035604-0002 | Strongly Recommended |            3.04 |          783.38 |       2384.32 |           27.25 |
-    |  1 | spark_data_utils.py | app-20200423033538-0000 | Strongly Recommended |            2.86 |          327.36 |        939.21 |           22.82 |
-    |  2 | spark_data_utils.py | app-20200423035119-0001 | Strongly Recommended |            2.69 |          104.35 |        281.62 |           17.95 |
-    |  3 | Spark shell         | app-20210509200722-0001 | Recommended          |            2.25 |          789.90 |       1783.65 |            1.94 |
-    +----+---------------------+-------------------------+----------------------+-----------------+-----------------+---------------+-----------------+
-    Report Summary:
-    ------------------------------  ------
-    Total applications                   4
-    RAPIDS candidates                    4
-    Overall estimated acceleration    3.10
-    Overall estimated cost savings  57.50%
-    ------------------------------  ------
-    
-    To support acceleration with T4 GPUs, you will need to switch your worker node instance type to n1-highcpu-32
-    To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the following to your cluster creation script:
-            --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh \ 
-            --worker-accelerator type=nvidia-tesla-t4,count=2 \ 
-            --metadata gpu-driver-provider="NVIDIA" \ 
-            --metadata rapids-runtime=SPARK \ 
-            --cuda-version=11.5
-    ```
+
+- Example: Running Qualification tool a passing list of google storage directories when cluster is running a n2 instance. N2 instances don't support GPU at the time of writing this tool and so the tool will recommend an equivalent n1 instance and run the qualification using that instance.
+    - Note that the wrapper lists the applications with positive recommendations.
+      To list all the applications, set the argument `--filter_apps=NONE`.
+    - cmd
+      ```
+      spark_rapids_dataproc \
+          qualification \
+          --cluster=dataproc-wrapper-test \
+          --region=us-central1 \
+          --eventlogs=gs://mahrens-test/qualification_testing/dlrm_cpu/,gs://mahrens-test/qualification_testing/tpcds_100in1/
+      ```
+    - result
+      ```
+      Qualification tool output is saved to local disk /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_spark_qualification_output
+              rapids_4_spark_qualification_output/
+                      ├── rapids_4_spark_qualification_output.log
+                      ├── rapids_4_spark_qualification_output.csv
+                      ├── rapids_4_spark_qualification_output_execs.csv
+                      ├── rapids_4_spark_qualification_output_stages.csv
+                      └── ui/
+      - To learn more about the output details, visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output
+      Full savings and speedups CSV report: /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
+      +----+---------------------+-------------------------+----------------------+-----------------+-----------------+---------------+-----------------+
+      |    | App Name            | App ID                  | Recommendation       |   Estimated GPU |   Estimated GPU |           App |   Estimated GPU |
+      |    |                     |                         |                      |         Speedup |     Duration(s) |   Duration(s) |      Savings(%) |
+      |----+---------------------+-------------------------+----------------------+-----------------+-----------------+---------------+-----------------|
+      |  0 | spark_data_utils.py | app-20200423035604-0002 | Strongly Recommended |            3.04 |          783.38 |       2384.32 |           27.25 |
+      |  1 | spark_data_utils.py | app-20200423033538-0000 | Strongly Recommended |            2.86 |          327.36 |        939.21 |           22.82 |
+      |  2 | spark_data_utils.py | app-20200423035119-0001 | Strongly Recommended |            2.69 |          104.35 |        281.62 |           17.95 |
+      |  3 | Spark shell         | app-20210509200722-0001 | Recommended          |            2.25 |          789.90 |       1783.65 |            1.94 |
+      +----+---------------------+-------------------------+----------------------+-----------------+-----------------+---------------+-----------------+
+      Report Summary:
+      ------------------------------  ------
+      Total applications                   4
+      RAPIDS candidates                    4
+      Overall estimated acceleration    3.10
+      Overall estimated cost savings  57.50%
+      ------------------------------  ------
+      
+      To support acceleration with T4 GPUs, you will need to switch your worker node instance type to n1-highcpu-32
+      To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the following to your cluster creation script:
+              --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh \ 
+              --worker-accelerator type=nvidia-tesla-t4,count=2 \ 
+              --metadata gpu-driver-provider="NVIDIA" \ 
+              --metadata rapids-runtime=SPARK \ 
+              --cuda-version=11.5
+      ```
+
+**Running Qualification Tool with offline CPU/GPU clusters**
+
+Users can pass configuration files that describe the clusters involved in migrations. The files can
+be stored locally or on GCS bucket.
+
+- Format of the cluster configuration:
+    - Both Json and Yaml formats are accepted
+    - For the top level entry of configurations, both `config` and `cluster_config` are accepted.
+    - `config` or `cluster_config` does not have to be the first entry in the yaml/json file. It can be
+      nested.
+    - For keys, the wrapper accepts camelCase and underscores keywords. i.e., `cluster_config` and `clusterConfig`
+      are both accepted.
+    - For each node type (master/worker), the configuration file has to indicate the following:
+        - `machine_type_uri` or `machineTypeUri`
+        - `num_instances` or `numInstances`
+        - `image_version` or `imageVersion`
+    - Optional configurations:
+        - `num_local_ssds` or `numLocalSsds`. For GPU clusters, the value will be set to 1 when the config is missing.
+        - `accelerators` configuration is ignored since the wrapper command line overrides the GPU accelerators.
+    - example of accepted files:
+        - json file
+          ```json
+              {
+                "cluster_config": {
+                  "software_config": {
+                    "image_version": "1.5"
+                  },
+                  "gce_cluster_config": {
+                    "metadata": {
+                      "enable-pepperdata": "true"
+                    }
+                  },
+                  "master_config": {
+                    "machine_type_uri": "n1-standard-16",
+                    "disk_config": {
+                      "boot_disk_size_gb": 100
+                    }
+                  },
+                  "worker_config": {
+                    "num_instances": 2,
+                    "machine_type_uri": "n1-standard-16",
+                    "disk_config": {
+                      "boot_disk_size_gb": 100
+                    }
+                  },
+                  "secondary_worker_config": {
+                    "num_instances": 2,
+                    "machine_type_uri": "n1-standard-16",
+                    "disk_config": {
+                      "boot_disk_size_gb": 100
+                    }
+                  }
+                }
+              }
+          ```
+        - yaml file
+          ```yaml
+              cluster_config:
+                gce_cluster_config:
+                  metadata:
+                    enable-pepperdata: 'true'
+                master_config:
+                  disk_config:
+                    boot_disk_size_gb: 100
+                  machine_type_uri: n1-standard-16
+                secondary_worker_config:
+                  disk_config:
+                    boot_disk_size_gb: 100
+                  machine_type_uri: n1-standard-16
+                  num_instances: 2
+                software_config:
+                  image_version: '1.5'
+                worker_config:
+                  disk_config:
+                    boot_disk_size_gb: 100
+                  machine_type_uri: n1-standard-16
+                  num_instances: 2
+          ```
+        - The cluster configs are not at top level.
+          ```yaml
+            key_level0:
+              key_level1:
+                cluster_config:
+                  gce_cluster_config:
+                    metadata:
+                      enable-pepperdata: 'true'
+                  master_config:
+                    disk_config:
+                      boot_disk_size_gb: 100
+                    machine_type_uri: n1-standard-16
+                  secondary_worker_config:
+                    disk_config:
+                      boot_disk_size_gb: 100
+                    machine_type_uri: n1-standard-16
+                    num_instances: 2
+                  software_config:
+                    image_version: '1.5'
+                  worker_config:
+                    disk_config:
+                      boot_disk_size_gb: 100
+                    machine_type_uri: n1-standard-16
+                    num_instances: 2
+          ```
+        - Camel Case file is accepted:
+          ```yaml
+            clusterConfig:
+              gceClusterConfig:
+                metadata:
+                  enable-pepperdata: 'true'
+              masterConfig:
+                diskConfig:
+                  bootDiskSizeGb: 100
+                machineTypeUri: n1-standard-16
+              secondaryWorkerConfig:
+                diskConfig:
+                  bootDiskSizeGb: 100
+                machineTypeUri: n1-standard-16
+                numInstances: 2
+              softwareConfig:
+                imageVersion: '2.0'
+              workerConfig:
+                diskConfig:
+                  bootDiskSizeGb: 100
+                machineTypeUri: n1-standard-16
+                numInstances: 2
+          ```
+
+            - example `cpu_cluster_props` argument passed to CLI
+              ```
+                spark_rapids_dataproc qualification \
+                           --cluster ahussein-jobs-test-gpu-support \
+                           --region us-central1 --cpu_cluster_props=/tmp/test_cpu_cluster_prop.yaml \
+                           --eventlogs=gs://mahrens-test/qualification_testing/dlrm_cpu/,gs://mahrens-test/qualification_testing/tpcds_100in1/
+          
+                2022-11-04 17:11:02,284 INFO qualification: The CPU cluster is an offline cluster. Properties are loaded from /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/test_cpu_cluster_prop.yaml
+                2022-11-04 17:11:02,286 WARNING qualification: The cluster image 1.5 is not supported. To support the RAPIDS user tools, you will need to use an image that runs Spark3.x.
+                2022-11-04 17:11:02,288 INFO qualification: The GPU cluster is the same as the original CPU cluster properties loaded from /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/test_cpu_cluster_prop.yaml.
+                    To update the configuration of the GPU cluster, make sure to pass the properties file to the CLI arguments
+                2022-11-04 17:12:29,398 INFO qualification: Downloading the price catalog from URL https://cloudpricingcalculator.appspot.com/static/data/pricelist.json
+                2022-11-04 17:12:30,292 INFO qualification: Generating GPU Estimated Speedup and Savings as ./wrapper-output/rapids_user_tools_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
+                Qualification tool output is saved to local disk /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/wrapper-output/rapids_user_tools_qualification/qual-tool-output/rapids_4_spark_qualification_output
+                        rapids_4_spark_qualification_output/
+                                └── ui/
+                                ├── rapids_4_spark_qualification_output_stages.csv
+                                ├── rapids_4_spark_qualification_output.csv
+                                ├── rapids_4_spark_qualification_output_execs.csv
+                                ├── rapids_4_spark_qualification_output.log
+                - To learn more about the output details, visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output
+                Full savings and speedups CSV report: /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/wrapper-output/rapids_user_tools_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
+                +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
+                |    | App ID                  | App Name            | Recommendation       |   Estimated GPU |   Estimated GPU |           App |   Estimated GPU |
+                |    |                         |                     |                      |         Speedup |     Duration(s) |   Duration(s) |      Savings(%) |
+                |----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------|
+                |  0 | app-20200423035604-0002 | spark_data_utils.py | Strongly Recommended |            3.66 |          651.24 |       2384.32 |           25.04 |
+                |  1 | app-20200423035119-0001 | spark_data_utils.py | Strongly Recommended |            3.14 |           89.61 |        281.62 |           12.68 |
+                |  2 | app-20200423033538-0000 | spark_data_utils.py | Strongly Recommended |            3.12 |          300.39 |        939.21 |           12.23 |
+                +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
+                Report Summary:
+                ------------------------------  ------
+                Total applications                   4
+                RAPIDS candidates                    4
+                Overall estimated speedup         3.13
+                Overall estimated cost savings  12.30%
+                ------------------------------  ------
+                To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the following to your cluster creation script:
+                        --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh \ 
+                        --worker-accelerator type=nvidia-tesla-t4,count=2 \ 
+                        --metadata gpu-driver-provider="NVIDIA" \ 
+                        --metadata rapids-runtime=SPARK \ 
+                        --cuda-version=11.5
+              ```
 
 - run the profiling tool help cmd `spark_rapids_dataproc profiling --help`
   ```bash

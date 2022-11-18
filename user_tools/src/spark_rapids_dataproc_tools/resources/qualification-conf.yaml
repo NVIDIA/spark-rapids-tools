@@ -91,6 +91,6 @@ local:
       onlineURL: 'https://cloudpricingcalculator.appspot.com/static/data/pricelist.json'
       snapshotFile: 'gcloud-catalog.json'
 platform:
-  workDir: spark_rapids_dataproc_qualification
+  workDir: rapids_user_tools_qualification
   outputDir: qual-tool-output
   cleanUp: true

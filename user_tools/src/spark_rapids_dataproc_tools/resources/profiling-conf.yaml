@@ -51,6 +51,6 @@ local:
       - 'Recommendations'
       - 'Comments'
 platform:
-  workDir: spark_rapids_dataproc_profiling
+  workDir: rapids_user_tools_profiling
   outputDir: profiling_tool_output
   cleanUp: true
