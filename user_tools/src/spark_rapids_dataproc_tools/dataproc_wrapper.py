@@ -67,6 +67,9 @@ class DataprocWrapper(object):
                   tools_jar: str = None,
                   eventlogs: str = None,
                   output_folder: str = '.',
+                  gpu_cluster_props: str = None,
+                  gpu_cluster_region: str = None,
+                  gpu_cluster_zone: str = None,
                   debug: bool = False,
                   **tool_options) -> None:
         """
@@ -90,6 +93,18 @@ class DataprocWrapper(object):
         :param output_folder: Base output directory.
             The final output will go into a subdirectory called wrapper-output.
             It will overwrite any existing directory with the same name.
+        :param gpu_cluster_props: Path to a file containing configurations of the GPU cluster
+            on which the Spark applications ran on.
+            The path is a local filesystem, or gstorage url.
+            This option does not require the cluster to be live. When missing, the configurations are
+            considered the same as the ones used by the 'cpu_cluster_props'.
+        :param gpu_cluster_region: The region where the GPU cluster belongs to. Note that this parameter requires
+            'gpu_cluster_props' to be defined.
+            When missing, the region is set to the value passed in the 'region' argument.
+        :param gpu_cluster_zone: The zone where the GPU cluster belongs to. Note that this parameter requires
+            'gpu_cluster_props' to be defined.
+            When missing, the zone is set to the same zone as the 'cluster' on which the Profiling tool is
+            submitted.
         :param debug: True or False to enable verbosity to the wrapper script.
         :param tool_options: A list of valid Profiling tool options.
             Note that the wrapper ignores the following flags
@@ -103,6 +118,11 @@ class DataprocWrapper(object):
             tools_jar=tools_jar,
             eventlogs=eventlogs,
             output_folder=output_folder,
+            migration_clusters_props={
+                'gpu_cluster_props_path': gpu_cluster_props,
+                'gpu_cluster_region': gpu_cluster_region,
+                'gpu_cluster_zone': gpu_cluster_zone,
+            },
             debug=debug,
             #config_path="config_path_value"
         )

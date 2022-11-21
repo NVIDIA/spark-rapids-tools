@@ -445,13 +445,66 @@ class RapidsTool(object):
 @dataclass
 class Profiling(RapidsTool):
     name = 'profiling'
+    migration_clusters_props: dict = field(default_factory=dict)
+    gpu_cluster_proxy: DataprocClusterPropContainer = field(default=None, init=False)
 
     def dump_str(self) -> str:
         return f'this is the {self.name} tool running {self.config_path}'
 
+    def __process_offline_clusters_arguments(self):
+        """
+        Process the argument pointing to the location of the CPU clusters.
+        """
+        def construct_offline_prop_container(
+                cluster_type: str,
+                config_file_path: str) -> DataprocShadowClusterPropContainer:
+            pretty_type = cluster_type.upper()
+            is_file_load = True
+            prop_arg = config_file_path
+            self.ctxt.loginfo(f"The {pretty_type} cluster is an offline cluster. "
+                              f"Properties are loaded from {config_file_path}.")
+            if config_file_path.startswith('gs://'):
+                # This is a cloud storage. Get the data from the cloud using gsutil
+                self.ctxt.loginfo(f"Loading {pretty_type} cluster properties from remote url {config_file_path}.")
+                fail_msg = f"Failed reading content of cluster properties located in {config_file_path}."
+                prop_arg = self.ctxt.cli.gcloud_cat(config_file_path, msg_fail=fail_msg)
+                is_file_load = False
+
+            prop_container = DataprocShadowClusterPropContainer(prop_arg=prop_arg,
+                                                                file_load=is_file_load,
+                                                                cli=self.ctxt.cli)
+            # set the region and zones of the offline clusters if necessary
+            proxy_region = self.migration_clusters_props.get(f"{cluster_type}_cluster_region")
+            proxy_zone = self.migration_clusters_props.get(f"{cluster_type}_cluster_zone")
+            if proxy_region is None:
+                proxy_region = self.region
+            if proxy_zone is None:
+                proxy_zone = self.exec_cluster_proxy.get_zone()
+            prop_container.set_container_region("master", proxy_region)
+            prop_container.set_container_region("worker", proxy_region)
+            prop_container.set_container_zone("master", proxy_zone)
+            prop_container.set_container_zone("worker", proxy_zone)
+            self.ctxt.logdebug(f"Configurations used to construct {pretty_type} cluster: {prop_container.props}")
+            return prop_container
+
+        # process the GPU cluster configurations
+        gpu_cluster_props_path = self.migration_clusters_props.get("gpu_cluster_props_path")
+        if gpu_cluster_props_path is None:
+            # The argument is not set, then the dataproc properties is going to be same as
+            # the CPU cluster.
+            self.gpu_cluster_proxy = self.exec_cluster_proxy
+            props_origin_msg = f"the submission cluster on which the RAPIDS tool is running [{self.cluster}]"
+        else:
+            self.gpu_cluster_proxy = construct_offline_prop_container(cluster_type="gpu",
+                                                                      config_file_path=gpu_cluster_props_path)
+
+    def _init_cluster_dataproc_props(self):
+        super()._init_cluster_dataproc_props()
+        self.__process_offline_clusters_arguments()
+
     def __generate_autotuner_input(self):
         self.ctxt.logdebug(f'generating input files for Auto-tuner')
-        cluster_info = self.exec_cluster_proxy.convert_props_to_dict()
+        cluster_info = self.gpu_cluster_proxy.convert_props_to_dict()
         cluster_info_path = os.path.join(self.ctxt.get_local_work_dir(),
                                          'dataproc_worker_info.yaml')
         with open(cluster_info_path, 'w') as worker_info_file:
@@ -566,7 +619,6 @@ class Profiling(RapidsTool):
         tool_arguments = self.generate_final_tool_arguments(["--auto-tuner",
                                                              "--worker-info",
                                                              f"{worker_info_path}"])
-
         submit_cmd = (
             f"dataproc jobs submit spark --cluster={self.cluster}"
             f" --region={self.region}"
