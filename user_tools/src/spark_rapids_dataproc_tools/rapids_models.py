@@ -576,6 +576,21 @@ class Profiling(RapidsTool):
             comments_list = ["- No comments"]
         return props_list, comments_list, app_name
 
+    def _report_results_are_empty(self) -> None:
+        # check if we should report unsupported
+        try:
+            all_incompatibilities = self.gpu_cluster_proxy.check_all_incompatibilities()
+            if len(all_incompatibilities):
+                report_content = ["Configuration Incompatibilities:"]
+                incompatibility_summary = []
+                for key, comment in all_incompatibilities.get("comments").items():
+                    incompatibility_summary.append([key, f"- {comment}"])
+                report_content.append(tabulate(incompatibility_summary))
+                print('\n'.join(report_content))
+        except Exception as e:
+            self.ctxt.logdebug("Exception converting worker machine type {}".format(e))
+        super()._report_results_are_empty()
+
     def _process_tool_output(self):
         super()._process_tool_output()
         app_folders = glob.glob(f'{self.ctxt.get_local_output_dir()}/*', recursive=False)
