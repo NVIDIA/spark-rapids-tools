@@ -35,7 +35,8 @@ set python environment to version [3.8, 3.10]
 ## Using the Rapids Tool Wrapper
 
 The wrapper provides convenient way to run Qualification/Profiling tool.
-Default properties can be set in `resources/qual-conf.yaml`
+Default properties can be set in two files `qualification-conf.yaml` and `profiling-conf.yaml` under
+"resources" directory.
 
 - run the help command `spark_rapids_dataproc --help`
 
@@ -58,6 +59,16 @@ Default properties can be set in `resources/qual-conf.yaml`
         2- Cost of on-demand VMs
 
   ```
+
+### Qualification Tool
+
+The Qualification tool analyzes Spark events generated from  CPU based Spark applications to help
+quantify the expected acceleration and costs savings of migrating a Spark application or
+query to GPU.  
+For more details, please visit the
+[Qualification Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html).
+
+#### Sample commands
 
 - run the qualification tool help cmd `spark_rapids_dataproc qualification --help`
     ```
@@ -284,7 +295,7 @@ Default properties can be set in `resources/qual-conf.yaml`
               --cuda-version=11.5
       ```
 
-**Running Qualification Tool with offline CPU/GPU clusters**
+#### Running Qualification Tool with offline CPU/GPU clusters
 
 Users can pass configuration files that describe the clusters involved in migrations. The files can
 be stored locally or on GCS bucket.
@@ -456,6 +467,17 @@ be stored locally or on GCS bucket.
                         --cuda-version=11.5
               ```
 
+### Profiling Tool
+
+The Profiling tool analyzes both CPU or GPU generated event logs and generates information which
+can be used for debugging and profiling Apache Spark applications.  
+In addition, the wrapper output provides optimized RAPIDS configurations based on the worker's
+information.  
+For more details, please visit the
+[Profiling Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html).
+
+#### Sample commands
+
 - run the profiling tool help cmd `spark_rapids_dataproc profiling --help`
   ```bash
   NAME
@@ -548,6 +570,59 @@ be stored locally or on GCS bucket.
       Processing App app-20210609154416-0002
       ```
 
+#### Running Profiling Tool with offline GPU cluster
+
+Users can pass configuration files that describe the clusters involved in migrations. The files can
+be stored locally or on GCS bucket.
+
+- Format of the cluster configuration:
+  - Both Json and Yaml formats are accepted
+  - For the top level entry of configurations, both `config` and `cluster_config` are accepted.
+  - `config` or `cluster_config` does not have to be the first entry in the yaml/json file. It can be
+    nested.
+  - For keys, the wrapper accepts camelCase and underscores keywords. i.e., `cluster_config` and `clusterConfig`
+    are both accepted.
+  - For the workers, the configuration has to indicate valid GPU accelerators.
+  - Example of accepted file:
+    ```yaml
+      default:
+        xyz_config:
+          absdt_config:
+            xyz_version: '2.0'
+            team:
+              tr_product_id: '1982'
+          cluster_config:
+            gce_cluster_config:
+              metadata:
+                enable-pepperdata: 'true'
+            master_config:
+              disk_config:
+                boot_disk_size_gb: 100
+              machine_type_uri: n1-standard-8
+            secondary_worker_config:
+              disk_config:
+                boot_disk_size_gb: 100
+              machine_type_uri: n1-standard-32
+              num_instances: 2
+            software_config:
+              image_version: '2.0'
+            worker_config:
+              disk_config:
+                boot_disk_size_gb: 100
+              machine_type_uri: n1-standard-32
+              num_instances: 2
+              accelerators:
+              - accelerator_count: 4
+                accelerator_type_uri: nvidia-tesla-t4
+    ```
+
+### Bootstrap Tool
+
+Provides optimized RAPIDS Accelerator for Apache Spark configs based on Dataproc GPU cluster shape.
+This tool is supposed to be used once a cluster has been created to set the recommended configurations.
+
+#### Sample commands
+
 - run the bootstrap tool help cmd `spark_rapids_dataproc bootstrap --help`
   ```bash
   NAME
@@ -599,48 +674,54 @@ be stored locally or on GCS bucket.
       ##### END : RAPIDS bootstrap settings for jobs-test-003
       ```
 
-## Running Diagnostic Tool
+### Diagnostic Tool
+
+Validates the Dataproc with RAPIDS Accelerator for Apache Spark environment to make sure the cluster
+is healthy and ready for Spark jobs.  
+This tool can be used by the frontline support team for basic diagnostic and troubleshooting.
+
+#### Sample commands
 
 - Run the diagnostic tool help cmd `spark_rapids_dataproc diagnostic --help`
 
-```text
-NAME
-    spark_rapids_dataproc diagnostic - Run diagnostic on local environment or remote Dataproc cluster,
-    such as check installed NVIDIA driver, CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
-
-SYNOPSIS
-    spark_rapids_dataproc diagnostic CLUSTER REGION <flags>
-
-DESCRIPTION
-    Run diagnostic on local environment or remote Dataproc cluster, such as check installed NVIDIA driver,
-    CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
-
-POSITIONAL ARGUMENTS
-    CLUSTER
-        Type: str
-        Name of the Dataproc cluster
-    REGION
-        Type: str
-        Region of Dataproc cluster (e.g. us-central1)
-
-FLAGS
-    --func=FUNC
-        Type: str
-        Default: 'all'
-        Diagnostic function to run. Available functions: 'nv_driver': dump NVIDIA driver info via command
-        `nvidia-smi`, 'cuda_version': check if CUDA toolkit major version >= 11.0, 'rapids_jar': check if
-        only single RAPIDS Accelerator for Apache Spark jar is installed and verify its signature, 'deprecated_jar': check if deprecated
-        (cudf) jar is installed. I.e. should no cudf jar starting with RAPIDS Accelerator for Apache Spark 22.08, 'spark': run a
-        Hello-world Spark Application on CPU and GPU, 'perf': performance test for a Spark job between CPU and
-        GPU, 'spark_job': run a Hello-world Spark Application on CPU and GPU via Dataproc job interface, 'perf_job':
-        performance test for a Spark job between CPU and GPU via Dataproc job interface
-    --debug=DEBUG Type: bool
-        Default: False
-        True or False to enable verbosity
-
-NOTES
-    You can also use flags syntax for POSITIONAL ARGUMENTS
-```
+    ```text
+    NAME
+        spark_rapids_dataproc diagnostic - Run diagnostic on local environment or remote Dataproc cluster,
+        such as check installed NVIDIA driver, CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
+    
+    SYNOPSIS
+        spark_rapids_dataproc diagnostic CLUSTER REGION <flags>
+    
+    DESCRIPTION
+        Run diagnostic on local environment or remote Dataproc cluster, such as check installed NVIDIA driver,
+        CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
+    
+    POSITIONAL ARGUMENTS
+        CLUSTER
+            Type: str
+            Name of the Dataproc cluster
+        REGION
+            Type: str
+            Region of Dataproc cluster (e.g. us-central1)
+    
+    FLAGS
+        --func=FUNC
+            Type: str
+            Default: 'all'
+            Diagnostic function to run. Available functions: 'nv_driver': dump NVIDIA driver info via command
+            `nvidia-smi`, 'cuda_version': check if CUDA toolkit major version >= 11.0, 'rapids_jar': check if
+            only single RAPIDS Accelerator for Apache Spark jar is installed and verify its signature, 'deprecated_jar': check if deprecated
+            (cudf) jar is installed. I.e. should no cudf jar starting with RAPIDS Accelerator for Apache Spark 22.08, 'spark': run a
+            Hello-world Spark Application on CPU and GPU, 'perf': performance test for a Spark job between CPU and
+            GPU, 'spark_job': run a Hello-world Spark Application on CPU and GPU via Dataproc job interface, 'perf_job':
+            performance test for a Spark job between CPU and GPU via Dataproc job interface
+        --debug=DEBUG Type: bool
+            Default: False
+            True or False to enable verbosity
+    
+    NOTES
+        You can also use flags syntax for POSITIONAL ARGUMENTS
+    ```
 
 - Example running diagnostic tool
 
