@@ -23,7 +23,7 @@ from tabulate import tabulate
 import yaml
 
 from spark_rapids_dataproc_tools.utilities import is_system_tool, bail, YAMLPropertiesContainer, \
-    convert_dict_to_camel_case
+    convert_dict_to_camel_case, get_gpu_short_name
 
 is_mac = os.uname().sysname == 'Darwin'
 
@@ -130,6 +130,34 @@ def map_to_closest_supported_match(machine_type: str) -> str:
     # The last bit of the instance name is the number of cores
     original_core = instance_name_parts[-1]
     return "n1-{}-{}".format(instance_name_parts[1], get_core(int(original_core)))
+
+
+def default_gpu_device_memory(machine_type: str, gpu_device: str) -> int:
+    """
+    returns the default memory in MiB for the given GPU device.
+    :param gpu_device: short name of the gpu_device
+    :param machine_type: the machine type of the node. This is used to distinguish high GPU nodes
+                        like a2-ultragpu-* in dataproc
+    :return: memory size in MB for a single GPU of the given device.
+    """
+    memory_sizes = {
+        # source https://cloud.google.com/compute/docs/gpus#nvidia_gpus_for_compute_workloads
+        # default for A100 is 40GB per GPU (a2-highgpu).
+        # It is possible to have 80 GB for machines a2-ultragpu
+        "A100": 40960,
+        # N1 machine series supports 16 GB per GPU
+        "T4": 16384,
+        # N1 machine series supports 8 GB per GPU
+        "P4": 8192,
+        # N1 machine series supports 16 GB per GPU
+        "P100": 16384,
+        # N1 machine series supports 12 GB per GPU
+        "K80": 12288
+    }
+    gpu_memory_in_mib = memory_sizes.get(gpu_device)
+    if gpu_device == "A100" and machine_type.lower().find("ultragpu") != -1:
+        return gpu_memory_in_mib * 2
+    return gpu_memory_in_mib
 
 
 @dataclass
@@ -389,9 +417,15 @@ class DataprocClusterPropContainer(YAMLPropertiesContainer):
     def get_master_cpu_info(self) -> (str, str):
         return self._get_cpu_info_for_node("master")
 
-    def get_spark_properties(self):
-        software_props = self.get_value('config', 'softwareConfig', 'properties')
-        return dict(software_props)
+    def get_spark_properties(self) -> dict:
+        """
+        return the properties of Spark properties if found in the cluster properties.
+        :return: a dictionary of key, value pairs of spark properties. None, if not available
+        """
+        software_props = self.get_value_silent('config', 'softwareConfig', 'properties')
+        if software_props is not None:
+            return dict(software_props)
+        return None
 
     def get_temp_gs_storage(self):
         temp_bucket = self.get_value('config', 'tempBucket')
@@ -427,6 +461,8 @@ class DataprocClusterPropContainer(YAMLPropertiesContainer):
     def convert_props_to_dict(self) -> dict:
         def filter_spark_properties(original_dict):
             new_dict = dict()
+            if original_dict is None:
+                return new_dict
             for (key, value) in original_dict.items():
                 # Check if key is even then add pair to new dictionary
                 if key.startswith("spark:"):
@@ -507,3 +543,30 @@ class DataprocShadowClusterPropContainer(DataprocClusterPropContainer):
     def _get_cpu_info_for_node(self, node_type: str) -> (str, str):
         region, zone, machine_type = self._get_machine_info_for_node(node_type)
         return self.get_cpu_info_for_machine_type(zone=zone, machine_type=machine_type)
+
+    def get_worker_gpu_info(self) -> (int, int):
+        """
+        Returns information on the GPUs assigned to each worker in a Dataproc cluster.
+        :return: pair containing GPU count per worker and individual GPU memory size in megabytes
+        """
+        worker_accelerators = self.get_value_silent('config', 'workerConfig', 'accelerators')
+        if worker_accelerators is None or len(worker_accelerators) == 0:
+            # this is an error
+            self.cli.fail_action(ValueError(f"Unable to find worker accelerators"),
+                                 "Failed while processing CPU info")
+        # we have an array
+        for worker_acc in worker_accelerators:
+            # loop on each accelerator to see if this is a valid GPU accelerator
+            count = worker_acc.get("acceleratorCount")
+            acc_type = worker_acc.get("acceleratorTypeUri")
+            short_gpu_name = get_gpu_short_name(acc_type)
+            if short_gpu_name is not None:
+                worker_machine = self.get_value('config', 'workerConfig', 'machineTypeUri')
+                self.props['config']['workerConfig']['gpuShortName'] = short_gpu_name
+                self.props['config']['workerConfig']['gpuCount'] = count
+                # this is a valid GPU accelerator
+                return count, default_gpu_device_memory(worker_machine, short_gpu_name)
+        return 0, 0
+
+    def get_worker_gpu_device(self) -> str:
+        return self.get_value('config', 'workerConfig', 'gpuShortName')

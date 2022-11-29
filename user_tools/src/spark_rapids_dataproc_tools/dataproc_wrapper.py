@@ -96,8 +96,8 @@ class DataprocWrapper(object):
         :param gpu_cluster_props: Path to a file containing configurations of the GPU cluster
             on which the Spark applications ran on.
             The path is a local filesystem, or gstorage url.
-            This option does not require the cluster to be live. When missing, the configurations are
-            considered the same as the ones used by the 'cpu_cluster_props'.
+            This option does not require the cluster to be live. When missing, the configurations
+            are pulled from the live cluster on which the Qualification tool is submitted.
         :param gpu_cluster_region: The region where the GPU cluster belongs to. Note that this parameter requires
             'gpu_cluster_props' to be defined.
             When missing, the region is set to the value passed in the 'region' argument.
