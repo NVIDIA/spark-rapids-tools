@@ -35,7 +35,8 @@ set python environment to version [3.8, 3.10]
 ## Using the Rapids Tool Wrapper
 
 The wrapper provides convenient way to run Qualification/Profiling tool.
-Default properties can be set in `resources/qual-conf.yaml`
+Default properties can be set in two files `qualification-conf.yaml` and `profiling-conf.yaml` under
+"resources" directory.
 
 - run the help command `spark_rapids_dataproc --help`
 
@@ -58,6 +59,16 @@ Default properties can be set in `resources/qual-conf.yaml`
         2- Cost of on-demand VMs
 
   ```
+
+### Qualification Tool
+
+The Qualification tool analyzes Spark events generated from  CPU based Spark applications to help
+quantify the expected acceleration and costs savings of migrating a Spark application or
+query to GPU.  
+For more details, please visit the
+[Qualification Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html).
+
+#### Sample commands
 
 - run the qualification tool help cmd `spark_rapids_dataproc qualification --help`
     ```
@@ -177,11 +188,11 @@ Default properties can be set in `resources/qual-conf.yaml`
 - Example: Running Qualification tool on cluster that does not support Spark3.x
     ```
       spark_rapids_dataproc qualification \
-            --cluster ahussein-dp-spark2 \
+            --cluster dp-spark2 \
             --region us-central1 \
             --cpu_cluster_props=/tmp/test_cpu_cluster_prop.yaml \
             --gpu_cluster_props=/tmp/test_gpu_cluster_prop_e2.yaml \
-            --eventlogs=gs://mahrens-test/qualification_testing/dlrm_cpu/,gs://mahrens-test/qualification_testing/tpcds_100in1/
+            --eventlogs=gs://my-bucket/qualification_testing/dlrm_cpu/,gs://my-bucket/qualification_testing/tpcds_100in1/
       2022-11-04 16:27:44,196 WARNING qualification: The cluster image 1.5.75-debian10 is not supported. To support the RAPIDS user tools, you will need to use an image that runs Spark3.x.
       Failure Running Rapids Tool.
               Tool cannot execute on the execution cluster.
@@ -196,13 +207,13 @@ Default properties can be set in `resources/qual-conf.yaml`
       ```
       spark_rapids_dataproc \
           qualification \
-          --cluster=ahussein-jobs-test-003 \
+          --cluster=jobs-test-003 \
           --region=us-central1 \
-          --eventlogs=gs://mahrens-test/qualification_testing/dlrm_cpu/,gs://mahrens-test/qualification_testing/tpcds_100in1/
+          --eventlogs=gs://my-bucket/qualification_testing/dlrm_cpu/,gs://my-bucket/qualification_testing/tpcds_100in1/
       ```
     - result
       ```
-      Qualification tool output is saved to local disk /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_spark_qualification_output
+      Qualification tool output is saved to local disk /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_spark_qualification_output
               rapids_4_spark_qualification_output/
                       ├── rapids_4_spark_qualification_output.log
                       ├── rapids_4_spark_qualification_output.csv
@@ -210,7 +221,7 @@ Default properties can be set in `resources/qual-conf.yaml`
                       ├── rapids_4_spark_qualification_output_stages.csv
                       └── ui/
       - To learn more about the output details, visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output
-      Full savings and speedups CSV report: /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
+      Full savings and speedups CSV report: /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
       +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
       |    | App ID                  | App Name            | Recommendation       |   Estimated GPU |   Estimated GPU |           App |   Estimated GPU |
       |    |                         |                     |                      |         Speedup |     Duration(s) |   Duration(s) |      Savings(%) |
@@ -245,11 +256,11 @@ Default properties can be set in `resources/qual-conf.yaml`
           qualification \
           --cluster=dataproc-wrapper-test \
           --region=us-central1 \
-          --eventlogs=gs://mahrens-test/qualification_testing/dlrm_cpu/,gs://mahrens-test/qualification_testing/tpcds_100in1/
+          --eventlogs=gs://my-bucket/qualification_testing/dlrm_cpu/,gs://my-bucket/qualification_testing/tpcds_100in1/
       ```
     - result
       ```
-      Qualification tool output is saved to local disk /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_spark_qualification_output
+      Qualification tool output is saved to local disk /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_spark_qualification_output
               rapids_4_spark_qualification_output/
                       ├── rapids_4_spark_qualification_output.log
                       ├── rapids_4_spark_qualification_output.csv
@@ -257,7 +268,7 @@ Default properties can be set in `resources/qual-conf.yaml`
                       ├── rapids_4_spark_qualification_output_stages.csv
                       └── ui/
       - To learn more about the output details, visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output
-      Full savings and speedups CSV report: /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
+      Full savings and speedups CSV report: /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
       +----+---------------------+-------------------------+----------------------+-----------------+-----------------+---------------+-----------------+
       |    | App Name            | App ID                  | Recommendation       |   Estimated GPU |   Estimated GPU |           App |   Estimated GPU |
       |    |                     |                         |                      |         Speedup |     Duration(s) |   Duration(s) |      Savings(%) |
@@ -284,7 +295,7 @@ Default properties can be set in `resources/qual-conf.yaml`
               --cuda-version=11.5
       ```
 
-**Running Qualification Tool with offline CPU/GPU clusters**
+#### Running Qualification Tool with offline CPU/GPU clusters
 
 Users can pass configuration files that describe the clusters involved in migrations. The files can
 be stored locally or on GCS bucket.
@@ -414,17 +425,17 @@ be stored locally or on GCS bucket.
             - example `cpu_cluster_props` argument passed to CLI
               ```
                 spark_rapids_dataproc qualification \
-                           --cluster ahussein-jobs-test-gpu-support \
+                           --cluster jobs-test-gpu-support \
                            --region us-central1 --cpu_cluster_props=/tmp/test_cpu_cluster_prop.yaml \
-                           --eventlogs=gs://mahrens-test/qualification_testing/dlrm_cpu/,gs://mahrens-test/qualification_testing/tpcds_100in1/
+                           --eventlogs=gs://my-bucket/qualification_testing/dlrm_cpu/,gs://my-bucket/qualification_testing/tpcds_100in1/
           
-                2022-11-04 17:11:02,284 INFO qualification: The CPU cluster is an offline cluster. Properties are loaded from /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/test_cpu_cluster_prop.yaml
+                2022-11-04 17:11:02,284 INFO qualification: The CPU cluster is an offline cluster. Properties are loaded from /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/test_cpu_cluster_prop.yaml
                 2022-11-04 17:11:02,286 WARNING qualification: The cluster image 1.5 is not supported. To support the RAPIDS user tools, you will need to use an image that runs Spark3.x.
-                2022-11-04 17:11:02,288 INFO qualification: The GPU cluster is the same as the original CPU cluster properties loaded from /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/test_cpu_cluster_prop.yaml.
+                2022-11-04 17:11:02,288 INFO qualification: The GPU cluster is the same as the original CPU cluster properties loaded from /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/test_cpu_cluster_prop.yaml.
                     To update the configuration of the GPU cluster, make sure to pass the properties file to the CLI arguments
                 2022-11-04 17:12:29,398 INFO qualification: Downloading the price catalog from URL https://cloudpricingcalculator.appspot.com/static/data/pricelist.json
                 2022-11-04 17:12:30,292 INFO qualification: Generating GPU Estimated Speedup and Savings as ./wrapper-output/rapids_user_tools_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
-                Qualification tool output is saved to local disk /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/wrapper-output/rapids_user_tools_qualification/qual-tool-output/rapids_4_spark_qualification_output
+                Qualification tool output is saved to local disk /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/wrapper-output/rapids_user_tools_qualification/qual-tool-output/rapids_4_spark_qualification_output
                         rapids_4_spark_qualification_output/
                                 └── ui/
                                 ├── rapids_4_spark_qualification_output_stages.csv
@@ -432,7 +443,7 @@ be stored locally or on GCS bucket.
                                 ├── rapids_4_spark_qualification_output_execs.csv
                                 ├── rapids_4_spark_qualification_output.log
                 - To learn more about the output details, visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output
-                Full savings and speedups CSV report: /Users/ahussein/workspace/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/wrapper-output/rapids_user_tools_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
+                Full savings and speedups CSV report: /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/wrapper-output/rapids_user_tools_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
                 +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
                 |    | App ID                  | App Name            | Recommendation       |   Estimated GPU |   Estimated GPU |           App |   Estimated GPU |
                 |    |                         |                     |                      |         Speedup |     Duration(s) |   Duration(s) |      Savings(%) |
@@ -455,6 +466,17 @@ be stored locally or on GCS bucket.
                         --metadata rapids-runtime=SPARK \ 
                         --cuda-version=11.5
               ```
+
+### Profiling Tool
+
+The Profiling tool analyzes both CPU or GPU generated event logs and generates information which
+can be used for debugging and profiling Apache Spark applications.  
+In addition, the wrapper output provides optimized RAPIDS configurations based on the worker's
+information.  
+For more details, please visit the
+[Profiling Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html).
+
+#### Sample commands
 
 - run the profiling tool help cmd `spark_rapids_dataproc profiling --help`
   ```bash
@@ -494,6 +516,26 @@ be stored locally or on GCS bucket.
           Default: '.'
           Base output directory. The final output will go into a subdirectory called wrapper-output.
           It will overwrite any existing directory with the same name.
+        --gpu_cluster_props=GPU_CLUSTER_PROPS
+            Type: Optional[str]
+            Default: None
+            Path of a file (json/yaml) containing configurations of the GPU cluster on which the Spark
+            applications was run.
+            The path is a local filesystem, or gstorage url.
+            This option does not require the cluster to be live.
+            When missing, the configurations are considered the same as the ones used by the execution cluster.
+        --gpu_cluster_region=GPU_CLUSTER_REGION
+            Type: Optional[str]
+            Default: None
+            The region where the GPU cluster belongs to. Note that this parameter requires 'gpu_cluster_props' to be
+            defined.
+            When missing, the region is set to the value passed in the 'region' argument.
+        --gpu_cluster_zone=GPU_CLUSTER_ZONE
+            Type: Optional[str]
+            Default: None
+            The zone where the GPU cluster belongs to. Note that this parameter requires 'gpu_cluster_props' to be
+            defined.
+            When missing, the zone is set to the same zone as the 'cluster' on which the Profiling tool is submitted.
       --debug=DEBUG
           Type: bool
           Default: False
@@ -510,9 +552,9 @@ be stored locally or on GCS bucket.
       ```
       spark_rapids_dataproc \
           profiling \
-          --cluster=ahussein-jobs-test-003 \
+          --cluster=jobs-test-003 \
           --region=us-central1 \
-          --eventlogs=gs://mahrens-test/profile_testing/otherexamples/
+          --eventlogs=gs://my-bucket/profile_testing/otherexamples/
       ```
     - result
       ```bash
@@ -527,6 +569,59 @@ be stored locally or on GCS bucket.
       Processing App app-20210422144630-0000
       Processing App app-20210609154416-0002
       ```
+
+#### Running Profiling Tool with offline GPU cluster
+
+Users can pass configuration files that describe the clusters involved in migrations. The files can
+be stored locally or on GCS bucket.
+
+- Format of the cluster configuration:
+  - Both Json and Yaml formats are accepted
+  - For the top level entry of configurations, both `config` and `cluster_config` are accepted.
+  - `config` or `cluster_config` does not have to be the first entry in the yaml/json file. It can be
+    nested.
+  - For keys, the wrapper accepts camelCase and underscores keywords. i.e., `cluster_config` and `clusterConfig`
+    are both accepted.
+  - For the workers, the configuration has to indicate valid GPU accelerators.
+  - Example of accepted file:
+    ```yaml
+      default:
+        xyz_config:
+          absdt_config:
+            xyz_version: '2.0'
+            team:
+              tr_product_id: '1982'
+          cluster_config:
+            gce_cluster_config:
+              metadata:
+                enable-pepperdata: 'true'
+            master_config:
+              disk_config:
+                boot_disk_size_gb: 100
+              machine_type_uri: n1-standard-8
+            secondary_worker_config:
+              disk_config:
+                boot_disk_size_gb: 100
+              machine_type_uri: n1-standard-32
+              num_instances: 2
+            software_config:
+              image_version: '2.0'
+            worker_config:
+              disk_config:
+                boot_disk_size_gb: 100
+              machine_type_uri: n1-standard-32
+              num_instances: 2
+              accelerators:
+              - accelerator_count: 4
+                accelerator_type_uri: nvidia-tesla-t4
+    ```
+
+### Bootstrap Tool
+
+Provides optimized RAPIDS Accelerator for Apache Spark configs based on Dataproc GPU cluster shape.
+This tool is supposed to be used once a cluster has been created to set the recommended configurations.
+
+#### Sample commands
 
 - run the bootstrap tool help cmd `spark_rapids_dataproc bootstrap --help`
   ```bash
@@ -563,12 +658,12 @@ be stored locally or on GCS bucket.
       ```
       spark_rapids_dataproc \
           bootstrap \
-          --cluster=ahussein-jobs-test-003 \
+          --cluster=jobs-test-003 \
           --region=us-central1
       ```
     - result
       ```bash
-      ##### BEGIN : RAPIDS bootstrap settings for ahussein-jobs-test-003
+      ##### BEGIN : RAPIDS bootstrap settings for jobs-test-003
       spark.executor.cores=8
       spark.executor.memory=16384m
       spark.executor.memoryOverhead=5734m
@@ -576,51 +671,57 @@ be stored locally or on GCS bucket.
       spark.rapids.memory.pinnedPool.size=4096m
       spark.sql.files.maxPartitionBytes=512m
       spark.task.resource.gpu.amount=0.125
-      ##### END : RAPIDS bootstrap settings for ahussein-jobs-test-003
+      ##### END : RAPIDS bootstrap settings for jobs-test-003
       ```
 
-## Running Diagnostic Tool
+### Diagnostic Tool
+
+Validates the Dataproc with RAPIDS Accelerator for Apache Spark environment to make sure the cluster
+is healthy and ready for Spark jobs.  
+This tool can be used by the frontline support team for basic diagnostic and troubleshooting.
+
+#### Sample commands
 
 - Run the diagnostic tool help cmd `spark_rapids_dataproc diagnostic --help`
 
-```text
-NAME
-    spark_rapids_dataproc diagnostic - Run diagnostic on local environment or remote Dataproc cluster,
-    such as check installed NVIDIA driver, CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
-
-SYNOPSIS
-    spark_rapids_dataproc diagnostic CLUSTER REGION <flags>
-
-DESCRIPTION
-    Run diagnostic on local environment or remote Dataproc cluster, such as check installed NVIDIA driver,
-    CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
-
-POSITIONAL ARGUMENTS
-    CLUSTER
-        Type: str
-        Name of the Dataproc cluster
-    REGION
-        Type: str
-        Region of Dataproc cluster (e.g. us-central1)
-
-FLAGS
-    --func=FUNC
-        Type: str
-        Default: 'all'
-        Diagnostic function to run. Available functions: 'nv_driver': dump NVIDIA driver info via command
-        `nvidia-smi`, 'cuda_version': check if CUDA toolkit major version >= 11.0, 'rapids_jar': check if
-        only single RAPIDS Accelerator for Apache Spark jar is installed and verify its signature, 'deprecated_jar': check if deprecated
-        (cudf) jar is installed. I.e. should no cudf jar starting with RAPIDS Accelerator for Apache Spark 22.08, 'spark': run a
-        Hello-world Spark Application on CPU and GPU, 'perf': performance test for a Spark job between CPU and
-        GPU, 'spark_job': run a Hello-world Spark Application on CPU and GPU via Dataproc job interface, 'perf_job':
-        performance test for a Spark job between CPU and GPU via Dataproc job interface
-    --debug=DEBUG Type: bool
-        Default: False
-        True or False to enable verbosity
-
-NOTES
-    You can also use flags syntax for POSITIONAL ARGUMENTS
-```
+    ```text
+    NAME
+        spark_rapids_dataproc diagnostic - Run diagnostic on local environment or remote Dataproc cluster,
+        such as check installed NVIDIA driver, CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
+    
+    SYNOPSIS
+        spark_rapids_dataproc diagnostic CLUSTER REGION <flags>
+    
+    DESCRIPTION
+        Run diagnostic on local environment or remote Dataproc cluster, such as check installed NVIDIA driver,
+        CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
+    
+    POSITIONAL ARGUMENTS
+        CLUSTER
+            Type: str
+            Name of the Dataproc cluster
+        REGION
+            Type: str
+            Region of Dataproc cluster (e.g. us-central1)
+    
+    FLAGS
+        --func=FUNC
+            Type: str
+            Default: 'all'
+            Diagnostic function to run. Available functions: 'nv_driver': dump NVIDIA driver info via command
+            `nvidia-smi`, 'cuda_version': check if CUDA toolkit major version >= 11.0, 'rapids_jar': check if
+            only single RAPIDS Accelerator for Apache Spark jar is installed and verify its signature, 'deprecated_jar': check if deprecated
+            (cudf) jar is installed. I.e. should no cudf jar starting with RAPIDS Accelerator for Apache Spark 22.08, 'spark': run a
+            Hello-world Spark Application on CPU and GPU, 'perf': performance test for a Spark job between CPU and
+            GPU, 'spark_job': run a Hello-world Spark Application on CPU and GPU via Dataproc job interface, 'perf_job':
+            performance test for a Spark job between CPU and GPU via Dataproc job interface
+        --debug=DEBUG Type: bool
+            Default: False
+            True or False to enable verbosity
+    
+    NOTES
+        You can also use flags syntax for POSITIONAL ARGUMENTS
+    ```
 
 - Example running diagnostic tool
 

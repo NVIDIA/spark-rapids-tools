@@ -81,19 +81,21 @@ def get_elem_non_safe(data, keys):
         return None
 
 
-def convert_dict_to_camel_case(curr_dict: dict) -> dict:
+def convert_dict_to_camel_case(dic: dict):
     """
     Given a dictionary with underscore keys. This method converts the keys to a camelcase.
     Example, gce_cluster_config -> gceClusterConfig
-    :param curr_dict: the dictionary to be converted
+    :param dic: the dictionary to be converted
     :return: a dictionary where all the keys are camelcase.
     """
     def to_camel_case(word: str) -> str:
         return word.split('_')[0] + ''.join(x.capitalize() or '_' for x in word.split('_')[1:])
 
+    if isinstance(dic, list):
+        return [convert_dict_to_camel_case(i) if isinstance(i, (dict, list)) else i for i in dic]
     res = dict()
-    for key, value in curr_dict.items():
-        if isinstance(value, dict):
+    for key, value in dic.items():
+        if isinstance(value, (dict, list)):
             res[to_camel_case(key)] = convert_dict_to_camel_case(value)
         else:
             res[to_camel_case(key)] = value
@@ -110,6 +112,19 @@ def get_gpu_device_list():
 
 def is_valid_gpu_device(val):
     return val.upper() in get_gpu_device_list()
+
+
+def get_gpu_short_name(val: str) -> str:
+    """
+    Given a value string, return the short name of the GPU device.
+    :param val: the full name example nvidia-tesla-t4
+    :return: the shortname of the GPU device (T4). otherwise, None.
+    """
+    upper_full_name = val.upper()
+    for short_name in get_gpu_device_list():
+        if upper_full_name.find(short_name) != -1:
+            return short_name
+    return None
 
 
 def is_system_tool(tool_name):
