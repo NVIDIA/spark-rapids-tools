@@ -12,20 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Definition of global utilities and helpers methods."""
+
+import json
 import logging
 import os
 import secrets
 import string
+import subprocess
 import sys
 from dataclasses import dataclass, field
-import subprocess
 from functools import reduce
 from json import JSONDecodeError
 from operator import getitem
 from pathlib import Path
-from shutil import rmtree
+from shutil import rmtree, which
 from typing import Any
-import json
+
 import yaml
 
 
@@ -62,7 +65,7 @@ def bail(msg, err):
     :param err: the Error/Exception that caused the failure.
     :return: NONE
     """
-    print('{}.\n\t> {}.\nTerminated.'.format(msg, err))
+    print(f'{msg}.\n\t> {err}.\nTerminated.')
     sys.exit(1)
 
 
@@ -70,7 +73,7 @@ def get_elem_from_dict(data, keys):
     try:
         return reduce(getitem, keys, data)
     except LookupError:
-        print('ERROR: Could not find elements [{}]'.format(keys))
+        print(f'ERROR: Could not find elements [{keys}]')
         return None
 
 
@@ -93,7 +96,7 @@ def convert_dict_to_camel_case(dic: dict):
 
     if isinstance(dic, list):
         return [convert_dict_to_camel_case(i) if isinstance(i, (dict, list)) else i for i in dic]
-    res = dict()
+    res = {}
     for key, value in dic.items():
         if isinstance(value, (dict, list)):
             res[to_camel_case(key)] = convert_dict_to_camel_case(value)
@@ -133,8 +136,6 @@ def is_system_tool(tool_name):
     :param tool_name: name of the tool to check
     :return: True or False
     """
-    # from whichcraft import which
-    from shutil import which
     return which(tool_name) is not None
 
 
@@ -154,17 +155,21 @@ def make_dirs(dir_path: str, exist_ok: bool = True):
 
 
 def resource_path(resource_name: str) -> str:
+    # pylint: disable=import-outside-toplevel
     if sys.version_info < (3, 9):
         import importlib_resources
     else:
         import importlib.resources as importlib_resources
 
-    pkg = importlib_resources.files("spark_rapids_dataproc_tools")
-    return pkg / "resources" / resource_name
+    pkg = importlib_resources.files('spark_rapids_dataproc_tools')
+    return pkg / 'resources' / resource_name
 
 
 @dataclass
 class AbstractPropertiesContainer(object):
+    """
+    An abstract class that loads properties (dictionary).
+    """
     prop_arg: str
     file_load: bool = True
     props: Any = field(default=None, init=False)
@@ -184,7 +189,7 @@ class AbstractPropertiesContainer(object):
         :return:
         """
         file_suffix = Path(self.prop_arg).suffix
-        if file_suffix == ".yaml" or file_suffix == ".yml":
+        if file_suffix in ('.yaml', '.yml'):
             # this is a yaml property
             self.__open_yaml_file()
         else:
@@ -193,7 +198,7 @@ class AbstractPropertiesContainer(object):
 
     def __open_json_file(self):
         try:
-            with open(self.prop_arg, 'r') as json_file:
+            with open(self.prop_arg, 'r', encoding='utf-8') as json_file:
                 try:
                     self.props = json.load(json_file)
                 except JSONDecodeError as e:
@@ -205,7 +210,7 @@ class AbstractPropertiesContainer(object):
 
     def __open_yaml_file(self):
         try:
-            with open(self.prop_arg, 'r') as yaml_file:
+            with open(self.prop_arg, 'r', encoding='utf-8') as yaml_file:
                 try:
                     self.props = yaml.safe_load(yaml_file)
                 except yaml.YAMLError as e:
@@ -270,7 +275,7 @@ def run_cmd(cmd, check=True, capture=''):
     # pylint: disable=subprocess-run-check
     result = subprocess.run(' '.join(cmd), executable='/bin/bash', shell=True, stdout=stdout, stderr=stderr)
     # pylint: enable=subprocess-run-check
-    logger.debug(f'run_cmd: {result}')
+    logger.debug('run_cmd: %s', result)
 
     if check:
         if result.returncode == 0:

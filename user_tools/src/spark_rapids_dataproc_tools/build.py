@@ -12,15 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Build helpers."""
+
 import datetime
 import os
 
+
 def get_version(main=None):
     if main is None:
+        # pylint: disable=import-outside-toplevel
         from spark_rapids_dataproc_tools import VERSION as main
-        
-    suffix = ""
-    nightly = os.environ.get("USERTOOLS_NIGHTLY")
+    suffix = ''
+    nightly = os.environ.get('USERTOOLS_NIGHTLY')
     if nightly == '1':
-        suffix = ".dev" + datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        suffix = '.dev' + datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
     return main + suffix

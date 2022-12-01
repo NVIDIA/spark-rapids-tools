@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""Implementation of Bootstrap tool."""
+
 import re
 from dataclasses import dataclass
 import subprocess
@@ -75,6 +78,7 @@ def get_shell_cmd_output(cmd):
     :param cmd: string containing the shell command to execute
     :return: the captured stdout from the successfully executed shell command
     """
+    # pylint: disable=subprocess-run-check
     c = subprocess.run(cmd, capture_output=True, shell=True, text=True)
     check_subprocess_result(c)
     return c.stdout
@@ -118,12 +122,12 @@ def get_worker_gpu_info(config):
         "--command='nvidia-smi --query-gpu=memory.total --format=csv,noheader'")
     # sometimes the output of the command may include SSH warning messages.
     # match only lines in with expression in the following format "15109 MiB"
-    match_arr = re.findall("(\d+)\s+(MiB)", gpu_info, flags=re.MULTILINE)
+    match_arr = re.findall(r"(\d+)\s+(MiB)", gpu_info, flags=re.MULTILINE)
     num_gpus = len(match_arr)
     gpu_mem = 0
     if num_gpus == 0:
         fatal_error(f"Unrecognized GPU memory output format: {gpu_info}")
-    for (mem_size, mem_unit) in match_arr:
+    for (mem_size, _) in match_arr:
         gpu_mem = max(int(mem_size), gpu_mem)
     return num_gpus, gpu_mem
 
@@ -221,6 +225,7 @@ def update_driver_nodes(cluster_config, spark_settings):
     :param cluster_config: dictionary containing the Dataproc cluster properties
     :param spark_settings: string containing the Spark configuration settings to add
     """
+    # pylint: disable=subprocess-run-check
     driver_config = cluster_config["masterConfig"]
     driver_zone = decode_machine_type_uri(driver_config["machineTypeUri"])[0]
     for node in driver_config["instanceNames"]:

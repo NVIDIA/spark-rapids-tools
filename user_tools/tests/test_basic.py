@@ -85,7 +85,6 @@ interface
 \x1B[1mNOTES\x1B[0m
     You can also use flags syntax for POSITIONAL ARGUMENTS
 '''
-
     assert expected in result.decode('utf-8')
 
 

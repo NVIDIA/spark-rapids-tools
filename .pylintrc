@@ -1,4 +1,0 @@
-[FORMAT]
-max-line-length=120
-
-disable=logging-fstring-interpolation,too-many-function-args

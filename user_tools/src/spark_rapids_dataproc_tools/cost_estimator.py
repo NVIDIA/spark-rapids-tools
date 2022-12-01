@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Cost estimator implementation based on a simplified model."""
+
 from dataclasses import dataclass, field
 
 from spark_rapids_dataproc_tools.dataproc_utils import DataprocClusterPropContainer, get_incompatible_criteria
@@ -20,6 +22,9 @@ from spark_rapids_dataproc_tools.utilities import AbstractPropertiesContainer, J
 
 @dataclass
 class PriceProvider(object):
+    """
+    An abstract class that represents interface to retirive costs of hardware configurations.
+    """
     name: str
     catalog: AbstractPropertiesContainer
     meta: dict = field(default_factory=dict)
@@ -50,23 +55,26 @@ class DataprocCatalogContainer(JSONPropertiesContainer):
 
 @dataclass
 class DataprocPriceProvider(PriceProvider):
+    """
+    Implementation of cost provider for Dataproc.
+    """
     def _get_machine_type(self) -> str:
         return self.meta.get('machineType')
 
     def _get_machine_prefix(self) -> str:
-        return self._get_machine_type().split("-")[0]
+        return self._get_machine_type().split('-')[0]
 
     def __key_for_cpe_machine_cores(self) -> str:
-        return 'CP-COMPUTEENGINE-{}-PREDEFINED-VM-CORE'.format(self._get_machine_prefix().upper())
+        return f'CP-COMPUTEENGINE-{self._get_machine_prefix().upper()}-PREDEFINED-VM-CORE'
 
     def __key_for_cpe_machine_ram(self) -> str:
-        return 'CP-COMPUTEENGINE-{}-PREDEFINED-VM-RAM'.format(self._get_machine_prefix().upper())
+        return f'CP-COMPUTEENGINE-{self._get_machine_prefix().upper()}-PREDEFINED-VM-RAM'
 
     def __key_for_gpu_device(self) -> str:
-        return 'GPU_NVIDIA_TESLA_{}'.format(self.meta.get('gpuType').upper())
+        return f'GPU_NVIDIA_TESLA_{self.meta.get("gpuType").upper()}'
 
     def __key_for_cpe_vm(self) -> str:
-        return 'CP-COMPUTEENGINE-VMIMAGE-{}'.format(self._get_machine_type().upper())
+        return f'CP-COMPUTEENGINE-VMIMAGE-{self._get_machine_type().upper()}'
 
     def __get_region(self) -> str:
         return self.meta.get('region')
@@ -104,6 +112,9 @@ class DataprocPriceProvider(PriceProvider):
 
 @dataclass
 class DataprocSavingsEstimator(object):
+    """
+    Implementation of model to get an estimate of cost savings.
+    """
     price_provider: DataprocPriceProvider
     gpu_device: str = 'T4'
     gpu_per_machine: int = 2
@@ -112,9 +123,6 @@ class DataprocSavingsEstimator(object):
     source_cluster: DataprocClusterPropContainer = field(default=None, init=False)
     cost_with_gpu: float = field(default=None, init=False)
     cost_no_gpu: float = field(default=None, init=False)
-
-    def __get_container_cost(self) -> float:
-        return self.price_provider.get_dataproc_cluster_price()
 
     def calculate_master_cost(self, cluster_inst: DataprocClusterPropContainer) -> float:
         # setup the cost provider for the master node
@@ -151,11 +159,11 @@ class DataprocSavingsEstimator(object):
             incompatible_type = cluster_inst.convert_worker_machine_if_not_supported()
             if len(incompatible_type) > 0:
                 # machine has been converted
-                worker_machine = incompatible_type.get("machineType")
-                self.comments.append(incompatible_type.get("comments")["machineType"])
+                worker_machine = incompatible_type.get('machineType')
+                self.comments.append(incompatible_type.get('comments')['machineType'])
             incompatible_version = get_incompatible_criteria(imageVersion=cluster_inst.get_image_version())
             if len(incompatible_version) > 0:
-                self.comments.append(incompatible_version.get("comments")["imageVersion"])
+                self.comments.append(incompatible_version.get('comments')['imageVersion'])
 
         self.price_provider.setup(
             region=worker_region,
@@ -185,8 +193,8 @@ class DataprocSavingsEstimator(object):
             # it is recommended to use local SSDs if GPU is enabled
             incompatible_ssd = get_incompatible_criteria(workerLocalSSDs=ssds_count)
             if len(incompatible_ssd) > 0:
-                ssd_comments = [incompatible_ssd.get("comments")["workerLocalSSDs"],
-                                f"Cost estimation is based on 1 local SSd per worker."]
+                ssd_comments = [incompatible_ssd.get('comments')['workerLocalSSDs'],
+                                'Cost estimation is based on 1 local SSd per worker.']
                 self.comments.extend(ssd_comments)
             ssds_count = max(1, ssds_count)
         ssds_cost = self.price_provider.get_ssd_price() * ssds_count if (ssds_count > 0) else 0.0
