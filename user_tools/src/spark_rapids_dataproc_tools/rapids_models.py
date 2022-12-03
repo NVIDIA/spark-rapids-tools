@@ -18,6 +18,7 @@ import glob
 import logging.config
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from logging import Logger
@@ -29,7 +30,6 @@ import pandas as pd
 import yaml
 from tabulate import tabulate
 
-import spark_rapids_dataproc_tools.bootstrap as srdt_bootstrap
 from spark_rapids_dataproc_tools.cost_estimator import DataprocCatalogContainer, DataprocPriceProvider, \
     DataprocSavingsEstimator
 from spark_rapids_dataproc_tools.dataproc_utils import validate_dataproc_sdk, get_default_region, \
@@ -70,7 +70,7 @@ class ToolContext(YAMLPropertiesContainer):
     def logwarn(self, msg: str):
         self.logger.warning(msg)
 
-    def set_remote(self, key: str, val: str):
+    def set_remote(self, key: str, val: Any):
         self.props['remoteCtx'][key] = val
 
     def set_local(self, key: str, val: Any):
@@ -93,8 +93,7 @@ class ToolContext(YAMLPropertiesContainer):
         self.set_local('depFolder', local_work_dir)
         output_folder = os.path.join(local_work_dir, self.get_value('platform', 'outputDir'))
         self.set_local('toolOutputFolder', output_folder)
-        test_val = self.get_local('toolOutputFolder')
-        self.logdebug(f'setting local output folder of the tool to {test_val}')
+        self.logdebug(f'setting local output folder of the tool to {self.get_local("toolOutputFolder")}')
 
     def get_remote_output_dir(self) -> str:
         remote_work_dir = self.get_remote('depFolder')
@@ -350,15 +349,32 @@ class RapidsTool(object):
         self.ctxt.logdebug(f'cleaning up the remote work dir if it exists {self.ctxt.get_remote_work_dir()}')
         self.ctxt.cli.gcloud_rm(self.ctxt.get_remote_work_dir(), fail_ok=True)
 
+    def _execute_tool(self):
+        """
+        Represents the phase of actual execution.
+        """
+        self.ctxt.loginfo('Executing the tool')
+        self._run_tool_as_spark()
+
     def _run_tool_as_spark(self):
         self.ctxt.loginfo('Running the tool as a spark job on dataproc')
+
+    def _run_tool_on_driver_node(self):
+        self.ctxt.loginfo('Running the tool on driver node')
 
     def _download_tool_output(self):
         self.ctxt.loginfo('Downloading the tool output')
         # download cmd. it is possible that the cmd fail if the tool did not generate an output
-        self.ctxt.cli.gcloud_cp(self.ctxt.get_remote_output_dir(),
-                                self.ctxt.get_local_work_dir(),
-                                fail_ok=True)
+        try:
+            # if there is no remote directory then do not fail completely
+            remote_output_dir = self.ctxt.get_remote_output_dir()
+            self.ctxt.cli.gcloud_cp(remote_output_dir,
+                                    self.ctxt.get_local_work_dir(),
+                                    fail_ok=True)
+        except TypeError:
+            # If the remote directory does not exist in the context field, an exception is thrown
+            # with typeError. "expected str, bytes or os.PathLike object, not NoneType"
+            self.ctxt.logwarn('Failed to cleanup remote data')
 
     def _report_results_are_empty(self) -> None:
         print(f'The {self.name.capitalize()} tool did not generate any output. Nothing to display.')
@@ -424,8 +440,8 @@ class RapidsTool(object):
     def _cleanup(self, run_fail: bool = False):
         self.ctxt.logdebug('Cleaning up after finishing the tool execution')
         # cleanup remote
-        local_clean_enabled = self.ctxt.get_value('local', 'output', 'cleanUp')
-        remote_clean_enabled = self.ctxt.get_value('platform', 'cleanUp')
+        local_clean_enabled = self.ctxt.get_value_silent('local', 'output', 'cleanUp')
+        remote_clean_enabled = self.ctxt.get_value_silent('platform', 'cleanUp')
         if remote_clean_enabled:
             self._remote_cleanup()
         if local_clean_enabled:
@@ -435,7 +451,7 @@ class RapidsTool(object):
         self._cleanup(run_fail=err is not None)
         if err is not None:
             error_msg = (
-                f'Failure Running Rapids Tool.\n\t'
+                f'Failure Running Rapids Tool ({self.name.capitalize()}).\n\t'
                 f'{msg}\n\t'
                 f'Run Terminated with error.\n\t'
                 f'{err}'
@@ -446,7 +462,7 @@ class RapidsTool(object):
     def launch(self):
         self._init_tool()
         self._initialize_remote_env()
-        self._run_tool_as_spark()
+        self._execute_tool()
         self._post_remote_run()
         self.terminate(err=None)
 
@@ -467,6 +483,7 @@ class Profiling(RapidsTool):
         """
         Process the argument pointing to the location of the CPU clusters.
         """
+
         def construct_offline_prop_container(
                 cluster_type: str,
                 config_file_path: str) -> DataprocShadowClusterPropContainer:
@@ -633,6 +650,7 @@ class Profiling(RapidsTool):
             print(tabulate(recommendations_table, headers, tablefmt='grid'))
         output_file_name = self.ctxt.get_value('local', 'output', 'fileName')
         wrapper_output_file = os.path.join(self.ctxt.get_local_output_dir(), output_file_name)
+
         with open(wrapper_output_file, 'w', encoding='utf-8') as wrapper_output:
             wrapper_output.write('\n'.join(wrapper_content))
 
@@ -801,6 +819,7 @@ class Qualification(RapidsTool):
         """
         Process the argument pointing to the location of the CPU clusters.
         """
+
         def construct_offline_prop_container(
                 cluster_type: str,
                 config_file_path: str) -> DataprocShadowClusterPropContainer:
@@ -866,6 +885,14 @@ class Qualification(RapidsTool):
         self.__process_offline_clusters_arguments()
 
     def _process_custom_args(self):
+        """
+        Qualification tool processes extra arguments:
+        1. filter out applications.
+        2. gpu-device type to be used for the cost estimation.
+        3. gpu_per_machine: number of gpu installed on a worker node.
+        4. cuda version
+        """
+
         def process_filter_opt(arg_val: str):
             available_filters = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'filters',
                                                     'definedFilters')
@@ -1101,11 +1128,136 @@ class Bootstrap(RapidsTool):
     name = 'bootstrap'
     dry_run: bool = False
 
-    def launch(self):
-        validate_dataproc_sdk()
-        validate_region(self.region)
-        cluster_config = srdt_bootstrap.get_cluster_config(self.cluster, self.region)
-        spark_settings = srdt_bootstrap.get_bootstrap_configs(self.cluster, cluster_config)
-        print(spark_settings)
-        if not self.dry_run:
-            srdt_bootstrap.update_driver_nodes(cluster_config, spark_settings)
+    def _process_jar_arg(self):
+        pass
+
+    def _process_event_logs(self):
+        pass
+
+    def __calculate_spark_settings(self, num_cpus, cpu_mem, num_gpus, gpu_mem) -> dict:
+        """
+        Calculate the cluster properties that we need to append to the /etc/defaults of the spark
+        if necessary.
+        :param num_cpus: number of cores in a worker node.
+        :param cpu_mem: memory size of the worker node.
+        :param num_gpus: number of gpus on a single machine.
+        :param gpu_mem: memory size allocated to the GPU.
+        :return: dictionary containing 7 spark properties to be set by default on the cluster.
+        """
+        constants = self.ctxt.get_value('local', 'clusterConfigs', 'constants')
+        executors_per_node = num_gpus
+        num_executor_cores = max(1, num_cpus // executors_per_node)
+        gpu_concurrent_tasks = min(constants.get('maxGpuConcurrent'), gpu_mem // constants.get('gpuMemPerTaskMB'))
+        # account for system overhead
+        usable_worker_mem = max(0, cpu_mem - constants.get('systemReserveMB'))
+        executor_container_mem = usable_worker_mem // executors_per_node
+        # reserve 10% of heap as memory overhead
+        max_executor_heap = max(0, int(executor_container_mem * (1 - constants.get('heapOverheadFraction'))))
+        # give up to 2GB of heap to each executor core
+        executor_heap = min(max_executor_heap, constants.get('heapPerCoreMB') * num_executor_cores)
+        executor_mem_overhead = int(executor_heap * constants.get('heapOverheadFraction'))
+        # pinned memory uses any unused space up to 4GB
+        pinned_mem = min(constants.get('maxPinnedMemoryMB'),
+                         executor_container_mem - executor_heap - executor_mem_overhead)
+        executor_mem_overhead += pinned_mem
+        res = {
+            'spark.executor.cores': num_executor_cores,
+            'spark.executor.memory': f'{executor_heap}m',
+            'spark.executor.memoryOverhead': f'{executor_mem_overhead}m',
+            'spark.rapids.sql.concurrentGpuTasks': gpu_concurrent_tasks,
+            'spark.rapids.memory.pinnedPool.size': f'{pinned_mem}m',
+            'spark.sql.files.maxPartitionBytes': f'{constants.get("maxSqlFilesPartitionsMB")}m',
+            'spark.task.resource.gpu.amount': 1 / num_executor_cores
+        }
+        return res
+
+    def _run_tool_on_driver_node(self):
+        self.ctxt.loginfo('Running the tool on driver node')
+        # Extract the CPU and GPU information for a worker node from a Dataproc cluster's
+        # configuration properties.
+        # pylint: disable=broad-except
+        try:
+            num_cpus, cpu_mem = self.exec_cluster_proxy.get_worker_cpu_info()
+            num_gpus, gpu_mem = self.exec_cluster_proxy.get_worker_gpu_info()
+            try:
+                spark_settings = self.__calculate_spark_settings(num_cpus, cpu_mem, num_gpus, gpu_mem)
+                self.ctxt.set_remote('boot_spark_results', spark_settings)
+                self.ctxt.logdebug(
+                    f'{self.name} Tool finished calculating recommended Apache Spark configurations '
+                    f'for cluster {self.cluster}: '
+                    f'{str(spark_settings)}'
+                )
+            except Exception as e:
+                self.terminate(e, 'Error while calculating default Spark settings')
+        except Exception as e:
+            self.terminate(e, 'Error while pulling worker information')
+
+    def _execute_tool(self):
+        """
+        Represents the phase of actual execution.
+        """
+        self.ctxt.loginfo('Executing the tool')
+        self._run_tool_on_driver_node()
+
+    def _initialize_remote_env(self):
+        self._prepare_dependencies()
+
+    def _download_tool_output(self):
+        self.ctxt.loginfo('Downloading the result of running the tool remotely')
+        tool_result = self.ctxt.get_remote('boot_spark_results')
+        if tool_result is not None and any(tool_result):
+            # write the result to log file
+            # Now create the new folder
+            make_dirs(self.ctxt.get_wrapper_local_output(), exist_ok=True)
+            wrapper_out_content_arr = [f'##### BEGIN : RAPIDS bootstrap settings for {self.cluster}']
+            for conf_key, conf_val in tool_result.items():
+                wrapper_out_content_arr.append(f'{conf_key}={conf_val}')
+            wrapper_out_content_arr.append(f'##### END : RAPIDS bootstrap settings for {self.cluster}\n')
+            wrapper_out_content = '\n'.join(wrapper_out_content_arr)
+            if self.dry_run:
+                self.ctxt.loginfo(f'Skipping applying configurations to remote cluster {self.cluster}. '
+                                  ' DRY_RUN is enabled.')
+            else:
+                # apply the changes to remote cluster
+                self.ctxt.loginfo(f'Applying the configuration to remote cluster {self.cluster}')
+                try:
+                    c = subprocess.run(
+                        f'gcloud {self.exec_cluster_proxy.get_driver_sshcmd_prefix()} '
+                        "--command=\"sudo bash -c 'cat >> /etc/spark/conf/spark-defaults.conf'\"",
+                        capture_output=True, input=wrapper_out_content, shell=True, text=True, check=True)
+                    if c.returncode != 0:
+                        raise RuntimeError(f'Error while running gcloud ssh command on remote cluster '
+                                           f'{c.stdout};{c.stderr}')
+                except RuntimeError as e:
+                    self.terminate(e, f'Could not apply configurations changes to remote cluster {self.cluster}')
+            self.ctxt.set_remote('wrapper_output_content', wrapper_out_content)
+
+    def _post_remote_run(self):
+        """
+        After the Spark properties are calculated. this will handle reporting the result and update
+        the remote environment if necessary.
+        """
+        self._download_tool_output()
+        wrapper_out_content = self.ctxt.get_remote('wrapper_output_content')
+        if wrapper_out_content is None:
+            # nothing to report
+            self._report_results_are_empty()
+        else:
+            self._process_tool_output()
+
+    def _process_tool_output(self):
+        super()._process_tool_output()
+        wrapper_out_content = self.ctxt.get_remote('wrapper_output_content')
+        # write the result to log file
+        boot_output_filename = self.ctxt.get_value('local', 'output', 'fileName')
+        wrapper_output_file = os.path.join(self.ctxt.get_wrapper_local_output(), boot_output_filename)
+        out_file_path = os.path.abspath(wrapper_output_file)
+        with open(wrapper_output_file, 'w', encoding='utf-8') as wrapper_output:
+            wrapper_output.write(wrapper_out_content)
+        self.ctxt.loginfo(f'Saving configuration to local file {out_file_path}')
+        wrapper_summary = [
+            f'Recommended configurations are saved to local disk: {out_file_path}',
+            'Using the following computed settings based on worker nodes:',
+            wrapper_out_content
+        ]
+        print('\n'.join(wrapper_summary))

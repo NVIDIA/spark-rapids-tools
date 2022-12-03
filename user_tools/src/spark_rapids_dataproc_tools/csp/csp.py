@@ -20,7 +20,7 @@ from spark_rapids_dataproc_tools.utilities import run_cmd
 logger = logging.getLogger('csp.cspbase')
 
 
-class CspBase():
+class CspBase:
     """Base class for CSP object."""
 
     @classmethod

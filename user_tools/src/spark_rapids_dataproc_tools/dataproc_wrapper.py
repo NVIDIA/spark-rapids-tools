@@ -41,6 +41,7 @@ class DataprocWrapper(object):
     def bootstrap(self,
                   cluster: str,
                   region: str,
+                  output_folder: str = '.',
                   dry_run: bool = False,
                   debug: bool = False) -> None:
         """
@@ -50,6 +51,9 @@ class DataprocWrapper(object):
         :param cluster: Name of the dataproc cluster
         :param region: Compute region (e.g. us-central1) for the cluster.
         :param dry_run: True or False to update the Spark config settings on Dataproc master node.
+        :param output_folder: Base output directory. The final recommendations will be logged in the
+               subdirectory 'wrapper-output/rapids_user_tools_bootstrap'.
+               Note that this argument only accepts local filesystem.
         :param debug: True or False to enable verbosity to the wrapper script.
 
         """
@@ -57,7 +61,7 @@ class DataprocWrapper(object):
                               region=region,
                               dry_run=dry_run,
                               debug=debug,
-                              output_folder=None,
+                              output_folder=output_folder,
                               tools_jar=None,
                               eventlogs=None)
         boot_tool.launch()

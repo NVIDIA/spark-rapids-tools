@@ -189,13 +189,25 @@ class CMDRunner(object):
             self.fail_action_cb(ex, msg_fail)
 
     def run(self, cmd: str, expected: int = 0, fail_ok: bool = False,
-            msg_fail: Optional[str] = None):
+            msg_fail: Optional[str] = None, cmd_ip=None):
+        """
+        Internal implementation to execute commands and capture the results.
+        :param cmd:
+        :param expected:
+        :param fail_ok:
+        :param msg_fail:
+        :param cmd_ip: Allowing you to pass bytes or a string to the subprocess's stdin.
+        :return: the std_out resulting from running a given command.
+        """
         stdout = subprocess.PIPE
         stderr = subprocess.PIPE
         # pylint: disable=subprocess-run-check
         # We do not want to check the result here, because the caller is responsible for ignoring
         # the error or not.
-        c = subprocess.run(cmd, shell=True, stdout=stdout, stderr=stderr)
+        if cmd_ip is None:
+            c = subprocess.run(cmd, shell=True, stdout=stdout, stderr=stderr)
+        else:
+            c = subprocess.run(cmd, shell=True, stdout=stdout, stderr=stderr, input=cmd_ip)
         # pylint: enable=subprocess-run-check
         if not fail_ok:
             self._check_subprocess_result(c, expected=expected, msg_fail=msg_fail)
@@ -216,9 +228,11 @@ class CMDRunner(object):
             self.logger.debug('executing CMD:\n\t<CMD: %s>[%s]; [%s]', cmd, stdout_str, stderr_str)
         return std_output
 
-    def gcloud(self, cmd, expected: int = 0, msg_fail: Optional[str] = None, fail_ok: bool = False):
+    def gcloud(self, cmd, expected: int = 0, msg_fail: Optional[str] = None,
+               fail_ok: bool = False,
+               cmd_input=None):
         gcloud_cmd = f'gcloud {cmd}'
-        return self.run(gcloud_cmd, expected=expected, msg_fail=msg_fail, fail_ok=fail_ok)
+        return self.run(gcloud_cmd, expected=expected, msg_fail=msg_fail, fail_ok=fail_ok, cmd_ip=cmd_input)
 
     def gsutil(self, cmd, expected: int = 0, msg_fail: Optional[str] = None, fail_ok: bool = False):
         gsutil_cmd = f'gsutil {cmd}'
@@ -381,6 +395,11 @@ class DataprocClusterPropContainer(YAMLPropertiesContainer):
         """
         zoneuri = self.get_value('config', 'gceClusterConfig', 'zoneUri')
         return zoneuri[zoneuri.rindex('/') + 1:]
+
+    def get_driver_sshcmd_prefix(self) -> str:
+        zone = self.get_zone()
+        node = self.get_value('config', 'masterConfig', 'instanceNames')[0]
+        return f'compute ssh {node} --zone={zone}'
 
     def get_worker_gpu_device(self) -> str:
         zone = self.get_zone()
