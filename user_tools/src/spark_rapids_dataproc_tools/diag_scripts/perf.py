@@ -14,9 +14,9 @@
 """Performance test scripts for Spark job between CPU and GPU."""
 
 if __name__ == '__main__':
-    from pyspark import SparkContext
-    from pyspark.sql import SparkSession
-    from pyspark.sql.functions import col
+    from pyspark import SparkContext        # pylint: disable=import-error
+    from pyspark.sql import SparkSession    # pylint: disable=import-error
+    from pyspark.sql.functions import col   # pylint: disable=import-error
     import time
     sc = SparkContext(appName='perf')
     spark = SparkSession(sc)

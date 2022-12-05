@@ -183,7 +183,7 @@ class RapidsTool(object):
 
     def process_tool_options(self) -> List[str]:
         """
-        Process the arguments passed from the CLI if any and retuen a string representing the
+        Process the arguments passed from the CLI if any and return a string representing the
         arguments to be passed to the final command running the job.
         :return: a string of space separated key value pair
         """
@@ -240,6 +240,7 @@ class RapidsTool(object):
             res_arr.append(f'- To learn more about the output details, visit '
                            f'{doc_url}')
             return '\n'.join(res_arr)
+        return None
 
     def _check_environment(self) -> None:
         self.ctxt.logdebug('Checking Environment has requirements installed correctly')

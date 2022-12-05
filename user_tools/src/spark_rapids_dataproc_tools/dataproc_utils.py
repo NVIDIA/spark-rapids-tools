@@ -162,7 +162,7 @@ def default_gpu_device_memory(machine_type: str, gpu_device: str) -> int:
 
 
 @dataclass
-class CMDRunner(object):
+class CMDRunner:
     """
     Class implementation that encapsulates command executions.
     """
@@ -284,7 +284,6 @@ class DataprocClusterPropContainer(YAMLPropertiesContainer):
         After loading the raw properties, perform any necessary processing to clean up the
         properties.
         """
-        pass
 
     def _set_cluster_uuid(self) -> None:
         # It is possible that the UIUD is not valid when the cluster is offline.
@@ -507,12 +506,12 @@ class DataprocClusterPropContainer(YAMLPropertiesContainer):
         cluster_info = {
             'system': {
                 'numCores': num_cpus,
-                # todo: the scala code expects a unit
+                # the scala code expects a unit
                 'memory': f'{cpu_mem}MiB',
                 'numWorkers': self.workers_count
             },
             'gpu': {
-                # todo: the scala code expects a unit
+                # the scala code expects a unit
                 'memory': f'{gpu_mem}MiB',
                 'count': num_gpus,
                 'name': self.get_worker_gpu_device()

@@ -13,11 +13,12 @@
 # limitations under the License.
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin."""
 
-import fire
 import sys
 
-from spark_rapids_dataproc_tools.rapids_models import Profiling, Qualification, Bootstrap
+import fire
+
 from spark_rapids_dataproc_tools.diag_dataproc import DiagDataproc
+from spark_rapids_dataproc_tools.rapids_models import Profiling, Qualification, Bootstrap
 
 
 class DataprocWrapper(object):
