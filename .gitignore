@@ -4,26 +4,36 @@
 __pycache__/
 *.py[cod]
 *$py.class
-.tox
 
-# virtualenv
+# Environments
+.env
+.venv
+env/
 venv/
 ENV/
+env.bak/
+venv.bak/
 
 # intellij
-/.idea/
-/gpu-savings-estimator.iml
-
-# data
-/cluster-properties.yaml
-wrapper-output/
+.idea/
+*.iml
 
 ### macOS ###
 *.DS_Store
 
-### packaging ### 
-dist
-build
-src/*.egg-info
-build
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+wheels/
+*.egg
+*.egg-info/
+
+# Unit test / coverage reports
+.tox/
 .coverage
+.coverage.*
+.pytest_cache/

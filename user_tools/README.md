@@ -626,13 +626,15 @@ This tool is supposed to be used once a cluster has been created to set the reco
 - run the bootstrap tool help cmd `spark_rapids_dataproc bootstrap --help`
   ```bash
   NAME
-      dataproc_wrapperx.py bootstrap - Provide optimized RAPIDS Accelerator for Apache Spark configs based on Dataproc GPU cluster shape.
+      spark_rapids_dataproc bootstrap - The bootstrap tool analyzes the CPU and GPU configuration of
+      the Dataproc cluster and updates the Spark default configuration on the cluster's master nodes.
 
   SYNOPSIS
-      dataproc_wrapperx.py bootstrap CLUSTER REGION <flags>
+      spark_rapids_dataproc bootstrap CLUSTER REGION <flags>
 
   DESCRIPTION
-      Provide optimized RAPIDS Accelerator for Apache Spark configs based on Dataproc GPU cluster shape.
+      The bootstrap tool analyzes the CPU and GPU configuration of the Dataproc cluster and updates the
+      default configuration on the cluster's master nodes.
 
   POSITIONAL ARGUMENTS
       CLUSTER
@@ -643,6 +645,12 @@ This tool is supposed to be used once a cluster has been created to set the reco
           Compute region (e.g. us-central1) for the cluster.
 
   FLAGS
+      --output_folder=OUTPUT_FOLDER
+          Type: str
+          Default: '.'
+          Base output directory. The final recommendations will be logged in the subdirectory
+          'wrapper-output/rapids_user_tools_bootstrap'. Note that this argument only accepts local
+               filesystem.
       --dry_run=DRY_RUN
           Type: bool
           Default: False
@@ -663,6 +671,8 @@ This tool is supposed to be used once a cluster has been created to set the reco
       ```
     - result
       ```bash
+      Recommended configurations are saved to local disk: ./wrapper-output/rapids_user_tools_bootstrap/bootstrap_tool_output/rapids_4_dataproc_bootstrap_output.log
+      Using the following computed settings based on worker nodes:
       ##### BEGIN : RAPIDS bootstrap settings for jobs-test-003
       spark.executor.cores=8
       spark.executor.memory=16384m

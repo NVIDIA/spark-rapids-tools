@@ -32,7 +32,7 @@ class DiagDataproc(Diagnostic):
 
         self.cluster = new_csp('dataproc', args={'cluster': cluster_name, 'region': region})
 
-    def on(node):  # pylint: disable=invalid-name,no-self-argument
+    def on(node):  # pylint: disable=invalid-name,no-self-argument,too-many-function-args
         """On decorator."""
         def inner_decorator(func):
             def wrapper(self, *args, **kwargs):
@@ -58,22 +58,22 @@ class DiagDataproc(Diagnostic):
         self.spark_job()
         self.perf_job()
 
-    @on('workers')
+    @on('workers')  # pylint: disable=too-many-function-args
     def nv_driver(self):
         """Diagnose nvidia driver."""
         return super().nv_driver()
 
-    @on('workers')
+    @on('workers')  # pylint: disable=too-many-function-args
     def cuda_version(self):
         """Diagnose cuda package version."""
         return super().cuda_version()
 
-    @on('workers')
+    @on('workers')   # pylint: disable=too-many-function-args
     def rapids_jar(self):
         """Diagnose rapids jar file."""
         return super().rapids_jar()
 
-    @on('workers')
+    @on('workers')  # pylint: disable=too-many-function-args
     def deprecated_jar(self):
         """Diagnose deprecated cudf jar file."""
         return super().deprecated_jar()
@@ -87,12 +87,12 @@ class DiagDataproc(Diagnostic):
         self.cluster.run_scp_cmd(script_path, dest, master[0])
         return dest
 
-    @on('master')
+    @on('master')  # pylint: disable=too-many-function-args
     def spark(self):
         """Diagnose spark."""
         return super().spark()
 
-    @on('master')
+    @on('master')  # pylint: disable=too-many-function-args
     def perf(self):
         """Diagnose performance for a Spark job between CPU and GPU."""
         return super().perf()
@@ -134,7 +134,7 @@ class DiagDataproc(Diagnostic):
         }
         output = self.cluster.submit_job(cpu_job)
         cpu_time = self.check_perf_output(output)
-        logger.info(f'CPU execution time: {cpu_time}')
+        logger.info('CPU execution time: %s', cpu_time)
 
         gpu_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
@@ -147,7 +147,7 @@ class DiagDataproc(Diagnostic):
         }
         output = self.cluster.submit_job(gpu_job)
         gpu_time = self.check_perf_output(output)
-        logger.info(f'GPU execution time: {gpu_time}')
+        logger.info('GPU execution time: %s', gpu_time)
 
         self.evaluate_perf_result(cpu_time, gpu_time)
 

@@ -12,21 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Classes and Interfaces of the RAPIDS Accelerator for Apache Spark plugin."""
+
 import glob
 import logging.config
 import os
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Optional, List, Dict
+from urllib.error import URLError
 from urllib.request import urlopen
 
 import pandas as pd
 import yaml
 from tabulate import tabulate
 
-import spark_rapids_dataproc_tools.bootstrap as srdt_bootstrap
 from spark_rapids_dataproc_tools.cost_estimator import DataprocCatalogContainer, DataprocPriceProvider, \
     DataprocSavingsEstimator
 from spark_rapids_dataproc_tools.dataproc_utils import validate_dataproc_sdk, get_default_region, \
@@ -38,6 +41,9 @@ from spark_rapids_dataproc_tools.utilities import bail, \
 
 @dataclass
 class ToolContext(YAMLPropertiesContainer):
+    """
+    A container that holds properties and characteristics of a given execution.
+    """
     name: str = 'rapids_tool'
     debug: bool = False
     logger: Logger = field(default=None, init=False)
@@ -48,12 +54,12 @@ class ToolContext(YAMLPropertiesContainer):
         logging.config.dictConfig(get_log_dict(log_arg))
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(logging.DEBUG if self.debug else logging.INFO)
-        self.props['localCtx'] = dict()
-        self.props['remoteCtx'] = dict()
+        self.props['localCtx'] = {}
+        self.props['remoteCtx'] = {}
         self.cli = CMDRunner(self.logger, self.debug)
 
     def set_fail_actions(self, method):
-        self.cli.fail_action = method
+        self.cli.fail_action_cb = method
 
     def loginfo(self, msg: str):
         self.logger.info(msg)
@@ -64,7 +70,7 @@ class ToolContext(YAMLPropertiesContainer):
     def logwarn(self, msg: str):
         self.logger.warning(msg)
 
-    def set_remote(self, key: str, val: str):
+    def set_remote(self, key: str, val: Any):
         self.props['remoteCtx'][key] = val
 
     def set_local(self, key: str, val: Any):
@@ -87,8 +93,7 @@ class ToolContext(YAMLPropertiesContainer):
         self.set_local('depFolder', local_work_dir)
         output_folder = os.path.join(local_work_dir, self.get_value('platform', 'outputDir'))
         self.set_local('toolOutputFolder', output_folder)
-        test_val = self.get_local('toolOutputFolder')
-        self.logdebug(f'setting local output folder of the tool to {test_val}')
+        self.logdebug(f'setting local output folder of the tool to {self.get_local("toolOutputFolder")}')
 
     def get_remote_output_dir(self) -> str:
         remote_work_dir = self.get_remote('depFolder')
@@ -106,7 +111,7 @@ class ToolContext(YAMLPropertiesContainer):
 
     def set_remote_workdir(self, parent: str):
         static_prefix = os.path.join(parent, self.get_value('platform', 'workDir'))
-        remote_work_dir = f"{static_prefix}_{gen_random_string(12)}"
+        remote_work_dir = f'{static_prefix}_{gen_random_string(12)}'
         self.set_remote('depFolder', remote_work_dir)
 
     def get_local_work_dir(self) -> str:
@@ -131,6 +136,9 @@ class ToolContext(YAMLPropertiesContainer):
 
 @dataclass
 class RapidsTool(object):
+    """
+    A generic class that represents a RAPIDSplugin tool.
+    """
     cluster: str
     region: str
     output_folder: str
@@ -154,7 +162,7 @@ class RapidsTool(object):
                 # a boolean flag, does not need to have its value added to the list
                 if isinstance(value, str):
                     # if the argument is multiple word, then protect it with single quotes.
-                    if re.search(r"\s|\(|\)|,", value):
+                    if re.search(r'\s|\(|\)|,', value):
                         value = f"'{value}'"
                 self.tool_options.setdefault(key, []).append(value)
             else:
@@ -163,7 +171,7 @@ class RapidsTool(object):
                 else:
                     # argument parser removes the "no-" prefix and set the value to false.
                     # we need to restore the original key
-                    self.tool_options.setdefault(f"no{key}", [])
+                    self.tool_options.setdefault(f'no{key}', [])
 
     def accept_tool_option(self, option_key: str) -> bool:
         defined_tool_options = self.ctxt.get_value_silent('sparkRapids', 'cli', 'tool_options')
@@ -175,70 +183,71 @@ class RapidsTool(object):
 
     def process_tool_options(self) -> List[str]:
         """
-        Process the arguments passed from the CLI if any and retuen a string representing the
+        Process the arguments passed from the CLI if any and return a string representing the
         arguments to be passed to the final command running the job.
         :return: a string of space separated key value pair
         """
         arguments_list = []
         for key, value in self.tool_options.items():
-            self.ctxt.logdebug(f"Processing tool CLI argument.. {key}:{value}")
+            self.ctxt.logdebug(f'Processing tool CLI argument.. {key}:{value}')
             if len(key) > 1:
                 # python forces "_" to "-". we need to reverse that back.
-                fixed_key = key.replace("_", "-")
-                prefix = "--"
+                fixed_key = key.replace('_', '-')
+                prefix = '--'
             else:
                 # shortcut argument
                 fixed_key = key
-                prefix = "-"
+                prefix = '-'
             if self.accept_tool_option(fixed_key):
-                k_arg = f"{prefix}{fixed_key}"
+                k_arg = f'{prefix}{fixed_key}'
                 if len(value) >= 1:
                     # handle list options
                     for value_entry in value[0:]:
-                        arguments_list.append(f"{k_arg}")
-                        arguments_list.append(f"{value_entry}")
+                        arguments_list.append(f'{k_arg}')
+                        arguments_list.append(f'{value_entry}')
                 else:
                     # this could be a boolean type flag that has no arguments
-                    arguments_list.append(f"{k_arg}")
+                    arguments_list.append(f'{k_arg}')
         return arguments_list
 
     def get_wrapper_arguments(self, arg_list: List[str]) -> List[str]:
         res = arg_list
         res.extend([
-            "--output-directory",
-            f"{self.ctxt.get_remote_output_dir()}",
-            f" {self.ctxt.get_remote('eventlogs')}"])
+            ' --output-directory',
+            f' {self.ctxt.get_remote_output_dir()}',
+            f' {self.ctxt.get_remote("eventlogs")}'])
         return res
 
     def generate_final_tool_arguments(self, arg_list: List[str]) -> str:
         wrapper_arguments = self.get_wrapper_arguments(arg_list)
         tool_argument_arr = self.process_tool_options()
         tool_argument_arr.extend(wrapper_arguments)
-        return " ".join(tool_argument_arr)
+        return ' '.join(tool_argument_arr)
 
     def _report_tool_full_location(self) -> str:
         out_folder_path = os.path.abspath(self.ctxt.get_local_output_dir())
-        res_arr = [f"{self.name.capitalize()} tool output is saved to local disk {out_folder_path}"]
+        res_arr = [f'{self.name.capitalize()} tool output is saved to local disk {out_folder_path}']
         subfiles = glob.glob(f'{out_folder_path}/*', recursive=False)
         if len(subfiles) > 0:
-            res_arr.append(f"\t{os.path.basename(out_folder_path)}/")
+            res_arr.append(f'\t{os.path.basename(out_folder_path)}/')
             for sub_file in subfiles:
                 if os.path.isdir(sub_file):
-                    leaf_name = f"└── {os.path.basename(sub_file)}/"
+                    leaf_name = f'└── {os.path.basename(sub_file)}/'
                 else:
-                    leaf_name = f"├── {os.path.basename(sub_file)}"
-                res_arr.append(f"\t\t{leaf_name}")
+                    leaf_name = f'├── {os.path.basename(sub_file)}'
+                res_arr.append(f'\t\t{leaf_name}')
             doc_url = self.ctxt.get_value('sparkRapids', 'outputDocURL')
-            res_arr.append(f"- To learn more about the output details, visit "
-                           f"{doc_url}")
-            return "\n".join(res_arr)
+            res_arr.append(f'- To learn more about the output details, visit '
+                           f'{doc_url}')
+            return '\n'.join(res_arr)
+        return None
 
     def _check_environment(self) -> None:
-        self.ctxt.logdebug("Checking Environment has requirements installed correctly")
+        self.ctxt.logdebug('Checking Environment has requirements installed correctly')
         validate_dataproc_sdk()
 
     def _process_region_arg(self):
-        self.ctxt.logdebug("Checking Region is set correctly")
+        self.ctxt.logdebug('Checking Region is set correctly')
         if self.region is None:
             # get the dataproc region from the system environment
             self.region = get_default_region()
@@ -246,7 +255,7 @@ class RapidsTool(object):
 
     def _init_ctxt(self):
         if self.config_path is None:
-            self.config_path = resource_path("{}-conf.yaml".format(self.name))
+            self.config_path = resource_path(f'{self.name}-conf.yaml')
         self.ctxt = ToolContext(prop_arg=self.config_path, name=self.name, debug=self.debug)
         self.ctxt.set_fail_actions(self.terminate)
         self.ctxt.logdebug(f'config_path = {self.config_path}')
@@ -262,7 +271,7 @@ class RapidsTool(object):
         return res
 
     def _init_cluster_dataproc_props(self):
-        self.ctxt.logdebug("Initializing Dataproc Properties")
+        self.ctxt.logdebug('Initializing Dataproc Properties')
         raw_props = self._pull_cluster_properties()
         self.exec_cluster_proxy = DataprocClusterPropContainer(prop_arg=raw_props,
                                                                file_load=False,
@@ -272,10 +281,10 @@ class RapidsTool(object):
             imageVersion=self.exec_cluster_proxy.get_image_version())
         if len(incompatible_version) > 0:
             msg = f'{incompatible_version.get("comments")["imageVersion"]}'
-            self.ctxt.cli.fail_action(ValueError(msg), "Tool cannot execute on the execution cluster.")
+            self.ctxt.cli.fail_action_cb(ValueError(msg), 'Tool cannot execute on the execution cluster.')
 
     def _process_output_arg(self):
-        self.ctxt.logdebug("Processing Output Arguments")
+        self.ctxt.logdebug('Processing Output Arguments')
         workdir = os.path.join(self.output_folder, 'wrapper-output')
         self.ctxt.set_local_workdir(workdir)
 
@@ -283,7 +292,7 @@ class RapidsTool(object):
         if self.tools_jar is None:
             # we should download the jar file
             local_jar_path = os.path.join(self.ctxt.get_local_work_dir(), self.ctxt.get_default_jar_name())
-            wget_cmd = 'wget -O "{}" "{}"'.format(local_jar_path, self.ctxt.get_rapids_jar_url())
+            wget_cmd = f'wget -O "{local_jar_path}" "{self.ctxt.get_rapids_jar_url()}"'
             self.ctxt.logdebug(f'Downloading tools jar from {self.ctxt.get_rapids_jar_url()} to {local_jar_path}')
             self.ctxt.cli.run(wget_cmd,
                               msg_fail='Failed downloading tools jar url')
@@ -301,7 +310,7 @@ class RapidsTool(object):
                 jar_file_name = self.tools_jar.rsplit('/', 1)[-1]
             else:
                 # this is a local disk
-                copy_jar_cmd = 'cp "{}" "{}"'.format(self.tools_jar, self.ctxt.get_local_work_dir())
+                copy_jar_cmd = f'cp "{self.tools_jar}" "{self.ctxt.get_local_work_dir()}"'
                 self.ctxt.cli.run(copy_jar_cmd, msg_fail='Failed to copy the Jar tools to the dep folder')
                 jar_file_name = os.path.basename(self.tools_jar)
         self.ctxt.logdebug(f'the toolsJar fileName: {jar_file_name}')
@@ -315,10 +324,10 @@ class RapidsTool(object):
         if isinstance(logs_dir, tuple):
             processed_logs = List[logs_dir]
         elif isinstance(logs_dir, str):
-            processed_logs = logs_dir.split(",")
+            processed_logs = logs_dir.split(',')
         else:
             processed_logs = logs_dir
-        self.ctxt.set_remote('eventlogs', " ".join(processed_logs))
+        self.ctxt.set_remote('eventlogs', ' '.join(processed_logs))
         logs = self.ctxt.get_remote('eventlogs')
         self.ctxt.logdebug(f'Eventlogs are set to {logs}')
 
@@ -335,21 +344,38 @@ class RapidsTool(object):
         self._process_event_logs()
 
     def _prepare_remote_env(self):
-        self.ctxt.loginfo("Preparing remote work env")
+        self.ctxt.loginfo('Preparing remote work env')
         # set the staging directory
         self.ctxt.set_remote_workdir(self.exec_cluster_proxy.get_temp_gs_storage())
-        self.ctxt.logdebug(f"cleaning up the remote work dir if it exists {self.ctxt.get_remote_work_dir()}")
+        self.ctxt.logdebug(f'cleaning up the remote work dir if it exists {self.ctxt.get_remote_work_dir()}')
         self.ctxt.cli.gcloud_rm(self.ctxt.get_remote_work_dir(), fail_ok=True)
 
+    def _execute_tool(self):
+        """
+        Represents the phase of actual execution.
+        """
+        self.ctxt.loginfo('Executing the tool')
+        self._run_tool_as_spark()
+
     def _run_tool_as_spark(self):
-        self.ctxt.loginfo("Running the tool as a spark job on dataproc")
+        self.ctxt.loginfo('Running the tool as a spark job on dataproc')
+
+    def _run_tool_on_driver_node(self):
+        self.ctxt.loginfo('Running the tool on driver node')
 
     def _download_tool_output(self):
-        self.ctxt.loginfo("Downloading the tool output")
+        self.ctxt.loginfo('Downloading the tool output')
         # download cmd. it is possible that the cmd fail if the tool did not generate an output
-        self.ctxt.cli.gcloud_cp(self.ctxt.get_remote_output_dir(),
-                                self.ctxt.get_local_work_dir(),
-                                fail_ok=True)
+        try:
+            # if there is no remote directory then do not fail completely
+            remote_output_dir = self.ctxt.get_remote_output_dir()
+            self.ctxt.cli.gcloud_cp(remote_output_dir,
+                                    self.ctxt.get_local_work_dir(),
+                                    fail_ok=True)
+        except TypeError:
+            # If the remote directory does not exist in the context field, an exception is thrown
+            # with typeError. "expected str, bytes or os.PathLike object, not NoneType"
+            self.ctxt.logwarn('Failed to cleanup remote data')
 
     def _report_results_are_empty(self) -> None:
         print(f'The {self.name.capitalize()} tool did not generate any output. Nothing to display.')
@@ -364,12 +390,12 @@ class RapidsTool(object):
             self._report_results_are_empty()
 
     def _upload_dependencies(self):
-        self.ctxt.loginfo("Upload dependencies to remote cluster")
+        self.ctxt.loginfo('Upload dependencies to remote cluster')
         self.ctxt.logdebug(f'Uploading {self.ctxt.get_local_work_dir()} to {self.ctxt.get_remote_work_dir()}')
         self.ctxt.cli.gcloud_cp(self.ctxt.get_local_work_dir(), self.ctxt.get_remote_work_dir())
 
     def _process_tool_output(self):
-        self.ctxt.loginfo("Processing tool output")
+        self.ctxt.loginfo('Processing tool output')
 
     def _process_custom_args(self):
         pass
@@ -413,20 +439,20 @@ class RapidsTool(object):
             self.ctxt.cli.gcloud_rm(self.ctxt.get_remote_work_dir(), fail_ok=True)
 
     def _cleanup(self, run_fail: bool = False):
-        self.ctxt.logdebug("Cleaning up after finishing the tool execution")
+        self.ctxt.logdebug('Cleaning up after finishing the tool execution')
         # cleanup remote
-        local_clean_enabled = self.ctxt.get_value('local', 'output', 'cleanUp')
-        remote_clean_enabled = self.ctxt.get_value('platform', 'cleanUp')
+        local_clean_enabled = self.ctxt.get_value_silent('local', 'output', 'cleanUp')
+        remote_clean_enabled = self.ctxt.get_value_silent('platform', 'cleanUp')
         if remote_clean_enabled:
             self._remote_cleanup()
         if local_clean_enabled:
             self._local_cleanup(run_fail)
 
-    def terminate(self, err=None, msg=Optional[str]):
+    def terminate(self, err: Exception, msg=Optional[str]):
         self._cleanup(run_fail=err is not None)
         if err is not None:
             error_msg = (
-                f'Failure Running Rapids Tool.\n\t'
+                f'Failure Running Rapids Tool ({self.name.capitalize()}).\n\t'
                 f'{msg}\n\t'
                 f'Run Terminated with error.\n\t'
                 f'{err}'
@@ -437,13 +463,16 @@ class RapidsTool(object):
     def launch(self):
         self._init_tool()
         self._initialize_remote_env()
-        self._run_tool_as_spark()
+        self._execute_tool()
         self._post_remote_run()
-        self.terminate()
+        self.terminate(err=None)
 
 
 @dataclass
 class Profiling(RapidsTool):
+    """
+    Wrapper for profiling tool.
+    """
     name = 'profiling'
     migration_clusters_props: dict = field(default_factory=dict)
     gpu_cluster_proxy: DataprocClusterPropContainer = field(default=None, init=False)
@@ -455,18 +484,19 @@ class Profiling(RapidsTool):
         """
         Process the argument pointing to the location of the CPU clusters.
         """
+
         def construct_offline_prop_container(
                 cluster_type: str,
                 config_file_path: str) -> DataprocShadowClusterPropContainer:
             pretty_type = cluster_type.upper()
             is_file_load = True
             prop_arg = config_file_path
-            self.ctxt.loginfo(f"The {pretty_type} cluster is an offline cluster. "
-                              f"Properties are loaded from {config_file_path}.")
+            self.ctxt.loginfo(f'The {pretty_type} cluster is an offline cluster. '
+                              f'Properties are loaded from {config_file_path}.')
             if config_file_path.startswith('gs://'):
                 # This is a cloud storage. Get the data from the cloud using gsutil
-                self.ctxt.loginfo(f"Loading {pretty_type} cluster properties from remote url {config_file_path}.")
-                fail_msg = f"Failed reading content of cluster properties located in {config_file_path}."
+                self.ctxt.loginfo(f'Loading {pretty_type} cluster properties from remote url {config_file_path}.')
+                fail_msg = f'Failed reading content of cluster properties located in {config_file_path}.'
                 prop_arg = self.ctxt.cli.gcloud_cat(config_file_path, msg_fail=fail_msg)
                 is_file_load = False
 
@@ -474,28 +504,28 @@ class Profiling(RapidsTool):
                                                                 file_load=is_file_load,
                                                                 cli=self.ctxt.cli)
             # set the region and zones of the offline clusters if necessary
-            proxy_region = self.migration_clusters_props.get(f"{cluster_type}_cluster_region")
-            proxy_zone = self.migration_clusters_props.get(f"{cluster_type}_cluster_zone")
+            proxy_region = self.migration_clusters_props.get(f'{cluster_type}_cluster_region')
+            proxy_zone = self.migration_clusters_props.get(f'{cluster_type}_cluster_zone')
             if proxy_region is None:
                 proxy_region = self.region
             if proxy_zone is None:
                 proxy_zone = self.exec_cluster_proxy.get_zone()
-            prop_container.set_container_region("master", proxy_region)
-            prop_container.set_container_region("worker", proxy_region)
-            prop_container.set_container_zone("master", proxy_zone)
-            prop_container.set_container_zone("worker", proxy_zone)
-            self.ctxt.logdebug(f"Configurations used to construct {pretty_type} cluster: {prop_container.props}")
+            prop_container.set_container_region('master', proxy_region)
+            prop_container.set_container_region('worker', proxy_region)
+            prop_container.set_container_zone('master', proxy_zone)
+            prop_container.set_container_zone('worker', proxy_zone)
+            self.ctxt.logdebug(f'Configurations used to construct {pretty_type} cluster: {prop_container.props}')
             return prop_container
 
         # process the GPU cluster configurations
-        gpu_cluster_props_path = self.migration_clusters_props.get("gpu_cluster_props_path")
+        gpu_cluster_props_path = self.migration_clusters_props.get('gpu_cluster_props_path')
         if gpu_cluster_props_path is None:
             # The argument is not set, then the dataproc properties is going to be same as
             # the CPU cluster.
             self.gpu_cluster_proxy = self.exec_cluster_proxy
-            props_origin_msg = f"the submission cluster on which the RAPIDS tool is running [{self.cluster}]"
+            self.ctxt.logdebug(f'the submission cluster on which the RAPIDS tool is running [{self.cluster}]')
         else:
-            self.gpu_cluster_proxy = construct_offline_prop_container(cluster_type="gpu",
+            self.gpu_cluster_proxy = construct_offline_prop_container(cluster_type='gpu',
                                                                       config_file_path=gpu_cluster_props_path)
 
     def _init_cluster_dataproc_props(self):
@@ -503,11 +533,11 @@ class Profiling(RapidsTool):
         self.__process_offline_clusters_arguments()
 
     def __generate_autotuner_input(self):
-        self.ctxt.logdebug(f'generating input files for Auto-tuner')
+        self.ctxt.logdebug('generating input files for Auto-tuner')
         cluster_info = self.gpu_cluster_proxy.convert_props_to_dict()
         cluster_info_path = os.path.join(self.ctxt.get_local_work_dir(),
                                          'dataproc_worker_info.yaml')
-        with open(cluster_info_path, 'w') as worker_info_file:
+        with open(cluster_info_path, 'w', encoding='utf-8') as worker_info_file:
             self.ctxt.logdebug(f'Auto-tuner worker info file {cluster_info_path}')
             self.ctxt.logdebug(f'Auto-tuner worker info: {cluster_info}')
             yaml.dump(cluster_info, worker_info_file, sort_keys=False)
@@ -518,7 +548,7 @@ class Profiling(RapidsTool):
         self.__generate_autotuner_input()
 
     def __read_single_app_output(self, file_path: str) -> (List[str], List[str], str):
-        def __split_list_str_by_pattern(input_seq: List[str], pattern: str) -> int:
+        def split_list_str_by_pattern(input_seq: List[str], pattern: str) -> int:
             ind = 0
             while ind < len(input_seq):
                 if input_seq[ind].find(pattern) != -1:
@@ -529,15 +559,15 @@ class Profiling(RapidsTool):
         try:
             props_list = []
             comments_list = []
-            app_name: str = ""
-            with open(file_path, 'rt') as app_profiler:
+            app_name: str = ''
+            with open(file_path, 'rt', encoding='utf-8') as app_profiler:
                 raw_lines = [line.strip() for line in app_profiler.readlines() if line.strip()]
                 # find the app_name
-                app_name_candidates = re.findall("(\|spark\.app\.name\s+\|)(.+)\|",
-                                                 "\n".join(raw_lines),
+                app_name_candidates = re.findall(r'(\|spark\.app\.name\s+\|)(.+)\|',
+                                                 '\n'.join(raw_lines),
                                                  flags=re.MULTILINE)
                 if len(app_name_candidates) > 0:
-                    grp_1, grp_2 = app_name_candidates[0]
+                    _, grp_2 = app_name_candidates[0]
                     app_name = grp_2.strip()
                 header_pattern = self.ctxt.get_value('toolOutput', 'recommendations', 'headers',
                                                      'section')
@@ -549,14 +579,14 @@ class Profiling(RapidsTool):
                 last_props_ind = -1
                 begin_comm_ind = -1
                 last_comm_ind = -1
-                section_ind = __split_list_str_by_pattern(raw_lines, header_pattern)
+                section_ind = split_list_str_by_pattern(raw_lines, header_pattern)
                 if section_ind != -1:
                     recom_section = raw_lines[section_ind:]
-                    recom_properties_ind = __split_list_str_by_pattern(recom_section,
-                                                                       spark_pattern)
-                    if recom_properties_ind != -1 and recom_properties_ind != len(recom_section) - 1:
+                    recom_properties_ind = split_list_str_by_pattern(recom_section,
+                                                                     spark_pattern)
+                    if recom_properties_ind not in (-1, len(recom_section) - 1):
                         begin_props_ind = recom_properties_ind + 1
-                    recom_comments_ind = __split_list_str_by_pattern(recom_section, comments_pattern)
+                    recom_comments_ind = split_list_str_by_pattern(recom_section, comments_pattern)
                     if recom_comments_ind != -1:
                         last_props_ind = recom_comments_ind
                         begin_comm_ind = recom_comments_ind + 1
@@ -571,24 +601,25 @@ class Profiling(RapidsTool):
         except OSError:
             print(f'could not open output of profiler {file_path}')
         if len(props_list) == 0:
-            props_list = ["- No recommendations"]
+            props_list = ['- No recommendations']
         if len(comments_list) == 0:
-            comments_list = ["- No comments"]
+            comments_list = ['- No comments']
         return props_list, comments_list, app_name
 
     def _report_results_are_empty(self) -> None:
+        # pylint: disable=broad-except
         # check if we should report unsupported
         try:
             all_incompatibilities = self.gpu_cluster_proxy.check_all_incompatibilities()
             if len(all_incompatibilities):
-                report_content = ["Configuration Incompatibilities:"]
+                report_content = ['Configuration Incompatibilities:']
                 incompatibility_summary = []
-                for key, comment in all_incompatibilities.get("comments").items():
-                    incompatibility_summary.append([key, f"- {comment}"])
+                for key, comment in all_incompatibilities.get('comments').items():
+                    incompatibility_summary.append([key, f'- {comment}'])
                 report_content.append(tabulate(incompatibility_summary))
                 print('\n'.join(report_content))
         except Exception as e:
-            self.ctxt.logdebug("Exception converting worker machine type {}".format(e))
+            self.ctxt.logdebug(f'Exception converting worker machine type {e}')
         super()._report_results_are_empty()
 
     def _process_tool_output(self):
@@ -603,7 +634,7 @@ class Profiling(RapidsTool):
             # loop on all the application folders
             print(self._report_tool_full_location())
             recommendations_table = []
-            header_str = f'### Recommended configurations ###'
+            header_str = '### Recommended configurations ###'
             print(header_str)
             wrapper_content.append(header_str)
             headers = self.ctxt.get_value('local', 'output', 'summaryColumns')
@@ -612,16 +643,17 @@ class Profiling(RapidsTool):
                     app_id = os.path.basename(app_folder)
                     profile_file = self.ctxt.get_value('toolOutput', 'recommendations', 'fileName')
                     recommendations, comments, app_name = self.__read_single_app_output(f'{app_folder}/{profile_file}')
-                    row = [app_id, app_name, "\n".join(recommendations), "\n".join(comments)]
+                    row = [app_id, app_name, '\n'.join(recommendations), '\n'.join(comments)]
                     wrapper_content.append(app_id)
-                    wrapper_content.append("\t{}".format("\n\t".join(recommendations)))
-                    wrapper_content.append("\t{}".format("\n\t".join(comments)))
+                    wrapper_content.append('\t{}'.format('\n\t'.join(recommendations)))
+                    wrapper_content.append('\t{}'.format('\n\t'.join(comments)))
                     recommendations_table.append(row)
-            print(tabulate(recommendations_table, headers, tablefmt="grid"))
+            print(tabulate(recommendations_table, headers, tablefmt='grid'))
         output_file_name = self.ctxt.get_value('local', 'output', 'fileName')
         wrapper_output_file = os.path.join(self.ctxt.get_local_output_dir(), output_file_name)
-        with open(wrapper_output_file, 'w') as wrapper_output:
-            wrapper_output.write("\n".join(wrapper_content))
+
+        with open(wrapper_output_file, 'w', encoding='utf-8') as wrapper_output:
+            wrapper_output.write('\n'.join(wrapper_content))
 
     def _run_tool_as_spark(self):
         super()._run_tool_as_spark()
@@ -631,16 +663,16 @@ class Profiling(RapidsTool):
         worker_info_path = os.path.join(self.ctxt.get_remote_work_dir(),
                                         self.ctxt.get_remote('autoTunerFileName'))
 
-        tool_arguments = self.generate_final_tool_arguments(["--auto-tuner",
-                                                             "--worker-info",
-                                                             f"{worker_info_path}"])
+        tool_arguments = self.generate_final_tool_arguments(['--auto-tuner',
+                                                             '--worker-info',
+                                                             f'{worker_info_path}'])
         submit_cmd = (
-            f"dataproc jobs submit spark --cluster={self.cluster}"
-            f" --region={self.region}"
-            f" --jars={jars_path}"
-            f" --class={self.ctxt.get_tool_main_class()}"
-            f" --"
-            f" {tool_arguments}"
+            f'dataproc jobs submit spark --cluster={self.cluster}'
+            f' --region={self.region}'
+            f' --jars={jars_path}'
+            f' --class={self.ctxt.get_tool_main_class()}'
+            f' --'
+            f' {tool_arguments}'
         )
         self.ctxt.logdebug(f'Going to submit job {submit_cmd}')
         self.ctxt.cli.gcloud(submit_cmd, msg_fail='Failed Submitting Spark job')
@@ -648,6 +680,9 @@ class Profiling(RapidsTool):
 
 @dataclass
 class QualificationSummary:
+    """
+    Encapsulates the logic to organize Qualification report.
+    """
     comments: Any = None
     all_apps: pd.DataFrame = None
     recommended_apps: pd.DataFrame = None
@@ -655,19 +690,19 @@ class QualificationSummary:
 
     def _get_total_durations(self) -> int:
         if not self.is_empty():
-            return self.all_apps["App Duration"].sum()
+            return self.all_apps['App Duration'].sum()
         return 0
 
     def _get_total_gpu_durations(self) -> int:
         if not self.is_empty():
-            return self.all_apps["Estimated GPU Duration"].sum()
+            return self.all_apps['Estimated GPU Duration'].sum()
         return 0
 
     def _get_stats_total_cost(self) -> float:
-        return self.df_result["Estimated App Cost"].sum()
+        return self.df_result['Estimated App Cost'].sum()
 
     def _get_stats_total_gpu_cost(self) -> float:
-        return self.df_result["Estimated GPU Cost"].sum()
+        return self.df_result['Estimated GPU Cost'].sum()
 
     def _get_stats_total_apps(self) -> int:
         if not self.is_empty():
@@ -702,7 +737,7 @@ class QualificationSummary:
                      output_pprinter: Any = None) -> None:
 
         def format_float(x: float) -> str:
-            return "{:.2f}".format(x)
+            return f'{x:.2f}'
 
         report_content = []
 
@@ -722,7 +757,7 @@ class QualificationSummary:
         if self.has_tabular_result():
             if wrapper_csv_file is not None:
                 abs_path = os.path.abspath(wrapper_csv_file)
-                report_content.append(f"Full savings and speedups CSV report: {abs_path}")
+                report_content.append(f'Full savings and speedups CSV report: {abs_path}')
 
             pretty_df = df_pprinter(self.df_result)
             if pretty_df.empty:
@@ -733,7 +768,7 @@ class QualificationSummary:
             else:
                 report_content.append(tabulate(pretty_df, headers='keys', tablefmt='psql', floatfmt='.2f'))
         else:
-            report_content.append(f"{app_name} tool found no records to show.")
+            report_content.append(f'{app_name} tool found no records to show.')
 
         total_app_cost = self._get_stats_total_cost()
         total_gpu_cost = self._get_stats_total_gpu_cost()
@@ -745,14 +780,14 @@ class QualificationSummary:
         total_gpu_durations = self._get_total_gpu_durations()
         if total_gpu_durations > 0:
             overall_speedup = total_apps_durations / total_gpu_durations
-        report_content.append("Report Summary:")
-        report_summary = [["Total applications", self._get_stats_total_apps()],
-                          ["RAPIDS candidates", self._get_stats_recommended_apps()],
-                          ["Overall estimated speedup", format_float(overall_speedup)],
-                          ["Overall estimated cost savings", f"{format_float(estimated_gpu_savings)}%"]]
-        report_content.append(tabulate(report_summary, colalign=("left", "right")))
+        report_content.append('Report Summary:')
+        report_summary = [['Total applications', self._get_stats_total_apps()],
+                          ['RAPIDS candidates', self._get_stats_recommended_apps()],
+                          ['Overall estimated speedup', format_float(overall_speedup)],
+                          ['Overall estimated cost savings', f'{format_float(estimated_gpu_savings)}%']]
+        report_content.append(tabulate(report_summary, colalign=('left', 'right')))
         if self.comments is not None and len(self.comments) > 0:
-            report_content.extend(f"- {line}" for line in self.comments)
+            report_content.extend(f'- {line}' for line in self.comments)
         if self.has_gpu_recommendation() and config_provider is not None:
             report_content.append(config_provider())
 
@@ -761,6 +796,9 @@ class QualificationSummary:
 
 @dataclass
 class Qualification(RapidsTool):
+    """
+    Wrapper layer around Qualification Tool.
+    """
     name = 'qualification'
     filter_apps: str = None
     gpu_device: str = None
@@ -775,25 +813,26 @@ class Qualification(RapidsTool):
 
     def __write_cluster_properties(self):
         self.ctxt.set_local('cluster_props',
-                            os.path.join(self.ctxt.get_local_work_dir(), "cluster_props.yaml"))
+                            os.path.join(self.ctxt.get_local_work_dir(), 'cluster_props.yaml'))
         self.exec_cluster_proxy.write_as_yaml_file(self.ctxt.get_local('cluster_props'))
 
     def __process_offline_clusters_arguments(self):
         """
         Process the argument pointing to the location of the CPU clusters.
         """
+
         def construct_offline_prop_container(
                 cluster_type: str,
                 config_file_path: str) -> DataprocShadowClusterPropContainer:
             pretty_type = cluster_type.upper()
             is_file_load = True
             prop_arg = config_file_path
-            self.ctxt.loginfo(f"The {pretty_type} cluster is an offline cluster. "
-                              f"Properties are loaded from {config_file_path}.")
+            self.ctxt.loginfo(f'The {pretty_type} cluster is an offline cluster. '
+                              f'Properties are loaded from {config_file_path}.')
             if config_file_path.startswith('gs://'):
                 # This is a cloud storage. Get the data from the cloud using gsutil
-                self.ctxt.loginfo(f"Loading {pretty_type} cluster properties from remote url {config_file_path}.")
-                fail_msg = f"Failed reading content of cluster properties located in {config_file_path}."
+                self.ctxt.loginfo(f'Loading {pretty_type} cluster properties from remote url {config_file_path}.')
+                fail_msg = f'Failed reading content of cluster properties located in {config_file_path}.'
                 prop_arg = self.ctxt.cli.gcloud_cat(config_file_path, msg_fail=fail_msg)
                 is_file_load = False
 
@@ -801,45 +840,45 @@ class Qualification(RapidsTool):
                                                                 file_load=is_file_load,
                                                                 cli=self.ctxt.cli)
             # set the region and zones of the offline clusters if necessary
-            proxy_region = self.migration_clusters_props.get(f"{cluster_type}_cluster_region")
-            proxy_zone = self.migration_clusters_props.get(f"{cluster_type}_cluster_zone")
+            proxy_region = self.migration_clusters_props.get(f'{cluster_type}_cluster_region')
+            proxy_zone = self.migration_clusters_props.get(f'{cluster_type}_cluster_zone')
             if proxy_region is None:
                 proxy_region = self.region
             if proxy_zone is None:
                 proxy_zone = self.exec_cluster_proxy.get_zone()
-            prop_container.set_container_region("master", proxy_region)
-            prop_container.set_container_region("worker", proxy_region)
-            prop_container.set_container_zone("master", proxy_zone)
-            prop_container.set_container_zone("worker", proxy_zone)
-            self.ctxt.logdebug(f"Configurations used to construct {pretty_type} cluster: {prop_container.props}")
+            prop_container.set_container_region('master', proxy_region)
+            prop_container.set_container_region('worker', proxy_region)
+            prop_container.set_container_zone('master', proxy_zone)
+            prop_container.set_container_zone('worker', proxy_zone)
+            self.ctxt.logdebug(f'Configurations used to construct {pretty_type} cluster: {prop_container.props}')
             return prop_container
 
         # Start of main method body
-        cpu_cluster_props_path = self.migration_clusters_props.get("cpu_cluster_props_path")
+        cpu_cluster_props_path = self.migration_clusters_props.get('cpu_cluster_props_path')
         if cpu_cluster_props_path is None:
             # The argument is not set, then the dataproc properties is going to be same as
             # the submission job.
-            self.ctxt.loginfo(f"The original CPU cluster is the same as the submission cluster on which the tool runs. "
-                              f"To update the configuration of the CPU cluster, make sure to pass the "
-                              f"properties file to the CLI arguments.")
+            self.ctxt.loginfo('The original CPU cluster is the same as the submission cluster on which the tool runs. '
+                              'To update the configuration of the CPU cluster, make sure to pass the '
+                              'properties file to the CLI arguments.')
             self.cpu_cluster_proxy = self.exec_cluster_proxy
         else:
-            self.cpu_cluster_proxy = construct_offline_prop_container(cluster_type="cpu",
+            self.cpu_cluster_proxy = construct_offline_prop_container(cluster_type='cpu',
                                                                       config_file_path=cpu_cluster_props_path)
         # process the GPU cluster configurations
-        gpu_cluster_props_path = self.migration_clusters_props.get("gpu_cluster_props_path")
+        gpu_cluster_props_path = self.migration_clusters_props.get('gpu_cluster_props_path')
         if gpu_cluster_props_path is None:
             # The argument is not set, then the dataproc properties is going to be same as
             # the CPU cluster.
             self.gpu_cluster_proxy = self.cpu_cluster_proxy
-            props_origin_msg = f"the submission cluster on which the RAPIDS tool is running [{self.cluster}]"
+            props_origin_msg = f'the submission cluster on which the RAPIDS tool is running [{self.cluster}]'
             if cpu_cluster_props_path is not None:
-                props_origin_msg = f"the original CPU cluster properties loaded from {cpu_cluster_props_path}"
-            self.ctxt.loginfo(f"The GPU cluster is the same as {props_origin_msg}. "
-                              f"To update the configuration of the GPU cluster, make sure to pass the "
-                              f"properties file to the CLI arguments.")
+                props_origin_msg = f'the original CPU cluster properties loaded from {cpu_cluster_props_path}'
+            self.ctxt.loginfo(f'The GPU cluster is the same as {props_origin_msg}. '
+                              'To update the configuration of the GPU cluster, make sure to pass the '
+                              'properties file to the CLI arguments.')
         else:
-            self.gpu_cluster_proxy = construct_offline_prop_container(cluster_type="gpu",
+            self.gpu_cluster_proxy = construct_offline_prop_container(cluster_type='gpu',
                                                                       config_file_path=gpu_cluster_props_path)
 
     def _init_cluster_dataproc_props(self):
@@ -847,6 +886,14 @@ class Qualification(RapidsTool):
         self.__process_offline_clusters_arguments()
 
     def _process_custom_args(self):
+        """
+        Qualification tool processes extra arguments:
+        1. filter out applications.
+        2. gpu-device type to be used for the cost estimation.
+        3. gpu_per_machine: number of gpu installed on a worker node.
+        4. cuda version
+        """
+
         def process_filter_opt(arg_val: str):
             available_filters = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'filters',
                                                     'definedFilters')
@@ -861,9 +908,9 @@ class Qualification(RapidsTool):
                     self.filter_apps = selected_filter
                 else:
                     self.ctxt.logwarn(
-                        f"Invalid argument filter_apps={selected_filter}.\n\t"
-                        f"Accepted options are: [{' | '.join(available_filters)}].\n\t"
-                        f"Falling-back to default filter: {default_filter}"
+                        f'Invalid argument filter_apps={selected_filter}.\n\t'
+                        f'Accepted options are: [{" | ".join(available_filters)}].\n\t'
+                        f'Falling-back to default filter: {default_filter}'
                     )
                     self.filter_apps = default_filter
 
@@ -891,18 +938,19 @@ class Qualification(RapidsTool):
         return instructions_str
 
     def _report_results_are_empty(self) -> None:
+        # pylint: disable=broad-except
         # check if we should report unsupported
         try:
             all_incompatibilities = self.gpu_cluster_proxy.check_all_incompatibilities()
             if len(all_incompatibilities):
-                report_content = ["Configuration Incompatibilities:"]
+                report_content = ['Configuration Incompatibilities:']
                 incompatibility_summary = []
-                for key, comment in all_incompatibilities.get("comments").items():
-                    incompatibility_summary.append([key, f"- {comment}"])
+                for key, comment in all_incompatibilities.get('comments').items():
+                    incompatibility_summary.append([key, f'- {comment}'])
                 report_content.append(tabulate(incompatibility_summary))
                 print('\n'.join(report_content))
         except Exception as e:
-            self.ctxt.logdebug("Exception converting worker machine type {}".format(e))
+            self.ctxt.logdebug(f'Exception converting worker machine type {e}')
         super()._report_results_are_empty()
 
     def _process_tool_output(self):
@@ -943,7 +991,7 @@ class Qualification(RapidsTool):
                 cost_mask = df_row[cost_col] > 0.0
                 df_row = df_row.loc[cost_mask, selected_cols]
                 if df_row.empty:
-                    print("Found no qualified apps for cost savings.")
+                    print('Found no qualified apps for cost savings.')
                     return df_row
             time_unit = '(ms)'
             time_from_conf = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'timeUnits')
@@ -979,21 +1027,21 @@ class Qualification(RapidsTool):
                 # load catalog from url
                 url_address = self.ctxt.get_value('local', 'costCalculation', 'catalog', 'onlineURL')
                 try:
-                    self.ctxt.loginfo(f"Downloading the price catalog from URL {url_address}")
-                    response = urlopen(url_address)
-                    dataproc_catalog = DataprocCatalogContainer(prop_arg=response.read(), file_load=False)
-                    self.ctxt.logdebug(f"Successful download of cloud pricing catalog")
-                except Exception as url_ex:
+                    self.ctxt.loginfo(f'Downloading the price catalog from URL {url_address}')
+                    with urlopen(url_address) as response:
+                        dataproc_catalog = DataprocCatalogContainer(prop_arg=response.read(), file_load=False)
+                        self.ctxt.logdebug('Successful download of cloud pricing catalog')
+                except URLError as url_ex:
                     # failed to load the catalog from url, then revert to snapshot file
                     load_from_snapshot = True
-                    self.ctxt.logwarn(f"Failed to download the cloud pricing catalog with error {url_ex}."
-                                      f"\n\tFalling back to snapshot file.")
+                    self.ctxt.logwarn(f'Failed to download the cloud pricing catalog with error {url_ex}.'
+                                      '\n\tFalling back to snapshot file.')
             if load_from_snapshot:
                 # load catalog from snapshot_file because either url has failed or it is disabled
                 snapshot_file = self.ctxt.get_value('local', 'costCalculation', 'catalog', 'snapshotFile')
-                self.ctxt.loginfo(f"Loading price catalog from snapshot file {snapshot_file}")
+                self.ctxt.loginfo(f'Loading price catalog from snapshot file {snapshot_file}')
                 dataproc_catalog = DataprocCatalogContainer(resource_path(snapshot_file))
-            price_provider = DataprocPriceProvider(name="dataprocCostEstimator",
+            price_provider = DataprocPriceProvider(name='dataprocCostEstimator',
                                                    catalog=dataproc_catalog)
             self.ctxt.loginfo(
                 self.gpu_cluster_proxy.worker_pretty_print(extra_args={'GPU device': self.gpu_device,
@@ -1031,6 +1079,7 @@ class Qualification(RapidsTool):
                                         df_result=apps_working_set)
 
         super()._process_tool_output()
+        # pylint: disable=broad-except
         try:
             self.__write_cluster_properties()
         except Exception as ex:
@@ -1052,6 +1101,7 @@ class Qualification(RapidsTool):
                                         output_pprinter=self._report_tool_full_location)
         except Exception as ex:
             bail('Error Parsing CSV file to generate Row Cost', ex)
+        # pylint: enable=broad-except
 
     def _run_tool_as_spark(self):
         super()._run_tool_as_spark()
@@ -1059,12 +1109,12 @@ class Qualification(RapidsTool):
         jars_path = os.path.join(self.ctxt.get_remote_work_dir(), self.ctxt.get_remote('jarFileName'))
         tool_arguments = self.generate_final_tool_arguments([])
         submit_cmd = (
-            f"dataproc jobs submit spark --cluster={self.cluster}"
-            f" --region={self.region}"
-            f" --jars={jars_path}"
-            f" --class={self.ctxt.get_tool_main_class()}"
-            f" --"
-            f" {tool_arguments}"
+            f'dataproc jobs submit spark --cluster={self.cluster}'
+            f' --region={self.region}'
+            f' --jars={jars_path}'
+            f' --class={self.ctxt.get_tool_main_class()}'
+            f' --'
+            f' {tool_arguments}'
         )
         self.ctxt.logdebug(f'Going to submit job {submit_cmd}')
         self.ctxt.cli.gcloud(submit_cmd, msg_fail='Failed Submitting Spark job')
@@ -1072,14 +1122,143 @@ class Qualification(RapidsTool):
 
 @dataclass
 class Bootstrap(RapidsTool):
+    """
+    Tool analyzes the CPU and GPU configuration of the Dataproc cluster
+    and updates the Spark default configuration on the cluster's master nodes.
+    """
     name = 'bootstrap'
     dry_run: bool = False
 
-    def launch(self):
-        validate_dataproc_sdk()
-        validate_region(self.region)
-        cluster_config = srdt_bootstrap.get_cluster_config(self.cluster, self.region)
-        spark_settings = srdt_bootstrap.get_bootstrap_configs(self.cluster, cluster_config)
-        print(spark_settings)
-        if not self.dry_run:
-            srdt_bootstrap.update_driver_nodes(cluster_config, spark_settings)
+    def _process_jar_arg(self):
+        pass
+
+    def _process_event_logs(self):
+        pass
+
+    def __calculate_spark_settings(self, num_cpus, cpu_mem, num_gpus, gpu_mem) -> dict:
+        """
+        Calculate the cluster properties that we need to append to the /etc/defaults of the spark
+        if necessary.
+        :param num_cpus: number of cores in a worker node.
+        :param cpu_mem: memory size of the worker node.
+        :param num_gpus: number of gpus on a single machine.
+        :param gpu_mem: memory size allocated to the GPU.
+        :return: dictionary containing 7 spark properties to be set by default on the cluster.
+        """
+        constants = self.ctxt.get_value('local', 'clusterConfigs', 'constants')
+        executors_per_node = num_gpus
+        num_executor_cores = max(1, num_cpus // executors_per_node)
+        gpu_concurrent_tasks = min(constants.get('maxGpuConcurrent'), gpu_mem // constants.get('gpuMemPerTaskMB'))
+        # account for system overhead
+        usable_worker_mem = max(0, cpu_mem - constants.get('systemReserveMB'))
+        executor_container_mem = usable_worker_mem // executors_per_node
+        # reserve 10% of heap as memory overhead
+        max_executor_heap = max(0, int(executor_container_mem * (1 - constants.get('heapOverheadFraction'))))
+        # give up to 2GB of heap to each executor core
+        executor_heap = min(max_executor_heap, constants.get('heapPerCoreMB') * num_executor_cores)
+        executor_mem_overhead = int(executor_heap * constants.get('heapOverheadFraction'))
+        # pinned memory uses any unused space up to 4GB
+        pinned_mem = min(constants.get('maxPinnedMemoryMB'),
+                         executor_container_mem - executor_heap - executor_mem_overhead)
+        executor_mem_overhead += pinned_mem
+        res = {
+            'spark.executor.cores': num_executor_cores,
+            'spark.executor.memory': f'{executor_heap}m',
+            'spark.executor.memoryOverhead': f'{executor_mem_overhead}m',
+            'spark.rapids.sql.concurrentGpuTasks': gpu_concurrent_tasks,
+            'spark.rapids.memory.pinnedPool.size': f'{pinned_mem}m',
+            'spark.sql.files.maxPartitionBytes': f'{constants.get("maxSqlFilesPartitionsMB")}m',
+            'spark.task.resource.gpu.amount': 1 / num_executor_cores
+        }
+        return res
+
+    def _run_tool_on_driver_node(self):
+        self.ctxt.loginfo('Running the tool on driver node')
+        # Extract the CPU and GPU information for a worker node from a Dataproc cluster's
+        # configuration properties.
+        # pylint: disable=broad-except
+        try:
+            num_cpus, cpu_mem = self.exec_cluster_proxy.get_worker_cpu_info()
+            num_gpus, gpu_mem = self.exec_cluster_proxy.get_worker_gpu_info()
+            try:
+                spark_settings = self.__calculate_spark_settings(num_cpus, cpu_mem, num_gpus, gpu_mem)
+                self.ctxt.set_remote('boot_spark_results', spark_settings)
+                self.ctxt.logdebug(
+                    f'{self.name} Tool finished calculating recommended Apache Spark configurations '
+                    f'for cluster {self.cluster}: '
+                    f'{str(spark_settings)}'
+                )
+            except Exception as e:
+                self.terminate(e, 'Error while calculating default Spark settings')
+        except Exception as e:
+            self.terminate(e, 'Error while pulling worker information')
+
+    def _execute_tool(self):
+        """
+        Represents the phase of actual execution.
+        """
+        self.ctxt.loginfo('Executing the tool')
+        self._run_tool_on_driver_node()
+
+    def _initialize_remote_env(self):
+        self._prepare_dependencies()
+
+    def _download_tool_output(self):
+        self.ctxt.loginfo('Downloading the result of running the tool remotely')
+        tool_result = self.ctxt.get_remote('boot_spark_results')
+        if tool_result is not None and any(tool_result):
+            # write the result to log file
+            # Now create the new folder
+            make_dirs(self.ctxt.get_wrapper_local_output(), exist_ok=True)
+            wrapper_out_content_arr = [f'##### BEGIN : RAPIDS bootstrap settings for {self.cluster}']
+            for conf_key, conf_val in tool_result.items():
+                wrapper_out_content_arr.append(f'{conf_key}={conf_val}')
+            wrapper_out_content_arr.append(f'##### END : RAPIDS bootstrap settings for {self.cluster}\n')
+            wrapper_out_content = '\n'.join(wrapper_out_content_arr)
+            if self.dry_run:
+                self.ctxt.loginfo(f'Skipping applying configurations to remote cluster {self.cluster}. '
+                                  ' DRY_RUN is enabled.')
+            else:
+                # apply the changes to remote cluster
+                self.ctxt.loginfo(f'Applying the configuration to remote cluster {self.cluster}')
+                try:
+                    c = subprocess.run(
+                        f'gcloud {self.exec_cluster_proxy.get_driver_sshcmd_prefix()} '
+                        "--command=\"sudo bash -c 'cat >> /etc/spark/conf/spark-defaults.conf'\"",
+                        capture_output=True, input=wrapper_out_content, shell=True, text=True, check=True)
+                    if c.returncode != 0:
+                        raise RuntimeError(f'Error while running gcloud ssh command on remote cluster '
+                                           f'{c.stdout};{c.stderr}')
+                except RuntimeError as e:
+                    self.terminate(e, f'Could not apply configurations changes to remote cluster {self.cluster}')
+            self.ctxt.set_remote('wrapper_output_content', wrapper_out_content)
+
+    def _post_remote_run(self):
+        """
+        After the Spark properties are calculated. this will handle reporting the result and update
+        the remote environment if necessary.
+        """
+        self._download_tool_output()
+        wrapper_out_content = self.ctxt.get_remote('wrapper_output_content')
+        if wrapper_out_content is None:
+            # nothing to report
+            self._report_results_are_empty()
+        else:
+            self._process_tool_output()
+
+    def _process_tool_output(self):
+        super()._process_tool_output()
+        wrapper_out_content = self.ctxt.get_remote('wrapper_output_content')
+        # write the result to log file
+        boot_output_filename = self.ctxt.get_value('local', 'output', 'fileName')
+        wrapper_output_file = os.path.join(self.ctxt.get_wrapper_local_output(), boot_output_filename)
+        out_file_path = os.path.abspath(wrapper_output_file)
+        with open(wrapper_output_file, 'w', encoding='utf-8') as wrapper_output:
+            wrapper_output.write(wrapper_out_content)
+        self.ctxt.loginfo(f'Saving configuration to local file {out_file_path}')
+        wrapper_summary = [
+            f'Recommended configurations are saved to local disk: {out_file_path}',
+            'Using the following computed settings based on worker nodes:',
+            wrapper_out_content
+        ]
+        print('\n'.join(wrapper_summary))

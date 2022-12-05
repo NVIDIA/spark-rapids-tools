@@ -11,12 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin."""
 
-import fire
 import sys
 
-from spark_rapids_dataproc_tools.rapids_models import Profiling, Qualification, Bootstrap
+import fire
+
 from spark_rapids_dataproc_tools.diag_dataproc import DiagDataproc
+from spark_rapids_dataproc_tools.rapids_models import Profiling, Qualification, Bootstrap
 
 
 class DataprocWrapper(object):
@@ -40,6 +42,7 @@ class DataprocWrapper(object):
     def bootstrap(self,
                   cluster: str,
                   region: str,
+                  output_folder: str = '.',
                   dry_run: bool = False,
                   debug: bool = False) -> None:
         """
@@ -49,6 +52,9 @@ class DataprocWrapper(object):
         :param cluster: Name of the dataproc cluster
         :param region: Compute region (e.g. us-central1) for the cluster.
         :param dry_run: True or False to update the Spark config settings on Dataproc master node.
+        :param output_folder: Base output directory. The final recommendations will be logged in the
+               subdirectory 'wrapper-output/rapids_user_tools_bootstrap'.
+               Note that this argument only accepts local filesystem.
         :param debug: True or False to enable verbosity to the wrapper script.
 
         """
@@ -56,7 +62,7 @@ class DataprocWrapper(object):
                               region=region,
                               dry_run=dry_run,
                               debug=debug,
-                              output_folder=None,
+                              output_folder=output_folder,
                               tools_jar=None,
                               eventlogs=None)
         boot_tool.launch()
@@ -124,7 +130,7 @@ class DataprocWrapper(object):
                 'gpu_cluster_zone': gpu_cluster_zone,
             },
             debug=debug,
-            #config_path="config_path_value"
+            # config_path="config_path_value"
         )
         prof_tool.set_tool_options(tool_args=tool_options)
         prof_tool.launch()
@@ -232,7 +238,7 @@ class DataprocWrapper(object):
             },
             cuda=cuda,
             debug=debug,
-            #config_path="config_path_value"
+            # config_path="config_path_value"
         )
         qualification_tool.set_tool_options(tool_args=tool_options)
         qualification_tool.launch()
@@ -251,7 +257,8 @@ class DataprocWrapper(object):
         :param func: Diagnostic function to run. Available functions:
             'nv_driver': dump NVIDIA driver info via command `nvidia-smi`,
             'cuda_version': check if CUDA toolkit major version >= 11.0,
-            'rapids_jar': check if only single RAPIDS Accelerator for Apache Spark jar is installed and verify its signature,
+            'rapids_jar': check if only single RAPIDS Accelerator for Apache Spark jar is installed
+               and verify its signature,
             'deprecated_jar': check if deprecated (cudf) jar is installed. I.e. should no cudf jar starting with RAPIDS
                     Accelerator for Apache Spark 22.08,
             'spark': run a Hello-world Spark Application on CPU and GPU,

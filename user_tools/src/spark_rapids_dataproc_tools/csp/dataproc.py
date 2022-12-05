@@ -72,7 +72,7 @@ class Dataproc(CspBase):
             if workers and len(workers) > 0:
                 self.nodes['workers'] = workers
             else:
-                raise Exception("sorry, single node cluster (1 master, 0 workers) not supported")
+                raise Exception('sorry, single node cluster (1 master, 0 workers) not supported')
 
             zone_uri = info.get('config', {}).get('gceClusterConfig', {}).get('zoneUri')
             if zone_uri:
@@ -80,7 +80,7 @@ class Dataproc(CspBase):
             else:
                 raise Exception("not found 'zoneUri' from cluster info")
 
-        logger.debug(f'cluster nodes: {self.nodes} from zone: {self.zone}')
+        logger.debug('cluster nodes: %s from zone: %s', self.nodes, self.zone)
 
         if not node or node == 'master':
             # Return master node by default

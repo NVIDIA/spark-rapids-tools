@@ -17,6 +17,7 @@ import json
 import logging
 import re
 import sys
+from typing import Callable
 
 import fire
 import pkg_resources
@@ -27,7 +28,7 @@ from spark_rapids_dataproc_tools.utilities import get_log_dict, run_cmd
 logger = logging.getLogger('diag')
 
 consoleHandler = logging.StreamHandler(sys.stdout)
-logFormatter = logging.Formatter("%(message)s")
+logFormatter = logging.Formatter('%(message)s')
 consoleHandler.setFormatter(logFormatter)
 logger.addHandler(consoleHandler)
 
@@ -46,24 +47,24 @@ class Diagnostic:
         self.summary = {}
         self.nv_mvn_repo = 'https://repo1.maven.org/maven2/com/nvidia'
 
-    def banner(func):   # pylint: disable=no-self-argument
+    def banner(func: Callable):   # pylint: disable=no-self-argument
         """Banner decorator."""
         def wrapper(self, *args, **kwargs):
             name = func.__name__    # pylint: disable=no-member
-            logger.info(f'*** Running diagnostic function "{name}" ***')
+            logger.info('*** Running diagnostic function "%s" ***', name)
 
             result = True
             try:
                 func(self, *args, **kwargs)     # pylint: disable=not-callable
 
             except Exception as exception:    # pylint: disable=broad-except
-                logger.error(f'Error: {exception}')
+                logger.error('Error: %s', exception)
                 result = False
 
             if result:
-                logger.info(f'*** Check "{name}": PASS ***')
+                logger.info('*** Check "%s": PASS ***', name)
             else:
-                logger.info(f'*** Check "{name}": FAIL ***')
+                logger.info('*** Check "%s": FAIL ***', name)
 
             # Save result into summary
             if name in self.summary:
@@ -120,7 +121,7 @@ class Diagnostic:
         cuda_ver = version_info.get('cuda', {}).get('version', None)
         if cuda_ver:
             major = cuda_ver.split('.')[0]
-            logger.info(f'found cuda major version: {major}')
+            logger.info('found cuda major version: %s', major)
 
             if int(major) < 11:
                 raise Exception(f'cuda major version: {major} < 11')
@@ -142,7 +143,7 @@ class Diagnostic:
         matched = re.search('rapids-4-spark_(.+?).jar', output)
         if matched:
             version = matched.group(1)
-            logger.info(f'found rapids jar version: {version}')
+            logger.info('found rapids jar version: %s', version)
 
             self._import_pub_key()
             self._verify_rapids_jar_signature(version)
@@ -242,10 +243,10 @@ class Diagnostic:
         # wait for 2+ mins during the checking works. We assume customer cluster’s spark default conf is
         # not updated by customer
         boost = float(cpu_time) / float(gpu_time)
-        logger.info(f'Performance boost on GPU: {boost}')
+        logger.info('Performance boost on GPU: %s', boost)
 
         if boost < 3.0:
-            logger.warning(f'performance boost on GPU is less than expected: {boost} < 3.0')
+            logger.warning('performance boost on GPU is less than expected: %s < 3.0', boost)
 
     @banner
     def perf(self):
@@ -258,7 +259,7 @@ class Diagnostic:
         cpu_opts += ['--conf', 'spark.rapids.sql.enabled=false']
 
         cpu_time = run(cpu_opts)
-        logger.info(f'CPU execution time: {cpu_time}')
+        logger.info('CPU execution time: %s', cpu_time)
 
         gpu_opts = ['--master', 'yarn']
         gpu_opts += ['--conf', 'spark.rapids.sql.enabled=true']
@@ -266,7 +267,7 @@ class Diagnostic:
         gpu_opts += ['--conf', 'spark.rapids.sql.explain=ALL']
 
         gpu_time = run(gpu_opts)
-        logger.info(f'GPU execution time: {gpu_time}')
+        logger.info('GPU execution time: %s', gpu_time)
 
         self.evaluate_perf_result(cpu_time, gpu_time)
 
