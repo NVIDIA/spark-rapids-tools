@@ -264,10 +264,8 @@ class RapidsTool(object):
         pass
 
     def _pull_cluster_properties(self) -> str:
-        cluster_describe = f'dataproc clusters describe {self.cluster} --region={self.region}'
         fail_msg = f'Could not pull Cluster description region:{self.region}, {self.cluster}'
-        res = self.ctxt.cli.gcloud(cluster_describe,
-                                   msg_fail=fail_msg)
+        res = self.ctxt.cli.gcloud_describe_cluster(self.cluster, self.region, fail_msg)
         return res
 
     def _init_cluster_dataproc_props(self):
@@ -1203,6 +1201,23 @@ class Bootstrap(RapidsTool):
     def _initialize_remote_env(self):
         self._prepare_dependencies()
 
+    def _apply_changes_to_remote_cluster(self):
+        self.ctxt.loginfo(f'Applying the configuration to remote cluster {self.cluster}')
+        apply_cmd = (
+            f'gcloud {self.exec_cluster_proxy.get_driver_sshcmd_prefix()} '
+            "--command=\"sudo bash -c 'cat >> /etc/spark/conf/spark-defaults.conf'\""
+        )
+        wrapper_out_content = self.ctxt.get_remote('wrapper_output_content')
+        self.ctxt.loginfo(f'Executing command {apply_cmd},\n\tinput =\n{wrapper_out_content}')
+        # pylint: disable=subprocess-run-check
+        c = subprocess.run(
+            apply_cmd,
+            capture_output=True, input=wrapper_out_content, shell=True, text=True)
+        # pylint: enable=subprocess-run-check
+        if c.returncode != 0:
+            raise RuntimeError(f'Error while running gcloud ssh command on remote cluster '
+                               f'{c.stdout};{c.stderr}')
+
     def _download_tool_output(self):
         self.ctxt.loginfo('Downloading the result of running the tool remotely')
         tool_result = self.ctxt.get_remote('boot_spark_results')
@@ -1215,23 +1230,16 @@ class Bootstrap(RapidsTool):
                 wrapper_out_content_arr.append(f'{conf_key}={conf_val}')
             wrapper_out_content_arr.append(f'##### END : RAPIDS bootstrap settings for {self.cluster}\n')
             wrapper_out_content = '\n'.join(wrapper_out_content_arr)
+            self.ctxt.set_remote('wrapper_output_content', wrapper_out_content)
             if self.dry_run:
                 self.ctxt.loginfo(f'Skipping applying configurations to remote cluster {self.cluster}. '
                                   ' DRY_RUN is enabled.')
             else:
                 # apply the changes to remote cluster
-                self.ctxt.loginfo(f'Applying the configuration to remote cluster {self.cluster}')
                 try:
-                    c = subprocess.run(
-                        f'gcloud {self.exec_cluster_proxy.get_driver_sshcmd_prefix()} '
-                        "--command=\"sudo bash -c 'cat >> /etc/spark/conf/spark-defaults.conf'\"",
-                        capture_output=True, input=wrapper_out_content, shell=True, text=True, check=True)
-                    if c.returncode != 0:
-                        raise RuntimeError(f'Error while running gcloud ssh command on remote cluster '
-                                           f'{c.stdout};{c.stderr}')
+                    self._apply_changes_to_remote_cluster()
                 except RuntimeError as e:
                     self.terminate(e, f'Could not apply configurations changes to remote cluster {self.cluster}')
-            self.ctxt.set_remote('wrapper_output_content', wrapper_out_content)
 
     def _post_remote_run(self):
         """

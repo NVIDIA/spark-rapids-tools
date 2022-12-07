@@ -234,6 +234,25 @@ class CMDRunner:
         gcloud_cmd = f'gcloud {cmd}'
         return self.run(gcloud_cmd, expected=expected, msg_fail=msg_fail, fail_ok=fail_ok, cmd_ip=cmd_input)
 
+    def gcloud_describe_cluster(self, cluster: str, region: str, fail_msg):
+        describe_cmd = f'dataproc clusters describe {cluster} --region={region}'
+        return self.gcloud(describe_cmd, msg_fail=fail_msg)
+
+    def gcloud_ssh(self,
+                   node: str,
+                   zone: str,
+                   cmd: str,
+                   expected: int = 0,
+                   msg_fail: Optional[str] = None,
+                   fail_ok: bool = False,
+                   cmd_input=None):
+        ssh_command = (
+            f'compute ssh {node} --zone={zone} '
+            f"--command='{cmd}'"
+        )
+        return self.gcloud(cmd=ssh_command, expected=expected, msg_fail=msg_fail, fail_ok=fail_ok,
+                           cmd_input=cmd_input)
+
     def gsutil(self, cmd, expected: int = 0, msg_fail: Optional[str] = None, fail_ok: bool = False):
         gsutil_cmd = f'gsutil {cmd}'
         return self.run(gsutil_cmd, expected=expected, msg_fail=msg_fail, fail_ok=fail_ok)
@@ -419,18 +438,28 @@ class DataprocClusterPropContainer(YAMLPropertiesContainer):
                                         'Failed while processing GpuDevice')
             return gpu_device
 
+    def _pull_worker_gpu_memories(self) -> str:
+        """
+        Executes ssh command on worker node and retuens the output as string.
+        :return: a string in the form of "15109 MiB\n15109 MiB"
+        """
+        zone = self.get_zone()
+        worker = self.get_value('config', 'workerConfig', 'instanceNames')[0]
+        gpu_driver_err_msg = (
+            'Could not ssh to cluster or Cluster does not support GPU. '
+            'Make sure the cluster is running and NVIDIA drivers are installed.')
+        gpu_info = self.cli.gcloud_ssh(worker,
+                                       zone,
+                                       'nvidia-smi --query-gpu=memory.total --format=csv,noheader',
+                                       msg_fail=gpu_driver_err_msg)
+        return gpu_info
+
     def get_worker_gpu_info(self) -> (int, int):
         """
         Returns information on the GPUs assigned to each worker in a Dataproc cluster.
         :return: pair containing GPU count per worker and individual GPU memory size in megabytes
         """
-        zone = self.get_zone()
-        worker = self.get_value('config', 'workerConfig', 'instanceNames')[0]
-        gpu_cmd = (
-            f'compute ssh {worker} --zone={zone} '
-            f"--command='nvidia-smi --query-gpu=memory.total --format=csv,noheader'"
-        )
-        gpu_info = self.cli.gcloud(gpu_cmd, msg_fail='Cluster does not support GPU. Please install NVIDIA drivers.')
+        gpu_info = self._pull_worker_gpu_memories()
         # sometimes the output of the command may include SSH warning messages.
         # match only lines in with expression in the following format (15109 MiB)
         match_arr = re.findall(r'(\d+)\s+(MiB)', gpu_info, flags=re.MULTILINE)
