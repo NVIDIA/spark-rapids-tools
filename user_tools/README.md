@@ -29,10 +29,17 @@ set python environment to version [3.8, 3.10]
       ```sh
       $ pip install spark-rapids-user-tools
       ```
-    - Using local version from repo from top-level user_tools directory
+    - Using local version from the repo
 
       ```sh
       $ pip install -e .
+      ```
+    - Using wheel package built from the repo
+
+      ```sh
+      $ pip install build
+      $ python -m build --wheel
+      $ pip install <wheel-file>
       ```
 3. Make sure to install gcloud SDK if you plan to run the tool wrapper.
 
