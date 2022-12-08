@@ -234,6 +234,9 @@ class CMDRunner:
         gcloud_cmd = f'gcloud {cmd}'
         return self.run(gcloud_cmd, expected=expected, msg_fail=msg_fail, fail_ok=fail_ok, cmd_ip=cmd_input)
 
+    def gcloud_submit_as_spark(self, cmd_args, err_msg):
+        return self.gcloud(f'dataproc jobs submit spark {cmd_args}', msg_fail=err_msg)
+
     def gcloud_describe_cluster(self, cluster: str, region: str, fail_msg):
         describe_cmd = f'dataproc clusters describe {cluster} --region={region}'
         return self.gcloud(describe_cmd, msg_fail=fail_msg)
