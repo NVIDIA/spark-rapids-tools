@@ -1,0 +1,143 @@
+clusterName: dataproc-test-gpu-cluster
+clusterUuid: 11111111-1111-1111-1111-111111111111
+config:
+  configBucket: dataproc-test-gpu-cluster-config-bucket
+  endpointConfig:
+    enableHttpPortAccess: true
+    httpPorts:
+      HDFS NameNode: https://7w2neieeljhkvoqboj6eeeeeee-dot-us-central1.dataproc.googleusercontent.com/hdfs/dfshealth.html
+      HiveServer2 (dataproc-test-gpu-cluster-m): https://7w2neieeljhkvoqboj6eeeeeee-dot-us-central1.dataproc.googleusercontent.com/hiveserver2ui/dataproc-test-gpu-cluster-m?host=dataproc-test-gpu-cluster-m
+      Jupyter: https://7w2neieeljhkvoqboj6eeeeeee-dot-us-central1.dataproc.googleusercontent.com/gateway/default/jupyter/
+      JupyterLab: https://7w2neieeljhkvoqboj6eeeeeee-dot-us-central1.dataproc.googleusercontent.com/gateway/default/jupyter/lab/
+      MapReduce Job History: https://7w2neieeljhkvoqboj6eeeeeee-dot-us-central1.dataproc.googleusercontent.com/jobhistory/
+      Spark History Server: https://7w2neieeljhkvoqboj6eeeeeee-dot-us-central1.dataproc.googleusercontent.com/sparkhistory/
+      Tez: https://7w2neieeljhkvoqboj6eeeeeee-dot-us-central1.dataproc.googleusercontent.com/apphistory/tez-ui/
+      YARN Application Timeline: https://7w2neieeljhkvoqboj6eeeeeee-dot-us-central1.dataproc.googleusercontent.com/apphistory/
+      YARN ResourceManager: https://7w2neieeljhkvoqboj6eeeeeee-dot-us-central1.dataproc.googleusercontent.com/yarn/
+      Zeppelin: https://7w2neieeljhkvoqboj6eeeeeee-dot-us-central1.dataproc.googleusercontent.com/zeppelin/
+  gceClusterConfig:
+    internalIpOnly: false
+    metadata:
+      gpu-driver-provider: NVIDIA
+      rapids-runtime: SPARK
+    serviceAccountScopes:
+    - https://www.googleapis.com/auth/bigquery
+    - https://www.googleapis.com/auth/bigtable.admin.table
+    - https://www.googleapis.com/auth/bigtable.data
+    - https://www.googleapis.com/auth/cloud.useraccounts.readonly
+    - https://www.googleapis.com/auth/devstorage.full_control
+    - https://www.googleapis.com/auth/devstorage.read_write
+    - https://www.googleapis.com/auth/logging.write
+    subnetworkUri: https://www.googleapis.com/compute/v1/projects/rapids-spark/regions/us-central1/subnetworks/default
+    zoneUri: https://www.googleapis.com/compute/v1/projects/dataproc-project-id/zones/us-central1-a
+  initializationActions:
+  - executableFile: gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh
+    executionTimeout: 600s
+  - executableFile: gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh
+    executionTimeout: 600s
+  masterConfig:
+    diskConfig:
+      bootDiskSizeGb: 200
+      bootDiskType: pd-standard
+    imageUri: https://www.googleapis.com/compute/v1/projects/cloud-dataproc/global/images/dataproc-2-0-ubu18-20221026-170200-rc01
+    instanceNames:
+    - dataproc-test-gpu-cluster-m
+    machineTypeUri: https://www.googleapis.com/compute/v1/projects/dataproc-project-id/zones/us-central1-a/machineTypes/n1-standard-16
+    minCpuPlatform: AUTOMATIC
+    numInstances: 1
+    preemptibility: NON_PREEMPTIBLE
+  softwareConfig:
+    imageVersion: 2.0.50-ubuntu18
+    optionalComponents:
+    - JUPYTER
+    - ZEPPELIN
+    properties:
+      capacity-scheduler:yarn.scheduler.capacity.root.default.ordering-policy: fair
+      core:fs.gs.block.size: '134217728'
+      core:fs.gs.metadata.cache.enable: 'false'
+      core:hadoop.ssl.enabled.protocols: TLSv1,TLSv1.1,TLSv1.2
+      distcp:mapreduce.map.java.opts: -Xmx768m
+      distcp:mapreduce.map.memory.mb: '1024'
+      distcp:mapreduce.reduce.java.opts: -Xmx768m
+      distcp:mapreduce.reduce.memory.mb: '1024'
+      hadoop-env:HADOOP_DATANODE_OPTS: -Xmx512m
+      hdfs:dfs.datanode.address: 0.0.0.0:9866
+      hdfs:dfs.datanode.http.address: 0.0.0.0:9864
+      hdfs:dfs.datanode.https.address: 0.0.0.0:9865
+      hdfs:dfs.datanode.ipc.address: 0.0.0.0:9867
+      hdfs:dfs.namenode.handler.count: '20'
+      hdfs:dfs.namenode.http-address: 0.0.0.0:9870
+      hdfs:dfs.namenode.https-address: 0.0.0.0:9871
+      hdfs:dfs.namenode.lifeline.rpc-address: dataproc-test-gpu-cluster-m:8050
+      hdfs:dfs.namenode.secondary.http-address: 0.0.0.0:9868
+      hdfs:dfs.namenode.secondary.https-address: 0.0.0.0:9869
+      hdfs:dfs.namenode.service.handler.count: '10'
+      hdfs:dfs.namenode.servicerpc-address: dataproc-test-gpu-cluster-m:8051
+      hive:hive.fetch.task.conversion: none
+      mapred-env:HADOOP_JOB_HISTORYSERVER_HEAPSIZE: '4000'
+      mapred:mapreduce.job.maps: '189'
+      mapred:mapreduce.job.reduce.slowstart.completedmaps: '0.95'
+      mapred:mapreduce.job.reduces: '63'
+      mapred:mapreduce.jobhistory.recovery.store.class: org.apache.hadoop.mapreduce.v2.hs.HistoryServerLeveldbStateStoreService
+      mapred:mapreduce.map.cpu.vcores: '1'
+      mapred:mapreduce.map.java.opts: -Xmx5194m
+      mapred:mapreduce.map.memory.mb: '6493'
+      mapred:mapreduce.reduce.cpu.vcores: '1'
+      mapred:mapreduce.reduce.java.opts: -Xmx5194m
+      mapred:mapreduce.reduce.memory.mb: '6493'
+      mapred:mapreduce.task.io.sort.mb: '256'
+      mapred:yarn.app.mapreduce.am.command-opts: -Xmx5194m
+      mapred:yarn.app.mapreduce.am.resource.cpu-vcores: '1'
+      mapred:yarn.app.mapreduce.am.resource.mb: '6493'
+      spark-env:SPARK_DAEMON_MEMORY: 4000m
+      spark:spark.driver.maxResultSize: 7680m
+      spark:spark.driver.memory: 15360m
+      spark:spark.executor.cores: '8'
+      spark:spark.executor.instances: '2'
+      spark:spark.executor.memory: 47222m
+      spark:spark.executorEnv.OPENBLAS_NUM_THREADS: '1'
+      spark:spark.extraListeners: com.google.cloud.spark.performance.DataprocMetricsListener
+      spark:spark.scheduler.mode: FAIR
+      spark:spark.sql.cbo.enabled: 'true'
+      spark:spark.ui.port: '0'
+      spark:spark.yarn.am.memory: 640m
+      yarn-env:YARN_NODEMANAGER_HEAPSIZE: '4000'
+      yarn-env:YARN_RESOURCEMANAGER_HEAPSIZE: '4000'
+      yarn-env:YARN_TIMELINESERVER_HEAPSIZE: '4000'
+      yarn:yarn.nodemanager.address: 0.0.0.0:8026
+      yarn:yarn.nodemanager.resource.cpu-vcores: '32'
+      yarn:yarn.nodemanager.resource.memory-mb: '207776'
+      yarn:yarn.resourcemanager.nodemanager-graceful-decommission-timeout-secs: '86400'
+      yarn:yarn.scheduler.maximum-allocation-mb: '207776'
+      yarn:yarn.scheduler.minimum-allocation-mb: '1'
+  tempBucket: dataproc-temp-us-central1-1111111111111-szilpert
+  workerConfig:
+    accelerators:
+    - acceleratorCount: 2
+      acceleratorTypeUri: https://www.googleapis.com/compute/beta/projects/dataproc-project-id/zones/us-central1-a/acceleratorTypes/nvidia-tesla-t4
+    diskConfig:
+      bootDiskSizeGb: 1000
+      bootDiskType: pd-standard
+    imageUri: https://www.googleapis.com/compute/v1/projects/cloud-dataproc/global/images/dataproc-2-0-ubu18-20221026-170200-rc01
+    instanceNames:
+    - dataproc-test-gpu-cluster-w-0
+    - dataproc-test-gpu-cluster-w-1
+    machineTypeUri: https://www.googleapis.com/compute/v1/projects/dataproc-project-id/zones/us-central1-a/machineTypes/n1-highmem-32
+    minCpuPlatform: AUTOMATIC
+    numInstances: 2
+    preemptibility: NON_PREEMPTIBLE
+labels:
+  goog-dataproc-cluster-name: dataproc-test-gpu-cluster
+  goog-dataproc-cluster-uuid: 11111111-1111-1111-1111-111111111111
+  goog-dataproc-location: us-central1
+projectId: dataproc-project-id
+status:
+  state: STOPPED
+  stateStartTime: '2022-12-05T22:06:37.269291Z'
+statusHistory:
+- state: CREATING
+  stateStartTime: '2022-11-09T22:38:31.300853Z'
+- state: RUNNING
+  stateStartTime: '2022-11-09T22:46:12.124384Z'
+- state: STOPPING
+  stateStartTime: '2022-11-09T14:29:18.169258Z'
