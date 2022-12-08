@@ -29,7 +29,11 @@ set python environment to version [3.8, 3.10]
       ```sh
       $ pip install spark-rapids-user-tools
       ```
-    
+    - Using local version from repo from top-level user_tools directory
+
+      ```sh
+      $ pip install -e .
+      ```
 3. Make sure to install gcloud SDK if you plan to run the tool wrapper.
 
 ## Using the Rapids Tool Wrapper

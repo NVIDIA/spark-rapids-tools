@@ -194,7 +194,7 @@ class DataprocSavingsEstimator(object):
             incompatible_ssd = get_incompatible_criteria(workerLocalSSDs=ssds_count)
             if len(incompatible_ssd) > 0:
                 ssd_comments = [incompatible_ssd.get('comments')['workerLocalSSDs'],
-                                'Cost estimation is based on 1 local SSd per worker.']
+                                'Cost estimation is based on 1 local SSD per worker.']
                 self.comments.extend(ssd_comments)
             ssds_count = max(1, ssds_count)
         ssds_cost = self.price_provider.get_ssd_price() * ssds_count if (ssds_count > 0) else 0.0
