@@ -664,7 +664,7 @@ class Profiling(RapidsTool):
         tool_arguments = self.generate_final_tool_arguments(['--auto-tuner',
                                                              '--worker-info',
                                                              f'{worker_info_path}'])
-        submit_cmd = (
+        submit_cmd_args = (
             f'dataproc jobs submit spark --cluster={self.cluster}'
             f' --region={self.region}'
             f' --jars={jars_path}'
@@ -672,8 +672,8 @@ class Profiling(RapidsTool):
             f' --'
             f' {tool_arguments}'
         )
-        self.ctxt.logdebug(f'Going to submit job {submit_cmd}')
-        self.ctxt.cli.gcloud(submit_cmd, msg_fail='Failed Submitting Spark job')
+        self.ctxt.logdebug(f'Going to submit job <submit spark{submit_cmd_args}>')
+        self.ctxt.cli.gcloud_submit_as_spark(submit_cmd_args, err_msg='Failed Submitting Spark job')
 
 
 @dataclass

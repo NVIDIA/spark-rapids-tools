@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Test Bootstrap functions."""
+
 import os
 import subprocess
 from unittest.mock import patch
 
 import pytest  # pylint: disable=import-error
-import yaml
 from cli_test_helpers import ArgvContext  # pylint: disable=import-error
 
+from conftest import mock_cluster_props, get_wrapper_work_dir
 from spark_rapids_dataproc_tools import dataproc_wrapper
 from spark_rapids_dataproc_tools.dataproc_utils import DataprocClusterPropContainer
 from spark_rapids_dataproc_tools.rapids_models import Bootstrap
@@ -54,12 +55,6 @@ def mock_non_running_ssh():
 
 def mock_no_gpu_driver():
     simulate_gcloud_pull_gpu_mem_err('nvidia-smi-not-found')
-
-
-def mock_cluster_props(cluster: str, **unused_kwargs):
-    with open(f'tests/resources/dataproc-{cluster}.yaml', 'r', encoding='utf-8') as yaml_file:
-        static_properties = yaml.safe_load(yaml_file)
-        return yaml.dump(static_properties)
 
 
 def mock_pull_gpu_memories(cluster: str):
@@ -101,12 +96,16 @@ def fixture_boot_output_dir(tmp_path):
     Placeholder to prepare the output directory passed to the Bootstrap command.
     Note that there is no need to create the parent directory because the wrapper internally does that.
     """
-    test_output_folder = tmp_path / 'bootstrap'
+    test_output_folder = tmp_path / 'boot'
     return test_output_folder
 
 
+def boot_result_dir(root_out_directory):
+    return get_wrapper_work_dir('bootstrap', root_out_directory)
+
+
 @patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories', mock_non_running_ssh)
-@patch.object(Bootstrap, '_pull_cluster_properties', side_effect=[mock_cluster_props('test-nongpu-cluster')])
+@patch.object(Bootstrap, '_pull_cluster_properties', side_effect=[mock_cluster_props('dataproc-test-nongpu-cluster')])
 def test_bootstrap_failure_non_running_cluster(capsys, boot_output_dir):
     """Test Bootstrap with non-running cluster."""
     # Failure Running Rapids Tool (Bootstrap).
@@ -124,11 +123,11 @@ def test_bootstrap_failure_non_running_cluster(capsys, boot_output_dir):
     # | Recommendation: To check for possible causes of SSH connectivity issues and get
     # | recommendations, rerun the ssh command with the --troubleshoot option.
     # |
-    # | gcloud compute ssh ahussein-dp-spark3-gpu-w-0 --project=rapids-spark --zone=us-central1-a --troubleshoot
+    # | gcloud compute ssh dataproc-test-gpu --project=rapids-spark --zone=us-central1-a --troubleshoot
     # |
     # | Or, to investigate an IAP tunneling issue:
     # |
-    # | gcloud compute ssh ahussein-dp-spark3-gpu-w-0 --project=rapids-spark --zone=us-central1-a \
+    # | gcloud compute ssh dataproc-test-gpu-w-0 --project=rapids-spark --zone=us-central1-a \
     # --troubleshoot --tunnel-through-iap
     # |
     # | ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].
@@ -147,12 +146,12 @@ def test_bootstrap_failure_non_running_cluster(capsys, boot_output_dir):
     ]
     assert all(captured_output.out.strip().find(stmt) != -1 for stmt in main_key_stmts)
     assert not os.path.exists(
-        f'{boot_output_dir}/wrapper-output/rapids_user_tools_bootstrap/bootstrap_tool_output'
+        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output'
     )
 
 
 @patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories', mock_no_gpu_driver)
-@patch.object(Bootstrap, '_pull_cluster_properties', side_effect=[mock_cluster_props('test-nongpu-cluster')])
+@patch.object(Bootstrap, '_pull_cluster_properties', side_effect=[mock_cluster_props('dataproc-test-nongpu-cluster')])
 def test_bootstrap_failure_on_non_gpu_cluster(capsys, boot_output_dir):
     """
     Running bootstrap on non gpu cluster should fail.
@@ -181,7 +180,7 @@ def test_bootstrap_failure_on_non_gpu_cluster(capsys, boot_output_dir):
     captured_output = capsys.readouterr().out
     check_failure_content(captured_output)
     assert not os.path.exists(
-        f'{boot_output_dir}/wrapper-output/rapids_user_tools_bootstrap/bootstrap_tool_output'
+        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output'
     )
 
 
@@ -189,11 +188,11 @@ def test_bootstrap_failure_non_existing_cluster(capfd, boot_output_dir):
     """Test Bootstrap with non-existing cluster."""
     # Expected output running on invalid cluster
     # Failure Running Rapids Tool (Bootstrap).
-    # Could not pull Cluster description region:us-central1, dataproc-test-cluster
-    # Run Terminated with error.
-    #     Error invoking CMD <gcloud dataproc clusters describe dataproc-test-cluster --region=us-central1>:
-    # | ERROR: (gcloud.dataproc.clusters.describe) NOT_FOUND: Not found: \
-    # Cluster projects/rapids-spark/regions/us-central1/clusters/dataproc-test-cluster
+    # \tCould not pull Cluster description region:us-central1, dataproc-test-cluster
+    # \tRun Terminated with error.
+    # \tError invoking CMD <gcloud dataproc clusters describe dataproc-test-cluster --region=us-central1>:
+    # \t| ERROR: (gcloud.dataproc.clusters.describe) NOT_FOUND: Not found: \
+    # Cluster projects/project-id/regions/us-central1/clusters/dataproc-test-cluster
 
     def check_failure_content(actual_captured: str) -> bool:
         main_key_stmts = [
@@ -215,7 +214,7 @@ def test_bootstrap_failure_non_existing_cluster(capfd, boot_output_dir):
                      expected=1,
                      func_cb=check_failure_content)
     assert not os.path.exists(
-        f'{boot_output_dir}/wrapper-output/rapids_user_tools_bootstrap/bootstrap_tool_output/'
+        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output/'
     )
 
 
@@ -233,7 +232,7 @@ def test_bootstrap_failure_applying_changes_on_driver(capsys, boot_output_dir):
         '(gcloud.compute.ssh) Could not fetch resource'
     ]
     with patch.object(Bootstrap, '_pull_cluster_properties',
-                      side_effect=[mock_cluster_props('test-gpu-cluster')]) as pull_cluster_props, \
+                      side_effect=[mock_cluster_props('dataproc-test-gpu-cluster')]) as pull_cluster_props, \
             patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories',
                          side_effect=[mock_pull_gpu_memories('test-gpu-cluster')]) as pull_gpu_mem:
         with pytest.raises(SystemExit):
@@ -249,7 +248,7 @@ def test_bootstrap_failure_applying_changes_on_driver(capsys, boot_output_dir):
     pull_cluster_props.assert_called_once()
     pull_gpu_mem.assert_called_once()
     assert not os.path.exists(
-        f'{boot_output_dir}/wrapper-output/rapids_user_tools_bootstrap/bootstrap_tool_output'
+        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output'
     )
 
 
@@ -273,7 +272,7 @@ def test_bootstrap_success_with_t4(capsys, caplog, boot_output_dir):
         '##### END : RAPIDS bootstrap settings for dataproc-test-gpu-cluster']
 
     with patch.object(Bootstrap, '_pull_cluster_properties',
-                      side_effect=[mock_cluster_props('test-gpu-cluster')]) as pull_cluster_props, \
+                      side_effect=[mock_cluster_props('dataproc-test-gpu-cluster')]) as pull_cluster_props, \
             patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories',
                          side_effect=[mock_pull_gpu_memories('test-gpu-cluster')]) as pull_gpu_mem, \
             patch.object(Bootstrap, '_apply_changes_to_remote_cluster',
@@ -294,8 +293,7 @@ def test_bootstrap_success_with_t4(capsys, caplog, boot_output_dir):
     pull_gpu_mem.assert_called_once()
     apply_remote_configs.assert_called_once()
     assert os.path.exists(
-        f'{boot_output_dir}/wrapper-output/rapids_user_tools_bootstrap/bootstrap_tool_output/'
-        'rapids_4_dataproc_bootstrap_output.log'
+        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output/rapids_4_dataproc_bootstrap_output.log'
     )
 
 
@@ -323,7 +321,7 @@ def test_bootstrap_success_with_t4_dry_run(capsys, caplog, boot_output_dir):
         '##### END : RAPIDS bootstrap settings for dataproc-test-gpu-cluster']
 
     with patch.object(Bootstrap, '_pull_cluster_properties',
-                      side_effect=[mock_cluster_props('test-gpu-cluster')]) as pull_cluster_props, \
+                      side_effect=[mock_cluster_props('dataproc-test-gpu-cluster')]) as pull_cluster_props, \
             patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories',
                          side_effect=[mock_pull_gpu_memories('test-gpu-cluster')]) as pull_gpu_mem, \
             patch.object(Bootstrap, '_apply_changes_to_remote_cluster',
@@ -342,8 +340,7 @@ def test_bootstrap_success_with_t4_dry_run(capsys, caplog, boot_output_dir):
     # assert func.call_count == 1
     pull_cluster_props.assert_called_once()
     pull_gpu_mem.assert_called_once()
-    assert apply_remote_configs.call_count == 0
+    apply_remote_configs.assert_not_called()
     assert os.path.exists(
-        f'{boot_output_dir}/wrapper-output/rapids_user_tools_bootstrap/bootstrap_tool_output/'
-        'rapids_4_dataproc_bootstrap_output.log'
+        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output/rapids_4_dataproc_bootstrap_output.log'
     )

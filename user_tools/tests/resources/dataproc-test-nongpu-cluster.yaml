@@ -1,5 +1,5 @@
 clusterName: dataproc-test-nongpu-cluster
-clusterUuid: 11111111-f111-1111-1111-111111111111
+clusterUuid: 11111111-1111-1111-1111-111111111111
 config:
   configBucket: dataproc-test-nongpu-cluster-config-bucket
   endpointConfig:
@@ -117,7 +117,7 @@ config:
     preemptibility: NON_PREEMPTIBLE
 labels:
   goog-dataproc-cluster-name: dataproc-test-nongpu-cluster
-  goog-dataproc-cluster-uuid: 11111111-f111-1111-1111-111111111111
+  goog-dataproc-cluster-uuid: 11111111-1111-1111-1111-111111111111
   goog-dataproc-location: us-central1
 metrics:
   hdfsMetrics:
