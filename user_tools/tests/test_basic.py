@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Test basic functions."""
-
+import os
 import subprocess
+
+import pytest  # pylint: disable=import-error
+
+from conftest import assert_patterns_in_output, get_wrapper_work_dir
 
 
 def test_help():
@@ -99,3 +103,44 @@ def test_diag_no_args():
 
     assert result.returncode != 0
     assert b'ERROR: The function received no value for the required argument' in result.stderr
+
+
+@pytest.mark.parametrize('tool_name', ['qualification', 'profiling', 'bootstrap'])
+def test_fail_non_existing_cluster(tool_name, tmp_path, capfd):
+    """
+    Rin the wrapper tool on non-existing cluster.
+    :param tool_name: the name of the tool (profiling/qualification/bootstrap)
+    :param tmp_path: fixture which will provide a temporary directory unique to the test invocation,
+           created in the base temporary directory.
+    :param capfd: fixture in which all writes going to the operating system file descriptors 1 and 2 will be captured.
+    """
+
+    # Expected output running on invalid cluster
+    # Failure Running Rapids Tool (Tool_name).
+    # \tCould not pull Cluster description region:us-central1, dataproc-test-cluster
+    # \tRun Terminated with error.
+    # \tError invoking CMD <gcloud dataproc clusters describe dataproc-test-cluster --region=us-central1>:
+    # \t| ERROR: (gcloud.dataproc.clusters.describe) NOT_FOUND: Not found: \
+    # Cluster projects/project-id/regions/us-central1/clusters/dataproc-test-cluster
+
+    cluster_name = 'dataproc-test-non-existing-cluster'
+    std_reg_expressions = [
+        rf'Failure Running Rapids Tool \({tool_name.capitalize()}\)\.',
+        r'Could not pull Cluster description',
+        r'Run Terminated with error\.',
+        r'ERROR: \(gcloud\.dataproc\.clusters\.describe\) NOT_FOUND: Not found:',
+    ]
+    # Run the actual test
+    wrapper_args_arr = [
+        '--region=us-central1',
+        f'--cluster={cluster_name}',
+        f'--output_folder={tmp_path}'
+    ]
+    wrapper_args = ' '.join(wrapper_args_arr)
+    # pylint: disable=subprocess-run-check
+    c = subprocess.run(f'spark_rapids_dataproc {tool_name} {wrapper_args}', shell=True, text=True)
+    # pylint: enable=subprocess-run-check
+    assert c.returncode != 0, f'Running {tool_name.capitalize()} on non-existing cluster should fail'
+    captured_output = capfd.readouterr()
+    assert_patterns_in_output(std_reg_expressions, captured_output.out)
+    assert not os.path.exists(get_wrapper_work_dir(tool_name, tmp_path))

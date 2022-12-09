@@ -20,41 +20,11 @@ from unittest.mock import patch
 import pytest  # pylint: disable=import-error
 from cli_test_helpers import ArgvContext  # pylint: disable=import-error
 
-from conftest import mock_cluster_props, get_wrapper_work_dir
+from conftest import mock_cluster_props, get_wrapper_work_dir, mock_pull_gpu_mem_no_gpu_driver, \
+    RapidsToolTestBasic, dir_exists, mock_success_pull_cluster_props
 from spark_rapids_dataproc_tools import dataproc_wrapper
-from spark_rapids_dataproc_tools.dataproc_utils import DataprocClusterPropContainer
+from spark_rapids_dataproc_tools.dataproc_utils import DataprocClusterPropContainer, CMDRunner
 from spark_rapids_dataproc_tools.rapids_models import Bootstrap
-
-
-def simulate_gcloud_pull_gpu_mem_err(scenario: str):
-    msg_lookup = {
-        'non-running': (
-            'Failure Running Rapids Tool (Bootstrap).'
-            '\n\tCould not ssh to cluster or Cluster does not support GPU. '
-            'Make sure the cluster is running and NVIDIA drivers are installed.'
-            '\n\tRun Terminated with error.'
-            'Error invoking CMD <gcloud compute ssh dataproc-test-gpu-cluster '
-            "--zone=us-central1-a --command='nvidia-smi --query-gpu=memory.total --format=csv,noheader'>: "
-            '\n\t| ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].'),
-        'nvidia-smi-not-found': (
-            'Failure Running Rapids Tool (Bootstrap).'
-            '\n\tCould not ssh to cluster or Cluster does not support GPU. '
-            'Make sure the cluster is running and NVIDIA drivers are installed.'
-            '\n\tRun Terminated with error.'
-            'Error invoking CMD <gcloud compute ssh dataproc-test-gpu-cluster '
-            "--zone=us-central1-a --command='nvidia-smi --query-gpu=memory.total --format=csv,noheader'>: "
-            '\n\t| bash: nvidia-smi: command not found')
-    }
-    err_msg = msg_lookup.get(scenario)
-    raise RuntimeError(f'{err_msg}')
-
-
-def mock_non_running_ssh():
-    simulate_gcloud_pull_gpu_mem_err('non-running')
-
-
-def mock_no_gpu_driver():
-    simulate_gcloud_pull_gpu_mem_err('nvidia-smi-not-found')
 
 
 def mock_pull_gpu_memories(cluster: str):
@@ -104,121 +74,75 @@ def boot_result_dir(root_out_directory):
     return get_wrapper_work_dir('bootstrap', root_out_directory)
 
 
-@patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories', mock_non_running_ssh)
-@patch.object(Bootstrap, '_pull_cluster_properties', side_effect=[mock_cluster_props('dataproc-test-nongpu-cluster')])
-def test_bootstrap_failure_non_running_cluster(capsys, boot_output_dir):
-    """Test Bootstrap with non-running cluster."""
-    # Failure Running Rapids Tool (Bootstrap).
-    # Could not ssh to cluster or Cluster does not support GPU. Make sure the cluster is running \
-    # and Please install NVIDIA drivers.
-    # Run Terminated with error.
-    #     Error invoking CMD <gcloud compute ssh dataproc-test-gpu-cluster-w-0 --zone=us-central1-a \
-    #     --command='nvidia-smi \
-    #     --query-gpu=memory.total --format=csv,noheader'>:
-    # | External IP address was not found; defaulting to using IAP tunneling.
-    # | ERROR: (gcloud.compute.start-iap-tunnel) Error while connecting [4033: 'not authorized'].
-    #     | kex_exchange_identification: Connection closed by remote host
-    # | Connection closed by UNKNOWN port 65535
-    # |
-    # | Recommendation: To check for possible causes of SSH connectivity issues and get
-    # | recommendations, rerun the ssh command with the --troubleshoot option.
-    # |
-    # | gcloud compute ssh dataproc-test-gpu --project=rapids-spark --zone=us-central1-a --troubleshoot
-    # |
-    # | Or, to investigate an IAP tunneling issue:
-    # |
-    # | gcloud compute ssh dataproc-test-gpu-w-0 --project=rapids-spark --zone=us-central1-a \
-    # --troubleshoot --tunnel-through-iap
-    # |
-    # | ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].
-    # Run the actual test
-    with pytest.raises(SystemExit):
-        with ArgvContext('spark_rapids_dataproc', 'bootstrap',
-                         '--cluster', 'dataproc-test-gpu-cluster',
-                         '--region', 'us-central1',
-                         '--output_folder', f'{boot_output_dir}'):
-            dataproc_wrapper.main()
-    captured_output = capsys.readouterr()
-    main_key_stmts = [
-        'Failure Running Rapids Tool (Bootstrap).',
-        'Could not ssh to cluster',
-        'ERROR: (gcloud.compute.ssh)'
-    ]
-    assert all(captured_output.out.strip().find(stmt) != -1 for stmt in main_key_stmts)
-    assert not os.path.exists(
-        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output'
-    )
+class TestBootstrap(RapidsToolTestBasic):
+    """Test Bootstrap features."""
+    def _init_tool_ctx(self, autofilled_ctx: dict):
+        tool_name = 'bootstrap'
+        prof_ctxt = {
+            'tool_name': tool_name,
+            'wrapper_out_dirname': 'bootstrap-tool-output',
+            'work_dir_postfix': f'wrapper-output/rapids_user_tools_{tool_name}'
+        }
+        autofilled_ctx.update(prof_ctxt)
+        super()._init_tool_ctx(autofilled_ctx)
 
-
-@patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories', mock_no_gpu_driver)
-@patch.object(Bootstrap, '_pull_cluster_properties', side_effect=[mock_cluster_props('dataproc-test-nongpu-cluster')])
-def test_bootstrap_failure_on_non_gpu_cluster(capsys, boot_output_dir):
-    """
-    Running bootstrap on non gpu cluster should fail.
-    """
-    # Failure Running Rapids Tool (Bootstrap).
-    #         Could not ssh to cluster or Cluster does not support GPU. Make sure the cluster is \
-    #         running and NVIDIA drivers are installed.
-    #         Run Terminated with error.
-    #         Error invoking CMD <gcloud compute ssh node-w-0 --zone=us-central1-a \
-    #         --command='nvidia-smi --query-gpu=memory.total --format=csv,noheader'>:
-    #         | bash: nvidia-smi: command not found
-    def check_failure_content(actual_captured: str) -> bool:
-        main_key_stmts = [
-            'Failure Running Rapids Tool (Bootstrap).',
-            'Could not ssh to cluster or Cluster does not support GPU.',
-            'bash: nvidia-smi: command not found'
+    @pytest.mark.parametrize('submission_cluster', ['dataproc-test-gpu-cluster', 'dataproc-test-nongpu-cluster'])
+    def test_fail_non_running_cluster(self, ut_dir, submission_cluster):
+        # Failure Running Rapids Tool (Bootstrap).
+        # Could not ssh to cluster or Cluster does not support GPU. Make sure the cluster is running \
+        # and Please install NVIDIA drivers.
+        # Run Terminated with error.
+        #     Error invoking CMD <gcloud compute ssh dataproc-test-gpu-cluster-w-0 --zone=us-central1-a \
+        #     --command='nvidia-smi \
+        #     --query-gpu=memory.total --format=csv,noheader'>:
+        # | External IP address was not found; defaulting to using IAP tunneling.
+        # | ERROR: (gcloud.compute.start-iap-tunnel) Error while connecting [4033: 'not authorized'].
+        #     | kex_exchange_identification: Connection closed by remote host
+        # | Connection closed by UNKNOWN port 65535
+        # |
+        # | Recommendation: To check for possible causes of SSH connectivity issues and get
+        # | recommendations, rerun the ssh command with the --troubleshoot option.
+        # |
+        # | gcloud compute ssh dataproc-test-gpu --project=rapids-spark --zone=us-central1-a --troubleshoot
+        # |
+        # | Or, to investigate an IAP tunneling issue:
+        # |
+        # | gcloud compute ssh dataproc-test-gpu-w-0 --project=rapids-spark --zone=us-central1-a \
+        # --troubleshoot --tunnel-through-iap
+        # |
+        # | ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].
+        std_reg_expressions = [
+            rf'Failure Running Rapids Tool \({self.get_tool_name().capitalize()}\)\.',
+            r'Could not ssh to cluster',
+            r'ERROR: \(gcloud\.compute\.ssh\)'
         ]
-        return all(actual_captured.find(stmt) != -1 for stmt in main_key_stmts)
+        self._run_tool_on_non_running_gpu_cluster(ut_dir, std_reg_expressions, submission_cluster=submission_cluster)
 
-    with pytest.raises(SystemExit):
-        with ArgvContext('spark_rapids_dataproc', 'bootstrap',
-                         '--cluster', 'dataproc-test-nongpu-cluster',
-                         '--region', 'us-central1',
-                         '--output_folder', f'{boot_output_dir}'):
-            dataproc_wrapper.main()
-    captured_output = capsys.readouterr().out
-    check_failure_content(captured_output)
-    assert not os.path.exists(
-        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output'
-    )
-
-
-def test_bootstrap_failure_non_existing_cluster(capfd, boot_output_dir):
-    """Test Bootstrap with non-existing cluster."""
-    # Expected output running on invalid cluster
-    # Failure Running Rapids Tool (Bootstrap).
-    # \tCould not pull Cluster description region:us-central1, dataproc-test-cluster
-    # \tRun Terminated with error.
-    # \tError invoking CMD <gcloud dataproc clusters describe dataproc-test-cluster --region=us-central1>:
-    # \t| ERROR: (gcloud.dataproc.clusters.describe) NOT_FOUND: Not found: \
-    # Cluster projects/project-id/regions/us-central1/clusters/dataproc-test-cluster
-
-    def check_failure_content(actual_captured: str) -> bool:
-        main_key_stmts = [
-            'Failure Running Rapids Tool (Bootstrap).',
-            'Could not pull Cluster description',
-            'ERROR: (gcloud.dataproc.clusters.describe) NOT_FOUND: Not found:'
+    @patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories', mock_pull_gpu_mem_no_gpu_driver)
+    @patch.object(CMDRunner, 'gcloud_describe_cluster', side_effect=mock_success_pull_cluster_props)
+    def test_bootstrap_fail_on_non_gpu_cluster(self, ut_dir, submission_cluster='dataproc-test-nongpu-cluster'):
+        """
+        Running bootstrap on non gpu cluster should fail.
+        """
+        # Failure Running Rapids Tool (Bootstrap).
+        #         Could not ssh to cluster or Cluster does not support GPU. Make sure the cluster is \
+        #         running and NVIDIA drivers are installed.
+        #         Run Terminated with error.
+        #         Error invoking CMD <gcloud compute ssh node-w-0 --zone=us-central1-a \
+        #         --command='nvidia-smi --query-gpu=memory.total --format=csv,noheader'>:
+        #         | bash: nvidia-smi: command not found
+        std_reg_expressions = [
+            rf'Failure Running Rapids Tool \({self.get_tool_name().capitalize()}\)\.',
+            r'Could not ssh to cluster or Cluster does not support GPU.',
+            r'bash: nvidia-smi: command not found'
         ]
-        return all(actual_captured.find(stmt) != -1 for stmt in main_key_stmts)
-
-    # Run the actual test
-    boot_args = [
-        '--region=us-central1',
-        '--cluster=dataproc-test-non-existing-cluster',
-        f'--output_folder={boot_output_dir}'
-    ]
-    wrapper_args = ' '.join(boot_args)
-    run_dataproc_cmd(capfd,
-                     cmd=f'bootstrap {wrapper_args}',
-                     expected=1,
-                     func_cb=check_failure_content)
-    assert not os.path.exists(
-        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output/'
-    )
+        self.run_fail_wrapper(submission_cluster, ut_dir)
+        self.assert_output_as_expected(std_reg_expressions)
+        assert not dir_exists(self.get_wrapper_out_dir(ut_dir)), \
+            f'Directory {self.get_wrapper_out_dir(ut_dir)} exists!!!'
 
 
-def test_bootstrap_failure_applying_changes_on_driver(capsys, boot_output_dir):
+def test_bootstrap_fail_applying_changes_on_driver(capsys, boot_output_dir):
     """Test Bootstrap failure running command to apply changes on driver node."""
     # Failure Running Rapids Tool (Bootstrap).
     #         Could not apply configurations changes to remote cluster dataproc-test-gpu-cluster
