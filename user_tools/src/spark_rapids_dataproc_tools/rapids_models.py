@@ -665,14 +665,14 @@ class Profiling(RapidsTool):
                                                              '--worker-info',
                                                              f'{worker_info_path}'])
         submit_cmd_args = (
-            f'dataproc jobs submit spark --cluster={self.cluster}'
+            f'--cluster={self.cluster}'
             f' --region={self.region}'
             f' --jars={jars_path}'
             f' --class={self.ctxt.get_tool_main_class()}'
             f' --'
             f' {tool_arguments}'
         )
-        self.ctxt.logdebug(f'Going to submit job <submit spark{submit_cmd_args}>')
+        self.ctxt.logdebug(f'Going to submit job <submit spark {submit_cmd_args}>')
         self.ctxt.cli.gcloud_submit_as_spark(submit_cmd_args, err_msg='Failed Submitting Spark job')
 
 
@@ -1106,16 +1106,16 @@ class Qualification(RapidsTool):
         # set the arguments
         jars_path = os.path.join(self.ctxt.get_remote_work_dir(), self.ctxt.get_remote('jarFileName'))
         tool_arguments = self.generate_final_tool_arguments([])
-        submit_cmd = (
-            f'dataproc jobs submit spark --cluster={self.cluster}'
+        submit_cmd_args = (
+            f'--cluster={self.cluster}'
             f' --region={self.region}'
             f' --jars={jars_path}'
             f' --class={self.ctxt.get_tool_main_class()}'
             f' --'
             f' {tool_arguments}'
         )
-        self.ctxt.logdebug(f'Going to submit job {submit_cmd}')
-        self.ctxt.cli.gcloud(submit_cmd, msg_fail='Failed Submitting Spark job')
+        self.ctxt.logdebug(f'Going to submit job <submit spark {submit_cmd_args}>')
+        self.ctxt.cli.gcloud_submit_as_spark(submit_cmd_args, err_msg='Failed Submitting Spark job')
 
 
 @dataclass

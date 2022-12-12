@@ -19,23 +19,9 @@ from unittest.mock import patch
 
 import pytest  # pylint: disable=import-error
 
-from conftest import mock_cluster_props, get_wrapper_work_dir, RapidsToolTestBasic, dir_exists
+from conftest import RapidsToolTestBasic, os_path_exists, mock_success_pull_cluster_props
 from spark_rapids_dataproc_tools.dataproc_utils import CMDRunner
 from spark_rapids_dataproc_tools.rapids_models import Qualification
-
-
-@pytest.fixture(name='qual_output_dir')
-def fixture_qual_output_dir(tmp_path):
-    """
-    Placeholder to prepare the output directory passed to the Qualification command.
-    Note that there is no need to create the parent directory because the wrapper internally does that.
-    """
-    test_output_folder = tmp_path / 'qual'
-    return test_output_folder
-
-
-def qual_result_dir(root_out_directory):
-    return get_wrapper_work_dir('qualification', root_out_directory)
 
 
 def mock_passive_copy(*unused_argv, **unused_kwargs):
@@ -101,7 +87,7 @@ class TestQualification(RapidsToolTestBasic):
         # submission cluster on which the tool runs. To update the configuration of the CPU cluster, \
         # make sure to pass the properties file to the CLI arguments.
         # 2022-12-07 12:43:12,443 INFO qualification: The GPU cluster is the same as the submission \
-        # cluster on which the RAPIDS tool is running [ahussein-dp-spark3]. To update the configuration \
+        # cluster on which the RAPIDS tool is running [CLUSTER_NAME]. To update the configuration \
         # of the GPU cluster, make sure to pass the properties file to the CLI arguments.
         # 2022-12-07 12:43:14,079 INFO qualification: Preparing remote work env
         # 2022-12-07 12:43:15,847 INFO qualification: Upload dependencies to remote cluster
@@ -120,15 +106,13 @@ class TestQualification(RapidsToolTestBasic):
 
         # pylint: enable=line-too-long
 
-        cluster_name = submission_cluster
-
         log_reg_expressions = [
             (r'INFO qualification: The original CPU cluster is the same as the submission cluster on '
              r'which the tool runs\. To update the configuration of the CPU cluster, make sure to pass '
              r'the properties file to the CLI arguments'),
             (r'INFO qualification: The GPU cluster is the same as the submission cluster on which the RAPIDS tool is '
-             rf'running \[{cluster_name}\]\. To update the configuration of the GPU cluster, make sure to pass the '
-             r'properties file to the CLI arguments\.'),
+             rf'running \[{submission_cluster}\]\. To update the configuration of the GPU cluster, '
+             r'make sure to pass the properties file to the CLI arguments\.'),
         ]
         std_reg_expressions = [
             r'Failure Running Rapids Tool \(Qualification\)\.',
@@ -147,16 +131,15 @@ class TestQualification(RapidsToolTestBasic):
     @pytest.mark.parametrize('events_scenario',
                              [{'label': 'with_events', 'mockFunc': mock_remote_download},
                               {'label': 'no_events', 'mockFunc': mock_passive_copy}],
-                             ids=('with tool output', 'No tool output'))
+                             ids=('with tool output', 'no tool output'))
     @pytest.mark.parametrize('submission_cluster',
                              ['dataproc-test-gpu-cluster', 'dataproc-test-nongpu-cluster'])
-    def test_qual_success(self, ut_dir, submission_cluster, events_scenario):
+    def test_success(self, ut_dir, submission_cluster, events_scenario):
         """
         This is a successful run achieved by capturing cloud_copy command. It is executed with two different scenarios:
         1- with empty eventlogs, and 2- with mocked eventlogs loaded from resources folder.
         For more details on the sample see resources/output_samples/generation.md
-        :param capsys: captures the stdout of the execution.
-        :param qual_output_dir: the temp folder passed as an argument to the wrapper command.
+        :param ut_dir: the root directory of the unit-test
         :param submission_cluster: the name of the cluster used to submit the tool.
         :param events_scenario: the method to be used as side effect for cloud copy command.
         """
@@ -208,7 +191,7 @@ class TestQualification(RapidsToolTestBasic):
             ]
         }
         with patch.object(CMDRunner, 'gcloud_describe_cluster',
-                          side_effect=[mock_cluster_props(f'{submission_cluster}')]) as pull_cluster_props, \
+                          side_effect=mock_success_pull_cluster_props) as pull_cluster_props, \
                 patch.object(CMDRunner, 'gcloud_cp',
                              side_effect=events_scenario.get('mockFunc')) as mock_remote_copy, \
                 patch.object(Qualification, '_run_tool_as_spark',
@@ -216,9 +199,9 @@ class TestQualification(RapidsToolTestBasic):
             self.run_successful_wrapper(submission_cluster, ut_dir)
         # check the output on local disk
         if scenario_id == 'no_events':
-            assert not dir_exists(f'{wrapper_output_folder}')
+            self.assert_wrapper_out_dir_not_exists(ut_dir)
         else:
-            assert dir_exists(f'{wrapper_summary_file}'), 'Summary report was not generated!'
+            assert os_path_exists(f'{wrapper_summary_file}'), 'Summary report was not generated!'
         # check the stdout and log output
         self.assert_output_as_expected(std_reg_expressions.get(scenario_id),
                                        log_reg_expressions)

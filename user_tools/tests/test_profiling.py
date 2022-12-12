@@ -26,7 +26,8 @@ class TestProfiling(RapidsToolTestBasic):
         tool_name = 'profiling'
         prof_ctxt = {
             'tool_name': tool_name,
-            'work_dir_postfix': f'wrapper-output/rapids_user_tools_{tool_name}'
+            'work_dir_postfix': f'wrapper-output/rapids_user_tools_{tool_name}',
+            'wrapper_out_dirname': 'profiling-tool-output'
         }
         autofilled_ctx.update(prof_ctxt)
         super()._init_tool_ctx(autofilled_ctx)
@@ -61,7 +62,7 @@ class TestProfiling(RapidsToolTestBasic):
         #         |
         #         | Or, to investigate an IAP tunneling issue:
         #         |
-        #         | gcloud compute ssh dataproc-cluster-gpu-w-0-w-0 --project=project-id --zone=us-central1-a \
+        #         | gcloud compute ssh dataproc-cluster-gpu-w-0 --project=project-id --zone=us-central1-a \
         #         --troubleshoot --tunnel-through-iap
         #         |
         #         | ERROR: (gcloud.compute.ssh) [/usr/bin/ssh] exited with return code [255].

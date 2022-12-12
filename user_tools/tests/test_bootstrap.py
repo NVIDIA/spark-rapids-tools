@@ -13,16 +13,12 @@
 # limitations under the License.
 """Test Bootstrap functions."""
 
-import os
-import subprocess
 from unittest.mock import patch
 
 import pytest  # pylint: disable=import-error
-from cli_test_helpers import ArgvContext  # pylint: disable=import-error
 
-from conftest import mock_cluster_props, get_wrapper_work_dir, mock_pull_gpu_mem_no_gpu_driver, \
-    RapidsToolTestBasic, dir_exists, mock_success_pull_cluster_props
-from spark_rapids_dataproc_tools import dataproc_wrapper
+from conftest import mock_pull_gpu_mem_no_gpu_driver, \
+    RapidsToolTestBasic, os_path_exists, mock_success_pull_cluster_props
 from spark_rapids_dataproc_tools.dataproc_utils import DataprocClusterPropContainer, CMDRunner
 from spark_rapids_dataproc_tools.rapids_models import Bootstrap
 
@@ -39,7 +35,7 @@ def mock_pull_gpu_memories(cluster: str):
     cluster_gpu_info = {
         'dataproc-test-gpu-cluster': '\n'.join(['15109 MiB', '15109 MiB'])
     }
-    return cluster_gpu_info.get(f'dataproc-{cluster}')
+    return cluster_gpu_info.get(cluster)
 
 
 def mock_gcloud_remote_configs(*unused_args):
@@ -49,38 +45,13 @@ def mock_gcloud_remote_configs(*unused_args):
     """
 
 
-def run_dataproc_cmd(capfd, cmd: str, expected: int = 0, func_cb=None):
-    # pylint: disable=subprocess-run-check
-    c = subprocess.run(f'spark_rapids_dataproc {cmd}', shell=True, text=True)
-    captured_output = capfd.readouterr()
-    with capfd.disabled():
-        if func_cb is not None:
-            # print(captured_output)
-            func_cb(captured_output.out.strip())
-    assert expected == c.returncode
-
-
-@pytest.fixture(name='boot_output_dir')
-def fixture_boot_output_dir(tmp_path):
-    """
-    Placeholder to prepare the output directory passed to the Bootstrap command.
-    Note that there is no need to create the parent directory because the wrapper internally does that.
-    """
-    test_output_folder = tmp_path / 'boot'
-    return test_output_folder
-
-
-def boot_result_dir(root_out_directory):
-    return get_wrapper_work_dir('bootstrap', root_out_directory)
-
-
 class TestBootstrap(RapidsToolTestBasic):
     """Test Bootstrap features."""
     def _init_tool_ctx(self, autofilled_ctx: dict):
         tool_name = 'bootstrap'
         prof_ctxt = {
             'tool_name': tool_name,
-            'wrapper_out_dirname': 'bootstrap-tool-output',
+            'wrapper_out_dirname': 'bootstrap_tool_output',
             'work_dir_postfix': f'wrapper-output/rapids_user_tools_{tool_name}'
         }
         autofilled_ctx.update(prof_ctxt)
@@ -118,9 +89,7 @@ class TestBootstrap(RapidsToolTestBasic):
         ]
         self._run_tool_on_non_running_gpu_cluster(ut_dir, std_reg_expressions, submission_cluster=submission_cluster)
 
-    @patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories', mock_pull_gpu_mem_no_gpu_driver)
-    @patch.object(CMDRunner, 'gcloud_describe_cluster', side_effect=mock_success_pull_cluster_props)
-    def test_bootstrap_fail_on_non_gpu_cluster(self, ut_dir, submission_cluster='dataproc-test-nongpu-cluster'):
+    def test_fail_on_non_gpu_cluster(self, ut_dir, submission_cluster='dataproc-test-nongpu-cluster'):
         """
         Running bootstrap on non gpu cluster should fail.
         """
@@ -136,135 +105,89 @@ class TestBootstrap(RapidsToolTestBasic):
             r'Could not ssh to cluster or Cluster does not support GPU.',
             r'bash: nvidia-smi: command not found'
         ]
-        self.run_fail_wrapper(submission_cluster, ut_dir)
+        with patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories', mock_pull_gpu_mem_no_gpu_driver), \
+                patch.object(CMDRunner, 'gcloud_describe_cluster', side_effect=mock_success_pull_cluster_props):
+            self.run_fail_wrapper(submission_cluster, ut_dir)
         self.assert_output_as_expected(std_reg_expressions)
-        assert not dir_exists(self.get_wrapper_out_dir(ut_dir)), \
+        assert not os_path_exists(self.get_wrapper_out_dir(ut_dir)), \
             f'Directory {self.get_wrapper_out_dir(ut_dir)} exists!!!'
 
+    def test_fail_apply_changes_on_driver(self,
+                                          ut_dir,
+                                          submission_cluster='dataproc-test-gpu-cluster'):
+        """Test Bootstrap failure running command to apply changes on driver node."""
+        # Failure Running Rapids Tool (Bootstrap).
+        #         Could not apply configurations changes to remote cluster dataproc-test-gpu-cluster
+        #         Run Terminated with error.
+        #         Error while running gcloud ssh command on remote cluster ;\
+        #         ERROR: (gcloud.compute.ssh) Could not fetch resource:
+        #  - The resource \w was not found
+        std_reg_expressions = [
+            rf'Failure Running Rapids Tool \({self.get_tool_name().capitalize()}\)\.',
+            rf'Could not apply configurations changes to remote cluster {submission_cluster}',
+            r'\(gcloud\.compute\.ssh\) Could not fetch resource'
+        ]
+        log_reg_expressions = [
+            rf'Applying the configuration to remote cluster {submission_cluster}'
+        ]
+        with patch.object(CMDRunner, 'gcloud_describe_cluster',
+                          side_effect=mock_success_pull_cluster_props) as pull_cluster_props, \
+                patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories',
+                             side_effect=[mock_pull_gpu_memories('dataproc-test-gpu-cluster')]) as pull_gpu_mem:
+            self.run_fail_wrapper(submission_cluster, ut_dir)
+        self.assert_output_as_expected(std_reg_expressions, log_reg_expressions)
+        pull_cluster_props.assert_called_once()
+        pull_gpu_mem.assert_called_once()
+        self.assert_wrapper_out_dir_not_exists(ut_dir)
 
-def test_bootstrap_fail_applying_changes_on_driver(capsys, boot_output_dir):
-    """Test Bootstrap failure running command to apply changes on driver node."""
-    # Failure Running Rapids Tool (Bootstrap).
-    #         Could not apply configurations changes to remote cluster dataproc-test-gpu-cluster
-    #         Run Terminated with error.
-    #         Error while running gcloud ssh command on remote cluster ;\
-    #         ERROR: (gcloud.compute.ssh) Could not fetch resource:
-    #  - The resource \w was not found
-    main_key_stmts = [
-        'Failure Running Rapids Tool (Bootstrap).',
-        'Could not apply configurations changes to remote cluster dataproc-test-gpu-cluster',
-        '(gcloud.compute.ssh) Could not fetch resource'
-    ]
-    with patch.object(Bootstrap, '_pull_cluster_properties',
-                      side_effect=[mock_cluster_props('dataproc-test-gpu-cluster')]) as pull_cluster_props, \
-            patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories',
-                         side_effect=[mock_pull_gpu_memories('test-gpu-cluster')]) as pull_gpu_mem:
-        with pytest.raises(SystemExit):
-            with ArgvContext('spark_rapids_dataproc',
-                             'bootstrap', '--cluster',
-                             'dataproc-test-gpu-cluster',
-                             '--region', 'us-central1',
-                             '--debug', 'True',
-                             '--output_folder', f'{boot_output_dir}'):
-                dataproc_wrapper.main()
-    captured_output = capsys.readouterr().out
-    assert all(captured_output.find(stmt) != -1 for stmt in main_key_stmts)
-    pull_cluster_props.assert_called_once()
-    pull_gpu_mem.assert_called_once()
-    assert not os.path.exists(
-        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output'
-    )
-
-
-def test_bootstrap_success_with_t4(capsys, caplog, boot_output_dir):
-    """
-    Verify that the calculations of the bootstrap given the cluster properties defined in
-    tests/resources/dataproc-test-gpu-cluster.yaml, which runs T4 Nvidia GPUs.
-    """
-    main_key_stmts = [
-        'Recommended configurations are saved to local disk:',
-        'wrapper-output/rapids_user_tools_bootstrap/bootstrap_tool_output/rapids_4_dataproc_bootstrap_output.log',
-        'Using the following computed settings based on worker nodes:',
-        '##### BEGIN : RAPIDS bootstrap settings for dataproc-test-gpu-cluster',
-        'spark.executor.cores=16',
-        'spark.executor.memory=32768m',
-        'spark.executor.memoryOverhead=7372m',
-        'spark.rapids.sql.concurrentGpuTasks=2',
-        'spark.rapids.memory.pinnedPool.size=4096m',
-        'spark.sql.files.maxPartitionBytes=512m',
-        'spark.task.resource.gpu.amount=0.0625',
-        '##### END : RAPIDS bootstrap settings for dataproc-test-gpu-cluster']
-
-    with patch.object(Bootstrap, '_pull_cluster_properties',
-                      side_effect=[mock_cluster_props('dataproc-test-gpu-cluster')]) as pull_cluster_props, \
-            patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories',
-                         side_effect=[mock_pull_gpu_memories('test-gpu-cluster')]) as pull_gpu_mem, \
-            patch.object(Bootstrap, '_apply_changes_to_remote_cluster',
-                         side_effect=[mock_gcloud_remote_configs]) as apply_remote_configs:
-        with ArgvContext('spark_rapids_dataproc',
-                         'bootstrap', '--cluster',
-                         'dataproc-test-gpu-cluster',
-                         '--region', 'us-central1',
-                         '--output_folder', f'{boot_output_dir}'):
-            dataproc_wrapper.main()
-
-    captured_run = capsys.readouterr()
-    captured_out = captured_run.out
-    assert all(captured_out.find(stmt) != -1 for stmt in main_key_stmts)
-    assert caplog.text.find('Applying the configuration to remote cluster ') != 1
-    # assert func.call_count == 1
-    pull_cluster_props.assert_called_once()
-    pull_gpu_mem.assert_called_once()
-    apply_remote_configs.assert_called_once()
-    assert os.path.exists(
-        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output/rapids_4_dataproc_bootstrap_output.log'
-    )
-
-
-def test_bootstrap_success_with_t4_dry_run(capsys, caplog, boot_output_dir):
-    """
-    Passing the dry_run mode, verify that the changes won't be applied to the cluster.
-    This is achieved by checking the content of log messages.
-    Verify that the calculations of the bootstrap given the cluster properties defined in
-    tests/resources/dataproc-test-gpu-cluster.yaml, which runs T4 Nvidia GPUs.
-    """
-    # When the dry_run is enabled the loginfo should contain the following message:
-    # 'Skipping applying configurations to remote cluster {self.cluster}.  DRY_RUN is enabled.'
-    main_key_stmts = [
-        'Recommended configurations are saved to local disk:',
-        'wrapper-output/rapids_user_tools_bootstrap/bootstrap_tool_output/rapids_4_dataproc_bootstrap_output.log',
-        'Using the following computed settings based on worker nodes:',
-        '##### BEGIN : RAPIDS bootstrap settings for dataproc-test-gpu-cluster',
-        'spark.executor.cores=16',
-        'spark.executor.memory=32768m',
-        'spark.executor.memoryOverhead=7372m',
-        'spark.rapids.sql.concurrentGpuTasks=2',
-        'spark.rapids.memory.pinnedPool.size=4096m',
-        'spark.sql.files.maxPartitionBytes=512m',
-        'spark.task.resource.gpu.amount=0.0625',
-        '##### END : RAPIDS bootstrap settings for dataproc-test-gpu-cluster']
-
-    with patch.object(Bootstrap, '_pull_cluster_properties',
-                      side_effect=[mock_cluster_props('dataproc-test-gpu-cluster')]) as pull_cluster_props, \
-            patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories',
-                         side_effect=[mock_pull_gpu_memories('test-gpu-cluster')]) as pull_gpu_mem, \
-            patch.object(Bootstrap, '_apply_changes_to_remote_cluster',
-                         side_effect=[mock_gcloud_remote_configs]) as apply_remote_configs:
-        with ArgvContext('spark_rapids_dataproc',
-                         'bootstrap', '--cluster',
-                         'dataproc-test-gpu-cluster',
-                         '--region', 'us-central1',
-                         '--dry_run', 'True',
-                         '--output_folder', f'{boot_output_dir}'):
-            dataproc_wrapper.main()
-    captured_run = capsys.readouterr()
-    captured_out = captured_run.out
-    assert all(captured_out.find(stmt) != -1 for stmt in main_key_stmts)
-    assert caplog.text.find('Skipping applying configurations to remote cluster') != 1
-    # assert func.call_count == 1
-    pull_cluster_props.assert_called_once()
-    pull_gpu_mem.assert_called_once()
-    apply_remote_configs.assert_not_called()
-    assert os.path.exists(
-        f'{boot_result_dir(boot_output_dir)}/bootstrap_tool_output/rapids_4_dataproc_bootstrap_output.log'
-    )
+    @pytest.mark.parametrize('dry_run_enabled', [False, True])
+    def test_success_on_t4_with_dry_run(self,
+                                        ut_dir,
+                                        dry_run_enabled,
+                                        submission_cluster='dataproc-test-gpu-cluster'):
+        """
+        Verify that the calculations of the bootstrap given the cluster properties defined in
+        tests/resources/dataproc-test-gpu-cluster.yaml, which runs T4 Nvidia GPUs.
+        Passing the dry_run mode, verify that the changes won't be applied to the cluster.
+        This is achieved by checking the content of log messages.
+        Verify that the calculations of the bootstrap given the cluster properties defined in
+        tests/resources/dataproc-test-gpu-cluster.yaml, which runs T4 Nvidia GPUs.
+        """
+        std_reg_expressions = [
+            r'Recommended configurations are saved to local disk:',
+            r'wrapper-output/rapids_user_tools_bootstrap/bootstrap_tool_output/rapids_4_dataproc_bootstrap_output\.log',
+            r'Using the following computed settings based on worker nodes:',
+            r'##### BEGIN : RAPIDS bootstrap settings for dataproc-test-gpu-cluster',
+            r'spark\.executor\.cores=\d+',
+            r'spark\.executor\.memory=\d+m',
+            r'spark\.executor\.memoryOverhead=\d+m',
+            r'spark\.rapids\.sql\.concurrentGpuTasks=\d+',
+            r'spark\.rapids\.memory\.pinnedPool\.size=\d+m',
+            r'spark\.sql\.files\.maxPartitionBytes=\d+m',
+            r'spark\.task\.resource\.gpu\.amount=([0-9]+\.[0-9]+)',
+            r'##### END : RAPIDS bootstrap settings for dataproc-test-gpu-cluster'
+        ]
+        std_log_expressions = None
+        if dry_run_enabled:
+            std_log_expressions = [
+                rf'Skipping applying configurations to remote cluster {submission_cluster}\. '
+                r' DRY_RUN is enabled\.'
+            ]
+        extra_args = ['--dry_run', f'{dry_run_enabled}']
+        with patch.object(CMDRunner, 'gcloud_describe_cluster',
+                          side_effect=mock_success_pull_cluster_props) as pull_cluster_props, \
+                patch.object(DataprocClusterPropContainer, '_pull_worker_gpu_memories',
+                             side_effect=[mock_pull_gpu_memories('dataproc-test-gpu-cluster')]) as pull_gpu_mem, \
+                patch.object(Bootstrap, '_apply_changes_to_remote_cluster',
+                             side_effect=mock_gcloud_remote_configs) as apply_remote_configs:
+            self.run_successful_wrapper(submission_cluster, ut_dir, extra_args)
+        self.assert_output_as_expected(std_reg_expressions, std_log_expressions)
+        summary_file = f'{self.get_wrapper_out_dir(ut_dir)}/rapids_4_dataproc_bootstrap_output.log'
+        self.assert_wrapper_out_dir_exists(ut_dir)
+        assert os_path_exists(summary_file), f'Summary file {summary_file} does not exist!!!'
+        if dry_run_enabled:
+            apply_remote_configs.assert_not_called()
+        else:
+            apply_remote_configs.assert_called_once()
+        pull_cluster_props.assert_called_once()
+        pull_gpu_mem.assert_called_once()

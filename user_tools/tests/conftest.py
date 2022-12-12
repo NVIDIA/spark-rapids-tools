@@ -27,12 +27,6 @@ from spark_rapids_dataproc_tools import dataproc_wrapper
 from spark_rapids_dataproc_tools.dataproc_utils import CMDRunner
 
 
-def mock_cluster_props(cluster: str, **unused_kwargs):
-    with open(f'tests/resources/{cluster}.yaml', 'r', encoding='utf-8') as yaml_file:
-        static_properties = yaml.safe_load(yaml_file)
-        return yaml.dump(static_properties)
-
-
 def mock_success_pull_cluster_props(*argvs, **unused_kwargs):
     if len(argvs) >= 2:
         # first argument is cluster_name
@@ -90,8 +84,8 @@ def get_wrapper_work_dir(tool_name, root_dir):
     return f'{root_dir}/wrapper-output/rapids_user_tools_{tool_name}'
 
 
-def dir_exists(dir_path):
-    return os.path.exists(dir_path)
+def os_path_exists(filesys_path):
+    return os.path.exists(filesys_path)
 
 
 class RapidsToolTestBasic:
@@ -115,7 +109,8 @@ class RapidsToolTestBasic:
 
     def get_wrapper_out_dir(self, ut_dir):
         work_dir = f'{self.get_work_dir(ut_dir)}'
-        tool_out_dir = f'{work_dir}/{self.tool_ctxt["wrapper_out_dirname"]}'
+        out_dir_name = self.tool_ctxt['wrapper_out_dirname']
+        tool_out_dir = os.path.join(work_dir, out_dir_name)
         return tool_out_dir
 
     @pytest.fixture(autouse=True)
@@ -162,11 +157,19 @@ class RapidsToolTestBasic:
 
     def assert_work_dir_exists(self, ut_root_dir):
         work_dir = self.get_work_dir(ut_root_dir)
-        assert dir_exists(work_dir), f'Working directory {work_dir} exists!!'
+        assert os_path_exists(work_dir), f'Working directory {work_dir} exists!!'
 
     def assert_work_dir_not_exists(self, ut_root_dir):
         work_dir = self.get_work_dir(ut_root_dir)
-        assert not dir_exists(work_dir), f'Working directory {work_dir} exists!! '
+        assert not os_path_exists(work_dir), f'Working directory {work_dir} exists!!'
+
+    def assert_wrapper_out_dir_not_exists(self, ut_root_dir):
+        out_dir = self.get_wrapper_out_dir(ut_root_dir)
+        assert not os_path_exists(out_dir), f'Wrapper output directory {out_dir} exists!!'
+
+    def assert_wrapper_out_dir_exists(self, ut_root_dir):
+        out_dir = self.get_wrapper_out_dir(ut_root_dir)
+        assert os_path_exists(out_dir), f'Wrapper output directory {out_dir} does not exist!!'
 
     def assert_output_as_expected(self,
                                   std_regs,
