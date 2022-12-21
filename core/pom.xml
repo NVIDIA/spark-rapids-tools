@@ -19,11 +19,6 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <parent>
-        <groupId>com.nvidia</groupId>
-        <artifactId>rapids-4-spark-parent</artifactId>
-        <version>23.02.0-SNAPSHOT</version>
-    </parent>
     <groupId>com.nvidia</groupId>
     <artifactId>rapids-4-spark-tools_2.12</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
@@ -31,7 +26,56 @@
     <version>23.02.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <connection>scm:git:https://github.com/NVIDIA/spark-rapids-tools.git</connection>
+        <developerConnection>scm:git:git@github.com:NVIDIA/spark-rapids-tools.git</developerConnection>
+        <tag>HEAD</tag>
+        <url>https://github.com/NVIDIA/spark-rapids-tools</url>
+    </scm>
+    <developers>
+        <developer>
+            <id>revans2</id>
+            <name>Robert Evans</name>
+            <email>roberte@nvidia.com</email>
+            <roles>
+                <role>Committer</role>
+            </roles>
+            <timezone>-6</timezone>
+        </developer>
+        <developer>
+            <id>tgravescs</id>
+            <name>Thomas Graves</name>
+            <email>tgraves@nvidia.com</email>
+            <roles>
+                <role>Committer</role>
+            </roles>
+            <timezone>-6</timezone>
+        </developer>
+        <developer>
+            <id>jlowe</id>
+            <name>Jason Lowe</name>
+            <email>jlowe@nvidia.com</email>
+            <roles>
+                <role>Committer</role>
+            </roles>
+            <timezone>-6</timezone>
+        </developer>
+    </developers>
+
     <properties>
+        <spark311.version>3.1.1</spark311.version>
+        <scala.binary.version>2.12</scala.binary.version>
+        <scala.plugin.version>4.3.0</scala.plugin.version>
+        <scalatest-maven-plugin.version>4.3.0</scalatest-maven-plugin.version>
+        <maven.clean.plugin.version>3.1.0</maven.clean.plugin.version>
+        <scala.version>2.12.15</scala.version>
         <hadoop.version>3.3.4</hadoop.version>
         <spark.version>${spark311.version}</spark.version>
         <spark.test.version>${spark311.version}</spark.test.version>
@@ -47,6 +91,7 @@
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
+            <version>${scala.version}</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
@@ -72,10 +117,12 @@
         <dependency>
             <groupId>org.rogach</groupId>
             <artifactId>scallop_${scala.binary.version}</artifactId>
+            <version>3.5.1</version>
         </dependency>
         <dependency>
             <groupId>org.scalatest</groupId>
             <artifactId>scalatest_${scala.binary.version}</artifactId>
+            <version>3.0.5</version>
             <scope>test</scope>
         </dependency>
         <!-- Required for processing yaml files in AutoTuner -->
@@ -104,10 +151,12 @@
             <plugin>
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
+                <version>${scalatest-maven-plugin.version}</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
+                <version>3.2.4</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -145,14 +194,17 @@
             <plugin>
                 <groupId>org.apache.rat</groupId>
                 <artifactId>apache-rat-plugin</artifactId>
+                <version>0.13</version>
             </plugin>
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
+                <version>${scala.plugin.version}</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.0.0</version>
                 <executions>
                     <execution>
                         <id>download-ui-dependencies</id>
