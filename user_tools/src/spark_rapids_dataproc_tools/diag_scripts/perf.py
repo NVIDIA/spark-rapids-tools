@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Performance test scripts for Spark job between CPU and GPU."""
-if __name__=="__main__":
-    from pyspark import SparkContext
-    from pyspark.sql import SparkSession
-    from pyspark.sql.functions import col
+
+if __name__ == '__main__':
+    from pyspark import SparkContext        # pylint: disable=import-error
+    from pyspark.sql import SparkSession    # pylint: disable=import-error
+    from pyspark.sql.functions import col   # pylint: disable=import-error
     import time
-    sc=SparkContext(appName='perf')
+    sc = SparkContext(appName='perf')
     spark = SparkSession(sc)
-    df = spark.range(1, 50000).select(col("id"))
-    df2 = spark.range(1, 50000).select(col("id"))
+    df = spark.range(1, 50000).select(col('id'))
+    df2 = spark.range(1, 50000).select(col('id'))
     start_time = time.time()
-    print("------------run perf success-----",df.join(df2, df.id > df2.id).count())
-    print(f"----------------Execution time: {time.time() - start_time}")
+    print('------------run perf success-----', df.join(df2, df.id > df2.id).count())
+    print(f'----------------Execution time: {time.time() - start_time}')

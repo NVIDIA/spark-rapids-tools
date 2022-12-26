@@ -11,13 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Hello-world Spark Application on CPU and GPU."""
-if __name__ == "__main__":
-    from pyspark import SparkContext
-    from pyspark.sql import SparkSession
-    from pyspark.sql.functions import col
-    sc=SparkContext(appName='hello_world')
+
+if __name__ == '__main__':
+    from pyspark import SparkContext        # pylint: disable=import-error
+    from pyspark.sql import SparkSession    # pylint: disable=import-error
+    from pyspark.sql.functions import col   # pylint: disable=import-error
+    sc = SparkContext(appName='hello_world')
     spark = SparkSession(sc)
-    df = spark.range(1, 10000).select(col("id"))
-    df2 = spark.range(1, 10000).select(col("id"))
-    print("------------run hello success-----",df.join(df2, df.id == df2.id).count())
+    df = spark.range(1, 10000).select(col('id'))
+    df2 = spark.range(1, 10000).select(col('id'))
+    print('------------run hello success-----', df.join(df2, df.id == df2.id).count())

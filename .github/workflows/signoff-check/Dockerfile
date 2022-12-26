@@ -12,18 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Build helpers."""
+FROM python:3.8-slim-buster
 
-import datetime
-import os
+WORKDIR /
+COPY signoff-check .
+RUN pip install PyGithub && chmod +x /signoff-check
 
-
-def get_version(main=None):
-    if main is None:
-        # pylint: disable=import-outside-toplevel
-        from spark_rapids_dataproc_tools import VERSION as main
-    suffix = ''
-    nightly = os.environ.get('USERTOOLS_NIGHTLY')
-    if nightly == '1':
-        suffix = '.dev' + datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
-    return main + suffix
+# require envs: OWNER,REPO_NAME,GITHUB_TOKEN,PULL_NUMBER
+ENTRYPOINT ["/signoff-check"]

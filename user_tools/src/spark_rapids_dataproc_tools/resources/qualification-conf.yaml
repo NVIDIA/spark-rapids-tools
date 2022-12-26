@@ -22,7 +22,7 @@ toolOutput:
       compactWidth: true
       timeUnits: 's'
 sparkRapids:
-  version: 22.10.0
+  version: 22.12.0
   repoUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/{}/rapids-4-spark-tools_2.12-{}.jar'
   jarFile: 'rapids-4-spark-tools_2.12-{}.jar'
   mainClass: 'com.nvidia.spark.rapids.tool.qualification.QualificationMain'
@@ -91,6 +91,6 @@ local:
       onlineURL: 'https://cloudpricingcalculator.appspot.com/static/data/pricelist.json'
       snapshotFile: 'gcloud-catalog.json'
 platform:
-  workDir: spark_rapids_dataproc_qualification
+  workDir: rapids_user_tools_qualification
   outputDir: qual-tool-output
   cleanUp: true

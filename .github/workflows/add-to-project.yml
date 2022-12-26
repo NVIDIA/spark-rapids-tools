@@ -12,18 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Build helpers."""
+name: Add new issues and pull requests to project
 
-import datetime
-import os
+on:
+  issues:
+    types:
+      - opened
+  pull_request_target:
+    types:
+      - opened
 
-
-def get_version(main=None):
-    if main is None:
-        # pylint: disable=import-outside-toplevel
-        from spark_rapids_dataproc_tools import VERSION as main
-    suffix = ''
-    nightly = os.environ.get('USERTOOLS_NIGHTLY')
-    if nightly == '1':
-        suffix = '.dev' + datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
-    return main + suffix
+jobs:
+  add-to-project:
+    if: github.repository == 'NVIDIA/spark-rapids-tools'
+    name: Add new issues and pull requests to project
+    runs-on: ubuntu-latest
+    steps:
+      # TODO: update project version when new release supports node 16 instead of 12
+      - uses: actions/add-to-project@v0.3.0
+        with:
+          project-url: https://github.com/orgs/NVIDIA/projects/4
+          github-token: ${{ secrets.PROJECT_TOKEN }}

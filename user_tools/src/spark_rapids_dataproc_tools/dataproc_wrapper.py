@@ -11,13 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin."""
 
-import fire
 import sys
 
-from spark_rapids_dataproc_tools.rapids_models import Profiling, Qualification, Bootstrap
-from spark_rapids_dataproc_tools.diag import Diagnostic
+import fire
+
 from spark_rapids_dataproc_tools.diag_dataproc import DiagDataproc
+from spark_rapids_dataproc_tools.rapids_models import Profiling, Qualification, Bootstrap
 
 
 class DataprocWrapper(object):
@@ -41,6 +42,7 @@ class DataprocWrapper(object):
     def bootstrap(self,
                   cluster: str,
                   region: str,
+                  output_folder: str = '.',
                   dry_run: bool = False,
                   debug: bool = False) -> None:
         """
@@ -50,6 +52,9 @@ class DataprocWrapper(object):
         :param cluster: Name of the dataproc cluster
         :param region: Compute region (e.g. us-central1) for the cluster.
         :param dry_run: True or False to update the Spark config settings on Dataproc master node.
+        :param output_folder: Base output directory. The final recommendations will be logged in the
+               subdirectory 'wrapper-output/rapids_user_tools_bootstrap'.
+               Note that this argument only accepts local filesystem.
         :param debug: True or False to enable verbosity to the wrapper script.
 
         """
@@ -57,7 +62,7 @@ class DataprocWrapper(object):
                               region=region,
                               dry_run=dry_run,
                               debug=debug,
-                              output_folder=None,
+                              output_folder=output_folder,
                               tools_jar=None,
                               eventlogs=None)
         boot_tool.launch()
@@ -68,6 +73,9 @@ class DataprocWrapper(object):
                   tools_jar: str = None,
                   eventlogs: str = None,
                   output_folder: str = '.',
+                  gpu_cluster_props: str = None,
+                  gpu_cluster_region: str = None,
+                  gpu_cluster_zone: str = None,
                   debug: bool = False,
                   **tool_options) -> None:
         """
@@ -77,7 +85,8 @@ class DataprocWrapper(object):
         The output information contains the Spark version, executor details, properties, etc. It also
         uses heuristics based techniques to recommend Spark configurations for users to run Spark on RAPIDS.
 
-        :param cluster: Name of the dataproc cluster
+        :param cluster: Name of the dataproc cluster.
+               Note that the cluster has to: 1- be running; and 2- support Spark3.x+.
         :param region: Compute region (e.g. us-central1) for the cluster.
         :param tools_jar: Path to a bundled jar including Rapids tool.
                           The path is a local filesystem, or gstorage url.
@@ -90,6 +99,18 @@ class DataprocWrapper(object):
         :param output_folder: Base output directory.
             The final output will go into a subdirectory called wrapper-output.
             It will overwrite any existing directory with the same name.
+        :param gpu_cluster_props: Path to a file containing configurations of the GPU cluster
+            on which the Spark applications ran on.
+            The path is a local filesystem, or gstorage url.
+            This option does not require the cluster to be live. When missing, the configurations
+            are pulled from the live cluster on which the Qualification tool is submitted.
+        :param gpu_cluster_region: The region where the GPU cluster belongs to. Note that this parameter requires
+            'gpu_cluster_props' to be defined.
+            When missing, the region is set to the value passed in the 'region' argument.
+        :param gpu_cluster_zone: The zone where the GPU cluster belongs to. Note that this parameter requires
+            'gpu_cluster_props' to be defined.
+            When missing, the zone is set to the same zone as the 'cluster' on which the Profiling tool is
+            submitted.
         :param debug: True or False to enable verbosity to the wrapper script.
         :param tool_options: A list of valid Profiling tool options.
             Note that the wrapper ignores the following flags
@@ -103,8 +124,13 @@ class DataprocWrapper(object):
             tools_jar=tools_jar,
             eventlogs=eventlogs,
             output_folder=output_folder,
+            migration_clusters_props={
+                'gpu_cluster_props_path': gpu_cluster_props,
+                'gpu_cluster_region': gpu_cluster_region,
+                'gpu_cluster_zone': gpu_cluster_zone,
+            },
             debug=debug,
-            #config_path="config_path_value"
+            # config_path="config_path_value"
         )
         prof_tool.set_tool_options(tool_args=tool_options)
         prof_tool.launch()
@@ -119,6 +145,12 @@ class DataprocWrapper(object):
                       gpu_device: str = 'T4',
                       gpu_per_machine: int = 2,
                       cuda: str = '11.5',
+                      cpu_cluster_props: str = None,
+                      cpu_cluster_region: str = None,
+                      cpu_cluster_zone: str = None,
+                      gpu_cluster_props: str = None,
+                      gpu_cluster_region: str = None,
+                      gpu_cluster_zone: str = None,
                       debug: bool = False,
                       **tool_options) -> None:
         """
@@ -133,7 +165,8 @@ class DataprocWrapper(object):
             Please refer to "Understanding Execs report" section and the "Supported Operators" guide
             to check the types and expressions you are using are supported.
 
-        :param cluster: Name of the dataproc cluster
+        :param cluster: Name of the dataproc cluster on which the Qualification tool is executed.
+               Note that the cluster has to: 1- be running; and 2- support Spark3.x+.
         :param region: Compute region (e.g. us-central1) for the cluster.
         :param tools_jar: Path to a bundled jar including Rapids tool.
                           The path is a local filesystem, or gstorage url.
@@ -154,6 +187,31 @@ class DataprocWrapper(object):
         :param gpu_device: The type of the GPU to add to the cluster. Options are [T4, V100, K80, A100, P100].
         :param gpu_per_machine: The number of GPU accelerators to be added to each VM image.
         :param cuda: cuda version to be used with the GPU accelerator.
+        :param cpu_cluster_props: Path to a file containing configurations of the CPU cluster
+            on which the Spark applications were executed.
+            The path is a local filesystem, or gstorage url.
+            This option does not require the cluster to be live.
+            When missing, the configurations are pulled from the live cluster on which the Qualification tool
+            is submitted.
+        :param cpu_cluster_region: The region where the CPU cluster belongs to. Note that this parameter requires
+            'cpu_cluster_props' to be defined.
+            When missing, the region is set to the value passed in the 'region' argument.
+        :param cpu_cluster_zone: The zone where the CPU cluster belongs to. Note that this parameter requires
+            'cpu_cluster_props' to be defined.
+            When missing, the zone is set to the same zone as the 'cluster' on which the Qualification tool is
+            submitted.
+        :param gpu_cluster_props: Path to a file containing configurations of the GPU cluster
+            on which the Spark applications is planned to be migrated.
+            The path is a local filesystem, or gstorage url.
+            This option does not require the cluster to be live. When missing, the configurations are
+            considered the same as the ones used by the 'cpu_cluster_props'.
+        :param gpu_cluster_region: The region where the GPU cluster belongs to. Note that this parameter requires
+            'gpu_cluster_props' to be defined.
+            When missing, the region is set to the value passed in the 'region' argument.
+        :param gpu_cluster_zone: The zone where the GPU cluster belongs to. Note that this parameter requires
+            'gpu_cluster_props' to be defined.
+            When missing, the zone is set to the same zone as the 'cluster' on which the Qualification tool is
+            submitted.
         :param debug: True or False to enable verbosity to the wrapper script.
         :param tool_options: A list of valid Qualification tool options.
             Note that the wrapper ignores the “output-directory“ flag, and it does not support
@@ -170,28 +228,37 @@ class DataprocWrapper(object):
             filter_apps=filter_apps,
             gpu_device=gpu_device,
             gpu_per_machine=gpu_per_machine,
+            migration_clusters_props={
+                'cpu_cluster_props_path': cpu_cluster_props,
+                'cpu_cluster_region': cpu_cluster_region,
+                'cpu_cluster_zone': cpu_cluster_zone,
+                'gpu_cluster_props_path': gpu_cluster_props,
+                'gpu_cluster_region': gpu_cluster_region,
+                'gpu_cluster_zone': gpu_cluster_zone,
+            },
             cuda=cuda,
             debug=debug,
-            #config_path="config_path_value"
+            # config_path="config_path_value"
         )
         qualification_tool.set_tool_options(tool_args=tool_options)
         qualification_tool.launch()
 
     def diagnostic(self,
-                       cluster: str,
-                       region: str,
-                       func: str = 'all',
-                       debug: bool = False) -> None:
+                   cluster: str,
+                   region: str,
+                   func: str = 'all',
+                   debug: bool = False) -> None:
         """
         Run diagnostic on local environment or remote Dataproc cluster, such as check installed NVIDIA driver,
         CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
 
-        :param cluster: Name of the Dataproc cluster
+        :param cluster: Name of the Dataproc cluster.
         :param region: Region of Dataproc cluster (e.g. us-central1)
         :param func: Diagnostic function to run. Available functions:
             'nv_driver': dump NVIDIA driver info via command `nvidia-smi`,
             'cuda_version': check if CUDA toolkit major version >= 11.0,
-            'rapids_jar': check if only single RAPIDS Accelerator for Apache Spark jar is installed and verify its signature,
+            'rapids_jar': check if only single RAPIDS Accelerator for Apache Spark jar is installed
+               and verify its signature,
             'deprecated_jar': check if deprecated (cudf) jar is installed. I.e. should no cudf jar starting with RAPIDS
                     Accelerator for Apache Spark 22.08,
             'spark': run a Hello-world Spark Application on CPU and GPU,

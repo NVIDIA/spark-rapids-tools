@@ -30,9 +30,30 @@ There are two branches in this repository:
 
 ## Code contributions
 
+### Code style guide
+
+Please follow the style of the existing codebase.
+
+* Run `pylint` over your code using `.pylintrc` file in each module.
+  * line width: 120 characters
+* Some pylint warnings could be incorrect. For incorrect ones, suppress those warnings by setting a line-level comment.
+
+### Testing your changes
+
+* Add appropriate unit-tests that covers the new changes.
+* Run `tox` on the entire project. For example, to test changes committed to `user_tools`:
+  ```bash
+  $ cd user_tools
+  $ # install tox
+  $ pip install tox
+  $ # run tox
+  $ tox  
+  ```
+
 ### Sign your work
 
-We require that all contributors sign-off on their commits. This certifies that the contribution is your original work, or you have rights to submit it under the same license, or a compatible license.
+We require that all contributors sign-off on their commits. This certifies that the contribution is
+your original work, or you have rights to submit it under the same license, or a compatible license.
 
 Any contribution which contains commits that are not signed off will not be accepted.
 
@@ -48,7 +69,11 @@ This will append the following to your commit message:
 Signed-off-by: Your Name <your@email.com>
 ```
 
-The sign-off is a simple line at the end of the explanation for the patch. Your signature certifies that you wrote the patch or otherwise have the right to pass it on as an open-source patch. Use your real name, no pseudonyms or anonymous contributions.  If you set your `user.name` and `user.email` git configs, you can sign your commit automatically with `git commit -s`.
+The sign-off is a simple line at the end of the explanation for the patch. Your signature certifies
+that you wrote the patch or otherwise have the right to pass it on as an open-source patch.  
+Use your real name, no pseudonyms or anonymous contributions.  
+If you set your `user.name` and `user.email` git configs, you can sign your commit automatically with
+`git commit -s`.
 
 
 The signoff means you certify the below (from [developercertificate.org](https://developercertificate.org)):
