@@ -10,3 +10,13 @@ GPU generated event logs.
 Please refer to [Qualification tool documentation](docs/spark-qualification-tool.md) 
 and [Profiling tool documentation](docs/spark-profiling-tool.md)
 for more details on how to use the tools.
+
+## Build
+
+We use [Maven](https://maven.apache.org) for the build. Simply run as below command:
+
+```shell script
+mvn clean package
+```
+
+After a successful build, the jar of 'rapids-4-spark-tools_2.12-*-SNAPSHOT.jar' will be in 'target/' directory.
