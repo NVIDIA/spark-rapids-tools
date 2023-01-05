@@ -37,3 +37,6 @@ wheels/
 .coverage
 .coverage.*
 .pytest_cache/
+
+# Maven
+dependency-reduced-pom.xml

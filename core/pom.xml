@@ -73,7 +73,7 @@
         <spark311.version>3.1.1</spark311.version>
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>
-        <scalatest-maven-plugin.version>4.3.0</scalatest-maven-plugin.version>
+        <scalatest-maven-plugin.version>2.0.2</scalatest-maven-plugin.version>
         <maven.clean.plugin.version>3.1.0</maven.clean.plugin.version>
         <scala.version>2.12.15</scala.version>
         <hadoop.version>3.3.4</hadoop.version>
@@ -88,6 +88,8 @@
         <ui.resources.relative>src/main/resources/ui</ui.resources.relative>
         <ui.resources.dir>${project.basedir}/${ui.resources.relative}</ui.resources.dir>
         <ui.resources.external.folder>assets</ui.resources.external.folder>
+        <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
+        <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
     </properties>
 
     <dependencies>
@@ -155,6 +157,27 @@
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
                 <version>${scalatest-maven-plugin.version}</version>
+                <configuration>
+                    <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
+                    <junitxml>.</junitxml>
+                    <filereports>scala-test-output.txt</filereports>
+                    <stderr/>
+                    <systemProperties>
+                        <java.awt.headless>true</java.awt.headless>
+                        <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
+                        <spark.ui.enabled>false</spark.ui.enabled>
+                        <spark.ui.showConsoleProgress>false</spark.ui.showConsoleProgress>
+                        <spark.unsafe.exceptionOnMemoryLeak>true</spark.unsafe.exceptionOnMemoryLeak>
+                    </systemProperties>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>test</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -203,6 +226,48 @@
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
                 <version>${scala.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>eclipse-add-source</id>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>scala-compile-first</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>scala-test-compile-first</id>
+                        <phase>process-test-resources</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <scalaVersion>${scala.version}</scalaVersion>
+                    <checkMultipleScalaVersions>true</checkMultipleScalaVersions>
+                    <failOnMultipleScalaVersions>true</failOnMultipleScalaVersions>
+                    <recompileMode>incremental</recompileMode>
+                    <args>
+                        <arg>-unchecked</arg>
+                        <arg>-deprecation</arg>
+                        <arg>-feature</arg>
+                        <arg>-explaintypes</arg>
+                        <arg>-Yno-adapted-args</arg>
+                        <arg>-Ywarn-unused:imports</arg>
+                        <arg>-Xlint:missing-interpolator</arg>
+                    </args>
+                    <jvmArgs>
+                        <jvmArg>-Xms1024m</jvmArg>
+                        <jvmArg>-Xmx1024m</jvmArg>
+                    </jvmArgs>
+                    <addJavacArgs>${scala.javac.args}</addJavacArgs>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -288,6 +353,11 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>${maven.jar.plugin.version}</version>
             </plugin>
         </plugins>
     </build>
