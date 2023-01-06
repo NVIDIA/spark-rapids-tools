@@ -739,7 +739,6 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
           val df1 = spark.sparkContext.makeRDD(1 to 1000, 6).toDF
           df1.sample(0.1)
         }
-        // Thread.sleep(120000)
         val expectedClusterId = "0617-131246-dray530"
         val expectedJobId = "215"
 

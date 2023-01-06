@@ -66,7 +66,7 @@ object ToolUtils extends Logging {
         Map.empty
     }
   }
-  
+
   /**
    * Try to get the JobId from the cluster name. Parse the clusterName string which
    * looks like:
