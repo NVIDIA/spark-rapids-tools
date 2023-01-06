@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 package org.apache.spark.sql.rapids.tool
+
+import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
@@ -53,10 +55,37 @@ object ToolUtils extends Logging {
     // case class to hold key -> value pairs
     case class ClusterTags(key: String, value: String)
     implicit val formats = DefaultFormats
-    val listOfClusterTags = parse(clusterTag)
-    val clusterTagsMap = listOfClusterTags.extract[List[ClusterTags]].map(
-      x => x.key -> x.value).toMap
-    clusterTagsMap
+    try {
+      val listOfClusterTags = parse(clusterTag)
+      val clusterTagsMap = listOfClusterTags.extract[List[ClusterTags]].map(
+        x => x.key -> x.value).toMap
+      clusterTagsMap
+    } catch {
+      case NonFatal(_) =>
+        logWarning(s"There was an exception parsing cluster tags JSON: $clusterTag, skipping")
+        Map.empty
+    }
+  }
+
+  //
+
+  /**
+   * Try to get the JobId from the cluster name. Parse the clusterName string which
+   * looks like:
+   * "spark.databricks.clusterUsageTags.clusterName":"job-557875349296715-run-4214311276"
+   * and look for job-XXXXX where XXXXX represents the JobId.
+   *
+   * @param clusterNameString String which contains property clusterUsageTags.clusterName
+   * @return Optional JobId if found
+   */
+  def parseClusterNameForJobId(clusterNameString: String): Option[String] = {
+    var jobId: Option[String] = None
+    val splitArr = clusterNameString.split("-")
+    if (splitArr.contains("job")) {
+      val jobIdx = splitArr.indexOf("job")
+      jobId = Some(splitArr(jobIdx + 1))
+    }
+    jobId
   }
 
   // given to duration values, calculate a human readable percent

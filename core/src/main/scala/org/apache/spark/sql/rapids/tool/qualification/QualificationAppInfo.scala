@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,10 @@ class QualificationAppInfo(
 
   val notSupportFormatAndTypes: HashMap[String, Set[String]] = HashMap[String, Set[String]]()
 
+  // clusterTags can be redacted so try to get ClusterId and ClusterName separately
   var clusterTags: String = ""
+  var clusterTagClusterId: String = ""
+  var clusterTagClusterName: String = ""
   private lazy val eventProcessor =  new QualificationEventProcessor(this, perSqlOnly)
 
   /**
@@ -323,6 +326,30 @@ class QualificationAppInfo(
     }
   }
 
+  private def prepareClusterTags: Map[String, String] = {
+    val initialClusterTagsMap = if (clusterTags.nonEmpty) {
+      ToolUtils.parseClusterTags(clusterTags)
+    } else {
+      Map.empty[String, String]
+    }
+
+    val withClusterId = if (!initialClusterTagsMap.contains(QualOutputWriter.CLUSTER_ID)
+      && clusterTagClusterId.nonEmpty) {
+      initialClusterTagsMap + (QualOutputWriter.CLUSTER_ID -> clusterTagClusterId)
+    } else {
+      initialClusterTagsMap
+    }
+
+    if (!withClusterId.contains(QualOutputWriter.JOB_ID)) {
+      val clusterTagJobId = ToolUtils.parseClusterNameForJobId(clusterTagClusterName)
+      clusterTagJobId.map { jobId =>
+        withClusterId + (QualOutputWriter.JOB_ID -> jobId)
+      }.getOrElse(withClusterId)
+    } else {
+      withClusterId
+    }
+  }
+
   /**
    * Aggregate and process the application after reading the events.
    * @return Option of QualificationSummaryInfo, Some if we were able to process the application
@@ -370,11 +397,8 @@ class QualificationAppInfo(
 
       val appName = appInfo.map(_.appName).getOrElse("")
 
-      val allClusterTagsMap = if (clusterTags.nonEmpty) {
-        ToolUtils.parseClusterTags(clusterTags)
-      } else {
-        Map.empty[String, String]
-      }
+      val allClusterTagsMap = prepareClusterTags
+
       val perSqlInfos = if (reportSqlLevel) {
         Some(planInfos.flatMap { pInfo =>
           sqlIdToInfo.get(pInfo.sqlID).map { info =>
