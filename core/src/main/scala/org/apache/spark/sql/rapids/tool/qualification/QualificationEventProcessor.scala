@@ -150,6 +150,14 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
       app.clusterTags = event.properties.getProperty(
         "spark.databricks.clusterUsageTags.clusterAllTags", "")
     }
+    if (app.clusterTagClusterId.isEmpty) {
+      app.clusterTagClusterId = event.properties.getProperty(
+        "spark.databricks.clusterUsageTags.clusterId", "")
+    }
+    if (app.clusterTagClusterName.isEmpty) {
+      app.clusterTagClusterName = event.properties.getProperty(
+        "spark.databricks.clusterUsageTags.clusterName", "")
+    }
   }
 
   override def doSparkListenerJobEnd(

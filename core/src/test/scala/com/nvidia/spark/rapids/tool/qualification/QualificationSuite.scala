@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -726,7 +726,39 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     }
   }
 
-  test("test clusterTags configs ") {
+  test("test clusterTags when redacted") {
+    TrampolineUtil.withTempDir { outpath =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted") { spark =>
+          import spark.implicits._
+          spark.conf.set("spark.databricks.clusterUsageTags.clusterAllTags", "*********(redacted)")
+          spark.conf.set("spark.databricks.clusterUsageTags.clusterId", "0617-131246-dray530")
+          spark.conf.set("spark.databricks.clusterUsageTags.clusterName", "job-215-run-34243234")
+
+          val df1 = spark.sparkContext.makeRDD(1 to 1000, 6).toDF
+          df1.sample(0.1)
+        }
+        // Thread.sleep(120000)
+        val expectedClusterId = "0617-131246-dray530"
+        val expectedJobId = "215"
+
+        val allArgs = Array(
+          "--output-directory",
+          outpath.getAbsolutePath())
+        val appArgs = new QualificationArgs(allArgs ++ Array(eventLog))
+        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+        assert(appSum.size == 1)
+        val allTags = appSum.flatMap(_.allClusterTagsMap).toMap
+        assert(allTags("ClusterId") == expectedClusterId)
+        assert(allTags("JobId") == expectedJobId)
+        assert(allTags.get("RunName") == None)
+      }
+    }
+  }
+
+  test("test clusterTags configs") {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
 
