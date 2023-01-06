@@ -333,20 +333,20 @@ class QualificationAppInfo(
       Map.empty[String, String]
     }
 
-    val withClusterId = if (!initialClusterTagsMap.contains(QualOutputWriter.CLUSTER_ID)
+    val tagsMapWithClusterId = if (!initialClusterTagsMap.contains(QualOutputWriter.CLUSTER_ID)
       && clusterTagClusterId.nonEmpty) {
       initialClusterTagsMap + (QualOutputWriter.CLUSTER_ID -> clusterTagClusterId)
     } else {
       initialClusterTagsMap
     }
 
-    if (!withClusterId.contains(QualOutputWriter.JOB_ID)) {
+    if (!tagsMapWithClusterId.contains(QualOutputWriter.JOB_ID) && clusterTagClusterName.nonEmpty) {
       val clusterTagJobId = ToolUtils.parseClusterNameForJobId(clusterTagClusterName)
       clusterTagJobId.map { jobId =>
-        withClusterId + (QualOutputWriter.JOB_ID -> jobId)
-      }.getOrElse(withClusterId)
+        tagsMapWithClusterId + (QualOutputWriter.JOB_ID -> jobId)
+      }.getOrElse(tagsMapWithClusterId)
     } else {
-      withClusterId
+      tagsMapWithClusterId
     }
   }
 

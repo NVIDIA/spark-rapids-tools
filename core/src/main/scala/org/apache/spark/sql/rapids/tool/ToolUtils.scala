@@ -62,7 +62,7 @@ object ToolUtils extends Logging {
       clusterTagsMap
     } catch {
       case NonFatal(_) =>
-        logWarning(s"There was an exception parsing cluster tags JSON: $clusterTag, skipping")
+        logWarning(s"There was an exception parsing cluster tags string: $clusterTag, skipping")
         Map.empty
     }
   }
