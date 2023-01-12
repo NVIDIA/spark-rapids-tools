@@ -25,6 +25,7 @@
     <description>RAPIDS Accelerator for Apache Spark tools</description>
     <version>23.02.0-SNAPSHOT</version>
     <packaging>jar</packaging>
+    <url>http://github.com/NVIDIA/spark-rapids-tools</url>
 
     <licenses>
         <license>
@@ -247,6 +248,29 @@
                             <goal>testCompile</goal>
                         </goals>
                     </execution>
+                    <!-- build javadoc.jar -->
+                    <execution>
+                        <id>attach-scaladocs</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>doc-jar</goal>
+                        </goals>
+                        <configuration>
+                            <args>
+                                <arg>-doc-external-doc:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/rt.jar#https://docs.oracle.com/javase/8/docs/api/index.html</arg>
+                                <arg>-doc-external-doc:${settings.localRepository}/org/scala-lang/scala-library/${scala.version}/scala-library-${scala.version}.jar#https://scala-lang.org/api/${scala.version}/</arg>
+                                <arg>-doc-external-doc:${settings.localRepository}/org/apache/spark/spark-sql_2.12/${spark.version}/spark-sql_2.12-${spark.version}/.jar#https://spark.apache.org/docs/${spark.version}/api/scala/index.html</arg>
+                            </args>
+                            <scalaVersion>${scala.version}</scalaVersion>
+                            <checkMultipleScalaVersions>true</checkMultipleScalaVersions>
+                            <failOnMultipleScalaVersions>true</failOnMultipleScalaVersions>
+                            <jvmArgs>
+                                <jvmArg>-Xms1024m</jvmArg>
+                                <jvmArg>-Xmx1024m</jvmArg>
+                            </jvmArgs>
+                            <addJavacArgs>-Xlint:all,-serial,-path,-try</addJavacArgs>
+                        </configuration>
+                    </execution>
                 </executions>
                 <configuration>
                     <scalaVersion>${scala.version}</scalaVersion>
@@ -358,6 +382,19 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>${maven.jar.plugin.version}</version>
+            </plugin>
+            <!-- build sources.jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-source</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
