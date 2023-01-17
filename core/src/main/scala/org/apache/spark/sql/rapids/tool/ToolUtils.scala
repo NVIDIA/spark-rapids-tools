@@ -81,7 +81,10 @@ object ToolUtils extends Logging {
     val splitArr = clusterNameString.split("-")
     if (splitArr.contains("job")) {
       val jobIdx = splitArr.indexOf("job")
-      jobId = Some(splitArr(jobIdx + 1))
+      // indexes are 0 based so adjust to compare to length
+      if (splitArr.length > jobIdx + 1) {
+        jobId = Some(splitArr(jobIdx + 1))
+      }
     }
     jobId
   }
