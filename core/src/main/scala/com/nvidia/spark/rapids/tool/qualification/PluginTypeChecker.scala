@@ -27,7 +27,7 @@ import org.apache.spark.internal.Logging
  * By default it relies on a csv file included in the jar which is generated
  * by the plugin which lists the formats and types supported.
  */
-class PluginTypeChecker extends Logging {
+class PluginTypeChecker(sparkEnv: String = "onprem") extends Logging {
 
   private val NS = "NS"
   private val PS = "PS"
@@ -38,7 +38,9 @@ class PluginTypeChecker extends Logging {
   private val NA = "NA"
 
   private val DEFAULT_DS_FILE = "supportedDataSource.csv"
-  private val OPERATORS_SCORE_FILE = "operatorsScore.csv"
+  private val OPERATORS_SCORE_FILE_ONPREM = "operatorsScore.csv"
+  private val OPERATORS_SCORE_FILE_DATAPROC = "operatorsScore-dataproc.csv"
+  private val OPERATORS_SCORE_FILE_EMR = "operatorsScore-emr.csv"
   private val SUPPORTED_EXECS_FILE = "supportedExecs.csv"
   private val SUPPORTED_EXPRS_FILE = "supportedExprs.csv"
 
@@ -83,7 +85,13 @@ class PluginTypeChecker extends Logging {
   def getSupportedExprs: Map[String, String] = supportedExprs
 
   private def readOperatorsScore: Map[String, Double] = {
-    val source = Source.fromResource(OPERATORS_SCORE_FILE)
+    var file: String = null
+    sparkEnv match {
+      case "dataproc" => file = OPERATORS_SCORE_FILE_DATAPROC
+      case "emr" => file = OPERATORS_SCORE_FILE_EMR
+      case _ => file = OPERATORS_SCORE_FILE_ONPREM
+    }
+    val source = Source.fromResource(file)
     readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
   }
 

@@ -151,4 +151,22 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     assert(result(1) == "ORC")
     assert(result(2) == "ORC")
   }
+
+  test("supported operator score from onprem") {
+    val checker = new PluginTypeChecker("onprem")
+    assert(checker.getSpeedupFactor("FilterExec") == 2.8)
+    assert(checker.getSpeedupFactor("Ceil") == 4)
+  }
+
+  test("supported operator score from dataproc") {
+    val checker = new PluginTypeChecker("dataproc")
+    assert(checker.getSpeedupFactor("FilterExec") == 2.8)
+    assert(checker.getSpeedupFactor("Ceil") == 4)
+  }
+
+  test("supported operator score from emr") {
+    val checker = new PluginTypeChecker("emr")
+    assert(checker.getSpeedupFactor("FilterExec") == 2.7)
+    assert(checker.getSpeedupFactor("Ceil") == 4)
+  }
 }

@@ -58,11 +58,12 @@ object QualificationMain extends Logging {
     val order = appArgs.order.getOrElse("desc")
     val uiEnabled = appArgs.htmlReport.getOrElse(false)
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
+    val sparkEnv = appArgs.sparkEnv.getOrElse("onprem")
 
     val hadoopConf = new Configuration()
 
     val pluginTypeChecker = try {
-      new PluginTypeChecker()
+      new PluginTypeChecker(sparkEnv)
     } catch {
       case ie: IllegalStateException =>
         logError("Error creating the plugin type checker!", ie)
