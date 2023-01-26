@@ -445,10 +445,12 @@ class QualificationAppInfo(
           e.children.map(x => x.filterNot(_.isSupported))
         }.flatten
         topLevelExecs ++ childrenExecs
-      }.map(_.exec).toSet.mkString(";").trim
+      }.map(_.exec).toSet.mkString(";").trim.replaceAll("\n", "")
+        .replace(",", ":")
       // Get all the unsupported Expressions from the plan
       val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(
-        _.unsupportedExprs)).flatten.filter(_.nonEmpty).toSet.mkString(";").trim
+        _.unsupportedExprs)).flatten.filter(_.nonEmpty).toSet.mkString(";")
+        .trim.replaceAll("\n", "").replace(",", ":")
 
       // get the ratio based on the Task durations that we will use for wall clock durations
       val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
