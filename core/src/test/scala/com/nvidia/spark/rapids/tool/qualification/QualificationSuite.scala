@@ -1112,6 +1112,90 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
       }
     }
   }
+
+  test("test different values for platform argument") {
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "timezone") { spark =>
+        import spark.implicits._
+        val testData = Seq((1, 1662519019), (2, 1662519020)).toDF("id", "timestamp")
+        spark.sparkContext.setJobDescription("timestamp functions as potential problems")
+        testData.createOrReplaceTempView("t1")
+        spark.sql("SELECT id, hour(current_timestamp()), second(to_timestamp(timestamp)) FROM t1")
+      }
+
+      // run the qualification tool for onprem
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "onprem",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+  
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
+      }
+
+      // run the qualification tool for emr
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "emr",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+  
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
+      }
+
+      // run the qualification tool for dataproc
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "dataproc",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+  
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
+      }
+    }
+  }
 }
 
 class ToolTestListener extends SparkListener {

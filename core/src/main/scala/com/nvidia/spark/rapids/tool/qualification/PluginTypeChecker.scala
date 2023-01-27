@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import org.apache.spark.internal.Logging
  * By default it relies on a csv file included in the jar which is generated
  * by the plugin which lists the formats and types supported.
  */
-class PluginTypeChecker extends Logging {
+class PluginTypeChecker(platform: String = "onprem") extends Logging {
 
   private val NS = "NS"
   private val PS = "PS"
@@ -38,7 +38,9 @@ class PluginTypeChecker extends Logging {
   private val NA = "NA"
 
   private val DEFAULT_DS_FILE = "supportedDataSource.csv"
-  private val OPERATORS_SCORE_FILE = "operatorsScore.csv"
+  private val OPERATORS_SCORE_FILE_ONPREM = "operatorsScore.csv"
+  private val OPERATORS_SCORE_FILE_DATAPROC = "operatorsScore-dataproc.csv"
+  private val OPERATORS_SCORE_FILE_EMR = "operatorsScore-emr.csv"
   private val SUPPORTED_EXECS_FILE = "supportedExecs.csv"
   private val SUPPORTED_EXPRS_FILE = "supportedExprs.csv"
 
@@ -83,7 +85,13 @@ class PluginTypeChecker extends Logging {
   def getSupportedExprs: Map[String, String] = supportedExprs
 
   private def readOperatorsScore: Map[String, Double] = {
-    val source = Source.fromResource(OPERATORS_SCORE_FILE)
+    val file = platform match {
+      case "dataproc" => OPERATORS_SCORE_FILE_DATAPROC
+      case "emr" => OPERATORS_SCORE_FILE_EMR
+      case _ => OPERATORS_SCORE_FILE_ONPREM
+    }
+    logInfo(s"Reading operators scores with platform: $platform")
+    val source = Source.fromResource(file)
     readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
   }
 

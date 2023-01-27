@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -140,6 +140,11 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Maximum length of the SQL description string output with the " +
         "per sql output. Default is 100.",
       default = Some(100))
+  val platform: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "Cluster platform where Spark CPU workloads were executed. Options include " +
+        "onprem, dataproc, and emr. Default is onprem.",
+      default = Some("onprem"))
 
   validate(order) {
     case o if (QualificationArgs.isOrderAsc(o) || QualificationArgs.isOrderDesc(o)) => Right(Unit)
