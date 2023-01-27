@@ -1113,7 +1113,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     }
   }
 
-  test("test different values for spark-env argument") {
+  test("test different values for platform argument") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "timezone") { spark =>
         import spark.implicits._
@@ -1128,7 +1128,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         val appArgs = new QualificationArgs(Array(
           "--output-directory",
           outpath.getAbsolutePath,
-          "--spark-env",
+          "--platform",
           "onprem",
           eventLog))
 
@@ -1152,7 +1152,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         val appArgs = new QualificationArgs(Array(
           "--output-directory",
           outpath.getAbsolutePath,
-          "--spark-env",
+          "--platform",
           "emr",
           eventLog))
 
@@ -1176,7 +1176,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         val appArgs = new QualificationArgs(Array(
           "--output-directory",
           outpath.getAbsolutePath,
-          "--spark-env",
+          "--platform",
           "dataproc",
           eventLog))
 

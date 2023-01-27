@@ -27,7 +27,7 @@ import org.apache.spark.internal.Logging
  * By default it relies on a csv file included in the jar which is generated
  * by the plugin which lists the formats and types supported.
  */
-class PluginTypeChecker(sparkEnv: String = "onprem") extends Logging {
+class PluginTypeChecker(platform: String = "onprem") extends Logging {
 
   private val NS = "NS"
   private val PS = "PS"
@@ -86,7 +86,7 @@ class PluginTypeChecker(sparkEnv: String = "onprem") extends Logging {
 
   private def readOperatorsScore: Map[String, Double] = {
     var file: String = null
-    sparkEnv match {
+    platform match {
       case "dataproc" => file = OPERATORS_SCORE_FILE_DATAPROC
       case "emr" => file = OPERATORS_SCORE_FILE_EMR
       case _ => file = OPERATORS_SCORE_FILE_ONPREM

@@ -183,6 +183,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
                                      It will overwrite any existing directory with
                                      the same name.
   -p, --per-sql                      Report at the individual SQL query level.
+      --platform  <arg>...           Cluster platform where Spark CPU workloads were
+                                     executed.  Options include onprem, dataproc,
+                                     and emr.  Default is onprem.
   -r, --report-read-schema           Whether to output the read formats and
                                      datatypes to the CSV file. This can be very
                                      long. Default is false.
@@ -205,9 +208,6 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
                                      min(minute),h(hours),d(days),w(weeks),m(months).
                                      If a period is not specified it defaults to
                                      days.
-      --spark-env  <arg>...          Spark environment where CPU workloads were
-                                     executed.  Options include onprem, dataproc,
-                                     and emr.  Default is onprem.
   -t, --timeout  <arg>               Maximum time in seconds to wait for the event
                                      logs to be processed. Default is 24 hours
                                      (86400 seconds) and must be greater than 3

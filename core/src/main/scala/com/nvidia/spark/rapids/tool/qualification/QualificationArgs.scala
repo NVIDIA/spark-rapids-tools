@@ -140,9 +140,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Maximum length of the SQL description string output with the " +
         "per sql output. Default is 100.",
       default = Some(100))
-  val sparkEnv: ScallopOption[String] =
+  val platform: ScallopOption[String] =
     opt[String](required = false,
-      descr = "Spark environment where CPU workloads were executed.  Options include " +
+      descr = "Cluster platform where Spark CPU workloads were executed.  Options include " +
         "onprem, dataproc, and emr.  Default is onprem.",
       default = Some("onprem"))
 
