@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,11 +58,12 @@ object QualificationMain extends Logging {
     val order = appArgs.order.getOrElse("desc")
     val uiEnabled = appArgs.htmlReport.getOrElse(false)
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
+    val platform = appArgs.platform.getOrElse("onprem")
 
     val hadoopConf = new Configuration()
 
     val pluginTypeChecker = try {
-      new PluginTypeChecker()
+      new PluginTypeChecker(platform)
     } catch {
       case ie: IllegalStateException =>
         logError("Error creating the plugin type checker!", ie)

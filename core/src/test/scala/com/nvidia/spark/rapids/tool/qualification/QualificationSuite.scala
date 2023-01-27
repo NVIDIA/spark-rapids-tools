@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -726,7 +726,38 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     }
   }
 
-  test("test clusterTags configs ") {
+  test("test clusterTags when redacted") {
+    TrampolineUtil.withTempDir { outpath =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted") { spark =>
+          import spark.implicits._
+          spark.conf.set("spark.databricks.clusterUsageTags.clusterAllTags", "*********(redacted)")
+          spark.conf.set("spark.databricks.clusterUsageTags.clusterId", "0617-131246-dray530")
+          spark.conf.set("spark.databricks.clusterUsageTags.clusterName", "job-215-run-34243234")
+
+          val df1 = spark.sparkContext.makeRDD(1 to 1000, 6).toDF
+          df1.sample(0.1)
+        }
+        val expectedClusterId = "0617-131246-dray530"
+        val expectedJobId = "215"
+
+        val allArgs = Array(
+          "--output-directory",
+          outpath.getAbsolutePath())
+        val appArgs = new QualificationArgs(allArgs ++ Array(eventLog))
+        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+        assert(appSum.size == 1)
+        val allTags = appSum.flatMap(_.allClusterTagsMap).toMap
+        assert(allTags("ClusterId") == expectedClusterId)
+        assert(allTags("JobId") == expectedJobId)
+        assert(allTags.get("RunName") == None)
+      }
+    }
+  }
+
+  test("test clusterTags configs") {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
 
@@ -1078,6 +1109,90 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(outputActual.collect().size == 1)
         assert(outputActual.select("Potential Problems").first.getString(0) == 
           "TIMEZONE to_timestamp():TIMEZONE hour():TIMEZONE current_timestamp():TIMEZONE second()")
+      }
+    }
+  }
+
+  test("test different values for platform argument") {
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "timezone") { spark =>
+        import spark.implicits._
+        val testData = Seq((1, 1662519019), (2, 1662519020)).toDF("id", "timestamp")
+        spark.sparkContext.setJobDescription("timestamp functions as potential problems")
+        testData.createOrReplaceTempView("t1")
+        spark.sql("SELECT id, hour(current_timestamp()), second(to_timestamp(timestamp)) FROM t1")
+      }
+
+      // run the qualification tool for onprem
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "onprem",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+  
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
+      }
+
+      // run the qualification tool for emr
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "emr",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+  
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
+      }
+
+      // run the qualification tool for dataproc
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "dataproc",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+  
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
       }
     }
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,10 @@ class QualificationAppInfo(
 
   val notSupportFormatAndTypes: HashMap[String, Set[String]] = HashMap[String, Set[String]]()
 
+  // clusterTags can be redacted so try to get ClusterId and ClusterName separately
   var clusterTags: String = ""
+  var clusterTagClusterId: String = ""
+  var clusterTagClusterName: String = ""
   private lazy val eventProcessor =  new QualificationEventProcessor(this, perSqlOnly)
 
   /**
@@ -323,6 +326,30 @@ class QualificationAppInfo(
     }
   }
 
+  private def prepareClusterTags: Map[String, String] = {
+    val initialClusterTagsMap = if (clusterTags.nonEmpty) {
+      ToolUtils.parseClusterTags(clusterTags)
+    } else {
+      Map.empty[String, String]
+    }
+
+    val tagsMapWithClusterId = if (!initialClusterTagsMap.contains(QualOutputWriter.CLUSTER_ID)
+      && clusterTagClusterId.nonEmpty) {
+      initialClusterTagsMap + (QualOutputWriter.CLUSTER_ID -> clusterTagClusterId)
+    } else {
+      initialClusterTagsMap
+    }
+
+    if (!tagsMapWithClusterId.contains(QualOutputWriter.JOB_ID) && clusterTagClusterName.nonEmpty) {
+      val clusterTagJobId = ToolUtils.parseClusterNameForJobId(clusterTagClusterName)
+      clusterTagJobId.map { jobId =>
+        tagsMapWithClusterId + (QualOutputWriter.JOB_ID -> jobId)
+      }.getOrElse(tagsMapWithClusterId)
+    } else {
+      tagsMapWithClusterId
+    }
+  }
+
   /**
    * Aggregate and process the application after reading the events.
    * @return Option of QualificationSummaryInfo, Some if we were able to process the application
@@ -370,11 +397,8 @@ class QualificationAppInfo(
 
       val appName = appInfo.map(_.appName).getOrElse("")
 
-      val allClusterTagsMap = if (clusterTags.nonEmpty) {
-        ToolUtils.parseClusterTags(clusterTags)
-      } else {
-        Map.empty[String, String]
-      }
+      val allClusterTagsMap = prepareClusterTags
+
       val perSqlInfos = if (reportSqlLevel) {
         Some(planInfos.flatMap { pInfo =>
           sqlIdToInfo.get(pInfo.sqlID).map { info =>
@@ -421,10 +445,12 @@ class QualificationAppInfo(
           e.children.map(x => x.filterNot(_.isSupported))
         }.flatten
         topLevelExecs ++ childrenExecs
-      }.map(_.exec).toSet.mkString(";").trim
+      }.map(_.exec).toSet.mkString(";").trim.replaceAll("\n", "")
+        .replace(",", ":")
       // Get all the unsupported Expressions from the plan
       val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(
-        _.unsupportedExprs)).flatten.filter(_.nonEmpty).toSet.mkString(";").trim
+        _.unsupportedExprs)).flatten.filter(_.nonEmpty).toSet.mkString(";")
+        .trim.replaceAll("\n", "").replace(",", ":")
 
       // get the ratio based on the Task durations that we will use for wall clock durations
       val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
