@@ -39,6 +39,7 @@ object ReadParser extends Logging {
     // remove the tag from the final string returned
     val subStr = str.substring(index + tag.size)
     val endIndex = subStr.indexOf(", ")
+    // InMemoryFileIndex[hdfs://bdbl-rpm-1160
     if (endIndex != -1) {
       subStr.substring(0, endIndex)
     } else {
@@ -55,7 +56,10 @@ object ReadParser extends Logging {
     }
     val locationTag = "Location: "
     val location = if (node.desc.contains(locationTag)) {
-      getFieldWithoutTag(node.desc, locationTag)
+      val stringWithBrackets = getFieldWithoutTag(node.desc, locationTag)
+      // Remove prepended InMemoryFileIndex[ and return only location
+      // Ex: InMemoryFileIndex[hdfs://bdbl-rpm-1106-57451/numbers.parquet
+      stringWithBrackets.split("\\[", 2).last
     } else if (node.name.contains("JDBCRelation")) {
       // see if we can report table or query
       val JDBCPattern = raw".*JDBCRelation\((.*)\).*".r
@@ -68,7 +72,9 @@ object ReadParser extends Logging {
     }
     val pushedFilterTag = "PushedFilters: "
     val pushedFilters = if (node.desc.contains(pushedFilterTag)) {
-      getFieldWithoutTag(node.desc, pushedFilterTag)
+      val stringWithBrackets = getFieldWithoutTag(node.desc, pushedFilterTag)
+      //Remove prepended [ from the string
+      stringWithBrackets.split("\\[", 2).last
     } else {
       "unknown"
     }

@@ -129,12 +129,16 @@ case class RapidsJarProfileResult(appIndex: Int, jar: String)  extends ProfileRe
   }
 }
 
-case class DataSourceProfileResult(appIndex: Int, sqlID: Long, format: String,
-    location: String, pushedFilters: String, schema: String) extends ProfileResult {
+case class DataSourceProfileResult(appIndex: Int, sqlID: Long, readCount: Int, format: String,
+    location: String, pushedFilters: String, schema: String, accumId: String,
+    buffer_time: String, scan_time: String, data_size: String, decode_time: String)
+extends ProfileResult {
   override val outputHeaders =
-    Seq("appIndex", "sqlID", "format", "location", "pushedFilters", "schema")
+    Seq("appIndex", "sqlID", "readCount", "format", "location", "pushedFilters", "schema",
+      "accumId", "buffer_time", "scan_time", "data_size", "decode_time")
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, format, location, pushedFilters, schema)
+    Seq(appIndex.toString, sqlID.toString, readCount.toString, format, location, pushedFilters,
+      schema, accumId, buffer_time, scan_time, data_size, decode_time)
   }
 }
 
@@ -559,6 +563,43 @@ case class SQLTaskAggMetricsProfileResult(
       srTotalBytesReadSum.toString,
       swBytesWrittenSum.toString,
       swRecordsWrittenSum.toString,
+      swWriteTimeSum.toString)
+  }
+}
+
+case class IOAnalysisProfileResult(
+    appIndex: Int,
+    appId: String,
+    sqlId: Long,
+    description: String,
+    numReads: Int,
+    inputBytesReadSum: Long,
+    inputRecordsReadSum: Long,
+    outputBytesWrittenSum: Long,
+    outputRecordsWrittenSum: Long,
+    diskBytesSpilledSum: Long,
+    memoryBytesSpilledSum: Long,
+    srTotalBytesReadSum: Long,
+    swWriteTimeSum: Long) extends ProfileResult {
+
+  override val outputHeaders = Seq("appIndex", "appID", "sqlID", "description",
+    "numReads", "input_bytesRead_sum", "input_recordsRead_sum", "output_bytesWritten_sum",
+    "output_recordsWritten_sum", "diskBytesSpilled_sum", "memoryBytesSpilled_sum",
+    "sr_totalBytesRead_sum", "sw_writeTime_sum")
+
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      appId,
+      sqlId.toString,
+      description,
+      numReads.toString,
+      inputBytesReadSum.toString,
+      inputRecordsReadSum.toString,
+      outputBytesWrittenSum.toString,
+      outputRecordsWrittenSum.toString,
+      diskBytesSpilledSum.toString,
+      memoryBytesSpilledSum.toString,
+      srTotalBytesReadSum.toString,
       swWriteTimeSum.toString)
   }
 }

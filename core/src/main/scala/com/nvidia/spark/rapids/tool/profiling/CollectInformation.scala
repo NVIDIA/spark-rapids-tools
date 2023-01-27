@@ -81,11 +81,49 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 
   // get read data schema information
   def getDataSourceInfo: Seq[DataSourceProfileResult] = {
-    val filtered = apps.filter(_.dataSourceInfo.size > 0)
-    val allRows = filtered.flatMap { app =>
-      app.dataSourceInfo.map { ds =>
-        DataSourceProfileResult(app.index, ds.sqlID, ds.format, ds.location,
-          ds.pushedFilters, ds.schema)
+    val dataSourceApps = apps.filter(_.dataSourceInfo.size > 0)
+    val sqlAccums = CollectInformation.generateSQLAccums(dataSourceApps)
+    // Metrics to capture from event log to the result
+    val buffer_time: String = "buffer time"
+    val scan_time = "scan time"
+    val data_size = "data size"
+    val decode_time = "GPU decode time"
+
+    // This is to save the metrics which will be extracted while creating the result.
+    case class IoMetrics(
+        buffer_time: String,
+        scan_time: String,
+        data_size: String,
+        decode_time: String)
+
+    def getIoMetrics(metricsName: String, metricsValue: String): IoMetrics = {
+      metricsName match {
+        case value if (value == buffer_time) => IoMetrics(metricsValue, "", "", "")
+        case value if (value == scan_time) => IoMetrics("", metricsValue, "", "")
+        case value if (value == data_size) => IoMetrics("", "", metricsValue, "")
+        case value if (value == decode_time) => IoMetrics("", "", "", metricsValue)
+      }
+    }
+
+    val allRows = dataSourceApps.flatMap { app =>
+
+      val appSqlAccums = sqlAccums.filter(x => x.appIndex == app.index)
+      // Number of data source reads in an application
+      app.readCount = appSqlAccums.filter(x => x.name.contains(scan_time)).size
+
+      //Filter appSqlAccums to get only required metrics
+      val dataSourceMetrics = appSqlAccums.filter(x => x.name.contains(buffer_time)
+          || x.name.contains(scan_time) || x.name.contains(decode_time)
+          || x.name.equals(data_size))
+
+      app.dataSourceInfo.flatMap { ds =>
+        val sqlIdtoDs = dataSourceMetrics.filter(x => x.sqlID == ds.sqlID)
+        sqlIdtoDs.map { x =>
+          val ioMetrics = getIoMetrics(x.name, x.max_value.toString)
+          DataSourceProfileResult(app.index, ds.sqlID, app.readCount, ds.format, ds.location,
+            ds.pushedFilters, ds.schema, x.accumulatorId.toString, ioMetrics.buffer_time,
+            ioMetrics.scan_time, ioMetrics.data_size, ioMetrics.decode_time)
+        }
       }
     }
     if (allRows.size > 0) {

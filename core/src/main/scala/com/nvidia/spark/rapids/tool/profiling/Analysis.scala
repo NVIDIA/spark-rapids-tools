@@ -312,6 +312,55 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     }
   }
 
+  def ioAnalysis(): Seq[IOAnalysisProfileResult] = {
+    // Filter only those apps which have dataSource Information
+    val dataSourceApps = apps.filter(_.dataSourceInfo.size > 0)
+    val allRows = dataSourceApps.flatMap { app =>
+      app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
+        val jcs = app.jobIdToInfo.filter { case (_, jc) =>
+          jc.sqlID.getOrElse(-1) == sqlId
+        }
+        if (jcs.isEmpty) {
+          None
+        } else {
+          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSeq
+
+          val tasksInSQL = app.taskEnd.filter { tc =>
+            stageIdsForSQL.contains(tc.stageId)
+          }
+          if (tasksInSQL.isEmpty) {
+            None
+          } else {
+            val diskBytes = tasksInSQL.map(_.diskBytesSpilled).sum
+            Some(IOAnalysisProfileResult(app.index,
+              app.appId,
+              sqlId,
+              sqlCase.description,
+              app.readCount,
+              tasksInSQL.map(_.input_bytesRead).sum,
+              tasksInSQL.map(_.input_recordsRead).sum,
+              tasksInSQL.map(_.output_bytesWritten).sum,
+              tasksInSQL.map(_.output_recordsWritten).sum,
+              diskBytes,
+              tasksInSQL.map(_.memoryBytesSpilled).sum,
+              tasksInSQL.map(_.sr_totalBytesRead).sum,
+              tasksInSQL.map(_.sw_writeTime).sum
+            ))
+          }
+        }
+      }
+    }
+    val allFiltered = allRows.filter(_.isDefined).map(_.get)
+    if (allFiltered.size > 0) {
+      val sortedRows = allFiltered.sortBy { cols =>
+        (cols.appIndex, cols.sqlId)
+      }
+      sortedRows
+    } else {
+      Seq.empty
+    }
+  }
+
   def getMaxTaskInputSizeBytes(): Seq[SQLMaxTaskInputSizes] = {
     apps.map { app =>
       val maxOfSqls = app.sqlIdToInfo.map { case (sqlId, _) =>
