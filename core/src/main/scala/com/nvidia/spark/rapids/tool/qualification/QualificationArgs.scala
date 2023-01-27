@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -142,8 +142,8 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       default = Some(100))
   val platform: ScallopOption[String] =
     opt[String](required = false,
-      descr = "Cluster platform where Spark CPU workloads were executed.  Options include " +
-        "onprem, dataproc, and emr.  Default is onprem.",
+      descr = "Cluster platform where Spark CPU workloads were executed. Options include " +
+        "onprem, dataproc, and emr. Default is onprem.",
       default = Some("onprem"))
 
   validate(order) {

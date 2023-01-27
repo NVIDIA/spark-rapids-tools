@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,12 +85,12 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
   def getSupportedExprs: Map[String, String] = supportedExprs
 
   private def readOperatorsScore: Map[String, Double] = {
-    var file: String = null
-    platform match {
-      case "dataproc" => file = OPERATORS_SCORE_FILE_DATAPROC
-      case "emr" => file = OPERATORS_SCORE_FILE_EMR
-      case _ => file = OPERATORS_SCORE_FILE_ONPREM
+    val file = platform match {
+      case "dataproc" => OPERATORS_SCORE_FILE_DATAPROC
+      case "emr" => OPERATORS_SCORE_FILE_EMR
+      case _ => OPERATORS_SCORE_FILE_ONPREM
     }
+    logInfo(s"Reading operators scores with platform: $platform")
     val source = Source.fromResource(file)
     readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
   }

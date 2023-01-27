@@ -183,9 +183,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
                                      It will overwrite any existing directory with
                                      the same name.
   -p, --per-sql                      Report at the individual SQL query level.
-      --platform  <arg>...           Cluster platform where Spark CPU workloads were
-                                     executed.  Options include onprem, dataproc,
-                                     and emr.  Default is onprem.
+      --platform  <arg>              Cluster platform where Spark CPU workloads were
+                                     executed. Options include onprem, dataproc,
+                                     and emr. Default is onprem.
   -r, --report-read-schema           Whether to output the read formats and
                                      datatypes to the CSV file. This can be very
                                      long. Default is false.
