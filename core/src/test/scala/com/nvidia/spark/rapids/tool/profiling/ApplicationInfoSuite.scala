@@ -236,7 +236,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       assert(apps.size == 1)
       val collect = new CollectInformation(apps)
       val dsRes = collect.getDataSourceInfo
-      assert(dsRes.size == 5)
+      assert(dsRes.size == 13)
       val allFormats = dsRes.map { r =>
         r.format
       }.toSet
@@ -249,7 +249,11 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val schemaParquet = dsRes.filter { r =>
         r.sqlID == 4
       }
-      assert(schemaParquet.size == 1)
+      assert(schemaParquet.size == 3)
+      val schemaText = dsRes.filter { r =>
+        r.sqlID == 0
+      }
+      assert(schemaText.size == 1)
       val parquetRow = schemaParquet.head
       assert(parquetRow.schema.contains("loan_id"))
     }
@@ -748,7 +752,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
         f.endsWith(".csv")
       })
-      assert(dotDirs.length === 12)
+      assert(dotDirs.length === 13)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
