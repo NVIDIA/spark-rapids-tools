@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -364,6 +364,25 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       assert(!parquetRow.schema.contains("loan400"))
       assert(parquetRow.schema.contains("..."))
       assert(parquetRow.location.contains("lotscolumnsout"))
+    }
+  }
+
+  test("test read GPU datasourcev2- IoMetrics") {
+    TrampolineUtil.withTempDir { tempOutputDir =>
+      var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+      val appArgs = new ProfileArgs(Array(s"$logDir/eventlog-gpu-dsv2.zstd"))
+      var index: Int = 1
+      val eventlogPaths = appArgs.eventlog()
+      for (path <- eventlogPaths) {
+        apps += new ApplicationInfo(hadoopConf,
+          EventLogPathProcessor.getEventLogInfo(path,
+            sparkSession.sparkContext.hadoopConfiguration).head._1, index)
+        index += 1
+      }
+      assert(apps.size == 1)
+      val analysis = new Analysis(apps)
+      val sqlTaskMetrics = analysis.ioAnalysis()
+      assert(sqlTaskMetrics.size == 5)
     }
   }
 
