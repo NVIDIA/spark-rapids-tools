@@ -205,50 +205,6 @@ class Qualification(RapidsJarTool):
         self._process_cpu_cluster_args(offline_cluster_opts)
         self._process_gpu_cluster_args(offline_cluster_opts)
 
-    #     offline_cluster_opts = self.wrapper_options.get('migration_clusters_props', {})
-    #     # get the path
-    #     cpu_conf_path = offline_cluster_opts.get('cpu_cluster_props_path')
-    #     if cpu_conf_path is None:
-    #         # The argument is not set, then the dataproc properties is going to be same as
-    #         # the submission job.
-    #         self.logger.info(
-    #             'The original CPU cluster is the same as the submission cluster on which the tool runs. '
-    #             'To update the configuration of the CPU cluster, make sure to pass the '
-    #             'properties file to the CLI arguments.')
-    #         self.ctxt.set_ctxt('cpuClusterProxy', self.get_exec_cluster())
-    #     else:
-    #         # TODO: create an offline cluster for cpu
-    #         offline_cluster_conf_path = self.ctxt.platform.storage.download_resource(cpu_conf_path,
-    #                                                                                  self.ctxt.get_local_work_dir())
-    #         cluster_args = {
-    #             'props': offline_cluster_conf_path,
-    #             'zone': self.get_exec_cluster().zone
-    #         }
-    #         cpu_cluster = self.ctxt.platform.set_offline_cluster(cluster_args=cluster_args)
-    #         self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster)
-    #
-    #     # now process the GPU cluster
-    #     gpu_conf_path = offline_cluster_opts.get('gpu_cluster_props_path')
-    #     if gpu_conf_path is None:
-    #         # The argument is not set, then the dataproc properties is going to be same as
-    #         # the submission job.
-    #         self.ctxt.set_ctxt('gpuClusterProxy', self.ctxt.get_ctxt('cpuClusterProxy'))
-    #         props_origin_msg = f'the submission cluster on which the RAPIDS tool is running [{self.cluster}]'
-    #         if cpu_conf_path is not None:
-    #             props_origin_msg = f'the original CPU cluster properties loaded from {cpu_conf_path}'
-    #         self.ctxt.loginfo(f'The GPU cluster is the same as {props_origin_msg}. '
-    #                           'To update the configuration of the GPU cluster, make sure to pass the '
-    #                           'properties file to the CLI arguments.')
-    #     else:
-    #         offline_cluster_conf_path = self.ctxt.platform.storage.download_resource(gpu_conf_path,
-    #                                                                                  self.ctxt.get_local_work_dir())
-    #         cluster_args = {
-    #             'props': offline_cluster_conf_path,
-    #             'zone': self.get_exec_cluster().zone
-    #         }
-    #         gpu_cluster = self.ctxt.platform.set_offline_cluster(cluster_args=cluster_args)
-    #         self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster)
-
     def __process_filter_args(self, arg_val: str):
         available_filters = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'filters',
                                                 'definedFilters')
@@ -640,7 +596,7 @@ class QualificationAsLocal(Qualification):
         job_obj = self.ctxt.platform.create_local_submission_job(job_prop=job_properties,
                                                                  ctxt=self.ctxt)
         submission_res = job_obj.run_job()
-        self.logger.info('Done with running the Job %s', submission_res)
+        self.logger.debug('Done with running the Job %s', submission_res)
 
     def _delete_remote_dep_folder(self):
         self.logger.debug('Local mode skipping deleting the remote workdir')

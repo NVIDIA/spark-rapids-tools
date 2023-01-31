@@ -404,7 +404,7 @@ class EMRCluster(ClusterBase):
         for spark_node_type, node_list in self.nodes.items():
             if spark_node_type == SparkNodeType.MASTER:
                 # skip
-                print('skip converting Master nodes')
+                self.cli.logger.debug('Skip converting Master nodes')
             else:
                 for anode in node_list:
                     if anode.instance_type not in mc_map:
