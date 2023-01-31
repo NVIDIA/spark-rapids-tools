@@ -356,10 +356,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
       }
     }
     (ApplicationSummaryInfo(appInfo, dsInfo, execInfo, jobInfo, rapidsProps, 
-      rapidsJar, sqlMetrics, jsMetAgg, sqlTaskAggMetrics, ioAnalysisMetrics,
-      durAndCpuMet, skewInfo, failedTasks, failedStages, failedJobs, removedBMs,
-      removedExecutors, unsupportedOps, sparkProps, sqlStageInfo, wholeStage,
-      maxTaskInputInfo, appLogPath), compareRes)
+      rapidsJar, sqlMetrics, jsMetAgg, sqlTaskAggMetrics, durAndCpuMet, skewInfo,
+      failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
+      unsupportedOps, sparkProps, sqlStageInfo, wholeStage, maxTaskInputInfo,
+      appLogPath, ioAnalysisMetrics), compareRes)
   }
 
   def writeOutput(profileOutputWriter: ProfileOutputWriter,
@@ -404,7 +404,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
         appsSum.flatMap(_.sqlMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.jsMetAgg).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlTaskAggMetrics).sortBy(_.appIndex),
-        appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.durAndCpuMet).sortBy(_.appIndex),
         appsSum.flatMap(_.skewInfo).sortBy(_.appIndex),
         appsSum.flatMap(_.failedTasks).sortBy(_.appIndex),
@@ -417,7 +416,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
         appsSum.flatMap(_.sqlStageInfo).sortBy(_.duration)(Ordering[Option[Long]].reverse),
         appsSum.flatMap(_.wholeStage).sortBy(_.appIndex),
         appsSum.flatMap(_.maxTaskInputBytesRead).sortBy(_.appIndex),
-        appsSum.flatMap(_.appLogPath).sortBy(_.appIndex)
+        appsSum.flatMap(_.appLogPath).sortBy(_.appIndex),
+        appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex)
       )
       Seq(reduced)
     } else {

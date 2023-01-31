@@ -57,8 +57,10 @@ object ReadParser extends Logging {
     val locationTag = "Location: "
     val location = if (node.desc.contains(locationTag)) {
       val stringWithBrackets = getFieldWithoutTag(node.desc, locationTag)
-      // Remove prepended InMemoryFileIndex[ and return only location
-      // Ex: InMemoryFileIndex[hdfs://bdbl-rpm-1106-57451/numbers.parquet
+      // Remove prepended InMemoryFileIndex[  or  PreparedDeltaFileIndex[
+      // and return only location
+      // Ex: InMemoryFileIndex[hdfs://bdbl-rpm-1106-57451/numbers.parquet,
+      // PreparedDeltaFileIndex[file:/tmp/deltatable/delta-table1]
       stringWithBrackets.split("\\[", 2).last
     } else if (node.name.contains("JDBCRelation")) {
       // see if we can report table or query
@@ -73,7 +75,7 @@ object ReadParser extends Logging {
     val pushedFilterTag = "PushedFilters: "
     val pushedFilters = if (node.desc.contains(pushedFilterTag)) {
       val stringWithBrackets = getFieldWithoutTag(node.desc, pushedFilterTag)
-      //Remove prepended [ from the string
+      // Remove prepended [ from the string
       stringWithBrackets.split("\\[", 2).last
     } else {
       "unknown"

@@ -98,36 +98,36 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 
     def getIoMetrics(metricsName: String, metricsValue: String): IoMetrics = {
       metricsName match {
-        case value if (value == buffer_time) => IoMetrics(metricsValue, "", "", "")
-        case value if (value == scan_time) => IoMetrics("", metricsValue, "", "")
-        case value if (value == data_size) => IoMetrics("", "", metricsValue, "")
-        case value if (value == decode_time) => IoMetrics("", "", "", metricsValue)
+        case `buffer_time` => IoMetrics(metricsValue, "", "", "")
+        case `scan_time` => IoMetrics("", metricsValue, "", "")
+        case `data_size` => IoMetrics("", "", metricsValue, "")
+        case `decode_time` => IoMetrics("", "", "", metricsValue)
       }
     }
 
     val allRows = dataSourceApps.flatMap { app =>
-      val appSqlAccums = sqlAccums.filter(x => x.appIndex == app.index)
+      val appSqlAccums = sqlAccums.filter(sqlAccum => sqlAccum.appIndex == app.index)
       // Number of data source reads in an application
-      app.readCount = appSqlAccums.filter(x => x.name.contains(scan_time)).size
+      app.readCount = appSqlAccums.filter(sqlAccum => sqlAccum.name.contains(scan_time)).size
 
-      //Filter appSqlAccums to get only required metrics
-      val dataSourceMetrics = appSqlAccums.filter(x => x.name.contains(buffer_time)
-          || x.name.contains(scan_time) || x.name.contains(decode_time)
-          || x.name.equals(data_size))
+      // Filter appSqlAccums to get only required metrics
+      val dataSourceMetrics = appSqlAccums.filter(sqlAccum => sqlAccum.name.contains(buffer_time)
+          || sqlAccum.name.contains(scan_time) || sqlAccum.name.contains(decode_time)
+          || sqlAccum.name.equals(data_size))
 
       app.dataSourceInfo.flatMap { ds =>
-        val sqlIdtoDs = dataSourceMetrics.filter(x => x.sqlID == ds.sqlID)
+        val sqlIdtoDs = dataSourceMetrics.filter(sqlAccum => sqlAccum.sqlID == ds.sqlID)
         if (!sqlIdtoDs.isEmpty) {
-          sqlIdtoDs.map { x =>
-            val ioMetrics = getIoMetrics(x.name, x.max_value.toString)
+          sqlIdtoDs.map { metricType =>
+            val ioMetrics = getIoMetrics(metricType.name, metricType.max_value.toString)
             DataSourceProfileResult(app.index, ds.sqlID, app.readCount, ds.format, ds.location,
-              ds.pushedFilters, ds.schema, x.accumulatorId.toString, ioMetrics.buffer_time,
-              ioMetrics.scan_time, ioMetrics.data_size, ioMetrics.decode_time)
+              ds.pushedFilters, ds.schema, metricType.accumulatorId.toString,
+              ioMetrics.buffer_time, ioMetrics.scan_time, ioMetrics.data_size,
+              ioMetrics.decode_time)
           }
         } else { // Dataformat not supported on GPU, io Metrics not available for such
           Seq(DataSourceProfileResult(app.index, ds.sqlID, -1, ds.format, ds.location,
-            ds.pushedFilters, ds.schema, "NA", "NA",
-            "NA", "NA", "NA"))
+            ds.pushedFilters, ds.schema, "NA", "NA", "NA", "NA", "NA"))
         }
       }
     }

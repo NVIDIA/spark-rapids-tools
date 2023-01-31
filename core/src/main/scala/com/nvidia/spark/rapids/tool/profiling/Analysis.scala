@@ -344,7 +344,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
               diskBytes,
               tasksInSQL.map(_.memoryBytesSpilled).sum,
               tasksInSQL.map(_.sr_totalBytesRead).sum,
-              tasksInSQL.map(_.sw_writeTime).sum
+              tasksInSQL.map(_.sw_bytesWritten).sum
             ))
           }
         }

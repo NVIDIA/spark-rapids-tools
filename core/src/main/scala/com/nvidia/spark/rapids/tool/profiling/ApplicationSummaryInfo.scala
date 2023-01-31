@@ -26,7 +26,6 @@ case class ApplicationSummaryInfo(
     val sqlMetrics: Seq[SQLAccumProfileResults],
     val jsMetAgg: Seq[JobStageAggTaskMetricsProfileResult],
     val sqlTaskAggMetrics: Seq[SQLTaskAggMetricsProfileResult],
-    val ioMetrics: Seq[IOAnalysisProfileResult],
     val durAndCpuMet: Seq[SQLDurationExecutorTimeProfileResult],
     val skewInfo: Seq[ShuffleSkewProfileResult],
     val failedTasks: Seq[FailedTaskProfileResults],
@@ -39,7 +38,8 @@ case class ApplicationSummaryInfo(
     val sqlStageInfo: Seq[SQLStageInfoProfileResult],
     val wholeStage: Seq[WholeStageCodeGenResults],
     val maxTaskInputBytesRead: Seq[SQLMaxTaskInputSizes],
-    val appLogPath: Seq[AppLogPathProfileResults])
+    val appLogPath: Seq[AppLogPathProfileResults],
+    val ioMetrics: Seq[IOAnalysisProfileResult])
 
 trait AppInfoPropertyGetter {
   def getSparkProperty(propKey: String): Option[String]
