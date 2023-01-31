@@ -44,7 +44,6 @@ abstract class AppBase(
   var appEndTime: Option[Long] = None
   // The data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
-  var readCount: Int = 0
 
   // jobId to job info
   val jobIdToInfo = new HashMap[Int, JobInfoClass]()

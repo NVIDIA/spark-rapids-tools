@@ -129,16 +129,17 @@ case class RapidsJarProfileResult(appIndex: Int, jar: String)  extends ProfileRe
   }
 }
 
-case class DataSourceProfileResult(appIndex: Int, sqlID: Long, readCount: Int, format: String,
-    location: String, pushedFilters: String, schema: String, accumId: String,
-    buffer_time: String, scan_time: String, data_size: String, decode_time: String)
+case class DataSourceProfileResult(appIndex: Int, sqlID: Long, format: String,
+    buffer_time: String, scan_time: String, data_size: String, decode_time: String,
+    location: String, pushedFilters: String, schema: String)
 extends ProfileResult {
   override val outputHeaders =
-    Seq("appIndex", "sqlID", "readCount", "format", "location", "pushedFilters", "schema",
-      "accumId", "buffer_time", "scan_time", "data_size", "decode_time")
+    Seq("appIndex", "sqlID", "format", "buffer_time", "scan_time", "data_size",
+      "decode_time", "location", "pushedFilters", "schema")
+
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, readCount.toString, format, location, pushedFilters,
-      schema, accumId, buffer_time, scan_time, data_size, decode_time)
+    Seq(appIndex.toString, sqlID.toString, format, buffer_time, scan_time,
+      data_size, decode_time, location, pushedFilters, schema)
   }
 }
 
@@ -572,7 +573,6 @@ case class IOAnalysisProfileResult(
     appId: String,
     sqlId: Long,
     description: String,
-    numReads: Int,
     inputBytesReadSum: Long,
     inputRecordsReadSum: Long,
     outputBytesWrittenSum: Long,
@@ -583,7 +583,7 @@ case class IOAnalysisProfileResult(
     swTotalBytesWriteSum: Long) extends ProfileResult {
 
   override val outputHeaders = Seq("appIndex", "appID", "sqlID", "description",
-    "numReads", "input_bytesRead_sum", "input_recordsRead_sum", "output_bytesWritten_sum",
+    "input_bytesRead_sum", "input_recordsRead_sum", "output_bytesWritten_sum",
     "output_recordsWritten_sum", "diskBytesSpilled_sum", "memoryBytesSpilled_sum",
     "sr_totalBytesRead_sum", "sw_bytesWritten_sum")
 
@@ -592,7 +592,6 @@ case class IOAnalysisProfileResult(
       appId,
       sqlId.toString,
       description,
-      numReads.toString,
       inputBytesReadSum.toString,
       inputRecordsReadSum.toString,
       outputBytesWrittenSum.toString,

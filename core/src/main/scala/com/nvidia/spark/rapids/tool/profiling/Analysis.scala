@@ -336,7 +336,6 @@ class Analysis(apps: Seq[ApplicationInfo]) {
               app.appId,
               sqlId,
               sqlCase.description,
-              app.readCount,
               tasksInSQL.map(_.input_bytesRead).sum,
               tasksInSQL.map(_.input_recordsRead).sum,
               tasksInSQL.map(_.output_bytesWritten).sum,

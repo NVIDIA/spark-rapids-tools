@@ -236,7 +236,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       assert(apps.size == 1)
       val collect = new CollectInformation(apps)
       val dsRes = collect.getDataSourceInfo
-      assert(dsRes.size == 13)
+      assert(dsRes.size == 5)
       val allFormats = dsRes.map { r =>
         r.format
       }.toSet
@@ -249,7 +249,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val schemaParquet = dsRes.filter { r =>
         r.sqlID == 4
       }
-      assert(schemaParquet.size == 3)
+      assert(schemaParquet.size == 1)
       val schemaText = dsRes.filter { r =>
         r.sqlID == 0
       }
@@ -367,10 +367,10 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
   }
 
-  test("test read GPU datasourcev2- IoMetrics") {
+  test("test read GPU datasource- IoMetrics") {
     TrampolineUtil.withTempDir { tempOutputDir =>
       var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
-      val appArgs = new ProfileArgs(Array(s"$logDir/eventlog-gpu-dsv2.zstd"))
+      val appArgs = new ProfileArgs(Array(s"$logDir/eventlog-gpu-dsv1.zstd"))
       var index: Int = 1
       val eventlogPaths = appArgs.eventlog()
       for (path <- eventlogPaths) {
@@ -381,8 +381,12 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       }
       assert(apps.size == 1)
       val analysis = new Analysis(apps)
-      val sqlTaskMetrics = analysis.ioAnalysis()
-      assert(sqlTaskMetrics.size == 5)
+      val ioMetrics = analysis.ioAnalysis()
+      assert(ioMetrics.size == 5)
+      val metricsSqlId1 = ioMetrics.filter(metrics => metrics.sqlId == 1)
+      assert(metricsSqlId1.size == 1)
+      assert(metricsSqlId1.head.inputBytesReadSum == 1348)
+      assert(metricsSqlId1.head.inputRecordsReadSum == 66)
     }
   }
 
