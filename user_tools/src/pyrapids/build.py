@@ -12,4 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the spark_rapids_dataproc package."""
+"""Build helpers."""
+
+import datetime
+import os
+
+
+def get_version(main=None):
+    if main is None:
+        # pylint: disable=import-outside-toplevel
+        from pyrapids import VERSION as main
+    suffix = ''
+    nightly = os.environ.get('USERTOOLS_NIGHTLY')
+    if nightly == '1':
+        suffix = '.dev' + datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
+    return main + suffix

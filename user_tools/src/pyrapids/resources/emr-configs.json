@@ -1,0 +1,98 @@
+{
+  "dependencies": {
+    "deployMode": {
+      "LOCAL": [
+        {
+          "name":  "Apache Spark",
+          "uri": "https://dlcdn.apache.org/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
+          "type": "archive",
+          "relativePath": "jars/*",
+          "md5": ""
+        },
+        {
+          "name":  "Hadoop AWS",
+          "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar",
+          "type": "jar",
+          "md5": "59907e790ce713441955015d79f670bc"
+        },
+        {
+          "name":  "AWS Java SDK Bundled",
+          "uri": "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar",
+          "type": "jar",
+          "md5": "c508998e976f8b43cb7deb5ccbdbaa12"
+        }
+      ]
+    }
+  },
+  "gpuConfigs": {
+    "user-tools": {
+      "supportedGpuInstances": {
+        "g4dn.xlarge": {
+          "software": {
+            "release": "emr-6.0.0"
+          },
+          "SysInfo": {
+            "num_cpus": 4,
+            "cpu_mem": 16384
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 16384
+          }
+        },
+        "g4dn.2xlarge": {
+          "software": {
+            "release": "emr-6.0.0"
+          },
+          "SysInfo": {
+            "num_cpus": 8,
+            "cpu_mem": 16384
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 32768
+          }
+        },
+        "g4dn.4xlarge": {
+          "software": {
+            "release": "emr-6.0.0"
+          },
+          "SysInfo": {
+            "num_cpus": 16,
+            "cpu_mem": 65536
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 16384
+          }
+        },
+        "g4dn.8xlarge": {
+          "software": {
+            "release": "emr-6.0.0"
+          },
+          "SysInfo": {
+            "num_cpus": 32,
+            "cpu_mem": 131072
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 16384
+          }
+        },
+        "g4dn.12xlarge": {
+          "software": {
+            "release": "emr-6.0.0"
+          },
+          "SysInfo": {
+            "num_cpus": 48,
+            "cpu_mem": 196608
+          },
+          "GpuHWInfo": {
+            "num_gpus": 4,
+            "gpu_mem": 16384
+          }
+        }
+      }
+    }
+  }
+}
