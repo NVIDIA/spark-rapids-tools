@@ -572,7 +572,6 @@ case class IOAnalysisProfileResult(
     appIndex: Int,
     appId: String,
     sqlId: Long,
-    description: String,
     inputBytesReadSum: Long,
     inputRecordsReadSum: Long,
     outputBytesWrittenSum: Long,
@@ -582,16 +581,15 @@ case class IOAnalysisProfileResult(
     srTotalBytesReadSum: Long,
     swTotalBytesWriteSum: Long) extends ProfileResult {
 
-  override val outputHeaders = Seq("appIndex", "appID", "sqlID", "description",
-    "input_bytesRead_sum", "input_recordsRead_sum", "output_bytesWritten_sum",
-    "output_recordsWritten_sum", "diskBytesSpilled_sum", "memoryBytesSpilled_sum",
-    "sr_totalBytesRead_sum", "sw_bytesWritten_sum")
+  override val outputHeaders = Seq("appIndex", "appID", "sqlID", "input_bytesRead_sum",
+    "input_recordsRead_sum", "output_bytesWritten_sum", "output_recordsWritten_sum",
+    "diskBytesSpilled_sum", "memoryBytesSpilled_sum", "sr_totalBytesRead_sum",
+    "sw_bytesWritten_sum")
 
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString,
       appId,
       sqlId.toString,
-      description,
       inputBytesReadSum.toString,
       inputRecordsReadSum.toString,
       outputBytesWrittenSum.toString,

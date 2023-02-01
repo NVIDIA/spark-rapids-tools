@@ -316,7 +316,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     // Filter only those apps which have dataSource Information
     val dataSourceApps = apps.filter(_.dataSourceInfo.size > 0)
     val allRows = dataSourceApps.flatMap { app =>
-      app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
+      app.sqlIdToInfo.map { case (sqlId, _) =>
         val jcs = app.jobIdToInfo.filter { case (_, jc) =>
           jc.sqlID.getOrElse(-1) == sqlId
         }
@@ -335,7 +335,6 @@ class Analysis(apps: Seq[ApplicationInfo]) {
             Some(IOAnalysisProfileResult(app.index,
               app.appId,
               sqlId,
-              sqlCase.description,
               tasksInSQL.map(_.input_bytesRead).sum,
               tasksInSQL.map(_.input_recordsRead).sum,
               tasksInSQL.map(_.output_bytesWritten).sum,

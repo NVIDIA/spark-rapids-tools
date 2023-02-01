@@ -385,7 +385,6 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       assert(ioMetrics.size == 5)
       val metricsSqlId1 = ioMetrics.filter(metrics => metrics.sqlId == 1)
       assert(metricsSqlId1.size == 1)
-      assert(metricsSqlId1.head.description.contains("collect at <console>:"))
       assert(metricsSqlId1.head.inputBytesReadSum == 1348)
       assert(metricsSqlId1.head.inputRecordsReadSum == 66)
       assert(metricsSqlId1.head.outputBytesWrittenSum == 0)
