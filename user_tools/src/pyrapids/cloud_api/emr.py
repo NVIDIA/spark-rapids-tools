@@ -26,7 +26,7 @@ from pyrapids.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase
     ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice
 from pyrapids.common.prop_manager import JSONPropertiesContainer, AbstractPropertiesContainer
 from pyrapids.common.sys_storage import FSUtil
-from pyrapids.common.utilities import find_full_rapids_tools_env_key, get_rapids_tools_env
+from pyrapids.common.utilities import find_full_rapids_tools_env_key, get_rapids_tools_env, get_sys_env_var
 from pyrapids.pricing.emr_pricing import EMREc2PriceProvider
 from pyrapids.pricing.price_provider import SavingsEstimator
 from pyrapids.rapids.rapids_job import RapidsJobPropContainer, RapidsJob
@@ -50,10 +50,14 @@ class EMRPlatform(PlatformBase):
     @classmethod
     def load_aws_profile(cls, profile_name: str) -> dict:
         aws_config = configparser.ConfigParser()
-        aws_config.read(FSUtil.build_path(FSUtil.get_home_directory(), '.aws/config'))
+        default_conf_path = FSUtil.build_path(FSUtil.get_home_directory(), '.aws/config')
+        default_credential_path = FSUtil.build_path(FSUtil.get_home_directory(), '.aws/credentials')
+        aws_conf_path = get_sys_env_var('AWS_CONFIG_FILE', default_conf_path)
+        aws_credential_path = get_sys_env_var('AWS_SHARED_CREDENTIALS_FILE', default_credential_path)
+        aws_config.read(aws_conf_path)
         region = aws_config.get(profile_name, 'region')
         aws_credentials = configparser.ConfigParser()
-        aws_credentials.read(FSUtil.build_path(FSUtil.get_home_directory(), '.aws/credentials'))
+        aws_credentials.read(aws_credential_path)
         aws_access_id = aws_credentials.get(profile_name, 'aws_access_key_id')
         aws_access_key = aws_credentials.get(profile_name, 'aws_secret_access_key')
         return {
@@ -69,11 +73,11 @@ class EMRPlatform(PlatformBase):
 
     def _parse_arguments(self, ctxt_args: dict):
         super()._parse_arguments(ctxt_args)
-        if 'profile' in ctxt_args:
-            profile_val = ctxt_args.get('profile')
-            if profile_val is not None:
-                # load the configurations into the context
-                self.ctxt.update(self.load_aws_profile(profile_val))
+        profile_val = ctxt_args.get('profile')
+        if profile_val is None:
+            profile_val = get_sys_env_var('AWS_PROFILE', 'default')
+            ctxt_args.update({'profile': profile_val})
+        self.ctxt.update(self.load_aws_profile(profile_val))
 
     @classmethod
     def get_spark_node_type_fromstring(cls, value) -> SparkNodeType:
@@ -153,13 +157,13 @@ class EMRCMDDriver(CMDDriverBase):
         # TODO: verify that the AWS CLI is configured.
         # get the region
         if self.env_vars.get('region') is None:
-            env_region = os.getenv('AWS_REGION', os.getenv('AWS_DEFAULT_REGION'))
+            env_region = get_sys_env_var('AWS_REGION', get_sys_env_var('AWS_DEFAULT_REGION'))
             if env_region is not None:
                 self.env_vars.update({'region': env_region})
         if self.env_vars.get('profile') is None:
             self.env_vars.update({
-                'output': os.getenv('AWS_DEFAULT_OUTPUT', 'json'),
-                'profile': os.getenv('AWS_PROFILE', 'default')
+                'output': get_sys_env_var('AWS_DEFAULT_OUTPUT', 'json'),
+                'profile': get_sys_env_var('AWS_PROFILE', 'default')
             })
         # For EMR we need the key_pair file name for the connection to clusters
         # TODO: Check the keypair has extension pem file and they are set correctly.

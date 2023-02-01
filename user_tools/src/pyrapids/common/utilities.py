@@ -109,10 +109,12 @@ def find_full_rapids_tools_env_key(actual_key: str) -> str:
     return f'RAPIDS_USER_TOOLS_{actual_key}'
 
 
+def get_sys_env_var(k: str, def_val=None):
+    return os.environ.get(k, def_val)
+
+
 def get_rapids_tools_env(k: str, def_val=None):
-    val = os.environ.get(find_full_rapids_tools_env_key(k))
-    if val is None and def_val is not None:
-        return def_val
+    val = get_sys_env_var(find_full_rapids_tools_env_key(k), def_val)
     return val
 
 
