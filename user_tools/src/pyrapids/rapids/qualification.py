@@ -430,8 +430,8 @@ class Qualification(RapidsJarTool):
             """
             selected_cols = self.ctxt.get_value('local', 'output', 'summaryColumns')
             # check if any filters apply
-            filter_recom_enabled = (self.ctxt.get_ctxt('filterApps') == 'recommended')
-            filter_pos_enabled = (self.ctxt.get_ctxt('filterApps') == 'savings')
+            filter_recom_enabled = self.ctxt.get_ctxt('filterApps') == 'recommended'
+            filter_pos_enabled = self.ctxt.get_ctxt('filterApps') == 'savings'
             # filter by recommendations if enabled
             if filter_recom_enabled:
                 df_row = self.__get_recommended_apps(raw_df, selected_cols)
