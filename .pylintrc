@@ -78,6 +78,7 @@ disable=
         #wrong-import-order,
         #       W0107: Used when a "pass" statement that can be avoided is encountered.
         #unnecessary-pass,
+        broad-exception-raised,
 
 
 # Set max of arguments for function / method the line below if "too-many-arguments" is allowed. Default: 5
@@ -283,6 +284,6 @@ valid-metaclass-classmethod-first-arg=mcs
 
 # Exceptions that will emit a warning when being caught. Defaults to
 # "Exception"
-overgeneral-exceptions=StandardError,
-                       Exception,
-                       BaseException
+overgeneral-exceptions=builtins.StandardError,
+                       builtins.Exception,
+                       builtins.BaseException
