@@ -74,8 +74,8 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
         :param verbose: True or False to enable verbosity to the wrapper script.
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
         :param rapids_options: A list of valid Qualification tool options.
-                Note that the wrapper ignores the “output-directory“ flag, and it does not support
-                multiple “spark-property“ arguments.
+                Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
+                multiple "spark-property" arguments.
                 For more details on Qualification tool options, please visit
                 https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#qualification-tool-options
         """
@@ -194,7 +194,7 @@ class CliEmrServerlessMode:  # pylint: disable=too-few-public-methods
             estimated GPU savings.
         :param verbose: True or False to enable verbosity to the wrapper script.
         :param rapids_options: A list of valid Qualification tool options.
-            Note that the wrapper ignores the “output-directory“ flag, and it does not support
+            Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
             multiple “spark-property“ arguments.
             For more details on Qualification tool options, please visit
             https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#qualification-tool-options

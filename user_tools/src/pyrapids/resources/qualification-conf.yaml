@@ -62,7 +62,6 @@ sparkRapids:
       - order
       - p
       - per-sql
-      - platform
       - r
       - report-read-schema
       - s
