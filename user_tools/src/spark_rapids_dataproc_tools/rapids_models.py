@@ -974,8 +974,8 @@ class Qualification(RapidsTool):
             """
             selected_cols = self.ctxt.get_value('local', 'output', 'summaryColumns')
             # check if any filters apply
-            filter_recom_enabled = (self.filter_apps == 'recommended')
-            filter_pos_enabled = (self.filter_apps == 'savings')
+            filter_recom_enabled = self.filter_apps == 'recommended'
+            filter_pos_enabled = self.filter_apps == 'savings'
             # filter by recommendations if enabled
             if filter_recom_enabled:
                 df_row = get_recommended_apps(raw_df, selected_cols)
