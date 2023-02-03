@@ -434,14 +434,16 @@ class EMRCluster(ClusterBase):
             else:
                 # convert the instance_type
                 new_instance_type = mc_type_map.get(curr_group.instance_type, curr_group.instance_type)
-                new_inst_grp = InstanceGroup(
-                    id=curr_group.id,
-                    instance_type=new_instance_type,
-                    count=curr_group.count,
-                    market=curr_group.market,
-                    group_type=curr_group.group_type)
-                if new_instance_type != curr_group.instance_type:
-                    group_cache.update({new_inst_grp.id: new_inst_grp})
+                if new_instance_type == curr_group.instance_type:
+                    new_inst_grp = curr_group
+                else:
+                    new_inst_grp = InstanceGroup(
+                        id=curr_group.id,
+                        instance_type=new_instance_type,
+                        count=curr_group.count,
+                        market=curr_group.market,
+                        group_type=curr_group.group_type)
+                group_cache.update({new_inst_grp.id: new_inst_grp})
             self.instance_groups.append(new_inst_grp)
         # convert the instances
         for ec2_inst in orig_cluster.ec2_instances:
@@ -520,6 +522,16 @@ class EMRCluster(ClusterBase):
             ClusterState.WAITING
         ]
         return self.state in acceptable_init_states
+
+    def get_eventlogs_from_config(self):
+        res_arr = []
+        configs_list = self.props.get_value_silent('Configurations')
+        for conf_item in configs_list:
+            if conf_item['Classification'].startswith('spark'):
+                conf_props = conf_item['Properties']
+                if 'spark.eventLog.dir' in conf_props:
+                    res_arr.append(conf_props['spark.eventLog.dir'])
+        return res_arr
 
 
 @dataclass

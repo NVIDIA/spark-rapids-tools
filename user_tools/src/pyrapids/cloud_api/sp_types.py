@@ -524,6 +524,9 @@ class ClusterBase:
     def is_cluster_running(self) -> bool:
         return self.state == ClusterState.RUNNING
 
+    def get_eventlogs_from_config(self):
+        raise NotImplementedError
+
     def run_cmd_driver(self, ssh_cmd: str, cmd_input: str = None) -> str or None:
         """
         Execute command on the driver node

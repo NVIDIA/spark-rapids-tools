@@ -17,7 +17,7 @@ import dataclasses
 import json
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List
 
 import pandas as pd
 from tabulate import tabulate
@@ -225,6 +225,26 @@ class Qualification(RapidsJarTool):
                     processed_filter, ' | '.join(available_filters), selected_filter)
         self.ctxt.set_ctxt('filterApps', selected_filter)
 
+    def _process_eventlogs_args(self):
+        eventlog_arg = self.wrapper_options.get('eventlogs')
+        if eventlog_arg is None:
+            # get the eventlogs from spark properties
+            cpu_cluster_obj = self.ctxt.get_ctxt('cpuClusterProxy')
+            spark_event_logs = cpu_cluster_obj.get_eventlogs_from_config()
+        else:
+            if isinstance(eventlog_arg, tuple):
+                spark_event_logs = List[eventlog_arg]
+            elif isinstance(eventlog_arg, str):
+                spark_event_logs = eventlog_arg.split(',')
+            else:
+                spark_event_logs = eventlog_arg
+        if len(spark_event_logs) < 1:
+            self.logger.error('Eventlogs list is empty. '
+                              'The cluster Spark properties may be missing "spark.eventLog.dir". '
+                              'Re-run the command passing "--eventlogs" flag to the wrapper.')
+            raise RuntimeError('Invalid arguments. The list of Apache Spark event logs is empty.')
+        self.ctxt.set_ctxt('eventLogs', spark_event_logs)
+
     def _process_custom_args(self):
         """
         Qualification tool processes extra arguments:
@@ -250,6 +270,7 @@ class Qualification(RapidsJarTool):
         self.ctxt.set_ctxt('cuda', cuda)
         self.__process_filter_args(self.wrapper_options.get('filterApps'))
         self._process_offline_cluster_args()
+        self._process_eventlogs_args()
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 
@@ -304,7 +325,7 @@ class Qualification(RapidsJarTool):
         if rapids_opts is not None:
             rapids_arg_list.extend(rapids_opts)
         # add the eventlogs at the end of all the tool options
-        rapids_arg_list.append(self.wrapper_options.get('eventlogs'))
+        rapids_arg_list.extend(self.ctxt.get_ctxt('eventLogs'))
         class_name = self.ctxt.get_value('sparkRapids', 'mainClass')
         remote_jar = FSUtil.build_url_from_parts(self.ctxt.get_remote('depFolder'), jar_file_name)
         rapids_arg_obj = {
@@ -575,7 +596,7 @@ class QualificationAsLocal(Qualification):
         if rapids_opts is not None:
             rapids_arg_list.extend(rapids_opts)
         # add the eventlogs at the end of all the tool options
-        rapids_arg_list.append(self.wrapper_options.get('eventlogs'))
+        rapids_arg_list.extend(self.ctxt.get_ctxt('eventLogs'))
         class_name = self.ctxt.get_value('sparkRapids', 'mainClass')
         rapids_arg_obj = {
             'jarFile': jar_file_path,
