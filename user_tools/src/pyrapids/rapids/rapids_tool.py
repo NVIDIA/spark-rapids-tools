@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """Abstract class representing wrapper around the RAPIDS acceleration tools."""
-
+import os
 import re
 import sys
 import tarfile
@@ -23,7 +23,7 @@ from typing import Any, Callable, Dict
 
 from pyrapids.cloud_api.sp_types import CloudPlatform, get_platform, ClusterBase, DeployMode
 from pyrapids.common.sys_storage import FSUtil
-from pyrapids.common.utilities import resource_path, ToolLogging
+from pyrapids.common.utilities import resource_path, ToolLogging, get_rapids_tools_env
 from pyrapids.rapids.tool_ctxt import ToolContext
 
 
@@ -44,7 +44,7 @@ class RapidsTool(object):
     """
     platform_type: CloudPlatform
     cluster: str
-    output_folder: str
+    output_folder: str = None
     region: str = None
     config_path: str = None
     runs_on_cluster: bool = field(default=True, init=False)
@@ -83,6 +83,8 @@ class RapidsTool(object):
     def _process_output_args(self):
         self.logger.debug('Processing Output Arguments')
         # make sure that output_folder is being absolute
+        if self.output_folder is None:
+            self.output_folder = get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
         self.output_folder = FSUtil.get_abs_path(self.output_folder)
         self.logger.debug('Root directory of local storage is set as: %s', self.output_folder)
         self.ctxt.set_local_workdir(self.output_folder)

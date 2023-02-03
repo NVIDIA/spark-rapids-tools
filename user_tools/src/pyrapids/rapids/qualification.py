@@ -559,7 +559,6 @@ class QualificationAsLocal(Qualification):
         # If remote_folder is not specified, then ignore it
         if remote_folder is None:
             # the output is only for local machine
-            remote_workdir = self.ctxt.get_output_folder()
             self.logger.info('No remote output folder specified.')
         else:
             # TODO verify the remote folder is correct
