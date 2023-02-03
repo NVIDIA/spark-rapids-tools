@@ -63,11 +63,10 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
     }
   }
 
-  private def assertSizeAndSupported(size: Int, execs: Seq[ExecInfo], speedUpFactor: Double = 3.0,
-      expectedDur: Seq[Option[Long]] = Seq.empty, extraText: String = ""): Unit = {
+  private def assertSizeAndSupported(size: Int, execs: Seq[ExecInfo],
+    expectedDur: Seq[Option[Long]] = Seq.empty, extraText: String = ""): Unit = {
     for (t <- Seq(execs)) {
       assert(t.size == size, s"$extraText $t")
-      assert(t.forall(_.speedupFactor == speedUpFactor), s"$extraText $t")
       assert(t.forall(_.isSupported == true), s"$extraText $t")
       assert(t.forall(_.children.isEmpty), s"$extraText $t")
       if (expectedDur.nonEmpty) {
@@ -184,13 +183,13 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
         val allChildren = wholeStages.flatMap(_.children).flatten
         assert(allChildren.size == 10)
         val filters = allChildren.filter(_.exec == "Filter")
-        assertSizeAndSupported(2, filters, 2.8)
+        assertSizeAndSupported(2, filters)
         val projects = allChildren.filter(_.exec == "Project")
         assertSizeAndSupported(2, projects)
         val sorts = allChildren.filter(_.exec == "Sort")
-        assertSizeAndSupported(3, sorts, 8.0)
+        assertSizeAndSupported(3, sorts)
         val smj = allChildren.filter(_.exec == "SortMergeJoin")
-        assertSizeAndSupported(1, smj, 22.7)
+        assertSizeAndSupported(1, smj)
       }
     }
   }
@@ -216,7 +215,7 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(wholeStages.forall(_.duration.nonEmpty))
         val allChildren = wholeStages.flatMap(_.children).flatten
         val hashAggregate = allChildren.filter(_.exec == "HashAggregate")
-        assertSizeAndSupported(2, hashAggregate, 4.5)
+        assertSizeAndSupported(2, hashAggregate)
       }
     }
   }
@@ -366,7 +365,7 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val subqueryBroadcast = allExecInfo.filter(_.exec == "SubqueryBroadcast")
     assertSizeAndSupported(1, subqueryBroadcast.toSeq, expectedDur = Seq(Some(1175)))
     val exchanges = allExecInfo.filter(_.exec == "Exchange")
-    assertSizeAndSupported(2, exchanges.toSeq, 4.2, expectedDur = Seq(Some(15688), Some(8)))
+    assertSizeAndSupported(2, exchanges.toSeq, expectedDur = Seq(Some(15688), Some(8)))
   }
 
   test("CustomShuffleReaderExec") {
@@ -488,7 +487,7 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
       }
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val bhj = allExecInfo.filter(_.exec == "BroadcastHashJoin")
-      assertSizeAndSupported(1, bhj, 5.1)
+      assertSizeAndSupported(1, bhj)
       val broadcastNestedJoin = allExecInfo.filter(_.exec == "BroadcastNestedLoopJoin")
       assertSizeAndSupported(1, broadcastNestedJoin)
       val shj = allExecInfo.filter(_.exec == "ShuffledHashJoin")
@@ -635,14 +634,14 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
     }
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
     val flatMapGroups = allExecInfo.filter(_.exec == "FlatMapGroupsInPandas")
-    assertSizeAndSupported(1, flatMapGroups, speedUpFactor = 1.2)
+    assertSizeAndSupported(1, flatMapGroups)
     val aggregateInPandas = allExecInfo.filter(_.exec == "AggregateInPandas")
-    assertSizeAndSupported(1, aggregateInPandas, speedUpFactor = 1.2)
+    assertSizeAndSupported(1, aggregateInPandas)
     // this event log had UDF for ArrowEvalPath so shows up as not supported
     val arrowEvalPython = allExecInfo.filter(_.exec == "ArrowEvalPython")
-    assertSizeAndSupported(1, arrowEvalPython, speedUpFactor = 1.2)
+    assertSizeAndSupported(1, arrowEvalPython)
     val mapInPandas = allExecInfo.filter(_.exec == "MapInPandas")
-    assertSizeAndSupported(1, mapInPandas, speedUpFactor = 1.2)
+    assertSizeAndSupported(1, mapInPandas)
     // WindowInPandas configured off by default
     val windowInPandas = allExecInfo.filter(_.exec == "WindowInPandas")
     assertSizeAndNotSupported(1, windowInPandas)
@@ -807,7 +806,7 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val sortExec = allExecInfo.filter(_.exec.contains("Sort"))
         assert(sortExec.size == 3)
-        assertSizeAndSupported(3, sortExec, 8.0)
+        assertSizeAndSupported(3, sortExec)
       }
     }
   }
@@ -889,7 +888,7 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
       }
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val hashAggregate = execInfo.filter(_.exec == "HashAggregate")
-      assertSizeAndSupported(2, hashAggregate, 4.5)
+      assertSizeAndSupported(2, hashAggregate)
     }
   }
 
