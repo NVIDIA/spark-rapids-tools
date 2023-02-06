@@ -35,7 +35,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.util.{JsonProtocol, Utils}
+import org.apache.spark.util.Utils
 
 abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
@@ -146,6 +146,7 @@ abstract class AppBase(
   }
 
   def getSparkEventFromJson(): (String) => org.apache.spark.scheduler.SparkListenerEvent = {
+    // Spark 3.4 and Databricks changed the signature on sparkEventFromJson
     val c =  Class.forName("org.apache.spark.util.JsonProtocol")
     try {
       val m = c.getDeclaredMethod("sparkEventFromJson", classOf[org.json4s.JValue])
@@ -166,7 +167,6 @@ abstract class AppBase(
         val eventLogPath = eventLog.eventLog
         logInfo("Parsing Event Log: " + eventLogPath.toString)
         val getEventFromJsonMethod = getSparkEventFromJson()
-        logWarning(s"event is $getEventFromJsonMethod")
 
         // at this point all paths should be valid event logs or event log dirs
         val hconf = hadoopConf.getOrElse(new Configuration())
@@ -193,6 +193,22 @@ abstract class AppBase(
                   processEvent(event)
                 }
                 catch {
+                  case i: java.lang.reflect.InvocationTargetException =>
+                    // swallow any messages about this class since likely using spark version
+                    // before 3.1
+                    if (i.getCause != null && i.getCause.getMessage != null) {
+                      if (!i.getCause.getMessage.contains("SparkListenerResourceProfileAdded")) {
+                        logWarning(s"ClassNotFoundException: ${i.getCause.getMessage}")
+                      } else {
+                        logWarning(s"Unknown exception", i)
+                      }
+                    } else {
+                      logWarning(s"Unknown exception", i)
+                    }
+                    //if (!i.getMessage.contains("SparkListenerResourceProfileAdded")) {
+                    //   logWarning(s"InvocationTargetException: ${i}")
+                    //}
+                    false
                   case e: ClassNotFoundException =>
                     // swallow any messages about this class since likely using spark version
                     // before 3.1
