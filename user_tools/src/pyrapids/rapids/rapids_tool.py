@@ -197,9 +197,8 @@ class RapidsTool(object):
                              self.cluster)
             exec_cluster = self.ctxt.platform.connect_cluster_by_name(self.cluster)
             if not exec_cluster.is_cluster_running():
-                raise RuntimeError(
-                    f'Cluster {exec_cluster.name} is not running. '
-                    f'Make sure that the execution cluster is in RUNNING state, then re-try.')
+                self.logger.warning('Cluster %s is not running. Make sure that the execution cluster '
+                                    'is in RUNNING state, then re-try.', exec_cluster.name)
             self.ctxt.set_ctxt('execCluster', exec_cluster)
         else:
             self.logger.info('%s requires no execution cluster. Skipping phase', self.pretty_name())

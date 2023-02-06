@@ -433,7 +433,7 @@ class Qualification(RapidsJarTool):
         def get_costs_for_single_app(df_row, estimator: SavingsEstimator) -> pd.Series:
             est_cpu_cost, est_gpu_cost, est_savings = estimator.get_costs_and_savings(df_row['App Duration'],
                                                                                       df_row['Estimated GPU Duration'])
-            if est_savings <= 0.0:
+            if est_savings < 1.0:
                 savings_recommendations = 'Not Recommended'
             elif est_savings < 40.0:
                 savings_recommendations = 'Recommended'

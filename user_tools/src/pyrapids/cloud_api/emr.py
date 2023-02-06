@@ -67,18 +67,6 @@ class EMRPlatform(PlatformBase):
             'aws_access_key': aws_access_key
         }
 
-    def __post_init__(self):
-        self.type_id = CloudPlatform.EMR
-        super().__post_init__()
-
-    def _parse_arguments(self, ctxt_args: dict):
-        super()._parse_arguments(ctxt_args)
-        profile_val = ctxt_args.get('profile')
-        if profile_val is None:
-            profile_val = get_sys_env_var('AWS_PROFILE', 'default')
-            ctxt_args.update({'profile': profile_val})
-        self.ctxt.update(self.load_aws_profile(profile_val))
-
     @classmethod
     def get_spark_node_type_fromstring(cls, value) -> SparkNodeType:
         if value.upper() in ['TASK', 'CORE']:
@@ -90,6 +78,25 @@ class EMRPlatform(PlatformBase):
         if prop_container.get_value_silent('Cluster'):
             _, prop_container.props = prop_container.props.popitem()
         return json.dumps(prop_container.props)
+
+    def __post_init__(self):
+        self.type_id = CloudPlatform.EMR
+        super().__post_init__()
+
+    def _parse_arguments(self, ctxt_args: dict):
+        super()._parse_arguments(ctxt_args)
+        profile_val = ctxt_args.get('profile')
+        if profile_val is None:
+            profile_val = get_sys_env_var('AWS_PROFILE', 'default')
+            ctxt_args.update({'profile': profile_val})
+        self.ctxt.update(self.load_aws_profile(profile_val))
+        # get the key_pair_path if any
+        kp_path = ctxt_args.get('keyPairPath')
+        if kp_path is None:
+            kp_path = get_rapids_tools_env('KEY_PAIR_PATH')
+        if kp_path is not None:
+            ctxt_args.update({'keyPairPath': kp_path})
+            self.ctxt.update({'keyPairPath': kp_path})
 
     def _create_cli_instance(self):
         return EMRCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
@@ -167,18 +174,17 @@ class EMRCMDDriver(CMDDriverBase):
             })
         # For EMR we need the key_pair file name for the connection to clusters
         # TODO: Check the keypair has extension pem file and they are set correctly.
-        emr_key_name = get_rapids_tools_env('EMR_KEY_NAME')
-        emr_pem_path = get_rapids_tools_env('EMR_PEM_PATH')
-        self.env_vars.update({
-            'keyPairName': emr_key_name,
-            'keyPemPATH': emr_pem_path
-        })
+        if self.env_vars.get('keyPairPath') is None:
+            emr_pem_path = get_rapids_tools_env('KEY_PAIR_PATH')
+            self.env_vars.update({
+                'keyPairPath': emr_pem_path
+            })
 
     def validate_env(self):
         super().validate_env()
         incorrect_envs = []
         # check that private key file path is correct
-        emr_pem_path = self.env_vars.get('keyPemPATH')
+        emr_pem_path = self.env_vars.get('keyPairPath')
         if emr_pem_path is not None:
             if not os.path.exists(emr_pem_path):
                 incorrect_envs.append(f'Private key file path [{emr_pem_path}] does not exist. '
@@ -190,12 +196,7 @@ class EMRCMDDriver(CMDDriverBase):
         else:
             incorrect_envs.append(
                 f'Private key file path is not set. It is required to SSH on driver node. '
-                f'Set {find_full_rapids_tools_env_key("EMR_KEY_NAME")}')
-        # check that private key is set
-        if self.env_vars.get('keyPairName') is None:
-            incorrect_envs.append(
-                f'Private key name is not set correctly. It is required to SSH on driver node. '
-                f'Set {find_full_rapids_tools_env_key("EMR_PEM_PATH")}.')
+                f'Set {find_full_rapids_tools_env_key("KEY_PAIR_PATH")}')
         if len(incorrect_envs) > 0:
             exc_msg = '; '.join(incorrect_envs)
             self.logger.warning('EMR environment report: %s', exc_msg)
@@ -228,7 +229,7 @@ class EMRCMDDriver(CMDDriverBase):
 
     def _build_ssh_cmd_prefix_for_node(self, node: ClusterNode) -> str:
         # get the pem file
-        pem_file_path = self.env_vars.get('keyPemPATH')
+        pem_file_path = self.env_vars.get('keyPairPath')
         prefix_args = ['ssh',
                        '-o StrictHostKeyChecking=no',
                        f'-i {pem_file_path}',

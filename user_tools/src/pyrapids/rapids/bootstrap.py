@@ -29,8 +29,8 @@ class Bootstrap(RapidsTool):
     name = 'bootstrap'
 
     def _process_custom_args(self):
-        dry_run_opt = self.wrapper_options.get('dry_run', 'False')
-        self.ctxt.set_ctxt('dry_run_opt', bool(dry_run_opt))
+        dry_run_opt = self.wrapper_options.get('dryRun', 'False')
+        self.ctxt.set_ctxt('dryRunOpt', bool(dry_run_opt))
 
     def __calculate_spark_settings(self, worker_info: NodeHWInfo) -> dict:
         """
@@ -96,13 +96,17 @@ class Bootstrap(RapidsTool):
         ssh_cmd = "\"sudo bash -c 'cat >> /etc/spark/conf/spark-defaults.conf'\""
         cmd_input = self.ctxt.get_ctxt('wrapper_output_content')
         exec_cluster = self.get_exec_cluster()
-        exec_cluster.run_cmd_driver(ssh_cmd, cmd_input=cmd_input)
+        try:
+            exec_cluster.run_cmd_driver(ssh_cmd, cmd_input=cmd_input)
+        except RuntimeError as re:
+            self.logger.warning('An exception was raised while applying the '
+                                'recommendation to the cluster: %s', re)
 
     def _process_output(self):
         self.logger.info('Processing the result of Spark properties')
         tool_result = self.ctxt.get_ctxt('bootstrap_results')
         exec_cluster = self.get_exec_cluster()
-        dry_run = self.ctxt.get_ctxt('dry_run_opt')
+        dry_run = self.ctxt.get_ctxt('dryRunOpt')
         if tool_result is not None and any(tool_result):
             # write the result to log file
             # Now create the new folder

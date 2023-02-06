@@ -111,10 +111,11 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                              rapids_options=rapids_options).launch()
 
     @staticmethod
-    def bootstrap(cluster: str = None,
+    def bootstrap(cluster: str,
                   profile: str = None,
                   output_folder: str = None,
                   dry_run: bool = True,
+                  key_pair_path: str = None,
                   verbose: bool = False) -> None:
         """
         Bootstrap tool analyzes the CPU and GPU configuration of the EMR cluster
@@ -128,6 +129,10 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                the default value is the env variable RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY if any;
                or the current working directory.
         :param dry_run: True or False to update the Spark config settings on EMR master node.
+        :param key_pair_path: A '.pem' file path that enables to connect to EC2 instances using SSH.
+               If missing, the wrapper reads the env variable 'RAPIDS_USER_TOOLS_KEY_PAIR_PATH' if any.
+               For more details on creating key pairs,
+               visit https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html.
         :param verbose: True or False to enable verbosity to the wrapper script.
         """
         if verbose:
@@ -136,8 +141,9 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
         wrapper_boot_options = {
             'platformOpts': {
                 'profile': profile,
+                'keyPairPath': key_pair_path
             },
-            'dry_run': dry_run
+            'dryRun': dry_run
         }
         bootstrap_tool = Bootstrap(platform_type=CloudPlatform.EMR,
                                    cluster=cluster,

@@ -261,7 +261,7 @@ class CMDDriverBase:
 
     def get_and_set_env_vars(self):
         """For that driver, try to get all the available system environment for the system."""
-        for env_key in ['profile', 'region', 'aws_access_id', 'aws_access_key']:
+        for env_key in ['profile', 'region', 'aws_access_id', 'aws_access_key', 'keyPairPath']:
             if env_key in self.cloud_ctxt:
                 self.env_vars.update({env_key: self.cloud_ctxt.get(env_key)})
 
