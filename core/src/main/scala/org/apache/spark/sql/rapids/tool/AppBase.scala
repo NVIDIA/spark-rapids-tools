@@ -21,7 +21,6 @@ import java.util.zip.GZIPInputStream
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.io.{Codec, Source}
-import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
 import com.nvidia.spark.rapids.tool.planparser.ReadParser
@@ -148,13 +147,12 @@ abstract class AppBase(
   def getSparkEventFromJson(): (String) => org.apache.spark.scheduler.SparkListenerEvent = {
     // Spark 3.4 and Databricks changed the signature on sparkEventFromJson
     val c = Class.forName("org.apache.spark.util.JsonProtocol")
-    try {
+    scala.util.Try {
       val m = c.getDeclaredMethod("sparkEventFromJson", classOf[org.json4s.JValue])
       (line: String) => m.invoke(null, parse(line)).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
-    } catch {
-      case NonFatal(_) =>
-        val m = c.getDeclaredMethod("sparkEventFromJson", classOf[String])
-        (line: String) => m.invoke(null, line).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
+    }.getOrElse {
+      val m = c.getDeclaredMethod("sparkEventFromJson", classOf[String])
+      (line: String) => m.invoke(null, line).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
     }
   }
 
