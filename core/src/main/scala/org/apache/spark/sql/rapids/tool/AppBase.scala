@@ -147,7 +147,7 @@ abstract class AppBase(
 
   def getSparkEventFromJson(): (String) => org.apache.spark.scheduler.SparkListenerEvent = {
     // Spark 3.4 and Databricks changed the signature on sparkEventFromJson
-    val c =  Class.forName("org.apache.spark.util.JsonProtocol")
+    val c = Class.forName("org.apache.spark.util.JsonProtocol")
     try {
       val m = c.getDeclaredMethod("sparkEventFromJson", classOf[org.json4s.JValue])
       (line: String) => m.invoke(null, parse(line)).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
@@ -205,9 +205,6 @@ abstract class AppBase(
                     } else {
                       logWarning(s"Unknown exception", i)
                     }
-                    //if (!i.getMessage.contains("SparkListenerResourceProfileAdded")) {
-                    //   logWarning(s"InvocationTargetException: ${i}")
-                    //}
                     false
                   case e: ClassNotFoundException =>
                     // swallow any messages about this class since likely using spark version
