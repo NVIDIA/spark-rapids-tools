@@ -11,9 +11,16 @@ toolOutput:
         - Estimated GPU Speedup
         - Estimated GPU Duration
         - App Duration
+      mapColumns:
+        Recommendation: 'Speedup Based Recommendation'
       recommendations:
         speedUp:
-          columnName: 'Recommendation'
+          columnName: 'Speedup Based Recommendation'
+          selectedRecommendations:
+            - 'Strongly Recommended'
+            - 'Recommended'
+        savings:
+          columnName: 'Savings Based Recommendation'
           selectedRecommendations:
             - 'Strongly Recommended'
             - 'Recommended'
@@ -38,11 +45,7 @@ sparkRapids:
   cli:
     defaults:
       filters:
-        definedFilters:
-          - 'none'
-          - 'recommended'
-          - 'savings'
-        defaultFilter: 'savings'
+        defaultFilter: 'SAVINGS'
     tool_options:
       - all
       - any
@@ -76,14 +79,18 @@ local:
     cleanUp: true
     fileName: qualification_summary.csv
     costColumns:
+      - 'Savings Based Recommendation'
       - 'Estimated App Cost'
       - 'Estimated GPU Cost'
       - 'Estimated GPU Savings(%)'
     savingColumn: 'Estimated GPU Savings(%)'
+    speedupRecommendColumn: 'Speedup Based Recommendation'
+    savingRecommendColumn: 'Savings Based Recommendation'
     summaryColumns:
       - 'App ID'
       - 'App Name'
-      - 'Recommendation'
+      - 'Speedup Based Recommendation'
+      - 'Savings Based Recommendation'
       - 'Estimated GPU Speedup'
       - 'Estimated GPU Duration'
       - 'App Duration'

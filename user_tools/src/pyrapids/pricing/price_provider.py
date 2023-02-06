@@ -17,6 +17,8 @@
 from dataclasses import dataclass, field
 from logging import Logger
 
+import math
+
 from pyrapids.cloud_api.sp_types import ClusterBase
 from pyrapids.common.prop_manager import AbstractPropertiesContainer
 from pyrapids.common.sys_storage import FSUtil
@@ -111,4 +113,7 @@ class SavingsEstimator:
             return 0.0, 0.0, 0.0
         gpu_cost = self.target_cost * estimated_gpu_duration_ms / (60.0 * 60 * 1000)
         estimated_savings = 100.0 - ((100.0 * gpu_cost) / cpu_cost)
-        return cpu_cost, gpu_cost, estimated_savings
+        cpu_cost_res = math.ceil(cpu_cost * 100) / 100
+        gpu_cost_res = math.ceil(gpu_cost * 100) / 100
+        estimated_savings_res = math.ceil(estimated_savings * 100) / 100
+        return cpu_cost_res, gpu_cost_res, estimated_savings_res

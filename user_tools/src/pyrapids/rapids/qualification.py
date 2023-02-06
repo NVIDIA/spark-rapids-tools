@@ -22,11 +22,18 @@ from typing import Any, List
 import pandas as pd
 from tabulate import tabulate
 
-from pyrapids.cloud_api.sp_types import ClusterBase
+from pyrapids.cloud_api.sp_types import ClusterBase, EnumeratedType
 from pyrapids.common.sys_storage import FSUtil
 from pyrapids.pricing.price_provider import SavingsEstimator
 from pyrapids.rapids.rapids_job import RapidsJobPropContainer
 from pyrapids.rapids.rapids_tool import RapidsJarTool
+
+
+class QualFilterApp(EnumeratedType):
+    """Values used to filter out the applications in the qualification report"""
+    SAVINGS = 'savings'
+    SPEEDUPS = 'speedups'
+    NONE = 'none'
 
 
 @dataclass
@@ -206,23 +213,21 @@ class Qualification(RapidsJarTool):
         self._process_gpu_cluster_args(offline_cluster_opts)
 
     def __process_filter_args(self, arg_val: str):
-        available_filters = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'filters',
-                                                'definedFilters')
-
-        selected_filter = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'filters',
-                                              'defaultFilter')
+        available_filters = [filter_enum.value for filter_enum in QualFilterApp]
+        default_filter_txt = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'filters',
+                                                 'defaultFilter')
         if arg_val is not None:
-            processed_filter = arg_val.lower().strip()
-            if processed_filter in available_filters:
-                # correct argument
-                selected_filter = processed_filter
-            else:
-                # revert to default filter
+            try:
+                selected_filter = QualFilterApp.fromstring(arg_val)
+            except Exception:  # pylint: disable=broad-except
+                selected_filter = QualFilterApp.fromstring(default_filter_txt)
                 self.logger.warning(
                     'Invalid argument filter_apps=%s.\n\t'
                     'Accepted options are: [%s].\n\t'
                     'Falling-back to default filter: %s',
-                    processed_filter, ' | '.join(available_filters), selected_filter)
+                    arg_val, ' | '.join(available_filters), default_filter_txt)
+        else:
+            selected_filter = QualFilterApp.fromstring(default_filter_txt)
         self.ctxt.set_ctxt('filterApps', selected_filter)
 
     def _process_eventlogs_args(self):
@@ -366,13 +371,26 @@ class Qualification(RapidsJarTool):
         # 3- create a submission job
         # 4- execute
 
-    def __get_recommended_apps(self, all_rows, selected_cols) -> pd.DataFrame:
+    def __get_recommended_apps(self, all_rows, selected_cols=None) -> pd.DataFrame:
         speed_up_col = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport',
                                            'recommendations', 'speedUp', 'columnName')
         recommended_vals = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport',
                                                'recommendations', 'speedUp', 'selectedRecommendations')
         mask = all_rows[speed_up_col].isin(recommended_vals)
+        if selected_cols is None:
+            return all_rows.loc[mask]
         return all_rows.loc[mask, selected_cols]
+
+    def __remap_columns_and_prune(self, all_rows) -> pd.DataFrame:
+        cols_subset = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'columns')
+        cols_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'mapColumns')
+        subset_data = all_rows.loc[:, cols_subset]
+
+        for col_rename in cols_map:
+            subset_data.columns = subset_data.columns.str.replace(col_rename,
+                                                                  cols_map.get(col_rename),
+                                                                  regex=False)
+        return subset_data
 
     def _report_tool_full_location(self) -> str:
         out_folder_path = self.ctxt.get_rapids_output_folder()
@@ -415,7 +433,13 @@ class Qualification(RapidsJarTool):
         def get_costs_for_single_app(df_row, estimator: SavingsEstimator) -> pd.Series:
             est_cpu_cost, est_gpu_cost, est_savings = estimator.get_costs_and_savings(df_row['App Duration'],
                                                                                       df_row['Estimated GPU Duration'])
-            return pd.Series([est_cpu_cost, est_gpu_cost, est_savings])
+            if est_savings <= 0.0:
+                savings_recommendations = 'Not Recommended'
+            elif est_savings < 40.0:
+                savings_recommendations = 'Recommended'
+            else:
+                savings_recommendations = 'Strongly Recommended'
+            return pd.Series([savings_recommendations, est_cpu_cost, est_gpu_cost, est_savings])
 
         # initialize the savings estimator
         savings_estimator = self.ctxt.platform.create_saving_estimator(
@@ -427,13 +451,16 @@ class Qualification(RapidsJarTool):
 
         if all_apps.empty:
             return QualificationSummary(comments=extra_comments)
-        cols = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'columns')
         cost_cols = self.ctxt.get_value('local', 'output', 'costColumns')
-        recommended_apps = self.__get_recommended_apps(all_apps, cols)
+        cost_rec_col = self.ctxt.get_value('local', 'output', 'savingRecommendColumn')
+        # rename recommendation column to another name
+        speed_recom_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
+        apps_working_set = self.__remap_columns_and_prune(all_apps)
+        recommended_apps = self.__get_recommended_apps(apps_working_set)
 
-        apps_working_set = all_apps.loc[:, cols]
         apps_working_set[cost_cols] = apps_working_set.apply(
             lambda row: get_costs_for_single_app(row, estimator=savings_estimator), axis=1)
+        apps_working_set.loc[apps_working_set[speed_recom_col] == 'Not Applicable', cost_rec_col] = 'Not Applicable'
         if not apps_working_set.empty:
             self.logger.info('Generating GPU Estimated Speedup and Savings as %s', csv_out)
             apps_working_set.to_csv(csv_out)
@@ -451,8 +478,8 @@ class Qualification(RapidsJarTool):
             """
             selected_cols = self.ctxt.get_value('local', 'output', 'summaryColumns')
             # check if any filters apply
-            filter_recom_enabled = self.ctxt.get_ctxt('filterApps') == 'recommended'
-            filter_pos_enabled = self.ctxt.get_ctxt('filterApps') == 'savings'
+            filter_recom_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SPEEDUPS
+            filter_pos_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SAVINGS
             # filter by recommendations if enabled
             if filter_recom_enabled:
                 df_row = self.__get_recommended_apps(raw_df, selected_cols)
@@ -462,8 +489,11 @@ class Qualification(RapidsJarTool):
                 return df_row
             # filter by savings if enabled
             if filter_pos_enabled:
-                cost_col = self.ctxt.get_value('local', 'output', 'savingColumn')
-                cost_mask = df_row[cost_col] > 0.0
+                saving_cost_col = self.ctxt.get_value('local', 'output', 'savingRecommendColumn')
+                recommended_vals = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport',
+                                                       'recommendations', 'speedUp',
+                                                       'selectedRecommendations')
+                cost_mask = df_row[saving_cost_col].isin(recommended_vals)
                 df_row = df_row.loc[cost_mask, selected_cols]
                 if df_row.empty:
                     print('Found no qualified apps for cost savings.')

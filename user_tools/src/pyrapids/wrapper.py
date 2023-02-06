@@ -19,7 +19,7 @@ import fire
 from pyrapids.cloud_api.sp_types import CloudPlatform, DeployMode
 from pyrapids.common.utilities import ToolLogging
 from pyrapids.rapids.bootstrap import Bootstrap
-from pyrapids.rapids.qualification import Qualification, QualificationAsLocal
+from pyrapids.rapids.qualification import Qualification, QualificationAsLocal, QualFilterApp
 
 
 class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
@@ -35,7 +35,7 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                       remote_folder: str = None,
                       gpu_cluster: str = None,
                       tools_jar: str = None,
-                      filter_apps: str = 'savings',
+                      filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS),
                       jvm_heap_size: int = '24',
                       verbose: bool = False,
                       **rapids_options) -> None:
@@ -67,11 +67,13 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
         :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem,
                 or remote S3 url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
                 from maven repo.
-        :param filter_apps: The filtering criteria of the applications listed in the final STDOUT table.
+        :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
+                is one of the following (NONE, SPEEDUPS, savings). Default is "SAVINGS".
                 Note that this filter does not affect the CSV report.
-                "NONE" means no filter applied. "recommended" lists all the apps that are either
-                'Recommended', or 'Strongly Recommended'. "savings" lists all the apps that have positive
-                estimated GPU savings.
+                "NONE" means no filter applied. "SPEEDUPS" lists all the apps that are either
+                'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
+                lists all the apps that have positive estimated GPU savings except for the apps that
+                are "Not Applicable".
         :param verbose: True or False to enable verbosity to the wrapper script.
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
         :param rapids_options: A list of valid Qualification tool options.
@@ -159,7 +161,7 @@ class CliEmrServerlessMode:  # pylint: disable=too-few-public-methods
                       gpu_cluster: str = None,
                       local_folder: str = None,
                       tools_jar: str = None,
-                      filter_apps: str = 'savings',
+                      filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS),
                       verbose: bool = False,
                       **rapids_options) -> None:
         """
@@ -193,11 +195,13 @@ class CliEmrServerlessMode:  # pylint: disable=too-few-public-methods
         :param tools_jar: Path to a bundled jar including RAPIDS tool. The path is a local filesystem,
                 or remote S3 url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
                 from maven repo.
-        :param filter_apps: [NONE | recommended | savings] filtering criteria of the applications
-            listed in the final STDOUT table. Note that this filter does not affect the CSV report.
-            “NONE“ means no filter applied. “recommended“ lists all the apps that are either
-            'Recommended', or 'Strongly Recommended'. “savings“ lists all the apps that have positive
-            estimated GPU savings.
+        :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
+                is one of the following (NONE, SPEEDUPS, savings). Default is "SAVINGS".
+                Note that this filter does not affect the CSV report.
+                "NONE" means no filter applied. "SPEEDUPS" lists all the apps that are either
+                'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
+                lists all the apps that have positive estimated GPU savings except for the apps that
+                are "Not Applicable".
         :param verbose: True or False to enable verbosity to the wrapper script.
         :param rapids_options: A list of valid Qualification tool options.
             Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
