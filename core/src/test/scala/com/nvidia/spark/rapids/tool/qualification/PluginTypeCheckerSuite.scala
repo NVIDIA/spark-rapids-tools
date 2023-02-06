@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,18 +102,18 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     val checker = new PluginTypeChecker
     TrampolineUtil.withTempDir { outpath =>
       val header = "CPUOperator,Score\n"
-      val supText = (header + "FilterExec,3\n").getBytes(StandardCharsets.UTF_8)
+      val supText = (header + "UnionExec,3\n").getBytes(StandardCharsets.UTF_8)
       val csvSupportedFile = Paths.get(outpath.getAbsolutePath, "testScore.txt")
       Files.write(csvSupportedFile, supText)
       checker.setOperatorScore(csvSupportedFile.toString)
-      assert(checker.getSpeedupFactor("FilterExec") == 3)
+      assert(checker.getSpeedupFactor("UnionExec") == 3)
       assert(checker.getSpeedupFactor("ProjectExec") == -1)
     }
   }
 
   test("supported operator score from default file") {
     val checker = new PluginTypeChecker
-    assert(checker.getSpeedupFactor("FilterExec") == 2.8)
+    assert(checker.getSpeedupFactor("UnionExec") == 3.0)
     assert(checker.getSpeedupFactor("Ceil") == 4)
   }
 
@@ -154,19 +154,19 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
 
   test("supported operator score from onprem") {
     val checker = new PluginTypeChecker("onprem")
-    assert(checker.getSpeedupFactor("FilterExec") == 2.8)
+    assert(checker.getSpeedupFactor("UnionExec") == 3.0)
     assert(checker.getSpeedupFactor("Ceil") == 4)
   }
 
   test("supported operator score from dataproc") {
     val checker = new PluginTypeChecker("dataproc")
-    assert(checker.getSpeedupFactor("FilterExec") >= 2.0)
+    assert(checker.getSpeedupFactor("UnionExec") == 3.0)
     assert(checker.getSpeedupFactor("Ceil") == 4)
   }
 
   test("supported operator score from emr") {
     val checker = new PluginTypeChecker("emr")
-    assert(checker.getSpeedupFactor("FilterExec") == 2.7)
+    assert(checker.getSpeedupFactor("UnionExec") == 3.0)
     assert(checker.getSpeedupFactor("Ceil") == 4)
   }
 }
