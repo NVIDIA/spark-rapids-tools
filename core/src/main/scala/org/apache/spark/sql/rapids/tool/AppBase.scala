@@ -199,11 +199,9 @@ abstract class AppBase(
                     if (i.getCause != null && i.getCause.getMessage != null) {
                       if (!i.getCause.getMessage.contains("SparkListenerResourceProfileAdded")) {
                         logWarning(s"ClassNotFoundException: ${i.getCause.getMessage}")
-                      } else {
-                        logWarning(s"Unknown exception", i)
                       }
                     } else {
-                      logWarning(s"Unknown exception", i)
+                      logError(s"Unknown exception", i)
                     }
                     false
                   case e: ClassNotFoundException =>
