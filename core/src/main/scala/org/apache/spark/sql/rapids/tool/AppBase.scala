@@ -33,7 +33,7 @@ import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
 import org.apache.spark.util.{JsonProtocol, Utils}
 
 abstract class AppBase(
@@ -241,11 +241,21 @@ abstract class AppBase(
   protected def checkMetadataForReadSchema(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
     // check if planInfo has ReadSchema
     val allMetaWithSchema = getPlanMetaWithSchema(planInfo)
-    allMetaWithSchema.foreach { node =>
-      val meta = node.metadata
+    allMetaWithSchema.foreach { plan =>
+      val meta = plan.metadata
       val readSchema = ReadParser.formatSchemaStr(meta.getOrElse("ReadSchema", ""))
 
+      val planGraph = SparkPlanGraph(plan)
+      val allNodes = planGraph.allNodes
+      val finalRes = allNodes.filter(node => {
+        // Get ReadSchema of each Node and sanitize it for comparison
+        val trimmedNode = ReadParser.parseReadNode(node).schema.replace("...", "")
+        readSchema.contains(trimmedNode)
+      })
+      val nodeId = if (finalRes.nonEmpty) finalRes.head.id else -1
+
       dataSourceInfo += DataSourceCase(sqlID,
+        nodeId,
         meta.getOrElse("Format", "unknown"),
         meta.getOrElse("Location", "unknown"),
         meta.getOrElse("PushedFilters", "unknown"),
@@ -264,6 +274,7 @@ abstract class AppBase(
       val res = ReadParser.parseReadNode(node)
 
       dataSourceInfo += DataSourceCase(sqlID,
+        node.id,
         res.format,
         res.location,
         res.filters,

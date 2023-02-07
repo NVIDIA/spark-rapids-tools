@@ -116,15 +116,22 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
           || sqlAccum.name.equals(data_size))
 
       app.dataSourceInfo.map { ds =>
-        val sqlIdtoDs = dataSourceMetrics.filter(sqlAccum => sqlAccum.sqlID == ds.sqlID)
-        if (!sqlIdtoDs.isEmpty) {
-          val ioMetrics = getIoMetrics(sqlIdtoDs)
-          DataSourceProfileResult(app.index, ds.sqlID, ds.format, ioMetrics.buffer_time,
-            ioMetrics.scan_time, ioMetrics.data_size, ioMetrics.decode_time, ds.location,
-            ds.pushedFilters, ds.schema)
+        if (app.gpuMode) {
+          val sqlIdtoDs = dataSourceMetrics.filter(
+            sqlAccum => sqlAccum.sqlID == ds.sqlID && sqlAccum.nodeID == ds.nodeId)
+          if (!sqlIdtoDs.isEmpty) {
+            val ioMetrics = getIoMetrics(sqlIdtoDs)
+            DataSourceProfileResult(app.index, app.gpuMode, ds.sqlID, sqlIdtoDs.head.nodeID,
+              ds.format, ioMetrics.buffer_time,
+              ioMetrics.scan_time, ioMetrics.data_size, ioMetrics.decode_time, ds.location,
+              ds.pushedFilters, ds.schema)
+          } else {
+            DataSourceProfileResult(app.index, app.gpuMode, ds.sqlID, ds.nodeId,
+              ds.format, "NA", "NA", "NA", "NA", ds.location, ds.pushedFilters, ds.schema)
+          }
         } else { // Dataformat not supported on GPU, io Metrics not available for such
-          DataSourceProfileResult(app.index, ds.sqlID, ds.format, "NA", "NA", "NA", "NA",
-            ds.location, ds.pushedFilters, ds.schema)
+          DataSourceProfileResult(app.index, app.gpuMode, ds.sqlID, ds.nodeId, ds.format,
+            "NA", "NA", "NA", "NA", ds.location, ds.pushedFilters, ds.schema)
         }
       }
     }

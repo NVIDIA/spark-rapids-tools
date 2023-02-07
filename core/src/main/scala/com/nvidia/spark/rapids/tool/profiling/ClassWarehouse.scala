@@ -129,17 +129,17 @@ case class RapidsJarProfileResult(appIndex: Int, jar: String)  extends ProfileRe
   }
 }
 
-case class DataSourceProfileResult(appIndex: Int, sqlID: Long, format: String,
-    buffer_time: String, scan_time: String, data_size: String, decode_time: String,
-    location: String, pushedFilters: String, schema: String)
+case class DataSourceProfileResult(appIndex: Int, gpuMode: Boolean, sqlID: Long, nodeId: Long,
+    format: String, buffer_time: String, scan_time: String, data_size: String,
+    decode_time: String, location: String, pushedFilters: String, schema: String)
 extends ProfileResult {
   override val outputHeaders =
-    Seq("appIndex", "sqlID", "format", "buffer_time", "scan_time", "data_size",
+    Seq("appIndex", "gpuMode", "sqlID", "nodeId", "format", "buffer_time", "scan_time", "data_size",
       "decode_time", "location", "pushedFilters", "schema")
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, format, buffer_time, scan_time,
-      data_size, decode_time, location, pushedFilters, schema)
+    Seq(appIndex.toString, gpuMode.toString, sqlID.toString, nodeId.toString, format,
+      buffer_time, scan_time, data_size, decode_time, location, pushedFilters, schema)
   }
 }
 
@@ -342,6 +342,7 @@ case class UnsupportedSQLPlan(sqlID: Long, nodeID: Long, nodeName: String,
 
 case class DataSourceCase(
     sqlID: Long,
+    nodeId: Long,
     format: String,
     location: String,
     pushedFilters: String,

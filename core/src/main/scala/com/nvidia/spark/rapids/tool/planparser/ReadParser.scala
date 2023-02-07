@@ -80,7 +80,7 @@ object ReadParser extends Logging {
     val pushedFilters = if (node.desc.contains(pushedFilterTag)) {
       val stringWithBrackets = getFieldWithoutTag(node.desc, pushedFilterTag)
       // Remove prepended [ from the string if exists
-      if (stringWithBrackets.contains("[")) {
+      if (!node.name.contains("JDBCRelation") && stringWithBrackets.contains("[")) {
         stringWithBrackets.split("\\[", 2).last
       } else {
         stringWithBrackets
