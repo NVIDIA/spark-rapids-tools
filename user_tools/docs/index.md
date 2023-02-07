@@ -5,6 +5,15 @@ analysis using the RAPIDS Accelerator for Apache Spark across multiple cloud ser
 
 ## Available commands
 
+### Qualification
+
+Provides a wrapper to simplify the execution of [RAPIDS Qualification tool](../../core/docs/spark-qualification-tool.md)
+The latter analyzes Spark events generated from  CPU based Spark applications to help
+quantify the expected acceleration and costs savings of migrating a Spark application or
+query to GPU.  
+For more details, please visit the
+[Qualification Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html).
+
 ### Bootstrap
 
 Provides optimized RAPIDS Accelerator for Apache Spark configs based on Dataproc GPU cluster shape.
@@ -21,15 +30,6 @@ In addition, the wrapper output provides optimized RAPIDS configurations based o
 information.  
 For more details, please visit the
 [Profiling Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html).
-
-### Qualification
-
-Provides a wrapper to simplify the execution of [RAPIDS Qualification tool](../../core/docs/spark-qualification-tool.md)
-The latter analyzes Spark events generated from  CPU based Spark applications to help
-quantify the expected acceleration and costs savings of migrating a Spark application or
-query to GPU.  
-For more details, please visit the
-[Qualification Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html).
 
 ## Deploy modes
 

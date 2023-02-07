@@ -37,7 +37,7 @@ class EMRPlatform(PlatformBase):
     """
     Represents the interface and utilities required by AWS EMR.
     Prerequisites:
-    - install gcloud command lines (gcloud, gsutil)
+    - install aws command lines (aws cli)
     - configure the aws
         - this may be done by region
     - aws has no staging available in the cluster properties.

@@ -7,7 +7,7 @@ The wrapper improves end-user experience within the following dimensions:
    Apache Spark. The output shows a list of apps recommended for RAPIDS Accelerator for Apache Spark with estimated savings
    and speed-up.
 2. Bootstrap: Provide optimized RAPIDS Accelerator for Apache Spark configs based on GPU cluster shape. The output
-   shows updated Spark config settings on master node.
+   shows updated Spark config settings on driver node.
 3. Tuning: Tune RAPIDS Accelerator for Apache Spark configs based on initial job run leveraging Spark event logs. The output
    shows recommended per-app RAPIDS Accelerator for Apache Spark config settings.
 4. Diagnostics: Run diagnostic functions to validate the Dataproc with RAPIDS Accelerator for Apache Spark environment to

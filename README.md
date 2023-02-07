@@ -4,7 +4,7 @@ This repo provides the tools to use [RAPIDS Accelerator for Apache Spark](https:
 
 ## Catalog
 
-- [RAPIDS core tools](/core): User tools to help developers getting the most out of their Apache Spark applications
+- [RAPIDS core tools](/core): Tools that help developers getting the most out of their Apache Spark applications
   without any code change:
   - Report acceleration potential of RAPIDS Accelerator for Apache Spark on a set of Spark applications.
   - Generate comprehensive profiling analysis for Apache Sparks executing on accelerated GPU instances. This information

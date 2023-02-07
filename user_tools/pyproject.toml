@@ -8,7 +8,7 @@ authors = [
   { name="Raza Jafri", email="raza.jafri@gmail.com" },
   { name="Ahmed Hussein", email="a@ahussein.me" },
 ]
-description = "A simple wrapper process around cloud service providers to run RAPIDS Accelerator for Apache Spark."
+description = "A simple wrapper process around cloud service providers to run tools for the RAPIDS Accelerator for Apache Spark."
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
