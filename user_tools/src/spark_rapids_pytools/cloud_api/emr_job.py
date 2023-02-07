@@ -19,11 +19,11 @@ import time
 from dataclasses import field, dataclass
 from logging import Logger
 
-from pyrapids.cloud_api.sp_types import EnumeratedType
-from pyrapids.common.prop_manager import JSONPropertiesContainer
-from pyrapids.common.utilities import ToolLogging, gen_random_string
-from pyrapids.rapids.rapids_job import RapidsJob
-from pyrapids.rapids.tool_ctxt import ToolContext
+from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
+from spark_rapids_pytools.common.utilities import ToolLogging, gen_random_string
+from spark_rapids_pytools.rapids.rapids_job import RapidsJob
+from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
 class EMRJobState(EnumeratedType):

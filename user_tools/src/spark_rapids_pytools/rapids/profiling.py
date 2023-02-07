@@ -12,9 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the spark_rapids_dataproc package."""
+"""Implementation class representing wrapper around the RAPIDS acceleration Profiling tool."""
 
-from pyrapids.build import get_version
+from dataclasses import dataclass
 
-VERSION = '22.12.0'
-__version__ = get_version(VERSION)
+from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
+
+
+@dataclass
+class Profiling(RapidsJarTool):
+    """
+    Wrapper layer around Profiling Tool.
+    """
+    name = 'profiling'

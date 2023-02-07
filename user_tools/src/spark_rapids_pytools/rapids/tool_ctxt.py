@@ -18,11 +18,11 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Type, Any
 
-from pyrapids import get_version
-from pyrapids.cloud_api.sp_types import PlatformBase
-from pyrapids.common.prop_manager import YAMLPropertiesContainer
-from pyrapids.common.sys_storage import FSUtil
-from pyrapids.common.utilities import gen_uuid_with_ts, ToolLogging, get_rapids_tools_env, \
+from spark_rapids_pytools import VERSION
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
+from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
+from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import gen_uuid_with_ts, ToolLogging, get_rapids_tools_env, \
     set_rapids_tools_env
 
 
@@ -128,12 +128,16 @@ class ToolContext(YAMLPropertiesContainer):
         return self.get_local('depFolder')
 
     def get_default_jar_name(self) -> str:
-        jar_version = get_version(main=None)
+        # we can get the version using get_version(main=None) but this will add a suffix
+        # we want only the major version to get the jar
+        jar_version = VERSION
         default_jar_name = self.get_value('sparkRapids', 'jarFile')
         return default_jar_name.format(jar_version)
 
     def get_rapids_jar_url(self) -> str:
-        jar_version = get_version(main=None)
+        # we can get the version using get_version(main=None) but this will add a suffix
+        # we want only the major version to get the jar
+        jar_version = VERSION
         rapids_url = self.get_value('sparkRapids', 'repoUrl').format(jar_version, jar_version)
         return rapids_url
 

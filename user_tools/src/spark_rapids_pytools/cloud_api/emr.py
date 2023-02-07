@@ -20,16 +20,16 @@ import os
 from dataclasses import field, dataclass
 from typing import Any
 
-from pyrapids.cloud_api.emr_job import EmrServerlessRapidsJob, EmrLocalRapidsJob
-from pyrapids.cloud_api.s3storage import S3StorageDriver
-from pyrapids.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, CloudPlatform, \
+from spark_rapids_pytools.cloud_api.emr_job import EmrServerlessRapidsJob, EmrLocalRapidsJob
+from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, CloudPlatform, \
     ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice
-from pyrapids.common.prop_manager import JSONPropertiesContainer, AbstractPropertiesContainer
-from pyrapids.common.sys_storage import FSUtil
-from pyrapids.common.utilities import find_full_rapids_tools_env_key, get_rapids_tools_env, get_sys_env_var
-from pyrapids.pricing.emr_pricing import EMREc2PriceProvider
-from pyrapids.pricing.price_provider import SavingsEstimator
-from pyrapids.rapids.rapids_job import RapidsJobPropContainer, RapidsJob
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, AbstractPropertiesContainer
+from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import find_full_rapids_tools_env_key, get_rapids_tools_env, get_sys_env_var
+from spark_rapids_pytools.pricing.emr_pricing import EMREc2PriceProvider
+from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
+from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer, RapidsJob
 
 
 @dataclass

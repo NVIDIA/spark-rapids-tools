@@ -16,9 +16,9 @@
 
 from dataclasses import dataclass
 
-from pyrapids.cloud_api.sp_types import ClusterBase, NodeHWInfo
-from pyrapids.common.sys_storage import FSUtil
-from pyrapids.rapids.rapids_tool import RapidsTool
+from spark_rapids_pytools.cloud_api.sp_types import ClusterBase, NodeHWInfo
+from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.rapids.rapids_tool import RapidsTool
 
 
 @dataclass

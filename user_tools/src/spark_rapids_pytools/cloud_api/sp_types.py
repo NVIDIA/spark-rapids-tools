@@ -20,9 +20,9 @@ from logging import Logger
 from shutil import which
 from typing import cast, Type, Any
 
-from pyrapids.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer
-from pyrapids.common.sys_storage import StorageDriver
-from pyrapids.common.utilities import ToolLogging, resource_path, SysCmd
+from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer
+from spark_rapids_pytools.common.sys_storage import StorageDriver
+from spark_rapids_pytools.common.utilities import ToolLogging, resource_path, SysCmd
 
 
 class EnumeratedType(str, Enum):
@@ -567,8 +567,8 @@ class ClusterBase:
 def get_platform(platform_id: Enum) -> Type[PlatformBase]:
     platform_hash = {
         # Dataproc platform is not enabled yet
-        # CloudPlatform.DATAPROC: ('pyrapids.cloud_api.dataproc', 'DataprocPlatform'),
-        CloudPlatform.EMR: ('pyrapids.cloud_api.emr', 'EMRPlatform'),
+        # CloudPlatform.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
+        CloudPlatform.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
     }
     if platform_id in platform_hash:
         mod_name, clz_name = platform_hash[platform_id]

@@ -26,7 +26,7 @@ from shutil import rmtree
 import requests
 import wget
 
-from pyrapids.common.exceptions import StorageException
+from spark_rapids_pytools.common.exceptions import StorageException
 
 
 class FSUtil:

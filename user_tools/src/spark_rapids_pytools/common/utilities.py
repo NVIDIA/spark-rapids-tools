@@ -52,7 +52,7 @@ def resource_path(resource_name: str) -> str:
     else:
         import importlib.resources as importlib_resources
 
-    pkg = importlib_resources.files('pyrapids')
+    pkg = importlib_resources.files('spark_rapids_pytools')
     return pkg / 'resources' / resource_name
 
 

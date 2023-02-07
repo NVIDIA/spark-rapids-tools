@@ -19,10 +19,10 @@ from logging import Logger
 
 import math
 
-from pyrapids.cloud_api.sp_types import ClusterBase
-from pyrapids.common.prop_manager import AbstractPropertiesContainer
-from pyrapids.common.sys_storage import FSUtil
-from pyrapids.common.utilities import ToolLogging
+from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
+from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer
+from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import ToolLogging
 
 
 @dataclass

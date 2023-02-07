@@ -22,11 +22,11 @@ from typing import Any, List
 import pandas as pd
 from tabulate import tabulate
 
-from pyrapids.cloud_api.sp_types import ClusterBase, EnumeratedType
-from pyrapids.common.sys_storage import FSUtil
-from pyrapids.pricing.price_provider import SavingsEstimator
-from pyrapids.rapids.rapids_job import RapidsJobPropContainer
-from pyrapids.rapids.rapids_tool import RapidsJarTool
+from spark_rapids_pytools.cloud_api.sp_types import ClusterBase, EnumeratedType
+from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
+from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
+from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 
 
 class QualFilterApp(EnumeratedType):

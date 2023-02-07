@@ -16,8 +16,8 @@
 
 from dataclasses import dataclass
 
-from pyrapids.cloud_api.sp_types import CMDDriverBase
-from pyrapids.common.sys_storage import StorageDriver, FSUtil
+from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase
+from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
 
 
 @dataclass

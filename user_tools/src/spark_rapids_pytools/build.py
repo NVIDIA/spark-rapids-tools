@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Implementation class representing wrapper around the RAPIDS acceleration Profiling tool."""
+"""Build helpers."""
 
-from dataclasses import dataclass
+import datetime
+import os
 
-from pyrapids.rapids.rapids_tool import RapidsJarTool
 
-
-@dataclass
-class Profiling(RapidsJarTool):
-    """
-    Wrapper layer around Profiling Tool.
-    """
-    name = 'profiling'
+def get_version(main=None):
+    if main is None:
+        # pylint: disable=import-outside-toplevel
+        from spark_rapids_pytools import VERSION as main
+    suffix = ''
+    nightly = os.environ.get('USERTOOLS_NIGHTLY')
+    if nightly == '1':
+        suffix = '.dev' + datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
+    return main + suffix

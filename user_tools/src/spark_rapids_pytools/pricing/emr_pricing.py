@@ -20,10 +20,10 @@ from dataclasses import dataclass, field
 
 import requests
 
-from pyrapids.common.prop_manager import JSONPropertiesContainer
-from pyrapids.common.sys_storage import FSUtil
-from pyrapids.common.utilities import get_rapids_tools_env
-from pyrapids.pricing.price_provider import PriceProvider
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
+from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import get_rapids_tools_env
+from spark_rapids_pytools.pricing.price_provider import PriceProvider
 
 
 @dataclass

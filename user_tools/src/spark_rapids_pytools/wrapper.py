@@ -16,10 +16,10 @@
 
 import fire
 
-from pyrapids.cloud_api.sp_types import CloudPlatform, DeployMode
-from pyrapids.common.utilities import ToolLogging
-from pyrapids.rapids.bootstrap import Bootstrap
-from pyrapids.rapids.qualification import Qualification, QualificationAsLocal, QualFilterApp
+from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, DeployMode
+from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.rapids.bootstrap import Bootstrap
+from spark_rapids_pytools.rapids.qualification import Qualification, QualificationAsLocal, QualFilterApp
 
 
 class CliEmrLocalMode:  # pylint: disable=too-few-public-methods

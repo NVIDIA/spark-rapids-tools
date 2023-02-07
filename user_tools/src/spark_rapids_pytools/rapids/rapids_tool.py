@@ -21,10 +21,10 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict
 
-from pyrapids.cloud_api.sp_types import CloudPlatform, get_platform, ClusterBase, DeployMode
-from pyrapids.common.sys_storage import FSUtil
-from pyrapids.common.utilities import resource_path, ToolLogging, get_rapids_tools_env
-from pyrapids.rapids.tool_ctxt import ToolContext
+from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, ClusterBase, DeployMode
+from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import resource_path, ToolLogging, get_rapids_tools_env
+from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
 @dataclass

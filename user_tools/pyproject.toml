@@ -27,4 +27,4 @@ dependencies = [
 ]
 dynamic=["entry-points", "version"]
 [tool.setuptools.dynamic]
-version = {attr = "pyrapids.__version__"}
+version = {attr = "spark_rapids_pytools.__version__"}

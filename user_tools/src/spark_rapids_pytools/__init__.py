@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,18 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Build helpers."""
+"""init file of the spark_rapids_dataproc package."""
 
-import datetime
-import os
+from spark_rapids_pytools.build import get_version
 
-
-def get_version(main=None):
-    if main is None:
-        # pylint: disable=import-outside-toplevel
-        from pyrapids import VERSION as main
-    suffix = ''
-    nightly = os.environ.get('USERTOOLS_NIGHTLY')
-    if nightly == '1':
-        suffix = '.dev' + datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
-    return main + suffix
+VERSION = '22.12.0'
+__version__ = get_version(VERSION)

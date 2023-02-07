@@ -17,9 +17,9 @@
 from dataclasses import dataclass, field
 from logging import Logger
 
-from pyrapids.common.prop_manager import JSONPropertiesContainer
-from pyrapids.common.utilities import ToolLogging
-from pyrapids.rapids.tool_ctxt import ToolContext
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
+from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
 @dataclass
