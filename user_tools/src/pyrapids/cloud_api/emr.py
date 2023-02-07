@@ -49,23 +49,51 @@ class EMRPlatform(PlatformBase):
 
     @classmethod
     def load_aws_profile(cls, profile_name: str) -> dict:
-        aws_config = configparser.ConfigParser()
+        def read_aws_options(conf_parser: configparser.ConfigParser,
+                             prof_name: str,
+                             key_list):
+            section_name = prof_name
+            if not conf_parser.has_section(prof_name):
+                # try to use "profile XYZ" format
+                if conf_parser.has_section(f'profile {prof_name}'):
+                    section_name = f'profile {prof_name}'
+
+            res = {}
+            for k in key_list:
+                if conf_parser.has_option(section_name, k):
+                    res.update({k: conf_parser.get(section_name, k)})
+            return res
+
+        def create_conf_parser(def_path: str, env_var: str):
+            parser_obj = configparser.ConfigParser()
+            env_var_value = get_sys_env_var(env_var)
+            if env_var_value is not None:
+                # in case the path is with ~
+                conf_file_path = FSUtil.expand_path(env_var_value)
+            else:
+                conf_file_path = def_path
+            parser_obj.read(conf_file_path)
+            return parser_obj
+
         default_conf_path = FSUtil.build_path(FSUtil.get_home_directory(), '.aws/config')
         default_credential_path = FSUtil.build_path(FSUtil.get_home_directory(), '.aws/credentials')
-        aws_conf_path = get_sys_env_var('AWS_CONFIG_FILE', default_conf_path)
-        aws_credential_path = get_sys_env_var('AWS_SHARED_CREDENTIALS_FILE', default_credential_path)
-        aws_config.read(aws_conf_path)
-        region = aws_config.get(profile_name, 'region')
-        aws_credentials = configparser.ConfigParser()
-        aws_credentials.read(aws_credential_path)
-        aws_access_id = aws_credentials.get(profile_name, 'aws_access_key_id')
-        aws_access_key = aws_credentials.get(profile_name, 'aws_secret_access_key')
-        return {
-            'profile': profile_name,
-            'region': region,
-            'aws_access_id': aws_access_id,
-            'aws_access_key': aws_access_key
-        }
+        aws_config = create_conf_parser(default_conf_path, 'AWS_CONFIG_FILE')
+        aws_credentials = create_conf_parser(default_credential_path, 'AWS_SHARED_CREDENTIALS_FILE')
+        conf_res = {'profile': profile_name}
+        try:
+            aws_conf_dict = read_aws_options(aws_config,
+                                             profile_name,
+                                             ['region'])
+            aws_cred_dict = read_aws_options(aws_credentials,
+                                             profile_name,
+                                             ['aws_access_key_id', 'aws_secret_access_key'])
+            # return result contains the following keys:
+            # ['profile', 'region', aws_access_id', and 'aws_access_key']
+            conf_res.update(aws_conf_dict)
+            conf_res.update(aws_cred_dict)
+            return conf_res
+        except (configparser.NoSectionError, configparser.NoOptionError, configparser.ParsingError) as conf_ex:
+            raise RuntimeError('Could not read AWS configurations') from conf_ex
 
     @classmethod
     def get_spark_node_type_fromstring(cls, value) -> SparkNodeType:
@@ -274,12 +302,15 @@ class EMRCMDDriver(CMDDriverBase):
         emr_env_vars = {
             'AWS_PROFILE': self.get_env_var('profile')
         }
-        if env_vars is not None:
-            emr_env_vars.update(env_vars)
+        if env_vars is None:
+            env_vars = {}
+        # piggyback on the command to the profile argument
+        if 'AWS_PROFILE' not in env_vars:
+            env_vars.update(emr_env_vars)
         return super().run_sys_cmd(cmd=cmd,
                                    cmd_input=cmd_input,
                                    fail_ok=fail_ok,
-                                   env_vars=emr_env_vars)
+                                   env_vars=env_vars)
 
 
 @dataclass
@@ -481,7 +512,7 @@ class EMRCluster(ClusterBase):
         return {
             SparkNodeType.WORKER: worker_nodes,
             SparkNodeType.MASTER: master_nodes[0]
-         }
+        }
 
     def _init_nodes(self):
         def process_cluster_group_list(inst_groups: list) -> list:
@@ -540,6 +571,7 @@ class EmrSavingsEstimator(SavingsEstimator):
     """
     A class that calculates the savings based on an EMR price provider
     """
+
     def _get_cost_per_cluster(self, cluster: EMRCluster):
         total_cost = 0.0
         for curr_group in cluster.instance_groups:

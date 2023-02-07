@@ -17,6 +17,7 @@
 import datetime
 import glob
 import os
+import pathlib
 import shutil
 from dataclasses import dataclass
 from email.utils import formatdate, parsedate_to_datetime
@@ -135,6 +136,19 @@ class FSUtil:
     @classmethod
     def get_home_directory(cls) -> str:
         return os.path.expanduser('~')
+
+    @classmethod
+    def expand_path(cls, file_path) -> str:
+        """
+        Used to expand the files with path starting with home directory. this is used because some
+        libraries like configparser does not expand correctly
+        :param file_path: the file path
+        :return: the expanded file path
+        """
+        if file_path.startswith('~'):
+            new_path = pathlib.PosixPath(file_path)
+            return new_path.expanduser()
+        return file_path
 
 
 @dataclass

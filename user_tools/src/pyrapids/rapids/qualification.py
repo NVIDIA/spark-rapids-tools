@@ -561,8 +561,8 @@ class QualificationAsLocal(Qualification):
 
     def _process_job_submission_args(self):
         def validate_env_runs(submit_args: dict) -> dict:
-            aws_access_id = self.ctxt.platform.cli.get_env_var('aws_access_id')
-            aws_access_key = self.ctxt.platform.cli.get_env_var('aws_access_key')
+            aws_access_id = self.ctxt.platform.cli.get_env_var('aws_access_key_id')
+            aws_access_key = self.ctxt.platform.cli.get_env_var('aws_secret_access_key')
             jvm_heap_size = submit_args.get('jvmMaxHeapSize')
             xmx_key = f'Xmx{jvm_heap_size}g'
             ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
