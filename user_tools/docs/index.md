@@ -9,7 +9,7 @@ analysis using the RAPIDS Accelerator for Apache Spark across multiple cloud ser
 
 Provides optimized RAPIDS Accelerator for Apache Spark configs based on Dataproc GPU cluster shape.
 This tool is supposed to be used once a cluster has been created to set the recommended configurations.  
-Note that the tool requires `SSH` access on the cluster nodes to read the GPU settings and to update
+Note that the command may require `SSH` access on the cluster nodes to read the GPU settings and to update
 Apache Spark default configurations.
 
 ### Profiling
@@ -73,7 +73,12 @@ The following table summarizes the commands supported for each cloud platform:
 |          |               +-------------+-------------------------------+----------+
 |          |               | cluster     | unsupported                   |    N/A   |
 |          +---------------+-------------+-------------------------------+----------+
-|          | bootstrap     | cluster     | spark_rapids_user_tools \     |  23.02+  |
+|          | bootstrap     | local       | spark_rapids_user_tools \     |  23.02+  |
+|          |               |             |     emr bootstrap [ARGS]      |          |
+|          |               +-------------+-------------------------------+----------+
+|          |               | serverless  | unsupported                   |    N/A   |
+|          |               +-------------+-------------------------------+----------+
+|          |               | cluster     | spark_rapids_user_tools \     |  23.02+  |
 |          |               |             |     emr bootstrap [ARGS]      |          |
 +----------+---------------+-------------+-------------------------------+----------+
 | Dataproc | qualification | local       | unsupported                   |    N/A   |
@@ -90,7 +95,11 @@ The following table summarizes the commands supported for each cloud platform:
 |          |               | cluster     | spark_rapids_dataproc \       | 22.10.1+ |
 |          |               |             |     profiling [ARGS]          |          |
 |          +---------------+-------------+-------------------------------+----------+
-|          | bootstrap     | cluster     | spark_rapids_dataproc \       | 22.10.1+ |
+|          | bootstrap     | local       | unsupported                   |    N/A   |
+|          |               +-------------+-------------------------------+----------+
+|          |               | serverless  | unsupported                   |    N/A   |
+|          |               +-------------+-------------------------------+----------+
+|          |               | cluster     | spark_rapids_dataproc \       | 22.10.1+ |
 |          |               |             |     bootstrap [ARGS]          |          |
 +----------+---------------+-------------+-------------------------------+----------+
 ```

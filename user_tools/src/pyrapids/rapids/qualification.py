@@ -13,9 +13,9 @@
 # limitations under the License.
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
+
 import dataclasses
 import json
-
 from dataclasses import dataclass
 from typing import Any, List
 

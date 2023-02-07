@@ -33,15 +33,10 @@ sparkRapids:
   jarFile: 'rapids-4-spark-tools_2.12-{}.jar'
   mainClass: 'com.nvidia.spark.rapids.tool.qualification.QualificationMain'
   outputDocURL: 'https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output'
-  dependencies:
-    - spark: https://dlcdn.apache.org/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz
-      verifyKey: xyz
-    -
   gpu:
     device: 't4'
     workersPerNode: 2
     cudaVersion: '11.5'
-    initializationScripts: 'gs://goog-dataproc-initialization-actions-{}/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-{}/rapids/rapids.sh'
   cli:
     defaults:
       filters:
