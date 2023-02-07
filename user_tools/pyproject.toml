@@ -16,7 +16,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["fire==0.4.0", "pandas==1.4.3", "pyYAML==6.0", "tabulate==0.8.10", "importlib-resources"]
+dependencies = ["fire==0.4.0", "pandas==1.4.3", "pyYAML==6.0", "tabulate==0.8.10", "importlib-resources", "packaging"]
 dynamic=["entry-points", "version"]
 [tool.setuptools.dynamic]
 version = {attr = "spark_rapids_dataproc_tools.__version__"}
