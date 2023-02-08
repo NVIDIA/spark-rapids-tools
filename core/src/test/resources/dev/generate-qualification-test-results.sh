@@ -20,7 +20,7 @@ RED='\e[31;1m'
 GREEN='\e[32;1m'
 ENDCOLOR='\e[0m'
 
-MODULE_NAME="tools"
+MODULE_NAME="core"
 RELATIVE_QUAL_LOG_PATH="src/test/resources/spark-events-qualification"
 RELATIVE_PROF_LOG_PATH="src/test/resources/spark-events-profiling"
 RELATIVE_QUAL_REF_PATH="src/test/resources/QualificationExpectations"
