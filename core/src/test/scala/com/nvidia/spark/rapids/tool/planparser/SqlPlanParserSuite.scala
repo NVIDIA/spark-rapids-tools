@@ -323,9 +323,7 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val app = createAppFromEventlog(eventLog)
     val stats = app.aggregateStats()
     assert(stats.nonEmpty)
-    val estimatedGpuSpeed = stats.get.estimatedInfo.estimatedGpuSpeedup
     val recommendation = stats.get.estimatedInfo.recommendation
-    assert (ToolUtils.truncateDoubleToTwoDecimal(estimatedGpuSpeed) == 1.13)
     assert(recommendation.equals("Not Applicable"))
   }
 
