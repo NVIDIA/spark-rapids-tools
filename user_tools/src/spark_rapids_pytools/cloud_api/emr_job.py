@@ -276,7 +276,7 @@ class EmrServerlessRapidsJob(RapidsJob):
             time.sleep(10)
             job_details = self.__get_job_details(job_id, self.emr_app.id)
             self.job_state = EMRJobState.fromstring(job_details['jobRun']['state'])
-            self.logger.info('current job state is %s', self.job_state)
+            self.logger.info('Job state: %s', self.job_state)
         self.logger.info('Done waiting for the job to finish.')
         # Cleanup the emr application if necessary
         self.emr_app.terminate_app()
@@ -339,5 +339,4 @@ class EmrLocalRapidsJob(RapidsJob):
         env_args = self.prop_container.get_value_silent('platformArgs', 'envArgs')
         out_std = self.exec_ctxt.platform.cli.run_sys_cmd(cmd=cmd_args,
                                                           env_vars=env_args)
-        self.logger.debug('Result of submitting the job locally is: %s', out_std)
         return out_std

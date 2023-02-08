@@ -78,7 +78,18 @@ class RapidsJob:
     def _submit_job(self, cmd_args: list) -> str:
         raise NotImplementedError
 
+    def _print_job_output(self, job_output: str):
+        stdout_splits = job_output.splitlines()
+        if len(stdout_splits) > 0:
+            std_out_lines = '\n'.join([f'\t| {line}' for line in stdout_splits])
+            stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
+            self.logger.info('EMR Job output:%s', stdout_str)
+
     def run_job(self):
         self.logger.info('Prepare job submission command')
         cmd_args = self._build_submission_cmd()
-        return self._submit_job(cmd_args)
+        job_output = self._submit_job(cmd_args)
+        if not ToolLogging.is_debug_mode_enabled():
+            # we check the debug level because we do not want the output to be displayed twice
+            self._print_job_output(job_output)
+        return job_output

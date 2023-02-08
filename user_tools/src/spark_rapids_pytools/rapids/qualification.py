@@ -358,8 +358,7 @@ class Qualification(RapidsJarTool):
         job_properties = RapidsJobPropContainer(prop_arg=json.dumps(job_properties_json),
                                                 file_load=False)
         job_obj = self.ctxt.platform.create_submission_job(job_prop=job_properties, ctxt=self.ctxt)
-        submission_res = job_obj.run_job()
-        self.logger.info('Done with running the Job %s', submission_res)
+        job_obj.run_job()
 
     def _run_rapids_tool(self):
         # 1- copy dependencies to remote server
@@ -645,8 +644,7 @@ class QualificationAsLocal(Qualification):
                                                 file_load=False)
         job_obj = self.ctxt.platform.create_local_submission_job(job_prop=job_properties,
                                                                  ctxt=self.ctxt)
-        submission_res = job_obj.run_job()
-        self.logger.debug('Done with running the Job %s', submission_res)
+        job_obj.run_job()
 
     def _delete_remote_dep_folder(self):
         self.logger.debug('Local mode skipping deleting the remote workdir')
