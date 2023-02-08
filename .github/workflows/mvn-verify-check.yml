@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,24 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Add new issues and pull requests to project
+# A workflow to run maven verify for rapids tools
+name: Maven verify check
 
 on:
-  issues:
-    types:
-      - opened
-  pull_request_target:
-    types:
-      - opened
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 jobs:
-  add-to-project:
-    if: github.repository == 'NVIDIA/spark-rapids-tools'
-    name: Add new issues and pull requests to project
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/add-to-project@v0.4.0
-        with:
-          project-url: https://github.com/orgs/NVIDIA/projects/4
-          github-token: ${{ secrets.PROJECT_TOKEN }}
 
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: adopt
+        java-version: 8
+
+    - name: Run mvn verify
+      run: cd core && mvn verify

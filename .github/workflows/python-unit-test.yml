@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,24 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Add new issues and pull requests to project
+# A workflow to run Python unit test for user tools
+name: Python unit test
 
 on:
-  issues:
-    types:
-      - opened
-  pull_request_target:
-    types:
-      - opened
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 jobs:
-  add-to-project:
-    if: github.repository == 'NVIDIA/spark-rapids-tools'
-    name: Add new issues and pull requests to project
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/add-to-project@v0.4.0
-        with:
-          project-url: https://github.com/orgs/NVIDIA/projects/4
-          github-token: ${{ secrets.PROJECT_TOKEN }}
 
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+
+    - name: Install tox
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install tox
+        python -m pip install --pre tox-gh-actions
+
+    - name: Run tox test
+      run: cd user_tools && tox -e pylint,flake8
