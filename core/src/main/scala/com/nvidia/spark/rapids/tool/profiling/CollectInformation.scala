@@ -86,7 +86,7 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     // Metrics to capture from event log to the result
     val buffer_time: String = "buffer time"
     val scan_time = "scan time"
-    val data_size = "data size"
+    val data_size = "size of files read"
     val decode_time = "GPU decode time"
 
     // This is to save the metrics which will be extracted while creating the result.
@@ -115,7 +115,8 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
           || sqlAccum.name.contains(scan_time) || sqlAccum.name.contains(decode_time)
           || sqlAccum.name.equals(data_size))
 
-      app.dataSourceInfo.map { ds =>
+      val allDataSourceInfo = app.dataSourceInfo ++ app.cpuDataSourceInfo
+      allDataSourceInfo.map { ds =>
         if (app.gpuMode) {
           val sqlIdtoDs = dataSourceMetrics.filter(
             sqlAccum => sqlAccum.sqlID == ds.sqlID && sqlAccum.nodeID == ds.nodeId)

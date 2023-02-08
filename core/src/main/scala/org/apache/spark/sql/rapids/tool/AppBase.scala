@@ -42,8 +42,10 @@ abstract class AppBase(
 
   var sparkVersion: String = ""
   var appEndTime: Option[Long] = None
-  // The data source information
+  // GPU data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
+  //CPU data source information
+  val cpuDataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
 
   // jobId to job info
   val jobIdToInfo = new HashMap[Int, JobInfoClass]()
@@ -272,7 +274,6 @@ abstract class AppBase(
         node.name.contains("GpuBatchScan") ||
         node.name.contains("JDBCRelation")) {
       val res = ReadParser.parseReadNode(node)
-
       dataSourceInfo += DataSourceCase(sqlID,
         node.id,
         res.format,
@@ -280,6 +281,17 @@ abstract class AppBase(
         res.filters,
         res.schema
       )
+    }
+    if (node.name.startsWith("Scan") && !node.name.contains("JDBCRelation")) {
+      val res = ReadParser.parseReadNode(node)
+      cpuDataSourceInfo += DataSourceCase(sqlID,
+        node.id,
+        res.format,
+        res.location,
+        res.filters,
+        res.schema
+      )
+
     }
   }
 
