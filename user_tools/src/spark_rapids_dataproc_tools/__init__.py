@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,3 @@
 # limitations under the License.
 
 """init file of the spark_rapids_dataproc package."""
-
-from spark_rapids_dataproc_tools.build import get_version
-
-VERSION = '22.12.0'
-__version__ = get_version(VERSION)

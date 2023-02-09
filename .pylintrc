@@ -30,6 +30,9 @@ expected-line-ending-format=LF
 
 [MASTER]
 
+# Added to find the imported libraries
+init-hook='import sys; sys.path.append(".")'
+
 # Use multiple processes to speed up Pylint.
 jobs=2
 
