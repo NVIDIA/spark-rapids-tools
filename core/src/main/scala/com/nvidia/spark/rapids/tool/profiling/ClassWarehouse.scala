@@ -129,17 +129,18 @@ case class RapidsJarProfileResult(appIndex: Int, jar: String)  extends ProfileRe
   }
 }
 
-case class DataSourceProfileResult(appIndex: Int, gpuMode: Boolean, sqlID: Long, nodeId: Long,
-    format: String, buffer_time: String, scan_time: String, data_size: String,
-    decode_time: String, location: String, pushedFilters: String, schema: String)
+case class DataSourceProfileResult(appIndex: Int, sqlID: Long, nodeId: Long,
+    format: String, buffer_time: Long, scan_time: Long, data_size: Long,
+    decode_time: Long, location: String, pushedFilters: String, schema: String)
 extends ProfileResult {
   override val outputHeaders =
-    Seq("appIndex", "gpuMode", "sqlID", "nodeId", "format", "buffer_time", "scan_time", "data_size",
+    Seq("appIndex", "sqlID", "nodeId", "format", "buffer_time", "scan_time", "data_size",
       "decode_time", "location", "pushedFilters", "schema")
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, gpuMode.toString, sqlID.toString, nodeId.toString, format,
-      buffer_time, scan_time, data_size, decode_time, location, pushedFilters, schema)
+    Seq(appIndex.toString, sqlID.toString, nodeId.toString, format, buffer_time.toString,
+      scan_time.toString, data_size.toString, decode_time.toString,
+      location, pushedFilters, schema)
   }
 }
 

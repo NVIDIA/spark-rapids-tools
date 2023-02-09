@@ -92,18 +92,18 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 
     // This is to save the metrics which will be extracted while creating the result.
     case class IoMetrics(
-        var buffer_time: String,
-        var scan_time: String,
-        var data_size: String,
-        var decode_time: String)
+        var buffer_time: Long,
+        var scan_time: Long,
+        var data_size: Long,
+        var decode_time: Long)
 
     def getIoMetrics(sqlAccums: Seq[SQLAccumProfileResults]): IoMetrics = {
-      val finalRes = IoMetrics("", "", "", "")
+      val finalRes = IoMetrics(0, 0, 0, 0)
       sqlAccums.map(accum => accum.name match {
-        case `buffer_time` => finalRes.buffer_time = accum.max_value.toString
-        case `scan_time` => finalRes.scan_time = accum.max_value.toString
-        case `data_size` => finalRes.data_size = accum.max_value.toString
-        case `decode_time` => finalRes.decode_time = accum.max_value.toString
+        case `buffer_time` => finalRes.buffer_time = accum.max_value
+        case `scan_time` => finalRes.scan_time = accum.max_value
+        case `data_size` => finalRes.data_size = accum.max_value
+        case `decode_time` => finalRes.decode_time = accum.max_value
       })
       finalRes
     }
@@ -121,12 +121,12 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
           sqlAccum => sqlAccum.sqlID == ds.sqlID && sqlAccum.nodeID == ds.nodeId)
         if (!sqlIdtoDs.isEmpty) {
           val ioMetrics = getIoMetrics(sqlIdtoDs)
-          DataSourceProfileResult(app.index, app.gpuMode, ds.sqlID, ds.nodeId,
+          DataSourceProfileResult(app.index, ds.sqlID, ds.nodeId,
             ds.format, ioMetrics.buffer_time, ioMetrics.scan_time, ioMetrics.data_size,
             ioMetrics.decode_time, ds.location, ds.pushedFilters, ds.schema)
         } else {
-          DataSourceProfileResult(app.index, app.gpuMode, ds.sqlID, ds.nodeId,
-            ds.format, "NA", "NA", "NA", "NA", ds.location, ds.pushedFilters, ds.schema)
+          DataSourceProfileResult(app.index, ds.sqlID, ds.nodeId,
+            ds.format, 0, 0, 0, 0, ds.location, ds.pushedFilters, ds.schema)
         }
       }
     }

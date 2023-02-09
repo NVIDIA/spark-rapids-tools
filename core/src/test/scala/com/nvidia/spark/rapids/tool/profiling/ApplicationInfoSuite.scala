@@ -367,7 +367,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
   }
 
-  test("test read GPU datasource- IoMetrics") {
+  test("test IOMetrics") {
     TrampolineUtil.withTempDir { tempOutputDir =>
       var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
       val appArgs = new ProfileArgs(Array(s"$logDir/eventlog-gpu-dsv1.zstd"))
