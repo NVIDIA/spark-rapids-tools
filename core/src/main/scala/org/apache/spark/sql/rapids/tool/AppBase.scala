@@ -44,8 +44,6 @@ abstract class AppBase(
   var appEndTime: Option[Long] = None
   // GPU data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
-  //CPU data source information
-  val cpuDataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
 
   // jobId to job info
   val jobIdToInfo = new HashMap[Int, JobInfoClass]()
@@ -271,17 +269,16 @@ abstract class AppBase(
       val meta = plan.metadata
       val readSchema = ReadParser.formatSchemaStr(meta.getOrElse("ReadSchema", ""))
 
-      val planGraph = SparkPlanGraph(plan)
+      val planGraph = SparkPlanGraph(planInfo)
       val allNodes = planGraph.allNodes
-      val finalRes = allNodes.filter(node => {
+      val scanNode = allNodes.filter(node => {
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = ReadParser.parseReadNode(node).schema.replace("...", "")
         readSchema.contains(trimmedNode)
-      })
-      val nodeId = if (finalRes.nonEmpty) finalRes.head.id else -1
+      }).filter(x => x.name.startsWith("Scan")).head
 
       dataSourceInfo += DataSourceCase(sqlID,
-        nodeId,
+        scanNode.id,
         meta.getOrElse("Format", "unknown"),
         meta.getOrElse("Location", "unknown"),
         meta.getOrElse("PushedFilters", "unknown"),
@@ -298,6 +295,7 @@ abstract class AppBase(
         node.name.contains("GpuBatchScan") ||
         node.name.contains("JDBCRelation")) {
       val res = ReadParser.parseReadNode(node)
+
       dataSourceInfo += DataSourceCase(sqlID,
         node.id,
         res.format,
@@ -305,17 +303,6 @@ abstract class AppBase(
         res.filters,
         res.schema
       )
-    }
-    if (node.name.startsWith("Scan") && !node.name.contains("JDBCRelation")) {
-      val res = ReadParser.parseReadNode(node)
-      cpuDataSourceInfo += DataSourceCase(sqlID,
-        node.id,
-        res.format,
-        res.location,
-        res.filters,
-        res.schema
-      )
-
     }
   }
 

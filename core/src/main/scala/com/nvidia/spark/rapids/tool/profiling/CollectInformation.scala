@@ -83,6 +83,7 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
   def getDataSourceInfo: Seq[DataSourceProfileResult] = {
     val dataSourceApps = apps.filter(_.dataSourceInfo.size > 0)
     val sqlAccums = CollectInformation.generateSQLAccums(dataSourceApps)
+
     // Metrics to capture from event log to the result
     val buffer_time: String = "buffer time"
     val scan_time = "scan time"
@@ -97,12 +98,12 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
         var decode_time: String)
 
     def getIoMetrics(sqlAccums: Seq[SQLAccumProfileResults]): IoMetrics = {
-      val finalRes = IoMetrics("","","","")
-      sqlAccums.map( x => x.name match {
-        case `buffer_time` => finalRes.buffer_time = x.max_value.toString
-        case `scan_time` => finalRes.scan_time = x.max_value.toString
-        case `data_size` => finalRes.data_size = x.max_value.toString
-        case `decode_time` => finalRes.decode_time = x.max_value.toString
+      val finalRes = IoMetrics("", "", "", "")
+      sqlAccums.map(accum => accum.name match {
+        case `buffer_time` => finalRes.buffer_time = accum.max_value.toString
+        case `scan_time` => finalRes.scan_time = accum.max_value.toString
+        case `data_size` => finalRes.data_size = accum.max_value.toString
+        case `decode_time` => finalRes.decode_time = accum.max_value.toString
       })
       finalRes
     }
@@ -112,27 +113,20 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 
       // Filter appSqlAccums to get only required metrics
       val dataSourceMetrics = appSqlAccums.filter(sqlAccum => sqlAccum.name.contains(buffer_time)
-          || sqlAccum.name.contains(scan_time) || sqlAccum.name.contains(decode_time)
-          || sqlAccum.name.equals(data_size))
+        || sqlAccum.name.contains(scan_time) || sqlAccum.name.contains(decode_time)
+        || sqlAccum.name.equals(data_size))
 
-      val allDataSourceInfo = app.dataSourceInfo ++ app.cpuDataSourceInfo
-      allDataSourceInfo.map { ds =>
-        if (app.gpuMode) {
-          val sqlIdtoDs = dataSourceMetrics.filter(
-            sqlAccum => sqlAccum.sqlID == ds.sqlID && sqlAccum.nodeID == ds.nodeId)
-          if (!sqlIdtoDs.isEmpty) {
-            val ioMetrics = getIoMetrics(sqlIdtoDs)
-            DataSourceProfileResult(app.index, app.gpuMode, ds.sqlID, sqlIdtoDs.head.nodeID,
-              ds.format, ioMetrics.buffer_time,
-              ioMetrics.scan_time, ioMetrics.data_size, ioMetrics.decode_time, ds.location,
-              ds.pushedFilters, ds.schema)
-          } else {
-            DataSourceProfileResult(app.index, app.gpuMode, ds.sqlID, ds.nodeId,
-              ds.format, "NA", "NA", "NA", "NA", ds.location, ds.pushedFilters, ds.schema)
-          }
-        } else { // Dataformat not supported on GPU, io Metrics not available for such
-          DataSourceProfileResult(app.index, app.gpuMode, ds.sqlID, ds.nodeId, ds.format,
-            "NA", "NA", "NA", "NA", ds.location, ds.pushedFilters, ds.schema)
+      app.dataSourceInfo.map { ds =>
+        val sqlIdtoDs = dataSourceMetrics.filter(
+          sqlAccum => sqlAccum.sqlID == ds.sqlID && sqlAccum.nodeID == ds.nodeId)
+        if (!sqlIdtoDs.isEmpty) {
+          val ioMetrics = getIoMetrics(sqlIdtoDs)
+          DataSourceProfileResult(app.index, app.gpuMode, ds.sqlID, ds.nodeId,
+            ds.format, ioMetrics.buffer_time, ioMetrics.scan_time, ioMetrics.data_size,
+            ioMetrics.decode_time, ds.location, ds.pushedFilters, ds.schema)
+        } else {
+          DataSourceProfileResult(app.index, app.gpuMode, ds.sqlID, ds.nodeId,
+            ds.format, "NA", "NA", "NA", "NA", ds.location, ds.pushedFilters, ds.schema)
         }
       }
     }
