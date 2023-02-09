@@ -30,10 +30,8 @@ from urllib.request import urlopen
 import certifi
 import pandas as pd
 import yaml
-from packaging.version import Version
 from tabulate import tabulate
 
-import spark_rapids_dataproc_tools
 from spark_rapids_dataproc_tools.cost_estimator import DataprocCatalogContainer, DataprocPriceProvider, \
     DataprocSavingsEstimator
 from spark_rapids_dataproc_tools.dataproc_utils import validate_dataproc_sdk, get_default_region, \
@@ -41,6 +39,7 @@ from spark_rapids_dataproc_tools.dataproc_utils import validate_dataproc_sdk, ge
     get_incompatible_criteria
 from spark_rapids_dataproc_tools.utilities import bail, \
     get_log_dict, remove_dir, make_dirs, resource_path, YAMLPropertiesContainer, gen_random_string
+from spark_rapids_pytools.common.utilities import get_base_release
 
 
 @dataclass
@@ -124,27 +123,17 @@ class ToolContext(YAMLPropertiesContainer):
     def get_remote_work_dir(self) -> str:
         return self.get_remote('depFolder')
 
-    def get_base_release(self) -> str:
-        defined_version = Version(spark_rapids_dataproc_tools.get_version(main=None))
-        # get the release from version
-        version_tuple = defined_version.release
-        # make sure that we replace micro version with 0
-        version_comp = list(version_tuple)
-        version_comp[2] = 0
-        res = '.'.join(str(v_comp) for v_comp in version_comp[:3])
-        return res
-
     def get_default_jar_name(self) -> str:
         # get the version from the package, instead of the yaml file
         # jar_version = self.get_value('sparkRapids', 'version')
-        jar_version = self.get_base_release()
+        jar_version = get_base_release()
         default_jar_name = self.get_value('sparkRapids', 'jarFile')
         return default_jar_name.format(jar_version)
 
     def get_rapids_jar_url(self) -> str:
         # get the version from the package, instead of the yaml file
         # jar_version = self.get_value('sparkRapids', 'version')
-        jar_version = self.get_base_release()
+        jar_version = get_base_release()
         rapids_url = self.get_value('sparkRapids', 'repoUrl').format(jar_version, jar_version)
         return rapids_url
 
@@ -172,7 +161,7 @@ class RapidsTool(object):
     def set_tool_options(self, tool_args: Dict[str, Any]) -> None:
         """
         Sets the options that will be passed to the RAPIDS Tool.
-        :param tool_args: key value pair of the arguments passed from CLI
+        :param tool_args: key value-pair of the arguments passed from CLI
         :return: NONE
         """
         for key, value in tool_args.items():
@@ -229,7 +218,7 @@ class RapidsTool(object):
         return arguments_list
 
     def get_wrapper_arguments(self, arg_list: List[str]) -> List[str]:
-        version_num = self.ctxt.get_base_release()
+        version_num = get_base_release()
         arg_definitions = self.ctxt.get_value_silent('sparkRapids',
                                                      'cli',
                                                      'tool_options_per_release',
