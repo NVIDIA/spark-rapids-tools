@@ -313,9 +313,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
   }
 
   def ioAnalysis(): Seq[IOAnalysisProfileResult] = {
-    // Filter only those apps which have dataSource Information
-    val dataSourceApps = apps.filter(_.dataSourceInfo.size > 0)
-    val allRows = dataSourceApps.flatMap { app =>
+    val allRows = apps.flatMap { app =>
       app.sqlIdToInfo.map { case (sqlId, _) =>
         val jcs = app.jobIdToInfo.filter { case (_, jc) =>
           jc.sqlID.getOrElse(-1) == sqlId

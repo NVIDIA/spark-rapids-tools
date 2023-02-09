@@ -42,7 +42,7 @@ abstract class AppBase(
 
   var sparkVersion: String = ""
   var appEndTime: Option[Long] = None
-  // GPU data source information
+  // The data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
 
   // jobId to job info
@@ -265,12 +265,12 @@ abstract class AppBase(
   protected def checkMetadataForReadSchema(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
     // check if planInfo has ReadSchema
     val allMetaWithSchema = getPlanMetaWithSchema(planInfo)
+    val planGraph = SparkPlanGraph(planInfo)
+    val allNodes = planGraph.allNodes
+
     allMetaWithSchema.foreach { plan =>
       val meta = plan.metadata
       val readSchema = ReadParser.formatSchemaStr(meta.getOrElse("ReadSchema", ""))
-
-      val planGraph = SparkPlanGraph(planInfo)
-      val allNodes = planGraph.allNodes
       val scanNode = allNodes.filter(node => {
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = ReadParser.parseReadNode(node).schema.replace("...", "")

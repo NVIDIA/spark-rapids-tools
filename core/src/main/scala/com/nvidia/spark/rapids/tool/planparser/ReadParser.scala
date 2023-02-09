@@ -62,7 +62,7 @@ object ReadParser extends Logging {
       // Ex: InMemoryFileIndex[hdfs://bdbl-rpm-1106-57451/numbers.parquet,
       // PreparedDeltaFileIndex[file:/tmp/deltatable/delta-table1]
       if (stringWithBrackets.contains("[")) {
-        stringWithBrackets.split("\\[", 2).last
+        stringWithBrackets.split("\\[", 2).last.replace("]", "")
       } else {
         stringWithBrackets
       }
@@ -80,8 +80,8 @@ object ReadParser extends Logging {
     val pushedFilters = if (node.desc.contains(pushedFilterTag)) {
       val stringWithBrackets = getFieldWithoutTag(node.desc, pushedFilterTag)
       // Remove prepended [ from the string if exists
-      if (!node.name.contains("JDBCRelation") && stringWithBrackets.contains("[")) {
-        stringWithBrackets.split("\\[", 2).last
+      if (stringWithBrackets.contains("[")) {
+        stringWithBrackets.split("\\[", 2).last.replace("]", "")
       } else {
         stringWithBrackets
       }
