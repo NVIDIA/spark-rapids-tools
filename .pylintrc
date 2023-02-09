@@ -34,7 +34,7 @@ expected-line-ending-format=LF
 init-hook='import sys; sys.path.append(".")'
 
 # Use multiple processes to speed up Pylint.
-jobs=2
+jobs=4
 
 
 [MESSAGES CONTROL]

@@ -39,6 +39,7 @@ from spark_rapids_dataproc_tools.dataproc_utils import validate_dataproc_sdk, ge
     get_incompatible_criteria
 from spark_rapids_dataproc_tools.utilities import bail, \
     get_log_dict, remove_dir, make_dirs, resource_path, YAMLPropertiesContainer, gen_random_string
+from spark_rapids_pytools.common.utilities import get_base_release
 
 
 @dataclass
@@ -123,12 +124,16 @@ class ToolContext(YAMLPropertiesContainer):
         return self.get_remote('depFolder')
 
     def get_default_jar_name(self) -> str:
-        jar_version = self.get_value('sparkRapids', 'version')
+        # get the version from the package, instead of the yaml file
+        # jar_version = self.get_value('sparkRapids', 'version')
+        jar_version = get_base_release()
         default_jar_name = self.get_value('sparkRapids', 'jarFile')
         return default_jar_name.format(jar_version)
 
     def get_rapids_jar_url(self) -> str:
-        jar_version = self.get_value('sparkRapids', 'version')
+        # get the version from the package, instead of the yaml file
+        # jar_version = self.get_value('sparkRapids', 'version')
+        jar_version = get_base_release()
         rapids_url = self.get_value('sparkRapids', 'repoUrl').format(jar_version, jar_version)
         return rapids_url
 
@@ -156,7 +161,7 @@ class RapidsTool(object):
     def set_tool_options(self, tool_args: Dict[str, Any]) -> None:
         """
         Sets the options that will be passed to the RAPIDS Tool.
-        :param tool_args: key value pair of the arguments passed from CLI
+        :param tool_args: key value-pair of the arguments passed from CLI
         :return: NONE
         """
         for key, value in tool_args.items():
@@ -213,7 +218,15 @@ class RapidsTool(object):
         return arguments_list
 
     def get_wrapper_arguments(self, arg_list: List[str]) -> List[str]:
+        version_num = get_base_release()
+        arg_definitions = self.ctxt.get_value_silent('sparkRapids',
+                                                     'cli',
+                                                     'tool_options_per_release',
+                                                     version_num)
         res = arg_list
+        if arg_definitions is not None:
+            for arg_name in arg_definitions:
+                res.extend([f'--{arg_name}', arg_definitions.get(arg_name)])
         res.extend([
             ' --output-directory',
             f' {self.ctxt.get_remote_output_dir()}',
