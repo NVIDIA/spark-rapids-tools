@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,4 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the spark_rapids_dataproc package."""
+"""Definition of custom Exceptions"""
+
+
+class StorageException(Exception):
+    """Exception raised for errors in the storage layer"""
+
+    def __init__(self,
+                 message: str = 'Exception in storage operation',
+                 chained_err: OSError = None):
+        self.msg = message if chained_err is None else f'{message}: {chained_err}'
+        super().__init__(self.msg)

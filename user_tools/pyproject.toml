@@ -8,7 +8,7 @@ authors = [
   { name="Raza Jafri", email="raza.jafri@gmail.com" },
   { name="Ahmed Hussein", email="a@ahussein.me" },
 ]
-description = "A simple wrapper process around gcloud to process the event logs from local or GCS"
+description = "A simple wrapper process around cloud service providers to run tools for the RAPIDS Accelerator for Apache Spark."
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -16,7 +16,15 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
-dependencies = ["fire==0.4.0", "pandas==1.4.3", "pyYAML==6.0", "tabulate==0.8.10", "importlib-resources"]
+dependencies = [
+    "fire==0.4.0",
+    "pandas==1.4.3",
+    "pyYAML==6.0",
+    "tabulate==0.8.10",
+    "importlib-resources==5.10.2",
+    "requests==2.28.2",
+    "packaging==23.0"
+]
 dynamic=["entry-points", "version"]
 [tool.setuptools.dynamic]
-version = {attr = "spark_rapids_dataproc_tools.__version__"}
+version = {attr = "spark_rapids_pytools.__version__"}

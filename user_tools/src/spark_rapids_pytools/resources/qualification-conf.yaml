@@ -1,0 +1,102 @@
+toolOutput:
+  completeOutput: true
+  subFolder: rapids_4_spark_qualification_output
+  csv:
+    summaryReport:
+      fileName: rapids_4_spark_qualification_output.csv
+      columns:
+        - App Name
+        - App ID
+        - Recommendation
+        - Estimated GPU Speedup
+        - Estimated GPU Duration
+        - App Duration
+      mapColumns:
+        Recommendation: 'Speedup Based Recommendation'
+      recommendations:
+        speedUp:
+          columnName: 'Speedup Based Recommendation'
+          selectedRecommendations:
+            - 'Strongly Recommended'
+            - 'Recommended'
+        savings:
+          columnName: 'Savings Based Recommendation'
+          selectedRecommendations:
+            - 'Strongly Recommended'
+            - 'Recommended'
+  stdout:
+    summaryReport:
+      compactWidth: true
+      timeUnits: 's'
+sparkRapids:
+  repoUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/{}/rapids-4-spark-tools_2.12-{}.jar'
+  jarFile: 'rapids-4-spark-tools_2.12-{}.jar'
+  mainClass: 'com.nvidia.spark.rapids.tool.qualification.QualificationMain'
+  outputDocURL: 'https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output'
+  gpu:
+    device: 't4'
+    workersPerNode: 2
+    cudaVersion: '11.5'
+  cli:
+    defaults:
+      filters:
+        defaultFilter: 'SAVINGS'
+    tool_options:
+      - all
+      - any
+      - a
+      - application-name
+      - f
+      - filter-criteria
+      - h
+      - html-report
+      - no-html-report
+      - m
+      - match-event-logs
+      - max-sql-desc-length
+      - n
+      - num-output-rows
+      - num-threads
+      - order
+      - p
+      - per-sql
+      - r
+      - report-read-schema
+      - s
+      - spark-property
+      - start-app-time
+      - t
+      - timeout
+      - u
+      - user-name
+local:
+  output:
+    cleanUp: true
+    fileName: qualification_summary.csv
+    costColumns:
+      - 'Savings Based Recommendation'
+      - 'Estimated App Cost'
+      - 'Estimated GPU Cost'
+      - 'Estimated GPU Savings(%)'
+    savingColumn: 'Estimated GPU Savings(%)'
+    speedupRecommendColumn: 'Speedup Based Recommendation'
+    savingRecommendColumn: 'Savings Based Recommendation'
+    summaryColumns:
+      - 'App ID'
+      - 'App Name'
+      - 'Speedup Based Recommendation'
+      - 'Savings Based Recommendation'
+      - 'Estimated GPU Speedup'
+      - 'Estimated GPU Duration'
+      - 'App Duration'
+      - 'Estimated GPU Savings(%)'
+  costCalculation:
+    catalog:
+      loadFromURLEnabled: True
+      onlineURL: 'https://cloudpricingcalculator.appspot.com/static/data/pricelist.json'
+      snapshotFile: 'gcloud-catalog.json'
+platform:
+  shortName: 'qual'
+  outputDir: qual-tool-output
+  cleanUp: true
+
