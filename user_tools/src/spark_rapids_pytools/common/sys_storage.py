@@ -19,12 +19,14 @@ import glob
 import os
 import pathlib
 import shutil
+import ssl
+import urllib
 from dataclasses import dataclass
 from email.utils import formatdate, parsedate_to_datetime
 from shutil import rmtree
 
+import certifi
 import requests
-import wget
 
 from spark_rapids_pytools.common.exceptions import StorageException
 
@@ -97,7 +99,14 @@ class FSUtil:
     def download_from_url(cls,
                           src_url: str,
                           dest: str) -> str:
-        return wget.download(src_url, dest)
+        resource_name = cls.get_resource_name(src_url)
+        # We create a context here to fix and issue with urlib requests issue
+        dest_file = cls.build_path(dest, resource_name)
+        context = ssl.create_default_context(cafile=certifi.where())
+        with urllib.request.urlopen(src_url, context=context) as resp:
+            with open(dest_file, 'wb') as f:
+                shutil.copyfileobj(resp, f)
+        return dest_file
 
     @classmethod
     def cache_from_url(cls,

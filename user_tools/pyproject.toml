@@ -23,7 +23,7 @@ dependencies = [
     "tabulate==0.8.10",
     "importlib-resources==5.10.2",
     "requests==2.28.2",
-    "wget==3.2"
+    "packaging==23.0"
 ]
 dynamic=["entry-points", "version"]
 [tool.setuptools.dynamic]

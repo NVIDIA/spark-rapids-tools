@@ -18,12 +18,11 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Type, Any
 
-from spark_rapids_pytools import VERSION
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import gen_uuid_with_ts, ToolLogging, get_rapids_tools_env, \
-    set_rapids_tools_env
+    set_rapids_tools_env, get_base_release
 
 
 @dataclass
@@ -130,14 +129,14 @@ class ToolContext(YAMLPropertiesContainer):
     def get_default_jar_name(self) -> str:
         # we can get the version using get_version(main=None) but this will add a suffix
         # we want only the major version to get the jar
-        jar_version = VERSION
+        jar_version = get_base_release()
         default_jar_name = self.get_value('sparkRapids', 'jarFile')
         return default_jar_name.format(jar_version)
 
     def get_rapids_jar_url(self) -> str:
         # we can get the version using get_version(main=None) but this will add a suffix
         # we want only the major version to get the jar
-        jar_version = VERSION
+        jar_version = get_base_release()
         rapids_url = self.get_value('sparkRapids', 'repoUrl').format(jar_version, jar_version)
         return rapids_url
 

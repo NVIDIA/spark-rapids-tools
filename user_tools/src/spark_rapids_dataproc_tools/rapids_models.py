@@ -18,6 +18,7 @@ import glob
 import logging.config
 import os
 import re
+import ssl
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -26,6 +27,7 @@ from typing import Any, Optional, List, Dict
 from urllib.error import URLError
 from urllib.request import urlopen
 
+import certifi
 import pandas as pd
 import yaml
 from tabulate import tabulate
@@ -1026,7 +1028,8 @@ class Qualification(RapidsTool):
                 url_address = self.ctxt.get_value('local', 'costCalculation', 'catalog', 'onlineURL')
                 try:
                     self.ctxt.loginfo(f'Downloading the price catalog from URL {url_address}')
-                    with urlopen(url_address) as response:
+                    context = ssl.create_default_context(cafile=certifi.where())
+                    with urlopen(url_address, context=context) as response:
                         dataproc_catalog = DataprocCatalogContainer(prop_arg=response.read(), file_load=False)
                         self.ctxt.logdebug('Successful download of cloud pricing catalog')
                 except URLError as url_ex:

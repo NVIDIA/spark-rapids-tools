@@ -24,6 +24,8 @@ import sys
 from logging import Logger
 from typing import Callable, Any
 from dataclasses import dataclass, field
+from packaging.version import Version
+from spark_rapids_pytools import get_version
 
 
 def gen_random_string(str_length: int) -> str:
@@ -54,6 +56,23 @@ def resource_path(resource_name: str) -> str:
 
     pkg = importlib_resources.files('spark_rapids_pytools')
     return pkg / 'resources' / resource_name
+
+
+def get_base_release() -> str:
+    """
+    For now the tools_jar is always with major.minor.0.
+    this method makes sure that even if the package version is incremented, we will still
+    get the correct url.
+    :return: a string containing the release number 22.12.0, 23.02.0, amd 23.04.0..etc
+    """
+    defined_version = Version(get_version(main=None))
+    # get the release from version
+    version_tuple = defined_version.release
+    # make sure that we replace micro version with 0
+    version_comp = list(version_tuple)
+    version_comp[2] = 0
+    res = '.'.join(str(v_comp) for v_comp in version_comp[:3])
+    return res
 
 
 class ToolLogging:
