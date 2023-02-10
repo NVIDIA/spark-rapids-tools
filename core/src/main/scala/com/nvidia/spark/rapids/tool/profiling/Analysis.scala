@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -305,6 +305,51 @@ class Analysis(apps: Seq[ApplicationInfo]) {
       val sortedRows = allFiltered.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
         (cols.appIndex, -(sortDur), cols.sqlId, cols.executorCpuTime)
+      }
+      sortedRows
+    } else {
+      Seq.empty
+    }
+  }
+
+  def ioAnalysis(): Seq[IOAnalysisProfileResult] = {
+    val allRows = apps.flatMap { app =>
+      app.sqlIdToInfo.map { case (sqlId, _) =>
+        val jcs = app.jobIdToInfo.filter { case (_, jc) =>
+          jc.sqlID.getOrElse(-1) == sqlId
+        }
+        if (jcs.isEmpty) {
+          None
+        } else {
+          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSeq
+
+          val tasksInSQL = app.taskEnd.filter { tc =>
+            stageIdsForSQL.contains(tc.stageId)
+          }
+          if (tasksInSQL.isEmpty) {
+            None
+          } else {
+            val diskBytes = tasksInSQL.map(_.diskBytesSpilled).sum
+            Some(IOAnalysisProfileResult(app.index,
+              app.appId,
+              sqlId,
+              tasksInSQL.map(_.input_bytesRead).sum,
+              tasksInSQL.map(_.input_recordsRead).sum,
+              tasksInSQL.map(_.output_bytesWritten).sum,
+              tasksInSQL.map(_.output_recordsWritten).sum,
+              diskBytes,
+              tasksInSQL.map(_.memoryBytesSpilled).sum,
+              tasksInSQL.map(_.sr_totalBytesRead).sum,
+              tasksInSQL.map(_.sw_bytesWritten).sum
+            ))
+          }
+        }
+      }
+    }
+    val allFiltered = allRows.filter(_.isDefined).map(_.get)
+    if (allFiltered.size > 0) {
+      val sortedRows = allFiltered.sortBy { cols =>
+        (cols.appIndex, cols.sqlId)
       }
       sortedRows
     } else {

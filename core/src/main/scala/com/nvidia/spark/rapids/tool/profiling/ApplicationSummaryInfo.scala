@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,8 @@ case class ApplicationSummaryInfo(
     val sqlStageInfo: Seq[SQLStageInfoProfileResult],
     val wholeStage: Seq[WholeStageCodeGenResults],
     val maxTaskInputBytesRead: Seq[SQLMaxTaskInputSizes],
-    val appLogPath: Seq[AppLogPathProfileResults])
+    val appLogPath: Seq[AppLogPathProfileResults],
+    val ioMetrics: Seq[IOAnalysisProfileResult])
 
 trait AppInfoPropertyGetter {
   def getSparkProperty(propKey: String): Option[String]

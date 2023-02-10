@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ object ReadParser extends Logging {
     // remove the tag from the final string returned
     val subStr = str.substring(index + tag.size)
     val endIndex = subStr.indexOf(", ")
+    // InMemoryFileIndex[hdfs://bdbl-rpm-1160
     if (endIndex != -1) {
       subStr.substring(0, endIndex)
     } else {
@@ -55,7 +56,16 @@ object ReadParser extends Logging {
     }
     val locationTag = "Location: "
     val location = if (node.desc.contains(locationTag)) {
-      getFieldWithoutTag(node.desc, locationTag)
+      val stringWithBrackets = getFieldWithoutTag(node.desc, locationTag)
+      // Remove prepended InMemoryFileIndex[  or  PreparedDeltaFileIndex[
+      // and return only location
+      // Ex: InMemoryFileIndex[hdfs://bdbl-rpm-1106-57451/numbers.parquet,
+      // PreparedDeltaFileIndex[file:/tmp/deltatable/delta-table1]
+      if (stringWithBrackets.contains("[")) {
+        stringWithBrackets.split("\\[", 2).last.replace("]", "")
+      } else {
+        stringWithBrackets
+      }
     } else if (node.name.contains("JDBCRelation")) {
       // see if we can report table or query
       val JDBCPattern = raw".*JDBCRelation\((.*)\).*".r
@@ -68,7 +78,13 @@ object ReadParser extends Logging {
     }
     val pushedFilterTag = "PushedFilters: "
     val pushedFilters = if (node.desc.contains(pushedFilterTag)) {
-      getFieldWithoutTag(node.desc, pushedFilterTag)
+      val stringWithBrackets = getFieldWithoutTag(node.desc, pushedFilterTag)
+      // Remove prepended [ from the string if exists
+      if (stringWithBrackets.contains("[")) {
+        stringWithBrackets.split("\\[", 2).last.replace("]", "")
+      } else {
+        stringWithBrackets
+      }
     } else {
       "unknown"
     }

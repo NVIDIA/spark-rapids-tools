@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -129,12 +129,18 @@ case class RapidsJarProfileResult(appIndex: Int, jar: String)  extends ProfileRe
   }
 }
 
-case class DataSourceProfileResult(appIndex: Int, sqlID: Long, format: String,
-    location: String, pushedFilters: String, schema: String) extends ProfileResult {
+case class DataSourceProfileResult(appIndex: Int, sqlID: Long, nodeId: Long,
+    format: String, buffer_time: Long, scan_time: Long, data_size: Long,
+    decode_time: Long, location: String, pushedFilters: String, schema: String)
+extends ProfileResult {
   override val outputHeaders =
-    Seq("appIndex", "sqlID", "format", "location", "pushedFilters", "schema")
+    Seq("appIndex", "sqlID", "nodeId", "format", "buffer_time", "scan_time", "data_size",
+      "decode_time", "location", "pushedFilters", "schema")
+
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, format, location, pushedFilters, schema)
+    Seq(appIndex.toString, sqlID.toString, nodeId.toString, format, buffer_time.toString,
+      scan_time.toString, data_size.toString, decode_time.toString,
+      location, pushedFilters, schema)
   }
 }
 
@@ -337,6 +343,7 @@ case class UnsupportedSQLPlan(sqlID: Long, nodeID: Long, nodeName: String,
 
 case class DataSourceCase(
     sqlID: Long,
+    nodeId: Long,
     format: String,
     location: String,
     pushedFilters: String,
@@ -560,6 +567,39 @@ case class SQLTaskAggMetricsProfileResult(
       swBytesWrittenSum.toString,
       swRecordsWrittenSum.toString,
       swWriteTimeSum.toString)
+  }
+}
+
+case class IOAnalysisProfileResult(
+    appIndex: Int,
+    appId: String,
+    sqlId: Long,
+    inputBytesReadSum: Long,
+    inputRecordsReadSum: Long,
+    outputBytesWrittenSum: Long,
+    outputRecordsWrittenSum: Long,
+    diskBytesSpilledSum: Long,
+    memoryBytesSpilledSum: Long,
+    srTotalBytesReadSum: Long,
+    swTotalBytesWriteSum: Long) extends ProfileResult {
+
+  override val outputHeaders = Seq("appIndex", "appID", "sqlID", "input_bytesRead_sum",
+    "input_recordsRead_sum", "output_bytesWritten_sum", "output_recordsWritten_sum",
+    "diskBytesSpilled_sum", "memoryBytesSpilled_sum", "sr_totalBytesRead_sum",
+    "sw_bytesWritten_sum")
+
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      appId,
+      sqlId.toString,
+      inputBytesReadSum.toString,
+      inputRecordsReadSum.toString,
+      outputBytesWrittenSum.toString,
+      outputRecordsWrittenSum.toString,
+      diskBytesSpilledSum.toString,
+      memoryBytesSpilledSum.toString,
+      srTotalBytesReadSum.toString,
+      swTotalBytesWriteSum.toString)
   }
 }
 

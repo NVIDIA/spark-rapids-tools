@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -250,6 +250,10 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         r.sqlID == 4
       }
       assert(schemaParquet.size == 1)
+      val schemaText = dsRes.filter { r =>
+        r.sqlID == 0
+      }
+      assert(schemaText.size == 1)
       val parquetRow = schemaParquet.head
       assert(parquetRow.schema.contains("loan_id"))
     }
@@ -360,6 +364,35 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       assert(!parquetRow.schema.contains("loan400"))
       assert(parquetRow.schema.contains("..."))
       assert(parquetRow.location.contains("lotscolumnsout"))
+    }
+  }
+
+  test("test IOMetrics") {
+    TrampolineUtil.withTempDir { tempOutputDir =>
+      var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+      val appArgs = new ProfileArgs(Array(s"$logDir/eventlog-gpu-dsv1.zstd"))
+      var index: Int = 1
+      val eventlogPaths = appArgs.eventlog()
+      for (path <- eventlogPaths) {
+        apps += new ApplicationInfo(hadoopConf,
+          EventLogPathProcessor.getEventLogInfo(path,
+            sparkSession.sparkContext.hadoopConfiguration).head._1, index)
+        index += 1
+      }
+      assert(apps.size == 1)
+      val analysis = new Analysis(apps)
+      val ioMetrics = analysis.ioAnalysis()
+      assert(ioMetrics.size == 5)
+      val metricsSqlId1 = ioMetrics.filter(metrics => metrics.sqlId == 1)
+      assert(metricsSqlId1.size == 1)
+      assert(metricsSqlId1.head.inputBytesReadSum == 1348)
+      assert(metricsSqlId1.head.inputRecordsReadSum == 66)
+      assert(metricsSqlId1.head.outputBytesWrittenSum == 0)
+      assert(metricsSqlId1.head.outputRecordsWrittenSum == 0)
+      assert(metricsSqlId1.head.diskBytesSpilledSum == 0)
+      assert(metricsSqlId1.head.memoryBytesSpilledSum == 0)
+      assert(metricsSqlId1.head.srTotalBytesReadSum == 0)
+      assert(metricsSqlId1.head.swTotalBytesWriteSum == 0)
     }
   }
 
@@ -721,7 +754,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
         f.endsWith(".csv")
       })
-      assert(dotDirs.length === 16)
+      assert(dotDirs.length === 17)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -748,7 +781,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
         f.endsWith(".csv")
       })
-      assert(dotDirs.length === 12)
+      assert(dotDirs.length === 13)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -778,7 +811,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
         f.endsWith(".csv")
       })
-      assert(dotDirs.length === 16)
+      assert(dotDirs.length === 17)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -808,7 +841,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
         f.endsWith(".csv")
       })
-      assert(dotDirs.length === 14)
+      assert(dotDirs.length === 15)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly

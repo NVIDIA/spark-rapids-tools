@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -309,6 +309,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
     val analysis = new Analysis(apps)
     val jsMetAgg = analysis.jobAndStageMetricsAggregation()
     val sqlTaskAggMetrics = analysis.sqlMetricsAggregation()
+    val ioAnalysisMetrics = analysis.ioAnalysis()
     val durAndCpuMet = analysis.sqlMetricsAggregationDurationAndCpuTime()
     val skewInfo = analysis.shuffleSkewCheck()
     val maxTaskInputInfo = if (useAutoTuner) {
@@ -355,9 +356,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
       }
     }
     (ApplicationSummaryInfo(appInfo, dsInfo, execInfo, jobInfo, rapidsProps, 
-      rapidsJar, sqlMetrics, jsMetAgg, sqlTaskAggMetrics, durAndCpuMet, skewInfo, failedTasks, 
-      failedStages, failedJobs, removedBMs, removedExecutors, unsupportedOps, sparkProps, 
-      sqlStageInfo, wholeStage, maxTaskInputInfo, appLogPath), compareRes)
+      rapidsJar, sqlMetrics, jsMetAgg, sqlTaskAggMetrics, durAndCpuMet, skewInfo,
+      failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
+      unsupportedOps, sparkProps, sqlStageInfo, wholeStage, maxTaskInputInfo,
+      appLogPath, ioAnalysisMetrics), compareRes)
   }
 
   def writeOutput(profileOutputWriter: ProfileOutputWriter,
@@ -414,7 +416,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
         appsSum.flatMap(_.sqlStageInfo).sortBy(_.duration)(Ordering[Option[Long]].reverse),
         appsSum.flatMap(_.wholeStage).sortBy(_.appIndex),
         appsSum.flatMap(_.maxTaskInputBytesRead).sortBy(_.appIndex),
-        appsSum.flatMap(_.appLogPath).sortBy(_.appIndex)
+        appsSum.flatMap(_.appLogPath).sortBy(_.appIndex),
+        appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex)
       )
       Seq(reduced)
     } else {
@@ -450,6 +453,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
         Some("Job/Stage Metrics"))
       profileOutputWriter.write("SQL level aggregated task metrics", app.sqlTaskAggMetrics,
         Some("SQL Metrics"))
+      profileOutputWriter.write("IO Metrics", app.ioMetrics)
       profileOutputWriter.write("SQL Duration and Executor CPU Time Percent", app.durAndCpuMet)
       val skewHeader = "Shuffle Skew Check" // +
       val skewTableDesc = "(When task's Shuffle Read Size > 3 * Avg Stage-level size)"
