@@ -32,7 +32,7 @@ def gen_random_string(str_length: int) -> str:
     return ''.join(secrets.choice(string.hexdigits) for _ in range(str_length))
 
 
-def gen_uuid_with_ts(pref: str = None, suffix_len:  int = 0) -> str:
+def gen_uuid_with_ts(pref: str = None, suffix_len: int = 0) -> str:
     """
     Generate uuid in the form of YYYYmmddHHmmss
     :param pref:
@@ -77,6 +77,7 @@ def get_base_release() -> str:
 
 class ToolLogging:
     """Holds global utilities used for logging."""
+
     @classmethod
     def get_log_dict(cls, args):
         return {
@@ -141,6 +142,12 @@ def set_rapids_tools_env(k: str, val):
     os.environ[find_full_rapids_tools_env_key(k)] = str(val)
 
 
+def gen_str_header(title: str, ruler='-', line_width: int = 40) -> str:
+    dash = ruler * line_width
+    res_arr = [dash, f'{title:^{line_width}}', dash]
+    return '\n'.join(res_arr)
+
+
 @dataclass
 class SysCmd:
     """
@@ -176,12 +183,13 @@ class SysCmd:
 
     def exec(self) -> str:
         # pylint: disable=subprocess-run-check
-        if ToolLogging.is_debug_mode_enabled():
-            self.logger.debug('submitting system command: <%s>', self.cmd)
         if isinstance(self.cmd, str):
             cmd_args = [self.cmd]
         else:
             cmd_args = self.cmd[:]
+        if ToolLogging.is_debug_mode_enabled():
+            # do not dump the entire command to debugging to avoid exposing the env-variables
+            self.logger.debug('submitting system command: <%s>', ' '.join(cmd_args))
         full_cmd = self._process_env_vars()
         full_cmd.extend(cmd_args)
         actual_cmd = ' '.join(full_cmd)
@@ -212,7 +220,7 @@ class SysCmd:
             if len(std_error_lines) > 0:
                 error_lines = '\n'.join(std_error_lines)
                 stderr_str = f'\n{error_lines}'
-            cmd_err_msg = f'Error invoking CMD <{cmd_args}>: {stderr_str}'
+            cmd_err_msg = f'Error invoking CMD <{" ".join(cmd_args)}>: {stderr_str}'
             raise RuntimeError(f'{cmd_err_msg}')
 
         self.out_std = c.stdout if isinstance(c.stdout, str) else c.stdout.decode('utf-8')

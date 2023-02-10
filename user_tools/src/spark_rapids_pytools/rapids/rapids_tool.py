@@ -24,7 +24,7 @@ from typing import Any, Callable, Dict
 
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, ClusterBase, DeployMode
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import resource_path, ToolLogging, get_rapids_tools_env
+from spark_rapids_pytools.common.utilities import resource_path, ToolLogging, get_rapids_tools_env, gen_str_header
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
@@ -61,18 +61,25 @@ class RapidsTool(object):
     def get_exec_cluster(self) -> ClusterBase:
         return self.ctxt.get_ctxt('execCluster')
 
-    def phase_banner(func_cb: Callable):   # pylint: disable=no-self-argument
-        """Phases of each tool announces the beginning and end"""
-        def wrapper(self, *args, **kwargs):
-            func_name = func_cb.__name__  # pylint: disable=no-member
-            try:
-                self.logger.info(f'*** {self.pretty_name()} starting phase {func_name} ***')
-                func_cb(self, *args, **kwargs)  # pylint: disable=not-callable
-                self.logger.info(f'=== {self.pretty_name()} finished phase {func_name} ===')
-            except Exception as exception:    # pylint: disable=broad-except
-                self.logger.error(f'*** {self.pretty_name()} raised an error in phase {func_name} *** {exception}')
-                sys.exit(1)
-        return wrapper
+    def phase_banner(phase_name: str,  # pylint: disable=no-self-argument
+                     enable_prologue: bool = True,
+                     enable_epilogue: bool = True):
+        def decorator(func_cb: Callable):
+            def wrapper(self, *args, **kwargs):
+                try:
+                    if enable_prologue:
+                        self.logger.info('******* [%s]: Starting *******', phase_name)
+                    func_cb(self, *args, **kwargs)  # pylint: disable=not-callable
+                    if enable_epilogue:
+                        self.logger.info('======= [%s]: Finished =======', phase_name)
+                except Exception as exception:    # pylint: disable=broad-except
+                    self.logger.error('%s. Phase [%s]: raised an error in phase\n%s',
+                                      self.pretty_name(),
+                                      phase_name,
+                                      exception)
+                    sys.exit(1)
+            return wrapper
+        return decorator
 
     def __post_init__(self):
         # when debug is set to true set it in the environment.
@@ -99,7 +106,7 @@ class RapidsTool(object):
     def _process_job_submission_args(self):
         pass
 
-    @phase_banner
+    @phase_banner('Process-Arguments')
     def _process_arguments(self):
         # 0- process the output location
         self._process_output_args()
@@ -110,7 +117,7 @@ class RapidsTool(object):
         # 3- process submission arguments
         self._process_job_submission_args()
 
-    @phase_banner
+    @phase_banner('Initialization')
     def _init_tool(self):
         self._init_ctxt()
         self._check_environment()
@@ -131,7 +138,7 @@ class RapidsTool(object):
         # 4- execute
         pass
 
-    @phase_banner
+    @phase_banner('Execution')
     def _execute(self):
         """
         Phase representing actual execution of the wrapper command.
@@ -167,13 +174,25 @@ class RapidsTool(object):
         # download the output folder in to the local one with overriding
         self._download_remote_output_folder()
 
+    @phase_banner('Generating Report Summary',
+                  enable_epilogue=False)
+    def _finalize(self):
+        print(gen_str_header(f'{self.pretty_name().upper()} Report',
+                             ruler='_',
+                             line_width=100))
+        self._write_summary()
+
     def _write_summary(self):
         pass
+
+    @phase_banner('Archiving Tool Output')
+    def _archive_phase(self):
+        self._archive_results()
 
     def _archive_results(self):
         pass
 
-    @phase_banner
+    @phase_banner('Collecting-Results')
     def _collect_result(self):
         """
         Following a successful run, collect and process data as needed
@@ -181,11 +200,8 @@ class RapidsTool(object):
         """
         self._download_output()
         self._process_output()
-        self._write_summary()
-        # put the output on remote folder if necessary
-        self._archive_results()
 
-    @phase_banner
+    @phase_banner('Connecting to Execution Cluster')
     def _connect_to_execution_cluster(self):
         """
         Connecting to execution cluster
@@ -210,9 +226,14 @@ class RapidsTool(object):
         self._process_arguments()
         self._execute()
         self._collect_result()
+        self._archive_phase()
+        self._finalize()
 
-    def _report_results_are_empty(self) -> None:
-        print(f'The {self.pretty_name()} tool did not generate any output. Nothing to display.')
+    def _report_tool_full_location(self) -> str:
+        pass
+
+    def _report_results_are_empty(self):
+        return [f'The {self.pretty_name()} tool did not generate any output. Nothing to display.']
 
 
 @dataclass

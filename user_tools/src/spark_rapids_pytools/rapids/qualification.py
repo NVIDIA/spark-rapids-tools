@@ -24,6 +24,7 @@ from tabulate import tabulate
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase, EnumeratedType
 from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import gen_str_header
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
@@ -87,12 +88,12 @@ class QualificationSummary:
             return not self.df_result.empty
         return False
 
-    def print_report(self,
-                     app_name: str,
-                     wrapper_csv_file: str = None,
-                     config_provider=None,
-                     df_pprinter: Any = None,
-                     output_pprinter: Any = None) -> None:
+    def generate_report(self,
+                        app_name: str,
+                        wrapper_csv_file: str = None,
+                        config_provider=None,
+                        df_pprinter: Any = None,
+                        output_pprinter: Any = None):
         def format_float(x: float) -> str:
             return f'{x:.2f}'
 
@@ -100,10 +101,10 @@ class QualificationSummary:
 
         if self.is_empty():
             # Qualification tool has no output
-            print(f'{app_name} tool did not generate any valid rows')
+            report_content.append(f'{app_name} tool did not generate any valid rows')
             if self.comments is not None and len(self.comments) > 0:
-                print('\n'.join(self.comments))
-            return None
+                report_content.append('\n'.join(self.comments))
+            return report_content
 
         if output_pprinter is not None:
             report_content.append(output_pprinter())
@@ -114,7 +115,7 @@ class QualificationSummary:
         if self.has_tabular_result():
             if wrapper_csv_file is not None:
                 abs_path = FSUtil.get_abs_path(wrapper_csv_file)
-                report_content.append(f'Full savings and speedups CSV report: {abs_path}')
+                report_content.append(f'\t- Full savings and speedups CSV report: {abs_path}')
 
             pretty_df = df_pprinter(self.df_result)
             if pretty_df.empty:
@@ -144,10 +145,10 @@ class QualificationSummary:
                           ['Overall estimated cost savings', f'{format_float(estimated_gpu_savings)}%']]
         report_content.append(tabulate(report_summary, colalign=('left', 'right')))
         if self.comments is not None and len(self.comments) > 0:
-            report_content.extend(f'- {line}' for line in self.comments)
+            report_content.extend(f'{line}' for line in self.comments)
         if self.has_gpu_recommendation() and config_provider is not None:
             report_content.append(config_provider())
-        print('\n'.join(report_content))
+        return report_content
 
 
 @dataclass
@@ -173,7 +174,7 @@ class Qualification(RapidsJarTool):
             raise RuntimeError(f'The {cluster_type} cluster argument is not set.')
         arg_is_file = self.ctxt.platform.storage.is_file_path(cluster_arg)
         if not arg_is_file:
-            self.logger.info('Loading %s cluster properties by Name %s. Note that this will fail '
+            self.logger.info('Loading %s cluster properties by name %s. Note that this will fail '
                              'if the cluster was permanently deleted.',
                              cluster_type,
                              cluster_arg)
@@ -393,7 +394,8 @@ class Qualification(RapidsJarTool):
 
     def _report_tool_full_location(self) -> str:
         out_folder_path = self.ctxt.get_rapids_output_folder()
-        res_arr = [f'{self.pretty_name()} tool output is saved to local disk {out_folder_path}']
+        res_arr = [gen_str_header('Output'),
+                   f'\t{self.pretty_name()} tool output: {out_folder_path}']
         subfiles = FSUtil.get_all_files(out_folder_path)
         if len(subfiles) > 0:
             res_arr.append(f'\t{FSUtil.get_resource_name(out_folder_path)}/')
@@ -403,9 +405,10 @@ class Qualification(RapidsJarTool):
                 else:
                     leaf_name = f'├── {FSUtil.get_resource_name(sub_file)}'
                 if '$folder$' not in leaf_name:
+                    # this a metafile created in S3 that we do not need
                     res_arr.append(f'\t\t{leaf_name}')
             doc_url = self.ctxt.get_value('sparkRapids', 'outputDocURL')
-            res_arr.append(f'- To learn more about the output details, visit '
+            res_arr.append(f'\t- To learn more about the output details, visit '
                            f'{doc_url}')
             return '\n'.join(res_arr)
         return None
@@ -418,12 +421,13 @@ class Qualification(RapidsJarTool):
             if node_conversions is not None:
                 report_content = [
                     'Instance types conversions:',
-                    'To support acceleration with T4 GPUs, switch the worker node instance types as follows:'
                 ]
                 conversion_items = []
                 for mc_src, mc_target in node_conversions.items():
-                    conversion_items.append(['-', mc_src, 'to', mc_target])
+                    conversion_items.append([mc_src, 'to', mc_target])
                 report_content.append(tabulate(conversion_items))
+                report_content.append('To support acceleration with T4 GPUs, switch the worker node '
+                                      'instance types.')
         return report_content
 
     def __build_global_report_summary(self,
@@ -495,7 +499,8 @@ class Qualification(RapidsJarTool):
                 cost_mask = df_row[saving_cost_col].isin(recommended_vals)
                 df_row = df_row.loc[cost_mask, selected_cols]
                 if df_row.empty:
-                    print('Found no qualified apps for cost savings.')
+                    self.ctxt.set_ctxt('wrapper_output_content',
+                                       'Found no qualified apps for cost savings.')
                     return df_row
             time_unit = '(ms)'
             time_from_conf = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'timeUnits')
@@ -521,7 +526,8 @@ class Qualification(RapidsJarTool):
 
         rapids_output_dir = self.ctxt.get_rapids_output_folder()
         if not self.ctxt.platform.storage.resource_exists(rapids_output_dir):
-            self._report_results_are_empty()
+            self.ctxt.set_ctxt('wrapper_output_content',
+                               self._report_results_are_empty())
             return
         rapids_summary_file = FSUtil.build_path(rapids_output_dir,
                                                 self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'fileName'))
@@ -529,12 +535,19 @@ class Qualification(RapidsJarTool):
         df = pd.read_csv(rapids_summary_file)
         csv_file_name = self.ctxt.get_value('local', 'output', 'fileName')
         csv_summary_file = FSUtil.build_path(self.ctxt.get_output_folder(), csv_file_name)
-        report_summary = self.__build_global_report_summary(df, csv_summary_file)
-        report_summary.print_report(app_name=self.pretty_name(),
-                                    wrapper_csv_file=csv_summary_file,
-                                    config_provider=None,  # self.__generate_qualification_configs,
-                                    df_pprinter=process_df_for_stdout,
-                                    output_pprinter=self._report_tool_full_location)
+        report_gen = self.__build_global_report_summary(df, csv_summary_file)
+        summary_report = report_gen.generate_report(app_name=self.pretty_name(),
+                                                    wrapper_csv_file=csv_summary_file,
+                                                    config_provider=None,
+                                                    df_pprinter=process_df_for_stdout,
+                                                    output_pprinter=self._report_tool_full_location)
+        self.ctxt.set_ctxt('wrapper_output_content', summary_report)
+
+    def _write_summary(self):
+        wrapper_out_content = self.ctxt.get_ctxt('wrapper_output_content')
+        if wrapper_out_content is not None:
+            if isinstance(wrapper_out_content, list):
+                print('\n'.join(wrapper_out_content))
 
     def _archive_results(self):
         remote_work_dir = self.ctxt.get_remote('workDir')

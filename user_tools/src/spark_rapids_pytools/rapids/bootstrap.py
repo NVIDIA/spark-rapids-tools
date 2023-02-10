@@ -127,9 +127,15 @@ class Bootstrap(RapidsTool):
                 except RuntimeError as err:
                     self.logger.error('Error applying changes to driver node on cluster %s.', exec_cluster.name)
                     raise err
+            # write the result to log file
+            out_file_path = self.ctxt.get_wrapper_summary_file_path()
+            self.logger.info('Saving configuration to local file %s', out_file_path)
+            with open(out_file_path, 'w', encoding='utf-8') as wrapper_output:
+                wrapper_output.write(wrapper_out_content)
         else:
             # results are empty
-            self._report_results_are_empty()
+            self.ctxt.set_ctxt('wrapper_output_content',
+                               self._report_results_are_empty())
 
     def _delete_remote_dep_folder(self):
         self.logger.debug('%s mode skipping deleting the remote workdir', self.pretty_name())
@@ -137,16 +143,16 @@ class Bootstrap(RapidsTool):
     def _download_remote_output_folder(self):
         self.logger.debug('%s skipping downloading the remote output workdir', self.pretty_name())
 
+    def _report_tool_full_location(self) -> str:
+        out_file_path = self.ctxt.get_wrapper_summary_file_path()
+        res_arr = [f'{self.pretty_name()} tool output: {out_file_path}']
+        return '\n'.join(res_arr)
+
     def _write_summary(self):
         wrapper_out_content = self.ctxt.get_ctxt('wrapper_output_content')
-        # write the result to log file
-        out_file_path = self.ctxt.get_wrapper_summary_file_path()
-        with open(out_file_path, 'w', encoding='utf-8') as wrapper_output:
-            wrapper_output.write(wrapper_out_content)
-        self.logger.info('Saving configuration to local file %s', out_file_path)
         wrapper_summary = [
-            f'Recommended configurations are saved to local disk: {out_file_path}',
-            'Using the following computed settings based on worker nodes:',
+            self._report_tool_full_location(),
+            'Recommended Configurations:',
             wrapper_out_content
         ]
         print('\n'.join(wrapper_summary))

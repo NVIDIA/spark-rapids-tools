@@ -290,10 +290,17 @@ class CMDDriverBase:
                 if len(stdout_splits) > 0:
                     std_out_lines = '\n'.join([f'\t| {line}' for line in stdout_splits])
                     stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
+                if isinstance(cmd, str):
+                    cmd_log_str = cmd
+                else:
+                    cmd_log_str = ' '.join(cmd)
                 if len(stderr_splits) > 0:
                     std_err_lines = '\n'.join([f'\t| {line}' for line in stderr_splits])
                     stderr_str = f'\n\t<STDERR>\n{std_err_lines}'
-                    self.logger.debug('executing CMD:\n\t<CMD: %s>[%s]; [%s]', cmd, stdout_str, stderr_str)
+                    self.logger.debug('executing CMD:\n\t<CMD: %s>[%s]; [%s]',
+                                      cmd_log_str,
+                                      stdout_str,
+                                      stderr_str)
         cmd_args = {
             'cmd': cmd,
             'fail_ok': fail_ok,
