@@ -1,0 +1,401 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (c) 2021-2023, NVIDIA CORPORATION.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.nvidia</groupId>
+    <artifactId>rapids-4-spark-tools_2.12</artifactId>
+    <name>RAPIDS Accelerator for Apache Spark tools</name>
+    <description>RAPIDS Accelerator for Apache Spark tools</description>
+    <version>23.02.0</version>
+    <packaging>jar</packaging>
+    <url>http://github.com/NVIDIA/spark-rapids-tools</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <connection>scm:git:https://github.com/NVIDIA/spark-rapids-tools.git</connection>
+        <developerConnection>scm:git:git@github.com:NVIDIA/spark-rapids-tools.git</developerConnection>
+        <tag>HEAD</tag>
+        <url>https://github.com/NVIDIA/spark-rapids-tools</url>
+    </scm>
+    <developers>
+        <developer>
+            <id>revans2</id>
+            <name>Robert Evans</name>
+            <email>roberte@nvidia.com</email>
+            <roles>
+                <role>Committer</role>
+            </roles>
+            <timezone>-6</timezone>
+        </developer>
+        <developer>
+            <id>tgravescs</id>
+            <name>Thomas Graves</name>
+            <email>tgraves@nvidia.com</email>
+            <roles>
+                <role>Committer</role>
+            </roles>
+            <timezone>-6</timezone>
+        </developer>
+        <developer>
+            <id>jlowe</id>
+            <name>Jason Lowe</name>
+            <email>jlowe@nvidia.com</email>
+            <roles>
+                <role>Committer</role>
+            </roles>
+            <timezone>-6</timezone>
+        </developer>
+    </developers>
+
+    <properties>
+        <spark311.version>3.1.1</spark311.version>
+        <scala.binary.version>2.12</scala.binary.version>
+        <scala.plugin.version>4.3.0</scala.plugin.version>
+        <scalatest-maven-plugin.version>2.0.2</scalatest-maven-plugin.version>
+        <maven.clean.plugin.version>3.1.0</maven.clean.plugin.version>
+        <scala.version>2.12.15</scala.version>
+        <hadoop.version>3.3.4</hadoop.version>
+        <spark.version>${spark311.version}</spark.version>
+        <spark.test.version>${spark311.version}</spark.test.version>
+        <snakeyaml.version>1.33</snakeyaml.version>
+        <scallop.version>3.5.1</scallop.version>
+        <scalatest.version>3.0.5</scalatest.version>
+        <spark.version.classifier>spark311</spark.version.classifier>
+        <target.classifier>spark311</target.classifier>
+        <ui.cache.dir>${project.build.directory}/ui-dependencies-cache</ui.cache.dir>
+        <ui.resources.relative>src/main/resources/ui</ui.resources.relative>
+        <ui.resources.dir>${project.basedir}/${ui.resources.relative}</ui.resources.dir>
+        <ui.resources.external.folder>assets</ui.resources.external.folder>
+        <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
+        <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>${scala.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-client</artifactId>
+            <version>${hadoop.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-aws</artifactId>
+            <version>${hadoop.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.rogach</groupId>
+            <artifactId>scallop_${scala.binary.version}</artifactId>
+            <version>${scallop.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_${scala.binary.version}</artifactId>
+            <version>${scalatest.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Required for processing yaml files in AutoTuner -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>${snakeyaml.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+              <directory>${project.basedir}/src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/..</directory>
+                <targetPath>META-INF</targetPath>
+                <includes>
+                    <!-- The NOTICE will be taken care of by the antrun task below -->
+                    <include>LICENSE</include>
+                </includes>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.scalatest</groupId>
+                <artifactId>scalatest-maven-plugin</artifactId>
+                <version>${scalatest-maven-plugin.version}</version>
+                <configuration>
+                    <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
+                    <junitxml>.</junitxml>
+                    <filereports>scala-test-output.txt</filereports>
+                    <stderr/>
+                    <systemProperties>
+                        <java.awt.headless>true</java.awt.headless>
+                        <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
+                        <spark.ui.enabled>false</spark.ui.enabled>
+                        <spark.ui.showConsoleProgress>false</spark.ui.showConsoleProgress>
+                        <spark.unsafe.exceptionOnMemoryLeak>true</spark.unsafe.exceptionOnMemoryLeak>
+                    </systemProperties>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>test</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.2.4</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <minimizeJar>true</minimizeJar>
+                            <artifactSet>
+                                <includes>
+                                    <include>org.rogach:scallop_${scala.binary.version}</include>
+                                </includes>
+                            </artifactSet>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.MF</exclude>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.nvidia.spark.rapids.tool.profiling.ProfileMain</mainClass>
+                                </transformer>
+                            </transformers>
+                            <createDependencyReducedPom>true</createDependencyReducedPom>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.rat</groupId>
+                <artifactId>apache-rat-plugin</artifactId>
+                <version>0.13</version>
+            </plugin>
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <version>${scala.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>eclipse-add-source</id>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>scala-compile-first</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>scala-test-compile-first</id>
+                        <phase>process-test-resources</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                    <!-- build javadoc.jar -->
+                    <execution>
+                        <id>attach-scaladocs</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>doc-jar</goal>
+                        </goals>
+                        <configuration>
+                            <args>
+                                <arg>-doc-external-doc:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/rt.jar#https://docs.oracle.com/javase/8/docs/api/index.html</arg>
+                                <arg>-doc-external-doc:${settings.localRepository}/org/scala-lang/scala-library/${scala.version}/scala-library-${scala.version}.jar#https://scala-lang.org/api/${scala.version}/</arg>
+                                <arg>-doc-external-doc:${settings.localRepository}/org/apache/spark/spark-sql_2.12/${spark.version}/spark-sql_2.12-${spark.version}/.jar#https://spark.apache.org/docs/${spark.version}/api/scala/index.html</arg>
+                            </args>
+                            <scalaVersion>${scala.version}</scalaVersion>
+                            <checkMultipleScalaVersions>true</checkMultipleScalaVersions>
+                            <failOnMultipleScalaVersions>true</failOnMultipleScalaVersions>
+                            <jvmArgs>
+                                <jvmArg>-Xms1024m</jvmArg>
+                                <jvmArg>-Xmx1024m</jvmArg>
+                            </jvmArgs>
+                            <addJavacArgs>-Xlint:all,-serial,-path,-try</addJavacArgs>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <scalaVersion>${scala.version}</scalaVersion>
+                    <checkMultipleScalaVersions>true</checkMultipleScalaVersions>
+                    <failOnMultipleScalaVersions>true</failOnMultipleScalaVersions>
+                    <recompileMode>incremental</recompileMode>
+                    <args>
+                        <arg>-unchecked</arg>
+                        <arg>-deprecation</arg>
+                        <arg>-feature</arg>
+                        <arg>-explaintypes</arg>
+                        <arg>-Yno-adapted-args</arg>
+                        <arg>-Ywarn-unused:imports</arg>
+                        <arg>-Xlint:missing-interpolator</arg>
+                    </args>
+                    <jvmArgs>
+                        <jvmArg>-Xms1024m</jvmArg>
+                        <jvmArg>-Xmx1024m</jvmArg>
+                    </jvmArgs>
+                    <addJavacArgs>${scala.javac.args}</addJavacArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>download-ui-dependencies</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <property name="project.basedir" value="${project.basedir}"/>
+                                <property name="project.build.directory"
+                                          value="${project.build.directory}"/>
+                                <property name="project.cache.dir" value="${ui.cache.dir}"/>
+                                <property name="project.ui.root" value="${ui.resources.dir}"/>
+                                <property name="project.ui.output"
+                                          value="${ui.resources.dir}/${ui.resources.external.folder}"/>
+                                <property name="lib.bootstrap.url"
+                                          value="https://github.com/twbs/bootstrap/releases/download/v4.6.1/bootstrap-4.6.1-dist.zip"/>
+                                <property name="lib.bootstrap.dir" value="bootstrap"/>
+                                <property name="lib.jquery.dir" value="jquery"/>
+                                <property name="lib.jquery.url"
+                                          value="https://github.com/jquery/jquery/archive/refs/tags/3.6.0.zip"/>
+                                <property name="lib.mustache.dir" value="mustache-js"/>
+                                <property name="lib.mustache.url"
+                                          value="https://github.com/janl/mustache.js/archive/refs/tags/v4.1.0.zip"/>
+                                <property name="lib.spur.dir" value="spur"/>
+                                <property name="lib.spur.url"
+                                          value="https://github.com/HackerThemes/spur-template/archive/refs/heads/master.zip"/>
+                                <property name="lib.datatables.url.domain"
+                                          value="https://cdn.datatables.net"/>
+                                <property name="lib.datatables.dir" value="datatables"/>
+                                <ant antfile="${project.basedir}/prepare-ui-libraries.xml"></ant>
+                            </target>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-notice</id>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <phase>process-resources</phase>
+                        <configuration>
+                            <target>
+                                <!-- copy NOTICE-binary to NOTICE -->
+                                <copy
+                                        todir="${project.build.directory}/classes/META-INF/"
+                                        verbose="true">
+                                    <fileset dir="${project.basedir}/..">
+                                        <include name="NOTICE-binary"/>
+                                    </fileset>
+                                    <mapper type="glob" from="*-binary" to="*"/>
+                                </copy>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <!-- clean up the qual-ui dependencies from the resources -->
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>${maven.clean.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>clean-qual-ui-dependencies</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                        <configuration>
+                            <filesets>
+                                <fileset>
+                                    <directory>${ui.resources.relative}</directory>
+                                    <includes>
+                                        <include>${ui.resources.external.folder}/</include>
+                                    </includes>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>${maven.jar.plugin.version}</version>
+            </plugin>
+            <!-- build sources.jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-source</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -18,6 +18,7 @@ import glob
 import logging.config
 import os
 import re
+import ssl
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -26,6 +27,7 @@ from typing import Any, Optional, List, Dict
 from urllib.error import URLError
 from urllib.request import urlopen
 
+import certifi
 import pandas as pd
 import yaml
 from tabulate import tabulate
@@ -37,6 +39,7 @@ from spark_rapids_dataproc_tools.dataproc_utils import validate_dataproc_sdk, ge
     get_incompatible_criteria
 from spark_rapids_dataproc_tools.utilities import bail, \
     get_log_dict, remove_dir, make_dirs, resource_path, YAMLPropertiesContainer, gen_random_string
+from spark_rapids_pytools.common.utilities import get_base_release
 
 
 @dataclass
@@ -121,12 +124,16 @@ class ToolContext(YAMLPropertiesContainer):
         return self.get_remote('depFolder')
 
     def get_default_jar_name(self) -> str:
-        jar_version = self.get_value('sparkRapids', 'version')
+        # get the version from the package, instead of the yaml file
+        # jar_version = self.get_value('sparkRapids', 'version')
+        jar_version = get_base_release()
         default_jar_name = self.get_value('sparkRapids', 'jarFile')
         return default_jar_name.format(jar_version)
 
     def get_rapids_jar_url(self) -> str:
-        jar_version = self.get_value('sparkRapids', 'version')
+        # get the version from the package, instead of the yaml file
+        # jar_version = self.get_value('sparkRapids', 'version')
+        jar_version = get_base_release()
         rapids_url = self.get_value('sparkRapids', 'repoUrl').format(jar_version, jar_version)
         return rapids_url
 
@@ -154,7 +161,7 @@ class RapidsTool(object):
     def set_tool_options(self, tool_args: Dict[str, Any]) -> None:
         """
         Sets the options that will be passed to the RAPIDS Tool.
-        :param tool_args: key value pair of the arguments passed from CLI
+        :param tool_args: key value-pair of the arguments passed from CLI
         :return: NONE
         """
         for key, value in tool_args.items():
@@ -211,7 +218,15 @@ class RapidsTool(object):
         return arguments_list
 
     def get_wrapper_arguments(self, arg_list: List[str]) -> List[str]:
+        version_num = get_base_release()
+        arg_definitions = self.ctxt.get_value_silent('sparkRapids',
+                                                     'cli',
+                                                     'tool_options_per_release',
+                                                     version_num)
         res = arg_list
+        if arg_definitions is not None:
+            for arg_name in arg_definitions:
+                res.extend([f'--{arg_name}', arg_definitions.get(arg_name)])
         res.extend([
             ' --output-directory',
             f' {self.ctxt.get_remote_output_dir()}',
@@ -974,8 +989,8 @@ class Qualification(RapidsTool):
             """
             selected_cols = self.ctxt.get_value('local', 'output', 'summaryColumns')
             # check if any filters apply
-            filter_recom_enabled = (self.filter_apps == 'recommended')
-            filter_pos_enabled = (self.filter_apps == 'savings')
+            filter_recom_enabled = self.filter_apps == 'recommended'
+            filter_pos_enabled = self.filter_apps == 'savings'
             # filter by recommendations if enabled
             if filter_recom_enabled:
                 df_row = get_recommended_apps(raw_df, selected_cols)
@@ -1026,7 +1041,8 @@ class Qualification(RapidsTool):
                 url_address = self.ctxt.get_value('local', 'costCalculation', 'catalog', 'onlineURL')
                 try:
                     self.ctxt.loginfo(f'Downloading the price catalog from URL {url_address}')
-                    with urlopen(url_address) as response:
+                    context = ssl.create_default_context(cafile=certifi.where())
+                    with urlopen(url_address, context=context) as response:
                         dataproc_catalog = DataprocCatalogContainer(prop_arg=response.read(), file_load=False)
                         self.ctxt.logdebug('Successful download of cloud pricing catalog')
                 except URLError as url_ex:
