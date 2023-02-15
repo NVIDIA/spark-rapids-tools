@@ -24,7 +24,7 @@ from tabulate import tabulate
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase, EnumeratedType
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import gen_str_header
+from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
@@ -394,7 +394,7 @@ class Qualification(RapidsJarTool):
 
     def _report_tool_full_location(self) -> str:
         out_folder_path = self.ctxt.get_rapids_output_folder()
-        res_arr = [gen_str_header('Output'),
+        res_arr = [Utils.gen_str_header('Output'),
                    f'\t{self.pretty_name()} tool output: {out_folder_path}']
         subfiles = FSUtil.get_all_files(out_folder_path)
         if len(subfiles) > 0:

@@ -22,7 +22,7 @@ import requests
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import get_rapids_tools_env
+from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.price_provider import PriceProvider
 
 
@@ -99,10 +99,11 @@ class EMREc2PriceProvider(PriceProvider):
     def get_cache_file_path(cls, comp,  region) -> str:
         file_name = f'emr_ec2_catalog_{comp}_{region}.json'
         # get folder from cache folder
-        folder_path = get_rapids_tools_env('CACHE_FOLDER')
+        folder_path = Utils.get_rapids_tools_env('CACHE_FOLDER')
         return FSUtil.build_path(folder_path, file_name)
 
     def __regenerate_catalog_resource(self):
+        # TODO: load constant values from configurations files
         aws_url_base = 'https://pricing.us-east-1.amazonaws.com'
         emr_region_ind_url = f'{aws_url_base}/offers/v1.0/aws/ElasticMapReduce/current/region_index.json'
         emr_region_resp = requests.get(emr_region_ind_url, timeout=60)
