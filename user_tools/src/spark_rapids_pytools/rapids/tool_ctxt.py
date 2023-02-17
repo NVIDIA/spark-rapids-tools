@@ -21,8 +21,7 @@ from typing import Type, Any
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import gen_uuid_with_ts, ToolLogging, get_rapids_tools_env, \
-    set_rapids_tools_env, get_base_release
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 
 
 @dataclass
@@ -42,13 +41,13 @@ class ToolContext(YAMLPropertiesContainer):
         self.platform = self.platform_cls(ctxt_args=self.platform_opts)
 
     def __create_and_set_uuid(self):
-        self.uuid = gen_uuid_with_ts(suffix_len=8)
+        self.uuid = Utils.gen_uuid_with_ts(suffix_len=8)
 
     def __create_and_set_cache_folder(self):
         # get the cache folder from environment variables or set it to default
-        cache_folder = get_rapids_tools_env('CACHE_FOLDER', '/tmp/rapids_user_tools_cache')
+        cache_folder = Utils.get_rapids_tools_env('CACHE_FOLDER', '/tmp/rapids_user_tools_cache')
         # make sure the environment is set
-        set_rapids_tools_env('CACHE_FOLDER', cache_folder)
+        Utils.set_rapids_tools_env('CACHE_FOLDER', cache_folder)
         FSUtil.make_dirs(cache_folder)
         self.set_local('cacheFolder', cache_folder)
 
@@ -129,14 +128,14 @@ class ToolContext(YAMLPropertiesContainer):
     def get_default_jar_name(self) -> str:
         # we can get the version using get_version(main=None) but this will add a suffix
         # we want only the major version to get the jar
-        jar_version = get_base_release()
+        jar_version = Utils.get_base_release()
         default_jar_name = self.get_value('sparkRapids', 'jarFile')
         return default_jar_name.format(jar_version)
 
     def get_rapids_jar_url(self) -> str:
         # we can get the version using get_version(main=None) but this will add a suffix
         # we want only the major version to get the jar
-        jar_version = get_base_release()
+        jar_version = Utils.get_base_release()
         rapids_url = self.get_value('sparkRapids', 'repoUrl').format(jar_version, jar_version)
         return rapids_url
 

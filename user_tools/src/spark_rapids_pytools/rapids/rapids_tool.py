@@ -24,7 +24,7 @@ from typing import Any, Callable, Dict
 
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, ClusterBase, DeployMode
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import resource_path, ToolLogging, get_rapids_tools_env, gen_str_header
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
@@ -34,7 +34,6 @@ class RapidsTool(object):
     A generic class that represents a RAPIDS plugin tool.
     :param platform_type: the type of platform associated with the current execution.
     :param cluster: name of the cluster on which the application will be running
-    :param region: name of region
     :param output_folder: location to store the output of the execution
     :param config_path: location of the configuration file of the current tool
     :param wrapper_options: dictionary containing options specific to the wrapper tool execution.
@@ -46,7 +45,6 @@ class RapidsTool(object):
     platform_type: CloudPlatform
     cluster: str
     output_folder: str = None
-    region: str = None
     config_path: str = None
     runs_on_cluster: bool = field(default=True, init=False)
     wrapper_options: dict = field(default_factory=dict)
@@ -92,7 +90,7 @@ class RapidsTool(object):
         self.logger.debug('Processing Output Arguments')
         # make sure that output_folder is being absolute
         if self.output_folder is None:
-            self.output_folder = get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
+            self.output_folder = Utils.get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
         self.output_folder = FSUtil.get_abs_path(self.output_folder)
         self.logger.debug('Root directory of local storage is set as: %s', self.output_folder)
         self.ctxt.set_local_workdir(self.output_folder)
@@ -124,7 +122,7 @@ class RapidsTool(object):
 
     def _init_ctxt(self):
         if self.config_path is None:
-            self.config_path = resource_path(f'{self.name}-conf.yaml')
+            self.config_path = Utils.resource_path(f'{self.name}-conf.yaml')
 
         self.ctxt = ToolContext(platform_cls=get_platform(self.platform_type),
                                 platform_opts=self.wrapper_options.get('platformOpts'),
@@ -177,9 +175,9 @@ class RapidsTool(object):
     @phase_banner('Generating Report Summary',
                   enable_epilogue=False)
     def _finalize(self):
-        print(gen_str_header(f'{self.pretty_name().upper()} Report',
-                             ruler='_',
-                             line_width=100))
+        print(Utils.gen_str_header(f'{self.pretty_name().upper()} Report',
+                                   ruler='_',
+                                   line_width=100))
         self._write_summary()
 
     def _write_summary(self):

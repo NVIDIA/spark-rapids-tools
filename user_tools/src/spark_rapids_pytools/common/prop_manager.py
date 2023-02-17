@@ -14,9 +14,7 @@
 
 """Implementation of helpers and utilities related to manage the properties and dictionaries."""
 
-
 import json
-
 from dataclasses import field, dataclass
 from functools import reduce
 from json import JSONDecodeError

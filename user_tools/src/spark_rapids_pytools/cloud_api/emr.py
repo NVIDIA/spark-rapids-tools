@@ -14,7 +14,6 @@
 
 """Implementation specific to EMR"""
 
-import configparser
 import json
 import os
 from dataclasses import field, dataclass
@@ -25,8 +24,7 @@ from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, CloudPlatform, \
     ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, AbstractPropertiesContainer
-from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import find_full_rapids_tools_env_key, get_rapids_tools_env, get_sys_env_var
+from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.emr_pricing import EMREc2PriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer, RapidsJob
@@ -48,54 +46,6 @@ class EMRPlatform(PlatformBase):
         pass
 
     @classmethod
-    def load_aws_profile(cls, profile_name: str) -> dict:
-        def read_aws_options(conf_parser: configparser.ConfigParser,
-                             prof_name: str,
-                             key_list):
-            section_name = prof_name
-            if not conf_parser.has_section(prof_name):
-                # try to use "profile XYZ" format
-                if conf_parser.has_section(f'profile {prof_name}'):
-                    section_name = f'profile {prof_name}'
-
-            res = {}
-            for k in key_list:
-                if conf_parser.has_option(section_name, k):
-                    res.update({k: conf_parser.get(section_name, k)})
-            return res
-
-        def create_conf_parser(def_path: str, env_var: str):
-            parser_obj = configparser.ConfigParser()
-            env_var_value = get_sys_env_var(env_var)
-            if env_var_value is not None:
-                # in case the path is with ~
-                conf_file_path = FSUtil.expand_path(env_var_value)
-            else:
-                conf_file_path = def_path
-            parser_obj.read(conf_file_path)
-            return parser_obj
-
-        default_conf_path = FSUtil.build_path(FSUtil.get_home_directory(), '.aws/config')
-        default_credential_path = FSUtil.build_path(FSUtil.get_home_directory(), '.aws/credentials')
-        aws_config = create_conf_parser(default_conf_path, 'AWS_CONFIG_FILE')
-        aws_credentials = create_conf_parser(default_credential_path, 'AWS_SHARED_CREDENTIALS_FILE')
-        conf_res = {'profile': profile_name}
-        try:
-            aws_conf_dict = read_aws_options(aws_config,
-                                             profile_name,
-                                             ['region'])
-            aws_cred_dict = read_aws_options(aws_credentials,
-                                             profile_name,
-                                             ['aws_access_key_id', 'aws_secret_access_key'])
-            # return result contains the following keys:
-            # ['profile', 'region', aws_access_id', and 'aws_access_key']
-            conf_res.update(aws_conf_dict)
-            conf_res.update(aws_cred_dict)
-            return conf_res
-        except (configparser.NoSectionError, configparser.NoOptionError, configparser.ParsingError) as conf_ex:
-            raise RuntimeError('Could not read AWS configurations') from conf_ex
-
-    @classmethod
     def get_spark_node_type_fromstring(cls, value) -> SparkNodeType:
         if value.upper() in ['TASK', 'CORE']:
             return SparkNodeType.WORKER
@@ -111,22 +61,7 @@ class EMRPlatform(PlatformBase):
         self.type_id = CloudPlatform.EMR
         super().__post_init__()
 
-    def _parse_arguments(self, ctxt_args: dict):
-        super()._parse_arguments(ctxt_args)
-        profile_val = ctxt_args.get('profile')
-        if profile_val is None:
-            profile_val = get_sys_env_var('AWS_PROFILE', 'default')
-            ctxt_args.update({'profile': profile_val})
-        self.ctxt.update(self.load_aws_profile(profile_val))
-        # get the key_pair_path if any
-        kp_path = ctxt_args.get('keyPairPath')
-        if kp_path is None:
-            kp_path = get_rapids_tools_env('KEY_PAIR_PATH')
-        if kp_path is not None:
-            ctxt_args.update({'keyPairPath': kp_path})
-            self.ctxt.update({'keyPairPath': kp_path})
-
-    def _create_cli_instance(self):
+    def _construct_cli_object(self) -> CMDDriverBase:
         return EMRCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
 
     def _install_storage_driver(self):
@@ -182,35 +117,9 @@ class EMRPlatform(PlatformBase):
 @dataclass
 class EMRCMDDriver(CMDDriverBase):
     """Represents the command interface that will be used by EMR"""
-    system_prerequisites = ['aws']
 
-    # configuration defaults = AWS_REGION; AWS_DEFAULT_REGION
-
-    def get_and_set_env_vars(self):
-        """For that driver, try to get all the available system environment for the system."""
-        super().get_and_set_env_vars()
-        # TODO: verify that the AWS CLI is configured.
-        # get the region
-        if self.env_vars.get('region') is None:
-            env_region = get_sys_env_var('AWS_REGION', get_sys_env_var('AWS_DEFAULT_REGION'))
-            if env_region is not None:
-                self.env_vars.update({'region': env_region})
-        if self.env_vars.get('profile') is None:
-            self.env_vars.update({
-                'output': get_sys_env_var('AWS_DEFAULT_OUTPUT', 'json'),
-                'profile': get_sys_env_var('AWS_PROFILE', 'default')
-            })
-        # For EMR we need the key_pair file name for the connection to clusters
-        # TODO: Check the keypair has extension pem file and they are set correctly.
-        if self.env_vars.get('keyPairPath') is None:
-            emr_pem_path = get_rapids_tools_env('KEY_PAIR_PATH')
-            self.env_vars.update({
-                'keyPairPath': emr_pem_path
-            })
-
-    def validate_env(self):
-        super().validate_env()
-        incorrect_envs = []
+    def _list_inconsistent_configurations(self) -> list:
+        incorrect_envs = super()._list_inconsistent_configurations()
         # check that private key file path is correct
         emr_pem_path = self.env_vars.get('keyPairPath')
         if emr_pem_path is not None:
@@ -224,12 +133,8 @@ class EMRCMDDriver(CMDDriverBase):
         else:
             incorrect_envs.append(
                 f'Private key file path is not set. It is required to SSH on driver node. '
-                f'Set {find_full_rapids_tools_env_key("KEY_PAIR_PATH")}')
-        if len(incorrect_envs) > 0:
-            exc_msg = '; '.join(incorrect_envs)
-            self.logger.warning('EMR environment report: %s', exc_msg)
-            # do not raise exception because not all environments are required by all the tools.
-            # raise RuntimeError(f'Invalid environment {exc_msg}')
+                f'Set {Utils.find_full_rapids_tools_env_key("KEY_PAIR_PATH")}')
+        return incorrect_envs
 
     def pull_cluster_props_by_args(self, args: dict) -> str:
         aws_cluster_id = args.get('Id')
@@ -292,25 +197,6 @@ class EMRCMDDriver(CMDDriverBase):
                                              cluster_id: str):
         describe_cmd = f'aws emr describe-cluster --cluster-id {cluster_id}'
         return self.run_sys_cmd(describe_cmd)
-
-    def run_sys_cmd(self,
-                    cmd,
-                    cmd_input: str = None,
-                    fail_ok: bool = False,
-                    env_vars: dict = None) -> str:
-        # add the profile to all the AWS commands
-        emr_env_vars = {
-            'AWS_PROFILE': self.get_env_var('profile')
-        }
-        if env_vars is None:
-            env_vars = {}
-        # piggyback on the command to the profile argument
-        if 'AWS_PROFILE' not in env_vars:
-            env_vars.update(emr_env_vars)
-        return super().run_sys_cmd(cmd=cmd,
-                                   cmd_input=cmd_input,
-                                   fail_ok=fail_ok,
-                                   env_vars=env_vars)
 
 
 @dataclass

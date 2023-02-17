@@ -1,0 +1,113 @@
+{
+  "dependencies": {
+    "deployMode": {
+      "LOCAL": [
+        {
+          "name": "Apache Spark",
+          "uri": "https://archive.apache.org/dist/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
+          "type": "archive",
+          "relativePath": "jars/*",
+          "sha512": "769db39a560a95fd88b58ed3e9e7d1e92fb68ee406689fb4d30c033cb5911e05c1942dcc70e5ec4585df84e80aabbc272b9386a208debda89522efff1335c8ff"
+        },
+        {
+          "name": "GCS Connector Hadoop3",
+          "uri": "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.11/gcs-connector-hadoop3-2.2.11-shaded.jar",
+          "type": "jar",
+          "md5": "7639d38fff9f88fe80d7e4d9d47fb946",
+          "sha1": "519e60640b7ffdbb00dbed20b852c2a406ddaff9"
+        }
+      ]
+    }
+  },
+  "environment": {
+    "//description": "Define the metadata related to the system, prerequisites, and configurations",
+    "envParams": ["credentialFile", "deployMode"],
+    "//initialConfigList": "represents the list of the configurations that need to be loaded first",
+    "initialConfigList": ["credentialFile"],
+    "//loadedConfigProps": "list of properties read by the configParser",
+    "loadedConfigProps": ["region", "zone", "project"],
+    "cliConfig": {
+      "envVariables": [
+        {
+          "envVariableKey": "GOOGLE_APPLICATION_CREDENTIALS",
+          "confProperty": "credentialFile",
+          "defaultValue": "~/.config/gcloud/application_default_credentials.json"
+        },
+        {
+          "envVariableKey": "CLOUDSDK_DATAPROC_REGION",
+          "confProperty": "region"
+        },
+        {
+          "envVariableKey": "CLOUDSDK_COMPUTE_REGION",
+          "confProperty": "region"
+        },
+        {
+          "envVariableKey": "CLOUDSDK_COMPUTE_ZONE",
+          "confProperty": "zone"
+        },
+        {
+          "envVariableKey": "CLOUDSDK_CORE_PROJECT",
+          "confProperty": "project"
+        }
+      ],
+      "confProperties": {
+        "//lookupList_description": "Define the list of properties needed for the run to be successful",
+        "propertiesMap": [
+          {
+            "confProperty": "region",
+            "section": "dataproc",
+            "propKey": "region"
+          },
+          {
+            "confProperty": "region",
+            "section": "compute",
+            "propKey": "region"
+          },
+          {
+            "confProperty": "zone",
+            "section": "compute",
+            "propKey": "zone"
+          },
+          {
+            "confProperty": "project",
+            "section": "core",
+            "propKey": "project"
+          }
+        ],
+        "credentialsMap": []
+      }
+    },
+    "cmdRunnerProperties": {
+      "systemPrerequisites": ["gcloud", "gsutil"],
+      "//description": "define the properties passed to the CMD runner to be set as env-vars",
+      "inheritedProps": ["region", "zone", "project", "credentialFile"],
+      "cliPiggyBackEnvVars": {
+        "//description": "Holds information about the variables that will be attached to the command runner",
+        "definedVars": []
+      }
+    }
+  },
+  "pricing": {
+    "catalog": {
+      "onlineResources": [
+        {
+          "resourceKey": "gcloud-catalog",
+          "onlineURL": "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json",
+          "//localFile": "the name of the file after downloading",
+          "localFile": "gcloud-catalog.json",
+          "backupArchive": {
+            "//description-1": "In case the file is stuck, we use this archive as a backup.",
+            "//description-2": "It is stored in the resources",
+            "archiveName": "gcloud-catalog.tgz"
+          }
+        }
+      ]
+    }
+  },
+  "gpuConfigs": {
+    "user-tools": {
+      "supportedGpuInstances": {
+      }
+    }
+  }
+}

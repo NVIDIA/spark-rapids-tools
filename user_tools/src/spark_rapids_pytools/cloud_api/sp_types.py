@@ -13,16 +13,17 @@
 # limitations under the License.
 
 """Service providers defined types"""
+
+import configparser
 import json
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from shutil import which
 from typing import cast, Type, Any
 
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer
-from spark_rapids_pytools.common.sys_storage import StorageDriver
-from spark_rapids_pytools.common.utilities import ToolLogging, resource_path, SysCmd
+from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
+from spark_rapids_pytools.common.utilities import ToolLogging, SysCmd, Utils
 
 
 class EnumeratedType(str, Enum):
@@ -235,23 +236,12 @@ class CMDDriverBase:
     3- normal commands
     :param cloud_ctxt: dictionary containing all the necessary configurations related to the CSP.
     :param timeout: How long to wait (in seconds) for the command to finish (optional).
-    :param: system_prerequisites: list of the tools required to run the given instance.
     :param: env_vars: dictionary containing all the variables required by the driver.
     """
     cloud_ctxt: dict
     timeout: int = 0
-    system_prerequisites: list = field(default_factory=lambda: [])
     env_vars: dict = field(default_factory=dict, init=False)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cmd'), init=False)
-
-    @classmethod
-    def is_system_tool(cls, tool_name):
-        """
-        check whether a tool is installed on the system.
-        :param tool_name: name of the tool to check
-        :return: True or False
-        """
-        return which(tool_name) is not None
 
     def get_env_var(self, key: str):
         return self.env_vars.get(key)
@@ -259,22 +249,61 @@ class CMDDriverBase:
     def get_region(self) -> str:
         return self.env_vars.get('region')
 
+    def get_cmd_run_configs(self) -> str:
+        return self.env_vars.get('cmdRunnerProperties')
+
+    def get_required_props(self) -> list:
+        cmd_runner_props = self.get_cmd_run_configs()
+        if cmd_runner_props:
+            return cmd_runner_props.get('inheritedProps')
+        return None
+
+    def get_system_prerequisites(self) -> list:
+        res = []
+        cmd_runner_props = self.get_cmd_run_configs()
+        if cmd_runner_props:
+            res.extend(cmd_runner_props.get('systemPrerequisites'))
+        return res
+
+    def get_piggyback_props(self) -> list:
+        res = []
+        cmd_runner_props = self.get_cmd_run_configs()
+        if cmd_runner_props:
+            return cmd_runner_props.get('cliPiggyBackEnvVars')['definedVars']
+        return res
+
     def get_and_set_env_vars(self):
         """For that driver, try to get all the available system environment for the system."""
-        for env_key in ['profile', 'region', 'aws_access_key_id', 'aws_secret_access_key', 'keyPairPath']:
-            if env_key in self.cloud_ctxt:
-                self.env_vars.update({env_key: self.cloud_ctxt.get(env_key)})
+        for item_key in self.cloud_ctxt:
+            # save all not-None entries to the env_vars
+            item_value = self.cloud_ctxt.get(item_key)
+            if item_value is not None:
+                self.env_vars[item_key] = item_value
 
-    def validate_env(self):
+    def _list_inconsistent_configurations(self) -> list:
+        """
+        List all the inconsistent configuration in the platform
+        :return: a list of inconsistencies
+        """
         incorrect_envs = []
-        for sys_tool in self.system_prerequisites:
-            if not self.is_system_tool(sys_tool):
+        for sys_tool in self.get_system_prerequisites():
+            if not Utils.is_system_tool(sys_tool):
                 incorrect_envs.append(f'Tool {sys_tool} is not in installed or not in the PATH environment')
         if self.get_region() is None:
             incorrect_envs.append('Platform region is not set.')
+        return incorrect_envs
+
+    def _handle_inconsistent_configurations(self, incorrect_envs: list) -> None:
         if len(incorrect_envs) > 0:
+            # we do not want to raise a runtime error because some of the flags are not required by
+            # all the tools.
+            # TODO: improve this by checking the requirements for each tool.
             exc_msg = '; '.join(incorrect_envs)
-            raise RuntimeError(f'Invalid environment: {exc_msg}')
+            self.logger.warning('Environment report: %s', exc_msg)
+
+    def validate_env(self):
+        incorrect_envs = self._list_inconsistent_configurations()
+        self._handle_inconsistent_configurations(incorrect_envs)
 
     def run_sys_cmd(self,
                     cmd,
@@ -301,6 +330,16 @@ class CMDDriverBase:
                                       cmd_log_str,
                                       stdout_str,
                                       stderr_str)
+        piggyback_vars = self.get_piggyback_props()
+        for var_entry in piggyback_vars:
+            prop_label = var_entry['confProperty']
+            var_value = self.get_env_var(prop_label)
+            if var_value:
+                if not env_vars:
+                    env_vars = {var_entry['varKey']: var_value}
+                else:
+                    # use setdefault in case the env_car was already defined
+                    env_vars.setdefault(var_entry['varKey'], var_value)
         cmd_args = {
             'cmd': cmd,
             'fail_ok': fail_ok,
@@ -369,23 +408,143 @@ class PlatformBase:
     storage: StorageDriver = field(default=None, init=False)
     ctxt: dict = field(default_factory=dict, init=False)
     configs: JSONPropertiesContainer = field(default=None, init=False)
+    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.csp'), init=False)
 
     @classmethod
     def list_supported_gpus(cls):
         return [GpuDevice.T4, GpuDevice.A100]
 
-    def _create_cli_instance(self) -> CMDDriverBase:
+    def load_from_config_parser(self, conf_file, **prop_args) -> dict:
+        res = None
+        try:
+            parser_obj = configparser.ConfigParser()
+            parser_obj.read(conf_file)
+            res = {}
+            if prop_args.get('sectionKey'):
+                section_name = prop_args.get('sectionKey')
+                if not parser_obj.has_section(section_name):
+                    # try to use "profile XYZ" format
+                    if parser_obj.has_section(f'profile {section_name}'):
+                        section_name = f'profile {section_name}'
+                key_list = prop_args.get('keyList')
+                for k in key_list:
+                    if parser_obj.has_option(section_name, k):
+                        res.update({k: parser_obj.get(section_name, k)})
+        except (configparser.NoSectionError, configparser.NoOptionError, configparser.ParsingError) as conf_ex:
+            self.logger.debug('Could not load properties from configuration file %s. Exception: %s',
+                              conf_file, conf_ex)
+        return res
+
+    def _construct_cli_object(self) -> CMDDriverBase:
         raise NotImplementedError
+
+    def _create_cli_instance(self) -> CMDDriverBase:
+        cmd_driver_props = self._get_config_environment('cmdRunnerProperties')
+        self.ctxt['cmdRunnerProperties'] = cmd_driver_props
+        return self._construct_cli_object()
 
     def _install_storage_driver(self):
         raise NotImplementedError
 
+    def _get_config_environment(self, *key_strs) -> Any:
+        return self.configs.get_value('environment', *key_strs)
+
+    def _load_config_environment_var_prop(self, prop_key: str):
+        env_variables = self._get_config_environment('cliConfig', 'envVariables')
+        # find the env_variable that maps to the property
+        res = []
+        for env_var in env_variables:
+            if env_var['confProperty'] == prop_key:
+                res.append(env_var)
+        return res
+
+    def _set_env_prop_from_env_var(self, prop_key: str) -> None:
+        if self.ctxt.get(prop_key):
+            # it is already set. do nothing
+            return
+        # find the env_variable that maps to the property
+        for env_var in self._load_config_environment_var_prop(prop_key):
+            env_var_key = env_var['envVariableKey']
+            env_var_def_val = env_var.get('defaultValue')
+            env_var_val = Utils.get_sys_env_var(env_var_key, env_var_def_val)
+            if env_var_val is not None:
+                if '/' in env_var_val:
+                    # this is a file
+                    env_var_val = FSUtil.expand_path(env_var_val)
+                self.ctxt.update({prop_key: env_var_val})
+                break
+
+    def _set_initial_configuration_list(self) -> None:
+        # load the initial configurations list
+        initial_conf_list = self._get_config_environment('initialConfigList')
+        if initial_conf_list:
+            for conf_prop_k in initial_conf_list:
+                self._set_env_prop_from_env_var(conf_prop_k)
+
+    def _set_remaining_configuration_list(self) -> None:
+        remaining_props = self._get_config_environment('loadedConfigProps')
+        if not remaining_props:
+            return
+        properties_map_arr = self._get_config_environment('cliConfig',
+                                                          'confProperties',
+                                                          'propertiesMap')
+        if properties_map_arr:
+            prop_keys = []
+            for prop_elem in properties_map_arr:
+                if prop_elem.get('confProperty') in remaining_props:
+                    prop_keys.append(prop_elem.get('propKey'))
+            # TODO: we should check if the section is of pattern _PropName_,
+            #       then we extract that property and use it as  the section name
+            loaded_conf_dict = self._load_props_from_sdk_conf_file(keyList=prop_keys,
+                                                                   sectionKey=self.ctxt.get('profile'))
+            if loaded_conf_dict:
+                self.ctxt.update(loaded_conf_dict)
+            for prop_elem in properties_map_arr:
+                if prop_elem.get('propKey') not in loaded_conf_dict:
+                    # set it using environment variable if possible
+                    self._set_env_prop_from_env_var(prop_elem.get('propKey'))
+
+    def _set_credential_properties(self) -> None:
+        cli_credential_file = self.ctxt.get('credentialFile')
+        if cli_credential_file is None:
+            return
+        properties_map_arr = self._get_config_environment('cliConfig',
+                                                          'confProperties',
+                                                          'credentialsMap')
+        if not properties_map_arr:
+            return
+        prop_keys = []
+        for prop_elem in properties_map_arr:
+            prop_keys.append(prop_elem.get('propKey'))
+        # TODO: we should check if the section is of pattern _PropName_,
+        #       then we extract that property and use it as  the section name
+        loaded_conf_dict = self.load_from_config_parser(cli_credential_file,
+                                                        keyList=prop_keys,
+                                                        sectionKey=self.ctxt.get('profile'))
+        if loaded_conf_dict:
+            self.ctxt.update(loaded_conf_dict)
+
     def _parse_arguments(self, ctxt_args: dict):
-        if 'region' in ctxt_args:
-            region_val = ctxt_args.get('region')
-            if region_val is not None:
-                # add the region to the ctxt
-                self.ctxt.update({'region': region_val})
+        # Get the possible parameters for that platform.
+        # Arguments passed to the tool have more precedence than global env variables
+        list_of_params = self._get_config_environment('envParams')
+        if list_of_params:
+            for param_elem in list_of_params:
+                param_val = ctxt_args.get(param_elem)
+                if param_val:
+                    # add the argument to the context
+                    self.ctxt.update({param_elem: param_val})
+        self._set_initial_configuration_list()
+        # load the remaining properties
+        self._set_remaining_configuration_list()
+        # load the credential properties
+        self._set_credential_properties()
+
+    def _load_props_from_sdk_conf_file(self, **prop_args) -> dict:
+        cli_conf_file = self.ctxt.get('cliConfigFile')
+        if cli_conf_file is None:
+            return None
+        return self.load_from_config_parser(cli_conf_file, **prop_args)
 
     def __post_init__(self):
         self.load_platform_configs()
@@ -447,7 +606,7 @@ class PlatformBase:
 
     def load_platform_configs(self):
         config_file_name = f'{CloudPlatform.tostring(self.type_id).lower()}-configs.json'
-        config_path = resource_path(config_file_name)
+        config_path = Utils.resource_path(config_file_name)
         self.configs = JSONPropertiesContainer(prop_arg=config_path)
 
     def get_supported_gpus(self) -> dict:
@@ -573,8 +732,7 @@ class ClusterBase:
 
 def get_platform(platform_id: Enum) -> Type[PlatformBase]:
     platform_hash = {
-        # Dataproc platform is not enabled yet
-        # CloudPlatform.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
+        CloudPlatform.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
         CloudPlatform.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
     }
     if platform_id in platform_hash:
