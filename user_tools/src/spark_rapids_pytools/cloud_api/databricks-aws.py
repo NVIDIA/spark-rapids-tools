@@ -28,7 +28,13 @@ class DBAWSPlatform(EMRPlatform):
         super().__post_init__()
     
     def _set_remaining_configuration_list(self) -> None:
-        pass
+        remaining_props = self._get_config_environment('loadedConfigProps')
+        if not remaining_props:
+            return
+        properties_map_arr = self._get_config_environment('cliConfig',
+                                                          'confProperties',
+                                                          'propertiesMap')
+        # TODO
     
     def _construct_cli_object(self) -> CMDDriverBase:
         return DBAWSCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
@@ -62,7 +68,7 @@ class DBAWSCMDDriver(CMDDriverBase):
     def _list_inconsistent_configurations(self) -> list:
         incorrect_envs = super()._list_inconsistent_configurations()
         required_props = self.get_required_props()
-        if required_props:
+        if required_props is not None:
             for prop_entry in required_props:
                 prop_value = self.env_vars.get(prop_entry)
                 if prop_value is None:
@@ -89,4 +95,5 @@ class DBAWSCMDDriver(CMDDriverBase):
                                '--cluster-name',
                                db_cluster_name]
             return self.run_sys_cmd(get_cluster_cmd)
-        return ""
+        error_msg = f'Could not find Databricks cluster by Id or by name'
+        raise RuntimeError(error_msg)
