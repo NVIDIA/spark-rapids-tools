@@ -34,13 +34,13 @@ class DBAWSPlatform(EMRPlatform):
         properties_map_arr = self._get_config_environment('cliConfig',
                                                           'confProperties',
                                                           'propertiesMap')
-        # TODO
+        # TODO: did not finish implementation
     
     def _construct_cli_object(self) -> CMDDriverBase:
         return DBAWSCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
     
     def _construct_cluster_from_props(self, cluster: str, props: str = None):
-        pass
+        return DatabricksCluster(self).set_connection(cluster_id=cluster, props=props)
     
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
@@ -97,3 +97,12 @@ class DBAWSCMDDriver(CMDDriverBase):
             return self.run_sys_cmd(get_cluster_cmd)
         error_msg = f'Could not find Databricks cluster by Id or by name'
         raise RuntimeError(error_msg)
+
+@dataclass
+class DatabricksCluster(ClusterBase):
+    """
+    Represents an instance of running cluster on Databricks.
+    """
+
+    def get_eventlogs_from_config(self):
+        pass
