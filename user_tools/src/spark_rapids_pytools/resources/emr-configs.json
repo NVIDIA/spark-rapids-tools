@@ -4,7 +4,7 @@
       "LOCAL": [
         {
           "name":  "Apache Spark",
-          "uri": "https://dlcdn.apache.org/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
+          "uri": "https://archive.apache.org/dist/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
           "type": "archive",
           "relativePath": "jars/*",
           "sha512": "769db39a560a95fd88b58ed3e9e7d1e92fb68ee406689fb4d30c033cb5911e05c1942dcc70e5ec4585df84e80aabbc272b9386a208debda89522efff1335c8ff"
