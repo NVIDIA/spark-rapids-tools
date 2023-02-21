@@ -4,7 +4,7 @@
           "LOCAL": [
             {
               "name":  "Apache Spark",
-              "uri": "https://dlcdn.apache.org/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
+              "uri": "https://archive.apache.org/dist/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
               "type": "archive",
               "relativePath": "jars/*",
               "sha512": "769db39a560a95fd88b58ed3e9e7d1e92fb68ee406689fb4d30c033cb5911e05c1942dcc70e5ec4585df84e80aabbc272b9386a208debda89522efff1335c8ff"
@@ -27,8 +27,69 @@
         }
       },
     "environment": {
+      "//description": "Define the metadata related to the system, prerequisites, and configurations",
+      "envParams": [], //TODO
+      "//initialConfigList": "represents the list of the configurations that need to be loaded first",
+      "initialConfigList": [], //TODO
+      "//loadedConfigProps": "list of properties read by the configParser",
+      "loadedConfigProps": [], //TODO
+      "cliConfig": {
+        "envVariables": [
+          {
+            "envVariableKey": "DATABRICKS_CONFIG_FILE",
+            "confProperty": "", //TODO
+            "defaultValue": "~/.databrickscfg"
+          },
+          {
+            "envVariableKey": "DATABRICKS_HOST",
+            "confProperty": "" //TODO
+          },
+          {
+            "envVariableKey": "DATABRICKS_USERNAME",
+            "confProperty": "" //TODO
+          },
+          {
+            "envVariableKey": "DATABRICKS_PASSWORD",
+            "confProperty": "" //TODO
+          },
+          {
+            "envVariableKey": "DATABRICKS_TOKEN",
+            "confProperty": "" //TODO
+          }
+        ],
+        "confProperties": {
+          "//lookupList_description": "Define the list of properties needed for the run to be successful",
+          "propertiesMap": [
+          ], //TODO
+          "credentialsMap": []
+        }
+      },
+      "cmdRunnerProperties": {
+        "systemPrerequisites": ["databricks"],
+        "//description": "define the properties passed to the CMD runner to be set as env-vars",
+        "inheritedProps": [], //TODO
+        "cliPiggyBackEnvVars": {
+          "//description": "Holds information about the variables that will be attached to the command runner",
+          "definedVars": []
+        }
+      }
     },
     "pricing": {
+      "catalog": {
+        "onlineResources": [
+          {
+            "resourceKey": "", //TODO
+            "onlineURL": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
+            "//localFile": "the name of the file after downloading",
+            "localFile": "", //TODO
+            "backupArchive": {
+              "//description-1": "In case the file is stuck, we use this archive as a backup.",
+              "//description-2": "It is stored in the resources",
+              "archiveName": "" //TODO
+            }
+          }
+        ]
+      }
     },
     "gpuConfigs": {
       "user-tools": {
