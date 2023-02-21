@@ -78,7 +78,9 @@ class Utils:
         # make sure that we replace micro version with 0
         version_comp = list(version_tuple)
         version_comp[2] = 0
-        res = '.'.join(str(v_comp) for v_comp in version_comp[:3])
+        # For now, tools jar is under url YY.MM.0 where MM is 02, 04, 06, 08, 10, and 12
+        # res = '.'.join(f'{v_comp:02}' for v_comp in version_comp[:3])
+        res = f'{version_comp[0]}.{version_comp[1]:02}.0'
         return res
 
     @classmethod
