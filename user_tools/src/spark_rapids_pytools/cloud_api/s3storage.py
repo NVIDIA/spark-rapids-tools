@@ -87,7 +87,7 @@ class S3StorageDriver(StorageDriver):
         cmd_args.extend(['cp', src, dest])
         if self.resource_is_dir(src):
             cmd_args.append('--recursive')
-        if exclude_pattern is not None:
+        if exclude_pattern:
             cmd_args.extend(['--exclude', exclude_pattern])
         self.cli.run_sys_cmd(cmd_args)
         return FSUtil.build_path(dest, FSUtil.get_resource_name(src))

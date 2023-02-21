@@ -27,14 +27,19 @@ class GStorageDriver(StorageDriver):
     """
     cli: CMDDriverBase
 
+    @classmethod
+    def get_cmd_prefix(cls):
+        pref_arr = ['gsutil']
+        return pref_arr[:]
+
     def resource_is_dir(self, src: str) -> bool:
         if not src.startswith('gs://'):
             return super().resource_is_dir(src)
         full_src = src if src.endswith('/') else f'{src}/'
-        cmd_args = ['gsutil',
-                    '-q',
-                    'stat',
-                    full_src]
+        cmd_args = self.get_cmd_prefix()
+        cmd_args.extend(['-q',
+                         'stat',
+                         full_src])
         # run command and make sure we return 0.
         try:
             self.cli.run_sys_cmd(cmd_args)
@@ -47,10 +52,8 @@ class GStorageDriver(StorageDriver):
         if not src.startswith('gs://'):
             return super().resource_exists(src)
         # run gsutil -q stat src if result is 0, then the resource exists
-        cmd_args = ['gsutil',
-                    '-q',
-                    'stat',
-                    src]
+        cmd_args = self.get_cmd_prefix()
+        cmd_args.extend(['-q', 'stat', src])
         # run command and make sure we return 0.
         try:
             self.cli.run_sys_cmd(cmd_args)
@@ -65,11 +68,11 @@ class GStorageDriver(StorageDriver):
         # this is gstorage
         res_is_dir = self.resource_is_dir(src)
         recurse_arg = '-r' if res_is_dir else ''
-        cmd_args = ['gsutil',
-                    'cp',
-                    recurse_arg,
-                    src,
-                    dest]
+        cmd_args = self.get_cmd_prefix()
+        cmd_args.extend(['cp',
+                         recurse_arg,
+                         src,
+                         dest])
         self.cli.run_sys_cmd(cmd_args)
         return FSUtil.build_full_path(dest, FSUtil.get_resource_name(src))
 
@@ -79,11 +82,11 @@ class GStorageDriver(StorageDriver):
         # this is gstorage
         res_is_dir = self.resource_is_dir(src)
         recurse_arg = '-r' if res_is_dir else ''
-        cmd_args = ['gsutil',
-                    'cp',
-                    recurse_arg,
-                    src,
-                    dest]
+        cmd_args = self.get_cmd_prefix()
+        cmd_args.extend(['cp',
+                         recurse_arg,
+                         src,
+                         dest])
         self.cli.run_sys_cmd(cmd_args)
         return FSUtil.build_path(dest, FSUtil.get_resource_name(src))
 
@@ -91,3 +94,13 @@ class GStorageDriver(StorageDriver):
         if value.startswith('gs://'):
             return True
         return super().is_file_path(value)
+
+    def _delete_path(self, src, fail_ok: bool = False):
+        if not src.startswith('gs://'):
+            super()._delete_path(src)
+        else:
+            res_is_dir = self.resource_is_dir(src)
+            recurse_arg = '-r' if res_is_dir else ''
+            cmd_args = self.get_cmd_prefix()
+            cmd_args.extend(['rm', recurse_arg, src])
+            self.cli.run_sys_cmd(cmd_args)

@@ -101,7 +101,13 @@ class EMRPlatform(PlatformBase):
         return submission_args
 
     def create_saving_estimator(self, source_cluster, target_cluster):
-        emr_price_provider = EMREc2PriceProvider(region=self.cli.get_region())
+        raw_pricing_config = self.configs.get_value_silent('pricing')
+        if raw_pricing_config:
+            pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
+        else:
+            pricing_config: JSONPropertiesContainer = None
+        emr_price_provider = EMREc2PriceProvider(region=self.cli.get_region(),
+                                                 pricing_config=pricing_config)
         saving_estimator = EmrSavingsEstimator(price_provider=emr_price_provider,
                                                target_cluster=target_cluster,
                                                source_cluster=source_cluster)
@@ -238,7 +244,7 @@ class EMRNode(ClusterNode):
     def _pull_and_set_mc_props(self, cli=None):
         instance_description = cli.exec_platform_describe_node_instance(self)
         mc_description = json.loads(instance_description)['InstanceTypes'][0]
-        self.mc_props = JSONPropertiesContainer(prop_arg=json.dumps(mc_description), file_load=False)
+        self.mc_props = JSONPropertiesContainer(prop_arg=mc_description, file_load=False)
 
     def _set_fields_from_props(self):
         self.name = self.ec2_instance.dns_name
@@ -284,19 +290,6 @@ class EMRCluster(ClusterBase):
             _, new_props = self.props.props.popitem()
             self.props.props = new_props
 
-    def _init_connection(self, cluster_id: str = None,
-                         props: str = None) -> dict:
-        name = cluster_id
-        if props is None:
-            # we need to pull the properties from the platform
-            props = self.cli.pull_cluster_props_by_args(args={'cluster': name, 'region': self.region})
-        cluster_props = JSONPropertiesContainer(props, file_load=False)
-        cluster_args = {
-            'name': name,
-            'props': cluster_props
-        }
-        return cluster_args
-
     def __create_ec2_list_by_group(self, group_arg):
         if isinstance(group_arg, InstanceGroup):
             group_obj = group_arg
@@ -320,30 +313,16 @@ class EMRCluster(ClusterBase):
             ec2_instances.append(ec2_instance)
         return ec2_instances
 
-    def find_matches_for_node(self) -> dict:
-        mc_map = {}
-        supported_gpus = self.platform.get_supported_gpus()
-        for spark_node_type, node_list in self.nodes.items():
-            if spark_node_type == SparkNodeType.MASTER:
-                # skip
-                self.cli.logger.debug('Skip converting Master nodes')
-            else:
-                for anode in node_list:
-                    if anode.instance_type not in mc_map:
-                        best_mc_match = anode.find_best_cpu_conversion(supported_gpus)
-                        mc_map.update({anode.instance_type: best_mc_match})
-        return mc_map
-
-    def migrate_from_cluster(self, orig_cluster):
-        self.name = orig_cluster.name
-        self.uuid = orig_cluster.uuid
-        self.zone = orig_cluster.zone
-        self.state = orig_cluster.state
+    def _build_migrated_cluster(self, orig_cluster):
+        """
+        specific to the platform on how to build a cluster based on migration
+        :param orig_cluster:
+        """
         group_cache = {}
         self.instance_groups = []
         self.ec2_instances = []
         # get the map of the instance types
-        mc_type_map = orig_cluster.find_matches_for_node()
+        mc_type_map, _ = orig_cluster.find_matches_for_node()
         # convert instances and groups
         # master groups should stay the same
         for curr_group in orig_cluster.instance_groups:

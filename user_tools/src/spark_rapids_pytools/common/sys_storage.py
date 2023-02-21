@@ -156,7 +156,7 @@ class FSUtil:
         """
         if file_path.startswith('~'):
             new_path = pathlib.PosixPath(file_path)
-            return new_path.expanduser()
+            return str(new_path.expanduser())
         return file_path
 
 
