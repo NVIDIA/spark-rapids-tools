@@ -27,6 +27,8 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.ml.feature.PCA
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, udf}
@@ -658,6 +660,65 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
       }
     }
   }
+
+  test("test sparkML ") {
+    TrampolineUtil.withTempDir { outpath =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val tmpParquet = s"$outpath/mlOpsParquet"
+        createDecFile(sparkSession, tmpParquet)
+
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "dot") { spark =>
+          val data = Array(
+            Vectors.sparse(5, Seq((1, 1.0), (3, 7.0))),
+            Vectors.dense(2.0, 0.0, 3.0, 4.0, 5.0),
+            Vectors.dense(4.0, 0.0, 0.0, 6.0, 7.0)
+          )
+          val df = spark.createDataFrame(data.map(Tuple1.apply)).toDF("features")
+          val pca = new PCA()
+            .setInputCol("features")
+            .setOutputCol("pcaFeatures")
+            .setK(3)
+            .fit(df)
+          df
+        }
+
+        val allArgs = Array(
+          "--output-directory",
+          outpath.getAbsolutePath())
+        val appArgs = new QualificationArgs(allArgs ++ Array(eventLog))
+        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+        assert(appSum.size == 1)
+        val mlOpsRes = appSum.head
+        assert(mlOpsRes.mlFunctions.nonEmpty)
+        assert(mlOpsRes.mlFunctions.get.map(x=> x.stageId).size == 5)
+        assert(mlOpsRes.mlFunctions.get.head.mlOps.mkString.contains(
+          "org.apache.spark.ml.feature.PCA.fit"))
+      }
+    }
+  }
+
+  test("test xgboost") {
+    val logFiles = Array(
+      s"$logDir/xgboost_eventlog.zstd",
+    )
+    TrampolineUtil.withTempDir { outpath =>
+      val allArgs = Array(
+        "--output-directory",
+        outpath.getAbsolutePath())
+
+      val appArgs = new QualificationArgs(allArgs ++ logFiles)
+      val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+      assert(exit == 0)
+      assert(appSum.size == 1)
+      val xgBoostRes = appSum.head
+      assert(xgBoostRes.mlFunctions.nonEmpty)
+      //assert(mlOpsRes.mlFunctions.get.map(x => x.stageId).size == 5)
+      assert(xgBoostRes.mlFunctions.get.head.mlOps.mkString.contains(
+        "ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier.train"))
+    }
+  }
+
 
   test("test with stage reuse") {
     TrampolineUtil.withTempDir { outpath =>

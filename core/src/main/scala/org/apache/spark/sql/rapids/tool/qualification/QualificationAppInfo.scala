@@ -452,6 +452,16 @@ class QualificationAppInfo(
         _.unsupportedExprs)).flatten.filter(_.nonEmpty).toSet.mkString(";")
         .trim.replaceAll("\n", "").replace(",", ":")
 
+      val mlOps = stageIdToInfo.filter(ml => ml._2.mlOps.nonEmpty)
+      val mlFunctions = if (mlOps.nonEmpty) {
+        Some(mlOps.map(
+          mlOp => MLFunctions(
+            Some(appId), mlOp._1._1, mlOp._2.mlOps.get, mlOp._2.duration.getOrElse(0))
+        ).toSeq.sortBy(mlOp => mlOp.stageId))
+      } else {
+        None
+      }
+
       // get the ratio based on the Task durations that we will use for wall clock durations
       val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
         supportedSQLTaskDuration.toDouble / sqlDataframeTaskDuration.toDouble
@@ -470,7 +480,7 @@ class QualificationAppInfo(
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
         taskSpeedupFactor, info.sparkUser, info.startTime, origPlanInfos,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
-        unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap)
+        unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions)
     }
   }
 
@@ -547,6 +557,13 @@ case class SQLStageSummary(
     execCPUTime: Long,
     execRunTime: Long)
 
+case class MLFunctions(
+    appID: Option[String],
+    stageId: Int,
+    mlOps: Array[String],
+    duration: Long
+)
+
 class StageTaskQualificationSummary(
     val stageId: Int,
     val stageAttemptId: Int,
@@ -600,7 +617,8 @@ case class QualificationSummaryInfo(
     unSupportedExecs: String,
     unSupportedExprs: String,
     clusterTags: String,
-    allClusterTagsMap: Map[String, String])
+    allClusterTagsMap: Map[String, String],
+    mlFunctions: Option[Seq[MLFunctions]])
 
 case class StageQualSummaryInfo(
     stageId: Int,

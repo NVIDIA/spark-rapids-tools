@@ -72,7 +72,33 @@ abstract class AppBase(
   def getOrCreateStage(info: StageInfo): StageInfoClass = {
     val stage = stageIdToInfo.getOrElseUpdate((info.stageId, info.attemptNumber()),
       new StageInfoClass(info))
+
+    // check if there are any SparkML/XGBoost functions or expressions
+    val mlOps = checkMLOps(stage.info.details)
+    if (mlOps.nonEmpty) {
+      stage.mlOps = Some(mlOps)
+    }
     stage
+  }
+
+  def checkMLOps(stageInfo: String): Array[String] = {
+    val mlOps = if (stageInfo.contains(MlOps.sparkml) || stageInfo.contains(MlOps.xgBoost)) {
+      // Consider stageInfo to have below string as an example
+      //org.apache.spark.rdd.RDD.first(RDD.scala:1463)
+      //org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)
+      //org.apache.spark.ml.feature.PCA.fit(PCA.scala:93)
+      val splitString = stageInfo.split("\n")
+
+      // filteretString = org.apache.spark.ml.feature.PCA.fit
+      val filteredString = splitString.filter(
+        string => string.contains(MlOps.sparkml) || string.contains(MlOps.xgBoost)).map(
+        packageName => packageName.split("\\(").head
+      )
+      filteredString
+    } else {
+      Array.empty[String]
+    }
+    mlOps
   }
 
   def getAllStagesForJobsInSqlQuery(sqlID: Long): Seq[Int] = {

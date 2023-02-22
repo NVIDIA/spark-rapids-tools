@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,6 +85,9 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     }
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
+    if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
+      qWriter.mlFuncsReport(allAppsSum, order)
+    }
     if (uiEnabled) {
       QualificationReportGenerator.generateDashBoard(getReportOutputPath, allAppsSum)
     }

@@ -277,6 +277,7 @@ The tree structure of the output directory `${OUTPUT_FOLDER}/rapids_4_spark_qual
     ├── rapids_4_spark_qualification_output_persql.csv
     ├── rapids_4_spark_qualification_output_execs.csv
     ├── rapids_4_spark_qualification_output_stages.csv
+    ├── rapids_4_spark_qualification_output_mlFunctions.csv
     └── ui
         ├── assets
         │   ├── bootstrap/
@@ -627,6 +628,15 @@ The following table lists the exec's name and the status of parsing their expres
 | UnionExec                             |              x              |         -        |        -        |
 | WindowExec                            |              -              |         x        |        -        |
 | WindowInPandasExec                    |              -              |         -        |        x        |
+
+### MLFunctions report
+The Qualification tool generates a report if there are SparkML or Spark XGBoost functions used in the eventlog.
+The functions in "*spark.ml.*" or "*spark.XGBoost.*" packages are displayed in the report.
+
+1. _App ID_
+2. _Stage ID_
+3. _Ml Functions_: List of ML functions used in the corresponding stage.
+4. _Stage Task Duration_: amount of time spent in tasks of SQL Dataframe operations for the given stage.
 
 ## Output Formats
 

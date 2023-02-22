@@ -148,6 +148,7 @@ class StageInfoClass(val info: StageInfo) {
   var completionTime: Option[Long] = None
   var failureReason: Option[String] = None
   var duration: Option[Long] = None
+  var mlOps: Option[Array[String]] = None
 }
 
 // note that some things might not be set until after sqlMetricsAggregation called

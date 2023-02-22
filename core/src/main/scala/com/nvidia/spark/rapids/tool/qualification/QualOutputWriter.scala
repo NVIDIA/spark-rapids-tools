@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -245,6 +245,22 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       csvFileWriter.close()
     }
   }
+
+  def mlFuncsReport(sums: Seq[QualificationSummaryInfo], order: String): Unit = {
+    val csvFileWriter = new ToolTextFileWriter(outputDir,
+      s"${QualOutputWriter.LOGFILE_NAME}_mlFunctions.csv",
+      "", hadoopConf)
+    try {
+      val headersAndSizes = QualOutputWriter.getDetailedMlFuncsHeaderStringsAndSizes(sums)
+      csvFileWriter.write(QualOutputWriter.constructDetailedHeader(headersAndSizes, ",", false))
+      sums.foreach { sumInfo =>
+        val rows = QualOutputWriter.constructMlFuncsInfo(sumInfo, headersAndSizes, ",", false)
+        rows.foreach(csvFileWriter.write(_))
+      }
+    } finally {
+      csvFileWriter.close()
+    }
+  }
 }
 
 case class FormattedQualificationSummaryInfo(
@@ -323,6 +339,7 @@ object QualOutputWriter {
   val CLUSTER_ID = "ClusterId"
   val JOB_ID = "JobId"
   val RUN_NAME = "RunName"
+  val ML_FUNCTIONS = "Ml Functions"
 
   val APP_DUR_STR_SIZE: Int = APP_DUR_STR.size
   val SQL_DUR_STR_SIZE: Int = SQL_DUR_STR.size
@@ -379,6 +396,14 @@ object QualOutputWriter {
   }
 
   def getMaxSizeForHeader(sizes: Seq[Int], headerTxtStr: String): Int = {
+    if (sizes.size > 0 && sizes.max > headerTxtStr.size) {
+      sizes.max
+    } else {
+      headerTxtStr.size
+    }
+  }
+
+  def getMaxSizeForHeader(sizes: Seq[Long], headerTxtStr: String): Long = {
     if (sizes.size > 0 && sizes.max > headerTxtStr.size) {
       sizes.max
     } else {
@@ -634,6 +659,34 @@ object QualOutputWriter {
         EXEC_CHILDREN_NODE_IDS),
       EXEC_SHOULD_REMOVE -> EXEC_SHOULD_REMOVE.size
     )
+    detailedHeadersAndFields
+  }
+
+  def constructMlFuncsInfo(
+      sumInfo: QualificationSummaryInfo,
+      headersAndSizes: LinkedHashMap[String, Int],
+      delimiter: String = TEXT_DELIMITER,
+      prettyPrint: Boolean): Seq[String] = {
+    val appId = sumInfo.appId
+    sumInfo.mlFunctions.get.map { info =>
+      val data = ListBuffer[(String, Int)](
+        stringIfempty(appId) -> headersAndSizes(APP_ID_STR),
+        info.stageId.toString -> headersAndSizes(STAGE_ID_STR),
+        ToolUtils.renderTextField(info.mlOps, ";", delimiter) -> headersAndSizes(ML_FUNCTIONS),
+        info.duration.toString -> headersAndSizes(STAGE_DUR_STR))
+      constructOutputRow(data, delimiter, prettyPrint)
+    }
+  }
+
+  def getDetailedMlFuncsHeaderStringsAndSizes(
+      appInfos: Seq[QualificationSummaryInfo]): LinkedHashMap[String, Int] = {
+    val detailedHeadersAndFields = LinkedHashMap[String, Int](
+      APP_ID_STR -> QualOutputWriter.getAppIdSize(appInfos),
+      STAGE_ID_STR -> STAGE_ID_STR.size,
+      ML_FUNCTIONS -> getMaxSizeForHeader(
+        appInfos.map(_.mlFunctions.get.map(
+          mlFuns => mlFuns.mlOps.map(funcName => funcName.length).sum).sum), ML_FUNCTIONS),
+      STAGE_DUR_STR -> STAGE_DUR_STR.size)
     detailedHeadersAndFields
   }
 
