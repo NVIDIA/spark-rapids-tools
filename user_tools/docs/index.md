@@ -111,6 +111,6 @@ Please visit the following guides for details on how to use the wrapper CLI on e
 platform:
 
 - [AWS EMR](user-tools-aws-emr.md)
-- GCloud Dataproc
-  - [GCloud Dataproc](user-tools-dataproc.md)
-  - [Legacy GCloud Dataproc](legacy-user-tools-dataproc.md)
+- Google Cloud Dataproc
+  - [Google Cloud Dataproc](user-tools-dataproc.md)
+  - Deprecated [spark_rapids_dataproc command](legacy-user-tools-dataproc.md)
