@@ -1,11 +1,11 @@
 App Name,App ID,SQL ID,SQL Description,SQL DF Duration,GPU Opportunity,Estimated GPU Duration,Estimated GPU Speedup,Estimated GPU Time Saved,Recommendation
-Rapids Spark Profiling Tool Unit Tests,local-1622043423018,1,count at QualificationInfoUtils.scala:94,7143,6719,2326.98,3.06,4816.01,Strongly Recommended
-Rapids Spark Profiling Tool Unit Tests,local-1622043423018,3,count at QualificationInfoUtils.scala:94,2052,1660,861.96,2.38,1190.03,Recommended
-Rapids Spark Profiling Tool Unit Tests,local-1622043423018,2,count at QualificationInfoUtils.scala:94,1933,1551,821.32,2.35,1111.67,Recommended
+Rapids Spark Profiling Tool Unit Tests,local-1622043423018,1,count at QualificationInfoUtils.scala:94,7143,6719,2249.39,3.17,4893.6,Strongly Recommended
+Rapids Spark Profiling Tool Unit Tests,local-1622043423018,3,count at QualificationInfoUtils.scala:94,2052,1660,842.79,2.43,1209.2,Recommended
+Rapids Spark Profiling Tool Unit Tests,local-1622043423018,2,count at QualificationInfoUtils.scala:94,1933,1551,803.41,2.4,1129.58,Recommended
 Spark shell,local-1651187225439,0,show at <console>:26,498,249,373.5,1.33,124.5,Recommended
 Spark shell,local-1651188809790,1,show at <console>:26,196,98,147.0,1.33,49.0,Recommended
-Spark shell,local-1651187225439,1,show at <console>:26,262,60,243.52,1.07,18.47,Not Recommended
-Rapids Spark Profiling Tool Unit Tests,local-1622043423018,0,json at QualificationInfoUtils.scala:76,1306,187,1255.4,1.04,50.59,Not Recommended
+Spark shell,local-1651187225439,1,show at <console>:26,262,60,242.95,1.07,19.04,Not Recommended
+Rapids Spark Profiling Tool Unit Tests,local-1622043423018,0,json at QualificationInfoUtils.scala:76,1306,187,1253.43,1.04,52.56,Not Recommended
 Spark shell,local-1651188809790,0,show at <console>:26,715,2,713.6,1.0,1.39,Not Recommended
 Rapids Spark Profiling Tool Unit Tests,local-1623281204390,0,json at QualificationInfoUtils.scala:130,1209,0,1209.0,1.0,0.0,Not Recommended
 Rapids Spark Profiling Tool Unit Tests,local-1623281204390,2,json at QualificationInfoUtils.scala:136,321,0,321.0,1.0,0.0,Not Recommended

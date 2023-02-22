@@ -1,5 +1,5 @@
 App Name,App ID,SQL ID,SQL Description,SQL DF Duration,GPU Opportunity,Estimated GPU Duration,Estimated GPU Speedup,Estimated GPU Time Saved,Recommendation
-TPC-DS Like Bench q86,app-20210319163812-1778,24,Benchmark Run: query=q86; iteration=0,9565,9565,2788.62,3.43,6776.37,Strongly Recommended
+TPC-DS Like Bench q86,app-20210319163812-1778,24,Benchmark Run: query=q86; iteration=0,9565,9565,2717.32,3.52,6847.67,Strongly Recommended
 TPC-DS Like Bench q86,app-20210319163812-1778,0,Register input tables,2,2,2.0,1.0,0.0,Not Recommended
 TPC-DS Like Bench q86,app-20210319163812-1778,21,Register input tables,1,1,1.0,1.0,0.0,Not Recommended
 TPC-DS Like Bench q86,app-20210319163812-1778,5,Register input tables,1,1,1.0,1.0,0.0,Not Recommended
