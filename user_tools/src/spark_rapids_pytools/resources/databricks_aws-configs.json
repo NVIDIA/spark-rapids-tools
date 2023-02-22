@@ -28,44 +28,64 @@
       },
     "environment": {
       "//description": "Define the metadata related to the system, prerequisites, and configurations",
-      "envParams": [],
+      "envParams": ["profile"],
       "//initialConfigList": "represents the list of the configurations that need to be loaded first",
-      "initialConfigList": [],
+      "initialConfigList": ["profile"],
       "//loadedConfigProps": "list of properties read by the configParser",
-      "loadedConfigProps": [],
+      "loadedConfigProps": ["host", "token", "username", "password"],
       "cliConfig": {
         "envVariables": [
           {
             "envVariableKey": "DATABRICKS_CONFIG_FILE",
-            "confProperty": "",
+            "confProperty": "profile",
             "defaultValue": "~/.databrickscfg"
           },
           {
             "envVariableKey": "DATABRICKS_HOST",
-            "confProperty": ""
+            "confProperty": "host"
           },
           {
             "envVariableKey": "DATABRICKS_USERNAME",
-            "confProperty": ""
+            "confProperty": "username"
           },
           {
             "envVariableKey": "DATABRICKS_PASSWORD",
-            "confProperty": ""
+            "confProperty": "password"
           },
           {
             "envVariableKey": "DATABRICKS_TOKEN",
-            "confProperty": ""
+            "confProperty": "token"
           }
         ],
         "confProperties": {
           "//lookupList_description": "Define the list of properties needed for the run to be successful",
           "propertiesMap": [
+            {
+              "confProperty": "host",
+              "section": "profile",
+              "propKey": "host"
+            },
+            {
+              "confProperty": "token",
+              "section": "profile",
+              "propKey": "token"
+            },
+            {
+              "confProperty": "username",
+              "section": "profile",
+              "propKey": "username"
+            },
+            {
+              "confProperty": "password",
+              "section": "profile",
+              "propKey": "password"
+            }
           ],
           "credentialsMap": []
         }
       },
       "cmdRunnerProperties": {
-        "systemPrerequisites": ["databricks"],
+        "systemPrerequisites": ["databricks", "aws"],
         "//description": "define the properties passed to the CMD runner to be set as env-vars",
         "inheritedProps": [],
         "cliPiggyBackEnvVars": {
