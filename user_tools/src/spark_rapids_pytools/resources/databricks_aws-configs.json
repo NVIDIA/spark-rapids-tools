@@ -28,11 +28,11 @@
       },
     "environment": {
       "//description": "Define the metadata related to the system, prerequisites, and configurations",
-      "envParams": ["profile"],
+      "envParams": ["profile", "awsProfile"],
       "//initialConfigList": "represents the list of the configurations that need to be loaded first",
-      "initialConfigList": ["profile"],
+      "initialConfigList": ["profile", "awsProfile"],
       "//loadedConfigProps": "list of properties read by the configParser",
-      "loadedConfigProps": ["host", "token", "username", "password"],
+      "loadedConfigProps": ["region", "output"],
       "cliConfig": {
         "envVariables": [
           {
@@ -42,55 +42,93 @@
           },
           {
             "envVariableKey": "DATABRICKS_HOST",
-            "confProperty": "host"
+            "confProperty": "profile"
           },
           {
             "envVariableKey": "DATABRICKS_USERNAME",
-            "confProperty": "username"
+            "confProperty": "profile"
           },
           {
             "envVariableKey": "DATABRICKS_PASSWORD",
-            "confProperty": "password"
+            "confProperty": "profile"
           },
           {
             "envVariableKey": "DATABRICKS_TOKEN",
-            "confProperty": "token"
+            "confProperty": "profile"
+          },
+          {
+            "envVariableKey": "AWS_SHARED_CREDENTIALS_FILE",
+            "confProperty": "awsProfile",
+            "defaultValue": "~/.aws/credentials"
+          },
+          {
+            "envVariableKey": "AWS_CONFIG_FILE",
+            "confProperty": "awsProfile",
+            "defaultValue": "~/.aws/config"
+          },
+          {
+            "envVariableKey": "AWS_REGION",
+            "confProperty": "region"
+          },
+          {
+            "envVariableKey": "AWS_DEFAULT_REGION",
+            "confProperty": "region"
+          },
+          {
+            "envVariableKey": "AWS_PROFILE",
+            "confProperty": "awsProfile",
+            "defaultValue": "default"
+          },
+          {
+            "envVariableKey": "AWS_DEFAULT_OUTPUT",
+            "confProperty": "output",
+            "defaultValue": "json"
           }
         ],
         "confProperties": {
           "//lookupList_description": "Define the list of properties needed for the run to be successful",
           "propertiesMap": [
             {
-              "confProperty": "host",
-              "section": "profile",
-              "propKey": "host"
+              "confProperty": "region",
+              "propKey": "region",
+              "section": "_profile_"
             },
             {
-              "confProperty": "token",
-              "section": "profile",
-              "propKey": "token"
-            },
-            {
-              "confProperty": "username",
-              "section": "profile",
-              "propKey": "username"
-            },
-            {
-              "confProperty": "password",
-              "section": "profile",
-              "propKey": "password"
+              "confProperty": "output",
+              "propKey": "output",
+              "section": "_profile_"
             }
           ],
-          "credentialsMap": []
+          "credentialsMap": [
+            {
+              "confProperty": "aws_access_key_id",
+              "section": "_profile_",
+              "propKey": "aws_access_key_id"
+            },
+            {
+              "confProperty": "aws_secret_access_key",
+              "section": "_profile_",
+              "propKey": "aws_secret_access_key"
+            }
+          ]
         }
       },
       "cmdRunnerProperties": {
         "systemPrerequisites": ["databricks", "aws"],
         "//description": "define the properties passed to the CMD runner to be set as env-vars",
-        "inheritedProps": [],
+        "inheritedProps": ["profile", "awsProfile", "region", "aws_access_key_id", "aws_secret_access_key"],
         "cliPiggyBackEnvVars": {
           "//description": "Holds information about the variables that will be attached to the command runner",
-          "definedVars": []
+          "definedVars": [
+            {
+              "varLabel": "awsProfile",
+              "//confProperty": "which configuration property used to set the value of that var",
+              "confProperty": "profile",
+              "//varKey": "the variable key used in the CLI. Note that we need this in case that the ENV variables define above are not the same as the system env vars",
+              "//varKey_2": "add the aWS_PROFILE to all cli commands instead of adding it as an argument",
+              "varKey": "AWS_PROFILE"
+            }
+          ]
         }
       }
     },
@@ -114,6 +152,71 @@
     "gpuConfigs": {
       "user-tools": {
         "supportedGpuInstances": {
+          "g4dn.xlarge": {
+            "software": {
+              "release": "emr-6.0.0"
+            },
+            "SysInfo": {
+              "num_cpus": 4,
+              "cpu_mem": 16384
+            },
+            "GpuHWInfo": {
+              "num_gpus": 1,
+              "gpu_mem": 16384
+            }
+          },
+          "g4dn.2xlarge": {
+            "software": {
+              "release": "emr-6.0.0"
+            },
+            "SysInfo": {
+              "num_cpus": 8,
+              "cpu_mem": 16384
+            },
+            "GpuHWInfo": {
+              "num_gpus": 1,
+              "gpu_mem": 32768
+            }
+          },
+          "g4dn.4xlarge": {
+            "software": {
+              "release": "emr-6.0.0"
+            },
+            "SysInfo": {
+              "num_cpus": 16,
+              "cpu_mem": 65536
+            },
+            "GpuHWInfo": {
+              "num_gpus": 1,
+              "gpu_mem": 16384
+            }
+          },
+          "g4dn.8xlarge": {
+            "software": {
+              "release": "emr-6.0.0"
+            },
+            "SysInfo": {
+              "num_cpus": 32,
+              "cpu_mem": 131072
+            },
+            "GpuHWInfo": {
+              "num_gpus": 1,
+              "gpu_mem": 16384
+            }
+          },
+          "g4dn.12xlarge": {
+            "software": {
+              "release": "emr-6.0.0"
+            },
+            "SysInfo": {
+              "num_cpus": 48,
+              "cpu_mem": 196608
+            },
+            "GpuHWInfo": {
+              "num_gpus": 4,
+              "gpu_mem": 16384
+            }
+          }
         }
       }
     }
