@@ -1,4 +1,9 @@
-# RAPIDS User Tools on Dataproc
+# RAPIDS User Tools on Dataproc (Deprecated)
+
+Note: This documentation is for an older version of the spark-rapids-user-tools wrapper. The support
+for the `spark_rapids_dataproc` is limited to bug fixes.  
+For more information, see the [documentation](user-tools-dataproc.md) that describes the usage `spark_rapids_user_tools dataproc` command.
+
 
 ## Prerequisites
 
