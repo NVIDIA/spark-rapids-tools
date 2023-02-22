@@ -15,6 +15,7 @@
 
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on DATABRICKS_AWS."""
 
+import fire
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode, CloudPlatform
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal
@@ -116,5 +117,14 @@ class DBAWSWrapper:  # pylint: disable=too-few-public-methods
     """
     A wrapper script to run RAPIDS Accelerator tools (Qualification, Profiling, and Bootstrap) on Databricks_AWS.
     """
+
     def __init__(self):
         self.qualification = CliDBAWSLocalMode.qualification
+
+
+def main():
+    fire.Fire(DBAWSWrapper)
+
+
+if __name__ == '__main__':
+    main()

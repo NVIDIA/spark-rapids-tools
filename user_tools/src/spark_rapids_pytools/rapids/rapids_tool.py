@@ -76,6 +76,7 @@ class RapidsTool(object):
                                       phase_name,
                                       exception)
                     sys.exit(1)
+                # return
             return wrapper
         return decorator
 

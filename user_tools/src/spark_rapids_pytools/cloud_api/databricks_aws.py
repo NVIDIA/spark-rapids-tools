@@ -14,6 +14,13 @@
 
 """Implementation specific to DATABRICKS_AWS"""
 
+from dataclasses import dataclass
+from typing import Any
+
+from spark_rapids_pytools.cloud_api.emr import EMRPlatform
+from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
+from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase
+
 @dataclass
 class DBAWSPlatform(EMRPlatform):
     """
@@ -25,7 +32,7 @@ class DBAWSPlatform(EMRPlatform):
     """
     def __post_init__(self):
         self.type_id = CloudPlatform.DATABRICKS_AWS
-        super().__post_init__()
+        super(EMRPlatform, self).__post_init__()
     
     def _set_remaining_configuration_list(self) -> None:
         remaining_props = self._get_config_environment('loadedConfigProps')
@@ -34,10 +41,13 @@ class DBAWSPlatform(EMRPlatform):
         properties_map_arr = self._get_config_environment('cliConfig',
                                                           'confProperties',
                                                           'propertiesMap')
-        # TODO: did not finish implementation
+        # TODO: finish implementation
     
     def _construct_cli_object(self) -> CMDDriverBase:
         return DBAWSCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
+    
+    def _install_storage_driver(self):
+        self.storage = S3StorageDriver(super().cli)
     
     def _construct_cluster_from_props(self, cluster: str, props: str = None):
         return DatabricksCluster(self).set_connection(cluster_id=cluster, props=props)

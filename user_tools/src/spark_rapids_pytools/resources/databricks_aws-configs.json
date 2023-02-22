@@ -28,46 +28,46 @@
       },
     "environment": {
       "//description": "Define the metadata related to the system, prerequisites, and configurations",
-      "envParams": [], //TODO
+      "envParams": [],
       "//initialConfigList": "represents the list of the configurations that need to be loaded first",
-      "initialConfigList": [], //TODO
+      "initialConfigList": [],
       "//loadedConfigProps": "list of properties read by the configParser",
-      "loadedConfigProps": [], //TODO
+      "loadedConfigProps": [],
       "cliConfig": {
         "envVariables": [
           {
             "envVariableKey": "DATABRICKS_CONFIG_FILE",
-            "confProperty": "", //TODO
+            "confProperty": "",
             "defaultValue": "~/.databrickscfg"
           },
           {
             "envVariableKey": "DATABRICKS_HOST",
-            "confProperty": "" //TODO
+            "confProperty": ""
           },
           {
             "envVariableKey": "DATABRICKS_USERNAME",
-            "confProperty": "" //TODO
+            "confProperty": ""
           },
           {
             "envVariableKey": "DATABRICKS_PASSWORD",
-            "confProperty": "" //TODO
+            "confProperty": ""
           },
           {
             "envVariableKey": "DATABRICKS_TOKEN",
-            "confProperty": "" //TODO
+            "confProperty": ""
           }
         ],
         "confProperties": {
           "//lookupList_description": "Define the list of properties needed for the run to be successful",
           "propertiesMap": [
-          ], //TODO
+          ],
           "credentialsMap": []
         }
       },
       "cmdRunnerProperties": {
         "systemPrerequisites": ["databricks"],
         "//description": "define the properties passed to the CMD runner to be set as env-vars",
-        "inheritedProps": [], //TODO
+        "inheritedProps": [],
         "cliPiggyBackEnvVars": {
           "//description": "Holds information about the variables that will be attached to the command runner",
           "definedVars": []
@@ -78,14 +78,14 @@
       "catalog": {
         "onlineResources": [
           {
-            "resourceKey": "", //TODO
+            "resourceKey": "",
             "onlineURL": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
             "//localFile": "the name of the file after downloading",
-            "localFile": "", //TODO
+            "localFile": "",
             "backupArchive": {
               "//description-1": "In case the file is stuck, we use this archive as a backup.",
               "//description-2": "It is stored in the resources",
-              "archiveName": "" //TODO
+              "archiveName": ""
             }
           }
         ]
