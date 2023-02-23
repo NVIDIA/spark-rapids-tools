@@ -501,7 +501,7 @@ class PlatformBase:
             if loaded_conf_dict:
                 self.ctxt.update(loaded_conf_dict)
             for prop_elem in properties_map_arr:
-                if prop_elem.get('propKey') not in loaded_conf_dict:
+                if loaded_conf_dict and prop_elem.get('propKey') not in loaded_conf_dict:
                     # set it using environment variable if possible
                     self._set_env_prop_from_env_var(prop_elem.get('propKey'))
 

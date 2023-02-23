@@ -29,6 +29,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
     @staticmethod
     def qualification(cpu_cluster: str,
                       eventlogs: str = None,
+                      aws_profile: str = None,
                       local_folder: str = None,
                       remote_folder: str = None,
                       gpu_cluster: str = None,
@@ -51,6 +52,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
                 property `spark.eventLog.dir` defined in `cpu_cluster`. This property should be included
                 in the output of `databricks clusters get [--cluster-id CLUSTER_ID| --cluster-name CLUSTER_NAME]`.
                 Note that the wrapper will raise an exception if the property is not set.
+        :param aws_profile: A named AWS profile to get the settings/credentials of the AWS account.
         :param local_folder: Local work-directory path to store the output and to be used as root
                 directory for temporary folders/files. The final output will go into a subdirectory called
                 ${local_folder}/qual-${EXEC_ID} where exec_id is an auto-generated unique identifier of the
@@ -89,6 +91,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
             ToolLogging.enable_debug_mode()
         wrapper_qual_options = {
             'platformOpts': {
+                'aws_profile': aws_profile,
                 'credentialFile': credentials_file,
                 'deployMode': DeployMode.LOCAL,
             },
@@ -120,11 +123,3 @@ class DBAWSWrapper:  # pylint: disable=too-few-public-methods
 
     def __init__(self):
         self.qualification = CliDBAWSLocalMode.qualification
-
-
-def main():
-    fire.Fire(DBAWSWrapper)
-
-
-if __name__ == '__main__':
-    main()

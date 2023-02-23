@@ -14,12 +14,12 @@
 
 """Implementation specific to DATABRICKS_AWS"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from spark_rapids_pytools.cloud_api.emr import EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase
+from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, SysInfo, GpuHWInfo
 
 @dataclass
 class DBAWSPlatform(EMRPlatform):
@@ -33,15 +33,6 @@ class DBAWSPlatform(EMRPlatform):
     def __post_init__(self):
         self.type_id = CloudPlatform.DATABRICKS_AWS
         super(EMRPlatform, self).__post_init__()
-    
-    def _set_remaining_configuration_list(self) -> None:
-        remaining_props = self._get_config_environment('loadedConfigProps')
-        if not remaining_props:
-            return
-        properties_map_arr = self._get_config_environment('cliConfig',
-                                                          'confProperties',
-                                                          'propertiesMap')
-        # TODO: finish implementation
     
     def _construct_cli_object(self) -> CMDDriverBase:
         return DBAWSCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
@@ -82,7 +73,7 @@ class DBAWSCMDDriver(CMDDriverBase):
             for prop_entry in required_props:
                 prop_value = self.env_vars.get(prop_entry)
                 if prop_value is None:
-                    incorrect_envs.append(f'Property {prop_value} is not set.')
+                    incorrect_envs.append(f'Property {prop_entry} is not set.')
         return incorrect_envs
 
     def _build_platform_list_cluster(self, cluster, query_args: dict = None) -> list:
@@ -107,6 +98,20 @@ class DBAWSCMDDriver(CMDDriverBase):
             return self.run_sys_cmd(get_cluster_cmd)
         error_msg = f'Could not find Databricks cluster by Id or by name'
         raise RuntimeError(error_msg)
+
+
+@dataclass
+class DatabricksNode(ClusterNode):
+    """Implementation of Databricks cluster node."""
+
+    def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
+        pass
+
+    def _pull_sys_info(self, cli=None) -> SysInfo:
+        pass
+
+    zone: str = field(default=None, init=False)
+
 
 @dataclass
 class DatabricksCluster(ClusterBase):
