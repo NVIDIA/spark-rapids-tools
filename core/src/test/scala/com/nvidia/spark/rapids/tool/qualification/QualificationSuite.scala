@@ -684,7 +684,9 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
         val allArgs = Array(
           "--output-directory",
-          outpath.getAbsolutePath())
+          outpath.getAbsolutePath(),
+          "--ml-functions",
+          "true")
         val appArgs = new QualificationArgs(allArgs ++ Array(eventLog))
         val (exit, appSum) = QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
@@ -705,7 +707,9 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     TrampolineUtil.withTempDir { outpath =>
       val allArgs = Array(
         "--output-directory",
-        outpath.getAbsolutePath())
+        outpath.getAbsolutePath(),
+        "--ml-functions",
+        "true")
 
       val appArgs = new QualificationArgs(allArgs ++ logFiles)
       val (exit, appSum) = QualificationMain.mainInternal(appArgs)

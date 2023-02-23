@@ -277,7 +277,7 @@ The tree structure of the output directory `${OUTPUT_FOLDER}/rapids_4_spark_qual
     ├── rapids_4_spark_qualification_output_persql.csv
     ├── rapids_4_spark_qualification_output_execs.csv
     ├── rapids_4_spark_qualification_output_stages.csv
-    ├── rapids_4_spark_qualification_output_mlFunctions.csv
+    ├── rapids_4_spark_qualification_output_mlfunctions.csv
     └── ui
         ├── assets
         │   ├── bootstrap/
@@ -635,8 +635,8 @@ The functions in "*spark.ml.*" or "*spark.XGBoost.*" packages are displayed in t
 
 1. _App ID_
 2. _Stage ID_
-3. _Ml Functions_: List of ML functions used in the corresponding stage.
-4. _Stage Task Duration_: amount of time spent in tasks of SQL Dataframe operations for the given stage.
+3. _ML Functions_: List of ML functions used in the corresponding stage.
+4. _Stage Task Duration_: amount of time spent in tasks containing ML functions for the given stage.
 
 ## Output Formats
 

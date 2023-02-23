@@ -20,7 +20,7 @@ import com.nvidia.spark.rapids.tool.EventLogPathProcessor
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.AppFilterImpl
+import org.apache.spark.sql.rapids.tool.{AppFilterImpl, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.QualificationSummaryInfo
 
 /**
@@ -59,6 +59,7 @@ object QualificationMain extends Logging {
     val uiEnabled = appArgs.htmlReport.getOrElse(false)
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
     val platform = appArgs.platform.getOrElse("onprem")
+    ToolUtils.isMLOpsEnabled = appArgs.mlFunctions.getOrElse(false)
 
     val hadoopConf = new Configuration()
 

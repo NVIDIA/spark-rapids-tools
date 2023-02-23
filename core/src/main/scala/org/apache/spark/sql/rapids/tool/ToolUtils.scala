@@ -163,6 +163,9 @@ object ToolUtils extends Logging {
       values: Seq[String], fileDelimiter: String = QualOutputWriter.CSV_DELIMITER): String = {
     renderTextField(values, ":", fileDelimiter)
   }
+
+  var isMLOpsEnabled: Boolean = false
+
 }
 
 object JoinType {

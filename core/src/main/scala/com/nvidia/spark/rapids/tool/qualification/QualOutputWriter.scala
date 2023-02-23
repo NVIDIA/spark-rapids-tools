@@ -248,7 +248,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
 
   def mlFuncsReport(sums: Seq[QualificationSummaryInfo], order: String): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
-      s"${QualOutputWriter.LOGFILE_NAME}_mlFunctions.csv",
+      s"${QualOutputWriter.LOGFILE_NAME}_mlfunctions.csv",
       "", hadoopConf)
     try {
       val headersAndSizes = QualOutputWriter.getDetailedMlFuncsHeaderStringsAndSizes(sums)
