@@ -50,7 +50,8 @@ class DataprocPriceProvider(PriceProvider):
 
     def get_ssd_price(self, machine_type: str) -> float:
         lookup_key = 'CP-COMPUTEENGINE-LOCAL-SSD'
-        return self.catalog.get_value(lookup_key, self.region) * 0.513698630136986
+        ssd_unit_size_factor = float(self.pricing_config.get_value('catalog', 'ssd', 'unitSizeFactor'))
+        return self.catalog.get_value(lookup_key, self.region) * ssd_unit_size_factor
 
     def get_ram_price(self, machine_type: str) -> float:
         lookup_key = self._key_for_cpe_machine_ram(machine_type)

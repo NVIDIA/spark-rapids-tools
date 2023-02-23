@@ -180,7 +180,7 @@ For more details, please visit the
     ```
 
 - Example: Running Qualification tool passing list of google storage directories
-    - Note that the wrapper lists the applications with positive recommendations.
+    - Note that the wrapper lists the applications with positive savings by default.
       To list all the applications, set the argument `--filter_apps=NONE`
     - cmd
       ```
@@ -227,7 +227,7 @@ For more details, please visit the
 
 
 - Example: Running Qualification tool a passing list of google storage directories when cluster is running a n2 instance. N2 instances don't support GPU at the time of writing this tool and so the tool will recommend an equivalent n1 instance and run the qualification using that instance.
-    - Note that the wrapper lists the applications with positive recommendations.
+    - Note that the wrapper lists the applications with positive savings by default.
       To list all the applications, set the argument `--filter_apps=NONE`.
     - cmd
       ```

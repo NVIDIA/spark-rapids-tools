@@ -124,7 +124,12 @@
             "archiveName": "gcloud-catalog.tgz"
           }
         }
-      ]
+      ],
+      "components": {
+        "ssd": {
+          "unitSizeFactor": 0.513698630136986
+        }
+      }
     }
   },
   "gpuConfigs": {

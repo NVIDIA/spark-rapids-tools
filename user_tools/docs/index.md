@@ -65,13 +65,13 @@ The following table summarizes the commands supported for each cloud platform:
 |          |               |             |   emr qualification [ARGS] \    |          |
 |          |               |             |   --mode=serverless             |          |
 |          |               +-------------+---------------------------------+----------+
-|          |               | cluster     | unsupported                     |    N/A   |
+|          |               | cluster     |           unsupported           |    N/A   |
 |          +---------------+-------------+---------------------------------+----------+
-|          | profiling     | local       | unsupported                     |    N/A   |
+|          | profiling     | local       |           unsupported           |    N/A   |
 |          |               +-------------+---------------------------------+----------+
-|          |               | serverless  | unsupported                     |    N/A   |
+|          |               | serverless  |           unsupported           |    N/A   |
 |          |               +-------------+---------------------------------+----------+
-|          |               | cluster     | unsupported                     |    N/A   |
+|          |               | cluster     |           unsupported           |    N/A   |
 |          +---------------+-------------+---------------------------------+----------+
 |          | bootstrap     | local       | spark_rapids_user_tools \       |  23.02+  |
 |          |               |             |   emr bootstrap [ARGS]          |          |
@@ -84,26 +84,24 @@ The following table summarizes the commands supported for each cloud platform:
 | Dataproc | qualification | local       | spark_rapids_user_tools \       |  23.04+  |
 |          |               |             |   dataproc qualification [ARGS] |          |
 |          |               +-------------+---------------------------------+----------+
-|          |               | serverless  | unsupported                     |    N/A   |
+|          |               | serverless  |           unsupported           |    N/A   |
 |          |               +-------------+---------------------------------+----------+
 |          |               | cluster     | spark_rapids_dataproc \         | 22.10.1+ |
 |          |               |             |   qualification [ARGS]          |          |
 |          +---------------+-------------+---------------------------------+----------+
-|          | profiling     | local       | spark_rapids_user_tools \       |  23.04+  |
-|          |               |             |   dataproc bootstrap [ARGS]     |          |
+|          | profiling     | local       |           unsupported           |    N/A   |
 |          |               +-------------+---------------------------------+----------+
-|          |               | serverless  | unsupported                     |    N/A   |
+|          |               | serverless  |           unsupported           |    N/A   |
 |          |               +-------------+---------------------------------+----------+
 |          |               | cluster     | spark_rapids_dataproc \         | 22.10.1+ |
 |          |               |             |   profiling [ARGS]              |          |
 |          +---------------+-------------+---------------------------------+----------+
-|          | bootstrap     | local       | spark_rapids_user_tools \       |  23.04+  |
-|          |               |             |   dataproc bootstrap [ARGS]     |          |
+|          | bootstrap     | local       |           unsupported           |    N/A   |
 |          |               +-------------+---------------------------------+----------+
-|          |               | serverless  | unsupported                     |    N/A   |
+|          |               | serverless  |           unsupported           |    N/A   |
 |          |               +-------------+---------------------------------+----------+
 |          |               | cluster     | spark_rapids_dataproc \         | 22.10.1+ |
-|          |               |             |     bootstrap [ARGS]            |          |
+|          |               |             |   bootstrap [ARGS]              |          |
 +----------+---------------+-------------+---------------------------------+----------+
 ```
 
