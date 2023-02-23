@@ -121,11 +121,19 @@
           "//description": "Holds information about the variables that will be attached to the command runner",
           "definedVars": [
             {
-              "varLabel": "awsProfile",
+              "varLabel": "profile",
               "//confProperty": "which configuration property used to set the value of that var",
               "confProperty": "profile",
               "//varKey": "the variable key used in the CLI. Note that we need this in case that the ENV variables define above are not the same as the system env vars",
-              "//varKey_2": "add the aWS_PROFILE to all cli commands instead of adding it as an argument",
+              "//varKey_2": "add the DATABRICKS_CONFIG_FILE to all cli commands instead of adding it as an argument",
+              "varKey": "DATABRICKS_CONFIG_FILE"
+            },
+            {
+              "varLabel": "awsProfile",
+              "//confProperty": "which configuration property used to set the value of that var",
+              "confProperty": "awsProfile",
+              "//varKey": "the variable key used in the CLI. Note that we need this in case that the ENV variables define above are not the same as the system env vars",
+              "//varKey_2": "add the AWS_PROFILE to all cli commands instead of adding it as an argument",
               "varKey": "AWS_PROFILE"
             }
           ]
