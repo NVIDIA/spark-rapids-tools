@@ -491,12 +491,19 @@ class PlatformBase:
                                                           'propertiesMap')
         if properties_map_arr:
             prop_keys = []
+            # TODO: CINDY: we need to fix the below loop so that we can grab also the file that contains that property
+            #  if it exists. note we need to make sure we do not brake EMR/dataproc. so we can default to a certain
+            #  value.
             for prop_elem in properties_map_arr:
                 if prop_elem.get('confProperty') in remaining_props:
                     prop_keys.append(prop_elem.get('propKey'))
-            # TODO: we should check if the section is of pattern _PropName_,
-            #       then we extract that property and use it as  the section name
+            # TODO: CINDY: we should check if the section is of pattern _PropName_,
+            #       then we extract that property and use it as the section name
+            #       For example below we need to have the property awsProfile/profile
+            # TODO: CINDY: the method below need to take an argument which the propertyName that contains the conf_file
+            #       if any
             loaded_conf_dict = self._load_props_from_sdk_conf_file(keyList=prop_keys,
+                                                                   # TODO: CINDY:
                                                                    sectionKey=self.ctxt.get('profile'))
             if loaded_conf_dict:
                 self.ctxt.update(loaded_conf_dict)
@@ -506,6 +513,8 @@ class PlatformBase:
                     self._set_env_prop_from_env_var(prop_elem.get('propKey'))
 
     def _set_credential_properties(self) -> None:
+        # TODO: CINDY: we can have more than one credential file. then we should use "configFileProp"
+        #              to point to the correct file for each property if any. Default should be "credentialFile"
         cli_credential_file = self.ctxt.get('credentialFile')
         if cli_credential_file is None:
             return

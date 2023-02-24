@@ -28,42 +28,36 @@
       },
     "environment": {
       "//description": "Define the metadata related to the system, prerequisites, and configurations",
-      "envParams": ["profile", "awsProfile"],
+      "envParams": ["profile", "awsProfile", "deployMode"],
       "//initialConfigList": "represents the list of the configurations that need to be loaded first",
-      "initialConfigList": ["profile", "awsProfile"],
+      "initialConfigList": ["profile", "awsProfile", "cliConfigFile", "awsCliConfigFile", "awsCredentialFile"],
       "//loadedConfigProps": "list of properties read by the configParser",
       "loadedConfigProps": ["region", "output"],
       "cliConfig": {
         "envVariables": [
           {
             "envVariableKey": "DATABRICKS_CONFIG_FILE",
-            "confProperty": "profile",
+            "confProperty": "cliConfigFile",
             "defaultValue": "~/.databrickscfg"
           },
           {
+            "//comment": "the token is not being used for now",
             "envVariableKey": "DATABRICKS_HOST",
-            "confProperty": "profile"
+            "confProperty": "databricksHost"
           },
           {
-            "envVariableKey": "DATABRICKS_USERNAME",
-            "confProperty": "profile"
-          },
-          {
-            "envVariableKey": "DATABRICKS_PASSWORD",
-            "confProperty": "profile"
-          },
-          {
+            "//comment": "the token is not being used for now",
             "envVariableKey": "DATABRICKS_TOKEN",
-            "confProperty": "profile"
+            "confProperty": "databricksToken"
           },
           {
             "envVariableKey": "AWS_SHARED_CREDENTIALS_FILE",
-            "confProperty": "awsProfile",
+            "confProperty": "awsCredentialFile",
             "defaultValue": "~/.aws/credentials"
           },
           {
             "envVariableKey": "AWS_CONFIG_FILE",
-            "confProperty": "awsProfile",
+            "confProperty": "awsCliConfigFile",
             "defaultValue": "~/.aws/config"
           },
           {
@@ -80,6 +74,11 @@
             "defaultValue": "default"
           },
           {
+            "envVariableKey": "RAPIDS_USER_TOOLS_DATABRICKS_PROFILE",
+            "confProperty": "profile",
+            "defaultValue": "default"
+          },
+          {
             "envVariableKey": "AWS_DEFAULT_OUTPUT",
             "confProperty": "output",
             "defaultValue": "json"
@@ -91,24 +90,28 @@
             {
               "confProperty": "region",
               "propKey": "region",
-              "section": "_profile_"
+              "section": "_awsProfile_",
+              "configFileProp": "_awsCliConfigFile_"
             },
             {
               "confProperty": "output",
               "propKey": "output",
-              "section": "_profile_"
+              "section": "_awsProfile_",
+              "configFileProp": "_awsCliConfigFile_"
             }
           ],
           "credentialsMap": [
             {
               "confProperty": "aws_access_key_id",
-              "section": "_profile_",
-              "propKey": "aws_access_key_id"
+              "section": "_awsProfile_",
+              "propKey": "aws_access_key_id",
+              "configFileProp": "_awsCredentialFile_"
             },
             {
               "confProperty": "aws_secret_access_key",
-              "section": "_profile_",
-              "propKey": "aws_secret_access_key"
+              "section": "_awsProfile_",
+              "propKey": "aws_secret_access_key",
+              "configFileProp": "_awsCredentialFile_"
             }
           ]
         }
