@@ -246,7 +246,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
-  def mlFuncsReport(sums: Seq[QualificationSummaryInfo], order: String): Unit = {
+  def writeMlFuncsReports(sums: Seq[QualificationSummaryInfo], order: String): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_mlfunctions.csv",
       "", hadoopConf)
@@ -339,7 +339,7 @@ object QualOutputWriter {
   val CLUSTER_ID = "ClusterId"
   val JOB_ID = "JobId"
   val RUN_NAME = "RunName"
-  val ML_FUNCTIONS = "Ml Functions"
+  val ML_FUNCTIONS = "ML Functions"
 
   val APP_DUR_STR_SIZE: Int = APP_DUR_STR.size
   val SQL_DUR_STR_SIZE: Int = SQL_DUR_STR.size

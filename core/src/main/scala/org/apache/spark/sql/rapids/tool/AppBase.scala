@@ -34,6 +34,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
+import org.apache.spark.sql.rapids.tool.qualification.MLFunctions
 import org.apache.spark.util.Utils
 
 abstract class AppBase(
@@ -72,19 +73,19 @@ abstract class AppBase(
   def getOrCreateStage(info: StageInfo): StageInfoClass = {
     val stage = stageIdToInfo.getOrElseUpdate((info.stageId, info.attemptNumber()),
       new StageInfoClass(info))
-
     stage
   }
 
-  def checkMLOps(stageInfo: String): Array[String] = {
-    val mlOps = if (stageInfo.contains(MlOps.sparkml) || stageInfo.contains(MlOps.xgBoost)) {
+  def checkMLOps(appId: Int, stageInfo: StageInfoClass): Option[MLFunctions] = {
+    val stageInfoDetails = stageInfo.info.details
+    val mlOps = if (stageInfoDetails.contains(MlOps.sparkml) || stageInfoDetails.contains(MlOps.xgBoost)) {
       // Consider stageInfo to have below string as an example
       //org.apache.spark.rdd.RDD.first(RDD.scala:1463)
       //org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)
       //org.apache.spark.ml.feature.PCA.fit(PCA.scala:93)
-      val splitString = stageInfo.split("\n")
+      val splitString = stageInfoDetails.split("\n")
 
-      // filteretString = org.apache.spark.ml.feature.PCA.fit
+      // filteredString = org.apache.spark.ml.feature.PCA.fit
       val filteredString = splitString.filter(
         string => string.contains(MlOps.sparkml) || string.contains(MlOps.xgBoost)).map(
         packageName => packageName.split("\\(").head
@@ -93,7 +94,12 @@ abstract class AppBase(
     } else {
       Array.empty[String]
     }
-    mlOps
+
+    if (mlOps.nonEmpty) {
+      Some(MLFunctions(Some(appId.toString), stageInfo.info.stageId, mlOps, stageInfo.duration.getOrElse(0)))
+    } else {
+      None
+    }
   }
 
   def getAllStagesForJobsInSqlQuery(sqlID: Long): Seq[Int] = {
