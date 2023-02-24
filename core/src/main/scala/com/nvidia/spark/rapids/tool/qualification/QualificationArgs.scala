@@ -107,6 +107,10 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Whether to output the read formats and datatypes to the CSV file. This can " +
         "be very long. Default is false.",
       default = Some(false))
+  val mlFunctions: ScallopOption[Boolean] =
+    opt[Boolean](required = false,
+      descr = "Whether to parse ML functions in the eventlogs. Default is false.",
+      default = Some(false))
   val sparkProperty: ScallopOption[List[String]] =
     opt[List[String]](required = false,
       descr = "Filter applications based on certain Spark properties that were set during " +

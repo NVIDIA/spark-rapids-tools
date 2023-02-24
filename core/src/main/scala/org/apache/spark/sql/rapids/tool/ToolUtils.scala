@@ -180,4 +180,9 @@ object BuildSide {
   val BuildRight = "BuildRight"
 }
 
+object MlOps {
+  val sparkml = "spark.ml"
+  val xgBoost = "spark.XGBoost"
+}
+
 case class GpuEventLogException(message: String) extends Exception(message)
