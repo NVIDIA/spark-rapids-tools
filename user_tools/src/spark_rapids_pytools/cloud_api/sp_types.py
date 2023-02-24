@@ -16,6 +16,7 @@
 
 import configparser
 import json
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
@@ -490,23 +491,29 @@ class PlatformBase:
                                                           'confProperties',
                                                           'propertiesMap')
         if properties_map_arr:
-            prop_keys = []
             # TODO: CINDY: we need to fix the below loop so that we can grab also the file that contains that property
             #  if it exists. note we need to make sure we do not brake EMR/dataproc. so we can default to a certain
             #  value.
+            config_file_keys = defaultdict(list)
+            config_file_section = {}
             for prop_elem in properties_map_arr:
                 if prop_elem.get('confProperty') in remaining_props:
-                    prop_keys.append(prop_elem.get('propKey'))
+                    config_file = prop_elem.get('configFileProp')
+                    if config_file is None:
+                        config_file = '_credentialFile_'
+                    config_file_keys[config_file].append(prop_elem.get('propKey'))
+                    config_file_section[config_file] = prop_elem.get('section')
             # TODO: CINDY: we should check if the section is of pattern _PropName_,
             #       then we extract that property and use it as the section name
             #       For example below we need to have the property awsProfile/profile
             # TODO: CINDY: the method below need to take an argument which the propertyName that contains the conf_file
             #       if any
-            loaded_conf_dict = self._load_props_from_sdk_conf_file(keyList=prop_keys,
-                                                                   # TODO: CINDY:
-                                                                   sectionKey=self.ctxt.get('profile'))
-            if loaded_conf_dict:
-                self.ctxt.update(loaded_conf_dict)
+            for config_file in config_file_keys:
+                loaded_conf_dict = self._load_props_from_sdk_conf_file(keyList=config_file_keys[config_file],
+                                                                       configFile=config_file.strip('_'),
+                                                                       sectionKey=self.ctxt.get(config_file_section[config_file].strip('_')))
+                if loaded_conf_dict:
+                    self.ctxt.update(loaded_conf_dict)
             for prop_elem in properties_map_arr:
                 if loaded_conf_dict and prop_elem.get('propKey') not in loaded_conf_dict:
                     # set it using environment variable if possible
@@ -515,22 +522,25 @@ class PlatformBase:
     def _set_credential_properties(self) -> None:
         # TODO: CINDY: we can have more than one credential file. then we should use "configFileProp"
         #              to point to the correct file for each property if any. Default should be "credentialFile"
-        cli_credential_file = self.ctxt.get('credentialFile')
-        if cli_credential_file is None:
-            return
         properties_map_arr = self._get_config_environment('cliConfig',
                                                           'confProperties',
                                                           'credentialsMap')
         if not properties_map_arr:
             return
-        prop_keys = []
+        credential_file_keys = defaultdict(list)
+        credential_file_section = {}
         for prop_elem in properties_map_arr:
-            prop_keys.append(prop_elem.get('propKey'))
+            credential_file = prop_elem.get('configFileProp')
+            if not credential_file:
+                credential_file = '_credentialFile_'
+            credential_file_keys[credential_file].append(prop_elem.get('propKey'))
+            credential_file_section[credential_file] = prop_elem.get('section')
         # TODO: we should check if the section is of pattern _PropName_,
         #       then we extract that property and use it as  the section name
-        loaded_conf_dict = self.load_from_config_parser(cli_credential_file,
-                                                        keyList=prop_keys,
-                                                        sectionKey=self.ctxt.get('profile'))
+        for credential_file in credential_file_keys:
+            loaded_conf_dict = self.load_from_config_parser(credential_file.strip('_'),
+                                                            keyList=credential_file_keys[credential_file],
+                                                            sectionKey=self.ctxt.get(credential_file_section[credential_file].strip('_')))
         if loaded_conf_dict:
             self.ctxt.update(loaded_conf_dict)
 
@@ -551,7 +561,10 @@ class PlatformBase:
         self._set_credential_properties()
 
     def _load_props_from_sdk_conf_file(self, **prop_args) -> dict:
-        cli_conf_file = self.ctxt.get('cliConfigFile')
+        if prop_args.get('configFile'):
+            cli_conf_file = self.ctxt.get(prop_args.get('configFile'))
+        else:
+            cli_conf_file = self.ctxt.get('cliConfigFile')
         if cli_conf_file is None:
             return None
         return self.load_from_config_parser(cli_conf_file, **prop_args)
