@@ -123,7 +123,6 @@ class RapidsTool(object):
     def _init_ctxt(self):
         if self.config_path is None:
             self.config_path = Utils.resource_path(f'{self.name}-conf.yaml')
-
         self.ctxt = ToolContext(platform_cls=get_platform(self.platform_type),
                                 platform_opts=self.wrapper_options.get('platformOpts'),
                                 prop_arg=self.config_path,

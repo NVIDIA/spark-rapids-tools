@@ -15,7 +15,6 @@
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
 import dataclasses
-import json
 from dataclasses import dataclass
 from typing import Any, List
 
@@ -356,7 +355,7 @@ class Qualification(RapidsJarTool):
             'sparkConfArgs': spark_conf_args,
             'platformArgs': platform_args
         }
-        job_properties = RapidsJobPropContainer(prop_arg=json.dumps(job_properties_json),
+        job_properties = RapidsJobPropContainer(prop_arg=job_properties_json,
                                                 file_load=False)
         job_obj = self.ctxt.platform.create_submission_job(job_prop=job_properties, ctxt=self.ctxt)
         job_obj.run_job()
@@ -572,28 +571,6 @@ class QualificationAsLocal(Qualification):
         self.logger.info('Skipping preparing remote dependency folder')
 
     def _process_job_submission_args(self):
-        def validate_env_runs(submit_args: dict) -> dict:
-            aws_access_id = self.ctxt.platform.cli.get_env_var('aws_access_key_id')
-            aws_access_key = self.ctxt.platform.cli.get_env_var('aws_secret_access_key')
-            jvm_heap_size = submit_args.get('jvmMaxHeapSize')
-            xmx_key = f'Xmx{jvm_heap_size}g'
-            ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
-            dependencies = ctxt_rapids_args.get('javaDependencies')
-            res = {
-                'jvmArgs': {
-                    # TODO setting the AWS access keys from jvm arguments did not work
-                    # 'Dspark.hadoop.fs.s3a.secret.key': aws_access_key,
-                    # 'Dspark.hadoop.fs.s3a.access.key': aws_access_id
-                    xmx_key: ''
-                },
-                'envArgs': {
-                    'AWS_ACCESS_KEY_ID': aws_access_id,
-                    'AWS_SECRET_ACCESS_KEY': aws_access_key
-                },
-                'dependencies': dependencies
-            }
-            return res
-
         job_args = {}
         submission_args = self.wrapper_options.get('jobSubmissionProps')
         # get the root remote folder and make sure it exists
@@ -621,7 +598,10 @@ class QualificationAsLocal(Qualification):
         job_args['outputFolder'] = self.ctxt.get_output_folder()
         platform_args = submission_args.get('platformArgs')
         if platform_args is not None:
-            processed_platform_args = validate_env_runs(platform_args)
+            processed_platform_args = self.ctxt.platform.cli.build_local_job_arguments(platform_args)
+            ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
+            dependencies = ctxt_rapids_args.get('javaDependencies')
+            processed_platform_args.update({'dependencies': dependencies})
             job_args['platformArgs'] = processed_platform_args
         self.ctxt.update_job_args(job_args)
 
@@ -653,7 +633,7 @@ class QualificationAsLocal(Qualification):
             'sparkConfArgs': spark_conf_args,
             'platformArgs': platform_args
         }
-        job_properties = RapidsJobPropContainer(prop_arg=json.dumps(job_properties_json),
+        job_properties = RapidsJobPropContainer(prop_arg=job_properties_json,
                                                 file_load=False)
         job_obj = self.ctxt.platform.create_local_submission_job(job_prop=job_properties,
                                                                  ctxt=self.ctxt)

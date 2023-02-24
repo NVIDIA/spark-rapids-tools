@@ -84,6 +84,29 @@
       "cliPiggyBackEnvVars": {
         "//description": "Holds information about the variables that will be attached to the command runner",
         "definedVars": []
+      },
+      "cliPiggyBackArgs": {
+        "//description": "Holds information about list of arguments that's appended to some SDK commands",
+        "definedArgs": [
+          {
+            "argLabel": "dataprocOutFormat",
+            "//sdkCommand_description": "The sdk command that's related to that argument",
+            "sdkCommand": "gcloud",
+            "argKey": "format",
+            "argValue": "json"
+          }
+        ]
+      },
+      "rapidsJobs": {
+        "LOCAL": {
+          "definedVars": [
+            {
+              "varLabel": "googleAppCredentials",
+              "confProperty": "credentialFile",
+              "varKey": "GOOGLE_APPLICATION_CREDENTIALS"
+            }
+          ]
+        }
       }
     }
   },
@@ -101,12 +124,53 @@
             "archiveName": "gcloud-catalog.tgz"
           }
         }
-      ]
+      ],
+      "components": {
+        "ssd": {
+          "unitSizeFactor": 0.513698630136986
+        }
+      }
     }
   },
   "gpuConfigs": {
     "user-tools": {
       "supportedGpuInstances": {
+        "n1-standard": {
+          "//description": "N1 standard machine types have 3.75 GB of system memory per vCPU",
+          "software": {},
+          "SysInfo": {},
+          "GpuHWInfo": {},
+          "seriesInfo": {
+            "//description": "describe the sys info based on",
+            "name": "n1-standard-(\\d+)",
+            "vCPUs": [1, 2, 4, 8, 16, 32, 64, 96],
+            "memPerCPU": 3840
+          }
+        },
+        "n1-highmem": {
+          "//description": "N1 high-memory machine types have 6.5 GB of system memory per vCPU.",
+          "software": {},
+          "SysInfo": {},
+          "GpuHWInfo": {},
+          "seriesInfo": {
+            "//description": "describe the sys info based on",
+            "name": "n1-highmem-(\\d+)",
+            "vCPUs": [2, 4, 8, 16, 32, 64, 96],
+            "memPerCPU": 6656
+          }
+        },
+        "n1-highcpu": {
+          "//description": "N1 high-cpu machine types have 0.9 GB of system memory per vCPU",
+          "software": {},
+          "SysInfo": {},
+          "GpuHWInfo": {},
+          "seriesInfo": {
+            "//description": "describe the sys info based on",
+            "name": "n1-highcpu-(\\d+)",
+            "vCPUs": [2, 4, 8, 16, 32, 64, 96],
+            "memPerCPU": 921.6
+          }
+        }
       }
     }
   }

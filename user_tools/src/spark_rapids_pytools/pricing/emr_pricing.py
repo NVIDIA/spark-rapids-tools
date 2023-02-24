@@ -14,15 +14,12 @@
 
 """providing absolute costs of resources in AWS"""
 
-import datetime
-import os
 from dataclasses import dataclass, field
 
 import requests
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.price_provider import PriceProvider
 
 
@@ -95,15 +92,7 @@ class EMREc2PriceProvider(PriceProvider):
     ec2_catalog_path: str = field(default=None, init=False)
     ec2_prices_url: str = field(default=None, init=False)
 
-    @classmethod
-    def get_cache_file_path(cls, comp,  region) -> str:
-        file_name = f'emr_ec2_catalog_{comp}_{region}.json'
-        # get folder from cache folder
-        folder_path = Utils.get_rapids_tools_env('CACHE_FOLDER')
-        return FSUtil.build_path(folder_path, file_name)
-
-    def __regenerate_catalog_resource(self):
-        # TODO: load constant values from configurations files
+    def _generate_cache_file(self):
         aws_url_base = 'https://pricing.us-east-1.amazonaws.com'
         emr_region_ind_url = f'{aws_url_base}/offers/v1.0/aws/ElasticMapReduce/current/region_index.json'
         emr_region_resp = requests.get(emr_region_ind_url, timeout=60)
@@ -111,34 +100,26 @@ class EMREc2PriceProvider(PriceProvider):
         ec2_region_ind_url = f'{aws_url_base}/offers/v1.0/aws/AmazonEC2/current/region_index.json'
         ec2_region_resp = requests.get(ec2_region_ind_url, timeout=60)
         ec2_region_relative_url = ec2_region_resp.json()['regions'][self.region]['currentVersionUrl']
-
         self.resource_url = f'{aws_url_base}{emr_region_relative_url}'
         self.ec2_prices_url = f'{aws_url_base}{ec2_region_relative_url}'
-        self._init_cache_file()
-
-    def _caches_expired(self) -> bool:
-        for c_file in [self.cache_file, self.ec2_catalog_path]:
-            if not os.path.exists(c_file):
-                return True
-            modified_time = os.path.getmtime(c_file)
-            diff_time = int(datetime.datetime.now().timestamp() - modified_time)
-            if diff_time > self.cache_expiration_secs:
-                return True
-        return False
-
-    def _init_cache_file(self):
-        super()._init_cache_file()
-        file_updated = FSUtil.cache_from_url(self.ec2_prices_url, self.ec2_catalog_path)
-        self.logger.info('The catalog file for EC2 %s is %s',
+        super()._generate_cache_file()
+        ec2_cache_updated = FSUtil.cache_from_url(self.ec2_prices_url, self.ec2_catalog_path)
+        self.logger.info('The EC2 catalog file %s is %s',
                          self.cache_file,
-                         'updated' if file_updated else 'is not modified, using the cached content')
+                         'updated' if ec2_cache_updated else 'is not modified, using the cached content')
 
-    def _init_catalog(self):
-        self.cache_file = self.get_cache_file_path('emr', self.region)
-        self.ec2_catalog_path = self.get_cache_file_path('ec2', self.region)
-        if self._caches_expired():
-            self.__regenerate_catalog_resource()
-        self._create_catalog()
+    def get_cached_files(self) -> list:
+        cache_list = super().get_cached_files()
+        cache_list.append(self.ec2_catalog_path)
+        return cache_list
+
+    def _process_resource_configs(self):
+        def get_cache_file_path(comp,  region) -> str:
+            file_name = f'emr_ec2_catalog_{comp}_{region}.json'
+            # get file from cache folder
+            return FSUtil.build_path(self.cache_directory, file_name)
+        self.cache_file = get_cache_file_path('emr', self.region)
+        self.ec2_catalog_path = get_cache_file_path('ec2', self.region)
 
     def _create_catalog(self):
         self.catalog = EmrEc2CatalogContainer(self.cache_file, ec2_prices_path=self.ec2_catalog_path)
