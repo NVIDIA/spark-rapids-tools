@@ -504,12 +504,11 @@ class QualificationAppInfo(
   }
 
   private def getMlFuntions: Option[Seq[MLFunctions]] = {
-    val mlFunctions = stageIdToInfo.map { case ((appId, _), stageInfo) =>
+    val mlFunctions = stageIdToInfo.flatMap { case ((appId, _), stageInfo) =>
       checkMLOps(appId, stageInfo)
     }
     if (mlFunctions.nonEmpty) {
-      Some(mlFunctions.toSeq.filter(mlFun => mlFun.size != 0).map(
-        mlFun => mlFun.get).sortBy(mlops => mlops.stageId))
+      Some(mlFunctions.toSeq.sortBy(mlops => mlops.stageId))
     } else {
       None
     }
