@@ -59,7 +59,7 @@ object QualificationMain extends Logging {
     val uiEnabled = appArgs.htmlReport.getOrElse(false)
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
     val platform = appArgs.platform.getOrElse("onprem")
-    ToolUtils.isMLOpsEnabled = appArgs.mlFunctions.getOrElse(false)
+    val mlOpsEnabled = appArgs.mlFunctions.getOrElse(false)
 
     val hadoopConf = new Configuration()
 
@@ -93,7 +93,7 @@ object QualificationMain extends Logging {
 
     val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf, timeout,
       nThreads, order, pluginTypeChecker, reportReadSchema, printStdout, uiEnabled,
-      enablePB, reportSqlLevel, maxSQLDescLength)
+      enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled)
     val res = qual.qualifyApps(filteredLogs)
     (0, res)
   }

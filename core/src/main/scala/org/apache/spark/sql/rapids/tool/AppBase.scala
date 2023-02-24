@@ -69,19 +69,10 @@ abstract class AppBase(
 
   var gpuMode = false
 
-  val isMLOPsEnabled = ToolUtils.isMLOpsEnabled
-
   def getOrCreateStage(info: StageInfo): StageInfoClass = {
     val stage = stageIdToInfo.getOrElseUpdate((info.stageId, info.attemptNumber()),
       new StageInfoClass(info))
 
-    // check if there are any SparkML/XGBoost functions or expressions
-    if (isMLOPsEnabled) {
-      val mlOps = checkMLOps(stage.info.details)
-      if (mlOps.nonEmpty) {
-        stage.mlOps = Some(mlOps)
-      }
-    }
     stage
   }
 

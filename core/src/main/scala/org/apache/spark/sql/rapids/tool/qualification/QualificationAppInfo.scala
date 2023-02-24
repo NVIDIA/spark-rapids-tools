@@ -35,7 +35,8 @@ class QualificationAppInfo(
     hadoopConf: Option[Configuration] = None,
     pluginTypeChecker: PluginTypeChecker,
     reportSqlLevel: Boolean,
-    perSqlOnly: Boolean = false)
+    perSqlOnly: Boolean = false,
+    mlOpsEnabled: Boolean = false)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
   var appId: String = ""
@@ -452,12 +453,10 @@ class QualificationAppInfo(
         _.unsupportedExprs)).flatten.filter(_.nonEmpty).toSet.mkString(";")
         .trim.replaceAll("\n", "").replace(",", ":")
 
-      val mlOps = stageIdToInfo.filter(ml => ml._2.mlOps.nonEmpty)
-      val mlFunctions = if (mlOps.nonEmpty) {
-        Some(mlOps.map(
-          mlOp => MLFunctions(
-            Some(appId), mlOp._1._1, mlOp._2.mlOps.get, mlOp._2.duration.getOrElse(0))
-        ).toSeq.sortBy(mlOp => mlOp.stageId))
+      // check if there are any SparkML/XGBoost functions or expressions if the mlOpsEnabled
+      // config is true
+      val mlFunctions = if (mlOpsEnabled) {
+        getMlFuntions
       } else {
         None
       }
@@ -502,6 +501,24 @@ class QualificationAppInfo(
     QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
       sqlDataFrameDuration, sqlDataFrameDuration, taskSpeedupFactor, appName,
       appId, hasFailures)
+  }
+
+  private def getMlFuntions: Option[Seq[MLFunctions]] = {
+    stageIdToInfo.map { case (_, stageInfo) =>
+      val mlOps = checkMLOps(stageInfo.info.details)
+      if (mlOps.nonEmpty) {
+        stageInfo.mlOps = Some(mlOps)
+      }
+    }
+    val stagesWithMlOps = stageIdToInfo.filter(ml => ml._2.mlOps.nonEmpty)
+    if (stagesWithMlOps.nonEmpty) {
+      Some(stagesWithMlOps.map(
+        mlOp => MLFunctions(
+          Some(appId), mlOp._1._1, mlOp._2.mlOps.get, mlOp._2.duration.getOrElse(0))
+      ).toSeq.sortBy(mlOp => mlOp.stageId))
+    } else {
+      None
+    }
   }
 
   private[qualification] def processSQLPlan(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
@@ -693,10 +710,11 @@ object QualificationAppInfo extends Logging {
       path: EventLogInfo,
       hadoopConf: Configuration,
       pluginTypeChecker: PluginTypeChecker,
-      reportSqlLevel: Boolean): Option[QualificationAppInfo] = {
+      reportSqlLevel: Boolean,
+      mlOpsEnabled: Boolean): Option[QualificationAppInfo] = {
     val app = try {
         val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
-          reportSqlLevel, false)
+          reportSqlLevel, false, mlOpsEnabled)
         logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
         Some(app)
       } catch {
