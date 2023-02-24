@@ -141,7 +141,7 @@
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-mllib_${scala.binary.version}</artifactId>
             <version>${spark.version}</version>
-            <scope>${scope}</scope>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
