@@ -531,11 +531,14 @@ class PlatformBase:
         # TODO: we should check if the section is of pattern _PropName_,
         #       then we extract that property and use it as the section name
         for credential_file in credential_file_keys:
-            loaded_conf_dict = self.load_from_config_parser(credential_file.strip('_'),
+            credential_file_value = self.ctxt.get(credential_file.strip('_'))
+            if not credential_file_value:
+                continue
+            loaded_conf_dict = self.load_from_config_parser(credential_file_value,
                                                             keyList=credential_file_keys[credential_file],
                                                             sectionKey=self.ctxt.get(credential_file_section[credential_file].strip('_')))
-        if loaded_conf_dict:
-            self.ctxt.update(loaded_conf_dict)
+            if loaded_conf_dict:
+                self.ctxt.update(loaded_conf_dict)
 
     def _parse_arguments(self, ctxt_args: dict):
         # Get the possible parameters for that platform.
