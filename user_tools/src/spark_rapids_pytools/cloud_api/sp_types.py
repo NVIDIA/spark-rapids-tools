@@ -499,14 +499,16 @@ class PlatformBase:
                     if config_file is None:
                         config_file = '_cliConfigFile_'
                     config_file_keys[config_file].append(prop_elem.get('propKey'))
-                    config_file_section[config_file] = prop_elem.get('section')
+                    if config_file not in config_file_section:
+                        config_file_section[config_file] = prop_elem.get('section').strip('_')
             # TODO: we should check if the section is of pattern _PropName_,
             #       then we extract that property and use it as the section name
             #       For example below we need to have the property awsProfile/profile
             for config_file in config_file_keys:
-                loaded_conf_dict = self._load_props_from_sdk_conf_file(keyList=config_file_keys[config_file],
-                                                                       configFile=config_file.strip('_'),
-                                                                       sectionKey=self.ctxt.get(config_file_section[config_file].strip('_')))
+                loaded_conf_dict = \
+                    self._load_props_from_sdk_conf_file(keyList=config_file_keys[config_file],
+                                                        configFile=config_file.strip('_'),
+                                                        sectionKey=self.ctxt.get(config_file_section[config_file]))
                 if loaded_conf_dict:
                     self.ctxt.update(loaded_conf_dict)
             for prop_elem in properties_map_arr:
@@ -527,16 +529,18 @@ class PlatformBase:
             if not credential_file:
                 credential_file = '_credentialFile_'
             credential_file_keys[credential_file].append(prop_elem.get('propKey'))
-            credential_file_section[credential_file] = prop_elem.get('section')
+            if credential_file not in credential_file_section:
+                credential_file_section[credential_file] = prop_elem.get('section').strip('_')
         # TODO: we should check if the section is of pattern _PropName_,
         #       then we extract that property and use it as the section name
         for credential_file in credential_file_keys:
             credential_file_value = self.ctxt.get(credential_file.strip('_'))
             if not credential_file_value:
                 continue
-            loaded_conf_dict = self.load_from_config_parser(credential_file_value,
-                                                            keyList=credential_file_keys[credential_file],
-                                                            sectionKey=self.ctxt.get(credential_file_section[credential_file].strip('_')))
+            loaded_conf_dict = \
+                self.load_from_config_parser(credential_file_value,
+                                             keyList=credential_file_keys[credential_file],
+                                             sectionKey=self.ctxt.get(credential_file_section[credential_file]))
             if loaded_conf_dict:
                 self.ctxt.update(loaded_conf_dict)
 

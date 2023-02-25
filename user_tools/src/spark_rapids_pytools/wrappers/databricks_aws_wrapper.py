@@ -71,7 +71,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
         :param credentials_file: The local path of JSON file that contains the application credentials.
                If missing, the wrapper looks for "DATABRICKS_CONFIG_FILE" environment variable
                to provide the location of a credential file. The default credentials file exists as
-               "~/.databrickscfg" on Unix, Linux, or macOS, or "%USERPROFILE%\.databrickscfg" on Windows.
+               "~/.databrickscfg" on Unix, Linux, or macOS, or "%USERPROFILE%\\.databrickscfg" on Windows.
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
                 is one of the following (NONE, SPEEDUPS, savings).
                 Note that this filter does not affect the CSV report.

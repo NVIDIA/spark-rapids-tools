@@ -21,6 +21,7 @@ from spark_rapids_pytools.cloud_api.emr import EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, SysInfo, GpuHWInfo
 
+
 @dataclass
 class DBAWSPlatform(EMRPlatform):
     """
@@ -33,16 +34,16 @@ class DBAWSPlatform(EMRPlatform):
     def __post_init__(self):
         self.type_id = CloudPlatform.DATABRICKS_AWS
         super(EMRPlatform, self).__post_init__()
-    
+
     def _construct_cli_object(self) -> CMDDriverBase:
         return DBAWSCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
-    
+
     def _install_storage_driver(self):
         self.storage = S3StorageDriver(super().cli)
-    
+
     def _construct_cluster_from_props(self, cluster: str, props: str = None):
         return DatabricksCluster(self).set_connection(cluster_id=cluster, props=props)
-    
+
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
 
@@ -96,8 +97,7 @@ class DBAWSCMDDriver(CMDDriverBase):
                                '--cluster-name',
                                db_cluster_name]
             return self.run_sys_cmd(get_cluster_cmd)
-        error_msg = f'Could not find Databricks cluster by Id or by name'
-        raise RuntimeError(error_msg)
+        raise RuntimeError('Could not find Databricks cluster by Id or by name')
 
 
 @dataclass
