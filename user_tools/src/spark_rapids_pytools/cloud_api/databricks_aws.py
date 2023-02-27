@@ -121,3 +121,6 @@ class DatabricksCluster(ClusterBase):
 
     def get_eventlogs_from_config(self):
         pass
+
+    def _build_migrated_cluster(self, orig_cluster):
+        pass
