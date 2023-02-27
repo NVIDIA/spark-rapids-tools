@@ -495,9 +495,8 @@ class PlatformBase:
             config_file_section = {}
             for prop_elem in properties_map_arr:
                 if prop_elem.get('confProperty') in remaining_props:
-                    config_file = prop_elem.get('configFileProp')
-                    if config_file is None:
-                        config_file = '_cliConfigFile_'
+                    # The property uses the default value which is '_cliConfigFile_'
+                    config_file = prop_elem.get('configFileProp', '_cliConfigFile_')
                     config_file_keys[config_file].append(prop_elem.get('propKey'))
                     if config_file not in config_file_section:
                         config_file_section[config_file] = prop_elem.get('section').strip('_')
@@ -525,9 +524,7 @@ class PlatformBase:
         credential_file_keys = defaultdict(list)
         credential_file_section = {}
         for prop_elem in properties_map_arr:
-            credential_file = prop_elem.get('configFileProp')
-            if not credential_file:
-                credential_file = '_credentialFile_'
+            credential_file = prop_elem.get('configFileProp', '_credentialFile_')
             credential_file_keys[credential_file].append(prop_elem.get('propKey'))
             if credential_file not in credential_file_section:
                 credential_file_section[credential_file] = prop_elem.get('section').strip('_')
