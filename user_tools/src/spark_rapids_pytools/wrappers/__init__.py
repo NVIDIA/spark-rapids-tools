@@ -12,9 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the spark_rapids_pytools package."""
-
-from spark_rapids_pytools.build import get_version
-
-VERSION = '23.02.0'
-__version__ = get_version(VERSION)
+"""init file of the wrappers package."""
