@@ -14,15 +14,16 @@
 
 """Abstract class of providing absolute costs of resources in CSP"""
 
+import datetime
+import math
+import os
 from dataclasses import dataclass, field
 from logging import Logger
 
-import math
-
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
-from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer
+from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 
 
 @dataclass
@@ -31,24 +32,54 @@ class PriceProvider:
     An abstract class that represents interface to retrieve costs of hardware configurations.
     """
     region: str
+    pricing_config: JSONPropertiesContainer
     cache_file: str = field(default=None, init=False)
     resource_url: str = field(default=None, init=False)
     name: str = field(default=None, init=False)
-    cache_expiration_secs: int = field(default=604800, init=False)  # download the region file once a week
+    cache_expiration_secs: int = field(default=604800, init=False)  # download the file once a week
     meta: dict = field(default_factory=dict)
     catalog: AbstractPropertiesContainer = field(default=None, init=False)
     comments: list = field(default_factory=lambda: [], init=False)
+    cache_directory: str = field(default=None, init=False)
     logger: Logger = field(default=None, init=False)
 
     def _init_cache_file(self):
-        file_updated = FSUtil.cache_from_url(self.resource_url, self.cache_file)
+        if self._caches_expired(self.get_cached_files()):
+            self._generate_cache_file()
+        else:
+            self.logger.info('The catalog files are loaded from the cache: %s',
+                             '; '.join(self.get_cached_files()))
+
+    def _generate_cache_file(self):
+        files_updated = FSUtil.cache_from_url(self.resource_url, self.cache_file)
         self.logger.info('The catalog file %s is %s',
                          self.cache_file,
-                         'updated' if file_updated else 'is not modified, using the cached content')
+                         'updated' if files_updated else 'is not modified, using the cached content')
 
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.price.{self.name}')
+        self.cache_directory = Utils.get_rapids_tools_env('CACHE_FOLDER')
+        self._process_configs()
         self._init_catalog()
+
+    def get_cached_files(self) -> list:
+        return [self.cache_file]
+
+    def _caches_expired(self, cache_files: list) -> bool:
+        for c_file in cache_files:
+            if not os.path.exists(c_file):
+                return True
+            modified_time = os.path.getmtime(c_file)
+            diff_time = int(datetime.datetime.now().timestamp() - modified_time)
+            if diff_time > self.cache_expiration_secs:
+                return True
+        return False
+
+    def _process_resource_configs(self):
+        pass
+
+    def _process_configs(self):
+        self._process_resource_configs()
 
     def _create_catalog(self):
         pass
@@ -57,17 +88,24 @@ class PriceProvider:
         self._init_cache_file()
         self._create_catalog()
 
-    def get_cpu_price(self) -> float:
-        pass
+    def get_cpu_price(self, machine_type: str) -> float:
+        del machine_type  # Unused machine_type
+        return 0.0
 
-    def get_ssd_price(self) -> float:
-        pass
+    def get_container_cost(self) -> float:
+        return 0.0
 
-    def get_ram_price(self) -> float:
-        pass
+    def get_ssd_price(self, machine_type: str) -> float:
+        del machine_type  # Unused machine_type
+        return 0.0
 
-    def get_gpu_price(self) -> float:
-        pass
+    def get_ram_price(self, machine_type: str) -> float:
+        del machine_type  # Unused machine_type
+        return 0.0
+
+    def get_gpu_price(self, gpu_device: str) -> float:
+        del gpu_device  # Unused gpu_device
+        return 0.0
 
     def setup(self, **kwargs) -> None:
         for key, value in kwargs.items():

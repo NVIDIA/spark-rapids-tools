@@ -35,7 +35,8 @@ class QualificationAppInfo(
     hadoopConf: Option[Configuration] = None,
     pluginTypeChecker: PluginTypeChecker,
     reportSqlLevel: Boolean,
-    perSqlOnly: Boolean = false)
+    perSqlOnly: Boolean = false,
+    mlOpsEnabled: Boolean = false)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
   var appId: String = ""
@@ -452,6 +453,14 @@ class QualificationAppInfo(
         _.unsupportedExprs)).flatten.filter(_.nonEmpty).toSet.mkString(";")
         .trim.replaceAll("\n", "").replace(",", ":")
 
+      // check if there are any SparkML/XGBoost functions or expressions if the mlOpsEnabled
+      // config is true
+      val mlFunctions = if (mlOpsEnabled) {
+        getMlFuntions
+      } else {
+        None
+      }
+
       // get the ratio based on the Task durations that we will use for wall clock durations
       val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
         supportedSQLTaskDuration.toDouble / sqlDataframeTaskDuration.toDouble
@@ -470,7 +479,7 @@ class QualificationAppInfo(
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
         taskSpeedupFactor, info.sparkUser, info.startTime, origPlanInfos,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
-        unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap)
+        unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions)
     }
   }
 
@@ -492,6 +501,17 @@ class QualificationAppInfo(
     QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
       sqlDataFrameDuration, sqlDataFrameDuration, taskSpeedupFactor, appName,
       appId, hasFailures)
+  }
+
+  private def getMlFuntions: Option[Seq[MLFunctions]] = {
+    val mlFunctions = stageIdToInfo.flatMap { case ((appId, _), stageInfo) =>
+      checkMLOps(appId, stageInfo)
+    }
+    if (mlFunctions.nonEmpty) {
+      Some(mlFunctions.toSeq.sortBy(mlops => mlops.stageId))
+    } else {
+      None
+    }
   }
 
   private[qualification] def processSQLPlan(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
@@ -547,6 +567,13 @@ case class SQLStageSummary(
     execCPUTime: Long,
     execRunTime: Long)
 
+case class MLFunctions(
+    appID: Option[String],
+    stageId: Int,
+    mlOps: Array[String],
+    duration: Long
+)
+
 class StageTaskQualificationSummary(
     val stageId: Int,
     val stageAttemptId: Int,
@@ -600,7 +627,8 @@ case class QualificationSummaryInfo(
     unSupportedExecs: String,
     unSupportedExprs: String,
     clusterTags: String,
-    allClusterTagsMap: Map[String, String])
+    allClusterTagsMap: Map[String, String],
+    mlFunctions: Option[Seq[MLFunctions]])
 
 case class StageQualSummaryInfo(
     stageId: Int,
@@ -675,10 +703,11 @@ object QualificationAppInfo extends Logging {
       path: EventLogInfo,
       hadoopConf: Configuration,
       pluginTypeChecker: PluginTypeChecker,
-      reportSqlLevel: Boolean): Option[QualificationAppInfo] = {
+      reportSqlLevel: Boolean,
+      mlOpsEnabled: Boolean): Option[QualificationAppInfo] = {
     val app = try {
         val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
-          reportSqlLevel, false)
+          reportSqlLevel, false, mlOpsEnabled)
         logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
         Some(app)
       } catch {
