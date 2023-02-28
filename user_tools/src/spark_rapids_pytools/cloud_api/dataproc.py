@@ -149,7 +149,7 @@ class DataprocCMDDriver(CMDDriverBase):
             for prop_entry in required_props:
                 prop_value = self.env_vars.get(prop_entry)
                 if prop_value is None:
-                    incorrect_envs.append(f'Property {prop_value} is not set.')
+                    incorrect_envs.append(f'Property {prop_entry} is not set.')
         return incorrect_envs
 
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:

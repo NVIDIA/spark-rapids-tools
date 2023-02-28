@@ -16,6 +16,7 @@
 
 import configparser
 import json
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
@@ -112,6 +113,7 @@ class ClusterState(EnumeratedType):
 
 class CloudPlatform(EnumeratedType):
     """symbolic names (members) bound to supported cloud platforms."""
+    DATABRICKS_AWS = 'databricks_aws'
     DATAPROC = 'dataproc'
     EMR = 'emr'
     LOCAL = 'local'
@@ -591,40 +593,58 @@ class PlatformBase:
                                                           'confProperties',
                                                           'propertiesMap')
         if properties_map_arr:
-            prop_keys = []
+            # We support multiple CLI configurations, the following two dictionaries
+            # map config files to the corresponding property keys to be set, and section names respectively
+            config_file_keys = defaultdict(list)
+            config_file_section = {}
             for prop_elem in properties_map_arr:
                 if prop_elem.get('confProperty') in remaining_props:
-                    prop_keys.append(prop_elem.get('propKey'))
-            # TODO: we should check if the section is of pattern _PropName_,
-            #       then we extract that property and use it as  the section name
-            loaded_conf_dict = self._load_props_from_sdk_conf_file(keyList=prop_keys,
-                                                                   sectionKey=self.ctxt.get('profile'))
-            if loaded_conf_dict:
-                self.ctxt.update(loaded_conf_dict)
+                    # The property uses the default value which is '_cliConfigFile_'
+                    config_file = prop_elem.get('configFileProp', '_cliConfigFile_')
+                    config_file_keys[config_file].append(prop_elem.get('propKey'))
+                    if config_file not in config_file_section:
+                        config_file_section[config_file] = prop_elem.get('section').strip('_')
+            # The section names are loaded from dictionary 'config_file_section'
+            # Example section names are awsProfile/profile
+            for config_file in config_file_keys:
+                loaded_conf_dict = \
+                    self._load_props_from_sdk_conf_file(keyList=config_file_keys[config_file],
+                                                        configFile=config_file.strip('_'),
+                                                        sectionKey=self.ctxt.get(config_file_section[config_file]))
+                if loaded_conf_dict:
+                    self.ctxt.update(loaded_conf_dict)
             for prop_elem in properties_map_arr:
-                if prop_elem.get('propKey') not in loaded_conf_dict:
+                if loaded_conf_dict and prop_elem.get('propKey') not in loaded_conf_dict:
                     # set it using environment variable if possible
                     self._set_env_prop_from_env_var(prop_elem.get('propKey'))
 
     def _set_credential_properties(self) -> None:
-        cli_credential_file = self.ctxt.get('credentialFile')
-        if cli_credential_file is None:
-            return
         properties_map_arr = self._get_config_environment('cliConfig',
                                                           'confProperties',
                                                           'credentialsMap')
         if not properties_map_arr:
             return
-        prop_keys = []
+        # We support multiple CLI configurations, the following two dictionaries
+        # map config files to the corresponding property keys to be set, and section names respectively
+        credential_file_keys = defaultdict(list)
+        credential_file_section = {}
         for prop_elem in properties_map_arr:
-            prop_keys.append(prop_elem.get('propKey'))
-        # TODO: we should check if the section is of pattern _PropName_,
-        #       then we extract that property and use it as  the section name
-        loaded_conf_dict = self.load_from_config_parser(cli_credential_file,
-                                                        keyList=prop_keys,
-                                                        sectionKey=self.ctxt.get('profile'))
-        if loaded_conf_dict:
-            self.ctxt.update(loaded_conf_dict)
+            credential_file = prop_elem.get('configFileProp', '_credentialFile_')
+            credential_file_keys[credential_file].append(prop_elem.get('propKey'))
+            if credential_file not in credential_file_section:
+                credential_file_section[credential_file] = prop_elem.get('section').strip('_')
+        # The section names are loaded from dictionary 'config_file_section'
+        # Example section names are awsProfile/profile
+        for credential_file in credential_file_keys:
+            credential_file_value = self.ctxt.get(credential_file.strip('_'))
+            if not credential_file_value:
+                continue
+            loaded_conf_dict = \
+                self.load_from_config_parser(credential_file_value,
+                                             keyList=credential_file_keys[credential_file],
+                                             sectionKey=self.ctxt.get(credential_file_section[credential_file]))
+            if loaded_conf_dict:
+                self.ctxt.update(loaded_conf_dict)
 
     def _parse_arguments(self, ctxt_args: dict):
         # Get the possible parameters for that platform.
@@ -643,7 +663,10 @@ class PlatformBase:
         self._set_credential_properties()
 
     def _load_props_from_sdk_conf_file(self, **prop_args) -> dict:
-        cli_conf_file = self.ctxt.get('cliConfigFile')
+        if prop_args.get('configFile'):
+            cli_conf_file = self.ctxt.get(prop_args.get('configFile'))
+        else:
+            cli_conf_file = self.ctxt.get('cliConfigFile')
         if cli_conf_file is None:
             return None
         return self.load_from_config_parser(cli_conf_file, **prop_args)
@@ -878,6 +901,7 @@ class ClusterBase:
 
 def get_platform(platform_id: Enum) -> Type[PlatformBase]:
     platform_hash = {
+        CloudPlatform.DATABRICKS_AWS: ('spark_rapids_pytools.cloud_api.databricks_aws', 'DBAWSPlatform'),
         CloudPlatform.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
         CloudPlatform.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
     }
