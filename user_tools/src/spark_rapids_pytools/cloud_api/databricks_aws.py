@@ -73,44 +73,37 @@ class DBAWSCMDDriver(CMDDriverBase):
         if required_props is not None:
             for prop_entry in required_props:
                 prop_value = self.env_vars.get(prop_entry)
-                if prop_value is None:
-                    incorrect_envs.append(f'Property {prop_entry} is not set.')
+                if prop_value is None and prop_entry.startswith('aws_'):
+                    incorrect_envs.append('AWS credentials are not set correctly ' +
+                                          '(this is required to access resources on S3)')
+                    return incorrect_envs
         return incorrect_envs
 
     def _build_platform_list_cluster(self, cluster, query_args: dict = None) -> list:
         pass
 
     def pull_cluster_props_by_args(self, args: dict) -> str:
-        db_cluster_id = args.get('Id')
-        if db_cluster_id is not None:
-            get_cluster_cmd = ['databricks',
-                               'clusters',
-                               'get',
-                               '--cluster-id',
-                               db_cluster_id]
-            return self.run_sys_cmd(get_cluster_cmd)
-        db_cluster_name = args.get('cluster')
-        if db_cluster_name is not None:
-            get_cluster_cmd = ['databricks',
-                               'clusters',
-                               'get',
-                               '--cluster-name',
-                               db_cluster_name]
-            return self.run_sys_cmd(get_cluster_cmd)
-        raise RuntimeError('Could not find Databricks cluster by Id or by name')
+        get_cluster_cmd = ['databricks', 'clusters', 'get']
+        if 'Id' in args:
+            get_cluster_cmd.extend(['--cluster-id', args.get('Id')])
+        elif 'cluster' in args:
+            get_cluster_cmd.extend(['--cluster-name', args.get('cluster')])
+        else:
+            self.logger.error('Invalid arguments to pull the cluster properties')
+        return self.run_sys_cmd(get_cluster_cmd)
 
 
 @dataclass
 class DatabricksNode(ClusterNode):
     """Implementation of Databricks cluster node."""
 
+    zone: str = field(default=None, init=False)
+
     def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
         pass
 
     def _pull_sys_info(self, cli=None) -> SysInfo:
         pass
-
-    zone: str = field(default=None, init=False)
 
 
 @dataclass
