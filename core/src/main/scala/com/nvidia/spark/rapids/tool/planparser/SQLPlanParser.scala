@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
@@ -73,6 +74,56 @@ object SQLPlanParser extends Logging {
 
   val windowFunctionPattern = """(\w+)\(""".r
 
+  /**
+   * This function is used to create a set of nodes that should be skipped while parsing the Execs
+   * of a specific node.
+   * When a reused expression appears in a SparkPlan, the sparkPlanGraph constructed from the
+   * eventlog will have duplicates for all the ancestors of the exec (i.e., "ReusedExchange").
+   * This leads to a gap in the GPU speedups across different platforms which generate the graph
+   * without duplicates.
+   * A work around is to detect all the duplicates nodes so that we can mark them as "shouldRemove".
+   * If a wholeGen node has all the children labeled as ancestor of reused-exchange, then the
+   * wholeGen should also be added to the same set.
+   * @param planGraph the graph generated for a spark plan. This graph can be different depending on
+   *                  the spark-sql jar version used to construct the graph from existing eventlogs.
+   * @return a set of node IDS to be skipped during the aggregation of the speedups.
+   */
+  private def buildSkippedReusedNodesForPlan(planGraph: SparkPlanGraph): Set[Long] = {
+    def findNodeAncestors(planGraph: SparkPlanGraph,
+        graphNode: SparkPlanGraphNode): mutable.Set[Long] = {
+      // Given a node in the graph, this function is to go backward to find all the ancestors of
+      // the node including the node, itself.
+      val visited = mutable.Set[Long](graphNode.id)
+      val q1 = mutable.Queue[Long](graphNode.id)
+      while (q1.nonEmpty) {
+        val curNode = q1.dequeue()
+        val allSinkEdges = planGraph.edges
+          .filter(e => e.toId == curNode)
+          .filterNot(e => visited.contains(e.fromId))
+        for (currEdge <- allSinkEdges) {
+          q1.enqueue(currEdge.fromId)
+          visited += currEdge.fromId
+        }
+      }
+      // Loop on the wholeGen to see if any of them is covered by the ancestors path.
+      // This implies that the wholeStageCodeGen is also reused.
+      // Note that the following logic can be moved to the WholeStageCodegen parser. Handling the
+      // logic here has advantages:
+      //   1- no need to append to append to the final set
+      //   2- keep the logic in one place.
+      val allStageNodes = planGraph.nodes.filter(
+        stageNode => stageNode.name.contains("WholeStageCodegen"))
+      allStageNodes.filter { n =>
+        n.asInstanceOf[SparkPlanGraphCluster].nodes.forall(c => visited.contains(c.id))
+      }.foreach(wNode => visited += wNode.id)
+      visited
+    }
+
+    // create a list of all the candidate leaf nodes. This includes wholeStageCodeGen.
+    val candidateNodes = planGraph.allNodes.filter(n => reuseExecs.contains(n.name))
+    candidateNodes.flatMap(findNodeAncestors(planGraph, _)).toSet
+  }
+
   def parseSQLPlan(
       appID: String,
       planInfo: SparkPlanInfo,
@@ -81,10 +132,12 @@ object SQLPlanParser extends Logging {
       checker: PluginTypeChecker,
       app: AppBase): PlanInfo = {
     val planGraph = SparkPlanGraph(planInfo)
+    // Find all the node graphs that should be excluded and send it to the parsePlanNode
+    val excludedNodes = buildSkippedReusedNodesForPlan(planGraph)
     // we want the sub-graph nodes to be inside of the wholeStageCodeGen so use nodes
     // vs allNodes
     val execInfos = planGraph.nodes.flatMap { node =>
-      parsePlanNode(node, sqlID, checker, app)
+      parsePlanNode(node, sqlID, checker, app, reusedNodeIds = excludedNodes)
     }
     PlanInfo(appID, sqlID, sqlDesc, execInfos)
   }
@@ -99,15 +152,36 @@ object SQLPlanParser extends Logging {
   private val skipUDFCheckExecs = Seq("ArrowEvalPython", "AggregateInPandas",
     "FlatMapGroupsInPandas", "MapInPandas", "WindowInPandas")
 
+  // Set containing execs that refers to other expressions. We need this to be a list to allow
+  // appending more execs in teh future as necessary.
+  // Note that Spark graph may create duplicate nodes when any of the following execs exists.
+  private val reuseExecs = Set("ReusedExchange")
+
+  // Set containing execs that should be labeled as "shouldRemove"
+  private val execsToBeRemoved = Set(
+    "GenerateBloomFilter",   // Exclusive on AWS. Ignore it as metrics cannot be evaluated.
+    "ReusedExchange",        // reusedExchange should not be added to speedups
+    "ColumnarToRow"          // for now as assume everything is columnar
+  )
+
   def parsePlanNode(
       node: SparkPlanGraphNode,
       sqlID: Long,
       checker: PluginTypeChecker,
-      app: AppBase
+      app: AppBase,
+      reusedNodeIds: Set[Long]
   ): Seq[ExecInfo] = {
+    // Avoid counting duplicate nodes. We mark them as shouldRemove to neutralize their impact on
+    // speedups.
+    val isDupNode = reusedNodeIds.contains(node.id)
+    if (isDupNode) {
+      // log that information. This should not cause significant increase in log size.
+      logDebug(s"Marking [sqlID = ${sqlID}, node = ${node.name}] as shouldRemove. " +
+        s"Reason: duplicate - ancestor of ReusedExchange")
+    }
     if (node.name.contains("WholeStageCodegen")) {
       // this is special because it is a SparkPlanGraphCluster vs SparkPlanGraphNode
-      WholeStageExecParser(node.asInstanceOf[SparkPlanGraphCluster], checker, sqlID, app).parse
+      WholeStageExecParser(node.asInstanceOf[SparkPlanGraphCluster], checker, sqlID, app, reusedNodeIds).parse
     } else {
       val execInfos = try {
         node.name match {
@@ -129,10 +203,6 @@ object SQLPlanParser extends Logging {
             CoalesceExecParser(node, checker, sqlID).parse
           case "CollectLimit" =>
             CollectLimitExecParser(node, checker, sqlID).parse
-          case "ColumnarToRow" =>
-            // ignore ColumnarToRow to row for now as assume everything is columnar
-            new ExecInfo(sqlID, node.name, expr = "", 1, duration = None, node.id,
-              isSupported = false, None, Set.empty, shouldRemove = true)
           case c if (c.contains("CreateDataSourceTableAsSelectCommand")) =>
             // create data source table doesn't show the format so we can't determine
             // if we support it
@@ -192,8 +262,11 @@ object SQLPlanParser extends Logging {
           case "WindowInPandas" =>
             WindowInPandasExecParser(node, checker, sqlID).parse
           case _ =>
+            // Execs that are members of reuseExecs (i.e., ReusedExchange) should be marked as
+            // supported but with shouldRemove flag set to True.
+            // Setting the "shouldRemove" is handled at the end of the function.
             new ExecInfo(sqlID, node.name, expr = "", 1, duration = None, node.id,
-              isSupported = false, None)
+              isSupported = reuseExecs.contains(node.name), None)
         }
       } catch {
         // Error parsing expression could trigger an exception. If the exception is not handled,
@@ -220,9 +293,12 @@ object SQLPlanParser extends Logging {
       val stagesInNode = getStagesInSQLNode(node, app)
       val supported = execInfos.isSupported && !ds && !containsUDF
 
+      // shouldRemove is set to true if the exec is a member of "execsToBeRemoved" or if the node
+      // is a duplicate
+      val removeFlag = execInfos.shouldRemove || isDupNode || execsToBeRemoved.contains(node.name)
       Seq(new ExecInfo(execInfos.sqlID, execInfos.exec, execInfos.expr, execInfos.speedupFactor,
         execInfos.duration, execInfos.nodeId, supported, execInfos.children,
-        stagesInNode, execInfos.shouldRemove, execInfos.unsupportedExprs))
+        stagesInNode, removeFlag, execInfos.unsupportedExprs))
     }
   }
 

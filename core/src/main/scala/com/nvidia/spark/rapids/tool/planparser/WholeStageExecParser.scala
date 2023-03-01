@@ -26,7 +26,8 @@ case class WholeStageExecParser(
     node: SparkPlanGraphCluster,
     checker: PluginTypeChecker,
     sqlID: Long,
-    app: AppBase) extends Logging {
+    app: AppBase,
+    reusedNodeIds: Set[Long]) extends Logging {
 
   val fullExecName = "WholeStageCodegenExec"
 
@@ -38,9 +39,11 @@ case class WholeStageExecParser(
     val accumId = node.metrics.find(_.name == "duration").map(_.accumulatorId)
     val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
     val stagesInNode = SQLPlanParser.getStagesInSQLNode(node, app)
-
+    // We could skip the entire wholeStage if it is duplicate; but we will lose the information of
+    // the children nodes.
+    val isDupNode = reusedNodeIds.contains(node.id)
     val childNodes = node.nodes.flatMap { c =>
-      SQLPlanParser.parsePlanNode(c, sqlID, checker, app)
+      SQLPlanParser.parsePlanNode(c, sqlID, checker, app, reusedNodeIds)
     }
     // if any of the execs in WholeStageCodegen supported mark this entire thing
     // as supported
@@ -55,7 +58,7 @@ case class WholeStageExecParser(
     val allStagesIncludingChildren = childNodes.flatMap(_.stages).toSet ++ stagesInNode.toSet
     val execInfo = new ExecInfo(sqlID, node.name, node.name, avSpeedupFactor, maxDuration,
       node.id, anySupported, Some(childNodes), allStagesIncludingChildren,
-      unsupportedExprs = unSupportedExprsArray)
+      shouldRemove = isDupNode, unsupportedExprs = unSupportedExprsArray)
     Seq(execInfo)
   }
 }
