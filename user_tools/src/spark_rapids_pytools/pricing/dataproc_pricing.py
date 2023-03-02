@@ -36,14 +36,6 @@ class DataprocPriceProvider(PriceProvider):
     """
     name = 'Dataproc'
 
-    # def _process_resource_configs(self):
-    #     online_entries = self.pricing_config.get_value('catalog', 'onlineResources')
-    #     for online_entry in online_entries:
-    #         if online_entry.get('resourceKey') == 'gcloud-catalog':
-    #             file_name = online_entry.get('localFile')
-    #             self.cache_file = FSUtil.build_path(self.cache_directory, file_name)
-    #             self.resource_url = online_entry.get('onlineURL')
-    #             break
     def _process_resource_configs(self):
         online_entries = self.pricing_configs['dataproc'].get_value('catalog', 'onlineResources')
         for online_entry in online_entries:
@@ -53,8 +45,6 @@ class DataprocPriceProvider(PriceProvider):
                 self.resource_urls = {'dataproc' : online_entry.get('onlineURL')}
                 break
 
-    # def _create_catalog(self):
-    #     self.catalog = DataprocCatalogContainer(prop_arg=self.cache_file)
     def _create_catalogs(self):
         self.catalogs = {'dataproc' : DataprocCatalogContainer(prop_arg=self.cache_files['dataproc'])}
 

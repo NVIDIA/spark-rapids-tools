@@ -92,22 +92,6 @@ class EMREc2PriceProvider(PriceProvider):
     ec2_catalog_path: str = field(default=None, init=False)
     ec2_prices_url: str = field(default=None, init=False)
 
-    # def _generate_cache_file(self):
-    #     aws_url_base = 'https://pricing.us-east-1.amazonaws.com'
-    #     emr_region_ind_url = f'{aws_url_base}/offers/v1.0/aws/ElasticMapReduce/current/region_index.json'
-    #     emr_region_resp = requests.get(emr_region_ind_url, timeout=60)
-    #     emr_region_relative_url = emr_region_resp.json()['regions'][self.region]['currentVersionUrl']
-    #     ec2_region_ind_url = f'{aws_url_base}/offers/v1.0/aws/AmazonEC2/current/region_index.json'
-    #     ec2_region_resp = requests.get(ec2_region_ind_url, timeout=60)
-    #     ec2_region_relative_url = ec2_region_resp.json()['regions'][self.region]['currentVersionUrl']
-    #     self.resource_url = f'{aws_url_base}{emr_region_relative_url}'
-    #     self.ec2_prices_url = f'{aws_url_base}{ec2_region_relative_url}'
-    #     super()._generate_cache_file()
-    #     ec2_cache_updated = FSUtil.cache_from_url(self.ec2_prices_url, self.ec2_catalog_path)
-    #     self.logger.info('The EC2 catalog file %s is %s',
-    #                      self.cache_file,
-    #                      'updated' if ec2_cache_updated else 'is not modified, using the cached content')
-
     def _generate_cache_files(self):
         aws_url_base = 'https://pricing.us-east-1.amazonaws.com'
         emr_region_ind_url = f'{aws_url_base}/offers/v1.0/aws/ElasticMapReduce/current/region_index.json'
@@ -119,23 +103,11 @@ class EMREc2PriceProvider(PriceProvider):
         self.ec2_prices_url = f'{aws_url_base}{ec2_region_relative_url}'
         self.resource_urls = {'emr': f'{aws_url_base}{emr_region_relative_url}', 'ec2' : self.ec2_prices_url}
         super()._generate_cache_files()
-        # ec2_cache_updated = FSUtil.cache_from_url(self.ec2_prices_url, self.ec2_catalog_path)
-        # self.logger.info('The EC2 catalog file %s is %s',
-        #                  self.cache_file,
-        #                  'updated' if ec2_cache_updated else 'is not modified, using the cached content')
 
     def get_cached_files(self) -> list:
         cache_list = super().get_cached_files()
         cache_list.append(self.ec2_catalog_path)
         return cache_list
-
-    # def _process_resource_configs(self):
-    #     def get_cache_file_path(comp,  region) -> str:
-    #         file_name = f'emr_ec2_catalog_{comp}_{region}.json'
-    #         # get file from cache folder
-    #         return FSUtil.build_path(self.cache_directory, file_name)
-    #     self.cache_file = get_cache_file_path('emr', self.region)
-    #     self.ec2_catalog_path = get_cache_file_path('ec2', self.region)
 
     def _process_resource_configs(self):
         def get_cache_file_path(comp,  region) -> str:
@@ -146,5 +118,4 @@ class EMREc2PriceProvider(PriceProvider):
         self.cache_files = {'emr' : get_cache_file_path('emr', self.region), 'ec2' : self.ec2_catalog_path}
 
     def _create_catalogs(self):
-        # self.catalog = EmrEc2CatalogContainer(self.cache_file, ec2_prices_path=self.ec2_catalog_path)
         self.catalogs = {'emr' : EmrEc2CatalogContainer(self.cache_files['emr'], ec2_prices_path=self.ec2_catalog_path)}

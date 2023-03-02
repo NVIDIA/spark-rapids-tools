@@ -102,8 +102,6 @@ class DataprocPlatform(PlatformBase):
                                                      file_load=False)
         else:
             pricing_config: JSONPropertiesContainer = None
-        # pricing_provider = DataprocPriceProvider(region=self.cli.get_region(),
-        #                                          pricing_config=pricing_config)
         pricing_provider = DataprocPriceProvider(region=self.cli.get_region(),
                                                  pricing_configs={'dataproc' : pricing_config})
         saving_estimator = DataprocSavingsEstimator(price_provider=pricing_provider,
