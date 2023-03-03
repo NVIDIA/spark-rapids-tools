@@ -37,49 +37,49 @@ class DataprocPriceProvider(PriceProvider):
     name = 'Dataproc'
 
     def _process_resource_configs(self):
-        online_entries = self.pricing_configs['dataproc'].get_value('catalog', 'onlineResources')
+        online_entries = self.pricing_configs['gcloud'].get_value('catalog', 'onlineResources')
         for online_entry in online_entries:
             if online_entry.get('resourceKey') == 'gcloud-catalog':
                 file_name = online_entry.get('localFile')
-                self.cache_files = {'dataproc' : FSUtil.build_path(self.cache_directory, file_name)}
-                self.resource_urls = {'dataproc' : online_entry.get('onlineURL')}
+                self.cache_files = {'gcloud' : FSUtil.build_path(self.cache_directory, file_name)}
+                self.resource_urls = {'gcloud' : online_entry.get('onlineURL')}
                 break
 
     def _create_catalogs(self):
-        self.catalogs = {'dataproc' : DataprocCatalogContainer(prop_arg=self.cache_files['dataproc'])}
+        self.catalogs = {'gcloud' : DataprocCatalogContainer(prop_arg=self.cache_files['gcloud'])}
 
     def get_ssd_price(self, machine_type: str) -> float:
         lookup_key = 'CP-COMPUTEENGINE-LOCAL-SSD'
-        ssd_unit_size_factor = float(self.pricing_configs['dataproc'].get_value('catalog', 'ssd', 'unitSizeFactor'))
-        return self.catalogs['dataproc'].get_value(lookup_key, self.region) * ssd_unit_size_factor
+        ssd_unit_size_factor = float(self.pricing_configs['gcloud'].get_value('catalog', 'ssd', 'unitSizeFactor'))
+        return self.catalogs['gcloud'].get_value(lookup_key, self.region) * ssd_unit_size_factor
 
     def get_ram_price(self, machine_type: str) -> float:
         lookup_key = self._key_for_cpe_machine_ram(machine_type)
-        return self.catalogs['dataproc'].get_value(lookup_key, self.region)
+        return self.catalogs['gcloud'].get_value(lookup_key, self.region)
 
     def get_gpu_price(self, gpu_device: str) -> float:
         lookup_key = self._key_for_gpu_device(gpu_device)
-        return self.catalogs['dataproc'].get_value(lookup_key, self.region)
+        return self.catalogs['gcloud'].get_value(lookup_key, self.region)
 
     def get_cpu_price(self, machine_type: str) -> float:
         lookup_key = self._key_for_cpe_machine_cores(machine_type)
-        return self.catalogs['dataproc'].get_value(lookup_key, self.region)
+        return self.catalogs['gcloud'].get_value(lookup_key, self.region)
 
     def get_container_cost(self) -> float:
         return self.__get_dataproc_cluster_price()
 
     def __get_dataproc_cluster_price(self) -> float:
         lookup_key = 'CP-DATAPROC'
-        return self.catalogs['dataproc'].get_value(lookup_key, 'us')
+        return self.catalogs['gcloud'].get_value(lookup_key, 'us')
 
     def get_cores_count_for_vm(self, machine_type: str) -> str:
         lookup_key = self._key_for_cpe_vm(machine_type)
-        cores = self.catalogs['dataproc'].get_value_silent(lookup_key, 'cores')
+        cores = self.catalogs['gcloud'].get_value_silent(lookup_key, 'cores')
         return cores
 
     def get_ram_size_for_vm(self, machine_type: str) -> str:
         lookup_key = self._key_for_cpe_vm(machine_type)
-        memory = self.catalogs['dataproc'].get_value_silent(lookup_key, 'memory')
+        memory = self.catalogs['gcloud'].get_value_silent(lookup_key, 'memory')
         return memory
 
     @classmethod
