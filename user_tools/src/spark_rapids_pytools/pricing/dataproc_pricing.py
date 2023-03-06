@@ -41,12 +41,12 @@ class DataprocPriceProvider(PriceProvider):
         for online_entry in online_entries:
             if online_entry.get('resourceKey') == 'gcloud-catalog':
                 file_name = online_entry.get('localFile')
-                self.cache_files = {'gcloud' : FSUtil.build_path(self.cache_directory, file_name)}
-                self.resource_urls = {'gcloud' : online_entry.get('onlineURL')}
+                self.cache_files = {'gcloud': FSUtil.build_path(self.cache_directory, file_name)}
+                self.resource_urls = {'gcloud': online_entry.get('onlineURL')}
                 break
 
     def _create_catalogs(self):
-        self.catalogs = {'gcloud' : DataprocCatalogContainer(prop_arg=self.cache_files['gcloud'])}
+        self.catalogs = {'gcloud': DataprocCatalogContainer(prop_arg=self.cache_files['gcloud'])}
 
     def get_ssd_price(self, machine_type: str) -> float:
         lookup_key = 'CP-COMPUTEENGINE-LOCAL-SSD'

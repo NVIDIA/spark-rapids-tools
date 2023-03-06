@@ -107,7 +107,7 @@ class EMRPlatform(PlatformBase):
         else:
             pricing_config: JSONPropertiesContainer = None
         emr_price_provider = EMREc2PriceProvider(region=self.cli.get_region(),
-                                                 pricing_configs={'emr' : pricing_config})
+                                                 pricing_configs={'emr': pricing_config})
         saving_estimator = EmrSavingsEstimator(price_provider=emr_price_provider,
                                                target_cluster=target_cluster,
                                                source_cluster=source_cluster)

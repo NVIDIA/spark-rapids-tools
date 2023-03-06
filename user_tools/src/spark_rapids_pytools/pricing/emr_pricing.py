@@ -101,7 +101,7 @@ class EMREc2PriceProvider(PriceProvider):
         ec2_region_resp = requests.get(ec2_region_ind_url, timeout=60)
         ec2_region_relative_url = ec2_region_resp.json()['regions'][self.region]['currentVersionUrl']
         self.ec2_prices_url = f'{aws_url_base}{ec2_region_relative_url}'
-        self.resource_urls = {'emr': f'{aws_url_base}{emr_region_relative_url}', 'ec2' : self.ec2_prices_url}
+        self.resource_urls = {'emr': f'{aws_url_base}{emr_region_relative_url}', 'ec2': self.ec2_prices_url}
         super()._generate_cache_files()
 
     def get_cached_files(self) -> list:
@@ -115,7 +115,7 @@ class EMREc2PriceProvider(PriceProvider):
             # get file from cache folder
             return FSUtil.build_path(self.cache_directory, file_name)
         self.ec2_catalog_path = get_cache_file_path('ec2', self.region)
-        self.cache_files = {'emr' : get_cache_file_path('emr', self.region), 'ec2' : self.ec2_catalog_path}
+        self.cache_files = {'emr': get_cache_file_path('emr', self.region), 'ec2': self.ec2_catalog_path}
 
     def _create_catalogs(self):
-        self.catalogs = {'emr' : EmrEc2CatalogContainer(self.cache_files['emr'], ec2_prices_path=self.ec2_catalog_path)}
+        self.catalogs = {'emr': EmrEc2CatalogContainer(self.cache_files['emr'], ec2_prices_path=self.ec2_catalog_path)}

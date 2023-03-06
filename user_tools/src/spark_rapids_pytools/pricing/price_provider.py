@@ -21,7 +21,6 @@ from dataclasses import dataclass, field
 from logging import Logger
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
-from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 
@@ -32,42 +31,31 @@ class PriceProvider:
     An abstract class that represents interface to retrieve costs of hardware configurations.
     """
     region: str
-    # pricing_config: JSONPropertiesContainer
-    pricing_configs: dict #[str, JSONPropertiesContainer]
-    # cache_file: str = field(default=None, init=False)
-    cache_files: dict = field(default=None, init=False) #[str, str]
-    # resource_url: str = field(default=None, init=False)
-    resource_urls: dict = field(default=None, init=False) #[str, str]
+    pricing_configs: dict  # [str, JSONPropertiesContainer]
+    cache_files: dict = field(default=None, init=False)  # [str, str]
+    resource_urls: dict = field(default=None, init=False)  # [str, str]
     name: str = field(default=None, init=False)
     cache_expiration_secs: int = field(default=604800, init=False)  # download the file once a week
     meta: dict = field(default_factory=dict)
-    # catalog: AbstractPropertiesContainer = field(default=None, init=False)
-    catalogs: dict = field(default=None, init=False) #[str, AbstractPropertiesContainer]
+    catalogs: dict = field(default=None, init=False)  # [str, AbstractPropertiesContainer]
     comments: list = field(default_factory=lambda: [], init=False)
     cache_directory: str = field(default=None, init=False)
     logger: Logger = field(default=None, init=False)
 
     def _init_cache_files(self):
         if self._caches_expired(self.get_cached_files()):
-            # self._generate_cache_file()
             self._generate_cache_files()
         else:
             self.logger.info('The catalog files are loaded from the cache: %s',
                              '; '.join(self.get_cached_files()))
 
-    # def _generate_cache_file(self):
-    #     files_updated = FSUtil.cache_from_url(self.resource_url, self.cache_file)
-    #     self.logger.info('The catalog file %s is %s',
-    #                      self.cache_file,
-    #                      'updated' if files_updated else 'is not modified, using the cached content')
-
     def _generate_cache_files(self):
         # resource_urls and cache_files should have the same keys
-        for file_key in resource_urls:
+        for file_key in self.resource_urls:
             files_updated = FSUtil.cache_from_url(self.resource_urls[file_key], self.cache_files[file_key])
             self.logger.info('The catalog file %s is %s',
-                            self.cache_files[file_key],
-                            'updated' if files_updated else 'is not modified, using the cached content')
+                             self.cache_files[file_key],
+                             'updated' if files_updated else 'is not modified, using the cached content')
 
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.price.{self.name}')
@@ -76,7 +64,6 @@ class PriceProvider:
         self._init_catalogs()
 
     def get_cached_files(self) -> list:
-        # return [self.cache_file]
         return list(self.cache_files.values())
 
     def _caches_expired(self, cache_files: list) -> bool:
