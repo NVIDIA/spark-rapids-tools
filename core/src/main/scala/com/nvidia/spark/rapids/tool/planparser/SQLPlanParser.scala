@@ -109,7 +109,7 @@ object SQLPlanParser extends Logging {
       // This implies that the wholeStageCodeGen is also reused.
       // Note that the following logic can be moved to the WholeStageCodegen parser. Handling the
       // logic here has advantages:
-      //   1- no need to append to append to the final set
+      //   1- no need to append to the final set
       //   2- keep the logic in one place.
       val allStageNodes = planGraph.nodes.filter(
         stageNode => stageNode.name.contains("WholeStageCodegen"))
@@ -161,7 +161,7 @@ object SQLPlanParser extends Logging {
   private val execsToBeRemoved = Set(
     "GenerateBloomFilter",   // Exclusive on AWS. Ignore it as metrics cannot be evaluated.
     "ReusedExchange",        // reusedExchange should not be added to speedups
-    "ColumnarToRow"          // for now as assume everything is columnar
+    "ColumnarToRow"          // for now, assume everything is columnar
   )
 
   def parsePlanNode(
