@@ -20,7 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from typing import cast, Type, Any
+from typing import cast, Type, Any, List, Union, Optional
 
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
     get_elem_non_safe
@@ -32,8 +32,7 @@ class EnumeratedType(str, Enum):
     """Abstract representation of enumerated values"""
 
     @classmethod
-    def tostring(cls, value):
-        # type: (Union[Enum, str]) -> str
+    def tostring(cls, value: Union[Enum, str]) -> str:
         """Return the string representation of the state object attribute
         :param str value: the state object to turn into string
         :return: the uppercase string that represents the state object
@@ -43,8 +42,7 @@ class EnumeratedType(str, Enum):
         return str(value._value_).upper()  # pylint: disable=protected-access
 
     @classmethod
-    def fromstring(cls, value):
-        # type: (str) -> Optional[str]
+    def fromstring(cls, value: str) -> Optional[str]:
         """Return the state object attribute that matches the string
         :param str value: the string to look up
         :return: the state object attribute that matches the string
@@ -142,6 +140,9 @@ class GpuHWInfo:
     num_gpus: int = None
     gpu_mem: int = None
     gpu_device: GpuDevice = GpuDevice.get_default_gpu()
+
+    def get_gpu_device_name(self) -> str:
+        return GpuDevice.tostring(self.gpu_device)
 
 
 @dataclass
@@ -264,7 +265,7 @@ class CMDDriverBase:
     def get_region(self) -> str:
         return self.env_vars.get('region')
 
-    def get_cmd_run_configs(self) -> str:
+    def get_cmd_run_configs(self) -> dict:
         return self.env_vars.get('cmdRunnerProperties')
 
     def get_required_props(self) -> list:
@@ -606,6 +607,7 @@ class PlatformBase:
                         config_file_section[config_file] = prop_elem.get('section').strip('_')
             # The section names are loaded from dictionary 'config_file_section'
             # Example section names are awsProfile/profile
+            loaded_conf_dict = {}
             for config_file in config_file_keys:
                 loaded_conf_dict = \
                     self._load_props_from_sdk_conf_file(keyList=config_file_keys[config_file],
@@ -825,8 +827,12 @@ class ClusterBase:
     def is_cluster_running(self) -> bool:
         return self.state == ClusterState.RUNNING
 
-    def get_eventlogs_from_config(self):
-        raise NotImplementedError
+    def get_eventlogs_from_config(self) -> List[str]:
+        res_arr = []
+        spark_props = self.get_all_spark_properties()
+        if 'spark.eventLog.dir' in spark_props:
+            res_arr.append(spark_props.get('spark.eventLog.dir'))
+        return res_arr
 
     def run_cmd_driver(self, ssh_cmd: str, cmd_input: str = None) -> str or None:
         """
@@ -860,6 +866,9 @@ class ClusterBase:
 
     def get_master_node(self) -> ClusterNode:
         return self.nodes.get(SparkNodeType.MASTER)
+
+    def get_workers_count(self) -> int:
+        return len(self.nodes.get(SparkNodeType.WORKER))
 
     def get_worker_node(self, ind: int = 0) -> ClusterNode:
         return self.nodes.get(SparkNodeType.WORKER)[ind]
@@ -898,6 +907,10 @@ class ClusterBase:
                         best_mc_match = anode.find_best_cpu_conversion(supported_gpus)
                         mc_map.update({anode.instance_type: best_mc_match})
         return mc_map, supported_gpus
+
+    def get_all_spark_properties(self) -> dict:
+        """Returns a dictionary containing the spark configurations defined in the cluster properties"""
+        raise NotImplementedError
 
 
 def get_platform(platform_id: Enum) -> Type[PlatformBase]:

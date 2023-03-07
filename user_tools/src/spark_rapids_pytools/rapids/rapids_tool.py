@@ -20,7 +20,7 @@ import sys
 import tarfile
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, List
 
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, ClusterBase, DeployMode
 from spark_rapids_pytools.common.sys_storage import FSUtil
@@ -43,7 +43,7 @@ class RapidsTool(object):
     :param logger: the logger instant associated to the current tool.
     """
     platform_type: CloudPlatform
-    cluster: str
+    cluster: str = None
     output_folder: str = None
     config_path: str = None
     runs_on_cluster: bool = field(default=True, init=False)
@@ -70,11 +70,11 @@ class RapidsTool(object):
                     func_cb(self, *args, **kwargs)  # pylint: disable=not-callable
                     if enable_epilogue:
                         self.logger.info('======= [%s]: Finished =======', phase_name)
-                except Exception as exception:    # pylint: disable=broad-except
-                    self.logger.error('%s. Phase [%s]: raised an error in phase\n%s',
+                except Exception as ex:    # pylint: disable=broad-except
+                    self.logger.error('%s. Raised an error in phase [%s]\n%s',
                                       self.pretty_name(),
                                       phase_name,
-                                      exception)
+                                      ex)
                     sys.exit(1)
             return wrapper
         return decorator
@@ -256,18 +256,19 @@ class RapidsJarTool(RapidsTool):
         self.ctxt.add_rapids_args('jarFilePath', jar_path)
 
     def __accept_tool_option(self, option_key: str) -> bool:
-        defined_tool_options = self.ctxt.get_value_silent('sparkRapids', 'cli', 'tool_options')
+        defined_tool_options = self.ctxt.get_value_silent('sparkRapids', 'cli', 'toolOptions')
         if defined_tool_options is not None:
             if option_key not in defined_tool_options:
                 self.logger.warning('Ignoring tool option [%s]. Invalid option.', option_key)
                 return False
         return True
 
-    def _process_tool_args(self):
+    def _process_tool_args_from_input(self) -> list:
         """
-        Process the arguments passed from the CLI if any and return a string representing the
-        arguments to be passed to the final command running the job.
-        :return:
+        Process the arguments passed from the CLI if any and return a list of strings representing
+        the arguments to be passed to the final command running the job. This needs processing
+        because we need to verify the arguments and handle hiphens
+        :return: list of the rapids arguments added by the user
         """
         arguments_list = []
         self.logger.debug('Processing Rapids plugin Arguments %s', self.rapids_options)
@@ -307,7 +308,24 @@ class RapidsJarTool(RapidsTool):
                 else:
                     # this could be a boolean type flag that has no arguments
                     arguments_list.append(f'{k_arg}')
-        self.ctxt.add_rapids_args('rapidsOpts', arguments_list)
+        return arguments_list
+
+    def _append_tool_rapids_args(self, cli_rapids_options: list) -> list:
+        """
+        Specific to the tool, add the rapids arguments needed to run the plugin core tools.
+        :param cli_rapids_options:
+        :return:
+        """
+        return cli_rapids_options
+
+    def _process_tool_args(self):
+        """
+        Process the arguments passed from the CLI if any and return a string representing the
+        arguments to be passed to the final command running the job.
+        :return:
+        """
+        cli_rapids_options = self._process_tool_args_from_input()
+        self.ctxt.add_rapids_args('rapidsOpts', self._append_tool_rapids_args(cli_rapids_options))
 
     def _process_dependencies(self):
         """
@@ -359,3 +377,96 @@ class RapidsJarTool(RapidsTool):
         self._process_jar_arg()
         self._process_dependencies()
         self._process_tool_args()
+
+    def _process_offline_cluster_args(self):
+        pass
+
+    def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None):
+        pass
+
+    def _copy_dependencies_to_remote(self):
+        self.logger.info('Skipping preparing remote dependency folder')
+
+    def _prepare_job_arguments(self):
+        pass
+
+    def _run_rapids_tool(self):
+        # 1- copy dependencies to remote server
+        self._copy_dependencies_to_remote()
+        # 2- prepare the arguments
+        #  2.a -check if the app_id is not none
+        self._prepare_job_arguments()
+        #
+        # 3- create a submission job
+        # 4- execute
+
+    def _get_main_cluster_obj(self):
+        return self.ctxt.get_ctxt('cpuClusterProxy')
+
+    def _process_eventlogs_args(self):
+        eventlog_arg = self.wrapper_options.get('eventlogs')
+        if eventlog_arg is None:
+            # get the eventlogs from spark properties
+            cpu_cluster_obj = self._get_main_cluster_obj()
+            if cpu_cluster_obj:
+                spark_event_logs = cpu_cluster_obj.get_eventlogs_from_config()
+            else:
+                self.logger.warning('Eventlogs is not set properly. The property cannot be pulled '
+                                    'from cluster because it is not defined')
+                spark_event_logs = []
+        else:
+            if isinstance(eventlog_arg, tuple):
+                spark_event_logs = List[eventlog_arg]
+            elif isinstance(eventlog_arg, str):
+                spark_event_logs = eventlog_arg.split(',')
+            else:
+                spark_event_logs = eventlog_arg
+        if len(spark_event_logs) < 1:
+            self.logger.error('Eventlogs list is empty. '
+                              'The cluster Spark properties may be missing "spark.eventLog.dir". '
+                              'Re-run the command passing "--eventlogs" flag to the wrapper.')
+            raise RuntimeError('Invalid arguments. The list of Apache Spark event logs is empty.')
+        self.ctxt.set_ctxt('eventLogs', spark_event_logs)
+
+    def _create_migration_cluster(self, cluster_type: str, cluster_arg: str) -> ClusterBase:
+        if cluster_arg is None:
+            raise RuntimeError(f'The {cluster_type} cluster argument is not set.')
+        arg_is_file = self.ctxt.platform.storage.is_file_path(cluster_arg)
+        if not arg_is_file:
+            self.logger.info('Loading %s cluster properties by name %s. Note that this will fail '
+                             'if the cluster was permanently deleted.',
+                             cluster_type,
+                             cluster_arg)
+            # create a cluster by name
+            cluster_obj = self.ctxt.platform.connect_cluster_by_name(cluster_arg)
+        else:
+            self.logger.info('Loading %s cluster cluster properties from file %s',
+                             cluster_type,
+                             cluster_arg)
+            # create cluster by loading properties files
+            # download the file to the working directory
+            cluster_conf_path = self.ctxt.platform.storage.download_resource(cluster_arg,
+                                                                             self.ctxt.get_local_work_dir())
+            cluster_obj = self.ctxt.platform.load_cluster_by_prop_file(cluster_conf_path)
+        return cluster_obj
+
+    def _report_tool_full_location(self) -> str:
+        out_folder_path = self.ctxt.get_rapids_output_folder()
+        res_arr = [Utils.gen_str_header('Output'),
+                   f'\t{self.pretty_name()} tool output: {out_folder_path}']
+        subfiles = FSUtil.get_all_files(out_folder_path)
+        if len(subfiles) > 0:
+            res_arr.append(f'\t{FSUtil.get_resource_name(out_folder_path)}/')
+            for sub_file in subfiles:
+                if self.ctxt.platform.storage.resource_is_dir(sub_file):
+                    leaf_name = f'└── {FSUtil.get_resource_name(sub_file)}/'
+                else:
+                    leaf_name = f'├── {FSUtil.get_resource_name(sub_file)}'
+                if '$folder$' not in leaf_name:
+                    # this a metafile created in S3 that we do not need
+                    res_arr.append(f'\t\t{leaf_name}')
+            doc_url = self.ctxt.get_value('sparkRapids', 'outputDocURL')
+            res_arr.append(f'\t- To learn more about the output details, visit '
+                           f'{doc_url}')
+            return '\n'.join(res_arr)
+        return None

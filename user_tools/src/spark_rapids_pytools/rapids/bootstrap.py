@@ -94,7 +94,7 @@ class Bootstrap(RapidsTool):
 
     def _apply_changes_to_remote_cluster(self):
         ssh_cmd = "\"sudo bash -c 'cat >> /etc/spark/conf/spark-defaults.conf'\""
-        cmd_input = self.ctxt.get_ctxt('wrapper_output_content')
+        cmd_input = self.ctxt.get_ctxt('wrapperOutputContent')
         exec_cluster = self.get_exec_cluster()
         try:
             exec_cluster.run_cmd_driver(ssh_cmd, cmd_input=cmd_input)
@@ -134,7 +134,7 @@ class Bootstrap(RapidsTool):
                 wrapper_output.write(wrapper_out_content)
         else:
             # results are empty
-            self.ctxt.set_ctxt('wrapper_output_content',
+            self.ctxt.set_ctxt('wrapperOutputContent',
                                self._report_results_are_empty())
 
     def _delete_remote_dep_folder(self):
@@ -149,7 +149,7 @@ class Bootstrap(RapidsTool):
         return '\n'.join(res_arr)
 
     def _write_summary(self):
-        wrapper_out_content = self.ctxt.get_ctxt('wrapper_output_content')
+        wrapper_out_content = self.ctxt.get_ctxt('wrapperOutputContent')
         wrapper_summary = [
             self._report_tool_full_location(),
             'Recommended Configurations:',

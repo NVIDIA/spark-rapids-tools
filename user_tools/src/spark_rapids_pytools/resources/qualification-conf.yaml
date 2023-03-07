@@ -41,7 +41,7 @@ sparkRapids:
     defaults:
       filters:
         defaultFilter: 'SAVINGS'
-    tool_options:
+    toolOptions:
       - all
       - any
       - a

@@ -159,6 +159,20 @@ class FSUtil:
             return str(new_path.expanduser())
         return file_path
 
+    @classmethod
+    def get_subdirectories(cls, dir_path) -> list:
+        """
+        Given a directory, list all the subdirectories without recursion
+        :param dir_path: the directory parent that we are interested in
+        :return: a list of subdirectories with full path
+        """
+        res = []
+        subfolders = glob.glob(f'{dir_path}/*', recursive=False)
+        for subfolder in subfolders:
+            if os.path.isdir(subfolder):
+                res.append(subfolder)
+        return res
+
 
 @dataclass
 class StorageDriver:

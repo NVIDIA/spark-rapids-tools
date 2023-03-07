@@ -16,8 +16,8 @@
 
 from dataclasses import dataclass, field
 from logging import Logger
+from typing import List
 
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
@@ -59,7 +59,7 @@ class RapidsJob:
     logger: Logger = field(default=None, init=False)
 
     def get_platform_name(self):
-        return CloudPlatform.tostring(self.exec_ctxt.platform.type_id).lower()
+        return self.exec_ctxt.get_platform_name()
 
     def _init_fields(self):
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.submit.{self.job_label}')
@@ -68,8 +68,9 @@ class RapidsJob:
     def __post_init__(self):
         self._init_fields()
 
-    def _get_rapids_args_per_platform(self):
-        return ['--platform', self.get_platform_name()]
+    def _get_rapids_args_per_platform(self) -> List[str]:
+        """Left as placeholder for future use"""
+        return []
 
     def _get_persistent_rapids_args(self):
         rapids_args = self._get_rapids_args_per_platform()[:]
@@ -100,6 +101,7 @@ class RapidsJob:
     def run_job(self):
         self.logger.info('Prepare job submission command')
         cmd_args = self._build_submission_cmd()
+        self.logger.info('Running the Rapids Job...')
         job_output = self._submit_job(cmd_args)
         if not ToolLogging.is_debug_mode_enabled():
             # we check the debug level because we do not want the output to be displayed twice

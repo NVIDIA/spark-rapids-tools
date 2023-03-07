@@ -154,6 +154,10 @@ class Utils:
         res_arr = [dash, f'{title:^{line_width}}', dash]
         return '\n'.join(res_arr)
 
+    @classmethod
+    def get_os_name(cls) -> str:
+        return os.uname().sysname
+
 
 class ToolLogging:
     """Holds global utilities used for logging."""

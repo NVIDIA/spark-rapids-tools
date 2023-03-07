@@ -19,7 +19,8 @@ from typing import Any
 
 from spark_rapids_pytools.cloud_api.emr import EMRNode, EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, ClusterState, SparkNodeType
+from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode
+from spark_rapids_pytools.cloud_api.sp_types import ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
@@ -166,6 +167,9 @@ class DatabricksCluster(ClusterBase):
         # propagate region to the cluster
         cluster_args.setdefault('region', self.cli.get_env_var('region'))
         return cluster_args
+
+    def get_all_spark_properties(self) -> dict:
+        pass
 
     def _build_migrated_cluster(self, orig_cluster):
         pass

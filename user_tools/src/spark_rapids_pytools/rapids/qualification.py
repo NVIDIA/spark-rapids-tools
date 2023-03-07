@@ -14,16 +14,14 @@
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
-import dataclasses
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any
 
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_pytools.cloud_api.sp_types import ClusterBase, EnumeratedType
+from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
@@ -161,34 +159,9 @@ class Qualification(RapidsJarTool):
         """
         Qualification tool processes extra arguments:
         1. filter out applications.
-        2. gpu-device type to be used for the cost estimation.
-        3. gpu_per_machine: number of gpu installed on a worker node.
-        4. cuda version
         """
-        super()._process_rapids_args()
         self.logger.info('Qualification tool processing the arguments')
-
-    def _create_migration_cluster(self, cluster_type: str, cluster_arg: str) -> ClusterBase:
-        if cluster_arg is None:
-            raise RuntimeError(f'The {cluster_type} cluster argument is not set.')
-        arg_is_file = self.ctxt.platform.storage.is_file_path(cluster_arg)
-        if not arg_is_file:
-            self.logger.info('Loading %s cluster properties by name %s. Note that this will fail '
-                             'if the cluster was permanently deleted.',
-                             cluster_type,
-                             cluster_arg)
-            # create a cluster by name
-            cluster_obj = self.ctxt.platform.connect_cluster_by_name(cluster_arg)
-        else:
-            self.logger.info('Loading %s cluster cluster properties from file %s',
-                             cluster_type,
-                             cluster_arg)
-            # create cluster by loading properties files
-            # download the file to the working directory
-            cluster_conf_path = self.ctxt.platform.storage.download_resource(cluster_arg,
-                                                                             self.ctxt.get_local_work_dir())
-            cluster_obj = self.ctxt.platform.load_cluster_by_prop_file(cluster_conf_path)
-        return cluster_obj
+        super()._process_rapids_args()
 
     def _process_cpu_cluster_args(self, offline_cluster_opts: dict = None):
         # get the name of the cpu_cluster
@@ -229,26 +202,6 @@ class Qualification(RapidsJarTool):
         else:
             selected_filter = QualFilterApp.fromstring(default_filter_txt)
         self.ctxt.set_ctxt('filterApps', selected_filter)
-
-    def _process_eventlogs_args(self):
-        eventlog_arg = self.wrapper_options.get('eventlogs')
-        if eventlog_arg is None:
-            # get the eventlogs from spark properties
-            cpu_cluster_obj = self.ctxt.get_ctxt('cpuClusterProxy')
-            spark_event_logs = cpu_cluster_obj.get_eventlogs_from_config()
-        else:
-            if isinstance(eventlog_arg, tuple):
-                spark_event_logs = List[eventlog_arg]
-            elif isinstance(eventlog_arg, str):
-                spark_event_logs = eventlog_arg.split(',')
-            else:
-                spark_event_logs = eventlog_arg
-        if len(spark_event_logs) < 1:
-            self.logger.error('Eventlogs list is empty. '
-                              'The cluster Spark properties may be missing "spark.eventLog.dir". '
-                              'Re-run the command passing "--eventlogs" flag to the wrapper.')
-            raise RuntimeError('Invalid arguments. The list of Apache Spark event logs is empty.')
-        self.ctxt.set_ctxt('eventLogs', spark_event_logs)
 
     def _process_custom_args(self):
         """
@@ -360,16 +313,6 @@ class Qualification(RapidsJarTool):
         job_obj = self.ctxt.platform.create_submission_job(job_prop=job_properties, ctxt=self.ctxt)
         job_obj.run_job()
 
-    def _run_rapids_tool(self):
-        # 1- copy dependencies to remote server
-        self._copy_dependencies_to_remote()
-        # 2- prepare the arguments
-        #  2.a -check if the app_id is not none
-        self._prepare_job_arguments()
-        #
-        # 3- create a submission job
-        # 4- execute
-
     def __get_recommended_apps(self, all_rows, selected_cols=None) -> pd.DataFrame:
         speed_up_col = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport',
                                            'recommendations', 'speedUp', 'columnName')
@@ -390,27 +333,6 @@ class Qualification(RapidsJarTool):
                                                                   cols_map.get(col_rename),
                                                                   regex=False)
         return subset_data
-
-    def _report_tool_full_location(self) -> str:
-        out_folder_path = self.ctxt.get_rapids_output_folder()
-        res_arr = [Utils.gen_str_header('Output'),
-                   f'\t{self.pretty_name()} tool output: {out_folder_path}']
-        subfiles = FSUtil.get_all_files(out_folder_path)
-        if len(subfiles) > 0:
-            res_arr.append(f'\t{FSUtil.get_resource_name(out_folder_path)}/')
-            for sub_file in subfiles:
-                if self.ctxt.platform.storage.resource_is_dir(sub_file):
-                    leaf_name = f'└── {FSUtil.get_resource_name(sub_file)}/'
-                else:
-                    leaf_name = f'├── {FSUtil.get_resource_name(sub_file)}'
-                if '$folder$' not in leaf_name:
-                    # this a metafile created in S3 that we do not need
-                    res_arr.append(f'\t\t{leaf_name}')
-            doc_url = self.ctxt.get_value('sparkRapids', 'outputDocURL')
-            res_arr.append(f'\t- To learn more about the output details, visit '
-                           f'{doc_url}')
-            return '\n'.join(res_arr)
-        return None
 
     def __generate_mc_types_conversion_report(self):
         report_content = []
@@ -498,7 +420,7 @@ class Qualification(RapidsJarTool):
                 cost_mask = df_row[saving_cost_col].isin(recommended_vals)
                 df_row = df_row.loc[cost_mask, selected_cols]
                 if df_row.empty:
-                    self.ctxt.set_ctxt('wrapper_output_content',
+                    self.ctxt.set_ctxt('wrapperOutputContent',
                                        'Found no qualified apps for cost savings.')
                     return df_row
             time_unit = '(ms)'
@@ -525,7 +447,7 @@ class Qualification(RapidsJarTool):
 
         rapids_output_dir = self.ctxt.get_rapids_output_folder()
         if not self.ctxt.platform.storage.resource_exists(rapids_output_dir):
-            self.ctxt.set_ctxt('wrapper_output_content',
+            self.ctxt.set_ctxt('wrapperOutputContent',
                                self._report_results_are_empty())
             return
         rapids_summary_file = FSUtil.build_path(rapids_output_dir,
@@ -540,10 +462,10 @@ class Qualification(RapidsJarTool):
                                                     config_provider=None,
                                                     df_pprinter=process_df_for_stdout,
                                                     output_pprinter=self._report_tool_full_location)
-        self.ctxt.set_ctxt('wrapper_output_content', summary_report)
+        self.ctxt.set_ctxt('wrapperOutputContent', summary_report)
 
     def _write_summary(self):
-        wrapper_out_content = self.ctxt.get_ctxt('wrapper_output_content')
+        wrapper_out_content = self.ctxt.get_ctxt('wrapperOutputContent')
         if wrapper_out_content is not None:
             if isinstance(wrapper_out_content, list):
                 print('\n'.join(wrapper_out_content))
@@ -559,8 +481,18 @@ class Qualification(RapidsJarTool):
                                                        remote_work_dir,
                                                        exclude_pattern=exclude_folder)
 
+    def _append_tool_rapids_args(self, cli_rapids_options: list) -> list:
+        """
+        Specific to the tool, add the rapids arguments needed to run the plugin core tools.
+        :param cli_rapids_options:
+        :return:
+        """
+        # TODO: Make sure we add this argument only for jar versions 23.02+
+        qualification_args = ['--platform', self.ctxt.get_platform_name()]
+        return qualification_args.extend(cli_rapids_options)
 
-@dataclasses.dataclass
+
+@dataclass
 class QualificationAsLocal(Qualification):
     """
     Qualification tool running on local development.
@@ -624,7 +556,6 @@ class QualificationAsLocal(Qualification):
             'jarArgs': rapids_arg_list,
             'className': class_name
         }
-        # EMR specific things
         platform_args = job_args.get('platformArgs')
         spark_conf_args = {}
         job_properties_json = {
