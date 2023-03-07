@@ -14,7 +14,7 @@
 
 """providing absolute costs of resources in Databricks"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
@@ -33,14 +33,10 @@ class DatabricksPriceProvider(PriceProvider):
     Provide costs of Databricks instances
     """
     name = 'Databricks'
-    plan: str
+    plan: str = field(default=None, init=False)
 
     def _process_resource_configs(self):
         online_entries = self.pricing_configs[self.plan].get_value('catalog', 'onlineResources')
-        if not self.cache_files:
-            self.cache_files = {}
-        if not self.resource_urls:
-            self.resource_urls = {}
         for online_entry in online_entries:
             file_name = online_entry.get('localFile')
             file_key = file_name.split('-catalog')[0]
@@ -49,10 +45,8 @@ class DatabricksPriceProvider(PriceProvider):
             # self.resource_urls[file_key] = online_entry.get('onlineURL')
 
     def _create_catalog(self):
-        if not self.catalogs:
-            self.catalogs = {}
-        for file_key in self.cache_files:
-            self.catalogs[file_key] = DatabricksCatalogContainer(prop_arg=self.cache_files[file_key])
+        for file_key, cache_file in self.cache_files.items():
+            self.catalogs[file_key] = DatabricksCatalogContainer(prop_arg=cache_file)
 
     def get_ssd_price(self, machine_type: str) -> float:
         pass

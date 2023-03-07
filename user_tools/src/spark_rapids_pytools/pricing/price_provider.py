@@ -32,12 +32,12 @@ class PriceProvider:
     """
     region: str
     pricing_configs: dict  # [str, JSONPropertiesContainer]
-    cache_files: dict = field(default=None, init=False)  # [str, str]
-    resource_urls: dict = field(default=None, init=False)  # [str, str]
+    cache_files: dict = field(default_factory=dict, init=False)  # [str, str]
+    resource_urls: dict = field(default_factory=dict, init=False)  # [str, str]
     name: str = field(default=None, init=False)
     cache_expiration_secs: int = field(default=604800, init=False)  # download the file once a week
     meta: dict = field(default_factory=dict)
-    catalogs: dict = field(default=None, init=False)  # [str, AbstractPropertiesContainer]
+    catalogs: dict = field(default_factory=dict, init=False)  # [str, AbstractPropertiesContainer]
     comments: list = field(default_factory=lambda: [], init=False)
     cache_directory: str = field(default=None, init=False)
     logger: Logger = field(default=None, init=False)
@@ -51,8 +51,8 @@ class PriceProvider:
 
     def _generate_cache_files(self):
         # resource_urls and cache_files should have the same keys
-        for file_key in self.resource_urls:
-            files_updated = FSUtil.cache_from_url(self.resource_urls[file_key], self.cache_files[file_key])
+        for file_key, resource_url in self.resource_urls.items():
+            files_updated = FSUtil.cache_from_url(resource_url, self.cache_files[file_key])
             self.logger.info('The catalog file %s is %s',
                              self.cache_files[file_key],
                              'updated' if files_updated else 'is not modified, using the cached content')

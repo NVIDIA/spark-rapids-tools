@@ -118,4 +118,4 @@ class EMREc2PriceProvider(PriceProvider):
         self.cache_files = {'emr': get_cache_file_path('emr', self.region), 'ec2': self.ec2_catalog_path}
 
     def _create_catalogs(self):
-        self.catalogs = {'emr': EmrEc2CatalogContainer(self.cache_files['emr'], ec2_prices_path=self.ec2_catalog_path)}
+        self.catalogs = {'aws': EmrEc2CatalogContainer(self.cache_files['emr'], ec2_prices_path=self.ec2_catalog_path)}
