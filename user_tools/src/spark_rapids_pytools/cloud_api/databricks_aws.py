@@ -19,7 +19,10 @@ from typing import Any
 
 from spark_rapids_pytools.cloud_api.emr import EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, SysInfo, GpuHWInfo
+from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, ClusterState, \
+                                                    SysInfo, GpuHWInfo, SparkNodeType
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
+from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
 @dataclass
@@ -97,7 +100,7 @@ class DBAWSCMDDriver(CMDDriverBase):
 class DatabricksNode(ClusterNode):
     """Implementation of Databricks cluster node."""
 
-    zone: str = field(default=None, init=False)
+    region: str = field(default=None, init=False)
 
     def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
         pass
@@ -112,8 +115,96 @@ class DatabricksCluster(ClusterBase):
     Represents an instance of running cluster on Databricks.
     """
 
-    def get_eventlogs_from_config(self):
-        pass
+    def get_eventlogs_from_config(self) -> list:
+        print("DatabricksCluster: get_eventlogs_from_config")
+        res_arr =[]
+        eventlogs_dir = self.props.get_value_silent('spark_conf', 'spark.eventLog.dir')
+        if eventlogs_dir:
+            res_arr.append(eventlogs_dir)
+        return res_arr
+    
+    def _set_fields_from_props(self):
+        print("DatabricksCluster: _set_fields_from_props")
+        super()._set_fields_from_props()
+        self.uuid = self.props.get_value('cluster_id')
+        self.state = ClusterState.fromstring(self.props.get_value('state'))
+        print(self.uuid, self.state)
+
+    def _init_nodes(self):
+        print("DatabricksCluster: _init_nodes")
+        # assume that only one master node
+        master_nodes_from_conf = self.props.get_value('driver')
+        worker_nodes_from_conf = self.props.get_value('executors')
+        print("master_nodes_from_conf:", master_nodes_from_conf)
+        # create workers array
+        worker_nodes: list = []
+        for worker_node in worker_nodes_from_conf:
+            worker_props = {
+                'Id': worker_node['node_id'],
+                'props': JSONPropertiesContainer(prop_arg=worker_node, file_load=False),
+                # set the node zone based on the wrapper defined zone
+                'zone': self.zone
+            }
+            print(worker_node['node_id'])
+            worker = DatabricksNode.create_worker_node().set_fields_from_dict(worker_props)
+            # worker.fetch_and_set_hw_info(self.cli)
+            worker_nodes.append(worker)
+        master_props = {
+            'Id': master_nodes_from_conf['node_id'],
+            'props': JSONPropertiesContainer(prop_arg=master_nodes_from_conf, file_load=False),
+            # set the node zone based on the wrapper defined zone
+            'zone': self.zone
+        }
+        print("master node id:", master_props['Id']) 
+        master_node = DatabricksNode.create_master_node().set_fields_from_dict(master_props)
+        # master_node.fetch_and_set_hw_info(self.cli)
+        self.nodes = {
+            SparkNodeType.WORKER: worker_nodes,
+            SparkNodeType.MASTER: master_node
+        }
+    
+    def _init_connection(self, cluster_id: str = None,
+                         props: str = None) -> dict:
+        print("DatabricksCluster: _init_connection")
+        cluster_args = super()._init_connection(cluster_id=cluster_id, props=props)
+        # propagate zone to the cluster
+        cluster_args.setdefault('region', self.cli.get_env_var('region'))
+        return cluster_args
 
     def _build_migrated_cluster(self, orig_cluster):
         pass
+
+
+@dataclass
+class DBAWSSavingsEstimator(SavingsEstimator):
+    """
+    A class that calculates the savings based on a Databricks-AWS price provider
+    """
+
+    def __calculate_ec2_cost(self, cluster: DatabricksCluster):
+        print("__calculate_ec2_cost")
+        master_instance = cluster.nodes.get(SparkNodeType.MASTER)
+        worker_instances = cluster.nodes.get(SparkNodeType.WORKER)
+        master_ec2_cost = self.price_provider.catalogs['aws'].get_value('ec2', master_instance.instance_type)
+        if len(worker_instances) == 0:
+            return master_ec2_cost
+        workers_ec2_unit_cost = self.price_provider.catalogs['aws'].get_value('ec2', worker_instances[0].instance_type)
+        workers_ec2_cost = workers_ec2_unit_cost * len(worker_instances)
+        return master_ec2_cost + workers_ec2_cost
+
+    def _get_cost_per_cluster(self, cluster: DatabricksCluster):
+        print("_get_cost_per_cluster")
+        master_instance = cluster.nodes.get(SparkNodeType.MASTER)
+        master_cost = self.price_provider.get_instance_price(gpu_device=master_instance.instance_type)
+        worker_instances = cluster.nodes.get(SparkNodeType.WORKER)
+        workers_cost = 0.0
+        if len(worker_instances) != 0:
+            worker_unit_cost = self.price_provider.get_instance_price(gpu_device=worker_instances[0].instance_type)
+            workers_cost = worker_unit_cost * len(worker_instances)
+        return __calculate_ec2_cost(cluster) + master_cost + workers_cost
+
+    def _setup_costs(self):
+        print("_setup_costs")
+        # calculate target_cost
+        self.target_cost = self._get_cost_per_cluster(self.target_cluster)
+        self.source_cost = self._get_cost_per_cluster(self.source_cluster)

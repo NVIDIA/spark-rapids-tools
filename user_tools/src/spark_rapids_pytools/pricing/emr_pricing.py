@@ -104,11 +104,6 @@ class EMREc2PriceProvider(PriceProvider):
         self.resource_urls = {'emr': f'{aws_url_base}{emr_region_relative_url}', 'ec2': self.ec2_prices_url}
         super()._generate_cache_files()
 
-    def get_cached_files(self) -> list:
-        cache_list = super().get_cached_files()
-        cache_list.append(self.ec2_catalog_path)
-        return cache_list
-
     def _process_resource_configs(self):
         def get_cache_file_path(comp,  region) -> str:
             file_name = f'emr_ec2_catalog_{comp}_{region}.json'
