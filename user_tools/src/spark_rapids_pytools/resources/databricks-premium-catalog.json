@@ -2,1491 +2,1491 @@
   "Jobs Compute": {
     "m4.large": {
       "vCPUs": 2,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.4,
-      "Rate($/hour)": 0.06
+      "Memory MB": 8192,
+      "DBU per hour": 0.4,
+      "Rate": 0.06
     },
     "m4.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.75,
-      "Rate($/hour)": 0.1125
+      "Memory MB": 16384,
+      "DBU per hour": 0.75,
+      "Rate": 0.1125
     },
     "m4.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.5,
-      "Rate($/hour)": 0.225
+      "Memory MB": 32768,
+      "DBU per hour": 1.5,
+      "Rate": 0.225
     },
     "m4.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 3.0,
-      "Rate($/hour)": 0.45
+      "Memory MB": 65536,
+      "DBU per hour": 3.0,
+      "Rate": 0.45
     },
     "m4.10xlarge": {
       "vCPUs": 40,
-      "Memory(GB)": 160,
-      "(DBU/hour)": 8.0,
-      "Rate($/hour)": 1.2
+      "Memory MB": 163840,
+      "DBU per hour": 8.0,
+      "Rate": 1.2
     },
     "m4.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 12.0,
-      "Rate($/hour)": 1.8
+      "Memory MB": 262144,
+      "DBU per hour": 12.0,
+      "Rate": 1.8
     },
     "m5.large": {
       "vCPUs": 2,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.34,
-      "Rate($/hour)": 0.051
+      "Memory MB": 8192,
+      "DBU per hour": 0.34,
+      "Rate": 0.051
     },
     "m5.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.69,
-      "Rate($/hour)": 0.1035
+      "Memory MB": 16384,
+      "DBU per hour": 0.69,
+      "Rate": 0.1035
     },
     "m5.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.37,
-      "Rate($/hour)": 0.2055
+      "Memory MB": 32768,
+      "DBU per hour": 1.37,
+      "Rate": 0.2055
     },
     "m5.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 2.74,
-      "Rate($/hour)": 0.411
+      "Memory MB": 65536,
+      "DBU per hour": 2.74,
+      "Rate": 0.411
     },
     "m5.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 5.48,
-      "Rate($/hour)": 0.822
+      "Memory MB": 131072,
+      "DBU per hour": 5.48,
+      "Rate": 0.822
     },
     "m5.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 8.23,
-      "Rate($/hour)": 1.2345
+      "Memory MB": 196608,
+      "DBU per hour": 8.23,
+      "Rate": 1.2345
     },
     "m5.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 10.96,
-      "Rate($/hour)": 1.644
+      "Memory MB": 262144,
+      "DBU per hour": 10.96,
+      "Rate": 1.644
     },
     "m5.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 16.46,
-      "Rate($/hour)": 2.469
+      "Memory MB": 393216,
+      "DBU per hour": 16.46,
+      "Rate": 2.469
     },
     "m5a.large": {
       "vCPUs": 2,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.31,
-      "Rate($/hour)": 0.0465
+      "Memory MB": 8192,
+      "DBU per hour": 0.31,
+      "Rate": 0.0465
     },
     "m5a.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.61,
-      "Rate($/hour)": 0.0915
+      "Memory MB": 16384,
+      "DBU per hour": 0.61,
+      "Rate": 0.0915
     },
     "m5a.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.23,
-      "Rate($/hour)": 0.1845
+      "Memory MB": 32768,
+      "DBU per hour": 1.23,
+      "Rate": 0.1845
     },
     "m5a.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 2.46,
-      "Rate($/hour)": 0.369
+      "Memory MB": 65536,
+      "DBU per hour": 2.46,
+      "Rate": 0.369
     },
     "m5a.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 4.91,
-      "Rate($/hour)": 0.7365
+      "Memory MB": 131072,
+      "DBU per hour": 4.91,
+      "Rate": 0.7365
     },
     "m5a.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 7.37,
-      "Rate($/hour)": 1.1055
+      "Memory MB": 196608,
+      "DBU per hour": 7.37,
+      "Rate": 1.1055
     },
     "m5a.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 9.83,
-      "Rate($/hour)": 1.4745
+      "Memory MB": 262144,
+      "DBU per hour": 9.83,
+      "Rate": 1.4745
     },
     "m5a.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 14.74,
-      "Rate($/hour)": 2.211
+      "Memory MB": 393216,
+      "DBU per hour": 14.74,
+      "Rate": 2.211
     },
     "m5d.large": {
       "vCPUs": 2,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.34,
-      "Rate($/hour)": 0.051
+      "Memory MB": 8192,
+      "DBU per hour": 0.34,
+      "Rate": 0.051
     },
     "m5d.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.69,
-      "Rate($/hour)": 0.1035
+      "Memory MB": 16384,
+      "DBU per hour": 0.69,
+      "Rate": 0.1035
     },
     "m5d.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.37,
-      "Rate($/hour)": 0.2055
+      "Memory MB": 32768,
+      "DBU per hour": 1.37,
+      "Rate": 0.2055
     },
     "m5d.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 2.74,
-      "Rate($/hour)": 0.411
+      "Memory MB": 65536,
+      "DBU per hour": 2.74,
+      "Rate": 0.411
     },
     "m5d.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 5.48,
-      "Rate($/hour)": 0.822
+      "Memory MB": 131072,
+      "DBU per hour": 5.48,
+      "Rate": 0.822
     },
     "m5d.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 8.23,
-      "Rate($/hour)": 1.2345
+      "Memory MB": 196608,
+      "DBU per hour": 8.23,
+      "Rate": 1.2345
     },
     "m5d.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 10.96,
-      "Rate($/hour)": 1.644
+      "Memory MB": 262144,
+      "DBU per hour": 10.96,
+      "Rate": 1.644
     },
     "m5d.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 16.46,
-      "Rate($/hour)": 2.469
+      "Memory MB": 393216,
+      "DBU per hour": 16.46,
+      "Rate": 2.469
     },
     "m5dn.large": {
       "vCPUs": 2,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.41,
-      "Rate($/hour)": 0.0615
+      "Memory MB": 8192,
+      "DBU per hour": 0.41,
+      "Rate": 0.0615
     },
     "m5dn.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.82,
-      "Rate($/hour)": 0.123
+      "Memory MB": 16384,
+      "DBU per hour": 0.82,
+      "Rate": 0.123
     },
     "m5dn.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.63,
-      "Rate($/hour)": 0.2445
+      "Memory MB": 32768,
+      "DBU per hour": 1.63,
+      "Rate": 0.2445
     },
     "m5dn.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 3.26,
-      "Rate($/hour)": 0.489
+      "Memory MB": 65536,
+      "DBU per hour": 3.26,
+      "Rate": 0.489
     },
     "m5dn.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 6.53,
-      "Rate($/hour)": 0.9795
+      "Memory MB": 131072,
+      "DBU per hour": 6.53,
+      "Rate": 0.9795
     },
     "m5dn.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 9.79,
-      "Rate($/hour)": 1.4685
+      "Memory MB": 196608,
+      "DBU per hour": 9.79,
+      "Rate": 1.4685
     },
     "m5dn.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 13.06,
-      "Rate($/hour)": 1.959
+      "Memory MB": 262144,
+      "DBU per hour": 13.06,
+      "Rate": 1.959
     },
     "m5dn.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 19.58,
-      "Rate($/hour)": 2.937
+      "Memory MB": 393216,
+      "DBU per hour": 19.58,
+      "Rate": 2.937
     },
     "m5dn.metal": {
       "vCPUs": 96,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 19.58,
-      "Rate($/hour)": 2.937
+      "Memory MB": 393216,
+      "DBU per hour": 19.58,
+      "Rate": 2.937
     },
     "m5n.large": {
       "vCPUs": 2,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.36,
-      "Rate($/hour)": 0.054
+      "Memory MB": 8192,
+      "DBU per hour": 0.36,
+      "Rate": 0.054
     },
     "m5n.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.71,
-      "Rate($/hour)": 0.1065
+      "Memory MB": 16384,
+      "DBU per hour": 0.71,
+      "Rate": 0.1065
     },
     "m5n.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.43,
-      "Rate($/hour)": 0.2145
+      "Memory MB": 32768,
+      "DBU per hour": 1.43,
+      "Rate": 0.2145
     },
     "m5n.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 2.86,
-      "Rate($/hour)": 0.429
+      "Memory MB": 65536,
+      "DBU per hour": 2.86,
+      "Rate": 0.429
     },
     "m5n.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 5.71,
-      "Rate($/hour)": 0.8565
+      "Memory MB": 131072,
+      "DBU per hour": 5.71,
+      "Rate": 0.8565
     },
     "m5n.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 8.57,
-      "Rate($/hour)": 1.2855
+      "Memory MB": 196608,
+      "DBU per hour": 8.57,
+      "Rate": 1.2855
     },
     "m5n.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 11.42,
-      "Rate($/hour)": 1.713
+      "Memory MB": 262144,
+      "DBU per hour": 11.42,
+      "Rate": 1.713
     },
     "m5n.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 17.14,
-      "Rate($/hour)": 2.571
+      "Memory MB": 393216,
+      "DBU per hour": 17.14,
+      "Rate": 2.571
     },
     "m5n.metal": {
       "vCPUs": 96,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 17.14,
-      "Rate($/hour)": 2.571
+      "Memory MB": 393216,
+      "DBU per hour": 17.14,
+      "Rate": 2.571
     },
     "m5zn.large": {
       "vCPUs": 2,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.5,
-      "Rate($/hour)": 0.075
+      "Memory MB": 8192,
+      "DBU per hour": 0.5,
+      "Rate": 0.075
     },
     "m5zn.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 1.0,
-      "Rate($/hour)": 0.15
+      "Memory MB": 16384,
+      "DBU per hour": 1.0,
+      "Rate": 0.15
     },
     "m5zn.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 2.0,
-      "Rate($/hour)": 0.3
+      "Memory MB": 32768,
+      "DBU per hour": 2.0,
+      "Rate": 0.3
     },
     "m5zn.3xlarge": {
       "vCPUs": 12,
-      "Memory(GB)": 48,
-      "(DBU/hour)": 3.0,
-      "Rate($/hour)": 0.45
+      "Memory MB": 49152,
+      "DBU per hour": 3.0,
+      "Rate": 0.45
     },
     "m5zn.6xlarge": {
       "vCPUs": 24,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 6.0,
-      "Rate($/hour)": 0.9
+      "Memory MB": 98304,
+      "DBU per hour": 6.0,
+      "Rate": 0.9
     },
     "m5zn.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 12.0,
-      "Rate($/hour)": 1.8
+      "Memory MB": 196608,
+      "DBU per hour": 12.0,
+      "Rate": 1.8
     },
     "m5zn.metal": {
       "vCPUs": 48,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 12.0,
-      "Rate($/hour)": 1.8
+      "Memory MB": 196608,
+      "DBU per hour": 12.0,
+      "Rate": 1.8
     },
     "m6g.large": {
       "vCPUs": 2,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.39,
-      "Rate($/hour)": 0.0585
+      "Memory MB": 8192,
+      "DBU per hour": 0.39,
+      "Rate": 0.0585
     },
     "m6g.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.77,
-      "Rate($/hour)": 0.1155
+      "Memory MB": 16384,
+      "DBU per hour": 0.77,
+      "Rate": 0.1155
     },
     "m6g.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.54,
-      "Rate($/hour)": 0.231
+      "Memory MB": 32768,
+      "DBU per hour": 1.54,
+      "Rate": 0.231
     },
     "m6g.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 3.07,
-      "Rate($/hour)": 0.4605
+      "Memory MB": 65536,
+      "DBU per hour": 3.07,
+      "Rate": 0.4605
     },
     "m6g.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 6.13,
-      "Rate($/hour)": 0.9195
+      "Memory MB": 131072,
+      "DBU per hour": 6.13,
+      "Rate": 0.9195
     },
     "m6g.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 9.21,
-      "Rate($/hour)": 1.3815
+      "Memory MB": 196608,
+      "DBU per hour": 9.21,
+      "Rate": 1.3815
     },
     "m6g.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 12.28,
-      "Rate($/hour)": 1.842
+      "Memory MB": 262144,
+      "DBU per hour": 12.28,
+      "Rate": 1.842
     },
     "m6gd.large": {
       "vCPUs": 2,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.39,
-      "Rate($/hour)": 0.0585
+      "Memory MB": 8192,
+      "DBU per hour": 0.39,
+      "Rate": 0.0585
     },
     "m6gd.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.77,
-      "Rate($/hour)": 0.1155
+      "Memory MB": 16384,
+      "DBU per hour": 0.77,
+      "Rate": 0.1155
     },
     "m6gd.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.54,
-      "Rate($/hour)": 0.231
+      "Memory MB": 32768,
+      "DBU per hour": 1.54,
+      "Rate": 0.231
     },
     "m6gd.4xlarge": {
       "vCPUs": 12,
-      "Memory(GB)": 48,
-      "(DBU/hour)": 3.07,
-      "Rate($/hour)": 0.4605
+      "Memory MB": 49152,
+      "DBU per hour": 3.07,
+      "Rate": 0.4605
     },
     "m6gd.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 6.13,
-      "Rate($/hour)": 0.9195
+      "Memory MB": 131072,
+      "DBU per hour": 6.13,
+      "Rate": 0.9195
     },
     "m6gd.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 9.21,
-      "Rate($/hour)": 1.3815
+      "Memory MB": 196608,
+      "DBU per hour": 9.21,
+      "Rate": 1.3815
     },
     "m6gd.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 12.28,
-      "Rate($/hour)": 1.842
+      "Memory MB": 262144,
+      "DBU per hour": 12.28,
+      "Rate": 1.842
     },
     "r3.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 31,
-      "(DBU/hour)": 1.0,
-      "Rate($/hour)": 0.15
+      "Memory MB": 31744,
+      "DBU per hour": 1.0,
+      "Rate": 0.15
     },
     "r3.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 61,
-      "(DBU/hour)": 2.0,
-      "Rate($/hour)": 0.3
+      "Memory MB": 62464,
+      "DBU per hour": 2.0,
+      "Rate": 0.3
     },
     "r3.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 122,
-      "(DBU/hour)": 4.0,
-      "Rate($/hour)": 0.6
+      "Memory MB": 124928,
+      "DBU per hour": 4.0,
+      "Rate": 0.6
     },
     "r3.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 244,
-      "(DBU/hour)": 8.0,
-      "Rate($/hour)": 1.2
+      "Memory MB": 249856,
+      "DBU per hour": 8.0,
+      "Rate": 1.2
     },
     "r4.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 31,
-      "(DBU/hour)": 1.0,
-      "Rate($/hour)": 0.15
+      "Memory MB": 31744,
+      "DBU per hour": 1.0,
+      "Rate": 0.15
     },
     "r4.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 61,
-      "(DBU/hour)": 2.0,
-      "Rate($/hour)": 0.3
+      "Memory MB": 62464,
+      "DBU per hour": 2.0,
+      "Rate": 0.3
     },
     "r4.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 122,
-      "(DBU/hour)": 4.0,
-      "Rate($/hour)": 0.6
+      "Memory MB": 124928,
+      "DBU per hour": 4.0,
+      "Rate": 0.6
     },
     "r4.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 244,
-      "(DBU/hour)": 8.0,
-      "Rate($/hour)": 1.2
+      "Memory MB": 249856,
+      "DBU per hour": 8.0,
+      "Rate": 1.2
     },
     "r4.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 488,
-      "(DBU/hour)": 16.0,
-      "Rate($/hour)": 2.4
+      "Memory MB": 499712,
+      "DBU per hour": 16.0,
+      "Rate": 2.4
     },
     "r5.large": {
       "vCPUs": 2,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.45,
-      "Rate($/hour)": 0.0675
+      "Memory MB": 16384,
+      "DBU per hour": 0.45,
+      "Rate": 0.0675
     },
     "r5.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 0.9,
-      "Rate($/hour)": 0.135
+      "Memory MB": 32768,
+      "DBU per hour": 0.9,
+      "Rate": 0.135
     },
     "r5.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 1.8,
-      "Rate($/hour)": 0.27
+      "Memory MB": 65536,
+      "DBU per hour": 1.8,
+      "Rate": 0.27
     },
     "r5.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 3.6,
-      "Rate($/hour)": 0.54
+      "Memory MB": 131072,
+      "DBU per hour": 3.6,
+      "Rate": 0.54
     },
     "r5.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 7.2,
-      "Rate($/hour)": 1.08
+      "Memory MB": 262144,
+      "DBU per hour": 7.2,
+      "Rate": 1.08
     },
     "r5.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 10.8,
-      "Rate($/hour)": 1.62
+      "Memory MB": 393216,
+      "DBU per hour": 10.8,
+      "Rate": 1.62
     },
     "r5.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 512,
-      "(DBU/hour)": 14.4,
-      "Rate($/hour)": 2.16
+      "Memory MB": 524288,
+      "DBU per hour": 14.4,
+      "Rate": 2.16
     },
     "r5.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 768,
-      "(DBU/hour)": 21.6,
-      "Rate($/hour)": 3.24
+      "Memory MB": 786432,
+      "DBU per hour": 21.6,
+      "Rate": 3.24
     },
     "r5a.large": {
       "vCPUs": 2,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.41,
-      "Rate($/hour)": 0.0615
+      "Memory MB": 16384,
+      "DBU per hour": 0.41,
+      "Rate": 0.0615
     },
     "r5a.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 0.81,
-      "Rate($/hour)": 0.1215
+      "Memory MB": 32768,
+      "DBU per hour": 0.81,
+      "Rate": 0.1215
     },
     "r5a.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 1.61,
-      "Rate($/hour)": 0.2415
+      "Memory MB": 65536,
+      "DBU per hour": 1.61,
+      "Rate": 0.2415
     },
     "r5a.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 3.23,
-      "Rate($/hour)": 0.4845
+      "Memory MB": 131072,
+      "DBU per hour": 3.23,
+      "Rate": 0.4845
     },
     "r5a.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 6.46,
-      "Rate($/hour)": 0.969
+      "Memory MB": 262144,
+      "DBU per hour": 6.46,
+      "Rate": 0.969
     },
     "r5a.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 9.69,
-      "Rate($/hour)": 1.4535
+      "Memory MB": 393216,
+      "DBU per hour": 9.69,
+      "Rate": 1.4535
     },
     "r5a.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 512,
-      "(DBU/hour)": 12.91,
-      "Rate($/hour)": 1.9365
+      "Memory MB": 524288,
+      "DBU per hour": 12.91,
+      "Rate": 1.9365
     },
     "r5a.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 768,
-      "(DBU/hour)": 19.37,
-      "Rate($/hour)": 2.9055
+      "Memory MB": 786432,
+      "DBU per hour": 19.37,
+      "Rate": 2.9055
     },
     "r5d.large": {
       "vCPUs": 2,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.45,
-      "Rate($/hour)": 0.0675
+      "Memory MB": 16384,
+      "DBU per hour": 0.45,
+      "Rate": 0.0675
     },
     "r5d.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 0.9,
-      "Rate($/hour)": 0.135
+      "Memory MB": 32768,
+      "DBU per hour": 0.9,
+      "Rate": 0.135
     },
     "r5d.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 1.8,
-      "Rate($/hour)": 0.27
+      "Memory MB": 65536,
+      "DBU per hour": 1.8,
+      "Rate": 0.27
     },
     "r5d.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 3.6,
-      "Rate($/hour)": 0.54
+      "Memory MB": 131072,
+      "DBU per hour": 3.6,
+      "Rate": 0.54
     },
     "r5d.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 7.2,
-      "Rate($/hour)": 1.08
+      "Memory MB": 262144,
+      "DBU per hour": 7.2,
+      "Rate": 1.08
     },
     "r5d.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 10.8,
-      "Rate($/hour)": 1.62
+      "Memory MB": 393216,
+      "DBU per hour": 10.8,
+      "Rate": 1.62
     },
     "r5d.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 512,
-      "(DBU/hour)": 14.4,
-      "Rate($/hour)": 2.16
+      "Memory MB": 524288,
+      "DBU per hour": 14.4,
+      "Rate": 2.16
     },
     "r5d.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 768,
-      "(DBU/hour)": 21.6,
-      "Rate($/hour)": 3.24
+      "Memory MB": 786432,
+      "DBU per hour": 21.6,
+      "Rate": 3.24
     },
     "r5dn.large": {
       "vCPUs": 2,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.52,
-      "Rate($/hour)": 0.078
+      "Memory MB": 16384,
+      "DBU per hour": 0.52,
+      "Rate": 0.078
     },
     "r5dn.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.04,
-      "Rate($/hour)": 0.156
+      "Memory MB": 32768,
+      "DBU per hour": 1.04,
+      "Rate": 0.156
     },
     "r5dn.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 2.09,
-      "Rate($/hour)": 0.3135
+      "Memory MB": 65536,
+      "DBU per hour": 2.09,
+      "Rate": 0.3135
     },
     "r5dn.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 4.18,
-      "Rate($/hour)": 0.627
+      "Memory MB": 131072,
+      "DBU per hour": 4.18,
+      "Rate": 0.627
     },
     "r5dn.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 8.35,
-      "Rate($/hour)": 1.2525
+      "Memory MB": 262144,
+      "DBU per hour": 8.35,
+      "Rate": 1.2525
     },
     "r5dn.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 12.53,
-      "Rate($/hour)": 1.8795
+      "Memory MB": 393216,
+      "DBU per hour": 12.53,
+      "Rate": 1.8795
     },
     "r5dn.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 512,
-      "(DBU/hour)": 16.7,
-      "Rate($/hour)": 2.505
+      "Memory MB": 524288,
+      "DBU per hour": 16.7,
+      "Rate": 2.505
     },
     "r5dn.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 768,
-      "(DBU/hour)": 25.06,
-      "Rate($/hour)": 3.759
+      "Memory MB": 786432,
+      "DBU per hour": 25.06,
+      "Rate": 3.759
     },
     "r5dn.metal": {
       "vCPUs": 96,
-      "Memory(GB)": 768,
-      "(DBU/hour)": 25.06,
-      "Rate($/hour)": 3.759
+      "Memory MB": 786432,
+      "DBU per hour": 25.06,
+      "Rate": 3.759
     },
     "r5n.large": {
       "vCPUs": 2,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.45,
-      "Rate($/hour)": 0.0675
+      "Memory MB": 16384,
+      "DBU per hour": 0.45,
+      "Rate": 0.0675
     },
     "r5n.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 0.9,
-      "Rate($/hour)": 0.135
+      "Memory MB": 32768,
+      "DBU per hour": 0.9,
+      "Rate": 0.135
     },
     "r5n.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 1.8,
-      "Rate($/hour)": 0.27
+      "Memory MB": 65536,
+      "DBU per hour": 1.8,
+      "Rate": 0.27
     },
     "r5n.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 3.6,
-      "Rate($/hour)": 0.54
+      "Memory MB": 131072,
+      "DBU per hour": 3.6,
+      "Rate": 0.54
     },
     "r5n.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 7.2,
-      "Rate($/hour)": 1.08
+      "Memory MB": 262144,
+      "DBU per hour": 7.2,
+      "Rate": 1.08
     },
     "r5n.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 10.8,
-      "Rate($/hour)": 1.62
+      "Memory MB": 393216,
+      "DBU per hour": 10.8,
+      "Rate": 1.62
     },
     "r5n.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 512,
-      "(DBU/hour)": 14.4,
-      "Rate($/hour)": 2.16
+      "Memory MB": 524288,
+      "DBU per hour": 14.4,
+      "Rate": 2.16
     },
     "r5n.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 768,
-      "(DBU/hour)": 21.6,
-      "Rate($/hour)": 3.24
+      "Memory MB": 786432,
+      "DBU per hour": 21.6,
+      "Rate": 3.24
     },
     "r5n.metal": {
       "vCPUs": 96,
-      "Memory(GB)": 768,
-      "(DBU/hour)": 21.6,
-      "Rate($/hour)": 3.24
+      "Memory MB": 786432,
+      "DBU per hour": 21.6,
+      "Rate": 3.24
     },
     "r6g.large": {
       "vCPUs": 2,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.5,
-      "Rate($/hour)": 0.075
+      "Memory MB": 16384,
+      "DBU per hour": 0.5,
+      "Rate": 0.075
     },
     "r6g.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.0,
-      "Rate($/hour)": 0.15
+      "Memory MB": 32768,
+      "DBU per hour": 1.0,
+      "Rate": 0.15
     },
     "r6g.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 2.0,
-      "Rate($/hour)": 0.3
+      "Memory MB": 65536,
+      "DBU per hour": 2.0,
+      "Rate": 0.3
     },
     "r6g.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 4.0,
-      "Rate($/hour)": 0.6
+      "Memory MB": 131072,
+      "DBU per hour": 4.0,
+      "Rate": 0.6
     },
     "r6g.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 8.0,
-      "Rate($/hour)": 1.2
+      "Memory MB": 262144,
+      "DBU per hour": 8.0,
+      "Rate": 1.2
     },
     "r6g.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 12.0,
-      "Rate($/hour)": 1.8
+      "Memory MB": 393216,
+      "DBU per hour": 12.0,
+      "Rate": 1.8
     },
     "r6g.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 512,
-      "(DBU/hour)": 16.0,
-      "Rate($/hour)": 2.4
+      "Memory MB": 524288,
+      "DBU per hour": 16.0,
+      "Rate": 2.4
     },
     "r6gd.large": {
       "vCPUs": 2,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.5,
-      "Rate($/hour)": 0.075
+      "Memory MB": 16384,
+      "DBU per hour": 0.5,
+      "Rate": 0.075
     },
     "r6gd.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.0,
-      "Rate($/hour)": 0.15
+      "Memory MB": 32768,
+      "DBU per hour": 1.0,
+      "Rate": 0.15
     },
     "r6gd.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 2.0,
-      "Rate($/hour)": 0.3
+      "Memory MB": 65536,
+      "DBU per hour": 2.0,
+      "Rate": 0.3
     },
     "r6gd.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 4.0,
-      "Rate($/hour)": 0.6
+      "Memory MB": 131072,
+      "DBU per hour": 4.0,
+      "Rate": 0.6
     },
     "r6gd.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 8.0,
-      "Rate($/hour)": 1.2
+      "Memory MB": 262144,
+      "DBU per hour": 8.0,
+      "Rate": 1.2
     },
     "r6gd.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 12.0,
-      "Rate($/hour)": 1.8
+      "Memory MB": 393216,
+      "DBU per hour": 12.0,
+      "Rate": 1.8
     },
     "r6gd.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 512,
-      "(DBU/hour)": 16.0,
-      "Rate($/hour)": 2.4
+      "Memory MB": 524288,
+      "DBU per hour": 16.0,
+      "Rate": 2.4
     },
     "z1d.large": {
       "vCPUs": 2,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.66,
-      "Rate($/hour)": 0.099
+      "Memory MB": 16384,
+      "DBU per hour": 0.66,
+      "Rate": 0.099
     },
     "z1d.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.33,
-      "Rate($/hour)": 0.1995
+      "Memory MB": 32768,
+      "DBU per hour": 1.33,
+      "Rate": 0.1995
     },
     "z1d.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 2.66,
-      "Rate($/hour)": 0.399
+      "Memory MB": 65536,
+      "DBU per hour": 2.66,
+      "Rate": 0.399
     },
     "z1d.3xlarge": {
       "vCPUs": 12,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 3.99,
-      "Rate($/hour)": 0.5985
+      "Memory MB": 98304,
+      "DBU per hour": 3.99,
+      "Rate": 0.5985
     },
     "z1d.6xlarge": {
       "vCPUs": 24,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 7.97,
-      "Rate($/hour)": 1.1955
+      "Memory MB": 196608,
+      "DBU per hour": 7.97,
+      "Rate": 1.1955
     },
     "z1d.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 15.94,
-      "Rate($/hour)": 2.391
+      "Memory MB": 393216,
+      "DBU per hour": 15.94,
+      "Rate": 2.391
     },
     "i2.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 31,
-      "(DBU/hour)": 1.5,
-      "Rate($/hour)": 0.225
+      "Memory MB": 31744,
+      "DBU per hour": 1.5,
+      "Rate": 0.225
     },
     "i2.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 61,
-      "(DBU/hour)": 3.0,
-      "Rate($/hour)": 0.45
+      "Memory MB": 62464,
+      "DBU per hour": 3.0,
+      "Rate": 0.45
     },
     "i2.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 122,
-      "(DBU/hour)": 6.0,
-      "Rate($/hour)": 0.9
+      "Memory MB": 124928,
+      "DBU per hour": 6.0,
+      "Rate": 0.9
     },
     "i2.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 244,
-      "(DBU/hour)": 12.0,
-      "Rate($/hour)": 1.8
+      "Memory MB": 249856,
+      "DBU per hour": 12.0,
+      "Rate": 1.8
     },
     "i3.large": {
       "vCPUs": 2,
-      "Memory(GB)": 15,
-      "(DBU/hour)": 0.75,
-      "Rate($/hour)": 0.1125
+      "Memory MB": 15360,
+      "DBU per hour": 0.75,
+      "Rate": 0.1125
     },
     "i3.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 31,
-      "(DBU/hour)": 1.0,
-      "Rate($/hour)": 0.15
+      "Memory MB": 31744,
+      "DBU per hour": 1.0,
+      "Rate": 0.15
     },
     "i3.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 61,
-      "(DBU/hour)": 2.0,
-      "Rate($/hour)": 0.3
+      "Memory MB": 62464,
+      "DBU per hour": 2.0,
+      "Rate": 0.3
     },
     "i3.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 122,
-      "(DBU/hour)": 4.0,
-      "Rate($/hour)": 0.6
+      "Memory MB": 124928,
+      "DBU per hour": 4.0,
+      "Rate": 0.6
     },
     "i3.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 244,
-      "(DBU/hour)": 8.0,
-      "Rate($/hour)": 1.2
+      "Memory MB": 249856,
+      "DBU per hour": 8.0,
+      "Rate": 1.2
     },
     "i3.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 488,
-      "(DBU/hour)": 16.0,
-      "Rate($/hour)": 2.4
+      "Memory MB": 499712,
+      "DBU per hour": 16.0,
+      "Rate": 2.4
     },
     "i3en.large": {
       "vCPUs": 2,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.75,
-      "Rate($/hour)": 0.1125
+      "Memory MB": 16384,
+      "DBU per hour": 0.75,
+      "Rate": 0.1125
     },
     "i3en.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.45,
-      "Rate($/hour)": 0.2175
+      "Memory MB": 32768,
+      "DBU per hour": 1.45,
+      "Rate": 0.2175
     },
     "i3en.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 2.9,
-      "Rate($/hour)": 0.435
+      "Memory MB": 65536,
+      "DBU per hour": 2.9,
+      "Rate": 0.435
     },
     "i3en.3xlarge": {
       "vCPUs": 12,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 4.35,
-      "Rate($/hour)": 0.6525
+      "Memory MB": 98304,
+      "DBU per hour": 4.35,
+      "Rate": 0.6525
     },
     "i3en.6xlarge": {
       "vCPUs": 24,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 8.7,
-      "Rate($/hour)": 1.305
+      "Memory MB": 196608,
+      "DBU per hour": 8.7,
+      "Rate": 1.305
     },
     "i3en.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 384,
-      "(DBU/hour)": 17.4,
-      "Rate($/hour)": 2.61
+      "Memory MB": 393216,
+      "DBU per hour": 17.4,
+      "Rate": 2.61
     },
     "i3en.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 768,
-      "(DBU/hour)": 34.8,
-      "Rate($/hour)": 5.22
+      "Memory MB": 786432,
+      "DBU per hour": 34.8,
+      "Rate": 5.22
     },
     "i4i.large": {
       "vCPUs": 2,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.69,
-      "Rate($/hour)": 0.1035
+      "Memory MB": 16384,
+      "DBU per hour": 0.69,
+      "Rate": 0.1035
     },
     "i4i.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.38,
-      "Rate($/hour)": 0.207
+      "Memory MB": 32768,
+      "DBU per hour": 1.38,
+      "Rate": 0.207
     },
     "i4i.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 2.75,
-      "Rate($/hour)": 0.4125
+      "Memory MB": 65536,
+      "DBU per hour": 2.75,
+      "Rate": 0.4125
     },
     "i4i.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 5.5,
-      "Rate($/hour)": 0.825
+      "Memory MB": 131072,
+      "DBU per hour": 5.5,
+      "Rate": 0.825
     },
     "i4i.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 11.0,
-      "Rate($/hour)": 1.65
+      "Memory MB": 262144,
+      "DBU per hour": 11.0,
+      "Rate": 1.65
     },
     "i4i.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 512,
-      "(DBU/hour)": 22.0,
-      "Rate($/hour)": 3.3
+      "Memory MB": 524288,
+      "DBU per hour": 22.0,
+      "Rate": 3.3
     },
     "i4i.32xlarge": {
       "vCPUs": 128,
-      "Memory(GB)": 1024,
-      "(DBU/hour)": 44.0,
-      "Rate($/hour)": 6.6
+      "Memory MB": 1048576,
+      "DBU per hour": 44.0,
+      "Rate": 6.6
     },
     "d3.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.6,
-      "Rate($/hour)": 0.24
+      "Memory MB": 32768,
+      "DBU per hour": 1.6,
+      "Rate": 0.24
     },
     "d3.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 3.2,
-      "Rate($/hour)": 0.48
+      "Memory MB": 65536,
+      "DBU per hour": 3.2,
+      "Rate": 0.48
     },
     "d3.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 6.4,
-      "Rate($/hour)": 0.96
+      "Memory MB": 131072,
+      "DBU per hour": 6.4,
+      "Rate": 0.96
     },
     "d3.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 12.8,
-      "Rate($/hour)": 1.92
+      "Memory MB": 262144,
+      "DBU per hour": 12.8,
+      "Rate": 1.92
     },
     "d3en.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 1.68,
-      "Rate($/hour)": 0.252
+      "Memory MB": 16384,
+      "DBU per hour": 1.68,
+      "Rate": 0.252
     },
     "d3en.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 3.36,
-      "Rate($/hour)": 0.504
+      "Memory MB": 32768,
+      "DBU per hour": 3.36,
+      "Rate": 0.504
     },
     "d3en.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 6.72,
-      "Rate($/hour)": 1.008
+      "Memory MB": 65536,
+      "DBU per hour": 6.72,
+      "Rate": 1.008
     },
     "d3en.6xlarge": {
       "vCPUs": 24,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 10.08,
-      "Rate($/hour)": 1.512
+      "Memory MB": 98304,
+      "DBU per hour": 10.08,
+      "Rate": 1.512
     },
     "d3en.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 13.44,
-      "Rate($/hour)": 2.016
+      "Memory MB": 131072,
+      "DBU per hour": 13.44,
+      "Rate": 2.016
     },
     "d3en.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 20.16,
-      "Rate($/hour)": 3.024
+      "Memory MB": 196608,
+      "DBU per hour": 20.16,
+      "Rate": 3.024
     },
     "c3.2xlarge (Deprecated)": {
       "vCPUs": 8,
-      "Memory(GB)": 15,
-      "(DBU/hour)": 1.0,
-      "Rate($/hour)": 0.15
+      "Memory MB": 15360,
+      "DBU per hour": 1.0,
+      "Rate": 0.15
     },
     "c3.4xlarge (Deprecated)": {
       "vCPUs": 16,
-      "Memory(GB)": 30,
-      "(DBU/hour)": 2.0,
-      "Rate($/hour)": 0.3
+      "Memory MB": 30720,
+      "DBU per hour": 2.0,
+      "Rate": 0.3
     },
     "c3.8xlarge (Deprecated)": {
       "vCPUs": 36,
-      "Memory(GB)": 60,
-      "(DBU/hour)": 4.0,
-      "Rate($/hour)": 0.6
+      "Memory MB": 61440,
+      "DBU per hour": 4.0,
+      "Rate": 0.6
     },
     "c4.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 15,
-      "(DBU/hour)": 1.0,
-      "Rate($/hour)": 0.15
+      "Memory MB": 15360,
+      "DBU per hour": 1.0,
+      "Rate": 0.15
     },
     "c4.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 30,
-      "(DBU/hour)": 2.0,
-      "Rate($/hour)": 0.3
+      "Memory MB": 30720,
+      "DBU per hour": 2.0,
+      "Rate": 0.3
     },
     "c4.8xlarge": {
       "vCPUs": 36,
-      "Memory(GB)": 60,
-      "(DBU/hour)": 4.0,
-      "Rate($/hour)": 0.6
+      "Memory MB": 61440,
+      "DBU per hour": 4.0,
+      "Rate": 0.6
     },
     "c5.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.61,
-      "Rate($/hour)": 0.0915
+      "Memory MB": 8192,
+      "DBU per hour": 0.61,
+      "Rate": 0.0915
     },
     "c5.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 1.21,
-      "Rate($/hour)": 0.1815
+      "Memory MB": 16384,
+      "DBU per hour": 1.21,
+      "Rate": 0.1815
     },
     "c5.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 2.43,
-      "Rate($/hour)": 0.3645
+      "Memory MB": 32768,
+      "DBU per hour": 2.43,
+      "Rate": 0.3645
     },
     "c5.9xlarge": {
       "vCPUs": 36,
-      "Memory(GB)": 72,
-      "(DBU/hour)": 5.46,
-      "Rate($/hour)": 0.819
+      "Memory MB": 73728,
+      "DBU per hour": 5.46,
+      "Rate": 0.819
     },
     "c5.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 7.28,
-      "Rate($/hour)": 1.092
+      "Memory MB": 98304,
+      "DBU per hour": 7.28,
+      "Rate": 1.092
     },
     "c5.18xlarge": {
       "vCPUs": 72,
-      "Memory(GB)": 144,
-      "(DBU/hour)": 10.92,
-      "Rate($/hour)": 1.638
+      "Memory MB": 147456,
+      "DBU per hour": 10.92,
+      "Rate": 1.638
     },
     "c5.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 14.56,
-      "Rate($/hour)": 2.184
+      "Memory MB": 196608,
+      "DBU per hour": 14.56,
+      "Rate": 2.184
     },
     "c5a.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.61,
-      "Rate($/hour)": 0.0915
+      "Memory MB": 8192,
+      "DBU per hour": 0.61,
+      "Rate": 0.0915
     },
     "c5a.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 1.21,
-      "Rate($/hour)": 0.1815
+      "Memory MB": 16384,
+      "DBU per hour": 1.21,
+      "Rate": 0.1815
     },
     "c5a.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 2.43,
-      "Rate($/hour)": 0.3645
+      "Memory MB": 32768,
+      "DBU per hour": 2.43,
+      "Rate": 0.3645
     },
     "c5a.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 4.86,
-      "Rate($/hour)": 0.729
+      "Memory MB": 65536,
+      "DBU per hour": 4.86,
+      "Rate": 0.729
     },
     "c5a.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 7.28,
-      "Rate($/hour)": 1.092
+      "Memory MB": 98304,
+      "DBU per hour": 7.28,
+      "Rate": 1.092
     },
     "c5a.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 9.72,
-      "Rate($/hour)": 1.458
+      "Memory MB": 131072,
+      "DBU per hour": 9.72,
+      "Rate": 1.458
     },
     "c5a.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 14.56,
-      "Rate($/hour)": 2.184
+      "Memory MB": 196608,
+      "DBU per hour": 14.56,
+      "Rate": 2.184
     },
     "c5ad.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.69,
-      "Rate($/hour)": 0.1035
+      "Memory MB": 8192,
+      "DBU per hour": 0.69,
+      "Rate": 0.1035
     },
     "c5ad.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 1.37,
-      "Rate($/hour)": 0.2055
+      "Memory MB": 16384,
+      "DBU per hour": 1.37,
+      "Rate": 0.2055
     },
     "c5ad.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 2.74,
-      "Rate($/hour)": 0.411
+      "Memory MB": 32768,
+      "DBU per hour": 2.74,
+      "Rate": 0.411
     },
     "c5ad.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 5.48,
-      "Rate($/hour)": 0.822
+      "Memory MB": 65536,
+      "DBU per hour": 5.48,
+      "Rate": 0.822
     },
     "c5ad.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 8.22,
-      "Rate($/hour)": 1.233
+      "Memory MB": 98304,
+      "DBU per hour": 8.22,
+      "Rate": 1.233
     },
     "c5ad.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 10.96,
-      "Rate($/hour)": 1.644
+      "Memory MB": 131072,
+      "DBU per hour": 10.96,
+      "Rate": 1.644
     },
     "c5ad.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 16.44,
-      "Rate($/hour)": 2.466
+      "Memory MB": 196608,
+      "DBU per hour": 16.44,
+      "Rate": 2.466
     },
     "c5d.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.61,
-      "Rate($/hour)": 0.0915
+      "Memory MB": 8192,
+      "DBU per hour": 0.61,
+      "Rate": 0.0915
     },
     "c5d.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 1.21,
-      "Rate($/hour)": 0.1815
+      "Memory MB": 16384,
+      "DBU per hour": 1.21,
+      "Rate": 0.1815
     },
     "c5d.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 2.43,
-      "Rate($/hour)": 0.3645
+      "Memory MB": 32768,
+      "DBU per hour": 2.43,
+      "Rate": 0.3645
     },
     "c5d.9xlarge": {
       "vCPUs": 36,
-      "Memory(GB)": 72,
-      "(DBU/hour)": 5.46,
-      "Rate($/hour)": 0.819
+      "Memory MB": 73728,
+      "DBU per hour": 5.46,
+      "Rate": 0.819
     },
     "c5d.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 7.28,
-      "Rate($/hour)": 1.092
+      "Memory MB": 98304,
+      "DBU per hour": 7.28,
+      "Rate": 1.092
     },
     "c5d.18xlarge": {
       "vCPUs": 72,
-      "Memory(GB)": 144,
-      "(DBU/hour)": 10.92,
-      "Rate($/hour)": 1.638
+      "Memory MB": 147456,
+      "DBU per hour": 10.92,
+      "Rate": 1.638
     },
     "c5d.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 14.56,
-      "Rate($/hour)": 2.184
+      "Memory MB": 196608,
+      "DBU per hour": 14.56,
+      "Rate": 2.184
     },
     "c5n.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 11,
-      "(DBU/hour)": 0.78,
-      "Rate($/hour)": 0.117
+      "Memory MB": 11264,
+      "DBU per hour": 0.78,
+      "Rate": 0.117
     },
     "c5n.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 21,
-      "(DBU/hour)": 1.55,
-      "Rate($/hour)": 0.2325
+      "Memory MB": 21504,
+      "DBU per hour": 1.55,
+      "Rate": 0.2325
     },
     "c5n.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 42,
-      "(DBU/hour)": 3.11,
-      "Rate($/hour)": 0.4665
+      "Memory MB": 43008,
+      "DBU per hour": 3.11,
+      "Rate": 0.4665
     },
     "c5n.9xlarge": {
       "vCPUs": 36,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 6.99,
-      "Rate($/hour)": 1.0485
+      "Memory MB": 98304,
+      "DBU per hour": 6.99,
+      "Rate": 1.0485
     },
     "c5n.18xlarge": {
       "vCPUs": 72,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 13.97,
-      "Rate($/hour)": 2.0955
+      "Memory MB": 196608,
+      "DBU per hour": 13.97,
+      "Rate": 2.0955
     },
     "c5n.metal": {
       "vCPUs": 72,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 13.97,
-      "Rate($/hour)": 2.0955
+      "Memory MB": 196608,
+      "DBU per hour": 13.97,
+      "Rate": 2.0955
     },
     "c6g.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.77,
-      "Rate($/hour)": 0.1155
+      "Memory MB": 8192,
+      "DBU per hour": 0.77,
+      "Rate": 0.1155
     },
     "c6g.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 1.54,
-      "Rate($/hour)": 0.231
+      "Memory MB": 16384,
+      "DBU per hour": 1.54,
+      "Rate": 0.231
     },
     "c6g.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 3.08,
-      "Rate($/hour)": 0.462
+      "Memory MB": 32768,
+      "DBU per hour": 3.08,
+      "Rate": 0.462
     },
     "c6g.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 6.16,
-      "Rate($/hour)": 0.924
+      "Memory MB": 65536,
+      "DBU per hour": 6.16,
+      "Rate": 0.924
     },
     "c6g.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 9.24,
-      "Rate($/hour)": 1.386
+      "Memory MB": 98304,
+      "DBU per hour": 9.24,
+      "Rate": 1.386
     },
     "c6g.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 12.32,
-      "Rate($/hour)": 1.848
+      "Memory MB": 131072,
+      "DBU per hour": 12.32,
+      "Rate": 1.848
     },
     "c6gd.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 0.77,
-      "Rate($/hour)": 0.1155
+      "Memory MB": 8192,
+      "DBU per hour": 0.77,
+      "Rate": 0.1155
     },
     "c6gd.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 1.54,
-      "Rate($/hour)": 0.231
+      "Memory MB": 16384,
+      "DBU per hour": 1.54,
+      "Rate": 0.231
     },
     "c6gd.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 3.08,
-      "Rate($/hour)": 0.462
+      "Memory MB": 32768,
+      "DBU per hour": 3.08,
+      "Rate": 0.462
     },
     "c6gd.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 6.16,
-      "Rate($/hour)": 0.924
+      "Memory MB": 65536,
+      "DBU per hour": 6.16,
+      "Rate": 0.924
     },
     "c6gd.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 9.24,
-      "Rate($/hour)": 1.386
+      "Memory MB": 98304,
+      "DBU per hour": 9.24,
+      "Rate": 1.386
     },
     "c6gd.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 12.32,
-      "Rate($/hour)": 1.848
+      "Memory MB": 131072,
+      "DBU per hour": 12.32,
+      "Rate": 1.848
     },
     "g4dn.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 0.71,
-      "Rate($/hour)": 0.1065
+      "Memory MB": 16384,
+      "DBU per hour": 0.71,
+      "Rate": 0.1065
     },
     "g4dn.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 1.43,
-      "Rate($/hour)": 0.2145
+      "Memory MB": 32768,
+      "DBU per hour": 1.43,
+      "Rate": 0.2145
     },
     "g4dn.4xlarge": {
       "vCPUs": 16,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 2.85,
-      "Rate($/hour)": 0.4275
+      "Memory MB": 65536,
+      "DBU per hour": 2.85,
+      "Rate": 0.4275
     },
     "g4dn.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 128,
-      "(DBU/hour)": 5.7,
-      "Rate($/hour)": 0.855
+      "Memory MB": 131072,
+      "DBU per hour": 5.7,
+      "Rate": 0.855
     },
     "g4dn.12xlarge": {
       "vCPUs": 48,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 8.56,
-      "Rate($/hour)": 1.284
+      "Memory MB": 196608,
+      "DBU per hour": 8.56,
+      "Rate": 1.284
     },
     "g4dn.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 256,
-      "(DBU/hour)": 11.41,
-      "Rate($/hour)": 1.7115
+      "Memory MB": 262144,
+      "DBU per hour": 11.41,
+      "Rate": 1.7115
     },
     "g5.xlarge": {
       "vCPUs": 24,
-      "Memory(GB)": 4,
-      "(DBU/hour)": 1.36,
-      "Rate($/hour)": 0.204
+      "Memory MB": 4096,
+      "DBU per hour": 1.36,
+      "Rate": 0.204
     },
     "g5.2xlarge": {
       "vCPUs": 24,
-      "Memory(GB)": 8,
-      "(DBU/hour)": 1.64,
-      "Rate($/hour)": 0.246
+      "Memory MB": 8192,
+      "DBU per hour": 1.64,
+      "Rate": 0.246
     },
     "g5.4xlarge": {
       "vCPUs": 24,
-      "Memory(GB)": 16,
-      "(DBU/hour)": 2.2,
-      "Rate($/hour)": 0.33
+      "Memory MB": 16384,
+      "DBU per hour": 2.2,
+      "Rate": 0.33
     },
     "g5.8xlarge": {
       "vCPUs": 24,
-      "Memory(GB)": 32,
-      "(DBU/hour)": 3.32,
-      "Rate($/hour)": 0.498
+      "Memory MB": 32768,
+      "DBU per hour": 3.32,
+      "Rate": 0.498
     },
     "g5.16xlarge": {
       "vCPUs": 24,
-      "Memory(GB)": 64,
-      "(DBU/hour)": 5.55,
-      "Rate($/hour)": 0.8325
+      "Memory MB": 65536,
+      "DBU per hour": 5.55,
+      "Rate": 0.8325
     },
     "g5.12xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 48,
-      "(DBU/hour)": 7.69,
-      "Rate($/hour)": 1.1535
+      "Memory MB": 49152,
+      "DBU per hour": 7.69,
+      "Rate": 1.1535
     },
     "g5.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 96,
-      "(DBU/hour)": 11.04,
-      "Rate($/hour)": 1.656
+      "Memory MB": 98304,
+      "DBU per hour": 11.04,
+      "Rate": 1.656
     },
     "g5.48xlarge": {
       "vCPUs": 192,
-      "Memory(GB)": 192,
-      "(DBU/hour)": 22.08,
-      "Rate($/hour)": 3.312
+      "Memory MB": 196608,
+      "DBU per hour": 22.08,
+      "Rate": 3.312
     },
     "p2.xlarge": {
       "vCPUs": 4,
-      "Memory(GB)": 61,
-      "(DBU/hour)": 1.22,
-      "Rate($/hour)": 0.183
+      "Memory MB": 62464,
+      "DBU per hour": 1.22,
+      "Rate": 0.183
     },
     "p2.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 488,
-      "(DBU/hour)": 9.76,
-      "Rate($/hour)": 1.464
+      "Memory MB": 499712,
+      "DBU per hour": 9.76,
+      "Rate": 1.464
     },
     "p2.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 732,
-      "(DBU/hour)": 19.52,
-      "Rate($/hour)": 2.928
+      "Memory MB": 749568,
+      "DBU per hour": 19.52,
+      "Rate": 2.928
     },
     "p3.2xlarge": {
       "vCPUs": 8,
-      "Memory(GB)": 61,
-      "(DBU/hour)": 4.15,
-      "Rate($/hour)": 0.6225
+      "Memory MB": 62464,
+      "DBU per hour": 4.15,
+      "Rate": 0.6225
     },
     "p3.8xlarge": {
       "vCPUs": 32,
-      "Memory(GB)": 244,
-      "(DBU/hour)": 16.6,
-      "Rate($/hour)": 2.49
+      "Memory MB": 249856,
+      "DBU per hour": 16.6,
+      "Rate": 2.49
     },
     "p3.16xlarge": {
       "vCPUs": 64,
-      "Memory(GB)": 488,
-      "(DBU/hour)": 33.2,
-      "Rate($/hour)": 4.98
+      "Memory MB": 499712,
+      "DBU per hour": 33.2,
+      "Rate": 4.98
     },
     "p3dn.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 768,
-      "(DBU/hour)": 42.33,
-      "Rate($/hour)": 6.3495
+      "Memory MB": 786432,
+      "DBU per hour": 42.33,
+      "Rate": 6.3495
     },
     "p4d.24xlarge": {
       "vCPUs": 96,
-      "Memory(GB)": 1152,
-      "(DBU/hour)": 44.45,
-      "Rate($/hour)": 6.6675
+      "Memory MB": 1179648,
+      "DBU per hour": 44.45,
+      "Rate": 6.6675
     }
   }
 }
