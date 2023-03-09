@@ -34,8 +34,6 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
     """
     name = 'Databricks'
     plan: str = field(default='databricks-premium', init=False)  # standard, premium (default), or enterprise
-    ec2_catalog_path: str = field(default=None, init=False)
-    ec2_prices_url: str = field(default=None, init=False)
 
     def _generate_cache_files(self):
         FSUtil.copy_resource(f'../resources/{self.plan}-catalog.json', self.cache_files[self.plan])
