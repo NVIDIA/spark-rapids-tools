@@ -16,11 +16,9 @@
 
 from dataclasses import dataclass, field
 
-import requests
-
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.pricing.price_provider import PriceProvider
+from spark_rapids_pytools.pricing.emr_pricing import EMREc2PriceProvider
 
 
 @dataclass
@@ -44,15 +42,15 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
         super()._generate_cache_files()
 
     def _process_resource_configs(self):
-        super._process_resource_configs()
+        super()._process_resource_configs()
         online_entries = self.pricing_configs[self.plan].get_value('catalog', 'onlineResources')
         for online_entry in online_entries:
             file_name = online_entry.get('localFile')
             file_key = file_name.split('-catalog')[0]
             self.cache_files[file_key] = FSUtil.build_path(self.cache_directory, file_name)
 
-    def _create_catalog(self):
-        super._create_catalog()
+    def _create_catalogs(self):
+        super()._create_catalogs()
         for file_key, cache_file in self.cache_files.items():
             self.catalogs[file_key] = DatabricksCatalogContainer(prop_arg=cache_file)
 
@@ -77,5 +75,5 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
     def get_ram_size_for_vm(self, machine_type: str) -> str:
         pass
 
-    def get_instance_price(self, compute_type: str ='Jobs Compute', gpu_device: str) -> float:
-        return self.catalogs[self.plan].get_value(compute_type, gpu_device, 'Rate($/hour)')
+    def get_instance_price(self, instance, compute_type: str = 'Jobs Compute') -> float:
+        return self.catalogs[self.plan].get_value(compute_type, instance, 'Rate($/hour)')

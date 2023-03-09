@@ -108,6 +108,10 @@ class PriceProvider:
         del gpu_device  # Unused gpu_device
         return 0.0
 
+    def get_instance_price(self, instance: str) -> float:
+        del instance  # Unused gpu_device
+        return 0.0
+
     def setup(self, **kwargs) -> None:
         for key, value in kwargs.items():
             self.meta[key] = value

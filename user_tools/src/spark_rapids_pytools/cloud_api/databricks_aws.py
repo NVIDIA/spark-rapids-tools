@@ -19,8 +19,7 @@ from typing import Any
 
 from spark_rapids_pytools.cloud_api.emr import EMRNode, EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, ClusterState, \
-                                                    SysInfo, GpuHWInfo, SparkNodeType
+from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
@@ -94,7 +93,7 @@ class DBAWSCMDDriver(CMDDriverBase):
         else:
             self.logger.error('Invalid arguments to pull the cluster properties')
         return self.run_sys_cmd(get_cluster_cmd)
-    
+
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',
                       '--region', f'{self.get_region()}',
@@ -119,12 +118,12 @@ class DatabricksCluster(ClusterBase):
     """
 
     def get_eventlogs_from_config(self) -> list:
-        res_arr =[]
+        res_arr = []
         eventlogs_dir = self.props.get_value_silent('spark_conf', 'spark.eventLog.dir')
         if eventlogs_dir:
             res_arr.append(eventlogs_dir)
         return res_arr
-    
+
     def _set_fields_from_props(self):
         super()._set_fields_from_props()
         self.uuid = self.props.get_value('cluster_id')
@@ -160,7 +159,7 @@ class DatabricksCluster(ClusterBase):
             SparkNodeType.WORKER: worker_nodes,
             SparkNodeType.MASTER: master_node
         }
-    
+
     def _init_connection(self, cluster_id: str = None,
                          props: str = None) -> dict:
         cluster_args = super()._init_connection(cluster_id=cluster_id, props=props)
@@ -190,13 +189,13 @@ class DBAWSSavingsEstimator(SavingsEstimator):
 
     def _get_cost_per_cluster(self, cluster: DatabricksCluster):
         master_instance = cluster.nodes.get(SparkNodeType.MASTER)
-        master_cost = self.price_provider.get_instance_price(gpu_device=master_instance.instance_type)
+        master_cost = self.price_provider.get_instance_price(instance=master_instance.instance_type)
         worker_instances = cluster.nodes.get(SparkNodeType.WORKER)
         workers_cost = 0.0
         if len(worker_instances) != 0:
-            worker_unit_cost = self.price_provider.get_instance_price(gpu_device=worker_instances[0].instance_type)
+            worker_unit_cost = self.price_provider.get_instance_price(instance=worker_instances[0].instance_type)
             workers_cost = worker_unit_cost * len(worker_instances)
-        return __calculate_ec2_cost(cluster) + master_cost + workers_cost
+        return self.__calculate_ec2_cost(cluster) + master_cost + workers_cost
 
     def _setup_costs(self):
         # calculate target_cost
