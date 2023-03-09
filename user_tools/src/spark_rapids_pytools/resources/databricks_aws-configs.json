@@ -140,6 +140,10 @@
             "varKey": "AWS_PROFILE"
           }
         ]
+      },
+      "cliPiggyBackArgs": {
+        "//description": "Holds information about list of arguments that's appended to some SDK commands",
+        "definedArgs": []
       }
     }
   },
