@@ -144,7 +144,7 @@ class DatabricksCluster(ClusterBase):
                 'instance_type': self.props.get_value('node_type_id')
             }
             worker = DatabricksNode.create_worker_node().set_fields_from_dict(worker_props)
-            # worker.fetch_and_set_hw_info(self.cli)
+            worker.fetch_and_set_hw_info(self.cli)
             worker_nodes.append(worker)
         master_props = {
             'Id': master_nodes_from_conf['node_id'],
