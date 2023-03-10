@@ -135,7 +135,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                 If missing, the wrapper pulls the worker info from the "gpu_cluster".
         :param  eventlogs: Event log filenames or gs storage directories
                 containing event logs (comma separated). If missing, the wrapper Reads the Spark's
-                property `spark.eventLog.dir` defined in `cpu_cluster`. This property should be included
+                property `spark.eventLog.dir` defined in `gpu_cluster`. This property should be included
                 in the output of `gcloud dataproc clusters describe`.
                 Note that the wrapper will raise an exception if the property is not set.
         :param local_folder: Local work-directory path to store the output and to be used as root

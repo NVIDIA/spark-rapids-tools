@@ -58,10 +58,10 @@ The following table summarizes the commands supported for each cloud platform:
 +----------+---------------+-------------+---------------------------------+----------+
 | platform | command       | deploy mode |              CLI                |  version |
 +==========+===============+=============+=================================+==========+
-| EMR      | qualification | local       | spark_rapids_user_tools \       |  23.02+  |
+| EMR      | qualification | local       | spark_rapids_user_tools \       |   23.02+ |
 |          |               |             |   emr qualification [ARGS]      |          |
 |          |               +-------------+---------------------------------+----------+
-|          |               | serverless  | spark_rapids_user_tools \       |  23.02+  |
+|          |               | serverless  | spark_rapids_user_tools \       |   23.02+ |
 |          |               |             |   emr qualification [ARGS] \    |          |
 |          |               |             |   --mode=serverless             |          |
 |          |               +-------------+---------------------------------+----------+
@@ -73,7 +73,7 @@ The following table summarizes the commands supported for each cloud platform:
 |          |               +-------------+---------------------------------+----------+
 |          |               | cluster     |           unsupported           |    N/A   |
 |          +---------------+-------------+---------------------------------+----------+
-|          | bootstrap     | local       | spark_rapids_user_tools \       |  23.02+  |
+|          | bootstrap     | local       | spark_rapids_user_tools \       |   23.02+ |
 |          |               |             |   emr bootstrap [ARGS]          |          |
 |          |               +-------------+---------------------------------+----------+
 |          |               | serverless  | unsupported                     |    N/A   |
@@ -91,7 +91,8 @@ The following table summarizes the commands supported for each cloud platform:
 |          +---------------+-------------+---------------------------------+----------+
 |          | profiling     | local       |           unsupported           |    N/A   |
 |          |               +-------------+---------------------------------+----------+
-|          |               | serverless  |           unsupported           |    N/A   |
+|          |               | serverless  | spark_rapids_user_tools \       |  23.04+  |
+|          |               |             |   dataproc profiling [ARGS]     |          |
 |          |               +-------------+---------------------------------+----------+
 |          |               | cluster     | spark_rapids_dataproc \         | 22.10.1+ |
 |          |               |             |   profiling [ARGS]              |          |
@@ -109,6 +110,5 @@ Please visit the following guides for details on how to use the wrapper CLI on e
 platform:
 
 - [AWS EMR](user-tools-aws-emr.md)
-- Google Cloud Dataproc
-  - [Google Cloud Dataproc](user-tools-dataproc.md)
-  - Deprecated [spark_rapids_dataproc command](legacy-user-tools-dataproc.md)
+- [Google Cloud Dataproc](user-tools-dataproc.md)
+  - To view documentation for the deprecated CLI on dataproc, visit the [spark_rapids_dataproc command](legacy-user-tools-dataproc.md) page.
