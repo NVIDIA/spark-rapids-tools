@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase, NodeHWInfo
 from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.rapids.rapids_tool import RapidsTool
 
 
@@ -115,8 +116,8 @@ class Bootstrap(RapidsTool):
             for conf_key, conf_val in tool_result.items():
                 wrapper_out_content_arr.append(f'{conf_key}={conf_val}')
             wrapper_out_content_arr.append(f'##### END : RAPIDS bootstrap settings for {exec_cluster.name}\n')
-            wrapper_out_content = '\n'.join(wrapper_out_content_arr)
-            self.ctxt.set_ctxt('wrapper_output_content', wrapper_out_content)
+            wrapper_out_content = Utils.gen_multiline_str(wrapper_out_content_arr)
+            self.ctxt.set_ctxt('wrapperOutputContent', wrapper_out_content)
             if dry_run:
                 self.logger.info('Skipping applying configurations to remote cluster %s. DRY_RUN is enabled.',
                                  exec_cluster.name)
@@ -145,14 +146,10 @@ class Bootstrap(RapidsTool):
 
     def _report_tool_full_location(self) -> str:
         out_file_path = self.ctxt.get_wrapper_summary_file_path()
-        res_arr = [f'{self.pretty_name()} tool output: {out_file_path}']
-        return '\n'.join(res_arr)
+        return Utils.gen_multiline_str(f'{self.pretty_name()} tool output: {out_file_path}')
 
     def _write_summary(self):
         wrapper_out_content = self.ctxt.get_ctxt('wrapperOutputContent')
-        wrapper_summary = [
-            self._report_tool_full_location(),
-            'Recommended Configurations:',
-            wrapper_out_content
-        ]
-        print('\n'.join(wrapper_summary))
+        print(Utils.gen_multiline_str(self._report_tool_full_location(),
+                                      'Recommended Configurations:',
+                                      wrapper_out_content))

@@ -151,8 +151,28 @@ class Utils:
     @classmethod
     def gen_str_header(cls, title: str, ruler='-', line_width: int = 40) -> str:
         dash = ruler * line_width
-        res_arr = [dash, f'{title:^{line_width}}', dash]
-        return '\n'.join(res_arr)
+        return cls.gen_multiline_str(dash, f'{title:^{line_width}}', dash)
+
+    @classmethod
+    def gen_joined_str(cls, join_elem: str, items) -> str:
+        """
+        Given a variable length of String arguments (or list), returns a single string
+        :param items: the items to be concatenated together. it could be a hybrid of str and lists
+        :param join_elem: the character to use as separator of the join
+        :return: a single string joining the items
+        """
+        res_arr = []
+        for item in list(filter(lambda i: i is not None, items)):
+            if isinstance(item, list):
+                # that's an array
+                res_arr.extend(list(filter(lambda i: i is not None, item)))
+            else:
+                res_arr.append(item)
+        return join_elem.join(res_arr)
+
+    @classmethod
+    def gen_multiline_str(cls, *items) -> str:
+        return cls.gen_joined_str(join_elem='\n', items=items)
 
     @classmethod
     def get_os_name(cls) -> str:

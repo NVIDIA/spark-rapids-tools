@@ -25,6 +25,7 @@ from typing import Any, Callable, Dict, List
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, ClusterBase, DeployMode
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
+from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
@@ -388,7 +389,7 @@ class RapidsJarTool(RapidsTool):
         self.logger.info('Skipping preparing remote dependency folder')
 
     def _prepare_job_arguments(self):
-        pass
+        self._prepare_local_job_arguments()
 
     def _run_rapids_tool(self):
         # 1- copy dependencies to remote server
@@ -450,23 +451,143 @@ class RapidsJarTool(RapidsTool):
             cluster_obj = self.ctxt.platform.load_cluster_by_prop_file(cluster_conf_path)
         return cluster_obj
 
+    def _gen_output_tree(self) -> List[str]:
+        tree_conf = self.ctxt.get_value('local', 'output', 'treeDirectory')
+        if tree_conf and tree_conf.get('enabled'):
+            level = tree_conf.get('depthLevel')
+            indentation = tree_conf.get('indentation', '\t')
+            ex_patterns = tree_conf.get('excludedPatterns', {})
+            exc_dirs = ex_patterns.get('directories')
+            exc_files = ex_patterns.get('files')
+            out_folder_path = self.ctxt.get_local('outputFolder')
+            out_tree_list = FSUtil.gen_dir_tree(out_folder_path,
+                                                depth_limit=level,
+                                                indent=indentation,
+                                                exec_dirs=exc_dirs,
+                                                exec_files=exc_files)
+            doc_url = self.ctxt.get_value('sparkRapids', 'outputDocURL')
+            out_tree_list.append(f'{indentation}- To learn more about the output details, visit {doc_url}')
+            return out_tree_list
+        return None
+
     def _report_tool_full_location(self) -> str:
+        if not self._rapids_jar_tool_has_output():
+            return None
         out_folder_path = self.ctxt.get_rapids_output_folder()
         res_arr = [Utils.gen_str_header('Output'),
-                   f'\t{self.pretty_name()} tool output: {out_folder_path}']
-        subfiles = FSUtil.get_all_files(out_folder_path)
-        if len(subfiles) > 0:
-            res_arr.append(f'\t{FSUtil.get_resource_name(out_folder_path)}/')
-            for sub_file in subfiles:
-                if self.ctxt.platform.storage.resource_is_dir(sub_file):
-                    leaf_name = f'└── {FSUtil.get_resource_name(sub_file)}/'
-                else:
-                    leaf_name = f'├── {FSUtil.get_resource_name(sub_file)}'
-                if '$folder$' not in leaf_name:
-                    # this a metafile created in S3 that we do not need
-                    res_arr.append(f'\t\t{leaf_name}')
-            doc_url = self.ctxt.get_value('sparkRapids', 'outputDocURL')
-            res_arr.append(f'\t- To learn more about the output details, visit '
-                           f'{doc_url}')
-            return '\n'.join(res_arr)
-        return None
+                   f'{self.pretty_name()} tool output: {out_folder_path}']
+        out_tree_list = self._gen_output_tree()
+        return Utils.gen_multiline_str(res_arr, out_tree_list)
+
+    def _evaluate_rapids_jar_tool_output_exist(self) -> bool:
+        """
+        Used as a subtask of self._process_output(). this method has the responsibility of
+        checking if the tools produced no output and take the necessary action
+        :return: True if the tool has generated an output
+        """
+        rapids_output_dir = self.ctxt.get_rapids_output_folder()
+        res = True
+        if not self.ctxt.platform.storage.resource_exists(rapids_output_dir):
+            res = False
+            self.ctxt.set_ctxt('wrapperOutputContent',
+                               self._report_results_are_empty())
+            self.logger.info('The Rapids jar tool did not generate an output directory')
+        self.ctxt.set_ctxt('rapidsOutputIsGenerated', res)
+        return res
+
+    def _rapids_jar_tool_has_output(self) -> bool:
+        return self.ctxt.get_ctxt('rapidsOutputIsGenerated')
+
+    def _process_job_submission_args(self):
+        self._process_local_job_submission_args()
+
+    def _set_remote_folder_for_submission(self, requires_remote: bool) -> dict:
+        res = {}
+        submission_args = self.wrapper_options.get('jobSubmissionProps')
+        # get the root remote folder and make sure it exists
+        remote_folder = submission_args.get('remoteFolder')
+        # If remote_folder is not specified, then ignore it
+        if remote_folder is None:
+            # the output is only for local machine
+            self.logger.info('No remote output folder specified.')
+            if requires_remote:
+                raise RuntimeError(f'Remote folder [{remote_folder}] is invalid.')
+        else:
+            if not self.ctxt.platform.storage.resource_exists(remote_folder):
+                raise RuntimeError(f'Remote folder [{remote_folder}] is invalid.')
+            # now we should make the subdirectory to indicate the output folder,
+            # by appending the name of the execution folder
+            exec_full_name = self.ctxt.get_ctxt('execFullName')
+            remote_workdir = FSUtil.build_url_from_parts(remote_folder, exec_full_name)
+            self.ctxt.set_remote('rootFolder', remote_folder)
+            self.ctxt.set_remote('workDir', remote_workdir)
+            self.logger.info('Remote workdir is set as %s', remote_workdir)
+            remote_dep_folder = FSUtil.build_url_from_parts(remote_workdir,
+                                                            self.ctxt.get_ctxt('depFolderName'))
+            self.ctxt.set_remote('depFolder', remote_dep_folder)
+            self.logger.info('Remote dependency folder is set as %s', remote_dep_folder)
+            if requires_remote:
+                res.update({'remoteFolder': remote_workdir})
+            else:
+                # the output folder has to be set any way
+                res.update({'outputFolder': self.ctxt.get_output_folder()})
+        return res
+
+    def _process_local_job_submission_args(self):
+        job_args = {}
+        submission_args = self.wrapper_options.get('jobSubmissionProps')
+        job_args.update(self._set_remote_folder_for_submission(False))
+        platform_args = submission_args.get('platformArgs')
+        if platform_args is not None:
+            processed_platform_args = self.ctxt.platform.cli.build_local_job_arguments(platform_args)
+            ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
+            dependencies = ctxt_rapids_args.get('javaDependencies')
+            processed_platform_args.update({'dependencies': dependencies})
+            job_args['platformArgs'] = processed_platform_args
+        self.ctxt.update_job_args(job_args)
+
+    def _init_rapids_arg_list(self):
+        return []
+
+    def _prepare_local_job_arguments(self):
+        job_args = self.ctxt.get_ctxt('jobArgs')
+        output_folder = job_args.get('outputFolder')
+        # now we can create the job object
+        # Todo: For dataproc, this can be autogenerated from cluster name
+        rapids_arg_list = self._init_rapids_arg_list()
+        ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
+        jar_file_path = ctxt_rapids_args.get('jarFilePath')
+        rapids_opts = ctxt_rapids_args.get('rapidsOpts')
+        if rapids_opts:
+            rapids_arg_list.extend(rapids_opts)
+        # add the eventlogs at the end of all the tool options
+        rapids_arg_list.extend(self.ctxt.get_ctxt('eventLogs'))
+        class_name = self.ctxt.get_value('sparkRapids', 'mainClass')
+        rapids_arg_obj = {
+            'jarFile': jar_file_path,
+            'jarArgs': rapids_arg_list,
+            'className': class_name
+        }
+        platform_args = job_args.get('platformArgs')
+        spark_conf_args = {}
+        job_properties_json = {
+            'remoteOutput': output_folder,
+            'rapidsArgs': rapids_arg_obj,
+            'sparkConfArgs': spark_conf_args,
+            'platformArgs': platform_args
+        }
+        job_properties = RapidsJobPropContainer(prop_arg=job_properties_json,
+                                                file_load=False)
+        job_obj = self.ctxt.platform.create_local_submission_job(job_prop=job_properties,
+                                                                 ctxt=self.ctxt)
+        job_obj.run_job()
+
+    def _archive_results(self):
+        self._archive_local_results()
+
+    def _archive_local_results(self):
+        remote_work_dir = self.ctxt.get_remote('workDir')
+        if remote_work_dir and self._rapids_jar_tool_has_output():
+            local_folder = self.ctxt.get_output_folder()
+            # TODO make sure it worth issuing the command
+            self.ctxt.platform.storage.upload_resource(local_folder, remote_work_dir)

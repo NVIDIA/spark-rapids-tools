@@ -43,6 +43,10 @@ local:
       - 'App Name'
       - 'Recommendations'
       - 'Comments'
+    treeDirectory:
+      enabled: true
+      depthLevel: 3
+      indentation: '    '
 platform:
   shortName: 'prof'
   outputDir: profiling_tool_output

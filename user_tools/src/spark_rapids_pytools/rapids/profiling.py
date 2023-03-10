@@ -25,7 +25,6 @@ from tabulate import tabulate
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
-from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 
 
@@ -131,7 +130,7 @@ class Profiling(RapidsJarTool):
                           self.ctxt.get_ctxt('autoTunerFilePath')]
         return autotuner_args
 
-    def __read_single_app_output(self, file_path: str) -> (List[str], List[str], str):
+    def __read_single_app_output(self, file_path: str) -> (str, List[str], List[str]):
         def split_list_str_by_pattern(input_seq: List[str], pattern: str) -> int:
             ind = 0
             while ind < len(input_seq):
@@ -148,7 +147,7 @@ class Profiling(RapidsJarTool):
                 raw_lines = [line.strip() for line in app_profiler.readlines() if line.strip()]
                 # find the app_name
                 app_name_candidates = re.findall(r'(\|spark\.app\.name\s+\|)(.+)\|',
-                                                 '\n'.join(raw_lines),
+                                                 Utils.gen_multiline_str(raw_lines),
                                                  flags=re.MULTILINE)
                 if len(app_name_candidates) > 0:
                     _, grp_2 = app_name_candidates[0]
@@ -183,25 +182,22 @@ class Profiling(RapidsJarTool):
                 if begin_comm_ind != -1:
                     comments_list = recom_section[begin_comm_ind: last_comm_ind]
         except OSError:
-            print(f'could not open output of profiler {file_path}')
+            self.logger.error('Could not open output of profiler %s', file_path)
         if len(props_list) == 0:
             props_list = ['- No recommendations']
         if len(comments_list) == 0:
             comments_list = ['- No comments']
-        return props_list, comments_list, app_name
+        # sort the comments and the recommendations so that the two values are aligned
+        props_list.sort()
+        comments_list.sort()
+        return app_name, props_list, comments_list
 
     def _write_summary(self):
-        wrapper_summary = [
-            self._report_tool_full_location(),
-            self.ctxt.get_ctxt('wrapperOutputContent')
-        ]
-        print('\n'.join(wrapper_summary))
+        print(Utils.gen_multiline_str(self._report_tool_full_location(),
+                                      self.ctxt.get_ctxt('wrapperOutputContent')))
 
     def _process_output(self):
-        rapids_output_dir = self.ctxt.get_rapids_output_folder()
-        if not self.ctxt.platform.storage.resource_exists(rapids_output_dir):
-            self.ctxt.set_ctxt('wrapperOutputContent',
-                               self._report_results_are_empty())
+        if not self._evaluate_rapids_jar_tool_output_exist():
             return
         prof_app_dirs = FSUtil.get_subdirectories(self.ctxt.get_rapids_output_folder())
         profiling_log = self.ctxt.get_value('toolOutput', 'recommendations', 'fileName')
@@ -215,26 +211,32 @@ class Profiling(RapidsJarTool):
         headers = self.ctxt.get_value('local', 'output', 'summaryColumns')
         for app_folder in prof_app_dirs:
             app_id = FSUtil.get_resource_name(app_folder)
-            recommendations, comments, app_name = self.__read_single_app_output(f'{app_folder}/{profiling_log}')
-            row = [app_id, app_name, '\n'.join(recommendations), '\n'.join(comments)]
+            app_name, recommendations, comments = self.__read_single_app_output(f'{app_folder}/{profiling_log}')
+            row = [app_id,
+                   app_name,
+                   Utils.gen_multiline_str(recommendations),
+                   Utils.gen_multiline_str(comments)]
             log_lines.append(app_id)
-            sec_props = '\n\t'.join(list(chain(sec_props_head, recommendations)))
-            sec_comments = '\n\t'.join(list(chain(sec_comments_head, comments)))
+            sec_props = Utils.gen_joined_str(join_elem='\n\t',
+                                             items=list(chain(sec_props_head, recommendations)))
+            sec_comments = Utils.gen_joined_str(join_elem='\n\t',
+                                                items=list(chain(sec_comments_head, comments)))
             log_lines.append(f'{sec_props}')
             log_lines.append(f'{sec_comments}')
             recommendations_table.append(row)
         log_file_name = self.ctxt.get_value('local', 'output', 'fileName')
         summary_file = FSUtil.build_path(self.ctxt.get_output_folder(), log_file_name)
         self.logger.info('Writing recommendations into local file %s', summary_file)
+        log_file_lines_str = Utils.gen_multiline_str(log_lines)
         with open(summary_file, 'w', encoding='utf-8') as wrapper_summary:
-            wrapper_summary.write('\n'.join(log_lines))
+            wrapper_summary.write(log_file_lines_str)
         self.logger.info('Generating Full STDOUT summary report')
         # wrapper STDOUT report contains both tabular and plain text format of recommendations
         wrapper_content = [Utils.gen_str_header('Recommendations'),
-                           '\n'.join(log_lines),
+                           log_file_lines_str,
                            '### Recommendations Table Summary ###',
                            tabulate(recommendations_table, headers, tablefmt='grid')]
-        self.ctxt.set_ctxt('wrapperOutputContent', '\n'.join(wrapper_content))
+        self.ctxt.set_ctxt('wrapperOutputContent', wrapper_content)
 
 
 @dataclass
@@ -244,86 +246,14 @@ class ProfilingAsLocal(Profiling):
     """
     description: str = 'This is the localProfiling'
 
-    def _process_job_submission_args(self):
-        job_args = {}
-        submission_args = self.wrapper_options.get('jobSubmissionProps')
-        # get the root remote folder and make sure it exists
-        remote_folder = submission_args.get('remoteFolder')
-        # If remote_folder is not specified, then ignore it
-        if remote_folder is None:
-            # the output is only for local machine
-            self.logger.info('No remote output folder specified.')
-        else:
-            # TODO verify the remote folder is correct
-            if not self.ctxt.platform.storage.resource_exists(remote_folder):
-                raise RuntimeError(f'Remote folder [{remote_folder}] is invalid.')
-            # now we should make the subdirectory to indicate the output folder,
-            # by appending the name of the execution folder
-            exec_full_name = self.ctxt.get_ctxt('execFullName')
-            remote_workdir = FSUtil.build_url_from_parts(remote_folder, exec_full_name)
-            self.ctxt.set_remote('rootFolder', remote_folder)
-            self.ctxt.set_remote('workDir', remote_workdir)
-            self.logger.info('Remote workdir is set as %s', remote_workdir)
-            remote_dep_folder = FSUtil.build_url_from_parts(remote_workdir,
-                                                            self.ctxt.get_ctxt('depFolderName'))
-            self.ctxt.set_remote('depFolder', remote_dep_folder)
-            self.logger.info('Remote dependency folder is set as %s', remote_dep_folder)
-        # the output folder has to be set any way
-        job_args['outputFolder'] = self.ctxt.get_output_folder()
-        platform_args = submission_args.get('platformArgs')
-        if platform_args is not None:
-            processed_platform_args = self.ctxt.platform.cli.build_local_job_arguments(platform_args)
-            ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
-            dependencies = ctxt_rapids_args.get('javaDependencies')
-            processed_platform_args.update({'dependencies': dependencies})
-            job_args['platformArgs'] = processed_platform_args
-        self.ctxt.update_job_args(job_args)
-
-    def _prepare_job_arguments(self):
-        job_args = self.ctxt.get_ctxt('jobArgs')
-        output_folder = job_args.get('outputFolder')
-        # now we can create the job object
-        # Todo: For dataproc, this can be autogenerated from cluster name
-        rapids_arg_list = self._create_autotuner_rapids_args()
-        ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
-        jar_file_path = ctxt_rapids_args.get('jarFilePath')
-        rapids_opts = ctxt_rapids_args.get('rapidsOpts')
-        if rapids_opts:
-            rapids_arg_list.extend(rapids_opts)
-        # add the eventlogs at the end of all the tool options
-        rapids_arg_list.extend(self.ctxt.get_ctxt('eventLogs'))
-        class_name = self.ctxt.get_value('sparkRapids', 'mainClass')
-        rapids_arg_obj = {
-            'jarFile': jar_file_path,
-            'jarArgs': rapids_arg_list,
-            'className': class_name
-        }
-        platform_args = job_args.get('platformArgs')
-        spark_conf_args = {}
-        job_properties_json = {
-            'remoteOutput': output_folder,
-            'rapidsArgs': rapids_arg_obj,
-            'sparkConfArgs': spark_conf_args,
-            'platformArgs': platform_args
-        }
-        job_properties = RapidsJobPropContainer(prop_arg=job_properties_json,
-                                                file_load=False)
-        job_obj = self.ctxt.platform.create_local_submission_job(job_prop=job_properties,
-                                                                 ctxt=self.ctxt)
-        job_obj.run_job()
+    def _init_rapids_arg_list(self):
+        return self._create_autotuner_rapids_args()
 
     def _get_main_cluster_obj(self):
         return self.ctxt.get_ctxt('gpuClusterProxy')
 
     def _download_remote_output_folder(self):
         self.logger.debug('Local mode skipping downloading the remote output workdir')
-
-    def _archive_results(self):
-        remote_work_dir = self.ctxt.get_remote('workDir')
-        if remote_work_dir is not None:
-            local_folder = self.ctxt.get_output_folder()
-            # TODO make sure it worth issuing the command
-            self.ctxt.platform.storage.upload_resource(local_folder, remote_work_dir)
 
     def _delete_remote_dep_folder(self):
         self.logger.debug('Local mode skipping deleting the remote workdir')

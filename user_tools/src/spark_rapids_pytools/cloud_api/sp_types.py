@@ -675,8 +675,10 @@ class PlatformBase:
 
     def __post_init__(self):
         self.load_platform_configs()
-        self.ctxt = {'platformType': self.type_id}
-        self.ctxt = {'notes': {}}
+        self.ctxt = {
+            'platformType': self.type_id,
+            'notes': {}
+        }
         self._parse_arguments(self.ctxt_args)
         self.cli = self._create_cli_instance()
         self._install_storage_driver()
