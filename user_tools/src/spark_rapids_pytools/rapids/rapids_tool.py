@@ -18,6 +18,8 @@ import os
 import re
 import sys
 import tarfile
+import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List
@@ -59,6 +61,17 @@ class RapidsTool(object):
 
     def get_exec_cluster(self) -> ClusterBase:
         return self.ctxt.get_ctxt('execCluster')
+
+    def timeit(timed_item: str):  # pylint: disable=no-self-argument
+        def decorator(func_cb: Callable):
+            def wrapper(self, *args, **kwargs):
+                start_time = time.monotonic()
+                func_cb(self, *args, **kwargs)  # pylint: disable=not-callable
+                end_time = time.monotonic()
+                self.logger.info('Total Execution Time: %s => %s seconds', timed_item,
+                                 f'{(end_time-start_time):,.3f}')
+            return wrapper
+        return decorator
 
     def phase_banner(phase_name: str,  # pylint: disable=no-self-argument
                      enable_prologue: bool = True,
@@ -313,7 +326,7 @@ class RapidsJarTool(RapidsTool):
 
     def _append_tool_rapids_args(self, cli_rapids_options: list) -> list:
         """
-        Specific to the tool, add the rapids arguments needed to run the plugin core tools.
+        Specific to the tool, add the rapids arguments needed to run the plugin core tools
         :param cli_rapids_options:
         :return:
         """
@@ -338,39 +351,91 @@ class RapidsJarTool(RapidsTool):
             # we need to download the dependencies locally if necessary
             self._download_dependencies()
 
+    def timeit(timed_item: str):  # pylint: disable=no-self-argument
+        def decorator(func_cb: Callable):
+            def wrapper(self, *args, **kwargs):
+                start_time = time.monotonic()
+                func_cb(self, *args, **kwargs)  # pylint: disable=not-callable
+                end_time = time.monotonic()
+                self.logger.info('Total Execution Time: %s => %s seconds', timed_item,
+                                 f'{(end_time-start_time):,.3f}')
+            return wrapper
+        return decorator
+
+    @timeit('Downloading dependencies for local Mode')  # pylint: disable=too-many-function-args
     def _download_dependencies(self):
+
+        def exception_handler(future):
+            # Handle any exceptions raised by the task
+            exception = future.exception()
+            if exception:
+                self.logger.error('Error while downloading dependency: %s', exception)
+
+        def cache_single_dependency(dep: dict) -> str:
+            """
+            Downloads the specified URL and saves it to disk
+            """
+            start_time = time.monotonic()
+            self.logger.info('Checking dependency %s', dep['name'])
+            dest_folder = self.ctxt.get_cache_folder()
+            resource_file_name = FSUtil.get_resource_name(dep['uri'])
+            resource_file = FSUtil.build_path(dest_folder, resource_file_name)
+            is_created = FSUtil.cache_from_url(dep['uri'], resource_file)
+            if is_created:
+                self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],
+                                 resource_file)
+                # check if we need to decompress files
+            if dep['type'] == 'archive':
+                destination_path = self.ctxt.get_local_work_dir()
+                with tarfile.open(resource_file, mode='r:*') as tar:
+                    tar.extractall(destination_path)
+                    tar.close()
+                dep_item = FSUtil.remove_ext(resource_file_name)
+                if dep.get('relativePath') is not None:
+                    dep_item = FSUtil.build_path(dep_item, dep.get('relativePath'))
+                dep_item = FSUtil.build_path(destination_path, dep_item)
+            else:
+                # copy the jar into dependency folder
+                dep_item = self.ctxt.platform.storage.download_resource(resource_file,
+                                                                        self.ctxt.get_local_work_dir())
+            end_time = time.monotonic()
+            self.logger.info('Completed downloading of dependency [%s] => %s seconds',
+                             dep['name'],
+                             f'{(end_time-start_time):,.3f}')
+            return dep_item
+
+        def cache_all_dependencies(dep_arr: List[dict]):
+            """
+            Create a thread pool and download specified urls
+            """
+            futures_list = []
+            results = []
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                for dep in dep_arr:
+                    futures = executor.submit(cache_single_dependency, dep)
+                    futures.add_done_callback(exception_handler)
+                    futures_list.append(futures)
+                for future in futures_list:
+                    try:
+                        result = future.result(timeout=360)
+                        results.append(result)
+                    except Exception as ex:    # pylint: disable=broad-except
+                        self.logger.error('Failed to download dependencies %s', ex)
+                        results.append(None)
+            return results
+
         # TODO: Verify the downloaded file by checking their MD5
         deploy_mode = DeployMode.tostring(self.ctxt.platform_opts.get('deployMode'))
         depend_arr = self.ctxt.platform.configs.get_value_silent('dependencies',
                                                                  'deployMode',
                                                                  deploy_mode)
-        if depend_arr is not None:
-            dest_folder = self.ctxt.get_cache_folder()
-            dep_list = []
-            for dep in depend_arr:
-                self.logger.info('Checking dependency %s', dep['name'])
-                resource_file_name = FSUtil.get_resource_name(dep['uri'])
-                resource_file = FSUtil.build_path(dest_folder, resource_file_name)
-                is_created = FSUtil.cache_from_url(dep['uri'], resource_file)
-                if is_created:
-                    self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],
-                                     resource_file)
-                    # check if we need to decompress files
-                if dep['type'] == 'archive':
-                    destination_path = self.ctxt.get_local_work_dir()
-                    with tarfile.open(resource_file, mode='r:*') as tar:
-                        tar.extractall(destination_path)
-                        tar.close()
-                    dep_item = FSUtil.remove_ext(resource_file_name)
-                    if dep.get('relativePath') is not None:
-                        dep_item = FSUtil.build_path(dep_item, dep.get('relativePath'))
-                    dep_item = FSUtil.build_path(destination_path, dep_item)
-                else:
-                    # copy the jar into dependency folder
-                    dep_item = self.ctxt.platform.storage.download_resource(resource_file,
-                                                                            self.ctxt.get_local_work_dir())
-                dep_list.append(dep_item)
-            self.logger.info('Dependencies are processed as: %s', ';'.join(dep_list))
+        if depend_arr:
+            dep_list = cache_all_dependencies(depend_arr)
+            if any(dep_item is None for dep_item in dep_list):
+                raise RuntimeError('Could not download all dependencies. Aborting Executions.')
+            self.logger.info('Dependencies are processed as: %s',
+                             Utils.gen_joined_str(join_elem='; ',
+                                                  items=dep_list))
             self.ctxt.add_rapids_args('javaDependencies', dep_list)
 
     def _process_rapids_args(self):
@@ -498,6 +563,7 @@ class RapidsJarTool(RapidsTool):
     def _rapids_jar_tool_has_output(self) -> bool:
         return self.ctxt.get_ctxt('rapidsOutputIsGenerated')
 
+    @timeit('Processing job submission arguments')  # pylint: disable=too-many-function-args
     def _process_job_submission_args(self):
         self._process_local_job_submission_args()
 
@@ -549,6 +615,7 @@ class RapidsJarTool(RapidsTool):
     def _init_rapids_arg_list(self):
         return []
 
+    @timeit('Building Job Arguments and Executing Job CMD')  # pylint: disable=too-many-function-args
     def _prepare_local_job_arguments(self):
         job_args = self.ctxt.get_ctxt('jobArgs')
         output_folder = job_args.get('outputFolder')

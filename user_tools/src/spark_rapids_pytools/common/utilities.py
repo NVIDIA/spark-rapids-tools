@@ -56,7 +56,7 @@ class Utils:
         uuid_parts.append(ts)
         if suffix_len > 0:
             uuid_parts.append(cls.gen_random_string(suffix_len))
-        return '_'.join(uuid_parts)
+        return Utils.gen_joined_str('_', uuid_parts)
 
     @classmethod
     def resource_path(cls, resource_name: str) -> str:
@@ -270,10 +270,11 @@ class SysCmd:
             cmd_args = self.cmd[:]
         if ToolLogging.is_debug_mode_enabled():
             # do not dump the entire command to debugging to avoid exposing the env-variables
-            self.logger.debug('submitting system command: <%s>', ' '.join(cmd_args))
+            self.logger.debug('submitting system command: <%s>',
+                              Utils.gen_joined_str(' ', cmd_args))
         full_cmd = self._process_env_vars()
         full_cmd.extend(cmd_args)
-        actual_cmd = ' '.join(full_cmd)
+        actual_cmd = Utils.gen_joined_str(' ', full_cmd)
         stdout = subprocess.PIPE
         stderr = subprocess.PIPE
         # pylint: disable=subprocess-run-check
@@ -294,18 +295,17 @@ class SysCmd:
                                stderr=stderr)
         self.res = c.returncode
         # pylint: enable=subprocess-run-check
+        self.err_std = c.stderr if isinstance(c.stderr, str) else c.stderr.decode('utf-8')
         if self.has_failed():
-            stderror_content = c.stderr if isinstance(c.stderr, str) else c.stderr.decode('utf-8')
-            std_error_lines = [f'\t| {line}' for line in stderror_content.splitlines()]
+            std_error_lines = [f'\t| {line}' for line in self.err_std.splitlines()]
             stderr_str = ''
             if len(std_error_lines) > 0:
-                error_lines = '\n'.join(std_error_lines)
+                error_lines = Utils.gen_multiline_str(std_error_lines)
                 stderr_str = f'\n{error_lines}'
-            cmd_err_msg = f'Error invoking CMD <{" ".join(cmd_args)}>: {stderr_str}'
+            cmd_err_msg = f'Error invoking CMD <{Utils.gen_joined_str(" ", cmd_args)}>: {stderr_str}'
             raise RuntimeError(f'{cmd_err_msg}')
 
         self.out_std = c.stdout if isinstance(c.stdout, str) else c.stdout.decode('utf-8')
-        self.err_std = c.stderr if isinstance(c.stderr, str) else c.stderr.decode('utf-8')
         if self.process_streams_cb is not None:
             self.process_streams_cb(self.out_std, self.err_std)
         if self.out_std:

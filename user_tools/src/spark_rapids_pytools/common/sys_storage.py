@@ -32,6 +32,7 @@ import certifi
 import requests
 
 from spark_rapids_pytools.common.exceptions import StorageException
+from spark_rapids_pytools.common.utilities import Utils
 
 
 class FSUtil:
@@ -68,7 +69,7 @@ class FSUtil:
         url_parts = [part.strip('/') for part in parts[:-1]]
         # we do not want to remove the rightmost slash if any
         url_parts.append(parts[-1].lstrip('/'))
-        return '/'.join(url_parts)
+        return Utils.gen_joined_str('/', url_parts)
 
     @classmethod
     def remove_path(cls, file_path: str, fail_ok: bool = False):
@@ -133,11 +134,11 @@ class FSUtil:
             return False
         if r.status_code == requests.codes.ok:  # pylint: disable=no-member
             with open(cache_file, 'wb') as f:
-                shutil.copyfileobj(r.raw, f)
+                for chunk in r.iter_content(chunk_size=4 * 1048576):
+                    f.write(chunk)
             # Another alternative that is not suitable for large files
             # with open(cache_file, 'wb') as f:
-            #     for chunk in r.iter_content(chunk_size=1048576):
-            #         f.write(chunk)
+            #     shutil.copyfileobj(r.raw, f)
             if last_modified := r.headers.get('last-modified'):
                 new_mtime = parsedate_to_datetime(last_modified).timestamp()
                 os.utime(cache_file, times=(datetime.datetime.now().timestamp(), new_mtime))

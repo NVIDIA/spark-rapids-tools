@@ -220,7 +220,7 @@ class EmrServerlessRapidsJob(RapidsJob):
         submit_params = {
             'entryPoint': self.prop_container.get_jar_file(),
             'entryPointArguments': self._build_rapids_args(),
-            'sparkSubmitParameters': ' '.join(spark_params)
+            'sparkSubmitParameters': Utils.gen_joined_str(' ', spark_params)
         }
         res = {
             'sparkSubmit': submit_params

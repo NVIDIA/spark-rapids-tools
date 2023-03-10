@@ -118,13 +118,6 @@ class DatabricksCluster(ClusterBase):
     Represents an instance of running cluster on Databricks.
     """
 
-    def get_eventlogs_from_config(self) -> list:
-        res_arr = []
-        eventlogs_dir = self.props.get_value_silent('spark_conf', 'spark.eventLog.dir')
-        if eventlogs_dir:
-            res_arr.append(eventlogs_dir)
-        return res_arr
-
     def _set_fields_from_props(self):
         super()._set_fields_from_props()
         self.uuid = self.props.get_value('cluster_id')
@@ -169,7 +162,7 @@ class DatabricksCluster(ClusterBase):
         return cluster_args
 
     def get_all_spark_properties(self) -> dict:
-        pass
+        return self.props.get_value('spark_conf')
 
     def _build_migrated_cluster(self, orig_cluster):
         pass

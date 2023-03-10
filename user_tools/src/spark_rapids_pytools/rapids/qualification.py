@@ -199,7 +199,7 @@ class Qualification(RapidsJarTool):
                     'Invalid argument filter_apps=%s.\n\t'
                     'Accepted options are: [%s].\n\t'
                     'Falling-back to default filter: %s',
-                    arg_val, ' | '.join(available_filters), default_filter_txt)
+                    arg_val, Utils.gen_joined_str(' | ', available_filters), default_filter_txt)
         else:
             selected_filter = QualFilterApp.fromstring(default_filter_txt)
         self.ctxt.set_ctxt('filterApps', selected_filter)

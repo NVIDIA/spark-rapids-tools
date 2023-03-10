@@ -47,6 +47,13 @@ local:
       enabled: true
       depthLevel: 3
       indentation: '    '
+      excludedPatterns:
+        directories:
+          - '.+(_\$folder\$)$'
+        files:
+          - '^(\.+).*'
+          - '^(\$+).*'
+          - '^.+(_\$folder\$)$'
 platform:
   shortName: 'prof'
   outputDir: profiling_tool_output

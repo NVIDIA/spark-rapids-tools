@@ -173,7 +173,7 @@ class EMRCMDDriver(CMDDriverBase):
                        '-o StrictHostKeyChecking=no',
                        f'-i {pem_file_path}',
                        f'hadoop@{node.name}']
-        return ' '.join(prefix_args)
+        return Utils.gen_joined_str(' ', prefix_args)
 
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',

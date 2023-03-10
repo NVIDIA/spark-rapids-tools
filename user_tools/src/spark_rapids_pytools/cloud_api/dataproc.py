@@ -25,7 +25,7 @@ from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CMDDriverBase,
     ClusterNode, SysInfo, GpuHWInfo, SparkNodeType, ClusterState, GpuDevice, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import SysCmd
+from spark_rapids_pytools.common.utilities import SysCmd, Utils
 from spark_rapids_pytools.pricing.dataproc_pricing import DataprocPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
@@ -172,7 +172,7 @@ class DataprocCMDDriver(CMDDriverBase):
             if 'state' in query_args:
                 state_param = query_args.get('state')
                 filter_args.append(f'status.state = {state_param}')
-        filter_arg = ' AND '.join(filter_args)
+        filter_arg = Utils.gen_joined_str(' AND ', filter_args)
         cmd_params.append(f"--filter='{filter_arg}'")
         return cmd_params
 

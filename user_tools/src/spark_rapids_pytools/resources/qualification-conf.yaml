@@ -99,9 +99,12 @@ local:
           - '^(css)$'
           - '^(js)$'
           - '^(assets)$'
+          - '.+\$$'
+          - '^.+(_\$folder\$)$'
         files:
           - '^(\.+).*'
           - '^(\$+).*'
+          - '^.+(_\$folder\$)$'
 platform:
   shortName: 'qual'
   outputDir: qual-tool-output

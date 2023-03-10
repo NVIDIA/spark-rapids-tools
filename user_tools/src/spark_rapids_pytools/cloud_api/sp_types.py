@@ -329,7 +329,7 @@ class CMDDriverBase:
             # we do not want to raise a runtime error because some of the flags are not required by
             # all the tools.
             # TODO: improve this by checking the requirements for each tool.
-            exc_msg = '; '.join(incorrect_envs)
+            exc_msg = Utils.gen_joined_str('; ', incorrect_envs)
             self.logger.warning('Environment report: %s', exc_msg)
 
     def validate_env(self):
@@ -348,14 +348,11 @@ class CMDDriverBase:
                 stderr_splits = std_err.splitlines()
                 stdout_str = ''
                 if len(stdout_splits) > 0:
-                    std_out_lines = '\n'.join([f'\t| {line}' for line in stdout_splits])
+                    std_out_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stdout_splits])
                     stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
-                if isinstance(cmd, str):
-                    cmd_log_str = cmd
-                else:
-                    cmd_log_str = ' '.join(cmd)
+                cmd_log_str = Utils.gen_joined_str(' ', cmd)
                 if len(stderr_splits) > 0:
-                    std_err_lines = '\n'.join([f'\t| {line}' for line in stderr_splits])
+                    std_err_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stderr_splits])
                     stderr_str = f'\n\t<STDERR>\n{std_err_lines}'
                     self.logger.debug('executing CMD:\n\t<CMD: %s>[%s]; [%s]',
                                       cmd_log_str,
@@ -375,7 +372,7 @@ class CMDDriverBase:
                 res = original_cmd[:]
                 res.extend(extra_args)
                 return res
-            extra_args_flatten = ' '.join(extra_args)
+            extra_args_flatten = Utils.gen_joined_str(' ', extra_args)
             return f'{original_cmd} {extra_args_flatten}'
 
         # process the env_variables of the command

@@ -19,7 +19,7 @@ from logging import Logger
 from typing import List
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
-from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
@@ -94,7 +94,7 @@ class RapidsJob:
     def _print_job_output(self, job_output: str):
         stdout_splits = job_output.splitlines()
         if len(stdout_splits) > 0:
-            std_out_lines = '\n'.join([f'\t| {line}' for line in stdout_splits])
+            std_out_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stdout_splits])
             stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
             self.logger.info('EMR Job output:%s', stdout_str)
 
@@ -120,7 +120,7 @@ class RapidsLocalJob(RapidsJob):
         dependencies = self.prop_container.get_value_silent('platformArgs', 'dependencies')
         if dependencies is not None:
             deps_arr.extend(dependencies)
-        dps_str = ':'.join(deps_arr)
+        dps_str = Utils.gen_joined_str(':', deps_arr)
         return ['-cp', dps_str]
 
     def _build_jvm_args(self):
