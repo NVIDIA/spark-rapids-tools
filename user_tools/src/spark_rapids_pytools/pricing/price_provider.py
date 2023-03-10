@@ -55,7 +55,7 @@ class PriceProvider:
             files_updated = FSUtil.cache_from_url(resource_url, self.cache_files[file_key])
             self.logger.info('The catalog file %s is %s',
                              self.cache_files[file_key],
-                             'updated' if files_updated else 'is not modified, using the cached content')
+                             'updated' if files_updated else 'not modified, using the cached content')
 
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.price.{self.name}')

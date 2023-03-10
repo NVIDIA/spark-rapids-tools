@@ -16,8 +16,6 @@
 
 from dataclasses import dataclass, field
 
-import requests
-
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, get_elem_from_dict, get_elem_non_safe
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.pricing.price_provider import PriceProvider
@@ -94,28 +92,14 @@ class EMREc2PriceProvider(PriceProvider):
     """
     name = 'Emr-Ec2'
 
-    def _generate_cache_files(self):
-        aws_url_base = 'https://pricing.us-east-1.amazonaws.com'
-        emr_region_ind_url = f'{aws_url_base}/offers/v1.0/aws/ElasticMapReduce/current/region_index.json'
-        emr_region_resp = requests.get(emr_region_ind_url, timeout=60)
-        emr_region_relative_url = emr_region_resp.json()['regions'][self.region]['currentVersionUrl']
-        ec2_region_ind_url = f'{aws_url_base}/offers/v1.0/aws/AmazonEC2/current/region_index.json'
-        ec2_region_resp = requests.get(ec2_region_ind_url, timeout=60)
-        ec2_region_relative_url = ec2_region_resp.json()['regions'][self.region]['currentVersionUrl']
-        self.resource_urls = {
-            'emr': f'{aws_url_base}{emr_region_relative_url}',
-            'ec2': f'{aws_url_base}{ec2_region_relative_url}'
-        }
-        super()._generate_cache_files()
-
     def _process_resource_configs(self):
-        def get_cache_file_path(comp,  region) -> str:
-            file_name = f'aws_ec2_catalog_{comp}_{region}.json'
-            # get file from cache folder
-            return FSUtil.build_path(self.cache_directory, file_name)
-        self.cache_files = {
-            'emr': get_cache_file_path('emr', self.region),
-            'ec2': get_cache_file_path('ec2', self.region)}
+        # TODO: current urls in configs file are static, but should be distinct based on region
+        online_entries = self.pricing_configs['emr'].get_value('catalog', 'onlineResources')
+        for online_entry in online_entries:
+            file_name = online_entry.get('localFile')
+            file_key = online_entry.get('resourceKey').split('-catalog')[0]
+            self.cache_files[file_key] = FSUtil.build_path(self.cache_directory, file_name)
+            self.resource_urls[file_key] = online_entry.get('onlineURL')
 
     def _create_catalogs(self):
         self.catalogs = {'aws': AWSCatalogContainer(self.cache_files)}

@@ -34,23 +34,27 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
     """
     name = 'Databricks'
     plan: str = field(default='databricks-premium', init=False)  # standard, premium (default), or enterprise
+    # TODO: current default to 'premium' plan and 'Jobs Compute' compute type,
+    # need to figure out how to find these values from cluster properties
 
     def _generate_cache_files(self):
         FSUtil.copy_resource(f'../resources/{self.plan}-catalog.json', self.cache_files[self.plan])
         super()._generate_cache_files()
 
     def _process_resource_configs(self):
-        super()._process_resource_configs()
         online_entries = self.pricing_configs[self.plan].get_value('catalog', 'onlineResources')
         for online_entry in online_entries:
             file_name = online_entry.get('localFile')
-            file_key = file_name.split('-catalog')[0]
+            file_key = online_entry.get('resourceKey').split('-catalog')[0]
             self.cache_files[file_key] = FSUtil.build_path(self.cache_directory, file_name)
+            if 'databricks' not in file_key:
+                self.resource_urls[file_key] = online_entry.get('onlineURL')
 
     def _create_catalogs(self):
         super()._create_catalogs()
         for file_key, cache_file in self.cache_files.items():
-            self.catalogs[file_key] = DatabricksCatalogContainer(prop_arg=cache_file)
+            if 'ec2' not in file_key:
+                self.catalogs[file_key] = DatabricksCatalogContainer(prop_arg=cache_file)
 
     def get_ssd_price(self, machine_type: str) -> float:
         pass
@@ -74,4 +78,4 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
         pass
 
     def get_instance_price(self, instance, compute_type: str = 'Jobs Compute') -> float:
-        return self.catalogs[self.plan].get_value(compute_type, instance, 'Rate($/hour)')
+        return self.catalogs[self.plan].get_value(compute_type, instance, 'Rate')
