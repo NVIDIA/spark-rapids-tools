@@ -19,7 +19,7 @@ import fire
 
 from spark_rapids_dataproc_tools.diag_dataproc import DiagDataproc
 from spark_rapids_dataproc_tools.rapids_models import Profiling, Qualification, Bootstrap
-
+from spark_rapids_dataproc_tools.data_validation_dataproc import DataValidationDataproc
 
 class DataprocWrapper(object):
     """
@@ -280,6 +280,58 @@ class DataprocWrapper(object):
         if not diag.print_summary():
             sys.exit(1)
 
+
+    def validation(self,
+                   cluster: str,
+                   region: str,
+                   check: str = 'all',
+                   format: str,
+                   t1: str,
+                   t1p: str,
+                   t2: str,
+                   t2p: str,
+                   pk: str,
+                   e: str = None,
+                   i: str = 'all',
+                   f: str = None,
+                   o: str,
+                   of: str = 'parquet',
+                   p: int,
+                   debug: bool = False) -> None:
+        """
+        Run diagnostic on local environment or remote Dataproc cluster, such as check installed NVIDIA driver,
+        CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
+
+        Run data validation tool on remote Dataproc cluster to compare whether two tables have same results, one scenario is it will be easier for
+        users to determine whether the Spark job using RAPIDS Accelerator(aka GPU Spark job)
+        returns the same result as the CPU Spark job. Here we assume two tables have same column names.
+
+        :param cluster: Name of the Dataproc cluster.
+        :param region: Region of Dataproc cluster (e.g. us-central1)
+        :param check: Metadata validation or Data validation (e.g. --check metadata or –check data. default is to run both metadata and data validation.)
+
+        :param format: The format of tables. Options are [hive, orc, parquet, csv](e.g. --format hive or --format parquet)
+        :param t1: The first table name. (e.g. --t1 table1)
+        :param t1p: The first table’s partition clause. (e.g. --t1p 'partition1=p1 and partition2=p2')
+        :param t2: The second table name. (e.g. --t2 table2)
+        :param t2p: The second table’s partition clause. (e.g. --t2p 'partition1=p1 and partition2=p2')
+        :param pk: The Primary key columns(comma separated). (e.g. --pk pk1,pk2,pk3)
+        :param e: Exclude column option. What columns do not need to be involved in the comparison, default is None. (e.g. --e col4,col5,col6)
+        :param i: Include column option. What columns need to be involved in the comparison, default is ALL. (e.g. --i col1,col2,col3)
+        :param f: Condition to filter rows. (e.g. --f “col1>value1 and col2 <> value2”)
+        :param o: Output directory, the tool will generate a data file to a path. (e.g. --o /data/output)
+        :param of: Output format, default is parquet. (e.g. --of parquet)
+        :param p: Precision, if it is set to 4 digits, then 0.11113 == 0.11114 will return true for numeric columns. (e.g. -p 4)
+        :param debug: True or False to enable verbosity
+
+        """
+
+        if not cluster or not region:
+            raise Exception('Invalid cluster or region for Dataproc environment. '
+                            'Please provide options "--cluster=<CLUSTER_NAME> --region=<REGION>" properly.')
+
+        validate = DataValidationDataproc(cluster, region, check, format, t1, t1p, t2, t2p, pk, e, i, f, o, of, p, debug)
+        getattr(validate, check)()
 
 def main():
     fire.Fire(DataprocWrapper)
