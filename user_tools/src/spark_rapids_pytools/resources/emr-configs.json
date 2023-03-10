@@ -161,12 +161,7 @@
             "archiveName": "aws_ec2_catalog_ec2_us-west-2.json"
           }
         }
-      ],
-      "components": {
-        "ssd": {
-          "unitSizeFactor": 0.513698630136986
-        }
-      }
+      ]
     }
   },
   "gpuConfigs": {
