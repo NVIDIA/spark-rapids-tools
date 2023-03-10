@@ -103,7 +103,7 @@ class DataprocPlatform(PlatformBase):
         else:
             pricing_config: JSONPropertiesContainer = None
         pricing_provider = DataprocPriceProvider(region=self.cli.get_region(),
-                                                 pricing_config=pricing_config)
+                                                 pricing_configs={'gcloud': pricing_config})
         saving_estimator = DataprocSavingsEstimator(price_provider=pricing_provider,
                                                     target_cluster=target_cluster,
                                                     source_cluster=source_cluster)

@@ -107,7 +107,7 @@ class EMRPlatform(PlatformBase):
         else:
             pricing_config: JSONPropertiesContainer = None
         emr_price_provider = EMREc2PriceProvider(region=self.cli.get_region(),
-                                                 pricing_config=pricing_config)
+                                                 pricing_configs={'emr': pricing_config})
         saving_estimator = EmrSavingsEstimator(price_provider=emr_price_provider,
                                                target_cluster=target_cluster,
                                                source_cluster=source_cluster)
@@ -440,9 +440,9 @@ class EmrSavingsEstimator(SavingsEstimator):
     def _get_cost_per_cluster(self, cluster: EMRCluster):
         total_cost = 0.0
         for curr_group in cluster.instance_groups:
-            ec2_unit_cost = self.price_provider.catalog.get_value('ec2', curr_group.instance_type)
+            ec2_unit_cost = self.price_provider.catalogs['aws'].get_value('ec2', curr_group.instance_type)
             ec2_cost = ec2_unit_cost * curr_group.count
-            emr_unit_cost = self.price_provider.catalog.get_value('emr', curr_group.instance_type)
+            emr_unit_cost = self.price_provider.catalogs['aws'].get_value('emr', curr_group.instance_type)
             emr_cost = emr_unit_cost * curr_group.count
             total_cost += emr_cost + ec2_cost
         return total_cost

@@ -136,6 +136,34 @@
       }
     }
   },
+  "pricing": {
+    "catalog": {
+      "onlineResources": [
+        {
+          "resourceKey": "emr-catalog",
+          "onlineURL": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/ElasticMapReduce/20230223011407/us-west-2/index.json",
+          "//localFile": "the name of the file after downloading",
+          "localFile": "aws_ec2_catalog_emr_us-west-2.json",
+          "backupArchive": {
+            "//description-1": "In case the file is stuck, we use this archive as a backup.",
+            "//description-2": "It is stored in the resources",
+            "archiveName": "aws_ec2_catalog_emr_us-west-2.json"
+          }
+        },
+        {
+          "resourceKey": "ec2-catalog",
+          "onlineURL": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/20230307163705/us-west-2/index.json",
+          "//localFile": "the name of the file after downloading",
+          "localFile": "aws_ec2_catalog_ec2_us-west-2.json",
+          "backupArchive": {
+            "//description-1": "In case the file is stuck, we use this archive as a backup.",
+            "//description-2": "It is stored in the resources",
+            "archiveName": "aws_ec2_catalog_ec2_us-west-2.json"
+          }
+        }
+      ]
+    }
+  },
   "gpuConfigs": {
     "user-tools": {
       "supportedGpuInstances": {

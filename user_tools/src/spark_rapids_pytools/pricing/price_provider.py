@@ -21,7 +21,6 @@ from dataclasses import dataclass, field
 from logging import Logger
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
-from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 
@@ -32,38 +31,40 @@ class PriceProvider:
     An abstract class that represents interface to retrieve costs of hardware configurations.
     """
     region: str
-    pricing_config: JSONPropertiesContainer
-    cache_file: str = field(default=None, init=False)
-    resource_url: str = field(default=None, init=False)
+    pricing_configs: dict  # [str, JSONPropertiesContainer]
+    cache_files: dict = field(default_factory=dict, init=False)  # [str, str]
+    resource_urls: dict = field(default_factory=dict, init=False)  # [str, str]
     name: str = field(default=None, init=False)
     cache_expiration_secs: int = field(default=604800, init=False)  # download the file once a week
     meta: dict = field(default_factory=dict)
-    catalog: AbstractPropertiesContainer = field(default=None, init=False)
+    catalogs: dict = field(default_factory=dict, init=False)  # [str, AbstractPropertiesContainer]
     comments: list = field(default_factory=lambda: [], init=False)
     cache_directory: str = field(default=None, init=False)
     logger: Logger = field(default=None, init=False)
 
-    def _init_cache_file(self):
+    def _init_cache_files(self):
         if self._caches_expired(self.get_cached_files()):
-            self._generate_cache_file()
+            self._generate_cache_files()
         else:
             self.logger.info('The catalog files are loaded from the cache: %s',
                              '; '.join(self.get_cached_files()))
 
-    def _generate_cache_file(self):
-        files_updated = FSUtil.cache_from_url(self.resource_url, self.cache_file)
-        self.logger.info('The catalog file %s is %s',
-                         self.cache_file,
-                         'updated' if files_updated else 'is not modified, using the cached content')
+    def _generate_cache_files(self):
+        # resource_urls and cache_files should have the same keys
+        for file_key, resource_url in self.resource_urls.items():
+            files_updated = FSUtil.cache_from_url(resource_url, self.cache_files[file_key])
+            self.logger.info('The catalog file %s is %s',
+                             self.cache_files[file_key],
+                             'updated' if files_updated else 'not modified, using the cached content')
 
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.price.{self.name}')
         self.cache_directory = Utils.get_rapids_tools_env('CACHE_FOLDER')
         self._process_configs()
-        self._init_catalog()
+        self._init_catalogs()
 
     def get_cached_files(self) -> list:
-        return [self.cache_file]
+        return list(self.cache_files.values())
 
     def _caches_expired(self, cache_files: list) -> bool:
         for c_file in cache_files:
@@ -81,12 +82,12 @@ class PriceProvider:
     def _process_configs(self):
         self._process_resource_configs()
 
-    def _create_catalog(self):
+    def _create_catalogs(self):
         pass
 
-    def _init_catalog(self):
-        self._init_cache_file()
-        self._create_catalog()
+    def _init_catalogs(self):
+        self._init_cache_files()
+        self._create_catalogs()
 
     def get_cpu_price(self, machine_type: str) -> float:
         del machine_type  # Unused machine_type
@@ -105,6 +106,10 @@ class PriceProvider:
 
     def get_gpu_price(self, gpu_device: str) -> float:
         del gpu_device  # Unused gpu_device
+        return 0.0
+
+    def get_instance_price(self, instance: str) -> float:
+        del instance  # Unused gpu_device
         return 0.0
 
     def setup(self, **kwargs) -> None:
