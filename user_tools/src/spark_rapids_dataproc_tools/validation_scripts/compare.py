@@ -36,4 +36,6 @@ if __name__ == '__main__':
     result1 = spark.sql(sql1)
 
     start_time = time.time()
+    print('------------run validation success-----', result1)
+
     print(f'----------------Execution time: {time.time() - start_time}')

@@ -53,12 +53,16 @@ class Validation:
         stdout, stderr = self.run_cmd(cmd, capture=capture)
         return stdout + stderr
 
+    def get_diag_scripts(self, name):
+        """Get diagnostic script path by name"""
+        return pkg_resources.resource_filename(__name__, 'validation_scripts/' + name)
+
     def compare(self):
 
         print('-'*40)
 
         def run(opts):
-            output = self.run_spark_submit(opts + [self.get_diag_scripts('perf.py')])
+            output = self.run_spark_submit(opts + [self.get_diag_scripts('compare.py')])
             return self.check_perf_output(output)
 
         cpu_opts = ['--master', 'yarn']
