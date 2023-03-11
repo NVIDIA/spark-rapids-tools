@@ -57,7 +57,7 @@ class Validation:
         """Get diagnostic script path by name"""
         return pkg_resources.resource_filename(__name__, 'validation_scripts/' + name)
 
-    def compare(self):
+    def compare(self, t1, t2):
 
         print('-'*40)
 
