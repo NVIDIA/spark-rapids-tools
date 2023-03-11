@@ -19,6 +19,8 @@ from pyspark.sql.functions import col   # pylint: disable=import-error
 import time
 
 def compare(spark, t1, t2):
+    print("---------yyyyyy",t1)
+    print("---------yyyyyy", t2)
     table1 = spark.read.parquet(
         "gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/",t1).createOrReplaceTempView("datavalid1")
     table2 = spark.read.parquet(
