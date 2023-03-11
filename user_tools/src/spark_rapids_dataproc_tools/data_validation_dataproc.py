@@ -72,11 +72,9 @@ class DataValidationDataproc(Validation):
             'file': super().get_validation_scripts('compare.py'),
             'properties': {
                 'spark.rapids.sql.enabled': 'false',
-            },
-            'parameters': [
                 'spark.submit.pyiles.args.t1=datavalid1',
-                'spark.submit.pyiles.args.t2=datavalid2'
-            ],
+                'spark.submit.pyiles.args.t2=datavalid2',
+            },
         }
         output = self.cluster.submit_job(compare_job)
         print(output)
