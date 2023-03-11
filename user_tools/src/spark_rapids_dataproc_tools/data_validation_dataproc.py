@@ -30,6 +30,9 @@ class DataValidationDataproc(Validation):
         super().__init__(debug)
 
         self.cluster = new_csp('dataproc', args={'cluster': cluster_name, 'region': region})
+        self.format = format
+        self.t1 = t1
+        self.t2 = t2
 
     def on(node):  # pylint: disable=invalid-name,no-self-argument,too-many-function-args
         """On decorator."""
@@ -53,7 +56,9 @@ class DataValidationDataproc(Validation):
 
     @on('master')  # pylint: disable=too-many-function-args
     def valid_data(self):
-         print("-----------run valid data-------------------")
+        if self.format == 'parquet':
+            super().compare(self.t1, self.t2)
+        print("-----------run valid data-------------------")
 
 
 

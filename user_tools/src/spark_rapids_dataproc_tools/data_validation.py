@@ -46,6 +46,26 @@ class Validation:
         # Diagnostic summary
         self.summary = {}
 
+    def run_spark_submit(self, options, capture='all'):
+        """Run spark application via spark-submit command."""
+        cmd = ['$SPARK_HOME/bin/spark-submit']
+        cmd += options
+        stdout, stderr = self.run_cmd(cmd, capture=capture)
+        return stdout + stderr
+
+    def compare(self):
+
+        print('-'*40)
+
+        def run(opts):
+            output = self.run_spark_submit(opts + [self.get_diag_scripts('perf.py')])
+            return self.check_perf_output(output)
+
+        cpu_opts = ['--master', 'yarn']
+        cpu_opts += ['--conf', 'spark.rapids.sql.enabled=false']
+
+        cpu_time = run(cpu_opts)
+        logger.info('CPU execution time: %s', cpu_time)
 
     # work
 #     def add2(self):
