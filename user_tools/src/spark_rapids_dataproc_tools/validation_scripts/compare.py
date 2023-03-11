@@ -22,8 +22,8 @@ if __name__ == '__main__':
     spark = SparkSession(sc)
 
 
-    table1 = spark.read.parquet("gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/datavalid1").createOrReplaceTempView("d1")
-    table2 = spark.read.parquet("gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/datavalid2").createOrReplaceTempView("d2")
+    table1 = spark.read.parquet("gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/datavalid1").createOrReplaceTempView("datavalid1")
+    table2 = spark.read.parquet("gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/datavalid2").createOrReplaceTempView("datavalid2")
 
     # sql1 = "select d1.col1, d1.col3, d2.col3, d1.col4, d2.col4 \
     #         from datavalid1 d1 FULL OUTER JOIN datavalid2 d2 \
@@ -36,6 +36,6 @@ if __name__ == '__main__':
     result1 = spark.sql(sql1)
 
     start_time = time.time()
-    print('------------run validation success-----', result1)
+    print('------------run validation success-----', result1.show())
 
     print(f'----------------Execution time: {time.time() - start_time}')

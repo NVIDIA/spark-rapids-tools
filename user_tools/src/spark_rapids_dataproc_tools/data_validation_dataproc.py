@@ -54,11 +54,26 @@ class DataValidationDataproc(Validation):
     def valid_metadata(self):
         print("-----------run valid metadata-------------")
 
-    @on('master')  # pylint: disable=too-many-function-args
+    # @on('master')  # pylint: disable=too-many-function-args
+    # def valid_data(self):
+    #     if self.format == 'parquet':
+    #         super().compare(self.t1, self.t2)
+    #     print("-----------run valid data-------------------")
+
+    @Validation.banner
     def valid_data(self):
-        if self.format == 'parquet':
-            super().compare(self.t1, self.t2)
+        """Diagnose spark via Dataproc job interface."""
         print("-----------run valid data-------------------")
+        compare_job = {
+            'type': self.cluster.JOB_TYPE_PYSPARK,
+            'file': super().get_validation_scripts('compare.py'),
+            'properties': {
+                'spark.rapids.sql.enabled': 'false',
+            },
+        }
+        output = self.cluster.submit_job(compare_job)
+        print(output)
+        # self.check_spark_output(output, 'CPU')
 
 
 

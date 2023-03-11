@@ -46,6 +46,33 @@ class Validation:
         # Diagnostic summary
         self.summary = {}
 
+    def banner(func: Callable):   # pylint: disable=no-self-argument
+        """Banner decorator."""
+        def wrapper(self, *args, **kwargs):
+            name = func.__name__    # pylint: disable=no-member
+            logger.info('*** Running diagnostic function "%s" ***', name)
+
+            result = True
+            try:
+                func(self, *args, **kwargs)     # pylint: disable=not-callable
+
+            except Exception as exception:    # pylint: disable=broad-except
+                logger.error('Error: %s', exception)
+                result = False
+
+            if result:
+                logger.info('*** Check "%s": PASS ***', name)
+            else:
+                logger.info('*** Check "%s": FAIL ***', name)
+
+            # Save result into summary
+            if name in self.summary:
+                self.summary[name] = any([result, self.summary[name]])
+            else:
+                self.summary[name] = result
+
+        return wrapper
+
     def run_spark_submit(self, options, capture='all'):
         """Run spark application via spark-submit command."""
         cmd = ['$SPARK_HOME/bin/spark-submit']
@@ -53,7 +80,7 @@ class Validation:
         stdout, stderr = self.run_cmd(cmd, capture=capture)
         return stdout + stderr
 
-    def get_diag_scripts(self, name):
+    def get_validation_scripts(self, name):
         """Get diagnostic script path by name"""
         return pkg_resources.resource_filename(__name__, 'validation_scripts/' + name)
 
@@ -62,8 +89,8 @@ class Validation:
         print('-'*40)
 
         def run(opts):
-            output = self.run_spark_submit(opts + [self.get_diag_scripts('compare.py')])
-            return self.check_perf_output(output)
+            output = self.run_spark_submit(opts + [self.get_validation_scripts('compare.py')])
+            print(output)
 
         cpu_opts = ['--master', 'yarn']
         cpu_opts += ['--conf', 'spark.rapids.sql.enabled=false']
