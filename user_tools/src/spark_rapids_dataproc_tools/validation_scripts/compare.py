@@ -46,10 +46,12 @@ def compare(spark, t1, t2):
 if __name__ == '__main__':
 
 
-    parser = parser = argparse.ArgumentParser()
-    parser.add_argument('t1',
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--t1',
+                        type=str,
                         help='table1')
-    parser.add_argument('t2',
+    parser.add_argument('--t2',
+                        type=str,
                         help='table2')
     args = parser.parse_args()
 
