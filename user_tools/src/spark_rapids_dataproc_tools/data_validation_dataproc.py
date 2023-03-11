@@ -73,6 +73,10 @@ class DataValidationDataproc(Validation):
             'properties': {
                 'spark.rapids.sql.enabled': 'false',
             },
+            'parameters': [
+                't1=datavalid1',
+                't2=datavalid2'
+            ],
         }
         output = self.cluster.submit_job(compare_job)
         print(output)
