@@ -21,10 +21,10 @@ import time
 def compare(spark, t1, t2):
     print("---------yyyyyy",t1)
     print("---------yyyyyy", t2)
-    table1 = spark.read.parquet(
-        "gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/",t1).createOrReplaceTempView("datavalid1")
-    table2 = spark.read.parquet(
-        "gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/",t2).createOrReplaceTempView("datavalid2")
+    path1 = "gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/" + t1
+    path2 = "gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/" + t2
+    table1 = spark.read.parquet(path1).createOrReplaceTempView("datavalid1")
+    table2 = spark.read.parquet(path2).createOrReplaceTempView("datavalid2")
 
     # sql1 = "select d1.col1, d1.col3, d2.col3, d1.col4, d2.col4 \
     #         from datavalid1 d1 FULL OUTER JOIN datavalid2 d2 \
