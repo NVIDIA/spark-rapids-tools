@@ -55,7 +55,8 @@ if __name__ == '__main__':
 
     sc = SparkContext(appName='validation')
     spark = SparkSession(sc)
-
+    print("aaaaaa",args.t1)
+    print("aaaaaa", args.t2)
     compare(spark, args.t1, args.t2)
 
 
