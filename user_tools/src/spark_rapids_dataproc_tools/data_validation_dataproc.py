@@ -70,9 +70,13 @@ class DataValidationDataproc(Validation):
             'properties': {
                 'spark.rapids.sql.enabled': 'false',
             },
+            'parameters': {
+                't1': self.t1,
+                't2': self.t2,
+            },
         }
         output = self.cluster.submit_job(compare_job)
-        # print(output)
+        print(output)
         # self.check_spark_output(output, 'CPU')
 
 
