@@ -64,6 +64,9 @@ class DataValidationDataproc(Validation):
     def valid_data(self):
         """Diagnose spark via Dataproc job interface."""
         print("-----------run valid data-------------------")
+
+        print(self.t1)
+        print(self.t2)
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
             'file': super().get_validation_scripts('compare.py'),
