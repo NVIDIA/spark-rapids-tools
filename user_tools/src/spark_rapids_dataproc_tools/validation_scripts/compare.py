@@ -37,5 +37,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     print('------------run validation success-----', result1.show())
-
+    result1.show()
+    print('-----yua---')
+    print(result1.show())
     print(f'----------------Execution time: {time.time() - start_time}')
