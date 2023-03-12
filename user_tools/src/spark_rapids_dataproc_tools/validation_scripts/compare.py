@@ -18,9 +18,29 @@ from pyspark.sql import SparkSession    # pylint: disable=import-error
 from pyspark.sql.functions import col   # pylint: disable=import-error
 import time
 
-def compare(spark, t1, t2):
-    print("---------yyyyyy",t1)
-    print("---------yyyyyy", t2)
+def validation(spark, args):
+    print("---------yyyyyy",args.t1)
+    print("---------yyyyyy", args.t2)
+
+    # valid table1 and table2 row counts
+    t1_count = row_counts(spark, args.format, args.t1, args.t1p, args.f)
+    t2_count = row_counts(spark, args.format, args.t2, args.t2p, args.f)
+    if t1_count != t2_count:
+        print(f"table1 {args.t1} count {t1_count} is not equal to {args.t2} count {t2_count}")
+    else:
+        print(f"both table has same count {t1_count}")
+
+    # valid PK(s) only in table1
+    result = valid_pk_only_in_one_table(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
+    print(f"PK(s) only in {args.t1} : {result}")
+    # valid PK(s) only in table2
+    result = valid_pk_only_in_one_table(spark, args.format, args.t2, args.t1, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
+    print(f"PK(s) only in {args.t2} : {result}")
+
+    # valid result table with the same PK but different values for that column(s)
+    result = valid_col_diff_with_same_pk(spark, args)
+    print(f"columns with same PK(s) but diff values : {result}")
+
     path1 = "gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/" + t1
     path2 = "gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/" + t2
     table1 = spark.read.parquet(path1).createOrReplaceTempView("datavalid1")
@@ -43,22 +63,134 @@ def compare(spark, t1, t2):
     print(result1.show())
     print(f'----------------Execution time: {time.time() - start_time}')
 
+
+def row_counts(spark, format, table, t1p, t1f):
+    """Get the row counts of a table according"""
+    sql = "select count(*) from table"
+    where_clause = ""
+    if t1p is not None and t1f is not None:
+        where_clause = f" where {t1p} and {t1f}"
+    elif t1p is not None:
+        where_clause = f" where {t1p}"
+    elif t1f is not None:
+        where_clause = f" where {t1f}"
+
+    if format in ['parquet', 'orc', 'csv']:
+        path = table
+        spark.read.format(format).load(path).createOrReplaceTempView("table")
+        sql += where_clause
+        result = spark.sql(sql)
+        print(f'-------{table}--- count: -- {result}')
+        return result
+    elif format == "hive":
+        print("----todo---hive--")
+        return 0
+
+def valid_pk_only_in_one_table(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of):
+    """valid PK(s) only in one table"""
+    print("--valid_pk_only_in_one_table-")
+
+    if format in ['parquet', 'orc', 'csv']:
+
+        # load table1
+        load_table(spark, args.format, args.t1, args.t1p, args.pk, args.e, args.i, "table1")
+        # load table2
+        load_table(spark, args.format, args.t2, args.t2p, args.pk, args.e, args.i, "table2")
+
+        sql = "select * from table1 except select * from table2"
+        result = spark.sql(sql)
+        print(result)
+        return result
+
+    elif format == "hive":
+        print("----todo---hive--")
+        return 0
+
+    return 0
+
+def valid_col_diff_with_same_pk(spark, args):
+    print("---")
+    return 0
+
+def load_table(spark, format, t1, t1p, pk, e, i, view_name):
+    if format in ['parquet', 'orc', 'csv']:
+        # select column clause
+        cols = '*' if i is None else i
+        cols = cols if e is None else cols + f" EXCEPT ({e}) "
+        sql = f"select {pk},{cols} from {t1}"
+
+        # where clause
+        where_clause = ""
+        path = table
+        if t1p is not None and t1f is not None:
+            where_clause = f" where {t1p} and {t1f}"
+        elif t1p is not None:
+            where_clause = f" where {t1p}"
+            # partition clause should be in real order as data path
+            path += partition_to_path(t1p)
+        elif t1f is not None:
+            where_clause = f" where {t1f}"
+
+        spark.read.format(format).load(path).createOrReplaceTempView(view_name)
+        sql += where_clause
+        result = spark.sql(sql)
+    elif format == "hive":
+        print("----todo---hive-load_table-")
+
+def partition_to_path(partition_str, path):
+    partition = {}
+    if partition_str:
+        partition_items = partition_str.split("and")
+        partition = dict(item.split("=") for item in partition_items)
+    partition_path = "/".join([f"{col}={val}" for col, val in partition.items()])
+    return f"{path}/{partition_path}".replace(" ", "")
+
+
 if __name__ == '__main__':
 
-
     parser = argparse.ArgumentParser()
+    parser.add_argument('--format',
+                        type=str,
+                        help='The format of tables')
     parser.add_argument('--t1',
                         type=str,
                         help='table1')
     parser.add_argument('--t2',
                         type=str,
                         help='table2')
+    parser.add_argument('--t1p',
+                        type=str,
+                        help='table1 partition')
+    parser.add_argument('--t2p',
+                        type=str,
+                        help='table2 partition')
+    parser.add_argument('--pk',
+                        type=str,
+                        help='primary key')
+    parser.add_argument('--e',
+                        type=str,
+                        help='Exclude column option')
+    parser.add_argument('--i',
+                        type=str,
+                        help='Include column option')
+    parser.add_argument('--f',
+                        type=str,
+                        help='Condition to filter rows')
+    parser.add_argument('--o',
+                        type=str,
+                        help='Output directory')
+    parser.add_argument('--of',
+                        type=str,
+                        help='Output format, default is parquet')
+    parser.add_argument('--p',
+                        type=int,
+                        help='Precision, default is 4')
     args = parser.parse_args()
 
     sc = SparkContext(appName='validation')
     spark = SparkSession(sc)
     print("aaaaaa",args.t1)
     print("aaaaaa", args.t2)
-    compare(spark, args.t1, args.t2)
+    validation(spark, args)
 
 

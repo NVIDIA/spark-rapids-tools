@@ -310,10 +310,10 @@ class DataprocWrapper(object):
         :param region: Region of Dataproc cluster (e.g. us-central1)
         :param check: Metadata validation or Data validation (e.g. --check metadata or –check data. default is to run both metadata and data validation.)
 
-        :param format: The format of tables. Options are [hive, orc, parquet, csv](e.g. --format hive or --format parquet)
-        :param t1: The first table name. (e.g. --t1 table1)
+        :param format: The format of tables, if the format is parquet/orc/csv, the t1 and t2 should be an absolute path. Options are [hive, orc, parquet, csv](e.g. --format hive or --format parquet)
+        :param t1: The first table name, if the format is parquet/orc/csv, this value should be an absolute path. (e.g. --t1 table1)
         :param t1p: The first table’s partition clause. (e.g. --t1p 'partition1=p1 and partition2=p2')
-        :param t2: The second table name. (e.g. --t2 table2)
+        :param t2: The second table name, if the format is parquet/orc/csv, this value should be an absolute path.. (e.g. --t2 table2)
         :param t2p: The second table’s partition clause. (e.g. --t2p 'partition1=p1 and partition2=p2')
         :param pk: The Primary key columns(comma separated). (e.g. --pk pk1,pk2,pk3)
         :param e: Exclude column option. What columns do not need to be involved in the comparison, default is None. (e.g. --e col4,col5,col6)

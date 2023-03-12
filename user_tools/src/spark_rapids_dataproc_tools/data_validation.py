@@ -50,7 +50,7 @@ class Validation:
         """Banner decorator."""
         def wrapper(self, *args, **kwargs):
             name = func.__name__    # pylint: disable=no-member
-            logger.info('*** Running diagnostic function "%s" ***', name)
+            logger.info('*** Running validation function "%s" ***', name)
 
             result = True
             try:
