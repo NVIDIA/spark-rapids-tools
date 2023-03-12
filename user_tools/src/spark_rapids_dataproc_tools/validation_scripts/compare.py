@@ -38,29 +38,11 @@ def validation(spark, args):
     print(f"PK(s) only in {args.t2} : {result}")
 
     # valid result table with the same PK but different values for that column(s)
-    result = valid_col_diff_with_same_pk(spark, args)
+    result = get_cols_diff_with_same_pk(spark, args.t1, args.t2, args.pk, args.t1p, args.f, args.i, args.e)
     print(f"columns with same PK(s) but diff values : {result}")
 
-    path1 = "gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/" + t1
-    path2 = "gs://rapids-test/yuanli-tools-eventlog-temp/data-validation/" + t2
-    table1 = spark.read.parquet(path1).createOrReplaceTempView("datavalid1")
-    table2 = spark.read.parquet(path2).createOrReplaceTempView("datavalid2")
-
-    # sql1 = "select d1.col1, d1.col3, d2.col3, d1.col4, d2.col4 \
-    #         from datavalid1 d1 FULL OUTER JOIN datavalid2 d2 \
-    #         on d1.col1=d2.col1 \
-    #         where d1.col3 <> d2.col3 or d1.col4 <> d2.col4"
-    sql1 = "select col1, col2 from datavalid1 \
-                except \
-                select col1, col2 from datavalid2"
-
-    result1 = spark.sql(sql1)
-
     start_time = time.time()
-    print('------------run validation success-----', result1.show())
-    result1.show()
-    print('-----yua---')
-    print(result1.show())
+    print('------------run validation success-----')
     print(f'----------------Execution time: {time.time() - start_time}')
 
 
@@ -86,16 +68,16 @@ def row_counts(spark, format, table, t1p, t1f):
         print("----todo---hive--")
         return 0
 
-def valid_pk_only_in_one_table(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of):
+def valid_pk_only_in_one_table(spark, format, t1, t2, t1p, t2p, pk, e, i, f, o, of):
     """valid PK(s) only in one table"""
     print("--valid_pk_only_in_one_table-")
 
     if format in ['parquet', 'orc', 'csv']:
 
         # load table1
-        load_table(spark, args.format, args.t1, args.t1p, args.pk, args.e, args.i, "table1")
+        load_table(spark, format, t1, t1p, pk, e, i, f, "table1")
         # load table2
-        load_table(spark, args.format, args.t2, args.t2p, args.pk, args.e, args.i, "table2")
+        load_table(spark, format, t2, t2p, pk, e, i, f, "table2")
 
         sql = "select * from table1 except select * from table2"
         result = spark.sql(sql)
@@ -108,11 +90,33 @@ def valid_pk_only_in_one_table(spark, args.format, args.t1, args.t2, args.t1p, a
 
     return 0
 
-def valid_col_diff_with_same_pk(spark, args):
-    print("---")
-    return 0
+def get_cols_diff_with_same_pk(spark, table1_name, table2_name, pk, partitions, filter, included_columns, excluded_columns):
 
-def load_table(spark, format, t1, t1p, pk, e, i, view_name):
+    included_columns_list = [i.strip() for i in included_columns.split(",")]
+    excluded_columns_list = [e.strip() for e in excluded_columns.split(",")]
+
+    select_columns = [f't1.{p}' for p in pk.split(',')] + [f't1.{c}, t2.{c}' for c in included_columns_list if
+                                                           c not in excluded_columns_list]
+    sql = f"""
+                SELECT {', '.join(select_columns)}
+                FROM {table1_name} t1
+                FULL OUTER JOIN {table2_name} t2 ON {' AND '.join([f't1.{c} = t2.{c}' for c in pk_cols])}
+                WHERE ({' or '.join([f't1.{c} <> t2.{c}' for c in included_columns_list])} )
+            """
+    if partitions:
+        partitions = [p.strip() for p in partitions.split("and")]
+        sql += ' AND ( ' + ' AND '.join([f't1.{p} ' for p in partitions]) + ' )'
+
+    if filter:
+        filters = [f.strip() for f in filter.split("and")]
+        sql += ' AND ( ' + ' AND '.join([f't1.{f} ' for f in filters]) + ' )'
+    print(sql)
+
+    # Execute the query and return the result
+    result = spark.sql(sql)
+    return result
+
+def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
     if format in ['parquet', 'orc', 'csv']:
         # select column clause
         cols = '*' if i is None else i
@@ -121,15 +125,15 @@ def load_table(spark, format, t1, t1p, pk, e, i, view_name):
 
         # where clause
         where_clause = ""
-        path = table
-        if t1p is not None and t1f is not None:
-            where_clause = f" where {t1p} and {t1f}"
+        path = t1
+        if t1p is not None and f is not None:
+            where_clause = f" where {t1p} and {f}"
         elif t1p is not None:
             where_clause = f" where {t1p}"
             # partition clause should be in real order as data path
-            path += partition_to_path(t1p)
-        elif t1f is not None:
-            where_clause = f" where {t1f}"
+            # path += partition_to_path(t1p)
+        elif f is not None:
+            where_clause = f" where {f}"
 
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
         sql += where_clause
