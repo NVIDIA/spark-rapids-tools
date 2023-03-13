@@ -69,6 +69,14 @@ class DataValidationDataproc(Validation):
     #         super().compare(self.t1, self.t2)
     #     print("-----------run valid data-------------------")
 
+    def convert_type_to_string(self, conf):
+        if isinstance(conf, tuple):
+            return ','join(map(str,conf))
+        elif isinstance(conf, tuple):
+            return conf
+        else
+            raise Exception(f'invalid type of conf : {conf}')
+
     @Validation.banner
     def valid_data(self):
         """Diagnose spark via Dataproc job interface."""
@@ -78,6 +86,7 @@ class DataValidationDataproc(Validation):
         print(self.t2)
         print(self.i)
         print(type(self.i))
+        print(convert_type_to_string(self.i))
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
             'file': super().get_validation_scripts('compare.py'),
