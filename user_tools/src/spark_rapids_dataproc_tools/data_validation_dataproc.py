@@ -100,7 +100,7 @@ class DataValidationDataproc(Validation):
                 f'--format={self.format}',
                 f'--t1p={self.t1p}',
                 f'--t2p={self.t2p}',
-                f'--i={self.i}',
+                f'--i={self.convert_tuple_to_string(self.i)}',
                 f'--pk={self.pk}',
 
                 # f'--e={self.e}',
