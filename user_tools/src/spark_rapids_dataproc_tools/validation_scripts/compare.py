@@ -57,11 +57,11 @@ def row_counts(spark, format, table, t1p, t1f):
     print(t1f)
     print('yua test ---  \n')
     where_clause = ""
-    if t1p is not None and t1f is not None:
+    if t1p != 'None' and t1f !='None':
         where_clause = f" where {t1p} and {t1f}"
-    elif t1p is not None:
+    elif t1p != 'None':
         where_clause = f" where {t1p}"
-    elif t1f is not None:
+    elif t1f != 'None':
         where_clause = f" where {t1f}"
     print(f'-----yua test where clause: {where_clause} \n')
     if format in ['parquet', 'orc', 'csv']:
