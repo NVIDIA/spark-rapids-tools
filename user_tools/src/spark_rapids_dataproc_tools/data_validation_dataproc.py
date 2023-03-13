@@ -88,8 +88,9 @@ class DataValidationDataproc(Validation):
                 f'--format={self.format}',
                 f'--t1p={self.t1p}',
                 f'--t2p={self.t2p}',
-                f'--pk={self.pk}',
                 f'--i={self.i}',
+                f'--pk={self.pk}',
+
                 # f'--e={self.e}',
                 # f'--f={self.f}',
                 # f'--o={self.o}',
