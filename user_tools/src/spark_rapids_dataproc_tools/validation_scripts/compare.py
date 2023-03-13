@@ -114,6 +114,8 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, part
 
         select_columns = [f't1.{p}' for p in pk.split(',')] + [f't1.{c}, t2.{c}' for c in included_columns_list if
                                                                c not in excluded_columns_list]
+        print('------select columns----')
+        print(select_columns)
         sql = f"""
                     SELECT {', '.join(select_columns)}
                     FROM table1 t1
@@ -134,9 +136,6 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, part
         # Execute the query and return the result
         result = spark.sql(sql)
 
-        print(result.columns)
-        if excluded_columns != 'None':
-            result.select([col for col in result.columns if col not in excluded_columns_list])
         return result
     elif format == "hive":
         print("----todo---hive-load_table-")
