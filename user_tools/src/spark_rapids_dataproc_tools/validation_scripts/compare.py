@@ -134,6 +134,7 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, part
         # Execute the query and return the result
         result = spark.sql(sql)
 
+        print(result.columns)
         if excluded_columns != 'None':
             result.select([col for col in result.columns if col not in excluded_columns_list])
         return result
