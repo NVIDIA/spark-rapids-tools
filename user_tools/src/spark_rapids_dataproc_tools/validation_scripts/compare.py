@@ -120,11 +120,11 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, part
                     FULL OUTER JOIN table2 t2 ON {' AND '.join([f't1.{c} = t2.{c}' for c in pk_list])}
                     WHERE ({' or '.join([f't1.{c} <> t2.{c}' for c in included_columns_list])} )
                 """
-        if partitions:
+        if partitions != 'None':
             partitions = [p.strip() for p in partitions.split("and")]
             sql += ' AND ( ' + ' AND '.join([f't1.{p} ' for p in partitions]) + ' )'
 
-        if filter:
+        if filter != 'None':
             filters = [f.strip() for f in filter.split("and")]
             sql += ' AND ( ' + ' AND '.join([f't1.{f} ' for f in filters]) + ' )'
         print('-----------get_cols_diff_with_same_pk----------')
