@@ -69,13 +69,14 @@ class DataValidationDataproc(Validation):
     #         super().compare(self.t1, self.t2)
     #     print("-----------run valid data-------------------")
 
-    def convert_type_to_string(self, conf):
+    def convert_type_to_string(conf):
         if isinstance(conf, tuple):
-            return ','join(map(str,conf))
+            return ','.join(map(str, conf))
         elif isinstance(conf, tuple):
             return conf
-        else
+        else:
             raise Exception(f'invalid type of conf : {conf}')
+        fi
 
     @Validation.banner
     def valid_data(self):
