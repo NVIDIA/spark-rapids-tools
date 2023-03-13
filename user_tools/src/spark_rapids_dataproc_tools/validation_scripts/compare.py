@@ -148,6 +148,7 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         elif f != 'None':
             where_clause = f" where {f}"
 
+        print(f'--------load_table--{sql}-')
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
         sql += where_clause
         result = spark.sql(sql)
