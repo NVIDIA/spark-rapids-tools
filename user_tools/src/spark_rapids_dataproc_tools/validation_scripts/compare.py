@@ -92,7 +92,7 @@ def valid_pk_only_in_one_table(spark, format, t1, t2, t1p, t2p, pk, e, i, f, o, 
         # load table2
         load_table(spark, format, t2, t2p, pk, e, i, f, "table2")
 
-        sql = "select * from table1 except select * from table2"
+        sql = f"select {i} from table1 except select {i} from table2"
         result = spark.sql(sql)
         print(result)
         return result
