@@ -45,7 +45,7 @@ set python environment to version [3.8, 3.10]
 
 ## Usage and supported platforms
 
-Please refer to [spark-rapids-user-tools guide](docs/index.md) for details on how to use the tools
+Please refer to [spark-rapids-user-tools guide](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/index.md) for details on how to use the tools
 and the platform.
 
 ## Changelog
