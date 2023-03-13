@@ -21,8 +21,11 @@ import time
 def validation(spark, args):
     print("---------yyyyyy",args.t1)
     print("---------yyyyyy", args.t2)
+    print("---------yyyyyy", args.t1p)
+    print("---------yyyyyy", args.f)
     print('\n')
     # valid table1 and table2 row counts
+    print(type(args.t1p))
     t1_count = row_counts(spark, args.format, args.t1, args.t1p, args.f)
     t2_count = row_counts(spark, args.format, args.t2, args.t2p, args.f)
     if t1_count != t2_count:
