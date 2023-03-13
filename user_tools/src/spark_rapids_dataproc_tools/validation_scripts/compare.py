@@ -112,7 +112,7 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, part
         included_columns_list = [i.strip() for i in included_columns.split(",")]
         excluded_columns_list = [e.strip() for e in excluded_columns.split(",")]
 
-        select_columns = [f't1.{p}' for p in pk.split(',')] + [f't1.{c}, t2.{c}' for c in included_columns_list if
+        select_columns = [f't1.{p}' for p in pk.split(',')] + [f't1.{c} as t1_{c}, t2.{c} as t2_{c}' for c in included_columns_list if
                                                                c not in excluded_columns_list]
         print('------select columns----')
         print(select_columns)
