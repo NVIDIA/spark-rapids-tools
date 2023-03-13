@@ -61,6 +61,8 @@ def row_counts(spark, format, table, t1p, t1f):
         path = table
         spark.read.format(format).load(path).createOrReplaceTempView("table")
         sql += where_clause
+
+        print(f' yua test run sql: {sql}')
         result = spark.sql(sql)
         print(f'-------{table}--- count: -- {result}')
         return result

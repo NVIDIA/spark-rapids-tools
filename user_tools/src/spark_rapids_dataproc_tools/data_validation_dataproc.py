@@ -70,6 +70,7 @@ class DataValidationDataproc(Validation):
     #     print("-----------run valid data-------------------")
 
     def convert_tuple_to_string(self, conf):
+        '''fire automatically convert config with comma from str to tuple'''
         if isinstance(conf, tuple):
             return ','.join(map(str, conf))
         elif isinstance(conf, tuple):
