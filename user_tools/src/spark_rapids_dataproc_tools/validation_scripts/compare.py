@@ -133,7 +133,7 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
     if format in ['parquet', 'orc', 'csv']:
         # select column clause
         cols = '*' if i is None else i
-        cols = cols if e is None else cols + f", EXCEPT ({e}) "
+        # cols = cols if e is None else cols + f", EXCEPT ({e}) "
         sql = f"select {pk},{cols} from {view_name}"
         sql1 = f'select * from {view_name}'
         # where clause
@@ -151,11 +151,11 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         print(f'--------load_table-sql--{sql}---')
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
         sql += where_clause
-        # result = spark.sql(sql)
-        result1 = spark.sql(sql1)
+        result = spark.sql(sql)
+        # result1 = spark.sql(sql1)
 
         # print(result)
-        print(result1)
+        print(result)
     elif format == "hive":
         print("----todo---hive-load_table-")
 
