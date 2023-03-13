@@ -37,14 +37,9 @@ def validation(spark, args):
     else:
         print("The two table have the different count")
 
-    # if t1_count != t2_count:
-    #     print(f"table1 {args.t1} count {t1_count} is not equal to {args.t2} count {t2_count}")
-    # else:
-    #     print(f"both table has same count {t1_count}")
-    #
-    # # valid PK(s) only in table1
-    # result = valid_pk_only_in_one_table(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
-    # print(f"PK(s) only in {args.t1} : {result}")
+    # valid PK(s) only in table1
+    result = valid_pk_only_in_one_table(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
+    print(f"PK(s) only in {args.t1} : {result}")
     # # valid PK(s) only in table2
     # result = valid_pk_only_in_one_table(spark, args.format, args.t2, args.t1, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
     # print(f"PK(s) only in {args.t2} : {result}")
