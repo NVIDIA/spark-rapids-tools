@@ -87,7 +87,7 @@ class DataValidationDataproc(Validation):
         print(self.t2)
         print(self.i)
         print(type(self.i))
-        print(convert_tuple_to_string(self.i))
+        print(self.convert_tuple_to_string(self.i))
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
             'file': super().get_validation_scripts('compare.py'),
