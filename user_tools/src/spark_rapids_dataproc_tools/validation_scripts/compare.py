@@ -151,10 +151,10 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         print(f'--------load_table-sql--{sql}---')
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
         sql += where_clause
-        result = spark.sql(sql)
+        # result = spark.sql(sql)
         result1 = spark.sql(sql1)
 
-        print(result)
+        # print(result)
         print(result1)
     elif format == "hive":
         print("----todo---hive-load_table-")
