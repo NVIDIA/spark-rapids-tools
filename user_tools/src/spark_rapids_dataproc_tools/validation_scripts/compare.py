@@ -107,7 +107,7 @@ def valid_pk_only_in_one_table(spark, format, t1, t2, t1p, t2p, pk, e, i, f, o, 
     return 0
 
 def get_cols_diff_with_same_pk(spark, table1_name, table2_name, pk, partitions, filter, included_columns, excluded_columns):
-
+    pk_list = [i.strip() for i in pk.split(",")]
     included_columns_list = [i.strip() for i in included_columns.split(",")]
     excluded_columns_list = [e.strip() for e in excluded_columns.split(",")]
 
@@ -116,7 +116,7 @@ def get_cols_diff_with_same_pk(spark, table1_name, table2_name, pk, partitions, 
     sql = f"""
                 SELECT {', '.join(select_columns)}
                 FROM {table1_name} t1
-                FULL OUTER JOIN {table2_name} t2 ON {' AND '.join([f't1.{c} = t2.{c}' for c in pk_cols])}
+                FULL OUTER JOIN {table2_name} t2 ON {' AND '.join([f't1.{c} = t2.{c}' for c in pk_list])}
                 WHERE ({' or '.join([f't1.{c} <> t2.{c}' for c in included_columns_list])} )
             """
     if partitions:
