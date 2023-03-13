@@ -134,7 +134,7 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         # select column clause
         cols = '*' if i is None else i
         cols = cols if e is None else cols + f" EXCEPT ({e}) "
-        sql = f"select {pk},{cols} from {t1}"
+        sql = f"select {pk},{cols} from {view_name}"
 
         # where clause
         where_clause = ""
@@ -148,7 +148,7 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         elif f != 'None':
             where_clause = f" where {f}"
 
-        print(f'--------load_table--{sql}-')
+        print(f'--------load_table-sql--{sql}-')
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
         sql += where_clause
         result = spark.sql(sql)
