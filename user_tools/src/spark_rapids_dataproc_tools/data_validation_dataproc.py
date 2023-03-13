@@ -102,12 +102,11 @@ class DataValidationDataproc(Validation):
                 f'--t2p={self.t2p}',
                 f'--i={self.convert_tuple_to_string(self.i)}',
                 f'--pk={self.pk}',
-
-                # f'--e={self.e}',
-                # f'--f={self.f}',
-                # f'--o={self.o}',
-                # f'--of={self.of}',
-                # f'--p={self.p}'
+                f'--e={self.convert_tuple_to_string(self.e)}',
+                f'--f={self.f}',
+                f'--o={self.o}',
+                f'--of={self.of}',
+                f'--p={self.p}'
             ]
         }
         output = self.cluster.submit_job(compare_job)
