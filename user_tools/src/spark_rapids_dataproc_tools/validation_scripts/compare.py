@@ -74,8 +74,8 @@ def row_counts(spark, format, table, t1p, t1f):
 
         print(f' yua test run sql: {sql}')
         result = spark.sql(sql)
-        print(f'-------{table}--- count: -- {result.show()}')
-        return result.show()
+        print(f'-------{table}--- count: -- {result}')
+        return result
     elif format == "hive":
         print("----todo---hive--")
         return 0
