@@ -135,7 +135,7 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         cols = '*' if i is None else i
         cols = cols if e is None else cols + f", EXCEPT ({e}) "
         sql = f"select {pk},{cols} from {view_name}"
-
+        sql1 = f'select * from {view_name}'
         # where clause
         where_clause = ""
         path = t1
@@ -148,10 +148,14 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         elif f != 'None':
             where_clause = f" where {f}"
 
-        print(f'--------load_table-sql--{sql}-')
+        print(f'--------load_table-sql--{sql}---')
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
         sql += where_clause
         result = spark.sql(sql)
+        result1 = spark.sql(sql1)
+
+        print(result)
+        print(result1)
     elif format == "hive":
         print("----todo---hive-load_table-")
 
