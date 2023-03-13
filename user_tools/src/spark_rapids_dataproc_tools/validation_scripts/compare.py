@@ -39,7 +39,8 @@ def validation(spark, args):
 
     # valid PK(s) only in table1
     result = valid_pk_only_in_one_table(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
-    print(f"PK(s) only in {args.t1} : {result}")
+    print(f"PK(s) only in {args.t1} :")
+    print(result.show())
     # # valid PK(s) only in table2
     # result = valid_pk_only_in_one_table(spark, args.format, args.t2, args.t1, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
     # print(f"PK(s) only in {args.t2} : {result}")
