@@ -26,7 +26,7 @@ class DataValidationDataproc(Validation):
 
     #        validate = Validation(cluster, region, check, format, t1, t1p, t2, t2p, pk, e, i, f, o, of, p, debug)
 
-    def __init__(self, cluster_name, region, check, format, t1, t1p, t2, t2p, pk, e, i, f, o, of, p, debug=False):
+    def __init__(self, cluster_name, region, check, format, t1, t1p, t2, t2p, pk, e: str, i: str, f:str, o, of, p, debug=False):
         super().__init__(debug)
 
         self.cluster = new_csp('dataproc', args={'cluster': cluster_name, 'region': region})
