@@ -32,6 +32,10 @@ def validation(spark, args):
     t2_count = row_counts(spark, args.format, args.t2, args.t2p, args.f)
     print('yua test t2_count--------------------: ')
     print(t2_count.show())
+    if t1_count.exceptAll(t2_count).count() == 0 and t2_count.exceptAll(t1_count).count() == 0:
+        print("The two table have the same count")
+    else:
+        print("The two table have the different count")
 
     # if t1_count != t2_count:
     #     print(f"table1 {args.t1} count {t1_count} is not equal to {args.t2} count {t2_count}")
