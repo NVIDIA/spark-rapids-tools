@@ -699,7 +699,7 @@ class PlatformBase:
 
     def load_cluster_by_prop_file(self, cluster_prop_path: str):
         prop_container = JSONPropertiesContainer(prop_arg=cluster_prop_path)
-        cluster = prop_container.get_value('cluster_id')
+        cluster = prop_container.get_value_silent('cluster_id')
         return self._construct_cluster_from_props(cluster=cluster,
                                                   props=json.dumps(prop_container.props))
 

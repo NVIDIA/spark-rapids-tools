@@ -122,10 +122,9 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
 
         :param cluster: Name of the EMR cluster running an accelerated computing instance class g4dn.*
         :param profile: A named AWS profile to get the settings/credentials of the AWS account.
-        :param output_folder: Base output directory. The final recommendations will be logged in the
-               subdirectory 'wrapper-output/rapids_user_tools_bootstrap'.
+        :param output_folder: Local path where the final recommendations will be saved.
                Note that this argument only accepts local filesystem. If the argument is NONE,
-               the default value is the env variable RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY if any;
+               the default value is the env variable "RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY" if any;
                or the current working directory.
         :param dry_run: True or False to update the Spark config settings on EMR master node.
         :param key_pair_path: A '.pem' file path that enables to connect to EC2 instances using SSH.

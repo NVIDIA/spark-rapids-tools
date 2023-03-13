@@ -15,7 +15,7 @@
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, List
 
 import pandas as pd
 from tabulate import tabulate
@@ -465,16 +465,9 @@ class Qualification(RapidsJarTool):
                                                        remote_work_dir,
                                                        exclude_pattern=exclude_folder)
 
-    def _append_tool_rapids_args(self, cli_rapids_options: list) -> list:
-        """
-        Specific to the tool, add the rapids arguments needed to run the plugin core tools.
-        :param cli_rapids_options:
-        :return:
-        """
+    def _init_rapids_arg_list(self) -> List[str]:
         # TODO: Make sure we add this argument only for jar versions 23.02+
-        qualification_args = ['--platform', self.ctxt.get_platform_name()]
-        return qualification_args.extend(cli_rapids_options)
-
+        return ['--platform', self.ctxt.get_platform_name()]
 
 @dataclass
 class QualificationAsLocal(Qualification):

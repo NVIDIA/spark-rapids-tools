@@ -238,6 +238,9 @@ class Profiling(RapidsJarTool):
                            tabulate(recommendations_table, headers, tablefmt='grid')]
         self.ctxt.set_ctxt('wrapperOutputContent', wrapper_content)
 
+    def _init_rapids_arg_list(self) -> List[str]:
+        return self._create_autotuner_rapids_args()
+
 
 @dataclass
 class ProfilingAsLocal(Profiling):
@@ -245,9 +248,6 @@ class ProfilingAsLocal(Profiling):
     Profiling tool running on local development.
     """
     description: str = 'This is the localProfiling'
-
-    def _init_rapids_arg_list(self):
-        return self._create_autotuner_rapids_args()
 
     def _get_main_cluster_obj(self):
         return self.ctxt.get_ctxt('gpuClusterProxy')

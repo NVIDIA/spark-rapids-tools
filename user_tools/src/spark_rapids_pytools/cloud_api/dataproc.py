@@ -201,6 +201,19 @@ class DataprocCMDDriver(CMDDriverBase):
                     self.get_env_var('zone')]
         return self.run_sys_cmd(cmd_args)
 
+    def _build_ssh_cmd_prefix_for_node(self, node: ClusterNode) -> str:
+        pref_args = ['gcloud',
+                     'compute', 'ssh',
+                     node.name,
+                     '--zone',
+                     self.get_env_var('zone'),
+                     '--command=']
+        return Utils.gen_joined_str(' ', pref_args)
+
+    def _construct_ssh_cmd_with_prefix(self, prefix: str, remote_cmd: str) -> str:
+        # for dataproc, the remote should not be preceded by ws
+        return f'{prefix}{remote_cmd}'
+
 
 @dataclass
 class DataprocNode(ClusterNode):

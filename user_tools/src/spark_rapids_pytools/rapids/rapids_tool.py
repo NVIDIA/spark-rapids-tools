@@ -324,22 +324,13 @@ class RapidsJarTool(RapidsTool):
                     arguments_list.append(f'{k_arg}')
         return arguments_list
 
-    def _append_tool_rapids_args(self, cli_rapids_options: list) -> list:
-        """
-        Specific to the tool, add the rapids arguments needed to run the plugin core tools
-        :param cli_rapids_options:
-        :return:
-        """
-        return cli_rapids_options
-
     def _process_tool_args(self):
         """
         Process the arguments passed from the CLI if any and return a string representing the
         arguments to be passed to the final command running the job.
         :return:
         """
-        cli_rapids_options = self._process_tool_args_from_input()
-        self.ctxt.add_rapids_args('rapidsOpts', self._append_tool_rapids_args(cli_rapids_options))
+        self.ctxt.add_rapids_args('rapidsOpts', self._process_tool_args_from_input())
 
     def _process_dependencies(self):
         """
@@ -506,7 +497,7 @@ class RapidsJarTool(RapidsTool):
             # create a cluster by name
             cluster_obj = self.ctxt.platform.connect_cluster_by_name(cluster_arg)
         else:
-            self.logger.info('Loading %s cluster cluster properties from file %s',
+            self.logger.info('Loading %s cluster properties from file %s',
                              cluster_type,
                              cluster_arg)
             # create cluster by loading properties files
@@ -612,7 +603,7 @@ class RapidsJarTool(RapidsTool):
             job_args['platformArgs'] = processed_platform_args
         self.ctxt.update_job_args(job_args)
 
-    def _init_rapids_arg_list(self):
+    def _init_rapids_arg_list(self) -> List[str]:
         return []
 
     @timeit('Building Job Arguments and Executing Job CMD')  # pylint: disable=too-many-function-args
