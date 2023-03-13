@@ -17,6 +17,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+from spark_rapids_pytools.cloud_api.databricks_aws_job import DBAWSLocalRapidsJob
 from spark_rapids_pytools.cloud_api.emr import EMRNode, EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, ClusterState, SparkNodeType
@@ -59,7 +60,7 @@ class DBAWSPlatform(EMRPlatform):
         pass
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
-        pass
+        return DBAWSLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass

@@ -144,6 +144,22 @@
       "cliPiggyBackArgs": {
         "//description": "Holds information about list of arguments that's appended to some SDK commands",
         "definedArgs": []
+      },
+      "rapidsJobs": {
+        "LOCAL": {
+          "definedVars": [
+            {
+              "varLabel": "awsAccessKeyID",
+              "confProperty": "aws_access_key_id",
+              "varKey": "AWS_ACCESS_KEY_ID"
+            },
+            {
+              "varLabel": "awsSecretAccessKey",
+              "confProperty": "aws_secret_access_key",
+              "varKey": "AWS_SECRET_ACCESS_KEY"
+            }
+          ]
+        }
       }
     }
   },
