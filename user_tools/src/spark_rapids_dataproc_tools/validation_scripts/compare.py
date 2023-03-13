@@ -139,13 +139,13 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         # where clause
         where_clause = ""
         path = t1
-        if t1p is not None and f is not None:
+        if t1p != 'None' and f != 'None':
             where_clause = f" where {t1p} and {f}"
-        elif t1p is not None:
+        elif t1p != 'None':
             where_clause = f" where {t1p}"
             # partition clause should be in real order as data path
             # path += partition_to_path(t1p)
-        elif f is not None:
+        elif f != 'None':
             where_clause = f" where {f}"
 
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
