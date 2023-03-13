@@ -85,16 +85,16 @@ class DataValidationDataproc(Validation):
             'parameters':[
                 f'--t1={self.t1}',
                 f'--t2={self.t2}',
-                f'--format={self.format}',
-                f'--t1p={self.t1p}',
-                f'--t2p={self.t2p}',
-                f'--pk={self.pk}',
-                f'--e={self.e}',
-                f'--i={self.i}',
-                f'--f={self.f}',
-                f'--o={self.o}',
-                f'--of={self.of}',
-                f'--p={self.p}'
+                # f'--format={self.format}',
+                # f'--t1p={self.t1p}',
+                # f'--t2p={self.t2p}',
+                # f'--pk={self.pk}',
+                # f'--e={self.e}',
+                # f'--i={self.i}',
+                # f'--f={self.f}',
+                # f'--o={self.o}',
+                # f'--of={self.of}',
+                # f'--p={self.p}'
             ]
         }
         output = self.cluster.submit_job(compare_job)
