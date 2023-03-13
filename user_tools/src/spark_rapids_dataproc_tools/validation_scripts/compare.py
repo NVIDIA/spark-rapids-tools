@@ -126,7 +126,9 @@ def get_cols_diff_with_same_pk(spark, table1_name, table2_name, pk, partitions, 
     if filter:
         filters = [f.strip() for f in filter.split("and")]
         sql += ' AND ( ' + ' AND '.join([f't1.{f} ' for f in filters]) + ' )'
+    print('-----------get_cols_diff_with_same_pk----------')
     print(sql)
+    print('-----------get_cols_diff_with_same_pk----------')
 
     # Execute the query and return the result
     result = spark.sql(sql)
