@@ -46,9 +46,10 @@ def validation(spark, args):
     print(f"PK(s) only in {args.t2} :")
     print(result.show())
 
-    # # valid result table with the same PK but different values for that column(s)
-    # result = get_cols_diff_with_same_pk(spark, args.t1, args.t2, args.pk, args.t1p, args.f, args.i, args.e)
-    # print(f"columns with same PK(s) but diff values : {result}")
+    # valid result table with the same PK but different values for that column(s)
+    result = get_cols_diff_with_same_pk(spark, args.t1, args.t2, args.pk, args.t1p, args.f, args.i, args.e)
+    print("columns with same PK(s) but diff values : ")
+    print(result)
 
     start_time = time.time()
     print('------------run validation success-----')
