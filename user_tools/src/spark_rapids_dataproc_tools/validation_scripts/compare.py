@@ -21,7 +21,7 @@ import time
 def validation(spark, args):
     print("---------yyyyyy",args.t1)
     print("---------yyyyyy", args.t2)
-
+    print('\n')
     # valid table1 and table2 row counts
     t1_count = row_counts(spark, args.format, args.t1, args.t1p, args.f)
     t2_count = row_counts(spark, args.format, args.t2, args.t2p, args.f)
@@ -49,6 +49,10 @@ def validation(spark, args):
 def row_counts(spark, format, table, t1p, t1f):
     """Get the row counts of a table according"""
     sql = "select count(*) from table"
+    print('yua test ---  \n')
+    print(t1p)
+    print(t1f)
+    print('yua test ---  \n')
     where_clause = ""
     if t1p is not None and t1f is not None:
         where_clause = f" where {t1p} and {t1f}"
@@ -56,7 +60,7 @@ def row_counts(spark, format, table, t1p, t1f):
         where_clause = f" where {t1p}"
     elif t1f is not None:
         where_clause = f" where {t1f}"
-
+    print(f'-----yua test where clause: {where_clause} \n')
     if format in ['parquet', 'orc', 'csv']:
         path = table
         spark.read.format(format).load(path).createOrReplaceTempView("table")
