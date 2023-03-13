@@ -47,7 +47,7 @@ def validation(spark, args):
     print(result.show())
 
     # valid result table with the same PK but different values for that column(s)
-    result = get_cols_diff_with_same_pk(spark, args.t1, args.t2, args.pk, args.t1p, args.f, args.i, args.e)
+    result = get_cols_diff_with_same_pk(spark, args.format, args.t1, args.t2, args.pk, args.t1p, args.f, args.i, args.e)
     print("columns with same PK(s) but diff values : ")
     print(result)
 
@@ -106,33 +106,36 @@ def valid_pk_only_in_one_table(spark, format, t1, t2, t1p, t2p, pk, e, i, f, o, 
 
     return 0
 
-def get_cols_diff_with_same_pk(spark, table1_name, table2_name, pk, partitions, filter, included_columns, excluded_columns):
-    pk_list = [i.strip() for i in pk.split(",")]
-    included_columns_list = [i.strip() for i in included_columns.split(",")]
-    excluded_columns_list = [e.strip() for e in excluded_columns.split(",")]
+def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, partitions, filter, included_columns, excluded_columns):
+    if format in ['parquet', 'orc', 'csv']:
+        pk_list = [i.strip() for i in pk.split(",")]
+        included_columns_list = [i.strip() for i in included_columns.split(",")]
+        excluded_columns_list = [e.strip() for e in excluded_columns.split(",")]
 
-    select_columns = [f't1.{p}' for p in pk.split(',')] + [f't1.{c}, t2.{c}' for c in included_columns_list if
-                                                           c not in excluded_columns_list]
-    sql = f"""
-                SELECT {', '.join(select_columns)}
-                FROM {table1_name} t1
-                FULL OUTER JOIN {table2_name} t2 ON {' AND '.join([f't1.{c} = t2.{c}' for c in pk_list])}
-                WHERE ({' or '.join([f't1.{c} <> t2.{c}' for c in included_columns_list])} )
-            """
-    if partitions:
-        partitions = [p.strip() for p in partitions.split("and")]
-        sql += ' AND ( ' + ' AND '.join([f't1.{p} ' for p in partitions]) + ' )'
+        select_columns = [f't1.{p}' for p in pk.split(',')] + [f't1.{c}, t2.{c}' for c in included_columns_list if
+                                                               c not in excluded_columns_list]
+        sql = f"""
+                    SELECT {', '.join(select_columns)}
+                    FROM table1 t1
+                    FULL OUTER JOIN table2 t2 ON {' AND '.join([f't1.{c} = t2.{c}' for c in pk_list])}
+                    WHERE ({' or '.join([f't1.{c} <> t2.{c}' for c in included_columns_list])} )
+                """
+        if partitions:
+            partitions = [p.strip() for p in partitions.split("and")]
+            sql += ' AND ( ' + ' AND '.join([f't1.{p} ' for p in partitions]) + ' )'
 
-    if filter:
-        filters = [f.strip() for f in filter.split("and")]
-        sql += ' AND ( ' + ' AND '.join([f't1.{f} ' for f in filters]) + ' )'
-    print('-----------get_cols_diff_with_same_pk----------')
-    print(sql)
-    print('-----------get_cols_diff_with_same_pk----------')
+        if filter:
+            filters = [f.strip() for f in filter.split("and")]
+            sql += ' AND ( ' + ' AND '.join([f't1.{f} ' for f in filters]) + ' )'
+        print('-----------get_cols_diff_with_same_pk----------')
+        print(sql)
+        print('-----------get_cols_diff_with_same_pk----------')
 
-    # Execute the query and return the result
-    result = spark.sql(sql)
-    return result
+        # Execute the query and return the result
+        result = spark.sql(sql)
+        return result
+    elif format == "hive":
+        print("----todo---hive-load_table-")
 
 def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
     if format in ['parquet', 'orc', 'csv']:
