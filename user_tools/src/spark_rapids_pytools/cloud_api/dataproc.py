@@ -17,7 +17,7 @@
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, List
 
 from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob
 from spark_rapids_pytools.cloud_api.gstorage import GStorageDriver
@@ -25,7 +25,7 @@ from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CMDDriverBase,
     ClusterNode, SysInfo, GpuHWInfo, SparkNodeType, ClusterState, GpuDevice, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import SysCmd
+from spark_rapids_pytools.common.utilities import SysCmd, Utils
 from spark_rapids_pytools.pricing.dataproc_pricing import DataprocPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
@@ -172,7 +172,7 @@ class DataprocCMDDriver(CMDDriverBase):
             if 'state' in query_args:
                 state_param = query_args.get('state')
                 filter_args.append(f'status.state = {state_param}')
-        filter_arg = ' AND '.join(filter_args)
+        filter_arg = Utils.gen_joined_str(' AND ', filter_args)
         cmd_params.append(f"--filter='{filter_arg}'")
         return cmd_params
 
@@ -196,10 +196,23 @@ class DataprocCMDDriver(CMDDriverBase):
     def exec_platform_describe_accelerator(self,
                                            accelerator_type: str,
                                            **cmd_args) -> str:
-        cmd_args = ['gcloud', 'compute', 'describe', accelerator_type,
-                    '--zone',
+        cmd_args = ['gcloud', 'compute', 'accelerator-types', 'describe',
+                    accelerator_type, '--zone',
                     self.get_env_var('zone')]
         return self.run_sys_cmd(cmd_args)
+
+    def _build_ssh_cmd_prefix_for_node(self, node: ClusterNode) -> str:
+        pref_args = ['gcloud',
+                     'compute', 'ssh',
+                     node.name,
+                     '--zone',
+                     self.get_env_var('zone'),
+                     '--command=']
+        return Utils.gen_joined_str(' ', pref_args)
+
+    def _construct_ssh_cmd_with_prefix(self, prefix: str, remote_cmd: str) -> str:
+        # for dataproc, the remote should not be preceded by ws
+        return f'{prefix}{remote_cmd}'
 
 
 @dataclass
@@ -211,7 +224,7 @@ class DataprocNode(ClusterNode):
     @staticmethod
     def __extract_info_from_value(conf_val: str):
         if '/' in conf_val:
-            # this is a url-path
+            # this is a valid url-path
             return FSUtil.get_resource_name(conf_val)
         # this is a value
         return conf_val
@@ -247,18 +260,23 @@ class DataprocNode(ClusterNode):
                 parsing_res.setdefault('gpu_mem', gpu_device.get_gpu_mem()[0])
             return parsing_res
 
-        accelerators = self.props.get_value_silent('accelerators')
-        if not accelerators:
+        accelerator_arr = self.props.get_value_silent('accelerators')
+        if not accelerator_arr:
             return None
-        gpu_configs = {'num_gpus': accelerators.get('acceleratorCount')}
-        accelerator_type = accelerators.get('acceleratorTypeUri')
-        gpu_device_type = self.__extract_info_from_value(accelerator_type)
-        gpu_description = cli.exec_platform_describe_accelerator(gpu_device_type, None)
-        extra_gpu_info = parse_accelerator_description(gpu_description)
-        gpu_configs.update(extra_gpu_info)
-        return GpuHWInfo(num_gpus=gpu_configs.get('num_gpus'),
-                         gpu_device=gpu_configs.get('gpu_device'),
-                         gpu_mem=gpu_configs.get('gpu_mem'))
+
+        for defined_acc in accelerator_arr:
+            # TODO: if the accelerator_arr has other non-gpu ones, then we need to loop until we
+            #       find the gpu accelerators
+            gpu_configs = {'num_gpus': defined_acc.get('acceleratorCount')}
+            accelerator_type = defined_acc.get('acceleratorTypeUri')
+            gpu_device_type = self.__extract_info_from_value(accelerator_type)
+            gpu_description = cli.exec_platform_describe_accelerator(accelerator_type=gpu_device_type,
+                                                                     cmd_args=None)
+            extra_gpu_info = parse_accelerator_description(gpu_description)
+            gpu_configs.update(extra_gpu_info)
+            return GpuHWInfo(num_gpus=gpu_configs.get('num_gpus'),
+                             gpu_device=gpu_configs.get('gpu_device'),
+                             gpu_mem=gpu_configs.get('gpu_mem'))
 
     def _pull_sys_info(self, cli=None) -> SysInfo:
         cpu_mem = self.mc_props.get_value('memoryMb')
@@ -295,16 +313,10 @@ class DataprocCluster(ClusterBase):
             return f'gs://{temp_bucket}/{self.uuid}'
         return None
 
-    def get_eventlogs_from_config(self) -> list:
-        res_arr = []
-        phs_dir = self.props.get_value_silent('config',
-                                              'softwareConfig',
-                                              'properties',
-                                              'spark:spark.eventLog.dir')
-        if phs_dir:
-            # append the persistent history server
-            res_arr.append(phs_dir)
-        else:
+    def get_eventlogs_from_config(self) -> List[str]:
+        res_arr = super().get_eventlogs_from_config()
+        if not res_arr:
+            # The SHS was not set for the cluster. Use the tmp bucket storage as the default SHS log directory
             # append the temporary gstorage followed by the SHS folder
             tmp_gs = self._get_temp_gs_storage()
             res_arr.append(f'{tmp_gs}/spark-job-history')
@@ -386,9 +398,9 @@ class DataprocCluster(ClusterBase):
             # dataproc does not bind machine types to GPUs
             # new_node.fetch_and_set_hw_info(self.cli)
             gpu_mc_hw: ClusterNode = supported_mc_map.get(new_instance_type)
-            new_node.construct_hw_info(None,
-                                       gpu_mc_hw.gpu_info,
-                                       gpu_mc_hw.sys_info)
+            new_node.construct_hw_info(cli=None,
+                                       gpu_info=gpu_mc_hw.gpu_info,
+                                       sys_info=gpu_mc_hw.sys_info)
             new_worker_nodes.append(new_node)
         self.nodes = {
             SparkNodeType.WORKER: new_worker_nodes,
@@ -397,6 +409,14 @@ class DataprocCluster(ClusterBase):
         if bool(mc_type_map):
             # update the platform notes
             self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
+
+    def get_all_spark_properties(self) -> dict:
+        """Returns a dictionary containing the spark configurations defined in the cluster properties"""
+        sw_props = self.props.get_value_silent('config', 'softwareConfig', 'properties')
+        if sw_props:
+            k_prefix = 'spark:'
+            return {key[len(k_prefix):]: value for (key, value) in sw_props.items() if key.startswith(k_prefix)}
+        return {}
 
 
 @dataclass

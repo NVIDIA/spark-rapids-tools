@@ -173,7 +173,7 @@ class EMRCMDDriver(CMDDriverBase):
                        '-o StrictHostKeyChecking=no',
                        f'-i {pem_file_path}',
                        f'hadoop@{node.name}']
-        return ' '.join(prefix_args)
+        return Utils.gen_joined_str(' ', prefix_args)
 
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',
@@ -420,15 +420,14 @@ class EMRCluster(ClusterBase):
         ]
         return self.state in acceptable_init_states
 
-    def get_eventlogs_from_config(self):
-        res_arr = []
+    def get_all_spark_properties(self) -> dict:
+        res = {}
         configs_list = self.props.get_value_silent('Configurations')
         for conf_item in configs_list:
             if conf_item['Classification'].startswith('spark'):
-                conf_props = conf_item['Properties']
-                if 'spark.eventLog.dir' in conf_props:
-                    res_arr.append(conf_props['spark.eventLog.dir'])
-        return res_arr
+                curr_spark_props = conf_item['Properties']
+                res.update(curr_spark_props)
+        return res
 
 
 @dataclass

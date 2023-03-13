@@ -19,7 +19,8 @@ from typing import Any
 
 from spark_rapids_pytools.cloud_api.emr import EMRNode, EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, ClusterState, SparkNodeType
+from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode
+from spark_rapids_pytools.cloud_api.sp_types import ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
@@ -117,13 +118,6 @@ class DatabricksCluster(ClusterBase):
     Represents an instance of running cluster on Databricks.
     """
 
-    def get_eventlogs_from_config(self) -> list:
-        res_arr = []
-        eventlogs_dir = self.props.get_value_silent('spark_conf', 'spark.eventLog.dir')
-        if eventlogs_dir:
-            res_arr.append(eventlogs_dir)
-        return res_arr
-
     def _set_fields_from_props(self):
         super()._set_fields_from_props()
         self.uuid = self.props.get_value('cluster_id')
@@ -166,6 +160,9 @@ class DatabricksCluster(ClusterBase):
         # propagate region to the cluster
         cluster_args.setdefault('region', self.cli.get_env_var('region'))
         return cluster_args
+
+    def get_all_spark_properties(self) -> dict:
+        return self.props.get_value('spark_conf')
 
     def _build_migrated_cluster(self, orig_cluster):
         pass

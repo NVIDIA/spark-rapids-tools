@@ -47,7 +47,7 @@ class PriceProvider:
             self._generate_cache_files()
         else:
             self.logger.info('The catalog files are loaded from the cache: %s',
-                             '; '.join(self.get_cached_files()))
+                             Utils.gen_joined_str('; ', self.get_cached_files()))
 
     def _generate_cache_files(self):
         # resource_urls and cache_files should have the same keys

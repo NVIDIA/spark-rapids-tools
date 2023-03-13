@@ -1,0 +1,60 @@
+toolOutput:
+  subFolder: rapids_4_spark_profile
+  recommendations:
+    fileName: profile.log
+    headers:
+      section: '### D. Recommended Configuration ###'
+      sparkProperties: 'Spark Properties:'
+      comments: 'Comments:'
+sparkRapids:
+  mvnUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
+  repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
+  mainClass: 'com.nvidia.spark.rapids.tool.profiling.ProfileMain'
+  outputDocURL: 'https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html#understanding-profiling-tool-detailed-output-and-examples'
+  cli:
+    toolOptions:
+      - csv
+      - any
+      - a
+      - application-name
+      - f
+      - filter-criteria
+      - g
+      - generate-dot
+      - generate-timeline
+      - m
+      - match-event-logs
+      - n
+      - num-output-rows
+      - num-threads
+      - order
+      - p
+      - print-plans
+      - s
+      - start-app-time
+      - t
+      - timeout
+local:
+  output:
+    cleanUp: true
+    fileName: profiling_summary.log
+    summaryColumns:
+      - 'App ID'
+      - 'App Name'
+      - 'Recommendations'
+      - 'Comments'
+    treeDirectory:
+      enabled: true
+      depthLevel: 3
+      indentation: '    '
+      excludedPatterns:
+        directories:
+          - '.+(_\$folder\$)$'
+        files:
+          - '^(\.+).*'
+          - '^(\$+).*'
+          - '^.+(_\$folder\$)$'
+platform:
+  shortName: 'prof'
+  outputDir: profiling_tool_output
+  cleanUp: true

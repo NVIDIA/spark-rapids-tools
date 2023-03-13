@@ -16,10 +16,10 @@
 
 from dataclasses import dataclass, field
 from logging import Logger
+from typing import List
 
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
-from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
@@ -59,17 +59,18 @@ class RapidsJob:
     logger: Logger = field(default=None, init=False)
 
     def get_platform_name(self):
-        return CloudPlatform.tostring(self.exec_ctxt.platform.type_id).lower()
+        return self.exec_ctxt.get_platform_name()
 
     def _init_fields(self):
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.submit.{self.job_label}')
-        self.remote_output = self.prop_container.get_value_silent('remoteOutput')
+        self.remote_output = self.prop_container.get_value_silent('outputDirectory')
 
     def __post_init__(self):
         self._init_fields()
 
-    def _get_rapids_args_per_platform(self):
-        return ['--platform', self.get_platform_name()]
+    def _get_rapids_args_per_platform(self) -> List[str]:
+        """Left as placeholder for future use"""
+        return []
 
     def _get_persistent_rapids_args(self):
         rapids_args = self._get_rapids_args_per_platform()[:]
@@ -93,13 +94,14 @@ class RapidsJob:
     def _print_job_output(self, job_output: str):
         stdout_splits = job_output.splitlines()
         if len(stdout_splits) > 0:
-            std_out_lines = '\n'.join([f'\t| {line}' for line in stdout_splits])
+            std_out_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stdout_splits])
             stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
             self.logger.info('EMR Job output:%s', stdout_str)
 
     def run_job(self):
         self.logger.info('Prepare job submission command')
         cmd_args = self._build_submission_cmd()
+        self.logger.info('Running the Rapids Job...')
         job_output = self._submit_job(cmd_args)
         if not ToolLogging.is_debug_mode_enabled():
             # we check the debug level because we do not want the output to be displayed twice
@@ -118,7 +120,7 @@ class RapidsLocalJob(RapidsJob):
         dependencies = self.prop_container.get_value_silent('platformArgs', 'dependencies')
         if dependencies is not None:
             deps_arr.extend(dependencies)
-        dps_str = ':'.join(deps_arr)
+        dps_str = Utils.gen_joined_str(':', deps_arr)
         return ['-cp', dps_str]
 
     def _build_jvm_args(self):

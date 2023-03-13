@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Type, Any
 
-from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CloudPlatform
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
@@ -142,3 +142,10 @@ class ToolContext(YAMLPropertiesContainer):
         if rapids_subfolder is None:
             return root_dir
         return FSUtil.build_path(root_dir, rapids_subfolder)
+
+    def get_platform_name(self) -> str:
+        """
+        This used to get the lower case of the platform of the runtime.
+        :return: the name of the platform of the runtime in lower_case.
+        """
+        return CloudPlatform.pretty_print(self.platform.type_id)

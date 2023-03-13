@@ -18,17 +18,21 @@ import datetime
 import glob
 import os
 import pathlib
+import re
 import shutil
 import ssl
 import urllib
 from dataclasses import dataclass
 from email.utils import formatdate, parsedate_to_datetime
+from itertools import islice
 from shutil import rmtree
+from typing import List
 
 import certifi
 import requests
 
 from spark_rapids_pytools.common.exceptions import StorageException
+from spark_rapids_pytools.common.utilities import Utils
 
 
 class FSUtil:
@@ -65,7 +69,7 @@ class FSUtil:
         url_parts = [part.strip('/') for part in parts[:-1]]
         # we do not want to remove the rightmost slash if any
         url_parts.append(parts[-1].lstrip('/'))
-        return '/'.join(url_parts)
+        return Utils.gen_joined_str('/', url_parts)
 
     @classmethod
     def remove_path(cls, file_path: str, fail_ok: bool = False):
@@ -123,18 +127,18 @@ class FSUtil:
         if os.path.exists(cache_file):
             mtime = os.path.getmtime(cache_file)
             headers['If-Modified-Since'] = formatdate(mtime, usegmt=True)
-        r = requests.get(src_url, headers=headers, stream=True, timeout=60)
+        r = requests.get(src_url, headers=headers, stream=True, timeout=100)
         r.raise_for_status()
         if r.status_code == requests.codes.not_modified:  # pylint: disable=no-member
             # no need to download the file
             return False
         if r.status_code == requests.codes.ok:  # pylint: disable=no-member
             with open(cache_file, 'wb') as f:
-                shutil.copyfileobj(r.raw, f)
+                for chunk in r.iter_content(chunk_size=4 * 1048576):
+                    f.write(chunk)
             # Another alternative that is not suitable for large files
             # with open(cache_file, 'wb') as f:
-            #     for chunk in r.iter_content(chunk_size=1048576):
-            #         f.write(chunk)
+            #     shutil.copyfileobj(r.raw, f)
             if last_modified := r.headers.get('last-modified'):
                 new_mtime = parsedate_to_datetime(last_modified).timestamp()
                 os.utime(cache_file, times=(datetime.datetime.now().timestamp(), new_mtime))
@@ -159,12 +163,85 @@ class FSUtil:
             return str(new_path.expanduser())
         return file_path
 
+    @classmethod
+    def get_subdirectories(cls, dir_path) -> list:
+        """
+        Given a directory, list all the subdirectories without recursion
+        :param dir_path: the directory parent that we are interested in
+        :return: a list of subdirectories with full path
+        """
+        res = []
+        subfolders = glob.glob(f'{dir_path}/*', recursive=False)
+        for subfolder in subfolders:
+            if os.path.isdir(subfolder):
+                res.append(subfolder)
+        return res
+
+    @classmethod
+    def gen_dir_tree(cls,
+                     dir_path: pathlib.Path,
+                     depth_limit: int = -1,
+                     population_limit: int = 1024,
+                     limit_to_directories: bool = False,
+                     exec_dirs: List[str] = None,
+                     exec_files: List[str] = None,
+                     indent=''):
+        # the implementation is based on the answer posted on stackoverflow
+        # https://stackoverflow.com/a/59109706
+        dir_patterns = [re.compile(rf'{p}') for p in exec_dirs] if exec_dirs else []
+        file_patterns = [re.compile(rf'{p}') for p in exec_files] if exec_files else []
+        res_arr = []
+        dir_path = pathlib.Path(dir_path)
+        token_ws = '    '
+        token_child = '│   '
+        token_sibling = '├── '
+        token_leaf = '└── '
+        files_count = 0
+        dir_count = 0
+
+        def inner(dir_p: pathlib.Path, prefix: str = '', level=-1):
+            nonlocal files_count, dir_count, dir_patterns, file_patterns
+            if not level:
+                return  # 0, stop iterating
+            sub_items = []
+            for f in dir_p.iterdir():
+                if f.is_dir():
+                    is_excluded = any(p.match(f.name) for p in dir_patterns)
+                else:
+                    is_excluded = limit_to_directories
+                    if not is_excluded:
+                        is_excluded = any(p.match(f.name) for p in file_patterns)
+                if not is_excluded:
+                    sub_items.append(f)
+
+            pointers = [token_sibling] * (len(sub_items) - 1) + [token_leaf]
+            for pointer, path in zip(pointers, sub_items):
+                if path.is_dir():
+                    yield prefix + pointer + path.name
+                    dir_count += 1
+                    extension = token_child if pointer == token_sibling else token_ws
+                    yield from inner(path, prefix=prefix + extension, level=level - 1)
+                elif not limit_to_directories:
+                    yield prefix + pointer + path.name
+                    files_count += 1
+
+        res_arr.append(f'{indent}{dir_path.name}')
+        iterator = inner(dir_path, level=depth_limit)
+        for line in islice(iterator, population_limit):
+            res_arr.append(f'{indent}{line}')
+        if next(iterator, None):
+            res_arr.append(f'{indent}... length_limit, {population_limit}, reached, counted:')
+        res_arr.append(f'{indent}{dir_count} directories'
+                       f', {files_count} files' if files_count else '')
+        return res_arr
+
 
 @dataclass
 class StorageDriver:
     """
     Wrapper to interface with archiving command, such as copying/moving/listing files.
     """
+
     def resource_exists(self, src) -> bool:
         return os.path.exists(src)
 
@@ -233,7 +310,7 @@ class StorageDriver:
 
     def remove_resource(self,
                         src: str,
-                        fail_ok: bool = False) -> str:
+                        fail_ok: bool = False):
         """
         Given a path delete it permanently and all its contents recursively
         :param src: the path of the resource to be removed
