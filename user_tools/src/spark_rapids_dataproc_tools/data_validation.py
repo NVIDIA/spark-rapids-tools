@@ -49,6 +49,15 @@ class Validation:
         # Diagnostic summary
         self.summary = {}
 
+    def convert_tuple_to_string(self, conf):
+        if isinstance(conf, tuple):
+            return ','.join(map(str, conf))
+        elif isinstance(conf, tuple):
+            return conf
+        else:
+            raise Exception(f'invalid type of conf : {conf}')
+        fi
+
     def banner(func: Callable):   # pylint: disable=no-self-argument
         """Banner decorator."""
         def wrapper(self, *args, **kwargs):
