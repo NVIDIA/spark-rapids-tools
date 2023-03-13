@@ -33,6 +33,15 @@ class DataValidationDataproc(Validation):
         self.format = format
         self.t1 = t1
         self.t2 = t2
+        self.t1p = t1p
+        self.t2p = t2p
+        self.pk = pk
+        self.e = e
+        self.i = i
+        self.f = f
+        self.o = o
+        self.of = of
+        self.p = p
 
     def on(node):  # pylint: disable=invalid-name,no-self-argument,too-many-function-args
         """On decorator."""
@@ -74,8 +83,18 @@ class DataValidationDataproc(Validation):
                 'spark.rapids.sql.enabled': 'false',
             },
             'parameters':[
-                '--t1=datavalid1',
-                '--t2=datavalid2'
+                f'--t1={self.t1}',
+                f'--t2={self.t2}',
+                f'--format={self.format}',
+                f'--t1p={self.t1p}',
+                f'--t2p={self.t2p}',
+                f'--pk={self.pk}',
+                f'--e={self.e}',
+                f'--i={self.i}',
+                f'--f={self.f}',
+                f'--o={self.o}',
+                f'--of={self.of}',
+                f'--p={self.p}'
             ]
         }
         output = self.cluster.submit_job(compare_job)
