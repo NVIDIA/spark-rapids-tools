@@ -193,8 +193,14 @@ if __name__ == '__main__':
 
     sc = SparkContext(appName='validation')
     spark = SparkSession(sc)
-    print("aaaaaa",args.t1)
-    print("aaaaaa", args.t2)
+    print("aaaaaat1",args.t1)
+    print("aaaaaat2", args.t2)
+    print("iiiiii", args.i)
+    print("fffff", args.f)
+    print("eeeee", args.e)
+    print("pkpkpk", args.pk)
+    print("t1p", args.t1p)
+
     validation(spark, args)
 
 
