@@ -63,7 +63,7 @@ class RapidsJob:
 
     def _init_fields(self):
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.submit.{self.job_label}')
-        self.remote_output = self.prop_container.get_value_silent('remoteOutput')
+        self.remote_output = self.prop_container.get_value_silent('outputDirectory')
 
     def __post_init__(self):
         self._init_fields()

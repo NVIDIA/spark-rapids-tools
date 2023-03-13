@@ -253,7 +253,7 @@ class Qualification(RapidsJarTool):
 
     def _prepare_job_arguments(self):
         job_args = self.ctxt.get_ctxt('jobArgs')
-        remote_folder = job_args.get('remoteFolder')
+        remote_folder = job_args.get('outputDirectory')
         if remote_folder is None:
             # for dataproc we can get the tmp gs storage
             self.logger.info('The remote directory to archive the job results is not set')
@@ -290,7 +290,7 @@ class Qualification(RapidsJarTool):
             }
         }
         job_properties_json = {
-            'remoteOutput': remote_folder,
+            'outputDirectory': remote_folder,
             'rapidsArgs': rapids_arg_obj,
             'sparkConfArgs': spark_conf_args,
             'platformArgs': platform_args
