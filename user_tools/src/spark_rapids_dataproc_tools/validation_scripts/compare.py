@@ -111,7 +111,6 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, part
         pk_list = [i.strip() for i in pk.split(",")]
         included_columns_list = [i.strip() for i in included_columns.split(",")]
         excluded_columns_list = [e.strip() for e in excluded_columns.split(",")]
-
         select_columns = [f't1.{p}' for p in pk.split(',')] + [f't1.{c} as t1_{c}, t2.{c} as t2_{c}' for c in included_columns_list if
                                                                c not in excluded_columns_list]
         print('------select columns----')
@@ -120,7 +119,7 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, part
                     SELECT {', '.join(select_columns)}
                     FROM table1 t1
                     FULL OUTER JOIN table2 t2 ON {' AND '.join([f't1.{c} = t2.{c}' for c in pk_list])}
-                    WHERE ({' or '.join([f't1.{c} <> t2.{c}' for c in included_columns_list])} )
+                    WHERE ({' or '.join([f't1.{c} <> t2.{c}' for c in included_columns_list if c not in excluded_columns_list])} )
                 """
         if partitions != 'None':
             partitions = [p.strip() for p in partitions.split("and")]
