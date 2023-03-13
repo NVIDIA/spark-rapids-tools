@@ -39,6 +39,9 @@ class Validation:
     """Data Validation tool basic class."""
    #        validate = Validation(cluster, region, check, format, t1, t1p, t2, t2p, pk, e, i, f, o, of, p, debug)
 
+    i: str
+    e: str
+
     def __init__(self, debug=False):
         if debug:
             logger.setLevel(logging.DEBUG)
