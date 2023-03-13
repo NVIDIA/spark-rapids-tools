@@ -469,6 +469,7 @@ class Qualification(RapidsJarTool):
         # TODO: Make sure we add this argument only for jar versions 23.02+
         return ['--platform', self.ctxt.get_platform_name()]
 
+
 @dataclass
 class QualificationAsLocal(Qualification):
     """
