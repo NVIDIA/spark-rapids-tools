@@ -977,7 +977,7 @@ class ClusterBase(ClusterGetAccessor):
 
 
 @dataclass
-class ClusterReShape(ClusterGetAccessor):
+class ClusterReshape(ClusterGetAccessor):
     """
     A class that handles reshaping of the given cluster.
     It takes argument a cluster object and callable methods that defines
