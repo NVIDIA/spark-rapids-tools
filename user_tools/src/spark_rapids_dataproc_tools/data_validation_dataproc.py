@@ -61,7 +61,37 @@ class DataValidationDataproc(Validation):
 
     @on('master')  # pylint: disable=too-many-function-args
     def valid_metadata(self):
-        print("-----------run valid metadata-------------")
+        """data validation spark via Dataproc job interface."""
+        print("-----------run valid data-------------------")
+
+        print(self.t1)
+        print(self.t2)
+        print(self.i)
+        print(type(self.i))
+        print(self.convert_tuple_to_string(self.i))
+        compare_job = {
+            'type': self.cluster.JOB_TYPE_PYSPARK,
+            'file': super().get_validation_scripts('metadata_validation.py'),
+            'properties': {
+                'spark.rapids.sql.enabled': 'false',
+            },
+            'parameters': [
+                f'--t1={self.t1}',
+                f'--t2={self.t2}',
+                f'--format={self.format}',
+                f'--t1p={self.t1p}',
+                f'--t2p={self.t2p}',
+                f'--i={self.convert_tuple_to_string(self.i)}',
+                f'--pk={self.pk}',
+                f'--e={self.convert_tuple_to_string(self.e)}',
+                f'--f={self.f}',
+                f'--o={self.o}',
+                f'--of={self.of}',
+                f'--p={self.p}'
+            ]
+        }
+        output = self.cluster.submit_job(compare_job)
+        print(output)
 
     # @on('master')  # pylint: disable=too-many-function-args
     # def valid_data(self):
@@ -81,7 +111,7 @@ class DataValidationDataproc(Validation):
 
     @Validation.banner
     def valid_data(self):
-        """Diagnose spark via Dataproc job interface."""
+        """data validation spark via Dataproc job interface."""
         print("-----------run valid data-------------------")
 
         print(self.t1)
@@ -91,7 +121,7 @@ class DataValidationDataproc(Validation):
         print(self.convert_tuple_to_string(self.i))
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
-            'file': super().get_validation_scripts('compare.py'),
+            'file': super().get_validation_scripts('data_validation.py'),
             'properties': {
                 'spark.rapids.sql.enabled': 'false',
             },

@@ -22,8 +22,20 @@ def validation(spark, args):
     print("---------yyyyyy",args.t1)
     print("---------yyyyyy", args.t2)
     print("---------yyyyyy", args.t1p)
-    print("---------yyyyyy", args.f)
+    print("---------top level metadata", args.f)
     print('\n')
+
+
+    result = top_level_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p)
+    print(result.show())
+
+
+
+
+
+
+
+
     # valid table1 and table2 row counts
     print(type(args.t1p))
     t1_count = row_counts(spark, args.format, args.t1, args.t1p, args.f)
@@ -54,6 +66,31 @@ def validation(spark, args):
     start_time = time.time()
     print('------------run validation success-----')
     print(f'----------------Execution time: {time.time() - start_time}')
+
+def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
+    if format in ['parquet', 'orc', 'csv']:
+        print('todo')
+    elif format == "hive":
+        results = []
+        table_names = [t1, t2]
+        where_clause = ''
+        if t1p != 'None' and f != 'None':
+            where_clause = f" where {t1p} and {f}"
+        elif t1p != 'None':
+            where_clause = f" where {t1p}"
+        elif f != 'None':
+            where_clause = f" where {f}"
+        for table_name in table_names:
+            sql = f'select * from {table_name}'
+            sql += where_clause
+            df = spark.sql(sql)
+            row_count = df.count()
+            col_count = len(df.columns)
+            results.append((table_name, row_count, col_count))
+        resultsDF = spark.createDataFrame(results, ["TableName", "RowCount", "ColumnCount"])
+        return resultsDF
+
+
 
 
 def row_counts(spark, format, table, t1p, t1f):
@@ -218,7 +255,7 @@ if __name__ == '__main__':
                         help='Precision, default is 4')
     args = parser.parse_args()
 
-    sc = SparkContext(appName='validation')
+    sc = SparkContext(appName='metadata-validation')
     spark = SparkSession(sc)
     print("aaaaaat1",args.t1)
     print("aaaaaat2", args.t2)
