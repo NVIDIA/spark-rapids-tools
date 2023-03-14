@@ -73,7 +73,7 @@ class DataValidationDataproc(Validation):
 
 
         if self.e is None :
-            excluded_column = self.e
+            excluded_column = 'None'
         else:
             excluded_column = self.convert_tuple_to_string(self.e)
 
