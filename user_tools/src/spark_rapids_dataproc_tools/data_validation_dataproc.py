@@ -68,6 +68,9 @@ class DataValidationDataproc(Validation):
         print(self.t2)
         print(self.i)
         print(type(self.i))
+        print(self.e)
+        print(type(self.e))
+
 
         if self.e == 'None':
             excluded_column = 'None'
