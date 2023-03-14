@@ -82,17 +82,15 @@ def generate_metric_df(spark, table_DF, i, t1):
                         any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*'])]
     print('-----metrics_cols---')
     print(metrics_cols)
-
+    dfc = spark.createDataFrame(([col],), ["ColumnName"])
     for col in metrics_cols:
-        dfc = spark.createDataFrame(([col],), ["ColumnName"])
         table1_agg = table_DF.select(
             [f(col).cast(DoubleType()).alias(f.__name__ + t1) for f in
              agg_functions])
-        tmp_DF = dfc.join(table1_agg).show()
         if result is None:
-            result = tmp_DF
+            result = dfc.join(table1_agg)
         else:
-            result = result.union(tmp_DF)
+            result = result.union(table1_agg)
     return result
 
 def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
