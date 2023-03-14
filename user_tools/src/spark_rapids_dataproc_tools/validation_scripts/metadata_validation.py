@@ -11,11 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Performance test scripts for Spark job between CPU and GPU."""
 import argparse
 from pyspark import SparkContext
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, min, max, avg, stddev, countDistinct, when, asc
+from pyspark.sql.functions import col, min, max, avg, stddev, countDistinct, when, asc, round
+
 import time
 import fnmatch
 from pyspark.sql.types import DoubleType
@@ -90,11 +90,11 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     joined_table = table_metric_df1.alias("t1").join(table_metric_df2.alias("t2"), ["ColumnName"])
 
     # define condition for selecting rows
-    cond = (col("t1.min"+t1) != col("t2.min"+t2)) | \
-           (col("t1.max"+t1) != col("t2.max"+t2)) | \
-           (col("t1.avg"+t1) != col("t2.avg"+t2)) | \
-           (col("t1.stddev"+t1) != col("t2.stddev"+t2)) | \
-           (col("t1.countDistinct"+t1) != col("t2.countDistinct"+t2))
+    cond = (round(col("t1.min"+t1),p) != round(col("t2.min"+t2)),p) | \
+           (round(col("t1.max"+t1),p) != round(col("t2.max"+t2)),p) | \
+           (round(col("t1.avg"+t1),p) != round(col("t2.avg"+t2)),p) | \
+           (round(col("t1.stddev"+t1),p) != round(col("t2.stddev"+t2)),p) | \
+           (round(col("t1.countDistinct"+t1),p) != round(col("t2.countDistinct"+t2),p))
 
     # apply condition on the joined table
     result_table = joined_table.select("ColumnName",

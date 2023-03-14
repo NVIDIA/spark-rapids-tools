@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Performance test scripts for Spark job between CPU and GPU."""
 import argparse
 from pyspark import SparkContext        # pylint: disable=import-error
 from pyspark.sql import SparkSession    # pylint: disable=import-error
@@ -19,7 +18,6 @@ from pyspark.sql.functions import col   # pylint: disable=import-error
 import time
 
 def validation(spark, args):
-
 
     t1_count = row_counts(spark, args.format, args.t1, args.t1p, args.f)
     print(f'---------table1:{args.t1} row counts----------: ')

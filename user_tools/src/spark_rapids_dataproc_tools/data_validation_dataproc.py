@@ -13,9 +13,7 @@
 # limitations under the License.
 import logging
 import os
-
 import fire
-
 from spark_rapids_dataproc_tools.csp import new_csp
 from spark_rapids_dataproc_tools.data_validation import Validation
 
