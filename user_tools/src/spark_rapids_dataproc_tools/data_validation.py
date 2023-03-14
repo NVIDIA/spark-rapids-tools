@@ -37,26 +37,12 @@ logger.setLevel(logging.INFO)
 
 class Validation:
     """Data Validation tool basic class."""
-   #        validate = Validation(cluster, region, check, format, t1, t1p, t2, t2p, pk, e, i, f, o, of, p, debug)
-
-    i: str
-    e: str
 
     def __init__(self, debug=False):
         if debug:
             logger.setLevel(logging.DEBUG)
 
-        # Diagnostic summary
         self.summary = {}
-
-    def convert_tuple_to_string(self, conf):
-        if isinstance(conf, tuple):
-            return ','.join(map(str, conf))
-        elif isinstance(conf, tuple):
-            return conf
-        else:
-            raise Exception(f'invalid type of conf : {conf}')
-        fi
 
     def banner(func: Callable):   # pylint: disable=no-self-argument
         """Banner decorator."""
@@ -95,63 +81,6 @@ class Validation:
     def get_validation_scripts(self, name):
         """Get diagnostic script path by name"""
         return pkg_resources.resource_filename(__name__, 'validation_scripts/' + name)
-
-    def compare(self, t1, t2):
-
-        print('-'*40)
-
-        def run(opts):
-            output = self.run_spark_submit(opts + [self.get_validation_scripts('compare.py')])
-            print(output)
-
-        cpu_opts = ['--master', 'yarn']
-        cpu_opts += ['--conf', 'spark.rapids.sql.enabled=false']
-
-        cpu_time = run(cpu_opts)
-        logger.info('CPU execution time: %s', cpu_time)
-
-    # work
-#     def add2(self):
-#         print(self.cpu_table_path)
-#         print(self.gpu_table_path)
-#         print("-----add2---")
-#
-#     def compare(self, cpu_df, gpu_df):
-#         #
-#         print(cpu_df.count)
-#         print(gpu_df.count)
-#         print("--------compare------")
-#
-#     def compare_result(self):
-#         # create spark session
-#         spark = (SparkSession
-#                  .builder
-#                  .master("spark://yuanli-System-Product-Name:7077")
-#                  .appName("data-validation-tool")
-#                  .getOrCreate())
-# #.appName(args.mainClass)
-#
-#         # load to dataframe /home/yuanli/work/project/data-validation/test-dataset/cpu_demo
-#         df_cpu = spark.read.format("parquet").load(self.cpu_table_path)
-#         df_gpu = spark.read.format("parquet").load(self.gpu_table_path)
-#
-#         self.compare(df_cpu, df_gpu)
-#
-#     def compare_result_gcs(self):
-#         # create spark session
-#         spark = (SparkSession
-#                  .builder
-#                  .master("yarn")
-#                  .appName("data-validation-tool")
-#                  .getOrCreate())
-# #.appName(args.mainClass)
-#
-#         # load to dataframe /home/yuanli/work/project/data-validation/test-dataset/cpu_demo
-#         df_cpu = spark.read.format("parquet").load(self.cpu_table_path)
-#         df_gpu = spark.read.format("parquet").load(self.gpu_table_path)
-#
-#         self.compare(df_cpu, df_gpu)
-
 
 def main():
     """Main function."""
