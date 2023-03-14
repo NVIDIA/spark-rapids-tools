@@ -80,6 +80,9 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
             where_clause = f" where {t1p}"
         elif f != 'None':
             where_clause = f" where {f}"
+
+
+        print(f'------where clause-------{where_clause}------')
         for table_name in table_names:
             sql = f'select * from {table_name}'
             sql += where_clause
