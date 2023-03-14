@@ -68,6 +68,7 @@ class DataValidationDataproc(Validation):
         print(self.t2)
         print(self.i)
         print(type(self.i))
+
         # print(self.convert_tuple_to_string(self.i))
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
@@ -103,7 +104,7 @@ class DataValidationDataproc(Validation):
         '''fire automatically convert config with comma from str to tuple'''
         if isinstance(conf, tuple):
             return ','.join(map(str, conf))
-        elif isinstance(conf, tuple):
+        elif isinstance(conf, str):
             return conf
         else:
             raise Exception(f'invalid type of conf : {conf}')
