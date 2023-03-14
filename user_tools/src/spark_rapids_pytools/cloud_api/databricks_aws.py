@@ -22,6 +22,7 @@ from spark_rapids_pytools.cloud_api.emr import EMRNode, EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
+from spark_rapids_pytools.pricing.databricks_pricing import DatabricksPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
@@ -54,7 +55,17 @@ class DBAWSPlatform(EMRPlatform):
         pass
 
     def create_saving_estimator(self, source_cluster, target_cluster):
-        pass
+        raw_pricing_config = self.configs.get_value_silent('pricing')
+        if raw_pricing_config:
+            pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
+        else:
+            pricing_config: JSONPropertiesContainer = None
+        databricks_price_provider = DatabricksPriceProvider(region=self.cli.get_region(),
+                                                            pricing_configs={'databricks': pricing_config})
+        saving_estimator = DBAWSSavingsEstimator(price_provider=databricks_price_provider,
+                                                 target_cluster=target_cluster,
+                                                 source_cluster=source_cluster)
+        return saving_estimator
 
     def create_submission_job(self, job_prop, ctxt) -> Any:
         pass
