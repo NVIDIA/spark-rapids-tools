@@ -181,7 +181,7 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         # print(result)
         print(result)
     elif format == "hive":
-        cols = '*' if i is None else i
+        cols = '*' if i is None or i == 'all' else i
         sql = f"select {cols} from {t1}"
         # where clause
         where_clause = ""
