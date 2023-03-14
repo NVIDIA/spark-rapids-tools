@@ -36,32 +36,32 @@ def validation(spark, args):
 
 
 
-    # valid table1 and table2 row counts
-    print(type(args.t1p))
-    t1_count = row_counts(spark, args.format, args.t1, args.t1p, args.f)
-    print('yua test t1_count--------------------: ')
-    print(t1_count.show())
-    t2_count = row_counts(spark, args.format, args.t2, args.t2p, args.f)
-    print('yua test t2_count--------------------: ')
-    print(t2_count.show())
-    if t1_count.exceptAll(t2_count).count() == 0 and t2_count.exceptAll(t1_count).count() == 0:
-        print("The two table have the same count")
-    else:
-        print("The two table have the different count")
-
-    # valid PK(s) only in table1
-    result = valid_pk_only_in_one_table(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
-    print(f"PK(s) only in {args.t1} :")
-    print(result.show())
-    # valid PK(s) only in table2
-    result = valid_pk_only_in_one_table(spark, args.format, args.t2, args.t1, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
-    print(f"PK(s) only in {args.t2} :")
-    print(result.show())
-
-    # valid result table with the same PK but different values for that column(s)
-    result = get_cols_diff_with_same_pk(spark, args.format, args.t1, args.t2, args.pk, args.t1p, args.f, args.i, args.e)
-    print("columns with same PK(s) but diff values : ")
-    print(result.show())
+    # # valid table1 and table2 row counts
+    # print(type(args.t1p))
+    # t1_count = row_counts(spark, args.format, args.t1, args.t1p, args.f)
+    # print('yua test t1_count--------------------: ')
+    # print(t1_count.show())
+    # t2_count = row_counts(spark, args.format, args.t2, args.t2p, args.f)
+    # print('yua test t2_count--------------------: ')
+    # print(t2_count.show())
+    # if t1_count.exceptAll(t2_count).count() == 0 and t2_count.exceptAll(t1_count).count() == 0:
+    #     print("The two table have the same count")
+    # else:
+    #     print("The two table have the different count")
+    #
+    # # valid PK(s) only in table1
+    # result = valid_pk_only_in_one_table(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
+    # print(f"PK(s) only in {args.t1} :")
+    # print(result.show())
+    # # valid PK(s) only in table2
+    # result = valid_pk_only_in_one_table(spark, args.format, args.t2, args.t1, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
+    # print(f"PK(s) only in {args.t2} :")
+    # print(result.show())
+    #
+    # # valid result table with the same PK but different values for that column(s)
+    # result = get_cols_diff_with_same_pk(spark, args.format, args.t1, args.t2, args.pk, args.t1p, args.f, args.i, args.e)
+    # print("columns with same PK(s) but diff values : ")
+    # print(result.show())
 
     start_time = time.time()
     print('------------run validation success-----')
