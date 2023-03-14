@@ -104,7 +104,9 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     table2_DF = load_table(spark, format, t2, t2p, pk, e, i, f, "")
 
     table_metric_df1 = generate_metric_df(spark, table1_DF, i, t1)
+    print('----table_metric_df1------')
     table_metric_df2 = generate_metric_df(spark, table2_DF, i, t2)
+    print('----table_metric_df2------')
 
     # join both dataframes based on ColumnName   table1 and table2 should be the result df
     joined_table = table_metric_df1.join(table_metric_df2, ["ColumnName"])
