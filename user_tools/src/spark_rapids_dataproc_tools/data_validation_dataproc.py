@@ -74,11 +74,15 @@ class DataValidationDataproc(Validation):
         print(type(self.f))
 
 
-        if self.e is None :
+        if self.e is None:
             excluded_column = 'None'
         else:
             excluded_column = self.convert_tuple_to_string(self.e)
 
+        if self.f is None:
+            filters = 'None'
+        else:
+            filters = filters.replace('\'', '\\\'')
 
         # print(self.convert_tuple_to_string(self.i))
         compare_job = {
@@ -96,7 +100,7 @@ class DataValidationDataproc(Validation):
                 f'--i={self.convert_tuple_to_string(self.i)}',
                 f'--pk={self.pk}',
                 f'--e={excluded_column}',
-                f'--f={self.f}',
+                f'--f={filters}',
                 f'--o={self.o}',
                 f'--of={self.of}',
                 f'--p={self.p}'
