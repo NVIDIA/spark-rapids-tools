@@ -84,6 +84,10 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
             sql = f'select * from {table_name}'
             sql += where_clause
             df = spark.sql(sql)
+
+            print('------top_level_metadata------')
+            print(sql)
+
             row_count = df.count()
             col_count = len(df.columns)
             results.append((table_name, row_count, col_count))
