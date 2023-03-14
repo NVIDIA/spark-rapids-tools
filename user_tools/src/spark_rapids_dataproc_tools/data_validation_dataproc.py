@@ -69,6 +69,12 @@ class DataValidationDataproc(Validation):
         print(self.i)
         print(type(self.i))
 
+        if self.e == 'None':
+            excluded_column = 'None'
+        else:
+            excluded_column = self.convert_tuple_to_string(self.e)
+
+
         # print(self.convert_tuple_to_string(self.i))
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
@@ -84,7 +90,7 @@ class DataValidationDataproc(Validation):
                 f'--t2p={self.t2p}',
                 f'--i={self.convert_tuple_to_string(self.i)}',
                 f'--pk={self.pk}',
-                f'--e={self.convert_tuple_to_string(self.e)}',
+                f'--e={excluded_column}',
                 f'--f={self.f}',
                 f'--o={self.o}',
                 f'--of={self.of}',
