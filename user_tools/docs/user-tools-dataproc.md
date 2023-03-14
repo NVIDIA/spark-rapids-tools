@@ -34,7 +34,7 @@ the applications running on _Google Cloud Dataproc_.
     - from source: `pip install -e .`
 - verify the command is installed correctly by running
   ```bash
-    spark-rapids-user-tools dataproc --help
+    spark_rapids_user_tools dataproc --help
   ```
 
 ## Qualification command
@@ -138,14 +138,21 @@ The command creates a directory with UUID that contains the following:
 - A CSV file that contains the summary of all the applications along with estimated absolute costs
 - Sample directory structure:
     ```
-    .
+    qual_20230314145334_d2CaFA34
     ├── qualification_summary.csv
     └── rapids_4_spark_qualification_output
-        ├── rapids_4_spark_qualification_output.csv
-        ├── rapids_4_spark_qualification_output.log
-        ├── rapids_4_spark_qualification_output_execs.csv
+        ├── ui
+        │   └── html
+        │       ├── sql-recommendation.html
+        │       ├── index.html
+        │       ├── application.html
+        │       └── raw.html
         ├── rapids_4_spark_qualification_output_stages.csv
-        └── ui
+        ├── rapids_4_spark_qualification_output.csv
+        ├── rapids_4_spark_qualification_output_execs.csv
+        └── rapids_4_spark_qualification_output.log
+    3 directories, 9 files
+
     ```
 
 ## Profiling command
@@ -280,6 +287,7 @@ This case is relevant to the following plans:
 2. Users who have no access to the properties of the cluster.
 
 The CLI is triggered by providing the location where the yaml file is stored `--worker_info $WORKER_INFO_PATH`
+
     ```
     # First, create a yaml file as described in previous section
     $> export WORKER_INFO_PATH=worker-info.yaml
@@ -340,7 +348,6 @@ The steps to run the command:
     ```bash
     spark_rapids_user_tools dataproc bootstrap \
       --cluster my-cluster-name \
-      --key_pair_path my-file-path \
       --nodry_run
     ```
 

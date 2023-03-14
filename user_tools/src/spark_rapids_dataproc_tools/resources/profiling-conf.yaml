@@ -15,7 +15,7 @@ sparkRapids:
     device: 't4'
     workersPerNode: 2
     cudaVersion: '11.5'
-    initializationScripts: 'gs://goog-dataproc-initialization-actions-{}/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-{}/rapids/rapids.sh'
+    initializationScripts: 'gs://goog-dataproc-initialization-actions-{}/spark-rapids/spark-rapids.sh'
   cli:
     tool_options:
       - csv

@@ -15,7 +15,7 @@
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, List, Callable
 
 import pandas as pd
 from tabulate import tabulate
@@ -89,7 +89,7 @@ class QualificationSummary:
     def generate_report(self,
                         app_name: str,
                         wrapper_csv_file: str = None,
-                        config_provider=None,
+                        csp_report_provider: Callable[[], List[str]] = lambda: [],
                         df_pprinter: Any = None,
                         output_pprinter: Any = None):
         def format_float(x: float) -> str:
@@ -144,8 +144,10 @@ class QualificationSummary:
         report_content.append(tabulate(report_summary, colalign=('left', 'right')))
         if self.comments is not None and len(self.comments) > 0:
             report_content.extend(f'{line}' for line in self.comments)
-        if self.has_gpu_recommendation() and config_provider is not None:
-            report_content.append(config_provider())
+        if self.has_gpu_recommendation():
+            csp_report = csp_report_provider()
+            if csp_report:
+                report_content.extend(csp_report)
         return report_content
 
 
@@ -444,7 +446,7 @@ class Qualification(RapidsJarTool):
         report_gen = self.__build_global_report_summary(df, csv_summary_file)
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
                                                     wrapper_csv_file=csv_summary_file,
-                                                    config_provider=None,
+                                                    csp_report_provider=self._generate_platform_report_sections,
                                                     df_pprinter=process_df_for_stdout,
                                                     output_pprinter=self._report_tool_full_location)
         self.ctxt.set_ctxt('wrapperOutputContent', summary_report)
@@ -469,6 +471,26 @@ class Qualification(RapidsJarTool):
         # TODO: Make sure we add this argument only for jar versions 23.02+
         return ['--platform', self.ctxt.get_platform_name()]
 
+    def _generate_section_content(self, sec_conf: dict) -> List[str]:
+        if sec_conf.get('sectionID') == 'initializationScript':
+            # format the initialization scripts
+            res = [Utils.gen_report_sec_header(sec_conf.get('sectionName'))]
+            reshaped_gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
+            gpu_per_machine, gpu_device = reshaped_gpu_cluster.get_gpu_per_worker()
+            fill_map = {
+                2: self.ctxt.platform.cli.get_region(),
+                3: [gpu_device.lower(), gpu_per_machine]
+            }
+            for ind, l_str in enumerate(sec_conf['content'].get('lines')):
+                if ind in fill_map:
+                    rep_var = fill_map.get(ind)
+                    new_value = l_str.format(*rep_var) if isinstance(rep_var, list) else l_str.format(rep_var)
+                    res.append(new_value)
+                else:
+                    res.append(l_str)
+            return res
+        else:
+            return super()._generate_section_content(sec_conf)
 
 @dataclass
 class QualificationAsLocal(Qualification):

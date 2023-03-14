@@ -246,6 +246,23 @@ class RapidsTool(object):
     def _report_results_are_empty(self):
         return [f'The {self.pretty_name()} tool did not generate any output. Nothing to display.']
 
+    def _generate_section_content(self, sec_conf: dict) -> List[str]:
+        rep_lines = [Utils.gen_report_sec_header(sec_conf.get('sectionName'), line_width=20)]
+        for sec_line in sec_conf['content'].get('lines'):
+            rep_lines.append(sec_line)
+        return rep_lines
+
+    def _generate_platform_report_sections(self) -> List[str]:
+        section_arr = self.ctxt.platform.configs.get_value_silent('wrapperReporting',
+                                                                  self.name,
+                                                                  'sections')
+        if section_arr:
+            rep_lines = []
+            for curr_sec in section_arr:
+                rep_lines.extend(self._generate_section_content(curr_sec))
+            return rep_lines
+        return None
+
 
 @dataclass
 class RapidsJarTool(RapidsTool):
@@ -530,7 +547,7 @@ class RapidsJarTool(RapidsTool):
         if not self._rapids_jar_tool_has_output():
             return None
         out_folder_path = self.ctxt.get_rapids_output_folder()
-        res_arr = [Utils.gen_str_header('Output'),
+        res_arr = [Utils.gen_report_sec_header('Output'),
                    f'{self.pretty_name()} tool output: {out_folder_path}']
         out_tree_list = self._gen_output_tree()
         return Utils.gen_multiline_str(res_arr, out_tree_list)
