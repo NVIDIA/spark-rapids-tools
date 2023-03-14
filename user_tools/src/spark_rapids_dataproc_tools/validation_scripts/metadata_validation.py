@@ -78,7 +78,6 @@ def generate_metric_df(spark, table_DF, i, t1):
     return result
 
 def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
-    # todo: set precision
     # spark, format, t1, t1p, pk, e, i, f, view_name
     # table1_DF = load_table(spark, format, t1, t1p, t2p, i, f)
     table1_DF = load_table(spark, format, t1, t1p, pk, e, i, f, "")
