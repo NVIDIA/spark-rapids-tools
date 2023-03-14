@@ -79,27 +79,24 @@ def generate_metric_df(spark, table_DF, i, t1):
 
 def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     # spark, format, t1, t1p, pk, e, i, f, view_name
-    # table1_DF = load_table(spark, format, t1, t1p, t2p, i, f)
     table1_DF = load_table(spark, format, t1, t1p, pk, e, i, f, "")
     table2_DF = load_table(spark, format, t2, t2p, pk, e, i, f, "")
 
     table_metric_df1 = generate_metric_df(spark, table1_DF, i, t1)
     table_metric_df2 = generate_metric_df(spark, table2_DF, i, t2)
-    # join both dataframes based on ColumnName   table1 and table2 should be the result df
     joined_table = table_metric_df1.alias("t1").join(table_metric_df2.alias("t2"), ["ColumnName"])
 
-    # define condition for selecting rows
     # cond = (round(col("t1.min"+t1),p) != round(col("t2.min"+t2)),p) | \
     #        (round(col("t1.max"+t1),p) != round(col("t2.max"+t2)),p) | \
     #        (round(col("t1.avg"+t1),p) != round(col("t2.avg"+t2)),p) | \
     #        (round(col("t1.stddev"+t1),p) != round(col("t2.stddev"+t2)),p) | \
     #        (round(col("t1.countDistinct"+t1),p) != round(col("t2.countDistinct"+t2),p))
 
-    cond = (round(col("t1.min" + t1),4) != round(col("t2.min" + t2)),4) | \
-           (col("t1.max" + t1) != col("t2.max" + t2)) | \
-           (col("t1.avg" + t1) != col("t2.avg" + t2)) | \
-           (col("t1.stddev" + t1) != col("t2.stddev" + t2)) | \
-           (col("t1.countDistinct" + t1) != col("t2.countDistinct" + t2))
+    cond = (round(col("t1.min" + t1),4) <> round(col("t2.min" + t2)),4) | \
+           (col("t1.max" + t1) <> col("t2.max" + t2)) | \
+           (col("t1.avg" + t1) <> col("t2.avg" + t2)) | \
+           (col("t1.stddev" + t1) <> col("t2.stddev" + t2)) | \
+           (col("t1.countDistinct" + t1) <> col("t2.countDistinct" + t2))
 
     # apply condition on the joined table
     result_table = joined_table.select("ColumnName",
