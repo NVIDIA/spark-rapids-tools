@@ -218,7 +218,7 @@ For more details, please visit the
       Overall estimated cost savings  57.50%
       ------------------------------  ------
       To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the following to your cluster creation script:
-              --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh \ 
+              --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/spark-rapids/spark-rapids.sh \ 
               --worker-accelerator type=nvidia-tesla-t4,count=2 \ 
               --metadata gpu-driver-provider="NVIDIA" \ 
               --metadata rapids-runtime=SPARK \ 
@@ -267,7 +267,7 @@ For more details, please visit the
       
       To support acceleration with T4 GPUs, you will need to switch your worker node instance type to n1-highcpu-32
       To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the following to your cluster creation script:
-              --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh \ 
+              --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/spark-rapids/spark-rapids.sh \ 
               --worker-accelerator type=nvidia-tesla-t4,count=2 \ 
               --metadata gpu-driver-provider="NVIDIA" \ 
               --metadata rapids-runtime=SPARK \ 
@@ -439,7 +439,7 @@ be stored locally or on GCS bucket.
                 Overall estimated cost savings  12.30%
                 ------------------------------  ------
                 To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the following to your cluster creation script:
-                        --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh \ 
+                        --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/spark-rapids/spark-rapids.sh \ 
                         --worker-accelerator type=nvidia-tesla-t4,count=2 \ 
                         --metadata gpu-driver-provider="NVIDIA" \ 
                         --metadata rapids-runtime=SPARK \ 

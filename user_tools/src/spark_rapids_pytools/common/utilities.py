@@ -154,6 +154,18 @@ class Utils:
         return cls.gen_multiline_str(dash, f'{title:^{line_width}}', dash)
 
     @classmethod
+    def gen_report_sec_header(cls,
+                              title: str,
+                              ruler='-',
+                              title_width: int = 20,
+                              hrule: bool = True) -> str:
+        line_width = max(title_width, len(title) + 1)
+        if hrule:
+            dash = ruler * line_width
+            return cls.gen_multiline_str(f'{title}:', dash)
+        return f'{title}:'
+
+    @classmethod
     def gen_joined_str(cls, join_elem: str, items) -> str:
         """
         Given a variable length of String arguments (or list), returns a single string

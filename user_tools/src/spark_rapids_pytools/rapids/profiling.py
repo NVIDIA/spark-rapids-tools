@@ -232,7 +232,7 @@ class Profiling(RapidsJarTool):
             wrapper_summary.write(log_file_lines_str)
         self.logger.info('Generating Full STDOUT summary report')
         # wrapper STDOUT report contains both tabular and plain text format of recommendations
-        wrapper_content = [Utils.gen_str_header('Recommendations'),
+        wrapper_content = [Utils.gen_report_sec_header('Recommendations'),
                            log_file_lines_str,
                            '### Recommendations Table Summary ###',
                            tabulate(recommendations_table, headers, tablefmt='grid')]
