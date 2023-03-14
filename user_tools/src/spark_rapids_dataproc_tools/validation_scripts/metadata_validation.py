@@ -15,7 +15,7 @@
 import argparse
 from pyspark import SparkContext        # pylint: disable=import-error
 from pyspark.sql import SparkSession    # pylint: disable=import-error
-from pyspark.sql.functions import col, min, max, avg, stddev, countDistinct, when
+from pyspark.sql.functions import col, min, max, avg, stddev, countDistinct, when, asc
 import time
 import fnmatch
 from pyspark.sql.types import DoubleType
@@ -129,7 +129,7 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
                                        when(col("t1.stddev"+t1) != col("t2.stddev"+t2), col("t2.stddev"+t2)).otherwise('').alias("stddev_B"),
                                        when(col("t1.countDistinct"+t1) != col("t2.countDistinct"+t2), col("t1.countDistinct"+t1)).otherwise('').alias("countdist_A"),
                                        when(col("t1.countDistinct"+t1) != col("t2.countDistinct"+t2), col("t2.countDistinct"+t2)).otherwise('').alias("countdist_B")
-                                       ).where(cond)
+                                       ).where(cond).sort(asc("ColumnName"))
     #
     return result_table
 
