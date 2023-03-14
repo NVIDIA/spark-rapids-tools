@@ -120,6 +120,7 @@ class ToolContext(YAMLPropertiesContainer):
         self.set_remote('depFolder', remote_work_dir)
 
     def get_local_work_dir(self) -> str:
+        print("get_local_work_dir", self.get_local('depFolder'))
         return self.get_local('depFolder')
 
     def get_remote_work_dir(self) -> str:
