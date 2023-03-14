@@ -19,18 +19,13 @@ from pyspark.sql.functions import col   # pylint: disable=import-error
 import time
 
 def validation(spark, args):
-    print("---------yyyyyy",args.t1)
-    print("---------yyyyyy", args.t2)
-    print("---------yyyyyy", args.t1p)
-    print("---------yyyyyy", args.f)
-    print('\n')
-    # valid table1 and table2 row counts
-    print(type(args.t1p))
+
+
     t1_count = row_counts(spark, args.format, args.t1, args.t1p, args.f)
-    print('yua test t1_count--------------------: ')
+    print(f'---------table1:{args.t1} row counts----------: ')
     print(t1_count.show())
     t2_count = row_counts(spark, args.format, args.t2, args.t2p, args.f)
-    print('yua test t2_count--------------------: ')
+    print(f'---------table2:{args.t2} row counts----------: ')
     print(t2_count.show())
     if t1_count.exceptAll(t2_count).count() == 0 and t2_count.exceptAll(t1_count).count() == 0:
         print("The two table have the same count")
@@ -59,10 +54,6 @@ def validation(spark, args):
 def row_counts(spark, format, table, t1p, t1f):
     """Get the row counts of a table according"""
     sql = "select count(*) from table"
-    print('yua test ---  \n')
-    print(t1p)
-    print(t1f)
-    print('yua test ---  \n')
     where_clause = ""
     if t1p != 'None' and t1f !='None':
         where_clause = f" where {t1p} and {t1f}"
@@ -70,15 +61,12 @@ def row_counts(spark, format, table, t1p, t1f):
         where_clause = f" where {t1p}"
     elif t1f != 'None':
         where_clause = f" where {t1f}"
-    print(f'-----yua test where clause: {where_clause} \n')
     if format in ['parquet', 'orc', 'csv']:
         path = table
         spark.read.format(format).load(path).createOrReplaceTempView("table")
         sql += where_clause
 
-        print(f' yua test run sql: {sql}')
         result = spark.sql(sql)
-        print(f'-------{table}--- count: -- {result}')
         return result
     elif format == "hive":
         print("----todo---hive--")
@@ -86,8 +74,6 @@ def row_counts(spark, format, table, t1p, t1f):
 
 def valid_pk_only_in_one_table(spark, format, t1, t2, t1p, t2p, pk, e, i, f, o, of):
     """valid PK(s) only in one table"""
-    print("--valid_pk_only_in_one_table-")
-
     if format in ['parquet', 'orc', 'csv']:
 
         # load table1
@@ -97,7 +83,6 @@ def valid_pk_only_in_one_table(spark, format, t1, t2, t1p, t2p, pk, e, i, f, o, 
 
         sql = f"select {pk} from table1 except select {pk} from table2"
         result = spark.sql(sql)
-        print(result)
         return result
 
     elif format == "hive":
@@ -113,8 +98,6 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, part
         excluded_columns_list = [e.strip() for e in excluded_columns.split(",")]
         select_columns = [f't1.{p}' for p in pk.split(',')] + [f't1.{c} as t1_{c}, t2.{c} as t2_{c}' for c in included_columns_list if
                                                                c not in excluded_columns_list]
-        print('------select columns----')
-        print(select_columns)
         sql = f"""
                     SELECT {', '.join(select_columns)}
                     FROM table1 t1
@@ -128,9 +111,6 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, part
         if filter != 'None':
             filters = [f.strip() for f in filter.split("and")]
             sql += ' AND ( ' + ' AND '.join([f't1.{f} ' for f in filters]) + ' )'
-        print('-----------get_cols_diff_with_same_pk----------')
-        print(sql)
-        print('-----------get_cols_diff_with_same_pk----------')
 
         # Execute the query and return the result
         result = spark.sql(sql)
@@ -157,12 +137,10 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         elif f != 'None':
             where_clause = f" where {f}"
 
-        print(f'--------load_table-sql--{sql}---')
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
         sql += where_clause
         result = spark.sql(sql)
         # result1 = spark.sql(sql1)
-
         # print(result)
         print(result)
     elif format == "hive":
@@ -220,13 +198,6 @@ if __name__ == '__main__':
 
     sc = SparkContext(appName='data-validation')
     spark = SparkSession(sc)
-    print("aaaaaat1",args.t1)
-    print("aaaaaat2", args.t2)
-    print("iiiiii", args.i)
-    print("fffff", args.f)
-    print("eeeee", args.e)
-    print("pkpkpk", args.pk)
-    print("t1p", args.t1p)
 
     validation(spark, args)
 

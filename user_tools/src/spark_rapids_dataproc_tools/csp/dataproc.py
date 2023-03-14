@@ -148,13 +148,7 @@ class Dataproc(CspBase):
             cmd.append(job['file'])
 
         # Add job parameters
-        print('-----------yua-debug-----------')
-        print('\n')
-        print(cmd)
         if 'parameters' in job and job['parameters']:
             cmd += ['--'] + job['parameters']
-        print('-----------yua-debug-----------')
-        print(cmd)
-        print('\n')
         # Capture stderr as job output to stderr
         return self.run_local_cmd(cmd, capture='stderr')

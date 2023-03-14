@@ -13,30 +13,23 @@
 # limitations under the License.
 """Performance test scripts for Spark job between CPU and GPU."""
 import argparse
-from pyspark import SparkContext        # pylint: disable=import-error
-from pyspark.sql import SparkSession    # pylint: disable=import-error
+from pyspark import SparkContext
+from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, min, max, avg, stddev, countDistinct, when, asc
 import time
 import fnmatch
 from pyspark.sql.types import DoubleType
 
-
 def validation(spark, args):
-    print("---------yyyyyy",args.t1)
-    print("---------yyyyyy", args.t2)
-    print("---------yyyyyy", args.t1p)
-    print("---------top level metadata", args.f)
-    print('\n')
-
 
     result = top_level_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.f)
+    print('--top_level_metadata-output---')
     print(result.show())
 
     # A result table with the same PK but different values for that column(s)
     result = metrics_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.i, args.e, args.f, args.p)
     print('--metrics_metadata-output---')
     print(result.show())
-
 
     start_time = time.time()
     print('------------run validation success-----')
@@ -100,11 +93,7 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     table2_DF = load_table(spark, format, t2, t2p, pk, e, i, f, "")
 
     table_metric_df1 = generate_metric_df(spark, table1_DF, i, t1)
-    print('----table_metric_df1------')
-    print(table_metric_df1.show())
     table_metric_df2 = generate_metric_df(spark, table2_DF, i, t2)
-    print('----table_metric_df2------')
-    print(table_metric_df2.show())
     # join both dataframes based on ColumnName   table1 and table2 should be the result df
     joined_table = table_metric_df1.alias("t1").join(table_metric_df2.alias("t2"), ["ColumnName"])
 
@@ -115,8 +104,6 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
            (col("t1.stddev"+t1) != col("t2.stddev"+t2)) | \
            (col("t1.countDistinct"+t1) != col("t2.countDistinct"+t2))
 
-    print('----joined---table---')
-    print(joined_table.show())
     # apply condition on the joined table
     result_table = joined_table.select("ColumnName",
                                        when(col("t1.min"+t1) != col("t2.min"+t2), col("t1.min"+t1)).otherwise('').alias("min_A"),
@@ -130,39 +117,13 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
                                        when(col("t1.countDistinct"+t1) != col("t2.countDistinct"+t2), col("t1.countDistinct"+t1)).otherwise('').alias("countdist_A"),
                                        when(col("t1.countDistinct"+t1) != col("t2.countDistinct"+t2), col("t2.countDistinct"+t2)).otherwise('').alias("countdist_B")
                                        ).where(cond).sort(asc("ColumnName"))
-    #
     return result_table
-
-    """
-    select ColumnName, 
-if t1.mintable == t2.mintable then null else t1.mintable as 'min_A',
-if t1.mintable == t2.mintable then null else t2.mintable as 'min_B',
-
-if t1.maxtable == t2.maxtable then null else t1.maxtable as 'max_A',
-if t1.maxtable == t2.maxtable then null else t2.maxtable as 'max_B',
-
-if t1.avgtable == t2.avgtable then null else t1.avgtable as 'avg_A',
-if t1.avgtable == t2.avgtable then null else t2.avgtable as 'avg_B',
-
-if t1.stddevtable == t2.stddevtable then null else t1.stddevtable as 'stddev_A',
-if t1.stddevtable == t2.stddevtable then null else t2.stddevtable as 'stddev_B',
-
-if t1.countDistincttable == t2.countDistincttable then null else t1.countDistincttable as 'countdist_A',
-if t1.countDistincttable == t2.countDistincttable then null else t2.countDistincttable as 'countdist_B',
-
-from table1 t1 join table2 t2 on t1.ColumnName=t2.ColumnName
-where t1.mintable <> t2.mintable or
-      t1.maxtable <> t2.maxtable or
-      t1.avgtable <> t2.avgtable or
-      t1.stddevtable <> t2.stddevtable or
-      t1.countDistincttable <> t2.countDistincttable
-    """
 
 def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
     if format in ['parquet', 'orc', 'csv']:
         # select column clause
         cols = '*' if i is None else i
-        # cols = cols if e is None else cols + f", EXCEPT ({e}) "
+        # cols = cols if e is None else cols + f", EXCEPT ({e}) " only works on databricks
         sql = f"select {pk},{cols} from {view_name}"
         # where clause
         where_clause = ""
@@ -180,10 +141,8 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
         sql += where_clause
         result = spark.sql(sql)
-        # result1 = spark.sql(sql1)
+        return result
 
-        # print(result)
-        print(result)
     elif format == "hive":
         cols = '*' if i is None or i == 'all' else i
         sql = f"select {cols} from {t1}"
@@ -202,17 +161,6 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         print(sql)
         df = spark.sql(sql)
         return df
-
-
-
-
-def partition_to_path(partition_str, path):
-    partition = {}
-    if partition_str:
-        partition_items = partition_str.split("and")
-        partition = dict(item.split("=") for item in partition_items)
-    partition_path = "/".join([f"{col}={val}" for col, val in partition.items()])
-    return f"{path}/{partition_path}".replace(" ", "")
 
 
 if __name__ == '__main__':
