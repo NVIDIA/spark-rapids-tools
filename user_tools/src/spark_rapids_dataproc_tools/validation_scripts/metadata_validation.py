@@ -26,7 +26,7 @@ def validation(spark, args):
     print('\n')
 
 
-    result = top_level_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p)
+    result = top_level_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.f)
     print(result.show())
 
 
