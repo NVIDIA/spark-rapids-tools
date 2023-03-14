@@ -34,11 +34,7 @@ def validation(spark, args):
 
     # A result table with the same PK but different values for that column(s)
     result = metrics_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.i, args.e, args.f, args.p)
-    print(result.show)
-
-
-
-
+    print('--')
 
 
     start_time = time.time()
@@ -118,21 +114,23 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
            (col("t1.stddev"+t1) != col("t2.stddev"+t2)) | \
            (col("t1.countDistinct"+t1) != col("t2.countDistinct"+t2))
 
+    print('----joined---table---')
+    print(joined_table.show())
     # apply condition on the joined table
-    result_table = joined_table.select("ColumnName",
-                                       when(cond, col("t1.min"+t1)).otherwise(None).alias("min_A"),
-                                       when(cond, col("t2.min"+t2)).otherwise(None).alias("min_B"),
-                                       when(cond, col("t1.max"+t1)).otherwise(None).alias("max_A"),
-                                       when(cond, col("t2.max"+t2)).otherwise(None).alias("max_B"),
-                                       when(cond, col("t1.avg"+t1)).otherwise(None).alias("avg_A"),
-                                       when(cond, col("t2.avg"+t2)).otherwise(None).alias("avg_B"),
-                                       when(cond, col("t1.stddev"+t1)).otherwise(None).alias("stddev_A"),
-                                       when(cond, col("t2.stddev"+t2)).otherwise(None).alias("stddev_B"),
-                                       when(cond, col("t1.countDistinct"+t1)).otherwise(None).alias("countdist_A"),
-                                       when(cond, col("t2.countDistinct"+t2)).otherwise(None).alias("countdist_B")
-                                       ).where(cond)
-
-    return result_table
+    # result_table = joined_table.select("ColumnName",
+    #                                    when(cond, col("t1.min"+t1)).otherwise(None).alias("min_A"),
+    #                                    when(cond, col("t2.min"+t2)).otherwise(None).alias("min_B"),
+    #                                    when(cond, col("t1.max"+t1)).otherwise(None).alias("max_A"),
+    #                                    when(cond, col("t2.max"+t2)).otherwise(None).alias("max_B"),
+    #                                    when(cond, col("t1.avg"+t1)).otherwise(None).alias("avg_A"),
+    #                                    when(cond, col("t2.avg"+t2)).otherwise(None).alias("avg_B"),
+    #                                    when(cond, col("t1.stddev"+t1)).otherwise(None).alias("stddev_A"),
+    #                                    when(cond, col("t2.stddev"+t2)).otherwise(None).alias("stddev_B"),
+    #                                    when(cond, col("t1.countDistinct"+t1)).otherwise(None).alias("countdist_A"),
+    #                                    when(cond, col("t2.countDistinct"+t2)).otherwise(None).alias("countdist_B")
+    #                                    ).where(cond)
+    #
+    # return result_table
 
     """
     select ColumnName, 
