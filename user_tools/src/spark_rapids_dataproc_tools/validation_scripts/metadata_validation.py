@@ -92,11 +92,11 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     #        (round(col("t1.stddev"+t1),p) != round(col("t2.stddev"+t2)),p) | \
     #        (round(col("t1.countDistinct"+t1),p) != round(col("t2.countDistinct"+t2),p))
 
-    cond = (round(col("t1.min" + t1),4) <> round(col("t2.min" + t2)),4) | \
-           (col("t1.max" + t1) <> col("t2.max" + t2)) | \
-           (col("t1.avg" + t1) <> col("t2.avg" + t2)) | \
-           (col("t1.stddev" + t1) <> col("t2.stddev" + t2)) | \
-           (col("t1.countDistinct" + t1) <> col("t2.countDistinct" + t2))
+    cond = (round("t1.min" + t1, 4) != round("t2.min" + t2, 4)) | \
+           (col("t1.max" + t1) != col("t2.max" + t2)) | \
+           (col("t1.avg" + t1) != col("t2.avg" + t2)) | \
+           (col("t1.stddev" + t1) != col("t2.stddev" + t2)) | \
+           (col("t1.countDistinct" + t1) != col("t2.countDistinct" + t2))
 
     # apply condition on the joined table
     result_table = joined_table.select("ColumnName",
