@@ -34,7 +34,8 @@ def validation(spark, args):
 
     # A result table with the same PK but different values for that column(s)
     result = metrics_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.i, args.e, args.f, args.p)
-    print('--')
+    print('--metrics_metadata-output---')
+    print(result.show())
 
 
     start_time = time.time()
