@@ -82,7 +82,7 @@ class DataValidationDataproc(Validation):
         if self.f is None:
             filters = 'None'
         else:
-            filters = self.f.replace('\'', '\\\'').replace('\<', '\\\<').replace('\>', '\\\>')
+            filters = self.f.replace('\'', '\\\'')
 
         # print(self.convert_tuple_to_string(self.i))
         compare_job = {

@@ -15,8 +15,11 @@
 import argparse
 from pyspark import SparkContext        # pylint: disable=import-error
 from pyspark.sql import SparkSession    # pylint: disable=import-error
-from pyspark.sql.functions import col   # pylint: disable=import-error
+from pyspark.sql.functions import col, min, max, avg, stddev, countDistinct, when
 import time
+import fnmatch
+from pyspark.sql.types import DoubleType
+
 
 def validation(spark, args):
     print("---------yyyyyy",args.t1)
@@ -29,39 +32,14 @@ def validation(spark, args):
     result = top_level_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.f)
     print(result.show())
 
+    # A result table with the same PK but different values for that column(s)
+    result = metrics_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.i, args.f, args.p)
+    print(result)
 
 
 
 
 
-
-
-    # # valid table1 and table2 row counts
-    # print(type(args.t1p))
-    # t1_count = row_counts(spark, args.format, args.t1, args.t1p, args.f)
-    # print('yua test t1_count--------------------: ')
-    # print(t1_count.show())
-    # t2_count = row_counts(spark, args.format, args.t2, args.t2p, args.f)
-    # print('yua test t2_count--------------------: ')
-    # print(t2_count.show())
-    # if t1_count.exceptAll(t2_count).count() == 0 and t2_count.exceptAll(t1_count).count() == 0:
-    #     print("The two table have the same count")
-    # else:
-    #     print("The two table have the different count")
-    #
-    # # valid PK(s) only in table1
-    # result = valid_pk_only_in_one_table(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
-    # print(f"PK(s) only in {args.t1} :")
-    # print(result.show())
-    # # valid PK(s) only in table2
-    # result = valid_pk_only_in_one_table(spark, args.format, args.t2, args.t1, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
-    # print(f"PK(s) only in {args.t2} :")
-    # print(result.show())
-    #
-    # # valid result table with the same PK but different values for that column(s)
-    # result = get_cols_diff_with_same_pk(spark, args.format, args.t1, args.t2, args.pk, args.t1p, args.f, args.i, args.e)
-    # print("columns with same PK(s) but diff values : ")
-    # print(result.show())
 
     start_time = time.time()
     print('------------run validation success-----')
@@ -81,7 +59,6 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
         elif f != 'None':
             where_clause = f" where {f}"
 
-
         print(f'------where clause-------{where_clause}------')
         for table_name in table_names:
             sql = f'select * from {table_name}'
@@ -89,100 +66,93 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
             print('------top_level_metadata------')
             print(sql)
             df = spark.sql(sql)
-
-
-
             row_count = df.count()
             col_count = len(df.columns)
             results.append((table_name, row_count, col_count))
         resultsDF = spark.createDataFrame(results, ["TableName", "RowCount", "ColumnCount"])
         return resultsDF
 
+def generate_metric_df(spark, table_DF, i):
+    result = None
+    agg_functions = [min, max, avg, stddev, countDistinct]
+    # if not specified any included_columns, then get all numeric cols
+    metrics_cols = i
+    if i == 'None':
+        metrics_cols = [c.name for c in df.schema.fields if
+                        any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*'])]
+    for col in metrics_cols:
+        dfc = spark.createDataFrame(([col],), ["ColumnName"])
+        table1_agg = table_DF.select(
+            [f(col).cast(DoubleType()).alias(f.__name__ + t1) for f in
+             agg_functions])
+        tmp_DF = dfc.join(table1_agg).show()
+        if result is None:
+            result = tmp_DF
+        else:
+            result.union(tmp_DF)
+    return result
 
+def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, f, p):
+    print("---")
+    # todo: set precision
+    # spark, format, t1, t1p, pk, e, i, f, view_name
+    # table1_DF = load_table(spark, format, t1, t1p, t2p, i, f)
+    table1_DF = load_table(spark, format, t1, t1p, pk, e, i, f, "")
+    table2_DF = load_table(spark, format, t2, t2p, pk, e, i, f, "")
 
+    table_metric_df1 = generate_metric_df(spark, table1_DF, i)
+    table_metric_df2 = generate_metric_df(spark, table2_DF, i)
 
-def row_counts(spark, format, table, t1p, t1f):
-    """Get the row counts of a table according"""
-    sql = "select count(*) from table"
-    print('yua test ---  \n')
-    print(t1p)
-    print(t1f)
-    print('yua test ---  \n')
-    where_clause = ""
-    if t1p != 'None' and t1f !='None':
-        where_clause = f" where {t1p} and {t1f}"
-    elif t1p != 'None':
-        where_clause = f" where {t1p}"
-    elif t1f != 'None':
-        where_clause = f" where {t1f}"
-    print(f'-----yua test where clause: {where_clause} \n')
-    if format in ['parquet', 'orc', 'csv']:
-        path = table
-        spark.read.format(format).load(path).createOrReplaceTempView("table")
-        sql += where_clause
+    # join both dataframes based on ColumnName   table1 and table2 should be the result df
+    joined_table = table_metric_df1.join(table_metric_df2, ["ColumnName"])
 
-        print(f' yua test run sql: {sql}')
-        result = spark.sql(sql)
-        print(f'-------{table}--- count: -- {result}')
-        return result
-    elif format == "hive":
-        print("----todo---hive--")
-        return 0
+    # define condition for selecting rows
+    cond = (col("t1.mintable") != col("t2.mintable")) | \
+           (col("t1.maxtable") != col("t2.maxtable")) | \
+           (col("t1.avgtable") != col("t2.avgtable")) | \
+           (col("t1.stddevtable") != col("t2.stddevtable")) | \
+           (col("t1.countDistincttable") != col("t2.countDistincttable"))
 
-def valid_pk_only_in_one_table(spark, format, t1, t2, t1p, t2p, pk, e, i, f, o, of):
-    """valid PK(s) only in one table"""
-    print("--valid_pk_only_in_one_table-")
+    # apply condition on the joined table
+    result_table = joined_table.select("ColumnName",
+                                       when(cond, col("t1.mintable")).otherwise(None).alias("min_A"),
+                                       when(cond, col("t2.mintable")).otherwise(None).alias("min_B"),
+                                       when(cond, col("t1.maxtable")).otherwise(None).alias("max_A"),
+                                       when(cond, col("t2.maxtable")).otherwise(None).alias("max_B"),
+                                       when(cond, col("t1.avgtable")).otherwise(None).alias("avg_A"),
+                                       when(cond, col("t2.avgtable")).otherwise(None).alias("avg_B"),
+                                       when(cond, col("t1.stddevtable")).otherwise(None).alias("stddev_A"),
+                                       when(cond, col("t2.stddevtable")).otherwise(None).alias("stddev_B"),
+                                       when(cond, col("t1.countDistincttable")).otherwise(None).alias("countdist_A"),
+                                       when(cond, col("t2.countDistincttable")).otherwise(None).alias("countdist_B")
+                                       ).where(cond)
 
-    if format in ['parquet', 'orc', 'csv']:
+    return result_table
 
-        # load table1
-        load_table(spark, format, t1, t1p, pk, e, i, f, "table1")
-        # load table2
-        load_table(spark, format, t2, t2p, pk, e, i, f, "table2")
+    """
+    select ColumnName, 
+if t1.mintable == t2.mintable then null else t1.mintable as 'min_A',
+if t1.mintable == t2.mintable then null else t2.mintable as 'min_B',
 
-        sql = f"select {pk} from table1 except select {pk} from table2"
-        result = spark.sql(sql)
-        print(result)
-        return result
+if t1.maxtable == t2.maxtable then null else t1.maxtable as 'max_A',
+if t1.maxtable == t2.maxtable then null else t2.maxtable as 'max_B',
 
-    elif format == "hive":
-        print("----todo---hive--")
-        return 0
+if t1.avgtable == t2.avgtable then null else t1.avgtable as 'avg_A',
+if t1.avgtable == t2.avgtable then null else t2.avgtable as 'avg_B',
 
-    return 0
+if t1.stddevtable == t2.stddevtable then null else t1.stddevtable as 'stddev_A',
+if t1.stddevtable == t2.stddevtable then null else t2.stddevtable as 'stddev_B',
 
-def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, partitions, filter, included_columns, excluded_columns):
-    if format in ['parquet', 'orc', 'csv']:
-        pk_list = [i.strip() for i in pk.split(",")]
-        included_columns_list = [i.strip() for i in included_columns.split(",")]
-        excluded_columns_list = [e.strip() for e in excluded_columns.split(",")]
-        select_columns = [f't1.{p}' for p in pk.split(',')] + [f't1.{c} as t1_{c}, t2.{c} as t2_{c}' for c in included_columns_list if
-                                                               c not in excluded_columns_list]
-        print('------select columns----')
-        print(select_columns)
-        sql = f"""
-                    SELECT {', '.join(select_columns)}
-                    FROM table1 t1
-                    FULL OUTER JOIN table2 t2 ON {' AND '.join([f't1.{c} = t2.{c}' for c in pk_list])}
-                    WHERE ({' or '.join([f't1.{c} <> t2.{c}' for c in included_columns_list if c not in excluded_columns_list])} )
-                """
-        if partitions != 'None':
-            partitions = [p.strip() for p in partitions.split("and")]
-            sql += ' AND ( ' + ' AND '.join([f't1.{p} ' for p in partitions]) + ' )'
+if t1.countDistincttable == t2.countDistincttable then null else t1.countDistincttable as 'countdist_A',
+if t1.countDistincttable == t2.countDistincttable then null else t2.countDistincttable as 'countdist_B',
 
-        if filter != 'None':
-            filters = [f.strip() for f in filter.split("and")]
-            sql += ' AND ( ' + ' AND '.join([f't1.{f} ' for f in filters]) + ' )'
-        print('-----------get_cols_diff_with_same_pk----------')
-        print(sql)
-        print('-----------get_cols_diff_with_same_pk----------')
-
-        # Execute the query and return the result
-        result = spark.sql(sql)
-
-        return result
-    elif format == "hive":
-        print("----todo---hive-load_table-")
+from table1 t1 join table2 t2 on t1.ColumnName=t2.ColumnName
+where t1.mintable <> t2.mintable or
+      t1.maxtable <> t2.maxtable or
+      t1.avgtable <> t2.avgtable or
+      t1.stddevtable <> t2.stddevtable or
+      t1.countDistincttable <> t2.countDistincttable
+    """
 
 def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
     if format in ['parquet', 'orc', 'csv']:
@@ -211,7 +181,24 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         # print(result)
         print(result)
     elif format == "hive":
-        print("----todo---hive-load_table-")
+        cols = '*' if i is None else i
+        sql = f"select {cols} from {t1}"
+        # where clause
+        where_clause = ""
+        if t1p != 'None' and f != 'None':
+            where_clause = f" where {t1p} and {f}"
+        elif t1p != 'None':
+            where_clause = f" where {t1p}"
+            # partition clause should be in real order as data path
+            # path += partition_to_path(t1p)
+        elif f != 'None':
+            where_clause = f" where {f}"
+        sql += where_clause
+        df = spark.sql(sql)
+        return df
+
+
+
 
 def partition_to_path(partition_str, path):
     partition = {}
