@@ -330,8 +330,6 @@ class DataprocWrapper(object):
             raise Exception('Invalid cluster or region for Dataproc environment. '
                             'Please provide options "--cluster=<CLUSTER_NAME> --region=<REGION>" properly.')
 
-        print('----dataproc wrapper------')
-        print(f)
         validate = DataValidationDataproc(cluster, region, check, format, t1, t1p, t2, t2p, pk, e, i, f, o, of, p, debug)
         getattr(validate, check)()
 

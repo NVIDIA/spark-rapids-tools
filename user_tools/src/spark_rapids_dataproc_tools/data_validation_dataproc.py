@@ -23,9 +23,6 @@ logger = logging.getLogger('data_validation_dataproc')
 
 class DataValidationDataproc(Validation):
     """DataValidation tool for Dataproc."""
-
-    #        validate = Validation(cluster, region, check, format, t1, t1p, t2, t2p, pk, e, i, f, o, of, p, debug)
-
     def __init__(self, cluster_name, region, check, format, t1, t1p, t2, t2p, pk, e: str, i: str, f: str, o, of, p, debug=False):
         super().__init__(debug)
 
@@ -63,17 +60,6 @@ class DataValidationDataproc(Validation):
     def valid_metadata(self):
         """data validation spark via Dataproc job interface."""
         print("-----------run valid data-------------------")
-
-        print(self.t1)
-        print(self.t2)
-        print(self.i)
-        print(type(self.i))
-        print(self.e)
-        print(type(self.e))
-        print(self.f)
-        print(type(self.f))
-
-
         if self.e is None:
             excluded_column = 'None'
         else:
@@ -84,7 +70,6 @@ class DataValidationDataproc(Validation):
         else:
             filters = self.f.replace('\'', '\\\'')
 
-        # print(self.convert_tuple_to_string(self.i))
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
             'file': super().get_validation_scripts('metadata_validation.py'),
@@ -109,12 +94,6 @@ class DataValidationDataproc(Validation):
         output = self.cluster.submit_job(compare_job)
         print(output)
 
-    # @on('master')  # pylint: disable=too-many-function-args
-    # def valid_data(self):
-    #     if self.format == 'parquet':
-    #         super().compare(self.t1, self.t2)
-    #     print("-----------run valid data-------------------")
-
     def convert_tuple_to_string(self, conf):
         '''fire automatically convert config with comma from str to tuple'''
         if isinstance(conf, tuple):
@@ -128,13 +107,7 @@ class DataValidationDataproc(Validation):
     @Validation.banner
     def valid_data(self):
         """data validation spark via Dataproc job interface."""
-        print("-----------run valid data-------------------")
 
-        print(self.t1)
-        print(self.t2)
-        print(self.i)
-        print(type(self.i))
-        print(self.convert_tuple_to_string(self.i))
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
             'file': super().get_validation_scripts('data_validation.py'),
@@ -160,12 +133,9 @@ class DataValidationDataproc(Validation):
         print(output)
         # self.check_spark_output(output, 'CPU')
 
-
-
 def main():
     """Main function."""
     fire.Fire(DataValidationDataproc)
-
 
 if __name__ == '__main__':
     main()

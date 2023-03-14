@@ -48,13 +48,9 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
             where_clause = f" where {t1p}"
         elif f != 'None':
             where_clause = f" where {f}"
-
-        print(f'------where clause-------{where_clause}------')
         for table_name in table_names:
             sql = f'select * from {table_name}'
             sql += where_clause
-            print('------top_level_metadata------')
-            print(sql)
             df = spark.sql(sql)
             row_count = df.count()
             col_count = len(df.columns)
@@ -70,8 +66,6 @@ def generate_metric_df(spark, table_DF, i, t1):
     if i in ['None', 'all']:
         metrics_cols = [c.name for c in table_DF.schema.fields if
                         any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*'])]
-    print('-----metrics_cols---')
-    print(metrics_cols)
     for col in metrics_cols:
         dfc = spark.createDataFrame(([col],), ["ColumnName"])
         table1_agg = table_DF.select(
@@ -85,7 +79,6 @@ def generate_metric_df(spark, table_DF, i, t1):
     return result
 
 def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
-    print("---")
     # todo: set precision
     # spark, format, t1, t1p, pk, e, i, f, view_name
     # table1_DF = load_table(spark, format, t1, t1p, t2p, i, f)
@@ -136,8 +129,6 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
             # path += partition_to_path(t1p)
         elif f != 'None':
             where_clause = f" where {f}"
-
-        print(f'--------load_table-sql--{sql}---')
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
         sql += where_clause
         result = spark.sql(sql)
@@ -157,8 +148,6 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         elif f != 'None':
             where_clause = f" where {f}"
         sql += where_clause
-        print('----------load table-metadata-----')
-        print(sql)
         df = spark.sql(sql)
         return df
 
@@ -206,13 +195,6 @@ if __name__ == '__main__':
 
     sc = SparkContext(appName='metadata-validation')
     spark = SparkSession(sc)
-    print("aaaaaat1",args.t1)
-    print("aaaaaat2", args.t2)
-    print("iiiiii", args.i)
-    print("fffff", args.f)
-    print("eeeee", args.e)
-    print("pkpkpk", args.pk)
-    print("t1p", args.t1p)
 
     validation(spark, args)
 
