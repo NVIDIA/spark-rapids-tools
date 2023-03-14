@@ -150,5 +150,6 @@ class Dataproc(CspBase):
         # Add job parameters
         if 'parameters' in job and job['parameters']:
             cmd += ['--'] + job['parameters']
+
         # Capture stderr as job output to stderr
         return self.run_local_cmd(cmd, capture='stderr')
