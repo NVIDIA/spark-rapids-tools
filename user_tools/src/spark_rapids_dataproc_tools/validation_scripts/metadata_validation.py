@@ -92,7 +92,7 @@ def generate_metric_df(spark, table_DF, i, t1):
         if result is None:
             result = tmp_DF
         else:
-            result.union(tmp_DF)
+            result = result.union(tmp_DF)
     return result
 
 def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
