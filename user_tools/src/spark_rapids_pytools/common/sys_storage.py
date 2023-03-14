@@ -94,9 +94,9 @@ class FSUtil:
             raise StorageException('Error copying resource on local disk. '
                                    f'Resource {abs_src} does not exist')
         return shutil.copy2(abs_src, abs_dest)
-    
+
     @classmethod
-    def cache_resource(cls, src: str, dest: str) -> str:
+    def cache_resource(cls, src: str, dest: str):
         abs_src = os.path.abspath(src)
         abs_dest = os.path.abspath(dest)
         # check if path exists
@@ -106,7 +106,6 @@ class FSUtil:
         with open(abs_src, 'rb') as s:
             with open(abs_dest, 'wb') as d:
                 shutil.copyfileobj(s, d)
-        return
 
     @classmethod
     def download_from_url(cls,

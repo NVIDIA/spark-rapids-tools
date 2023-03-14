@@ -39,7 +39,7 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
 
     def _generate_cache_files(self):
         # TODO: need to update src_file_path, currently hardcoded
-        src_file_path = f'/home/cindyj/Desktop/spark-rapids-tools/user_tools/src/spark_rapids_pytools/resources/{self.plan}-catalog.json'
+        src_file_path = f'./src/spark_rapids_pytools/resources/{self.plan}-catalog.json'
         FSUtil.cache_resource(src_file_path, self.cache_files[self.plan])
         super()._generate_cache_files()
 
