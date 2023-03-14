@@ -34,7 +34,7 @@ def validation(spark, args):
 
     # A result table with the same PK but different values for that column(s)
     result = metrics_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.i, args.e, args.f, args.p)
-    print(result)
+    print('--')
 
 
 
@@ -105,34 +105,35 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
 
     table_metric_df1 = generate_metric_df(spark, table1_DF, i, t1)
     print('----table_metric_df1------')
+    print(table_metric_df1.show())
     table_metric_df2 = generate_metric_df(spark, table2_DF, i, t2)
     print('----table_metric_df2------')
-
+    print(table_metric_df2.show())
     # join both dataframes based on ColumnName   table1 and table2 should be the result df
-    joined_table = table_metric_df1.join(table_metric_df2, ["ColumnName"])
-
-    # define condition for selecting rows
-    cond = (col("t1.mintable") != col("t2.mintable")) | \
-           (col("t1.maxtable") != col("t2.maxtable")) | \
-           (col("t1.avgtable") != col("t2.avgtable")) | \
-           (col("t1.stddevtable") != col("t2.stddevtable")) | \
-           (col("t1.countDistincttable") != col("t2.countDistincttable"))
-
-    # apply condition on the joined table
-    result_table = joined_table.select("ColumnName",
-                                       when(cond, col("t1.mintable")).otherwise(None).alias("min_A"),
-                                       when(cond, col("t2.mintable")).otherwise(None).alias("min_B"),
-                                       when(cond, col("t1.maxtable")).otherwise(None).alias("max_A"),
-                                       when(cond, col("t2.maxtable")).otherwise(None).alias("max_B"),
-                                       when(cond, col("t1.avgtable")).otherwise(None).alias("avg_A"),
-                                       when(cond, col("t2.avgtable")).otherwise(None).alias("avg_B"),
-                                       when(cond, col("t1.stddevtable")).otherwise(None).alias("stddev_A"),
-                                       when(cond, col("t2.stddevtable")).otherwise(None).alias("stddev_B"),
-                                       when(cond, col("t1.countDistincttable")).otherwise(None).alias("countdist_A"),
-                                       when(cond, col("t2.countDistincttable")).otherwise(None).alias("countdist_B")
-                                       ).where(cond)
-
-    return result_table
+    # joined_table = table_metric_df1.join(table_metric_df2, ["ColumnName"])
+    #
+    # # define condition for selecting rows
+    # cond = (col("t1.mintable") != col("t2.mintable")) | \
+    #        (col("t1.maxtable") != col("t2.maxtable")) | \
+    #        (col("t1.avgtable") != col("t2.avgtable")) | \
+    #        (col("t1.stddevtable") != col("t2.stddevtable")) | \
+    #        (col("t1.countDistincttable") != col("t2.countDistincttable"))
+    #
+    # # apply condition on the joined table
+    # result_table = joined_table.select("ColumnName",
+    #                                    when(cond, col("t1.mintable")).otherwise(None).alias("min_A"),
+    #                                    when(cond, col("t2.mintable")).otherwise(None).alias("min_B"),
+    #                                    when(cond, col("t1.maxtable")).otherwise(None).alias("max_A"),
+    #                                    when(cond, col("t2.maxtable")).otherwise(None).alias("max_B"),
+    #                                    when(cond, col("t1.avgtable")).otherwise(None).alias("avg_A"),
+    #                                    when(cond, col("t2.avgtable")).otherwise(None).alias("avg_B"),
+    #                                    when(cond, col("t1.stddevtable")).otherwise(None).alias("stddev_A"),
+    #                                    when(cond, col("t2.stddevtable")).otherwise(None).alias("stddev_B"),
+    #                                    when(cond, col("t1.countDistincttable")).otherwise(None).alias("countdist_A"),
+    #                                    when(cond, col("t2.countDistincttable")).otherwise(None).alias("countdist_B")
+    #                                    ).where(cond)
+    #
+    # return result_table
 
     """
     select ColumnName, 
