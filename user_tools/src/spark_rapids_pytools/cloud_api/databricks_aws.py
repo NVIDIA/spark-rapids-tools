@@ -63,7 +63,9 @@ class DBAWSPlatform(EMRPlatform):
         gpu_cluster_ob.migrate_from_cluster(orig_cluster)
         return gpu_cluster_ob
 
-    def create_saving_estimator(self, source_cluster, target_cluster):
+    def create_saving_estimator(self,
+                                source_cluster: ClusterGetAccessor,
+                                reshaped_cluster: ClusterGetAccessor):
         raw_pricing_config = self.configs.get_value_silent('pricing')
         if raw_pricing_config:
             pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
@@ -72,7 +74,7 @@ class DBAWSPlatform(EMRPlatform):
         databricks_price_provider = DatabricksPriceProvider(region=self.cli.get_region(),
                                                             pricing_configs={'databricks': pricing_config})
         saving_estimator = DBAWSSavingsEstimator(price_provider=databricks_price_provider,
-                                                 target_cluster=target_cluster,
+                                                 reshaped_cluster=reshaped_cluster,
                                                  source_cluster=source_cluster)
         return saving_estimator
 
