@@ -70,6 +70,8 @@ class DataValidationDataproc(Validation):
         print(type(self.i))
         print(self.e)
         print(type(self.e))
+        print(self.f)
+        print(type(self.f))
 
 
         if self.e is None :
