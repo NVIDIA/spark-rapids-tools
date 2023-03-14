@@ -72,7 +72,7 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
         resultsDF = spark.createDataFrame(results, ["TableName", "RowCount", "ColumnCount"])
         return resultsDF
 
-def generate_metric_df(spark, table_DF, i):
+def generate_metric_df(spark, table_DF, i, t1):
     result = None
     agg_functions = [min, max, avg, stddev, countDistinct]
     # if not specified any included_columns, then get all numeric cols
@@ -100,8 +100,8 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     table1_DF = load_table(spark, format, t1, t1p, pk, e, i, f, "")
     table2_DF = load_table(spark, format, t2, t2p, pk, e, i, f, "")
 
-    table_metric_df1 = generate_metric_df(spark, table1_DF, i)
-    table_metric_df2 = generate_metric_df(spark, table2_DF, i)
+    table_metric_df1 = generate_metric_df(spark, table1_DF, i, t1)
+    table_metric_df2 = generate_metric_df(spark, table2_DF, i, t2)
 
     # join both dataframes based on ColumnName   table1 and table2 should be the result df
     joined_table = table_metric_df1.join(table_metric_df2, ["ColumnName"])
