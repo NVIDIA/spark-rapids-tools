@@ -247,7 +247,7 @@ class RapidsTool(object):
         return [f'The {self.pretty_name()} tool did not generate any output. Nothing to display.']
 
     def _generate_section_content(self, sec_conf: dict) -> List[str]:
-        rep_lines = [Utils.gen_report_sec_header(sec_conf.get('sectionName'), line_width=20)]
+        rep_lines = [Utils.gen_report_sec_header(sec_conf.get('sectionName'), title_width=20)]
         for sec_line in sec_conf['content'].get('lines'):
             rep_lines.append(sec_line)
         return rep_lines

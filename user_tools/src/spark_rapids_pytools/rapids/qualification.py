@@ -489,8 +489,8 @@ class Qualification(RapidsJarTool):
                 else:
                     res.append(l_str)
             return res
-        else:
-            return super()._generate_section_content(sec_conf)
+        return super()._generate_section_content(sec_conf)
+
 
 @dataclass
 class QualificationAsLocal(Qualification):

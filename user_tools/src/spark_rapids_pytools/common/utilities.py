@@ -163,8 +163,7 @@ class Utils:
         if hrule:
             dash = ruler * line_width
             return cls.gen_multiline_str(f'{title}:', dash)
-        else:
-            return f'{title}:'
+        return f'{title}:'
 
     @classmethod
     def gen_joined_str(cls, join_elem: str, items) -> str:
