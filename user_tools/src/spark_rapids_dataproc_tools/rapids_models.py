@@ -943,7 +943,7 @@ class Qualification(RapidsTool):
     def __generate_qualification_configs(self) -> str:
         initialization_actions = self.ctxt.get_value('sparkRapids',
                                                      'gpu',
-                                                     'initializationScripts').format(self.region, self.region)
+                                                     'initializationScripts').format(self.region)
         instructions_str = (
             f'To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the '
             f'following to your cluster creation script:\n\t'

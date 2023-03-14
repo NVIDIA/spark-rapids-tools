@@ -20,7 +20,9 @@ from typing import Any
 from spark_rapids_pytools.cloud_api.databricks_aws_job import DBAWSLocalRapidsJob
 from spark_rapids_pytools.cloud_api.emr import EMRNode, EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, ClusterState, SparkNodeType
+from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, \
+    ClusterGetAccessor
+from spark_rapids_pytools.cloud_api.sp_types import ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.pricing.databricks_pricing import DatabricksPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -136,13 +138,6 @@ class DatabricksCluster(ClusterBase):
     Represents an instance of running cluster on Databricks.
     """
 
-    def get_eventlogs_from_config(self) -> list:
-        res_arr = []
-        eventlogs_dir = self.props.get_value_silent('spark_conf', 'spark.eventLog.dir')
-        if eventlogs_dir:
-            res_arr.append(eventlogs_dir)
-        return res_arr
-
     def _set_fields_from_props(self):
         super()._set_fields_from_props()
         self.uuid = self.props.get_value('cluster_id')
@@ -185,6 +180,9 @@ class DatabricksCluster(ClusterBase):
         # propagate region to the cluster
         cluster_args.setdefault('region', self.cli.get_env_var('region'))
         return cluster_args
+
+    def get_all_spark_properties(self) -> dict:
+        return self.props.get_value('spark_conf')
 
     def _build_migrated_cluster(self, orig_cluster):
         """
@@ -232,27 +230,25 @@ class DBAWSSavingsEstimator(SavingsEstimator):
     A class that calculates the savings based on a Databricks-AWS price provider
     """
 
-    def __calculate_ec2_cost(self, cluster: DatabricksCluster):
-        master_instance = cluster.nodes.get(SparkNodeType.MASTER)
-        worker_instances = cluster.nodes.get(SparkNodeType.WORKER)
-        master_ec2_cost = self.price_provider.catalogs['aws'].get_value('ec2', master_instance.instance_type)
-        if len(worker_instances) == 0:
-            return master_ec2_cost
-        workers_ec2_unit_cost = self.price_provider.catalogs['aws'].get_value('ec2', worker_instances[0].instance_type)
-        workers_ec2_cost = workers_ec2_unit_cost * len(worker_instances)
-        return master_ec2_cost + workers_ec2_cost
+    def __calculate_ec2_cost(self, cluster: ClusterGetAccessor) -> float:
+        res = 0.0
+        for node_type in [SparkNodeType.MASTER, SparkNodeType.WORKER]:
+            instance_type = cluster.get_node_instance_type(node_type)
+            nodes_cnt = cluster.get_nodes_cnt(node_type)
+            ec2_cost = self.price_provider.catalogs['aws'].get_value('ec2', instance_type)
+            res += ec2_cost * nodes_cnt
+        return res
 
-    def _get_cost_per_cluster(self, cluster: DatabricksCluster):
-        master_instance = cluster.nodes.get(SparkNodeType.MASTER)
-        master_cost = self.price_provider.get_instance_price(instance=master_instance.instance_type)
-        worker_instances = cluster.nodes.get(SparkNodeType.WORKER)
-        workers_cost = 0.0
-        if len(worker_instances) != 0:
-            worker_unit_cost = self.price_provider.get_instance_price(instance=worker_instances[0].instance_type)
-            workers_cost = worker_unit_cost * len(worker_instances)
-        return self.__calculate_ec2_cost(cluster) + master_cost + workers_cost
+    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
+        dbu_cost = 0.0
+        for node_type in [SparkNodeType.MASTER, SparkNodeType.WORKER]:
+            instance_type = cluster.get_node_instance_type(node_type)
+            nodes_cnt = cluster.get_nodes_cnt(node_type)
+            cost = self.price_provider.get_instance_price(instance=instance_type)
+            dbu_cost += cost * nodes_cnt
+        return self.__calculate_ec2_cost(cluster) + dbu_cost
 
     def _setup_costs(self):
         # calculate target_cost
-        self.target_cost = self._get_cost_per_cluster(self.target_cluster)
+        self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
         self.source_cost = self._get_cost_per_cluster(self.source_cluster)

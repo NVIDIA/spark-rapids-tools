@@ -18,13 +18,16 @@ import os
 import re
 import sys
 import tarfile
+import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, List
 
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, ClusterBase, DeployMode
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
+from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
@@ -43,7 +46,7 @@ class RapidsTool(object):
     :param logger: the logger instant associated to the current tool.
     """
     platform_type: CloudPlatform
-    cluster: str
+    cluster: str = None
     output_folder: str = None
     config_path: str = None
     runs_on_cluster: bool = field(default=True, init=False)
@@ -59,6 +62,17 @@ class RapidsTool(object):
     def get_exec_cluster(self) -> ClusterBase:
         return self.ctxt.get_ctxt('execCluster')
 
+    def timeit(timed_item: str):  # pylint: disable=no-self-argument
+        def decorator(func_cb: Callable):
+            def wrapper(self, *args, **kwargs):
+                start_time = time.monotonic()
+                func_cb(self, *args, **kwargs)  # pylint: disable=not-callable
+                end_time = time.monotonic()
+                self.logger.info('Total Execution Time: %s => %s seconds', timed_item,
+                                 f'{(end_time-start_time):,.3f}')
+            return wrapper
+        return decorator
+
     def phase_banner(phase_name: str,  # pylint: disable=no-self-argument
                      enable_prologue: bool = True,
                      enable_epilogue: bool = True):
@@ -70,11 +84,11 @@ class RapidsTool(object):
                     func_cb(self, *args, **kwargs)  # pylint: disable=not-callable
                     if enable_epilogue:
                         self.logger.info('======= [%s]: Finished =======', phase_name)
-                except Exception as exception:    # pylint: disable=broad-except
-                    self.logger.error('%s. Phase [%s]: raised an error in phase\n%s',
+                except Exception as ex:    # pylint: disable=broad-except
+                    self.logger.error('%s. Raised an error in phase [%s]\n%s',
                                       self.pretty_name(),
                                       phase_name,
-                                      exception)
+                                      ex)
                     sys.exit(1)
             return wrapper
         return decorator
@@ -232,6 +246,23 @@ class RapidsTool(object):
     def _report_results_are_empty(self):
         return [f'The {self.pretty_name()} tool did not generate any output. Nothing to display.']
 
+    def _generate_section_content(self, sec_conf: dict) -> List[str]:
+        rep_lines = [Utils.gen_report_sec_header(sec_conf.get('sectionName'), title_width=20)]
+        for sec_line in sec_conf['content'].get('lines'):
+            rep_lines.append(sec_line)
+        return rep_lines
+
+    def _generate_platform_report_sections(self) -> List[str]:
+        section_arr = self.ctxt.platform.configs.get_value_silent('wrapperReporting',
+                                                                  self.name,
+                                                                  'sections')
+        if section_arr:
+            rep_lines = []
+            for curr_sec in section_arr:
+                rep_lines.extend(self._generate_section_content(curr_sec))
+            return rep_lines
+        return None
+
 
 @dataclass
 class RapidsJarTool(RapidsTool):
@@ -256,18 +287,19 @@ class RapidsJarTool(RapidsTool):
         self.ctxt.add_rapids_args('jarFilePath', jar_path)
 
     def __accept_tool_option(self, option_key: str) -> bool:
-        defined_tool_options = self.ctxt.get_value_silent('sparkRapids', 'cli', 'tool_options')
+        defined_tool_options = self.ctxt.get_value_silent('sparkRapids', 'cli', 'toolOptions')
         if defined_tool_options is not None:
             if option_key not in defined_tool_options:
                 self.logger.warning('Ignoring tool option [%s]. Invalid option.', option_key)
                 return False
         return True
 
-    def _process_tool_args(self):
+    def _process_tool_args_from_input(self) -> list:
         """
-        Process the arguments passed from the CLI if any and return a string representing the
-        arguments to be passed to the final command running the job.
-        :return:
+        Process the arguments passed from the CLI if any and return a list of strings representing
+        the arguments to be passed to the final command running the job. This needs processing
+        because we need to verify the arguments and handle hiphens
+        :return: list of the rapids arguments added by the user
         """
         arguments_list = []
         self.logger.debug('Processing Rapids plugin Arguments %s', self.rapids_options)
@@ -307,7 +339,15 @@ class RapidsJarTool(RapidsTool):
                 else:
                     # this could be a boolean type flag that has no arguments
                     arguments_list.append(f'{k_arg}')
-        self.ctxt.add_rapids_args('rapidsOpts', arguments_list)
+        return arguments_list
+
+    def _process_tool_args(self):
+        """
+        Process the arguments passed from the CLI if any and return a string representing the
+        arguments to be passed to the final command running the job.
+        :return:
+        """
+        self.ctxt.add_rapids_args('rapidsOpts', self._process_tool_args_from_input())
 
     def _process_dependencies(self):
         """
@@ -319,39 +359,91 @@ class RapidsJarTool(RapidsTool):
             # we need to download the dependencies locally if necessary
             self._download_dependencies()
 
+    def timeit(timed_item: str):  # pylint: disable=no-self-argument
+        def decorator(func_cb: Callable):
+            def wrapper(self, *args, **kwargs):
+                start_time = time.monotonic()
+                func_cb(self, *args, **kwargs)  # pylint: disable=not-callable
+                end_time = time.monotonic()
+                self.logger.info('Total Execution Time: %s => %s seconds', timed_item,
+                                 f'{(end_time-start_time):,.3f}')
+            return wrapper
+        return decorator
+
+    @timeit('Downloading dependencies for local Mode')  # pylint: disable=too-many-function-args
     def _download_dependencies(self):
+
+        def exception_handler(future):
+            # Handle any exceptions raised by the task
+            exception = future.exception()
+            if exception:
+                self.logger.error('Error while downloading dependency: %s', exception)
+
+        def cache_single_dependency(dep: dict) -> str:
+            """
+            Downloads the specified URL and saves it to disk
+            """
+            start_time = time.monotonic()
+            self.logger.info('Checking dependency %s', dep['name'])
+            dest_folder = self.ctxt.get_cache_folder()
+            resource_file_name = FSUtil.get_resource_name(dep['uri'])
+            resource_file = FSUtil.build_path(dest_folder, resource_file_name)
+            is_created = FSUtil.cache_from_url(dep['uri'], resource_file)
+            if is_created:
+                self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],
+                                 resource_file)
+                # check if we need to decompress files
+            if dep['type'] == 'archive':
+                destination_path = self.ctxt.get_local_work_dir()
+                with tarfile.open(resource_file, mode='r:*') as tar:
+                    tar.extractall(destination_path)
+                    tar.close()
+                dep_item = FSUtil.remove_ext(resource_file_name)
+                if dep.get('relativePath') is not None:
+                    dep_item = FSUtil.build_path(dep_item, dep.get('relativePath'))
+                dep_item = FSUtil.build_path(destination_path, dep_item)
+            else:
+                # copy the jar into dependency folder
+                dep_item = self.ctxt.platform.storage.download_resource(resource_file,
+                                                                        self.ctxt.get_local_work_dir())
+            end_time = time.monotonic()
+            self.logger.info('Completed downloading of dependency [%s] => %s seconds',
+                             dep['name'],
+                             f'{(end_time-start_time):,.3f}')
+            return dep_item
+
+        def cache_all_dependencies(dep_arr: List[dict]):
+            """
+            Create a thread pool and download specified urls
+            """
+            futures_list = []
+            results = []
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                for dep in dep_arr:
+                    futures = executor.submit(cache_single_dependency, dep)
+                    futures.add_done_callback(exception_handler)
+                    futures_list.append(futures)
+                for future in futures_list:
+                    try:
+                        result = future.result(timeout=360)
+                        results.append(result)
+                    except Exception as ex:    # pylint: disable=broad-except
+                        self.logger.error('Failed to download dependencies %s', ex)
+                        raise ex
+            return results
+
         # TODO: Verify the downloaded file by checking their MD5
         deploy_mode = DeployMode.tostring(self.ctxt.platform_opts.get('deployMode'))
         depend_arr = self.ctxt.platform.configs.get_value_silent('dependencies',
                                                                  'deployMode',
                                                                  deploy_mode)
-        if depend_arr is not None:
-            dest_folder = self.ctxt.get_cache_folder()
-            dep_list = []
-            for dep in depend_arr:
-                self.logger.info('Checking dependency %s', dep['name'])
-                resource_file_name = FSUtil.get_resource_name(dep['uri'])
-                resource_file = FSUtil.build_path(dest_folder, resource_file_name)
-                is_created = FSUtil.cache_from_url(dep['uri'], resource_file)
-                if is_created:
-                    self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],
-                                     resource_file)
-                    # check if we need to decompress files
-                if dep['type'] == 'archive':
-                    destination_path = self.ctxt.get_local_work_dir()
-                    with tarfile.open(resource_file, mode='r:*') as tar:
-                        tar.extractall(destination_path)
-                        tar.close()
-                    dep_item = FSUtil.remove_ext(resource_file_name)
-                    if dep.get('relativePath') is not None:
-                        dep_item = FSUtil.build_path(dep_item, dep.get('relativePath'))
-                    dep_item = FSUtil.build_path(destination_path, dep_item)
-                else:
-                    # copy the jar into dependency folder
-                    dep_item = self.ctxt.platform.storage.download_resource(resource_file,
-                                                                            self.ctxt.get_local_work_dir())
-                dep_list.append(dep_item)
-            self.logger.info('Dependencies are processed as: %s', ';'.join(dep_list))
+        if depend_arr:
+            dep_list = cache_all_dependencies(depend_arr)
+            if any(dep_item is None for dep_item in dep_list):
+                raise RuntimeError('Could not download all dependencies. Aborting Executions.')
+            self.logger.info('Dependencies are processed as: %s',
+                             Utils.gen_joined_str(join_elem='; ',
+                                                  items=dep_list))
             self.ctxt.add_rapids_args('javaDependencies', dep_list)
 
     def _process_rapids_args(self):
@@ -359,3 +451,217 @@ class RapidsJarTool(RapidsTool):
         self._process_jar_arg()
         self._process_dependencies()
         self._process_tool_args()
+
+    def _process_offline_cluster_args(self):
+        pass
+
+    def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None):
+        pass
+
+    def _copy_dependencies_to_remote(self):
+        self.logger.info('Skipping preparing remote dependency folder')
+
+    def _prepare_job_arguments(self):
+        self._prepare_local_job_arguments()
+
+    def _run_rapids_tool(self):
+        # 1- copy dependencies to remote server
+        self._copy_dependencies_to_remote()
+        # 2- prepare the arguments
+        #  2.a -check if the app_id is not none
+        self._prepare_job_arguments()
+        #
+        # 3- create a submission job
+        # 4- execute
+
+    def _get_main_cluster_obj(self):
+        return self.ctxt.get_ctxt('cpuClusterProxy')
+
+    def _process_eventlogs_args(self):
+        eventlog_arg = self.wrapper_options.get('eventlogs')
+        if eventlog_arg is None:
+            # get the eventlogs from spark properties
+            cpu_cluster_obj = self._get_main_cluster_obj()
+            if cpu_cluster_obj:
+                spark_event_logs = cpu_cluster_obj.get_eventlogs_from_config()
+            else:
+                self.logger.warning('Eventlogs is not set properly. The property cannot be pulled '
+                                    'from cluster because it is not defined')
+                spark_event_logs = []
+        else:
+            if isinstance(eventlog_arg, tuple):
+                spark_event_logs = List[eventlog_arg]
+            elif isinstance(eventlog_arg, str):
+                spark_event_logs = eventlog_arg.split(',')
+            else:
+                spark_event_logs = eventlog_arg
+        if len(spark_event_logs) < 1:
+            self.logger.error('Eventlogs list is empty. '
+                              'The cluster Spark properties may be missing "spark.eventLog.dir". '
+                              'Re-run the command passing "--eventlogs" flag to the wrapper.')
+            raise RuntimeError('Invalid arguments. The list of Apache Spark event logs is empty.')
+        self.ctxt.set_ctxt('eventLogs', spark_event_logs)
+
+    def _create_migration_cluster(self, cluster_type: str, cluster_arg: str) -> ClusterBase:
+        if cluster_arg is None:
+            raise RuntimeError(f'The {cluster_type} cluster argument is not set.')
+        arg_is_file = self.ctxt.platform.storage.is_file_path(cluster_arg)
+        if not arg_is_file:
+            self.logger.info('Loading %s cluster properties by name %s. Note that this will fail '
+                             'if the cluster was permanently deleted.',
+                             cluster_type,
+                             cluster_arg)
+            # create a cluster by name
+            cluster_obj = self.ctxt.platform.connect_cluster_by_name(cluster_arg)
+        else:
+            self.logger.info('Loading %s cluster properties from file %s',
+                             cluster_type,
+                             cluster_arg)
+            # create cluster by loading properties files
+            # download the file to the working directory
+            cluster_conf_path = self.ctxt.platform.storage.download_resource(cluster_arg,
+                                                                             self.ctxt.get_local_work_dir())
+            cluster_obj = self.ctxt.platform.load_cluster_by_prop_file(cluster_conf_path)
+        return cluster_obj
+
+    def _gen_output_tree(self) -> List[str]:
+        tree_conf = self.ctxt.get_value('local', 'output', 'treeDirectory')
+        if tree_conf and tree_conf.get('enabled'):
+            level = tree_conf.get('depthLevel')
+            indentation = tree_conf.get('indentation', '\t')
+            ex_patterns = tree_conf.get('excludedPatterns', {})
+            exc_dirs = ex_patterns.get('directories')
+            exc_files = ex_patterns.get('files')
+            out_folder_path = self.ctxt.get_local('outputFolder')
+            out_tree_list = FSUtil.gen_dir_tree(out_folder_path,
+                                                depth_limit=level,
+                                                indent=indentation,
+                                                exec_dirs=exc_dirs,
+                                                exec_files=exc_files)
+            doc_url = self.ctxt.get_value('sparkRapids', 'outputDocURL')
+            out_tree_list.append(f'{indentation}- To learn more about the output details, visit {doc_url}')
+            return out_tree_list
+        return None
+
+    def _report_tool_full_location(self) -> str:
+        if not self._rapids_jar_tool_has_output():
+            return None
+        out_folder_path = self.ctxt.get_rapids_output_folder()
+        res_arr = [Utils.gen_report_sec_header('Output'),
+                   f'{self.pretty_name()} tool output: {out_folder_path}']
+        out_tree_list = self._gen_output_tree()
+        return Utils.gen_multiline_str(res_arr, out_tree_list)
+
+    def _evaluate_rapids_jar_tool_output_exist(self) -> bool:
+        """
+        Used as a subtask of self._process_output(). this method has the responsibility of
+        checking if the tools produced no output and take the necessary action
+        :return: True if the tool has generated an output
+        """
+        rapids_output_dir = self.ctxt.get_rapids_output_folder()
+        res = True
+        if not self.ctxt.platform.storage.resource_exists(rapids_output_dir):
+            res = False
+            self.ctxt.set_ctxt('wrapperOutputContent',
+                               self._report_results_are_empty())
+            self.logger.info('The Rapids jar tool did not generate an output directory')
+        self.ctxt.set_ctxt('rapidsOutputIsGenerated', res)
+        return res
+
+    def _rapids_jar_tool_has_output(self) -> bool:
+        return self.ctxt.get_ctxt('rapidsOutputIsGenerated')
+
+    @timeit('Processing job submission arguments')  # pylint: disable=too-many-function-args
+    def _process_job_submission_args(self):
+        self._process_local_job_submission_args()
+
+    def _set_remote_folder_for_submission(self, requires_remote: bool) -> dict:
+        res = {}
+        submission_args = self.wrapper_options.get('jobSubmissionProps')
+        # get the root remote folder and make sure it exists
+        remote_folder = submission_args.get('remoteFolder')
+        # If remote_folder is not specified, then ignore it
+        if remote_folder is None:
+            # the output is only for local machine
+            self.logger.info('No remote output folder specified.')
+            if requires_remote:
+                raise RuntimeError(f'Remote folder [{remote_folder}] is invalid.')
+        else:
+            if not self.ctxt.platform.storage.resource_exists(remote_folder):
+                raise RuntimeError(f'Remote folder invalid path. [{remote_folder}] does not exist.')
+            # now we should make the subdirectory to indicate the output folder,
+            # by appending the name of the execution folder
+            exec_full_name = self.ctxt.get_ctxt('execFullName')
+            remote_workdir = FSUtil.build_url_from_parts(remote_folder, exec_full_name)
+            self.ctxt.set_remote('rootFolder', remote_folder)
+            self.ctxt.set_remote('workDir', remote_workdir)
+            self.logger.info('Remote workdir is set as %s', remote_workdir)
+            remote_dep_folder = FSUtil.build_url_from_parts(remote_workdir,
+                                                            self.ctxt.get_ctxt('depFolderName'))
+            self.ctxt.set_remote('depFolder', remote_dep_folder)
+            self.logger.info('Remote dependency folder is set as %s', remote_dep_folder)
+        if requires_remote:
+            res.update({'outputDirectory': self.ctxt.get_remote('workDir')})
+        else:
+            # the output folder has to be set any way
+            res.update({'outputDirectory': self.ctxt.get_output_folder()})
+        return res
+
+    def _process_local_job_submission_args(self):
+        job_args = {}
+        submission_args = self.wrapper_options.get('jobSubmissionProps')
+        job_args.update(self._set_remote_folder_for_submission(False))
+        platform_args = submission_args.get('platformArgs')
+        if platform_args is not None:
+            processed_platform_args = self.ctxt.platform.cli.build_local_job_arguments(platform_args)
+            ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
+            dependencies = ctxt_rapids_args.get('javaDependencies')
+            processed_platform_args.update({'dependencies': dependencies})
+            job_args['platformArgs'] = processed_platform_args
+        self.ctxt.update_job_args(job_args)
+
+    def _init_rapids_arg_list(self) -> List[str]:
+        return []
+
+    @timeit('Building Job Arguments and Executing Job CMD')  # pylint: disable=too-many-function-args
+    def _prepare_local_job_arguments(self):
+        job_args = self.ctxt.get_ctxt('jobArgs')
+        # now we can create the job object
+        # Todo: For dataproc, this can be autogenerated from cluster name
+        rapids_arg_list = self._init_rapids_arg_list()
+        ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
+        jar_file_path = ctxt_rapids_args.get('jarFilePath')
+        rapids_opts = ctxt_rapids_args.get('rapidsOpts')
+        if rapids_opts:
+            rapids_arg_list.extend(rapids_opts)
+        # add the eventlogs at the end of all the tool options
+        rapids_arg_list.extend(self.ctxt.get_ctxt('eventLogs'))
+        class_name = self.ctxt.get_value('sparkRapids', 'mainClass')
+        rapids_arg_obj = {
+            'jarFile': jar_file_path,
+            'jarArgs': rapids_arg_list,
+            'className': class_name
+        }
+        platform_args = job_args.get('platformArgs')
+        spark_conf_args = {}
+        job_properties_json = {
+            'outputDirectory': job_args.get('outputDirectory'),
+            'rapidsArgs': rapids_arg_obj,
+            'sparkConfArgs': spark_conf_args,
+            'platformArgs': platform_args
+        }
+        job_properties = RapidsJobPropContainer(prop_arg=job_properties_json,
+                                                file_load=False)
+        job_obj = self.ctxt.platform.create_local_submission_job(job_prop=job_properties,
+                                                                 ctxt=self.ctxt)
+        job_obj.run_job()
+
+    def _archive_results(self):
+        self._archive_local_results()
+
+    def _archive_local_results(self):
+        remote_work_dir = self.ctxt.get_remote('workDir')
+        if remote_work_dir and self._rapids_jar_tool_has_output():
+            local_folder = self.ctxt.get_output_folder()
+            # TODO make sure it worth issuing the command
+            self.ctxt.platform.storage.upload_resource(local_folder, remote_work_dir)

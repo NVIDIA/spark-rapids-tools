@@ -11,13 +11,8 @@ sparkRapids:
   repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
   mainClass: 'com.nvidia.spark.rapids.tool.profiling.ProfileMain'
   outputDocURL: 'https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html#understanding-profiling-tool-detailed-output-and-examples'
-  gpu:
-    device: 't4'
-    workersPerNode: 2
-    cudaVersion: '11.5'
-    initializationScripts: 'gs://goog-dataproc-initialization-actions-{}/spark-rapids/spark-rapids.sh'
   cli:
-    tool_options:
+    toolOptions:
       - csv
       - any
       - a
@@ -42,13 +37,24 @@ sparkRapids:
 local:
   output:
     cleanUp: true
-    fileName: rapids_4_dataproc_profiling_output.log
+    fileName: profiling_summary.log
     summaryColumns:
       - 'App ID'
       - 'App Name'
       - 'Recommendations'
       - 'Comments'
+    treeDirectory:
+      enabled: true
+      depthLevel: 3
+      indentation: '    '
+      excludedPatterns:
+        directories:
+          - '.+(_\$folder\$)$'
+        files:
+          - '^(\.+).*'
+          - '^(\$+).*'
+          - '^.+(_\$folder\$)$'
 platform:
-  workDir: rapids_user_tools_profiling
+  shortName: 'prof'
   outputDir: profiling_tool_output
   cleanUp: true

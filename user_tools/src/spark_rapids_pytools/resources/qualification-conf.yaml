@@ -41,7 +41,7 @@ sparkRapids:
     defaults:
       filters:
         defaultFilter: 'SAVINGS'
-    tool_options:
+    toolOptions:
       - all
       - any
       - a
@@ -90,11 +90,21 @@ local:
       - 'Estimated GPU Duration'
       - 'App Duration'
       - 'Estimated GPU Savings(%)'
-  costCalculation:
-    catalog:
-      loadFromURLEnabled: True
-      onlineURL: 'https://cloudpricingcalculator.appspot.com/static/data/pricelist.json'
-      snapshotFile: 'gcloud-catalog.json'
+    treeDirectory:
+      enabled: true
+      depthLevel: 4
+      indentation: '    '
+      excludedPatterns:
+        directories:
+          - '^(css)$'
+          - '^(js)$'
+          - '^(assets)$'
+          - '.+\$$'
+          - '^.+(_\$folder\$)$'
+        files:
+          - '^(\.+).*'
+          - '^(\$+).*'
+          - '^.+(_\$folder\$)$'
 platform:
   shortName: 'qual'
   outputDir: qual-tool-output
