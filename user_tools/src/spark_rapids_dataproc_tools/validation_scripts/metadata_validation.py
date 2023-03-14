@@ -33,7 +33,7 @@ def validation(spark, args):
     print(result.show())
 
     # A result table with the same PK but different values for that column(s)
-    result = metrics_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.i, args.f, args.p)
+    result = metrics_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.i, args.e, args.f, args.p)
     print(result)
 
 
@@ -92,7 +92,7 @@ def generate_metric_df(spark, table_DF, i):
             result.union(tmp_DF)
     return result
 
-def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, f, p):
+def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     print("---")
     # todo: set precision
     # spark, format, t1, t1p, pk, e, i, f, view_name
