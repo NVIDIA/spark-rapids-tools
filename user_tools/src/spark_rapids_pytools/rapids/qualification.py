@@ -20,7 +20,7 @@ from typing import Any, List
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType
+from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType, ClusterReShape
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -353,9 +353,9 @@ class Qualification(RapidsJarTool):
             return pd.Series([savings_recommendations, est_cpu_cost, est_gpu_cost, est_savings])
 
         # initialize the savings estimator
-        savings_estimator = self.ctxt.platform.create_saving_estimator(
-            self.ctxt.get_ctxt('cpuClusterProxy'),
-            self.ctxt.get_ctxt('gpuClusterProxy'))
+        reshaped_gpu_cluster = ClusterReShape(self.ctxt.get_ctxt('gpuClusterProxy'))
+        savings_estimator = self.ctxt.platform.create_saving_estimator(self.ctxt.get_ctxt('cpuClusterProxy'),
+                                                                       reshaped_gpu_cluster)
         extra_comments = savings_estimator.comments
         conversion_comments = self.__generate_mc_types_conversion_report()
         extra_comments.extend(conversion_comments)

@@ -21,9 +21,11 @@ from typing import Any
 
 from spark_rapids_pytools.cloud_api.emr_job import EmrServerlessRapidsJob, EmrLocalRapidsJob
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, CloudPlatform, \
-    ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice
-from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, AbstractPropertiesContainer
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, \
+    CloudPlatform, ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice, \
+    ClusterGetAccessor
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, \
+    AbstractPropertiesContainer
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.emr_pricing import EMREc2PriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -100,7 +102,9 @@ class EMRPlatform(PlatformBase):
                                         'application-id to reduce the overhead of initializing the job.')
         return submission_args
 
-    def create_saving_estimator(self, source_cluster, target_cluster):
+    def create_saving_estimator(self,
+                                source_cluster: ClusterGetAccessor,
+                                reshaped_cluster: ClusterGetAccessor):
         raw_pricing_config = self.configs.get_value_silent('pricing')
         if raw_pricing_config:
             pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
@@ -109,7 +113,7 @@ class EMRPlatform(PlatformBase):
         emr_price_provider = EMREc2PriceProvider(region=self.cli.get_region(),
                                                  pricing_configs={'emr': pricing_config})
         saving_estimator = EmrSavingsEstimator(price_provider=emr_price_provider,
-                                               target_cluster=target_cluster,
+                                               reshaped_cluster=reshaped_cluster,
                                                source_cluster=source_cluster)
         return saving_estimator
 
@@ -436,17 +440,32 @@ class EmrSavingsEstimator(SavingsEstimator):
     A class that calculates the savings based on an EMR price provider
     """
 
-    def _get_cost_per_cluster(self, cluster: EMRCluster):
+    def _calculate_ec2_cost(self,
+                            cluster_inst: ClusterGetAccessor,
+                            node_type: SparkNodeType) -> float:
+        nodes_cnt = cluster_inst.get_nodes_cnt(node_type)
+        node_mc_type = cluster_inst.get_node_instance_type(node_type)
+        ec2_unit_cost = self.price_provider.catalogs['aws'].get_value('ec2', node_mc_type)
+        ec2_cost = ec2_unit_cost * nodes_cnt
+        return ec2_cost
+
+    def _calculate_emr_cost(self,
+                            cluster_inst: ClusterGetAccessor,
+                            node_type: SparkNodeType) -> float:
+        nodes_cnt = cluster_inst.get_nodes_cnt(node_type)
+        node_mc_type = cluster_inst.get_node_instance_type(node_type)
+        emr_unit_cost = self.price_provider.catalogs['aws'].get_value('emr', node_mc_type)
+        emr_cost = emr_unit_cost * nodes_cnt
+        return emr_cost
+
+    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
         total_cost = 0.0
-        for curr_group in cluster.instance_groups:
-            ec2_unit_cost = self.price_provider.catalogs['aws'].get_value('ec2', curr_group.instance_type)
-            ec2_cost = ec2_unit_cost * curr_group.count
-            emr_unit_cost = self.price_provider.catalogs['aws'].get_value('emr', curr_group.instance_type)
-            emr_cost = emr_unit_cost * curr_group.count
-            total_cost += emr_cost + ec2_cost
+        for node_type in [SparkNodeType.MASTER, SparkNodeType.WORKER]:
+            total_cost += self._calculate_ec2_cost(cluster, node_type)
+            total_cost += self._calculate_emr_cost(cluster, node_type)
         return total_cost
 
     def _setup_costs(self):
         # calculate target_cost
-        self.target_cost = self._get_cost_per_cluster(self.target_cluster)
+        self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
         self.source_cost = self._get_cost_per_cluster(self.source_cluster)

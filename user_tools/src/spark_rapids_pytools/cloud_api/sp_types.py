@@ -20,7 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from typing import cast, Type, Any, List, Union, Optional
+from typing import cast, Type, Any, List, Union, Optional, Callable
 
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
     get_elem_non_safe
@@ -157,12 +157,12 @@ class NodeHWInfo:
 @dataclass
 class ClusterNode:
     """
-    Represents a single cluster node.
+    Represents a single cluster node
     :param node_type: type from Spark perspective (Worker vs Master)
     :param name: name of the node used to remote access in SSH
     :param instance_type: the instance type running on the node
     :param mc_props: holds the properties of the instance type running on the node.
-                    This is used for further processing.
+                    This is used for further processing
     :param hw_info: contains hardware settings of the node: System and GPU.
     """
     node_type: SparkNodeType
@@ -243,6 +243,55 @@ class ClusterNode:
 
 
 @dataclass
+class ClusterGetAccessor:
+    """
+    Represents the interface used to access the cluster information that is
+    used by other entities such as the SavingEstimator
+    """
+    def get_node(self, node_type: SparkNodeType) -> ClusterNode:
+        raise NotImplementedError
+
+    def get_nodes_cnt(self, node_type: SparkNodeType) -> int:
+        raise NotImplementedError
+
+    def get_node_core_count(self, node_type: SparkNodeType) -> int:
+        node = self.get_node(node_type)
+        return node.hw_info.sys_info.num_cpus
+
+    def get_node_mem_mb(self, node_type: SparkNodeType) -> int:
+        node = self.get_node(node_type)
+        return node.hw_info.sys_info.cpu_mem
+
+    def get_gpu_per_node(self, node_type: SparkNodeType) -> (int, str):
+        node = self.get_node(node_type)
+        gpu_info = node.hw_info.gpu_info
+        if gpu_info:
+            num_gpus, gpu_device = gpu_info.num_gpus, gpu_info.gpu_device
+        else:
+            num_gpus, gpu_device = 0, GpuDevice.get_default_gpu()
+        return num_gpus, GpuDevice.tostring(gpu_device)
+
+    def get_node_instance_type(self, node_type: SparkNodeType) -> str:
+        node = self.get_node(node_type)
+        return node.instance_type
+
+    def get_workers_instant_types(self) -> str:
+        return self.get_node_instance_type(SparkNodeType.WORKER)
+
+    def get_workers_count(self) -> int:
+        return self.get_nodes_cnt(SparkNodeType.WORKER)
+
+    def get_workers_cores_count(self) -> int:
+        return self.get_node_core_count(SparkNodeType.WORKER)
+
+    def get_workers_mem_mb(self) -> int:
+        return self.get_node_mem_mb(SparkNodeType.WORKER)
+
+    def get_gpu_per_worker(self) -> (int, str):
+        return self.get_gpu_per_node(SparkNodeType.WORKER)
+
+
+@dataclass
 class CMDDriverBase:
     """
     Represents the command interface that will be used by the platform
@@ -250,7 +299,7 @@ class CMDDriverBase:
     1- the command used by the platform. for example gcloud, gsutil, or AWS
     2- the ssh command to nodes (it could include authentications)
     3- normal commands
-    :param cloud_ctxt: dictionary containing all the necessary configurations related to the CSP.
+    :param cloud_ctxt: dictionary containing all the necessary configurations related to the CSP
     :param timeout: How long to wait (in seconds) for the command to finish (optional).
     :param: env_vars: dictionary containing all the variables required by the driver.
     """
@@ -429,7 +478,7 @@ class CMDDriverBase:
     def exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
         """
         Given a node, execute platform CLI to pull the properties of the instance type running on
-        that node.
+        that node
         :param node: node object
         :return: string containing the properties of the machine. The string could be in json or yaml format.
         """
@@ -452,8 +501,8 @@ class CMDDriverBase:
                                            **cmd_args) -> str:
         """
         Some platforms like Dataproc represent GPUs as accelerators.
-        To get the information of each accelerator, we need to run describe cmd.
-        :param accelerator_type: the name of the GPU accelerator which can be platform specific.
+        To get the information of each accelerator, we need to run describe cmd
+        :param accelerator_type: the name of the GPU accelerator which can be platform specific
         :param cmd_args: the arguments to be sent to the sdk
         :return: a string in json format representing the information about the accelerator
         """
@@ -464,7 +513,7 @@ class CMDDriverBase:
     def build_local_job_arguments(self, submit_args: dict) -> dict:
         """
         an implementation specific to the platform that build a dictionary to store argument and
-        sys env-vars needed for the submission of a local mode on that platform.
+        sys env-vars needed for the submission of a local mode on that platform
         :param submit_args: the arguments specified by the user that reflects on the platform.
         :return: a dictionary in the format of {"jvmArgs": {}, "envArgs": {}}
         """
@@ -722,7 +771,9 @@ class PlatformBase:
         """
         raise NotImplementedError
 
-    def create_saving_estimator(self, source_cluster, target_cluster):
+    def create_saving_estimator(self,
+                                source_cluster: ClusterGetAccessor,
+                                reshaped_cluster: ClusterGetAccessor):
         raise NotImplementedError
 
     def create_submission_job(self, job_prop, ctxt) -> Any:
@@ -752,7 +803,7 @@ class PlatformBase:
 
 
 @dataclass
-class ClusterBase:
+class ClusterBase(ClusterGetAccessor):
     """
     Represents an instance of a cluster on the platform.
     Cluster can be running/offline
@@ -787,7 +838,7 @@ class ClusterBase:
 
     def set_fields_from_dict(self, field_values: dict = None):
         """
-        Given a dictionary, this function is to set the fields of the cluster.
+        Given a dictionary, this function is to set the fields of the cluster
         :param field_values: the dictionary containing the key/value pair to initialize the cluster.
         :return:
         """
@@ -813,8 +864,8 @@ class ClusterBase:
                        cluster_id: str = None,
                        props: str = None):
         """
-        Setting a connection to an existing Connection to a cluster, then we need to pull properties.
-        :param cluster_id: the argument to be used to fetch the cluster.
+        Setting a connection to an existing Connection to a cluster, then we need to pull properties
+        :param cluster_id: the argument to be used to fetch the cluster
         :param props: optional argument that includes dictionary of the platform cluster's description.
         :return: a cluster
         """
@@ -837,7 +888,7 @@ class ClusterBase:
         """
         Execute command on the driver node
         :param ssh_cmd: the command to be executed on the remote node. Note that the quotes
-                        surrounding the shell command should be included.
+                        surrounding the shell command should be included
         :param cmd_input: optional argument string used as an input to the command line.
                         i.e., writing to a file.
         :return:
@@ -850,9 +901,9 @@ class ClusterBase:
         """
         Execute command on the worker node
         :param ssh_cmd: the command to be executed on the remote node. Note that the quotes
-                        surrounding the shell command should be included.
+                        surrounding the shell command should be included
         :param cmd_input: optional argument string used as an input to the command line.
-                          i.e., writing to a file.
+                          i.e., writing to a file
         :param ind: the node index. By default, the command is executed on first worker node.
         """
         # get the worker node
@@ -862,15 +913,6 @@ class ClusterBase:
     def get_worker_hw_info(self) -> NodeHWInfo:
         worker_node = self.get_worker_node()
         return worker_node.hw_info
-
-    def get_master_node(self) -> ClusterNode:
-        return self.nodes.get(SparkNodeType.MASTER)
-
-    def get_workers_count(self) -> int:
-        return len(self.nodes.get(SparkNodeType.WORKER))
-
-    def get_worker_node(self, ind: int = 0) -> ClusterNode:
-        return self.nodes.get(SparkNodeType.WORKER)[ind]
 
     def _build_migrated_cluster(self, orig_cluster):
         """
@@ -910,6 +952,86 @@ class ClusterBase:
     def get_all_spark_properties(self) -> dict:
         """Returns a dictionary containing the spark configurations defined in the cluster properties"""
         raise NotImplementedError
+
+    def get_nodes_cnt(self, node_type: SparkNodeType) -> int:
+        node_values = self.nodes.get(node_type)
+        if isinstance(node_values, list):
+            res = len(node_values)
+        else:
+            res = 1
+        return res
+
+    def get_node(self, node_type: SparkNodeType) -> ClusterNode:
+        node_values = self.nodes.get(node_type)
+        if isinstance(node_values, list):
+            res = node_values[0]
+        else:
+            res = node_values
+        return res
+
+    def get_master_node(self) -> ClusterNode:
+        return self.nodes.get(SparkNodeType.MASTER)
+
+    def get_worker_node(self, ind: int = 0) -> ClusterNode:
+        return self.nodes.get(SparkNodeType.WORKER)[ind]
+
+
+@dataclass
+class ClusterReShape(ClusterGetAccessor):
+    """
+    A class that handles reshaping of the given cluster.
+    It takes argument a cluster object and callable methods that defines
+    the way each cluster property is being reshaped.
+    By default, the methods will have no effect on the properties.
+    The caller can override the behavior by passing a callback method.
+    The caller also can control which node type is affected by the reshap-methods.
+    This can be done by setting the "node_types". By default, the reshaping
+    is limited to the worker nodes of a cluster.
+    """
+
+    cluster_inst: ClusterBase
+    node_types: List[SparkNodeType] = field(default_factory=lambda: [SparkNodeType.WORKER])
+    reshape_workers_mc_type: Callable[[str], str] = field(default_factory=lambda: lambda x: x)
+    reshape_workers_cnt: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_workers_cpus: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_workers_mem: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_workers_gpu_cnt: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_workers_gpu_device: Callable[[str], str] = field(default_factory=lambda: lambda x: x)
+
+    def get_node(self, node_type: SparkNodeType) -> ClusterNode:
+        if node_type == SparkNodeType.WORKER:
+            return self.cluster_inst.get_worker_node()
+        return self.cluster_inst.get_master_node()
+
+    def get_node_instance_type(self, node_type: SparkNodeType) -> str:
+        res = super().get_node_instance_type(node_type)
+        if node_type in self.node_types:
+            return self.reshape_workers_mc_type(res)
+        return res
+
+    def get_nodes_cnt(self, node_type: SparkNodeType) -> int:
+        res = self.cluster_inst.get_nodes_cnt(node_type)
+        if node_type in self.node_types:
+            return self.reshape_workers_cnt(res)
+        return res
+
+    def get_node_core_count(self, node_type: SparkNodeType) -> int:
+        res = super().get_node_core_count(node_type)
+        if node_type in self.node_types:
+            return self.reshape_workers_cpus(res)
+        return res
+
+    def get_node_mem_mb(self, node_type: SparkNodeType) -> int:
+        res = super().get_node_mem_mb(node_type)
+        if node_type in self.node_types:
+            return self.reshape_workers_mem(res)
+        return res
+
+    def get_gpu_per_node(self, node_type: SparkNodeType) -> (int, str):
+        num_gpus, gpu_device = super().get_gpu_per_node(node_type)
+        if node_type in self.node_types:
+            return self.reshape_workers_gpu_cnt(num_gpus), self.reshape_workers_gpu_device(gpu_device)
+        return num_gpus, gpu_device
 
 
 def get_platform(platform_id: Enum) -> Type[PlatformBase]:
