@@ -59,7 +59,7 @@ class DataValidationDataproc(Validation):
     @on('master')  # pylint: disable=too-many-function-args
     def valid_metadata(self):
         """data validation spark via Dataproc job interface."""
-        print("-----------run valid data-------------------")
+        print("---------run metadata validation---------")
         if self.e is None:
             excluded_column = 'None'
         else:
@@ -107,7 +107,7 @@ class DataValidationDataproc(Validation):
     @Validation.banner
     def valid_data(self):
         """data validation spark via Dataproc job interface."""
-
+        print("---------run data validation---------")
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
             'file': super().get_validation_scripts('data_validation.py'),

@@ -23,17 +23,16 @@ from pyspark.sql.types import DoubleType
 def validation(spark, args):
 
     result = top_level_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.f)
-    print('--top_level_metadata-output---')
+    print('-------top level metadata info-------')
     print(result.show())
 
     # A result table with the same PK but different values for that column(s)
     result = metrics_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.i, args.e, args.f, args.p)
-    print('--metrics_metadata-output---')
+    print('-------metadata diff info-------')
     print(result.show())
 
     start_time = time.time()
     print('------------run validation success-----')
-    print(f'----------------Execution time: {time.time() - start_time}')
 
 def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
     if format in ['parquet', 'orc', 'csv']:

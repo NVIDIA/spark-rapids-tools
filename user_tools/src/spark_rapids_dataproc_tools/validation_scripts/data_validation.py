@@ -48,7 +48,6 @@ def validation(spark, args):
 
     start_time = time.time()
     print('------------run validation success-----')
-    print(f'----------------Execution time: {time.time() - start_time}')
 
 
 def row_counts(spark, format, table, t1p, t1f):
