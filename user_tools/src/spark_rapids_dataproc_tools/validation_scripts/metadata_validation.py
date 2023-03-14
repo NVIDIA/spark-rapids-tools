@@ -83,10 +83,11 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
         for table_name in table_names:
             sql = f'select * from {table_name}'
             sql += where_clause
-            df = spark.sql(sql)
-
             print('------top_level_metadata------')
             print(sql)
+            df = spark.sql(sql)
+
+
 
             row_count = df.count()
             col_count = len(df.columns)
