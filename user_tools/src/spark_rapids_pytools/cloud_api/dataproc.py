@@ -21,8 +21,9 @@ from typing import Any, List
 
 from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob
 from spark_rapids_pytools.cloud_api.gstorage import GStorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CMDDriverBase, CloudPlatform, ClusterBase, \
-    ClusterNode, SysInfo, GpuHWInfo, SparkNodeType, ClusterState, GpuDevice, NodeHWInfo
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CMDDriverBase, CloudPlatform, \
+    ClusterBase, ClusterNode, SysInfo, GpuHWInfo, SparkNodeType, ClusterState, GpuDevice, \
+    NodeHWInfo, ClusterGetAccessor
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import SysCmd, Utils
@@ -95,7 +96,9 @@ class DataprocPlatform(PlatformBase):
         gpu_cluster_ob.migrate_from_cluster(orig_cluster)
         return gpu_cluster_ob
 
-    def create_saving_estimator(self, source_cluster, target_cluster):
+    def create_saving_estimator(self,
+                                source_cluster: ClusterGetAccessor,
+                                reshaped_cluster: ClusterGetAccessor):
         raw_pricing_config = self.configs.get_value_silent('pricing')
         if raw_pricing_config:
             pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config,
@@ -105,7 +108,7 @@ class DataprocPlatform(PlatformBase):
         pricing_provider = DataprocPriceProvider(region=self.cli.get_region(),
                                                  pricing_configs={'gcloud': pricing_config})
         saving_estimator = DataprocSavingsEstimator(price_provider=pricing_provider,
-                                                    target_cluster=target_cluster,
+                                                    reshaped_cluster=reshaped_cluster,
                                                     source_cluster=source_cluster)
         return saving_estimator
 
@@ -424,30 +427,24 @@ class DataprocSavingsEstimator(SavingsEstimator):
     """
     A class that calculates the savings based on Dataproc price provider
     """
-    def __calculate_group_cost(self, cluster_inst: ClusterBase, node_type: SparkNodeType):
-        node_values = cluster_inst.nodes.get(node_type)
-        if isinstance(node_values, list):
-            nodes_count = len(node_values)
-            curr_node = node_values[0]
-        else:
-            nodes_count = 1
-            curr_node = node_values
-        cores_count = curr_node.hw_info.sys_info.num_cpus
-        mem_mb = curr_node.hw_info.sys_info.cpu_mem
+    def __calculate_group_cost(self, cluster_inst: ClusterGetAccessor, node_type: SparkNodeType):
+        nodes_cnt = cluster_inst.get_nodes_cnt(node_type)
+        cores_count = cluster_inst.get_node_core_count(node_type)
+        mem_mb = cluster_inst.get_node_mem_mb(node_type)
+        node_mc_type = cluster_inst.get_node_instance_type(node_type)
         # memory here is in mb, we need to convert it to gb
         mem_gb = float(mem_mb) / 1024
-        cores_cost = self.price_provider.get_cpu_price(curr_node.instance_type) * int(cores_count)
-        memory_cost = self.price_provider.get_ram_price(curr_node.instance_type) * mem_gb
+        cores_cost = self.price_provider.get_cpu_price(node_mc_type) * int(cores_count)
+        memory_cost = self.price_provider.get_ram_price(node_mc_type) * mem_gb
         # calculate the GPU cost
+        gpu_per_machine, gpu_type = cluster_inst.get_gpu_per_node(node_type)
         gpu_cost = 0.0
-        gpu_info = curr_node.hw_info.gpu_info
-        if gpu_info:
-            gpu_per_machine = gpu_info.num_gpus
-            gpu_unit_price = self.price_provider.get_gpu_price(GpuDevice.tostring(gpu_info.gpu_device))
+        if gpu_per_machine > 0:
+            gpu_unit_price = self.price_provider.get_gpu_price(gpu_type)
             gpu_cost = gpu_unit_price * gpu_per_machine
-        return nodes_count * (cores_cost + memory_cost + gpu_cost)
+        return nodes_cnt * (cores_cost + memory_cost + gpu_cost)
 
-    def _get_cost_per_cluster(self, cluster: ClusterBase):
+    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
         master_cost = self.__calculate_group_cost(cluster, SparkNodeType.MASTER)
         workers_cost = self.__calculate_group_cost(cluster, SparkNodeType.WORKER)
         dataproc_cost = self.price_provider.get_container_cost()
@@ -455,5 +452,5 @@ class DataprocSavingsEstimator(SavingsEstimator):
 
     def _setup_costs(self):
         # calculate target_cost
-        self.target_cost = self._get_cost_per_cluster(self.target_cluster)
+        self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
         self.source_cost = self._get_cost_per_cluster(self.source_cluster)
