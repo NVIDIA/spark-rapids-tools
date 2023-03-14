@@ -38,8 +38,9 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
     # need to figure out how to find these values from cluster properties
 
     def _generate_cache_files(self):
+        # TODO: need to update src_file_path, currently hardcoded
         src_file_path = f'/home/cindyj/Desktop/spark-rapids-tools/user_tools/src/spark_rapids_pytools/resources/{self.plan}-catalog.json'
-        FSUtil.copy_resource(src_file_path, self.cache_files[self.plan])
+        FSUtil.cache_resource(src_file_path, self.cache_files[self.plan])
         super()._generate_cache_files()
 
     def _process_resource_configs(self):
@@ -47,7 +48,8 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
         for online_entry in online_entries:
             file_name = online_entry.get('localFile')
             file_key = online_entry.get('resourceKey').split('-catalog')[0]
-            self.cache_files[file_key] = FSUtil.build_path(self.cache_directory, file_name)
+            if file_key == self.plan or 'databricks' not in file_key:
+                self.cache_files[file_key] = FSUtil.build_path(self.cache_directory, file_name)
             if 'databricks' not in file_key:
                 self.resource_urls[file_key] = online_entry.get('onlineURL')
 

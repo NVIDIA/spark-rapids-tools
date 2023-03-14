@@ -52,7 +52,14 @@ class DBAWSPlatform(EMRPlatform):
         pass
 
     def migrate_cluster_to_gpu(self, orig_cluster):
-        pass
+        """
+        given a cluster, convert it to run NVIDIA Gpu based on mapping instance types
+        :param orig_cluster: the original cluster to migrate from
+        :return: a new object cluster that supports GPU
+        """
+        gpu_cluster_ob = DatabricksCluster(self)
+        gpu_cluster_ob.migrate_from_cluster(orig_cluster)
+        return gpu_cluster_ob
 
     def create_saving_estimator(self, source_cluster, target_cluster):
         raw_pricing_config = self.configs.get_value_silent('pricing')
@@ -180,7 +187,43 @@ class DatabricksCluster(ClusterBase):
         return cluster_args
 
     def _build_migrated_cluster(self, orig_cluster):
-        pass
+        """
+        specific to the platform on how to build a cluster based on migration
+        :param orig_cluster: the cpu_cluster that does not support the GPU devices.
+        """
+        # get the map of the instance types
+        mc_type_map, _ = orig_cluster.find_matches_for_node()
+        new_worker_nodes: list = []
+        for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
+            # loop on all worker nodes.
+            # even if the node is the same type, we still need to set the hardware
+            if anode.instance_type not in mc_type_map:
+                # the node stays the same
+                # skip converting the node
+                new_instance_type = anode.instance_type
+                self.logger.info('Node with %s supports GPU devices.',
+                                 anode.instance_type)
+            else:
+                new_instance_type = mc_type_map.get(anode.instance_type)
+                self.logger.info('Converting node %s into GPU supported instance-type %s',
+                                 anode.instance_type,
+                                 new_instance_type)
+            worker_props = {
+                'instance_type': new_instance_type,
+                'name': anode.name,
+                'Id': anode.Id,
+                'region': anode.region,
+                'props': anode.props,
+            }
+            new_node = DatabricksNode.create_worker_node().set_fields_from_dict(worker_props)
+            new_worker_nodes.append(new_node)
+        self.nodes = {
+            SparkNodeType.WORKER: new_worker_nodes,
+            SparkNodeType.MASTER: orig_cluster.nodes.get(SparkNodeType.MASTER)
+        }
+        if bool(mc_type_map):
+            # update the platform notes
+            self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
 
 
 @dataclass
