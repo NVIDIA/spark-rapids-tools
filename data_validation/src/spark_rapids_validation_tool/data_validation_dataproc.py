@@ -125,7 +125,7 @@ class DataValidationDataproc(Validation):
             ]
         }
         output = self.cluster.submit_job(compare_job)
-        print(output)
+        # print(output)
         # self.check_spark_output(output, 'CPU')
 
 def main():
