@@ -73,11 +73,7 @@ def valid_metadata_included_column(spark, args):
         return True
     table_DF = load_table(spark, args.format, args.t1, args.t1p, args.pk, args.e, args.i, args.f, "")
     excluded_columns_list = [e.strip() for e in args.e.split(",")]
-    print('----------')
-    print(excluded_columns_list)
     verify_column = [i.strip() for i in args.i.split(",") if i not in excluded_columns_list]
-    print('----------')
-    print(verify_column)
     verify_DF = table_DF.select(verify_column)
 
     for c in verify_DF.schema.fields:
