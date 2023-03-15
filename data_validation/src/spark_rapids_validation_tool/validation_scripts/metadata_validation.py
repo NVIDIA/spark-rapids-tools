@@ -22,8 +22,12 @@ from pyspark.sql.types import DoubleType
 
 def validation(spark, args):
 
+    if validate_input(spark,args):
+        print('|--Please Check The Inputs --|')
+        return
+
     result = top_level_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.f)
-    print('|--top level metadata info--|')
+    print('|--Top Level Metadata Info--|')
     print(result.show())
 
     result = metrics_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.i, args.e, args.f, args.p)
@@ -31,10 +35,13 @@ def validation(spark, args):
         print(f'|--Table {args.t1} and Table {args.t2} has identical metadata info--|')
         print(result.show())
     else:
-        print('|--metadata diff info--|')
+        print('|--Metadata Diff Info--|')
         print(result.show())
 
     print('|--Run Metadata Validation Success--|')
+
+def validate_input(spark, args):
+    return False
 
 def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
     if format in ['parquet', 'orc', 'csv']:

@@ -22,7 +22,7 @@ class DataprocWrapper(object):
     def validation(self,
                    cluster: str,
                    region: str,
-                   check: str = 'all',
+                   check: str = 'valid_metadata',
                    format: str = None,
                    t1: str = None,
                    t1p: str = None,
