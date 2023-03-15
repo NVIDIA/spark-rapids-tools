@@ -61,7 +61,7 @@ def generate_metric_df(spark, table_DF, i, t1):
     result = None
     agg_functions = [min, max, avg, stddev, countDistinct]
     # if not specified any included_columns, then get all numeric cols
-    metrics_cols = i
+    metrics_cols = [i.strip() for i in i.split(",")]
     print('------yua-debug---')
     print(metrics_cols)
     if i in ['None', 'all']:
