@@ -59,11 +59,12 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
         resultsDF = spark.createDataFrame(results, ["TableName", "RowCount", "ColumnCount"])
         return resultsDF
 
-def generate_metric_df(spark, table_DF, i, t1):
+def generate_metric_df(spark, table_DF, i, e, t1):
     result = None
     agg_functions = [min, max, avg, stddev, countDistinct]
     # if not specified any included_columns, then get all numeric cols
-    metrics_cols = [i.strip() for i in i.split(",")]
+    excluded_columns_list = [e.strip() for e in e.split(",")]
+    metrics_cols = [i.strip() for i in i.split(",") if i not in excluded_columns_list]
     if i in ['None', 'all']:
         metrics_cols = [c.name for c in table_DF.schema.fields if
                         any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*', '*float*', '*double*'])]
@@ -84,8 +85,8 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     table1_DF = load_table(spark, format, t1, t1p, pk, e, i, f, "")
     table2_DF = load_table(spark, format, t2, t2p, pk, e, i, f, "")
 
-    table_metric_df1 = generate_metric_df(spark, table1_DF, i, t1)
-    table_metric_df2 = generate_metric_df(spark, table2_DF, i, t2)
+    table_metric_df1 = generate_metric_df(spark, table1_DF, i, e, t1)
+    table_metric_df2 = generate_metric_df(spark, table2_DF, i, e, t2)
     joined_table = table_metric_df1.alias("t1").join(table_metric_df2.alias("t2"), ["ColumnName"])
 
     cond = (round("t1.min" + t1, p) != round("t2.min" + t2, p)) | \
