@@ -22,7 +22,7 @@ from pyspark.sql.types import DoubleType
 
 def validation(spark, args):
 
-    if validate_input(spark,args):
+    if not valid_input(spark,args):
         print('|--Please Check The Inputs --|')
         return
 
@@ -40,7 +40,7 @@ def validation(spark, args):
 
     print('|--Run Metadata Validation Success--|')
 
-def validate_input(spark, args):
+def valid_input(spark, args):
     return False
 
 def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
