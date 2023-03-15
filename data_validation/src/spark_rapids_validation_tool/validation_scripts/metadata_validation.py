@@ -57,12 +57,10 @@ def valid_table(spark, args):
     """
     Check if the tables exist
     """
-    show_table_df = spark.sql(f'describe table {args.t1}')
-    if show_table_df.count()==0:
+    if not spark._jsparkSession.catalog().tableExists(args.t1):
         print(f'Table {args.t1} does not exist!')
         return False
-    show_table_df = spark.sql(f'describe table {args.t2}')
-    if show_table_df.count()==0:
+    if not spark._jsparkSession.catalog().tableExists(args.t2):
         print(f'Table {args.t2} does not exist!')
         return False
     return True
