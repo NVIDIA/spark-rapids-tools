@@ -15,7 +15,7 @@
 
 import logging
 
-from spark_rapids_dataproc_tools.utilities import run_cmd
+from spark_rapids_validation_tool.utilities import run_cmd
 
 logger = logging.getLogger('csp.cspbase')
 
