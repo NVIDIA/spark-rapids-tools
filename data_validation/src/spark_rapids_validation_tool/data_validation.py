@@ -20,7 +20,7 @@ import fire
 import pkg_resources
 
 # Setup logging
-
+logger = logging.getLogger('validation')
 logger.setLevel(logging.INFO)
 
 
