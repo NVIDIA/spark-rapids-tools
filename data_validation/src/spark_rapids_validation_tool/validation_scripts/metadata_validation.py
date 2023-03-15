@@ -11,14 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import argparse
 from pyspark import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, min, max, avg, stddev, countDistinct, when, asc, round
-
-import time
 import fnmatch
-from pyspark.sql.types import DoubleType
 
 def validation(spark, args):
 
@@ -202,5 +200,3 @@ if __name__ == '__main__':
     spark = SparkSession(sc)
 
     validation(spark, args)
-
-

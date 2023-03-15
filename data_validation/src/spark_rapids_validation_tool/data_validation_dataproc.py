@@ -18,22 +18,24 @@ from spark_rapids_validation_tool.data_validation import Validation
 
 class DataValidationDataproc(Validation):
     """DataValidation tool for Dataproc."""
-    def __init__(self, cluster_name, region, check, format, t1, t1p, t2, t2p, pk, e: str, i: str, f: str, o, of, p, debug=False):
+    def __init__(self, cluster_name, region, check, format, table1, table1_partition, table2,
+                 table2_partition, pk, excluded_column: str, included_column: str, filter: str,
+                 output_dir, output_format, precision, debug=False):
         super().__init__(debug)
 
         self.cluster = new_csp('dataproc', args={'cluster': cluster_name, 'region': region})
         self.format = format
-        self.t1 = t1
-        self.t2 = t2
-        self.t1p = t1p
-        self.t2p = t2p
+        self.table1 = table1
+        self.table2 = table2
+        self.table1_partition = table1_partition
+        self.table2_partition = table2_partition
         self.pk = pk
-        self.e = e
-        self.i = i
-        self.f = f
-        self.o = o
-        self.of = of
-        self.p = p
+        self.excluded_column = excluded_column
+        self.included_column = included_column
+        self.filter = filter
+        self.output_dir = output_dir
+        self.output_format = output_format
+        self.precision = precision
 
     def on(node):  # pylint: disable=invalid-name,no-self-argument,too-many-function-args
         """On decorator."""
@@ -55,15 +57,15 @@ class DataValidationDataproc(Validation):
     def valid_metadata(self):
         """metadata validation spark via Dataproc job interface."""
         print("|--Start Running Metadata Validation.....--|")
-        if self.e is None:
+        if self.excluded_column is None:
             excluded_column = 'None'
         else:
-            excluded_column = self.convert_tuple_to_string(self.e)
+            excluded_column = self.convert_tuple_to_string(self.excluded_column)
 
-        if self.f is None:
+        if self.filter is None:
             filters = 'None'
         else:
-            filters = self.f.replace('\'', '\\\'')
+            filters = self.filter.replace('\'', '\\\'')
 
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
@@ -72,18 +74,18 @@ class DataValidationDataproc(Validation):
                 'spark.rapids.sql.enabled': 'false',
             },
             'parameters': [
-                f'--t1={self.t1}',
-                f'--t2={self.t2}',
+                f'--t1={self.table1}',
+                f'--t2={self.table2}',
                 f'--format={self.format}',
-                f'--t1p={self.t1p}',
-                f'--t2p={self.t2p}',
-                f'--i={self.convert_tuple_to_string(self.i)}',
+                f'--t1p={self.table1_partition}',
+                f'--t2p={self.table2_partition}',
+                f'--i={self.convert_tuple_to_string(self.included_column)}',
                 f'--pk={self.pk}',
                 f'--e={excluded_column}',
                 f'--f={filters}',
-                f'--o={self.o}',
-                f'--of={self.of}',
-                f'--p={self.p}'
+                f'--o={self.output_dir}',
+                f'--of={self.output_format}',
+                f'--p={self.precision}'
             ]
         }
         output = self.cluster.submit_job(compare_job)
@@ -110,23 +112,21 @@ class DataValidationDataproc(Validation):
                 'spark.rapids.sql.enabled': 'false',
             },
             'parameters':[
-                f'--t1={self.t1}',
-                f'--t2={self.t2}',
+                f'--t1={self.table1}',
+                f'--t2={self.table2}',
                 f'--format={self.format}',
-                f'--t1p={self.t1p}',
-                f'--t2p={self.t2p}',
-                f'--i={self.convert_tuple_to_string(self.i)}',
+                f'--t1p={self.table2_partition}',
+                f'--t2p={self.table2_partition}',
+                f'--i={self.convert_tuple_to_string(self.included_column)}',
                 f'--pk={self.pk}',
-                f'--e={self.convert_tuple_to_string(self.e)}',
-                f'--f={self.f}',
-                f'--o={self.o}',
-                f'--of={self.of}',
-                f'--p={self.p}'
+                f'--e={self.convert_tuple_to_string(self.excluded_column)}',
+                f'--f={self.filter}',
+                f'--o={self.output_dir}',
+                f'--of={self.output_format}',
+                f'--p={self.precision}'
             ]
         }
-        output = self.cluster.submit_job(compare_job)
-        # print(output)
-        # self.check_spark_output(output, 'CPU')
+        self.cluster.submit_job(compare_job)
 
 def main():
     """Main function."""
