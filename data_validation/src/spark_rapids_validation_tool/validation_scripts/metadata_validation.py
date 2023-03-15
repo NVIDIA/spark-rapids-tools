@@ -20,9 +20,9 @@ import fnmatch
 
 def validation(spark, args):
 
-    # if not valid_input(spark,args):
-    #     print('|--Please Check The Inputs --|')
-    #     return
+    if not valid_input(spark,args):
+        print('|--Please Check The Inputs --|')
+        return
 
     result = top_level_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.f)
     print('|--Top Level Metadata Info--|')
@@ -43,25 +43,45 @@ def valid_input(spark, args):
     Check the input is valida for matadata validation tool
     1- valid table
     2- valid included column
+    3- check format supported
     """
     if not valid_table(spark, args):
         return False
     if not valid_metadata_included_column(spark, args):
         return False
+    if args.format != 'hive':
+        print('Currently only support hive format')
     return True
 
 def valid_table(spark, args):
     """
     Check if the tables exist
     """
-    return False
+    show_table_df = spark.sql(f'describe table {args.t1}')
+    if show_table_df.count()==0:
+        print(f'Table {args.t1} does not exist!')
+        return False
+    show_table_df = spark.sql(f'describe table {args.t2}')
+    if show_table_df.count()==0:
+        print(f'Table {args.t2} does not exist!')
+        return False
+    return True
 
 def valid_metadata_included_column(spark, args):
     """
     Check if the included column valid
     """
-    return False
+    table_DF = load_table(spark, args.format, args.t1, args.t1p, args.pk, args.e, args.i, args.f, "")
+    excluded_columns_list = [e.strip() for e in args.e.split(",")]
+    verify_column = [i.strip() for i in args.i.split(",") if i not in excluded_columns_list]
+    verify_DF = table_DF.select(verify_column)
 
+    for c in verify_DF.schema.fields:
+        if(any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in
+                            ['*date*'])):
+            print(f'Unsupported metadata included data type: {c.dataType.simpleString()} for column: {c}')
+            return False
+    return True
 
 def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
     """
