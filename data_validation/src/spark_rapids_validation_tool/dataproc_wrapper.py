@@ -43,9 +43,9 @@ class DataprocWrapper(object):
 
         :param cluster: Name of the Dataproc cluster.
         :param region: Region of Dataproc cluster (e.g. us-central1)
-        :param check: Metadata validation or Data validation (e.g. --check metadata or –check data. default is to run both metadata and data validation.)
+        :param check: Metadata validation or Data validation (e.g.  valid_metadata or valid_data. )
 
-        :param format: The format of tables, if the format is parquet/orc/csv, the t1 and t2 should be an absolute path. Options are [hive, orc, parquet, csv](e.g. --format hive or --format parquet)
+        :param format: The format of tables, currently only support hive format. If the format is parquet/orc/csv, the t1 and t2 should be an absolute path. Options are [hive, orc, parquet, csv](e.g. --format hive or --format parquet)
         :param t1: The first table name, if the format is parquet/orc/csv, this value should be an absolute path. (e.g. --t1 table1)
         :param t1p: The first table’s partition clause. (e.g. --t1p 'partition1=p1 and partition2=p2')
         :param t2: The second table name, if the format is parquet/orc/csv, this value should be an absolute path.. (e.g. --t2 table2)
@@ -53,7 +53,7 @@ class DataprocWrapper(object):
         :param pk: The Primary key columns(comma separated). (e.g. --pk pk1,pk2,pk3)
         :param e: Exclude column option. What columns do not need to be involved in the comparison, default is None. (e.g. --e col4,col5,col6)
         :param i: Include column option. What columns need to be involved in the comparison, default is ALL. (e.g. --i col1,col2,col3)
-        :param f: Condition to filter rows. (e.g. --f “col1>value1 and col2 <> value2”)
+        :param f: Condition to filter rows. (e.g. --f “col1=value1 and col2=value2”)
         :param o: Output directory, the tool will generate a data file to a path. (e.g. --o /data/output)
         :param of: Output format, default is parquet. (e.g. --of parquet)
         :param p: Precision, if it is set to 4 digits, then 0.11113 == 0.11114 will return true for numeric columns. (e.g. -p 4)
