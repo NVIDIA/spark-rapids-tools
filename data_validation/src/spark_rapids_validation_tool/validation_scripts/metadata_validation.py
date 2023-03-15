@@ -23,16 +23,18 @@ from pyspark.sql.types import DoubleType
 def validation(spark, args):
 
     result = top_level_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.f)
-    print('-------top level metadata info-------')
+    print('|--top level metadata info--|')
     print(result.show())
 
-    # A result table with the same PK but different values for that column(s)
     result = metrics_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.i, args.e, args.f, args.p)
-    print('-------metadata diff info-------')
-    print(result.show())
+    if result.count() == 0:
+        print(f'|--Table {args.t1} and Table {args.t2} has identical metadata info--|')
+        print(result.show())
+    else:
+        print('|--metadata diff info--|')
+        print(result.show())
 
-    start_time = time.time()
-    print('------------run validation success-----')
+    print('|--Run Metadata Validation Success--|')
 
 def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
     if format in ['parquet', 'orc', 'csv']:
@@ -62,13 +64,9 @@ def generate_metric_df(spark, table_DF, i, t1):
     agg_functions = [min, max, avg, stddev, countDistinct]
     # if not specified any included_columns, then get all numeric cols
     metrics_cols = [i.strip() for i in i.split(",")]
-    print('------yua-debug---')
-    print(metrics_cols)
     if i in ['None', 'all']:
         metrics_cols = [c.name for c in table_DF.schema.fields if
                         any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*', '*float*', '*double*'])]
-    print('------yua-debug---')
-    print(metrics_cols)
     for col in metrics_cols:
         dfc = spark.createDataFrame(([col],), ["ColumnName"])
         table1_agg = table_DF.select(
