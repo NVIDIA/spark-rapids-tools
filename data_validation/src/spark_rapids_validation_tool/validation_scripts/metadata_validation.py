@@ -20,9 +20,9 @@ import fnmatch
 
 def validation(spark, args):
 
-    if not valid_input(spark,args):
-        print('|--Please Check The Inputs --|')
-        return
+    # if not valid_input(spark,args):
+    #     print('|--Please Check The Inputs --|')
+    #     return
 
     result = top_level_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.f)
     print('|--Top Level Metadata Info--|')
@@ -39,9 +39,34 @@ def validation(spark, args):
     print('|--Run Metadata Validation Success--|')
 
 def valid_input(spark, args):
+    """
+    Check the input is valida for matadata validation tool
+    1- valid table
+    2- valid included column
+    """
+    if not valid_table(spark, args):
+        return False
+    if not valid_metadata_included_column(spark, args):
+        return False
+    return True
+
+def valid_table(spark, args):
+    """
+    Check if the tables exist
+    """
     return False
 
+def valid_metadata_included_column(spark, args):
+    """
+    Check if the included column valid
+    """
+    return False
+
+
 def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
+    """
+    Check whether the columns number and row count could match for table1 and table2
+    """
     if format in ['parquet', 'orc', 'csv']:
         print('todo')
     elif format == "hive":
@@ -65,6 +90,17 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
         return resultsDF
 
 def generate_metric_df(spark, table_DF, i, e, t1):
+    """
+    Return the metrics dataframe for table, the return dataframe should be like:
+    +-----------+------------+------------+------------+-------------------+-------------------+
+    |Column Name|   mintable1|   maxtable1|   avgtable1|       stddevtable1|countDistincttable1|
+    +-----------+------------+------------+------------+-------------------+-------------------+
+    |       col1|         1.0|        11.0|         6.0|    3.3166247903554|               11.0|
+    |       col2|1.23456789E8|9.87654321E8|5.94837261E8|4.513124419597775E8|                2.0|
+    |       ...
+    |       coln|1.23456789E8|9.87654321E8|5.94837261E8|4.513124419597775E8|                2.0|
+    +-----------+------------+------------+------------+-------------------+-------------------+
+    """
     result = None
     agg_functions = [min, max, avg, stddev, countDistinct]
     # if not specified any included_columns, then get all numeric cols
@@ -86,7 +122,12 @@ def generate_metric_df(spark, table_DF, i, e, t1):
     return result
 
 def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
-    # spark, format, t1, t1p, pk, e, i, f, view_name
+    """
+    The different metadata of each column in each table(min/max/avg/stddev/count_distinct):
+    (If the values are identical, then a specific cell is empty, aka NULL. So we only show differences),
+    the result dataframe should be:
+
+    """
     table1_DF = load_table(spark, format, t1, t1p, pk, e, i, f, "")
     table2_DF = load_table(spark, format, t2, t2p, pk, e, i, f, "")
 
@@ -100,7 +141,7 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
            (round("t1.stddev" + t1, p) != round("t2.stddev" + t2, p)) | \
            (round("t1.countDistinct" + t1, p) != round("t2.countDistinct" + t2, p))
 
-    # apply condition on the joined table
+    # apply condition on the joined table, return the final dataframe
     result_table = joined_table.select("ColumnName",
                                        when(col("t1.min"+t1) != col("t2.min"+t2), col("t1.min"+t1)).otherwise('').alias("min_A"),
                                        when(col("t1.min"+t1) != col("t2.min"+t2), col("t2.min"+t2)).otherwise('').alias("min_B"),
@@ -116,6 +157,9 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     return result_table
 
 def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
+    """
+    Load dataframe according to different format type
+    """
     if format in ['parquet', 'orc', 'csv']:
         # select column clause
         cols = '*' if i is None else i
