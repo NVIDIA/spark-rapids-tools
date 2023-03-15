@@ -50,7 +50,7 @@ def valid_input(spark, args):
     if not valid_metadata_included_column(spark, args):
         return False
     if args.format != 'hive':
-        print('Currently only support hive format')
+        print('|--Currently only support hive format--|')
     return True
 
 def valid_table(spark, args):
@@ -58,10 +58,10 @@ def valid_table(spark, args):
     Check if the tables exist
     """
     if not spark._jsparkSession.catalog().tableExists(args.t1):
-        print(f'Table {args.t1} does not exist!')
+        print(f'|--Table {args.t1} does not exist!--|')
         return False
     if not spark._jsparkSession.catalog().tableExists(args.t2):
-        print(f'Table {args.t2} does not exist!')
+        print(f'|--Table {args.t2} does not exist!--|')
         return False
     return True
 
@@ -71,7 +71,11 @@ def valid_metadata_included_column(spark, args):
     """
     table_DF = load_table(spark, args.format, args.t1, args.t1p, args.pk, args.e, args.i, args.f, "")
     excluded_columns_list = [e.strip() for e in args.e.split(",")]
+    print('----------')
+    print(excluded_columns_list)
     verify_column = [i.strip() for i in args.i.split(",") if i not in excluded_columns_list]
+    print('----------')
+    print(verify_column)
     verify_DF = table_DF.select(verify_column)
 
     for c in verify_DF.schema.fields:
