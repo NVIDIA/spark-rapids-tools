@@ -126,7 +126,13 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     The different metadata of each column in each table(min/max/avg/stddev/count_distinct):
     (If the values are identical, then a specific cell is empty, aka NULL. So we only show differences),
     the result dataframe should be:
-
+    +----------+------+------+------+------+-----------------+-----------------+-------------------+-------------------+-----------+-----------+
+    |ColumnName| min_A| min_B| max_A| max_B|            avg_A|            avg_B|           stddev_A|           stddev_B|countdist_A|countdist_B|
+    +----------+------+------+------+------+-----------------+-----------------+-------------------+-------------------+-----------+-----------+
+    |      col1|      |      |12.000|11.000|6.090909090909091|              6.0|  3.477198454346414|    3.3166247903554|           |           |
+    |      col3|      |      |      |      |5.090909090909091|5.181818181818182| 3.1766191290283903|  3.060005941764879|           |           |
+    |      col8|12.340|12.330|      |      |       12.4345455|       12.4336364|0.30031195901474267|0.30064173786328213|          3|          4|
+    +----------+------+------+------+------+-----------------+-----------------+-------------------+-------------------+-----------+-----------+
     """
     table1_DF = load_table(spark, format, t1, t1p, pk, e, i, f, "")
     table2_DF = load_table(spark, format, t2, t2p, pk, e, i, f, "")
