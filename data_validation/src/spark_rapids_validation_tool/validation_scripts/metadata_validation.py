@@ -62,9 +62,13 @@ def generate_metric_df(spark, table_DF, i, t1):
     agg_functions = [min, max, avg, stddev, countDistinct]
     # if not specified any included_columns, then get all numeric cols
     metrics_cols = i
+    print('------yua-debug---')
+    print(metrics_cols)
     if i in ['None', 'all']:
         metrics_cols = [c.name for c in table_DF.schema.fields if
                         any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*', '*float*', '*double*'])]
+    print('------yua-debug---')
+    print(metrics_cols)
     for col in metrics_cols:
         dfc = spark.createDataFrame(([col],), ["ColumnName"])
         table1_agg = table_DF.select(
