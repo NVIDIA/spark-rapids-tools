@@ -299,9 +299,6 @@ class DataprocWrapper(object):
                    p: int = 4,
                    debug: bool = False) -> None:
         """
-        Run diagnostic on local environment or remote Dataproc cluster, such as check installed NVIDIA driver,
-        CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
-
         Run data validation tool on remote Dataproc cluster to compare whether two tables have same results, one scenario is it will be easier for
         users to determine whether the Spark job using RAPIDS Accelerator(aka GPU Spark job)
         returns the same result as the CPU Spark job. Here we assume two tables have same column names.

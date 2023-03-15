@@ -146,7 +146,6 @@ class DiagDataproc(Diagnostic):
             },
         }
         output = self.cluster.submit_job(gpu_job)
-        print(output)
         gpu_time = self.check_perf_output(output)
         logger.info('GPU execution time: %s', gpu_time)
 

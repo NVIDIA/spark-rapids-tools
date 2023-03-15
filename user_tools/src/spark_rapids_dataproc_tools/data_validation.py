@@ -22,8 +22,6 @@ from pyspark.sql import SparkSession
 import fire
 import pkg_resources
 
-# from spark_rapids_dataproc_tools.utilities import get_log_dict, run_cmd
-
 # Setup logging
 logger = logging.getLogger('validation')
 #
@@ -79,7 +77,7 @@ class Validation:
         return stdout + stderr
 
     def get_validation_scripts(self, name):
-        """Get diagnostic script path by name"""
+        """Get validation script path by name"""
         return pkg_resources.resource_filename(__name__, 'validation_scripts/' + name)
 
 def main():

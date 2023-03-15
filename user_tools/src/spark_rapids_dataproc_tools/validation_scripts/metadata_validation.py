@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ def generate_metric_df(spark, table_DF, i, t1):
     for col in metrics_cols:
         dfc = spark.createDataFrame(([col],), ["ColumnName"])
         table1_agg = table_DF.select(
-            [f(col).cast(DoubleType()).alias(f.__name__ + t1) for f in
+            [f(col).alias(f.__name__ + t1) for f in
              agg_functions])
         tmp_df = dfc.join(table1_agg)
         if result is None:
@@ -86,11 +86,11 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     table_metric_df2 = generate_metric_df(spark, table2_DF, i, t2)
     joined_table = table_metric_df1.alias("t1").join(table_metric_df2.alias("t2"), ["ColumnName"])
 
-    cond = (round("t1.min" + t1, p) != round("t2.min" + t2, 4)) | \
-           (round("t1.max" + t1, p) != round("t2.max" + t2, 4)) | \
-           (round("t1.avg" + t1, p) != round("t2.avg" + t2, 4)) | \
-           (round("t1.stddev" + t1, p) != round("t2.stddev" + t2, 4)) | \
-           (round("t1.countDistinct" + t1, p) != round("t2.countDistinct" + t2, 4))
+    cond = (round("t1.min" + t1, p) != round("t2.min" + t2, p)) | \
+           (round("t1.max" + t1, p) != round("t2.max" + t2, p)) | \
+           (round("t1.avg" + t1, p) != round("t2.avg" + t2, p)) | \
+           (round("t1.stddev" + t1, p) != round("t2.stddev" + t2, p)) | \
+           (round("t1.countDistinct" + t1, p) != round("t2.countDistinct" + t2, p))
 
     # apply condition on the joined table
     result_table = joined_table.select("ColumnName",
