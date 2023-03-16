@@ -77,7 +77,7 @@ def valid_metadata_included_column(spark, args):
     verify_DF = table_DF.select(verify_column)
 
     for c in verify_DF.schema.fields:
-        # here only excluded 'data' because it will raise exception, we also should excluded str/map/nested
+        # here only excluded 'date' because it will raise exception, we also should excluded str/map/nested
         if(any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in
                             ['*date*'])):
             print(f'|--Unsupported metadata included data type: {c.dataType.simpleString()} for column: {c}--|')

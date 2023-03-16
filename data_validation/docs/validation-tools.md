@@ -1,7 +1,7 @@
 # Validation tools on Dataproc
 
 This is a guide for the Validation tools for Apache Spark on [Google Cloud Dataproc](https://cloud.google.com/dataproc).  
-At the end of this guide, the user will be able to run the validation tools to analysis
+At the end of this guide, the user will be able to run the validation tools to analyze
 whether the Spark job using RAPIDS Accelerator(aka GPU Spark job) returns the same result as the CPU Spark job.
 
 ## Prerequisites
@@ -23,7 +23,7 @@ whether the Spark job using RAPIDS Accelerator(aka GPU Spark job) returns the sa
 
 - Install `spark_rapids_validation_tool` with python [3.8, 3.10] using:
    ```bash
-    git clone https://github.com/nvliyuan/spark-rapids-tools.git
+    git clone https://github.com/NVIDIA/spark-rapids-tools.git
     cd spark-rapids-tools/data_validation 
     python -m build --wheel
     pip uninstall spark_rapids_validation_tool-23.2.0-py3-none-any.whl -y
