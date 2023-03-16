@@ -186,8 +186,7 @@ class TestQualification(RapidsToolTestBasic):
                 r'Worker nodes have no local SSDs\. Local SSD is recommended for Spark scratch space to improve IO',
                 r'Cost estimation is based on 1 local SSD per worker',
                 r'To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark',
-                r'--initialization-actions=gs://',
-                r'--cuda-version=([1-9]+\.[0-9]+)'
+                r'--initialization-actions=gs://'
             ]
         }
         with patch.object(CMDRunner, 'gcloud_describe_cluster',

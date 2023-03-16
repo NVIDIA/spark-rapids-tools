@@ -388,7 +388,13 @@ class Qualification(RapidsJarTool):
         else:
             new_cols = initial_cols_set[:]
         if appended_cols:
-            new_cols.extend(appended_cols)
+            for col_conf in appended_cols:
+                col_name = col_conf.get('columnName')
+                col_ind = col_conf.get('index')
+                if col_ind < 0 or col_ind >= len(new_cols):
+                    new_cols.append(col_name)
+                else:
+                    new_cols.insert(col_ind, col_name)
         subset_data = data_set.loc[:, new_cols]
         if cols_map:
             for col_rename in cols_map:
@@ -515,7 +521,7 @@ class Qualification(RapidsJarTool):
                 savings_recommendations = 'Not Applicable'
             else:
                 for s_range in savings_ranges.values():
-                    if s_range.get('lowBound') <= est_savings < s_range.get('upperBound'):
+                    if s_range.get('lowerBound') <= est_savings < s_range.get('upperBound'):
                         savings_recommendations = s_range.get('title')
                         break
             return pd.Series([savings_recommendations, cpu_cost, gpu_cost, est_savings])
