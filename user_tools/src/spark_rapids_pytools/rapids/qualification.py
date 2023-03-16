@@ -458,10 +458,10 @@ class Qualification(RapidsJarTool):
         def f_cell(x):
             return ceil(x * 100) / 100
 
-        def calc_cluster_shape_col(df_row, min_worker_cnt: int) -> pd.Series:
+        def calc_cluster_shape_col(df_row, min_worker_cnt: int, old_workers_cnt: int) -> pd.Series:
             gpu_speedup = df_row[speedup_col]
             # We should not worry about division by 0 because speedup is BGE 1.0
-            cluster_shape = max(min_worker_cnt, ceil(scale_f * min_worker_cnt / gpu_speedup))
+            cluster_shape = max(min_worker_cnt, ceil(scale_f * old_workers_cnt / gpu_speedup))
             return pd.Series([cluster_shape])
 
         def update_cols_with_new_shape(apps_df: pd.DataFrame,
@@ -473,7 +473,8 @@ class Qualification(RapidsJarTool):
             )
             return apps_df
 
-        all_apps[[reshape_col]] = all_apps.apply(lambda row: calc_cluster_shape_col(row, min_w_cnt), axis=1)
+        all_apps[[reshape_col]] = all_apps.apply(
+            lambda row: calc_cluster_shape_col(row, min_w_cnt, cluster_workers_cnt), axis=1)
         recalc_speedups_flag = True
         if cluster_shape_t == QualGpuClusterReshapeType.CLUSTER:
             # the column value should be reset to the maximum of all the rows
