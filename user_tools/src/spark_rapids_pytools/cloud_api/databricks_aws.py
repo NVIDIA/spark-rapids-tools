@@ -136,7 +136,7 @@ class DatabricksNode(EMRNode):
     region: str = field(default=None, init=False)
 
     def _set_fields_from_props(self):
-        self.name = self.props.get_value('public_dns')
+        self.name = self.props.get_value_silent('public_dns')
 
 
 @dataclass
@@ -152,8 +152,23 @@ class DatabricksCluster(ClusterBase):
 
     def _init_nodes(self):
         # assume that only one master node
-        master_nodes_from_conf = self.props.get_value('driver')
-        worker_nodes_from_conf = self.props.get_value('executors')
+        master_nodes_from_conf = self.props.get_value_silent('driver')
+        worker_nodes_from_conf = self.props.get_value_silent('executors')
+        num_workers = self.props.get_value_silent('num_workers')
+        if num_workers is None:
+            num_workers = 0
+        # construct master node info when cluster is inactive
+        if master_nodes_from_conf is None:
+            master_node_type_id = self.props.get_value('driver_node_type_id')
+            if master_node_type_id is None:
+                raise RuntimeError('Failed to find master node information from cluster properties')
+            master_nodes_from_conf = {'node_id': None}
+        # construct worker nodes info when cluster is inactive
+        if worker_nodes_from_conf is None:
+            worker_node_type_id = self.props.get_value('node_type_id')
+            if worker_node_type_id is None:
+                raise RuntimeError('Failed to find worker node information from cluster properties')
+            worker_nodes_from_conf = [{'node_id': None} for i in range(num_workers)]
         # create workers array
         worker_nodes: list = []
         for worker_node in worker_nodes_from_conf:
