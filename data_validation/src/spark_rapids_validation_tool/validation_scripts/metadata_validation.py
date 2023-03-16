@@ -92,16 +92,12 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
         print('todo')
     elif format == "hive":
         results = []
-        table_names = [t1, t2]
-        where_clause = ''
-        if t1p != 'None' and f != 'None':
-            where_clause = f" where {t1p} and {f}"
-        elif t1p != 'None':
-            where_clause = f" where {t1p}"
-        elif f != 'None':
-            where_clause = f" where {f}"
-        for table_name in table_names:
+        table_confs = [(t1,t1p), (t2, t2p)]
+
+        for (table_name,partition) in table_confs:
             sql = f'select * from {table_name}'
+            if any(cond != 'None' for cond in [partition, f]):
+                where_clause = ' where ' + ' and '.join(x for x in [partition, f] if x != 'None')
             sql += where_clause
             df = spark.sql(sql)
             row_count = df.count()
@@ -212,16 +208,10 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
         cols = '*' if i is None or i == 'all' else i
         sql = f"select {cols} from {t1}"
         # where clause
-        where_clause = ""
-        if t1p != 'None' and f != 'None':
-            where_clause = f" where {t1p} and {f}"
-        elif t1p != 'None':
-            where_clause = f" where {t1p}"
-            # partition clause should be in real order as data path
-            # path += partition_to_path(t1p)
-        elif f != 'None':
-            where_clause = f" where {f}"
-        sql += where_clause
+        if any(cond != 'None' for cond in [t1p,f]):
+            where_clause = ' where ' + ' and '.join(x for x in [t1p, f] if x != 'None')
+            sql += where_clause
+
         df = spark.sql(sql)
         return df
 
