@@ -19,7 +19,7 @@ from spark_rapids_pytools.cloud_api.sp_types import DeployMode, CloudPlatform
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
-from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal
+from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
 
 
 class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
@@ -36,7 +36,9 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                       tools_jar: str = None,
                       credentials_file: str = None,
                       filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS),
-                      jvm_heap_size: int = '24',
+                      gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
+                          QualGpuClusterReshapeType.get_default()),
+                      jvm_heap_size: int = 24,
                       verbose: bool = False,
                       **rapids_options) -> None:
         """
@@ -51,7 +53,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                 containing event logs (comma separated). If missing, the wrapper Reads the Spark's
                 property `spark.eventLog.dir` defined in `cpu_cluster`. This property should be included
                 in the output of `gcloud dataproc clusters describe`
-                Note that the wrapper will raise an exception if the property is not set.
+                Note that the wrapper will raise an exception if the property is not set
         :param local_folder: Local work-directory path to store the output and to be used as root
                 directory for temporary folders/files. The final output will go into a subdirectory called
                 ${local_folder}/qual-${EXEC_ID} where exec_id is an auto-generated unique identifier of the
@@ -76,9 +78,14 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                 "NONE" means no filter applied. "SPEEDUPS" lists all the apps that are either
                 'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
                 lists all the apps that have positive estimated GPU savings except for the apps that
-                are "Not Applicable".
-        :param verbose: True or False to enable verbosity to the wrapper script
+                are "Not Applicable"
+        :param gpu_cluster_recommendation: The type of GPU cluster recommendation to generate.
+               It accepts one of the following ("CLUSTER", "JOB" and the default value "MATCH").
+                "MATCH": keep GPU cluster same number of nodes as CPU cluster;
+                "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
+                "JOB": recommend optimal GPU cluster by cost per job
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes
+        :param verbose: True or False to enable verbosity to the wrapper script
         :param rapids_options: A list of valid Qualification tool options.
                 Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
                 multiple "spark-property" arguments.
@@ -105,7 +112,8 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             },
             'eventlogs': eventlogs,
             'filterApps': filter_apps,
-            'toolsJar': tools_jar
+            'toolsJar': tools_jar,
+            'gpuClusterRecommendation': gpu_cluster_recommendation
         }
         QualificationAsLocal(platform_type=CloudPlatform.DATAPROC,
                              cluster=None,

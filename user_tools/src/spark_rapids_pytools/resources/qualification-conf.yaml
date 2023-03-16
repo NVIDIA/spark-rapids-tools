@@ -28,6 +28,7 @@ toolOutput:
     summaryReport:
       compactWidth: true
       timeUnits: 's'
+      columnWidth: 12
 sparkRapids:
   mvnUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
   repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
@@ -41,6 +42,8 @@ sparkRapids:
     defaults:
       filters:
         defaultFilter: 'SAVINGS'
+      gpuClusterRecommendation:
+        defaultRecommendation: 'MATCH'
     toolOptions:
       - all
       - any
@@ -90,6 +93,38 @@ local:
       - 'Estimated GPU Duration'
       - 'App Duration'
       - 'Estimated GPU Savings(%)'
+    processDFProps:
+      minimumWorkerCount: 2
+      gpuScaleFactor: 0.80
+      savingRecommendationsRanges:
+        nonRecommended:
+          title: 'Not Recommended'
+          lowBound: -1000000.0
+          upperBound: 1.0
+        recommended:
+          title: 'Recommended'
+          lowBound: 1.0
+          upperBound: 30.0
+        stronglyRecommended:
+          title: 'Strongly Recommended'
+          lowBound: 30.0
+          upperBound: 1000000.0
+      clusterShapeCols:
+        columnName: 'Recommended Cluster Shape'
+        noteMsg: 'The GPU estimations are done with a recommended GPU cluster shape of {} worker nodes'
+        colsPerShapeType:
+          CLUSTER:
+            mapColumns:
+              'Estimated GPU Savings(%)': 'Estimated GPU Savings(%) For Cluster'
+            excludeColumns:
+              - 'Speedup Based Recommendation'
+          JOB:
+            mapColumns:
+              'Estimated GPU Savings(%)': 'Estimated GPU Savings(%) For Job'
+            excludeColumns:
+              - 'Speedup Based Recommendation'
+            appendColumns:
+              - 'Recommended Cluster Shape'
     treeDirectory:
       enabled: true
       depthLevel: 4

@@ -151,7 +151,7 @@ class Utils:
     @classmethod
     def gen_str_header(cls, title: str, ruler='-', line_width: int = 40) -> str:
         dash = ruler * line_width
-        return cls.gen_multiline_str(dash, f'{title:^{line_width}}', dash)
+        return cls.gen_multiline_str('', dash, f'{title:^{line_width}}', dash)
 
     @classmethod
     def gen_report_sec_header(cls,
@@ -162,8 +162,8 @@ class Utils:
         line_width = max(title_width, len(title) + 1)
         if hrule:
             dash = ruler * line_width
-            return cls.gen_multiline_str(f'{title}:', dash)
-        return f'{title}:'
+            return cls.gen_multiline_str('', f'{title}:', dash)
+        return cls.gen_multiline_str('', f'{title}:')
 
     @classmethod
     def gen_joined_str(cls, join_elem: str, items) -> str:

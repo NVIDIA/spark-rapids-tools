@@ -132,7 +132,10 @@ class DataprocPlatform(PlatformBase):
                 memory_mb = num_cpu * unit_info['memPerCPU']
                 sys_info_obj = SysInfo(num_cpus=num_cpu, cpu_mem=memory_mb)
                 # create gpu_info
-                gpu_cnt = 2 if num_cpu >= 16 else 1
+                # TODO Should we use only 1 GPU for machines with cores LT 16
+                # TODO move the constant to the static dataproc configuration file
+                # pu_cnt = 2 if num_cpu >= 16 else 1
+                gpu_cnt = 2
                 # default memory
                 gpu_device = GpuDevice.get_default_gpu()
                 gpu_mem = gpu_device.get_gpu_mem()[0]
