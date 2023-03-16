@@ -122,7 +122,18 @@ class DataprocPlatform(PlatformBase):
         pass
 
     def get_supported_gpus(self) -> dict:
+        def calc_num_gpus(gpus_criteria_conf: List[dict], num_cores: int) -> int:
+            if gpus_criteria_conf:
+                for c_conf in gpus_criteria_conf:
+                    if c_conf.get('lowerBound') <= num_cores < c_conf.get('upperBound'):
+                        return c_conf.get('gpuCount')
+            # Use default if the configuration is not loaded. This should not happen anyway.
+            return 2 if num_cpu >= 16 else 1
+
         gpus_from_configs = self.configs.get_value('gpuConfigs', 'user-tools', 'supportedGpuInstances')
+        gpu_count_criteria = self.configs.get_value('gpuConfigs',
+                                                    'user-tools',
+                                                    'gpuPerMachine', 'criteria', 'numCores')
         gpu_scopes = {}
         for mc_prof, mc_info in gpus_from_configs.items():
             unit_info = mc_info['seriesInfo']
@@ -132,7 +143,7 @@ class DataprocPlatform(PlatformBase):
                 memory_mb = num_cpu * unit_info['memPerCPU']
                 sys_info_obj = SysInfo(num_cpus=num_cpu, cpu_mem=memory_mb)
                 # create gpu_info
-                gpu_cnt = 2 if num_cpu >= 16 else 1
+                gpu_cnt = calc_num_gpus(gpu_count_criteria, num_cpu)
                 # default memory
                 gpu_device = GpuDevice.get_default_gpu()
                 gpu_mem = gpu_device.get_gpu_mem()[0]
