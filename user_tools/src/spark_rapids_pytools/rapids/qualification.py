@@ -15,7 +15,7 @@
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
 import textwrap
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
 
@@ -58,6 +58,7 @@ class QualificationSummary:
     recommended_apps: pd.DataFrame = None
     df_result: pd.DataFrame = None
     irrelevant_speedups: bool = False
+    sections_generators: List[Callable] = field(default_factory=lambda: [])
 
     def _get_total_durations(self) -> int:
         if not self.is_empty():
@@ -106,6 +107,7 @@ class QualificationSummary:
                         csp_report_provider: Callable[[], List[str]] = lambda: [],
                         df_pprinter: Any = None,
                         output_pprinter: Any = None):
+
         def format_float(x: float) -> str:
             return f'{x:.2f}'
 
@@ -162,6 +164,9 @@ class QualificationSummary:
         if self.comments:
             report_content.append(Utils.gen_report_sec_header('Notes'))
             report_content.extend(f' - {line}' for line in self.comments)
+        if self.sections_generators:
+            for section_generator in self.sections_generators:
+                report_content.append(Utils.gen_multiline_str(section_generator()))
         if self.has_gpu_recommendation():
             csp_report = csp_report_provider()
             if csp_report:
@@ -560,7 +565,7 @@ class Qualification(RapidsJarTool):
                                       csv_out: str) -> QualificationSummary:
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
-            return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
+            return QualificationSummary(comments=[self.__generate_mc_types_conversion_report])
         reshape_col = self.ctxt.get_value('local', 'output', 'processDFProps',
                                           'clusterShapeCols', 'columnName')
         speed_recommendation_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
@@ -584,7 +589,8 @@ class Qualification(RapidsJarTool):
                                     all_apps=all_apps,
                                     recommended_apps=recommended_apps,
                                     df_result=apps_working_set,
-                                    irrelevant_speedups=speedups_irrelevant_flag)
+                                    irrelevant_speedups=speedups_irrelevant_flag,
+                                    sections_generators=[self.__generate_mc_types_conversion_report])
 
     def _process_output(self):
         def process_df_for_stdout(raw_df):
