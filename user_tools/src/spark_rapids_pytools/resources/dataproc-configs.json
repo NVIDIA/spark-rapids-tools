@@ -134,6 +134,24 @@
   },
   "gpuConfigs": {
     "user-tools": {
+      "gpuPerMachine": {
+        "criteria": {
+          "numCores": [
+            {
+              "title": "smallSize",
+              "lowerBound": 1,
+              "upperBound": 16,
+              "gpuCount": 1
+            },
+            {
+              "title": "largeSize",
+              "lowerBound": 16,
+              "upperBound": 1024,
+              "gpuCount": 2
+            }
+          ]
+        }
+      },
       "supportedGpuInstances": {
         "n1-standard": {
           "//description": "N1 standard machine types have 3.75 GB of system memory per vCPU",
@@ -198,6 +216,7 @@
     }
   },
   "clusterSpecs": {
-    "minWorkerNodes": 2
+    "minWorkerNodes": 2,
+    "gpuScaleFactor": 0.80
   }
 }

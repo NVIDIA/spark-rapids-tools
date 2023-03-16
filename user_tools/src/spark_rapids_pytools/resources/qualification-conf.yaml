@@ -28,7 +28,7 @@ toolOutput:
     summaryReport:
       compactWidth: true
       timeUnits: 's'
-      columnWidth: 12
+      columnWidth: 14
 sparkRapids:
   mvnUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
   repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
@@ -114,15 +114,13 @@ local:
         noteMsg: 'The GPU estimations are done with a recommended GPU cluster shape of {} worker nodes'
         colsPerShapeType:
           CLUSTER:
-            mapColumns:
-              'Estimated GPU Savings(%)': 'Estimated GPU Savings(%) For Cluster'
             excludeColumns:
               - 'Speedup Based Recommendation'
+              - 'Estimated GPU Speedup'
           JOB:
-            mapColumns:
-              'Estimated GPU Savings(%)': 'Estimated GPU Savings(%) For Job'
             excludeColumns:
               - 'Speedup Based Recommendation'
+              - 'Estimated GPU Speedup'
             appendColumns:
               - 'Recommended Cluster Shape'
     treeDirectory:

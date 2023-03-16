@@ -14,7 +14,6 @@
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
-import math
 import textwrap
 from dataclasses import dataclass
 from math import ceil
@@ -152,7 +151,7 @@ class QualificationSummary:
         total_gpu_durations = self._get_total_gpu_durations()
         if total_gpu_durations > 0:
             overall_speedup = total_apps_durations / total_gpu_durations
-        report_content.append(Utils.gen_report_sec_header('Report Summary', title_width=20, hrule=False))
+        report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
         report_summary = [['Total applications', self._get_stats_total_apps()],
                           ['Overall estimated speedup', format_float(overall_speedup)],
                           ['Overall estimated cost savings', f'{format_float(estimated_gpu_savings)}%']]
@@ -161,7 +160,7 @@ class QualificationSummary:
             report_summary.insert(1, ['RAPIDS candidates', self._get_stats_recommended_apps()])
         report_content.append(tabulate(report_summary, colalign=('left', 'right')))
         if self.comments:
-            report_content.append(Utils.gen_report_sec_header('Notes', title_width=20))
+            report_content.append(Utils.gen_report_sec_header('Notes'))
             report_content.extend(f' - {line}' for line in self.comments)
         if self.has_gpu_recommendation():
             csp_report = csp_report_provider()
@@ -209,24 +208,24 @@ class Qualification(RapidsJarTool):
         self._process_cpu_cluster_args(offline_cluster_opts)
         self._process_gpu_cluster_args(offline_cluster_opts)
 
-    def __process_gpu_cluster_recom(self, arg_val: str):
+    def __process_gpu_cluster_recommendation(self, arg_val: str):
         available_types = [filter_enum.value for filter_enum in QualGpuClusterReshapeType]
-        default_recomm_txt = self.ctxt.get_value('sparkRapids', 'cli', 'defaults',
-                                                 'gpuClusterRecommendation',
-                                                 'defaultRecommendation')
+        default_recommendation_txt = self.ctxt.get_value('sparkRapids', 'cli', 'defaults',
+                                                         'gpuClusterRecommendation',
+                                                         'defaultRecommendation')
         if arg_val:
             try:
-                selected_recomm = QualGpuClusterReshapeType.fromstring(arg_val)
+                selected_recommendation = QualGpuClusterReshapeType.fromstring(arg_val)
             except Exception:  # pylint: disable=broad-except
-                selected_recomm = QualGpuClusterReshapeType.fromstring(default_recomm_txt)
+                selected_recommendation = QualGpuClusterReshapeType.fromstring(default_recommendation_txt)
                 self.logger.warning(
                     'Invalid argument gpu_cluster_recommendation=%s.\n\t'
                     'Accepted options are: [%s].\n\t'
                     'Falling-back to default filter: %s',
-                    arg_val, Utils.gen_joined_str(' | ', available_types), default_recomm_txt)
+                    arg_val, Utils.gen_joined_str(' | ', available_types), default_recommendation_txt)
         else:
-            selected_recomm = QualFilterApp.fromstring(default_recomm_txt)
-        self.ctxt.set_ctxt('gpuClusterShapeRecommendation', selected_recomm)
+            selected_recommendation = QualFilterApp.fromstring(default_recommendation_txt)
+        self.ctxt.set_ctxt('gpuClusterShapeRecommendation', selected_recommendation)
 
     def __process_filter_args(self, arg_val: str):
         available_filters = [filter_enum.value for filter_enum in QualFilterApp]
@@ -278,7 +277,7 @@ class Qualification(RapidsJarTool):
         self.ctxt.set_ctxt('gpuDevice', gpu_device)
         self.ctxt.set_ctxt('cuda', cuda)
         # we need to process each argument to verify it is valid. otherwise, we may crash late
-        self.__process_gpu_cluster_recom(self.wrapper_options.get('gpuClusterRecommendation'))
+        self.__process_gpu_cluster_recommendation(self.wrapper_options.get('gpuClusterRecommendation'))
         self.__process_filter_args(self.wrapper_options.get('filterApps'))
 
         self._process_offline_cluster_args()
@@ -367,11 +366,11 @@ class Qualification(RapidsJarTool):
         cols_subset = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'columns')
         cols_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'mapColumns')
         subset_data = all_rows.loc[:, cols_subset]
-
-        for col_rename in cols_map:
-            subset_data.columns = subset_data.columns.str.replace(col_rename,
-                                                                  cols_map.get(col_rename),
-                                                                  regex=False)
+        if cols_map:
+            for col_rename in cols_map:
+                subset_data.columns = subset_data.columns.str.replace(col_rename,
+                                                                      cols_map.get(col_rename),
+                                                                      regex=False)
         return subset_data
 
     def __remap_cols_for_shape_type(self,
@@ -391,10 +390,11 @@ class Qualification(RapidsJarTool):
         if appended_cols:
             new_cols.extend(appended_cols)
         subset_data = data_set.loc[:, new_cols]
-        for col_rename in cols_map:
-            subset_data.columns = subset_data.columns.str.replace(col_rename,
-                                                                  cols_map.get(col_rename),
-                                                                  regex=False)
+        if cols_map:
+            for col_rename in cols_map:
+                subset_data.columns = subset_data.columns.str.replace(col_rename,
+                                                                      cols_map.get(col_rename),
+                                                                      regex=False)
 
         return subset_data
 
@@ -405,7 +405,7 @@ class Qualification(RapidsJarTool):
             node_conversions = self.ctxt.platform.ctxt['notes'].get('nodeConversions')
             if node_conversions is not None:
                 report_content = [
-                    Utils.gen_report_sec_header('Instance types conversions', title_width=20, hrule=False),
+                    Utils.gen_report_sec_header('Instance types conversions', hrule=False),
                 ]
                 conversion_items = []
                 for mc_src, mc_target in node_conversions.items():
@@ -432,10 +432,15 @@ class Qualification(RapidsJarTool):
                                        cluster_shape_t: QualGpuClusterReshapeType):
         min_w_cnt_from_conf = self.ctxt.platform.configs.get_value_silent('clusterSpecs',
                                                                           'minWorkerNodes')
+        scale_factor_from_conf = self.ctxt.platform.configs.get_value_silent('clusterSpecs',
+                                                                             'gpuScaleFactor')
+        # get the min_worker_cnt from the qualification config in case it is not defined for the platform
         default_min_w_cnt = self.ctxt.get_value('local', 'output', 'processDFProps',
                                                 'minimumWorkerCount')
+        # get the scale factor from the qualification config in case it is not defined for the platform
+        default_scale_factor = self.ctxt.get_value('local', 'output', 'processDFProps', 'gpuScaleFactor')
         # As you reduce nodes, performance will be slightly better than linear based on benchmarks
-        scale_f = self.ctxt.get_value('local', 'output', 'processDFProps', 'gpuScaleFactor')
+        scale_f = scale_factor_from_conf if scale_factor_from_conf else default_scale_factor
         min_w_cnt = min_w_cnt_from_conf if min_w_cnt_from_conf else default_min_w_cnt
         # calculate the reshape_cluster_column
         reshape_col = self.ctxt.get_value('local', 'output', 'processDFProps',
@@ -445,7 +450,7 @@ class Qualification(RapidsJarTool):
         cpu_dur_col = 'App Duration'
 
         def f_cell(x):
-            return math.ceil(x * 100) / 100
+            return ceil(x * 100) / 100
 
         def calc_cluster_shape_col(df_row, min_worker_cnt: int) -> pd.Series:
             gpu_speedup = df_row[speedup_col]
@@ -583,7 +588,7 @@ class Qualification(RapidsJarTool):
             """
             selected_cols = self.ctxt.get_value('local', 'output', 'summaryColumns')
             # check if any filters apply
-            filter_recom_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SPEEDUPS
+            filter_recommendation_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SPEEDUPS
             filter_pos_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SAVINGS
             if self.__recommendation_is_non_standard():
                 # During processing of arguments phase, we verified that the filter does not conflict
@@ -594,7 +599,7 @@ class Qualification(RapidsJarTool):
                 # update the selected columns
                 selected_cols = list(raw_df.columns)
             # filter by recommendations if enabled
-            if filter_recom_enabled:
+            if filter_recommendation_enabled:
                 df_row = self.__get_recommended_apps(raw_df, selected_cols)
             else:
                 df_row = raw_df.loc[:, selected_cols]
