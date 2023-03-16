@@ -107,7 +107,7 @@ local:
           upperBound: 30.0
         stronglyRecommended:
           title: 'Strongly Recommended'
-          lowBound: 30.0
+          lowerBound: 30.0
           upperBound: 1000000.0
       clusterShapeCols:
         columnName: 'Recommended Cluster Shape'
