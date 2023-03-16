@@ -14,6 +14,7 @@
 
 """Implementation specific to DATABRICKS_AWS"""
 
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -45,7 +46,7 @@ class DBAWSPlatform(EMRPlatform):
         return DBAWSCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
 
     def _install_storage_driver(self):
-        self.storage = S3StorageDriver(super().cli)
+        self.storage = S3StorageDriver(self.cli)
 
     def _construct_cluster_from_props(self, cluster: str, props: str = None):
         return DatabricksCluster(self).set_connection(cluster_id=cluster, props=props)
@@ -115,7 +116,11 @@ class DBAWSCMDDriver(CMDDriverBase):
             get_cluster_cmd.extend(['--cluster-name', args.get('cluster')])
         else:
             self.logger.error('Invalid arguments to pull the cluster properties')
-        return self.run_sys_cmd(get_cluster_cmd)
+        cluster_described = self.run_sys_cmd(get_cluster_cmd)
+        if cluster_described is not None:
+            raw_prop_container = JSONPropertiesContainer(prop_arg=cluster_described, file_load=False)
+            return json.dumps(raw_prop_container.props)
+        return cluster_described
 
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',

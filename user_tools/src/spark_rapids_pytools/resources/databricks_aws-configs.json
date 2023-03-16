@@ -128,8 +128,8 @@
             "//confProperty": "which configuration property used to set the value of that var",
             "confProperty": "profile",
             "//varKey": "the variable key used in the CLI. Note that we need this in case that the ENV variables define above are not the same as the system env vars",
-            "//varKey_2": "add the DATABRICKS_CONFIG_FILE to all cli commands instead of adding it as an argument",
-            "varKey": "DATABRICKS_CONFIG_FILE"
+            "//varKey_2": "add the RAPIDS_USER_TOOLS_DATABRICKS_PROFILE to all cli commands instead of adding it as an argument",
+            "varKey": "RAPIDS_USER_TOOLS_DATABRICKS_PROFILE"
           },
           {
             "varLabel": "awsProfile",
