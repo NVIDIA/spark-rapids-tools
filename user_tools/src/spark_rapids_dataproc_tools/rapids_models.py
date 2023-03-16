@@ -949,10 +949,7 @@ class Qualification(RapidsTool):
             f'following to your cluster creation script:\n\t'
             f'--initialization-actions={initialization_actions} \\ \n\t'
             f'--worker-accelerator type=nvidia-tesla-{self.gpu_device.lower()},'
-            f'count={self.gpu_per_machine} \\ \n\t'
-            f'--metadata gpu-driver-provider="NVIDIA" \\ \n\t'
-            f'--metadata rapids-runtime=SPARK \\ \n\t'
-            f'--cuda-version={self.cuda}')
+            f'count={self.gpu_per_machine}')
         return instructions_str
 
     def _report_results_are_empty(self) -> None:

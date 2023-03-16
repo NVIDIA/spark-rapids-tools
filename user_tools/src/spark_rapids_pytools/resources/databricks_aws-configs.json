@@ -280,5 +280,8 @@
         }
       }
     }
+  },
+  "clusterSpecs": {
+    "minWorkerNodes": 2
   }
 }
