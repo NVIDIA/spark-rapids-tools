@@ -37,7 +37,11 @@ def validation(spark, args):
         print('|--Metadata Diff Info--|')
         print(result.show())
 
+    save_result(result, args.o, args.of)
     print('|--Run Metadata Validation Success--|')
+
+def save_result(df, path, output_format):
+    df.write.mode("overwrite").format(output_format).save(path)
 
 def valid_input(spark, args):
     """
