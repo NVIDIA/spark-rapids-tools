@@ -442,7 +442,11 @@ class CMDDriverBase:
             if is_sdk_cmd(cmd, arg_entry['sdkCommand']):
                 # we should apply the
                 piggyback_args.append(f'--{arg_entry["argKey"]}')
-                piggyback_args.append(f'{arg_entry["argValue"]}')
+                if "argValue" in arg_entry:
+                    piggyback_args.append(f'{arg_entry["argValue"]}')
+                else:
+                    argValue = self.get_env_var(arg_entry['confProperty'])
+                    piggyback_args.append(argValue)
         if piggyback_args:
             cmd = append_to_cmd(cmd, piggyback_args)
         cmd_args = {

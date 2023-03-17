@@ -76,7 +76,7 @@
         {
           "envVariableKey": "RAPIDS_USER_TOOLS_DATABRICKS_PROFILE",
           "confProperty": "profile",
-          "defaultValue": "default"
+          "defaultValue": "DEFAULT"
         },
         {
           "envVariableKey": "AWS_DEFAULT_OUTPUT",
@@ -143,7 +143,15 @@
       },
       "cliPiggyBackArgs": {
         "//description": "Holds information about list of arguments that's appended to some SDK commands",
-        "definedArgs": []
+        "definedArgs": [
+          {
+            "argLabel": "profile",
+            "//sdkCommand_description": "the current profile used in databricks CLI",
+            "sdkCommand": "databricks",
+            "argKey": "profile",
+            "confProperty": "profile"
+          }
+        ]
       },
       "rapidsJobs": {
         "LOCAL": {
