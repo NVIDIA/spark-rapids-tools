@@ -196,6 +196,7 @@ object SupportedMLFuncsName {
     "org.apache.spark.ml.clustering.KMeans.fit" -> "KMeans",
     "org.apache.spark.ml.feature.PCA.fit" -> "PCA",
     "org.apache.spark.ml.regression.LinearRegression.train" -> "LinearRegression",
+    "org.apache.spark.ml.classification.RandomForestClassifier.train" -> "RandomForestClassifier",
     "org.apache.spark.ml.regression.RandomForestRegressor.train" -> "RandomForestRegressor",
     "ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier.train" -> "XGBoost"
   )
