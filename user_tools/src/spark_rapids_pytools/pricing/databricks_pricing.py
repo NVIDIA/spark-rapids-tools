@@ -81,4 +81,8 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
         pass
 
     def get_instance_price(self, instance, compute_type: str = 'Jobs Compute') -> float:
-        return self.catalogs[self.plan].get_value(compute_type, instance, 'Rate')
+        # the cost of an instance is amount of DBU * DBU_RATE
+        instance_conf = self.catalogs[self.plan].get_value(compute_type, instance)
+        instance_dbu = instance_conf.get('DBU')
+        dbu_rate = instance_conf.get('Rate')
+        return instance_dbu * dbu_rate
