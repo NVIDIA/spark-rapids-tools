@@ -87,6 +87,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     qWriter.writeStageReport(allAppsSum, order)
     if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
       qWriter.writeMlFuncsReports(allAppsSum, order)
+      qWriter.writeMlFuncsStageDurationReports(allAppsSum)
     }
     if (uiEnabled) {
       QualificationReportGenerator.generateDashBoard(getReportOutputPath, allAppsSum)

@@ -696,6 +696,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(mlOpsRes.mlFunctions.get.map(x=> x.stageId).size == 5)
         assert(mlOpsRes.mlFunctions.get.head.mlOps.mkString.contains(
           "org.apache.spark.ml.feature.PCA.fit"))
+        assert(mlOpsRes.mlFunctionsStageDurations.get.head.mlFuncName.equals("PCA"))
       }
     }
   }
@@ -717,9 +718,11 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
       assert(appSum.size == 1)
       val xgBoostRes = appSum.head
       assert(xgBoostRes.mlFunctions.nonEmpty)
-      //assert(mlOpsRes.mlFunctions.get.map(x => x.stageId).size == 5)
+      assert(xgBoostRes.mlFunctionsStageDurations.nonEmpty)
       assert(xgBoostRes.mlFunctions.get.head.mlOps.mkString.contains(
         "ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier.train"))
+      assert(xgBoostRes.mlFunctionsStageDurations.get.head.mlFuncName.equals("XGBoost"))
+      assert(xgBoostRes.mlFunctionsStageDurations.get.head.duration == 46444)
     }
   }
 

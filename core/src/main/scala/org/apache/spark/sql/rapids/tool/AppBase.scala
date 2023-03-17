@@ -67,6 +67,7 @@ abstract class AppBase(
 
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
+  var mlEventLogType = ""
 
   var gpuMode = false
 
@@ -79,6 +80,13 @@ abstract class AppBase(
   def checkMLOps(appId: Int, stageInfo: StageInfoClass): Option[MLFunctions] = {
     val stageInfoDetails = stageInfo.info.details
     val mlOps = if (stageInfoDetails.contains(MlOps.sparkml) || stageInfoDetails.contains(MlOps.xgBoost)) {
+      //Check if it's a pyspark eventlog
+      mlEventLogType = if (stageInfoDetails.contains(MlOps.pysparkLog)) {
+        MlOpsEventLogType.pyspark
+      } else {
+        MlOpsEventLogType.scala
+      }
+
       // Consider stageInfo to have below string as an example
       //org.apache.spark.rdd.RDD.first(RDD.scala:1463)
       //org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)

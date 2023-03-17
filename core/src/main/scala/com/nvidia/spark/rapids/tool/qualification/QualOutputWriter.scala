@@ -261,6 +261,24 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       csvFileWriter.close()
     }
   }
+
+  def writeMlFuncsStageDurationReports(sums: Seq[QualificationSummaryInfo]): Unit = {
+    val csvFileWriter = new ToolTextFileWriter(outputDir,
+      s"${QualOutputWriter.LOGFILE_NAME}_mlfunctionsstageduration.csv",
+      "", hadoopConf)
+    try {
+      // Filter only supported ML functions
+      val supportedMlFuns = sums.filter(x => x.mlFunctionsStageDurations.nonEmpty)
+      val headersAndSizes = QualOutputWriter.getDetailedMlFuncsStageDurationHeaderStringsAndSizes(supportedMlFuns)
+      csvFileWriter.write(QualOutputWriter.constructDetailedHeader(headersAndSizes, ",", false))
+      supportedMlFuns.foreach { sumInfo =>
+        val rows = QualOutputWriter.constructMlFuncsStageDurationInfo(sumInfo, headersAndSizes, ",", false)
+        rows.foreach(csvFileWriter.write(_))
+      }
+    } finally {
+      csvFileWriter.close()
+    }
+  }
 }
 
 case class FormattedQualificationSummaryInfo(
@@ -340,6 +358,8 @@ object QualOutputWriter {
   val JOB_ID = "JobId"
   val RUN_NAME = "RunName"
   val ML_FUNCTIONS = "ML Functions"
+  val ML_FUNCTION_NAME = "ML Function Name"
+  val ML_TOTAL_STAGE_DURATION = "Total Duration"
 
   val APP_DUR_STR_SIZE: Int = APP_DUR_STR.size
   val SQL_DUR_STR_SIZE: Int = SQL_DUR_STR.size
@@ -678,6 +698,21 @@ object QualOutputWriter {
     }
   }
 
+  def constructMlFuncsStageDurationInfo(
+      sumInfo: QualificationSummaryInfo,
+      headersAndSizes: LinkedHashMap[String, Int],
+      delimiter: String = TEXT_DELIMITER,
+      prettyPrint: Boolean): Seq[String] = {
+    val appId = sumInfo.appId
+    sumInfo.mlFunctionsStageDurations.get.map { info =>
+      val data = ListBuffer[(String, Int)](
+        stringIfempty(appId) -> headersAndSizes(APP_ID_STR),
+        info.mlFuncName -> headersAndSizes(ML_FUNCTION_NAME),
+        info.duration.toString -> headersAndSizes(ML_TOTAL_STAGE_DURATION))
+      constructOutputRow(data, delimiter, prettyPrint)
+    }
+  }
+
   def getDetailedMlFuncsHeaderStringsAndSizes(
       appInfos: Seq[QualificationSummaryInfo]): LinkedHashMap[String, Int] = {
     val detailedHeadersAndFields = LinkedHashMap[String, Int](
@@ -687,6 +722,17 @@ object QualOutputWriter {
         appInfos.map(_.mlFunctions.get.map(
           mlFuns => mlFuns.mlOps.map(funcName => funcName.length).sum).sum), ML_FUNCTIONS),
       STAGE_DUR_STR -> STAGE_DUR_STR.size)
+    detailedHeadersAndFields
+  }
+
+  def getDetailedMlFuncsStageDurationHeaderStringsAndSizes(
+      appInfos: Seq[QualificationSummaryInfo]): LinkedHashMap[String, Int] = {
+    val detailedHeadersAndFields = LinkedHashMap[String, Int](
+      APP_ID_STR -> QualOutputWriter.getAppIdSize(appInfos),
+      ML_FUNCTION_NAME -> getMaxSizeForHeader(
+        appInfos.map(_.mlFunctionsStageDurations.get.map(
+          mlFuncs => mlFuncs.mlFuncName.length).sum), ML_FUNCTION_NAME),
+      ML_TOTAL_STAGE_DURATION -> ML_TOTAL_STAGE_DURATION.size)
     detailedHeadersAndFields
   }
 

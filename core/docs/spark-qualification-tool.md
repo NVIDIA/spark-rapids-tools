@@ -278,6 +278,7 @@ The tree structure of the output directory `${OUTPUT_FOLDER}/rapids_4_spark_qual
     ├── rapids_4_spark_qualification_output_execs.csv
     ├── rapids_4_spark_qualification_output_stages.csv
     ├── rapids_4_spark_qualification_output_mlfunctions.csv
+    ├── rapids_4_spark_qualification_output_mlfunctionsstageduration.csv
     └── ui
         ├── assets
         │   ├── bootstrap/
@@ -637,6 +638,14 @@ The functions in "*spark.ml.*" or "*spark.XGBoost.*" packages are displayed in t
 2. _Stage ID_
 3. _ML Functions_: List of ML functions used in the corresponding stage.
 4. _Stage Task Duration_: amount of time spent in tasks containing ML functions for the given stage.
+
+### MLFunctions Stage Duration report
+The Qualification tool generates a report of total duration across all stages for ML functions which 
+are supported on GPU.
+
+1. _App ID_
+2. _ML Function Name_: ML function name supported on GPU.
+3. _Total Duration_: total duration across all stages for the corresponding ML function.
 
 ## Output Formats
 

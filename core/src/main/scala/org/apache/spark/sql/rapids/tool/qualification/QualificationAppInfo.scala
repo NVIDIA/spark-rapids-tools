@@ -28,7 +28,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraph
-import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
 
 class QualificationAppInfo(
     eventLogInfo: Option[EventLogInfo],
@@ -461,6 +461,12 @@ class QualificationAppInfo(
         None
       }
 
+      val mlTotalStageDuration = if (mlFunctions.isDefined) {
+        getMlTotalStageDuration(mlFunctions.get)
+      } else {
+        None
+      }
+
       // get the ratio based on the Task durations that we will use for wall clock durations
       val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
         supportedSQLTaskDuration.toDouble / sqlDataframeTaskDuration.toDouble
@@ -479,7 +485,8 @@ class QualificationAppInfo(
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
         taskSpeedupFactor, info.sparkUser, info.startTime, origPlanInfos,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
-        unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions)
+        unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
+        mlTotalStageDuration)
     }
   }
 
@@ -509,6 +516,28 @@ class QualificationAppInfo(
     }
     if (mlFunctions.nonEmpty) {
       Some(mlFunctions.toSeq.sortBy(mlops => mlops.stageId))
+    } else {
+      None
+    }
+  }
+
+  private def getMlTotalStageDuration(
+      mlFunctions: Seq[MLFunctions]): Option[Seq[MLFuncsStageDuration]] = {
+    // Get ML function names and durations
+    val mlFuncsAndDuration = mlFunctions.map(x => (x.mlOps, x.duration))
+    // Check if the ML function is supported on GPU, if so then save it as corresonding simple
+    // function name along with it's duration
+    //Example: (org.apache.spark.ml.feature.PCA.fit, 200) becomes (PCA, 200)
+    val supportedMlFuncswithDurations = SupportedMLFuncsName.funcName.map(
+      supportedMlfunc => mlFuncsAndDuration.filter(mlfunc =>
+        mlfunc._1.contains(supportedMlfunc._1)).map(
+        y => (SupportedMLFuncsName.funcName(supportedMlfunc._1), y._2))).flatten
+
+    // group by ML function name and add duration of corresponding functions
+    val mlFuncDurationResult = supportedMlFuncswithDurations.groupBy(mlfunc => mlfunc._1).map(
+      mlfunc => (mlfunc._1, mlfunc._2.map(duration => duration._2).sum))
+    if (mlFuncDurationResult.nonEmpty) {
+      Some(mlFuncDurationResult.map(result => MLFuncsStageDuration(result._1, result._2)).toSeq)
     } else {
       None
     }
@@ -574,6 +603,11 @@ case class MLFunctions(
     duration: Long
 )
 
+case class MLFuncsStageDuration(
+    mlFuncName: String,
+    duration: Long
+)
+
 class StageTaskQualificationSummary(
     val stageId: Int,
     val stageAttemptId: Int,
@@ -628,7 +662,8 @@ case class QualificationSummaryInfo(
     unSupportedExprs: String,
     clusterTags: String,
     allClusterTagsMap: Map[String, String],
-    mlFunctions: Option[Seq[MLFunctions]])
+    mlFunctions: Option[Seq[MLFunctions]],
+    mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]])
 
 case class StageQualSummaryInfo(
     stageId: Int,
