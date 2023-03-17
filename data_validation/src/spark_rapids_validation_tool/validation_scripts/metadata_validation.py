@@ -51,7 +51,6 @@ def valid_input(spark, args):
         return False
     if args.format != 'hive':
         print('|--Currently only support hive format--|')
-        return False
     return True
 
 def valid_table(spark, args):
@@ -99,7 +98,7 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
             sql = f'select * from {table_name}'
             if any(cond != 'None' for cond in [partition, f]):
                 where_clause = ' where ' + ' and '.join(x for x in [partition, f] if x != 'None')
-            sql += where_clause
+                sql += where_clause
             df = spark.sql(sql)
             row_count = df.count()
             col_count = len(df.columns)
@@ -126,7 +125,7 @@ def generate_metric_df(spark, table_DF, i, e, t1):
     metrics_cols = [i.strip() for i in i.split(",") if i not in excluded_columns_list]
     if i in ['None', 'all']:
         metrics_cols = [c.name for c in table_DF.schema.fields if
-                        any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*', '*float*', '*double*'])]
+                        any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*', '*float*', '*double*', 'string'])]
     for col in metrics_cols:
         dfc = spark.createDataFrame(([col],), ["ColumnName"])
         table1_agg = table_DF.select(
@@ -156,7 +155,11 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     table2_DF = load_table(spark, format, t2, t2p, pk, e, i, f, "")
 
     table_metric_df1 = generate_metric_df(spark, table1_DF, i, e, t1)
+    print('----table_metric_df1-------')
+    print(table_metric_df1.show())
     table_metric_df2 = generate_metric_df(spark, table2_DF, i, e, t2)
+    print('----table_metric_df2-------')
+    print(table_metric_df2.show())
     joined_table = table_metric_df1.alias("t1").join(table_metric_df2.alias("t2"), ["ColumnName"])
 
     cond = (round("t1.min" + t1, p) != round("t2.min" + t2, p)) | \
