@@ -14,9 +14,10 @@
 
 import argparse
 from pyspark import SparkContext
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, functions as F
 from pyspark.sql.functions import col, min, max, avg, stddev, countDistinct, when, asc, round
 import fnmatch
+from pyspark.sql.types import *
 
 def validation(spark, args):
 
@@ -118,18 +119,39 @@ def generate_metric_df(spark, table_DF, i, e, t1):
     |       coln|1.23456789E8|9.87654321E8|5.94837261E8|4.513124419597775E8|                2.0|
     +-----------+------------+------------+------------+-------------------+-------------------+
     """
+    @F.udf(returnType=StringType())
+    def map_to_string(data):
+        # Sort the keys and values in the map
+        sorted_data = sorted(data.items(), key=lambda x: x[0]) if isinstance(data, dict) else sorted(
+            [(k, sorted(v)) for k, v in data.items()], key=lambda x: x[0])
+        return str(dict(sorted_data))
+
     result = None
     agg_functions = [min, max, avg, stddev, countDistinct]
-    # if not specified any included_columns, then get all numeric cols
+    # if not specified any included_columns, then get all numeric cols and string and map cols
     excluded_columns_list = [e.strip() for e in e.split(",")]
     metrics_cols = [i.strip() for i in i.split(",") if i not in excluded_columns_list]
     if i in ['None', 'all']:
         metrics_cols = [c.name for c in table_DF.schema.fields if
-                        any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*', '*float*', '*double*', 'string'])]
-    for col in metrics_cols:
+                        any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*', '*float*', '*double*', 'string', '*map*'])]
+        map_metrics_cols = [c.name for c in table_DF.schema.fields if
+                        any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*map*'])]
+    normal_metrics_cols = list(set(metrics_cols) - set(map_metrics_cols))
+    for col in normal_metrics_cols:
         dfc = spark.createDataFrame(([col],), ["ColumnName"])
         table1_agg = table_DF.select(
             [f(col).alias(f.__name__ + t1) for f in
+             agg_functions])
+        tmp_df = dfc.join(table1_agg)
+        if result is None:
+            result = tmp_df
+        else:
+            result = result.union(tmp_df)
+
+    for col in map_metrics_cols:
+        dfc = spark.createDataFrame(([col],), ["ColumnName"])
+        table1_agg = table_DF.select(
+            [f(map_to_string(col)).alias(f.__name__ + t1) for f in
              agg_functions])
         tmp_df = dfc.join(table1_agg)
         if result is None:
@@ -155,11 +177,7 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     table2_DF = load_table(spark, format, t2, t2p, pk, e, i, f, "")
 
     table_metric_df1 = generate_metric_df(spark, table1_DF, i, e, t1)
-    print('----table_metric_df1-------')
-    print(table_metric_df1.show())
     table_metric_df2 = generate_metric_df(spark, table2_DF, i, e, t2)
-    print('----table_metric_df2-------')
-    print(table_metric_df2.show())
     joined_table = table_metric_df1.alias("t1").join(table_metric_df2.alias("t2"), ["ColumnName"])
 
     cond = (round("t1.min" + t1, p) != round("t2.min" + t2, p)) | \
