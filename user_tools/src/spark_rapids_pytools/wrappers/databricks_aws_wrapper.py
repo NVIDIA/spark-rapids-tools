@@ -17,7 +17,7 @@
 
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode, CloudPlatform
 from spark_rapids_pytools.common.utilities import ToolLogging
-from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal
+from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
 
 
 class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
@@ -36,7 +36,9 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
                       tools_jar: str = None,
                       credentials_file: str = None,
                       filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS),
-                      jvm_heap_size: int = '24',
+                      gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
+                          QualGpuClusterReshapeType.get_default()),
+                      jvm_heap_size: int = 24,
                       verbose: bool = False,
                       **rapids_options) -> None:
         """
@@ -71,7 +73,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
         :param credentials_file: The local path of JSON file that contains the application credentials.
                If missing, the wrapper looks for "DATABRICKS_CONFIG_FILE" environment variable
                to provide the location of a credential file. The default credentials file exists as
-               "~/.databrickscfg" on Unix, Linux, or macOS, or "%USERPROFILE%\\.databrickscfg" on Windows.
+               "~/.databrickscfg" on Unix, Linux, or macOS
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
                 is one of the following (NONE, SPEEDUPS, savings).
                 Note that this filter does not affect the CSV report.
@@ -79,6 +81,11 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
                 'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
                 lists all the apps that have positive estimated GPU savings except for the apps that
                 are "Not Applicable".
+        :param gpu_cluster_recommendation: The type of GPU cluster recommendation to generate.
+               It accepts one of the following ("CLUSTER", "JOB" and the default value "MATCH").
+                "MATCH": keep GPU cluster same number of nodes as CPU cluster;
+                "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
+                "JOB": recommend optimal GPU cluster by cost per job
         :param verbose: True or False to enable verbosity to the wrapper script.
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
         :param rapids_options: A list of valid Qualification tool options.
@@ -110,7 +117,8 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
             },
             'eventlogs': eventlogs,
             'filterApps': filter_apps,
-            'toolsJar': tools_jar
+            'toolsJar': tools_jar,
+            'gpuClusterRecommendation': gpu_cluster_recommendation
         }
         QualificationAsLocal(platform_type=CloudPlatform.DATABRICKS_AWS,
                              cluster=None,

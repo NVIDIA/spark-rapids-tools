@@ -129,7 +129,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                   remote_folder: str = None,
                   tools_jar: str = None,
                   credentials_file: str = None,
-                  jvm_heap_size: int = '24',
+                  jvm_heap_size: int = 24,
                   verbose: bool = False,
                   **rapids_options) -> None:
         """
