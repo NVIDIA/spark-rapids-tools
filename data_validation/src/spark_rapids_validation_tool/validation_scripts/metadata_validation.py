@@ -51,6 +51,7 @@ def valid_input(spark, args):
         return False
     if args.format != 'hive':
         print('|--Currently only support hive format--|')
+        return False
     return True
 
 def valid_table(spark, args):
