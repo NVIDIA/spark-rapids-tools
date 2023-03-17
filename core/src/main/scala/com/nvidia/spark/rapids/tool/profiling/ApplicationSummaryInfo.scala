@@ -51,6 +51,7 @@ trait AppInfoPropertyGetter {
 trait AppInfoSqlTaskAggMetricsVisitor {
   def getJvmGCFractions: Seq[Double]
   def getSpilledMetrics: Seq[Long]
+  def getMaxNumberTasks: Int
 }
 
 trait AppInfoSQLMaxTaskInputSizes {
@@ -71,6 +72,7 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getMaxInput: Double = 0.0
   override def getJvmGCFractions: Seq[Double] = Seq()
   override def getSpilledMetrics: Seq[Long] = Seq()
+  override def getMaxNumberTasks: Int = 0
 }
 
 /**
@@ -120,6 +122,14 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   override def getSpilledMetrics: Seq[Long] = {
     app.sqlTaskAggMetrics.map { task =>
       task.diskBytesSpilledSum + task.memoryBytesSpilledSum
+    }
+  }
+
+  override def getMaxNumberTasks: Int = {
+    if (app.sqlTaskAggMetrics.nonEmpty) {
+      app.sqlStageInfo.maxBy(_.numTasks).numTasks
+    } else {
+      0
     }
   }
 

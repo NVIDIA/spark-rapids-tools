@@ -349,7 +349,8 @@ class ApplicationInfo(
           }
           validNodes.map(n => s"${n.name}(${n.id.toString})")
         }.getOrElse(null)
-        SQLStageInfoProfileResult(index, j.sqlID.get, jobId, s, sa, info.duration, nodeNames)
+        SQLStageInfoProfileResult(index, j.sqlID.get, jobId, s, sa, info.duration, nodeNames,
+          info.info.numTasks)
       }
     }
     sqlToStages.toSeq

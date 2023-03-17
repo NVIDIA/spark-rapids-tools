@@ -111,7 +111,8 @@ case class SQLStageInfoProfileResult(
     stageId: Int,
     stageAttemptId: Int,
     duration: Option[Long],
-    nodeNames: Seq[String]) extends ProfileResult {
+    nodeNames: Seq[String],
+    numTasks: Int) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "sqlID", "jobID", "stageId",
     "stageAttemptId", "Stage Duration", "SQL Nodes(IDs)")
 
