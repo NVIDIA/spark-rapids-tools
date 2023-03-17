@@ -134,8 +134,8 @@ def generate_metric_df(spark, table_DF, i, e, t1):
     if i in ['None', 'all']:
         metrics_cols = [c.name for c in table_DF.schema.fields if
                         any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*', '*float*', '*double*', 'string', '*map*'])]
-        map_metrics_cols = [c.name for c in table_DF.schema.fields if
-                        any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*map*'])]
+    map_metrics_cols = [c.name for c in table_DF.schema.fields if
+                    any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*map*'])]
     normal_metrics_cols = list(set(metrics_cols) - set(map_metrics_cols))
     for col in normal_metrics_cols:
         dfc = spark.createDataFrame(([col],), ["ColumnName"])
