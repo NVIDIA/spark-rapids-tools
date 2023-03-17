@@ -76,7 +76,7 @@
         {
           "envVariableKey": "RAPIDS_USER_TOOLS_DATABRICKS_PROFILE",
           "confProperty": "profile",
-          "defaultValue": "default"
+          "defaultValue": "DEFAULT"
         },
         {
           "envVariableKey": "AWS_DEFAULT_OUTPUT",
@@ -128,8 +128,8 @@
             "//confProperty": "which configuration property used to set the value of that var",
             "confProperty": "profile",
             "//varKey": "the variable key used in the CLI. Note that we need this in case that the ENV variables define above are not the same as the system env vars",
-            "//varKey_2": "add the DATABRICKS_CONFIG_FILE to all cli commands instead of adding it as an argument",
-            "varKey": "DATABRICKS_CONFIG_FILE"
+            "//varKey_2": "add the RAPIDS_USER_TOOLS_DATABRICKS_PROFILE to all cli commands instead of adding it as an argument",
+            "varKey": "RAPIDS_USER_TOOLS_DATABRICKS_PROFILE"
           },
           {
             "varLabel": "awsProfile",
@@ -143,7 +143,31 @@
       },
       "cliPiggyBackArgs": {
         "//description": "Holds information about list of arguments that's appended to some SDK commands",
-        "definedArgs": []
+        "definedArgs": [
+          {
+            "argLabel": "profile",
+            "//sdkCommand_description": "the current profile used in databricks CLI",
+            "sdkCommand": "databricks",
+            "argKey": "profile",
+            "confProperty": "profile"
+          }
+        ]
+      },
+      "rapidsJobs": {
+        "LOCAL": {
+          "definedVars": [
+            {
+              "varLabel": "awsAccessKeyID",
+              "confProperty": "aws_access_key_id",
+              "varKey": "AWS_ACCESS_KEY_ID"
+            },
+            {
+              "varLabel": "awsSecretAccessKey",
+              "confProperty": "aws_secret_access_key",
+              "varKey": "AWS_SECRET_ACCESS_KEY"
+            }
+          ]
+        }
       }
     }
   },

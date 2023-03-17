@@ -14,15 +14,18 @@
 
 """Implementation specific to DATABRICKS_AWS"""
 
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
+from spark_rapids_pytools.cloud_api.databricks_aws_job import DBAWSLocalRapidsJob
 from spark_rapids_pytools.cloud_api.emr import EMRNode, EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, \
     ClusterGetAccessor
 from spark_rapids_pytools.cloud_api.sp_types import ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
+from spark_rapids_pytools.pricing.databricks_pricing import DatabricksPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
@@ -43,7 +46,7 @@ class DBAWSPlatform(EMRPlatform):
         return DBAWSCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
 
     def _install_storage_driver(self):
-        self.storage = S3StorageDriver(super().cli)
+        self.storage = S3StorageDriver(self.cli)
 
     def _construct_cluster_from_props(self, cluster: str, props: str = None):
         return DatabricksCluster(self).set_connection(cluster_id=cluster, props=props)
@@ -52,18 +55,35 @@ class DBAWSPlatform(EMRPlatform):
         pass
 
     def migrate_cluster_to_gpu(self, orig_cluster):
-        pass
+        """
+        given a cluster, convert it to run NVIDIA Gpu based on mapping instance types
+        :param orig_cluster: the original cluster to migrate from
+        :return: a new object cluster that supports GPU
+        """
+        gpu_cluster_ob = DatabricksCluster(self)
+        gpu_cluster_ob.migrate_from_cluster(orig_cluster)
+        return gpu_cluster_ob
 
     def create_saving_estimator(self,
                                 source_cluster: ClusterGetAccessor,
                                 reshaped_cluster: ClusterGetAccessor):
-        pass
+        raw_pricing_config = self.configs.get_value_silent('pricing')
+        if raw_pricing_config:
+            pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
+        else:
+            pricing_config: JSONPropertiesContainer = None
+        databricks_price_provider = DatabricksPriceProvider(region=self.cli.get_region(),
+                                                            pricing_configs={'databricks': pricing_config})
+        saving_estimator = DBAWSSavingsEstimator(price_provider=databricks_price_provider,
+                                                 reshaped_cluster=reshaped_cluster,
+                                                 source_cluster=source_cluster)
+        return saving_estimator
 
     def create_submission_job(self, job_prop, ctxt) -> Any:
         pass
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
-        pass
+        return DBAWSLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass
@@ -96,7 +116,11 @@ class DBAWSCMDDriver(CMDDriverBase):
             get_cluster_cmd.extend(['--cluster-name', args.get('cluster')])
         else:
             self.logger.error('Invalid arguments to pull the cluster properties')
-        return self.run_sys_cmd(get_cluster_cmd)
+        cluster_described = self.run_sys_cmd(get_cluster_cmd)
+        if cluster_described is not None:
+            raw_prop_container = JSONPropertiesContainer(prop_arg=cluster_described, file_load=False)
+            return json.dumps(raw_prop_container.props)
+        return cluster_described
 
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',
@@ -112,7 +136,7 @@ class DatabricksNode(EMRNode):
     region: str = field(default=None, init=False)
 
     def _set_fields_from_props(self):
-        self.name = self.props.get_value('public_dns')
+        self.name = self.props.get_value_silent('public_dns')
 
 
 @dataclass
@@ -128,8 +152,23 @@ class DatabricksCluster(ClusterBase):
 
     def _init_nodes(self):
         # assume that only one master node
-        master_nodes_from_conf = self.props.get_value('driver')
-        worker_nodes_from_conf = self.props.get_value('executors')
+        master_nodes_from_conf = self.props.get_value_silent('driver')
+        worker_nodes_from_conf = self.props.get_value_silent('executors')
+        num_workers = self.props.get_value_silent('num_workers')
+        if num_workers is None:
+            num_workers = 0
+        # construct master node info when cluster is inactive
+        if master_nodes_from_conf is None:
+            master_node_type_id = self.props.get_value('driver_node_type_id')
+            if master_node_type_id is None:
+                raise RuntimeError('Failed to find master node information from cluster properties')
+            master_nodes_from_conf = {'node_id': None}
+        # construct worker nodes info when cluster is inactive
+        if worker_nodes_from_conf is None:
+            worker_node_type_id = self.props.get_value('node_type_id')
+            if worker_node_type_id is None:
+                raise RuntimeError('Failed to find worker node information from cluster properties')
+            worker_nodes_from_conf = [{'node_id': None} for i in range(num_workers)]
         # create workers array
         worker_nodes: list = []
         for worker_node in worker_nodes_from_conf:
@@ -168,7 +207,43 @@ class DatabricksCluster(ClusterBase):
         return self.props.get_value('spark_conf')
 
     def _build_migrated_cluster(self, orig_cluster):
-        pass
+        """
+        specific to the platform on how to build a cluster based on migration
+        :param orig_cluster: the cpu_cluster that does not support the GPU devices.
+        """
+        # get the map of the instance types
+        mc_type_map, _ = orig_cluster.find_matches_for_node()
+        new_worker_nodes: list = []
+        for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
+            # loop on all worker nodes.
+            # even if the node is the same type, we still need to set the hardware
+            if anode.instance_type not in mc_type_map:
+                # the node stays the same
+                # skip converting the node
+                new_instance_type = anode.instance_type
+                self.logger.info('Node with %s supports GPU devices.',
+                                 anode.instance_type)
+            else:
+                new_instance_type = mc_type_map.get(anode.instance_type)
+                self.logger.info('Converting node %s into GPU supported instance-type %s',
+                                 anode.instance_type,
+                                 new_instance_type)
+            worker_props = {
+                'instance_type': new_instance_type,
+                'name': anode.name,
+                'Id': anode.Id,
+                'region': anode.region,
+                'props': anode.props,
+            }
+            new_node = DatabricksNode.create_worker_node().set_fields_from_dict(worker_props)
+            new_worker_nodes.append(new_node)
+        self.nodes = {
+            SparkNodeType.WORKER: new_worker_nodes,
+            SparkNodeType.MASTER: orig_cluster.nodes.get(SparkNodeType.MASTER)
+        }
+        if bool(mc_type_map):
+            # update the platform notes
+            self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
 
 
 @dataclass

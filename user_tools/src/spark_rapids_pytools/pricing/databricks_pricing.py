@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.emr_pricing import EMREc2PriceProvider
 
 
@@ -38,15 +39,17 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
     # need to figure out how to find these values from cluster properties
 
     def _generate_cache_files(self):
-        FSUtil.copy_resource(f'../resources/{self.plan}-catalog.json', self.cache_files[self.plan])
+        src_file_path = Utils.resource_path(f'{self.plan}-catalog.json')
+        FSUtil.cache_resource(src_file_path, self.cache_files[self.plan])
         super()._generate_cache_files()
 
     def _process_resource_configs(self):
-        online_entries = self.pricing_configs[self.plan].get_value('catalog', 'onlineResources')
+        online_entries = self.pricing_configs['databricks'].get_value('catalog', 'onlineResources')
         for online_entry in online_entries:
             file_name = online_entry.get('localFile')
             file_key = online_entry.get('resourceKey').split('-catalog')[0]
-            self.cache_files[file_key] = FSUtil.build_path(self.cache_directory, file_name)
+            if file_key == self.plan or 'databricks' not in file_key:
+                self.cache_files[file_key] = FSUtil.build_path(self.cache_directory, file_name)
             if 'databricks' not in file_key:
                 self.resource_urls[file_key] = online_entry.get('onlineURL')
 
@@ -78,4 +81,9 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
         pass
 
     def get_instance_price(self, instance, compute_type: str = 'Jobs Compute') -> float:
-        return self.catalogs[self.plan].get_value(compute_type, instance, 'Rate')
+        # the cost of an instance is amount of DBU * JOB_type-rate-per-hour
+        job_type_conf = self.catalogs[self.plan].get_value(compute_type)
+        rate_per_hour = job_type_conf.get('RatePerHour')
+        instance_conf = job_type_conf.get('Instances').get(instance)
+        instance_dbu = instance_conf.get('DBU')
+        return instance_dbu * rate_per_hour
