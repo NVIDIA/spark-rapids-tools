@@ -689,15 +689,15 @@ A template of the worker information is shown below:
     spark.yarn.am.memory: 640m
   ```
 
-  | Property           | Optional | If Missing                                                                                                                   |
-  |--------------------|:--------:|------------------------------------------------------------------------------------------------------------------------------|
-  | system.numCores    |    No    | _Auto-Tuner_ does not calculate recommendations                                                                              |
-  | system.memory      |    No    | _Auto-Tuner_ does not calculate any recommendations                                                                          |
-  | system.numWorkers  |    Yes   | Default: 1                                                                                                                   |
-  | gpu.name           |    Yes   | Default: T4 (Nvidia Tesla T4)                                                                                                |
-  | gpu.memory         |    Yes   | Default: 16G                                                                                                                 |
-  | softwareProperties |    Yes   | This section is optional. The _Auto-Tuner_ reads the configs within the logs of the Apache Spark apps with higher precedence |
 
+| Property           | Optional |                                                          If Missing                                                          |
+|--------------------|:--------:|:----------------------------------------------------------------------------------------------------------------------------:|
+| system.numCores    |    No    | _Auto-Tuner_ does not calculate recommendations                                                                              |
+| system.memory      |    No    | _Auto-Tuner_ does not calculate any recommendations                                                                          |
+| system.numWorkers  |    Yes   | Default: 1                                                                                                                   |
+| gpu.name           |    Yes   | Default: T4 (Nvidia Tesla T4)                                                                                                |
+| gpu.memory         |    Yes   | Default: 16G                                                                                                                 |
+| softwareProperties |    Yes   | This section is optional. The _Auto-Tuner_ reads the configs within the logs of the Apache Spark apps with higher precedence |
 
 ## Profiling tool metrics definitions
 

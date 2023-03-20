@@ -135,7 +135,10 @@ class AbstractPropertiesContainer(object):
             self._load_properties_from_file()
         else:
             try:
-                self.props = json.loads(self.prop_arg)
+                if isinstance(self.prop_arg, str):
+                    self.props = json.loads(self.prop_arg)
+                else:
+                    self.props = self.prop_arg
             except JSONDecodeError as e:
                 raise RuntimeError('Incorrect format of JSON File') from e
             except TypeError as e:

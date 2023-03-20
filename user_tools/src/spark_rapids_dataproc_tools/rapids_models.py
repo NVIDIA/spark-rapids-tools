@@ -943,16 +943,13 @@ class Qualification(RapidsTool):
     def __generate_qualification_configs(self) -> str:
         initialization_actions = self.ctxt.get_value('sparkRapids',
                                                      'gpu',
-                                                     'initializationScripts').format(self.region, self.region)
+                                                     'initializationScripts').format(self.region)
         instructions_str = (
             f'To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the '
             f'following to your cluster creation script:\n\t'
             f'--initialization-actions={initialization_actions} \\ \n\t'
             f'--worker-accelerator type=nvidia-tesla-{self.gpu_device.lower()},'
-            f'count={self.gpu_per_machine} \\ \n\t'
-            f'--metadata gpu-driver-provider="NVIDIA" \\ \n\t'
-            f'--metadata rapids-runtime=SPARK \\ \n\t'
-            f'--cuda-version={self.cuda}')
+            f'count={self.gpu_per_machine}')
         return instructions_str
 
     def _report_results_are_empty(self) -> None:

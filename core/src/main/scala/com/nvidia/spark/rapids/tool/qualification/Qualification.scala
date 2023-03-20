@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     timeout: Option[Long], nThreads: Int, order: String,
     pluginTypeChecker: PluginTypeChecker, reportReadSchema: Boolean,
     printStdout: Boolean, uiEnabled: Boolean, enablePB: Boolean,
-    reportSqlLevel: Boolean, maxSQLDescLength: Int) extends Logging {
+    reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean) extends Logging {
 
   private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
 
@@ -85,6 +85,9 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     }
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
+    if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
+      qWriter.writeMlFuncsReports(allAppsSum, order)
+    }
     if (uiEnabled) {
       QualificationReportGenerator.generateDashBoard(getReportOutputPath, allAppsSum)
     }
@@ -117,7 +120,8 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       hadoopConf: Configuration): Unit = {
     try {
       val startTime = System.currentTimeMillis()
-      val app = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker, reportSqlLevel)
+      val app = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker, reportSqlLevel,
+        mlOpsEnabled)
       if (!app.isDefined) {
         progressBar.foreach(_.reportUnkownStatusProcess())
         logWarning(s"No Application found that contain SQL for ${path.eventLog.toString}!")

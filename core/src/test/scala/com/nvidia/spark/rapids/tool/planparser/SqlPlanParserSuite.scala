@@ -32,7 +32,6 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, floor, hex, json_tuple, round, row_number, sum}
-import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.types.StringType
 
@@ -88,7 +87,7 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val pluginTypeChecker = new PluginTypeChecker()
     assert(allEventLogs.size == 1)
     val appOption = QualificationAppInfo.createApp(allEventLogs.head, hadoopConf,
-      pluginTypeChecker, reportSqlLevel = false)
+      pluginTypeChecker, reportSqlLevel = false, mlOpsEnabled = false)
     assert(appOption.nonEmpty)
     appOption.get
   }
@@ -364,6 +363,27 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
     assertSizeAndSupported(1, subqueryBroadcast.toSeq, expectedDur = Seq(Some(1175)))
     val exchanges = allExecInfo.filter(_.exec == "Exchange")
     assertSizeAndSupported(2, exchanges.toSeq, expectedDur = Seq(Some(15688), Some(8)))
+  }
+
+  test("ReusedExchangeExec") {
+    // The eventlog has a ReusedExchange that causes multiple nodes to be duplicate.
+    // This unit test is to check that we set the duplicate nodes as shouldRemove
+    // to avoid adding them multiple times to the speedups.
+    val eventLog = s"$qualLogDir/nds_q86_test"
+    val pluginTypeChecker = new PluginTypeChecker()
+    val app = createAppFromEventlog(eventLog)
+    val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+      SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+    }
+    val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+    // reusedExchange is added as a supportedExec
+    val reusedExchangeExecs = allExecInfo.filter(_.exec == "ReusedExchange")
+    assertSizeAndSupported(1, reusedExchangeExecs)
+    val nodesWithRemove = allExecInfo.filter(_.shouldRemove)
+    // There are 7 nodes that are duplicated including 1 ReusedExchangeExec node and 1 WholeStageCodegen.
+    assert(1 == nodesWithRemove.count(
+      exec => exec.expr.contains("WholeStageCodegen")))
+    assert(1 == nodesWithRemove.count(exec => exec.exec.equals("ReusedExchange")))
   }
 
   test("CustomShuffleReaderExec") {

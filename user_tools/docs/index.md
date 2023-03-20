@@ -55,57 +55,61 @@ The wrapper has the following deployment modes:
 The following table summarizes the commands supported for each cloud platform:
 
 ```
-+----------+---------------+-------------+-------------------------------+----------+
-| platform | command       | deploy mode |              CLI              |  version |
-+==========+===============+=============+===============================+==========+
-| EMR      | qualification | local       | spark_rapids_user_tools \     |  23.02+  |
-|          |               |             |    emr qualification [ARGS]   |          |
-|          |               +-------------+-------------------------------+----------+
-|          |               | serverless  | spark_rapids_user_tools \     |  23.02+  |
-|          |               |             |    emr qualification [ARGS] \ |          |
-|          |               |             |    --mode=serverless          |          |
-|          |               +-------------+-------------------------------+----------+
-|          |               | cluster     | unsupported                   |    N/A   |
-|          +---------------+-------------+-------------------------------+----------+
-|          | profiling     | local       | unsupported                   |    N/A   |
-|          |               +-------------+-------------------------------+----------+
-|          |               | serverless  | unsupported                   |    N/A   |
-|          |               +-------------+-------------------------------+----------+
-|          |               | cluster     | unsupported                   |    N/A   |
-|          +---------------+-------------+-------------------------------+----------+
-|          | bootstrap     | local       | spark_rapids_user_tools \     |  23.02+  |
-|          |               |             |     emr bootstrap [ARGS]      |          |
-|          |               +-------------+-------------------------------+----------+
-|          |               | serverless  | unsupported                   |    N/A   |
-|          |               +-------------+-------------------------------+----------+
-|          |               | cluster     | spark_rapids_user_tools \     |  23.02+  |
-|          |               |             |     emr bootstrap [ARGS]      |          |
-+----------+---------------+-------------+-------------------------------+----------+
-| Dataproc | qualification | local       | unsupported                   |    N/A   |
-|          |               +-------------+-------------------------------+----------+
-|          |               | serverless  | unsupported                   |    N/A   |
-|          |               +-------------+-------------------------------+----------+
-|          |               | cluster     | spark_rapids_dataproc \       | 22.10.1+ |
-|          |               |             |     qualification [ARGS]      |          |
-|          +---------------+-------------+-------------------------------+----------+
-|          | profiling     | local       | unsupported                   |    N/A   |
-|          |               +-------------+-------------------------------+----------+
-|          |               | serverless  | unsupported                   |    N/A   |
-|          |               +-------------+-------------------------------+----------+
-|          |               | cluster     | spark_rapids_dataproc \       | 22.10.1+ |
-|          |               |             |     profiling [ARGS]          |          |
-|          +---------------+-------------+-------------------------------+----------+
-|          | bootstrap     | local       | unsupported                   |    N/A   |
-|          |               +-------------+-------------------------------+----------+
-|          |               | serverless  | unsupported                   |    N/A   |
-|          |               +-------------+-------------------------------+----------+
-|          |               | cluster     | spark_rapids_dataproc \       | 22.10.1+ |
-|          |               |             |     bootstrap [ARGS]          |          |
-+----------+---------------+-------------+-------------------------------+----------+
++------------+---------------+-------------+---------------------------------+----------+
+| platform   | command       | deploy mode |              CLI                |  version |
++============+===============+=============+=================================+==========+
+| EMR        | qualification | local       | spark_rapids_user_tools \       |  23.02+  |
+|            |               |             |   emr qualification [ARGS]      |          |
+|            |               +-------------+---------------------------------+----------+
+|            |               | serverless  | spark_rapids_user_tools \       |  23.02+  |
+|            |               |             |   emr qualification [ARGS] \    |          |
+|            |               |             |   --mode=serverless             |          |
+|            |               +-------------+---------------------------------+----------+
+|            |               | cluster     |           unsupported           |    N/A   |
+|            +---------------+-------------+---------------------------------+----------+
+|            | profiling     | local       |           unsupported           |    N/A   |
+|            |               +-------------+---------------------------------+----------+
+|            |               | serverless  |           unsupported           |    N/A   |
+|            |               +-------------+---------------------------------+----------+
+|            |               | cluster     |           unsupported           |    N/A   |
+|            +---------------+-------------+---------------------------------+----------+
+|            | bootstrap     | local       | spark_rapids_user_tools \       |  23.02+  |
+|            |               |             |   emr bootstrap [ARGS]          |          |
+|            |               +-------------+---------------------------------+----------+
+|            |               | serverless  |           unsupported           |    N/A   |
+|            |               +-------------+---------------------------------+----------+
+|            |               | cluster     | spark_rapids_user_tools \       |  23.02+  |
+|            |               |             |   emr bootstrap [ARGS]          |          |
++------------+---------------+-------------+---------------------------------+----------+
+| Dataproc   | qualification | local       | spark_rapids_user_tools \       |  23.04+  |
+|            |               |             |   dataproc qualification [ARGS] |          |
+|            |               +-------------+---------------------------------+----------+
+|            |               | serverless  |           unsupported           |    N/A   |
+|            |               +-------------+---------------------------------+----------+
+|            |               | cluster     | spark_rapids_dataproc \         | 22.10.1+ |
+|            |               |             |   qualification [ARGS]          |          |
+|            +---------------+-------------+---------------------------------+----------+
+|            | profiling     | local       | spark_rapids_user_tools \       |  23.04+  |
+|            |               |             |   dataproc profiling [ARGS]     |          |
+|            |               +-------------+---------------------------------+----------+
+|            |               | serverless  |           unsupported           |    N/A   |
+|            |               +-------------+---------------------------------+----------+
+|            |               | cluster     | spark_rapids_dataproc \         | 22.10.1+ |
+|            |               |             |   profiling [ARGS]              |          |
+|            +---------------+-------------+---------------------------------+----------+
+|            | bootstrap     | local       | spark_rapids_user_tools \       |  23.04+  |
+|            |               |             |   dataproc bootstrap [ARGS]     |          |
+|            |               +-------------+---------------------------------+----------+
+|            |               | serverless  |           unsupported           |    N/A   |
+|            |               +-------------+---------------------------------+----------+
+|            |               | cluster     | spark_rapids_dataproc \         | 22.10.1+ |
+|            |               |             |   bootstrap [ARGS]              |          |
++------------+---------------+-------------+---------------------------------+----------+
 ```
 
 Please visit the following guides for details on how to use the wrapper CLI on each of the following
 platform:
 
 - [AWS EMR](user-tools-aws-emr.md)
-- [GCloud Dataproc](user-tools-dataproc.md)
+- [Google Cloud Dataproc](user-tools-dataproc.md)
+  - To view documentation for the deprecated CLI on dataproc, visit the [spark_rapids_dataproc command](legacy-user-tools-dataproc.md) page.

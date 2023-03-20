@@ -28,6 +28,7 @@ toolOutput:
     summaryReport:
       compactWidth: true
       timeUnits: 's'
+      columnWidth: 14
 sparkRapids:
   mvnUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
   repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
@@ -41,7 +42,9 @@ sparkRapids:
     defaults:
       filters:
         defaultFilter: 'SAVINGS'
-    tool_options:
+      gpuClusterRecommendation:
+        defaultRecommendation: 'MATCH'
+    toolOptions:
       - all
       - any
       - a
@@ -86,15 +89,56 @@ local:
       - 'App Name'
       - 'Speedup Based Recommendation'
       - 'Savings Based Recommendation'
-      - 'Estimated GPU Speedup'
-      - 'Estimated GPU Duration'
       - 'App Duration'
+      - 'Estimated GPU Duration'
+      - 'Estimated GPU Speedup'
       - 'Estimated GPU Savings(%)'
-  costCalculation:
-    catalog:
-      loadFromURLEnabled: True
-      onlineURL: 'https://cloudpricingcalculator.appspot.com/static/data/pricelist.json'
-      snapshotFile: 'gcloud-catalog.json'
+    processDFProps:
+      minimumWorkerCount: 2
+      gpuScaleFactor: 0.80
+      savingRecommendationsRanges:
+        nonRecommended:
+          title: 'Not Recommended'
+          lowerBound: -1000000.0
+          upperBound: 1.0
+        recommended:
+          title: 'Recommended'
+          lowerBound: 1.0
+          upperBound: 30.0
+        stronglyRecommended:
+          title: 'Strongly Recommended'
+          lowerBound: 30.0
+          upperBound: 1000000.0
+      clusterShapeCols:
+        columnName: 'Recommended Cluster Shape'
+        noteMsg: 'The GPU estimations are done with a recommended GPU cluster shape of {} worker nodes'
+        colsPerShapeType:
+          CLUSTER:
+            excludeColumns:
+              - 'Speedup Based Recommendation'
+              - 'Estimated GPU Speedup'
+          JOB:
+            excludeColumns:
+              - 'Speedup Based Recommendation'
+              - 'Estimated GPU Speedup'
+            appendColumns:
+              - columnName: 'Recommended Cluster Shape'
+                index: 4
+    treeDirectory:
+      enabled: true
+      depthLevel: 4
+      indentation: '    '
+      excludedPatterns:
+        directories:
+          - '^(css)$'
+          - '^(js)$'
+          - '^(assets)$'
+          - '.+\$$'
+          - '^.+(_\$folder\$)$'
+        files:
+          - '^(\.+).*'
+          - '^(\$+).*'
+          - '^.+(_\$folder\$)$'
 platform:
   shortName: 'qual'
   outputDir: qual-tool-output

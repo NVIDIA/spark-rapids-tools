@@ -1,772 +1,355 @@
 # RAPIDS User Tools on Dataproc
 
+This is a guide for the RAPIDS tools for Apache Spark on [Google Cloud Dataproc](https://cloud.google.com/dataproc).  
+At the end of this guide, the user will be able to run the RAPIDS tools to analyze the clusters and
+the applications running on _Google Cloud Dataproc_.
+
+
 ## Prerequisites
 
-Make sure to install gcloud SDK if you plan to run the tool wrapper by following the references below:
-- [Install the Google Cloud CLI](https://cloud.google.com/sdk/docs/install-sdk)
-- [Initialize the gcloud CLI](https://cloud.google.com/sdk/docs/install-sdk#initializing_the)
+### 1.gcloud CLI
 
-## Using the Rapids Tool Wrapper
+- Install the gcloud CLI. Follow the instructions on [gcloud-sdk-install](https://cloud.google.com/sdk/docs/install)
+- Set the configuration settings and credentials of the gcloud CLI:
+  - Initialize the gcloud CLI by following [these instructions](https://cloud.google.com/sdk/docs/initializing#initialize_the)
+  - Grant authorization to the gcloud CLI [with a user account](https://cloud.google.com/sdk/docs/authorizing#authorize_with_a_user_account)
+  - Manage gcloud CLI configurations. For more details, visit [gcloud-sdk-configurations](https://cloud.google.com/sdk/docs/configurations)
+  - Verify that the following [gcloud CLI properties](https://cloud.google.com/sdk/docs/properties) are properly defined:
+    - `dataproc/region`,
+    - `compute/zone`,
+    - `compute/region`
+    - `core/project`
 
-The wrapper provides convenient way to run Qualification/Profiling tool.
-Default properties can be set in two files `qualification-conf.yaml` and `profiling-conf.yaml` under
-"resources" directory.
+### 2.RAPIDS tools
 
-- run the help command `spark_rapids_dataproc --help`
+- Spark event logs:
+    - The RAPIDS tools can process Apache Spark CPU event logs from Spark 2.0 or higher (raw, .lz4, .lzf, .snappy, .zstd)
+    - For `qualification`/`profiling` commands, the event logs need to be archived to an accessible gs folder.
 
+### 3.Install the package
+
+- Install `spark-rapids-user-tools` with python [3.8, 3.10] using:
+    - pip:  `pip install spark-rapids-user-tools`
+    - wheel-file: `pip install <wheel-file>`
+    - from source: `pip install -e .`
+- verify the command is installed correctly by running
   ```bash
-  NAME
-      spark_rapids_dataproc - A wrapper script to run Rapids Qualification/Profiling tools on DataProc
-
-  SYNOPSIS
-      spark_rapids_dataproc <TOOL> - where tool is one of following: qualification, profiling and boostrap
-      For details on the argument of each tool
-      spark_rapids_dataproc <TOOL> --help
-
-  DESCRIPTION
-      Disclaimer:
-        Estimates provided by the tools are based on the currently supported "SparkPlan" or
-        "Executor Nodes" used in the application. It currently does not handle all the expressions
-        or datatypes used.
-        The pricing estimate does not take into considerations:
-        1- Sustained Use discounts
-        2- Cost of on-demand VMs
-
+    spark_rapids_user_tools dataproc --help
   ```
 
-### Qualification Tool
+## Qualification command
 
-The Qualification tool analyzes Spark events generated from  CPU based Spark applications to help
-quantify the expected acceleration and costs savings of migrating a Spark application or
-query to GPU.  
-For more details, please visit the
-[Qualification Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html).
+### Local deployment
 
-#### Sample commands
+```
+spark_rapids_user_tools dataproc qualification [options]
+spark_rapids_user_tools dataproc qualification --help
+```
 
-- run the qualification tool help cmd `spark_rapids_dataproc qualification --help`
+The local deployment runs on the local development machine. It requires:
+1. Installing and configuring the gcloud CLI (`gsutil` and `gcloud` commands)
+2. Java 1.8+ development environment
+3. Internet access to download JAR dependencies from mvn: `spark-*.jar`, and `gcs-connector-hadoop-*.jar`
+4. Dependencies are cached on the local disk to reduce the overhead of the download.
+
+
+#### Command options
+
+| Option                         | Description                                                                                                                                                                                                                                                                                                                                                                                                 | Default                                                                                                                                                                                                                             | Required |
+|--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:--------:|
+| **cpu_cluster**                | The Dataproc-cluster on which the Apache Spark applications were executed. Accepted values are an Dataproc-cluster name, or a valid path to the cluster properties file (json format) generated by gcloud CLI command `gcloud dataproc clusters describe`                                                                                                                                                   | N/A                                                                                                                                                                                                                                 |     Y    |
+| **eventlogs**                  | A comma seperated list of gs urls pointing to event logs or gs directory                                                                                                                                                                                                                                                                                                                                    | Reads the Spark's property `spark.eventLog.dir` defined in `cpu_cluster`. This property should be included in the output of `dataproc clusters describe`. Note that the wrapper will raise an exception if the property is not set. |     N    |
+| **remote_folder**              | The gs folder where the output of the wrapper's output is copied. If missing, the output will be available only on local disk                                                                                                                                                                                                                                                                               | N/A                                                                                                                                                                                                                                 |     N    |
+| **gpu_cluster**                | The Dataproc-cluster on which the Spark applications is planned to be migrated. The argument can be an Dataproc-cluster or a valid path to the cluster's properties file (json format) generated by the gcloud CLI command `gcloud dataproc clusters describe`                                                                                                                                              | The wrapper maps the machine instances of the original cluster into GPU supported instances                                                                                                                                         |     N    |
+| **local_folder**               | Local work-directory path to store the output and to be used as root directory for temporary folders/files. The final output will go into a subdirectory named `qual-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution.                                                                                                                                                   | If the argument is NONE, the default value is the env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory.                                                                                       |     N    |
+| **jvm_heap_size**              | The maximum heap size of the JVM in gigabytes                                                                                                                                                                                                                                                                                                                                                               | 24                                                                                                                                                                                                                                  |     N    |
+| **tools_jar**                  | Path to a bundled jar including RAPIDS tool. The path is a local filesystem, or remote gs url                                                                                                                                                                                                                                                                                                               | Downloads the latest rapids-tools_*.jar from mvn repo                                                                                                                                                                               |     N    |
+| **credentials_file**           | The local path of JSON file that contains the application credentials                                                                                                                                                                                                                                                                                                                                       | If missing, loads the env variable `GOOGLE_APPLICATION_CREDENTIALS` if any. Otherwise, it uses the default path "$HOME/.config/gcloud/application_default_credentials.json"                                                         |     N    |
+| **filter_apps**                | Filtering criteria of the applications listed in the final STDOUT table is one of the following (`NONE`, `SPEEDUPS`, `SAVINGS`). "`NONE`" means no filter applied. "`SPEEDUPS`" lists all the apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups. "`SAVINGS`" lists all the apps that have positive estimated GPU savings except for the apps that are '_Not Applicable_'. | `SAVINGS`                                                                                                                                                                                                                           |     N    |
+| **gpu_cluster_recommendation** | The type of GPU cluster recommendation to generate. It accepts one of the following (`CLUSTER`, `JOB`, `MATCH`). `MATCH`: keep GPU cluster same number of nodes as CPU cluster; `CLUSTER`: recommend optimal GPU cluster by cost for entire cluster. `JOB`: recommend optimal GPU cluster by cost per job                                                                                                   | `MATCH`                                                                                                                                                                                                                             |     N    |
+| **verbose**                    | True or False to enable verbosity to the wrapper script                                                                                                                                                                                                                                                                                                                                                     | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                                                                                                                                                                   |     N    |
+| **rapids_options****           | A list of valid [Qualification tool options](../../core/docs/spark-qualification-tool.md#qualification-tool-options). Note that (`output-directory`, `platform`) flags are ignored, and that multiple "spark-property" is not supported.                                                                                                                                                                    | N/A                                                                                                                                                                                                                                 |     N    |
+
+#### Use case scenario
+
+A typical workflow to successfully run the `qualification` command in local mode is described as follows:
+
+1. Store the Apache Spark event logs in gs folder.
+2. A user sets up his development machine:
+    1. configures Java
+    2. installs gcloud CLI and configures the profile and the credentials to make sure the gcloud CLI
+       commands can access the gs resources `LOGS_BUCKET`.
+    3. installs `spark_rapids_user_tools`
+3. If the results of the wrapper need to be stored on gs, then another gs uri is required `REMOTE_FOLDER=gs://OUT_BUCKET/`
+4. User defines the Dataproc-cluster on which the Spark application were running. Note that the cluster does not have to be
+   active; but it has to be visible by the gcloud CLI (i.e., can run `gcloud dataproc clusters describe
+   cluster_name`).
+5. The following script runs qualification by passing gs remote directory to store the output:
+
+   ```
+   # define the wrapper cache directory if necessary
+   export RAPIDS_USER_TOOLS_CACHE_FOLDER=my_cache_folder
+   export EVENTLOGS=gs://LOGS_BUCKET/eventlogs/
+   export CLUSTER_NAME=my-dataproc-cpu-cluster
+   export REMOTE_FOLDER=gs://OUT_BUCKET/wrapper_output
+   
+   spark_rapids_user_tools dataproc qualification \
+      --eventlogs $EVENTLOGS \
+      --cpu_cluster $CLUSTER_NAME \
+      --remote_folder $REMOTE_FOLDER
+   ```
+   The wrapper generates a unique-Id for each execution in the format of `qual_<YYYYmmddHHmmss>_<0x%08X>`
+   The above command will generate a directory containing `qualification_summary.csv` in addition to
+   the actual folder of the RAPIDS Qualification tool. The directory will be mirrored to gs path (`REMOTE_FOLDER`).
+
+   ```
+    ./qual_<YYYYmmddHHmmss>_<0x%08X>/qualification_summary.csv
+    ./qual_<YYYYmmddHHmmss>_<0x%08X>/rapids_4_spark_qualification_output/
+   ```
+
+### Qualification output
+
+For each app, the command output lists the following fields:
+
+- `App ID`: An application is referenced by its application ID, '_app-id_'. When running on YARN,
+  each application may have multiple attempts, but there are attempt IDs only for applications
+  in cluster mode, not applications in client mode.  Applications in YARN cluster mode can be
+  identified by their attempt-id.
+- `App Name`: Name of the application
+- `Speedup Based Recommendation`: Recommendation based on '_Estimated Speed-up Factor_'. Note that an
+  application that has job or stage failures will be labeled '_Not Applicable_'
+- `Savings Based Recommendation`: Recommendation based on '_Estimated GPU Savings_'.
+    - '_Strongly Recommended_': An app with savings GEQ 40%
+    - '_Recommended_': An app with savings between (1, 40) %
+    - '_Not Recommended_': An app with no savings
+    - '_Not Applicable_': An app that has job or stage failures.
+- `Estimated GPU Speedup`: Speed-up factor estimated for the app. Calculated as the ratio
+  between '_App Duration_' and '_Estimated GPU Duration_'.
+- `Estimated GPU Duration`: Predicted runtime of the app if it was run on GPU
+- `App Duration`: Wall-Clock time measured since the application starts till it is completed.
+  If an app is not completed an estimated completion time would be computed.
+- `Estimated GPU Savings(%)`: Percentage of cost savings of the app if it migrates to an
+  accelerated cluster. It is calculated as:
+  ```
+  estimated_saving = 100 - ((100 * gpu_cost) / cpu_cost)
+
+The command creates a directory with UUID that contains the following:
+- Directory generated by the RAPIDS qualification tool `rapids_4_spark_qualification_output`;
+- A CSV file that contains the summary of all the applications along with estimated absolute costs
+- Sample directory structure:
     ```
-    NAME
-        spark_rapids_dataproc qualification - The Qualification tool analyzes Spark events generated from
-        CPU based Spark applications to help quantify the expected acceleration and costs savings of migrating
-        a Spark application or query to GPU.
-    
-    SYNOPSIS
-        spark_rapids_dataproc qualification CLUSTER REGION <flags>
-    
-    DESCRIPTION
-        Disclaimer:
-            Estimates provided by the Qualification tool are based on the currently supported "SparkPlan" or
-            "Executor Nodes" used in the application.
-            It currently does not handle all the expressions or datatypes used.
-            Please refer to "Understanding Execs report" section and the "Supported Operators" guide
-            to check the types and expressions you are using are supported.
-    
-    POSITIONAL ARGUMENTS
-        CLUSTER
-            Type: str
-            Name of the dataproc cluster on which the Qualification tool is executed. Note that the cluster
-            has to: 1- be running; and 2- support Spark3.x+.
-        REGION
-            Type: str
-            Compute region (e.g. us-central1) for the cluster.
-    
-    FLAGS
-        --tools_jar=TOOLS_JAR
-            Type: Optional[str]
-            Default: None
-            Path to a bundled jar including Rapids tool. The path is a local filesystem, or gstorage url.
-        --eventlogs=EVENTLOGS
-            Type: Optional[str]
-            Default: None
-            Event log filenames(comma separated) or gcloud storage directories containing event logs.
-            eg: gs://<BUCKET>/eventlog1,gs://<BUCKET1>/eventlog2 If not specified, the wrapper will pull
-            the default SHS directory from the cluster properties, which is equivalent to
-            gs://$temp_bucket/$uuid/spark-job-history or the PHS log directory if any.
-        --output_folder=OUTPUT_FOLDER
-            Type: str
-            Default: '.'
-            Base output directory. The final output will go into a subdirectory called wrapper-output.
-            It will overwrite any existing directory with the same name.
-        --filter_apps=FILTER_APPS
-            Type: str
-            Default: 'savings'
-            [NONE | recommended | savings] filtering criteria of the applications listed in the final
-            STDOUT table. Note that this filter does not affect the CSV report. “NONE“ means no filter
-            applied. “recommended“ lists all the apps that are either 'Recommended', or
-            'Strongly Recommended'. “savings“ lists all the apps that have positive estimated GPU savings.
-        --gpu_device=GPU_DEVICE
-            Type: str
-            Default: 'T4'
-            The type of the GPU to add to the cluster. Options are [T4, V100, K80, A100, P100].
-        --gpu_per_machine=GPU_PER_MACHINE
-            Type: int
-            Default: 2
-            The number of GPU accelerators to be added to each VM image.
-        --cuda=CUDA
-            Type: str
-            Default: '11.5'
-            cuda version to be used with the GPU accelerator.
-        --cpu_cluster_props=CPU_CLUSTER_PROPS
-            Type: Optional[str]
-            Default: None
-            Path to a file (json/yaml) containing configurations of the CPU cluster on which the Spark applications
-            were executed.
-            The path is a local filesystem, or gstorage url.
-            This option does not require the cluster to be live.
-            When missing, the configurations are pulled from the live cluster on which the
-            Qualification tool is submitted.
-        --cpu_cluster_region=CPU_CLUSTER_REGION
-            Type: Optional[str]
-            Default: None
-            The region where the CPU cluster belongs to. Note that this parameter requires 'cpu_cluster_props' to be
-            defined.
-            When missing, the region is set to the value passed in the 'region' argument.
-        --cpu_cluster_zone=CPU_CLUSTER_ZONE
-            Type: Optional[str]
-            Default: None
-            The zone where the CPU cluster belongs to. Note that this parameter requires 'cpu_cluster_props' to be
-            defined.
-            When missing, the zone is set to the same zone as the 'cluster' on which the Qualification tool is submitted.
-        --gpu_cluster_props=GPU_CLUSTER_PROPS
-            Type: Optional[str]
-            Default: None
-            Path of a file (json/yaml) containing configurations of the GPU cluster on which the Spark
-            applications is planned to be migrated.
-            The path is a local filesystem, or gstorage url.
-            This option does not require the cluster to be live.
-            When missing, the configurations are considered the same as the ones used by the 'cpu_cluster_props'.
-        --gpu_cluster_region=GPU_CLUSTER_REGION
-            Type: Optional[str]
-            Default: None
-            The region where the GPU cluster belongs to. Note that this parameter requires 'gpu_cluster_props' to be
-            defined.
-            When missing, the region is set to the value passed in the 'region' argument.
-        --gpu_cluster_zone=GPU_CLUSTER_ZONE
-            Type: Optional[str]
-            Default: None
-            The zone where the GPU cluster belongs to. Note that this parameter requires 'gpu_cluster_props' to be
-            defined.
-            When missing, the zone is set to the same zone as the 'cluster' on which the Qualification tool is submitted.
-        --debug=DEBUG
-            Type: bool
-            Default: False
-            True or False to enable verbosity to the wrapper script.
-        Additional flags are accepted.
-            A list of valid Qualification tool options. Note that the wrapper ignores the “output-directory“
-            flag, and it does not support multiple “spark-property“ arguments. For more details on
-            Qualification tool options, please visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#qualification-tool-options.
-    
+    qual_20230314145334_d2CaFA34
+    ├── qualification_summary.csv
+    └── rapids_4_spark_qualification_output
+        ├── ui
+        │   └── html
+        │       ├── sql-recommendation.html
+        │       ├── index.html
+        │       ├── application.html
+        │       └── raw.html
+        ├── rapids_4_spark_qualification_output_stages.csv
+        ├── rapids_4_spark_qualification_output.csv
+        ├── rapids_4_spark_qualification_output_execs.csv
+        └── rapids_4_spark_qualification_output.log
+    3 directories, 9 files
+
     ```
 
-- Example: Running Qualification tool on cluster that does not support Spark3.x
-    ```
-      spark_rapids_dataproc qualification \
-            --cluster dp-spark2 \
-            --region us-central1 \
-            --cpu_cluster_props=/tmp/test_cpu_cluster_prop.yaml \
-            --gpu_cluster_props=/tmp/test_gpu_cluster_prop_e2.yaml \
-            --eventlogs=gs://my-bucket/qualification_testing/dlrm_cpu/,gs://my-bucket/qualification_testing/tpcds_100in1/
-      2022-11-04 16:27:44,196 WARNING qualification: The cluster image 1.5.75-debian10 is not supported. To support the RAPIDS user tools, you will need to use an image that runs Spark3.x.
-      Failure Running Rapids Tool.
-              Tool cannot execute on the execution cluster.
-              Run Terminated with error.
-              The cluster image 1.5.75-debian10 is not supported. To support the RAPIDS user tools, you will need to use an image that runs Spark3.x.
-    ```
+## Profiling command
 
-- Example: Running Qualification tool passing list of google storage directories
-    - Note that the wrapper lists the applications with positive recommendations.
-      To list all the applications, set the argument `--filter_apps=NONE`
-    - cmd
-      ```
-      spark_rapids_dataproc \
-          qualification \
-          --cluster=jobs-test-003 \
-          --region=us-central1 \
-          --eventlogs=gs://my-bucket/qualification_testing/dlrm_cpu/,gs://my-bucket/qualification_testing/tpcds_100in1/
-      ```
-    - result
-      ```
-      Qualification tool output is saved to local disk /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_spark_qualification_output
-              rapids_4_spark_qualification_output/
-                      ├── rapids_4_spark_qualification_output.log
-                      ├── rapids_4_spark_qualification_output.csv
-                      ├── rapids_4_spark_qualification_output_execs.csv
-                      ├── rapids_4_spark_qualification_output_stages.csv
-                      └── ui/
-      - To learn more about the output details, visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output
-      Full savings and speedups CSV report: /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
-      +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
-      |    | App ID                  | App Name            | Recommendation       |   Estimated GPU |   Estimated GPU |           App |   Estimated GPU |
-      |    |                         |                     |                      |         Speedup |     Duration(s) |   Duration(s) |      Savings(%) |
-      |----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------|
-      |  0 | app-20200423035604-0002 | spark_data_utils.py | Strongly Recommended |            3.66 |          651.24 |       2384.32 |           64.04 |
-      |  1 | app-20200423035119-0001 | spark_data_utils.py | Strongly Recommended |            3.14 |           89.61 |        281.62 |           58.11 |
-      |  2 | app-20200423033538-0000 | spark_data_utils.py | Strongly Recommended |            3.12 |          300.39 |        939.21 |           57.89 |
-      |  3 | app-20210509200722-0001 | Spark shell         | Strongly Recommended |            2.55 |          698.16 |       1783.65 |           48.47 |
-      +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
-      Report Summary:
-      ------------------------------  ------
-      Total applications                   4
-      RAPIDS candidates                    4
-      Overall estimated speedup         3.10
-      Overall estimated cost savings  57.50%
-      ------------------------------  ------
-      To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the following to your cluster creation script:
-              --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh \ 
-              --worker-accelerator type=nvidia-tesla-t4,count=2 \ 
-              --metadata gpu-driver-provider="NVIDIA" \ 
-              --metadata rapids-runtime=SPARK \ 
-              --cuda-version=11.5
-      ```
+### Local deployment
 
+```
+spark_rapids_user_tools dataproc profiling [options]
+spark_rapids_user_tools dataproc profiling --help
+```
 
-- Example: Running Qualification tool a passing list of google storage directories when cluster is running a n2 instance. N2 instances don't support GPU at the time of writing this tool and so the tool will recommend an equivalent n1 instance and run the qualification using that instance.
-    - Note that the wrapper lists the applications with positive recommendations.
-      To list all the applications, set the argument `--filter_apps=NONE`.
-    - cmd
-      ```
-      spark_rapids_dataproc \
-          qualification \
-          --cluster=dataproc-wrapper-test \
-          --region=us-central1 \
-          --eventlogs=gs://my-bucket/qualification_testing/dlrm_cpu/,gs://my-bucket/qualification_testing/tpcds_100in1/
-      ```
-    - result
-      ```
-      Qualification tool output is saved to local disk /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_spark_qualification_output
-              rapids_4_spark_qualification_output/
-                      ├── rapids_4_spark_qualification_output.log
-                      ├── rapids_4_spark_qualification_output.csv
-                      ├── rapids_4_spark_qualification_output_execs.csv
-                      ├── rapids_4_spark_qualification_output_stages.csv
-                      └── ui/
-      - To learn more about the output details, visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output
-      Full savings and speedups CSV report: /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-35-b/wrapper-output/spark_rapids_dataproc_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
-      +----+---------------------+-------------------------+----------------------+-----------------+-----------------+---------------+-----------------+
-      |    | App Name            | App ID                  | Recommendation       |   Estimated GPU |   Estimated GPU |           App |   Estimated GPU |
-      |    |                     |                         |                      |         Speedup |     Duration(s) |   Duration(s) |      Savings(%) |
-      |----+---------------------+-------------------------+----------------------+-----------------+-----------------+---------------+-----------------|
-      |  0 | spark_data_utils.py | app-20200423035604-0002 | Strongly Recommended |            3.04 |          783.38 |       2384.32 |           27.25 |
-      |  1 | spark_data_utils.py | app-20200423033538-0000 | Strongly Recommended |            2.86 |          327.36 |        939.21 |           22.82 |
-      |  2 | spark_data_utils.py | app-20200423035119-0001 | Strongly Recommended |            2.69 |          104.35 |        281.62 |           17.95 |
-      |  3 | Spark shell         | app-20210509200722-0001 | Recommended          |            2.25 |          789.90 |       1783.65 |            1.94 |
-      +----+---------------------+-------------------------+----------------------+-----------------+-----------------+---------------+-----------------+
-      Report Summary:
-      ------------------------------  ------
-      Total applications                   4
-      RAPIDS candidates                    4
-      Overall estimated acceleration    3.10
-      Overall estimated cost savings  57.50%
-      ------------------------------  ------
-      
-      To support acceleration with T4 GPUs, you will need to switch your worker node instance type to n1-highcpu-32
-      To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the following to your cluster creation script:
-              --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh \ 
-              --worker-accelerator type=nvidia-tesla-t4,count=2 \ 
-              --metadata gpu-driver-provider="NVIDIA" \ 
-              --metadata rapids-runtime=SPARK \ 
-              --cuda-version=11.5
-      ```
+The local deployment runs on the local development machine. It requires:
+1. Installing and configuring the gcloud CLI (`gsutil` and `gcloud` commands)
+2. Java 1.8+ development environment
+3. Internet access to download JAR dependencies from mvn: `spark-*.jar`, and `gcs-connector-hadoop-*.jar`
+4. Dependencies are cached on the local disk to reduce the overhead of the download.
 
-#### Running Qualification Tool with offline CPU/GPU clusters
+#### Command options
 
-Users can pass configuration files that describe the clusters involved in migrations. The files can
-be stored locally or on GCS bucket.
+| Option               | Description                                                                                                                                                                                                                                               | Default                                                                                                                                                                                                                             | Required |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
+| **gpu_cluster**      | The Dataproc-cluster on which the Spark applications were executed. The argument can be a Dataproc-cluster or a valid path to the cluster's properties file (json format) generated by the gcloud-CLI                                                     | If missing, then the argument `worker_info` has to be provided.                                                                                                                                                                     | N        |
+| **worker_info**      | A path pointing to a yaml file containing the system information of a worker node. It is assumed that all workers are homogenous. The format of the file is described in the following section.                                                           | None                                                                                                                                                                                                                                | N        |
+| **eventlogs**        | A comma seperated list of gs urls pointing to event logs or gs directory                                                                                                                                                                                  | Reads the Spark's property `spark.eventLog.dir` defined in `cpu_cluster`. This property should be included in the output of `dataproc clusters describe`. Note that the wrapper will raise an exception if the property is not set. | N        |
+| **remote_folder**    | The gs folder where the output of the wrapper's output is copied. If missing, the output will be available only on local disk                                                                                                                             | N/A                                                                                                                                                                                                                                 | N        |
+| **local_folder**     | Local work-directory path to store the output and to be used as root directory for temporary folders/files. The final output will go into a subdirectory named `prof-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution. | If the argument is NONE, the default value is the env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory.                                                                                       | N        |
+| **jvm_heap_size**    | The maximum heap size of the JVM in gigabytes                                                                                                                                                                                                             | 24                                                                                                                                                                                                                                  | N        |
+| **tools_jar**        | Path to a bundled jar including RAPIDS tool. The path is a local filesystem, or remote gs url                                                                                                                                                             | Downloads the latest rapids-tools_*.jar from mvn repo                                                                                                                                                                               | N        |
+| **credentials_file** | The local path of JSON file that contains the application credentials                                                                                                                                                                                     | If missing, loads the env variable `GOOGLE_APPLICATION_CREDENTIALS` if any. Otherwise, it uses the default path "_$HOME/.config/gcloud/application_default_credentials.json_"                                                       | N        |
+| **verbose**          | True or False to enable verbosity to the wrapper script                                                                                                                                                                                                   | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                                                                                                                                                                   | N        |
+| **rapids_options**** | A list of valid [Profiling tool options](../../core/docs/spark-profiling-tool.md#qualification-tool-options). Note that (`output-directory`, `auto-tuner`, `combined`) flags are ignored                                                                  | N/A                                                                                                                                                                                                                                 | N        |
 
-- Format of the cluster configuration:
-    - Both Json and Yaml formats are accepted
-    - For the top level entry of configurations, both `config` and `cluster_config` are accepted.
-    - `config` or `cluster_config` does not have to be the first entry in the yaml/json file. It can be
-      nested.
-    - For keys, the wrapper accepts camelCase and underscores keywords. i.e., `cluster_config` and `clusterConfig`
-      are both accepted.
-    - For each node type (master/worker), the configuration file has to indicate the following:
-        - `machine_type_uri` or `machineTypeUri`
-        - `num_instances` or `numInstances`
-        - `image_version` or `imageVersion`
-    - Optional configurations:
-        - `num_local_ssds` or `numLocalSsds`. For GPU clusters, the value will be set to 1 when the config is missing.
-        - `accelerators` configuration is ignored since the wrapper command line overrides the GPU accelerators.
-    - example of accepted files:
-        - json file
-          ```json
-              {
-                "cluster_config": {
-                  "software_config": {
-                    "image_version": "1.5"
-                  },
-                  "gce_cluster_config": {
-                    "metadata": {
-                      "enable-pepperdata": "true"
-                    }
-                  },
-                  "master_config": {
-                    "machine_type_uri": "n1-standard-16",
-                    "disk_config": {
-                      "boot_disk_size_gb": 100
-                    }
-                  },
-                  "worker_config": {
-                    "num_instances": 2,
-                    "machine_type_uri": "n1-standard-16",
-                    "disk_config": {
-                      "boot_disk_size_gb": 100
-                    }
-                  },
-                  "secondary_worker_config": {
-                    "num_instances": 2,
-                    "machine_type_uri": "n1-standard-16",
-                    "disk_config": {
-                      "boot_disk_size_gb": 100
-                    }
-                  }
-                }
-              }
-          ```
-        - yaml file
-          ```yaml
-              cluster_config:
-                gce_cluster_config:
-                  metadata:
-                    enable-pepperdata: 'true'
-                master_config:
-                  disk_config:
-                    boot_disk_size_gb: 100
-                  machine_type_uri: n1-standard-16
-                secondary_worker_config:
-                  disk_config:
-                    boot_disk_size_gb: 100
-                  machine_type_uri: n1-standard-16
-                  num_instances: 2
-                software_config:
-                  image_version: '1.5'
-                worker_config:
-                  disk_config:
-                    boot_disk_size_gb: 100
-                  machine_type_uri: n1-standard-16
-                  num_instances: 2
-          ```
-        - The cluster configs are not at top level.
-          ```yaml
-            key_level0:
-              key_level1:
-                cluster_config:
-                  gce_cluster_config:
-                    metadata:
-                      enable-pepperdata: 'true'
-                  master_config:
-                    disk_config:
-                      boot_disk_size_gb: 100
-                    machine_type_uri: n1-standard-16
-                  secondary_worker_config:
-                    disk_config:
-                      boot_disk_size_gb: 100
-                    machine_type_uri: n1-standard-16
-                    num_instances: 2
-                  software_config:
-                    image_version: '1.5'
-                  worker_config:
-                    disk_config:
-                      boot_disk_size_gb: 100
-                    machine_type_uri: n1-standard-16
-                    num_instances: 2
-          ```
-        - Camel Case file is accepted:
-          ```yaml
-            clusterConfig:
-              gceClusterConfig:
-                metadata:
-                  enable-pepperdata: 'true'
-              masterConfig:
-                diskConfig:
-                  bootDiskSizeGb: 100
-                machineTypeUri: n1-standard-16
-              secondaryWorkerConfig:
-                diskConfig:
-                  bootDiskSizeGb: 100
-                machineTypeUri: n1-standard-16
-                numInstances: 2
-              softwareConfig:
-                imageVersion: '2.0'
-              workerConfig:
-                diskConfig:
-                  bootDiskSizeGb: 100
-                machineTypeUri: n1-standard-16
-                numInstances: 2
-          ```
+If the CLI does not provide an argument `gpu_cluster`, then a valid path to yaml file must be
+provided through the arg `worker_info`.  
+The `worker_info` is a yaml file that contains the HW description of the workers. It must contain
+the following properties:
+- `system.numCores`: number of cores of a single worker node
+- `system.memory`: RAM size in MiB of a single node
+- `system.numWorkers`: number of workers
+- `gpu.name`: the accelerator installed on the worker node
+- `gpu.memory`: memory size of the accelerator in MiB. (i.e., 16GB for Nvidia-T4)
+- `softwareProperties`: Spark default-configurations of the target cluster
 
-            - example `cpu_cluster_props` argument passed to CLI
-              ```
-                spark_rapids_dataproc qualification \
-                           --cluster jobs-test-gpu-support \
-                           --region us-central1 --cpu_cluster_props=/tmp/test_cpu_cluster_prop.yaml \
-                           --eventlogs=gs://my-bucket/qualification_testing/dlrm_cpu/,gs://my-bucket/qualification_testing/tpcds_100in1/
-          
-                2022-11-04 17:11:02,284 INFO qualification: The CPU cluster is an offline cluster. Properties are loaded from /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/test_cpu_cluster_prop.yaml
-                2022-11-04 17:11:02,286 WARNING qualification: The cluster image 1.5 is not supported. To support the RAPIDS user tools, you will need to use an image that runs Spark3.x.
-                2022-11-04 17:11:02,288 INFO qualification: The GPU cluster is the same as the original CPU cluster properties loaded from /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/test_cpu_cluster_prop.yaml.
-                    To update the configuration of the GPU cluster, make sure to pass the properties file to the CLI arguments
-                2022-11-04 17:12:29,398 INFO qualification: Downloading the price catalog from URL https://cloudpricingcalculator.appspot.com/static/data/pricelist.json
-                2022-11-04 17:12:30,292 INFO qualification: Generating GPU Estimated Speedup and Savings as ./wrapper-output/rapids_user_tools_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
-                Qualification tool output is saved to local disk /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/wrapper-output/rapids_user_tools_qualification/qual-tool-output/rapids_4_spark_qualification_output
-                        rapids_4_spark_qualification_output/
-                                └── ui/
-                                ├── rapids_4_spark_qualification_output_stages.csv
-                                ├── rapids_4_spark_qualification_output.csv
-                                ├── rapids_4_spark_qualification_output_execs.csv
-                                ├── rapids_4_spark_qualification_output.log
-                - To learn more about the output details, visit https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output
-                Full savings and speedups CSV report: /data/repos/issues/umbrella-dataproc/repos/issues/spark-rapids-tools-63/wrapper-output/rapids_user_tools_qualification/qual-tool-output/rapids_4_dataproc_qualification_output.csv
-                +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
-                |    | App ID                  | App Name            | Recommendation       |   Estimated GPU |   Estimated GPU |           App |   Estimated GPU |
-                |    |                         |                     |                      |         Speedup |     Duration(s) |   Duration(s) |      Savings(%) |
-                |----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------|
-                |  0 | app-20200423035604-0002 | spark_data_utils.py | Strongly Recommended |            3.66 |          651.24 |       2384.32 |           25.04 |
-                |  1 | app-20200423035119-0001 | spark_data_utils.py | Strongly Recommended |            3.14 |           89.61 |        281.62 |           12.68 |
-                |  2 | app-20200423033538-0000 | spark_data_utils.py | Strongly Recommended |            3.12 |          300.39 |        939.21 |           12.23 |
-                +----+-------------------------+---------------------+----------------------+-----------------+-----------------+---------------+-----------------+
-                Report Summary:
-                ------------------------------  ------
-                Total applications                   4
-                RAPIDS candidates                    4
-                Overall estimated speedup         3.13
-                Overall estimated cost savings  12.30%
-                ------------------------------  ------
-                To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the following to your cluster creation script:
-                        --initialization-actions=gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh,gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh \ 
-                        --worker-accelerator type=nvidia-tesla-t4,count=2 \ 
-                        --metadata gpu-driver-provider="NVIDIA" \ 
-                        --metadata rapids-runtime=SPARK \ 
-                        --cuda-version=11.5
-              ```
-
-### Profiling Tool
-
-The Profiling tool analyzes both CPU or GPU generated event logs and generates information which
-can be used for debugging and profiling Apache Spark applications.  
-In addition, the wrapper output provides optimized RAPIDS configurations based on the worker's
-information.  
-For more details, please visit the
-[Profiling Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html).
-
-#### Sample commands
-
-- run the profiling tool help cmd `spark_rapids_dataproc profiling --help`
-  ```bash
-  NAME
-      spark_rapids_dataproc profiling - The Profiling tool analyzes both CPU or GPU generated event
-      logs and generates information which can be used for debugging and profiling Apache Spark applications.
-
-  SYNOPSIS
-      spark_rapids_dataproc profiling CLUSTER REGION <flags>
-
-  DESCRIPTION
-      The output information contains the Spark version, executor details, properties, etc. It also
-      uses heuristics based techniques to recommend Spark configurations for users to run Spark on RAPIDS.
-
-  POSITIONAL ARGUMENTS
-      CLUSTER
-          Type: str
-          Name of the dataproc cluster
-      REGION
-          Type: str
-          Compute region (e.g. us-central1) for the cluster.
-
-  FLAGS
-      --tools_jar=TOOLS_JAR
-          Type: Optional[str]
-          Default: None
-          Path to a bundled jar including Rapids tool. The path is a local filesystem, or gstorage url.
-      --eventlogs=EVENTLOGS
-          Type: Optional[str]
-          Default: None
-          Event log filenames(comma separated) or gcloud storage directories containing event logs.
-          eg: gs://<BUCKET>/eventlog1,gs://<BUCKET1>/eventlog2 If not specified, the wrapper will pull
-          the default SHS directory from the cluster properties, which is equivalent to
-          gs://$temp_bucket/$uuid/spark-job-history or the PHS log directory if any.
-      --output_folder=OUTPUT_FOLDER
-          Type: str
-          Default: '.'
-          Base output directory. The final output will go into a subdirectory called wrapper-output.
-          It will overwrite any existing directory with the same name.
-        --gpu_cluster_props=GPU_CLUSTER_PROPS
-            Type: Optional[str]
-            Default: None
-            Path of a file (json/yaml) containing configurations of the GPU cluster on which the Spark
-            applications was run.
-            The path is a local filesystem, or gstorage url.
-            This option does not require the cluster to be live.
-            When missing, the configurations are considered the same as the ones used by the execution cluster.
-        --gpu_cluster_region=GPU_CLUSTER_REGION
-            Type: Optional[str]
-            Default: None
-            The region where the GPU cluster belongs to. Note that this parameter requires 'gpu_cluster_props' to be
-            defined.
-            When missing, the region is set to the value passed in the 'region' argument.
-        --gpu_cluster_zone=GPU_CLUSTER_ZONE
-            Type: Optional[str]
-            Default: None
-            The zone where the GPU cluster belongs to. Note that this parameter requires 'gpu_cluster_props' to be
-            defined.
-            When missing, the zone is set to the same zone as the 'cluster' on which the Profiling tool is submitted.
-      --debug=DEBUG
-          Type: bool
-          Default: False
-          True or False to enable verbosity to the wrapper script.
-      Additional flags are accepted.
-        A list of valid Profiling tool options. Note that the wrapper ignores the following flags
-        ["auto-tuner", "worker-info", "compare", "combined", "output-directory"]. For more details
-        on Profiling tool options, please visit https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html#profiling-tool-options.
+An example of valid `worker_info.yaml`:
 
   ```
-
-- Example Running Profiling tool passing list of google storage directories
-    - cmd
-      ```
-      spark_rapids_dataproc \
-          profiling \
-          --cluster=jobs-test-003 \
-          --region=us-central1 \
-          --eventlogs=gs://my-bucket/profile_testing/otherexamples/
-      ```
-    - result
-      ```bash
-      2022-09-23 13:25:17,040 INFO profiling: Preparing remote Work Env
-      2022-09-23 13:25:18,242 INFO profiling: Upload Dependencies to Remote Cluster
-      2022-09-23 13:25:20,163 INFO profiling: Running the tool as a spark job on dataproc
-      2022-09-23 13:25:59,142 INFO profiling: Downloading the tool output
-      2022-09-23 13:26:02,233 INFO profiling: Processing tool output
-      Processing App app-20210507103057-0000
-      Processing App app-20210413122423-0000
-      Processing App app-20210507105707-0001
-      Processing App app-20210422144630-0000
-      Processing App app-20210609154416-0002
-      ```
-
-#### Running Profiling Tool with offline GPU cluster
-
-Users can pass configuration files that describe the clusters involved in migrations. The files can
-be stored locally or on GCS bucket.
-
-- Format of the cluster configuration:
-    - Both Json and Yaml formats are accepted
-    - For the top level entry of configurations, both `config` and `cluster_config` are accepted.
-    - `config` or `cluster_config` does not have to be the first entry in the yaml/json file. It can be
-      nested.
-    - For keys, the wrapper accepts camelCase and underscores keywords. i.e., `cluster_config` and `clusterConfig`
-      are both accepted.
-    - For the workers, the configuration has to indicate valid GPU accelerators.
-    - Example of accepted file:
-      ```yaml
-        default:
-          xyz_config:
-            absdt_config:
-              xyz_version: '2.0'
-              team:
-                tr_product_id: '1982'
-            cluster_config:
-              gce_cluster_config:
-                metadata:
-                  enable-pepperdata: 'true'
-              master_config:
-                disk_config:
-                  boot_disk_size_gb: 100
-                machine_type_uri: n1-standard-8
-              secondary_worker_config:
-                disk_config:
-                  boot_disk_size_gb: 100
-                machine_type_uri: n1-standard-32
-                num_instances: 2
-              software_config:
-                image_version: '2.0'
-              worker_config:
-                disk_config:
-                  boot_disk_size_gb: 100
-                machine_type_uri: n1-standard-32
-                num_instances: 2
-                accelerators:
-                - accelerator_count: 4
-                  accelerator_type_uri: nvidia-tesla-t4
-      ```
-
-### Bootstrap Tool
-
-Provides optimized RAPIDS Accelerator for Apache Spark configs based on Dataproc GPU cluster shape.
-This tool is supposed to be used once a cluster has been created to set the recommended configurations.
-
-#### Sample commands
-
-- run the bootstrap tool help cmd `spark_rapids_dataproc bootstrap --help`
-  ```bash
-  NAME
-      spark_rapids_dataproc bootstrap - The bootstrap tool analyzes the CPU and GPU configuration of
-      the Dataproc cluster and updates the Spark default configuration on the cluster's master nodes.
-
-  SYNOPSIS
-      spark_rapids_dataproc bootstrap CLUSTER REGION <flags>
-
-  DESCRIPTION
-      The bootstrap tool analyzes the CPU and GPU configuration of the Dataproc cluster and updates the
-      default configuration on the cluster's master nodes.
-
-  POSITIONAL ARGUMENTS
-      CLUSTER
-          Type: str
-          Name of the dataproc cluster
-      REGION
-          Type: str
-          Compute region (e.g. us-central1) for the cluster.
-
-  FLAGS
-      --output_folder=OUTPUT_FOLDER
-          Type: str
-          Default: '.'
-          Base output directory. The final recommendations will be logged in the subdirectory
-          'wrapper-output/rapids_user_tools_bootstrap'. Note that this argument only accepts local
-               filesystem.
-      --dry_run=DRY_RUN
-          Type: bool
-          Default: False
-          True or False to update the Spark config settings on Dataproc master node.
-      --debug=DEBUG
-          Type: bool
-          Default: False
-          True or False to enable verbosity to the wrapper script.
+  system:
+    numCores: 32
+    memory: 212992MiB
+    numWorkers: 5
+  gpu:
+    memory: 15109MiB
+    count: 4
+    name: T4
+  softwareProperties:
+    spark.driver.maxResultSize: 7680m
+    spark.driver.memory: 15360m
+    spark.executor.cores: '8'
+    spark.executor.instances: '2'
+    spark.executor.memory: 47222m
+    spark.executorEnv.OPENBLAS_NUM_THREADS: '1'
+    spark.scheduler.mode: FAIR
+    spark.sql.cbo.enabled: 'true'
+    spark.ui.port: '0'
+    spark.yarn.am.memory: 640m
   ```
 
-- Example Running bootstrap tool
-    - cmd
-      ```
-      spark_rapids_dataproc \
-          bootstrap \
-          --cluster=jobs-test-003 \
-          --region=us-central1
-      ```
-    - result
-      ```bash
-      Recommended configurations are saved to local disk: ./wrapper-output/rapids_user_tools_bootstrap/bootstrap_tool_output/rapids_4_dataproc_bootstrap_output.log
-      Using the following computed settings based on worker nodes:
-      ##### BEGIN : RAPIDS bootstrap settings for jobs-test-003
-      spark.executor.cores=8
-      spark.executor.memory=16384m
-      spark.executor.memoryOverhead=5734m
-      spark.rapids.sql.concurrentGpuTasks=2
-      spark.rapids.memory.pinnedPool.size=4096m
-      spark.sql.files.maxPartitionBytes=512m
-      spark.task.resource.gpu.amount=0.125
-      ##### END : RAPIDS bootstrap settings for jobs-test-003
-      ```
+#### Use case scenario
 
-### Diagnostic Tool
+A typical workflow to successfully run the `profiling` command in local mode is described as follows:
 
-Validates the Dataproc with RAPIDS Accelerator for Apache Spark environment to make sure the cluster
-is healthy and ready for Spark jobs.  
-This tool can be used by the frontline support team for basic diagnostic and troubleshooting.
+1. Store the Apache Spark event logs (gs bucket, or local folder).
+2. A user sets up his development machine:
+    1. configures Java
+    2. installs gcloud CLI and configures the profile and the credentials to make sure the gcloud CLI
+       commands can access the gs resources `LOGS_BUCKET`.
+    3. installs `spark_rapids_user_tools`
+3. If the results of the wrapper need to be stored on gs, then another gs uri is required `REMOTE_FOLDER=gs://OUT_BUCKET/`
+4. Depending on the accessibility of the cluster properties, the user chooses one of the 2
+   cases below (_"Case-A"_, and _"Case-B"_) to trigger the CLI.
 
-#### Sample commands
+For each successful execution, the wrapper generates a new directory in the format of
+`prof_<YYYYmmddHHmmss>_<0x%08X>`. The directory contains `profiling_summary.log` in addition to
+the actual folder of the RAPIDS Profiling tool. The directory will be mirrored to gs folder if the
+argument `--remote_folder` was a valid gs path.
 
-- Run the diagnostic tool help cmd `spark_rapids_dataproc diagnostic --help`
+   ```
+    ./prof_<YYYYmmddHHmmss>_<0x%08X>/profiling_summary.log
+    ./prof_<YYYYmmddHHmmss>_<0x%08X>/rapids_4_spark_profile/
+   ```
 
-    ```text
-    NAME
-        spark_rapids_dataproc diagnostic - Run diagnostic on local environment or remote Dataproc cluster,
-        such as check installed NVIDIA driver, CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
-    
-    SYNOPSIS
-        spark_rapids_dataproc diagnostic CLUSTER REGION <flags>
-    
-    DESCRIPTION
-        Run diagnostic on local environment or remote Dataproc cluster, such as check installed NVIDIA driver,
-        CUDA toolkit, RAPIDS Accelerator for Apache Spark jar etc.
-    
-    POSITIONAL ARGUMENTS
-        CLUSTER
-            Type: str
-            Name of the Dataproc cluster
-        REGION
-            Type: str
-            Region of Dataproc cluster (e.g. us-central1)
-    
-    FLAGS
-        --func=FUNC
-            Type: str
-            Default: 'all'
-            Diagnostic function to run. Available functions: 'nv_driver': dump NVIDIA driver info via command
-            `nvidia-smi`, 'cuda_version': check if CUDA toolkit major version >= 11.0, 'rapids_jar': check if
-            only single RAPIDS Accelerator for Apache Spark jar is installed and verify its signature, 'deprecated_jar': check if deprecated
-            (cudf) jar is installed. I.e. should no cudf jar starting with RAPIDS Accelerator for Apache Spark 22.08, 'spark': run a
-            Hello-world Spark Application on CPU and GPU, 'perf': performance test for a Spark job between CPU and
-            GPU, 'spark_job': run a Hello-world Spark Application on CPU and GPU via Dataproc job interface, 'perf_job':
-            performance test for a Spark job between CPU and GPU via Dataproc job interface
-        --debug=DEBUG Type: bool
-            Default: False
-            True or False to enable verbosity
-    
-    NOTES
-        You can also use flags syntax for POSITIONAL ARGUMENTS
+**Case-A: A gpu-cluster property file is accessible:**
+
+A cluster property is still accessible if one of the following conditions applies:
+
+1. The cluster is listed by the `gcloud` cmd. In this case, the CLI will be triggered by providing
+   `--gpu_cluster CLUSTER_NAME`
+
+       ```
+       # run the command using the GPU cluster name
+       export RAPIDS_USER_TOOLS_CACHE_FOLDER=my_cache_folder
+       export EVENTLOGS=gs://LOGS_BUCKET/eventlogs/
+       export CLUSTER_NAME=my-dataproc-gpu-cluster
+       export REMOTE_FOLDER=gs://OUT_BUCKET/wrapper_output
+       
+       spark_rapids_user_tools dataproc profiling \
+          --eventlogs $EVENTLOGS \
+          --gpu_cluster $CLUSTER_NAME \
+          --remote_folder $REMOTE_FOLDER
+       ```
+2. The cluster properties file is accessible on local disk or a valid gs path..
+
+   ```
+   $> export CLUSTER_PROPS_FILE=cluster-props.json
+   $> gcloud dataproc clusters describe $CLUSTER_NAME --format json > $CLUSTER_PROPS_FILE
+   ```
+   Trigger the CLI by providing the path to the properties file `gpu_cluster $CLUSTER_PROPS_FILE`
+
+   ```
+   $> spark_rapids_user_tools dataproc profiling \
+        --eventlogs $EVENTLOGS \
+        --gpu_cluster $CLUSTER_PROPS_FILE \
+        --remote_folder $REMOTE_FOLDER
+   ```
+
+**Case-B: GPU cluster information is missing:**
+
+In this scenario, users can write down a simple yaml file to describe the shape of the worker nodes.  
+This case is relevant to the following plans:
+1. Users who might want to experiment with different configurations before deciding on the final
+   cluster shape. 
+2. Users who have no access to the properties of the cluster.
+
+The CLI is triggered by providing the location where the yaml file is stored `--worker_info $WORKER_INFO_PATH`
+
+    ```
+    # First, create a yaml file as described in previous section
+    $> export WORKER_INFO_PATH=worker-info.yaml
+    # Run the profiling cmd
+    $> spark_rapids_user_tools dataproc profiling \
+            --eventlogs $EVENTLOGS \
+            --worker_info $WORKER_INFO_PATH \
+            --remote_folder $REMOTE_FOLDER
     ```
 
-- Example running diagnostic tool
+## Bootstrap command
 
-    - cmd
+```
+spark_rapids_user_tools dataproc bootstrap [options]
+spark_rapids_user_tools dataproc bootstrap --help
+```
 
-      ```bash
-      spark_rapids_dataproc \
-          diagnostic \
-          --cluster=alex-demt \
-          --region=us-central1 \
-          nv_driver
-      ```
+The command generates an output with a list of properties to be applied to Spark configurations.
+In order to apply those recommendations, the cluster has to be running, and the user must have SSH
+access.
 
-    - result
-      ```text
-      *** Running diagnostic function "nv_driver" ***
-      Warning: Permanently added 'compute.3346163243442954535' (ECDSA) to the list of known hosts.
-      Wed Oct 19 02:32:36 2022
-      +-----------------------------------------------------------------------------+
-      | NVIDIA-SMI 460.106.00   Driver Version: 460.106.00   CUDA Version: 11.2     |
-      |-------------------------------+----------------------+----------------------+
-      | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-      | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-      |                               |                      |               MIG M. |
-      |===============================+======================+======================|
-      |   0  Tesla T4            On   | 00000000:00:04.0 Off |                    0 |
-      | N/A   63C    P8    11W /  70W |      0MiB / 15109MiB |      0%      Default |
-      |                               |                      |                  N/A |
-      +-------------------------------+----------------------+----------------------+
+### Bootstrap options
 
-      +-----------------------------------------------------------------------------+
-      | Processes:                                                                  |
-      |  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
-      |        ID   ID                                                   Usage      |
-      |=============================================================================|
-      |  No running processes found                                                 |
-      +-----------------------------------------------------------------------------+
-      Connection to 34.171.155.172 closed.
-      *** Check "nv_driver": PASS ***
-      *** Running diagnostic function "nv_driver" ***
-      Warning: Permanently added 'compute.5880729710893392167' (ECDSA) to the list of known hosts.
-      Wed Oct 19 02:32:42 2022
-      +-----------------------------------------------------------------------------+
-      | NVIDIA-SMI 460.106.00   Driver Version: 460.106.00   CUDA Version: 11.2     |
-      |-------------------------------+----------------------+----------------------+
-      | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-      | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-      |                               |                      |               MIG M. |
-      |===============================+======================+======================|
-      |   0  Tesla T4            On   | 00000000:00:04.0 Off |                    0 |
-      | N/A   61C    P8    10W /  70W |      0MiB / 15109MiB |      0%      Default |
-      |                               |                      |                  N/A |
-      +-------------------------------+----------------------+----------------------+
+| Option            | Description                                                               | Default                                                                                     | Required |
+|-------------------|---------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|:--------:|
+| **cluster**       | Name of the Dataproc cluster running an accelerated computing instance    | N/A                                                                                         |     Y    |
+| **output_folder** | Path to local directory where the final recommendations is logged         | env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. |     N    |
+| **dry_run**       | True or False to update the Spark config settings on Dataproc master node | True                                                                                        |     N    |
+| **verbose**       | True or False to enable verbosity to the wrapper script                   | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                           |     N    |
 
-      +-----------------------------------------------------------------------------+
-      | Processes:                                                                  |
-      |  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
-      |        ID   ID                                                   Usage      |
-      |=============================================================================|
-      |  No running processes found                                                 |
-      +-----------------------------------------------------------------------------+
-      Connection to 34.70.29.158 closed.
-      *** Check "nv_driver": PASS ***
-      ```
+### Dry-run enabled
+
+The default is to enable dry-run. This generates recommendations without any side effect. This mode helps to generate
+a map between cluster configuration and the recommended Spark properties.  
+Note that this mode:
+- does not require SSH access to the cluster
+- does not require the cluster to be active and running.
+
+1. User creates a cluster
+2. Run the following command
+
+    ```bash
+    spark_rapids_user_tools dataproc bootstrap \
+      --cluster my-cluster-name
+    ```
+
+### Dry-run disabled
+
+In some cases, the user may want to run this command as part of the initialization scripts.  
+The command update Sparks default-conf `/etc/spark/conf/spark-defaults.conf` SSH access
+to the active cluster.
+
+The steps to run the command:
+
+1. The user creates a cluster
+2. The user runs the following command:
+
+    ```bash
+    spark_rapids_user_tools dataproc bootstrap \
+      --cluster my-cluster-name \
+      --nodry_run
+    ```
+
+If the connection to Dataproc instances cannot be established through SSH, the command will still
+generate an output while displaying warning that the remote changes failed. 

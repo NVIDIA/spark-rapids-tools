@@ -21,9 +21,11 @@ from typing import Any
 
 from spark_rapids_pytools.cloud_api.emr_job import EmrServerlessRapidsJob, EmrLocalRapidsJob
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, CloudPlatform, \
-    ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice
-from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, AbstractPropertiesContainer
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, \
+    CloudPlatform, ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice, \
+    ClusterGetAccessor
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, \
+    AbstractPropertiesContainer
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.emr_pricing import EMREc2PriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -100,10 +102,18 @@ class EMRPlatform(PlatformBase):
                                         'application-id to reduce the overhead of initializing the job.')
         return submission_args
 
-    def create_saving_estimator(self, source_cluster, target_cluster):
-        emr_price_provider = EMREc2PriceProvider(region=self.cli.get_region())
+    def create_saving_estimator(self,
+                                source_cluster: ClusterGetAccessor,
+                                reshaped_cluster: ClusterGetAccessor):
+        raw_pricing_config = self.configs.get_value_silent('pricing')
+        if raw_pricing_config:
+            pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
+        else:
+            pricing_config: JSONPropertiesContainer = None
+        emr_price_provider = EMREc2PriceProvider(region=self.cli.get_region(),
+                                                 pricing_configs={'emr': pricing_config})
         saving_estimator = EmrSavingsEstimator(price_provider=emr_price_provider,
-                                               target_cluster=target_cluster,
+                                               reshaped_cluster=reshaped_cluster,
                                                source_cluster=source_cluster)
         return saving_estimator
 
@@ -167,7 +177,7 @@ class EMRCMDDriver(CMDDriverBase):
                        '-o StrictHostKeyChecking=no',
                        f'-i {pem_file_path}',
                        f'hadoop@{node.name}']
-        return ' '.join(prefix_args)
+        return Utils.gen_joined_str(' ', prefix_args)
 
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',
@@ -238,7 +248,7 @@ class EMRNode(ClusterNode):
     def _pull_and_set_mc_props(self, cli=None):
         instance_description = cli.exec_platform_describe_node_instance(self)
         mc_description = json.loads(instance_description)['InstanceTypes'][0]
-        self.mc_props = JSONPropertiesContainer(prop_arg=json.dumps(mc_description), file_load=False)
+        self.mc_props = JSONPropertiesContainer(prop_arg=mc_description, file_load=False)
 
     def _set_fields_from_props(self):
         self.name = self.ec2_instance.dns_name
@@ -284,19 +294,6 @@ class EMRCluster(ClusterBase):
             _, new_props = self.props.props.popitem()
             self.props.props = new_props
 
-    def _init_connection(self, cluster_id: str = None,
-                         props: str = None) -> dict:
-        name = cluster_id
-        if props is None:
-            # we need to pull the properties from the platform
-            props = self.cli.pull_cluster_props_by_args(args={'cluster': name, 'region': self.region})
-        cluster_props = JSONPropertiesContainer(props, file_load=False)
-        cluster_args = {
-            'name': name,
-            'props': cluster_props
-        }
-        return cluster_args
-
     def __create_ec2_list_by_group(self, group_arg):
         if isinstance(group_arg, InstanceGroup):
             group_obj = group_arg
@@ -320,30 +317,16 @@ class EMRCluster(ClusterBase):
             ec2_instances.append(ec2_instance)
         return ec2_instances
 
-    def find_matches_for_node(self) -> dict:
-        mc_map = {}
-        supported_gpus = self.platform.get_supported_gpus()
-        for spark_node_type, node_list in self.nodes.items():
-            if spark_node_type == SparkNodeType.MASTER:
-                # skip
-                self.cli.logger.debug('Skip converting Master nodes')
-            else:
-                for anode in node_list:
-                    if anode.instance_type not in mc_map:
-                        best_mc_match = anode.find_best_cpu_conversion(supported_gpus)
-                        mc_map.update({anode.instance_type: best_mc_match})
-        return mc_map
-
-    def migrate_from_cluster(self, orig_cluster):
-        self.name = orig_cluster.name
-        self.uuid = orig_cluster.uuid
-        self.zone = orig_cluster.zone
-        self.state = orig_cluster.state
+    def _build_migrated_cluster(self, orig_cluster):
+        """
+        specific to the platform on how to build a cluster based on migration
+        :param orig_cluster:
+        """
         group_cache = {}
         self.instance_groups = []
         self.ec2_instances = []
         # get the map of the instance types
-        mc_type_map = orig_cluster.find_matches_for_node()
+        mc_type_map, _ = orig_cluster.find_matches_for_node()
         # convert instances and groups
         # master groups should stay the same
         for curr_group in orig_cluster.instance_groups:
@@ -441,15 +424,14 @@ class EMRCluster(ClusterBase):
         ]
         return self.state in acceptable_init_states
 
-    def get_eventlogs_from_config(self):
-        res_arr = []
+    def get_all_spark_properties(self) -> dict:
+        res = {}
         configs_list = self.props.get_value_silent('Configurations')
         for conf_item in configs_list:
             if conf_item['Classification'].startswith('spark'):
-                conf_props = conf_item['Properties']
-                if 'spark.eventLog.dir' in conf_props:
-                    res_arr.append(conf_props['spark.eventLog.dir'])
-        return res_arr
+                curr_spark_props = conf_item['Properties']
+                res.update(curr_spark_props)
+        return res
 
 
 @dataclass
@@ -458,17 +440,32 @@ class EmrSavingsEstimator(SavingsEstimator):
     A class that calculates the savings based on an EMR price provider
     """
 
-    def _get_cost_per_cluster(self, cluster: EMRCluster):
+    def _calculate_ec2_cost(self,
+                            cluster_inst: ClusterGetAccessor,
+                            node_type: SparkNodeType) -> float:
+        nodes_cnt = cluster_inst.get_nodes_cnt(node_type)
+        node_mc_type = cluster_inst.get_node_instance_type(node_type)
+        ec2_unit_cost = self.price_provider.catalogs['aws'].get_value('ec2', node_mc_type)
+        ec2_cost = ec2_unit_cost * nodes_cnt
+        return ec2_cost
+
+    def _calculate_emr_cost(self,
+                            cluster_inst: ClusterGetAccessor,
+                            node_type: SparkNodeType) -> float:
+        nodes_cnt = cluster_inst.get_nodes_cnt(node_type)
+        node_mc_type = cluster_inst.get_node_instance_type(node_type)
+        emr_unit_cost = self.price_provider.catalogs['aws'].get_value('emr', node_mc_type)
+        emr_cost = emr_unit_cost * nodes_cnt
+        return emr_cost
+
+    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
         total_cost = 0.0
-        for curr_group in cluster.instance_groups:
-            ec2_unit_cost = self.price_provider.catalog.get_value('ec2', curr_group.instance_type)
-            ec2_cost = ec2_unit_cost * curr_group.count
-            emr_unit_cost = self.price_provider.catalog.get_value('emr', curr_group.instance_type)
-            emr_cost = emr_unit_cost * curr_group.count
-            total_cost += emr_cost + ec2_cost
+        for node_type in [SparkNodeType.MASTER, SparkNodeType.WORKER]:
+            total_cost += self._calculate_ec2_cost(cluster, node_type)
+            total_cost += self._calculate_emr_cost(cluster, node_type)
         return total_cost
 
     def _setup_costs(self):
         # calculate target_cost
-        self.target_cost = self._get_cost_per_cluster(self.target_cluster)
+        self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
         self.source_cost = self._get_cost_per_cluster(self.source_cluster)

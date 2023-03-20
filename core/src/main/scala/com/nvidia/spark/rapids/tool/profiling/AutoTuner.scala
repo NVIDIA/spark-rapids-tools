@@ -718,7 +718,7 @@ class AutoTuner(
   }
 
   private def toCommentProfileResult: Seq[RecommendedCommentResult] = {
-    comments.map(RecommendedCommentResult)
+    comments.map(RecommendedCommentResult).sortBy(_.comment)
   }
 
   private def toRecommendationsProfileResult: Seq[RecommendedPropertyResult] = {

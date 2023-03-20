@@ -1,0 +1,1495 @@
+{
+  "Jobs Compute": {
+    "RatePerHour": 0.15,
+    "Instances": {
+      "m4.large": {
+        "vCPUs": 2,
+        "MemoryMB": 8192,
+        "DBU": 0.4,
+        "Rate": 0.06
+      },
+      "m4.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 16384,
+        "DBU": 0.75,
+        "Rate": 0.1125
+      },
+      "m4.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 32768,
+        "DBU": 1.5,
+        "Rate": 0.225
+      },
+      "m4.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 65536,
+        "DBU": 3.0,
+        "Rate": 0.45
+      },
+      "m4.10xlarge": {
+        "vCPUs": 40,
+        "MemoryMB": 163840,
+        "DBU": 8.0,
+        "Rate": 1.2
+      },
+      "m4.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 262144,
+        "DBU": 12.0,
+        "Rate": 1.8
+      },
+      "m5.large": {
+        "vCPUs": 2,
+        "MemoryMB": 8192,
+        "DBU": 0.34,
+        "Rate": 0.051
+      },
+      "m5.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 16384,
+        "DBU": 0.69,
+        "Rate": 0.1035
+      },
+      "m5.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 32768,
+        "DBU": 1.37,
+        "Rate": 0.2055
+      },
+      "m5.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 65536,
+        "DBU": 2.74,
+        "Rate": 0.411
+      },
+      "m5.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 131072,
+        "DBU": 5.48,
+        "Rate": 0.822
+      },
+      "m5.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 196608,
+        "DBU": 8.23,
+        "Rate": 1.2345
+      },
+      "m5.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 262144,
+        "DBU": 10.96,
+        "Rate": 1.644
+      },
+      "m5.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 393216,
+        "DBU": 16.46,
+        "Rate": 2.469
+      },
+      "m5a.large": {
+        "vCPUs": 2,
+        "MemoryMB": 8192,
+        "DBU": 0.31,
+        "Rate": 0.0465
+      },
+      "m5a.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 16384,
+        "DBU": 0.61,
+        "Rate": 0.0915
+      },
+      "m5a.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 32768,
+        "DBU": 1.23,
+        "Rate": 0.1845
+      },
+      "m5a.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 65536,
+        "DBU": 2.46,
+        "Rate": 0.369
+      },
+      "m5a.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 131072,
+        "DBU": 4.91,
+        "Rate": 0.7365
+      },
+      "m5a.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 196608,
+        "DBU": 7.37,
+        "Rate": 1.1055
+      },
+      "m5a.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 262144,
+        "DBU": 9.83,
+        "Rate": 1.4745
+      },
+      "m5a.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 393216,
+        "DBU": 14.74,
+        "Rate": 2.211
+      },
+      "m5d.large": {
+        "vCPUs": 2,
+        "MemoryMB": 8192,
+        "DBU": 0.34,
+        "Rate": 0.051
+      },
+      "m5d.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 16384,
+        "DBU": 0.69,
+        "Rate": 0.1035
+      },
+      "m5d.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 32768,
+        "DBU": 1.37,
+        "Rate": 0.2055
+      },
+      "m5d.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 65536,
+        "DBU": 2.74,
+        "Rate": 0.411
+      },
+      "m5d.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 131072,
+        "DBU": 5.48,
+        "Rate": 0.822
+      },
+      "m5d.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 196608,
+        "DBU": 8.23,
+        "Rate": 1.2345
+      },
+      "m5d.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 262144,
+        "DBU": 10.96,
+        "Rate": 1.644
+      },
+      "m5d.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 393216,
+        "DBU": 16.46,
+        "Rate": 2.469
+      },
+      "m5dn.large": {
+        "vCPUs": 2,
+        "MemoryMB": 8192,
+        "DBU": 0.41,
+        "Rate": 0.0615
+      },
+      "m5dn.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 16384,
+        "DBU": 0.82,
+        "Rate": 0.123
+      },
+      "m5dn.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 32768,
+        "DBU": 1.63,
+        "Rate": 0.2445
+      },
+      "m5dn.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 65536,
+        "DBU": 3.26,
+        "Rate": 0.489
+      },
+      "m5dn.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 131072,
+        "DBU": 6.53,
+        "Rate": 0.9795
+      },
+      "m5dn.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 196608,
+        "DBU": 9.79,
+        "Rate": 1.4685
+      },
+      "m5dn.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 262144,
+        "DBU": 13.06,
+        "Rate": 1.959
+      },
+      "m5dn.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 393216,
+        "DBU": 19.58,
+        "Rate": 2.937
+      },
+      "m5dn.metal": {
+        "vCPUs": 96,
+        "MemoryMB": 393216,
+        "DBU": 19.58,
+        "Rate": 2.937
+      },
+      "m5n.large": {
+        "vCPUs": 2,
+        "MemoryMB": 8192,
+        "DBU": 0.36,
+        "Rate": 0.054
+      },
+      "m5n.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 16384,
+        "DBU": 0.71,
+        "Rate": 0.1065
+      },
+      "m5n.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 32768,
+        "DBU": 1.43,
+        "Rate": 0.2145
+      },
+      "m5n.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 65536,
+        "DBU": 2.86,
+        "Rate": 0.429
+      },
+      "m5n.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 131072,
+        "DBU": 5.71,
+        "Rate": 0.8565
+      },
+      "m5n.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 196608,
+        "DBU": 8.57,
+        "Rate": 1.2855
+      },
+      "m5n.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 262144,
+        "DBU": 11.42,
+        "Rate": 1.713
+      },
+      "m5n.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 393216,
+        "DBU": 17.14,
+        "Rate": 2.571
+      },
+      "m5n.metal": {
+        "vCPUs": 96,
+        "MemoryMB": 393216,
+        "DBU": 17.14,
+        "Rate": 2.571
+      },
+      "m5zn.large": {
+        "vCPUs": 2,
+        "MemoryMB": 8192,
+        "DBU": 0.5,
+        "Rate": 0.075
+      },
+      "m5zn.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 16384,
+        "DBU": 1.0,
+        "Rate": 0.15
+      },
+      "m5zn.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 32768,
+        "DBU": 2.0,
+        "Rate": 0.3
+      },
+      "m5zn.3xlarge": {
+        "vCPUs": 12,
+        "MemoryMB": 49152,
+        "DBU": 3.0,
+        "Rate": 0.45
+      },
+      "m5zn.6xlarge": {
+        "vCPUs": 24,
+        "MemoryMB": 98304,
+        "DBU": 6.0,
+        "Rate": 0.9
+      },
+      "m5zn.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 196608,
+        "DBU": 12.0,
+        "Rate": 1.8
+      },
+      "m5zn.metal": {
+        "vCPUs": 48,
+        "MemoryMB": 196608,
+        "DBU": 12.0,
+        "Rate": 1.8
+      },
+      "m6g.large": {
+        "vCPUs": 2,
+        "MemoryMB": 8192,
+        "DBU": 0.39,
+        "Rate": 0.0585
+      },
+      "m6g.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 16384,
+        "DBU": 0.77,
+        "Rate": 0.1155
+      },
+      "m6g.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 32768,
+        "DBU": 1.54,
+        "Rate": 0.231
+      },
+      "m6g.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 65536,
+        "DBU": 3.07,
+        "Rate": 0.4605
+      },
+      "m6g.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 131072,
+        "DBU": 6.13,
+        "Rate": 0.9195
+      },
+      "m6g.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 196608,
+        "DBU": 9.21,
+        "Rate": 1.3815
+      },
+      "m6g.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 262144,
+        "DBU": 12.28,
+        "Rate": 1.842
+      },
+      "m6gd.large": {
+        "vCPUs": 2,
+        "MemoryMB": 8192,
+        "DBU": 0.39,
+        "Rate": 0.0585
+      },
+      "m6gd.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 16384,
+        "DBU": 0.77,
+        "Rate": 0.1155
+      },
+      "m6gd.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 32768,
+        "DBU": 1.54,
+        "Rate": 0.231
+      },
+      "m6gd.4xlarge": {
+        "vCPUs": 12,
+        "MemoryMB": 49152,
+        "DBU": 3.07,
+        "Rate": 0.4605
+      },
+      "m6gd.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 131072,
+        "DBU": 6.13,
+        "Rate": 0.9195
+      },
+      "m6gd.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 196608,
+        "DBU": 9.21,
+        "Rate": 1.3815
+      },
+      "m6gd.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 262144,
+        "DBU": 12.28,
+        "Rate": 1.842
+      },
+      "r3.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 31744,
+        "DBU": 1.0,
+        "Rate": 0.15
+      },
+      "r3.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 62464,
+        "DBU": 2.0,
+        "Rate": 0.3
+      },
+      "r3.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 124928,
+        "DBU": 4.0,
+        "Rate": 0.6
+      },
+      "r3.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 249856,
+        "DBU": 8.0,
+        "Rate": 1.2
+      },
+      "r4.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 31744,
+        "DBU": 1.0,
+        "Rate": 0.15
+      },
+      "r4.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 62464,
+        "DBU": 2.0,
+        "Rate": 0.3
+      },
+      "r4.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 124928,
+        "DBU": 4.0,
+        "Rate": 0.6
+      },
+      "r4.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 249856,
+        "DBU": 8.0,
+        "Rate": 1.2
+      },
+      "r4.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 499712,
+        "DBU": 16.0,
+        "Rate": 2.4
+      },
+      "r5.large": {
+        "vCPUs": 2,
+        "MemoryMB": 16384,
+        "DBU": 0.45,
+        "Rate": 0.0675
+      },
+      "r5.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 32768,
+        "DBU": 0.9,
+        "Rate": 0.135
+      },
+      "r5.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 65536,
+        "DBU": 1.8,
+        "Rate": 0.27
+      },
+      "r5.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 131072,
+        "DBU": 3.6,
+        "Rate": 0.54
+      },
+      "r5.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 262144,
+        "DBU": 7.2,
+        "Rate": 1.08
+      },
+      "r5.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 393216,
+        "DBU": 10.8,
+        "Rate": 1.62
+      },
+      "r5.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 524288,
+        "DBU": 14.4,
+        "Rate": 2.16
+      },
+      "r5.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 786432,
+        "DBU": 21.6,
+        "Rate": 3.24
+      },
+      "r5a.large": {
+        "vCPUs": 2,
+        "MemoryMB": 16384,
+        "DBU": 0.41,
+        "Rate": 0.0615
+      },
+      "r5a.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 32768,
+        "DBU": 0.81,
+        "Rate": 0.1215
+      },
+      "r5a.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 65536,
+        "DBU": 1.61,
+        "Rate": 0.2415
+      },
+      "r5a.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 131072,
+        "DBU": 3.23,
+        "Rate": 0.4845
+      },
+      "r5a.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 262144,
+        "DBU": 6.46,
+        "Rate": 0.969
+      },
+      "r5a.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 393216,
+        "DBU": 9.69,
+        "Rate": 1.4535
+      },
+      "r5a.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 524288,
+        "DBU": 12.91,
+        "Rate": 1.9365
+      },
+      "r5a.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 786432,
+        "DBU": 19.37,
+        "Rate": 2.9055
+      },
+      "r5d.large": {
+        "vCPUs": 2,
+        "MemoryMB": 16384,
+        "DBU": 0.45,
+        "Rate": 0.0675
+      },
+      "r5d.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 32768,
+        "DBU": 0.9,
+        "Rate": 0.135
+      },
+      "r5d.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 65536,
+        "DBU": 1.8,
+        "Rate": 0.27
+      },
+      "r5d.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 131072,
+        "DBU": 3.6,
+        "Rate": 0.54
+      },
+      "r5d.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 262144,
+        "DBU": 7.2,
+        "Rate": 1.08
+      },
+      "r5d.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 393216,
+        "DBU": 10.8,
+        "Rate": 1.62
+      },
+      "r5d.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 524288,
+        "DBU": 14.4,
+        "Rate": 2.16
+      },
+      "r5d.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 786432,
+        "DBU": 21.6,
+        "Rate": 3.24
+      },
+      "r5dn.large": {
+        "vCPUs": 2,
+        "MemoryMB": 16384,
+        "DBU": 0.52,
+        "Rate": 0.078
+      },
+      "r5dn.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 32768,
+        "DBU": 1.04,
+        "Rate": 0.156
+      },
+      "r5dn.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 65536,
+        "DBU": 2.09,
+        "Rate": 0.3135
+      },
+      "r5dn.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 131072,
+        "DBU": 4.18,
+        "Rate": 0.627
+      },
+      "r5dn.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 262144,
+        "DBU": 8.35,
+        "Rate": 1.2525
+      },
+      "r5dn.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 393216,
+        "DBU": 12.53,
+        "Rate": 1.8795
+      },
+      "r5dn.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 524288,
+        "DBU": 16.7,
+        "Rate": 2.505
+      },
+      "r5dn.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 786432,
+        "DBU": 25.06,
+        "Rate": 3.759
+      },
+      "r5dn.metal": {
+        "vCPUs": 96,
+        "MemoryMB": 786432,
+        "DBU": 25.06,
+        "Rate": 3.759
+      },
+      "r5n.large": {
+        "vCPUs": 2,
+        "MemoryMB": 16384,
+        "DBU": 0.45,
+        "Rate": 0.0675
+      },
+      "r5n.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 32768,
+        "DBU": 0.9,
+        "Rate": 0.135
+      },
+      "r5n.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 65536,
+        "DBU": 1.8,
+        "Rate": 0.27
+      },
+      "r5n.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 131072,
+        "DBU": 3.6,
+        "Rate": 0.54
+      },
+      "r5n.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 262144,
+        "DBU": 7.2,
+        "Rate": 1.08
+      },
+      "r5n.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 393216,
+        "DBU": 10.8,
+        "Rate": 1.62
+      },
+      "r5n.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 524288,
+        "DBU": 14.4,
+        "Rate": 2.16
+      },
+      "r5n.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 786432,
+        "DBU": 21.6,
+        "Rate": 3.24
+      },
+      "r5n.metal": {
+        "vCPUs": 96,
+        "MemoryMB": 786432,
+        "DBU": 21.6,
+        "Rate": 3.24
+      },
+      "r6g.large": {
+        "vCPUs": 2,
+        "MemoryMB": 16384,
+        "DBU": 0.5,
+        "Rate": 0.075
+      },
+      "r6g.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 32768,
+        "DBU": 1.0,
+        "Rate": 0.15
+      },
+      "r6g.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 65536,
+        "DBU": 2.0,
+        "Rate": 0.3
+      },
+      "r6g.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 131072,
+        "DBU": 4.0,
+        "Rate": 0.6
+      },
+      "r6g.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 262144,
+        "DBU": 8.0,
+        "Rate": 1.2
+      },
+      "r6g.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 393216,
+        "DBU": 12.0,
+        "Rate": 1.8
+      },
+      "r6g.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 524288,
+        "DBU": 16.0,
+        "Rate": 2.4
+      },
+      "r6gd.large": {
+        "vCPUs": 2,
+        "MemoryMB": 16384,
+        "DBU": 0.5,
+        "Rate": 0.075
+      },
+      "r6gd.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 32768,
+        "DBU": 1.0,
+        "Rate": 0.15
+      },
+      "r6gd.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 65536,
+        "DBU": 2.0,
+        "Rate": 0.3
+      },
+      "r6gd.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 131072,
+        "DBU": 4.0,
+        "Rate": 0.6
+      },
+      "r6gd.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 262144,
+        "DBU": 8.0,
+        "Rate": 1.2
+      },
+      "r6gd.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 393216,
+        "DBU": 12.0,
+        "Rate": 1.8
+      },
+      "r6gd.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 524288,
+        "DBU": 16.0,
+        "Rate": 2.4
+      },
+      "z1d.large": {
+        "vCPUs": 2,
+        "MemoryMB": 16384,
+        "DBU": 0.66,
+        "Rate": 0.099
+      },
+      "z1d.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 32768,
+        "DBU": 1.33,
+        "Rate": 0.1995
+      },
+      "z1d.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 65536,
+        "DBU": 2.66,
+        "Rate": 0.399
+      },
+      "z1d.3xlarge": {
+        "vCPUs": 12,
+        "MemoryMB": 98304,
+        "DBU": 3.99,
+        "Rate": 0.5985
+      },
+      "z1d.6xlarge": {
+        "vCPUs": 24,
+        "MemoryMB": 196608,
+        "DBU": 7.97,
+        "Rate": 1.1955
+      },
+      "z1d.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 393216,
+        "DBU": 15.94,
+        "Rate": 2.391
+      },
+      "i2.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 31744,
+        "DBU": 1.5,
+        "Rate": 0.225
+      },
+      "i2.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 62464,
+        "DBU": 3.0,
+        "Rate": 0.45
+      },
+      "i2.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 124928,
+        "DBU": 6.0,
+        "Rate": 0.9
+      },
+      "i2.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 249856,
+        "DBU": 12.0,
+        "Rate": 1.8
+      },
+      "i3.large": {
+        "vCPUs": 2,
+        "MemoryMB": 15360,
+        "DBU": 0.75,
+        "Rate": 0.1125
+      },
+      "i3.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 31744,
+        "DBU": 1.0,
+        "Rate": 0.15
+      },
+      "i3.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 62464,
+        "DBU": 2.0,
+        "Rate": 0.3
+      },
+      "i3.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 124928,
+        "DBU": 4.0,
+        "Rate": 0.6
+      },
+      "i3.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 249856,
+        "DBU": 8.0,
+        "Rate": 1.2
+      },
+      "i3.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 499712,
+        "DBU": 16.0,
+        "Rate": 2.4
+      },
+      "i3en.large": {
+        "vCPUs": 2,
+        "MemoryMB": 16384,
+        "DBU": 0.75,
+        "Rate": 0.1125
+      },
+      "i3en.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 32768,
+        "DBU": 1.45,
+        "Rate": 0.2175
+      },
+      "i3en.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 65536,
+        "DBU": 2.9,
+        "Rate": 0.435
+      },
+      "i3en.3xlarge": {
+        "vCPUs": 12,
+        "MemoryMB": 98304,
+        "DBU": 4.35,
+        "Rate": 0.6525
+      },
+      "i3en.6xlarge": {
+        "vCPUs": 24,
+        "MemoryMB": 196608,
+        "DBU": 8.7,
+        "Rate": 1.305
+      },
+      "i3en.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 393216,
+        "DBU": 17.4,
+        "Rate": 2.61
+      },
+      "i3en.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 786432,
+        "DBU": 34.8,
+        "Rate": 5.22
+      },
+      "i4i.large": {
+        "vCPUs": 2,
+        "MemoryMB": 16384,
+        "DBU": 0.69,
+        "Rate": 0.1035
+      },
+      "i4i.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 32768,
+        "DBU": 1.38,
+        "Rate": 0.207
+      },
+      "i4i.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 65536,
+        "DBU": 2.75,
+        "Rate": 0.4125
+      },
+      "i4i.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 131072,
+        "DBU": 5.5,
+        "Rate": 0.825
+      },
+      "i4i.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 262144,
+        "DBU": 11.0,
+        "Rate": 1.65
+      },
+      "i4i.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 524288,
+        "DBU": 22.0,
+        "Rate": 3.3
+      },
+      "i4i.32xlarge": {
+        "vCPUs": 128,
+        "MemoryMB": 1048576,
+        "DBU": 44.0,
+        "Rate": 6.6
+      },
+      "d3.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 32768,
+        "DBU": 1.6,
+        "Rate": 0.24
+      },
+      "d3.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 65536,
+        "DBU": 3.2,
+        "Rate": 0.48
+      },
+      "d3.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 131072,
+        "DBU": 6.4,
+        "Rate": 0.96
+      },
+      "d3.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 262144,
+        "DBU": 12.8,
+        "Rate": 1.92
+      },
+      "d3en.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 16384,
+        "DBU": 1.68,
+        "Rate": 0.252
+      },
+      "d3en.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 32768,
+        "DBU": 3.36,
+        "Rate": 0.504
+      },
+      "d3en.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 65536,
+        "DBU": 6.72,
+        "Rate": 1.008
+      },
+      "d3en.6xlarge": {
+        "vCPUs": 24,
+        "MemoryMB": 98304,
+        "DBU": 10.08,
+        "Rate": 1.512
+      },
+      "d3en.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 131072,
+        "DBU": 13.44,
+        "Rate": 2.016
+      },
+      "d3en.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 196608,
+        "DBU": 20.16,
+        "Rate": 3.024
+      },
+      "c3.2xlarge (Deprecated)": {
+        "vCPUs": 8,
+        "MemoryMB": 15360,
+        "DBU": 1.0,
+        "Rate": 0.15
+      },
+      "c3.4xlarge (Deprecated)": {
+        "vCPUs": 16,
+        "MemoryMB": 30720,
+        "DBU": 2.0,
+        "Rate": 0.3
+      },
+      "c3.8xlarge (Deprecated)": {
+        "vCPUs": 36,
+        "MemoryMB": 61440,
+        "DBU": 4.0,
+        "Rate": 0.6
+      },
+      "c4.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 15360,
+        "DBU": 1.0,
+        "Rate": 0.15
+      },
+      "c4.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 30720,
+        "DBU": 2.0,
+        "Rate": 0.3
+      },
+      "c4.8xlarge": {
+        "vCPUs": 36,
+        "MemoryMB": 61440,
+        "DBU": 4.0,
+        "Rate": 0.6
+      },
+      "c5.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 8192,
+        "DBU": 0.61,
+        "Rate": 0.0915
+      },
+      "c5.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 16384,
+        "DBU": 1.21,
+        "Rate": 0.1815
+      },
+      "c5.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 32768,
+        "DBU": 2.43,
+        "Rate": 0.3645
+      },
+      "c5.9xlarge": {
+        "vCPUs": 36,
+        "MemoryMB": 73728,
+        "DBU": 5.46,
+        "Rate": 0.819
+      },
+      "c5.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 98304,
+        "DBU": 7.28,
+        "Rate": 1.092
+      },
+      "c5.18xlarge": {
+        "vCPUs": 72,
+        "MemoryMB": 147456,
+        "DBU": 10.92,
+        "Rate": 1.638
+      },
+      "c5.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 196608,
+        "DBU": 14.56,
+        "Rate": 2.184
+      },
+      "c5a.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 8192,
+        "DBU": 0.61,
+        "Rate": 0.0915
+      },
+      "c5a.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 16384,
+        "DBU": 1.21,
+        "Rate": 0.1815
+      },
+      "c5a.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 32768,
+        "DBU": 2.43,
+        "Rate": 0.3645
+      },
+      "c5a.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 65536,
+        "DBU": 4.86,
+        "Rate": 0.729
+      },
+      "c5a.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 98304,
+        "DBU": 7.28,
+        "Rate": 1.092
+      },
+      "c5a.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 131072,
+        "DBU": 9.72,
+        "Rate": 1.458
+      },
+      "c5a.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 196608,
+        "DBU": 14.56,
+        "Rate": 2.184
+      },
+      "c5ad.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 8192,
+        "DBU": 0.69,
+        "Rate": 0.1035
+      },
+      "c5ad.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 16384,
+        "DBU": 1.37,
+        "Rate": 0.2055
+      },
+      "c5ad.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 32768,
+        "DBU": 2.74,
+        "Rate": 0.411
+      },
+      "c5ad.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 65536,
+        "DBU": 5.48,
+        "Rate": 0.822
+      },
+      "c5ad.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 98304,
+        "DBU": 8.22,
+        "Rate": 1.233
+      },
+      "c5ad.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 131072,
+        "DBU": 10.96,
+        "Rate": 1.644
+      },
+      "c5ad.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 196608,
+        "DBU": 16.44,
+        "Rate": 2.466
+      },
+      "c5d.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 8192,
+        "DBU": 0.61,
+        "Rate": 0.0915
+      },
+      "c5d.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 16384,
+        "DBU": 1.21,
+        "Rate": 0.1815
+      },
+      "c5d.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 32768,
+        "DBU": 2.43,
+        "Rate": 0.3645
+      },
+      "c5d.9xlarge": {
+        "vCPUs": 36,
+        "MemoryMB": 73728,
+        "DBU": 5.46,
+        "Rate": 0.819
+      },
+      "c5d.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 98304,
+        "DBU": 7.28,
+        "Rate": 1.092
+      },
+      "c5d.18xlarge": {
+        "vCPUs": 72,
+        "MemoryMB": 147456,
+        "DBU": 10.92,
+        "Rate": 1.638
+      },
+      "c5d.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 196608,
+        "DBU": 14.56,
+        "Rate": 2.184
+      },
+      "c5n.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 11264,
+        "DBU": 0.78,
+        "Rate": 0.117
+      },
+      "c5n.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 21504,
+        "DBU": 1.55,
+        "Rate": 0.2325
+      },
+      "c5n.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 43008,
+        "DBU": 3.11,
+        "Rate": 0.4665
+      },
+      "c5n.9xlarge": {
+        "vCPUs": 36,
+        "MemoryMB": 98304,
+        "DBU": 6.99,
+        "Rate": 1.0485
+      },
+      "c5n.18xlarge": {
+        "vCPUs": 72,
+        "MemoryMB": 196608,
+        "DBU": 13.97,
+        "Rate": 2.0955
+      },
+      "c5n.metal": {
+        "vCPUs": 72,
+        "MemoryMB": 196608,
+        "DBU": 13.97,
+        "Rate": 2.0955
+      },
+      "c6g.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 8192,
+        "DBU": 0.77,
+        "Rate": 0.1155
+      },
+      "c6g.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 16384,
+        "DBU": 1.54,
+        "Rate": 0.231
+      },
+      "c6g.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 32768,
+        "DBU": 3.08,
+        "Rate": 0.462
+      },
+      "c6g.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 65536,
+        "DBU": 6.16,
+        "Rate": 0.924
+      },
+      "c6g.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 98304,
+        "DBU": 9.24,
+        "Rate": 1.386
+      },
+      "c6g.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 131072,
+        "DBU": 12.32,
+        "Rate": 1.848
+      },
+      "c6gd.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 8192,
+        "DBU": 0.77,
+        "Rate": 0.1155
+      },
+      "c6gd.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 16384,
+        "DBU": 1.54,
+        "Rate": 0.231
+      },
+      "c6gd.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 32768,
+        "DBU": 3.08,
+        "Rate": 0.462
+      },
+      "c6gd.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 65536,
+        "DBU": 6.16,
+        "Rate": 0.924
+      },
+      "c6gd.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 98304,
+        "DBU": 9.24,
+        "Rate": 1.386
+      },
+      "c6gd.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 131072,
+        "DBU": 12.32,
+        "Rate": 1.848
+      },
+      "g4dn.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 16384,
+        "DBU": 0.71,
+        "Rate": 0.1065
+      },
+      "g4dn.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 32768,
+        "DBU": 1.43,
+        "Rate": 0.2145
+      },
+      "g4dn.4xlarge": {
+        "vCPUs": 16,
+        "MemoryMB": 65536,
+        "DBU": 2.85,
+        "Rate": 0.4275
+      },
+      "g4dn.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 131072,
+        "DBU": 5.7,
+        "Rate": 0.855
+      },
+      "g4dn.12xlarge": {
+        "vCPUs": 48,
+        "MemoryMB": 196608,
+        "DBU": 8.56,
+        "Rate": 1.284
+      },
+      "g4dn.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 262144,
+        "DBU": 11.41,
+        "Rate": 1.7115
+      },
+      "g5.xlarge": {
+        "vCPUs": 24,
+        "MemoryMB": 4096,
+        "DBU": 1.36,
+        "Rate": 0.204
+      },
+      "g5.2xlarge": {
+        "vCPUs": 24,
+        "MemoryMB": 8192,
+        "DBU": 1.64,
+        "Rate": 0.246
+      },
+      "g5.4xlarge": {
+        "vCPUs": 24,
+        "MemoryMB": 16384,
+        "DBU": 2.2,
+        "Rate": 0.33
+      },
+      "g5.8xlarge": {
+        "vCPUs": 24,
+        "MemoryMB": 32768,
+        "DBU": 3.32,
+        "Rate": 0.498
+      },
+      "g5.16xlarge": {
+        "vCPUs": 24,
+        "MemoryMB": 65536,
+        "DBU": 5.55,
+        "Rate": 0.8325
+      },
+      "g5.12xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 49152,
+        "DBU": 7.69,
+        "Rate": 1.1535
+      },
+      "g5.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 98304,
+        "DBU": 11.04,
+        "Rate": 1.656
+      },
+      "g5.48xlarge": {
+        "vCPUs": 192,
+        "MemoryMB": 196608,
+        "DBU": 22.08,
+        "Rate": 3.312
+      },
+      "p2.xlarge": {
+        "vCPUs": 4,
+        "MemoryMB": 62464,
+        "DBU": 1.22,
+        "Rate": 0.183
+      },
+      "p2.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 499712,
+        "DBU": 9.76,
+        "Rate": 1.464
+      },
+      "p2.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 749568,
+        "DBU": 19.52,
+        "Rate": 2.928
+      },
+      "p3.2xlarge": {
+        "vCPUs": 8,
+        "MemoryMB": 62464,
+        "DBU": 4.15,
+        "Rate": 0.6225
+      },
+      "p3.8xlarge": {
+        "vCPUs": 32,
+        "MemoryMB": 249856,
+        "DBU": 16.6,
+        "Rate": 2.49
+      },
+      "p3.16xlarge": {
+        "vCPUs": 64,
+        "MemoryMB": 499712,
+        "DBU": 33.2,
+        "Rate": 4.98
+      },
+      "p3dn.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 786432,
+        "DBU": 42.33,
+        "Rate": 6.3495
+      },
+      "p4d.24xlarge": {
+        "vCPUs": 96,
+        "MemoryMB": 1179648,
+        "DBU": 44.45,
+        "Rate": 6.6675
+      }
+    }
+  }
+}

@@ -56,7 +56,7 @@ class Utils:
         uuid_parts.append(ts)
         if suffix_len > 0:
             uuid_parts.append(cls.gen_random_string(suffix_len))
-        return '_'.join(uuid_parts)
+        return Utils.gen_joined_str('_', uuid_parts)
 
     @classmethod
     def resource_path(cls, resource_name: str) -> str:
@@ -151,8 +151,44 @@ class Utils:
     @classmethod
     def gen_str_header(cls, title: str, ruler='-', line_width: int = 40) -> str:
         dash = ruler * line_width
-        res_arr = [dash, f'{title:^{line_width}}', dash]
-        return '\n'.join(res_arr)
+        return cls.gen_multiline_str('', dash, f'{title:^{line_width}}', dash)
+
+    @classmethod
+    def gen_report_sec_header(cls,
+                              title: str,
+                              ruler='-',
+                              title_width: int = 20,
+                              hrule: bool = True) -> str:
+        line_width = max(title_width, len(title) + 1)
+        if hrule:
+            dash = ruler * line_width
+            return cls.gen_multiline_str('', f'{title}:', dash)
+        return cls.gen_multiline_str('', f'{title}:')
+
+    @classmethod
+    def gen_joined_str(cls, join_elem: str, items) -> str:
+        """
+        Given a variable length of String arguments (or list), returns a single string
+        :param items: the items to be concatenated together. it could be a hybrid of str and lists
+        :param join_elem: the character to use as separator of the join
+        :return: a single string joining the items
+        """
+        res_arr = []
+        for item in list(filter(lambda i: i is not None, items)):
+            if isinstance(item, list):
+                # that's an array
+                res_arr.extend(list(filter(lambda i: i is not None, item)))
+            else:
+                res_arr.append(item)
+        return join_elem.join(res_arr)
+
+    @classmethod
+    def gen_multiline_str(cls, *items) -> str:
+        return cls.gen_joined_str(join_elem='\n', items=items)
+
+    @classmethod
+    def get_os_name(cls) -> str:
+        return os.uname().sysname
 
 
 class ToolLogging:
@@ -246,10 +282,11 @@ class SysCmd:
             cmd_args = self.cmd[:]
         if ToolLogging.is_debug_mode_enabled():
             # do not dump the entire command to debugging to avoid exposing the env-variables
-            self.logger.debug('submitting system command: <%s>', ' '.join(cmd_args))
+            self.logger.debug('submitting system command: <%s>',
+                              Utils.gen_joined_str(' ', cmd_args))
         full_cmd = self._process_env_vars()
         full_cmd.extend(cmd_args)
-        actual_cmd = ' '.join(full_cmd)
+        actual_cmd = Utils.gen_joined_str(' ', full_cmd)
         stdout = subprocess.PIPE
         stderr = subprocess.PIPE
         # pylint: disable=subprocess-run-check
@@ -270,18 +307,17 @@ class SysCmd:
                                stderr=stderr)
         self.res = c.returncode
         # pylint: enable=subprocess-run-check
+        self.err_std = c.stderr if isinstance(c.stderr, str) else c.stderr.decode('utf-8')
         if self.has_failed():
-            stderror_content = c.stderr if isinstance(c.stderr, str) else c.stderr.decode('utf-8')
-            std_error_lines = [f'\t| {line}' for line in stderror_content.splitlines()]
+            std_error_lines = [f'\t| {line}' for line in self.err_std.splitlines()]
             stderr_str = ''
             if len(std_error_lines) > 0:
-                error_lines = '\n'.join(std_error_lines)
+                error_lines = Utils.gen_multiline_str(std_error_lines)
                 stderr_str = f'\n{error_lines}'
-            cmd_err_msg = f'Error invoking CMD <{" ".join(cmd_args)}>: {stderr_str}'
+            cmd_err_msg = f'Error invoking CMD <{Utils.gen_joined_str(" ", cmd_args)}>: {stderr_str}'
             raise RuntimeError(f'{cmd_err_msg}')
 
         self.out_std = c.stdout if isinstance(c.stdout, str) else c.stdout.decode('utf-8')
-        self.err_std = c.stderr if isinstance(c.stderr, str) else c.stderr.decode('utf-8')
         if self.process_streams_cb is not None:
             self.process_streams_cb(self.out_std, self.err_std)
         if self.out_std:
