@@ -192,16 +192,16 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
 
     # apply condition on the joined table, return the final dataframe
     result_table = joined_table.select("ColumnName",
-                                       when(col("t1.min"+t1) != col("t2.min"+t2), col("t1.min"+t1)).otherwise('').alias("min_A"),
-                                       when(col("t1.min"+t1) != col("t2.min"+t2), col("t2.min"+t2)).otherwise('').alias("min_B"),
-                                       when(col("t1.max"+t1) != col("t2.max"+t2), col("t1.max"+t1)).otherwise('').alias("max_A"),
-                                       when(col("t1.max"+t1) != col("t2.max"+t2), col("t2.max"+t2)).otherwise('').alias("max_B"),
-                                       when(col("t1.avg"+t1) != col("t2.avg"+t2), col("t1.avg"+t1)).otherwise('').alias("avg_A"),
-                                       when(col("t1.avg"+t1) != col("t2.avg"+t2), col("t2.avg"+t2)).otherwise('').alias("avg_B"),
-                                       when(col("t1.stddev"+t1) != col("t2.stddev"+t2), col("t1.stddev"+t1)).otherwise('').alias("stddev_A"),
-                                       when(col("t1.stddev"+t1) != col("t2.stddev"+t2), col("t2.stddev"+t2)).otherwise('').alias("stddev_B"),
-                                       when(col("t1.countDistinct"+t1) != col("t2.countDistinct"+t2), col("t1.countDistinct"+t1)).otherwise('').alias("countdist_A"),
-                                       when(col("t1.countDistinct"+t1) != col("t2.countDistinct"+t2), col("t2.countDistinct"+t2)).otherwise('').alias("countdist_B")
+                                       when(round(col("t1.min"+t1), p) != round(col("t2.min"+t2), p), round(col("t1.min"+t1), p)).otherwise('').alias("min_A"),
+                                       when(round(col("t1.min"+t1), p) != round(col("t2.min"+t2), p), round(col("t2.min"+t2), p)).otherwise('').alias("min_B"),
+                                       when(round(col("t1.max"+t1), p) != round(col("t2.max"+t2), p), round(col("t1.max"+t1), p)).otherwise('').alias("max_A"),
+                                       when(round(col("t1.max"+t1), p) != round(col("t2.max"+t2), p), round(col("t2.max"+t2), p)).otherwise('').alias("max_B"),
+                                       when(round(col("t1.avg"+t1), p) != round(col("t2.avg"+t2), p), round(col("t1.avg"+t1), p)).otherwise('').alias("avg_A"),
+                                       when(round(col("t1.avg"+t1), p) != round(col("t2.avg"+t2), p), round(col("t2.avg"+t2), p)).otherwise('').alias("avg_B"),
+                                       when(round(col("t1.stddev"+t1), p) != round(col("t2.stddev"+t2), p), round(col("t1.stddev"+t1), p)).otherwise('').alias("stddev_A"),
+                                       when(round(col("t1.stddev"+t1), p) != round(col("t2.stddev"+t2), p), round(col("t2.stddev"+t2), p)).otherwise('').alias("stddev_B"),
+                                       when(round(col("t1.countDistinct"+t1), p) != round(col("t2.countDistinct"+t2), p), round(col("t1.countDistinct"+t1), p)).otherwise('').alias("countdist_A"),
+                                       when(round(col("t1.countDistinct"+t1), p) != round(col("t2.countDistinct"+t2), p), round(col("t2.countDistinct"+t2), p)).otherwise('').alias("countdist_B")
                                        ).where(cond).sort(asc("ColumnName"))
     return result_table
 
