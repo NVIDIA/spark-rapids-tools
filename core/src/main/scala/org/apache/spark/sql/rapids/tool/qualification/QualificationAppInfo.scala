@@ -523,21 +523,23 @@ class QualificationAppInfo(
 
   private def getMlTotalStageDuration(
       mlFunctions: Seq[MLFunctions]): Option[Seq[MLFuncsStageDuration]] = {
-    // Get ML function names and durations
-    val mlFuncsAndDuration = mlFunctions.map(x => (x.mlOps, x.duration))
+    // Get ML function names, durations and stage Id's
+    val mlFuncs = mlFunctions.map(mlFun => (mlFun.mlOps, mlFun.duration, mlFun.stageId))
     // Check if the ML function is supported on GPU, if so then save it as corresonding simple
-    // function name along with it's duration
-    //Example: (org.apache.spark.ml.feature.PCA.fit, 200) becomes (PCA, 200)
-    val supportedMlFuncswithDurations = SupportedMLFuncsName.funcName.map(
-      supportedMlfunc => mlFuncsAndDuration.filter(mlfunc =>
+    // function name along with it's duration and stage Id.
+    // Example: (org.apache.spark.ml.feature.PCA.fit, 200) becomes (PCA, 200)
+    val supportedMlFuncsStats = SupportedMLFuncsName.funcName.map(
+      supportedMlfunc => mlFuncs.filter(mlfunc =>
         mlfunc._1.contains(supportedMlfunc._1)).map(
-        y => (SupportedMLFuncsName.funcName(supportedMlfunc._1), y._2))).flatten
+        x => (SupportedMLFuncsName.funcName(supportedMlfunc._1), x._2, x._3))).flatten
 
-    // group by ML function name and add duration of corresponding functions
-    val mlFuncDurationResult = supportedMlFuncswithDurations.groupBy(mlfunc => mlfunc._1).map(
-      mlfunc => (mlfunc._1, mlfunc._2.map(duration => duration._2).sum))
-    if (mlFuncDurationResult.nonEmpty) {
-      Some(mlFuncDurationResult.map(result => MLFuncsStageDuration(result._1, result._2)).toSeq)
+    // group by ML function name, capture it's stageId and add duration of corresponding functions
+    val mlFuncsResult = supportedMlFuncsStats.groupBy(mlfunc => mlfunc._1).map(
+      mlfunc => (mlfunc._1, mlfunc._2.map(
+        duration => duration._2).sum, mlfunc._2.map(stageId => stageId._3)))
+    if (mlFuncsResult.nonEmpty) {
+      Some(mlFuncsResult.map(
+        result => MLFuncsStageDuration(result._1, result._2, result._3.toArray)).toSeq)
     } else {
       None
     }
@@ -605,7 +607,8 @@ case class MLFunctions(
 
 case class MLFuncsStageDuration(
     mlFuncName: String,
-    duration: Long
+    duration: Long,
+    stageIds: Array[Int]
 )
 
 class StageTaskQualificationSummary(

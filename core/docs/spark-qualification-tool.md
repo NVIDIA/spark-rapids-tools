@@ -165,6 +165,8 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       --max-sql-desc-length  <arg>   Maximum length of the SQL description
                                      string output with the per sql output.
                                      Default is 100.
+      --ml-functions                 Report if there are any SparkML or Spark XGBoost
+                                     functions in the eventlog.
   -n, --num-output-rows  <arg>       Number of output rows in the summary report.
                                      Default is 1000.
       --num-threads  <arg>           Number of thread to use for parallel
@@ -248,6 +250,14 @@ java ${QUALIFICATION_HEAP} \
   com.nvidia.spark.rapids.tool.qualification.QualificationMain -f 1-newest-per-app-name /eventlogDir
 ```
 
+- Parse ML functions from the eventlog:
+
+```bash
+java ${QUALIFICATION_HEAP} \
+  -cp ~/rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*:$HADOOP_CONF_DIR/ \
+  com.nvidia.spark.rapids.tool.qualification.QualificationMain --ml-functions /eventlogDir
+```
+
 Note: the “regular expression” used by `-a` option is based on
 [java.util.regex.Pattern](https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html).
 
@@ -278,7 +288,7 @@ The tree structure of the output directory `${OUTPUT_FOLDER}/rapids_4_spark_qual
     ├── rapids_4_spark_qualification_output_execs.csv
     ├── rapids_4_spark_qualification_output_stages.csv
     ├── rapids_4_spark_qualification_output_mlfunctions.csv
-    ├── rapids_4_spark_qualification_output_mlfunctionsstageduration.csv
+    ├── rapids_4_spark_qualification_output_mlfunctions_totalduration.csv
     └── ui
         ├── assets
         │   ├── bootstrap/
@@ -639,13 +649,14 @@ The functions in "*spark.ml.*" or "*spark.XGBoost.*" packages are displayed in t
 3. _ML Functions_: List of ML functions used in the corresponding stage.
 4. _Stage Task Duration_: amount of time spent in tasks containing ML functions for the given stage.
 
-### MLFunctions Stage Duration report
+### MLFunctions total duration report
 The Qualification tool generates a report of total duration across all stages for ML functions which 
 are supported on GPU.
 
 1. _App ID_
-2. _ML Function Name_: ML function name supported on GPU.
-3. _Total Duration_: total duration across all stages for the corresponding ML function.
+2. _Stage_Ids : Stage Id's corresponding to the given ML function.
+3. _ML Function Name_: ML function name supported on GPU.
+4. _Total Duration_: total duration across all stages for the corresponding ML function.
 
 ## Output Formats
 

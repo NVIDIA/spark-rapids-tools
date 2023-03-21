@@ -80,7 +80,7 @@ abstract class AppBase(
   def checkMLOps(appId: Int, stageInfo: StageInfoClass): Option[MLFunctions] = {
     val stageInfoDetails = stageInfo.info.details
     val mlOps = if (stageInfoDetails.contains(MlOps.sparkml) || stageInfoDetails.contains(MlOps.xgBoost)) {
-      //Check if it's a pyspark eventlog
+      // Check if it's a pyspark eventlog
       mlEventLogType = if (stageInfoDetails.contains(MlOps.pysparkLog)) {
         MlOpsEventLogType.pyspark
       } else {
