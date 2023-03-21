@@ -91,6 +91,7 @@
         <ui.resources.external.folder>assets</ui.resources.external.folder>
         <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
         <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
+        <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
     </properties>
 
     <dependencies>
@@ -201,8 +202,15 @@
                             <artifactSet>
                                 <includes>
                                     <include>org.rogach:scallop_${scala.binary.version}</include>
+                                    <include>org.yaml:snakeyaml</include>
                                 </includes>
                             </artifactSet>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.yaml</pattern>
+                                    <shadedPattern>${rapids.shade.package}.org.yaml</shadedPattern>
+                                </relocation>
+                            </relocations>
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>
