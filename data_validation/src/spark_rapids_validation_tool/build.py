@@ -12,8 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the spark_rapids_validation package."""
-from spark_rapids_validation_tool.build import get_version
+"""Build helpers."""
 
-VERSION = '23.02.0'
-__version__ = get_version(VERSION)
+import datetime
+import os
+
+
+def get_version(main=None):
+    if main is None:
+        # pylint: disable=import-outside-toplevel
+        from spark_rapids_validation_tool import VERSION as main
+    suffix = ''
+    nightly = os.environ.get('USERTOOLS_NIGHTLY')
+    if nightly == '1':
+        suffix = '.dev' + datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
+    return main + suffix

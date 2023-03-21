@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "spark-rapids-user-tools"
+name = "spark-rapids-validation-tool"
 authors = [
   { name="Raza Jafri", email="raza.jafri@gmail.com" },
   { name="Ahmed Hussein", email="a@ahussein.me" },
@@ -32,4 +32,4 @@ dependencies = [
 ]
 dynamic=["entry-points", "version"]
 [tool.setuptools.dynamic]
-version = {attr = "spark_rapids_pytools.__version__"}
+version = {attr = "spark_rapids_validation_tool.__version__"}
