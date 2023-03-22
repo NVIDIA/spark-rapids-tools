@@ -549,7 +549,7 @@ class Qualification(RapidsJarTool):
                 job_frequency = df_row['Job Frequency(monthly)']
             annual_cost_savings = job_frequency * 12 * (cpu_cost - gpu_cost)
 
-            return pd.Series([savings_recommendations, cpu_cost, gpu_cost, 
+            return pd.Series([savings_recommendations, cpu_cost, gpu_cost,
                               est_savings, job_frequency, annual_cost_savings])
 
         def get_cost_per_row(df_row, reshape_col: str) -> pd.Series:
