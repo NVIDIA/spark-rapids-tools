@@ -377,7 +377,7 @@ class Qualification(RapidsJarTool):
                                                                       cols_map.get(col_rename),
                                                                       regex=False)
 
-        # for TCO, group by app name and average CPU duration and estimated GPU duration and then recalculate Estimated GPU Speedup
+        # for TCO, group by app name and average durations, then recalculate Estimated GPU Speedup
         group_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
         if group_map:
             for group_key, group_value in group_map.items():
@@ -386,7 +386,7 @@ class Qualification(RapidsJarTool):
         drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
         subset_data = subset_data.drop_duplicates(subset=drop_arr)
 
-        subset_data["Estimated GPU Speedup"] = subset_data["App Duration"] / subset_data["Estimated GPU Duration"]
+        subset_data['Estimated GPU Speedup'] = subset_data['App Duration'] / subset_data['Estimated GPU Duration']
 
         return subset_data
 
@@ -549,7 +549,8 @@ class Qualification(RapidsJarTool):
                 job_frequency = df_row['Job Frequency(monthly)']
             annual_cost_savings = job_frequency * 12 * (cpu_cost - gpu_cost)
 
-            return pd.Series([savings_recommendations, cpu_cost, gpu_cost, est_savings, job_frequency, annual_cost_savings])
+            return pd.Series([savings_recommendations, cpu_cost, gpu_cost, 
+                              est_savings, job_frequency, annual_cost_savings])
 
         def get_cost_per_row(df_row, reshape_col: str) -> pd.Series:
             nonlocal saving_estimator_cache
