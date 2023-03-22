@@ -81,7 +81,7 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               | cluster     | spark_rapids_user_tools \             |  23.02+  |
 |                  |               |             |   emr bootstrap [ARGS]                |          |
 +------------------+---------------+-------------+---------------------------------------+----------+
-| Dataproc         | qualification | local       | spark_rapids_user_tools \             |  23.04+  |
+| Dataproc         | qualification | local       | spark_rapids_user_tools \             | 23.02.1+ |
 |                  |               |             |   dataproc qualification [ARGS]       |          |
 |                  |               +-------------+---------------------------------------+----------+
 |                  |               | serverless  |           unsupported                 |    N/A   |
