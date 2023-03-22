@@ -25,19 +25,20 @@ def validation(spark, args):
         print('|--Please Check The Inputs --|')
         return
 
-    result = top_level_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.f)
+    result = top_level_metadata(spark, args.format, args.table1, args.table2, args.table1_partition, args.table2_partition, args.filter)
     print('|--Top Level Metadata Info--|')
     print(result.show())
 
-    result = metrics_metadata(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.i, args.e, args.f, args.p)
+    result = metrics_metadata(spark, args.format, args.table1, args.table2, args.table1_partition,
+                              args.table2_partition, args.pk, args.include_column, args.exclude_column, args.filter, args.precision)
     if result.count() == 0:
-        print(f'|--Table {args.t1} and Table {args.t2} has identical metadata info--|')
+        print(f'|--Table {args.table1} and Table {args.table2} has identical metadata info--|')
         print(result.show())
     else:
         print('|--Metadata Diff Info--|')
         print(result.show())
 
-    save_result(result, args.o, args.of)
+    save_result(result, args.output_path, args.output_format)
     print('|--Run Metadata Validation Success--|')
 
 def save_result(df, path, output_format):
@@ -62,11 +63,11 @@ def valid_table(spark, args):
     """
     Check if the tables exist
     """
-    if not spark._jsparkSession.catalog().tableExists(args.t1):
-        print(f'|--Table {args.t1} does not exist!--|')
+    if not spark._jsparkSession.catalog().tableExists(args.table1):
+        print(f'|--Table {args.table1} does not exist!--|')
         return False
-    if not spark._jsparkSession.catalog().tableExists(args.t2):
-        print(f'|--Table {args.t2} does not exist!--|')
+    if not spark._jsparkSession.catalog().tableExists(args.table2):
+        print(f'|--Table {args.table2} does not exist!--|')
         return False
     return True
 
@@ -74,11 +75,11 @@ def valid_metadata_included_column(spark, args):
     """
     Check if the included column valid
     """
-    if args.i in ['None', 'all']:
+    if args.include_column in ['None', 'all']:
         return True
-    table_DF = load_table(spark, args.format, args.t1, args.t1p, args.pk, args.e, args.i, args.f, "")
-    excluded_columns_list = [e.strip() for e in args.e.split(",")]
-    verify_column = [i.strip() for i in args.i.split(",") if i not in excluded_columns_list]
+    table_DF = load_table(spark, args.format, args.table1, args.table1_partition, args.pk, args.exclude_column, args.include_column, args.filter, "")
+    excluded_columns_list = [e.strip() for e in args.exclude_column.split(",")]
+    verify_column = [i.strip() for i in args.include_column.split(",") if i not in excluded_columns_list]
     verify_DF = table_DF.select(verify_column)
 
     for c in verify_DF.schema.fields:
@@ -89,7 +90,7 @@ def valid_metadata_included_column(spark, args):
             return False
     return True
 
-def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
+def top_level_metadata(spark, format, table1, table2, table1_partition, table2_partition, filter):
     """
     Check whether the columns number and row count could match for table1 and table2
     """
@@ -97,12 +98,12 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
         print('todo')
     elif format == "hive":
         results = []
-        table_confs = [(t1,t1p), (t2, t2p)]
+        table_confs = [(table1,table1_partition), (table2, table2_partition)]
 
         for (table_name,partition) in table_confs:
             sql = f'select * from {table_name}'
-            if any(cond != 'None' for cond in [partition, f]):
-                where_clause = ' where ' + ' and '.join(x for x in [partition, f] if x != 'None')
+            if any(cond != 'None' for cond in [partition, filter]):
+                where_clause = ' where ' + ' and '.join(x for x in [partition, filter] if x != 'None')
                 sql += where_clause
             df = spark.sql(sql)
             row_count = df.count()
@@ -111,7 +112,7 @@ def top_level_metadata(spark, format, t1, t2, t1p, t2p, f):
         resultsDF = spark.createDataFrame(results, ["TableName", "RowCount", "ColumnCount"])
         return resultsDF
 
-def generate_metric_df(spark, table_DF, i, e, t1):
+def generate_metric_df(spark, table_DF, include_column, exclude_column, table):
     """
     Return the metrics dataframe for table, the return dataframe should be like:
     +-----------+------------+------------+------------+-------------------+-------------------+
@@ -133,8 +134,8 @@ def generate_metric_df(spark, table_DF, i, e, t1):
     result = None
     agg_functions = [min, max, avg, stddev, countDistinct]
     # if not specified any included_columns, then get all numeric cols and string and map cols
-    excluded_columns_list = [e.strip() for e in e.split(",")]
-    metrics_cols = [i.strip() for i in i.split(",") if i not in excluded_columns_list]
+    excluded_columns_list = [e.strip() for e in exclude_column.split(",")]
+    metrics_cols = [i.strip() for i in include_column.split(",") if i not in excluded_columns_list]
     if i in ['None', 'all']:
         metrics_cols = [c.name for c in table_DF.schema.fields if
                         any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*', '*float*', '*double*', 'string', '*map*'])]
@@ -144,7 +145,7 @@ def generate_metric_df(spark, table_DF, i, e, t1):
     for col in normal_metrics_cols:
         dfc = spark.createDataFrame(([col],), ["ColumnName"])
         table1_agg = table_DF.select(
-            [f(col).alias(f.__name__ + t1) for f in
+            [f(col).alias(f.__name__ + table) for f in
              agg_functions])
         tmp_df = dfc.join(table1_agg)
         if result is None:
@@ -155,7 +156,7 @@ def generate_metric_df(spark, table_DF, i, e, t1):
     for col in map_metrics_cols:
         dfc = spark.createDataFrame(([col],), ["ColumnName"])
         table1_agg = table_DF.select(
-            [f(map_to_string(col)).alias(f.__name__ + t1) for f in
+            [f(map_to_string(col)).alias(f.__name__ + table) for f in
              agg_functions])
         tmp_df = dfc.join(table1_agg)
         if result is None:
@@ -164,7 +165,8 @@ def generate_metric_df(spark, table_DF, i, e, t1):
             result = result.union(tmp_df)
     return result
 
-def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
+def metrics_metadata(spark, format, table1, table2, table1_partition, table2_partition,
+                     pk, include_column, exclude_column, filter, precision):
     """
     The different metadata of each column in each table(min/max/avg/stddev/count_distinct):
     (If the values are identical, then a specific cell is empty, aka NULL. So we only show differences),
@@ -181,65 +183,65 @@ def metrics_metadata(spark, format, t1, t2, t1p, t2p, pk, i, e, f, p):
     |      col8|12.34|12.33|     |     |     |     |        |        |          3|          4|
     +----------+-----+-----+-----+-----+-----+-----+--------+--------+-----------+-----------+
     """
-    table1_DF = load_table(spark, format, t1, t1p, pk, e, i, f, "")
-    table2_DF = load_table(spark, format, t2, t2p, pk, e, i, f, "")
+    table1_DF = load_table(spark, format, table1, table1_partition, pk, exclude_column, include_column, filter, "")
+    table2_DF = load_table(spark, format, table2, table2_partition, pk, exclude_column, include_column, filter, "")
 
-    table_metric_df1 = generate_metric_df(spark, table1_DF, i, e, t1)
-    table_metric_df2 = generate_metric_df(spark, table2_DF, i, e, t2)
+    table_metric_df1 = generate_metric_df(spark, table1_DF, include_column, exclude_column, table1)
+    table_metric_df2 = generate_metric_df(spark, table2_DF, include_column, exclude_column, table2)
     joined_table = table_metric_df1.alias("t1").join(table_metric_df2.alias("t2"), ["ColumnName"])
 
-    cond = (round("t1.min" + t1, p) != round("t2.min" + t2, p)) | \
-           (round("t1.max" + t1, p) != round("t2.max" + t2, p)) | \
-           (round("t1.avg" + t1, p) != round("t2.avg" + t2, p)) | \
-           (round("t1.stddev" + t1, p) != round("t2.stddev" + t2, p)) | \
-           (round("t1.countDistinct" + t1, p) != round("t2.countDistinct" + t2, p))
+    cond = (round("t1.min" + table1, precision) != round("t2.min" + table2, precision)) | \
+           (round("t1.max" + table1, precision) != round("t2.max" + table2, precision)) | \
+           (round("t1.avg" + table1, precision) != round("t2.avg" + table2, precision)) | \
+           (round("t1.stddev" + table1, precision) != round("t2.stddev" + table2, precision)) | \
+           (round("t1.countDistinct" + table1, precision) != round("t2.countDistinct" + table2, precision))
 
     # apply condition on the joined table, return the final dataframe
     result_table = joined_table.select("ColumnName",
-                                       when(round(col("t1.min"+t1), p) != round(col("t2.min"+t2), p), round(col("t1.min"+t1), p)).otherwise('').alias("min_A"),
-                                       when(round(col("t1.min"+t1), p) != round(col("t2.min"+t2), p), round(col("t2.min"+t2), p)).otherwise('').alias("min_B"),
-                                       when(round(col("t1.max"+t1), p) != round(col("t2.max"+t2), p), round(col("t1.max"+t1), p)).otherwise('').alias("max_A"),
-                                       when(round(col("t1.max"+t1), p) != round(col("t2.max"+t2), p), round(col("t2.max"+t2), p)).otherwise('').alias("max_B"),
-                                       when(round(col("t1.avg"+t1), p) != round(col("t2.avg"+t2), p), round(col("t1.avg"+t1), p)).otherwise('').alias("avg_A"),
-                                       when(round(col("t1.avg"+t1), p) != round(col("t2.avg"+t2), p), round(col("t2.avg"+t2), p)).otherwise('').alias("avg_B"),
-                                       when(round(col("t1.stddev"+t1), p) != round(col("t2.stddev"+t2), p), round(col("t1.stddev"+t1), p)).otherwise('').alias("stddev_A"),
-                                       when(round(col("t1.stddev"+t1), p) != round(col("t2.stddev"+t2), p), round(col("t2.stddev"+t2), p)).otherwise('').alias("stddev_B"),
-                                       when(round(col("t1.countDistinct"+t1), p) != round(col("t2.countDistinct"+t2), p), round(col("t1.countDistinct"+t1), p)).otherwise('').alias("countdist_A"),
-                                       when(round(col("t1.countDistinct"+t1), p) != round(col("t2.countDistinct"+t2), p), round(col("t2.countDistinct"+t2), p)).otherwise('').alias("countdist_B")
+                                       when(round(col("t1.min"+table1), precision) != round(col("t2.min"+table2), precision), round(col("t1.min"+table1), precision)).otherwise('').alias("min_A"),
+                                       when(round(col("t1.min"+table1), precision) != round(col("t2.min"+table2), precision), round(col("t2.min"+table2), precision)).otherwise('').alias("min_B"),
+                                       when(round(col("t1.max"+table1), precision) != round(col("t2.max"+table2), precision), round(col("t1.max"+table1), precision)).otherwise('').alias("max_A"),
+                                       when(round(col("t1.max"+table1), precision) != round(col("t2.max"+table2), precision), round(col("t2.max"+table2), precision)).otherwise('').alias("max_B"),
+                                       when(round(col("t1.avg"+table1), precision) != round(col("t2.avg"+table2), precision), round(col("t1.avg"+table1), precision)).otherwise('').alias("avg_A"),
+                                       when(round(col("t1.avg"+table1), precision) != round(col("t2.avg"+table2), precision), round(col("t2.avg"+table2), precision)).otherwise('').alias("avg_B"),
+                                       when(round(col("t1.stddev"+table1), precision) != round(col("t2.stddev"+table2), precision), round(col("t1.stddev"+table1), precision)).otherwise('').alias("stddev_A"),
+                                       when(round(col("t1.stddev"+table1), precision) != round(col("t2.stddev"+table2), precision), round(col("t2.stddev"+table2), precision)).otherwise('').alias("stddev_B"),
+                                       when(round(col("t1.countDistinct"+table1), precision) != round(col("t2.countDistinct"+table2), precision), round(col("t1.countDistinct"+table1), precision)).otherwise('').alias("countdist_A"),
+                                       when(round(col("t1.countDistinct"+table1), precision) != round(col("t2.countDistinct"+table2), precision), round(col("t2.countDistinct"+table2), precision)).otherwise('').alias("countdist_B")
                                        ).where(cond).sort(asc("ColumnName"))
     return result_table
 
-def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
+def load_table(spark, format, table, table_partition, pk, exclude_column, include_column, filter, view_name):
     """
     Load dataframe according to different format type
     """
     if format in ['parquet', 'orc', 'csv']:
         # select column clause
-        cols = '*' if i is None else i
+        cols = '*' if i is None else include_column
         # cols = cols if e is None else cols + f", EXCEPT ({e}) " only works on databricks
         sql = f"select {pk},{cols} from {view_name}"
         # where clause
         where_clause = ""
-        path = t1
-        if t1p != 'None' and f != 'None':
-            where_clause = f" where {t1p} and {f}"
-        elif t1p != 'None':
-            where_clause = f" where {t1p}"
+        path = table
+        if table_partition != 'None' and filter != 'None':
+            where_clause = f" where {table_partition} and {filter}"
+        elif table_partition != 'None':
+            where_clause = f" where {table_partition}"
             # partition clause should be in real order as data path
             # path += partition_to_path(t1p)
-        elif f != 'None':
-            where_clause = f" where {f}"
+        elif filter != 'None':
+            where_clause = f" where {filter}"
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
         sql += where_clause
         result = spark.sql(sql)
         return result
 
     elif format == "hive":
-        cols = '*' if i is None or i == 'all' else i
-        sql = f"select {cols} from {t1}"
+        cols = '*' if include_column is None or include_column == 'all' else include_column
+        sql = f"select {cols} from {table}"
         # where clause
-        if any(cond != 'None' for cond in [t1p,f]):
-            where_clause = ' where ' + ' and '.join(x for x in [t1p, f] if x != 'None')
+        if any(cond != 'None' for cond in [table_partition,filter]):
+            where_clause = ' where ' + ' and '.join(x for x in [table_partition, filter] if x != 'None')
             sql += where_clause
 
         df = spark.sql(sql)
@@ -252,37 +254,37 @@ if __name__ == '__main__':
     parser.add_argument('--format',
                         type=str,
                         help='The format of tables')
-    parser.add_argument('--t1',
+    parser.add_argument('--table1',
                         type=str,
                         help='table1')
-    parser.add_argument('--t2',
+    parser.add_argument('--table2',
                         type=str,
                         help='table2')
-    parser.add_argument('--t1p',
+    parser.add_argument('--table1_partition',
                         type=str,
                         help='table1 partition')
-    parser.add_argument('--t2p',
+    parser.add_argument('--table2_partition',
                         type=str,
                         help='table2 partition')
     parser.add_argument('--pk',
                         type=str,
                         help='primary key')
-    parser.add_argument('--e',
+    parser.add_argument('--exclude_column',
                         type=str,
                         help='Exclude column option')
-    parser.add_argument('--i',
+    parser.add_argument('--include_column',
                         type=str,
                         help='Include column option')
-    parser.add_argument('--f',
+    parser.add_argument('--filter',
                         type=str,
                         help='Condition to filter rows')
-    parser.add_argument('--o',
+    parser.add_argument('--output_path',
                         type=str,
                         help='Output directory')
-    parser.add_argument('--of',
+    parser.add_argument('--output_format',
                         type=str,
                         help='Output format, default is parquet')
-    parser.add_argument('--p',
+    parser.add_argument('--precision',
                         type=int,
                         help='Precision, default is 4')
     args = parser.parse_args()

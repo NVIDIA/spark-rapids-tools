@@ -23,17 +23,17 @@ class DataprocWrapper(object):
                    region: str,
                    check: str = 'valid_metadata',
                    format: str = None,
-                   t1: str = None,
-                   t1p: str = None,
-                   t2: str = None,
-                   t2p: str = None,
+                   table1: str = None,
+                   table1_partition: str = None,
+                   table2: str = None,
+                   table2_partition: str = None,
                    pk: str = None,
-                   e: str = None,
-                   i: str = 'all',
-                   f: str = None,
-                   o: str = None,
-                   of: str = 'parquet',
-                   p: int = 4,
+                   exclude_column: str = None,
+                   include_column: str = 'all',
+                   filter: str = None,
+                   output_path: str = None,
+                   output_format: str = 'parquet',
+                   precision: int = 4,
                    debug: bool = False) -> None:
         """
         Run data validation tool on remote Dataproc cluster to compare whether two tables have same results, one scenario is it will be easier for
@@ -64,10 +64,12 @@ class DataprocWrapper(object):
             raise Exception('Invalid cluster or region for Dataproc environment. '
                             'Please provide options "--cluster=<CLUSTER_NAME> --region=<REGION>" properly.')
 
-        validate = DataValidationDataproc(cluster, region, check, format, t1, t1p, t2, t2p, pk, e, i, f, o, of, p, debug)
+        validate = DataValidationDataproc(cluster, region, check, format, table1, table1_partition, table2,
+                                          table2_partition, pk, exclude_column, include_column, filter,
+                                          output_path, output_format, precision, debug)
 
-        if any(p is None for p in [cluster, region, t1, t2, format]):
-            print('|--cluster/region/format/t1/t2 should not be none--|')
+        if any(p is None for p in [cluster, region, table1, table2, format]):
+            print('|--cluster/region/format/table1/table2 should not be none--|')
             return
         if format not in ['hive', 'orc', 'parquet', 'csv']:
             print('|--format should be one of hive/parquet/orc/csv--|')

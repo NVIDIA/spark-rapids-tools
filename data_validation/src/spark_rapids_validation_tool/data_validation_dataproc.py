@@ -75,18 +75,18 @@ class DataValidationDataproc(Validation):
                 'spark.rapids.sql.enabled': 'false',
             },
             'parameters': [
-                f'--t1={self.table1}',
-                f'--t2={self.table2}',
+                f'--table1={self.table1}',
+                f'--table2={self.table2}',
                 f'--format={self.format}',
-                f'--t1p={self.table1_partition}',
-                f'--t2p={self.table2_partition}',
-                f'--i={self.convert_tuple_to_string(self.included_column)}',
+                f'--table1_partition={self.table1_partition}',
+                f'--table2_partition={self.table2_partition}',
+                f'--include_column={self.convert_tuple_to_string(self.included_column)}',
                 f'--pk={self.pk}',
-                f'--e={excluded_column}',
-                f'--f={self.format_conf_with_quotation(self.filter)}',
-                f'--o={self.output_dir}',
-                f'--of={self.output_format}',
-                f'--p={self.precision}'
+                f'--exclude_column={excluded_column}',
+                f'--filter={self.format_conf_with_quotation(self.filter)}',
+                f'--output_path={self.output_dir}',
+                f'--output_format={self.output_format}',
+                f'--precision={self.precision}'
             ]
         }
         output = self.cluster.submit_job(compare_job)
@@ -113,18 +113,18 @@ class DataValidationDataproc(Validation):
                 'spark.rapids.sql.enabled': 'false',
             },
             'parameters':[
-                f'--t1={self.table1}',
-                f'--t2={self.table2}',
+                f'--table1={self.table1}',
+                f'--table2={self.table2}',
                 f'--format={self.format}',
-                f'--t1p={self.table1_partition}',
-                f'--t2p={self.table2_partition}',
-                f'--i={self.convert_tuple_to_string(self.included_column)}',
+                f'--table1_partition={self.table1_partition}',
+                f'--table2_partition={self.table2_partition}',
+                f'--include_column={self.convert_tuple_to_string(self.included_column)}',
                 f'--pk={self.pk}',
-                f'--e={self.excluded_column}',
-                f'--f={self.format_conf_with_quotation(self.filter)}',
-                f'--o={self.output_dir}',
-                f'--of={self.output_format}',
-                f'--p={self.precision}'
+                f'--exclude_column={self.excluded_column}',
+                f'--filter={self.format_conf_with_quotation(self.filter)}',
+                f'--output_path={self.output_dir}',
+                f'--output_format={self.output_format}',
+                f'--precision={self.precision}'
             ]
         }
 

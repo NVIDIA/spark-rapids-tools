@@ -28,21 +28,24 @@ def validation(spark, args):
         return
 
     # valid PK(s) only in table1
-    result = valid_pk_only_in_one_table(spark, args.format, args.t1, args.t2, args.t1p, args.t2p, args.pk, args.e, args.i, args.f, args.o, args.of)
-    print(f'|--PK(s) only in {args.t1} :--|')
+    result = valid_pk_only_in_one_table(spark, args.format, args.table1, args.table2, args.table1_partition, args.table2_partition, args.pk,
+                                        args.exclude_column, args.include_column, args.filter, args.output_path, args.output_format)
+    print(f'|--PK(s) only in {args.table1} :--|')
     print(result.show())
     # valid PK(s) only in table2
-    result = valid_pk_only_in_one_table(spark, args.format, args.t2, args.t1, args.t2p, args.t1p, args.pk, args.e, args.i, args.f, args.o, args.of)
-    print(f'|--PK(s) only in {args.t2} :--|')
+    result = valid_pk_only_in_one_table(spark, args.format, args.table2, args.table1, args.table2_partition, args.table1_partition, args.pk,
+                                        args.exclude_column, args.include_column, args.filter, args.output_path, args.output_format)
+    print(f'|--PK(s) only in {args.table2} :--|')
     print(result.show())
 
     # valid result table with the same PK but different values for that column(s)
-    result = get_cols_diff_with_same_pk(spark, args.format, args.t1, args.t2, args.pk, args.t1p, args.t2p, args.f, args.i, args.e, args.p)
+    result = get_cols_diff_with_same_pk(spark, args.format, args.table1, args.table2, args.pk, args.table1_partition, args.table2_partition,
+                                        args.filter, args.include_column, args.exclude_column, args.precision)
     print("|--Columns with same PK(s) but diff values :--|")
     print(result.show())
     print('|--------------run validation success-------|')
 
-    save_result(result, args.o, args.of)
+    save_result(result, args.output_path, args.output_format)
 
 def save_result(df, path, output_format):
     df.write.mode("overwrite").format(output_format).save(path)
@@ -66,11 +69,11 @@ def valid_table(spark, args):
     """
     Check if the tables exist
     """
-    if not spark._jsparkSession.catalog().tableExists(args.t1):
-        print(f'|--Table {args.t1} does not exist!--|')
+    if not spark._jsparkSession.catalog().tableExists(args.table1):
+        print(f'|--Table {args.table1} does not exist!--|')
         return False
-    if not spark._jsparkSession.catalog().tableExists(args.t2):
-        print(f'|--Table {args.t2} does not exist!--|')
+    if not spark._jsparkSession.catalog().tableExists(args.table2):
+        print(f'|--Table {args.table2} does not exist!--|')
         return False
     return True
 
@@ -78,11 +81,11 @@ def valid_metadata_included_column(spark, args):
     """
     Check if the included column valid
     """
-    if args.i in ['None', 'all']:
+    if args.include_column in ['None', 'all']:
         return True
-    table_DF = load_table(spark, args.format, args.t1, args.t1p, args.pk, args.e, args.i, args.f, "")
-    excluded_columns_list = [e.strip() for e in args.e.split(",")]
-    verify_column = [i.strip() for i in args.i.split(",") if i not in excluded_columns_list]
+    table_DF = load_table(spark, args.format, args.table1, args.table1_partition, args.pk, args.exclude_column, args.include_column, args.filter, "")
+    excluded_columns_list = [e.strip() for e in args.exclude_column.split(",")]
+    verify_column = [i.strip() for i in args.include_column.split(",") if i not in excluded_columns_list]
     verify_DF = table_DF.select(verify_column)
 
     for c in verify_DF.schema.fields:
@@ -114,28 +117,29 @@ def valid_metadata_included_column(spark, args):
 #         print("----todo---hive--")
 #         return 0
 
-def valid_pk_only_in_one_table(spark, format, t1, t2, t1p, t2p, pk, e, i, f, o, of):
+def valid_pk_only_in_one_table(spark, format, table1, table2, table1_partition, table2_partition, pk,
+                               exclude_column, include_column, filter, output_path, output_format):
     """valid PK(s) only in one table"""
     if format in ['parquet', 'orc', 'csv']:
 
         # load table1
-        load_table(spark, format, t1, t1p, pk, e, i, f, "table1")
+        load_table(spark, format, table1, table1_partition, pk, exclude_column, include_column, filter, "table1")
         # load table2
-        load_table(spark, format, t2, t2p, pk, e, i, f, "table2")
+        load_table(spark, format, table2, table2_partition, pk, exclude_column, include_column, filter, "table2")
 
         sql = f"select {pk} from table1 except select {pk} from table2"
         result = spark.sql(sql)
         return result
 
     elif format == "hive":
-        sql1 = f"select {pk} from {t1} "
-        sql2 = f"select {pk} from {t2} "
+        sql1 = f"select {pk} from {table1} "
+        sql2 = f"select {pk} from {table2} "
 
-        if any(cond != 'None' for cond in [t1p,f]):
-            where_clause = ' where ' + ' and '.join(x for x in [t1p, f] if x != 'None')
+        if any(cond != 'None' for cond in [table1_partition,filter]):
+            where_clause = ' where ' + ' and '.join(x for x in [table1_partition, filter] if x != 'None')
             sql1 += where_clause
-        if any(cond != 'None' for cond in [t2p,f]):
-            where_clause = ' where ' + ' and '.join(x for x in [t2p, f] if x != 'None')
+        if any(cond != 'None' for cond in [table2_partition,filter]):
+            where_clause = ' where ' + ' and '.join(x for x in [table2_partition, filter] if x != 'None')
             sql2 += where_clause
         sql = sql1 + " except " + sql2
         result = spark.sql(sql)
@@ -143,7 +147,7 @@ def valid_pk_only_in_one_table(spark, format, t1, t2, t1p, t2p, pk, e, i, f, o, 
 
     return
 
-def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, t1p, t2p, filter, included_columns, excluded_columns, p):
+def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, table1_partition, table2_partition, filter, included_columns, excluded_columns, precision):
     if format in ['parquet', 'orc', 'csv']:
         pk_list = [i.strip() for i in pk.split(",")]
         included_columns_list = [i.strip() for i in included_columns.split(",")]
@@ -156,9 +160,9 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, t1p,
                     FULL OUTER JOIN table2 t2 ON {' AND '.join([f't1.{c} = t2.{c}' for c in pk_list])}
                     WHERE ({' or '.join([f't1.{c} <> t2.{c}' for c in included_columns_list if c not in excluded_columns_list])} )
                 """
-        if t1p != 'None':
-            t1p = [p.strip() for p in t1p.split("and")]
-            sql += ' AND ( ' + ' AND '.join([f't1.{p} ' for p in t1p]) + ' )'
+        if table1_partition != 'None':
+            table1_partition = [p.strip() for p in table1_partition.split("and")]
+            sql += ' AND ( ' + ' AND '.join([f't1.{p} ' for p in table1_partition]) + ' )'
 
         if filter != 'None':
             filters = [f.strip() for f in filter.split("and")]
@@ -180,8 +184,8 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, t1p,
                 [(k, sorted(v)) for k, v in data.items()], key=lambda x: x[0])
             return str(dict(sorted_data))
 
-        table_DF1 = load_table(spark, format, table1_name, t1p, pk, excluded_columns, included_columns, filter, "table1")
-        table_DF2 = load_table(spark, format, table2_name, t2p, pk, excluded_columns, included_columns, filter, "table2")
+        table_DF1 = load_table(spark, format, table1_name, table1_partition, pk, excluded_columns, included_columns, filter, "table1")
+        table_DF2 = load_table(spark, format, table2_name, table2_partition, pk, excluded_columns, included_columns, filter, "table2")
 
         if included_columns == 'all':
             included_columns_list = list(set(table_DF1.columns) - set(excluded_columns_list) - set(pk_list))
@@ -218,23 +222,23 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, t1p,
 
         return result_table
 
-def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
+def load_table(spark, format, table, table_partition, pk, exclude_column, include_column, filter, view_name):
     if format in ['parquet', 'orc', 'csv']:
         # select column clause
-        cols = '*' if i is None else i
+        cols = '*' if include_column is None else include_column
         # cols = cols if e is None else cols + f", EXCEPT ({e}) "
         sql = f"select {pk},{cols} from {view_name}"
         # where clause
         where_clause = ""
-        path = t1
-        if t1p != 'None' and f != 'None':
-            where_clause = f" where {t1p} and {f}"
-        elif t1p != 'None':
-            where_clause = f" where {t1p}"
+        path = table
+        if table_partition != 'None' and filter != 'None':
+            where_clause = f" where {table_partition} and {filter}"
+        elif table_partition != 'None':
+            where_clause = f" where {table_partition}"
             # partition clause should be in real order as data path
             # path += partition_to_path(t1p)
-        elif f != 'None':
-            where_clause = f" where {f}"
+        elif filter != 'None':
+            where_clause = f" where {filter}"
 
         spark.read.format(format).load(path).createOrReplaceTempView(view_name)
         sql += where_clause
@@ -243,15 +247,15 @@ def load_table(spark, format, t1, t1p, pk, e, i, f, view_name):
     elif format == "hive":
         excluded_columns_list = [exclude_column.strip() for exclude_column in e.split(",")]
         if i in ['None', 'all']:
-            sql = f"select * from {t1} "
+            sql = f"select * from {table} "
         else:
             # select_column = [include_column.strip() for include_column in i.split(",") if
             #                  i not in excluded_columns_list]
             # select_column_str = select_column
-            sql = f"select {pk},{i} from {t1} "
+            sql = f"select {pk},{include_column} from {table} "
 
-        if any(cond != 'None' for cond in [t1p, f]):
-            where_clause = ' where ' + ' and '.join(x for x in [t1p, f] if x != 'None')
+        if any(cond != 'None' for cond in [table_partition, filter]):
+            where_clause = ' where ' + ' and '.join(x for x in [include_column, filter] if x != 'None')
             sql += where_clause
 
         result = spark.sql(sql)
@@ -271,37 +275,37 @@ if __name__ == '__main__':
     parser.add_argument('--format',
                         type=str,
                         help='The format of tables')
-    parser.add_argument('--t1',
+    parser.add_argument('--table1',
                         type=str,
                         help='table1')
-    parser.add_argument('--t2',
+    parser.add_argument('--table2',
                         type=str,
                         help='table2')
-    parser.add_argument('--t1p',
+    parser.add_argument('--table1_partition',
                         type=str,
                         help='table1 partition')
-    parser.add_argument('--t2p',
+    parser.add_argument('--table2_partition',
                         type=str,
                         help='table2 partition')
     parser.add_argument('--pk',
                         type=str,
                         help='primary key')
-    parser.add_argument('--e',
+    parser.add_argument('--exclude_column',
                         type=str,
                         help='Exclude column option')
-    parser.add_argument('--i',
+    parser.add_argument('--include_column',
                         type=str,
                         help='Include column option')
-    parser.add_argument('--f',
+    parser.add_argument('--filter',
                         type=str,
                         help='Condition to filter rows')
-    parser.add_argument('--o',
+    parser.add_argument('--output_path',
                         type=str,
                         help='Output directory')
-    parser.add_argument('--of',
+    parser.add_argument('--output_format',
                         type=str,
                         help='Output format, default is parquet')
-    parser.add_argument('--p',
+    parser.add_argument('--precision',
                         type=int,
                         help='Precision, default is 4')
     args = parser.parse_args()
