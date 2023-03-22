@@ -85,8 +85,13 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     }
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
-    if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
-      qWriter.writeMlFuncsReports(allAppsSum, order)
+    if (mlOpsEnabled) {
+      if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
+        qWriter.writeMlFuncsReports(allAppsSum, order)
+        qWriter.writeMlFuncsTotalDurationReports(allAppsSum)
+      } else {
+        logWarning(s"Eventlogs doesn't contain any ML functions")
+      }
     }
     if (uiEnabled) {
       QualificationReportGenerator.generateDashBoard(getReportOutputPath, allAppsSum)
