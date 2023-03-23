@@ -29,7 +29,6 @@ toolOutput:
          Estimated GPU Duration: 'App Name'
       dropDuplicates:
          - App Name
-
   stdout:
     summaryReport:
       compactWidth: true
@@ -88,7 +87,7 @@ local:
       - 'Estimated GPU Cost'
       - 'Estimated GPU Savings(%)'
       - 'Job Frequency(monthly)'
-      - 'Annual Cost Savings($)'
+      - 'Annual Cost Savings'
     savingColumn: 'Estimated GPU Savings(%)'
     speedupRecommendColumn: 'Speedup Based Recommendation'
     savingRecommendColumn: 'Savings Based Recommendation'
