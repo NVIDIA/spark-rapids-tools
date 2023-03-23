@@ -64,8 +64,15 @@ class EnumeratedType(str, Enum):
 
 class DeployMode(EnumeratedType):
     """List of tools deployment methods"""
+    # The rapids job runs by submitting a spinning serverless job
     SERVERLESS = 'serverless'
+    # The rapids job is running on local node
     LOCAL = 'local'
+    # The rapids job is submitted on a remote cluster
+    REMOTE_CLUSTER = 'remote'
+
+    def requires_remote_storage(self) -> bool:
+        return self.value in [self.SERVERLESS, self.REMOTE_CLUSTER]
 
 
 class GpuDevice(EnumeratedType):
@@ -254,6 +261,9 @@ class ClusterGetAccessor:
     def get_nodes_cnt(self, node_type: SparkNodeType) -> int:
         raise NotImplementedError
 
+    def get_name(self) -> str:
+        raise NotImplementedError
+
     def get_node_core_count(self, node_type: SparkNodeType) -> int:
         node = self.get_node(node_type)
         return node.hw_info.sys_info.num_cpus
@@ -418,8 +428,17 @@ class CMDDriverBase:
 
         def append_to_cmd(original_cmd, extra_args: list) -> Any:
             if isinstance(original_cmd, list):
-                res = original_cmd[:]
+                # We do not append at the end of the cmd because this can break some commands like
+                # spark-submit
+                res = []
+                ind = 0
+                # loop until we find the first argument (starts with --))
+                while ind < len(original_cmd) and not original_cmd[ind].startswith('--'):
+                    res.append(original_cmd[ind])
+                    ind += 1
                 res.extend(extra_args)
+                if ind < len(original_cmd):
+                    res.extend(original_cmd[ind:])
                 return res
             extra_args_flatten = Utils.gen_joined_str(' ', extra_args)
             return f'{original_cmd} {extra_args_flatten}'
@@ -449,6 +468,7 @@ class CMDDriverBase:
                     piggyback_args.append(arg_value)
         if piggyback_args:
             cmd = append_to_cmd(cmd, piggyback_args)
+
         cmd_args = {
             'cmd': cmd,
             'fail_ok': fail_ok,
@@ -483,7 +503,7 @@ class CMDDriverBase:
         """
         Given a node, execute platform CLI to pull the properties of the instance type running on
         that node
-        :param node: node object
+        :param node: object representing cluster component
         :return: string containing the properties of the machine. The string could be in json or yaml format.
         """
         cmd_params = self._build_platform_describe_node_instance(node=node)
@@ -545,6 +565,22 @@ class CMDDriverBase:
                 env_args_table.setdefault(sys_var['varKey'], prop_value)
         res.update({'envArgs': env_args_table})
         return res
+
+    # def submit_spark_job_to_cluster(self, submission_args: dict):
+    #     # cluster object on which the cluster to be submitted
+    #     self.logger.info('Preparing CMD to submit a Spark Job')
+    #     cluster_obj: ClusterGetAccessor = submission_args.get('execCluster')
+    #     if cluster_obj:
+    #         cluster_name = cluster_obj.get_name()
+    #     else:
+    #         cluster_name = submission_args.get('clusterName')
+    #     # the arguments required by each platform to submit a spark job
+    #     submission_cmd = self._build_ssh_cmd_prefix_for_node(cluster_name, submission_args)
+
+    def get_submit_spark_job_cmd_for_cluster(self,
+                                             cluster_name: str,
+                                             submit_args: dict) -> List[str]:
+        raise NotImplementedError
 
 
 @dataclass
@@ -786,6 +822,9 @@ class PlatformBase:
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         raise NotImplementedError
 
+    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
+        raise NotImplementedError
+
     def load_platform_configs(self):
         config_file_name = f'{CloudPlatform.tostring(self.type_id).lower()}-configs.json'
         config_path = Utils.resource_path(config_file_name)
@@ -979,6 +1018,12 @@ class ClusterBase(ClusterGetAccessor):
     def get_worker_node(self, ind: int = 0) -> ClusterNode:
         return self.nodes.get(SparkNodeType.WORKER)[ind]
 
+    def get_name(self) -> str:
+        return self.name
+
+    def get_tmp_storage(self) -> str:
+        raise NotImplementedError
+
 
 @dataclass
 class ClusterReshape(ClusterGetAccessor):
@@ -1036,6 +1081,9 @@ class ClusterReshape(ClusterGetAccessor):
         if node_type in self.node_types:
             return self.reshape_workers_gpu_cnt(num_gpus), self.reshape_workers_gpu_device(gpu_device)
         return num_gpus, gpu_device
+
+    def get_name(self) -> str:
+        return self.cluster_inst.get_name()
 
 
 def get_platform(platform_id: Enum) -> Type[PlatformBase]:

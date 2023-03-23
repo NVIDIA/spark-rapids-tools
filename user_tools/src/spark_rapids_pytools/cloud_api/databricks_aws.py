@@ -16,7 +16,7 @@
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, List
 
 from spark_rapids_pytools.cloud_api.databricks_aws_job import DBAWSLocalRapidsJob
 from spark_rapids_pytools.cloud_api.emr import EMRNode, EMRPlatform
@@ -38,6 +38,7 @@ class DBAWSPlatform(EMRPlatform):
     - configure the databricks cli (token, workspace, profile)
     - configure the aws cli
     """
+
     def __post_init__(self):
         self.type_id = CloudPlatform.DATABRICKS_AWS
         super(EMRPlatform, self).__post_init__()
@@ -88,6 +89,9 @@ class DBAWSPlatform(EMRPlatform):
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass
 
+    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
+        raise NotImplementedError
+
 
 @dataclass
 class DBAWSCMDDriver(CMDDriverBase):
@@ -127,6 +131,9 @@ class DBAWSCMDDriver(CMDDriverBase):
                       '--region', f'{self.get_region()}',
                       '--instance-types', f'{node.instance_type}']
         return cmd_params
+
+    def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
+        raise NotImplementedError
 
 
 @dataclass
@@ -244,6 +251,9 @@ class DatabricksCluster(ClusterBase):
         if bool(mc_type_map):
             # update the platform notes
             self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
+
+    def get_tmp_storage(self) -> str:
+        raise NotImplementedError
 
 
 @dataclass

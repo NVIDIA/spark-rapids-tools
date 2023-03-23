@@ -19,7 +19,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, List
 
-from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob
+from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob, DataprocSubmitSparkRapidsJob
 from spark_rapids_pytools.cloud_api.gstorage import GStorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CMDDriverBase, CloudPlatform, \
     ClusterBase, ClusterNode, SysInfo, GpuHWInfo, SparkNodeType, ClusterState, GpuDevice, \
@@ -117,6 +117,9 @@ class DataprocPlatform(PlatformBase):
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return DataprocLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
+
+    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
+        return DataprocSubmitSparkRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass
@@ -227,6 +230,31 @@ class DataprocCMDDriver(CMDDriverBase):
     def _construct_ssh_cmd_with_prefix(self, prefix: str, remote_cmd: str) -> str:
         # for dataproc, the remote should not be preceded by ws
         return f'{prefix}{remote_cmd}'
+
+    def get_submit_spark_job_cmd_for_cluster(self,
+                                             cluster_name: str,
+                                             submit_args: dict) -> List[str]:
+        cmd = ['gcloud',
+               'dataproc',
+               'jobs',
+               'submit',
+               'spark',
+               '--cluster',
+               cluster_name,
+               '--region',
+               self.get_region()]
+        # add the platform arguments: jars, class
+        if 'platformSparkJobArgs' in submit_args:
+            for arg_k, arg_val in submit_args.get('platformSparkJobArgs').items():
+                if arg_val:
+                    cmd.append(f'--{arg_k}={arg_val}')
+        # add the jar arguments
+        jar_args = submit_args.get('jarArgs')
+        if jar_args:
+            cmd.append('--')
+            # expects a list of string
+            cmd.extend(jar_args)
+        return cmd
 
 
 @dataclass
@@ -431,6 +459,9 @@ class DataprocCluster(ClusterBase):
             k_prefix = 'spark:'
             return {key[len(k_prefix):]: value for (key, value) in sw_props.items() if key.startswith(k_prefix)}
         return {}
+
+    def get_tmp_storage(self) -> str:
+        return self._get_temp_gs_storage()
 
 
 @dataclass

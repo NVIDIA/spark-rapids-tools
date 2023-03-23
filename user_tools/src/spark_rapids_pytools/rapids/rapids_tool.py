@@ -49,7 +49,6 @@ class RapidsTool(object):
     cluster: str = None
     output_folder: str = None
     config_path: str = None
-    runs_on_cluster: bool = field(default=True, init=False)
     wrapper_options: dict = field(default_factory=dict)
     rapids_options: dict = field(default_factory=dict)
     name: str = field(default=None, init=False)
@@ -61,6 +60,26 @@ class RapidsTool(object):
 
     def get_exec_cluster(self) -> ClusterBase:
         return self.ctxt.get_ctxt('execCluster')
+
+    def is_remote_cluster_execution(self) -> bool:
+        """
+        used to verify whether a rapids tool runs on a remote cluster submission.
+        This does not include the serverlessMode
+        :return: True when the tool needs to have a remote cluster established
+        """
+        return self.ctxt.get_deploy_mode() == DeployMode.REMOTE_CLUSTER
+
+    def requires_remote_folder(self) -> bool:
+        """
+        used to verify whether a rapids tool running remotely has a defined remote path to generate the
+        rapids tool output.
+        :return: True when the tool needs to have a remote cluster folder
+        """
+        deply_mode: DeployMode = self.ctxt.get_deploy_mode()
+        return deply_mode.requires_remote_storage()
+
+    def requires_cluster_connection(self) -> bool:
+        return self.is_remote_cluster_execution()
 
     def timeit(timed_item: str):  # pylint: disable=no-self-argument
         def decorator(func_cb: Callable):
@@ -169,14 +188,16 @@ class RapidsTool(object):
         # clean up the remote dep folder first
         remote_dep_folder = self.ctxt.get_remote('depFolder')
         if self.ctxt.platform.storage.resource_exists(remote_dep_folder):
-            # delete the folder
+            # delete the folder. Note that for dataproc this will also delete the parent directory when it is empty
             self.ctxt.platform.storage.remove_resource(remote_dep_folder)
 
     def _download_remote_output_folder(self):
         # download the output folder in to the local one with overriding
         remote_output_folder = self.ctxt.get_remote('workDir')
-        local_folder = self.ctxt.get_local('outputFolder')
-        self.ctxt.platform.storage.download_resource(remote_output_folder, local_folder)
+        # for dataproc it is possible that the entire directory has been deleted when it is empty
+        if self.ctxt.platform.storage.resource_exists(remote_output_folder):
+            local_folder = self.ctxt.get_local('outputFolder')
+            self.ctxt.platform.storage.download_resource(remote_output_folder, local_folder)
 
     def _download_output(self):
         self._delete_local_dep_folder()
@@ -218,18 +239,25 @@ class RapidsTool(object):
         Connecting to execution cluster
         :return:
         """
-        if self.runs_on_cluster:
+        if self.requires_cluster_connection():
             self.logger.info('%s requires the execution cluster %s to be running. '
                              'Establishing connection to cluster',
                              self.pretty_name(),
                              self.cluster)
             exec_cluster = self.ctxt.platform.connect_cluster_by_name(self.cluster)
+            self.ctxt.set_ctxt('execCluster', exec_cluster)
+            self._verify_exec_cluster()
             if not exec_cluster.is_cluster_running():
                 self.logger.warning('Cluster %s is not running. Make sure that the execution cluster '
                                     'is in RUNNING state, then re-try.', exec_cluster.name)
-            self.ctxt.set_ctxt('execCluster', exec_cluster)
         else:
             self.logger.info('%s requires no execution cluster. Skipping phase', self.pretty_name())
+
+    def _verify_exec_cluster(self):
+        exec_cluster = self.get_exec_cluster()
+        if not exec_cluster.is_cluster_running():
+            self.logger.warning('Cluster %s is not running. Make sure that the execution cluster '
+                                'is in RUNNING state, then re-try.', exec_cluster.name)
 
     def launch(self):
         self._init_tool()
@@ -269,7 +297,6 @@ class RapidsJarTool(RapidsTool):
     """
     A wrapper class to represent wrapper commands that require RAPIDS jar file.
     """
-    runs_on_cluster = False
 
     def _process_jar_arg(self):
         tools_jar_url = self.wrapper_options.get('toolsJar')
@@ -433,7 +460,7 @@ class RapidsJarTool(RapidsTool):
             return results
 
         # TODO: Verify the downloaded file by checking their MD5
-        deploy_mode = DeployMode.tostring(self.ctxt.platform_opts.get('deployMode'))
+        deploy_mode = DeployMode.tostring(self.ctxt.get_deploy_mode())
         depend_arr = self.ctxt.platform.configs.get_value_silent('dependencies',
                                                                  'deployMode',
                                                                  deploy_mode)
@@ -575,16 +602,28 @@ class RapidsJarTool(RapidsTool):
     def _process_job_submission_args(self):
         self._process_local_job_submission_args()
 
-    def _set_remote_folder_for_submission(self, requires_remote: bool) -> dict:
+    def _set_remote_folder_for_submission(self, requires_remote_storage: bool) -> dict:
         res = {}
         submission_args = self.wrapper_options.get('jobSubmissionProps')
         # get the root remote folder and make sure it exists
         remote_folder = submission_args.get('remoteFolder')
         # If remote_folder is not specified, then ignore it
+        if requires_remote_storage:
+            # if the remote storage required and no remote folder specified. then try to assign the
+            # tmp storage of the exec_cluster to be used for storage
+            archive_enabled = True
+            if not remote_folder:
+                # get the execCluster
+                exec_cluster = self.get_exec_cluster()
+                if exec_cluster:
+                    remote_folder = exec_cluster.get_tmp_storage()
+                    if remote_folder:
+                        archive_enabled = False
+            self.ctxt.set_ctxt('archiveToRemote', archive_enabled)
         if remote_folder is None:
             # the output is only for local machine
             self.logger.info('No remote output folder specified.')
-            if requires_remote:
+            if requires_remote_storage:
                 raise RuntimeError(f'Remote folder [{remote_folder}] is invalid.')
         else:
             if not self.ctxt.platform.storage.resource_exists(remote_folder):
@@ -600,7 +639,7 @@ class RapidsJarTool(RapidsTool):
                                                             self.ctxt.get_ctxt('depFolderName'))
             self.ctxt.set_remote('depFolder', remote_dep_folder)
             self.logger.info('Remote dependency folder is set as %s', remote_dep_folder)
-        if requires_remote:
+        if requires_remote_storage:
             res.update({'outputDirectory': self.ctxt.get_remote('workDir')})
         else:
             # the output folder has to be set any way
@@ -610,7 +649,7 @@ class RapidsJarTool(RapidsTool):
     def _process_local_job_submission_args(self):
         job_args = {}
         submission_args = self.wrapper_options.get('jobSubmissionProps')
-        job_args.update(self._set_remote_folder_for_submission(False))
+        job_args.update(self._set_remote_folder_for_submission(self.requires_remote_folder()))
         platform_args = submission_args.get('platformArgs')
         if platform_args is not None:
             processed_platform_args = self.ctxt.platform.cli.build_local_job_arguments(platform_args)
