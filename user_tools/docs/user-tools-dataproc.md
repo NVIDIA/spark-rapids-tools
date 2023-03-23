@@ -155,6 +155,9 @@ The command creates a directory with UUID that contains the following:
 
     ```
 
+### TCO calculator
+In the `qualification_summary.csv` output file, you will see two additional columns appended: `Estimated Job Frequency (monthly)` and `Annual Cost Savings`.  These new columns are to be used as part of a TCO calculator to see the long-term benefit of using Spark RAPIDS with your applications.  A GSheet template with instructions can be found at here: [link](https://docs.google.com/spreadsheets/d/1CslQHTwxHEDTlAP4lcrOzbSrmucvn8z4iFlJo6EAhxs/edit#gid=1607726286).  Make a copy of the GSheet template and then follow the instructions listed in the `Instructions` tab.
+
 ## Profiling command
 
 ### Local deployment

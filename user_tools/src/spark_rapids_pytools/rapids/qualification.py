@@ -376,6 +376,18 @@ class Qualification(RapidsJarTool):
                 subset_data.columns = subset_data.columns.str.replace(col_rename,
                                                                       cols_map.get(col_rename),
                                                                       regex=False)
+
+        # for TCO, group by app name and average durations, then recalculate Estimated GPU Speedup
+        group_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
+        if group_map:
+            for group_key, group_value in group_map.items():
+                subset_data[group_key] = subset_data.groupby(group_value)[group_key].transform('mean')
+
+        drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
+        subset_data = subset_data.drop_duplicates(subset=drop_arr)
+
+        subset_data['Estimated GPU Speedup'] = subset_data['App Duration'] / subset_data['Estimated GPU Duration']
+
         return subset_data
 
     def __remap_cols_for_shape_type(self,
@@ -530,7 +542,15 @@ class Qualification(RapidsJarTool):
                     if s_range.get('lowerBound') <= est_savings < s_range.get('upperBound'):
                         savings_recommendations = s_range.get('title')
                         break
-            return pd.Series([savings_recommendations, cpu_cost, gpu_cost, est_savings])
+
+            # For TCO, calculating annual cost savings based on job frequency
+            job_frequency = 30  # default frequency is daily
+            if 'Job Frequency(monthly)' in df_row:
+                job_frequency = df_row['Job Frequency(monthly)']
+            annual_cost_savings = job_frequency * 12 * (cpu_cost - gpu_cost)
+
+            return pd.Series([savings_recommendations, cpu_cost, gpu_cost,
+                              est_savings, job_frequency, annual_cost_savings])
 
         def get_cost_per_row(df_row, reshape_col: str) -> pd.Series:
             nonlocal saving_estimator_cache
@@ -566,6 +586,7 @@ class Qualification(RapidsJarTool):
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(comments=[self.__generate_mc_types_conversion_report])
+
         reshape_col = self.ctxt.get_value('local', 'output', 'processDFProps',
                                           'clusterShapeCols', 'columnName')
         speed_recommendation_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
@@ -577,6 +598,7 @@ class Qualification(RapidsJarTool):
                                                  reshape_col,
                                                  speed_recommendation_col,
                                                  per_row_flag)
+
         if not apps_working_set.empty:
             self.logger.info('Generating GPU Estimated Speedup and Savings as %s', csv_out)
             apps_working_set.to_csv(csv_out)
@@ -586,7 +608,7 @@ class Qualification(RapidsJarTool):
         reshaped_notes = self.__generate_cluster_shape_report()
         report_comments = [reshaped_notes] if reshaped_notes else []
         return QualificationSummary(comments=report_comments,
-                                    all_apps=all_apps,
+                                    all_apps=apps_pruned_df,
                                     recommended_apps=recommended_apps,
                                     df_result=apps_working_set,
                                     irrelevant_speedups=speedups_irrelevant_flag,

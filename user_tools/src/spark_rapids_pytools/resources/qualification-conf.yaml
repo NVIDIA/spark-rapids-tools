@@ -24,6 +24,11 @@ toolOutput:
           selectedRecommendations:
             - 'Strongly Recommended'
             - 'Recommended'
+      groupColumns:
+         App Duration: 'App Name'
+         Estimated GPU Duration: 'App Name'
+      dropDuplicates:
+         - App Name
   stdout:
     summaryReport:
       compactWidth: true
@@ -81,6 +86,8 @@ local:
       - 'Estimated App Cost'
       - 'Estimated GPU Cost'
       - 'Estimated GPU Savings(%)'
+      - 'Job Frequency(monthly)'
+      - 'Annual Cost Savings'
     savingColumn: 'Estimated GPU Savings(%)'
     speedupRecommendColumn: 'Speedup Based Recommendation'
     savingRecommendColumn: 'Savings Based Recommendation'

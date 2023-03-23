@@ -11,6 +11,8 @@ Provides a wrapper to simplify the execution of [RAPIDS Qualification tool](../.
 The latter analyzes Spark events generated from  CPU based Spark applications to help
 quantify the expected acceleration and costs savings of migrating a Spark application or
 query to GPU.  
+The tool will process each app individually, but will group apps with the same name into the same output row after
+averaging duration metrics accordingly.
 For more details, please visit the
 [Qualification Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html).
 
