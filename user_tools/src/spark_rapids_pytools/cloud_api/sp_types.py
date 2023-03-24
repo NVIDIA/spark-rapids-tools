@@ -566,17 +566,6 @@ class CMDDriverBase:
         res.update({'envArgs': env_args_table})
         return res
 
-    # def submit_spark_job_to_cluster(self, submission_args: dict):
-    #     # cluster object on which the cluster to be submitted
-    #     self.logger.info('Preparing CMD to submit a Spark Job')
-    #     cluster_obj: ClusterGetAccessor = submission_args.get('execCluster')
-    #     if cluster_obj:
-    #         cluster_name = cluster_obj.get_name()
-    #     else:
-    #         cluster_name = submission_args.get('clusterName')
-    #     # the arguments required by each platform to submit a spark job
-    #     submission_cmd = self._build_ssh_cmd_prefix_for_node(cluster_name, submission_args)
-
     def get_submit_spark_job_cmd_for_cluster(self,
                                              cluster_name: str,
                                              submit_args: dict) -> List[str]:
