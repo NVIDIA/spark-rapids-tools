@@ -708,7 +708,7 @@ class Qualification(RapidsJarTool):
 
     def _init_rapids_arg_list(self) -> List[str]:
         # TODO: Make sure we add this argument only for jar versions 23.02+
-        return ['--platform', self.ctxt.get_platform_name().replace("_", "-")]
+        return ['--platform', self.ctxt.get_platform_name().replace('_', '-')]
 
     def _generate_section_content(self, sec_conf: dict) -> List[str]:
         if sec_conf.get('sectionID') == 'initializationScript':
