@@ -171,11 +171,11 @@ running a Spark-3.x+.
 This option offers the scalability in handling large pool of event logs.
 
 The Cluster-deployment mode is similar to the [Local-deployment](#local-deployment) except that the CLI
-takes a new argument `exec_cluster` which is the name of the Dataproc cluster on which the tool is
+takes a new argument `execution_cluster` which is the name of the Dataproc cluster on which the tool is
 intended to run.
 
 ```
-spark_rapids_user_tools dataproc qualification --exec_cluster <CLUSTER_NAME> [options]
+spark_rapids_user_tools dataproc qualification --execution_cluster <CLUSTER_NAME> [options]
 spark_rapids_user_tools dataproc qualification --help
 ```
 
