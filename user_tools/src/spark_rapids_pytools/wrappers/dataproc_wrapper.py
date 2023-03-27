@@ -118,11 +118,18 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'toolsJar': tools_jar,
             'gpuClusterRecommendation': gpu_cluster_recommendation
         }
-        tool_obj = QualificationAsRemote(platform_type=CloudPlatform.DATAPROC,
-                                         cluster=execution_cluster,
-                                         output_folder=local_folder,
-                                         wrapper_options=wrapper_qual_options,
-                                         rapids_options=rapids_options)
+        if execution_cluster:
+            tool_obj = QualificationAsRemote(platform_type=CloudPlatform.DATAPROC,
+                                             cluster=execution_cluster,
+                                             output_folder=local_folder,
+                                             wrapper_options=wrapper_qual_options,
+                                             rapids_options=rapids_options)
+        else:
+            tool_obj = QualificationAsLocal(platform_type=CloudPlatform.DATAPROC,
+                                            cluster=execution_cluster,
+                                            output_folder=local_folder,
+                                            wrapper_options=wrapper_qual_options,
+                                            rapids_options=rapids_options)
         tool_obj.launch()
 
     @staticmethod
