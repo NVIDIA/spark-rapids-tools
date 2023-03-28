@@ -750,13 +750,10 @@ class QualificationAsRemote(Qualification):
     """
     description: str = 'This is the Remote Spark Qualification implementation'
 
-    def _verify_exec_cluster(self):
-        # For remote job we should fail once we find that the cluster is not actually running
-        exec_cluster = self.get_exec_cluster()
-        if not exec_cluster.is_cluster_running():
-            # TODO: We should fail here by throwing runtime Exception
-            self.logger.warning('Cluster %s is not running. Make sure that the execution cluster '
-                                'is in RUNNING state, then re-try.', exec_cluster.name)
+    def _handle_non_running_exec_cluster(self, err_msg: str) -> None:
+        # For remote cluster mode, the execution cluster must be running
+        raise RuntimeError(f'Exception verifying remote cluster: {err_msg}. \n\t'
+                           'Make sure the execution cluster passed to the CLI is currently active')
 
 
 @dataclass

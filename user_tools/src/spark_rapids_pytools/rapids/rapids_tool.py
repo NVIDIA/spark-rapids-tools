@@ -247,17 +247,24 @@ class RapidsTool(object):
             exec_cluster = self.ctxt.platform.connect_cluster_by_name(self.cluster)
             self.ctxt.set_ctxt('execCluster', exec_cluster)
             self._verify_exec_cluster()
-            if not exec_cluster.is_cluster_running():
-                self.logger.warning('Cluster %s is not running. Make sure that the execution cluster '
-                                    'is in RUNNING state, then re-try.', exec_cluster.name)
         else:
             self.logger.info('%s requires no execution cluster. Skipping phase', self.pretty_name())
 
+    def _handle_non_running_exec_cluster(self, err_msg: str) -> None:
+        self.logger.warning(err_msg)
+
     def _verify_exec_cluster(self):
+        # For remote job we should fail once we find that the cluster is not actually running
         exec_cluster = self.get_exec_cluster()
-        if not exec_cluster.is_cluster_running():
-            self.logger.warning('Cluster %s is not running. Make sure that the execution cluster '
-                                'is in RUNNING state, then re-try.', exec_cluster.name)
+        if exec_cluster and exec_cluster.is_cluster_running():
+            return
+        # For remote cluster mode, the execution cluster must be running
+        if not exec_cluster:
+            msg = 'An error initializing the execution cluster'
+        else:
+            msg = f'Remote execution Cluster [{exec_cluster.get_name()}] is not active. ' \
+                  f'The execution cluster should be in RUNNING state'
+        self._handle_non_running_exec_cluster(msg)
 
     def launch(self):
         self._init_tool()
