@@ -480,8 +480,9 @@ section on the file contents details.
 For each processed Spark application, the Qualification tool generates two main fields to help quantify the expected
 acceleration of migrating a Spark application or query to GPU.
 
-1. `Estimated GPU Duration`: predicted runtime of the app if it was run on GPU. It is the sum add of the accelerated
-   operator durations along with durations that could not run on GPU because they are unsupported operators or not SQL/Dataframe.
+1. `Estimated GPU Duration`: predicted runtime of the app if it was run on GPU. It is the sum of the accelerated
+   operator durations and ML functions duration(if applicable) along with durations that could not run on GPU because
+   they are unsupported operators or not SQL/Dataframe.
 2. `Estimated Speed-up`: the estimated speed-up is simply the original CPU duration of the app divided by the
    estimated GPU duration. That will estimate how much faster the application would run on GPU.
 
@@ -517,9 +518,9 @@ The report represents the entire app execution, including unsupported operators 
 4. _App Duration_: wall-Clock time measured since the application starts till it is completed.
    If an app is not completed an estimated completion time would be computed.
 5. _SQL DF duration_: wall-Clock time duration that includes only SQL-Dataframe queries.
-6. _GPU Opportunity_: wall-Clock time that shows how much of the SQL duration can be accelerated on the GPU.
+6. _GPU Opportunity_: wall-Clock time that shows how much of the SQL duration and ML functions(if applicable) can be accelerated on the GPU.
 7. _Estimated GPU Duration_: predicted runtime of the app if it was run on GPU. It is the sum of the accelerated
-   operator durations along with durations that could not run on GPU because they are unsupported operators or not SQL/Dataframe.
+   operator durations and ML functions durations(if applicable) along with durations that could not run on GPU because they are unsupported operators or not SQL/Dataframe.
 8. _Estimated GPU Speed-up_: the speed-up is simply the original CPU duration of the app divided by the
    estimated GPU duration. That will estimate how much faster the application would run on GPU.
 9. _Estimated GPU Time Saved_: estimated wall-Clock time saved if it was run on the GPU.
