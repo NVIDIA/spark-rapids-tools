@@ -18,6 +18,19 @@ This tool is intended to give the users a starting point and does not guarantee 
 queries or applications with the highest _recommendation_ will actually be accelerated the most. Currently,
 it reports by looking at the amount of time spent in tasks of SQL Dataframe operations.
 
+The estimations for GPU duration are available for different environments and are based on benchmarks run in the
+applicable environments.  Here are the cluster information for the ETL benchmarks used for the estimates:
+
+| Environment      | CPU Cluster       | GPU Cluster                    |
+|------------------|-------------------|--------------------------------|
+| On-prem          | 8x 128-core       | 8x 128-core + 8x A100 40 GB    |
+| Dataproc         | 4x n1-standard-32 | 4x n1-standard-32 + 8x T4 16GB |
+| EMR              | 8x m5d.8xlarge    | 4x g4dn.12xlarge               |
+| Databricks AWS   | 8x m6gd.8xlage    | 8x g5.8xlarge                  |
+| Databricks Azure | 8x E8ds_v4        | 8x NC8as_T4_v3                 |
+
+Note that all benchmarks were run using the [NDS benchmark](https://github.com/NVIDIA/spark-rapids-benchmarks/tree/dev/nds) at SF3K (3 TB).
+
 > **Disclaimer!**  
 > Estimates provided by the Qualification tool are based on the currently supported "_SparkPlan_" or "_Executor Nodes_"
 > used in the application. It currently does not handle all the expressions or datatypes used.  
@@ -469,11 +482,11 @@ acceleration of migrating a Spark application or query to GPU.
 
 1. `Estimated GPU Duration`: predicted runtime of the app if it was run on GPU. It is the sum add of the accelerated
    operator durations along with durations that could not run on GPU because they are unsupported operators or not SQL/Dataframe.
-2. `Estimated Speed-up factor`: the estimated speed-up factor is simply the original CPU duration of the app divided by the
+2. `Estimated Speed-up`: the estimated speed-up is simply the original CPU duration of the app divided by the
    estimated GPU duration. That will estimate how much faster the application would run on GPU.
 
 The lower the estimated GPU duration, the higher the "_Estimated Speed-up_".
-The processed applications or queries are ranked by the "_Estimated Speed-up_". Based on how high the speed-up factor,
+The processed applications or queries are ranked by the "_Estimated Speed-up_". Based on how high the estimated speed-up,
 the tool classifies the applications into the following different categories:
 
 - `Strongly Recommended`
@@ -507,7 +520,7 @@ The report represents the entire app execution, including unsupported operators 
 6. _GPU Opportunity_: wall-Clock time that shows how much of the SQL duration can be accelerated on the GPU.
 7. _Estimated GPU Duration_: predicted runtime of the app if it was run on GPU. It is the sum of the accelerated
    operator durations along with durations that could not run on GPU because they are unsupported operators or not SQL/Dataframe.
-8. _Estimated GPU Speed-up_: the speed-up factor is simply the original CPU duration of the app divided by the
+8. _Estimated GPU Speed-up_: the speed-up is simply the original CPU duration of the app divided by the
    estimated GPU duration. That will estimate how much faster the application would run on GPU.
 9. _Estimated GPU Time Saved_: estimated wall-Clock time saved if it was run on the GPU.
 10. _SQL Dataframe Task Duration_: amount of time spent in tasks of SQL Dataframe operations.
@@ -745,7 +758,7 @@ It contains the following main components:
    There are three searchPanes:
     1. "_Is Stage Estimated_": it splits the stages into two groups based on whether the stage duration time was estimated
        or not.
-    2. "_Speed-up_": groups the stages by their "average speed-up factor". Each stage can belong to one of the following
+    2. "_Speed-up_": groups the stages by their "average speed-up". Each stage can belong to one of the following
        predefined speed-up ranges: `1.0 (No Speed-up)`; `]1.0, 1.3[`; `[1.3, 2.5[`; `[2.5, 5[`; and `[5, _]`. The
        search-pane does not show a range bucket if its count is 0.
     3. "_Tasks GPU Support_": this filter can be used to find stages having all their execs supported by the GPU.
@@ -758,7 +771,7 @@ It contains the following main components:
    There are three _searchPanes_:
     1. "_Exec_": filters the rows by exec name. This filter also allows text searching by typing into the filter-title as
        a text input.
-    2. "_Speed-up_": groups the stages by their "average speed-up factor". Each stage can belong to one of the following
+    2. "_Speed-up_": groups the stages by their "average speed-up". Each stage can belong to one of the following
        predefined speed-up ranges: `1.0 (No Speed-up)`; `]1.0, 1.3[`; `[1.3, 2.5[`; `[2.5, 5[`; and `[5, _]`. The
        search-pane does not show a range bucket if its count is 0.
     3. "_GPU Support_": filters the execs whether an exec is supported by GPU or not.
