@@ -467,6 +467,12 @@ class QualificationAppInfo(
         None
       }
 
+      val mlspeedUp = if (mlTotalStageDuration.nonEmpty) {
+        getMlSpeedUp(mlTotalStageDuration.get)
+      } else {
+        None
+      }
+
       // get the ratio based on the Task durations that we will use for wall clock durations
       val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
         supportedSQLTaskDuration.toDouble / sqlDataframeTaskDuration.toDouble
@@ -476,7 +482,8 @@ class QualificationAppInfo(
 
       val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
         sparkSQLDFWallClockDuration, appDuration, taskSpeedupFactor, appName, appId,
-        sqlIdsWithFailures.nonEmpty, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
+        sqlIdsWithFailures.nonEmpty, mlspeedUp, unSupportedExecs, unSupportedExprs,
+        allClusterTagsMap)
 
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
@@ -540,6 +547,23 @@ class QualificationAppInfo(
     if (mlFuncsResult.nonEmpty) {
       Some(mlFuncsResult.map(
         result => MLFuncsStageDuration(result._1, result._2, result._3.toArray)).toSeq)
+    } else {
+      None
+    }
+  }
+
+  private def getMlSpeedUp(
+      mlTotalStageDuration: Seq[MLFuncsStageDuration]): Option[MLFuncsSpeedupAndDuration] = {
+    val mlFuncAndDuration = mlTotalStageDuration.map(x => (x.mlFuncName, x.duration))
+
+    val speedupFactors = mlFuncAndDuration.map(
+      mlFunc => mlFunc._1).map(mlFuncName => pluginTypeChecker.getSpeedupFactor(mlFuncName))
+    val avgMlspeedup = SQLPlanParser.averageSpeedup(speedupFactors)
+    // return None if the average speedup < 1. If it's less than 1, then running it on GPU is
+    // not recommended.
+    if (avgMlspeedup >= 1.0) {
+      val mlFuncDuration = mlFuncAndDuration.map(mlFunc => mlFunc._2).sum
+      Some(MLFuncsSpeedupAndDuration(avgMlspeedup, mlFuncDuration))
     } else {
       None
     }
@@ -609,6 +633,11 @@ case class MLFuncsStageDuration(
     mlFuncName: String,
     duration: Long,
     stageIds: Array[Int]
+)
+
+case class MLFuncsSpeedupAndDuration(
+    averageSpeedUp: Double,
+    duration: Long
 )
 
 class StageTaskQualificationSummary(
@@ -699,9 +728,9 @@ object QualificationAppInfo extends Logging {
 
   // Summarize and estimate based on wall clock times
   def calculateEstimatedInfoSummary(estimatedRatio: Double, sqlDataFrameDuration: Long,
-      appDuration: Long, speedupFactor: Double, appName: String,
-      appId: String, hasFailures: Boolean, unsupportedExecs: String = "",
-      unsupportedExprs: String = "",
+      appDuration: Long, sqlSpeedupFactor: Double, appName: String,
+      appId: String, hasFailures: Boolean, mlSpeedupFactor: Option[MLFuncsSpeedupAndDuration] = None,
+      unsupportedExecs: String = "", unsupportedExprs: String = "",
       allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedSummaryInfo = {
     val sqlDataFrameDurationToUse = if (sqlDataFrameDuration > appDuration) {
       // our app duration is shorter then our sql duration, estimate the sql duration down
@@ -710,10 +739,21 @@ object QualificationAppInfo extends Logging {
     } else {
       sqlDataFrameDuration
     }
-    val speedupOpportunityWallClock = sqlDataFrameDurationToUse * estimatedRatio
+
+    // get the average speedup and duration for ML funcs supported on GPU
+    val (mlSpeedup, mlDuration) = if (mlSpeedupFactor.isDefined) {
+      val speedUp = mlSpeedupFactor.get.averageSpeedUp
+      val duration = mlSpeedupFactor.get.duration
+      (speedUp, duration.toDouble)
+    } else {
+      (1.0, 0.0)
+    }
+
+    val speedUpOpportunitySQL = sqlDataFrameDurationToUse * estimatedRatio
+    val speedupOpportunityWallClock = speedUpOpportunitySQL + mlDuration
     val estimated_wall_clock_dur_not_on_gpu = appDuration - speedupOpportunityWallClock
-    val estimated_gpu_duration =
-      (speedupOpportunityWallClock / speedupFactor) + estimated_wall_clock_dur_not_on_gpu
+    val estimated_gpu_duration = (speedUpOpportunitySQL / sqlSpeedupFactor) +
+      estimated_wall_clock_dur_not_on_gpu + (mlDuration / mlSpeedup)
     val estimated_gpu_speedup = if (appDuration == 0 || estimated_gpu_duration == 0) {
       0
     } else {

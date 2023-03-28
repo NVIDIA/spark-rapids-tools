@@ -697,6 +697,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(mlOpsRes.mlFunctions.get.head.mlOps.mkString.contains(
           "org.apache.spark.ml.feature.PCA.fit"))
         assert(mlOpsRes.mlFunctionsStageDurations.get.head.mlFuncName.equals("PCA"))
+        // estimated GPU time is for ML function, there are no Spark Dataframe/SQL functions.
+        assert(mlOpsRes.estimatedInfo.estimatedGpuTimeSaved > 0)
       }
     }
   }
