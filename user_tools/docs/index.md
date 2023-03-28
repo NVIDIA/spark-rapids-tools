@@ -88,8 +88,8 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               +-------------+---------------------------------------+----------+
 |                  |               | serverless  |           unsupported                 |    N/A   |
 |                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     | spark_rapids_dataproc \               | 22.10.1+ |
-|                  |               |             |   qualification [ARGS]                |          |
+|                  |               | cluster     | spark_rapids_user_tools \             |  23.04+  |
+|                  |               |             |   dataproc qualification [ARGS]       |          |
 |                  +---------------+-------------+---------------------------------------+----------+
 |                  | profiling     | local       | spark_rapids_user_tools \             | 23.02.1+ |
 |                  |               |             |   dataproc profiling [ARGS]           |          |

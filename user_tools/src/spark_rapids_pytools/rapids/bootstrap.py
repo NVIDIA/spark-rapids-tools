@@ -33,6 +33,9 @@ class Bootstrap(RapidsTool):
         dry_run_opt = self.wrapper_options.get('dryRun', 'False')
         self.ctxt.set_ctxt('dryRunOpt', bool(dry_run_opt))
 
+    def requires_cluster_connection(self) -> bool:
+        return True
+
     def __calculate_spark_settings(self, worker_info: NodeHWInfo) -> dict:
         """
         Calculate the cluster properties that we need to append to the /etc/defaults of the spark

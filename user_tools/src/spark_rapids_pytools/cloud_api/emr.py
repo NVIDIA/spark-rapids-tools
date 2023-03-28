@@ -17,7 +17,7 @@
 import json
 import os
 from dataclasses import field, dataclass
-from typing import Any
+from typing import Any, List
 
 from spark_rapids_pytools.cloud_api.emr_job import EmrServerlessRapidsJob, EmrLocalRapidsJob
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
@@ -123,6 +123,9 @@ class EMRPlatform(PlatformBase):
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return EmrLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
+    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
+        raise NotImplementedError
+
 
 @dataclass
 class EMRCMDDriver(CMDDriverBase):
@@ -207,6 +210,9 @@ class EMRCMDDriver(CMDDriverBase):
                                              cluster_id: str):
         describe_cmd = f'aws emr describe-cluster --cluster-id {cluster_id}'
         return self.run_sys_cmd(describe_cmd)
+
+    def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
+        raise NotImplementedError
 
 
 @dataclass
@@ -432,6 +438,9 @@ class EMRCluster(ClusterBase):
                 curr_spark_props = conf_item['Properties']
                 res.update(curr_spark_props)
         return res
+
+    def get_tmp_storage(self) -> str:
+        raise NotImplementedError
 
 
 @dataclass
