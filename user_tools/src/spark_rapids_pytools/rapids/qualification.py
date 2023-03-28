@@ -390,9 +390,13 @@ class Qualification(RapidsJarTool):
         drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
         subset_data = subset_data.drop_duplicates(subset=drop_arr)
 
+        notes = []
+        if len(subset_data) != len(all_rows):
+            notes = "Apps with the same name are grouped together and their metrics are averaged"
+
         subset_data['Estimated GPU Speedup'] = subset_data['App Duration'] / subset_data['Estimated GPU Duration']
 
-        return subset_data
+        return subset_data, notes
 
     def __remap_cols_for_shape_type(self,
                                     data_set: pd.DataFrame,
@@ -594,7 +598,7 @@ class Qualification(RapidsJarTool):
         reshape_col = self.ctxt.get_value('local', 'output', 'processDFProps',
                                           'clusterShapeCols', 'columnName')
         speed_recommendation_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
-        apps_pruned_df = self.__remap_columns_and_prune(all_apps)
+        apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
         recommended_apps = self.__get_recommended_apps(apps_pruned_df)
         apps_reshaped_df, per_row_flag = self.__apply_gpu_cluster_reshape(apps_pruned_df)
         # Now, the dataframe is ready to calculate the cost and the savings
@@ -610,7 +614,9 @@ class Qualification(RapidsJarTool):
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
         reshaped_notes = self.__generate_cluster_shape_report()
-        report_comments = [reshaped_notes] if reshaped_notes else []
+        report_comments = [prune_notes] if prune_notes else []
+        if reshaped_notes:
+            report_comments.append(reshaped_notes)
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_pruned_df,
                                     recommended_apps=recommended_apps,

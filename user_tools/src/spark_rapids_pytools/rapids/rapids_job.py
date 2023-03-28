@@ -97,7 +97,7 @@ class RapidsJob:
         if len(stdout_splits) > 0:
             std_out_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stdout_splits])
             stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
-            self.logger.info('EMR Job output:%s', stdout_str)
+            self.logger.info('%s job output:%s', self.get_platform_name(), stdout_str)
 
     def run_job(self):
         self.logger.info('Prepare job submission command')
