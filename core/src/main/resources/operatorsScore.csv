@@ -250,3 +250,9 @@ WeekDay,4
 WindowExpression,4
 WindowSpecDefinition,4
 Year,4
+KMeans,8.86
+PCA,2.24
+LinearRegression,2
+RandomForestClassifier,6.31
+RandomForestRegressor,3.66
+XGBoost,4.45
