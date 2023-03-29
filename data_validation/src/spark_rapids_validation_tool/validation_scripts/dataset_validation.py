@@ -254,7 +254,7 @@ def load_table(spark, format, table, table_partition, pk, exclude_column, includ
             sql = f"select {pk},{include_column} from {table} "
 
         if any(cond != 'None' for cond in [table_partition, filter]):
-            where_clause = ' where ' + ' and '.join(x for x in [include_column, filter] if x != 'None')
+            where_clause = ' where ' + ' and '.join(x for x in [table_partition, filter] if x != 'None')
             sql += where_clause
 
         result = spark.sql(sql)
