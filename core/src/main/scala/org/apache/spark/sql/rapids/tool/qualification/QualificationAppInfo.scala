@@ -467,7 +467,7 @@ class QualificationAppInfo(
         None
       }
 
-      val mlspeedUp = if (mlTotalStageDuration.nonEmpty) {
+      val mlSpeedup = if (mlTotalStageDuration.nonEmpty) {
         getMlSpeedUp(mlTotalStageDuration.get)
       } else {
         None
@@ -482,7 +482,7 @@ class QualificationAppInfo(
 
       val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
         sparkSQLDFWallClockDuration, appDuration, taskSpeedupFactor, appName, appId,
-        sqlIdsWithFailures.nonEmpty, mlspeedUp, unSupportedExecs, unSupportedExprs,
+        sqlIdsWithFailures.nonEmpty, mlSpeedup, unSupportedExecs, unSupportedExprs,
         allClusterTagsMap)
 
       QualificationSummaryInfo(info.appName, appId, problems,
@@ -558,12 +558,12 @@ class QualificationAppInfo(
 
     val speedupFactors = mlFuncAndDuration.map(
       mlFunc => mlFunc._1).map(mlFuncName => pluginTypeChecker.getSpeedupFactor(mlFuncName))
-    val avgMlspeedup = SQLPlanParser.averageSpeedup(speedupFactors)
+    val avgMlSpeedup = SQLPlanParser.averageSpeedup(speedupFactors)
     // return None if the average speedup < 1. If it's less than 1, then running it on GPU is
     // not recommended.
-    if (avgMlspeedup >= 1.0) {
+    if (avgMlSpeedup >= 1.0) {
       val mlFuncDuration = mlFuncAndDuration.map(mlFunc => mlFunc._2).sum
-      Some(MLFuncsSpeedupAndDuration(avgMlspeedup, mlFuncDuration))
+      Some(MLFuncsSpeedupAndDuration(avgMlSpeedup, mlFuncDuration))
     } else {
       None
     }
@@ -636,7 +636,7 @@ case class MLFuncsStageDuration(
 )
 
 case class MLFuncsSpeedupAndDuration(
-    averageSpeedUp: Double,
+    averageSpeedup: Double,
     duration: Long
 )
 
@@ -742,7 +742,7 @@ object QualificationAppInfo extends Logging {
 
     // get the average speedup and duration for ML funcs supported on GPU
     val (mlSpeedup, mlDuration) = if (mlSpeedupFactor.isDefined) {
-      val speedUp = mlSpeedupFactor.get.averageSpeedUp
+      val speedUp = mlSpeedupFactor.get.averageSpeedup
       val duration = mlSpeedupFactor.get.duration
       (speedUp, duration.toDouble)
     } else {
