@@ -392,7 +392,7 @@ class Qualification(RapidsJarTool):
 
         notes = []
         if len(subset_data) != len(all_rows):
-            notes = "Apps with the same name are grouped together and their metrics are averaged"
+            notes = 'Apps with the same name are grouped together and their metrics are averaged'
 
         subset_data['Estimated GPU Speedup'] = subset_data['App Duration'] / subset_data['Estimated GPU Duration']
 
