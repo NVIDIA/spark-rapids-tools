@@ -246,7 +246,7 @@ def load_table(spark, format, table, table_partition, pk, exclude_column, includ
         return result
     elif format == "hive":
         excluded_columns_list = [exclude_column.strip() for exclude_column in e.split(",")]
-        if i in ['None', 'all']:
+        if include_column in ['None', 'all']:
             sql = f"select * from {table} "
         else:
             # select_column = [include_column.strip() for include_column in i.split(",") if

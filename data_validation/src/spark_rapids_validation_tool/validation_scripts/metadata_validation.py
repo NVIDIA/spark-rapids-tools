@@ -136,7 +136,7 @@ def generate_metric_df(spark, table_DF, include_column, exclude_column, table):
     # if not specified any included_columns, then get all numeric cols and string and map cols
     excluded_columns_list = [e.strip() for e in exclude_column.split(",")]
     metrics_cols = [i.strip() for i in include_column.split(",") if i not in excluded_columns_list]
-    if i in ['None', 'all']:
+    if include_column in ['None', 'all']:
         metrics_cols = [c.name for c in table_DF.schema.fields if
                         any(fnmatch.fnmatch(c.dataType.simpleString(), pattern) for pattern in ['*int*', '*decimal*', '*float*', '*double*', 'string', '*map*'])]
     map_metrics_cols = [c.name for c in table_DF.schema.fields if
