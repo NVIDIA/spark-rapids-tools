@@ -609,7 +609,8 @@ class Qualification(RapidsJarTool):
 
         if not apps_working_set.empty:
             self.logger.info('Generating GPU Estimated Speedup and Savings as %s', csv_out)
-            apps_working_set.to_csv(csv_out)
+            # we can use the general format as well but this will transform numbers to E+. So, stick with %f
+            apps_working_set.to_csv(csv_out, float_format='%.2f')
 
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
