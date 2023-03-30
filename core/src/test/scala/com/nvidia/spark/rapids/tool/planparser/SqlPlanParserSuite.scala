@@ -380,7 +380,8 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val reusedExchangeExecs = allExecInfo.filter(_.exec == "ReusedExchange")
     assertSizeAndSupported(1, reusedExchangeExecs)
     val nodesWithRemove = allExecInfo.filter(_.shouldRemove)
-    // There are 7 nodes that are duplicated including 1 ReusedExchangeExec node and 1 WholeStageCodegen.
+    // There are 7 nodes that are duplicated including 1 ReusedExchangeExec node and
+    // 1 WholeStageCodegen.
     assert(1 == nodesWithRemove.count(
       exec => exec.expr.contains("WholeStageCodegen")))
     assert(1 == nodesWithRemove.count(exec => exec.exec.equals("ReusedExchange")))

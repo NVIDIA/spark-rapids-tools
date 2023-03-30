@@ -269,7 +269,8 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     try {
       // Filter only supported ML functions
       val supportedMlFuns = sums.filter(x => x.mlFunctionsStageDurations.nonEmpty)
-      val headersAndSizes = QualOutputWriter.getDetailedMlFuncsTotalDurationHeaderStringsAndSizes(supportedMlFuns)
+      val headersAndSizes =
+        QualOutputWriter.getDetailedMlFuncsTotalDurationHeaderStringsAndSizes(supportedMlFuns)
       csvFileWriter.write(QualOutputWriter.constructDetailedHeader(headersAndSizes, ",", false))
       supportedMlFuns.foreach { sumInfo =>
         val rows = QualOutputWriter.constructMlFuncsTotalDurationInfo(
