@@ -197,31 +197,33 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
-      s"""|
-          |Spark Properties:
-          |--conf spark.executor.cores=16
-          |--conf spark.executor.instances=2
-          |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=7372m
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
-          |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
-          |--conf spark.task.resource.gpu.amount=0.0625
-          |
-          |Comments:
-          |- 'spark.executor.cores' was not set.
-          |- 'spark.executor.instances' was not set.
-          |- 'spark.executor.memory' was not set.
-          |- 'spark.executor.memoryOverhead' was not set.
-          |- 'spark.rapids.memory.pinnedPool.size' was not set.
-          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
-          |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
-          |- 'spark.task.resource.gpu.amount' was not set.
-          |- Number of workers is missing. Setting default to 1.
-          |""".stripMargin
+      s"""
+         |Spark Properties:
+         |--conf spark.dynamicAllocation.enabled=true
+         |--conf spark.dynamicAllocation.maxExecutors=2
+         |--conf spark.executor.memory=32768m
+         |--conf spark.executor.memoryOverhead=7372m
+         |--conf spark.rapids.memory.pinnedPool.size=4096m
+         |--conf spark.rapids.sql.concurrentGpuTasks=2
+         |--conf spark.shuffle.service.enabled=true
+         |--conf spark.sql.files.maxPartitionBytes=512m
+         |--conf spark.sql.shuffle.partitions=200
+         |--conf spark.task.resource.gpu.amount=0.0625
+         |
+         |Comments:
+         |- 'spark.dynamicAllocation.enabled' was not set.
+         |- 'spark.dynamicAllocation.maxExecutors' was not set.
+         |- 'spark.executor.memory' was not set.
+         |- 'spark.executor.memoryOverhead' was not set.
+         |- 'spark.rapids.memory.pinnedPool.size' was not set.
+         |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+         |- 'spark.shuffle.service.enabled' was not set.
+         |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+         |- 'spark.sql.files.maxPartitionBytes' was not set.
+         |- 'spark.sql.shuffle.partitions' was not set.
+         |- 'spark.task.resource.gpu.amount' was not set.
+         |- Number of workers is missing. Setting default to 1.
+         |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
 
@@ -244,13 +246,16 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.executor.cores=32
+          |--conf spark.dynamicAllocation.maxExecutors=4
           |--conf spark.executor.memory=65536m
           |--conf spark.executor.memoryOverhead=10649m
+          |--conf spark.shuffle.service.enabled=true
           |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.03125
           |
           |Comments:
+          |- 'spark.dynamicAllocation.maxExecutors' was not set.
+          |- 'spark.shuffle.service.enabled' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU count is missing. Setting default to 1.
           |""".stripMargin
@@ -276,9 +281,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.dynamicAllocation.maxExecutors=8
+          |--conf spark.shuffle.service.enabled=true
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
+          |- 'spark.dynamicAllocation.maxExecutors' was not set.
+          |- 'spark.shuffle.service.enabled' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
           |""".stripMargin
@@ -304,9 +313,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.dynamicAllocation.maxExecutors=8
+          |--conf spark.shuffle.service.enabled=true
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
+          |- 'spark.dynamicAllocation.maxExecutors' was not set.
+          |- 'spark.shuffle.service.enabled' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
           |""".stripMargin
@@ -331,9 +344,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.dynamicAllocation.maxExecutors=8
+          |--conf spark.shuffle.service.enabled=true
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
+          |- 'spark.dynamicAllocation.maxExecutors' was not set.
+          |- 'spark.shuffle.service.enabled' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU device is missing. Setting default to T4.
           |- GPU memory is missing. Setting default to 15109m.
@@ -360,9 +377,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.dynamicAllocation.maxExecutors=8
+          |--conf spark.shuffle.service.enabled=true
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
+          |- 'spark.dynamicAllocation.maxExecutors' was not set.
+          |- 'spark.shuffle.service.enabled' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
           |""".stripMargin
@@ -383,9 +404,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.dynamicAllocation.maxExecutors=8
+          |--conf spark.shuffle.service.enabled=true
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
+          |- 'spark.dynamicAllocation.maxExecutors' was not set.
+          |- 'spark.shuffle.service.enabled' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |""".stripMargin
     val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
@@ -396,7 +421,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   // This mainly to test that the executorInstances will be calculated when the dynamic allocation
   // is missing.
-  test("test T4 dataproc cluster with missing dynamic allocation") {
+  test("test T4 dataproc cluster with dynamic allocation set to false") {
     val customProps = mutable.LinkedHashMap(
       "spark.dynamicAllocation.enabled" -> "false",
       "spark.executor.cores" -> "16",
@@ -428,23 +453,25 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.executor.cores=16
-          |--conf spark.executor.instances=8
+          |--conf spark.dynamicAllocation.enabled=true
+          |--conf spark.dynamicAllocation.maxExecutors=8
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=7372m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.shuffle.service.enabled=true
           |--conf spark.sql.files.maxPartitionBytes=512m
           |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.0625
           |
           |Comments:
-          |- 'spark.executor.cores' was not set.
-          |- 'spark.executor.instances' was not set.
+          |- 'spark.dynamicAllocation.enabled' was not set.
+          |- 'spark.dynamicAllocation.maxExecutors' was not set.
           |- 'spark.executor.memory' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.shuffle.service.enabled' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
@@ -492,18 +519,22 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.executor.cores=8
-          |--conf spark.executor.instances=20
+          |--conf spark.dynamicAllocation.enabled=true
+          |--conf spark.dynamicAllocation.maxExecutors=20
           |--conf spark.executor.memory=16384m
           |--conf spark.executor.memoryOverhead=5734m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.shuffle.service.enabled=true
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |--conf spark.task.resource.gpu.amount=0.125
           |
           |Comments:
+          |- 'spark.dynamicAllocation.enabled' was not set.
+          |- 'spark.dynamicAllocation.maxExecutors' was not set.
           |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.shuffle.service.enabled' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |""".stripMargin
     // scalastyle:on line.size.limit
@@ -583,18 +614,22 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.executor.cores=8
-          |--conf spark.executor.instances=20
+          |--conf spark.dynamicAllocation.enabled=true
+          |--conf spark.dynamicAllocation.maxExecutors=20
           |--conf spark.executor.memory=16384m
           |--conf spark.executor.memoryOverhead=5734m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.shuffle.service.enabled=true
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |--conf spark.task.resource.gpu.amount=0.125
           |
           |Comments:
+          |- 'spark.dynamicAllocation.enabled' was not set.
+          |- 'spark.dynamicAllocation.maxExecutors' was not set.
           |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.shuffle.service.enabled' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |""".stripMargin
     // scalastyle:on line.size.limit
@@ -637,18 +672,22 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.executor.cores=8
-          |--conf spark.executor.instances=20
+          |--conf spark.dynamicAllocation.enabled=true
+          |--conf spark.dynamicAllocation.maxExecutors=20
           |--conf spark.executor.memory=16384m
           |--conf spark.executor.memoryOverhead=5734m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.shuffle.service.enabled=true
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |--conf spark.task.resource.gpu.amount=0.125
           |
           |Comments:
+          |- 'spark.dynamicAllocation.enabled' was not set.
+          |- 'spark.dynamicAllocation.maxExecutors' was not set.
           |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.shuffle.service.enabled' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
           |""".stripMargin

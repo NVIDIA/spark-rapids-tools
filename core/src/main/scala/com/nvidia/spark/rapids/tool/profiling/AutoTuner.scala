@@ -419,17 +419,17 @@ class AutoTuner(
    * spark.executor.instances.
    */
   def recommendExecutorInstances(): Unit = {
-    val execInstancesOpt = getPropertyValue("spark.dynamicAllocation.enabled") match {
-        case Some(propValue) =>
-          if (propValue.toBoolean) {
-            None
-          } else {
-            Option(calcExecInstances())
-          }
-        case None => Option(calcExecInstances())
-      }
-    if (execInstancesOpt.isDefined) {
-      appendRecommendation("spark.executor.instances", execInstancesOpt.get)
+    appendRecommendation("spark.executor.instances", calcExecInstances())
+  }
+
+  def recommendExecutorAllocations(): Unit = {
+    val execInstancesOpt = getPropertyValue("spark.dynamicAllocation.enabled")
+    if (execInstancesOpt.isDefined && !execInstancesOpt.get.toBoolean) {
+      recommendExecutorInstances()
+    } else {
+      appendRecommendation("spark.dynamicAllocation.enabled", "true")
+      appendRecommendation("spark.shuffle.service.enabled", "true")
+      appendRecommendation("spark.dynamicAllocation.maxExecutors", calcMaxNumExecutors)
     }
   }
 
@@ -437,15 +437,29 @@ class AutoTuner(
    * Recommendation for 'spark.dynamicAllocation.maxExecutors' based on number of cpu cores and gpus.
    * Assumption - cluster properties were updated to have a default values if missing.
    */
-  def calcMaxNumExecutorCores: Int = {
+  def calcMaxNumExecutors: Int = {
     // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
     val executorsPerNode = clusterProps.gpu.getCount
     val maxTaskInApp = appInfoProvider.getMaxNumberTasks
     // maxTaskInApp is the upper limit of num of executors we need
     // Divide it by the number of instances to get the parallel jobs run on a node
     val maxParallelRunsOnSingleNode = maxTaskInApp / clusterProps.system.numWorkers
+    val maxNumExecutors = if (maxTaskInApp > 0) {
+      maxParallelRunsOnSingleNode / executorsPerNode
+    } else {
+      calcExecInstances()
+    }
+    Math.max(1, maxNumExecutors)
+  }
 
-    Math.max(1, maxParallelRunsOnSingleNode / executorsPerNode)
+  /**
+   * Recommendation for 'spark.executor.cores' based on number of cpu cores and gpus.
+   * Assumption - cluster properties were updated to have a default values if missing.
+   */
+  def calcNumExecutorCores: Int = {
+    // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
+    val executorsPerNode = clusterProps.gpu.getCount
+    Math.max(1, clusterProps.system.getNumCores / executorsPerNode)
   }
 
   /**
@@ -560,16 +574,12 @@ class AutoTuner(
   }
 
   def calculateRecommendations(): Unit = {
-    recommendExecutorInstances()
-    val maxNumExecutorCores = calcMaxNumExecutorCores
-    val execCoresExpr = () => maxNumExecutorCores
+    recommendExecutorAllocations()
+    val numExecutorCores = calcNumExecutorCores
+    val execCoresExpr = () => numExecutorCores
 
-    appendRecommendation("spark.dynamicAllocation.enabled", "true")
-    appendRecommendation("spark.shuffle.service.enabled", "true")
-    appendRecommendation("spark.dynamicAllocation.maxExecutors", maxNumExecutorCores)
     appendRecommendation("spark.task.resource.gpu.amount", calcTaskGPUAmount(execCoresExpr))
-    appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
-      calcGpuConcTasks().toInt)
+    appendRecommendation("spark.rapids.sql.concurrentGpuTasks", calcGpuConcTasks().toInt)
     val availableMemPerExec = calcAvailableMemPerExec()
     val availableMemPerExecExpr = () => availableMemPerExec
     val executorHeap = calcExecutorHeap(availableMemPerExecExpr, execCoresExpr)
