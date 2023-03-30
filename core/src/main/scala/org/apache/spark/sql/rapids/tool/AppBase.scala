@@ -79,7 +79,8 @@ abstract class AppBase(
 
   def checkMLOps(appId: Int, stageInfo: StageInfoClass): Option[MLFunctions] = {
     val stageInfoDetails = stageInfo.info.details
-    val mlOps = if (stageInfoDetails.contains(MlOps.sparkml) || stageInfoDetails.contains(MlOps.xgBoost)) {
+    val mlOps = if (stageInfoDetails.contains(MlOps.sparkml) ||
+      stageInfoDetails.contains(MlOps.xgBoost)) {
       // Check if it's a pyspark eventlog
       mlEventLogType = if (stageInfoDetails.contains(MlOps.pysparkLog)) {
         MlOpsEventLogType.pyspark
@@ -104,7 +105,8 @@ abstract class AppBase(
     }
 
     if (mlOps.nonEmpty) {
-      Some(MLFunctions(Some(appId.toString), stageInfo.info.stageId, mlOps, stageInfo.duration.getOrElse(0)))
+      Some(MLFunctions(Some(appId.toString), stageInfo.info.stageId, mlOps,
+        stageInfo.duration.getOrElse(0)))
     } else {
       None
     }
@@ -184,10 +186,12 @@ abstract class AppBase(
     val c = Class.forName("org.apache.spark.util.JsonProtocol")
     scala.util.Try {
       val m = c.getDeclaredMethod("sparkEventFromJson", classOf[org.json4s.JValue])
-      (line: String) => m.invoke(null, parse(line)).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
+      (line: String) =>
+        m.invoke(null, parse(line)).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
     }.getOrElse {
       val m = c.getDeclaredMethod("sparkEventFromJson", classOf[String])
-      (line: String) => m.invoke(null, line).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
+      (line: String) =>
+        m.invoke(null, line).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
     }
   }
 

@@ -703,7 +703,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   test("test xgboost") {
     val logFiles = Array(
-      s"$logDir/xgboost_eventlog.zstd",
+      s"$logDir/xgboost_eventlog.zstd"
     )
     TrampolineUtil.withTempDir { outpath =>
       val allArgs = Array(
@@ -798,14 +798,16 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
 
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted") { spark =>
-          import spark.implicits._
-          spark.conf.set("spark.databricks.clusterUsageTags.clusterAllTags", "*********(redacted)")
-          spark.conf.set("spark.databricks.clusterUsageTags.clusterId", "0617-131246-dray530")
-          spark.conf.set("spark.databricks.clusterUsageTags.clusterName", "job-215-run-34243234")
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted") {
+          spark =>
+            import spark.implicits._
+            spark.conf.set("spark.databricks.clusterUsageTags.clusterAllTags",
+              "*********(redacted)")
+            spark.conf.set("spark.databricks.clusterUsageTags.clusterId", "0617-131246-dray530")
+            spark.conf.set("spark.databricks.clusterUsageTags.clusterName", "job-215-run-34243234")
 
-          val df1 = spark.sparkContext.makeRDD(1 to 1000, 6).toDF
-          df1.sample(0.1)
+            val df1 = spark.sparkContext.makeRDD(1 to 1000, 6).toDF
+            df1.sample(0.1)
         }
         val expectedClusterId = "0617-131246-dray530"
         val expectedJobId = "215"
