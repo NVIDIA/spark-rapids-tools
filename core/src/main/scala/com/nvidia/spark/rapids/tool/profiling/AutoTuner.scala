@@ -754,17 +754,32 @@ class AutoTuner(
       limitedLogicList: Option[Seq[String]] = Some(Seq("spark.sql.shuffle.partitions")),
       showOnlyUpdatedProps: Boolean = true):
       (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
-    filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
-    limitedLogicList.foreach { limitedSeq =>
-      limitedSeq.foreach(_ => limitedLogicRecommendations.add(_))
+    val isOnGpu = {
+      val isPluginLoaded = getPropertyValue("spark.plugins") match {
+        case Some(f) => f.equals("com.nvidia.spark.SQLPlugin")
+        case None => false
+      }
+      val rapidsEnabled = getPropertyValue("spark.rapids.sql.enabled") match {
+        case Some(f) => f.toBoolean
+        case None => true
+      }
+      isPluginLoaded && rapidsEnabled
     }
-    skipList.foreach(skipSeq => skipSeq.foreach(_ => skippedRecommendations.add(_)))
-    if (processPropsAndCheck) {
-      initRecommendations()
-      calculateRecommendations()
+    if (!isOnGpu) {
+      appendComment("Only GPU eventLogs are supported")
     } else {
-      // add all default comments
-      commentsForMissingProps.foreach(commentEntry => appendComment(commentEntry._2))
+      filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
+      limitedLogicList.foreach { limitedSeq =>
+        limitedSeq.foreach(_ => limitedLogicRecommendations.add(_))
+      }
+      skipList.foreach(skipSeq => skipSeq.foreach(_ => skippedRecommendations.add(_)))
+      if (processPropsAndCheck) {
+        initRecommendations()
+        calculateRecommendations()
+      } else {
+        // add all default comments
+        commentsForMissingProps.foreach(commentEntry => appendComment(commentEntry._2))
+      }
     }
     (toRecommendationsProfileResult, toCommentProfileResult)
   }

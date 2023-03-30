@@ -507,6 +507,44 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     assert(expectedResults == autoTunerOutput)
   }
 
+  test("No recommendations generated for CPU eventLogs") {
+    val customProps = mutable.LinkedHashMap(
+      "spark.executor.cores" -> "8",
+      "spark.executor.memory" -> "47222m",
+      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.task.resource.gpu.amount" -> "0.0625")
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.instances" -> "1",
+        "spark.sql.shuffle.partitions" -> "200",
+        "spark.sql.files.maxPartitionBytes" -> "1g",
+        "spark.task.resource.gpu.amount" -> "0.0625",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.rapids.sql.enabled" -> "false",
+        "spark.rapids.sql.concurrentGpuTasks" -> "4")
+    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+    val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
+      Some("3.1.1"))
+    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|Cannot recommend properties. See Comments.
+          |
+          |Comments:
+          |- Only GPU eventLogs are supported
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    assert(expectedResults == autoTunerOutput)
+  }
+
   // Changing the maxInput of tasks should reflect on the maxPartitions recommendations.
   // Values used in setting the properties are taken from sample eventlogs.
   test("Recommendation of maxPartitions is calculated based on maxInput of tasks") {
