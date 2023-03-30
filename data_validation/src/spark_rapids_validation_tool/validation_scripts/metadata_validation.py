@@ -77,7 +77,7 @@ def valid_metadata_included_column(spark, args):
     """
     if args.include_column in ['None', 'all']:
         return True
-    table_DF = load_table(spark, args.format, args.table1, args.table1_partition, args.pk, args.exclude_column, args.include_column, args.filter, "")
+    table_DF = load_table(spark, args.format, args.table1, args.table1_partition, args.pk, args.include_column, args.filter, "")
     excluded_columns_list = [e.strip() for e in args.exclude_column.split(",")]
     verify_column = [i.strip() for i in args.include_column.split(",") if i not in excluded_columns_list]
     verify_DF = table_DF.select(verify_column)
@@ -183,8 +183,8 @@ def metrics_metadata(spark, format, table1, table2, table1_partition, table2_par
     |      col8|12.34|12.33|     |     |     |     |        |        |          3|          4|
     +----------+-----+-----+-----+-----+-----+-----+--------+--------+-----------+-----------+
     """
-    table1_DF = load_table(spark, format, table1, table1_partition, pk, exclude_column, include_column, filter, "")
-    table2_DF = load_table(spark, format, table2, table2_partition, pk, exclude_column, include_column, filter, "")
+    table1_DF = load_table(spark, format, table1, table1_partition, pk, include_column, filter, "")
+    table2_DF = load_table(spark, format, table2, table2_partition, pk, include_column, filter, "")
 
     table_metric_df1 = generate_metric_df(spark, table1_DF, include_column, exclude_column, table1)
     table_metric_df2 = generate_metric_df(spark, table2_DF, include_column, exclude_column, table2)
@@ -211,13 +211,13 @@ def metrics_metadata(spark, format, table1, table2, table1_partition, table2_par
                                        ).where(cond).sort(asc("ColumnName"))
     return result_table
 
-def load_table(spark, format, table, table_partition, pk, exclude_column, include_column, filter, view_name):
+def load_table(spark, format, table, table_partition, pk, include_column, filter, view_name):
     """
     Load dataframe according to different format type
     """
     if format in ['parquet', 'orc', 'csv']:
         # select column clause
-        cols = '*' if i is None else include_column
+        cols = '*' if include_column is None else include_column
         # cols = cols if e is None else cols + f", EXCEPT ({e}) " only works on databricks
         sql = f"select {pk},{cols} from {view_name}"
         # where clause

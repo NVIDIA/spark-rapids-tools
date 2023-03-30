@@ -53,7 +53,7 @@ cluster `data-validation-test2`:
 #### Verify datavliad3 and datavalid4 metadata info with default configs:
 Validation command:
 ```
-spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 
+spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 \
 --format=hive --table1=datavalid3 --table2=datavalid4   valid_metadata
 ```
 The sample output:
@@ -85,7 +85,7 @@ None
 #### Verify datavaliad3 and datavalid4 metadata info with specific columns:
 Validation command:
 ```
-spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive 
+spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive \
 --table1=datavalid3 --table2=datavalid4  -include_column=col2,col3,col4 -exclude_column=col3 valid_metadata
 ```
 The sample output:
@@ -111,7 +111,7 @@ None
 #### Verify table with specific partition and filter conditions:
 Validation command:
 ```
-spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive 
+spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive \
 --table1=datavalid3 --table2=datavalid4 --table1_partition="col9=20230310" --table2_partition="col9=20230310" --filter="col4='bar'" valid_metadata
 ```
 The sample output:
@@ -139,7 +139,7 @@ None
 #### In a case that compare tables but some does not exist:
 Validation command:
 ```
-spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive 
+spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive \
 --table1=datavalid3 --table2=datavalid9  -include_column=col2,col3,col4 -exclude_column=col3 valid_metadata
 ```
 The sample output:
@@ -151,7 +151,7 @@ The sample output:
 #### In a case that some data type not supported in metadata validation:
 Validation command:
 ```
-spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive 
+spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive \
 --table1=datavalid3 --table2=datavalid4  --include_column=col2,col3,col5 --exclude_column=col3 valid_metadata
 ```
 The sample output:
@@ -165,7 +165,7 @@ The sample output:
 #### Print all different data for all columns and all data type:
 Validation command:
 ```
-spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive 
+spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive \
 --table1=datavalid3 --table2=datavalid4 --pk=col1   valid_data
 ```
 The sample output:
@@ -196,7 +196,7 @@ None
 #### Verify two tables dataset with some partition condition:
 Validation command:
 ```
-spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive 
+spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive \
 --table1=datavalid3 --table2=datavalid4 --pk=col1  --table1_partition=col9='20230310'  valid_data
 ```
 The sample output:
@@ -227,7 +227,7 @@ None
 #### Verify two tables dataset with filter:
 Validation command:
 ```
-spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive 
+spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive \
 --table1=datavalid3 --table2=datavalid4 --pk=col1  --table1_partition=col9='20230310'  -filter="col4='bar'" valid_data
 ```
 The sample output:
@@ -255,10 +255,10 @@ None
 +----+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+-------+
 ```
 
-#### Comparing datasets and save the output to GCS::
+#### Comparing datasets and save the output to GCS:
 Validation command:
 ```
-spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive 
+spark_rapids_validation_tool validation --cluster=data-validation-test2 --region=us-central1 --format=hive \
 --table1=datavalid3 --table2=datavalid4 --pk=col1  --table1_partition=col9='20230310' 
 --table2_partition=col9='20230310' 
 --output_path=gs://XXX/output --output_format=parquet valid_data

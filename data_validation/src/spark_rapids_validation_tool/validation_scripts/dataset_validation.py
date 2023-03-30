@@ -83,7 +83,7 @@ def valid_metadata_included_column(spark, args):
     """
     if args.include_column in ['None', 'all']:
         return True
-    table_DF = load_table(spark, args.format, args.table1, args.table1_partition, args.pk, args.exclude_column, args.include_column, args.filter, "")
+    table_DF = load_table(spark, args.format, args.table1, args.table1_partition, args.pk, args.include_column, args.filter, "")
     excluded_columns_list = [e.strip() for e in args.exclude_column.split(",")]
     verify_column = [i.strip() for i in args.include_column.split(",") if i not in excluded_columns_list]
     verify_DF = table_DF.select(verify_column)
@@ -123,9 +123,9 @@ def valid_pk_only_in_one_table(spark, format, table1, table2, table1_partition, 
     if format in ['parquet', 'orc', 'csv']:
 
         # load table1
-        load_table(spark, format, table1, table1_partition, pk, exclude_column, include_column, filter, "table1")
+        load_table(spark, format, table1, table1_partition, pk, include_column, filter, "table1")
         # load table2
-        load_table(spark, format, table2, table2_partition, pk, exclude_column, include_column, filter, "table2")
+        load_table(spark, format, table2, table2_partition, pk, include_column, filter, "table2")
 
         sql = f"select {pk} from table1 except select {pk} from table2"
         result = spark.sql(sql)
@@ -184,8 +184,8 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, tabl
                 [(k, sorted(v)) for k, v in data.items()], key=lambda x: x[0])
             return str(dict(sorted_data))
 
-        table_DF1 = load_table(spark, format, table1_name, table1_partition, pk, excluded_columns, included_columns, filter, "table1")
-        table_DF2 = load_table(spark, format, table2_name, table2_partition, pk, excluded_columns, included_columns, filter, "table2")
+        table_DF1 = load_table(spark, format, table1_name, table1_partition, pk, included_columns, filter, "table1")
+        table_DF2 = load_table(spark, format, table2_name, table2_partition, pk, included_columns, filter, "table2")
 
         if included_columns == 'all':
             included_columns_list = list(set(table_DF1.columns) - set(excluded_columns_list) - set(pk_list))
@@ -222,7 +222,7 @@ def get_cols_diff_with_same_pk(spark, format, table1_name, table2_name, pk, tabl
 
         return result_table
 
-def load_table(spark, format, table, table_partition, pk, exclude_column, include_column, filter, view_name):
+def load_table(spark, format, table, table_partition, pk, include_column, filter, view_name):
     if format in ['parquet', 'orc', 'csv']:
         # select column clause
         cols = '*' if include_column is None else include_column
