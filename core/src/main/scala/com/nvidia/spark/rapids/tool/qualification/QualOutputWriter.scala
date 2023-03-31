@@ -118,8 +118,8 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     val finalSums = estSum.take(numOutputRows)
     finalSums.foreach { sumInfo =>
       val wStr = QualOutputWriter.constructAppSummaryInfo(sumInfo, headersAndSizes,
-        appIdMaxSize, unSupExecMaxSize, unSupExprMaxSize, estimatedFrequencyMaxSize, hasClusterTags, clusterIdMaxSize,
-        jobIdMaxSize, runNameMaxSize, TEXT_DELIMITER, true)
+        appIdMaxSize, unSupExecMaxSize, unSupExprMaxSize, estimatedFrequencyMaxSize, hasClusterTags,
+        clusterIdMaxSize, jobIdMaxSize, runNameMaxSize, TEXT_DELIMITER, true)
       writer.write(wStr)
       if (printStdout) print(wStr)
     }
