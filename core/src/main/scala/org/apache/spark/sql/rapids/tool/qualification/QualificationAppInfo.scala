@@ -52,6 +52,7 @@ class QualificationAppInfo(
 
   val stageIdToSqlID: HashMap[Int, Long] = HashMap.empty[Int, Long]
   val sqlIDtoFailures: HashMap[Long, ArrayBuffer[String]] = HashMap.empty[Long, ArrayBuffer[String]]
+  val sqlIDtoSuccess: HashMap[Long, ArrayBuffer[String]] = HashMap.empty[Long, ArrayBuffer[String]]
 
   val notSupportFormatAndTypes: HashMap[String, Set[String]] = HashMap[String, Set[String]]()
 
@@ -350,6 +351,10 @@ class QualificationAppInfo(
     }
   }
 
+  private def calculateFrequency(): String = {
+    "test1 N/A"
+  }
+
   /**
    * Aggregate and process the application after reading the events.
    * @return Option of QualificationSummaryInfo, Some if we were able to process the application
@@ -433,7 +438,7 @@ class QualificationAppInfo(
         calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration)
       val nonSQLTaskDuration = nonSQLDataframeTaskDuration + jobOverheadTime
       // note that these ratios are based off the stage times which may be missing some stage
-      // overhead or execs that didn't have associated stages
+      // overead or execs that didn't have associated stages
       val supportedSQLTaskDuration = calculateSQLSupportedTaskDuration(allStagesSummary)
       val taskSpeedupFactor = calculateSpeedupFactor(allStagesSummary)
       // Get all the unsupported Execs from the plan
@@ -459,9 +464,9 @@ class QualificationAppInfo(
         1
       }
 
-      val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
+      var estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
         sparkSQLDFWallClockDuration, appDuration, taskSpeedupFactor, appName, appId,
-        sqlIdsWithFailures.nonEmpty, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
+        sqlIdsWithFailures.nonEmpty, unSupportedExecs, unSupportedExprs, 30, allClusterTagsMap)
 
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
@@ -532,6 +537,7 @@ case class EstimatedSummaryInfo(
     recommendation: String,
     unsupportedExecs: String,
     unsupportedExprs: String,
+    var estimatedFrequency: Long,
     allTagsMap: Map[String, String])
 
 // Estimate based on wall clock times for each SQL query
@@ -595,7 +601,7 @@ case class QualificationSummaryInfo(
     startTime: Long,
     planInfo: Seq[PlanInfo],
     stageInfo: Seq[StageQualSummaryInfo],
-    estimatedInfo: EstimatedSummaryInfo,
+    var estimatedInfo: EstimatedSummaryInfo,
     perSQLEstimatedInfo: Option[Seq[EstimatedPerSQLSummaryInfo]],
     unSupportedExecs: String,
     unSupportedExprs: String,
@@ -635,7 +641,7 @@ object QualificationAppInfo extends Logging {
   def calculateEstimatedInfoSummary(estimatedRatio: Double, sqlDataFrameDuration: Long,
       appDuration: Long, speedupFactor: Double, appName: String,
       appId: String, hasFailures: Boolean, unsupportedExecs: String = "",
-      unsupportedExprs: String = "",
+      unsupportedExprs: String = "", estimatedFrequency: Long = 30,
       allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedSummaryInfo = {
     val sqlDataFrameDurationToUse = if (sqlDataFrameDuration > appDuration) {
       // our app duration is shorter then our sql duration, estimate the sql duration down
@@ -668,6 +674,7 @@ object QualificationAppInfo extends Logging {
       recommendation,
       unsupportedExecs,
       unsupportedExprs,
+      estimatedFrequency,
       allClusterTagsMap)
   }
 

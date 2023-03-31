@@ -71,7 +71,8 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       threadPool.shutdownNow()
     }
     progressBar.foreach(_.finishAll())
-    val allAppsSum = allApps.asScala.toSeq
+    val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
+
     val qWriter = new QualOutputWriter(getReportOutputPath, reportReadSchema, printStdout,
       order)
     // sort order and limit only applies to the report summary text file,
@@ -110,6 +111,28 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     } else {
       appsSumDesc.map(_.estimatedInfo)
     }
+  }
+
+  // Estimate app frequency based off of all applications in this run
+  private def estimateAppFrequency(
+    appsSum: Seq[QualificationSummaryInfo]): Seq[QualificationSummaryInfo] = {
+    var appFrequency = Map[String, Double]()
+    var windowStart: Long = Long.MaxValue
+    var windowEnd: Long = Long.MinValue
+
+    appsSum.foreach { sum =>
+      appFrequency += (sum.appName -> (1.0 + appFrequency.getOrElse(sum.appName, 0.0)))
+      windowStart = Math.min(sum.startTime, windowStart)
+      windowEnd = Math.max(windowEnd, sum.startTime + sum.estimatedInfo.appDur)
+    }
+    val windowInMonths =
+      if (windowEnd > windowStart) ((windowEnd - windowStart) / (1000.0*60.0*60.0*24.0*30)) else 1.0
+    appFrequency.foreach ( app =>
+      appFrequency += (app._1 -> (if (app._2 == 1) 30.0 else (app._2 / windowInMonths))))
+    appsSum.map { app =>
+      app.estimatedInfo.estimatedFrequency = appFrequency.getOrElse(app.appName, 30.0).round
+    }
+    appsSum
   }
 
   private def qualifyApp(
