@@ -964,8 +964,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val stdOut = sumOut.split("\n")
     val stdOutHeader = stdOut(0).split("\\|")
     val stdOutValues = stdOut(1).split("\\|")
-    val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 2) // index of unsupportedExecs
-    val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 1) // index of unsupportedExprs
+    val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3) // index of unsupportedExecs
+    val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 2) // index of unsupportedExprs
     val expectedstdOutExecs = "Scan;Filter;SerializeF..."
     assert(stdOutunsupportedExecs == expectedstdOutExecs)
     // Exec value is Scan;Filter;SerializeFromObject and UNSUPPORTED_EXECS_MAX_SIZE is 25
@@ -982,8 +982,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val values = rowsSumOut(1).split(",")
     val expectedExecs = "Scan;Filter;SerializeFromObject" // Unsupported Execs
     val expectedExprs = "hex" //Unsupported Exprs
-    val unsupportedExecs = values(values.length - 2) // index of unsupportedExecs
-    val unsupportedExprs = values(values.length - 1) // index of unsupportedExprs
+    val unsupportedExecs = values(values.length - 3) // index of unsupportedExecs
+    val unsupportedExprs = values(values.length - 2) // index of unsupportedExprs
     assert(expectedExecs == unsupportedExecs)
     assert(expectedExprs == unsupportedExprs)
   }
@@ -1018,7 +1018,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val appNameMaxSize = QualOutputWriter.getAppNameSize(Seq(appInfo.get))
     assert(headers.size ==
       QualOutputWriter.getSummaryHeaderStringsAndSizes(appNameMaxSize, 0).keys.size)
-    assert(values.size == headers.size - 1) // unSupportedExpr is empty
+    assert(values.size == headers.size)
     // 3 should be the SQL DF Duration
     assert(headers(3).contains("SQL DF"))
     assert(values(3).toInt > 0)
@@ -1030,8 +1030,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     assert(headersDetailed.size == QualOutputWriter
       .getDetailedHeaderStringsAndSizes(Seq(qualApp.aggregateStats.get), false).keys.size)
     //UnsupportedeExecs and UnsupportedExprs is not present in the file
-    assert(headersDetailed.size -2  == csvDetailedFields.size)
-    assert(valuesDetailed.size - 1 == csvDetailedFields.size) // UnsupportedExprs is empty
+    assert(headersDetailed.size - 3 == csvDetailedFields.size)
+    assert(valuesDetailed.size - 3 == csvDetailedFields.size) // UnsupportedExprs is empty
     // check all headers exists
     for (ind <- 0 until csvDetailedFields.size) {
       assert(csvDetailedHeader(ind).equals(headersDetailed(ind)))
@@ -1129,7 +1129,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(appInfo.nonEmpty)
         assert(headers.size ==
           QualOutputWriter.getSummaryHeaderStringsAndSizes(30, 30).keys.size)
-        assert(values.size == headers.size - 1) // UnsupportedExpr is empty
+        assert(values.size == headers.size)
         // 3 should be the SQL DF Duration
         assert(headers(3).contains("SQL DF"))
         assert(values(3).toInt > 0)
