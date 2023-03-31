@@ -31,12 +31,14 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val spilledMetrics: Seq[Long],
     val jvmGCFractions: Seq[Double],
     val propsFromLog: mutable.Map[String, String],
-    val sparkVersion: Option[String]) extends AppSummaryInfoBaseProvider {
+    val sparkVersion: Option[String],
+    val maxNumTask: Int) extends AppSummaryInfoBaseProvider {
   override def getMaxInput: Double = maxInput
   override def getSpilledMetrics: Seq[Long] = spilledMetrics
   override def getJvmGCFractions: Seq[Double] = jvmGCFractions
   override def getProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
   override def getSparkVersion: Option[String] = sparkVersion
+  override def getMaxNumberTasks: Int = maxNumTask
 }
 
 class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
@@ -101,9 +103,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       spilledMetrics: Seq[Long],
       jvmGCFractions: Seq[Double],
       propsFromLog: mutable.Map[String, String],
-      sparkVersion: Option[String]): AppSummaryInfoBaseProvider = {
+      sparkVersion: Option[String],
+      maxNumTask: Int = 200): AppSummaryInfoBaseProvider = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
-      sparkVersion)
+      sparkVersion, maxNumTask)
   }
 
   test("Load non-existing cluster properties") {
@@ -201,6 +204,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
          |Spark Properties:
          |--conf spark.dynamicAllocation.enabled=true
          |--conf spark.dynamicAllocation.maxExecutors=2
+         |--conf spark.executor.cores=16
          |--conf spark.executor.memory=32768m
          |--conf spark.executor.memoryOverhead=7372m
          |--conf spark.rapids.memory.pinnedPool.size=4096m
@@ -213,6 +217,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
          |Comments:
          |- 'spark.dynamicAllocation.enabled' was not set.
          |- 'spark.dynamicAllocation.maxExecutors' was not set.
+         |- 'spark.executor.cores' was not set.
          |- 'spark.executor.memory' was not set.
          |- 'spark.executor.memoryOverhead' was not set.
          |- 'spark.rapids.memory.pinnedPool.size' was not set.
@@ -247,6 +252,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       s"""|
           |Spark Properties:
           |--conf spark.dynamicAllocation.maxExecutors=4
+          |--conf spark.executor.cores=32
           |--conf spark.executor.memory=65536m
           |--conf spark.executor.memoryOverhead=10649m
           |--conf spark.shuffle.service.enabled=true
@@ -455,6 +461,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Spark Properties:
           |--conf spark.dynamicAllocation.enabled=true
           |--conf spark.dynamicAllocation.maxExecutors=8
+          |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=7372m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
@@ -467,6 +474,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Comments:
           |- 'spark.dynamicAllocation.enabled' was not set.
           |- 'spark.dynamicAllocation.maxExecutors' was not set.
+          |- 'spark.executor.cores' was not set.
           |- 'spark.executor.memory' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
@@ -521,6 +529,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Spark Properties:
           |--conf spark.dynamicAllocation.enabled=true
           |--conf spark.dynamicAllocation.maxExecutors=20
+          |--conf spark.executor.cores=8
           |--conf spark.executor.memory=16384m
           |--conf spark.executor.memoryOverhead=5734m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
@@ -616,6 +625,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Spark Properties:
           |--conf spark.dynamicAllocation.enabled=true
           |--conf spark.dynamicAllocation.maxExecutors=20
+          |--conf spark.executor.cores=8
           |--conf spark.executor.memory=16384m
           |--conf spark.executor.memoryOverhead=5734m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
@@ -674,6 +684,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Spark Properties:
           |--conf spark.dynamicAllocation.enabled=true
           |--conf spark.dynamicAllocation.maxExecutors=20
+          |--conf spark.executor.cores=8
           |--conf spark.executor.memory=16384m
           |--conf spark.executor.memoryOverhead=5734m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
