@@ -1,0 +1,295 @@
+{
+  "dependencies": {
+      "deployMode": {
+        "LOCAL": [
+          {
+            "name":  "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
+            "type": "archive",
+            "relativePath": "jars/*",
+            "sha512": "769db39a560a95fd88b58ed3e9e7d1e92fb68ee406689fb4d30c033cb5911e05c1942dcc70e5ec4585df84e80aabbc272b9386a208debda89522efff1335c8ff"
+          },
+          {
+            "name":  "Hadoop AWS",
+            "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar",
+            "type": "jar",
+            "md5": "59907e790ce713441955015d79f670bc",
+            "sha1": "a65839fbf1869f81a1632e09f415e586922e4f80"
+          },
+          {
+            "name":  "AWS Java SDK Bundled",
+            "uri": "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar",
+            "type": "jar",
+            "md5": "8a22f2d30b7e8eee9ea44f04fb13b35a",
+            "sha1": "02deec3a0ad83d13d032b1812421b23d7a961eea"
+          }
+        ]
+      }
+    },
+  "environment": {
+    "//description": "Define the metadata related to the system, prerequisites, and configurations",
+    "envParams": ["profile", "awsProfile", "deployMode"],
+    "//initialConfigList": "represents the list of the configurations that need to be loaded first",
+    "initialConfigList": ["profile", "awsProfile", "cliConfigFile", "awsCliConfigFile", "awsCredentialFile"],
+    "//loadedConfigProps": "list of properties read by the configParser",
+    "loadedConfigProps": ["region", "output"],
+    "cliConfig": {
+      "envVariables": [
+        {
+          "envVariableKey": "DATABRICKS_CONFIG_FILE",
+          "confProperty": "cliConfigFile",
+          "defaultValue": "~/.databrickscfg"
+        },
+        {
+          "//comment": "the token is not being used for now",
+          "envVariableKey": "DATABRICKS_HOST",
+          "confProperty": "databricksHost"
+        },
+        {
+          "//comment": "the token is not being used for now",
+          "envVariableKey": "DATABRICKS_TOKEN",
+          "confProperty": "databricksToken"
+        },
+        {
+          "envVariableKey": "AWS_SHARED_CREDENTIALS_FILE",
+          "confProperty": "awsCredentialFile",
+          "defaultValue": "~/.aws/credentials"
+        },
+        {
+          "envVariableKey": "AWS_CONFIG_FILE",
+          "confProperty": "awsCliConfigFile",
+          "defaultValue": "~/.aws/config"
+        },
+        {
+          "envVariableKey": "AWS_REGION",
+          "confProperty": "region"
+        },
+        {
+          "envVariableKey": "AWS_DEFAULT_REGION",
+          "confProperty": "region"
+        },
+        {
+          "envVariableKey": "AWS_PROFILE",
+          "confProperty": "awsProfile",
+          "defaultValue": "default"
+        },
+        {
+          "envVariableKey": "RAPIDS_USER_TOOLS_DATABRICKS_PROFILE",
+          "confProperty": "profile",
+          "defaultValue": "DEFAULT"
+        },
+        {
+          "envVariableKey": "AWS_DEFAULT_OUTPUT",
+          "confProperty": "output",
+          "defaultValue": "json"
+        }
+      ],
+      "confProperties": {
+        "//lookupList_description": "Define the list of properties needed for the run to be successful",
+        "propertiesMap": [
+          {
+            "confProperty": "region",
+            "propKey": "region",
+            "section": "_awsProfile_",
+            "configFileProp": "_awsCliConfigFile_"
+          },
+          {
+            "confProperty": "output",
+            "propKey": "output",
+            "section": "_awsProfile_",
+            "configFileProp": "_awsCliConfigFile_"
+          }
+        ],
+        "credentialsMap": [
+          {
+            "confProperty": "aws_access_key_id",
+            "section": "_awsProfile_",
+            "propKey": "aws_access_key_id",
+            "configFileProp": "_awsCredentialFile_"
+          },
+          {
+            "confProperty": "aws_secret_access_key",
+            "section": "_awsProfile_",
+            "propKey": "aws_secret_access_key",
+            "configFileProp": "_awsCredentialFile_"
+          }
+        ]
+      }
+    },
+    "cmdRunnerProperties": {
+      "systemPrerequisites": ["databricks", "aws"],
+      "//description": "define the properties passed to the CMD runner to be set as env-vars",
+      "inheritedProps": ["profile", "awsProfile", "region", "aws_access_key_id", "aws_secret_access_key"],
+      "cliPiggyBackEnvVars": {
+        "//description": "Holds information about the variables that will be attached to the command runner",
+        "definedVars": [
+          {
+            "varLabel": "profile",
+            "//confProperty": "which configuration property used to set the value of that var",
+            "confProperty": "profile",
+            "//varKey": "the variable key used in the CLI. Note that we need this in case that the ENV variables define above are not the same as the system env vars",
+            "//varKey_2": "add the RAPIDS_USER_TOOLS_DATABRICKS_PROFILE to all cli commands instead of adding it as an argument",
+            "varKey": "RAPIDS_USER_TOOLS_DATABRICKS_PROFILE"
+          },
+          {
+            "varLabel": "awsProfile",
+            "//confProperty": "which configuration property used to set the value of that var",
+            "confProperty": "awsProfile",
+            "//varKey": "the variable key used in the CLI. Note that we need this in case that the ENV variables define above are not the same as the system env vars",
+            "//varKey_2": "add the AWS_PROFILE to all cli commands instead of adding it as an argument",
+            "varKey": "AWS_PROFILE"
+          }
+        ]
+      },
+      "cliPiggyBackArgs": {
+        "//description": "Holds information about list of arguments that's appended to some SDK commands",
+        "definedArgs": [
+          {
+            "argLabel": "profile",
+            "//sdkCommand_description": "the current profile used in databricks CLI",
+            "sdkCommand": "databricks",
+            "argKey": "profile",
+            "confProperty": "profile"
+          }
+        ]
+      },
+      "rapidsJobs": {
+        "LOCAL": {
+          "definedVars": [
+            {
+              "varLabel": "awsAccessKeyID",
+              "confProperty": "aws_access_key_id",
+              "varKey": "AWS_ACCESS_KEY_ID"
+            },
+            {
+              "varLabel": "awsSecretAccessKey",
+              "confProperty": "aws_secret_access_key",
+              "varKey": "AWS_SECRET_ACCESS_KEY"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "pricing": {
+    "catalog": {
+      "onlineResources": [
+        {
+          "resourceKey": "databricks-standard-catalog",
+          "onlineURL": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
+          "//localFile": "the name of the local file",
+          "localFile": "databricks-standard-catalog.json",
+          "backupArchive": {
+            "//description": "We use this archive as a backup. It is stored in the resources",
+            "archiveName": "databricks-standard-catalog.json"
+          }
+        },
+        {
+          "resourceKey": "databricks-premium-catalog",
+          "onlineURL": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
+          "//localFile": "the name of the local file",
+          "localFile": "databricks-premium-catalog.json",
+          "backupArchive": {
+            "//description": "We use this archive as a backup. It is stored in the resources",
+            "archiveName": "databricks-premium-catalog.json"
+          }
+        },
+        {
+          "resourceKey": "databricks-enterprise-catalog",
+          "onlineURL": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
+          "//localFile": "the name of the local file",
+          "localFile": "databricks-enterprise-catalog.json",
+          "backupArchive": {
+            "//description": "We use this archive as a backup. It is stored in the resources",
+            "archiveName": "databricks-enterprise-catalog.json"
+          }
+        },
+        {
+          "resourceKey": "ec2-catalog",
+          "onlineURL": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/20230307163705/us-west-2/index.json",
+          "//localFile": "the name of the file after downloading",
+          "localFile": "aws_ec2_catalog_ec2_us-west-2.json",
+          "backupArchive": {
+            "//description-1": "In case the file is stuck, we use this archive as a backup.",
+            "//description-2": "It is stored in the resources",
+            "archiveName": "aws_ec2_catalog_ec2_us-west-2.json"
+          }
+        }
+      ]
+    }
+  },
+  "gpuConfigs": {
+    "user-tools": {
+      "supportedGpuInstances": {
+        "g4dn.xlarge": {
+          "software": {
+            "release": "emr-6.0.0"
+          },
+          "SysInfo": {
+            "num_cpus": 4,
+            "cpu_mem": 16384
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 16384
+          }
+        },
+        "g4dn.2xlarge": {
+          "software": {
+            "release": "emr-6.0.0"
+          },
+          "SysInfo": {
+            "num_cpus": 8,
+            "cpu_mem": 16384
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 32768
+          }
+        },
+        "g4dn.4xlarge": {
+          "software": {
+            "release": "emr-6.0.0"
+          },
+          "SysInfo": {
+            "num_cpus": 16,
+            "cpu_mem": 65536
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 16384
+          }
+        },
+        "g4dn.8xlarge": {
+          "software": {
+            "release": "emr-6.0.0"
+          },
+          "SysInfo": {
+            "num_cpus": 32,
+            "cpu_mem": 131072
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 16384
+          }
+        },
+        "g4dn.12xlarge": {
+          "software": {
+            "release": "emr-6.0.0"
+          },
+          "SysInfo": {
+            "num_cpus": 48,
+            "cpu_mem": 196608
+          },
+          "GpuHWInfo": {
+            "num_gpus": 4,
+            "gpu_mem": 16384
+          }
+        }
+      }
+    }
+  },
+  "clusterSpecs": {
+    "minWorkerNodes": 2
+  }
+}

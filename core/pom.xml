@@ -23,7 +23,7 @@
     <artifactId>rapids-4-spark-tools_2.12</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
-    <version>23.02.0-SNAPSHOT</version>
+    <version>23.02.1-SNAPSHOT</version>
     <packaging>jar</packaging>
     <url>http://github.com/NVIDIA/spark-rapids-tools</url>
 
@@ -91,6 +91,7 @@
         <ui.resources.external.folder>assets</ui.resources.external.folder>
         <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
         <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
+        <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
     </properties>
 
     <dependencies>
@@ -136,6 +137,12 @@
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
             <version>${snakeyaml.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-mllib_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -195,8 +202,15 @@
                             <artifactSet>
                                 <includes>
                                     <include>org.rogach:scallop_${scala.binary.version}</include>
+                                    <include>org.yaml:snakeyaml</include>
                                 </includes>
                             </artifactSet>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.yaml</pattern>
+                                    <shadedPattern>${rapids.shade.package}.org.yaml</shadedPattern>
+                                </relocation>
+                            </relocations>
                             <filters>
                                 <filter>
                                     <artifact>*:*</artifact>
@@ -353,6 +367,59 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <!-- parent-pom only executions -->
+                <inherited>false</inherited>
+                <executions>
+                    <execution>
+                        <!--
+                        This is an alternative implementation of the scalastyle check invocation,
+                        a replacement for scalastyle-maven-plugin. It's motivated to address the following:
+                        - All scala files are checked at once regardless of the module, so the developer
+                        can focus on addressing violations without being distracted by the build issues
+                        in-between
+                        - We don't have to hardcode the source code roots added dynamically by other maven
+                        plugins to the project
+                        - The scalastyle launch cost is amortized across all modules
+                        -->
+                        <id>scalastyle-all-modules</id>
+                        <phase>verify</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <skip>${maven.scalastyle.skip}</skip>
+                            <target>
+                                <pathconvert property="scalastyle.dirs" pathsep=" ">
+                                    <dirset dir="${project.basedir}" includes="**/src/main/scala"/>
+                                    <dirset dir="${project.basedir}" includes="**/src/main/*/scala"/>
+                                    <dirset dir="${project.basedir}" includes="**/src/test/scala"/>
+                                    <dirset dir="${project.basedir}" includes="**/src/test/*/scala"/>
+                                </pathconvert>
+                                <echo>Checking scalastyle for all modules using following paths:
+                                    ${scalastyle.dirs}
+                                </echo>
+                                <java classname="org.scalastyle.Main" failonerror="true">
+                                    <arg line="--verbose false"/>
+                                    <arg line="--warnings false"/>
+                                    <arg line="--config scalastyle-config.xml"/>
+                                    <arg line="--xmlOutput ${project.basedir}/target/scalastyle-output.xml"/>
+                                    <arg line="--inputEncoding UTF-8"/>
+                                    <arg line="--xmlEncoding UTF-8"/>
+                                    <arg line="${scalastyle.dirs}"/>
+                                </java>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.scalastyle</groupId>
+                        <artifactId>scalastyle_${scala.binary.version}</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
             </plugin>
             <plugin>
                 <!-- clean up the qual-ui dependencies from the resources -->

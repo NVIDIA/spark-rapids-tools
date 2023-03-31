@@ -31,9 +31,7 @@ config:
     subnetworkUri: https://www.googleapis.com/compute/v1/projects/dataproc-project-id/regions/us-central1/subnetworks/default
     zoneUri: https://www.googleapis.com/compute/v1/projects/dataproc-project-id/zones/us-central1-a
   initializationActions:
-  - executableFile: gs://goog-dataproc-initialization-actions-us-central1/gpu/install_gpu_driver.sh
-    executionTimeout: 600s
-  - executableFile: gs://goog-dataproc-initialization-actions-us-central1/rapids/rapids.sh
+  - executableFile: gs://goog-dataproc-initialization-actions-us-central1/spark-rapids/spark-rapids.sh
     executionTimeout: 600s
   masterConfig:
     diskConfig:

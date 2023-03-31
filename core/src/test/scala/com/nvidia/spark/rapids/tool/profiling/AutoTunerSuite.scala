@@ -112,13 +112,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       s"""|Cannot recommend properties. See Comments.
           |
           |Comments:
-          |- java.io.FileNotFoundException: File non-existing.yaml does not exist
-          |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.executor.instances' should be set to (gpuCount * numWorkers).
-          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
-          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
+          |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
+          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
+          |- java.io.FileNotFoundException: File non-existing.yaml does not exist
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -133,13 +133,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       s"""|Cannot recommend properties. See Comments.
           |
           |Comments:
-          |- Incorrect values in worker system information: {numCores: 0, memory: 122880MiB, numWorkers: 4}.
-          |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.executor.instances' should be set to (gpuCount * numWorkers).
-          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
-          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
+          |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
+          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
+          |- Incorrect values in worker system information: {numCores: 0, memory: 122880MiB, numWorkers: 4}.
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -155,13 +155,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       s"""|Cannot recommend properties. See Comments.
           |
           |Comments:
-          |- Incorrect values in worker system information: {numCores: 32, memory: , numWorkers: 4}.
-          |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.executor.instances' should be set to (gpuCount * numWorkers).
-          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
-          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
+          |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
+          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
+          |- Incorrect values in worker system information: {numCores: 32, memory: , numWorkers: 4}.
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -177,13 +177,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       s"""|Cannot recommend properties. See Comments.
           |
           |Comments:
-          |- Incorrect values in worker system information: {numCores: 32, memory: 0m, numWorkers: 4}.
-          |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.executor.instances' should be set to (gpuCount * numWorkers).
-          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
-          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
+          |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
+          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
+          |- Incorrect values in worker system information: {numCores: 32, memory: 0m, numWorkers: 4}.
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -208,17 +208,17 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.task.resource.gpu.amount=0.0625
           |
           |Comments:
-          |- Number of workers is missing. Setting default to 1.
-          |- 'spark.executor.instances' was not set.
           |- 'spark.executor.cores' was not set.
-          |- 'spark.task.resource.gpu.amount' was not set.
-          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.executor.instances' was not set.
           |- 'spark.executor.memory' was not set.
-          |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- Number of workers is missing. Setting default to 1.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -249,8 +249,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.task.resource.gpu.amount=0.03125
           |
           |Comments:
-          |- GPU count is missing. Setting default to 1.
           |- 'spark.sql.shuffle.partitions' was not set.
+          |- GPU count is missing. Setting default to 1.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -277,8 +277,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
-          |- GPU memory is missing. Setting default to 15109m.
           |- 'spark.sql.shuffle.partitions' was not set.
+          |- GPU memory is missing. Setting default to 15109m.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -305,8 +305,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
-          |- GPU memory is missing. Setting default to 15109m.
           |- 'spark.sql.shuffle.partitions' was not set.
+          |- GPU memory is missing. Setting default to 15109m.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -332,9 +332,9 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
+          |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU device is missing. Setting default to T4.
           |- GPU memory is missing. Setting default to 15109m.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -361,8 +361,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
-          |- GPU memory is missing. Setting default to 15109m.
           |- 'spark.sql.shuffle.partitions' was not set.
+          |- GPU memory is missing. Setting default to 15109m.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -437,16 +437,16 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.task.resource.gpu.amount=0.0625
           |
           |Comments:
-          |- 'spark.executor.instances' was not set.
           |- 'spark.executor.cores' was not set.
-          |- 'spark.task.resource.gpu.amount' was not set.
-          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.executor.instances' was not set.
           |- 'spark.executor.memory' was not set.
-          |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.task.resource.gpu.amount' was not set.
           |""".stripMargin
     val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getUnusedProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -499,8 +499,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.task.resource.gpu.amount=0.125
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
+          |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |""".stripMargin
     // scalastyle:on line.size.limit
@@ -550,8 +550,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.task.resource.gpu.amount=0.125
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
+          |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |""".stripMargin
     // scalastyle:on line.size.limit
@@ -603,8 +603,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.task.resource.gpu.amount=0.125
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
+          |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
           |""".stripMargin

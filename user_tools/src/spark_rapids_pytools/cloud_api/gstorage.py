@@ -27,30 +27,50 @@ class GStorageDriver(StorageDriver):
     """
     cli: CMDDriverBase
 
+    @classmethod
+    def get_cmd_prefix(cls):
+        pref_arr = ['gsutil']
+        return pref_arr[:]
+
+    @classmethod
+    def get_cmd_cp_prefix(cls, is_dir: bool):
+        """
+        Note that using -m flag for multithreaded processing of copying cause the process to hang
+        forever. So, we overcome this by limiting the parallel process property in each command
+        """
+        if not is_dir:
+            return ['gsutil', 'cp']
+        # the bug is more emphasized on macOS (Utils.get_os_name() == 'Darwin')
+        return ['gsutil', '-o', '\"GSUtil:parallel_process_count=3\"', '-m', 'cp', '-r']
+
     def resource_is_dir(self, src: str) -> bool:
         if not src.startswith('gs://'):
             return super().resource_is_dir(src)
-        full_src = src if src.endswith('/') else f'{src}/'
-        cmd_args = ['gsutil',
-                    '-q',
-                    'stat',
-                    full_src]
-        # run command and make sure we return 0.
+        # for gsutil, running ls command on a file, will return an output string that has
+        # the same resource.
+        # if the resource is a directory, the output will contain an extra slash at the end.
+        cmd_args = self.get_cmd_prefix()
+        pruned_src = src.rstrip('/')
+        dir_path = f'{pruned_src}/'
+        cmd_args.extend(['ls', dir_path])
         try:
-            self.cli.run_sys_cmd(cmd_args)
-            res = True
+            std_out = self.cli.run_sys_cmd(cmd_args)
+            stdout_lines = std_out.splitlines()
+            if stdout_lines:
+                for out_line in stdout_lines:
+                    if out_line.startswith(dir_path):
+                        # if any path starts with the directory path return True
+                        return True
         except RuntimeError:
-            res = False
-        return res
+            self.cli.logger.debug('Error in checking resource [%s] is directory', src)
+        return False
 
     def resource_exists(self, src) -> bool:
         if not src.startswith('gs://'):
             return super().resource_exists(src)
-        # run gsutil -q stat src if result is 0, then the resource exists
-        cmd_args = ['gsutil',
-                    '-q',
-                    'stat',
-                    src]
+        # run gsutil ls src if result is 0, then the resource exists.
+        cmd_args = self.get_cmd_prefix()
+        cmd_args.extend(['ls', src])
         # run command and make sure we return 0.
         try:
             self.cli.run_sys_cmd(cmd_args)
@@ -63,31 +83,39 @@ class GStorageDriver(StorageDriver):
         if not src.startswith('gs://'):
             return super()._download_remote_resource(src, dest)
         # this is gstorage
-        res_is_dir = self.resource_is_dir(src)
-        recurse_arg = '-r' if res_is_dir else ''
-        cmd_args = ['gsutil',
-                    'cp',
-                    recurse_arg,
-                    src,
-                    dest]
-        self.cli.run_sys_cmd(cmd_args)
-        return FSUtil.build_full_path(dest, FSUtil.get_resource_name(src))
+        return self.__internal_resource_mv(src, dest)
 
     def _upload_remote_dest(self, src: str, dest: str, exclude_pattern: str = None) -> str:
         if not dest.startswith('gs://'):
             return super()._upload_remote_dest(src, dest)
         # this is gstorage
-        res_is_dir = self.resource_is_dir(src)
-        recurse_arg = '-r' if res_is_dir else ''
-        cmd_args = ['gsutil',
-                    'cp',
-                    recurse_arg,
-                    src,
-                    dest]
-        self.cli.run_sys_cmd(cmd_args)
-        return FSUtil.build_path(dest, FSUtil.get_resource_name(src))
+        return self.__internal_resource_mv(src, dest)
 
     def is_file_path(self, value: str):
         if value.startswith('gs://'):
             return True
         return super().is_file_path(value)
+
+    def _delete_path(self, src, fail_ok: bool = False):
+        if not src.startswith('gs://'):
+            super()._delete_path(src)
+        else:
+            res_is_dir = self.resource_is_dir(src)
+            recurse_arg = '-r' if res_is_dir else ''
+            cmd_args = self.get_cmd_prefix()
+            cmd_args.extend(['rm', recurse_arg, src])
+            self.cli.run_sys_cmd(cmd_args)
+
+    def __internal_resource_mv(self, src: str, dest: str) -> str:
+        is_dir = self.resource_is_dir(src)
+        # for gsutil. specifying a directory to copy will result in a duplicate; so we will double-check
+        # that if the dest already has the name of the src, then we move level up.
+        dest_resource_name = FSUtil.get_resource_name(dest)
+        src_resource_name = FSUtil.get_resource_name(src)
+        if src_resource_name == dest_resource_name:
+            # go to the parent level for destination
+            dest = dest.split(src_resource_name)[0].rstrip('/')
+        cmd_args = self.get_cmd_cp_prefix(is_dir)
+        cmd_args.extend([src, dest])
+        self.cli.run_sys_cmd(cmd_args)
+        return FSUtil.build_path(dest, FSUtil.get_resource_name(src))

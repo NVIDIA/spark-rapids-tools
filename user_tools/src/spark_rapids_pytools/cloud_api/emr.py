@@ -14,19 +14,19 @@
 
 """Implementation specific to EMR"""
 
-import configparser
 import json
 import os
 from dataclasses import field, dataclass
-from typing import Any
+from typing import Any, List
 
 from spark_rapids_pytools.cloud_api.emr_job import EmrServerlessRapidsJob, EmrLocalRapidsJob
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, CloudPlatform, \
-    ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice
-from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, AbstractPropertiesContainer
-from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import find_full_rapids_tools_env_key, get_rapids_tools_env, get_sys_env_var
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, \
+    CloudPlatform, ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice, \
+    ClusterGetAccessor
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, \
+    AbstractPropertiesContainer
+from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.emr_pricing import EMREc2PriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer, RapidsJob
@@ -48,54 +48,6 @@ class EMRPlatform(PlatformBase):
         pass
 
     @classmethod
-    def load_aws_profile(cls, profile_name: str) -> dict:
-        def read_aws_options(conf_parser: configparser.ConfigParser,
-                             prof_name: str,
-                             key_list):
-            section_name = prof_name
-            if not conf_parser.has_section(prof_name):
-                # try to use "profile XYZ" format
-                if conf_parser.has_section(f'profile {prof_name}'):
-                    section_name = f'profile {prof_name}'
-
-            res = {}
-            for k in key_list:
-                if conf_parser.has_option(section_name, k):
-                    res.update({k: conf_parser.get(section_name, k)})
-            return res
-
-        def create_conf_parser(def_path: str, env_var: str):
-            parser_obj = configparser.ConfigParser()
-            env_var_value = get_sys_env_var(env_var)
-            if env_var_value is not None:
-                # in case the path is with ~
-                conf_file_path = FSUtil.expand_path(env_var_value)
-            else:
-                conf_file_path = def_path
-            parser_obj.read(conf_file_path)
-            return parser_obj
-
-        default_conf_path = FSUtil.build_path(FSUtil.get_home_directory(), '.aws/config')
-        default_credential_path = FSUtil.build_path(FSUtil.get_home_directory(), '.aws/credentials')
-        aws_config = create_conf_parser(default_conf_path, 'AWS_CONFIG_FILE')
-        aws_credentials = create_conf_parser(default_credential_path, 'AWS_SHARED_CREDENTIALS_FILE')
-        conf_res = {'profile': profile_name}
-        try:
-            aws_conf_dict = read_aws_options(aws_config,
-                                             profile_name,
-                                             ['region'])
-            aws_cred_dict = read_aws_options(aws_credentials,
-                                             profile_name,
-                                             ['aws_access_key_id', 'aws_secret_access_key'])
-            # return result contains the following keys:
-            # ['profile', 'region', aws_access_id', and 'aws_access_key']
-            conf_res.update(aws_conf_dict)
-            conf_res.update(aws_cred_dict)
-            return conf_res
-        except (configparser.NoSectionError, configparser.NoOptionError, configparser.ParsingError) as conf_ex:
-            raise RuntimeError('Could not read AWS configurations') from conf_ex
-
-    @classmethod
     def get_spark_node_type_fromstring(cls, value) -> SparkNodeType:
         if value.upper() in ['TASK', 'CORE']:
             return SparkNodeType.WORKER
@@ -111,22 +63,7 @@ class EMRPlatform(PlatformBase):
         self.type_id = CloudPlatform.EMR
         super().__post_init__()
 
-    def _parse_arguments(self, ctxt_args: dict):
-        super()._parse_arguments(ctxt_args)
-        profile_val = ctxt_args.get('profile')
-        if profile_val is None:
-            profile_val = get_sys_env_var('AWS_PROFILE', 'default')
-            ctxt_args.update({'profile': profile_val})
-        self.ctxt.update(self.load_aws_profile(profile_val))
-        # get the key_pair_path if any
-        kp_path = ctxt_args.get('keyPairPath')
-        if kp_path is None:
-            kp_path = get_rapids_tools_env('KEY_PAIR_PATH')
-        if kp_path is not None:
-            ctxt_args.update({'keyPairPath': kp_path})
-            self.ctxt.update({'keyPairPath': kp_path})
-
-    def _create_cli_instance(self):
+    def _construct_cli_object(self) -> CMDDriverBase:
         return EMRCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
 
     def _install_storage_driver(self):
@@ -165,10 +102,18 @@ class EMRPlatform(PlatformBase):
                                         'application-id to reduce the overhead of initializing the job.')
         return submission_args
 
-    def create_saving_estimator(self, source_cluster, target_cluster):
-        emr_price_provider = EMREc2PriceProvider(region=self.cli.get_region())
+    def create_saving_estimator(self,
+                                source_cluster: ClusterGetAccessor,
+                                reshaped_cluster: ClusterGetAccessor):
+        raw_pricing_config = self.configs.get_value_silent('pricing')
+        if raw_pricing_config:
+            pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
+        else:
+            pricing_config: JSONPropertiesContainer = None
+        emr_price_provider = EMREc2PriceProvider(region=self.cli.get_region(),
+                                                 pricing_configs={'emr': pricing_config})
         saving_estimator = EmrSavingsEstimator(price_provider=emr_price_provider,
-                                               target_cluster=target_cluster,
+                                               reshaped_cluster=reshaped_cluster,
                                                source_cluster=source_cluster)
         return saving_estimator
 
@@ -178,39 +123,16 @@ class EMRPlatform(PlatformBase):
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return EmrLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
+    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
+        raise NotImplementedError
+
 
 @dataclass
 class EMRCMDDriver(CMDDriverBase):
     """Represents the command interface that will be used by EMR"""
-    system_prerequisites = ['aws']
 
-    # configuration defaults = AWS_REGION; AWS_DEFAULT_REGION
-
-    def get_and_set_env_vars(self):
-        """For that driver, try to get all the available system environment for the system."""
-        super().get_and_set_env_vars()
-        # TODO: verify that the AWS CLI is configured.
-        # get the region
-        if self.env_vars.get('region') is None:
-            env_region = get_sys_env_var('AWS_REGION', get_sys_env_var('AWS_DEFAULT_REGION'))
-            if env_region is not None:
-                self.env_vars.update({'region': env_region})
-        if self.env_vars.get('profile') is None:
-            self.env_vars.update({
-                'output': get_sys_env_var('AWS_DEFAULT_OUTPUT', 'json'),
-                'profile': get_sys_env_var('AWS_PROFILE', 'default')
-            })
-        # For EMR we need the key_pair file name for the connection to clusters
-        # TODO: Check the keypair has extension pem file and they are set correctly.
-        if self.env_vars.get('keyPairPath') is None:
-            emr_pem_path = get_rapids_tools_env('KEY_PAIR_PATH')
-            self.env_vars.update({
-                'keyPairPath': emr_pem_path
-            })
-
-    def validate_env(self):
-        super().validate_env()
-        incorrect_envs = []
+    def _list_inconsistent_configurations(self) -> list:
+        incorrect_envs = super()._list_inconsistent_configurations()
         # check that private key file path is correct
         emr_pem_path = self.env_vars.get('keyPairPath')
         if emr_pem_path is not None:
@@ -224,12 +146,8 @@ class EMRCMDDriver(CMDDriverBase):
         else:
             incorrect_envs.append(
                 f'Private key file path is not set. It is required to SSH on driver node. '
-                f'Set {find_full_rapids_tools_env_key("KEY_PAIR_PATH")}')
-        if len(incorrect_envs) > 0:
-            exc_msg = '; '.join(incorrect_envs)
-            self.logger.warning('EMR environment report: %s', exc_msg)
-            # do not raise exception because not all environments are required by all the tools.
-            # raise RuntimeError(f'Invalid environment {exc_msg}')
+                f'Set {Utils.find_full_rapids_tools_env_key("KEY_PAIR_PATH")}')
+        return incorrect_envs
 
     def pull_cluster_props_by_args(self, args: dict) -> str:
         aws_cluster_id = args.get('Id')
@@ -262,7 +180,7 @@ class EMRCMDDriver(CMDDriverBase):
                        '-o StrictHostKeyChecking=no',
                        f'-i {pem_file_path}',
                        f'hadoop@{node.name}']
-        return ' '.join(prefix_args)
+        return Utils.gen_joined_str(' ', prefix_args)
 
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',
@@ -293,24 +211,8 @@ class EMRCMDDriver(CMDDriverBase):
         describe_cmd = f'aws emr describe-cluster --cluster-id {cluster_id}'
         return self.run_sys_cmd(describe_cmd)
 
-    def run_sys_cmd(self,
-                    cmd,
-                    cmd_input: str = None,
-                    fail_ok: bool = False,
-                    env_vars: dict = None) -> str:
-        # add the profile to all the AWS commands
-        emr_env_vars = {
-            'AWS_PROFILE': self.get_env_var('profile')
-        }
-        if env_vars is None:
-            env_vars = {}
-        # piggyback on the command to the profile argument
-        if 'AWS_PROFILE' not in env_vars:
-            env_vars.update(emr_env_vars)
-        return super().run_sys_cmd(cmd=cmd,
-                                   cmd_input=cmd_input,
-                                   fail_ok=fail_ok,
-                                   env_vars=env_vars)
+    def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
+        raise NotImplementedError
 
 
 @dataclass
@@ -352,7 +254,7 @@ class EMRNode(ClusterNode):
     def _pull_and_set_mc_props(self, cli=None):
         instance_description = cli.exec_platform_describe_node_instance(self)
         mc_description = json.loads(instance_description)['InstanceTypes'][0]
-        self.mc_props = JSONPropertiesContainer(prop_arg=json.dumps(mc_description), file_load=False)
+        self.mc_props = JSONPropertiesContainer(prop_arg=mc_description, file_load=False)
 
     def _set_fields_from_props(self):
         self.name = self.ec2_instance.dns_name
@@ -398,19 +300,6 @@ class EMRCluster(ClusterBase):
             _, new_props = self.props.props.popitem()
             self.props.props = new_props
 
-    def _init_connection(self, cluster_id: str = None,
-                         props: str = None) -> dict:
-        name = cluster_id
-        if props is None:
-            # we need to pull the properties from the platform
-            props = self.cli.pull_cluster_props_by_args(args={'cluster': name, 'region': self.region})
-        cluster_props = JSONPropertiesContainer(props, file_load=False)
-        cluster_args = {
-            'name': name,
-            'props': cluster_props
-        }
-        return cluster_args
-
     def __create_ec2_list_by_group(self, group_arg):
         if isinstance(group_arg, InstanceGroup):
             group_obj = group_arg
@@ -434,30 +323,16 @@ class EMRCluster(ClusterBase):
             ec2_instances.append(ec2_instance)
         return ec2_instances
 
-    def find_matches_for_node(self) -> dict:
-        mc_map = {}
-        supported_gpus = self.platform.get_supported_gpus()
-        for spark_node_type, node_list in self.nodes.items():
-            if spark_node_type == SparkNodeType.MASTER:
-                # skip
-                self.cli.logger.debug('Skip converting Master nodes')
-            else:
-                for anode in node_list:
-                    if anode.instance_type not in mc_map:
-                        best_mc_match = anode.find_best_cpu_conversion(supported_gpus)
-                        mc_map.update({anode.instance_type: best_mc_match})
-        return mc_map
-
-    def migrate_from_cluster(self, orig_cluster):
-        self.name = orig_cluster.name
-        self.uuid = orig_cluster.uuid
-        self.zone = orig_cluster.zone
-        self.state = orig_cluster.state
+    def _build_migrated_cluster(self, orig_cluster):
+        """
+        specific to the platform on how to build a cluster based on migration
+        :param orig_cluster:
+        """
         group_cache = {}
         self.instance_groups = []
         self.ec2_instances = []
         # get the map of the instance types
-        mc_type_map = orig_cluster.find_matches_for_node()
+        mc_type_map, _ = orig_cluster.find_matches_for_node()
         # convert instances and groups
         # master groups should stay the same
         for curr_group in orig_cluster.instance_groups:
@@ -555,15 +430,17 @@ class EMRCluster(ClusterBase):
         ]
         return self.state in acceptable_init_states
 
-    def get_eventlogs_from_config(self):
-        res_arr = []
+    def get_all_spark_properties(self) -> dict:
+        res = {}
         configs_list = self.props.get_value_silent('Configurations')
         for conf_item in configs_list:
             if conf_item['Classification'].startswith('spark'):
-                conf_props = conf_item['Properties']
-                if 'spark.eventLog.dir' in conf_props:
-                    res_arr.append(conf_props['spark.eventLog.dir'])
-        return res_arr
+                curr_spark_props = conf_item['Properties']
+                res.update(curr_spark_props)
+        return res
+
+    def get_tmp_storage(self) -> str:
+        raise NotImplementedError
 
 
 @dataclass
@@ -572,17 +449,32 @@ class EmrSavingsEstimator(SavingsEstimator):
     A class that calculates the savings based on an EMR price provider
     """
 
-    def _get_cost_per_cluster(self, cluster: EMRCluster):
+    def _calculate_ec2_cost(self,
+                            cluster_inst: ClusterGetAccessor,
+                            node_type: SparkNodeType) -> float:
+        nodes_cnt = cluster_inst.get_nodes_cnt(node_type)
+        node_mc_type = cluster_inst.get_node_instance_type(node_type)
+        ec2_unit_cost = self.price_provider.catalogs['aws'].get_value('ec2', node_mc_type)
+        ec2_cost = ec2_unit_cost * nodes_cnt
+        return ec2_cost
+
+    def _calculate_emr_cost(self,
+                            cluster_inst: ClusterGetAccessor,
+                            node_type: SparkNodeType) -> float:
+        nodes_cnt = cluster_inst.get_nodes_cnt(node_type)
+        node_mc_type = cluster_inst.get_node_instance_type(node_type)
+        emr_unit_cost = self.price_provider.catalogs['aws'].get_value('emr', node_mc_type)
+        emr_cost = emr_unit_cost * nodes_cnt
+        return emr_cost
+
+    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
         total_cost = 0.0
-        for curr_group in cluster.instance_groups:
-            ec2_unit_cost = self.price_provider.catalog.get_value('ec2', curr_group.instance_type)
-            ec2_cost = ec2_unit_cost * curr_group.count
-            emr_unit_cost = self.price_provider.catalog.get_value('emr', curr_group.instance_type)
-            emr_cost = emr_unit_cost * curr_group.count
-            total_cost += emr_cost + ec2_cost
+        for node_type in [SparkNodeType.MASTER, SparkNodeType.WORKER]:
+            total_cost += self._calculate_ec2_cost(cluster, node_type)
+            total_cost += self._calculate_emr_cost(cluster, node_type)
         return total_cost
 
     def _setup_costs(self):
         # calculate target_cost
-        self.target_cost = self._get_cost_per_cluster(self.target_cluster)
+        self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
         self.source_cost = self._get_cost_per_cluster(self.source_cluster)

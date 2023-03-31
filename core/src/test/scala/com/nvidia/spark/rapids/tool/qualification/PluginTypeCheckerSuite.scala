@@ -169,4 +169,16 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     assert(checker.getSpeedupFactor("UnionExec") == 3.0)
     assert(checker.getSpeedupFactor("Ceil") == 4)
   }
+
+  test("supported operator score from databricks-aws") {
+    val checker = new PluginTypeChecker("databricks-aws")
+    assert(checker.getSpeedupFactor("UnionExec") == 3.0)
+    assert(checker.getSpeedupFactor("Ceil") == 4)
+  }
+
+  test("supported operator score from databricks-azure") {
+    val checker = new PluginTypeChecker("databricks-azure")
+    assert(checker.getSpeedupFactor("UnionExec") == 3.0)
+    assert(checker.getSpeedupFactor("Ceil") == 4)
+  }
 }

@@ -30,6 +30,7 @@ from urllib.request import urlopen
 import certifi
 import pandas as pd
 import yaml
+from packaging.version import Version
 from tabulate import tabulate
 
 from spark_rapids_dataproc_tools.cost_estimator import DataprocCatalogContainer, DataprocPriceProvider, \
@@ -39,7 +40,8 @@ from spark_rapids_dataproc_tools.dataproc_utils import validate_dataproc_sdk, ge
     get_incompatible_criteria
 from spark_rapids_dataproc_tools.utilities import bail, \
     get_log_dict, remove_dir, make_dirs, resource_path, YAMLPropertiesContainer, gen_random_string
-from spark_rapids_pytools.common.utilities import get_base_release
+from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import Utils
 
 
 @dataclass
@@ -123,18 +125,12 @@ class ToolContext(YAMLPropertiesContainer):
     def get_remote_work_dir(self) -> str:
         return self.get_remote('depFolder')
 
-    def get_default_jar_name(self) -> str:
-        # get the version from the package, instead of the yaml file
-        # jar_version = self.get_value('sparkRapids', 'version')
-        jar_version = get_base_release()
-        default_jar_name = self.get_value('sparkRapids', 'jarFile')
-        return default_jar_name.format(jar_version)
-
     def get_rapids_jar_url(self) -> str:
         # get the version from the package, instead of the yaml file
         # jar_version = self.get_value('sparkRapids', 'version')
-        jar_version = get_base_release()
-        rapids_url = self.get_value('sparkRapids', 'repoUrl').format(jar_version, jar_version)
+        mvn_base_url = self.get_value('sparkRapids', 'mvnUrl')
+        jar_version = Utils.get_latest_available_jar_version(mvn_base_url, Utils.get_base_release())
+        rapids_url = self.get_value('sparkRapids', 'repoUrl').format(mvn_base_url, jar_version, jar_version)
         return rapids_url
 
     def get_tool_main_class(self) -> str:
@@ -218,15 +214,22 @@ class RapidsTool(object):
         return arguments_list
 
     def get_wrapper_arguments(self, arg_list: List[str]) -> List[str]:
-        version_num = get_base_release()
-        arg_definitions = self.ctxt.get_value_silent('sparkRapids',
-                                                     'cli',
-                                                     'tool_options_per_release',
-                                                     version_num)
         res = arg_list
-        if arg_definitions is not None:
-            for arg_name in arg_definitions:
-                res.extend([f'--{arg_name}', arg_definitions.get(arg_name)])
+        version_num = Utils.get_base_release()
+        defined_version = Version(version_num)
+        opts_per_release = self.ctxt.get_value_silent('sparkRapids',
+                                                      'cli',
+                                                      'toolOptionsPerRelease')
+        # TODO: we should add the arguments based on the jar being passed to the CLI
+        if opts_per_release:
+            for release_key in opts_per_release:
+                release_version = Version(release_key)
+                if release_version <= defined_version:
+                    arg_definitions = opts_per_release.get(release_key)
+                    if arg_definitions:
+                        for arg_name in arg_definitions:
+                            res.extend([f'--{arg_name}', arg_definitions.get(arg_name)])
+
         res.extend([
             ' --output-directory',
             f' {self.ctxt.get_remote_output_dir()}',
@@ -304,12 +307,14 @@ class RapidsTool(object):
     def _process_jar_arg(self):
         if self.tools_jar is None:
             # we should download the jar file
-            local_jar_path = os.path.join(self.ctxt.get_local_work_dir(), self.ctxt.get_default_jar_name())
-            wget_cmd = f'wget -O "{local_jar_path}" "{self.ctxt.get_rapids_jar_url()}"'
-            self.ctxt.logdebug(f'Downloading tools jar from {self.ctxt.get_rapids_jar_url()} to {local_jar_path}')
+            jar_url = self.ctxt.get_rapids_jar_url()
+            jar_file_name = FSUtil.get_resource_name(jar_url)
+            local_jar_path = os.path.join(self.ctxt.get_local_work_dir(), jar_file_name)
+            self.ctxt.logdebug(f'Downloading tools jar from {jar_url} to {local_jar_path}')
+            wget_cmd = f'wget -O "{local_jar_path}" "{jar_url}"'
             self.ctxt.cli.run(wget_cmd,
                               msg_fail='Failed downloading tools jar url')
-            jar_file_name = self.ctxt.get_default_jar_name()
+            jar_file_name = FSUtil.get_resource_name(local_jar_path)
         else:
             # copy the tools_jar to the dependency folder
             if self.tools_jar.startswith('gs://'):
@@ -938,16 +943,13 @@ class Qualification(RapidsTool):
     def __generate_qualification_configs(self) -> str:
         initialization_actions = self.ctxt.get_value('sparkRapids',
                                                      'gpu',
-                                                     'initializationScripts').format(self.region, self.region)
+                                                     'initializationScripts').format(self.region)
         instructions_str = (
             f'To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the '
             f'following to your cluster creation script:\n\t'
             f'--initialization-actions={initialization_actions} \\ \n\t'
             f'--worker-accelerator type=nvidia-tesla-{self.gpu_device.lower()},'
-            f'count={self.gpu_per_machine} \\ \n\t'
-            f'--metadata gpu-driver-provider="NVIDIA" \\ \n\t'
-            f'--metadata rapids-runtime=SPARK \\ \n\t'
-            f'--cuda-version={self.cuda}')
+            f'count={self.gpu_per_machine}')
         return instructions_str
 
     def _report_results_are_empty(self) -> None:

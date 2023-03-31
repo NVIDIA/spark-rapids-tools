@@ -21,14 +21,14 @@ from logging import Logger
 
 from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
-from spark_rapids_pytools.common.utilities import ToolLogging, gen_random_string
-from spark_rapids_pytools.rapids.rapids_job import RapidsJob
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils
+from spark_rapids_pytools.rapids.rapids_job import RapidsJob, RapidsLocalJob
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
 class EMRJobState(EnumeratedType):
     """
-    Standard states for a EMR job.
+    Standard states for an EMR job.
     """
     SUBMITTED = 'submitted'
     PENDING = 'Pending'
@@ -95,7 +95,7 @@ class EMRServerlessApplication:
         else:
             # if name is none auto generate a new one:
             if self.app_name is None:
-                self.app_name = f'rapids-tools-{gen_random_string(8)}'
+                self.app_name = f'rapids-tools-{Utils.gen_random_string(8)}'
             self.outlive_submission = False
             self._create_as_new()
 
@@ -209,18 +209,7 @@ class EmrServerlessRapidsJob(RapidsJob):
 
     def __generate_job_name(self):
         # use the same name as the output folder
-        return f'{self.emr_app.app_name}-{gen_random_string(4)}'
-
-    def _get_rapids_args_per_platform(self):
-        return ['--platform', 'emr']
-
-    def _build_rapids_args(self):
-        rapids_arguments = super()._build_rapids_args()[:]
-        extra_rapids_args = self.prop_container.get_rapids_args()
-        if extra_rapids_args is None:
-            return rapids_arguments
-        rapids_arguments.extend(extra_rapids_args)
-        return rapids_arguments
+        return f'{self.emr_app.app_name}-{Utils.gen_random_string(4)}'
 
     def __build_driver(self) -> str:
         spark_job_configs = self.prop_container.get_value('sparkConfArgs', 'properties')
@@ -231,7 +220,7 @@ class EmrServerlessRapidsJob(RapidsJob):
         submit_params = {
             'entryPoint': self.prop_container.get_jar_file(),
             'entryPointArguments': self._build_rapids_args(),
-            'sparkSubmitParameters': ' '.join(spark_params)
+            'sparkSubmitParameters': Utils.gen_joined_str(' ', spark_params)
         }
         res = {
             'sparkSubmit': submit_params
@@ -284,59 +273,16 @@ class EmrServerlessRapidsJob(RapidsJob):
 
 
 @dataclass
-class EmrLocalRapidsJob(RapidsJob):
+class EmrLocalRapidsJob(RapidsLocalJob):
     """
     Implementation of a RAPIDS job that runs local on a local machine.
     """
     job_label = 'emrLocal'
 
-    def __build_classpath(self):
-        deps_arr = [self.prop_container.get_jar_file()]
-        dependencies = self.prop_container.get_value_silent('platformArgs', 'dependencies')
-        if dependencies is not None:
-            deps_arr.extend(dependencies)
-        dps_str = ':'.join(deps_arr)
-        return ['-cp', dps_str]
-
-    def __build_jvm_args(self):
-        jvm_args = self.prop_container.get_value_silent('platformArgs', 'jvmArgs')
-        vm_args = []
-        if jvm_args is not None:
-            for jvm_k, jvm_arg in jvm_args.items():
-                if jvm_k.startswith('D'):
-                    val = f'-{jvm_k}={jvm_arg}'
-                else:
-                    val = f'-{jvm_k}'
-                vm_args.append(val)
-        return vm_args
-
-    def _get_rapids_args_per_platform(self):
-        return ['--platform', 'emr']
-
-    def _build_rapids_args(self):
-        rapids_arguments = super()._build_rapids_args()[:]
-        extra_rapids_args = self.prop_container.get_rapids_args()
-        if extra_rapids_args is None:
-            return rapids_arguments
-        rapids_arguments.extend(extra_rapids_args)
-        return rapids_arguments
-
-    def _build_submission_cmd(self):
+    def _build_submission_cmd(self) -> list:
         # env vars are added later as a separate dictionary
-        classpath_arr = self.__build_classpath()
-        jvm_args_arr = self.__build_jvm_args()
-        cmd_arg = ['java']
-        cmd_arg.extend(jvm_args_arr)
-        cmd_arg.extend(classpath_arr)
-        cmd_arg.append(self.prop_container.get_jar_main_class())
-        cmd_arg.extend(self._build_rapids_args())
+        cmd_arg = super()._build_submission_cmd()
         # any s3 link has to be converted to S3a:
         for index, arr_entry in enumerate(cmd_arg):
             cmd_arg[index] = arr_entry.replace('s3://', 's3a://')
         return cmd_arg
-
-    def _submit_job(self, cmd_args: list) -> str:
-        env_args = self.prop_container.get_value_silent('platformArgs', 'envArgs')
-        out_std = self.exec_ctxt.platform.cli.run_sys_cmd(cmd=cmd_args,
-                                                          env_vars=env_args)
-        return out_std

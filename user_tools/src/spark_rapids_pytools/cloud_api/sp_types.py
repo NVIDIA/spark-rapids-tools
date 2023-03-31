@@ -13,24 +13,26 @@
 # limitations under the License.
 
 """Service providers defined types"""
+
+import configparser
 import json
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from shutil import which
-from typing import cast, Type, Any
+from typing import cast, Type, Any, List, Union, Optional, Callable
 
-from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer
-from spark_rapids_pytools.common.sys_storage import StorageDriver
-from spark_rapids_pytools.common.utilities import ToolLogging, resource_path, SysCmd
+from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
+    get_elem_non_safe
+from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
+from spark_rapids_pytools.common.utilities import ToolLogging, SysCmd, Utils
 
 
 class EnumeratedType(str, Enum):
     """Abstract representation of enumerated values"""
 
     @classmethod
-    def tostring(cls, value):
-        # type: (Union[Enum, str]) -> str
+    def tostring(cls, value: Union[Enum, str]) -> str:
         """Return the string representation of the state object attribute
         :param str value: the state object to turn into string
         :return: the uppercase string that represents the state object
@@ -40,8 +42,7 @@ class EnumeratedType(str, Enum):
         return str(value._value_).upper()  # pylint: disable=protected-access
 
     @classmethod
-    def fromstring(cls, value):
-        # type: (str) -> Optional[str]
+    def fromstring(cls, value: str) -> Optional[str]:
         """Return the state object attribute that matches the string
         :param str value: the string to look up
         :return: the state object attribute that matches the string
@@ -63,8 +64,15 @@ class EnumeratedType(str, Enum):
 
 class DeployMode(EnumeratedType):
     """List of tools deployment methods"""
+    # The rapids job runs by submitting a spinning serverless job
     SERVERLESS = 'serverless'
+    # The rapids job is running on local node
     LOCAL = 'local'
+    # The rapids job is submitted on a remote cluster
+    REMOTE_CLUSTER = 'remote'
+
+    def requires_remote_storage(self) -> bool:
+        return self.value in [self.SERVERLESS, self.REMOTE_CLUSTER]
 
 
 class GpuDevice(EnumeratedType):
@@ -74,10 +82,22 @@ class GpuDevice(EnumeratedType):
     K80 = 'k80'
     A100 = 'a100'
     P100 = 'P100'
+    P4 = 'P4'
 
     @classmethod
     def get_default_gpu(cls):
         return cls.T4
+
+    def get_gpu_mem(self) -> list:
+        memory_hash = {
+            self.T4: [16384],
+            self.A100: [40960, 81920],
+            self.P4: [8192],
+            self.K80: [12288],
+            self.V100: [16384],
+            self.P100: [16384]
+        }
+        return memory_hash.get(self)
 
 
 class ClusterState(EnumeratedType):
@@ -98,6 +118,7 @@ class ClusterState(EnumeratedType):
 
 class CloudPlatform(EnumeratedType):
     """symbolic names (members) bound to supported cloud platforms."""
+    DATABRICKS_AWS = 'databricks_aws'
     DATAPROC = 'dataproc'
     EMR = 'emr'
     LOCAL = 'local'
@@ -127,6 +148,9 @@ class GpuHWInfo:
     gpu_mem: int = None
     gpu_device: GpuDevice = GpuDevice.get_default_gpu()
 
+    def get_gpu_device_name(self) -> str:
+        return GpuDevice.tostring(self.gpu_device)
+
 
 @dataclass
 class NodeHWInfo:
@@ -140,12 +164,12 @@ class NodeHWInfo:
 @dataclass
 class ClusterNode:
     """
-    Represents a single cluster node.
+    Represents a single cluster node
     :param node_type: type from Spark perspective (Worker vs Master)
     :param name: name of the node used to remote access in SSH
     :param instance_type: the instance type running on the node
     :param mc_props: holds the properties of the instance type running on the node.
-                    This is used for further processing.
+                    This is used for further processing
     :param hw_info: contains hardware settings of the node: System and GPU.
     """
     node_type: SparkNodeType
@@ -174,16 +198,17 @@ class ClusterNode:
     def _pull_sys_info(self, cli=None) -> SysInfo:
         raise NotImplementedError
 
-    def _construct_hw_info(self,
-                           cli=None,
-                           gpu_info: GpuHWInfo = None,
-                           sys_info: SysInfo = None):
+    def construct_hw_info(self,
+                          cli=None,
+                          gpu_info: GpuHWInfo = None,
+                          sys_info: SysInfo = None):
         del cli  # Unused cli, defined for future use.
         self.hw_info = NodeHWInfo(sys_info=sys_info,
                                   gpu_info=gpu_info)
 
     def fetch_and_set_hw_info(self, cli=None):
         self._pull_and_set_mc_props(cli)
+        sys_info = self._pull_sys_info(cli)
         try:
             # if a node has no gpu, then it is expected that setting the gpu info fails
             gpu_info = self._pull_gpu_hw_info(cli)
@@ -191,8 +216,7 @@ class ClusterNode:
             cli.logger.info(f'Could not pull GPU info for '
                             f'{SparkNodeType.tostring(self.node_type)} node {self.name}: {ex}')
             gpu_info = None
-        sys_info = self._pull_sys_info(cli)
-        self._construct_hw_info(cli=cli, gpu_info=gpu_info, sys_info=sys_info)
+        self.construct_hw_info(cli=cli, gpu_info=gpu_info, sys_info=sys_info)
 
     def find_best_cpu_conversion(self, target_list: dict):
         target_cpus = self.hw_info.sys_info.num_cpus
@@ -226,6 +250,58 @@ class ClusterNode:
 
 
 @dataclass
+class ClusterGetAccessor:
+    """
+    Represents the interface used to access the cluster information that is
+    used by other entities such as the SavingEstimator
+    """
+    def get_node(self, node_type: SparkNodeType) -> ClusterNode:
+        raise NotImplementedError
+
+    def get_nodes_cnt(self, node_type: SparkNodeType) -> int:
+        raise NotImplementedError
+
+    def get_name(self) -> str:
+        raise NotImplementedError
+
+    def get_node_core_count(self, node_type: SparkNodeType) -> int:
+        node = self.get_node(node_type)
+        return node.hw_info.sys_info.num_cpus
+
+    def get_node_mem_mb(self, node_type: SparkNodeType) -> int:
+        node = self.get_node(node_type)
+        return node.hw_info.sys_info.cpu_mem
+
+    def get_gpu_per_node(self, node_type: SparkNodeType) -> (int, str):
+        node = self.get_node(node_type)
+        gpu_info = node.hw_info.gpu_info
+        if gpu_info:
+            num_gpus, gpu_device = gpu_info.num_gpus, gpu_info.gpu_device
+        else:
+            num_gpus, gpu_device = 0, GpuDevice.get_default_gpu()
+        return num_gpus, GpuDevice.tostring(gpu_device)
+
+    def get_node_instance_type(self, node_type: SparkNodeType) -> str:
+        node = self.get_node(node_type)
+        return node.instance_type
+
+    def get_workers_instant_types(self) -> str:
+        return self.get_node_instance_type(SparkNodeType.WORKER)
+
+    def get_workers_count(self) -> int:
+        return self.get_nodes_cnt(SparkNodeType.WORKER)
+
+    def get_workers_cores_count(self) -> int:
+        return self.get_node_core_count(SparkNodeType.WORKER)
+
+    def get_workers_mem_mb(self) -> int:
+        return self.get_node_mem_mb(SparkNodeType.WORKER)
+
+    def get_gpu_per_worker(self) -> (int, str):
+        return self.get_gpu_per_node(SparkNodeType.WORKER)
+
+
+@dataclass
 class CMDDriverBase:
     """
     Represents the command interface that will be used by the platform
@@ -233,25 +309,14 @@ class CMDDriverBase:
     1- the command used by the platform. for example gcloud, gsutil, or AWS
     2- the ssh command to nodes (it could include authentications)
     3- normal commands
-    :param cloud_ctxt: dictionary containing all the necessary configurations related to the CSP.
+    :param cloud_ctxt: dictionary containing all the necessary configurations related to the CSP
     :param timeout: How long to wait (in seconds) for the command to finish (optional).
-    :param: system_prerequisites: list of the tools required to run the given instance.
     :param: env_vars: dictionary containing all the variables required by the driver.
     """
     cloud_ctxt: dict
     timeout: int = 0
-    system_prerequisites: list = field(default_factory=lambda: [])
     env_vars: dict = field(default_factory=dict, init=False)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cmd'), init=False)
-
-    @classmethod
-    def is_system_tool(cls, tool_name):
-        """
-        check whether a tool is installed on the system.
-        :param tool_name: name of the tool to check
-        :return: True or False
-        """
-        return which(tool_name) is not None
 
     def get_env_var(self, key: str):
         return self.env_vars.get(key)
@@ -259,22 +324,76 @@ class CMDDriverBase:
     def get_region(self) -> str:
         return self.env_vars.get('region')
 
+    def get_cmd_run_configs(self) -> dict:
+        return self.env_vars.get('cmdRunnerProperties')
+
+    def get_required_props(self) -> list:
+        cmd_runner_props = self.get_cmd_run_configs()
+        if cmd_runner_props:
+            return cmd_runner_props.get('inheritedProps')
+        return None
+
+    def get_system_prerequisites(self) -> list:
+        res = []
+        cmd_runner_props = self.get_cmd_run_configs()
+        if cmd_runner_props:
+            res.extend(cmd_runner_props.get('systemPrerequisites'))
+        return res
+
+    def get_piggyback_props(self) -> list:
+        res = []
+        cmd_runner_props = self.get_cmd_run_configs()
+        if cmd_runner_props:
+            res = cmd_runner_props.get('cliPiggyBackEnvVars')['definedVars']
+        return res
+
+    def get_piggyback_arguments(self) -> list:
+        res = []
+        cmd_runner_props = self.get_cmd_run_configs()
+        if cmd_runner_props:
+            res = cmd_runner_props.get('cliPiggyBackArgs')['definedArgs']
+        return res
+
+    def get_rapids_job_configs(self, deploy_mode: DeployMode) -> dict:
+        cmd_runner_props = self.get_cmd_run_configs()
+        if cmd_runner_props:
+            deploy_mode_configs = get_elem_non_safe(cmd_runner_props,
+                                                    ['rapidsJobs', DeployMode.tostring(deploy_mode)])
+            return deploy_mode_configs
+        return None
+
     def get_and_set_env_vars(self):
         """For that driver, try to get all the available system environment for the system."""
-        for env_key in ['profile', 'region', 'aws_access_key_id', 'aws_secret_access_key', 'keyPairPath']:
-            if env_key in self.cloud_ctxt:
-                self.env_vars.update({env_key: self.cloud_ctxt.get(env_key)})
+        for item_key in self.cloud_ctxt:
+            # save all not-None entries to the env_vars
+            item_value = self.cloud_ctxt.get(item_key)
+            if item_value is not None:
+                self.env_vars[item_key] = item_value
 
-    def validate_env(self):
+    def _list_inconsistent_configurations(self) -> list:
+        """
+        List all the inconsistent configuration in the platform
+        :return: a list of inconsistencies
+        """
         incorrect_envs = []
-        for sys_tool in self.system_prerequisites:
-            if not self.is_system_tool(sys_tool):
+        for sys_tool in self.get_system_prerequisites():
+            if not Utils.is_system_tool(sys_tool):
                 incorrect_envs.append(f'Tool {sys_tool} is not in installed or not in the PATH environment')
         if self.get_region() is None:
             incorrect_envs.append('Platform region is not set.')
+        return incorrect_envs
+
+    def _handle_inconsistent_configurations(self, incorrect_envs: list) -> None:
         if len(incorrect_envs) > 0:
-            exc_msg = '; '.join(incorrect_envs)
-            raise RuntimeError(f'Invalid environment: {exc_msg}')
+            # we do not want to raise a runtime error because some of the flags are not required by
+            # all the tools.
+            # TODO: improve this by checking the requirements for each tool.
+            exc_msg = Utils.gen_joined_str('; ', incorrect_envs)
+            self.logger.warning('Environment report: %s', exc_msg)
+
+    def validate_env(self):
+        incorrect_envs = self._list_inconsistent_configurations()
+        self._handle_inconsistent_configurations(incorrect_envs)
 
     def run_sys_cmd(self,
                     cmd,
@@ -288,19 +407,68 @@ class CMDDriverBase:
                 stderr_splits = std_err.splitlines()
                 stdout_str = ''
                 if len(stdout_splits) > 0:
-                    std_out_lines = '\n'.join([f'\t| {line}' for line in stdout_splits])
+                    std_out_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stdout_splits])
                     stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
-                if isinstance(cmd, str):
-                    cmd_log_str = cmd
-                else:
-                    cmd_log_str = ' '.join(cmd)
+                cmd_log_str = Utils.gen_joined_str(' ', cmd)
                 if len(stderr_splits) > 0:
-                    std_err_lines = '\n'.join([f'\t| {line}' for line in stderr_splits])
+                    std_err_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stderr_splits])
                     stderr_str = f'\n\t<STDERR>\n{std_err_lines}'
                     self.logger.debug('executing CMD:\n\t<CMD: %s>[%s]; [%s]',
                                       cmd_log_str,
                                       stdout_str,
                                       stderr_str)
+
+        def is_sdk_cmd(original_cmd, cmd_prefix: str) -> bool:
+            if isinstance(original_cmd, list):
+                # the command is an array, then we should only pick the first index
+                cmd_token = original_cmd[0]
+            else:
+                cmd_token = original_cmd
+            return cmd_token.startswith(cmd_prefix)
+
+        def append_to_cmd(original_cmd, extra_args: list) -> Any:
+            if isinstance(original_cmd, list):
+                # We do not append at the end of the cmd because this can break some commands like
+                # spark-submit
+                res = []
+                ind = 0
+                # loop until we find the first argument (starts with --))
+                while ind < len(original_cmd) and not original_cmd[ind].startswith('--'):
+                    res.append(original_cmd[ind])
+                    ind += 1
+                res.extend(extra_args)
+                if ind < len(original_cmd):
+                    res.extend(original_cmd[ind:])
+                return res
+            extra_args_flatten = Utils.gen_joined_str(' ', extra_args)
+            return f'{original_cmd} {extra_args_flatten}'
+
+        # process the env_variables of the command
+        piggyback_vars = self.get_piggyback_props()
+        for var_entry in piggyback_vars:
+            prop_label = var_entry['confProperty']
+            var_value = self.get_env_var(prop_label)
+            if var_value:
+                if not env_vars:
+                    env_vars = {var_entry['varKey']: var_value}
+                else:
+                    # use setdefault in case the env_car was already defined
+                    env_vars.setdefault(var_entry['varKey'], var_value)
+        # process the pigyybacked sdk arguments
+        piggyback_args = []
+        piggyback_args_raw = self.get_piggyback_arguments()
+        for arg_entry in piggyback_args_raw:
+            if is_sdk_cmd(cmd, arg_entry['sdkCommand']):
+                # we should apply the
+                piggyback_args.append(f'--{arg_entry["argKey"]}')
+                if 'argValue' in arg_entry:
+                    piggyback_args.append(f'{arg_entry["argValue"]}')
+                else:
+                    arg_value = self.get_env_var(arg_entry['confProperty'])
+                    piggyback_args.append(arg_value)
+        if piggyback_args:
+            cmd = append_to_cmd(cmd, piggyback_args)
+
         cmd_args = {
             'cmd': cmd,
             'fail_ok': fail_ok,
@@ -334,8 +502,8 @@ class CMDDriverBase:
     def exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
         """
         Given a node, execute platform CLI to pull the properties of the instance type running on
-        that node.
-        :param node: node object
+        that node
+        :param node: object representing cluster component
         :return: string containing the properties of the machine. The string could be in json or yaml format.
         """
         cmd_params = self._build_platform_describe_node_instance(node=node)
@@ -351,6 +519,57 @@ class CMDDriverBase:
                                              query_args: dict = None) -> str:
         cmd_args = self._build_platform_list_cluster(cluster=cluster, query_args=query_args)
         return self.run_sys_cmd(cmd_args)
+
+    def exec_platform_describe_accelerator(self,
+                                           accelerator_type: str,
+                                           **cmd_args) -> str:
+        """
+        Some platforms like Dataproc represent GPUs as accelerators.
+        To get the information of each accelerator, we need to run describe cmd
+        :param accelerator_type: the name of the GPU accelerator which can be platform specific
+        :param cmd_args: the arguments to be sent to the sdk
+        :return: a string in json format representing the information about the accelerator
+        """
+        del accelerator_type  # Unused accelerator_type
+        del cmd_args  # Unused cmd_args
+        return ''
+
+    def build_local_job_arguments(self, submit_args: dict) -> dict:
+        """
+        an implementation specific to the platform that build a dictionary to store argument and
+        sys env-vars needed for the submission of a local mode on that platform
+        :param submit_args: the arguments specified by the user that reflects on the platform.
+        :return: a dictionary in the format of {"jvmArgs": {}, "envArgs": {}}
+        """
+        jvm_heap_size = submit_args.get('jvmMaxHeapSize')
+        xmx_key = f'Xmx{jvm_heap_size}g'
+        res = {
+            'jvmArgs': {
+                # TODO: setting the AWS access keys from jvm arguments did not work
+                # 'Dspark.hadoop.fs.s3a.secret.key': aws_access_key,
+                # 'Dspark.hadoop.fs.s3a.access.key': aws_access_id
+                xmx_key: ''
+            },
+            'envArgs': {}
+        }
+        rapids_configs = self.get_rapids_job_configs(self.cloud_ctxt.get('deployMode'))
+        if not rapids_configs:
+            return res
+        global_sys_vars = rapids_configs.get('definedVars')
+        if not global_sys_vars:
+            return res
+        env_args_table = {}
+        for sys_var in global_sys_vars:
+            prop_value = self.get_env_var(sys_var['confProperty'])
+            if prop_value:
+                env_args_table.setdefault(sys_var['varKey'], prop_value)
+        res.update({'envArgs': env_args_table})
+        return res
+
+    def get_submit_spark_job_cmd_for_cluster(self,
+                                             cluster_name: str,
+                                             submit_args: dict) -> List[str]:
+        raise NotImplementedError
 
 
 @dataclass
@@ -369,28 +588,172 @@ class PlatformBase:
     storage: StorageDriver = field(default=None, init=False)
     ctxt: dict = field(default_factory=dict, init=False)
     configs: JSONPropertiesContainer = field(default=None, init=False)
+    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.csp'), init=False)
 
     @classmethod
     def list_supported_gpus(cls):
         return [GpuDevice.T4, GpuDevice.A100]
 
-    def _create_cli_instance(self) -> CMDDriverBase:
+    def load_from_config_parser(self, conf_file, **prop_args) -> dict:
+        res = None
+        try:
+            parser_obj = configparser.ConfigParser()
+            parser_obj.read(conf_file)
+            res = {}
+            if prop_args.get('sectionKey'):
+                section_name = prop_args.get('sectionKey')
+                if not parser_obj.has_section(section_name):
+                    # try to use "profile XYZ" format
+                    if parser_obj.has_section(f'profile {section_name}'):
+                        section_name = f'profile {section_name}'
+                key_list = prop_args.get('keyList')
+                for k in key_list:
+                    if parser_obj.has_option(section_name, k):
+                        res.update({k: parser_obj.get(section_name, k)})
+        except (configparser.NoSectionError, configparser.NoOptionError, configparser.ParsingError) as conf_ex:
+            self.logger.debug('Could not load properties from configuration file %s. Exception: %s',
+                              conf_file, conf_ex)
+        return res
+
+    def _construct_cli_object(self) -> CMDDriverBase:
         raise NotImplementedError
+
+    def _create_cli_instance(self) -> CMDDriverBase:
+        cmd_driver_props = self._get_config_environment('cmdRunnerProperties')
+        self.ctxt['cmdRunnerProperties'] = cmd_driver_props
+        return self._construct_cli_object()
 
     def _install_storage_driver(self):
         raise NotImplementedError
 
+    def _get_config_environment(self, *key_strs) -> Any:
+        return self.configs.get_value('environment', *key_strs)
+
+    def _load_config_environment_var_prop(self, prop_key: str):
+        env_variables = self._get_config_environment('cliConfig', 'envVariables')
+        # find the env_variable that maps to the property
+        res = []
+        for env_var in env_variables:
+            if env_var['confProperty'] == prop_key:
+                res.append(env_var)
+        return res
+
+    def _set_env_prop_from_env_var(self, prop_key: str) -> None:
+        if self.ctxt.get(prop_key):
+            # it is already set. do nothing
+            return
+        # find the env_variable that maps to the property
+        for env_var in self._load_config_environment_var_prop(prop_key):
+            env_var_key = env_var['envVariableKey']
+            env_var_def_val = env_var.get('defaultValue')
+            env_var_val = Utils.get_sys_env_var(env_var_key, env_var_def_val)
+            if env_var_val is not None:
+                if '/' in env_var_val:
+                    # this is a file
+                    env_var_val = FSUtil.expand_path(env_var_val)
+                self.ctxt.update({prop_key: env_var_val})
+                break
+
+    def _set_initial_configuration_list(self) -> None:
+        # load the initial configurations list
+        initial_conf_list = self._get_config_environment('initialConfigList')
+        if initial_conf_list:
+            for conf_prop_k in initial_conf_list:
+                self._set_env_prop_from_env_var(conf_prop_k)
+
+    def _set_remaining_configuration_list(self) -> None:
+        remaining_props = self._get_config_environment('loadedConfigProps')
+        if not remaining_props:
+            return
+        properties_map_arr = self._get_config_environment('cliConfig',
+                                                          'confProperties',
+                                                          'propertiesMap')
+        if properties_map_arr:
+            # We support multiple CLI configurations, the following two dictionaries
+            # map config files to the corresponding property keys to be set, and section names respectively
+            config_file_keys = defaultdict(list)
+            config_file_section = {}
+            for prop_elem in properties_map_arr:
+                if prop_elem.get('confProperty') in remaining_props:
+                    # The property uses the default value which is '_cliConfigFile_'
+                    config_file = prop_elem.get('configFileProp', '_cliConfigFile_')
+                    config_file_keys[config_file].append(prop_elem.get('propKey'))
+                    if config_file not in config_file_section:
+                        config_file_section[config_file] = prop_elem.get('section').strip('_')
+            # The section names are loaded from dictionary 'config_file_section'
+            # Example section names are awsProfile/profile
+            loaded_conf_dict = {}
+            for config_file in config_file_keys:
+                loaded_conf_dict = \
+                    self._load_props_from_sdk_conf_file(keyList=config_file_keys[config_file],
+                                                        configFile=config_file.strip('_'),
+                                                        sectionKey=self.ctxt.get(config_file_section[config_file]))
+                if loaded_conf_dict:
+                    self.ctxt.update(loaded_conf_dict)
+            for prop_elem in properties_map_arr:
+                if loaded_conf_dict and prop_elem.get('propKey') not in loaded_conf_dict:
+                    # set it using environment variable if possible
+                    self._set_env_prop_from_env_var(prop_elem.get('propKey'))
+
+    def _set_credential_properties(self) -> None:
+        properties_map_arr = self._get_config_environment('cliConfig',
+                                                          'confProperties',
+                                                          'credentialsMap')
+        if not properties_map_arr:
+            return
+        # We support multiple CLI configurations, the following two dictionaries
+        # map config files to the corresponding property keys to be set, and section names respectively
+        credential_file_keys = defaultdict(list)
+        credential_file_section = {}
+        for prop_elem in properties_map_arr:
+            credential_file = prop_elem.get('configFileProp', '_credentialFile_')
+            credential_file_keys[credential_file].append(prop_elem.get('propKey'))
+            if credential_file not in credential_file_section:
+                credential_file_section[credential_file] = prop_elem.get('section').strip('_')
+        # The section names are loaded from dictionary 'config_file_section'
+        # Example section names are awsProfile/profile
+        for credential_file in credential_file_keys:
+            credential_file_value = self.ctxt.get(credential_file.strip('_'))
+            if not credential_file_value:
+                continue
+            loaded_conf_dict = \
+                self.load_from_config_parser(credential_file_value,
+                                             keyList=credential_file_keys[credential_file],
+                                             sectionKey=self.ctxt.get(credential_file_section[credential_file]))
+            if loaded_conf_dict:
+                self.ctxt.update(loaded_conf_dict)
+
     def _parse_arguments(self, ctxt_args: dict):
-        if 'region' in ctxt_args:
-            region_val = ctxt_args.get('region')
-            if region_val is not None:
-                # add the region to the ctxt
-                self.ctxt.update({'region': region_val})
+        # Get the possible parameters for that platform.
+        # Arguments passed to the tool have more precedence than global env variables
+        list_of_params = self._get_config_environment('envParams')
+        if list_of_params:
+            for param_elem in list_of_params:
+                param_val = ctxt_args.get(param_elem)
+                if param_val:
+                    # add the argument to the context
+                    self.ctxt.update({param_elem: param_val})
+        self._set_initial_configuration_list()
+        # load the remaining properties
+        self._set_remaining_configuration_list()
+        # load the credential properties
+        self._set_credential_properties()
+
+    def _load_props_from_sdk_conf_file(self, **prop_args) -> dict:
+        if prop_args.get('configFile'):
+            cli_conf_file = self.ctxt.get(prop_args.get('configFile'))
+        else:
+            cli_conf_file = self.ctxt.get('cliConfigFile')
+        if cli_conf_file is None:
+            return None
+        return self.load_from_config_parser(cli_conf_file, **prop_args)
 
     def __post_init__(self):
         self.load_platform_configs()
-        self.ctxt = {'platformType': self.type_id}
-        self.ctxt = {'notes': {}}
+        self.ctxt = {
+            'platformType': self.type_id,
+            'notes': {}
+        }
         self._parse_arguments(self.ctxt_args)
         self.cli = self._create_cli_instance()
         self._install_storage_driver()
@@ -414,7 +777,8 @@ class PlatformBase:
 
     def load_cluster_by_prop_file(self, cluster_prop_path: str):
         prop_container = JSONPropertiesContainer(prop_arg=cluster_prop_path)
-        return self._construct_cluster_from_props(cluster=None,
+        cluster = prop_container.get_value_silent('cluster_id')
+        return self._construct_cluster_from_props(cluster=cluster,
                                                   props=json.dumps(prop_container.props))
 
     def connect_cluster_by_name(self, cluster: str):
@@ -436,7 +800,9 @@ class PlatformBase:
         """
         raise NotImplementedError
 
-    def create_saving_estimator(self, source_cluster, target_cluster):
+    def create_saving_estimator(self,
+                                source_cluster: ClusterGetAccessor,
+                                reshaped_cluster: ClusterGetAccessor):
         raise NotImplementedError
 
     def create_submission_job(self, job_prop, ctxt) -> Any:
@@ -445,9 +811,12 @@ class PlatformBase:
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         raise NotImplementedError
 
+    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
+        raise NotImplementedError
+
     def load_platform_configs(self):
         config_file_name = f'{CloudPlatform.tostring(self.type_id).lower()}-configs.json'
-        config_path = resource_path(config_file_name)
+        config_path = Utils.resource_path(config_file_name)
         self.configs = JSONPropertiesContainer(prop_arg=config_path)
 
     def get_supported_gpus(self) -> dict:
@@ -466,7 +835,7 @@ class PlatformBase:
 
 
 @dataclass
-class ClusterBase:
+class ClusterBase(ClusterGetAccessor):
     """
     Represents an instance of a cluster on the platform.
     Cluster can be running/offline
@@ -480,6 +849,7 @@ class ClusterBase:
     state: ClusterState = field(default=ClusterState.RUNNING, init=False)
     nodes: dict = field(default_factory=dict, init=False)
     props: AbstractPropertiesContainer = field(default=None, init=False)
+    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster'), init=False)
 
     def __post_init__(self):
         self.cli = self.platform.cli
@@ -487,12 +857,20 @@ class ClusterBase:
 
     def _init_connection(self, cluster_id: str = None,
                          props: str = None) -> dict:
-        del props, cluster_id  # Unused by super method.
-        return {}
+        name = cluster_id
+        if props is None:
+            # we need to pull the properties from the platform
+            props = self.cli.pull_cluster_props_by_args(args={'cluster': name, 'region': self.region})
+        cluster_props = JSONPropertiesContainer(props, file_load=False)
+        cluster_args = {
+            'name': name,
+            'props': cluster_props
+        }
+        return cluster_args
 
     def set_fields_from_dict(self, field_values: dict = None):
         """
-        Given a dictionary, this function is to set the fields of the cluster.
+        Given a dictionary, this function is to set the fields of the cluster
         :param field_values: the dictionary containing the key/value pair to initialize the cluster.
         :return:
         """
@@ -518,8 +896,8 @@ class ClusterBase:
                        cluster_id: str = None,
                        props: str = None):
         """
-        Setting a connection to an existing Connection to a cluster, then we need to pull properties.
-        :param cluster_id: the argument to be used to fetch the cluster.
+        Setting a connection to an existing Connection to a cluster, then we need to pull properties
+        :param cluster_id: the argument to be used to fetch the cluster
         :param props: optional argument that includes dictionary of the platform cluster's description.
         :return: a cluster
         """
@@ -531,14 +909,18 @@ class ClusterBase:
     def is_cluster_running(self) -> bool:
         return self.state == ClusterState.RUNNING
 
-    def get_eventlogs_from_config(self):
-        raise NotImplementedError
+    def get_eventlogs_from_config(self) -> List[str]:
+        res_arr = []
+        spark_props = self.get_all_spark_properties()
+        if 'spark.eventLog.dir' in spark_props:
+            res_arr.append(spark_props.get('spark.eventLog.dir'))
+        return res_arr
 
     def run_cmd_driver(self, ssh_cmd: str, cmd_input: str = None) -> str or None:
         """
         Execute command on the driver node
         :param ssh_cmd: the command to be executed on the remote node. Note that the quotes
-                        surrounding the shell command should be included.
+                        surrounding the shell command should be included
         :param cmd_input: optional argument string used as an input to the command line.
                         i.e., writing to a file.
         :return:
@@ -551,9 +933,9 @@ class ClusterBase:
         """
         Execute command on the worker node
         :param ssh_cmd: the command to be executed on the remote node. Note that the quotes
-                        surrounding the shell command should be included.
+                        surrounding the shell command should be included
         :param cmd_input: optional argument string used as an input to the command line.
-                          i.e., writing to a file.
+                          i.e., writing to a file
         :param ind: the node index. By default, the command is executed on first worker node.
         """
         # get the worker node
@@ -564,17 +946,139 @@ class ClusterBase:
         worker_node = self.get_worker_node()
         return worker_node.hw_info
 
+    def _build_migrated_cluster(self, orig_cluster):
+        """
+        specific to the platform on how to build a cluster based on migration
+        :param orig_cluster:
+        """
+        raise NotImplementedError
+
+    def migrate_from_cluster(self, orig_cluster):
+        self.name = orig_cluster.name
+        self.uuid = orig_cluster.uuid
+        self.zone = orig_cluster.zone
+        self.state = orig_cluster.state
+        self._build_migrated_cluster(orig_cluster)
+
+    def find_matches_for_node(self) -> (dict, dict):
+        """
+        Maps the CPU instance types to GPU types
+        :return: a map converting CPU machines to GPU ones and a map
+                containing the supported GPUs.
+        """
+        mc_map = {}
+        supported_gpus = self.platform.get_supported_gpus()
+        for spark_node_type, node_list in self.nodes.items():
+            if spark_node_type == SparkNodeType.MASTER:
+                # skip
+                self.cli.logger.debug('Skip converting Master nodes')
+            else:
+                for anode in node_list:
+                    if anode.instance_type in supported_gpus:
+                        continue
+                    if anode.instance_type not in mc_map:
+                        best_mc_match = anode.find_best_cpu_conversion(supported_gpus)
+                        mc_map.update({anode.instance_type: best_mc_match})
+        return mc_map, supported_gpus
+
+    def get_all_spark_properties(self) -> dict:
+        """Returns a dictionary containing the spark configurations defined in the cluster properties"""
+        raise NotImplementedError
+
+    def get_nodes_cnt(self, node_type: SparkNodeType) -> int:
+        node_values = self.nodes.get(node_type)
+        if isinstance(node_values, list):
+            res = len(node_values)
+        else:
+            res = 1
+        return res
+
+    def get_node(self, node_type: SparkNodeType) -> ClusterNode:
+        node_values = self.nodes.get(node_type)
+        if isinstance(node_values, list):
+            res = node_values[0]
+        else:
+            res = node_values
+        return res
+
     def get_master_node(self) -> ClusterNode:
         return self.nodes.get(SparkNodeType.MASTER)
 
     def get_worker_node(self, ind: int = 0) -> ClusterNode:
         return self.nodes.get(SparkNodeType.WORKER)[ind]
 
+    def get_name(self) -> str:
+        return self.name
+
+    def get_tmp_storage(self) -> str:
+        raise NotImplementedError
+
+
+@dataclass
+class ClusterReshape(ClusterGetAccessor):
+    """
+    A class that handles reshaping of the given cluster.
+    It takes argument a cluster object and callable methods that defines
+    the way each cluster property is being reshaped.
+    By default, the methods will have no effect on the properties.
+    The caller can override the behavior by passing a callback method.
+    The caller also can control which node type is affected by the reshap-methods.
+    This can be done by setting the "node_types". By default, the reshaping
+    is limited to the worker nodes of a cluster.
+    """
+
+    cluster_inst: ClusterBase
+    node_types: List[SparkNodeType] = field(default_factory=lambda: [SparkNodeType.WORKER])
+    reshape_workers_mc_type: Callable[[str], str] = field(default_factory=lambda: lambda x: x)
+    reshape_workers_cnt: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_workers_cpus: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_workers_mem: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_workers_gpu_cnt: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_workers_gpu_device: Callable[[str], str] = field(default_factory=lambda: lambda x: x)
+
+    def get_node(self, node_type: SparkNodeType) -> ClusterNode:
+        if node_type == SparkNodeType.WORKER:
+            return self.cluster_inst.get_worker_node()
+        return self.cluster_inst.get_master_node()
+
+    def get_node_instance_type(self, node_type: SparkNodeType) -> str:
+        res = super().get_node_instance_type(node_type)
+        if node_type in self.node_types:
+            return self.reshape_workers_mc_type(res)
+        return res
+
+    def get_nodes_cnt(self, node_type: SparkNodeType) -> int:
+        res = self.cluster_inst.get_nodes_cnt(node_type)
+        if node_type in self.node_types:
+            return self.reshape_workers_cnt(res)
+        return res
+
+    def get_node_core_count(self, node_type: SparkNodeType) -> int:
+        res = super().get_node_core_count(node_type)
+        if node_type in self.node_types:
+            return self.reshape_workers_cpus(res)
+        return res
+
+    def get_node_mem_mb(self, node_type: SparkNodeType) -> int:
+        res = super().get_node_mem_mb(node_type)
+        if node_type in self.node_types:
+            return self.reshape_workers_mem(res)
+        return res
+
+    def get_gpu_per_node(self, node_type: SparkNodeType) -> (int, str):
+        num_gpus, gpu_device = super().get_gpu_per_node(node_type)
+        if node_type in self.node_types:
+            return self.reshape_workers_gpu_cnt(num_gpus), self.reshape_workers_gpu_device(gpu_device)
+        return num_gpus, gpu_device
+
+    def get_name(self) -> str:
+        return self.cluster_inst.get_name()
+
 
 def get_platform(platform_id: Enum) -> Type[PlatformBase]:
     platform_hash = {
-        # Dataproc platform is not enabled yet
-        # CloudPlatform.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
+        CloudPlatform.DATABRICKS_AWS: ('spark_rapids_pytools.cloud_api.databricks_aws', 'DBAWSPlatform'),
+        CloudPlatform.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
         CloudPlatform.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
     }
     if platform_id in platform_hash:

@@ -27,6 +27,8 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.ml.feature.PCA
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, udf}
@@ -659,6 +661,74 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     }
   }
 
+  test("test sparkML ") {
+    TrampolineUtil.withTempDir { outpath =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val tmpParquet = s"$outpath/mlOpsParquet"
+        createDecFile(sparkSession, tmpParquet)
+
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "dot") { spark =>
+          val data = Array(
+            Vectors.sparse(5, Seq((1, 1.0), (3, 7.0))),
+            Vectors.dense(2.0, 0.0, 3.0, 4.0, 5.0),
+            Vectors.dense(4.0, 0.0, 0.0, 6.0, 7.0)
+          )
+          val df = spark.createDataFrame(data.map(Tuple1.apply)).toDF("features")
+          val pca = new PCA()
+            .setInputCol("features")
+            .setOutputCol("pcaFeatures")
+            .setK(3)
+            .fit(df)
+          df
+        }
+
+        val allArgs = Array(
+          "--output-directory",
+          outpath.getAbsolutePath(),
+          "--ml-functions",
+          "true")
+        val appArgs = new QualificationArgs(allArgs ++ Array(eventLog))
+        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+        assert(appSum.size == 1)
+        val mlOpsRes = appSum.head
+        assert(mlOpsRes.mlFunctions.nonEmpty)
+        assert(mlOpsRes.mlFunctions.get.map(x=> x.stageId).size == 5)
+        assert(mlOpsRes.mlFunctions.get.head.mlOps.mkString.contains(
+          "org.apache.spark.ml.feature.PCA.fit"))
+        assert(mlOpsRes.mlFunctionsStageDurations.get.head.mlFuncName.equals("PCA"))
+        // estimated GPU time is for ML function, there are no Spark Dataframe/SQL functions.
+        assert(mlOpsRes.estimatedInfo.estimatedGpuTimeSaved > 0)
+      }
+    }
+  }
+
+  test("test xgboost") {
+    val logFiles = Array(
+      s"$logDir/xgboost_eventlog.zstd"
+    )
+    TrampolineUtil.withTempDir { outpath =>
+      val allArgs = Array(
+        "--output-directory",
+        outpath.getAbsolutePath(),
+        "--ml-functions",
+        "true")
+
+      val appArgs = new QualificationArgs(allArgs ++ logFiles)
+      val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+      assert(exit == 0)
+      assert(appSum.size == 1)
+      val xgBoostRes = appSum.head
+      assert(xgBoostRes.mlFunctions.nonEmpty)
+      assert(xgBoostRes.mlFunctionsStageDurations.nonEmpty)
+      assert(xgBoostRes.mlFunctions.get.head.mlOps.mkString.contains(
+        "ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier.train"))
+      assert(xgBoostRes.mlFunctionsStageDurations.get.head.mlFuncName.equals("XGBoost"))
+      assert(xgBoostRes.mlFunctionsStageDurations.get.head.duration == 46444)
+    }
+  }
+
+
   test("test with stage reuse") {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
@@ -730,14 +800,16 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
 
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted") { spark =>
-          import spark.implicits._
-          spark.conf.set("spark.databricks.clusterUsageTags.clusterAllTags", "*********(redacted)")
-          spark.conf.set("spark.databricks.clusterUsageTags.clusterId", "0617-131246-dray530")
-          spark.conf.set("spark.databricks.clusterUsageTags.clusterName", "job-215-run-34243234")
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted") {
+          spark =>
+            import spark.implicits._
+            spark.conf.set("spark.databricks.clusterUsageTags.clusterAllTags",
+              "*********(redacted)")
+            spark.conf.set("spark.databricks.clusterUsageTags.clusterId", "0617-131246-dray530")
+            spark.conf.set("spark.databricks.clusterUsageTags.clusterName", "job-215-run-34243234")
 
-          val df1 = spark.sparkContext.makeRDD(1 to 1000, 6).toDF
-          df1.sample(0.1)
+            val df1 = spark.sparkContext.makeRDD(1 to 1000, 6).toDF
+            df1.sample(0.1)
         }
         val expectedClusterId = "0617-131246-dray530"
         val expectedJobId = "215"
@@ -1184,6 +1256,54 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
           QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
   
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
+      }
+
+      // run the qualification tool for databricks-aws
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "databricks-aws",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
+      }
+
+      // run the qualification tool for databricks-azure
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "databricks-azure",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+
         // the code above that runs the Spark query stops the Sparksession
         // so create a new one to read in the csv file
         createSparkSession()

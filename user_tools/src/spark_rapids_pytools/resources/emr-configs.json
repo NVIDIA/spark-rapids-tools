@@ -4,7 +4,7 @@
       "LOCAL": [
         {
           "name":  "Apache Spark",
-          "uri": "https://dlcdn.apache.org/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
+          "uri": "https://archive.apache.org/dist/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
           "type": "archive",
           "relativePath": "jars/*",
           "sha512": "769db39a560a95fd88b58ed3e9e7d1e92fb68ee406689fb4d30c033cb5911e05c1942dcc70e5ec4585df84e80aabbc272b9386a208debda89522efff1335c8ff"
@@ -22,6 +22,144 @@
           "type": "jar",
           "md5": "8a22f2d30b7e8eee9ea44f04fb13b35a",
           "sha1": "02deec3a0ad83d13d032b1812421b23d7a961eea"
+        }
+      ]
+    }
+  },
+  "environment": {
+    "//description": "Define the metadata related to the system, prerequisites, and configurations",
+    "envParams": ["profile", "keyPairPath", "deployMode"],
+    "//initialConfigList": "represents the list of the configurations that need to be loaded first",
+    "initialConfigList": ["profile", "credentialFile", "cliConfigFile", "keyPairPath"],
+    "//loadedConfigProps": "list of properties read by the configParser",
+    "loadedConfigProps": ["region", "output"],
+    "cliConfig": {
+      "envVariables": [
+        {
+          "envVariableKey": "AWS_SHARED_CREDENTIALS_FILE",
+          "confProperty": "credentialFile",
+          "defaultValue": "~/.aws/credentials"
+        },
+        {
+          "envVariableKey": "AWS_CONFIG_FILE",
+          "confProperty": "cliConfigFile",
+          "defaultValue": "~/.aws/config"
+        },
+        {
+          "envVariableKey": "AWS_REGION",
+          "confProperty": "region"
+        },
+        {
+          "envVariableKey": "AWS_DEFAULT_REGION",
+          "confProperty": "region"
+        },
+        {
+          "envVariableKey": "AWS_PROFILE",
+          "confProperty": "profile",
+          "defaultValue": "default"
+        },
+        {
+          "envVariableKey": "AWS_DEFAULT_OUTPUT",
+          "confProperty": "output",
+          "defaultValue": "json"
+        },
+        {
+          "//description": "this is mainly used for Bootstrap to ssh to the cluster",
+          "envVariableKey": "RAPIDS_USER_TOOLS_KEY_PAIR_PATH",
+          "confProperty": "keyPairPath"
+        }
+      ],
+      "confProperties": {
+        "//lookupList_description": "Define the list of properties",
+        "propertiesMap": [
+          {
+            "confProperty": "region",
+            "propKey": "region",
+            "section": "_profile_"
+          },
+          {
+            "confProperty": "output",
+            "propKey": "output",
+            "section": "_profile_"
+          }
+        ],
+        "credentialsMap": [
+          {
+            "confProperty": "aws_access_key_id",
+            "section": "_profile_",
+            "propKey": "aws_access_key_id"
+          },
+          {
+            "confProperty": "aws_secret_access_key",
+            "section": "_profile_",
+            "propKey": "aws_secret_access_key"
+          }
+        ]
+      }
+    },
+    "cmdRunnerProperties": {
+      "systemPrerequisites": ["aws"],
+      "//description": "define the properties passed to the CMD runner to be set as env-vars",
+      "inheritedProps": ["profile", "credentialFile", "keyPairPath", "region", "aws_access_key_id", "aws_secret_access_key"],
+      "cliPiggyBackEnvVars": {
+        "//description": "Holds information about the variables that will be attached to the command runner",
+        "definedVars": [
+          {
+            "varLabel": "awsProfile",
+            "//confProperty": "which configuration property used to set the value of that var",
+            "confProperty": "profile",
+            "//varKey": "the variable key used in the CLI. Note that we need this in case that the ENV variables define above are not the same as the system env vars",
+            "//varKey_2": "add the AWS_PROFILE to all cli commands instead of adding it as an argument",
+            "varKey": "AWS_PROFILE"
+          }
+        ]
+      },
+      "cliPiggyBackArgs": {
+        "//description": "Holds information about list of arguments that's appended to some SDK commands",
+        "definedArgs": []
+      },
+      "rapidsJobs": {
+        "LOCAL": {
+          "definedVars": [
+            {
+              "varLabel": "awsAccessKeyID",
+              "confProperty": "aws_access_key_id",
+              "varKey": "AWS_ACCESS_KEY_ID"
+            },
+            {
+              "varLabel": "awsSecretAccessKey",
+              "confProperty": "aws_secret_access_key",
+              "varKey": "AWS_SECRET_ACCESS_KEY"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "pricing": {
+    "catalog": {
+      "onlineResources": [
+        {
+          "resourceKey": "emr-catalog",
+          "onlineURL": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/ElasticMapReduce/20230223011407/us-west-2/index.json",
+          "//localFile": "the name of the file after downloading",
+          "localFile": "aws_ec2_catalog_emr_us-west-2.json",
+          "backupArchive": {
+            "//description-1": "In case the file is stuck, we use this archive as a backup.",
+            "//description-2": "It is stored in the resources",
+            "archiveName": "aws_ec2_catalog_emr_us-west-2.json"
+          }
+        },
+        {
+          "resourceKey": "ec2-catalog",
+          "onlineURL": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/20230307163705/us-west-2/index.json",
+          "//localFile": "the name of the file after downloading",
+          "localFile": "aws_ec2_catalog_ec2_us-west-2.json",
+          "backupArchive": {
+            "//description-1": "In case the file is stuck, we use this archive as a backup.",
+            "//description-2": "It is stored in the resources",
+            "archiveName": "aws_ec2_catalog_ec2_us-west-2.json"
+          }
         }
       ]
     }
@@ -96,5 +234,8 @@
         }
       }
     }
+  },
+  "clusterSpecs": {
+    "minWorkerNodes": 2
   }
 }
