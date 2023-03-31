@@ -134,10 +134,10 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       windowEnd = Math.max(windowEnd, sum.startTime + sum.estimatedInfo.appDur)
     }
     val windowInMonths =
-      if (windowEnd > windowStart) ((windowEnd - windowStart) / (1000.0*60.0*60.0*24.0*30)) else 1.0
+      if (windowEnd > windowStart) ((windowEnd - windowStart) / (1000.0*60*60*24*30)) else 1.0
     appFrequency.foreach ( app =>
       appFrequency += (app._1 -> (if (app._2 == 1) 30.0 else (app._2 / windowInMonths))))
-    appsSum.map { app =>
+    appsSum.foreach { app =>
       app.estimatedInfo.estimatedFrequency = appFrequency.getOrElse(app.appName, 30.0).round
     }
     appsSum

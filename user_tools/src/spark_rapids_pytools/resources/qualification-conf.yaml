@@ -86,7 +86,7 @@ local:
       - 'Estimated App Cost'
       - 'Estimated GPU Cost'
       - 'Estimated GPU Savings(%)'
-      - 'Job Frequency(monthly)'
+      - 'Estimated Job Frequency (monthly)'
       - 'Annual Cost Savings'
     savingColumn: 'Estimated GPU Savings(%)'
     speedupRecommendColumn: 'Speedup Based Recommendation'

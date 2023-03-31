@@ -553,8 +553,8 @@ class Qualification(RapidsJarTool):
 
             # For TCO, calculating annual cost savings based on job frequency
             job_frequency = 30  # default frequency is daily
-            if 'Job Frequency(monthly)' in df_row:
-                job_frequency = df_row['Job Frequency(monthly)']
+            if 'Estimated Job Frequency (monthly)' in df_row:
+                job_frequency = df_row['Estimated Job Frequency (monthly)']
             annual_cost_savings = job_frequency * 12 * (cpu_cost - gpu_cost)
 
             return pd.Series([savings_recommendations, cpu_cost, gpu_cost,
