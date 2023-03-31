@@ -57,7 +57,7 @@ let toolTipsValues = {
           "Applications in YARN cluster mode can be identified by their \<em\>attempt-id\<\/em\>.",
         "App Duration": "Wall-Clock time measured since the application starts till it is completed. " +
           "If an app is not completed an estimated completion time would be computed.",
-        "GPU Opportunity": "Wall-Clock time that shows how much of the SQL duration can be accelerated on the GPU.",
+        "GPU Opportunity": "Wall-Clock time that shows how much of the SQL duration and ML functions(if applicable) can be accelerated on the GPU.",
         "Recommendation": "Recommendation based on \<em\>Estimated Speed-up Factor\<\/em\>.",
         "Estimated Speed-up": "Speed-up factor estimated for the app. Calculated as the ratio between \<em\>App Duration\<\/em\> and \<em\>Estimated GPU Duration\<\/em\>",
         "details": {
@@ -69,7 +69,7 @@ let toolTipsValues = {
             "estimatedDuration": "Predicted runtime of the app if it was run on GPU",
             "unsupportedDuration": "An estimate total duration of SQL operations that are not supported on GPU",
             "sqlDFDuration": "Time duration that includes only SQL-Dataframe queries.",
-            "gpuOpportunity": "Wall-Clock time that shows how much of the SQL duration can be accelerated on the GPU.",
+            "gpuOpportunity": "Wall-Clock time that shows how much of the SQL duration and ML functions(if applicable) can be accelerated on the GPU.",
             "gpuTimeSaved": "Estimated Wall-Clock time saved if it was run on the GPU."
         }
     },
