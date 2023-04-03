@@ -41,6 +41,8 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
   private val OPERATORS_SCORE_FILE_ONPREM = "operatorsScore.csv"
   private val OPERATORS_SCORE_FILE_DATAPROC = "operatorsScore-dataproc.csv"
   private val OPERATORS_SCORE_FILE_EMR = "operatorsScore-emr.csv"
+  private val OPERATORS_SCORE_FILE_DATABRICKS_AWS = "operatorsScore-databricks-aws.csv"
+  private val OPERATORS_SCORE_FILE_DATABRICKS_AZURE = "operatorsScore-databricks-azure.csv"
   private val SUPPORTED_EXECS_FILE = "supportedExecs.csv"
   private val SUPPORTED_EXPRS_FILE = "supportedExprs.csv"
 
@@ -88,6 +90,8 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
     val file = platform match {
       case "dataproc" => OPERATORS_SCORE_FILE_DATAPROC
       case "emr" => OPERATORS_SCORE_FILE_EMR
+      case "databricks-aws" => OPERATORS_SCORE_FILE_DATABRICKS_AWS
+      case "databricks-azure" => OPERATORS_SCORE_FILE_DATABRICKS_AZURE
       case _ => OPERATORS_SCORE_FILE_ONPREM
     }
     logInfo(s"Reading operators scores with platform: $platform")

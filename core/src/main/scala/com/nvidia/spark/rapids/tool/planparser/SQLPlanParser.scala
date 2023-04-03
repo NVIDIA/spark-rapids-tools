@@ -181,7 +181,8 @@ object SQLPlanParser extends Logging {
     }
     if (node.name.contains("WholeStageCodegen")) {
       // this is special because it is a SparkPlanGraphCluster vs SparkPlanGraphNode
-      WholeStageExecParser(node.asInstanceOf[SparkPlanGraphCluster], checker, sqlID, app, reusedNodeIds).parse
+      WholeStageExecParser(node.asInstanceOf[SparkPlanGraphCluster], checker, sqlID, app,
+        reusedNodeIds).parse
     } else {
       val execInfos = try {
         node.name match {

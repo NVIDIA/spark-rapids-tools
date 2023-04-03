@@ -28,7 +28,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraph
-import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
 
 class QualificationAppInfo(
     eventLogInfo: Option[EventLogInfo],
@@ -461,6 +461,18 @@ class QualificationAppInfo(
         None
       }
 
+      val mlTotalStageDuration = if (mlFunctions.isDefined) {
+        getMlTotalStageDuration(mlFunctions.get)
+      } else {
+        None
+      }
+
+      val mlSpeedup = if (mlTotalStageDuration.nonEmpty) {
+        getMlSpeedUp(mlTotalStageDuration.get)
+      } else {
+        None
+      }
+
       // get the ratio based on the Task durations that we will use for wall clock durations
       val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
         supportedSQLTaskDuration.toDouble / sqlDataframeTaskDuration.toDouble
@@ -470,7 +482,8 @@ class QualificationAppInfo(
 
       val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
         sparkSQLDFWallClockDuration, appDuration, taskSpeedupFactor, appName, appId,
-        sqlIdsWithFailures.nonEmpty, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
+        sqlIdsWithFailures.nonEmpty, mlSpeedup, unSupportedExecs, unSupportedExprs,
+        allClusterTagsMap)
 
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
@@ -479,7 +492,8 @@ class QualificationAppInfo(
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
         taskSpeedupFactor, info.sparkUser, info.startTime, origPlanInfos,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
-        unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions)
+        unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
+        mlTotalStageDuration)
     }
   }
 
@@ -509,6 +523,47 @@ class QualificationAppInfo(
     }
     if (mlFunctions.nonEmpty) {
       Some(mlFunctions.toSeq.sortBy(mlops => mlops.stageId))
+    } else {
+      None
+    }
+  }
+
+  private def getMlTotalStageDuration(
+      mlFunctions: Seq[MLFunctions]): Option[Seq[MLFuncsStageDuration]] = {
+    // Get ML function names, durations and stage Id's
+    val mlFuncs = mlFunctions.map(mlFun => (mlFun.mlOps, mlFun.duration, mlFun.stageId))
+    // Check if the ML function is supported on GPU, if so then save it as corresonding simple
+    // function name along with it's duration and stage Id.
+    // Example: (org.apache.spark.ml.feature.PCA.fit, 200) becomes (PCA, 200)
+    val supportedMlFuncsStats = SupportedMLFuncsName.funcName.map(
+      supportedMlfunc => mlFuncs.filter(mlfunc =>
+        mlfunc._1.contains(supportedMlfunc._1)).map(
+        x => (SupportedMLFuncsName.funcName(supportedMlfunc._1), x._2, x._3))).flatten
+
+    // group by ML function name, capture it's stageId and add duration of corresponding functions
+    val mlFuncsResult = supportedMlFuncsStats.groupBy(mlfunc => mlfunc._1).map(
+      mlfunc => (mlfunc._1, mlfunc._2.map(
+        duration => duration._2).sum, mlfunc._2.map(stageId => stageId._3)))
+    if (mlFuncsResult.nonEmpty) {
+      Some(mlFuncsResult.map(
+        result => MLFuncsStageDuration(result._1, result._2, result._3.toArray)).toSeq)
+    } else {
+      None
+    }
+  }
+
+  private def getMlSpeedUp(
+      mlTotalStageDuration: Seq[MLFuncsStageDuration]): Option[MLFuncsSpeedupAndDuration] = {
+    val mlFuncAndDuration = mlTotalStageDuration.map(x => (x.mlFuncName, x.duration))
+
+    val speedupFactors = mlFuncAndDuration.map(
+      mlFunc => mlFunc._1).map(mlFuncName => pluginTypeChecker.getSpeedupFactor(mlFuncName))
+    val avgMlSpeedup = SQLPlanParser.averageSpeedup(speedupFactors)
+    // return None if the average speedup < 1. If it's less than 1, then running it on GPU is
+    // not recommended.
+    if (avgMlSpeedup >= 1.0) {
+      val mlFuncDuration = mlFuncAndDuration.map(mlFunc => mlFunc._2).sum
+      Some(MLFuncsSpeedupAndDuration(avgMlSpeedup, mlFuncDuration))
     } else {
       None
     }
@@ -574,6 +629,17 @@ case class MLFunctions(
     duration: Long
 )
 
+case class MLFuncsStageDuration(
+    mlFuncName: String,
+    duration: Long,
+    stageIds: Array[Int]
+)
+
+case class MLFuncsSpeedupAndDuration(
+    averageSpeedup: Double,
+    duration: Long
+)
+
 class StageTaskQualificationSummary(
     val stageId: Int,
     val stageAttemptId: Int,
@@ -628,7 +694,8 @@ case class QualificationSummaryInfo(
     unSupportedExprs: String,
     clusterTags: String,
     allClusterTagsMap: Map[String, String],
-    mlFunctions: Option[Seq[MLFunctions]])
+    mlFunctions: Option[Seq[MLFunctions]],
+    mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]])
 
 case class StageQualSummaryInfo(
     stageId: Int,
@@ -661,9 +728,9 @@ object QualificationAppInfo extends Logging {
 
   // Summarize and estimate based on wall clock times
   def calculateEstimatedInfoSummary(estimatedRatio: Double, sqlDataFrameDuration: Long,
-      appDuration: Long, speedupFactor: Double, appName: String,
-      appId: String, hasFailures: Boolean, unsupportedExecs: String = "",
-      unsupportedExprs: String = "",
+      appDuration: Long, sqlSpeedupFactor: Double, appName: String,
+      appId: String, hasFailures: Boolean, mlSpeedupFactor: Option[MLFuncsSpeedupAndDuration] = None,
+      unsupportedExecs: String = "", unsupportedExprs: String = "",
       allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedSummaryInfo = {
     val sqlDataFrameDurationToUse = if (sqlDataFrameDuration > appDuration) {
       // our app duration is shorter then our sql duration, estimate the sql duration down
@@ -672,10 +739,21 @@ object QualificationAppInfo extends Logging {
     } else {
       sqlDataFrameDuration
     }
-    val speedupOpportunityWallClock = sqlDataFrameDurationToUse * estimatedRatio
+
+    // get the average speedup and duration for ML funcs supported on GPU
+    val (mlSpeedup, mlDuration) = if (mlSpeedupFactor.isDefined) {
+      val speedUp = mlSpeedupFactor.get.averageSpeedup
+      val duration = mlSpeedupFactor.get.duration
+      (speedUp, duration.toDouble)
+    } else {
+      (1.0, 0.0)
+    }
+
+    val speedUpOpportunitySQL = sqlDataFrameDurationToUse * estimatedRatio
+    val speedupOpportunityWallClock = speedUpOpportunitySQL + mlDuration
     val estimated_wall_clock_dur_not_on_gpu = appDuration - speedupOpportunityWallClock
-    val estimated_gpu_duration =
-      (speedupOpportunityWallClock / speedupFactor) + estimated_wall_clock_dur_not_on_gpu
+    val estimated_gpu_duration = (speedUpOpportunitySQL / sqlSpeedupFactor) +
+      estimated_wall_clock_dur_not_on_gpu + (mlDuration / mlSpeedup)
     val estimated_gpu_speedup = if (appDuration == 0 || estimated_gpu_duration == 0) {
       0
     } else {

@@ -181,8 +181,25 @@ object BuildSide {
 }
 
 object MlOps {
-  val sparkml = "spark.ml"
+  val sparkml = "spark.ml."
   val xgBoost = "spark.XGBoost"
+  val pysparkLog = "py4j.GatewayConnection.run" // pyspark eventlog contains py4j
+}
+
+object MlOpsEventLogType {
+  val pyspark = "pyspark"
+  val scala = "scala"
+}
+
+object SupportedMLFuncsName {
+  val funcName: Map[String, String] = Map(
+    "org.apache.spark.ml.clustering.KMeans.fit" -> "KMeans",
+    "org.apache.spark.ml.feature.PCA.fit" -> "PCA",
+    "org.apache.spark.ml.regression.LinearRegression.train" -> "LinearRegression",
+    "org.apache.spark.ml.classification.RandomForestClassifier.train" -> "RandomForestClassifier",
+    "org.apache.spark.ml.regression.RandomForestRegressor.train" -> "RandomForestRegressor",
+    "ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier.train" -> "XGBoost"
+  )
 }
 
 case class GpuEventLogException(message: String) extends Exception(message)

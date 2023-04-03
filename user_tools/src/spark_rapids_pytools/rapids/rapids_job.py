@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import List
 
+from spark_rapids_pytools.cloud_api.sp_types import ClusterGetAccessor
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
@@ -54,7 +55,7 @@ class RapidsJob:
     """
     prop_container: RapidsJobPropContainer
     exec_ctxt: ToolContext
-    remote_output: str = field(default=None, init=False)
+    output_path: str = field(default=None, init=False)
     job_label: str = field(default=None, init=False)
     logger: Logger = field(default=None, init=False)
 
@@ -63,7 +64,7 @@ class RapidsJob:
 
     def _init_fields(self):
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.submit.{self.job_label}')
-        self.remote_output = self.prop_container.get_value_silent('outputDirectory')
+        self.output_path = self.prop_container.get_value_silent('outputDirectory')
 
     def __post_init__(self):
         self._init_fields()
@@ -74,7 +75,7 @@ class RapidsJob:
 
     def _get_persistent_rapids_args(self):
         rapids_args = self._get_rapids_args_per_platform()[:]
-        rapids_args.extend(['--output-directory', self.remote_output])
+        rapids_args.extend(['--output-directory', self.output_path])
         return rapids_args
 
     def _build_rapids_args(self):
@@ -96,7 +97,7 @@ class RapidsJob:
         if len(stdout_splits) > 0:
             std_out_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stdout_splits])
             stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
-            self.logger.info('EMR Job output:%s', stdout_str)
+            self.logger.info('%s job output:%s', self.get_platform_name(), stdout_str)
 
     def run_job(self):
         self.logger.info('Prepare job submission command')
@@ -151,3 +152,29 @@ class RapidsLocalJob(RapidsJob):
         out_std = self.exec_ctxt.platform.cli.run_sys_cmd(cmd=cmd_args,
                                                           env_vars=env_args)
         return out_std
+
+
+@dataclass
+class RapidsSubmitSparkJob(RapidsJob):
+    """
+    Class to submit a spark job to remote Cluster
+    """
+
+    def _submit_job(self, cmd_args: list) -> str:
+        env_args = self.prop_container.get_value_silent('platformArgs', 'envArgs')
+        out_std = self.exec_ctxt.platform.cli.run_sys_cmd(cmd=cmd_args,
+                                                          env_vars=env_args)
+        return out_std
+
+    def _build_submission_cmd(self) -> List[str]:
+        submit_args = {
+            'jarArgs': self._build_rapids_args(),
+            'platformSparkJobArgs': {
+                'jars': self.prop_container.get_jar_file(),
+                'class': self.prop_container.get_jar_main_class()
+            },
+        }
+        exec_cluster: ClusterGetAccessor = self.exec_ctxt.get_ctxt('execCluster')
+        cluster_name = exec_cluster.get_name()
+        return self.exec_ctxt.platform.cli.get_submit_spark_job_cmd_for_cluster(cluster_name,
+                                                                                submit_args)

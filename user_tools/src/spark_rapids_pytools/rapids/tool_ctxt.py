@@ -68,6 +68,9 @@ class ToolContext(YAMLPropertiesContainer):
         # create cache_folder that will be used to hold large downloaded files
         self.__create_and_set_cache_folder()
 
+    def get_deploy_mode(self) -> Any:
+        return self.platform_opts.get('deployMode')
+
     def set_ctxt(self, key: str, val: Any):
         self.props['wrapperCtx'][key] = val
 

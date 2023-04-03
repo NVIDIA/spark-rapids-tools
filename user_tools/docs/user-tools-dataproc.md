@@ -155,6 +155,30 @@ The command creates a directory with UUID that contains the following:
 
     ```
 
+#### TCO calculator
+
+In the `qualification_summary.csv` output file, you will see two additional columns appended:
+`Estimated Job Frequency (monthly)` and `Annual Cost Savings`.  
+These new columns are to be used as part of a TCO calculator to see the long-term benefit of using
+Spark RAPIDS with your applications.  
+A GSheet template with instructions can be found at here: [link](https://docs.google.com/spreadsheets/d/1CslQHTwxHEDTlAP4lcrOzbSrmucvn8z4iFlJo6EAhxs/edit#gid=1607726286).  
+Make a copy of the GSheet template and then follow the instructions listed in the `Instructions` tab.
+
+### Cluster deployment
+
+This deployment option allows running the RAPIDS tools on an active Dataproc cluster that is
+running a Spark-3.x+.  
+This option offers the scalability in handling large pool of event logs.
+
+The Cluster-deployment mode is similar to the [Local-deployment](#local-deployment) except that the CLI
+takes a new argument `execution_cluster` which is the name of the Dataproc cluster on which the tool is
+intended to run.
+
+```
+spark_rapids_user_tools dataproc qualification --execution_cluster <CLUSTER_NAME> [options]
+spark_rapids_user_tools dataproc qualification --help
+```
+
 ## Profiling command
 
 ### Local deployment
@@ -263,7 +287,7 @@ A cluster property is still accessible if one of the following conditions applie
           --gpu_cluster $CLUSTER_NAME \
           --remote_folder $REMOTE_FOLDER
        ```
-2. The cluster properties file is accessible on local disk or a valid gs path..
+2. The cluster properties file is accessible on local disk or a valid gs path.
 
    ```
    $> export CLUSTER_PROPS_FILE=cluster-props.json
