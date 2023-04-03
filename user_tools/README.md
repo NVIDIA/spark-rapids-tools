@@ -48,12 +48,3 @@ set python environment to version [3.8, 3.10]
 Please refer to [spark-rapids-user-tools guide](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/index.md) for details on how to use the tools
 and the platform.
 
-## Changelog
-
-### [22.10.2] - 10-28-2022
-   
-- Support to handle tools jar arguments in the user tools wrapper
- 
-### [22.10.1] - 10-26-2022
-  
-- Initialize this project
