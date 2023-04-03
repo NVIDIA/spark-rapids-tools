@@ -403,7 +403,7 @@
                                 <java classname="org.scalastyle.Main" failonerror="true">
                                     <arg line="--verbose false"/>
                                     <arg line="--warnings false"/>
-                                    <arg line="--config scalastyle-config.xml"/>
+				    <arg line="--config ${project.basedir}/scalastyle-config.xml"/>
                                     <arg line="--xmlOutput ${project.basedir}/target/scalastyle-output.xml"/>
                                     <arg line="--inputEncoding UTF-8"/>
                                     <arg line="--xmlEncoding UTF-8"/>
