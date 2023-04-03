@@ -65,11 +65,12 @@ other environments.
 The qualification tool will run against logs from your CSP environment and then will output the applications
 recommended for acceleration along with estimated speed-up and cost saving metrics.
 
-Usage: `spark_rapids_user_tools <CSP> qualification --eventlogs <EVENTLOGS-PATH>`
+Usage: `spark_rapids_user_tools <CSP> qualification --cpu_cluster <CLUSTER> --eventlogs <EVENTLOGS-PATH>`
 
 The supported CSPs are *dataproc*, *emr*, and *databricks-aws*.  The EVENTLOGS-PATH should be the storage location
 for your eventlogs.  For Dataproc, it should be set to the GCS path.  For EMR and Databricks-AWS, it should be set to
-the S3 path.
+the S3 path.  THE CLUSTER can be a live cluster or a configuration file representing the cluster instances and size. 
+More details are in the above documentation links per CSP environment
 
 Help (to see all options available): `spark_rapids_user_tools <CSP> qualification --help`
 
@@ -89,9 +90,6 @@ Example output:
 |  7 | query87    | application_1664888311321_0006 | Recommended          |            2.25 |           75.67 |        170.69 |           37.64 |
 |  8 | query51    | application_1664888311321_0002 | Recommended          |            1.53 |           53.94 |         82.63 |            8.18 |
 +----+------------+--------------------------------+----------------------+-----------------+-----------------+---------------+-----------------+
-To launch a GPU-accelerated cluster with Spark RAPIDS, add the following to your cluster creation script:
-        --initialization-actions=gs://goog-dataproc-initialization-actions-${REGION}/spark-rapids/spark-rapids.sh \
-        --worker-accelerator type=nvidia-tesla-t4,count=2
 ```
 
 ## Running the Qualification tool standalone on Spark event logs
