@@ -273,8 +273,14 @@ object GenerateTimeline {
       }
     }
 
-    val semMetrics = semWaitIds.toList.flatMap { id =>
+    val semMetricsNs = semWaitIds.toList.flatMap { id =>
       app.taskStageAccumMap.get(id)
+    }.flatten
+
+    val semMetricsMs = app.taskStageAccumMap.values.filter { buffer =>
+        buffer.headOption.exists { h =>
+            h.name.exists(_ == "gpuSemaphoreWait")
+        }
     }.flatten
 
     val readMetrics = readTimeIds.toList.flatMap { id =>
@@ -297,9 +303,11 @@ object GenerateTimeline {
       val launchTime = tc.launchTime
       val finishTime = tc.finishTime
       val duration = tc.duration
-      val semTimeMs = semMetrics.filter { m =>
+      val semTimeMs = (semMetricsNs.filter { m =>
         m.stageId == stageId && m.taskId.contains(taskId) && m.update.isDefined
-      }.flatMap(_.update).sum / 1000000
+      }.flatMap(_.update).sum / 1000000) + (semMetricsMs.filter{ m =>
+        m.stageId == stageId && m.taskId.contains(taskId) && m.update.isDefined
+      }.flatMap(_.update).sum)
       val readTimeMs = readMetrics.filter { m =>
         m.stageId == stageId && m.taskId.contains(taskId) && m.update.isDefined
       }.flatMap(_.update).sum / 1000000 + tc.sr_fetchWaitTime
@@ -315,6 +323,10 @@ object GenerateTimeline {
       execHostToTaskList.getOrElseUpdate(execHost, ArrayBuffer.empty) += taskInfo
       minStartTime = Math.min(launchTime, minStartTime)
       maxEndTime = Math.max(finishTime, maxEndTime)
+    }
+
+    val allStageIds = app.stageIdToInfo.keys.map(_._1).toList
+    allStageIds.distinct.sorted.foreach { stageId =>
       stageIdToColor.getOrElseUpdate(stageId, {
         val color = COLORS(colorIndex % COLORS.length)
         colorIndex += 1
