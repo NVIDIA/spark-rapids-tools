@@ -311,7 +311,11 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
     // collect_list is alias for CollectList aggregate function.
     // An exception is date_format since the Expression and sql function name is different
     // Expression: DateFormatClass, sql function- date_format
-    val exprLowercase = if (expr.equalsIgnoreCase("date_format")) expr else expr.toLowerCase.replace("_", "")
+    val exprLowercase = if (expr.equalsIgnoreCase("date_format")) {
+      expr
+    } else {
+      expr.toLowerCase.replace("_", "")
+    }
     if (supportedExprs.contains(exprLowercase)) {
       val exprSupported = supportedExprs.getOrElse(exprLowercase, "NS")
       if (exprSupported == "S") {
