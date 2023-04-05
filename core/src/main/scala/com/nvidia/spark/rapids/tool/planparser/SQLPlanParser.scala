@@ -353,10 +353,10 @@ object SQLPlanParser extends Logging {
     val funcName = functionPattern.findFirstMatchIn(expr) match {
       case Some(func) =>
         val func1 = func.group(1)
-        // `cast` is not an expression hence should be ignored. In the physical plan cast is
-        // usually presented as function call for example: `cast(value#9 as date)`. We add
+        // `cast` and `Some` are not expressions hence should be ignored. In the physical plan
+        // cast is usually presented as function call for example: `cast(value#9 as date)`. We add
         // other function names to the result.
-        if (!func1.equalsIgnoreCase("cast")) {
+        if (!func1.equalsIgnoreCase("cast") && !func1.equalsIgnoreCase("Some")) {
           Some(func1)
         } else {
           None
@@ -370,18 +370,15 @@ object SQLPlanParser extends Logging {
   def parseProjectExpressions(exprStr: String): Array[String] = {
     val parsedExpressions = ArrayBuffer[String]()
     // Project [cast(value#136 as string) AS value#144, CEIL(value#136) AS CEIL(value)#143L]
-    // remove the alias names before parsing
-    val pattern = """(AS) ([(\w# )]+)""".r
-    // This is to split multiple column names in Project. Project may have a function on a column.
-    // This will contain array of columns names specified in ProjectExec. Below regex will first
-    // remove the alias names from the string followed by a split which produces an array containing
-    // column names. Finally we remove the paranthesis from the beginning and end to get only
-    // the expressions. Result will be as below.
+    // This is to split the string such that only function names are extracted. The pattern is
+    // such that function name is succeeded by `(`. We use regex to extract all the function names
+    // below:
     // paranRemoved = Array(cast(value#136 as string), CEIL(value#136))
-    val paranRemoved = pattern.replaceAllIn(exprStr.replace("),", "::"), "")
-        .split(",").map(_.trim).map(_.replaceAll("""^\[+""", "").replaceAll("""\]+$""", ""))
+    val pattern: Regex = "([a-zA-Z_]+)\\(".r
+    val functionNamePattern: Regex = """(\w+)""".r
+    val paranRemoved = pattern.findAllMatchIn(exprStr).toArray.map(_.group(1))
     paranRemoved.foreach { case expr =>
-      val functionName = getFunctionName(functionPattern, expr)
+      val functionName = getFunctionName(functionNamePattern, expr)
       functionName match {
         case Some(func) => parsedExpressions += func
         case _ => // NO OP
@@ -397,15 +394,15 @@ object SQLPlanParser extends Logging {
     val pattern = """functions=\[([\w#, +*\\\-\.<>=\`\(\)]+\])""".r
     val aggregatesString = pattern.findFirstMatchIn(exprStr)
     // This is to split multiple column names in AggregateExec. Each column will be aggregating
-    // based on the aggregate function. Here "partial_" is removed and only function name is
-    // preserved. Below regex will first remove the "functions=" from the string followed by
-    // removing "partial_". That string is split which produces an array containing
-    // column names. Finally we remove the parentheses from the beginning and end to get only
-    // the expressions. Result will be as below.
+    // based on the aggregate function. Here "partial_"  and "merge_" is removed and
+    // only function name is preserved. Below regex will first remove the
+    // "functions=" from the string followed by removing "partial_" and "merge_". That string is
+    // split which produces an array containing column names. Finally we remove the parentheses
+    // from the beginning and end to get only the expressions. Result will be as below.
     // paranRemoved = Array(collect_list(letter#84, 0, 0),, count(letter#84))
     if (aggregatesString.isDefined) {
       val paranRemoved = aggregatesString.get.toString.replaceAll("functions=", "").
-          replaceAll("partial_", "").split("(?<=\\),)").map(_.trim).
+          replaceAll("partial_", "").replaceAll("merge_", "").split("(?<=\\),)").map(_.trim).
           map(_.replaceAll("""^\[+""", "").replaceAll("""\]+$""", ""))
       paranRemoved.foreach { case expr =>
         val functionName = getFunctionName(functionPattern, expr)
