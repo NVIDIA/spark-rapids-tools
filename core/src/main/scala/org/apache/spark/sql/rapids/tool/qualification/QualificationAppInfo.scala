@@ -734,11 +734,10 @@ object QualificationAppInfo extends Logging {
 
   // Summarize and estimate based on wall clock times
   def calculateEstimatedInfoSummary(estimatedRatio: Double, sqlDataFrameDuration: Long,
-      appDuration: Long, sqlSpeedupFactor: Double, appName: String,
-      appId: String, hasFailures: Boolean,
-      mlSpeedupFactor: Option[MLFuncsSpeedupAndDuration] = None, unsupportedExecs: String = "",
-      unsupportedExprs: String = "",
-      allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedAppSummaryInfo = {
+      appDuration: Long, sqlSpeedupFactor: Double, appName: String, appId: String,
+      hasFailures: Boolean, mlSpeedupFactor: Option[MLFuncsSpeedupAndDuration] = None,
+      unsupportedExecs: String = "", unsupportedExprs: String = "",
+      allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedSummaryInfo = {
     val sqlDataFrameDurationToUse = if (sqlDataFrameDuration > appDuration) {
       // our app duration is shorter then our sql duration, estimate the sql duration down
       // to app duration
