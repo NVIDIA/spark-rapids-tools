@@ -311,8 +311,8 @@ case class FormattedQualificationSummaryInfo(
     endDurationEstimated: Boolean,
     unSupportedExecs: String,
     unSupportedExprs: String,
-    estimatedFrequency: Long,
-    clusterTags: Map[String, String])
+    clusterTags: Map[String, String],
+    estimatedFrequency: Option[Long])
 
 object QualOutputWriter {
   val NON_SQL_TASK_DURATION_STR = "NonSQL Task Duration"
@@ -585,24 +585,24 @@ object QualOutputWriter {
       delimiter: String,
       prettyPrint: Boolean): String = {
     val data = ListBuffer[(String, Int)](
-      sumInfo.appName -> headersAndSizes(APP_NAME_STR),
-      sumInfo.appId -> appIdMaxSize,
-      sumInfo.appDur.toString -> APP_DUR_STR_SIZE,
-      sumInfo.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
-      sumInfo.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
-      ToolUtils.formatDoublePrecision(sumInfo.estimatedGpuDur) -> ESTIMATED_GPU_DURATION.size,
-      ToolUtils.formatDoublePrecision(sumInfo.estimatedGpuSpeedup) -> ESTIMATED_GPU_SPEEDUP.size,
-      ToolUtils.formatDoublePrecision(sumInfo.estimatedGpuTimeSaved) ->
+      sumInfo.estimatedInfo.appName -> headersAndSizes(APP_NAME_STR),
+      sumInfo.estimatedInfo.appId -> appIdMaxSize,
+      sumInfo.estimatedInfo.appDur.toString -> APP_DUR_STR_SIZE,
+      sumInfo.estimatedInfo.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
+      sumInfo.estimatedInfo.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
+      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuDur) -> ESTIMATED_GPU_DURATION.size,
+      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuSpeedup) -> ESTIMATED_GPU_SPEEDUP.size,
+      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuTimeSaved) ->
         ESTIMATED_GPU_TIMESAVED.size,
-      sumInfo.recommendation -> SPEEDUP_BUCKET_STR_SIZE,
-      sumInfo.unsupportedExecs -> unSupExecMaxSize,
-      sumInfo.unsupportedExprs -> unSupExprMaxSize,
-      sumInfo.estimatedFrequency.toString -> estimatedFrequencyMaxSize
+      sumInfo.estimatedInfo.recommendation -> SPEEDUP_BUCKET_STR_SIZE,
+      sumInfo.estimatedInfo.unsupportedExecs -> unSupExecMaxSize,
+      sumInfo.estimatedInfo.unsupportedExprs -> unSupExprMaxSize,
+      sumInfo.estimatedFrequency.getOrElse(30L).toString -> estimatedFrequencyMaxSize
     )
     if (hasClusterTags) {
-      data += (sumInfo.allTagsMap.getOrElse(CLUSTER_ID, "") -> clusterIdMaxSize)
-      data += (sumInfo.allTagsMap.getOrElse(JOB_ID, "") -> jobIdMaxSize)
-      data += (sumInfo.allTagsMap.getOrElse(RUN_NAME, "") -> runNameMaxSize)
+      data += (sumInfo.estimatedInfo.allTagsMap.getOrElse(CLUSTER_ID, "") -> clusterIdMaxSize)
+      data += (sumInfo.estimatedInfo.allTagsMap.getOrElse(JOB_ID, "") -> jobIdMaxSize)
+      data += (sumInfo.estimatedInfo.allTagsMap.getOrElse(RUN_NAME, "") -> runNameMaxSize)
     }
     constructOutputRow(data, delimiter, prettyPrint)
   }
@@ -861,8 +861,8 @@ object QualOutputWriter {
       appInfo.endDurationEstimated,
       appInfo.unSupportedExecs,
       appInfo.unSupportedExprs,
-      appInfo.estimatedInfo.estimatedFrequency,
-      appInfo.allClusterTagsMap
+      appInfo.allClusterTagsMap,
+      appInfo.estimatedFrequency
     )
   }
 

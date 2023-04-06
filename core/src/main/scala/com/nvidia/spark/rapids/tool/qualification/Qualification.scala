@@ -115,9 +115,9 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
   private def sortForExecutiveSummary(appsSumDesc: Seq[QualificationSummaryInfo],
       order: String): Seq[EstimatedSummaryInfo] = {
     if (QualificationArgs.isOrderAsc(order)) {
-      appsSumDesc.reverse.map(_.estimatedInfo)
+      appsSumDesc.reverse.map(sum => EstimatedSummaryInfo(sum.estimatedInfo, sum.estimatedFrequency))
     } else {
-      appsSumDesc.map(_.estimatedInfo)
+      appsSumDesc.map(sum => EstimatedSummaryInfo(sum.estimatedInfo, sum.estimatedFrequency))
     }
   }
 
@@ -137,10 +137,9 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       if (windowEnd > windowStart) ((windowEnd - windowStart) / (1000.0*60*60*24*30)) else 1.0
     appFrequency.foreach ( app =>
       appFrequency += (app._1 -> (if (app._2 == 1) 30.0 else (app._2 / windowInMonths))))
-    appsSum.foreach { app =>
-      app.estimatedInfo.estimatedFrequency = appFrequency.getOrElse(app.appName, 30.0).round
+    appsSum.map { app =>
+      app.copy(estimatedFrequency = Option(appFrequency.getOrElse(app.appName, 30.0).round))
     }
-    appsSum
   }
 
   private def qualifyApp(

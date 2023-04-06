@@ -485,9 +485,9 @@ class QualificationAppInfo(
         1
       }
 
-      var estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
+      val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
         sparkSQLDFWallClockDuration, appDuration, taskSpeedupFactor, appName, appId,
-        sqlIdsWithFailures.nonEmpty, mlSpeedup, unSupportedExecs, unSupportedExprs, 30,
+        sqlIdsWithFailures.nonEmpty, mlSpeedup, unSupportedExecs, unSupportedExprs,
         allClusterTagsMap)
 
       QualificationSummaryInfo(info.appName, appId, problems,
@@ -503,7 +503,7 @@ class QualificationAppInfo(
   }
 
   def getPerSQLWallClockSummary(sqlStageSums: Seq[SQLStageSummary], sqlDataFrameDuration: Long,
-      hasFailures: Boolean, appName: String): EstimatedSummaryInfo = {
+      hasFailures: Boolean, appName: String): EstimatedAppSummaryInfo = {
     val allStagesSummary = sqlStageSums.flatMap(_.stageSum)
     val sqlDataframeTaskDuration = allStagesSummary.map(_.stageTaskTime).sum
     val supportedSQLTaskDuration = calculateSQLSupportedTaskDuration(allStagesSummary)
@@ -600,7 +600,7 @@ class QualificationAppInfo(
 }
 
 // Estimate based on wall clock times
-case class EstimatedSummaryInfo(
+case class EstimatedAppSummaryInfo(
     appName: String,
     appId: String,
     appDur: Long,
@@ -612,14 +612,18 @@ case class EstimatedSummaryInfo(
     recommendation: String,
     unsupportedExecs: String,
     unsupportedExprs: String,
-    var estimatedFrequency: Long,
     allTagsMap: Map[String, String])
+
+// Used by writers, estimated app summary with estimated frequency
+case class EstimatedSummaryInfo(
+    estimatedInfo: EstimatedAppSummaryInfo,
+    estimatedFrequency: Option[Long])
 
 // Estimate based on wall clock times for each SQL query
 case class EstimatedPerSQLSummaryInfo(
     sqlID: Long,
     sqlDesc: String,
-    info: EstimatedSummaryInfo)
+    info: EstimatedAppSummaryInfo)
 
 case class SQLStageSummary(
     stageSum: Set[StageQualSummaryInfo],
@@ -694,14 +698,15 @@ case class QualificationSummaryInfo(
     startTime: Long,
     planInfo: Seq[PlanInfo],
     stageInfo: Seq[StageQualSummaryInfo],
-    var estimatedInfo: EstimatedSummaryInfo,
+    estimatedInfo: EstimatedAppSummaryInfo,
     perSQLEstimatedInfo: Option[Seq[EstimatedPerSQLSummaryInfo]],
     unSupportedExecs: String,
     unSupportedExprs: String,
     clusterTags: String,
     allClusterTagsMap: Map[String, String],
     mlFunctions: Option[Seq[MLFunctions]],
-    mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]])
+    mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]],
+    estimatedFrequency: Option[Long] = None)
 
 case class StageQualSummaryInfo(
     stageId: Int,
@@ -737,8 +742,8 @@ object QualificationAppInfo extends Logging {
       appDuration: Long, sqlSpeedupFactor: Double, appName: String,
       appId: String, hasFailures: Boolean,
       mlSpeedupFactor: Option[MLFuncsSpeedupAndDuration] = None, unsupportedExecs: String = "",
-      unsupportedExprs: String = "", estimatedFrequency: Long = 30,
-      allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedSummaryInfo = {
+      unsupportedExprs: String = "",
+      allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedAppSummaryInfo = {
     val sqlDataFrameDurationToUse = if (sqlDataFrameDuration > appDuration) {
       // our app duration is shorter then our sql duration, estimate the sql duration down
       // to app duration
@@ -772,7 +777,7 @@ object QualificationAppInfo extends Logging {
     // truncate the double fields to double precision to ensure that unit-tests do not explicitly
     // set the format to match the output. Removing the truncation from here requires modifying
     // TestQualificationSummary to truncate the same fields to match the CSV static samples.
-    EstimatedSummaryInfo(appName, appId, appDuration,
+    EstimatedAppSummaryInfo(appName, appId, appDuration,
       sqlDataFrameDurationToUse,
       speedupOpportunityWallClock.toLong,
       estimated_gpu_duration,
@@ -781,7 +786,6 @@ object QualificationAppInfo extends Logging {
       recommendation,
       unsupportedExecs,
       unsupportedExprs,
-      estimatedFrequency,
       allClusterTagsMap)
   }
 

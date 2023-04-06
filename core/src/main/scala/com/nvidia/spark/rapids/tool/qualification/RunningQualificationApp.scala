@@ -230,7 +230,7 @@ class RunningQualificationApp(
             estimatedFrequencyMaxSize, hasClusterTags, clusterIdMax, jobIdMax, runNameMax)
           val headerStr = QualOutputWriter.constructOutputRowFromMap(appHeadersAndSizes,
             delimiter, prettyPrint)
-          val appInfoStr = QualOutputWriter.constructAppSummaryInfo(info.estimatedInfo,
+          val appInfoStr = QualOutputWriter.constructAppSummaryInfo(EstimatedSummaryInfo(info.estimatedInfo, None),
             appHeadersAndSizes, appId.size, unSupExecMaxSize, unSupExprMaxSize,
             estimatedFrequencyMaxSize, hasClusterTags, clusterIdMax, jobIdMax, runNameMax,
             delimiter, prettyPrint)
