@@ -22,6 +22,7 @@ import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.EventLogInfo
+import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -78,7 +79,8 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     // sort order and limit only applies to the report summary text file,
     // the csv file we write the entire data in descending order
     val sortedDescDetailed = sortDescForDetailedReport(allAppsSum)
-    qWriter.writeTextReport(allAppsSum, sortForExecutiveSummary(sortedDescDetailed, order), numRows)
+    qWriter.writeTextReport(allAppsSum,
+      sortForExecutiveSummary(sortedDescDetailed, order), numRows)
     qWriter.writeDetailedCSVReport(sortedDescDetailed)
     if (reportSqlLevel) {
       qWriter.writePerSqlTextReport(allAppsSum, numRows, maxSQLDescLength)
@@ -115,16 +117,17 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
   private def sortForExecutiveSummary(appsSumDesc: Seq[QualificationSummaryInfo],
       order: String): Seq[EstimatedSummaryInfo] = {
     if (QualificationArgs.isOrderAsc(order)) {
-      appsSumDesc.reverse.map(sum => EstimatedSummaryInfo(sum.estimatedInfo, sum.estimatedFrequency))
+      appsSumDesc.reverse.map(sum =>
+        EstimatedSummaryInfo(sum.estimatedInfo, sum.estimatedFrequency))
     } else {
       appsSumDesc.map(sum => EstimatedSummaryInfo(sum.estimatedInfo, sum.estimatedFrequency))
     }
   }
 
-  // Estimate app frequency based off of all applications in this run
+  // Estimate app frequency based off of all applications in this run, unit jobs per month
   private def estimateAppFrequency(
     appsSum: Seq[QualificationSummaryInfo]): Seq[QualificationSummaryInfo] = {
-    var appFrequency = Map[String, Double]()
+    val appFrequency = scala.collection.mutable.Map[String, Double]()
     var windowStart: Long = Long.MaxValue
     var windowEnd: Long = Long.MinValue
 
@@ -135,10 +138,12 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     }
     val windowInMonths =
       if (windowEnd > windowStart) ((windowEnd - windowStart) / (1000.0*60*60*24*30)) else 1.0
+    // Scale frequency to per month, single run jobs are given an estimated frequency of None
     appFrequency.foreach ( app =>
-      appFrequency += (app._1 -> (if (app._2 == 1) 30.0 else (app._2 / windowInMonths))))
+      appFrequency += (app._1 ->
+        (if (app._2 == 1) DEFAULT_JOB_FREQUENCY.toDouble else (app._2 / windowInMonths))))
     appsSum.map { app =>
-      app.copy(estimatedFrequency = Option(appFrequency.getOrElse(app.appName, 30.0).round))
+      app.copy(estimatedFrequency = Option(appFrequency(app.appName).round))
     }
   }
 

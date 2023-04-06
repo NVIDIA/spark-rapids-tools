@@ -312,7 +312,7 @@ case class FormattedQualificationSummaryInfo(
     unSupportedExecs: String,
     unSupportedExprs: String,
     clusterTags: Map[String, String],
-    estimatedFrequency: Option[Long])
+    estimatedFrequency: String)
 
 object QualOutputWriter {
   val NON_SQL_TASK_DURATION_STR = "NonSQL Task Duration"
@@ -366,6 +366,7 @@ object QualOutputWriter {
   val ML_FUNCTION_NAME = "ML Function Name"
   val ML_TOTAL_STAGE_DURATION = "Total Duration"
   val ML_STAGE_IDS = "Stage Ids"
+  val DEFAULT_JOB_FREQUENCY = 30L
 
   val APP_DUR_STR_SIZE: Int = APP_DUR_STR.size
   val SQL_DUR_STR_SIZE: Int = SQL_DUR_STR.size
@@ -597,7 +598,7 @@ object QualOutputWriter {
       sumInfo.estimatedInfo.recommendation -> SPEEDUP_BUCKET_STR_SIZE,
       sumInfo.estimatedInfo.unsupportedExecs -> unSupExecMaxSize,
       sumInfo.estimatedInfo.unsupportedExprs -> unSupExprMaxSize,
-      sumInfo.estimatedFrequency.getOrElse(30L).toString -> estimatedFrequencyMaxSize
+      sumInfo.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY).toString -> estimatedFrequencyMaxSize
     )
     if (hasClusterTags) {
       data += (sumInfo.estimatedInfo.allTagsMap.getOrElse(CLUSTER_ID, "") -> clusterIdMaxSize)
@@ -862,7 +863,7 @@ object QualOutputWriter {
       appInfo.unSupportedExecs,
       appInfo.unSupportedExprs,
       appInfo.allClusterTagsMap,
-      appInfo.estimatedFrequency
+      appInfo.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY).toString
     )
   }
 
@@ -897,7 +898,7 @@ object QualOutputWriter {
       appInfo.endDurationEstimated.toString -> headersAndSizes(APP_DUR_ESTIMATED_STR),
       appInfo.unSupportedExecs -> headersAndSizes(UNSUPPORTED_EXECS),
       appInfo.unSupportedExprs -> headersAndSizes(UNSUPPORTED_EXPRS),
-      appInfo.estimatedFrequency.toString -> headersAndSizes(ESTIMATED_FREQUENCY)
+      appInfo.estimatedFrequency -> headersAndSizes(ESTIMATED_FREQUENCY)
     )
     if (appInfo.clusterTags.nonEmpty) {
       data += appInfo.clusterTags.mkString(";") -> headersAndSizes(CLUSTER_TAGS)

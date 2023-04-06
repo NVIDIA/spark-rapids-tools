@@ -53,7 +53,6 @@ class QualificationAppInfo(
 
   val stageIdToSqlID: HashMap[Int, Long] = HashMap.empty[Int, Long]
   val sqlIDtoFailures: HashMap[Long, ArrayBuffer[String]] = HashMap.empty[Long, ArrayBuffer[String]]
-  val sqlIDtoSuccess: HashMap[Long, ArrayBuffer[String]] = HashMap.empty[Long, ArrayBuffer[String]]
 
   val notSupportFormatAndTypes: HashMap[String, Set[String]] = HashMap[String, Set[String]]()
 
@@ -352,10 +351,6 @@ class QualificationAppInfo(
     }
   }
 
-  private def calculateFrequency(): String = {
-    "test1 N/A"
-  }
-
   /**
    * Aggregate and process the application after reading the events.
    * @return Option of QualificationSummaryInfo, Some if we were able to process the application
@@ -439,7 +434,7 @@ class QualificationAppInfo(
         calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration)
       val nonSQLTaskDuration = nonSQLDataframeTaskDuration + jobOverheadTime
       // note that these ratios are based off the stage times which may be missing some stage
-      // overead or execs that didn't have associated stages
+      // overhead or execs that didn't have associated stages
       val supportedSQLTaskDuration = calculateSQLSupportedTaskDuration(allStagesSummary)
       val taskSpeedupFactor = calculateSpeedupFactor(allStagesSummary)
       // Get all the unsupported Execs from the plan
