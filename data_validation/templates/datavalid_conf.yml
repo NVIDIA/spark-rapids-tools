@@ -8,9 +8,9 @@ toolConf:
   region: us-central1
   check: valid_metadata
   format: hive
-  table1: datavalid3
+  table1: your-table1-name
   table1_partition:
-  table2: datavalid4
+  table2: your-table2-name
   table2_partition:
   pk:
   exclude_column:
