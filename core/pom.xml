@@ -202,6 +202,19 @@
             </properties>
         </profile>
         <profile>
+            <id>release333</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>333</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>333</buildver>
+                <spark.version>${spark333.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
             <id>release340</id>
             <activation>
                 <property>
@@ -226,6 +239,7 @@
         <spark330.version>3.3.0</spark330.version>
         <spark331.version>3.3.1</spark331.version>
         <spark332.version>3.3.2</spark332.version>
+        <spark333.version>3.3.3-SNAPSHOT</spark333.version>
         <spark340.version>3.4.0-SNAPSHOT</spark340.version>
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>
