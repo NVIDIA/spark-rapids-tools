@@ -50,8 +50,8 @@ application using explicit API calls, and the third is to install a Spark listen
 results on a per SQL query basis.
 
 In running the qualification tool standalone on Spark event logs, the tool can be run as a user tool command
-via a pip package for CSP environments (Google Dataproc, AWS EMR, Databricks AWS) or as a java application for
-other environments.
+via a [pip package](https://pypi.org/project/spark-rapids-user-tools/) for CSP environments (Google Dataproc,
+AWS EMR, Databricks AWS) or as a java application for other environments.
 
 ## Running the Qualification tool standalone for CSP environments on Spark event logs
 ### User Tools Prerequisites and Setup for CSP environments
@@ -60,7 +60,7 @@ other environments.
 * [EMR](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/user-tools-aws-emr.md)
 * [Databricks AWS](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/user-tools-databricks-aws.md)
 
-### Qualify CPU Workloads for GPU Acceleration
+### Qualify CPU Workloads for Potential Cost Savings and Acceleration with GPUs
 
 The qualification tool will run against logs from your CSP environment and then will output the applications
 recommended for acceleration along with estimated speed-up and cost saving metrics.
