@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -892,7 +892,7 @@ class Qualification(RapidsTool):
             props_origin_msg = f'the submission cluster on which the RAPIDS tool is running [{self.cluster}]'
             if cpu_cluster_props_path is not None:
                 props_origin_msg = f'the original CPU cluster properties loaded from {cpu_cluster_props_path}'
-            self.ctxt.loginfo(f'The GPU cluster is the same as {props_origin_msg}. '
+            self.ctxt.loginfo(f'Estimating the GPU cluster based on {props_origin_msg}. '
                               'To update the configuration of the GPU cluster, make sure to pass the '
                               'properties file to the CLI arguments.')
         else:
