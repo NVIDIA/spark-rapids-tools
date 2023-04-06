@@ -74,6 +74,8 @@ object SQLPlanParser extends Logging {
 
   val windowFunctionPattern = """(\w+)\(""".r
 
+  val ignoreExpressions = Array("any", "cast", "decimal", "decimaltype", "every", "some")
+
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
    * of a specific node.
@@ -349,14 +351,18 @@ object SQLPlanParser extends Logging {
     maxDuration
   }
 
+  private def ignoreExpression(expr:String): Boolean = {
+    ignoreExpressions.contains(expr.toLowerCase)
+  }
+
   private def getFunctionName(functionPattern: Regex, expr: String): Option[String] = {
     val funcName = functionPattern.findFirstMatchIn(expr) match {
       case Some(func) =>
         val func1 = func.group(1)
-        // `cast` and `Some` are not expressions hence should be ignored. In the physical plan
-        // cast is usually presented as function call for example: `cast(value#9 as date)`. We add
-        // other function names to the result.
-        if (!func1.equalsIgnoreCase("cast") && !func1.equalsIgnoreCase("Some")) {
+        // There are some functions which are not expressions hence should be ignored.
+        // For example: In the physical plan cast is usually presented as function call
+        // `cast(value#9 as date)`. We add other function names to the result.
+        if (!ignoreExpression(func1)) {
           Some(func1)
         } else {
           None
