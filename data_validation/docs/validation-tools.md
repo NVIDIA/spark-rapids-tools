@@ -45,7 +45,7 @@ result table with the same PK(s) but different values for that column(s).
 
 ## Validation command
 We support passing the parameter configuration to the command in the yml file format.
-Below is an example about verifying datavliad3 and datavalid4 metadata information:
+Below is an example about verifying datavalid3 and datavalid4 metadata information:
 Template file:
 ```
 sparkConf:
