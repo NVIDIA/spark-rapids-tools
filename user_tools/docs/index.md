@@ -1,7 +1,13 @@
 # spark-rapids-user-tools
 
-A python wrapper that provides a runtime environment that simplifies running cost and performance
+Installing the Python wrapper ([spark-rapids-user-tools](https://pypi.org/project/spark-rapids-user-tools/))
+on a client machine, provides a runtime environment that simplifies running cost and performance
 analysis using the RAPIDS Accelerator for Apache Spark across multiple cloud service providers.
+
+The following diagram shows an overview of the Python package installed on a client machine allowing
+to build analysis reports on Amazon EMR, GCloud Dataproc, and Databricks.
+
+![Overview](resources/overview-01.png)
 
 ## Available commands
 
