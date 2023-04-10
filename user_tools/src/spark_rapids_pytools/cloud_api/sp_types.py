@@ -851,6 +851,17 @@ class ClusterBase(ClusterGetAccessor):
     props: AbstractPropertiesContainer = field(default=None, init=False)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster'), init=False)
 
+    @staticmethod
+    def _verify_workers_configurations(has_no_workers_cb: Callable[[], bool]):
+        """
+        Specifies how to handle cluster definitions that have no workers
+        :param has_no_workers_cb: A callback that returns True if the cluster does not have any
+               workers
+        """
+        if has_no_workers_cb():
+            raise RuntimeError('Invalid cluster: The cluster has no worker nodes.\n\t'
+                               'It is recommended to define a with (1 master, N workers).')
+
     def __post_init__(self):
         self.cli = self.platform.cli
         self.region = self.cli.get_region()
@@ -904,6 +915,8 @@ class ClusterBase(ClusterGetAccessor):
         pre_init_args = self._init_connection(cluster_id, props)
         self.set_fields_from_dict(pre_init_args)
         self._init_nodes()
+        # Verify that the cluster has defined workers
+        self._verify_workers_configurations(lambda: not self.nodes.get(SparkNodeType.WORKER))
         return self
 
     def is_cluster_running(self) -> bool:
