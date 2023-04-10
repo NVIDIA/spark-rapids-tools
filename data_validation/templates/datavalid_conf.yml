@@ -1,0 +1,22 @@
+sparkConf:
+  spark.executor.memory: 4g
+  spark.executor.cores: 3
+  spark.executor.instances: 5
+  spark.dynamicAllocation.enabled: false
+toolConf:
+  cluster: data-validation-test2
+  region: us-central1
+  check: valid_metadata
+  format: hive
+  table1: your-table1-name
+  table1_partition:
+  table2: your-table2-name
+  table2_partition:
+  pk:
+  exclude_column:
+  include_column: all
+  filter:
+  output_path:
+  output_format:
+  precision: 4
+  debug: False

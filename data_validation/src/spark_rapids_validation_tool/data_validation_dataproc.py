@@ -20,7 +20,7 @@ class DataValidationDataproc(Validation):
     """DataValidation tool for Dataproc."""
     def __init__(self, cluster_name, region, check, format, table1, table1_partition, table2,
                  table2_partition, pk, excluded_column: str, included_column: str, filter: str,
-                 output_dir, output_format, precision, debug=False):
+                 output_dir, output_format, precision, debug, spark_conf):
         super().__init__(debug)
 
         self.cluster = new_csp('dataproc', args={'cluster': cluster_name, 'region': region})
@@ -36,6 +36,7 @@ class DataValidationDataproc(Validation):
         self.output_dir = output_dir
         self.output_format = output_format
         self.precision = precision
+        self.spark_conf = spark_conf
 
     def on(node):  # pylint: disable=invalid-name,no-self-argument,too-many-function-args
         """On decorator."""
@@ -71,9 +72,7 @@ class DataValidationDataproc(Validation):
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
             'file': super().get_validation_scripts('metadata_validation.py'),
-            'properties': {
-                'spark.rapids.sql.enabled': 'false',
-            },
+            'properties': self.spark_conf,
             'parameters': [
                 f'--table1={self.table1}',
                 f'--table2={self.table2}',
@@ -109,9 +108,7 @@ class DataValidationDataproc(Validation):
         compare_job = {
             'type': self.cluster.JOB_TYPE_PYSPARK,
             'file': super().get_validation_scripts('dataset_validation.py'),
-            'properties': {
-                'spark.rapids.sql.enabled': 'false',
-            },
+            'properties': self.spark_conf,
             'parameters':[
                 f'--table1={self.table1}',
                 f'--table2={self.table2}',
