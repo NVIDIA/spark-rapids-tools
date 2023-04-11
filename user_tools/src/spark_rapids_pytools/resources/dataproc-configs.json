@@ -7,14 +7,16 @@
           "uri": "https://archive.apache.org/dist/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
           "type": "archive",
           "relativePath": "jars/*",
-          "sha512": "769db39a560a95fd88b58ed3e9e7d1e92fb68ee406689fb4d30c033cb5911e05c1942dcc70e5ec4585df84e80aabbc272b9386a208debda89522efff1335c8ff"
+          "sha512": "769db39a560a95fd88b58ed3e9e7d1e92fb68ee406689fb4d30c033cb5911e05c1942dcc70e5ec4585df84e80aabbc272b9386a208debda89522efff1335c8ff",
+          "size": 299350810
         },
         {
           "name": "GCS Connector Hadoop3",
           "uri": "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.11/gcs-connector-hadoop3-2.2.11-shaded.jar",
           "type": "jar",
           "md5": "7639d38fff9f88fe80d7e4d9d47fb946",
-          "sha1": "519e60640b7ffdbb00dbed20b852c2a406ddaff9"
+          "sha1": "519e60640b7ffdbb00dbed20b852c2a406ddaff9",
+          "size": 36497606
         }
       ]
     }

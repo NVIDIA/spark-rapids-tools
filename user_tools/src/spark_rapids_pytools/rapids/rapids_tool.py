@@ -422,7 +422,8 @@ class RapidsJarTool(RapidsTool):
             dest_folder = self.ctxt.get_cache_folder()
             resource_file_name = FSUtil.get_resource_name(dep['uri'])
             resource_file = FSUtil.build_path(dest_folder, resource_file_name)
-            is_created = FSUtil.cache_from_url(dep['uri'], resource_file)
+            file_check_dict = {'size': dep['size']}
+            is_created = FSUtil.cache_from_url(dep['uri'], resource_file, file_checks=file_check_dict)
             if is_created:
                 self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],
                                  resource_file)

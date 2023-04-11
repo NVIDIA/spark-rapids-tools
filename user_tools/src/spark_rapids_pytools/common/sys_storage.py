@@ -23,13 +23,13 @@ import shutil
 import ssl
 import urllib
 from dataclasses import dataclass
-from email.utils import formatdate, parsedate_to_datetime
 from itertools import islice
 from shutil import rmtree
 from typing import List
 
 import certifi
-import requests
+from fastcore.all import urlsave
+from fastprogress.fastprogress import progress_bar
 
 from spark_rapids_pytools.common.exceptions import StorageException
 from spark_rapids_pytools.common.utilities import Utils
@@ -125,38 +125,63 @@ class FSUtil:
         return dest_file
 
     @classmethod
+    def fast_download_url(cls, url: str, fpath: str, timeout=None, pbar_enabled=True) -> str:
+        """
+        Download the given url and display a progress bar
+        """
+        pbar = progress_bar([])
+
+        def progress_bar_cb(count=1, bsize=1, total_size=None):
+            pbar.total = total_size
+            pbar.update(count * bsize)
+
+        return urlsave(url, fpath, reporthook=progress_bar_cb if pbar_enabled else None, timeout=timeout)
+
+    @classmethod
     def cache_from_url(cls,
                        src_url: str,
-                       cache_file: str) -> bool:
+                       cache_file: str,
+                       file_checks: dict = None) -> bool:
         """
         download a resource from given URL as a destination cache_file
         :param src_url: HTTP url containing the resource
         :param cache_file: the file where the resource is saved. It is assumed that this the file
+        :param file_checks: a dictionary that contains the criteria to check that the file is the
+               same.
         :return: true if the file is re-downloaded. False, if the cached file is not modified.
         """
-        # use cache by checking modification time of the resource and the file if it already exists
-        headers = {}
-        if os.path.exists(cache_file):
-            mtime = os.path.getmtime(cache_file)
-            headers['If-Modified-Since'] = formatdate(mtime, usegmt=True)
-        r = requests.get(src_url, headers=headers, stream=True, timeout=100)
-        r.raise_for_status()
-        if r.status_code == requests.codes.not_modified:  # pylint: disable=no-member
-            # no need to download the file
-            return False
-        if r.status_code == requests.codes.ok:  # pylint: disable=no-member
-            with open(cache_file, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=4 * 1048576):
-                    f.write(chunk)
-            # Another alternative that is not suitable for large files
-            # with open(cache_file, 'wb') as f:
-            #     shutil.copyfileobj(r.raw, f)
-            if last_modified := r.headers.get('last-modified'):
-                new_mtime = parsedate_to_datetime(last_modified).timestamp()
-                os.utime(cache_file, times=(datetime.datetime.now().timestamp(), new_mtime))
+
+        def check_cached_file(fpath: str, checks_args: dict) -> bool:
+            if not os.path.exists(fpath):
+                return False
+            if not checks_args:
+                return True
+            expected_size = checks_args.get('size')
+            if expected_size:
+                if expected_size != os.path.getsize(fpath):
+                    return False
+            expiration_time_s = checks_args.get('cacheExpirationSecs')
+            if expiration_time_s:
+                modified_time = os.path.getmtime(fpath)
+                diff_time = int(datetime.datetime.now().timestamp() - modified_time)
+                if diff_time > expiration_time_s:
+                    return False
+            # TODO verify using hashing
             return True
-        # TODO Should we raise exception if the request is neither?
-        return False
+
+        curr_time_stamp = datetime.datetime.now().timestamp()
+        if check_cached_file(cache_file, file_checks):
+            # the file already exists and matches the validation
+            # update the access-time and return True
+            # update modified time and access time
+            return False
+        # download the file
+        cls.fast_download_url(src_url, cache_file)
+        # update modified time and access time
+        os.utime(cache_file, times=(curr_time_stamp, curr_time_stamp))
+        if not check_cached_file(cache_file, file_checks):
+            raise RuntimeError(f'Failed downloading resource {src_url}')
+        return True
 
     @classmethod
     def get_home_directory(cls) -> str:
