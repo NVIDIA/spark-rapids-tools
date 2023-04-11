@@ -852,7 +852,7 @@ class ClusterBase(ClusterGetAccessor):
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster'), init=False)
 
     @staticmethod
-    def _verify_workers_configurations(has_no_workers_cb: Callable[[], bool]):
+    def _verify_workers_exist(has_no_workers_cb: Callable[[], bool]):
         """
         Specifies how to handle cluster definitions that have no workers
         :param has_no_workers_cb: A callback that returns True if the cluster does not have any
@@ -916,7 +916,7 @@ class ClusterBase(ClusterGetAccessor):
         self.set_fields_from_dict(pre_init_args)
         self._init_nodes()
         # Verify that the cluster has defined workers
-        self._verify_workers_configurations(lambda: not self.nodes.get(SparkNodeType.WORKER))
+        self._verify_workers_exist(lambda: not self.nodes.get(SparkNodeType.WORKER))
         return self
 
     def is_cluster_running(self) -> bool:
