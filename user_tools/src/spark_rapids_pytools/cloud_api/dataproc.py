@@ -372,21 +372,22 @@ class DataprocCluster(ClusterBase):
     def _init_nodes(self):
         # assume that only one master node
         master_nodes_from_conf = self.props.get_value('config', 'masterConfig', 'instanceNames')
-        worker_nodes_from_conf = self.props.get_value('config', 'workerConfig', 'instanceNames')
-        # create workers array
+        raw_worker_prop = self.props.get_value_silent('config', 'workerConfig')
         worker_nodes: list = []
-        raw_worker_prop = self.props.get_value('config', 'workerConfig')
-        for worker_node in worker_nodes_from_conf:
-            worker_props = {
-                'name': worker_node,
-                'props': JSONPropertiesContainer(prop_arg=raw_worker_prop, file_load=False),
-                # set the node zone based on the wrapper defined zone
-                'zone': self.zone
-            }
-            worker = DataprocNode.create_worker_node().set_fields_from_dict(worker_props)
-            # TODO for optimization, we should set HW props for 1 worker
-            worker.fetch_and_set_hw_info(self.cli)
-            worker_nodes.append(worker)
+        if raw_worker_prop:
+            worker_nodes_from_conf = self.props.get_value('config', 'workerConfig', 'instanceNames')
+            # create workers array
+            for worker_node in worker_nodes_from_conf:
+                worker_props = {
+                    'name': worker_node,
+                    'props': JSONPropertiesContainer(prop_arg=raw_worker_prop, file_load=False),
+                    # set the node zone based on the wrapper defined zone
+                    'zone': self.zone
+                }
+                worker = DataprocNode.create_worker_node().set_fields_from_dict(worker_props)
+                # TODO for optimization, we should set HW props for 1 worker
+                worker.fetch_and_set_hw_info(self.cli)
+                worker_nodes.append(worker)
         raw_master_props = self.props.get_value('config', 'masterConfig')
         master_props = {
             'name': master_nodes_from_conf[0],
