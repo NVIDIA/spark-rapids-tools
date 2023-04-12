@@ -45,7 +45,7 @@ class ToolContext(YAMLPropertiesContainer):
 
     def __create_and_set_cache_folder(self):
         # get the cache folder from environment variables or set it to default
-        cache_folder = Utils.get_rapids_tools_env('CACHE_FOLDER', '/var/tmp/rapids_user_tools_cache')
+        cache_folder = Utils.get_rapids_tools_env('CACHE_FOLDER', '/var/tmp/spark_rapids_user_tools_cache')
         # make sure the environment is set
         Utils.set_rapids_tools_env('CACHE_FOLDER', cache_folder)
         FSUtil.make_dirs(cache_folder)
