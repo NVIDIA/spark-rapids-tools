@@ -468,7 +468,7 @@ class QualificationAppInfo(
       }
 
       val mlSpeedup = if (mlTotalStageDuration.nonEmpty) {
-        getMlSpeedUp(mlTotalStageDuration.get)
+        getMlSpeedUp(mlTotalStageDuration.get, mlEventLogType)
       } else {
         None
       }
@@ -552,12 +552,16 @@ class QualificationAppInfo(
     }
   }
 
-  private def getMlSpeedUp(
-      mlTotalStageDuration: Seq[MLFuncsStageDuration]): Option[MLFuncsSpeedupAndDuration] = {
+  private def getMlSpeedUp(mlTotalStageDuration: Seq[MLFuncsStageDuration],
+      mlEventlogType: String): Option[MLFuncsSpeedupAndDuration] = {
     val mlFuncAndDuration = mlTotalStageDuration.map(x => (x.mlFuncName, x.duration))
 
     val speedupFactors = mlFuncAndDuration.map(
-      mlFunc => mlFunc._1).map(mlFuncName => pluginTypeChecker.getSpeedupFactor(mlFuncName))
+      mlFunc => mlFunc._1).map(mlFuncName => {
+      // speedup of pyspark and scala are different
+      val mlFuncNameWithType = s"${mlFuncName}-${mlEventlogType}"
+      pluginTypeChecker.getSpeedupFactor(mlFuncNameWithType)
+    })
     val avgMlSpeedup = SQLPlanParser.averageSpeedup(speedupFactors)
     // return None if the average speedup < 1. If it's less than 1, then running it on GPU is
     // not recommended.
