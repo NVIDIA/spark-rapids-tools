@@ -366,6 +366,7 @@ object QualOutputWriter {
   val ML_FUNCTION_NAME = "ML Function Name"
   val ML_TOTAL_STAGE_DURATION = "Total Duration"
   val ML_STAGE_IDS = "Stage Ids"
+  // Default frequency for jobs with a single instance is 30 times every month (30 days)
   val DEFAULT_JOB_FREQUENCY = 30L
 
   val APP_DUR_STR_SIZE: Int = APP_DUR_STR.size
