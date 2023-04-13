@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool.profiling
 
-import java.util.concurrent.TimeUnit.NANOSECONDS
+import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
@@ -236,9 +236,9 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
       event.taskInfo.speculative,
       event.taskInfo.gettingResultTime,
       event.taskMetrics.executorDeserializeTime,
-      NANOSECONDS.toMillis(event.taskMetrics.executorDeserializeCpuTime),
+      TimeUnit.NANOSECONDS.toMillis(event.taskMetrics.executorDeserializeCpuTime),
       event.taskMetrics.executorRunTime,
-      NANOSECONDS.toMillis(event.taskMetrics.executorCpuTime),
+      TimeUnit.NANOSECONDS.toMillis(event.taskMetrics.executorCpuTime),
       event.taskMetrics.peakExecutionMemory,
       event.taskMetrics.resultSize,
       event.taskMetrics.jvmGCTime,
@@ -253,7 +253,7 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
       event.taskMetrics.shuffleReadMetrics.localBytesRead,
       event.taskMetrics.shuffleReadMetrics.totalBytesRead,
       event.taskMetrics.shuffleWriteMetrics.bytesWritten,
-      NANOSECONDS.toMillis(event.taskMetrics.shuffleWriteMetrics.writeTime),
+      TimeUnit.NANOSECONDS.toMillis(event.taskMetrics.shuffleWriteMetrics.writeTime),
       event.taskMetrics.shuffleWriteMetrics.recordsWritten,
       event.taskMetrics.inputMetrics.bytesRead,
       event.taskMetrics.inputMetrics.recordsRead,
@@ -279,8 +279,8 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     // Parse stage accumulables
     for (res <- event.stageInfo.accumulables) {
       try {
-        val value = res._2.value.map(_.toString.toLong)
-        val update = res._2.update.map(_.toString.toLong)
+        val value = res._2.value.map(parseAccumToLong)
+        val update = res._2.update.map(parseAccumToLong)
         val thisMetric = TaskStageAccumCase(
           event.stageInfo.stageId, event.stageInfo.attemptNumber(),
           None, res._2.id, res._2.name, value, update, res._2.internal)

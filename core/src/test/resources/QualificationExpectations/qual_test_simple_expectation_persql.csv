@@ -6,8 +6,8 @@ Spark shell,local-1651187225439,0,show at <console>:26,498,249,373.5,1.33,124.5,
 Spark shell,local-1651188809790,1,show at <console>:26,196,98,147.0,1.33,49.0,Recommended
 Spark shell,local-1651187225439,1,show at <console>:26,262,60,243.52,1.07,18.47,Not Recommended
 Rapids Spark Profiling Tool Unit Tests,local-1622043423018,0,json at QualificationInfoUtils.scala:76,1306,187,1255.4,1.04,50.59,Not Recommended
-Spark shell,local-1651188809790,0,show at <console>:26,715,2,713.6,1.0,1.39,Not Recommended
 Rapids Spark Profiling Tool Unit Tests,local-1623281204390,0,json at QualificationInfoUtils.scala:130,1209,0,1209.0,1.0,0.0,Not Recommended
+Spark shell,local-1651188809790,0,show at <console>:26,715,2,715.0,1.0,0.0,Not Recommended
 Rapids Spark Profiling Tool Unit Tests,local-1623281204390,2,json at QualificationInfoUtils.scala:136,321,0,321.0,1.0,0.0,Not Recommended
 Rapids Spark Profiling Tool Unit Tests,local-1623281204390,5,json at QualificationInfoUtils.scala:136,129,0,129.0,1.0,0.0,Not Recommended
 Rapids Spark Profiling Tool Unit Tests,local-1623281204390,8,json at QualificationInfoUtils.scala:136,127,0,127.0,1.0,0.0,Not Recommended

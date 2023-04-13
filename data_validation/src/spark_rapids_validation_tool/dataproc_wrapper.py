@@ -14,27 +14,29 @@
 
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin."""
 import fire
+import yaml
 from spark_rapids_validation_tool.data_validation_dataproc import DataValidationDataproc
 
 class DataprocWrapper(object):
 
-    def validation(self,
-                   cluster: str,
-                   region: str,
-                   check: str = 'valid_metadata',
-                   format: str = None,
-                   table1: str = None,
-                   table1_partition: str = None,
-                   table2: str = None,
-                   table2_partition: str = None,
-                   pk: str = None,
-                   exclude_column: str = None,
-                   include_column: str = 'all',
-                   filter: str = None,
-                   output_path: str = None,
-                   output_format: str = 'parquet',
-                   precision: int = 4,
-                   debug: bool = False) -> None:
+    def validation_parse(self,
+                   cluster,
+                   region,
+                   check,
+                   format,
+                   table1,
+                   table1_partition,
+                   table2,
+                   table2_partition,
+                   pk,
+                   exclude_column,
+                   include_column,
+                   filter,
+                   output_path,
+                   output_format,
+                   precision,
+                   debug,
+                   spark_conf):
         """
         Run data validation tool on remote Dataproc cluster to compare whether two tables have same results, one scenario is it will be easier for
         users to determine whether the Spark job using RAPIDS Accelerator(aka GPU Spark job)
@@ -45,17 +47,17 @@ class DataprocWrapper(object):
         :param check: Metadata validation or Data validation (e.g.  valid_metadata or valid_data. )
 
         :param format: The format of tables, currently only support hive format. If the format is parquet/orc/csv, the t1 and t2 should be an absolute path. Options are [hive, orc, parquet, csv](e.g. --format=hive or --format=parquet)
-        :param t1: The first table name, if the format is parquet/orc/csv, this value should be an absolute path. (e.g. --t1=table1)
-        :param t1p: The first table’s partition clause. (e.g. --t1p 'partition1=p1 and partition2=p2')
-        :param t2: The second table name, if the format is parquet/orc/csv, this value should be an absolute path.. (e.g. --t2=table2)
-        :param t2p: The second table’s partition clause. (e.g. --t2p 'partition1=p1 and partition2=p2')
+        :param table1: The first table name, if the format is parquet/orc/csv, this value should be an absolute path. (e.g. --table1=table1)
+        :param table1_partition: The first table’s partition clause. (e.g. --table1_partition=partition1='p1')
+        :param table2: The second table name, if the format is parquet/orc/csv, this value should be an absolute path.. (e.g. --table2=table2)
+        :param table2_partition: The second table’s partition clause. (e.g. --table2_partition=partition1='p1')
         :param pk: The Primary key columns(comma separated), pk is required for data_validation. (e.g. --pk=pk1,pk2,pk3).
-        :param e: Exclude column option. What columns do not need to be involved in the comparison, default is None. (e.g. --e=col4,col5,col6)
-        :param i: Include column option. What columns need to be involved in the comparison, default is ALL. (e.g. --i=col1,col2,col3)
-        :param f: Condition to filter rows. (e.g. --f “col1=value1 and col2=value2”)
-        :param o: Output directory, the tool will generate a data file to a path. (e.g. --o=/data/output)
-        :param of: Output format, default is parquet. (e.g. --of=parquet)
-        :param p: Precision, if it is set to 4 digits, then 0.11113 == 0.11114 will return true for numeric columns. (e.g. -p=4)
+        :param exclude_column: Exclude column option. What columns do not need to be involved in the comparison, default is None. (e.g. --exclude_column=col4,col5,col6)
+        :param include_column: Include column option. What columns need to be involved in the comparison, default is ALL. (e.g. --include_column=col1,col2,col3)
+        :param filter: Condition to filter rows. (e.g. --filter “col1=value1 and col2=value2”)
+        :param output_path: Output directory, the tool will generate a data file to a path. (e.g. --output_path=/data/output)
+        :param output_format: Output format, default is parquet. (e.g. --output_format=parquet)
+        :param precision: Precision, if it is set to 4 digits, then 0.11113 == 0.11114 will return true for numeric columns. (e.g. --precision=4)
         :param debug: True or False to enable verbosity
 
         """
@@ -66,7 +68,7 @@ class DataprocWrapper(object):
 
         validate = DataValidationDataproc(cluster, region, check, format, table1, table1_partition, table2,
                                           table2_partition, pk, exclude_column, include_column, filter,
-                                          output_path, output_format, precision, debug)
+                                          output_path, output_format, precision, debug, spark_conf)
 
         if any(p is None for p in [cluster, region, table1, table2, format]):
             print('|--cluster/region/format/table1/table2 should not be none--|')
@@ -78,6 +80,29 @@ class DataprocWrapper(object):
             print('|--pk should be not be none if running valid_data--|')
             return
         getattr(validate, check)()
+
+    def validation(self, conf_file: str):
+        with open(conf_file, "r") as file:
+            validate_conf = yaml.safe_load(file)
+        spark_conf = validate_conf['sparkConf']
+        tool_conf = validate_conf['toolConf']
+        self.validation_parse(tool_conf['cluster'],
+                         tool_conf['region'],
+                         tool_conf['check'],
+                         tool_conf['format'],
+                         tool_conf['table1'],
+                         tool_conf['table1_partition'],
+                         tool_conf['table2'],
+                         tool_conf['table2_partition'],
+                         tool_conf['pk'],
+                         tool_conf['exclude_column'],
+                         tool_conf['include_column'],
+                         tool_conf['filter'],
+                         tool_conf['output_path'],
+                         tool_conf['output_format'],
+                         tool_conf['precision'],
+                         tool_conf['debug'],
+                         spark_conf)
 
 def main():
     fire.Fire(DataprocWrapper)
