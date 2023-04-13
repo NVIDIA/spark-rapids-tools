@@ -23,6 +23,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
@@ -1029,13 +1030,20 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val valuesDetailed = rowsDetailedOut(1).split(",")
     assert(headersDetailed.size == QualOutputWriter
       .getDetailedHeaderStringsAndSizes(Seq(qualApp.aggregateStats.get), false).keys.size)
-    //UnsupportedeExecs and UnsupportedExprs is not present in the file
+    // UnsupportedeExecs, UnsupportedExprs, and Estimated Job Frequency are present in the file
+    // but not present in csvDetailedFields definition
     assert(headersDetailed.size - 3 == csvDetailedFields.size)
-    assert(valuesDetailed.size - 3 == csvDetailedFields.size) // UnsupportedExprs is empty
+    // UnsupportedExprs is empty, but Estimated Job Frequency forces the value to exist
+    assert(valuesDetailed.size - 3 == csvDetailedFields.size)
     // check all headers exists
     for (ind <- 0 until csvDetailedFields.size) {
       assert(csvDetailedHeader(ind).equals(headersDetailed(ind)))
     }
+    // check for estimated frequency column
+    val estimatedFrequencyIndex = 25
+    assert(headersDetailed(estimatedFrequencyIndex).equals("Estimated Job Frequency (monthly)"))
+    assert(valuesDetailed(estimatedFrequencyIndex).toLong == DEFAULT_JOB_FREQUENCY)
+
     // check that recommendation field is relevant to GPU Speed-up
     // Note that range-check does not apply for NOT-APPLICABLE
     val estimatedFieldsIndStart = 2

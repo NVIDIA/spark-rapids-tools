@@ -592,14 +592,16 @@ object QualOutputWriter {
       sumInfo.estimatedInfo.appDur.toString -> APP_DUR_STR_SIZE,
       sumInfo.estimatedInfo.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
       sumInfo.estimatedInfo.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
-      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuDur) -> ESTIMATED_GPU_DURATION.size,
-      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuSpeedup) -> ESTIMATED_GPU_SPEEDUP.size,
+      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuDur) ->
+        ESTIMATED_GPU_DURATION.size,
+      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuSpeedup) ->
+        ESTIMATED_GPU_SPEEDUP.size,
       ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuTimeSaved) ->
         ESTIMATED_GPU_TIMESAVED.size,
       sumInfo.estimatedInfo.recommendation -> SPEEDUP_BUCKET_STR_SIZE,
       sumInfo.estimatedInfo.unsupportedExecs -> unSupExecMaxSize,
       sumInfo.estimatedInfo.unsupportedExprs -> unSupExprMaxSize,
-      sumInfo.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY).toString -> estimatedFrequencyMaxSize
+      sumInfo.estimatedFrequency.toString -> estimatedFrequencyMaxSize
     )
     if (hasClusterTags) {
       data += (sumInfo.estimatedInfo.allTagsMap.getOrElse(CLUSTER_ID, "") -> clusterIdMaxSize)

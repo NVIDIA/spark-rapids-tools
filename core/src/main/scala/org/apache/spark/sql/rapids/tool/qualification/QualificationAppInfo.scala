@@ -22,6 +22,7 @@ import com.nvidia.spark.rapids.tool.EventLogInfo
 import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo, SQLPlanParser}
 import com.nvidia.spark.rapids.tool.profiling._
 import com.nvidia.spark.rapids.tool.qualification._
+import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -498,7 +499,7 @@ class QualificationAppInfo(
   }
 
   def getPerSQLWallClockSummary(sqlStageSums: Seq[SQLStageSummary], sqlDataFrameDuration: Long,
-      hasFailures: Boolean, appName: String): EstimatedAppSummaryInfo = {
+      hasFailures: Boolean, appName: String): EstimatedAppInfo = {
     val allStagesSummary = sqlStageSums.flatMap(_.stageSum)
     val sqlDataframeTaskDuration = allStagesSummary.map(_.stageTaskTime).sum
     val supportedSQLTaskDuration = calculateSQLSupportedTaskDuration(allStagesSummary)
@@ -595,7 +596,7 @@ class QualificationAppInfo(
 }
 
 // Estimate based on wall clock times
-case class EstimatedAppSummaryInfo(
+case class EstimatedAppInfo(
     appName: String,
     appId: String,
     appDur: Long,
@@ -611,14 +612,14 @@ case class EstimatedAppSummaryInfo(
 
 // Used by writers, estimated app summary with estimated frequency
 case class EstimatedSummaryInfo(
-    estimatedInfo: EstimatedAppSummaryInfo,
-    estimatedFrequency: Option[Long])
+    estimatedInfo: EstimatedAppInfo,
+    estimatedFrequency: Long = DEFAULT_JOB_FREQUENCY)
 
 // Estimate based on wall clock times for each SQL query
 case class EstimatedPerSQLSummaryInfo(
     sqlID: Long,
     sqlDesc: String,
-    info: EstimatedAppSummaryInfo)
+    info: EstimatedAppInfo)
 
 case class SQLStageSummary(
     stageSum: Set[StageQualSummaryInfo],
@@ -693,7 +694,7 @@ case class QualificationSummaryInfo(
     startTime: Long,
     planInfo: Seq[PlanInfo],
     stageInfo: Seq[StageQualSummaryInfo],
-    estimatedInfo: EstimatedAppSummaryInfo,
+    estimatedInfo: EstimatedAppInfo,
     perSQLEstimatedInfo: Option[Seq[EstimatedPerSQLSummaryInfo]],
     unSupportedExecs: String,
     unSupportedExprs: String,
@@ -737,7 +738,7 @@ object QualificationAppInfo extends Logging {
       appDuration: Long, sqlSpeedupFactor: Double, appName: String, appId: String,
       hasFailures: Boolean, mlSpeedupFactor: Option[MLFuncsSpeedupAndDuration] = None,
       unsupportedExecs: String = "", unsupportedExprs: String = "",
-      allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedAppSummaryInfo = {
+      allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedAppInfo = {
     val sqlDataFrameDurationToUse = if (sqlDataFrameDuration > appDuration) {
       // our app duration is shorter then our sql duration, estimate the sql duration down
       // to app duration
@@ -771,7 +772,7 @@ object QualificationAppInfo extends Logging {
     // truncate the double fields to double precision to ensure that unit-tests do not explicitly
     // set the format to match the output. Removing the truncation from here requires modifying
     // TestQualificationSummary to truncate the same fields to match the CSV static samples.
-    EstimatedAppSummaryInfo(appName, appId, appDuration,
+    EstimatedAppInfo(appName, appId, appDuration,
       sqlDataFrameDurationToUse,
       speedupOpportunityWallClock.toLong,
       estimated_gpu_duration,

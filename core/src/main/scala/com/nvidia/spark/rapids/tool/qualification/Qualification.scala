@@ -118,9 +118,11 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       order: String): Seq[EstimatedSummaryInfo] = {
     if (QualificationArgs.isOrderAsc(order)) {
       appsSumDesc.reverse.map(sum =>
-        EstimatedSummaryInfo(sum.estimatedInfo, sum.estimatedFrequency))
+        EstimatedSummaryInfo(
+          sum.estimatedInfo, sum.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY)))
     } else {
-      appsSumDesc.map(sum => EstimatedSummaryInfo(sum.estimatedInfo, sum.estimatedFrequency))
+      appsSumDesc.map(sum => EstimatedSummaryInfo(
+        sum.estimatedInfo, sum.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY)))
     }
   }
 
@@ -139,11 +141,11 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     val windowInMonths =
       if (windowEnd > windowStart) ((windowEnd - windowStart) / (1000.0*60*60*24*30)) else 1.0
     // Scale frequency to per month, single run jobs are given an estimated frequency of None
-    appFrequency.map { case (appName, numApps)  =>
-      appFrequency += (appName ->
-        (if (numApps <= 1) DEFAULT_JOB_FREQUENCY.toDouble else (numApps / windowInMonths)))}
+    val monthlyFrequency = appFrequency.map { case (appName, numApps) => (appName ->
+      (if (numApps <= 1) DEFAULT_JOB_FREQUENCY.toDouble else (numApps / windowInMonths)))
+    }
     appsSum.map { app =>
-      app.copy(estimatedFrequency = Option(appFrequency(app.appName).round))
+      app.copy(estimatedFrequency = Option(monthlyFrequency(app.appName).round))
     }
   }
 
