@@ -7,21 +7,24 @@
           "uri": "https://archive.apache.org/dist/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
           "type": "archive",
           "relativePath": "jars/*",
-          "sha512": "769db39a560a95fd88b58ed3e9e7d1e92fb68ee406689fb4d30c033cb5911e05c1942dcc70e5ec4585df84e80aabbc272b9386a208debda89522efff1335c8ff"
+          "sha512": "769db39a560a95fd88b58ed3e9e7d1e92fb68ee406689fb4d30c033cb5911e05c1942dcc70e5ec4585df84e80aabbc272b9386a208debda89522efff1335c8ff",
+          "size": 299350810
         },
         {
           "name":  "Hadoop AWS",
           "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar",
           "type": "jar",
           "md5": "59907e790ce713441955015d79f670bc",
-          "sha1": "a65839fbf1869f81a1632e09f415e586922e4f80"
+          "sha1": "a65839fbf1869f81a1632e09f415e586922e4f80",
+          "size": 962685
         },
         {
           "name":  "AWS Java SDK Bundled",
           "uri": "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar",
           "type": "jar",
           "md5": "8a22f2d30b7e8eee9ea44f04fb13b35a",
-          "sha1": "02deec3a0ad83d13d032b1812421b23d7a961eea"
+          "sha1": "02deec3a0ad83d13d032b1812421b23d7a961eea",
+          "size": 280645251
         }
       ]
     }

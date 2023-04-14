@@ -50,8 +50,11 @@ class PriceProvider:
 
     def _generate_cache_files(self):
         # resource_urls and cache_files should have the same keys
+        cache_checks = {'cacheExpirationSecs': self.cache_expiration_secs}
         for file_key, resource_url in self.resource_urls.items():
-            files_updated = FSUtil.cache_from_url(resource_url, self.cache_files[file_key])
+            files_updated = FSUtil.cache_from_url(resource_url,
+                                                  self.cache_files[file_key],
+                                                  file_checks=cache_checks)
             self.logger.info('The catalog file %s is %s',
                              self.cache_files[file_key],
                              'updated' if files_updated else 'not modified, using the cached content')
