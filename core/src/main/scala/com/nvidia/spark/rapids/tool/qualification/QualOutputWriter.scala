@@ -884,8 +884,8 @@ object QualOutputWriter {
       appInfo.supportedSQLTaskDuration.toString -> headersAndSizes(SUPPORTED_SQL_TASK_DURATION_STR),
       appInfo.taskSpeedupFactor.toString -> headersAndSizes(SPEEDUP_FACTOR_STR),
       appInfo.endDurationEstimated.toString -> headersAndSizes(APP_DUR_ESTIMATED_STR),
-      appInfo.unSupportedExecs -> headersAndSizes(UNSUPPORTED_EXECS),
-      appInfo.unSupportedExprs -> headersAndSizes(UNSUPPORTED_EXPRS)
+      stringIfempty(appInfo.unSupportedExecs) -> headersAndSizes(UNSUPPORTED_EXECS),
+      stringIfempty(appInfo.unSupportedExprs) -> headersAndSizes(UNSUPPORTED_EXPRS)
     )
     if (appInfo.clusterTags.nonEmpty) {
       data += appInfo.clusterTags.mkString(";") -> headersAndSizes(CLUSTER_TAGS)
