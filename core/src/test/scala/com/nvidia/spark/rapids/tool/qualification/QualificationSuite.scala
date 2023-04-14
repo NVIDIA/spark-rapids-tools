@@ -1038,11 +1038,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val valuesDetailed = rowsDetailedOut(1).split(",")
     assert(headersDetailed.size == QualOutputWriter
       .getDetailedHeaderStringsAndSizes(Seq(qualApp.aggregateStats.get), false).keys.size)
-    // UnsupportedeExecs, UnsupportedExprs, and Estimated Job Frequency are present in the file
-    // but not present in csvDetailedFields definition
-    assert(headersDetailed.size - 3 == csvDetailedFields.size)
-    // UnsupportedExprs is empty, but Estimated Job Frequency forces the value to exist
-    assert(valuesDetailed.size - 3 == csvDetailedFields.size)
+    assert(headersDetailed.size == csvDetailedFields.size)
+    assert(valuesDetailed.size == csvDetailedFields.size)
     // check all headers exists
     for (ind <- 0 until csvDetailedFields.size) {
       assert(csvDetailedHeader(ind).equals(headersDetailed(ind)))
