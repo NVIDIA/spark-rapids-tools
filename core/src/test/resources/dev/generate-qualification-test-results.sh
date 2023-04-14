@@ -295,6 +295,7 @@ define_qualification_tests_map()
   qualification_path_map[read_dsv2_expectation]="${prof_log_prefix}/eventlog_dsv2.zstd"
   qualification_path_map[complex_dec_expectation]="${qual_log_prefix}/complex_dec_eventlog.zstd"
   qualification_path_map[nested_dsv2_expectation]="${qual_log_prefix}/eventlog_nested_dsv2"
+  qualification_path_map[multi_run_freq_test_expectation]="${qual_log_prefix}/frequency-eventlog-set/empty_eventlog ${qual_log_prefix}/frequency-eventlog-set/empty_eventlog2"
 
   # define unit test with extra arguments
   extra_arguments_map[nds_q86_test_expectation]="--per-sql"

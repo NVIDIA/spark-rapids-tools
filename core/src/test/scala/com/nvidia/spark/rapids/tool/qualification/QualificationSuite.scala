@@ -61,7 +61,10 @@ case class TestQualificationSummary(
     unsupportedSQLTaskDuration: Long,
     supportedSQLTaskDuration: Long,
     taskSpeedupFactor: Double,
-    endDurationEstimated: Boolean)
+    endDurationEstimated: Boolean,
+    unsupportedExecs: String,
+    unsupportedExprs: String,
+    estimatedFrequency: Long)
 
 class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
@@ -93,7 +96,10 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     ("Unsupported Task Duration", LongType),
     ("Supported SQL DF Task Duration", LongType),
     ("Task Speedup Factor", DoubleType),
-    ("App Duration Estimated", BooleanType))
+    ("App Duration Estimated", BooleanType),
+    ("Unsupported Execs", StringType),
+    ("Unsupported Expressions", StringType),
+    ("Estimated Job Frequency (monthly)", LongType))
 
   private val csvPerSQLFields = Seq(
     ("App Name", StringType),
@@ -105,7 +111,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     ("Estimated GPU Duration", DoubleType),
     ("Estimated GPU Speedup", DoubleType),
     ("Estimated GPU Time Saved", DoubleType),
-    ("Recommendation", StringType))
+    ("Recommendation", StringType),
+    ("Estimated Job Frequency (monthly)", LongType))
 
   val schema = new StructType(csvDetailedFields.map(f => StructField(f._1, f._2, true)).toArray)
   val perSQLSchema = new StructType(csvPerSQLFields.map(f => StructField(f._1, f._2, true)).toArray)
@@ -152,7 +159,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         sum.complexTypes, sum.nestedComplexTypes, sum.potentialProblems, sum.longestSqlDuration,
         sum.nonSqlTaskDurationAndOverhead,
         sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration, sum.taskSpeedupFactor,
-        sum.endDurationEstimated)
+        sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs,
+        sum.estimatedFrequency)
     }
   }
 
@@ -1323,6 +1331,12 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(outputActual.collect().size == 1)
       }
     }
+  }
+
+  test("test frequency of repeated job") {
+    val qualLogDir = ToolTestUtils.getTestResourcePath("spark-events-qualification/frequency-eventlog-set")
+    val logFiles = Array(s"$qualLogDir/empty_eventlog",  s"$qualLogDir/empty_eventlog2")
+    runQualificationTest(logFiles, "multi_run_freq_test_expectation.csv")
   }
 }
 

@@ -140,12 +140,14 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     }
     val windowInMonths =
       if (windowEnd > windowStart) ((windowEnd - windowStart) / (1000.0*60*60*24*30)) else 1.0
-    // Scale frequency to per month, single run jobs are given an estimated frequency of None
+    // Scale frequency to per month assuming uniform distribution over the logging window rather
+    // than the individual applications window. Single run jobs are given a default frequency
     val monthlyFrequency = appFrequency.map { case (appName, numApps) => (appName ->
       (if (numApps <= 1) DEFAULT_JOB_FREQUENCY.toDouble else (numApps / windowInMonths)))
     }
     appsSum.map { app =>
-      app.copy(estimatedFrequency = Option(monthlyFrequency(app.appName).round))
+      app.copy(estimatedFrequency =
+        Option(monthlyFrequency.getOrElse(app.appName, DEFAULT_JOB_FREQUENCY.toDouble).round))
     }
   }
 

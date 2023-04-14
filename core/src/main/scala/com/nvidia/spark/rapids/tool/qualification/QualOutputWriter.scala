@@ -312,7 +312,7 @@ case class FormattedQualificationSummaryInfo(
     unSupportedExecs: String,
     unSupportedExprs: String,
     clusterTags: Map[String, String],
-    estimatedFrequency: String)
+    estimatedFrequency: Long)
 
 object QualOutputWriter {
   val NON_SQL_TASK_DURATION_STR = "NonSQL Task Duration"
@@ -866,7 +866,7 @@ object QualOutputWriter {
       appInfo.unSupportedExecs,
       appInfo.unSupportedExprs,
       appInfo.allClusterTagsMap,
-      appInfo.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY).toString
+      appInfo.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY)
     )
   }
 
@@ -899,9 +899,9 @@ object QualOutputWriter {
       appInfo.supportedSQLTaskDuration.toString -> headersAndSizes(SUPPORTED_SQL_TASK_DURATION_STR),
       appInfo.taskSpeedupFactor.toString -> headersAndSizes(SPEEDUP_FACTOR_STR),
       appInfo.endDurationEstimated.toString -> headersAndSizes(APP_DUR_ESTIMATED_STR),
-      appInfo.unSupportedExecs -> headersAndSizes(UNSUPPORTED_EXECS),
-      appInfo.unSupportedExprs -> headersAndSizes(UNSUPPORTED_EXPRS),
-      appInfo.estimatedFrequency -> headersAndSizes(ESTIMATED_FREQUENCY)
+      stringIfempty(appInfo.unSupportedExecs) -> headersAndSizes(UNSUPPORTED_EXECS),
+      stringIfempty(appInfo.unSupportedExprs) -> headersAndSizes(UNSUPPORTED_EXPRS),
+      appInfo.estimatedFrequency.toString -> headersAndSizes(ESTIMATED_FREQUENCY)
     )
     if (appInfo.clusterTags.nonEmpty) {
       data += appInfo.clusterTags.mkString(";") -> headersAndSizes(CLUSTER_TAGS)
