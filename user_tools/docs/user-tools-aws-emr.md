@@ -40,13 +40,13 @@ the applications running on AWS EMR.
 Before running any command, you can set environment variables to specify configurations.
 - RAPIDS variables have a naming pattern `RAPIDS_USER_TOOLS_*`:
   - `RAPIDS_USER_TOOLS_CACHE_FOLDER`: specifies the location of a local directory that the RAPIDS-cli uses to
-    store and cache the downloaded resources. The default is `/tmp/rapids_user_tools_cache`.  Note that
+    store and cache the downloaded resources. The default is `/var/tmp/spark_rapids_user_tools_cache`.  Note that
     caching the resources locally has an impact on the total execution time of the command.
   - `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY`: specifies the location of a local directory that the RAPIDS-cli uses to
     generate the output. The wrapper CLI arguments override that environment variable
     (`--output_folder` and `local_folder` for Bootstrap and Qualification respectively).
 - For AWS CLI, some environment variables can be set and picked by the RAPIDS-user tools such as:
-  `AWS_PROFILE`, `AWS_DEFAULT_REGION` and `AWS_CONFIG_FILE`. See the full list of variables in
+  `AWS_PROFILE`, `AWS_DEFAULT_REGION`, `AWS_CONFIG_FILE`, `AWS_SHARED_CREDENTIALS_FILE`. See the full list of variables in
   [aws-cli-configure-envvars](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
 
 ## Qualification command

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -939,9 +939,13 @@ object AutoTuner extends Logging {
   def convertFromHumanReadableSize(size: String): Long = {
     val sizesArr = size.toLowerCase.split("(?=[a-z])")
     val sizeNum = sizesArr(0).toDouble
-    val sizeUnit = sizesArr(1)
-    assert(SUPPORTED_SIZE_UNITS.contains(sizeUnit), s"$size is not a valid human readable size")
-    (sizeNum * Math.pow(1024, SUPPORTED_SIZE_UNITS.indexOf(sizeUnit))).toLong
+    if (sizesArr.length > 1) {
+      val sizeUnit = sizesArr(1)
+      assert(SUPPORTED_SIZE_UNITS.contains(sizeUnit), s"$size is not a valid human readable size")
+      (sizeNum * Math.pow(1024, SUPPORTED_SIZE_UNITS.indexOf(sizeUnit))).toLong
+    } else {
+      sizeNum.toLong
+    }
   }
 
   def containsMemoryUnits(size: String): Boolean = {

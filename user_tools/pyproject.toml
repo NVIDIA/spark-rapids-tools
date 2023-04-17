@@ -17,6 +17,8 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "fastprogress==1.0.3",
+    "fastcore==1.5.29",
     "fire==0.4.0",
     "pandas==1.4.3",
     "pyYAML==6.0",

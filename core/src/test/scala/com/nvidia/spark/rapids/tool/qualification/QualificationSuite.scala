@@ -60,7 +60,9 @@ case class TestQualificationSummary(
     unsupportedSQLTaskDuration: Long,
     supportedSQLTaskDuration: Long,
     taskSpeedupFactor: Double,
-    endDurationEstimated: Boolean)
+    endDurationEstimated: Boolean,
+    unsupportedExecs: String,
+    unsupportedExprs: String)
 
 class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
@@ -92,7 +94,9 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     ("Unsupported Task Duration", LongType),
     ("Supported SQL DF Task Duration", LongType),
     ("Task Speedup Factor", DoubleType),
-    ("App Duration Estimated", BooleanType))
+    ("App Duration Estimated", BooleanType),
+    ("Unsupported Execs", StringType),
+    ("Unsupported Expressions", StringType))
 
   private val csvPerSQLFields = Seq(
     ("App Name", StringType),
@@ -151,7 +155,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         sum.complexTypes, sum.nestedComplexTypes, sum.potentialProblems, sum.longestSqlDuration,
         sum.nonSqlTaskDurationAndOverhead,
         sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration, sum.taskSpeedupFactor,
-        sum.endDurationEstimated)
+        sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs)
     }
   }
 
@@ -1029,9 +1033,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val valuesDetailed = rowsDetailedOut(1).split(",")
     assert(headersDetailed.size == QualOutputWriter
       .getDetailedHeaderStringsAndSizes(Seq(qualApp.aggregateStats.get), false).keys.size)
-    //UnsupportedeExecs and UnsupportedExprs is not present in the file
-    assert(headersDetailed.size -2  == csvDetailedFields.size)
-    assert(valuesDetailed.size - 1 == csvDetailedFields.size) // UnsupportedExprs is empty
+    assert(headersDetailed.size == csvDetailedFields.size)
+    assert(valuesDetailed.size == csvDetailedFields.size)
     // check all headers exists
     for (ind <- 0 until csvDetailedFields.size) {
       assert(csvDetailedHeader(ind).equals(headersDetailed(ind)))

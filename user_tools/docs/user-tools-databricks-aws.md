@@ -42,7 +42,7 @@ The tool currently only supports event logs stored on S3 (no DBFS paths). The re
 
 Before running any command, you can set environment variables to specify configurations.
 - RAPIDS variables have a naming pattern `RAPIDS_USER_TOOLS_*`:
-  - `RAPIDS_USER_TOOLS_CACHE_FOLDER`: specifies the location of a local directory that the RAPIDS-cli uses to store and cache the downloaded resources. The default is `/tmp/rapids_user_tools_cache`.  Note that caching the resources locally has an impact on the total execution time of the command.
+  - `RAPIDS_USER_TOOLS_CACHE_FOLDER`: specifies the location of a local directory that the RAPIDS-cli uses to store and cache the downloaded resources. The default is `/var/tmp/spark_rapids_user_tools_cache`.  Note that caching the resources locally has an impact on the total execution time of the command.
   - `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY`: specifies the location of a local directory that the RAPIDS-cli uses to generate the output. The wrapper CLI arguments override that environment variable (`--local_folder` for Qualification).
 - For Databricks CLI, some environment variables can be set and picked by the RAPIDS-user tools such as: `DATABRICKS_CONFIG_FILE`, `DATABRICKS_HOST` and `DATABRICKS_TOKEN`. See the description of the variables in [Environment variables](https://docs.databricks.com/dev-tools/auth.html#environment-variables).
 - For AWS CLI, some environment variables can be set and picked by the RAPIDS-user tools such as: `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, `AWS_REGION`, `AWS_DEFAULT_REGION`, `AWS_PROFILE` and `AWS_DEFAULT_OUTPUT`. See the full list of variables in [aws-cli-configure-envvars](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).

@@ -69,22 +69,190 @@
             <timezone>-6</timezone>
         </developer>
     </developers>
-
+    <profiles>
+        <profile>
+            <id>release311</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>buildver</name>
+                    <value>311</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>311</buildver>
+                <spark.version>${spark311.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release312</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>312</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>312</buildver>
+                <spark.version>${spark312.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release313</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>313</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>313</buildver>
+                <spark.version>${spark313.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release320</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>320</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>320</buildver>
+                <spark.version>${spark320.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release321</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>321</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>321</buildver>
+                <spark.version>${spark321.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release322</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>322</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>322</buildver>
+                <spark.version>${spark322.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release323</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>323</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>323</buildver>
+                <spark.version>${spark323.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release330</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>330</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>330</buildver>
+                <spark.version>${spark330.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release331</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>331</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>331</buildver>
+                <spark.version>${spark331.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release332</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>332</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>332</buildver>
+                <spark.version>${spark332.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release333</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>333</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>333</buildver>
+                <spark.version>${spark333.version}</spark.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release340</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>340</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>340</buildver>
+                <spark.version>${spark340.version}</spark.version>
+            </properties>
+        </profile>
+    </profiles>
     <properties>
         <spark311.version>3.1.1</spark311.version>
+        <spark312.version>3.1.2</spark312.version>
+        <spark313.version>3.1.3</spark313.version>
+        <spark320.version>3.2.0</spark320.version>
+        <spark321.version>3.2.1</spark321.version>
+        <spark322.version>3.2.2</spark322.version>
+        <spark323.version>3.2.3</spark323.version>
+        <spark330.version>3.3.0</spark330.version>
+        <spark331.version>3.3.1</spark331.version>
+        <spark332.version>3.3.2</spark332.version>
+        <spark333.version>3.3.3-SNAPSHOT</spark333.version>
+        <spark340.version>3.4.0-SNAPSHOT</spark340.version>
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>
         <scalatest-maven-plugin.version>2.0.2</scalatest-maven-plugin.version>
         <maven.clean.plugin.version>3.1.0</maven.clean.plugin.version>
         <scala.version>2.12.15</scala.version>
         <hadoop.version>3.3.4</hadoop.version>
-        <spark.version>${spark311.version}</spark.version>
         <spark.test.version>${spark311.version}</spark.test.version>
         <snakeyaml.version>1.33</snakeyaml.version>
         <scallop.version>3.5.1</scallop.version>
         <scalatest.version>3.0.5</scalatest.version>
-        <spark.version.classifier>spark311</spark.version.classifier>
-        <target.classifier>spark311</target.classifier>
+        <spark.version.classifier>spark${buildver}</spark.version.classifier>
+        <target.classifier>${spark.version.classifier}</target.classifier>
         <ui.cache.dir>${project.build.directory}/ui-dependencies-cache</ui.cache.dir>
         <ui.resources.relative>src/main/resources/ui</ui.resources.relative>
         <ui.resources.dir>${project.basedir}/${ui.resources.relative}</ui.resources.dir>
@@ -465,4 +633,16 @@
             </plugin>
         </plugins>
     </build>
+    <repositories>
+        <repository>
+            <id>apache-snapshots-repo</id>
+            <url>https://repository.apache.org/content/repositories/snapshots/</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 </project>

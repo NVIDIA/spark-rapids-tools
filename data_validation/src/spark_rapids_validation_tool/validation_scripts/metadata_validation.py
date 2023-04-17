@@ -42,7 +42,8 @@ def validation(spark, args):
     print('|--Run Metadata Validation Success--|')
 
 def save_result(df, path, output_format):
-    df.write.mode("overwrite").format(output_format).save(path)
+    if path != 'None':
+        df.write.mode("overwrite").format(output_format).save(path)
 
 def valid_input(spark, args):
     """
