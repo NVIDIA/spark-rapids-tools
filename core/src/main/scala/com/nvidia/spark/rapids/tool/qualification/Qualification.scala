@@ -147,6 +147,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     }
     appsSum.map { app =>
       val frequency = monthlyFrequency.getOrElse(app.appName, DEFAULT_JOB_FREQUENCY)
+      // Ensure jobs have a valid frequency, rounding up to 1 (monthly)
       app.copy(estimatedFrequency =
         Option(if (frequency <= 0) 1 else frequency))
     }
