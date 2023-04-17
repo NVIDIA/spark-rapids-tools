@@ -111,8 +111,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     ("Estimated GPU Duration", DoubleType),
     ("Estimated GPU Speedup", DoubleType),
     ("Estimated GPU Time Saved", DoubleType),
-    ("Recommendation", StringType),
-    ("Estimated Job Frequency (monthly)", LongType))
+    ("Recommendation", StringType))
 
   val schema = new StructType(csvDetailedFields.map(f => StructField(f._1, f._2, true)).toArray)
   val perSQLSchema = new StructType(csvPerSQLFields.map(f => StructField(f._1, f._2, true)).toArray)
@@ -1044,10 +1043,6 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     for (ind <- 0 until csvDetailedFields.size) {
       assert(csvDetailedHeader(ind).equals(headersDetailed(ind)))
     }
-    // check for estimated frequency column
-    val estimatedFrequencyIndex = 25
-    assert(headersDetailed(estimatedFrequencyIndex).equals("Estimated Job Frequency (monthly)"))
-    assert(valuesDetailed(estimatedFrequencyIndex).toLong == DEFAULT_JOB_FREQUENCY)
 
     // check that recommendation field is relevant to GPU Speed-up
     // Note that range-check does not apply for NOT-APPLICABLE
