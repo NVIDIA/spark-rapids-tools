@@ -1326,8 +1326,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   test("test frequency of repeated job") {
-    val qualLogDir = ToolTestUtils.getTestResourcePath("spark-events-qualification/frequency-eventlog-set")
-    val logFiles = Array(s"$qualLogDir/empty_eventlog",  s"$qualLogDir/empty_eventlog2")
+    val logFiles = Array(s"$logDir/empty_eventlog",  s"$logDir/nested_type_eventlog")
     runQualificationTest(logFiles, "multi_run_freq_test_expectation.csv")
   }
 }
