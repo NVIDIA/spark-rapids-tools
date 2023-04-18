@@ -1042,6 +1042,19 @@ class ClusterBase(ClusterGetAccessor):
         render_args = self._set_render_args_create_template()
         return TemplateGenerator.render_template_file(template_path, render_args)
 
+    def _set_render_args_bootstrap_template(self, overridden_args: dict = None) -> dict:
+        res = {}
+        if overridden_args:
+            res.update(overridden_args)
+        res.setdefault('CLUSTER_NAME', self.get_name())
+        return res
+
+    def generate_bootstrap_script(self, overridden_args: dict = None) -> str:
+        platform_name = CloudPlatform.pretty_print(self.platform.type_id)
+        template_path = Utils.resource_path(f'templates/{platform_name}-run_bootstrap.ms')
+        render_args = self._set_render_args_bootstrap_template(overridden_args)
+        return TemplateGenerator.render_template_file(template_path, render_args)
+
 
 @dataclass
 class ClusterReshape(ClusterGetAccessor):

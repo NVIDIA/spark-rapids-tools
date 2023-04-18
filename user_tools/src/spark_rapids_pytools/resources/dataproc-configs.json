@@ -220,6 +220,18 @@
               ""
             ]
           }
+        },
+        {
+          "sectionID": "runUserToolsBootstrap",
+          "content": {
+            "header": [
+              "",
+              "Once the cluster is created, run the Bootstrap tool to provide optimized",
+              "RAPIDS Accelerator for Apache Spark configs based on GPU cluster shape.",
+              "Note that the requires SSH access in order to override the Apache Spark default configurations.",
+              ""
+            ]
+          }
         }
       ]
     }

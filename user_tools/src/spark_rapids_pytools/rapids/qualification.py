@@ -748,7 +748,13 @@ class Qualification(RapidsJarTool):
             gpu_cluster = self.ctxt.get_ctxt('gpuClusterProxy')
             script_content = gpu_cluster.generate_create_script()
             highlighted_code = TemplateGenerator.highlight_bash_code(script_content)
-            return [highlighted_code]
+            return ['```bash', highlighted_code, '```']
+        if sec_conf.get('sectionID') == 'runUserToolsBootstrap':
+            gpu_cluster = self.ctxt.get_ctxt('gpuClusterProxy')
+            override_args = {'CLUSTER_NAME': '$CLUSTER_NAME'}
+            script_content = gpu_cluster.generate_bootstrap_script(overridden_args=override_args)
+            highlighted_code = TemplateGenerator.highlight_bash_code(script_content)
+            return ['```bash', highlighted_code, '```', '']
         return super()._generate_section_content(sec_conf)
 
 
