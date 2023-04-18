@@ -24,7 +24,7 @@ from tabulate import tabulate
 
 from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType, ClusterReshape, DeployMode
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import Utils
+from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
@@ -724,19 +724,16 @@ class Qualification(RapidsJarTool):
         # TODO: Make sure we add this argument only for jar versions 23.02+
         return ['--platform', self.ctxt.get_platform_name().replace('_', '-')]
 
-    def _generate_section_content(self, sec_conf: dict) -> List[str]:
+    def _generate_section_lines(self, sec_conf: dict) -> List[str]:
         if sec_conf.get('sectionID') == 'initializationScript':
             # format the initialization scripts
-            res = [Utils.gen_report_sec_header(sec_conf.get('sectionName'))]
             reshaped_gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
             gpu_per_machine, gpu_device = reshaped_gpu_cluster.get_gpu_per_worker()
             fill_map = {
                 0: self.ctxt.platform.cli.get_region(),
                 1: [gpu_device.lower(), gpu_per_machine]
             }
-            headers = sec_conf['content'].get('header')
-            if headers:
-                res.extend(headers)
+            res = []
             # TODO: improve the display of code snippets by using module pygments (for bash)
             #   module code can be used for python snippets
             for ind, l_str in enumerate(sec_conf['content'].get('lines')):
@@ -747,6 +744,11 @@ class Qualification(RapidsJarTool):
                 else:
                     res.append(l_str)
             return res
+        if sec_conf.get('sectionID') == 'gpuClusterCreationScript':
+            gpu_cluster = self.ctxt.get_ctxt('gpuClusterProxy')
+            script_content = gpu_cluster.generate_create_script()
+            highlighted_code = TemplateGenerator.highlight_bash_code(script_content)
+            return [highlighted_code]
         return super()._generate_section_content(sec_conf)
 
 

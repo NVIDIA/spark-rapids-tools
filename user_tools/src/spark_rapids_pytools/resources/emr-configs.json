@@ -238,6 +238,23 @@
       }
     }
   },
+  "wrapperReporting": {
+    "qualification": {
+      "sections": [
+        {
+          "sectionID": "gpuClusterCreationScript",
+          "sectionName": "Initialization Scripts",
+          "content": {
+            "header": [
+              "",
+              "To create a GPU cluster, run the following script:",
+              ""
+            ]
+          }
+        }
+      ]
+    }
+  },
   "clusterSpecs": {
     "minWorkerNodes": 2
   }

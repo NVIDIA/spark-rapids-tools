@@ -210,6 +210,16 @@
               "    --worker-accelerator type=nvidia-tesla-{},count={}"
             ]
           }
+        },
+        {
+          "sectionID": "gpuClusterCreationScript",
+          "content": {
+            "header": [
+              "",
+              "To create a GPU cluster, run the following script:",
+              ""
+            ]
+          }
         }
       ]
     }

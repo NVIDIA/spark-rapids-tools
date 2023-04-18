@@ -25,7 +25,7 @@ from typing import cast, Type, Any, List, Union, Optional, Callable
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
     get_elem_non_safe
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
-from spark_rapids_pytools.common.utilities import ToolLogging, SysCmd, Utils
+from spark_rapids_pytools.common.utilities import ToolLogging, SysCmd, Utils, TemplateGenerator
 
 
 class EnumeratedType(str, Enum):
@@ -897,8 +897,13 @@ class ClusterBase(ClusterGetAccessor):
         """
         return None
 
+    def _set_name_from_props(self) -> None:
+        pass
+
     def _set_fields_from_props(self):
         self._process_loaded_props()
+        if not self.name:
+            self._set_name_from_props()
 
     def _init_nodes(self):
         pass
@@ -971,6 +976,8 @@ class ClusterBase(ClusterGetAccessor):
         self.uuid = orig_cluster.uuid
         self.zone = orig_cluster.zone
         self.state = orig_cluster.state
+        # we need to copy the props in case we need to read a property
+        self.props = orig_cluster.props
         self._build_migrated_cluster(orig_cluster)
 
     def find_matches_for_node(self) -> (dict, dict):
@@ -1025,6 +1032,15 @@ class ClusterBase(ClusterGetAccessor):
 
     def get_tmp_storage(self) -> str:
         raise NotImplementedError
+
+    def _set_render_args_create_template(self) -> dict:
+        raise NotImplementedError
+
+    def generate_create_script(self) -> str:
+        platform_name = CloudPlatform.pretty_print(self.platform.type_id)
+        template_path = Utils.resource_path(f'templates/{platform_name}-create_gpu_cluster_script.ms')
+        render_args = self._set_render_args_create_template()
+        return TemplateGenerator.render_template_file(template_path, render_args)
 
 
 @dataclass
