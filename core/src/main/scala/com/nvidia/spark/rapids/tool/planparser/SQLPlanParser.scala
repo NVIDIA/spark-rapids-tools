@@ -68,7 +68,7 @@ case class PlanInfo(
 
 object SQLPlanParser extends Logging {
 
-  val equiJoinRegexPattern = """\[([\w#, +*\\\-\.<>=\`\(\)]+\])""".r
+  val equiJoinRegexPattern = """\[([\w#, +*\\\-\.<>=$\`\(\)]+\])""".r
 
   val functionPattern = """(\w+)\(.*\)""".r
 
