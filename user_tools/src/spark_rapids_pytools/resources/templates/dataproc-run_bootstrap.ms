@@ -1,4 +1,4 @@
-# To see all options, run `spark_rapids_user_tools dataproc emr -- --help`
+# To see all options, run `spark_rapids_user_tools dataproc bootstrap -- --help`
 
 spark_rapids_user_tools dataproc bootstrap \
     --cluster {{ CLUSTER_NAME }} \
