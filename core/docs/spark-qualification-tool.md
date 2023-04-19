@@ -602,7 +602,7 @@ The report represents the entire app execution, including unsupported operators 
 27. _Estimated Frequency_: application executions per month assuming uniform distribution, default frequency is daily (30 times per month)
     and minimum frequency is monthly (1 time per month). For a given log set, determines a logging window using the earliest start time
     and last end time of all logged applications. Counts the number of executions of a specific `App Name` over the logging window
-    and converts the frequency to per month (30 days).
+    and converts the frequency to per month (30 days). Applications that are only ran once are assigned the default frequency.
 
 **Note:** the Qualification tool won't catch all UDFs, and some of the UDFs can be handled with additional steps.
 Please refer to [Supported Operators](https://github.com/NVIDIA/spark-rapids/blob/main/docs/supported_ops.md) for more details on UDF.
