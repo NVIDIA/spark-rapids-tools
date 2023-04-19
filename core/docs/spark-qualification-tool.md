@@ -593,12 +593,16 @@ The report represents the entire app execution, including unsupported operators 
 23. _App Duration Estimated_: True or False indicates if we had to estimate the application duration.
     If we had to estimate it, the value will be `True` and it means the event log was missing the application finished
     event, so we will use the last job or sql execution time we find as the end time used to calculate the duration.
-24. _Unsupported Execs_: reports all the execs that are not supported by GPU in this application. Note that an Exec name  may be
+24. _Unsupported Execs_: reports all the execs that are not supported by GPU in this application. Note that an Exec name may be
     printed in this column if any of the expressions within this Exec is not supported by GPU. If the resultant string
     exceeds maximum limit (25), then ... is suffixed to the STDOUT and full output can be found in the CSV file.
 25. _Unsupported Expressions_: reports all expressions not supported by GPU in this application.
-24. _Read Schema_: shows the datatypes and read formats. This field is only listed when the argument `--report-read-schema`
+26. _Read Schema_: shows the datatypes and read formats. This field is only listed when the argument `--report-read-schema`
     is passed to the CLI.
+27. _Estimated Frequency_: application executions per month assuming uniform distribution, default frequency is daily (30 times per month)
+    and minimum frequency is monthly (1 time per month). For a given log set, determines a logging window using the earliest start time
+    and last end time of all logged applications. Counts the number of executions of a specific `App Name` over the logging window
+    and converts the frequency to per month (30 days). Applications that are only ran once are assigned the default frequency.
 
 **Note:** the Qualification tool won't catch all UDFs, and some of the UDFs can be handled with additional steps.
 Please refer to [Supported Operators](https://github.com/NVIDIA/spark-rapids/blob/main/docs/supported_ops.md) for more details on UDF.

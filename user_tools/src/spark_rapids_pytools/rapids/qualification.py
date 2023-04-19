@@ -373,8 +373,10 @@ class Qualification(RapidsJarTool):
 
     def __remap_columns_and_prune(self, all_rows) -> pd.DataFrame:
         cols_subset = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'columns')
+        # for backward compatibility, filter out non-existing columns
+        existing_cols_subset = [col for col in cols_subset if col in all_rows.columns]
         cols_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'mapColumns')
-        subset_data = all_rows.loc[:, cols_subset]
+        subset_data = all_rows.loc[:, existing_cols_subset]
         if cols_map:
             for col_rename in cols_map:
                 subset_data.columns = subset_data.columns.str.replace(col_rename,
@@ -553,8 +555,8 @@ class Qualification(RapidsJarTool):
 
             # For TCO, calculating annual cost savings based on job frequency
             job_frequency = 30  # default frequency is daily
-            if 'Job Frequency(monthly)' in df_row:
-                job_frequency = df_row['Job Frequency(monthly)']
+            if 'Estimated Job Frequency (monthly)' in df_row:
+                job_frequency = df_row['Estimated Job Frequency (monthly)']
             annual_cost_savings = job_frequency * 12 * (cpu_cost - gpu_cost)
 
             return pd.Series([savings_recommendations, cpu_cost, gpu_cost,

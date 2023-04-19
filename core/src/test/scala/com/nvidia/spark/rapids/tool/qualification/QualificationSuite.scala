@@ -23,6 +23,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
@@ -62,7 +63,8 @@ case class TestQualificationSummary(
     taskSpeedupFactor: Double,
     endDurationEstimated: Boolean,
     unsupportedExecs: String,
-    unsupportedExprs: String)
+    unsupportedExprs: String,
+    estimatedFrequency: Long)
 
 class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
@@ -96,7 +98,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     ("Task Speedup Factor", DoubleType),
     ("App Duration Estimated", BooleanType),
     ("Unsupported Execs", StringType),
-    ("Unsupported Expressions", StringType))
+    ("Unsupported Expressions", StringType),
+    ("Estimated Job Frequency (monthly)", LongType))
 
   private val csvPerSQLFields = Seq(
     ("App Name", StringType),
@@ -155,7 +158,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         sum.complexTypes, sum.nestedComplexTypes, sum.potentialProblems, sum.longestSqlDuration,
         sum.nonSqlTaskDurationAndOverhead,
         sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration, sum.taskSpeedupFactor,
-        sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs)
+        sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs,
+        sum.estimatedFrequency)
     }
   }
 
@@ -968,8 +972,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val stdOut = sumOut.split("\n")
     val stdOutHeader = stdOut(0).split("\\|")
     val stdOutValues = stdOut(1).split("\\|")
-    val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 2) // index of unsupportedExecs
-    val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 1) // index of unsupportedExprs
+    val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3) // index of unsupportedExecs
+    val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 2) // index of unsupportedExprs
     val expectedstdOutExecs = "Scan;Filter;SerializeF..."
     assert(stdOutunsupportedExecs == expectedstdOutExecs)
     // Exec value is Scan;Filter;SerializeFromObject and UNSUPPORTED_EXECS_MAX_SIZE is 25
@@ -986,8 +990,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val values = rowsSumOut(1).split(",")
     val expectedExecs = "Scan;Filter;SerializeFromObject" // Unsupported Execs
     val expectedExprs = "hex" //Unsupported Exprs
-    val unsupportedExecs = values(values.length - 2) // index of unsupportedExecs
-    val unsupportedExprs = values(values.length - 1) // index of unsupportedExprs
+    val unsupportedExecs = values(values.length - 3) // index of unsupportedExecs
+    val unsupportedExprs = values(values.length - 2) // index of unsupportedExprs
     assert(expectedExecs == unsupportedExecs)
     assert(expectedExprs == unsupportedExprs)
   }
@@ -1022,7 +1026,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val appNameMaxSize = QualOutputWriter.getAppNameSize(Seq(appInfo.get))
     assert(headers.size ==
       QualOutputWriter.getSummaryHeaderStringsAndSizes(appNameMaxSize, 0).keys.size)
-    assert(values.size == headers.size - 1) // unSupportedExpr is empty
+    assert(values.size == headers.size)
     // 3 should be the SQL DF Duration
     assert(headers(3).contains("SQL DF"))
     assert(values(3).toInt > 0)
@@ -1039,6 +1043,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     for (ind <- 0 until csvDetailedFields.size) {
       assert(csvDetailedHeader(ind).equals(headersDetailed(ind)))
     }
+
     // check that recommendation field is relevant to GPU Speed-up
     // Note that range-check does not apply for NOT-APPLICABLE
     val estimatedFieldsIndStart = 2
@@ -1132,7 +1137,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(appInfo.nonEmpty)
         assert(headers.size ==
           QualOutputWriter.getSummaryHeaderStringsAndSizes(30, 30).keys.size)
-        assert(values.size == headers.size - 1) // UnsupportedExpr is empty
+        assert(values.size == headers.size)
         // 3 should be the SQL DF Duration
         assert(headers(3).contains("SQL DF"))
         assert(values(3).toInt > 0)
@@ -1318,6 +1323,11 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(outputActual.collect().size == 1)
       }
     }
+  }
+
+  test("test frequency of repeated job") {
+    val logFiles = Array(s"$logDir/empty_eventlog",  s"$logDir/nested_type_eventlog")
+    runQualificationTest(logFiles, "multi_run_freq_test_expectation.csv")
   }
 }
 
