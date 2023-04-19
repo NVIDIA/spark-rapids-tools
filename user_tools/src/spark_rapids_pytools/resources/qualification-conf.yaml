@@ -11,6 +11,7 @@ toolOutput:
         - Estimated GPU Speedup
         - Estimated GPU Duration
         - App Duration
+        - Estimated Job Frequency (monthly)
       mapColumns:
         Recommendation: 'Speedup Based Recommendation'
       recommendations:
