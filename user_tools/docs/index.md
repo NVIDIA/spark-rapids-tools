@@ -24,7 +24,7 @@ For more details, please visit the
 
 ### Bootstrap
 
-Provides optimized RAPIDS Accelerator for Apache Spark configs based on Dataproc GPU cluster shape.
+Provides optimized RAPIDS Accelerator for Apache Spark configs based on GPU cluster shape.
 This tool is supposed to be used once a cluster has been created to set the recommended configurations.  
 Note that the command may require `SSH` access on the cluster nodes to read the GPU settings and to update
 Apache Spark default configurations.

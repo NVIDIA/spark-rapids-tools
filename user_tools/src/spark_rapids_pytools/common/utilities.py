@@ -30,8 +30,12 @@ from shutil import which
 from typing import Callable, Any
 
 import certifi
+import chevron
 from bs4 import BeautifulSoup
 from packaging.version import Version
+from pygments import highlight
+from pygments.formatters import get_formatter_by_name
+from pygments.lexers import get_lexer_by_name
 
 from spark_rapids_pytools import get_version
 
@@ -239,6 +243,18 @@ class ToolLogging:
             # fh.setFormatter(ExtraLogFormatter())
             logger.addHandler(fh)
         return logger
+
+
+class TemplateGenerator:
+    """A class to manage templates and content generation"""
+    @classmethod
+    def render_template_file(cls, fpath: string, template_args: dict) -> str:
+        with open(fpath, 'r', encoding='UTF-8') as f:
+            return chevron.render(f, data=template_args)
+
+    @classmethod
+    def highlight_bash_code(cls, bash_script: str) -> str:
+        return highlight(bash_script, get_lexer_by_name('Bash'), get_formatter_by_name('terminal'))
 
 
 @dataclass
