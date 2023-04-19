@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 package org.apache.spark.sql.rapids.tool
+
+import java.util.concurrent.TimeUnit
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
@@ -271,14 +273,31 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     doSparkListenerTaskStart(app, taskStart)
   }
 
+  def parseAccumToLong(data: Any): Long = {
+    val strData = data.toString
+    try {
+      strData.toLong
+    } catch {
+      case e: NumberFormatException =>
+        if (strData.matches("^\\d+:\\d+:\\d+\\.\\d+$")) {
+          val interm = strData.split(":")
+          TimeUnit.HOURS.toMillis(interm(0).toLong) +
+                  TimeUnit.MINUTES.toMillis(interm(1).toLong) +
+                  Math.floor(interm(2).toDouble * 1000).toLong
+        } else {
+          throw e
+        }
+    }
+  }
+
   def doSparkListenerTaskEnd(
       app: T,
       event: SparkListenerTaskEnd): Unit = {
     // Parse task accumulables
     for (res <- event.taskInfo.accumulables) {
       try {
-        val value = res.value.map(_.toString.toLong)
-        val update = res.update.map(_.toString.toLong)
+        val value = res.value.map(parseAccumToLong)
+        val update = res.update.map(parseAccumToLong)
         val thisMetric = TaskStageAccumCase(
           event.stageId, event.stageAttemptId, Some(event.taskInfo.taskId),
           res.id, res.name, value, update, res.internal)

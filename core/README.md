@@ -19,4 +19,15 @@ We use [Maven](https://maven.apache.org) for the build. Simply run as below comm
 mvn clean package
 ```
 
-After a successful build, the jar of 'rapids-4-spark-tools_2.12-*-SNAPSHOT.jar' will be in 'target/' directory.
+After a successful build, the jar of 'rapids-4-spark-tools_2.12-*-SNAPSHOT.jar' will be in 'target/' directory.  
+This will build the plugin for a single version of Spark. By default, this is Apache Spark 3.1.1.
+
+For development purpose, you may need to run the tests against different spark versions.
+To run the tests against a specific Spark version, you can use the `-Dbuildver=XXX` command line option.  
+For instance to build Spark 3.3.0 you would use:
+
+```shell script
+mvn -Dbuildver=330 clean package
+```
+
+Run `mvn help:all-profiles` to list supported Spark versions.

@@ -1,4 +1,4 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.
+# Copyright (c) 2022-2023, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -110,7 +110,8 @@ class TestQualification(RapidsToolTestBasic):
             (r'INFO qualification: The original CPU cluster is the same as the submission cluster on '
              r'which the tool runs\. To update the configuration of the CPU cluster, make sure to pass '
              r'the properties file to the CLI arguments'),
-            (r'INFO qualification: The GPU cluster is the same as the submission cluster on which the RAPIDS tool is '
+            (r'INFO qualification: Estimating the GPU cluster based on the submission cluster on which '
+             r'the RAPIDS tool is '
              rf'running \[{submission_cluster}\]\. To update the configuration of the GPU cluster, '
              r'make sure to pass the properties file to the CLI arguments\.'),
         ]
@@ -163,7 +164,8 @@ class TestQualification(RapidsToolTestBasic):
             (r'INFO qualification: The original CPU cluster is the same as the submission cluster on which the tool '
              r'runs\. To update the configuration of the CPU cluster, make sure to pass the properties file to '
              r'the CLI arguments'),
-            (r'INFO qualification: The GPU cluster is the same as the submission cluster on which the RAPIDS tool is '
+            (r'INFO qualification: Estimating the GPU cluster based on the submission cluster on which the RAPIDS '
+             r'tool is '
              rf'running \[{submission_cluster}\]\. To update the configuration of the GPU cluster, '
              r'make sure to pass the properties file to the CLI arguments\.'),
         ]

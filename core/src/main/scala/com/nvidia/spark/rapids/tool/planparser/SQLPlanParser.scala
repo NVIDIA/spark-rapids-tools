@@ -68,11 +68,15 @@ case class PlanInfo(
 
 object SQLPlanParser extends Logging {
 
-  val equiJoinRegexPattern = """\[([\w#, +*\\\-\.<>=\`\(\)]+\])""".r
+  val equiJoinRegexPattern = """\[([\w#, +*\\\-\.<>=$\`\(\)]+\])""".r
 
   val functionPattern = """(\w+)\(.*\)""".r
 
+  val functionPrefixPattern = """(\w+)\(""".r // match words preceded by parenthesis
+
   val windowFunctionPattern = """(\w+)\(""".r
+
+  val ignoreExpressions = Array("any", "cast", "decimal", "decimaltype", "every", "some", "list")
 
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
@@ -349,14 +353,18 @@ object SQLPlanParser extends Logging {
     maxDuration
   }
 
+  private def ignoreExpression(expr:String): Boolean = {
+    ignoreExpressions.contains(expr.toLowerCase)
+  }
+
   private def getFunctionName(functionPattern: Regex, expr: String): Option[String] = {
     val funcName = functionPattern.findFirstMatchIn(expr) match {
       case Some(func) =>
         val func1 = func.group(1)
-        // `cast` is not an expression hence should be ignored. In the physical plan cast is
-        // usually presented as function call for example: `cast(value#9 as date)`. We add
-        // other function names to the result.
-        if (!func1.equalsIgnoreCase("cast")) {
+        // There are some functions which are not expressions hence should be ignored.
+        // For example: In the physical plan cast is usually presented as function call
+        // `cast(value#9 as date)`. We add other function names to the result.
+        if (!ignoreExpression(func1)) {
           Some(func1)
         } else {
           None
@@ -367,21 +375,25 @@ object SQLPlanParser extends Logging {
     funcName
   }
 
+  private def getAllFunctionNames(functionPattern: Regex, expr: String,
+      groupInd: Int = 1): Set[String] = {
+    // Returns all matches in an expression. This can be used when the SQL expression is not
+    // tokenized.
+    functionPattern.findAllMatchIn(expr).map(_.group(groupInd)).toSet.filterNot(ignoreExpression(_))
+  }
+
   def parseProjectExpressions(exprStr: String): Array[String] = {
     val parsedExpressions = ArrayBuffer[String]()
     // Project [cast(value#136 as string) AS value#144, CEIL(value#136) AS CEIL(value)#143L]
-    // remove the alias names before parsing
-    val pattern = """(AS) ([(\w# )]+)""".r
-    // This is to split multiple column names in Project. Project may have a function on a column.
-    // This will contain array of columns names specified in ProjectExec. Below regex will first
-    // remove the alias names from the string followed by a split which produces an array containing
-    // column names. Finally we remove the paranthesis from the beginning and end to get only
-    // the expressions. Result will be as below.
+    // This is to split the string such that only function names are extracted. The pattern is
+    // such that function name is succeeded by `(`. We use regex to extract all the function names
+    // below:
     // paranRemoved = Array(cast(value#136 as string), CEIL(value#136))
-    val paranRemoved = pattern.replaceAllIn(exprStr.replace("),", "::"), "")
-        .split(",").map(_.trim).map(_.replaceAll("""^\[+""", "").replaceAll("""\]+$""", ""))
+    val pattern: Regex = "([a-zA-Z_]+)\\(".r
+    val functionNamePattern: Regex = """(\w+)""".r
+    val paranRemoved = pattern.findAllMatchIn(exprStr).toArray.map(_.group(1))
     paranRemoved.foreach { case expr =>
-      val functionName = getFunctionName(functionPattern, expr)
+      val functionName = getFunctionName(functionNamePattern, expr)
       functionName match {
         case Some(func) => parsedExpressions += func
         case _ => // NO OP
@@ -397,15 +409,15 @@ object SQLPlanParser extends Logging {
     val pattern = """functions=\[([\w#, +*\\\-\.<>=\`\(\)]+\])""".r
     val aggregatesString = pattern.findFirstMatchIn(exprStr)
     // This is to split multiple column names in AggregateExec. Each column will be aggregating
-    // based on the aggregate function. Here "partial_" is removed and only function name is
-    // preserved. Below regex will first remove the "functions=" from the string followed by
-    // removing "partial_". That string is split which produces an array containing
-    // column names. Finally we remove the parentheses from the beginning and end to get only
-    // the expressions. Result will be as below.
+    // based on the aggregate function. Here "partial_"  and "merge_" is removed and
+    // only function name is preserved. Below regex will first remove the
+    // "functions=" from the string followed by removing "partial_" and "merge_". That string is
+    // split which produces an array containing column names. Finally we remove the parentheses
+    // from the beginning and end to get only the expressions. Result will be as below.
     // paranRemoved = Array(collect_list(letter#84, 0, 0),, count(letter#84))
     if (aggregatesString.isDefined) {
       val paranRemoved = aggregatesString.get.toString.replaceAll("functions=", "").
-          replaceAll("partial_", "").split("(?<=\\),)").map(_.trim).
+          replaceAll("partial_", "").replaceAll("merge_", "").split("(?<=\\),)").map(_.trim).
           map(_.replaceAll("""^\[+""", "").replaceAll("""\]+$""", ""))
       paranRemoved.foreach { case expr =>
         val functionName = getFunctionName(functionPattern, expr)
@@ -453,33 +465,21 @@ object SQLPlanParser extends Logging {
   }
 
   def parseExpandExpressions(exprStr: String): Array[String] = {
-    val parsedExpressions = ArrayBuffer[String]()
     // [List(x#1564, hex(y#1455L)#1565, CEIL(z#1456)#1566L, 0),
     // List(x#1564, hex(y#1455L)#1565, null, 1), .......
     // , spark_grouping_id#1567L]
-    val pattern = """\[List([\w#, \(\)]+0\),)""".r
-    val expandString = pattern.findFirstMatchIn(exprStr)
-    // This splits the string to get expressions within ExpandExec. With ExpandExec,
-    // there are multiple rows in the output for single input row. This is shown in
-    // physical plan by appending list of different output rows. We can extract all
-    // expressions from the first index of the list. So we split the string on
-    // first index and remove parenthesis and the resultant array contains expressions
-    // in this exec. Result will be as shown below:
-    // Array(x#1712, hex(y#1701L)#1713)
-    if (expandString.isDefined) {
-      val firstIndexElements = expandString.get.toString.split("0\\),").mkString.trim
-      val parenRemoved = firstIndexElements.split(",").map(
-        _.trim).map(_.replaceAll("""^\[List\(""", ""))
-
-      parenRemoved.foreach { case expr =>
-        val functionName = getFunctionName(functionPattern, expr)
-        functionName match {
-          case Some(func) => parsedExpressions += func
-          case _ => // NO OP
-        }
-      }
-    }
-    parsedExpressions.distinct.toArray
+    // For Spark320+, the expandExpressions has different format
+    //  [[x#23, CEIL(y#11L)#24L, hex(cast(z#12 as bigint))#25, 0]
+    // Parsing:
+    // The goal is to extract all valid functions from the expand.
+    // It is important to take the following into considerations:
+    //  - Some values can be NULLs. That's why we cannot limit the extract to the first row.
+    //  - Nested brackets/parenthesis makes it challenging to use regex that contains
+    //    brackets/parenthesis to extract expressions.
+    // The implementation Use regex to extract all function names and return distinct set of
+    // function names.
+    // This implementation is 1 line implementation, but it can be a memory/time bottleneck.
+    getAllFunctionNames(functionPrefixPattern, exprStr).toArray
   }
 
   def parseTakeOrderedExpressions(exprStr: String): Array[String] = {
