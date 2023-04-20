@@ -978,17 +978,8 @@ Sample output in text:
 ```
 
 ## How to compile the tools jar
-Note: This step is optional.
 
-```bash
-git clone https://github.com/NVIDIA/spark-rapids-tools.git
-cd spark-rapids-tools/core
-mvn -Pdefault clean verify -DskipTests
-```
-
-The jar is generated in below directory :
-
-`./target/rapids-4-spark-tools_2.12-<version>.jar`
+See instructions here: https://github.com/NVIDIA/spark-rapids-tools/tree/main/core#build
 
 If any input is a S3 file path or directory path, 2 extra steps are needed to access S3 in Spark:
 1. Download the matched jars based on the Hadoop version:

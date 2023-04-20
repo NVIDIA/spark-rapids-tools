@@ -30,20 +30,20 @@ or can be found in the location specified by `spark.eventLog.dir`. See the
 more information.
 
 ### Step 1a: Download the tools jar
-- Download the Spark RAPIDS tools jar from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/22.12.0/)
+- Download the latest RAPIDS Accelerator for Apache Spark tools jar from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/)
 
-If you want to compile the jars, please refer to the instructions [here](./spark-qualification-tool.md#How-to-compile-the-tools-jar).
+If you want to compile the jar, please refer to the instructions [here](./spark-qualification-tool.md#How-to-compile-the-tools-jar).
 
 ### Step 1b: Download the Apache Spark 3 distribution
 The Profiling tool requires the Spark 3.x jars to be able to run but does not need an Apache Spark run time.
 If you do not already have Spark 3.x installed, 
 you can download the Spark distribution to any machine and include the jars in the classpath.
-- [Download Apache Spark 3.x](http://spark.apache.org/downloads.html) - Spark 3.1.1 for Apache Hadoop is recommended
+- [Download Apache Spark 3.x](http://spark.apache.org/downloads.html)
 
 ### Step 2 How to run the Profiling tool
 The profiling tool parses the Spark CPU or GPU event log(s) and creates an output report.
-We need to extract the Spark distribution into a local directory if necessary.  To run the tool, please note the following:
-- Either set `SPARK_HOME` to point to that directory or put the path inside of the
+If necessary, extract the Spark distribution into a local directory.  To run the tool, please note the following:
+- Either set `SPARK_HOME` to point to that local directory or add it to the
 classpath `java -cp toolsJar:pathToSparkJars/*:...` when you run the Profiling tool.
 - Acceptable input event log paths are files or directories containing spark events logs
 in the local filesystem, HDFS, S3 or mixed. 
@@ -98,7 +98,7 @@ Run `--help` for more information.
 The default output location is the current directory. 
 The output location can be changed using the `--output-directory` option.
 The output goes into a sub-directory named `rapids_4_spark_profile/` inside that output location.
-- If running in normal collect mode, it processes event log individually and outputs files for each application under
+- If running in normal collect mode, it processes event logs individually and outputs files for each application under
 a directory named `rapids_4_spark_profile/{APPLICATION_ID}`. It creates a summary text file named `profile.log`.
 - If running combine mode the output is put under a directory named `rapids_4_spark_profile/combined/` and creates a summary
 text file named `rapids_4_spark_tools_combined.log`.
@@ -115,7 +115,7 @@ corresponding sub-directory.
 
 Additional notes:
 - There is a 100 characters limit for each output column. If the result of the column exceeds this limit, it is suffixed with
-... for that column.
+`...` for that column.
 - ResourceProfile ids are parsed for the event logs that are from Spark 3.1 or later.  A ResourceProfile allows the user
 to specify executor and task requirements for an RDD that will get applied during a stage.  This allows the user to change
 the resource requirements between stages.
@@ -130,8 +130,8 @@ the resource requirements between stages.
 - Rapids related parameters
 - Spark Properties
 - Rapids Accelerator jar
-- WholeStageCodeGen to node mappings (only applies to CPU plans)
 - SQL Plan Metrics
+- WholeStageCodeGen to node mappings (only applies to CPU plans)
 - IO Metrics
 - Compare Mode: Matching SQL IDs Across Applications
 - Compare Mode: Matching Stage IDs Across Applications
@@ -313,7 +313,7 @@ SQL Plan Metrics for Application:
 |1       |0    |1     |GpuColumnarExchange                                        |116          |shuffle write time     |666666666666 |nsTiming  |4,3     |
 ```
 
-- WholeStageCodeGen to Node Mapping:
+- WholeStageCodeGen to Node Mapping (only for CPU logs):
 
 ```
 WholeStageCodeGen Mapping:
@@ -503,8 +503,6 @@ The _Auto-Tuner_ output has 2 main sections:
 
 - Print SQL Plans (--print-plans option):
 Prints the SQL plan as a text string to a file named `planDescriptions.log`.
-For example if your application id is app-20210507103057-0000, then the
-filename will be `planDescriptions.log`
 
 - Generate DOT graph for each SQL (--generate-dot option):
 
@@ -512,6 +510,7 @@ filename will be `planDescriptions.log`
 Generated DOT graphs for app app-20210507103057-0000 to /path/. in 17 second(s)
 ```
 
+A dot file will be generated for each query in the application.
 Once the DOT file is generated, you can install [graphviz](http://www.graphviz.org) to convert the DOT file
 as a graph in pdf format using below command:
 
