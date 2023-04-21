@@ -369,6 +369,9 @@ class DataprocCluster(ClusterBase):
         self.uuid = self.props.get_value('clusterUuid')
         self.state = ClusterState.fromstring(self.props.get_value('status', 'state'))
 
+    def _set_name_from_props(self) -> None:
+        self.name = self.props.get_value('clusterName')
+
     def _init_nodes(self):
         # assume that only one master node
         master_nodes_from_conf = self.props.get_value('config', 'masterConfig', 'instanceNames')
@@ -463,6 +466,30 @@ class DataprocCluster(ClusterBase):
 
     def get_tmp_storage(self) -> str:
         return self._get_temp_gs_storage()
+
+    def get_image_version(self) -> str:
+        return self.props.get_value_silent('config', 'softwareConfig', 'imageVersion')
+
+    def _set_render_args_create_template(self) -> dict:
+        worker_node = self.get_worker_node()
+        gpu_per_machine, gpu_device = self.get_gpu_per_worker()
+        # map the gpu device to the equivalent accepted argument
+        gpu_device_hash = {
+            'T4': 'nvidia-tesla-t4',
+            'L4': 'nvidia-l4'
+        }
+        return {
+            'CLUSTER_NAME': self.get_name(),
+            'REGION': self.region,
+            'ZONE': self.zone,
+            'IMAGE': self.get_image_version(),
+            'MASTER_MACHINE': self.get_master_node().instance_type,
+            'WORKERS_COUNT': self.get_workers_count(),
+            'WORKERS_MACHINE': worker_node.instance_type,
+            'LOCAL_SSD': 2,
+            'GPU_DEVICE': gpu_device_hash.get(gpu_device),
+            'GPU_PER_WORKER': gpu_per_machine
+        }
 
 
 @dataclass
