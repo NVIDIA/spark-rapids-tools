@@ -26,7 +26,7 @@ import scala.collection.mutable.ListBuffer
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
-import org.yaml.snakeyaml.Yaml
+import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
 import org.yaml.snakeyaml.constructor.{Constructor, ConstructorException}
 import org.yaml.snakeyaml.representer.Representer
 
@@ -874,9 +874,10 @@ object AutoTuner extends Logging {
   }
 
   def loadClusterPropertiesFromContent(clusterProps: String): Option[ClusterProperties] = {
-    val representer = new Representer
+    val representer = new Representer(new DumperOptions())
     representer.getPropertyUtils.setSkipMissingProperties(true)
-    val yamlObjNested = new Yaml(new Constructor(classOf[ClusterProperties]), representer)
+    val constructor = new Constructor(classOf[ClusterProperties], new LoaderOptions())
+    val yamlObjNested = new Yaml(constructor, representer)
     Option(yamlObjNested.load(clusterProps).asInstanceOf[ClusterProperties])
   }
 

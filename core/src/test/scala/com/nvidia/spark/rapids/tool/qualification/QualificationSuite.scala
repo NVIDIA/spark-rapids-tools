@@ -23,7 +23,6 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
-import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
