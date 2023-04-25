@@ -574,6 +574,15 @@ class AutoTuner(
     appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
     addRecommendationForMemoryOverhead(s"$memoryOverhead")
 
+    appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", numExecutorCores)
+    appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numExecutorCores)
+    appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
+      Math.max(20, numExecutorCores))
+
+    val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.toString.filterNot("().".toSet)
+    appendRecommendation("spark.shuffle.manager",
+      "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
+
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
     recommendGeneralProperties()
