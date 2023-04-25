@@ -582,6 +582,10 @@ class AutoTuner(
     val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.toString.filterNot("().".toSet)
     appendRecommendation("spark.shuffle.manager",
       "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
+    appendComment("The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and\n" +
+      "  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS\n" +
+      "  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,\n" +
+      "  this step is not needed.")
 
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
