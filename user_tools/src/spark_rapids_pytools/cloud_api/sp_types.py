@@ -83,6 +83,7 @@ class GpuDevice(EnumeratedType):
     A100 = 'a100'
     P100 = 'P100'
     P4 = 'P4'
+    L4 = 'l4'
 
     @classmethod
     def get_default_gpu(cls):
@@ -91,6 +92,7 @@ class GpuDevice(EnumeratedType):
     def get_gpu_mem(self) -> list:
         memory_hash = {
             self.T4: [16384],
+            self.L4: [24576],
             self.A100: [40960, 81920],
             self.P4: [8192],
             self.K80: [12288],
@@ -592,7 +594,7 @@ class PlatformBase:
 
     @classmethod
     def list_supported_gpus(cls):
-        return [GpuDevice.T4, GpuDevice.A100]
+        return [GpuDevice.T4, GpuDevice.A100, GpuDevice.L4]
 
     def load_from_config_parser(self, conf_file, **prop_args) -> dict:
         res = None
