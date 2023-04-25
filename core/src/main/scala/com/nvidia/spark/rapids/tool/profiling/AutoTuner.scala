@@ -574,6 +574,19 @@ class AutoTuner(
     appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
     addRecommendationForMemoryOverhead(s"$memoryOverhead")
 
+    appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", numExecutorCores)
+    appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numExecutorCores)
+    appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
+      Math.max(20, numExecutorCores))
+
+    val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.toString.filterNot("().".toSet)
+    appendRecommendation("spark.shuffle.manager",
+      "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
+    appendComment("The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and\n" +
+      "  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS\n" +
+      "  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,\n" +
+      "  this step is not needed.")
+
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
     recommendGeneralProperties()
