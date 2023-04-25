@@ -147,7 +147,8 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val platform: ScallopOption[String] =
     opt[String](required = false,
       descr = "Cluster platform where Spark CPU workloads were executed. Options include " +
-        "onprem, dataproc, emr, databricks-aws, and databricks-azure. Default is onprem.",
+        "onprem, dataproc-t4, dataproc-l4, emr, databricks-aws, and databricks-azure. " +
+        "Default is onprem.",
       default = Some("onprem"))
 
   validate(order) {
