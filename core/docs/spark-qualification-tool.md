@@ -24,7 +24,8 @@ applicable environments.  Here are the cluster information for the ETL benchmark
 | Environment      | CPU Cluster       | GPU Cluster                    |
 |------------------|-------------------|--------------------------------|
 | On-prem          | 8x 128-core       | 8x 128-core + 8x A100 40 GB    |
-| Dataproc         | 4x n1-standard-32 | 4x n1-standard-32 + 8x T4 16GB |
+| Dataproc (T4)    | 4x n1-standard-32 | 4x n1-standard-32 + 8x T4 16GB |
+| Dataproc (L4)    | 8x n1-standard-16 | 8x g2-standard-16              |
 | EMR              | 8x m5d.8xlarge    | 4x g4dn.12xlarge               |
 | Databricks AWS   | 8x m6gd.8xlage    | 8x g5.8xlarge                  |
 | Databricks Azure | 8x E8ds_v4        | 8x NC8as_T4_v3                 |
@@ -242,8 +243,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
                                      the same name.
   -p, --per-sql                      Report at the individual SQL query level.
       --platform  <arg>              Cluster platform where Spark CPU workloads were
-                                     executed. Options include onprem, dataproc, emr
-                                     databricks-aws, and databricks-azure.
+                                     executed. Options include onprem, dataproc-t4,
+                                     dataproc-l4, emr, databricks-aws, and
+                                     databricks-azure.
                                      Default is onprem.
   -r, --report-read-schema           Whether to output the read formats and
                                      datatypes to the CSV file. This can be very
@@ -593,12 +595,16 @@ The report represents the entire app execution, including unsupported operators 
 23. _App Duration Estimated_: True or False indicates if we had to estimate the application duration.
     If we had to estimate it, the value will be `True` and it means the event log was missing the application finished
     event, so we will use the last job or sql execution time we find as the end time used to calculate the duration.
-24. _Unsupported Execs_: reports all the execs that are not supported by GPU in this application. Note that an Exec name  may be
+24. _Unsupported Execs_: reports all the execs that are not supported by GPU in this application. Note that an Exec name may be
     printed in this column if any of the expressions within this Exec is not supported by GPU. If the resultant string
     exceeds maximum limit (25), then ... is suffixed to the STDOUT and full output can be found in the CSV file.
 25. _Unsupported Expressions_: reports all expressions not supported by GPU in this application.
-24. _Read Schema_: shows the datatypes and read formats. This field is only listed when the argument `--report-read-schema`
+26. _Read Schema_: shows the datatypes and read formats. This field is only listed when the argument `--report-read-schema`
     is passed to the CLI.
+27. _Estimated Frequency_: application executions per month assuming uniform distribution, default frequency is daily (30 times per month)
+    and minimum frequency is monthly (1 time per month). For a given log set, determines a logging window using the earliest start time
+    and last end time of all logged applications. Counts the number of executions of a specific `App Name` over the logging window
+    and converts the frequency to per month (30 days). Applications that are only ran once are assigned the default frequency.
 
 **Note:** the Qualification tool won't catch all UDFs, and some of the UDFs can be handled with additional steps.
 Please refer to [Supported Operators](https://github.com/NVIDIA/spark-rapids/blob/main/docs/supported_ops.md) for more details on UDF.
@@ -974,17 +980,8 @@ Sample output in text:
 ```
 
 ## How to compile the tools jar
-Note: This step is optional.
 
-```bash
-git clone https://github.com/NVIDIA/spark-rapids.git
-cd spark-rapids
-mvn -Pdefault -pl .,tools clean verify -DskipTests
-```
-
-The jar is generated in below directory :
-
-`./tools/target/rapids-4-spark-tools_2.12-<version>.jar`
+See instructions here: https://github.com/NVIDIA/spark-rapids-tools/tree/main/core#build
 
 If any input is a S3 file path or directory path, 2 extra steps are needed to access S3 in Spark:
 1. Download the matched jars based on the Hadoop version:

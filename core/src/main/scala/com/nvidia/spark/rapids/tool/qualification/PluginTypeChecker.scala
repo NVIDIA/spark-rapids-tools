@@ -39,7 +39,8 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
 
   private val DEFAULT_DS_FILE = "supportedDataSource.csv"
   private val OPERATORS_SCORE_FILE_ONPREM = "operatorsScore.csv"
-  private val OPERATORS_SCORE_FILE_DATAPROC = "operatorsScore-dataproc.csv"
+  private val OPERATORS_SCORE_FILE_DATAPROC_T4 = "operatorsScore-dataproc-t4.csv"
+  private val OPERATORS_SCORE_FILE_DATAPROC_L4 = "operatorsScore-dataproc-l4.csv"
   private val OPERATORS_SCORE_FILE_EMR = "operatorsScore-emr.csv"
   private val OPERATORS_SCORE_FILE_DATABRICKS_AWS = "operatorsScore-databricks-aws.csv"
   private val OPERATORS_SCORE_FILE_DATABRICKS_AZURE = "operatorsScore-databricks-azure.csv"
@@ -88,7 +89,9 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
 
   private def readOperatorsScore: Map[String, Double] = {
     val file = platform match {
-      case "dataproc" => OPERATORS_SCORE_FILE_DATAPROC
+      // if no GPU specified, then default to dataproc-t4 for backward compatibility
+      case "dataproc-t4" | "dataproc" => OPERATORS_SCORE_FILE_DATAPROC_T4
+      case "dataproc-l4" => OPERATORS_SCORE_FILE_DATAPROC_L4
       case "emr" => OPERATORS_SCORE_FILE_EMR
       case "databricks-aws" => OPERATORS_SCORE_FILE_DATABRICKS_AWS
       case "databricks-azure" => OPERATORS_SCORE_FILE_DATABRICKS_AZURE

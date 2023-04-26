@@ -24,7 +24,8 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List
 
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, ClusterBase, DeployMode
+from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, \
+    ClusterBase, DeployMode
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
@@ -281,10 +282,24 @@ class RapidsTool(object):
     def _report_results_are_empty(self):
         return [f'The {self.pretty_name()} tool did not generate any output. Nothing to display.']
 
+    def _generate_section_lines(self, sec_conf: dict) -> List[str]:
+        all_lines = sec_conf['content'].get('lines')
+        if all_lines:
+            return all_lines
+        return None
+
     def _generate_section_content(self, sec_conf: dict) -> List[str]:
-        rep_lines = [Utils.gen_report_sec_header(sec_conf.get('sectionName'), title_width=20)]
-        for sec_line in sec_conf['content'].get('lines'):
-            rep_lines.append(sec_line)
+        sec_title = sec_conf.get('sectionName')
+        rep_lines = []
+        if sec_title:
+            rep_lines.append(Utils.gen_report_sec_header(sec_title, title_width=20))
+        if sec_conf.get('content'):
+            headers = sec_conf['content'].get('header')
+            if headers:
+                rep_lines.extend(headers)
+            all_lines = self._generate_section_lines(sec_conf)
+            if all_lines:
+                rep_lines.extend(all_lines)
         return rep_lines
 
     def _generate_platform_report_sections(self) -> List[str]:

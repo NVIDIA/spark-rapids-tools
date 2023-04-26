@@ -210,6 +210,32 @@
               "    --worker-accelerator type=nvidia-tesla-{},count={}"
             ]
           }
+        },
+        {
+          "sectionID": "gpuClusterCreationScript",
+          "content": {
+            "header": [
+              "",
+              "To create a GPU cluster, run the following script:",
+              ""
+            ]
+          }
+        },
+        {
+          "sectionID": "runUserToolsBootstrap",
+          "content": {
+            "header": [
+              "",
+              "Once the cluster is created, run the Bootstrap tool to provide optimized",
+              "RAPIDS Accelerator for Apache Spark configs based on GPU cluster shape.",
+              "Notes:",
+              "    - Overriding the Apache Spark default configurations on the cluster",
+              "      requires SSH access.",
+              "    - If SSH access is unavailable, you can still dump the recommended",
+              "      configurations by enabling the `dry_run` flag.",
+              ""
+            ]
+          }
         }
       ]
     }

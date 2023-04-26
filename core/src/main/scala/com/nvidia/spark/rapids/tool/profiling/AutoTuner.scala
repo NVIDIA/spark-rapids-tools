@@ -26,7 +26,7 @@ import scala.collection.mutable.ListBuffer
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
-import org.yaml.snakeyaml.Yaml
+import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
 import org.yaml.snakeyaml.constructor.{Constructor, ConstructorException}
 import org.yaml.snakeyaml.representer.Representer
 
@@ -574,6 +574,19 @@ class AutoTuner(
     appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
     addRecommendationForMemoryOverhead(s"$memoryOverhead")
 
+    appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", numExecutorCores)
+    appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numExecutorCores)
+    appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
+      Math.max(20, numExecutorCores))
+
+    val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.toString.filterNot("().".toSet)
+    appendRecommendation("spark.shuffle.manager",
+      "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
+    appendComment("The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and\n" +
+      "  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS\n" +
+      "  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,\n" +
+      "  this step is not needed.")
+
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
     recommendGeneralProperties()
@@ -874,9 +887,10 @@ object AutoTuner extends Logging {
   }
 
   def loadClusterPropertiesFromContent(clusterProps: String): Option[ClusterProperties] = {
-    val representer = new Representer
+    val representer = new Representer(new DumperOptions())
     representer.getPropertyUtils.setSkipMissingProperties(true)
-    val yamlObjNested = new Yaml(new Constructor(classOf[ClusterProperties]), representer)
+    val constructor = new Constructor(classOf[ClusterProperties], new LoaderOptions())
+    val yamlObjNested = new Yaml(constructor, representer)
     Option(yamlObjNested.load(clusterProps).asInstanceOf[ClusterProperties])
   }
 

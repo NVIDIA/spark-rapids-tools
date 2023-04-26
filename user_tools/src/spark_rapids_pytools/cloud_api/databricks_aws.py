@@ -157,6 +157,9 @@ class DatabricksCluster(ClusterBase):
         self.uuid = self.props.get_value('cluster_id')
         self.state = ClusterState.fromstring(self.props.get_value('state'))
 
+    def _set_name_from_props(self) -> None:
+        self.name = self.props.get_value('cluster_name')
+
     def _init_nodes(self):
         # assume that only one master node
         master_nodes_from_conf = self.props.get_value_silent('driver')

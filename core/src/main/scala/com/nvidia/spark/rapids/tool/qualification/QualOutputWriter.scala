@@ -86,6 +86,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       sums.map(_.unSupportedExprs.size),
       QualOutputWriter.UNSUPPORTED_EXPRS_MAX_SIZE,
       QualOutputWriter.UNSUPPORTED_EXPRS.size)
+    val estimatedFrequencyMaxSize = QualOutputWriter.ESTIMATED_FREQUENCY_MAX_SIZE
     val appNameMaxSize = QualOutputWriter.getAppNameSize(sums)
     val hasClusterTags = sums.exists(_.clusterTags.nonEmpty)
     val (clusterIdMaxSize, jobIdMaxSize, runNameMaxSize) = if (hasClusterTags) {
@@ -99,8 +100,8 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       (CLUSTER_ID_STR_SIZE, JOB_ID_STR_SIZE, RUN_NAME_STR_SIZE)
     }
     val headersAndSizes = QualOutputWriter.getSummaryHeaderStringsAndSizes(
-      appNameMaxSize, appIdMaxSize, unSupExecMaxSize, unSupExprMaxSize, hasClusterTags,
-      clusterIdMaxSize, jobIdMaxSize, runNameMaxSize)
+      appNameMaxSize, appIdMaxSize, unSupExecMaxSize, unSupExprMaxSize, estimatedFrequencyMaxSize,
+      hasClusterTags, clusterIdMaxSize, jobIdMaxSize, runNameMaxSize)
     val entireHeader = QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
       TEXT_DELIMITER, true)
     val sep = "=" * (entireHeader.size - 1)
@@ -117,8 +118,8 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     val finalSums = estSum.take(numOutputRows)
     finalSums.foreach { sumInfo =>
       val wStr = QualOutputWriter.constructAppSummaryInfo(sumInfo, headersAndSizes,
-        appIdMaxSize, unSupExecMaxSize, unSupExprMaxSize, hasClusterTags, clusterIdMaxSize,
-        jobIdMaxSize, runNameMaxSize, TEXT_DELIMITER, true)
+        appIdMaxSize, unSupExecMaxSize, unSupExprMaxSize, estimatedFrequencyMaxSize, hasClusterTags,
+        clusterIdMaxSize, jobIdMaxSize, runNameMaxSize, TEXT_DELIMITER, true)
       writer.write(wStr)
       if (printStdout) print(wStr)
     }
@@ -310,7 +311,8 @@ case class FormattedQualificationSummaryInfo(
     endDurationEstimated: Boolean,
     unSupportedExecs: String,
     unSupportedExprs: String,
-    clusterTags: Map[String, String])
+    clusterTags: Map[String, String],
+    estimatedFrequency: Long)
 
 object QualOutputWriter {
   val NON_SQL_TASK_DURATION_STR = "NonSQL Task Duration"
@@ -359,10 +361,13 @@ object QualOutputWriter {
   val CLUSTER_ID = "ClusterId"
   val JOB_ID = "JobId"
   val RUN_NAME = "RunName"
+  val ESTIMATED_FREQUENCY = "Estimated Job Frequency (monthly)"
   val ML_FUNCTIONS = "ML Functions"
   val ML_FUNCTION_NAME = "ML Function Name"
   val ML_TOTAL_STAGE_DURATION = "Total Duration"
   val ML_STAGE_IDS = "Stage Ids"
+  // Default frequency for jobs with a single instance is 30 times every month (30 days)
+  val DEFAULT_JOB_FREQUENCY = 30L
 
   val APP_DUR_STR_SIZE: Int = APP_DUR_STR.size
   val SQL_DUR_STR_SIZE: Int = SQL_DUR_STR.size
@@ -372,6 +377,7 @@ object QualOutputWriter {
   val GPU_OPPORTUNITY_STR_SIZE: Int = GPU_OPPORTUNITY_STR.size
   val UNSUPPORTED_EXECS_MAX_SIZE: Int = 25
   val UNSUPPORTED_EXPRS_MAX_SIZE: Int = 25
+  val ESTIMATED_FREQUENCY_MAX_SIZE: Int = 33
   val CLUSTER_ID_STR_SIZE: Int = CLUSTER_ID.size
   val JOB_ID_STR_SIZE: Int = JOB_ID.size
   val RUN_NAME_STR_SIZE: Int = RUN_NAME.size
@@ -535,7 +541,8 @@ object QualOutputWriter {
       SPEEDUP_FACTOR_STR -> SPEEDUP_FACTOR_STR.size,
       APP_DUR_ESTIMATED_STR -> APP_DUR_ESTIMATED_STR.size,
       UNSUPPORTED_EXECS -> UNSUPPORTED_EXECS.size,
-      UNSUPPORTED_EXPRS -> UNSUPPORTED_EXPRS.size
+      UNSUPPORTED_EXPRS -> UNSUPPORTED_EXPRS.size,
+      ESTIMATED_FREQUENCY -> ESTIMATED_FREQUENCY.size
     )
     if (appInfos.exists(_.clusterTags.nonEmpty)) {
       detailedHeadersAndFields += (CLUSTER_TAGS -> getMaxSizeForHeader(
@@ -554,6 +561,7 @@ object QualOutputWriter {
       appIdMaxSize: Int,
       unSupExecMaxSize: Int = UNSUPPORTED_EXECS_MAX_SIZE,
       unSupExprMaxSize: Int = UNSUPPORTED_EXPRS_MAX_SIZE,
+      estimatedFrequencyMaxSize: Int = ESTIMATED_FREQUENCY_MAX_SIZE,
       hasClusterTags: Boolean = false,
       clusterIdMaxSize: Int = CLUSTER_ID_STR_SIZE,
       jobIdMaxSize: Int = JOB_ID_STR_SIZE,
@@ -569,7 +577,8 @@ object QualOutputWriter {
       ESTIMATED_GPU_TIMESAVED -> ESTIMATED_GPU_TIMESAVED.size,
       SPEEDUP_BUCKET_STR -> SPEEDUP_BUCKET_STR_SIZE,
       UNSUPPORTED_EXECS -> unSupExecMaxSize,
-      UNSUPPORTED_EXPRS -> unSupExprMaxSize
+      UNSUPPORTED_EXPRS -> unSupExprMaxSize,
+      ESTIMATED_FREQUENCY -> estimatedFrequencyMaxSize
     )
     if (hasClusterTags) {
       data += (CLUSTER_ID -> clusterIdMaxSize)
@@ -585,6 +594,7 @@ object QualOutputWriter {
       appIdMaxSize: Int,
       unSupExecMaxSize: Int,
       unSupExprMaxSize: Int,
+      estimatedFrequencyMaxSize: Int,
       hasClusterTags: Boolean,
       clusterIdMaxSize: Int,
       jobIdMaxSize: Int,
@@ -592,23 +602,26 @@ object QualOutputWriter {
       delimiter: String,
       prettyPrint: Boolean): String = {
     val data = ListBuffer[(String, Int)](
-      sumInfo.appName -> headersAndSizes(APP_NAME_STR),
-      sumInfo.appId -> appIdMaxSize,
-      sumInfo.appDur.toString -> APP_DUR_STR_SIZE,
-      sumInfo.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
-      sumInfo.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
-      ToolUtils.formatDoublePrecision(sumInfo.estimatedGpuDur) -> ESTIMATED_GPU_DURATION.size,
-      ToolUtils.formatDoublePrecision(sumInfo.estimatedGpuSpeedup) -> ESTIMATED_GPU_SPEEDUP.size,
-      ToolUtils.formatDoublePrecision(sumInfo.estimatedGpuTimeSaved) ->
+      sumInfo.estimatedInfo.appName -> headersAndSizes(APP_NAME_STR),
+      sumInfo.estimatedInfo.appId -> appIdMaxSize,
+      sumInfo.estimatedInfo.appDur.toString -> APP_DUR_STR_SIZE,
+      sumInfo.estimatedInfo.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
+      sumInfo.estimatedInfo.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
+      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuDur) ->
+        ESTIMATED_GPU_DURATION.size,
+      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuSpeedup) ->
+        ESTIMATED_GPU_SPEEDUP.size,
+      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuTimeSaved) ->
         ESTIMATED_GPU_TIMESAVED.size,
-      sumInfo.recommendation -> SPEEDUP_BUCKET_STR_SIZE,
-      sumInfo.unsupportedExecs -> unSupExecMaxSize,
-      sumInfo.unsupportedExprs -> unSupExprMaxSize
+      sumInfo.estimatedInfo.recommendation -> SPEEDUP_BUCKET_STR_SIZE,
+      sumInfo.estimatedInfo.unsupportedExecs -> unSupExecMaxSize,
+      sumInfo.estimatedInfo.unsupportedExprs -> unSupExprMaxSize,
+      sumInfo.estimatedFrequency.toString -> estimatedFrequencyMaxSize
     )
     if (hasClusterTags) {
-      data += (sumInfo.allTagsMap.getOrElse(CLUSTER_ID, "") -> clusterIdMaxSize)
-      data += (sumInfo.allTagsMap.getOrElse(JOB_ID, "") -> jobIdMaxSize)
-      data += (sumInfo.allTagsMap.getOrElse(RUN_NAME, "") -> runNameMaxSize)
+      data += (sumInfo.estimatedInfo.allTagsMap.getOrElse(CLUSTER_ID, "") -> clusterIdMaxSize)
+      data += (sumInfo.estimatedInfo.allTagsMap.getOrElse(JOB_ID, "") -> jobIdMaxSize)
+      data += (sumInfo.estimatedInfo.allTagsMap.getOrElse(RUN_NAME, "") -> runNameMaxSize)
     }
     constructOutputRow(data, delimiter, prettyPrint)
   }
@@ -873,7 +886,8 @@ object QualOutputWriter {
       appInfo.endDurationEstimated,
       appInfo.unSupportedExecs,
       appInfo.unSupportedExprs,
-      appInfo.allClusterTagsMap
+      appInfo.allClusterTagsMap,
+      appInfo.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY)
     )
   }
 
@@ -907,7 +921,8 @@ object QualOutputWriter {
       appInfo.taskSpeedupFactor.toString -> headersAndSizes(SPEEDUP_FACTOR_STR),
       appInfo.endDurationEstimated.toString -> headersAndSizes(APP_DUR_ESTIMATED_STR),
       stringIfempty(appInfo.unSupportedExecs) -> headersAndSizes(UNSUPPORTED_EXECS),
-      stringIfempty(appInfo.unSupportedExprs) -> headersAndSizes(UNSUPPORTED_EXPRS)
+      stringIfempty(appInfo.unSupportedExprs) -> headersAndSizes(UNSUPPORTED_EXPRS),
+      appInfo.estimatedFrequency.toString -> headersAndSizes(ESTIMATED_FREQUENCY)
     )
     if (appInfo.clusterTags.nonEmpty) {
       data += stringIfempty(appInfo.clusterTags.mkString(";")) -> headersAndSizes(CLUSTER_TAGS)

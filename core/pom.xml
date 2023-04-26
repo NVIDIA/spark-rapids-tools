@@ -23,7 +23,7 @@
     <artifactId>rapids-4-spark-tools_2.12</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
-    <version>23.02.1-SNAPSHOT</version>
+    <version>23.04.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <url>http://github.com/NVIDIA/spark-rapids-tools</url>
 
@@ -240,15 +240,15 @@
         <spark331.version>3.3.1</spark331.version>
         <spark332.version>3.3.2</spark332.version>
         <spark333.version>3.3.3-SNAPSHOT</spark333.version>
-        <spark340.version>3.4.0-SNAPSHOT</spark340.version>
+        <spark340.version>3.4.0</spark340.version>
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>
         <scalatest-maven-plugin.version>2.0.2</scalatest-maven-plugin.version>
-        <maven.clean.plugin.version>3.1.0</maven.clean.plugin.version>
+        <maven.clean.plugin.version>3.2.0</maven.clean.plugin.version>
         <scala.version>2.12.15</scala.version>
         <hadoop.version>3.3.4</hadoop.version>
         <spark.test.version>${spark311.version}</spark.test.version>
-        <snakeyaml.version>1.33</snakeyaml.version>
+        <snakeyaml.version>2.0</snakeyaml.version>
         <scallop.version>3.5.1</scallop.version>
         <scalatest.version>3.0.5</scalatest.version>
         <spark.version.classifier>spark${buildver}</spark.version.classifier>
@@ -258,6 +258,7 @@
         <ui.resources.dir>${project.basedir}/${ui.resources.relative}</ui.resources.dir>
         <ui.resources.external.folder>assets</ui.resources.external.folder>
         <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
+        <maven.source.plugin.version>3.0.0</maven.source.plugin.version>
         <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
     </properties>
@@ -591,6 +592,7 @@
             </plugin>
             <plugin>
                 <!-- clean up the qual-ui dependencies from the resources -->
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-clean-plugin</artifactId>
                 <version>${maven.clean.plugin.version}</version>
                 <executions>
@@ -622,6 +624,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
+                <version>${maven.source.plugin.version}</version>
                 <executions>
                     <execution>
                         <id>attach-source</id>
