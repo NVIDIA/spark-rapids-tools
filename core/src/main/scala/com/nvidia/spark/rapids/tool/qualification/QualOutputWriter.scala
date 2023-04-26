@@ -58,7 +58,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       QualOutputWriter.CSV_DELIMITER, false))
     sums.foreach { sum =>
       csvFileWriter.write(QualOutputWriter.constructAppDetailedInfo(sum, headersAndSizes,
-        QualOutputWriter.CSV_DELIMITER, false, reportReadSchema))
+        QualOutputWriter.CSV_DELIMITER, false, reportReadSchema, true))
     }
   }
 
@@ -160,7 +160,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       val sortedInfo = sortPerSqlInfo(sums)
       sortedInfo.foreach { sumInfo =>
         val row = QualOutputWriter.constructPerSqlSummaryInfo(sumInfo, headersAndSizes,
-          appIdMaxSize, ",", false, maxSQLDescLength)
+          appIdMaxSize, ",", false, maxSQLDescLength, true)
         csvFileWriter.write(row)
       }
     } finally {
@@ -238,7 +238,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
         .getDetailedExecsHeaderStringsAndSizes(sums, allExecs.toSeq)
       csvFileWriter.write(QualOutputWriter.constructDetailedHeader(headersAndSizes, ",", false))
       sums.foreach { sumInfo =>
-        val rows = QualOutputWriter.constructExecsInfo(sumInfo, headersAndSizes, ",", false)
+        val rows = QualOutputWriter.constructExecsInfo(sumInfo, headersAndSizes, ",", false, true)
         rows.foreach(csvFileWriter.write(_))
       }
     } finally {
@@ -254,7 +254,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       val headersAndSizes = QualOutputWriter.getDetailedMlFuncsHeaderStringsAndSizes(sums)
       csvFileWriter.write(QualOutputWriter.constructDetailedHeader(headersAndSizes, ",", false))
       sums.foreach { sumInfo =>
-        val rows = QualOutputWriter.constructMlFuncsInfo(sumInfo, headersAndSizes, ",", false)
+        val rows = QualOutputWriter.constructMlFuncsInfo(sumInfo, headersAndSizes, ",", false, true)
         rows.foreach(csvFileWriter.write(_))
       }
     } finally {
@@ -274,7 +274,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       csvFileWriter.write(QualOutputWriter.constructDetailedHeader(headersAndSizes, ",", false))
       supportedMlFuns.foreach { sumInfo =>
         val rows = QualOutputWriter.constructMlFuncsTotalDurationInfo(
-          sumInfo, headersAndSizes, ",", false)
+          sumInfo, headersAndSizes, ",", false, true)
         rows.foreach(csvFileWriter.write(_))
       }
     } finally {
@@ -438,20 +438,27 @@ object QualOutputWriter {
   def constructOutputRowFromMap(
       strAndSizes: LinkedHashMap[String, Int],
       delimiter: String = TEXT_DELIMITER,
-      prettyPrint: Boolean = false): String = {
-    constructOutputRow(strAndSizes.toBuffer, delimiter, prettyPrint)
+      prettyPrint: Boolean = false,
+      csvEscapeFormatting: Boolean = false): String = {
+    constructOutputRow(strAndSizes.toBuffer, delimiter, prettyPrint, csvEscapeFormatting)
   }
 
   private def constructOutputRow(
       strAndSizes: Buffer[(String, Int)],
       delimiter: String = TEXT_DELIMITER,
-      prettyPrint: Boolean = false): String = {
+      prettyPrint: Boolean = false,
+      csvEscapeFormatting: Boolean = false): String = {
+    val escapedStrAndSizes =
+      if(csvEscapeFormatting)
+        strAndSizes.map{ case (str, maxLen) => reformatCSVString(str) -> maxLen }
+      else
+        strAndSizes
     val entireHeader = new StringBuffer
     if (prettyPrint) {
       entireHeader.append(delimiter)
     }
-    val lastEntry = strAndSizes.last
-    strAndSizes.dropRight(1).foreach { case (str, strSize) =>
+    val lastEntry = escapedStrAndSizes.last
+    escapedStrAndSizes.dropRight(1).foreach { case (str, strSize) =>
       if (prettyPrint) {
         val updatedString = stringLengthExceedsMax(str, strSize, delimiter)
         entireHeader.append(updatedString)
@@ -473,6 +480,14 @@ object QualOutputWriter {
 
   private def stringIfempty(str: String): String = {
     if (str.isEmpty) "\"\"" else str
+  }
+
+  private def reformatCSVString(str: String, delim: String = CSV_DELIMITER): String = {
+    // or str.takeRight(1).isWhitespace
+    if ((str.isEmpty || str.contains(delim) || str.contains("\"")) && str != "\"\"")
+      "\"" + str.replace("\"", "\"\"") + "\""
+    else
+      str
   }
 
   private def stringLengthExceedsMax(str: String, strSize: Int, delimiter: String): String = {
@@ -646,7 +661,8 @@ object QualOutputWriter {
       appIdMaxSize: Int,
       delimiter: String,
       prettyPrint: Boolean,
-      maxSQLDescLength: Int): String = {
+      maxSQLDescLength: Int,
+      csvEscapeFormatting: Boolean = false): String = {
     val data = ListBuffer[(String, Int)](
       sumInfo.info.appName -> headersAndSizes(APP_NAME_STR),
       sumInfo.info.appId -> appIdMaxSize,
@@ -662,7 +678,7 @@ object QualOutputWriter {
         ESTIMATED_GPU_TIMESAVED.size,
       sumInfo.info.recommendation -> SPEEDUP_BUCKET_STR_SIZE
     )
-    constructOutputRow(data, delimiter, prettyPrint)
+    constructOutputRow(data, delimiter, prettyPrint, csvEscapeFormatting)
   }
 
   def getDetailedExecsHeaderStringsAndSizes(appInfos: Seq[QualificationSummaryInfo],
@@ -689,7 +705,8 @@ object QualOutputWriter {
       sumInfo: QualificationSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String = TEXT_DELIMITER,
-      prettyPrint: Boolean): Seq[String] = {
+      prettyPrint: Boolean,
+      csvEscapeFormatting: Boolean = false): Seq[String] = {
     val appId = sumInfo.appId
     sumInfo.mlFunctions.get.map { info =>
       val data = ListBuffer[(String, Int)](
@@ -697,7 +714,7 @@ object QualOutputWriter {
         info.stageId.toString -> headersAndSizes(STAGE_ID_STR),
         ToolUtils.renderTextField(info.mlOps, ";", delimiter) -> headersAndSizes(ML_FUNCTIONS),
         info.duration.toString -> headersAndSizes(STAGE_DUR_STR))
-      constructOutputRow(data, delimiter, prettyPrint)
+      constructOutputRow(data, delimiter, prettyPrint, csvEscapeFormatting)
     }
   }
 
@@ -705,7 +722,8 @@ object QualOutputWriter {
       sumInfo: QualificationSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String = TEXT_DELIMITER,
-      prettyPrint: Boolean): Seq[String] = {
+      prettyPrint: Boolean,
+      csvEscapeFormatting: Boolean = false): Seq[String] = {
     val appId = sumInfo.appId
     sumInfo.mlFunctionsStageDurations.get.map { info =>
       val data = ListBuffer[(String, Int)](
@@ -748,7 +766,8 @@ object QualOutputWriter {
       appId: String,
       delimiter: String = TEXT_DELIMITER,
       prettyPrint: Boolean,
-      headersAndSizes: LinkedHashMap[String, Int]): String = {
+      headersAndSizes: LinkedHashMap[String, Int],
+      csvEscapeFormatting: Boolean = false): String = {
     val data = ListBuffer[(String, Int)](
       stringIfempty(appId) -> headersAndSizes(APP_ID_STR),
       info.sqlID.toString -> headersAndSizes(SQL_ID_STR),
@@ -764,7 +783,7 @@ object QualOutputWriter {
       info.children.getOrElse(Seq.empty).map(_.nodeId).mkString(":") ->
         headersAndSizes(EXEC_CHILDREN_NODE_IDS),
       info.shouldRemove.toString -> headersAndSizes(EXEC_SHOULD_REMOVE))
-    constructOutputRow(data, delimiter, prettyPrint)
+    constructOutputRow(data, delimiter, prettyPrint, csvEscapeFormatting)
   }
 
   def getDetailedStagesHeaderStringsAndSizes(
@@ -810,14 +829,17 @@ object QualOutputWriter {
       sumInfo: QualificationSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String = TEXT_DELIMITER,
-      prettyPrint: Boolean): Set[String] = {
+      prettyPrint: Boolean,
+      csvEscapeFormatting: Boolean = false): Set[String] = {
     val allExecs = getAllExecsFromPlan(sumInfo.planInfo)
     val appId = sumInfo.appId
     allExecs.flatMap { info =>
       val children = info.children
-        .map(_.map(constructExecInfoBuffer(_, appId, delimiter, prettyPrint, headersAndSizes)))
+        .map(_.map(constructExecInfoBuffer(
+          _, appId, delimiter, prettyPrint, headersAndSizes, csvEscapeFormatting)))
         .getOrElse(Seq.empty)
-      children :+ constructExecInfoBuffer(info, appId, delimiter, prettyPrint, headersAndSizes)
+      children :+ constructExecInfoBuffer(
+        info, appId, delimiter, prettyPrint, headersAndSizes, csvEscapeFormatting)
     }
   }
 
@@ -888,7 +910,7 @@ object QualOutputWriter {
       stringIfempty(appInfo.unSupportedExprs) -> headersAndSizes(UNSUPPORTED_EXPRS)
     )
     if (appInfo.clusterTags.nonEmpty) {
-      data += appInfo.clusterTags.mkString(";") -> headersAndSizes(CLUSTER_TAGS)
+      data += stringIfempty(appInfo.clusterTags.mkString(";")) -> headersAndSizes(CLUSTER_TAGS)
     }
     if (reportReadSchema) {
       data += (stringIfempty(appInfo.readFileFormats) -> headersAndSizes(READ_SCHEMA_STR))
@@ -901,9 +923,10 @@ object QualOutputWriter {
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String,
       prettyPrint: Boolean,
-      reportReadSchema: Boolean): String = {
+      reportReadSchema: Boolean,
+      csvEscapeFormatting: Boolean = false): String = {
     val formattedAppInfo = createFormattedQualSummaryInfo(summaryAppInfo, delimiter)
     val data = constructDetailedAppInfoCSVRow(formattedAppInfo, headersAndSizes, reportReadSchema)
-    constructOutputRow(data, delimiter, prettyPrint)
+    constructOutputRow(data, delimiter, prettyPrint, csvEscapeFormatting)
   }
 }
