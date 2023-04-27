@@ -455,10 +455,11 @@ object QualOutputWriter {
       prettyPrint: Boolean = false,
       csvEscapeFormatting: Boolean = false): String = {
     val escapedStrAndSizes =
-      if(csvEscapeFormatting)
+      if(csvEscapeFormatting) {
         strAndSizes.map{ case (str, maxLen) => reformatCSVString(str) -> maxLen }
-      else
+      } else {
         strAndSizes
+      }
     val entireHeader = new StringBuffer
     if (prettyPrint) {
       entireHeader.append(delimiter)
@@ -489,11 +490,11 @@ object QualOutputWriter {
   }
 
   private def reformatCSVString(str: String, delim: String = CSV_DELIMITER): String = {
-    // or str.takeRight(1).isWhitespace
-    if ((str.isEmpty || str.contains(delim) || str.contains("\"")) && str != "\"\"")
+    if ((str.isEmpty || str.contains(delim) || str.contains("\"")) && str != "\"\"") {
       "\"" + str.replace("\"", "\"\"") + "\""
-    else
+    } else {
       str
+    }
   }
 
   private def stringLengthExceedsMax(str: String, strSize: Int, delimiter: String): String = {
