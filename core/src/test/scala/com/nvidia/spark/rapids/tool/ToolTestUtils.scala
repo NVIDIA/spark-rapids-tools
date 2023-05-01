@@ -113,10 +113,11 @@ object ToolTestUtils extends Logging {
       schema: Option[StructType] = None): DataFrame = {
     // make sure to change null value so empty strings don't show up as nulls
     if (schema.isDefined) {
-      sparkSession.read.option("header", "true").option("nullValue", "-")
+      sparkSession.read.option("header", "true").option("nullValue", "-").option("escape", "\"")
         .schema(schema.get).csv(path)
     } else {
-      sparkSession.read.option("header", "true").option("nullValue", "-").csv(path)
+      sparkSession.read.option("header", "true").option("nullValue", "-").option("escape", "\"")
+        .csv(path)
     }
   }
 
