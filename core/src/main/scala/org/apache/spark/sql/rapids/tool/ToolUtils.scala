@@ -46,8 +46,7 @@ object ToolUtils extends Logging {
   lazy val getEventFromJsonMethod: (String) => org.apache.spark.scheduler.SparkListenerEvent = {
     // Spark 3.4 and Databricks changed the signature on sparkEventFromJson
     val c = Class.forName("org.apache.spark.util.JsonProtocol")
-    // Explicitly check against the spark version so that any exception thrown by the JSON protocol
-    // won't be swallowed by the invocation error
+    // Explicitly check against the spark version.
     if (isSpark340OrLater()) {
       val m = c.getDeclaredMethod("sparkEventFromJson", classOf[String])
       (line: String) =>
