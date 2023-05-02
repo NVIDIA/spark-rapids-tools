@@ -20,11 +20,10 @@ import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
-
+import org.apache.maven.artifact.versioning.ComparableVersion
 import org.json4s.DefaultFormats
 import org.json4s.jackson.JsonMethods.parse
 
-import org.apache.maven.artifact.versioning.ComparableVersion
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.sql.DataFrame
 
