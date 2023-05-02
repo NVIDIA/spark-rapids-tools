@@ -1377,82 +1377,46 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     runQualificationTest(logFiles, "multi_run_freq_test_expectation.csv")
   }
 
-  test("test CSV qual output with escaped ,") {
-    TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "test,name") { spark =>
-        import spark.implicits._
-        val testData = Seq((1), (2)).toDF("id")
-        spark.sparkContext.setJobDescription("run job with problematic name")
-        testData.createOrReplaceTempView("t1")
-        spark.sql("SELECT id FROM t1")
-      }
+  test("test CSV qual output with escaped characters") {
+    val jobNames = List("test,name",  "\"test\"name\"")
+    jobNames.foreach { jobName =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) =
+          ToolTestUtils.generateEventLog(eventLogDir, jobName) { spark =>
+            import spark.implicits._
+            val testData = Seq((1), (2)).toDF("id")
+            spark.sparkContext.setJobDescription("run job with problematic name")
+            testData.createOrReplaceTempView("t1")
+            spark.sql("SELECT id FROM t1")
+          }
 
-      // run the qualification tool
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--per-sql",
-          "--output-directory",
-          outpath.getAbsolutePath,
-          eventLog))
+        // run the qualification tool
+        TrampolineUtil.withTempDir { outpath =>
+          val appArgs = new QualificationArgs(Array(
+            "--per-sql",
+            "--output-directory",
+            outpath.getAbsolutePath,
+            eventLog))
 
-        val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
+          val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+          assert(exit == 0)
 
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
+          // the code above that runs the Spark query stops the Sparksession
+          // so create a new one to read in the csv file
+          createSparkSession()
 
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.select("App Name").first.getString(0) == "test,name")
+          // validate that the SQL description in the csv file escapes commas properly
+          val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+            s"rapids_4_spark_qualification_output.csv"
+          val outputActual = readExpectedFile(new File(outputResults))
+          assert(outputActual.select("App Name").first.getString(0) == jobName)
 
-        val persqlResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output_persql.csv"
-        val outputPerSqlActual = readPerSqlFile(new File(persqlResults))
-        val rows = outputPerSqlActual.collect()
-        assert(rows(1)(0).toString == "test,name")
-      }
-    }
-  }
-
-  test("test CSV qual output with escaped \"") {
-    TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "\"test\"name\"") { spark =>
-        import spark.implicits._
-        val testData = Seq((1), (2)).toDF("id")
-        spark.sparkContext.setJobDescription("run job with problematic name")
-        testData.createOrReplaceTempView("t1")
-        spark.sql("SELECT id FROM t1")
-      }
-
-      // run the qualification tool
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--per-sql",
-          "--output-directory",
-          outpath.getAbsolutePath,
-          eventLog))
-
-        val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.select("App Name").first.getString(0) == "\"test\"name\"")
-
-        val persqlResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output_persql.csv"
-        val outputPerSqlActual = readPerSqlFile(new File(persqlResults))
-        val rows = outputPerSqlActual.collect()
-        assert(rows(1)(0).toString == "\"test\"name\"")
+          val persqlResults = s"$outpath/rapids_4_spark_qualification_output/" +
+            s"rapids_4_spark_qualification_output_persql.csv"
+          val outputPerSqlActual = readPerSqlFile(new File(persqlResults))
+          val rows = outputPerSqlActual.collect()
+          assert(rows(1)(0).toString == jobName)
+        }
       }
     }
   }
