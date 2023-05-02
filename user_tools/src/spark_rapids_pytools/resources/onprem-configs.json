@@ -1,0 +1,49 @@
+{
+  "dependencies": {
+    "deployMode": {
+      "LOCAL": [
+        {
+          "name": "Apache Spark",
+          "uri": "https://archive.apache.org/dist/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
+          "type": "archive",
+          "relativePath": "jars/*",
+          "sha512": "769db39a560a95fd88b58ed3e9e7d1e92fb68ee406689fb4d30c033cb5911e05c1942dcc70e5ec4585df84e80aabbc272b9386a208debda89522efff1335c8ff",
+          "size": 299350810
+        }
+      ]
+    }
+  },
+  "environment": {
+    "//description": "Define the metadata related to the system, prerequisites, and configurations",
+    "envParams": [],
+    "//initialConfigList": "represents the list of the configurations that need to be loaded first",
+    "initialConfigList": [],
+    "//loadedConfigProps": "list of properties read by the configParser",
+    "loadedConfigProps": [],
+    "cliConfig": {
+      "envVariables": [],
+      "confProperties": {
+        "//lookupList_description": "Define the list of properties",
+        "propertiesMap": [],
+        "credentialsMap": []
+      }
+    },
+    "cmdRunnerProperties": {
+      "systemPrerequisites": [],"//description": "define the properties passed to the CMD runner to be set as env-vars",
+      "inheritedProps": [],
+      "cliPiggyBackEnvVars": {
+        "//description": "Holds information about the variables that will be attached to the command runner",
+        "definedVars": []
+      },
+      "cliPiggyBackArgs": {
+        "//description": "Holds information about list of arguments that's appended to some SDK commands",
+        "definedArgs": []
+      },
+      "rapidsJobs": {
+        "LOCAL": {
+          "definedVars": []
+        }
+      }
+    }
+  }
+}

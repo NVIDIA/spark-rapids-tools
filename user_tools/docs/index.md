@@ -132,6 +132,25 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               +-------------+---------------------------------------+----------+
 |                  |               | cluster     |           unsupported                 |    N/A   |
 +------------------+---------------+-------------+---------------------------------------+----------+
+| OnPrem           | qualification | local       | spark_rapids_user_tools \             |  23.06+  |
+|                  |               |             |   onprem qualification [ARGS]         |          |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | serverless  |           unsupported                 |    N/A   |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | cluster     |           unsupported                 |    N/A   |
+|                  +---------------+-------------+---------------------------------------+----------+
+|                  | profiling     | local       |           unsupported                 |    N/A   |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | serverless  |           unsupported                 |    N/A   |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | cluster     |           unsupported                 |    N/A   |
+|                  +---------------+-------------+---------------------------------------+----------+
+|                  | bootstrap     | local       |           unsupported                 |    N/A   |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | serverless  |           unsupported                 |    N/A   |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | cluster     |           unsupported                 |    N/A   |
++------------------+---------------+-------------+---------------------------------------+----------+
 ```
 
 Please visit the following guides for details on how to use the wrapper CLI on each of the following

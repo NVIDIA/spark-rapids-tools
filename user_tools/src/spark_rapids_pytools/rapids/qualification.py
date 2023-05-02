@@ -58,6 +58,7 @@ class QualificationSummary:
     recommended_apps: pd.DataFrame = None
     df_result: pd.DataFrame = None
     irrelevant_speedups: bool = False
+    pricing_config: Any = None
     sections_generators: List[Callable] = field(default_factory=lambda: [])
 
     def _get_total_durations(self) -> int:
@@ -140,23 +141,32 @@ class QualificationSummary:
                     f'See the CSV file for full report or disable the filters.')
             else:
                 report_content.append(tabulate(pretty_df, headers='keys', tablefmt='psql', floatfmt='.2f'))
+        elif self.pricing_config is None:
+            report_content.append(f'pricing information not found for ${app_name}')
         else:
             report_content.append(f'{app_name} tool found no records to show.')
 
-        total_app_cost = self._get_stats_total_cost()
-        total_gpu_cost = self._get_stats_total_gpu_cost()
-        estimated_gpu_savings = 0.0
-        if total_app_cost > 0.0:
-            estimated_gpu_savings = 100.0 - (100.0 * total_gpu_cost / total_app_cost)
         overall_speedup = 0.0
         total_apps_durations = 1.0 * self._get_total_durations()
         total_gpu_durations = self._get_total_gpu_durations()
         if total_gpu_durations > 0:
             overall_speedup = total_apps_durations / total_gpu_durations
-        report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
-        report_summary = [['Total applications', self._get_stats_total_apps()],
-                          ['Overall estimated speedup', format_float(overall_speedup)],
-                          ['Overall estimated cost savings', f'{format_float(estimated_gpu_savings)}%']]
+
+        if self.pricing_config is None:
+            report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
+            report_summary = [['Total applications', self._get_stats_total_apps()],
+                              ['Overall estimated speedup', format_float(overall_speedup)]]
+        else:
+            total_app_cost = self._get_stats_total_cost()
+            total_gpu_cost = self._get_stats_total_gpu_cost()
+            estimated_gpu_savings = 0.0
+            if total_app_cost > 0.0:
+                estimated_gpu_savings = 100.0 - (100.0 * total_gpu_cost / total_app_cost)
+
+            report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
+            report_summary = [['Total applications', self._get_stats_total_apps()],
+                              ['Overall estimated speedup', format_float(overall_speedup)],
+                              ['Overall estimated cost savings', f'{format_float(estimated_gpu_savings)}%']]
         if not self.irrelevant_speedups:
             # do not display speedups stats if the speedup is being overriden by the shape recommendations
             report_summary.insert(1, ['RAPIDS candidates', self._get_stats_recommended_apps()])
@@ -309,6 +319,7 @@ class Qualification(RapidsJarTool):
         self.logger.debug('Executed command of copying %s', cp_res)
 
     def _prepare_job_arguments(self):
+        print("Inside _prepare_job_arguments")
         job_args = self.ctxt.get_ctxt('jobArgs')
         remote_folder = job_args.get('outputDirectory')
         if remote_folder is None:
@@ -597,11 +608,29 @@ class Qualification(RapidsJarTool):
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(comments=[self.__generate_mc_types_conversion_report])
 
+        apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
+        recommended_apps = self.__get_recommended_apps(apps_pruned_df)
+        # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
+        speedups_irrelevant_flag = self.__recommendation_is_non_standard()
+        reshaped_notes = self.__generate_cluster_shape_report()
+        report_comments = [prune_notes] if prune_notes else []
+        if reshaped_notes:
+            report_comments.append(reshaped_notes)
+
+        pricing_config = self.ctxt.platform.configs.get_value_silent('pricing')
+        # OnPrem platform doesn't have pricing information. We do not calculate cost savings for
+        # OnPrem platform.
+        if pricing_config is None:
+            return QualificationSummary(comments=report_comments,
+                                        all_apps=apps_pruned_df,
+                                        recommended_apps=recommended_apps,
+                                        irrelevant_speedups=speedups_irrelevant_flag,
+                                        sections_generators=
+                                        [self.__generate_mc_types_conversion_report])
+
         reshape_col = self.ctxt.get_value('local', 'output', 'processDFProps',
                                           'clusterShapeCols', 'columnName')
         speed_recommendation_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
-        apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
-        recommended_apps = self.__get_recommended_apps(apps_pruned_df)
         apps_reshaped_df, per_row_flag = self.__apply_gpu_cluster_reshape(apps_pruned_df)
         # Now, the dataframe is ready to calculate the cost and the savings
         apps_working_set = self.__calc_apps_cost(apps_reshaped_df,
@@ -609,20 +638,16 @@ class Qualification(RapidsJarTool):
                                                  speed_recommendation_col,
                                                  per_row_flag)
 
+        # apps_working_set = pd.DataFrame()
         if not apps_working_set.empty:
             self.logger.info('Generating GPU Estimated Speedup and Savings as %s', csv_out)
             # we can use the general format as well but this will transform numbers to E+. So, stick with %f
             apps_working_set.to_csv(csv_out, float_format='%.2f')
 
-        # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
-        speedups_irrelevant_flag = self.__recommendation_is_non_standard()
-        reshaped_notes = self.__generate_cluster_shape_report()
-        report_comments = [prune_notes] if prune_notes else []
-        if reshaped_notes:
-            report_comments.append(reshaped_notes)
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_pruned_df,
                                     recommended_apps=recommended_apps,
+                                    pricing_config=pricing_config,
                                     df_result=apps_working_set,
                                     irrelevant_speedups=speedups_irrelevant_flag,
                                     sections_generators=[self.__generate_mc_types_conversion_report])
@@ -696,6 +721,7 @@ class Qualification(RapidsJarTool):
         csv_file_name = self.ctxt.get_value('local', 'output', 'fileName')
         csv_summary_file = FSUtil.build_path(self.ctxt.get_output_folder(), csv_file_name)
         report_gen = self.__build_global_report_summary(df, csv_summary_file)
+        print("After build_global_report_summary")
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
                                                     wrapper_csv_file=csv_summary_file,
                                                     csp_report_provider=self._generate_platform_report_sections,
