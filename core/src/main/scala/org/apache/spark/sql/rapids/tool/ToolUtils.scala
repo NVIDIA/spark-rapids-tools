@@ -20,6 +20,7 @@ import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
+import org.apache.maven.artifact.versioning.ComparableVersion
 import org.json4s.DefaultFormats
 import org.json4s.jackson.JsonMethods.parse
 
@@ -27,6 +28,49 @@ import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.sql.DataFrame
 
 object ToolUtils extends Logging {
+
+  // Add more entries to this lookup table as necessary.
+  // There is no need to list all supported versions.
+  private val lookupVersions = Map(
+    "311" -> new ComparableVersion("3.1.1"),
+    "320" -> new ComparableVersion("3.2.0"),
+    "340" -> new ComparableVersion("3.4.0")
+  )
+
+  // Property to check the spark runtime version. We need this outside of test module as we
+  // extend the support runtime for different platforms such as Databricks.
+  lazy val sparkRuntimeVersion = {
+    org.apache.spark.SPARK_VERSION
+  }
+
+  lazy val getEventFromJsonMethod: (String) => org.apache.spark.scheduler.SparkListenerEvent = {
+    // Spark 3.4 and Databricks changed the signature on sparkEventFromJson
+    val c = Class.forName("org.apache.spark.util.JsonProtocol")
+    // Explicitly check against the spark version.
+    if (isSpark340OrLater()) {
+      val m = c.getDeclaredMethod("sparkEventFromJson", classOf[String])
+      (line: String) =>
+        m.invoke(null, line).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
+    } else {
+      val m = c.getDeclaredMethod("sparkEventFromJson", classOf[org.json4s.JValue])
+      (line: String) =>
+        m.invoke(null, parse(line)).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
+    }
+  }
+
+  def compareToSparkVersion(currVersion: String, lookupVersion: String): Int = {
+    val lookupVersionObj = lookupVersions.get(lookupVersion).get
+    val currVersionObj = new ComparableVersion(currVersion)
+    currVersionObj.compareTo(lookupVersionObj)
+  }
+
+  def isSpark320OrLater(sparkVersion: String = sparkRuntimeVersion): Boolean = {
+    compareToSparkVersion(sparkVersion, "320") >= 0
+  }
+
+  def isSpark340OrLater(sparkVersion: String = sparkRuntimeVersion): Boolean = {
+    compareToSparkVersion(sparkVersion, "340") >= 0
+  }
 
   def isPluginEnabled(properties: Map[String, String]): Boolean = {
     (properties.getOrElse(config.PLUGINS.key, "").contains("com.nvidia.spark.SQLPlugin")
