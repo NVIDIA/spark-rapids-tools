@@ -27,7 +27,6 @@ import com.nvidia.spark.rapids.tool.planparser.ReadParser
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
-import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
@@ -189,20 +188,6 @@ abstract class AppBase(
     }
   }
 
-  def getSparkEventFromJson(): (String) => org.apache.spark.scheduler.SparkListenerEvent = {
-    // Spark 3.4 and Databricks changed the signature on sparkEventFromJson
-    val c = Class.forName("org.apache.spark.util.JsonProtocol")
-    scala.util.Try {
-      val m = c.getDeclaredMethod("sparkEventFromJson", classOf[org.json4s.JValue])
-      (line: String) =>
-        m.invoke(null, parse(line)).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
-    }.getOrElse {
-      val m = c.getDeclaredMethod("sparkEventFromJson", classOf[String])
-      (line: String) =>
-        m.invoke(null, line).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
-    }
-  }
-
   /**
    * Functions to process all the events
    */
@@ -211,7 +196,6 @@ abstract class AppBase(
       case Some(eventLog) =>
         val eventLogPath = eventLog.eventLog
         logInfo("Parsing Event Log: " + eventLogPath.toString)
-        val getEventFromJsonMethod = getSparkEventFromJson()
 
         // at this point all paths should be valid event logs or event log dirs
         val hconf = hadoopConf.getOrElse(new Configuration())
@@ -234,7 +218,7 @@ abstract class AppBase(
               lines.find { line =>
                 val isDone = try {
                   totalNumEvents += 1
-                  val event = getEventFromJsonMethod(line)
+                  val event = ToolUtils.getEventFromJsonMethod(line)
                   processEvent(event)
                 }
                 catch {
