@@ -205,7 +205,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=7372m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark311.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
           |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.0625
@@ -216,12 +220,20 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.executor.memory' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- Number of workers is missing. Setting default to 1.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -248,12 +260,24 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=32
           |--conf spark.executor.memory=65536m
           |--conf spark.executor.memoryOverhead=10649m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=32
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=32
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark311.RapidsShuffleManager
           |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.03125
           |
           |Comments:
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU count is missing. Setting default to 1.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -265,6 +289,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "spark.executor.memory" -> "32768m",
       "spark.executor.memoryOverhead" -> "7372m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
+      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
+      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
+      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+      "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
@@ -282,6 +310,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Comments:
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -293,7 +325,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "spark.executor.memory" -> "32768m",
       "spark.executor.memoryOverhead" -> "7372m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
+      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
+      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+      "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -310,6 +346,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Comments:
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -320,7 +360,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "spark.executor.memory" -> "32768m",
       "spark.executor.memoryOverhead" -> "7372m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
+      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
+      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+      "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -338,6 +382,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU device is missing. Setting default to T4.
           |- GPU memory is missing. Setting default to 15109m.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -349,7 +397,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "spark.executor.memory" -> "32768m",
       "spark.executor.memoryOverhead" -> "7372m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
+      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
+      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+      "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -366,6 +418,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Comments:
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -376,7 +432,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "spark.executor.memory" -> "32768m",
       "spark.executor.memoryOverhead" -> "7372m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
+      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
+      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+      "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -388,6 +448,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |
           |Comments:
           |- 'spark.sql.shuffle.partitions' was not set.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -404,7 +468,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "spark.executor.memory" -> "32768m",
       "spark.executor.memoryOverhead" -> "7372m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
+      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
+      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+      "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -417,6 +485,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |
           |Comments:
           |- 'spark.sql.shuffle.partitions' was not set.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -434,7 +506,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=7372m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark311.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
           |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.0625
@@ -445,11 +521,19 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.executor.memory' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -465,7 +549,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
+      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
+      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+      "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
       "spark.task.resource.gpu.amount" -> "0.0625")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -506,6 +594,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -644,6 +736,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.executor.instances" -> "1",
+        "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
+        "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
+        "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -675,6 +771,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -698,6 +798,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.executor.instances" -> "1",
+        "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
+        "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
+        "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -730,6 +834,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -747,6 +855,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.executor.instances" -> "1",
+        "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
+        "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
+        "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -779,6 +891,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
+          |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
+          |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
+          |  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,
+          |  this step is not needed.
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)

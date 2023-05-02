@@ -227,6 +227,19 @@
                 <spark.version>${spark340.version}</spark.version>
             </properties>
         </profile>
+        <profile>
+            <id>release350</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>350</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>350</buildver>
+                <spark.version>${spark350.version}</spark.version>
+            </properties>
+        </profile>
     </profiles>
     <properties>
         <spark311.version>3.1.1</spark311.version>
@@ -241,6 +254,7 @@
         <spark332.version>3.3.2</spark332.version>
         <spark333.version>3.3.3-SNAPSHOT</spark333.version>
         <spark340.version>3.4.0</spark340.version>
+        <spark350.version>3.5.0-SNAPSHOT</spark350.version>
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>
         <scalatest-maven-plugin.version>2.0.2</scalatest-maven-plugin.version>
@@ -259,6 +273,7 @@
         <ui.resources.external.folder>assets</ui.resources.external.folder>
         <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
         <maven.source.plugin.version>3.0.0</maven.source.plugin.version>
+        <maven.artifact.version>3.9.0</maven.artifact.version>
         <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
     </properties>
@@ -312,6 +327,11 @@
             <artifactId>spark-mllib_${scala.binary.version}</artifactId>
             <version>${spark.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-artifact</artifactId>
+            <version>${maven.artifact.version}</version>
         </dependency>
     </dependencies>
 
@@ -372,12 +392,17 @@
                                 <includes>
                                     <include>org.rogach:scallop_${scala.binary.version}</include>
                                     <include>org.yaml:snakeyaml</include>
+                                    <include>org.apache.maven:maven-artifact</include>
                                 </includes>
                             </artifactSet>
                             <relocations>
                                 <relocation>
                                     <pattern>org.yaml</pattern>
                                     <shadedPattern>${rapids.shade.package}.org.yaml</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.maven.artifact</pattern>
+                                    <shadedPattern>${rapids.shade.package}.org.apache.maven.artifact</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>
@@ -388,6 +413,13 @@
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.apache.maven:maven-artifact</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/LICENSE</exclude>
+                                        <exclude>META-INF/NOTICE</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
