@@ -16,6 +16,9 @@
 
 package org.apache.spark.sql.rapids.tool
 
+import java.lang.reflect.InvocationTargetException
+
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
@@ -43,18 +46,72 @@ object ToolUtils extends Logging {
     org.apache.spark.SPARK_VERSION
   }
 
-  lazy val getEventFromJsonMethod: (String) => org.apache.spark.scheduler.SparkListenerEvent = {
+  lazy val getEventFromJsonMethod:
+    (String) => Option[org.apache.spark.scheduler.SparkListenerEvent] = {
     // Spark 3.4 and Databricks changed the signature on sparkEventFromJson
     val c = Class.forName("org.apache.spark.util.JsonProtocol")
     // Explicitly check against the spark version.
     if (isSpark340OrLater()) {
       val m = c.getDeclaredMethod("sparkEventFromJson", classOf[String])
-      (line: String) =>
-        m.invoke(null, line).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
-    } else {
+      (line: String) => {
+        val result =
+          Try(m.invoke(null, line)
+            .asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]) match {
+            case Success(i) => Some(i)
+            case Failure(e) =>
+              // For spark3.4+ the JsonParseException is wrapped in InvocationTargetException
+              // because the string value is parsed inside "invoke()".
+              // We extract the JsonParseEx and throw it to be handled by the caller.
+              // Otherwise, we leave the caller handles the exceptions
+              e match {
+                case i: InvocationTargetException =>
+                  val targetEx = i.getTargetException
+                  if (targetEx != null) {
+                    targetEx match {
+                      case j if j.isInstanceOf[com.fasterxml.jackson.core.JsonParseException] =>
+                        throw j
+                      case z: ClassNotFoundException if z.getMessage != null =>
+                        logWarning(s"ClassNotFoundException: ${z.getMessage}")
+                      case t: Throwable =>
+                        logError(s"Unknown exception", t)
+                    }
+                  } else {
+                    logError(s"Unknown exception", i)
+                  }
+                case t: Throwable => throw t
+              }
+              None
+          }
+        result
+      }
+    } else { // spark3.0.x-Spark-3.3.x
       val m = c.getDeclaredMethod("sparkEventFromJson", classOf[org.json4s.JValue])
-      (line: String) =>
-        m.invoke(null, parse(line)).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
+      (line: String) => {
+        val result =
+          Try(m.invoke(null, parse(line))
+            .asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]) match {
+            case Success(i) => Some(i)
+            case Failure(e) =>
+              // swallow any messages about SparkListenerResourceProfileAdded class since likely
+              // using spark version before 3.1
+              e match {
+                case i: InvocationTargetException =>
+                  if (i.getCause != null && i.getCause.getMessage != null) {
+                    if (!i.getCause.getMessage.contains("SparkListenerResourceProfileAdded")) {
+                      logWarning(s"ClassNotFoundException: ${i.getCause.getMessage}")
+                    }
+                  } else {
+                    logError(s"Unknown exception", i)
+                  }
+                case e: ClassNotFoundException =>
+                  if (!e.getMessage.contains("SparkListenerResourceProfileAdded")) {
+                    logWarning(s"ClassNotFoundException: ${e.getMessage}")
+                  }
+              }
+              None
+          }
+        result
+      }
     }
   }
 

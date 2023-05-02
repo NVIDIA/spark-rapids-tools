@@ -511,6 +511,8 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
+                <!-- parent-pom only executions -->
+                <inherited>false</inherited>
                 <version>3.0.0</version>
                 <executions>
                     <execution>
@@ -567,14 +569,6 @@
                             </target>
                         </configuration>
                     </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <!-- parent-pom only executions -->
-                <inherited>false</inherited>
-                <executions>
                     <execution>
                         <!--
                         This is an alternative implementation of the scalastyle check invocation,
