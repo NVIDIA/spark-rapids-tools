@@ -216,32 +216,11 @@ abstract class AppBase(
               // Using find as foreach with conditional to exit early if we are done.
               // Do NOT use a while loop as it is much much slower.
               lines.find { line =>
-                val isDone = try {
-                  totalNumEvents += 1
-                  val event = ToolUtils.getEventFromJsonMethod(line)
-                  processEvent(event)
+                totalNumEvents += 1
+                ToolUtils.getEventFromJsonMethod(line) match {
+                  case Some(e) => processEvent(e)
+                  case None => false
                 }
-                catch {
-                  case i: java.lang.reflect.InvocationTargetException =>
-                    // swallow any messages about this class since likely using spark version
-                    // before 3.1
-                    if (i.getCause != null && i.getCause.getMessage != null) {
-                      if (!i.getCause.getMessage.contains("SparkListenerResourceProfileAdded")) {
-                        logWarning(s"ClassNotFoundException: ${i.getCause.getMessage}")
-                      }
-                    } else {
-                      logError(s"Unknown exception", i)
-                    }
-                    false
-                  case e: ClassNotFoundException =>
-                    // swallow any messages about this class since likely using spark version
-                    // before 3.1
-                    if (!e.getMessage.contains("SparkListenerResourceProfileAdded")) {
-                      logWarning(s"ClassNotFoundException: ${e.getMessage}")
-                    }
-                    false
-                }
-                isDone
               }
             }
           }
