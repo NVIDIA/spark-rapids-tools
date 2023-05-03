@@ -16,6 +16,9 @@
 
 package org.apache.spark.sql.rapids.tool
 
+import java.lang.reflect.InvocationTargetException
+
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
@@ -32,9 +35,9 @@ object ToolUtils extends Logging {
   // Add more entries to this lookup table as necessary.
   // There is no need to list all supported versions.
   private val lookupVersions = Map(
-    "311" -> new ComparableVersion("3.1.1"),
-    "320" -> new ComparableVersion("3.2.0"),
-    "340" -> new ComparableVersion("3.4.0")
+    "311" -> new ComparableVersion("3.1.1"), // default build version
+    "320" -> new ComparableVersion("3.2.0"), // introduced reusedExchange
+    "340" -> new ComparableVersion("3.4.0")  // introduces jsonProtocolChanges
   )
 
   // Property to check the spark runtime version. We need this outside of test module as we
@@ -43,18 +46,59 @@ object ToolUtils extends Logging {
     org.apache.spark.SPARK_VERSION
   }
 
-  lazy val getEventFromJsonMethod: (String) => org.apache.spark.scheduler.SparkListenerEvent = {
+  lazy val getEventFromJsonMethod:
+    (String) => Option[org.apache.spark.scheduler.SparkListenerEvent] = {
     // Spark 3.4 and Databricks changed the signature on sparkEventFromJson
+    // Note that it is preferred we use reflection rather than checking Spark-runtime
+    // because some vendors may back-port features.
     val c = Class.forName("org.apache.spark.util.JsonProtocol")
-    // Explicitly check against the spark version.
-    if (isSpark340OrLater()) {
-      val m = c.getDeclaredMethod("sparkEventFromJson", classOf[String])
-      (line: String) =>
-        m.invoke(null, line).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
-    } else {
-      val m = c.getDeclaredMethod("sparkEventFromJson", classOf[org.json4s.JValue])
-      (line: String) =>
-        m.invoke(null, parse(line)).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
+    val m = Try {
+      // versions prior to spark3.4
+      c.getDeclaredMethod("sparkEventFromJson", classOf[org.json4s.JValue])
+    } match {
+      case Success(a) =>
+        (line: String) =>
+          a.invoke(null, parse(line)).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
+      case Failure(_) =>
+        // Spark3.4+ and databricks
+        val b = c.getDeclaredMethod("sparkEventFromJson", classOf[String])
+        (line: String) =>
+          b.invoke(null, line).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
+    }
+    // At this point, the method is already defined.
+    // Note that the Exception handling is moved within the method to make it easier
+    // to isolate the exception reason.
+    (line: String) => Try {
+      m.apply(line)
+    } match {
+      case Success(i) => Some(i)
+      case Failure(e) =>
+
+        e match {
+          case i: InvocationTargetException =>
+            val targetEx = i.getTargetException
+            if (targetEx != null) {
+              targetEx match {
+                case j: com.fasterxml.jackson.core.JsonParseException =>
+                  // this is a parser error thrown by spark-3.4+ which indicates the log is
+                  // malformed
+                  throw j
+                case z: ClassNotFoundException if z.getMessage != null =>
+                  logWarning(s"ClassNotFoundException while parsing an event: ${z.getMessage}")
+                case t: Throwable =>
+                  // We do not want to swallow unknown exceptions so that we can handle later
+                  logError(s"Unknown exception while parsing an event", t)
+              }
+            } else {
+              // Normally it should not happen that invocation target is null.
+              logError(s"Unknown exception while parsing an event", i)
+            }
+          case j: com.fasterxml.jackson.core.JsonParseException =>
+            // this is a parser error thrown by version prior to spark-3.4+ which indicates the
+            // log is malformed
+            throw j
+        }
+        None
     }
   }
 
