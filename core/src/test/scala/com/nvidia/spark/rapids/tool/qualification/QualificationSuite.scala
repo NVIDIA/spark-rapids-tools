@@ -130,14 +130,12 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     createSparkSession()
   }
 
-  def readExpectedFile(expected: File): DataFrame = {
-    ToolTestUtils.readExpectationCSV(sparkSession, expected.getPath(),
-      Some(schema))
+  def readExpectedFile(expected: File, escape: String = "\\"): DataFrame = {
+    ToolTestUtils.readExpectationCSV(sparkSession, expected.getPath(), Some(schema), escape)
   }
 
-  def readPerSqlFile(expected: File): DataFrame = {
-    ToolTestUtils.readExpectationCSV(sparkSession, expected.getPath(),
-      Some(perSQLSchema))
+  def readPerSqlFile(expected: File, escape: String = "\\"): DataFrame = {
+    ToolTestUtils.readExpectationCSV(sparkSession, expected.getPath(), Some(perSQLSchema), escape)
   }
 
   def readPerSqlTextFile(expected: File): Dataset[String] = {
@@ -1408,12 +1406,12 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
           // validate that the SQL description in the csv file escapes commas properly
           val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
             s"rapids_4_spark_qualification_output.csv"
-          val outputActual = readExpectedFile(new File(outputResults))
+          val outputActual = readExpectedFile(new File(outputResults), "\"")
           assert(outputActual.select("App Name").first.getString(0) == jobName)
 
           val persqlResults = s"$outpath/rapids_4_spark_qualification_output/" +
             s"rapids_4_spark_qualification_output_persql.csv"
-          val outputPerSqlActual = readPerSqlFile(new File(persqlResults))
+          val outputPerSqlActual = readPerSqlFile(new File(persqlResults), "\"")
           val rows = outputPerSqlActual.collect()
           assert(rows(1)(0).toString == jobName)
         }

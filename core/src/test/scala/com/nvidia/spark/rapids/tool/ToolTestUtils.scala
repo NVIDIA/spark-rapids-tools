@@ -110,13 +110,13 @@ object ToolTestUtils extends Logging {
   }
 
   def readExpectationCSV(sparkSession: SparkSession, path: String,
-      schema: Option[StructType] = None): DataFrame = {
+      schema: Option[StructType] = None, escape: String = "\\"): DataFrame = {
     // make sure to change null value so empty strings don't show up as nulls
     if (schema.isDefined) {
-      sparkSession.read.option("header", "true").option("nullValue", "-").option("escape", "\"")
+      sparkSession.read.option("header", "true").option("nullValue", "-").option("escape", escape)
         .schema(schema.get).csv(path)
     } else {
-      sparkSession.read.option("header", "true").option("nullValue", "-").option("escape", "\"")
+      sparkSession.read.option("header", "true").option("nullValue", "-").option("escape", escape)
         .csv(path)
     }
   }
