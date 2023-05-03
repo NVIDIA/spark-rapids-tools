@@ -210,6 +210,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark311.RapidsShuffleManager
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=1
           |--conf spark.sql.files.maxPartitionBytes=512m
           |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.0625
@@ -225,6 +226,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
@@ -264,6 +266,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=32
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark311.RapidsShuffleManager
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=1
           |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.03125
           |
@@ -272,6 +275,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU count is missing. Setting default to 1.
           |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
@@ -305,9 +309,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=1
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
           |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
@@ -331,7 +337,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
-      "spark.task.resource.gpu.amount" -> "0.0625")
+      "spark.task.resource.gpu.amount" -> "0.0625",
+      "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1")
     val sparkProps = defaultDataprocProps.++(customProps)
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(2), Some("0M"))
@@ -376,9 +383,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=1
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU device is missing. Setting default to T4.
           |- GPU memory is missing. Setting default to 15109m.
@@ -413,9 +422,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=1
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
           |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
@@ -444,9 +455,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=1
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
           |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
@@ -481,9 +494,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       s"""|
           |Spark Properties:
           |--conf spark.executor.instances=8
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=1
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
           |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
@@ -511,6 +526,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark311.RapidsShuffleManager
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=1
           |--conf spark.sql.files.maxPartitionBytes=512m
           |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.0625
@@ -526,6 +542,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
@@ -587,12 +604,14 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.memoryOverhead=5734m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=1
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |--conf spark.task.resource.gpu.amount=0.125
           |
           |Comments:
           |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and
           |  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS
@@ -736,6 +755,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.executor.instances" -> "1",
+        "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1",
         "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
@@ -798,6 +818,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.executor.instances" -> "1",
+        "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1",
         "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
@@ -855,6 +876,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.executor.instances" -> "1",
+        "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1",
         "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
