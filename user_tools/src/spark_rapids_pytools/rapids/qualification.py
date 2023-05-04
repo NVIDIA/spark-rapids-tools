@@ -319,7 +319,6 @@ class Qualification(RapidsJarTool):
         self.logger.debug('Executed command of copying %s', cp_res)
 
     def _prepare_job_arguments(self):
-        print("Inside _prepare_job_arguments")
         job_args = self.ctxt.get_ctxt('jobArgs')
         remote_folder = job_args.get('outputDirectory')
         if remote_folder is None:
@@ -618,27 +617,32 @@ class Qualification(RapidsJarTool):
             report_comments.append(reshaped_notes)
 
         pricing_config = self.ctxt.platform.configs.get_value_silent('pricing')
-        # OnPrem platform doesn't have pricing information. We do not calculate cost savings for
-        # OnPrem platform.
-        if pricing_config is None:
-            return QualificationSummary(comments=report_comments,
-                                        all_apps=apps_pruned_df,
-                                        recommended_apps=recommended_apps,
-                                        irrelevant_speedups=speedups_irrelevant_flag,
-                                        sections_generators=
-                                        [self.__generate_mc_types_conversion_report])
-
         reshape_col = self.ctxt.get_value('local', 'output', 'processDFProps',
                                           'clusterShapeCols', 'columnName')
         speed_recommendation_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
         apps_reshaped_df, per_row_flag = self.__apply_gpu_cluster_reshape(apps_pruned_df)
+        # OnPrem platform doesn't have pricing information. We do not calculate cost savings for
+        # OnPrem platform.
+        if pricing_config is None:
+            # Write to qualification_summary.csv file
+            if apps_reshaped_df is not None:
+                apps_reshaped_df = apps_reshaped_df.drop(columns=['Estimated Job Frequency (monthly)'])
+                self.logger.info('Generating GPU Estimated Speedup as %s', csv_out)
+                apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
+
+            return QualificationSummary(comments=report_comments,
+                                        all_apps=apps_pruned_df,
+                                        recommended_apps=recommended_apps,
+                                        df_result=apps_reshaped_df,
+                                        irrelevant_speedups=speedups_irrelevant_flag,
+                                        sections_generators=[self.__generate_mc_types_conversion_report])
+
         # Now, the dataframe is ready to calculate the cost and the savings
         apps_working_set = self.__calc_apps_cost(apps_reshaped_df,
                                                  reshape_col,
                                                  speed_recommendation_col,
                                                  per_row_flag)
 
-        # apps_working_set = pd.DataFrame()
         if not apps_working_set.empty:
             self.logger.info('Generating GPU Estimated Speedup and Savings as %s', csv_out)
             # we can use the general format as well but this will transform numbers to E+. So, stick with %f
@@ -670,6 +674,10 @@ class Qualification(RapidsJarTool):
                                                           selected_cols,
                                                           self.ctxt.get_ctxt('gpuClusterShapeRecommendation'))
                 # update the selected columns
+                selected_cols = list(raw_df.columns)
+
+            pricing_config = self.ctxt.platform.configs.get_value_silent('pricing')
+            if pricing_config is None:
                 selected_cols = list(raw_df.columns)
             # filter by recommendations if enabled
             if filter_recommendation_enabled:
@@ -721,7 +729,6 @@ class Qualification(RapidsJarTool):
         csv_file_name = self.ctxt.get_value('local', 'output', 'fileName')
         csv_summary_file = FSUtil.build_path(self.ctxt.get_output_folder(), csv_file_name)
         report_gen = self.__build_global_report_summary(df, csv_summary_file)
-        print("After build_global_report_summary")
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
                                                     wrapper_csv_file=csv_summary_file,
                                                     csp_report_provider=self._generate_platform_report_sections,

@@ -160,3 +160,4 @@ platform:
 - [Google Cloud Dataproc](user-tools-dataproc.md)
   - To view documentation for the deprecated CLI on dataproc, visit the [spark_rapids_dataproc command](legacy-user-tools-dataproc.md) page.
 - [Databricks_AWS](user-tools-databricks-aws.md)
+- [OnPrem](user-tools-onprem.md)
