@@ -31,7 +31,7 @@ class AzureStorageDriver(StorageDriver):
     def get_cmd_prefix(cls):
         pref_arr = ['azcopy']
         return pref_arr[:]
-    
+
     def resource_is_dir(self, src: str) -> bool:
         if not src.startswith('https://'):
             return super().resource_is_dir(src)
@@ -49,7 +49,7 @@ class AzureStorageDriver(StorageDriver):
         except RuntimeError:
             self.cli.logger.debug('Error in checking resource [%s] is directory', src)
         return False
-    
+
     def resource_exists(self, src) -> bool:
         if not src.startswith('https://'):
             return super().resource_exists(src)
@@ -64,7 +64,7 @@ class AzureStorageDriver(StorageDriver):
         except RuntimeError:
             res = False
         return res
-    
+
     def _download_remote_resource(self, src: str, dest: str) -> str:
         if not src.startswith('https://'):
             return super()._download_remote_resource(src, dest)
@@ -76,7 +76,7 @@ class AzureStorageDriver(StorageDriver):
             cmd_args.append('--recursive=true')
         self.cli.run_sys_cmd(cmd_args)
         return FSUtil.build_full_path(dest, FSUtil.get_resource_name(src))
-    
+
     def _upload_remote_dest(self, src: str, dest: str, exclude_pattern: str = None) -> str:
         if not dest.startswith('https://'):
             return super()._upload_remote_dest(src, dest)
@@ -87,12 +87,12 @@ class AzureStorageDriver(StorageDriver):
             cmd_args.append('--recursive=true')
         self.cli.run_sys_cmd(cmd_args)
         return FSUtil.build_path(dest, FSUtil.get_resource_name(src))
-    
+
     def is_file_path(self, value: str):
         if value.startswith('https://'):
             return True
         return super().is_file_path(value)
-    
+
     def _delete_path(self, src, fail_ok: bool = False):
         if not src.startswith('https://'):
             super()._delete_path(src)

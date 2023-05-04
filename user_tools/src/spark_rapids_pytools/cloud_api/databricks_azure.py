@@ -15,13 +15,14 @@
 """Implementation specific to DATABRICKS_AZURE"""
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, List
 
 from spark_rapids_pytools.cloud_api.azurestorage import AzureStorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, \
-    PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType
+    PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType, GpuDevice
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import Utils
+
 
 @dataclass
 class DBAzurePlatform(PlatformBase):
@@ -51,7 +52,7 @@ class DBAzurePlatform(PlatformBase):
     def migrate_cluster_to_gpu(self, orig_cluster):
         pass
 
-    def create_saving_estimator(self, source_cluster, target_cluster):
+    def create_saving_estimator(self, source_cluster, reshaped_cluster):
         pass
 
     def create_submission_job(self, job_prop, ctxt) -> Any:
@@ -62,6 +63,9 @@ class DBAzurePlatform(PlatformBase):
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass
+
+    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
+        raise NotImplementedError
 
 
 @dataclass
@@ -93,6 +97,9 @@ class DBAzureCMDDriver(CMDDriverBase):
             self.logger.error('Invalid arguments to pull the cluster properties')
         return self.run_sys_cmd(get_cluster_cmd)
 
+    def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
+        raise NotImplementedError
+
 
 @dataclass
 class DatabricksAzureNode(ClusterNode):
@@ -101,12 +108,12 @@ class DatabricksAzureNode(ClusterNode):
     region: str = field(default=None, init=False)
 
     def _pull_and_set_mc_props(self, cli=None):
-        src_file_path = Utils.resource_path(f'azure-instances-catalog.json')
+        src_file_path = Utils.resource_path('azure-instances-catalog.json')
         self.mc_props = JSONPropertiesContainer(prop_arg=src_file_path)
 
     def _set_fields_from_props(self):
         self.name = self.props.get_value_silent('public_dns')
-    
+
     def _pull_sys_info(self, cli=None) -> SysInfo:
         cpu_mem = self.mc_props.get_value(self.instance_type, 'MemoryInfo', 'SizeInMiB')
         # TODO: should we use DefaultVCpus or DefaultCores
