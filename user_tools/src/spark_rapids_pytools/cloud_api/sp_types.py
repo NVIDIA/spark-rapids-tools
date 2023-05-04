@@ -119,6 +119,7 @@ class ClusterState(EnumeratedType):
 class CloudPlatform(EnumeratedType):
     """symbolic names (members) bound to supported cloud platforms."""
     DATABRICKS_AWS = 'databricks_aws'
+    DATABRICKS_AZURE = 'databricks_azure'
     DATAPROC = 'dataproc'
     EMR = 'emr'
     LOCAL = 'local'
@@ -1120,6 +1121,7 @@ class ClusterReshape(ClusterGetAccessor):
 def get_platform(platform_id: Enum) -> Type[PlatformBase]:
     platform_hash = {
         CloudPlatform.DATABRICKS_AWS: ('spark_rapids_pytools.cloud_api.databricks_aws', 'DBAWSPlatform'),
+        CloudPlatform.DATABRICKS_AZURE: ('spark_rapids_pytools.cloud_api.databricks_azure', 'DBAzurePlatform'),
         CloudPlatform.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
         CloudPlatform.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
     }
