@@ -74,11 +74,11 @@ A typical workflow to successfully run the `qualification` command in local mode
    # define the wrapper cache directory if necessary
    export RAPIDS_USER_TOOLS_CACHE_FOLDER=my_cache_folder
    export EVENTLOGS=local_path_to_eventlogs
-   export CLUSTER_PROPERTY_PATH=my-onprem-cpu-cluster_property_path
+   export CLUSTER_PROPERTY_FILE=my-onprem-cpu-cluster_property_file
    
    spark_rapids_user_tools onprem qualification \
       --eventlogs $EVENTLOGS \
-      --cpu_cluster $CLUSTER_PROPERTY_PATH
+      --cpu_cluster $CLUSTER_PROPERTY_FILE
    ```
    The wrapper generates a unique-Id for each execution in the format of `qual_<YYYYmmddHHmmss>_<0x%08X>`
    The above command will generate a directory containing `qualification_summary.csv` in addition to
