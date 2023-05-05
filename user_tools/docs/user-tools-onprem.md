@@ -1,6 +1,6 @@
 # RAPIDS User Tools on OnPrem platform
 
-This is a guide for the RAPIDS tools for Apache Spark on OnPrem platform. At the end of this guide, the user will be able to run the RAPIDS tools to analyze the clusters and the applications running OnPrem.
+This is a guide for the RAPIDS tools for Apache Spark clusters that are provisioned manually (a.k.a onPrem). At the end of this guide, the user will be able to run the RAPIDS tools to analyze the clusters and the applications running OnPrem.
 
 ## Assumptions
 
