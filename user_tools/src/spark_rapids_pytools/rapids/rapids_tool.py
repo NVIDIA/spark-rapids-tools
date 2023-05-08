@@ -14,6 +14,8 @@
 
 """Abstract class representing wrapper around the RAPIDS acceleration tools."""
 
+import concurrent
+import logging
 import os
 import re
 import sys
@@ -104,11 +106,10 @@ class RapidsTool(object):
                     func_cb(self, *args, **kwargs)  # pylint: disable=not-callable
                     if enable_epilogue:
                         self.logger.info('======= [%s]: Finished =======', phase_name)
-                except Exception as ex:    # pylint: disable=broad-except
-                    self.logger.error('%s. Raised an error in phase [%s]\n%s',
+                except Exception:    # pylint: disable=broad-except
+                    logging.exception('%s. Raised an error in phase [%s]\n',
                                       self.pretty_name(),
-                                      phase_name,
-                                      ex)
+                                      phase_name)
                     sys.exit(1)
             return wrapper
         return decorator
@@ -473,13 +474,15 @@ class RapidsJarTool(RapidsTool):
                     futures = executor.submit(cache_single_dependency, dep)
                     futures.add_done_callback(exception_handler)
                     futures_list.append(futures)
-                for future in futures_list:
-                    try:
-                        result = future.result(timeout=360)
+                try:
+                    # TODO: Note that we do not set timeout here to avoid failing when network
+                    #       is slow downloading one of the resources.
+                    for future in concurrent.futures.as_completed(futures_list):
+                        result = future.result()
                         results.append(result)
-                    except Exception as ex:    # pylint: disable=broad-except
-                        self.logger.error('Failed to download dependencies %s', ex)
-                        raise ex
+                except Exception as ex:    # pylint: disable=broad-except
+                    self.logger.error('Failed to download dependencies %s', ex)
+                    raise ex
             return results
 
         # TODO: Verify the downloaded file by checking their MD5
