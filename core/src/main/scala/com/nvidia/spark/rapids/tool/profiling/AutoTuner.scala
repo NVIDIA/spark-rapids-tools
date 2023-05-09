@@ -623,6 +623,14 @@ class AutoTuner(
     if (aqeEnabled == "False") {
       appendComment(commentsForMissingProps("spark.sql.adaptive.enabled"))
     }
+    appInfoProvider.getSparkVersion match {
+      case Some(version) =>
+        if (compareSparkVersion(version, "3.2.0") < 0 &&
+                getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
+          appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum", "1")
+        }
+      case None =>
+    }
     val jvmGCFraction = appInfoProvider.getJvmGCFractions
     if (jvmGCFraction.nonEmpty) { // avoid zero division
       if ((jvmGCFraction.sum / jvmGCFraction.size) > MAX_JVM_GCTIME_FRACTION) {

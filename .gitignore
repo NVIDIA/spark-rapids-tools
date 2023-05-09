@@ -40,3 +40,5 @@ wheels/
 
 # Maven
 dependency-reduced-pom.xml
+# Scala classes
+target/
