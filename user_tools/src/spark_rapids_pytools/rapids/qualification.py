@@ -204,8 +204,9 @@ class Qualification(RapidsJarTool):
     def _process_cpu_cluster_args(self, offline_cluster_opts: dict = None):
         # get the name of the cpu_cluster
         cpu_cluster_arg = offline_cluster_opts.get('cpuCluster')
-        cpu_cluster_obj = self._create_migration_cluster('CPU', cpu_cluster_arg)
-        self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
+        if cpu_cluster_arg is not None:
+            cpu_cluster_obj = self._create_migration_cluster('CPU', cpu_cluster_arg)
+            self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None):
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
@@ -624,35 +625,27 @@ class Qualification(RapidsJarTool):
         # OnPrem platform doesn't have pricing information. We do not calculate cost savings for
         # OnPrem platform.
         if pricing_config is None:
-            # Write to qualification_summary.csv file
-            if apps_reshaped_df is not None:
-                apps_reshaped_df = apps_reshaped_df.drop(columns=['Estimated Job Frequency (monthly)'])
+            df_final_result = apps_reshaped_df
+            if not apps_reshaped_df.empty:
                 self.logger.info('Generating GPU Estimated Speedup as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
-
-            return QualificationSummary(comments=report_comments,
-                                        all_apps=apps_pruned_df,
-                                        recommended_apps=recommended_apps,
-                                        df_result=apps_reshaped_df,
-                                        irrelevant_speedups=speedups_irrelevant_flag,
-                                        sections_generators=[self.__generate_mc_types_conversion_report])
-
-        # Now, the dataframe is ready to calculate the cost and the savings
-        apps_working_set = self.__calc_apps_cost(apps_reshaped_df,
-                                                 reshape_col,
-                                                 speed_recommendation_col,
-                                                 per_row_flag)
-
-        if not apps_working_set.empty:
-            self.logger.info('Generating GPU Estimated Speedup and Savings as %s', csv_out)
-            # we can use the general format as well but this will transform numbers to E+. So, stick with %f
-            apps_working_set.to_csv(csv_out, float_format='%.2f')
+        else:
+            # Now, the dataframe is ready to calculate the cost and the savings
+            apps_working_set = self.__calc_apps_cost(apps_reshaped_df,
+                                                     reshape_col,
+                                                     speed_recommendation_col,
+                                                     per_row_flag)
+            df_final_result = apps_working_set
+            if not apps_working_set.empty:
+                self.logger.info('Generating GPU Estimated Speedup and Savings as %s', csv_out)
+                # we can use the general format as well but this will transform numbers to E+. So, stick with %f
+                apps_working_set.to_csv(csv_out, float_format='%.2f')
 
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_pruned_df,
                                     recommended_apps=recommended_apps,
                                     pricing_config=pricing_config,
-                                    df_result=apps_working_set,
+                                    df_result=df_final_result,
                                     irrelevant_speedups=speedups_irrelevant_flag,
                                     sections_generators=[self.__generate_mc_types_conversion_report])
 
