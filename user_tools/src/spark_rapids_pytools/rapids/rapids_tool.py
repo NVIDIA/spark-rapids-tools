@@ -475,9 +475,8 @@ class RapidsJarTool(RapidsTool):
                     futures.add_done_callback(exception_handler)
                     futures_list.append(futures)
                 try:
-                    # TODO: Note that we do not set timeout here to avoid failing when network
-                    #       is slow downloading one of the resources.
-                    for future in concurrent.futures.as_completed(futures_list):
+                    # set the timeout to 30 minutes.
+                    for future in concurrent.futures.as_completed(futures_list, timeout=1800):
                         result = future.result()
                         results.append(result)
                 except Exception as ex:    # pylint: disable=broad-except
