@@ -627,6 +627,8 @@ class Qualification(RapidsJarTool):
         if pricing_config is None:
             df_final_result = apps_reshaped_df
             if not apps_reshaped_df.empty:
+                # Do not include estimated job frequency in csv file
+                apps_reshaped_df = apps_reshaped_df.drop(columns=['Estimated Job Frequency (monthly)'])
                 self.logger.info('Generating GPU Estimated Speedup as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
         else:
