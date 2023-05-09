@@ -7,7 +7,7 @@ analysis using the RAPIDS Accelerator for Apache Spark across multiple cloud ser
 The following diagram shows an overview of the Python package installed on a client machine allowing
 to build analysis reports on Amazon EMR, GCloud Dataproc, and Databricks.
 
-![Overview](resources/rapids_user_tools_overview-01.png)
+![Overview](resources/spark_rapids_user_tools_overview-01.png)
 
 ## Available commands
 
