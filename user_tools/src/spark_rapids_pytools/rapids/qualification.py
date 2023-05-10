@@ -606,7 +606,7 @@ class Qualification(RapidsJarTool):
                                       csv_out: str) -> QualificationSummary:
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
-            return QualificationSummary(comments=[self.__generate_mc_types_conversion_report])
+            return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
 
         apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
         recommended_apps = self.__get_recommended_apps(apps_pruned_df)
