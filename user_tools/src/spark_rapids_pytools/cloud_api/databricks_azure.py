@@ -14,14 +14,19 @@
 
 """Implementation specific to DATABRICKS_AZURE"""
 
+import datetime
+import json
+import os
 from dataclasses import dataclass, field
+from logging import Logger
 from typing import Any, List
 
 from spark_rapids_pytools.cloud_api.azurestorage import AzureStorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, \
     PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType, GpuDevice
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
-from spark_rapids_pytools.common.utilities import Utils
+from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 
 
 @dataclass
@@ -38,7 +43,7 @@ class DBAzurePlatform(PlatformBase):
         super().__post_init__()
 
     def _construct_cli_object(self) -> CMDDriverBase:
-        return DBAzureCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
+        return DBAzureCMDDriver(configs=self.configs, timeout=0, cloud_ctxt=self.ctxt)
 
     def _install_storage_driver(self):
         self.storage = AzureStorageDriver(self.cli)
@@ -59,6 +64,7 @@ class DBAzurePlatform(PlatformBase):
         pass
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
+        print("databricks_azure.py: create_local_submission_job")
         pass
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
@@ -72,16 +78,12 @@ class DBAzurePlatform(PlatformBase):
 class DBAzureCMDDriver(CMDDriverBase):
     """Represents the command interface that will be used by DATABRICKS_AZURE"""
 
+    configs: JSONPropertiesContainer = None
+    cache_expiration_secs: int = field(default=604800, init=False)  # update the file once a week
+    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.databricks.azure'), init=False)
+
     def _list_inconsistent_configurations(self) -> list:
         incorrect_envs = super()._list_inconsistent_configurations()
-        required_props = self.get_required_props()
-        if required_props is not None:
-            for prop_entry in required_props:
-                prop_value = self.env_vars.get(prop_entry)
-                if prop_value is None and prop_entry.startswith('aws_'):
-                    incorrect_envs.append('AWS credentials are not set correctly ' +
-                                          '(this is required to access resources on S3)')
-                    return incorrect_envs
         return incorrect_envs
 
     def _build_platform_list_cluster(self, cluster, query_args: dict = None) -> list:
@@ -97,6 +99,64 @@ class DBAzureCMDDriver(CMDDriverBase):
             self.logger.error('Invalid arguments to pull the cluster properties')
         return self.run_sys_cmd(get_cluster_cmd)
 
+    @classmethod
+    def process_instances_description(self, raw_instances_description: str) -> dict:
+        processed_instances_description = dict()
+        instances_description = JSONPropertiesContainer(prop_arg=raw_instances_description, file_load=False)
+        for instance in instances_description.props:
+            instance_dict = dict()
+            vCPUs = 0
+            MemoryGB = 0
+            GPUs = 0
+            if not instance['capabilities']:
+                continue
+            for item in instance['capabilities']:
+                if item['name'] == 'vCPUs':
+                    vCPUs = int(item['value'])
+                elif item['name'] == 'MemoryGB':
+                    MemoryGB = int(float(item['value']) * 1024)
+                elif item['name'] == 'GPUs':
+                    GPUs = int(item['value'])
+            instance_dict['VCpuInfo'] = {"DefaultVCpus": vCPUs}
+            instance_dict['MemoryInfo'] = {'SizeInMiB': MemoryGB}
+            if GPUs > 0:
+                GPU_list = [{"Name": "", "Manufacturer": "", "Count": GPUs, "MemoryInfo": {"SizeInMiB": 0}}]
+                instance_dict['GpuInfo'] = {"GPUs": GPU_list}
+            processed_instances_description[instance['name']] = instance_dict
+        return processed_instances_description
+
+    def generate_instances_description(self, fpath: str):
+        cmd_params = ['az vm list-skus',
+                      '--location', f'{self.get_region()}']
+        raw_instances_description = self.run_sys_cmd(cmd_params)
+        json_instances_description = self.process_instances_description(raw_instances_description)
+        with open(fpath, "w") as output_file:
+            json.dump(json_instances_description, output_file, indent = 2)
+
+    def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
+        pass
+    
+    @classmethod
+    def _caches_expired(self, cache_file) -> bool:
+        if not os.path.exists(cache_file):
+            return True
+        modified_time = os.path.getmtime(cache_file)
+        diff_time = int(datetime.datetime.now().timestamp() - modified_time)
+        if diff_time > self.cache_expiration_secs:
+            return True
+        return False
+    
+    def init_instances_description(self) -> str:
+        print("location", self.get_region())
+        cache_dir = Utils.get_rapids_tools_env('CACHE_FOLDER')
+        fpath = FSUtil.build_path(cache_dir, 'azure-instances-catalog.json')
+        if self._caches_expired(fpath):
+            self.logger.info('Downloading the Azure instance type descriptions catalog')
+            self.generate_instances_description(fpath)
+        else:
+            self.logger.info('The Azure instance type descriptions catalog is loaded from the cache')
+        return fpath
+
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
@@ -108,8 +168,8 @@ class DatabricksAzureNode(ClusterNode):
     region: str = field(default=None, init=False)
 
     def _pull_and_set_mc_props(self, cli=None):
-        src_file_path = Utils.resource_path('azure-instances-catalog.json')
-        self.mc_props = JSONPropertiesContainer(prop_arg=src_file_path)
+        instances_description_path = cli.init_instances_description()
+        self.mc_props = JSONPropertiesContainer(prop_arg=instances_description_path)
 
     def _set_fields_from_props(self):
         self.name = self.props.get_value_silent('public_dns')
@@ -118,23 +178,19 @@ class DatabricksAzureNode(ClusterNode):
         cpu_mem = self.mc_props.get_value(self.instance_type, 'MemoryInfo', 'SizeInMiB')
         # TODO: should we use DefaultVCpus or DefaultCores
         num_cpus = self.mc_props.get_value(self.instance_type, 'VCpuInfo', 'DefaultVCpus')
+
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
     def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo or None:
-        raw_gpus = self.mc_props.get_value_silent(self.instance_type, 'GpuInfo')
-        if raw_gpus is None:
+        gpu_info = cli.configs.get_value('gpuConfigs', 'user-tools', 'supportedGpuInstances')
+        if gpu_info is None:
             return None
-        # TODO: we assume all gpus of the same type
-        raw_gpu_arr = raw_gpus.get('Gpus')
-        if raw_gpu_arr is None:
+        if self.instance_type not in gpu_info:
             return None
-        raw_gpu = raw_gpu_arr[0]
-        gpu_device = GpuDevice.fromstring(raw_gpu['Name'])
-        gpu_cnt = raw_gpu['Count']
-        gpu_mem = raw_gpu['MemoryInfo']['SizeInMiB']
-        return GpuHWInfo(num_gpus=gpu_cnt,
-                         gpu_device=gpu_device,
-                         gpu_mem=gpu_mem)
+        gpu_instance = gpu_info[self.instance_type]['GpuInfo']['GPUs'][0]
+        return GpuHWInfo(num_gpus=gpu_instance['Count'],
+                         gpu_device=gpu_instance['Name'],
+                         gpu_mem=gpu_instance['MemoryInfo']['SizeInMiB'])
 
 
 @dataclass

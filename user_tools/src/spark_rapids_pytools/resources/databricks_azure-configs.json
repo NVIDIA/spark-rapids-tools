@@ -25,7 +25,7 @@
     "//description": "Define the metadata related to the system, prerequisites, and configurations",
     "envParams": ["profile", "deployMode"],
     "//initialConfigList": "represents the list of the configurations that need to be loaded first",
-    "initialConfigList": ["profile", "cliConfigFile", "azureConfigFile"],
+    "initialConfigList": ["profile", "cliConfigFile", "azureConfigFile", "region"],
     "//loadedConfigProps": "list of properties read by the configParser",
     "loadedConfigProps": ["region", "output"],
     "cliConfig": {
@@ -57,7 +57,8 @@
         },
         {
           "envVariableKey": "AZURE_DEFAULTS_LOCATION",
-          "confProperty": "region"
+          "confProperty": "region",
+          "defaultValue": "westus"
         }
       ],
       "confProperties": {
@@ -152,6 +153,146 @@
   "gpuConfigs": {
     "user-tools": {
       "supportedGpuInstances": {
+        "Standard_NC12": {
+          "GpuInfo": {
+            "GPUs": [
+              {
+                "Name": "K80",
+                "Manufacturer": "NVIDIA",
+                "Count": 2,
+                "MemoryInfo": {
+                  "SizeInMiB": 24576
+                }
+              }
+            ]
+          }
+        },
+        "Standard_NC24": {
+          "GpuInfo": {
+            "GPUs": [
+              {
+                "Name": "K80",
+                "Manufacturer": "NVIDIA",
+                "Count": 4,
+                "MemoryInfo": {
+                  "SizeInMiB": 49152
+                }
+              }
+            ]
+          }
+        },
+        "Standard_NC6s_v3": {
+          "GpuInfo": {
+            "GPUs": [
+              {
+                "Name": "V100",
+                "Manufacturer": "NVIDIA",
+                "Count": 1,
+                "MemoryInfo": {
+                  "SizeInMiB": 16384
+                }
+              }
+            ]
+          }
+        },
+        "Standard_NC12s_v3": {
+          "GpuInfo": {
+            "GPUs": [
+              {
+                "Name": "V100",
+                "Manufacturer": "NVIDIA",
+                "Count": 2,
+                "MemoryInfo": {
+                  "SizeInMiB": 32768
+                }
+              }
+            ]
+          }
+        },
+        "Standard_NC24s_v3": {
+          "GpuInfo": {
+            "GPUs": [
+              {
+                "Name": "V100",
+                "Manufacturer": "NVIDIA",
+                "Count": 4,
+                "MemoryInfo": {
+                  "SizeInMiB": 65536
+                }
+              }
+            ]
+          }
+        },
+        "Standard_NC4as_T4_v3": {
+          "GpuInfo": {
+            "GPUs": [
+              {
+                "Name": "T4",
+                "Manufacturer": "NVIDIA",
+                "Count": 1,
+                "MemoryInfo": {
+                  "SizeInMiB": 16384
+                }
+              }
+            ]
+          }
+        },
+        "Standard_NC8as_T4_v3": {
+          "GpuInfo": {
+            "GPUs": [
+              {
+                "Name": "T4",
+                "Manufacturer": "NVIDIA",
+                "Count": 1,
+                "MemoryInfo": {
+                  "SizeInMiB": 16384
+                }
+              }
+            ]
+          }
+        },
+        "Standard_NC16as_T4_v3": {
+          "GpuInfo": {
+            "GPUs": [
+              {
+                "Name": "T4",
+                "Manufacturer": "NVIDIA",
+                "Count": 1,
+                "MemoryInfo": {
+                  "SizeInMiB": 16384
+                }
+              }
+            ]
+          }
+        },
+        "Standard_NC64as_T4_v3": {
+          "GpuInfo": {
+            "GPUs": [
+              {
+                "Name": "T4",
+                "Manufacturer": "NVIDIA",
+                "Count": 4,
+                "MemoryInfo": {
+                  "SizeInMiB": 65536
+                }
+              }
+            ]
+          }
+        },
+        "Standard_ND96asr_v4": {
+          "GpuInfo": {
+            "GPUs": [
+              {
+                "Name": "A100",
+                "Manufacturer": "NVIDIA",
+                "Count": 8,
+                "MemoryInfo": {
+                  "SizeInMiB": 327680
+                }
+              }
+            ]
+          }
+        }
       }
     }
   },

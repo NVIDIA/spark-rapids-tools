@@ -716,6 +716,7 @@ class RapidsJarTool(RapidsTool):
                                                 file_load=False)
         job_obj = self.ctxt.platform.create_local_submission_job(job_prop=job_properties,
                                                                  ctxt=self.ctxt)
+        print("rapids_tool.py: before job_obj.run_job()!")
         job_obj.run_job()
 
     def _archive_results(self):
