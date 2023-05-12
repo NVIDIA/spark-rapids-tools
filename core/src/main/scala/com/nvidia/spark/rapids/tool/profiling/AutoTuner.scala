@@ -620,15 +620,22 @@ class AutoTuner(
   }
 
   private def recommendGeneralProperties(): Unit = {
-    val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled").getOrElse("False")
-    if (aqeEnabled == "False") {
+    val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled")
+            .getOrElse("false").toLowerCase
+    if (aqeEnabled == "false") {
       appendComment(commentsForMissingProps("spark.sql.adaptive.enabled"))
     }
     appInfoProvider.getSparkVersion match {
       case Some(version) =>
         if (!ToolUtils.isSpark320OrLater(version) &&
                 getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
-          appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum", "1")
+          // The ideal setting is for the parallelism of the cluster
+          val numCoresPerExec = calcNumExecutorCores
+          val numExecutorsPerWorker = clusterProps.gpu.getCount
+          val numWorkers = clusterProps.system.getNumWorkers
+          val total = numWorkers * numExecutorsPerWorker * numCoresPerExec
+          appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum",
+            total.toString)
         }
       case None =>
     }
