@@ -37,6 +37,7 @@ object ToolUtils extends Logging {
   private val lookupVersions = Map(
     "311" -> new ComparableVersion("3.1.1"), // default build version
     "320" -> new ComparableVersion("3.2.0"), // introduced reusedExchange
+    "331" -> new ComparableVersion("3.3.1"), // used to check for memoryOverheadFactor
     "340" -> new ComparableVersion("3.4.0")  // introduces jsonProtocolChanges
   )
 
@@ -102,6 +103,19 @@ object ToolUtils extends Logging {
     }
   }
 
+  def compareVersions(verA: String, verB: String): Int = {
+    Try {
+      val verObjA = new ComparableVersion(verA)
+      val verObjB = new ComparableVersion(verB)
+      verObjA.compareTo(verObjB)
+    } match {
+      case Success(compRes) => compRes
+      case Failure(t) =>
+        logError(s"exception comparing two versions [$verA, $verB]", t)
+        0
+    }
+  }
+
   def compareToSparkVersion(currVersion: String, lookupVersion: String): Int = {
     val lookupVersionObj = lookupVersions.get(lookupVersion).get
     val currVersionObj = new ComparableVersion(currVersion)
@@ -110,6 +124,10 @@ object ToolUtils extends Logging {
 
   def isSpark320OrLater(sparkVersion: String = sparkRuntimeVersion): Boolean = {
     compareToSparkVersion(sparkVersion, "320") >= 0
+  }
+
+  def isSpark331OrLater(sparkVersion: String = sparkRuntimeVersion): Boolean = {
+    compareToSparkVersion(sparkVersion, "331") >= 0
   }
 
   def isSpark340OrLater(sparkVersion: String = sparkRuntimeVersion): Boolean = {

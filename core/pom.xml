@@ -276,6 +276,10 @@
         <maven.artifact.version>3.9.0</maven.artifact.version>
         <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
+        <jsoup.version>1.16.1</jsoup.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.sourceEncoding>UTF-8</project.reporting.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
 
     <dependencies>
@@ -316,8 +320,8 @@
             <version>${scalatest.version}</version>
             <scope>test</scope>
         </dependency>
-        <!-- Required for processing yaml files in AutoTuner -->
         <dependency>
+            <!-- Required for processing yaml files in AutoTuner -->
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
             <version>${snakeyaml.version}</version>
@@ -332,6 +336,12 @@
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-artifact</artifactId>
             <version>${maven.artifact.version}</version>
+        </dependency>
+        <dependency>
+            <!-- jsoup HTML parser library @ https://jsoup.org/ -->
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>${jsoup.version}</version>
         </dependency>
     </dependencies>
 
@@ -393,6 +403,7 @@
                                     <include>org.rogach:scallop_${scala.binary.version}</include>
                                     <include>org.yaml:snakeyaml</include>
                                     <include>org.apache.maven:maven-artifact</include>
+                                    <include>org.jsoup:jsoup</include>
                                 </includes>
                             </artifactSet>
                             <relocations>
@@ -404,6 +415,10 @@
                                     <pattern>org.apache.maven.artifact</pattern>
                                     <shadedPattern>${rapids.shade.package}.org.apache.maven.artifact</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>org.jsoup</pattern>
+                                    <shadedPattern>${rapids.shade.package}.org.jsoup</shadedPattern>
+                                </relocation>
                             </relocations>
                             <filters>
                                 <filter>
@@ -413,6 +428,7 @@
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/*.md</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
@@ -420,6 +436,14 @@
                                     <excludes>
                                         <exclude>META-INF/LICENSE</exclude>
                                         <exclude>META-INF/NOTICE</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.jsoup:jsoup</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/LICENSE</exclude>
+                                        <exclude>META-INF/NOTICE</exclude>
+                                        <exclude>META-INF/CHANGES</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
