@@ -31,6 +31,8 @@ import org.yaml.snakeyaml.constructor.{Constructor, ConstructorException}
 import org.yaml.snakeyaml.representer.Representer
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.ToolUtils
+import org.apache.spark.sql.rapids.tool.util.WebCrawlerUtil
 
 /**
  * A wrapper class that stores all the GPU properties.
@@ -520,7 +522,7 @@ class AutoTuner(
         } else if (sparkMaster.contains("k8s")) {
           appInfoProvider.getSparkVersion match {
             case Some(version) =>
-              if (compareSparkVersion(version, "3.3.0") > 0) {
+              if (ToolUtils.isSpark331OrLater(version)) {
                 "spark.executor.memoryOverheadFactor"
               } else {
                 "spark.kubernetes.memoryOverheadFactor"
@@ -582,14 +584,12 @@ class AutoTuner(
     val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.toString.filterNot("().".toSet)
     appendRecommendation("spark.shuffle.manager",
       "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
-    appendComment("The RAPIDS Shuffle Manager requires the spark.driver.extraClassPath and\n" +
-      "  spark.executor.extraClassPath settings to include the path to the Spark RAPIDS\n" +
-      "  plugin jar.  If the Spark RAPIDS jar is being bundled with your Spark distribution,\n" +
-      "  this step is not needed.")
+    appendComment(classPathComments("rapids.shuffle.jars"))
 
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
     recommendGeneralProperties()
+    recommendClassPathEntries()
   }
 
   /**
@@ -625,7 +625,7 @@ class AutoTuner(
     }
     appInfoProvider.getSparkVersion match {
       case Some(version) =>
-        if (compareSparkVersion(version, "3.2.0") < 0 &&
+        if (!ToolUtils.isSpark320OrLater(version) &&
                 getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
           appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum", "1")
         }
@@ -637,6 +637,45 @@ class AutoTuner(
         appendComment("Average JVM GC time is very high. " +
           "Other Garbage Collectors can be used for better performance.")
       }
+    }
+  }
+
+  /**
+   * Check the class path entries with the following rules:
+   * 1- If ".*rapids-4-spark.*jar" is missing then add a comment that the latest jar should be
+   *    included in the classpath unless it is part of the spark
+   * 2- If there are more than 1 entry for ".*rapids-4-spark.*jar", then add a comment that the
+   *    there should be only 1 jar in the class path.
+   * 3- If there are cudf jars, then comment that cudf jars should be removed.
+   * 4- If there is a new release recommend that to the user
+   */
+  private def recommendClassPathEntries(): Unit = {
+    val missingRapidsJarsEntry = classPathComments("rapids.jars.missing")
+    val multipleRapidsJarsEntry = classPathComments("rapids.jars.multiple")
+
+    appInfoProvider.getRapidsJars match {
+      case Seq() =>
+        // No rapids jars
+        appendComment(missingRapidsJarsEntry)
+      case s: Seq[String] =>
+        s.flatMap(e => pluginJarRegEx.findAllMatchIn(e).map(_.group(1))) match {
+          case Seq() => appendComment(missingRapidsJarsEntry)
+          case v: Seq[String] if v.length > 1 =>
+            val comment = s"$multipleRapidsJarsEntry [${v.mkString(", ")}]"
+            appendComment(comment)
+          case Seq(jarVer) =>
+            // compare jarVersion to the latest release
+            val latestPluginVersion = WebCrawlerUtil.getLatestPluginRelease
+            latestPluginVersion match {
+              case Some(ver) =>
+                if (ToolUtils.compareVersions(jarVer, ver) < 0) {
+                  appendComment(
+                    "A newer RAPIDS Accelerator for Apache Spark plugin\n" +
+                      s"  jar is available [$ver].\n" +
+                      s"  Current version is $jarVer.")
+                }
+            }
+        }
     }
   }
 
@@ -846,14 +885,13 @@ object AutoTuner extends Logging {
   val DEF_WORKER_GPU_NAME = "T4"
   // T4 default memory is 16G
   // A100 set default to 40GB
-  val DEF_WORKER_GPU_MEMORY_MB: mutable.LinkedHashMap[String, String] =
-    mutable.LinkedHashMap[String, String]("T4"-> "15109m", "A100" -> "40960m")
+  val DEF_WORKER_GPU_MEMORY_MB = Map("T4"-> "15109m", "A100" -> "40960m")
   // Default Number of Workers 1
   val DEF_NUM_WORKERS = 1
   val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
 
-  val commentsForMissingProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+  val commentsForMissingProps = Map(
     "spark.executor.memory" ->
       "'spark.executor.memory' should be set to at least 2GB/core.",
     "spark.executor.instances" ->
@@ -865,7 +903,8 @@ object AutoTuner extends Logging {
     "spark.rapids.memory.pinnedPool.size" ->
       s"'spark.rapids.memory.pinnedPool.size' should be set to ${DEF_PINNED_MEMORY_MB}m.",
     "spark.sql.adaptive.enabled" ->
-      "'spark.sql.adaptive.enabled' should be enabled for better performance.")
+      "'spark.sql.adaptive.enabled' should be enabled for better performance."
+  )
 
   val recommendationsTarget: Seq[String] = Seq[String](
     "spark.executor.instances",
@@ -880,6 +919,26 @@ object AutoTuner extends Logging {
     "spark.executor.memoryOverhead",
     "spark.executor.memoryOverheadFactor",
     "spark.kubernetes.memoryOverheadFactor")
+
+  val classPathComments = Map(
+    "rapids.jars.missing" ->
+      ("RAPIDS Accelerator for Apache Spark plugin jar is missing\n" +
+        "  from the classpath entries.\n" +
+        "  If the Spark RAPIDS jar is being bundled with your\n" +
+        "  Spark distribution, this step is not needed."),
+    "rapids.jars.multiple" ->
+      ("Multiple RAPIDS Accelerator for Apache Spark plugin jar\n" +
+        "  exist on the classpath.\n" +
+        "  Make sure to keep only a single jar "),
+    "rapids.shuffle.jars" ->
+      ("The RAPIDS Shuffle Manager requires spark.driver.extraClassPath\n" +
+        "  and spark.executor.extraClassPath settings to include the\n" +
+        "  path to the Spark RAPIDS plugin jar.\n" +
+        "  If the Spark RAPIDS jar is being bundled with your Spark\n" +
+        "  distribution, this step is not needed.")
+  )
+  // the plugin jar is in the form of rapids-4-spark_scala_binary-(version)-*.jar
+  val pluginJarRegEx = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
 
   private def handleException(
       ex: Exception,
@@ -1002,14 +1061,5 @@ object AutoTuner extends Logging {
     } else {
       f"$sizeNum%.2f$sizeUnit"
     }
-  }
-
-  /**
-   * Reference - https://stackoverflow.com/a/55246235
-   */
-  def compareSparkVersion(version1: String, version2: String): Int = {
-    val paddedVersions = version1.split("\\.").zipAll(version2.split("\\."), "0", "0")
-    val difference = paddedVersions.find { case (a, b) => a != b }
-    difference.fold(0) { case (a, b) => a.toInt - b.toInt }
   }
 }

@@ -187,9 +187,11 @@ class Profiling(RapidsJarTool):
             props_list = ['- No recommendations']
         if len(comments_list) == 0:
             comments_list = ['- No comments']
-        # sort the comments and the recommendations so that the two values are aligned
+        # Note that sorting the comments is disabled because it will change the order
+        # of multiline entries
+        # Recommendations can be sorted so that the two values are aligned
+        # comments_list.sort()
         props_list.sort()
-        comments_list.sort()
         return app_name, props_list, comments_list
 
     def _write_summary(self):
