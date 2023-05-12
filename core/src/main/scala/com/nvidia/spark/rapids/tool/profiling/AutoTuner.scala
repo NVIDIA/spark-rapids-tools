@@ -627,15 +627,23 @@ class AutoTuner(
     }
     appInfoProvider.getSparkVersion match {
       case Some(version) =>
-        if (!ToolUtils.isSpark320OrLater(version) &&
-                getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
-          // The ideal setting is for the parallelism of the cluster
-          val numCoresPerExec = calcNumExecutorCores
-          val numExecutorsPerWorker = clusterProps.gpu.getCount
-          val numWorkers = clusterProps.system.getNumWorkers
-          val total = numWorkers * numExecutorsPerWorker * numCoresPerExec
-          appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum",
-            total.toString)
+        if (ToolUtils.isSpark320OrLater(version)) {
+          // AQE configs changed in 3.2.0
+          if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionSize").isEmpty) {
+            // the default is 1m, but 4m is slightly better for the GPU as we have a higher
+            // per task overhead
+            appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionSize", "4m")
+          }
+        } else {
+          if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
+            // The ideal setting is for the parallelism of the cluster
+            val numCoresPerExec = calcNumExecutorCores
+            val numExecutorsPerWorker = clusterProps.gpu.getCount
+            val numWorkers = clusterProps.system.getNumWorkers
+            val total = numWorkers * numExecutorsPerWorker * numCoresPerExec
+            appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum",
+              total.toString)
+          }
         }
       case None =>
     }
