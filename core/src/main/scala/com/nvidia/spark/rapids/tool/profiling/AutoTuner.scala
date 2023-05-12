@@ -647,6 +647,12 @@ class AutoTuner(
         }
       case None =>
     }
+    if (getPropertyValue("spark.sql.adaptive.advisoryPartitionSizeInBytes").isEmpty) {
+      // The default is 64m, but 128m is slightly better for the GPU as the GPU has sub-linear
+      // scaling until it is full and 128m makes the GPU more full, but too large can be slightly
+      // problematic because this is the compressed shuffle size
+      appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128m")
+    }
     val jvmGCFraction = appInfoProvider.getJvmGCFractions
     if (jvmGCFraction.nonEmpty) { // avoid zero division
       if ((jvmGCFraction.sum / jvmGCFraction.size) > MAX_JVM_GCTIME_FRACTION) {
