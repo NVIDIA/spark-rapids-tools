@@ -674,8 +674,9 @@ class AutoTuner(
                   appendComment(
                     "A newer RAPIDS Accelerator for Apache Spark plugin is available:\n" +
                       s"  $jarURL\n" +
-                      s"  Current version is $jarVer.")
+                      s"  Version used in application is $jarVer.")
                 }
+              case None => logError("Could not pull the latest release of plugin jar.")
             }
         }
     }
@@ -931,7 +932,7 @@ object AutoTuner extends Logging {
     "rapids.jars.multiple" ->
       ("Multiple RAPIDS Accelerator for Apache Spark plugin jar\n" +
         "  exist on the classpath.\n" +
-        "  Make sure to keep only a single jar "),
+        "  Make sure to keep only a single jar."),
     "rapids.shuffle.jars" ->
       ("The RAPIDS Shuffle Manager requires spark.driver.extraClassPath\n" +
         "  and spark.executor.extraClassPath settings to include the\n" +

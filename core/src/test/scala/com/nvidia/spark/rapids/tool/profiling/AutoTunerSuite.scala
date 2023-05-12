@@ -974,7 +974,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.shuffle.partitions' was not set.
           |- A newer RAPIDS Accelerator for Apache Spark plugin is available:
           |  $pluginJarMvnURl
-          |  Current version is $jarVer.
+          |  Version used in application is $jarVer.
           |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$jarVer.jar")
