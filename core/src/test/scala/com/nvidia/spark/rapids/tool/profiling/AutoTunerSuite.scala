@@ -97,7 +97,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     rawString.split("\n").drop(1).mkString("\n")
   }
 
-  private def getGpuAppMockInfoProvider(): AppSummaryInfoBaseProvider = {
+  private def getGpuAppMockInfoProvider: AppSummaryInfoBaseProvider = {
     getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
@@ -957,7 +957,36 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     // 2. The Autotuner should warn the users that they are using an older release
     // 3. Compare the output
     val jarVer = "23.02.0"
-    val latestRelease = WebCrawlerUtil.getLatestToolsRelease match {
+    val latestRelease = WebCrawlerUtil.getLatestPluginRelease match {
+      case Some(v) => v
+      case None => fail("Could not find pull the latest release successfully")
+    }
+    val pluginJarMvnURl = "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12/" +
+      s"$latestRelease/rapids-4-spark_2.12-$latestRelease.jar"
+    val expectedResults =
+      s"""|
+      |Spark Properties:
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=1
+          |--conf spark.sql.shuffle.partitions=200
+          |
+          |Comments:
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
+          |- 'spark.sql.shuffle.partitions' was not set.
+          |- A newer RAPIDS Accelerator for Apache Spark plugin is available:
+          |  $pluginJarMvnURl
+          |  Current version is $jarVer.
+          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$jarVer.jar")
+    val autoTunerOutput = generateRecommendationsForRapidsJars(rapidsJarsArr)
+    autoTunerOutput shouldBe expectedResults
+  }
+
+  test("No recommendation when the jar pluginJar is up-to-date") {
+    // 1. Pull the latest release from mvn.
+    // 2. The Autotuner finds tha the jar version is latest. No comments should be added
+    // 3. Compare the output
+    val latestRelease = WebCrawlerUtil.getLatestPluginRelease match {
       case Some(v) => v
       case None => fail("Could not find pull the latest release successfully")
     }
@@ -970,12 +999,9 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Comments:
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- A newer RAPIDS Accelerator for Apache Spark plugin
-          |  jar is available [$latestRelease].
-          |  Current version is $jarVer.
           |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
-    val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$jarVer.jar")
+    val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$latestRelease.jar")
     val autoTunerOutput = generateRecommendationsForRapidsJars(rapidsJarsArr)
     autoTunerOutput shouldBe expectedResults
   }

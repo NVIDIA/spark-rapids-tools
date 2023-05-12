@@ -103,6 +103,15 @@ object WebCrawlerUtil extends Logging {
     }
   }
 
+  // given artifactID and release, returns the full mvn url to download the jar
+  def getMvnDownloadLink(artifactID: String, release: String): String = {
+    s"${getMVNArtifactURL(artifactID)}/$release/$artifactID-$release.jar"
+  }
+
+  def getPluginMvnDownloadLink(release: String): String = {
+    getMvnDownloadLink(NV_ARTIFACTS_LOOKUP("rapids.plugin"), release)
+  }
+
   // get the latest version available for rapids plugin
   def getLatestPluginRelease: Option[String] = {
     getLatestMvnReleaseForNVPackage(NV_ARTIFACTS_LOOKUP("rapids.plugin"))
@@ -112,4 +121,8 @@ object WebCrawlerUtil extends Logging {
   def getLatestToolsRelease: Option[String] = {
     getLatestMvnReleaseForNVPackage(NV_ARTIFACTS_LOOKUP("rapids.tools"))
   }
+
+
+
+
 }

@@ -23,6 +23,7 @@ import scala.beans.BeanProperty
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import scala.util.matching.Regex
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
@@ -59,7 +60,7 @@ class GpuWorkerProps(
    *
    * @return true if the value has been updated.
    */
-  def setDefaultGpuCountIfMissing: Boolean = {
+  def setDefaultGpuCountIfMissing(): Boolean = {
     if (count == 0) {
       count = AutoTuner.DEF_WORKER_GPU_COUNT
       true
@@ -67,7 +68,7 @@ class GpuWorkerProps(
       false
     }
   }
-  def setDefaultGpuNameIfMissing: Boolean = {
+  def setDefaultGpuNameIfMissing(): Boolean = {
     if (name == null || name.isEmpty || name == "None") {
       name = AutoTuner.DEF_WORKER_GPU_NAME
       true
@@ -83,7 +84,7 @@ class GpuWorkerProps(
    *
    * @return true if the value has been updated.
    */
-  def setDefaultGpuMemIfMissing: Boolean = {
+  def setDefaultGpuMemIfMissing(): Boolean = {
     if (memory == null || memory.isEmpty || memory.startsWith("0")) {
       memory = AutoTuner.DEF_WORKER_GPU_MEMORY_MB.getOrElse(getName, "15109m")
       true
@@ -99,13 +100,13 @@ class GpuWorkerProps(
    */
   def setMissingFields(): Seq[String] = {
     val res = new ListBuffer[String]()
-    if (setDefaultGpuCountIfMissing) {
+    if (setDefaultGpuCountIfMissing()) {
       res += s"GPU count is missing. Setting default to $getCount."
     }
-    if (setDefaultGpuNameIfMissing) {
+    if (setDefaultGpuNameIfMissing()) {
       res += s"GPU device is missing. Setting default to $getName."
     }
-    if (setDefaultGpuMemIfMissing) {
+    if (setDefaultGpuMemIfMissing()) {
       res += s"GPU memory is missing. Setting default to $getMemory."
     }
     res
@@ -581,7 +582,7 @@ class AutoTuner(
     appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
       Math.max(20, numExecutorCores))
 
-    val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.toString.filterNot("().".toSet)
+    val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.filterNot("().".toSet)
     appendRecommendation("spark.shuffle.manager",
       "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
     appendComment(classPathComments("rapids.shuffle.jars"))
@@ -646,7 +647,7 @@ class AutoTuner(
    *    included in the classpath unless it is part of the spark
    * 2- If there are more than 1 entry for ".*rapids-4-spark.*jar", then add a comment that the
    *    there should be only 1 jar in the class path.
-   * 3- If there are cudf jars, then comment that cudf jars should be removed.
+   * 3- If there are cudf jars, ignore that for now.
    * 4- If there is a new release recommend that to the user
    */
   private def recommendClassPathEntries(): Unit = {
@@ -669,9 +670,10 @@ class AutoTuner(
             latestPluginVersion match {
               case Some(ver) =>
                 if (ToolUtils.compareVersions(jarVer, ver) < 0) {
+                  val jarURL = WebCrawlerUtil.getPluginMvnDownloadLink(ver)
                   appendComment(
-                    "A newer RAPIDS Accelerator for Apache Spark plugin\n" +
-                      s"  jar is available [$ver].\n" +
+                    "A newer RAPIDS Accelerator for Apache Spark plugin is available:\n" +
+                      s"  $jarURL\n" +
                       s"  Current version is $jarVer.")
                 }
             }
@@ -885,13 +887,13 @@ object AutoTuner extends Logging {
   val DEF_WORKER_GPU_NAME = "T4"
   // T4 default memory is 16G
   // A100 set default to 40GB
-  val DEF_WORKER_GPU_MEMORY_MB = Map("T4"-> "15109m", "A100" -> "40960m")
+  val DEF_WORKER_GPU_MEMORY_MB: Map[String, String] = Map("T4"-> "15109m", "A100" -> "40960m")
   // Default Number of Workers 1
   val DEF_NUM_WORKERS = 1
   val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
 
-  val commentsForMissingProps = Map(
+  val commentsForMissingProps: Map[String, String] = Map(
     "spark.executor.memory" ->
       "'spark.executor.memory' should be set to at least 2GB/core.",
     "spark.executor.instances" ->
@@ -920,7 +922,7 @@ object AutoTuner extends Logging {
     "spark.executor.memoryOverheadFactor",
     "spark.kubernetes.memoryOverheadFactor")
 
-  val classPathComments = Map(
+  val classPathComments: Map[String, String] = Map(
     "rapids.jars.missing" ->
       ("RAPIDS Accelerator for Apache Spark plugin jar is missing\n" +
         "  from the classpath entries.\n" +
@@ -938,7 +940,7 @@ object AutoTuner extends Logging {
         "  distribution, this step is not needed.")
   )
   // the plugin jar is in the form of rapids-4-spark_scala_binary-(version)-*.jar
-  val pluginJarRegEx = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
+  val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
 
   private def handleException(
       ex: Exception,
