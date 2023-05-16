@@ -620,17 +620,38 @@ class AutoTuner(
   }
 
   private def recommendGeneralProperties(): Unit = {
-    val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled").getOrElse("False")
-    if (aqeEnabled == "False") {
+    val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled")
+            .getOrElse("false").toLowerCase
+    if (aqeEnabled == "false") {
       appendComment(commentsForMissingProps("spark.sql.adaptive.enabled"))
     }
     appInfoProvider.getSparkVersion match {
       case Some(version) =>
-        if (!ToolUtils.isSpark320OrLater(version) &&
-                getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
-          appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum", "1")
+        if (ToolUtils.isSpark320OrLater(version)) {
+          // AQE configs changed in 3.2.0
+          if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionSize").isEmpty) {
+            // the default is 1m, but 4m is slightly better for the GPU as we have a higher
+            // per task overhead
+            appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionSize", "4m")
+          }
+        } else {
+          if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
+            // The ideal setting is for the parallelism of the cluster
+            val numCoresPerExec = calcNumExecutorCores
+            val numExecutorsPerWorker = clusterProps.gpu.getCount
+            val numWorkers = clusterProps.system.getNumWorkers
+            val total = numWorkers * numExecutorsPerWorker * numCoresPerExec
+            appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum",
+              total.toString)
+          }
         }
       case None =>
+    }
+    if (getPropertyValue("spark.sql.adaptive.advisoryPartitionSizeInBytes").isEmpty) {
+      // The default is 64m, but 128m is slightly better for the GPU as the GPU has sub-linear
+      // scaling until it is full and 128m makes the GPU more full, but too large can be slightly
+      // problematic because this is the compressed shuffle size
+      appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128m")
     }
     val jvmGCFraction = appInfoProvider.getJvmGCFractions
     if (jvmGCFraction.nonEmpty) { // avoid zero division
