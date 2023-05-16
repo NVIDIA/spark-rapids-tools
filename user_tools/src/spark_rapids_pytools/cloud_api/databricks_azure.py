@@ -23,7 +23,7 @@ from typing import Any, List
 
 from spark_rapids_pytools.cloud_api.azurestorage import AzureStorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, \
-    PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType, GpuDevice
+    PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
@@ -64,7 +64,6 @@ class DBAzurePlatform(PlatformBase):
         pass
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
-        print("databricks_azure.py: create_local_submission_job")
         pass
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
@@ -99,29 +98,28 @@ class DBAzureCMDDriver(CMDDriverBase):
             self.logger.error('Invalid arguments to pull the cluster properties')
         return self.run_sys_cmd(get_cluster_cmd)
 
-    @classmethod
     def process_instances_description(self, raw_instances_description: str) -> dict:
-        processed_instances_description = dict()
+        processed_instances_description = {}
         instances_description = JSONPropertiesContainer(prop_arg=raw_instances_description, file_load=False)
         for instance in instances_description.props:
-            instance_dict = dict()
-            vCPUs = 0
-            MemoryGB = 0
-            GPUs = 0
+            instance_dict = {}
+            v_cpus = 0
+            memory_gb = 0
+            gpus = 0
             if not instance['capabilities']:
                 continue
             for item in instance['capabilities']:
                 if item['name'] == 'vCPUs':
-                    vCPUs = int(item['value'])
+                    v_cpus = int(item['value'])
                 elif item['name'] == 'MemoryGB':
-                    MemoryGB = int(float(item['value']) * 1024)
+                    memory_gb = int(float(item['value']) * 1024)
                 elif item['name'] == 'GPUs':
-                    GPUs = int(item['value'])
-            instance_dict['VCpuInfo'] = {"DefaultVCpus": vCPUs}
-            instance_dict['MemoryInfo'] = {'SizeInMiB': MemoryGB}
-            if GPUs > 0:
-                GPU_list = [{"Name": "", "Manufacturer": "", "Count": GPUs, "MemoryInfo": {"SizeInMiB": 0}}]
-                instance_dict['GpuInfo'] = {"GPUs": GPU_list}
+                    gpus = int(item['value'])
+            instance_dict['VCpuInfo'] = {'DefaultVCpus': v_cpus}
+            instance_dict['MemoryInfo'] = {'SizeInMiB': memory_gb}
+            if gpus > 0:
+                gpu_list = [{'Name': '', 'Manufacturer': '', 'Count': gpus, 'MemoryInfo': {'SizeInMiB': 0}}]
+                instance_dict['GpuInfo'] = {'GPUs': gpu_list}
             processed_instances_description[instance['name']] = instance_dict
         return processed_instances_description
 
@@ -130,13 +128,12 @@ class DBAzureCMDDriver(CMDDriverBase):
                       '--location', f'{self.get_region()}']
         raw_instances_description = self.run_sys_cmd(cmd_params)
         json_instances_description = self.process_instances_description(raw_instances_description)
-        with open(fpath, "w") as output_file:
-            json.dump(json_instances_description, output_file, indent = 2)
+        with open(fpath, 'w', encoding='UTF-8') as output_file:
+            json.dump(json_instances_description, output_file, indent=2)
 
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         pass
-    
-    @classmethod
+
     def _caches_expired(self, cache_file) -> bool:
         if not os.path.exists(cache_file):
             return True
@@ -145,9 +142,8 @@ class DBAzureCMDDriver(CMDDriverBase):
         if diff_time > self.cache_expiration_secs:
             return True
         return False
-    
+
     def init_instances_description(self) -> str:
-        print("location", self.get_region())
         cache_dir = Utils.get_rapids_tools_env('CACHE_FOLDER')
         fpath = FSUtil.build_path(cache_dir, 'azure-instances-catalog.json')
         if self._caches_expired(fpath):
