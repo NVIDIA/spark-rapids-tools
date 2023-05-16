@@ -20,6 +20,7 @@ from spark_rapids_pytools.wrappers.databricks_aws_wrapper import DBAWSWrapper
 from spark_rapids_pytools.wrappers.databricks_azure_wrapper import DBAzureWrapper
 from spark_rapids_pytools.wrappers.dataproc_wrapper import DataprocWrapper
 from spark_rapids_pytools.wrappers.emr_wrapper import EMRWrapper
+from spark_rapids_pytools.wrappers.onprem_wrapper import OnPremWrapper
 
 
 def main():
@@ -27,7 +28,8 @@ def main():
         'emr': EMRWrapper,
         'dataproc': DataprocWrapper,
         'databricks_aws': DBAWSWrapper,
-        'databricks_azure': DBAzureWrapper
+        'databricks_azure': DBAzureWrapper,
+        'onprem': OnPremWrapper
     })
 
 

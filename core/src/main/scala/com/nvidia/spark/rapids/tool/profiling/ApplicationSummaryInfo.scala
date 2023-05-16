@@ -46,6 +46,7 @@ trait AppInfoPropertyGetter {
   def getRapidsProperty(propKey: String): Option[String]
   def getProperty(propKey: String): Option[String]
   def getSparkVersion: Option[String]
+  def getRapidsJars: Seq[String]
 }
 
 trait AppInfoSqlTaskAggMetricsVisitor {
@@ -71,6 +72,7 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getMaxInput: Double = 0.0
   override def getJvmGCFractions: Seq[Double] = Seq()
   override def getSpilledMetrics: Seq[Long] = Seq()
+  override def getRapidsJars: Seq[String] = Seq()
 }
 
 /**
@@ -129,5 +131,9 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
     } else {
       0.0
     }
+  }
+
+  override def getRapidsJars: Seq[String] = {
+    app.rapidsJar.map(_.jar).seq
   }
 }

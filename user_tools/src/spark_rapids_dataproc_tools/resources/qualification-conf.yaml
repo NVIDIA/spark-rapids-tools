@@ -52,6 +52,7 @@ sparkRapids:
       - m
       - match-event-logs
       - max-sql-desc-length
+      - ml-functions
       - n
       - num-output-rows
       - num-threads

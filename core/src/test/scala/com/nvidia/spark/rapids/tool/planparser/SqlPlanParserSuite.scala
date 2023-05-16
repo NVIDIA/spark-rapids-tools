@@ -32,6 +32,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, floor, hex, json_tuple, round, row_number, sum}
+import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.types.StringType
 
@@ -168,27 +169,60 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
       }
       val pluginTypeChecker = new PluginTypeChecker()
       val app = createAppFromEventlog(eventLog)
+      val sparkVersion = app.sparkVersion
       assert(app.sqlPlans.size == 1)
       app.sqlPlans.foreach { case (sqlID, plan) =>
         val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
           pluginTypeChecker, app)
-        assert(planInfo.execInfo.size == 11)
+
         val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
-        assert(wholeStages.size == 6)
-        // only 2 in the above example have projects and filters, 3 have sort and 1 has SMJ
-        val numSupported = wholeStages.filter(_.isSupported).size
-        assert(numSupported == 6)
-        assert(wholeStages.forall(_.duration.nonEmpty))
         val allChildren = wholeStages.flatMap(_.children).flatten
-        assert(allChildren.size == 10)
-        val filters = allChildren.filter(_.exec == "Filter")
-        assertSizeAndSupported(2, filters)
-        val projects = allChildren.filter(_.exec == "Project")
-        assertSizeAndSupported(2, projects)
         val sorts = allChildren.filter(_.exec == "Sort")
-        assertSizeAndSupported(3, sorts)
+        val filters = allChildren.filter(_.exec == "Filter")
+        val projects = allChildren.filter(_.exec == "Project")
         val smj = allChildren.filter(_.exec == "SortMergeJoin")
-        assertSizeAndSupported(1, smj)
+        val bhj = allChildren.filter(_.exec == "BroadcastHashJoin")
+        val (execInfoSize, wholeStagesSize, numSupported, expChildren, numSort, numSMJ, numBHJ) =
+          if (ToolUtils.isSpark320OrLater(sparkVersion)) {
+            // - The plan has BroadcastExchange which will change the expected number of execs.
+            //   Keeping in mind that the parser marks duplicate execs as "shouldRemove" instead of
+            //   deleting them
+            // - All "wholestages" should all supported
+            // - The children of wholestages will be down by 2 compared to pre-3.2
+            //    Sort
+            //    BroadcastHashJoin
+            //    Project
+            //    Filter
+            //    SerializeFromObject
+            //    Project
+            //    Filter
+            //    SerializeFromObject
+            (14, 4, 4, 8, 1, 0, 1)
+          } else {
+            // only 2 in the above example have projects and filters, 3 have sort and 1 has SMJ
+            // - The children of wholestages will be:
+            //    Sort
+            //    SortMergeJoin
+            //    Sort
+            //    Project
+            //    Filter
+            //    SerializeFromObject
+            //    Sort
+            //    Project
+            //    Filter
+            //    SerializeFromObject
+            (11, 6, 6, 10, 3, 1, 0)
+          }
+        assert(planInfo.execInfo.size == execInfoSize)
+        assert(wholeStages.size == wholeStagesSize)
+        assert(wholeStages.filter(_.isSupported).size == numSupported)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        assert(allChildren.size == expChildren)
+        assertSizeAndSupported(2, filters)
+        assertSizeAndSupported(2, projects)
+        assertSizeAndSupported(numSort, sorts)
+        assertSizeAndSupported(numSMJ, smj)
+        assertSizeAndSupported(numBHJ, bhj)
       }
     }
   }

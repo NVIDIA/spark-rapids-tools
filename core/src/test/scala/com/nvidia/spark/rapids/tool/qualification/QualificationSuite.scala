@@ -672,8 +672,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val tmpParquet = s"$outpath/mlOpsParquet"
+        val sparkVersion = ToolUtils.sparkRuntimeVersion
         createDecFile(sparkSession, tmpParquet)
-
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "dot") { spark =>
           val data = Array(
             Vectors.sparse(5, Seq((1, 1.0), (3, 7.0))),
@@ -700,7 +700,10 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(appSum.size == 1)
         val mlOpsRes = appSum.head
         assert(mlOpsRes.mlFunctions.nonEmpty)
-        assert(mlOpsRes.mlFunctions.get.map(x=> x.stageId).size == 5)
+        // Spark3.2.+ generates a plan with 6 stages. StageID 3 and 4 are both
+        // "isEmpty at RowMatrix.scala:441"
+        val expStageCount = if (ToolUtils.isSpark320OrLater()) 6 else 5
+        assert(mlOpsRes.mlFunctions.get.map(x=> x.stageId).size == expStageCount)
         assert(mlOpsRes.mlFunctions.get.head.mlOps.mkString.contains(
           "org.apache.spark.ml.feature.PCA.fit"))
         assert(mlOpsRes.mlFunctionsStageDurations.get.head.mlFuncName.equals("PCA"))
@@ -772,7 +775,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         val grpParquet = s"$outpath/grpParquet"
         createDecFile(sparkSession, tmpParquet)
         createIntFile(sparkSession, grpParquet)
-
+        val sparkVersion = ToolUtils.sparkRuntimeVersion
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "dot") { spark =>
           val plusOne = udf((x: Int) => x + 1)
           import spark.implicits._
@@ -797,7 +800,12 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(exit == 0)
         assert(appSum.size == 1)
         val probApp = appSum.head
-        assert(probApp.potentialProblems.contains("UDF"))
+        if (!ToolUtils.isSpark320OrLater(sparkVersion)) {
+          // The UDF can be detected only for Spark3.1.1
+          // Follow https://issues.apache.org/jira/browse/SPARK-43131 for updates on detecting
+          // UDFs in spark3.2+
+          assert(probApp.potentialProblems.contains("UDF"))
+        }
         assert(probApp.unsupportedSQLTaskDuration > 0) // only UDF is unsupported in the query.
       }
     }
@@ -1250,7 +1258,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(outputActual.collect().size == 1)
       }
 
-      // run the qualification tool for dataproc
+      // run the qualification tool for dataproc. It should default to dataproc-t4
       TrampolineUtil.withTempDir { outpath =>
         val appArgs = new QualificationArgs(Array(
           "--output-directory",
@@ -1262,7 +1270,55 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         val (exit, sumInfo) =
           QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
+
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
+      }
+
+      // run the qualification tool for dataproc-t4
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "dataproc-t4",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
   
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
+      }
+
+      // run the qualification tool for dataproc-l4
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "dataproc-l4",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+
         // the code above that runs the Spark query stops the Sparksession
         // so create a new one to read in the csv file
         createSparkSession()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
+import org.apache.spark.sql.rapids.tool.ToolUtils
 
 class GenerateDotSuite extends FunSuite with BeforeAndAfterAll with Logging {
 
@@ -35,6 +36,7 @@ class GenerateDotSuite extends FunSuite with BeforeAndAfterAll with Logging {
 
   test("Generate DOT") {
     TrampolineUtil.withTempDir { eventLogDir =>
+
       val (eventLog, appId) = ToolTestUtils.generateEventLog(eventLogDir, "dot") { spark =>
         import spark.implicits._
         val t1 = Seq((1, 2), (3, 4)).toDF("a", "b")
@@ -48,7 +50,7 @@ class GenerateDotSuite extends FunSuite with BeforeAndAfterAll with Logging {
         .master("local[*]")
         .appName("Rapids Spark Profiling Tool Unit Tests")
         .getOrCreate()
-
+      val sparkVersion = spark2.version
       TrampolineUtil.withTempDir { dotFileDir =>
         val appArgs = new ProfileArgs(Array(
           "--output-directory",
@@ -79,7 +81,35 @@ class GenerateDotSuite extends FunSuite with BeforeAndAfterAll with Logging {
           hashAggCount += dotFileStr.sliding(hashAggr.length).count(_ == hashAggr)
           stageCount += dotFileStr.sliding(stageWord.length).count(_ == stageWord)
         }
-        assert(hashAggCount === 8, "Expected: 4 in node labels + 4 in graph label")
+        // expected hash aggregate count varies depending on the spark runtime
+        val (expectedHashAggCount, clue) = if (ToolUtils.isSpark320OrLater(sparkVersion)) {
+          // 5 in node labels + 5 in graph label
+          // == Physical Plan ==
+          // AdaptiveSparkPlan (17)
+          // +- == Final Plan ==
+          //   * Project (11)
+          //   +- * Sort (10)
+          //      +- AQEShuffleRead (9)
+          //         +- ShuffleQueryStage (8), Statistics(sizeInBytes=48.0 B, rowCount=2)
+          //            +- Exchange (7)
+          //               +- * HashAggregate (6)
+          //                  +- AQEShuffleRead (5)
+          //                     +- ShuffleQueryStage (4), Statistics(sizeInBytes=48.0 B,rowCount=2)
+          //                        +- Exchange (3)
+          //                           +- * HashAggregate (2)
+          //                              +- * LocalTableScan (1)
+          (11, "Expected: 5 in node labels + 5 in graph label")
+        } else {
+          // 4 in node labels + 4 in graph label
+          // == Physical Plan ==
+          // TakeOrderedAndProject (5)
+          // +- * HashAggregate (4)
+          //    +- Exchange (3)
+          //       +- * HashAggregate (2)
+          //          +- * LocalTableScan (1)
+          (8, "Expected: 4 in node labels + 4 in graph label")
+        }
+        assert(hashAggCount === expectedHashAggCount, clue)
         assert(stageCount === 4, "Expected: UNKNOWN Stage, Initial Aggregation, " +
           "Final Aggregation, Sorting final output")
       }
