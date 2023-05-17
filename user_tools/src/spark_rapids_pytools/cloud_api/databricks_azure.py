@@ -156,6 +156,14 @@ class DBAzureCMDDriver(CMDDriverBase):
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
+    def get_region(self) -> str:
+        cmd_params = ['az config get defaults.location']
+        try:
+            location_description = self.run_sys_cmd(cmd_params)
+        except RuntimeError:
+            return self.env_vars.get('region')
+        return JSONPropertiesContainer(prop_arg=location_description, file_load=False).get_value('value')
+
 
 @dataclass
 class DatabricksAzureNode(ClusterNode):
