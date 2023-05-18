@@ -949,7 +949,6 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
       }
     }
   }
-
   test("running qualification print unsupported Execs and Exprs") {
     val qualApp = new RunningQualificationApp()
     ToolTestUtils.runAndCollect("streaming") { spark =>
@@ -1376,7 +1375,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   test("test CSV qual output with escaped characters") {
-    val jobNames = List("test,name",  "\"test\"name\"")
+    val jobNames = List("test,name",  "\"test\"name\"", "\"", ",", ",\"")
     jobNames.foreach { jobName =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val (eventLog, _) =
