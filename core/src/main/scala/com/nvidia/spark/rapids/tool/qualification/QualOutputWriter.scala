@@ -417,7 +417,7 @@ object QualOutputWriter {
 
   def getSqlDescSize(sums: Seq[QualificationSummaryInfo], maxSQLDescLength: Int,
       delimiter: String): Int = {
-    val sizes = sums.flatMap(_.perSQLEstimatedInfo).flatten.map{ info =>
+    val sizes = sums.flatMap(_.perSQLEstimatedInfo).flatten.map { info =>
       formatSQLDescription(info.sqlDesc, maxSQLDescLength, delimiter).size
     }
     val maxSizeOfDesc = getMaxSizeForHeader(sizes, QualOutputWriter.SQL_DESC_STR)
