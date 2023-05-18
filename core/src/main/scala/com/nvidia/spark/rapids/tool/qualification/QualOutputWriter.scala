@@ -674,13 +674,13 @@ object QualOutputWriter {
       reformatCSVFunc(formatSQLDescription(sumInfo.sqlDesc, maxSQLDescLength, delimiter)) ->
         headersAndSizes(SQL_DESC_STR),
       sumInfo.info.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
-      reformatCSVFunc(sumInfo.info.gpuOpportunity.toString) -> GPU_OPPORTUNITY_STR_SIZE,
+      sumInfo.info.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
       ToolUtils.formatDoublePrecision(sumInfo.info.estimatedGpuDur) -> ESTIMATED_GPU_DURATION.size,
       ToolUtils.formatDoublePrecision(sumInfo.info.estimatedGpuSpeedup) ->
         ESTIMATED_GPU_SPEEDUP.size,
       ToolUtils.formatDoublePrecision(sumInfo.info.estimatedGpuTimeSaved) ->
         ESTIMATED_GPU_TIMESAVED.size,
-      sumInfo.info.recommendation -> SPEEDUP_BUCKET_STR_SIZE
+      reformatCSVFunc(sumInfo.info.recommendation) -> SPEEDUP_BUCKET_STR_SIZE
     )
     constructOutputRow(data, delimiter, prettyPrint)
   }
