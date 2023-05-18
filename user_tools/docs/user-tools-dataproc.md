@@ -13,6 +13,7 @@ the applications running on _Google Cloud Dataproc_.
 - Set the configuration settings and credentials of the gcloud CLI:
   - Initialize the gcloud CLI by following [these instructions](https://cloud.google.com/sdk/docs/initializing#initialize_the)
   - Grant authorization to the gcloud CLI [with a user account](https://cloud.google.com/sdk/docs/authorizing#authorize_with_a_user_account)
+  - Set up application default credentials to the gcloud CLI [by logging in](https://cloud.google.com/sdk/docs/authorizing#set_up_application_default_credentials)
   - Manage gcloud CLI configurations. For more details, visit [gcloud-sdk-configurations](https://cloud.google.com/sdk/docs/configurations)
   - Verify that the following [gcloud CLI properties](https://cloud.google.com/sdk/docs/properties) are properly defined:
     - `dataproc/region`,
