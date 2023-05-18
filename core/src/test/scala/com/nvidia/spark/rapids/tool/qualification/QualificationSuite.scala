@@ -950,130 +950,159 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     }
   }
   test("running qualification print unsupported Execs and Exprs") {
-    val qualApp = new RunningQualificationApp()
-    ToolTestUtils.runAndCollect("streaming") { spark =>
-      val listener = qualApp.getEventListener
-      spark.sparkContext.addSparkListener(listener)
-      import spark.implicits._
-      val df1 = spark.sparkContext.parallelize(List(10, 20, 30, 40)).toDF
-      df1.filter(hex($"value") === "A") // hex is not supported in GPU yet.
-    }
-    //stdout output tests
-    val sumOut = qualApp.getSummary()
-    val detailedOut = qualApp.getDetailed()
-    assert(sumOut.nonEmpty)
-    assert(sumOut.startsWith("|") && sumOut.endsWith("|\n"))
-    assert(detailedOut.nonEmpty)
-    assert(detailedOut.startsWith("|") && detailedOut.endsWith("|\n"))
-    val stdOut = sumOut.split("\n")
-    val stdOutHeader = stdOut(0).split("\\|")
-    val stdOutValues = stdOut(1).split("\\|")
-    val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3) // index of unsupportedExecs
-    val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 2) // index of unsupportedExprs
-    val expectedstdOutExecs = "Scan;Filter;SerializeF..."
-    assert(stdOutunsupportedExecs == expectedstdOutExecs)
-    // Exec value is Scan;Filter;SerializeFromObject and UNSUPPORTED_EXECS_MAX_SIZE is 25
-    val expectedStdOutExecsMaxLength = 25
-    // Expr value is hex and length of expr header is 23 (Unsupported Expressions)
-    val expectedStdOutExprsMaxLength = 23
-    assert(stdOutunsupportedExecs.size == expectedStdOutExecsMaxLength)
-    assert(stdOutunsupportedExprs.size == expectedStdOutExprsMaxLength)
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val qualApp = new RunningQualificationApp()
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "streaming") { spark =>
+        val listener = qualApp.getEventListener
+        spark.sparkContext.addSparkListener(listener)
+        import spark.implicits._
+        val df1 = spark.sparkContext.parallelize(List(10, 20, 30, 40)).toDF
+        df1.filter(hex($"value") === "A") // hex is not supported in GPU yet.
+      }
+      //stdout output tests
+      val sumOut = qualApp.getSummary()
+      val detailedOut = qualApp.getDetailed()
+      assert(sumOut.nonEmpty)
+      assert(sumOut.startsWith("|") && sumOut.endsWith("|\n"))
+      assert(detailedOut.nonEmpty)
+      assert(detailedOut.startsWith("|") && detailedOut.endsWith("|\n"))
+      val stdOut = sumOut.split("\n")
+      val stdOutHeader = stdOut(0).split("\\|")
+      val stdOutValues = stdOut(1).split("\\|")
+      val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3) // index of unsupportedExecs
+      val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 2) // index of unsupportedExprs
+      val expectedstdOutExecs = "Scan;Filter;SerializeF..."
+      assert(stdOutunsupportedExecs == expectedstdOutExecs)
+      // Exec value is Scan;Filter;SerializeFromObject and UNSUPPORTED_EXECS_MAX_SIZE is 25
+      val expectedStdOutExecsMaxLength = 25
+      // Expr value is hex and length of expr header is 23 (Unsupported Expressions)
+      val expectedStdOutExprsMaxLength = 23
+      assert(stdOutunsupportedExecs.size == expectedStdOutExecsMaxLength)
+      assert(stdOutunsupportedExprs.size == expectedStdOutExprsMaxLength)
 
-    //csv output tests
-    val csvSumOut = qualApp.getSummary(",", false)
-    val rowsSumOut = csvSumOut.split("\n")
-    val headers = rowsSumOut(0).split(",")
-    val values = rowsSumOut(1).split(",")
-    val expectedExecs = "Scan;Filter;SerializeFromObject" // Unsupported Execs
-    val expectedExprs = "hex" //Unsupported Exprs
-    val unsupportedExecs = values(values.length - 3) // index of unsupportedExecs
-    val unsupportedExprs = values(values.length - 2) // index of unsupportedExprs
-    assert(expectedExecs == unsupportedExecs)
-    assert(expectedExprs == unsupportedExprs)
+      // run the qualification tool
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          eventLog))
+
+        val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        //csv output tests
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults), "\"")
+        val rows = outputActual.collect()
+        assert(rows.size == 1)
+
+        val expectedExecs = "Scan;Filter;SerializeFromObject" // Unsupported Execs
+        val expectedExprs = "hex" //Unsupported Exprs
+        val unsupportedExecs = outputActual.select("Unsupported Execs").first.getString(0)
+        val unsupportedExprs = outputActual.select("Unsupported Expressions").first.getString(0)
+        assert(expectedExecs == unsupportedExecs)
+        assert(expectedExprs == unsupportedExprs)
+      }
+    }
   }
 
   test("running qualification app join") {
-    val qualApp = new RunningQualificationApp()
-    ToolTestUtils.runAndCollect("streaming") { spark =>
-      val listener = qualApp.getEventListener
-      spark.sparkContext.addSparkListener(listener)
-      import spark.implicits._
-      val testData = Seq((1, 2), (3, 4)).toDF("a", "b")
-      testData.createOrReplaceTempView("t1")
-      testData.createOrReplaceTempView("t2")
-      spark.sql("SELECT a, MAX(b) FROM (SELECT t1.a, t2.b " +
-        "FROM t1 JOIN t2 ON t1.a = t2.a) AS t " +
-        "GROUP BY a ORDER BY a")
-    }
-    val sumOut = qualApp.getSummary()
-    val detailedOut = qualApp.getDetailed()
-    assert(sumOut.nonEmpty)
-    assert(sumOut.startsWith("|") && sumOut.endsWith("|\n"))
-    assert(detailedOut.nonEmpty)
-    assert(detailedOut.startsWith("|") && detailedOut.endsWith("|\n"))
-
-    val csvSumOut = qualApp.getSummary(",", false)
-    val rowsSumOut = csvSumOut.split("\n")
-    assert(rowsSumOut.size == 2)
-    val headers = rowsSumOut(0).split(",")
-    val values = rowsSumOut(1).split(",")
-    val appInfo = qualApp.aggregateStats()
-    assert(appInfo.nonEmpty)
-    val appNameMaxSize = QualOutputWriter.getAppNameSize(Seq(appInfo.get))
-    assert(headers.size ==
-      QualOutputWriter.getSummaryHeaderStringsAndSizes(appNameMaxSize, 0).keys.size)
-    assert(values.size == headers.size)
-    // 3 should be the SQL DF Duration
-    assert(headers(3).contains("SQL DF"))
-    assert(values(3).toInt > 0)
-    val csvDetailedOut = qualApp.getDetailed(",", false)
-    val rowsDetailedOut = csvDetailedOut.split("\n")
-    assert(rowsDetailedOut.size == 2)
-    val headersDetailed = rowsDetailedOut(0).split(",")
-    val valuesDetailed = rowsDetailedOut(1).split(",")
-    assert(headersDetailed.size == QualOutputWriter
-      .getDetailedHeaderStringsAndSizes(Seq(qualApp.aggregateStats.get), false).keys.size)
-    assert(headersDetailed.size == csvDetailedFields.size)
-    assert(valuesDetailed.size == csvDetailedFields.size)
-    // check all headers exists
-    for (ind <- 0 until csvDetailedFields.size) {
-      assert(csvDetailedHeader(ind).equals(headersDetailed(ind)))
-    }
-
-    // check that recommendation field is relevant to GPU Speed-up
-    // Note that range-check does not apply for NOT-APPLICABLE
-    val estimatedFieldsIndStart = 2
-    assert(valuesDetailed(estimatedFieldsIndStart + 1).toDouble >= 1.0)
-    if (!valuesDetailed(estimatedFieldsIndStart).equals(QualificationAppInfo.NOT_APPLICABLE)) {
-      if (valuesDetailed(estimatedFieldsIndStart + 1).toDouble >=
-        QualificationAppInfo.LOWER_BOUND_STRONGLY_RECOMMENDED) {
-        assert(
-          valuesDetailed(estimatedFieldsIndStart).equals(QualificationAppInfo.STRONGLY_RECOMMENDED))
-      } else if (valuesDetailed(estimatedFieldsIndStart + 1).toDouble >=
-        QualificationAppInfo.LOWER_BOUND_RECOMMENDED) {
-        assert(valuesDetailed(estimatedFieldsIndStart).equals(QualificationAppInfo.RECOMMENDED))
-      } else {
-        assert(valuesDetailed(estimatedFieldsIndStart).equals(QualificationAppInfo.NOT_RECOMMENDED))
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val qualApp = new RunningQualificationApp()
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "streaming") { spark =>
+        val listener = qualApp.getEventListener
+        spark.sparkContext.addSparkListener(listener)
+        import spark.implicits._
+        val testData = Seq((1, 2), (3, 4)).toDF("a", "b")
+        testData.createOrReplaceTempView("t1")
+        testData.createOrReplaceTempView("t2")
+        spark.sql("SELECT a, MAX(b) FROM (SELECT t1.a, t2.b " +
+          "FROM t1 JOIN t2 ON t1.a = t2.a) AS t " +
+          "GROUP BY a ORDER BY a")
       }
-    }
 
-    // check numeric fields skipping "Estimated Speed-up" on purpose
-    for (ind <- estimatedFieldsIndStart + 2  until csvDetailedFields.size) {
-      if (csvDetailedFields(ind)._1.equals(DoubleType)
-        || csvDetailedFields(ind)._1.equals(LongType)) {
-        val numValue = valuesDetailed(ind).toDouble
-        if (headersDetailed(ind).equals(csvDetailedHeader(19))) {
-          // unsupported task duration can be 0
-          assert(numValue >= 0)
-        } else if (headersDetailed(ind).equals(csvDetailedHeader(10))) {
-          // cpu percentage 0-100
-          assert(numValue >= 0.0 && numValue <= 100.0)
-        } else if (headersDetailed(ind).equals(csvDetailedHeader(6)) ||
-          headersDetailed(ind).equals(csvDetailedHeader(9))) {
-          // "SQL DF Duration" and "GPU Opportunity" cannot be larger than App Duration
-          assert(numValue >= 0 && numValue <= valuesDetailed(8).toDouble)
-        } else {
-          assert(valuesDetailed(ind).toDouble > 0)
+      val sumOut = qualApp.getSummary()
+      val detailedOut = qualApp.getDetailed()
+      assert(sumOut.nonEmpty)
+      assert(sumOut.startsWith("|") && sumOut.endsWith("|\n"))
+      assert(detailedOut.nonEmpty)
+      assert(detailedOut.startsWith("|") && detailedOut.endsWith("|\n"))
+
+      // run the qualification tool
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          eventLog))
+
+        val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults), "\"")
+        val rowsDetailed = outputActual.collect()
+        assert(rowsDetailed.size == 1)
+        val headersDetailed = outputActual.columns
+        val valuesDetailed = rowsDetailed(0)
+        assert(headersDetailed.size == QualOutputWriter
+          .getDetailedHeaderStringsAndSizes(Seq(qualApp.aggregateStats.get), false).keys.size)
+        assert(headersDetailed.size == csvDetailedFields.size)
+        assert(valuesDetailed.size == csvDetailedFields.size)
+        // check all headers exists
+        for (ind <- 0 until csvDetailedFields.size) {
+          assert(csvDetailedHeader(ind).equals(headersDetailed(ind)))
+        }
+
+        // check that recommendation field is relevant to GPU Speed-up
+        // Note that range-check does not apply for NOT-APPLICABLE
+        val speedup = outputActual.select("Estimated GPU Speedup").first.getDouble(0)
+        val recommendation = outputActual.select("Recommendation").first.getString(0)
+        assert(speedup >= 1.0)
+        if (recommendation != QualificationAppInfo.NOT_APPLICABLE) {
+          if (speedup >= QualificationAppInfo.LOWER_BOUND_STRONGLY_RECOMMENDED) {
+            assert(recommendation == QualificationAppInfo.STRONGLY_RECOMMENDED)
+          } else if (speedup >= QualificationAppInfo.LOWER_BOUND_RECOMMENDED) {
+            assert(recommendation == QualificationAppInfo.RECOMMENDED)
+          } else {
+            assert(recommendation == QualificationAppInfo.NOT_RECOMMENDED)
+          }
+        }
+
+        // check numeric fields skipping "Estimated Speed-up" on purpose
+        val appDur = outputActual.select("App Duration").first.getLong(0)
+        for (ind <- 4 until csvDetailedFields.size) {
+          val (header, dt) = csvDetailedFields(ind)
+          val fetched: Option[Double] = dt match {
+            case DoubleType => Some(outputActual.select(header).first.getDouble(0))
+            case LongType => Some(outputActual.select(header).first.getLong(0).doubleValue)
+            case _ => None
+          }
+          if (fetched.isDefined) {
+            val numValue = fetched.get
+            if (header == "Unsupported Task Duration") {
+              // unsupported task duration can be 0
+              assert(numValue >= 0)
+            } else if (header == "Executor CPU Time Percent") {
+              // cpu percentage 0-100
+              assert(numValue >= 0.0 && numValue <= 100.0)
+            } else if (header == "GPU Opportunity" || header == "SQL DF Duration") {
+              // "SQL DF Duration" and "GPU Opportunity" cannot be larger than App Duration
+              assert(numValue >= 0 && numValue <= appDur)
+            } else {
+              assert(numValue > 0)
+            }
+          }
         }
       }
     }
