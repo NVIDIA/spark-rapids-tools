@@ -73,44 +73,44 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
   private val logDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
 
   private val csvDetailedFields = Seq(
-    ("App Name", StringType),
-    ("App ID", StringType),
-    ("Recommendation", StringType),
-    ("Estimated GPU Speedup", DoubleType),
-    ("Estimated GPU Duration", DoubleType),
-    ("Estimated GPU Time Saved", DoubleType),
-    ("SQL DF Duration", LongType),
-    ("SQL Dataframe Task Duration", LongType),
-    ("App Duration", LongType),
-    ("GPU Opportunity", LongType),
-    ("Executor CPU Time Percent", DoubleType),
-    ("SQL Ids with Failures", StringType),
-    ("Unsupported Read File Formats and Types", StringType),
-    ("Unsupported Write Data Format", StringType),
-    ("Complex Types", StringType),
-    ("Nested Complex Types", StringType),
-    ("Potential Problems", StringType),
-    ("Longest SQL Duration", LongType),
-    ("NONSQL Task Duration Plus Overhead", LongType),
-    ("Unsupported Task Duration", LongType),
-    ("Supported SQL DF Task Duration", LongType),
-    ("Task Speedup Factor", DoubleType),
-    ("App Duration Estimated", BooleanType),
-    ("Unsupported Execs", StringType),
-    ("Unsupported Expressions", StringType),
-    ("Estimated Job Frequency (monthly)", LongType))
+    (QualOutputWriter.APP_NAME_STR, StringType),
+    (QualOutputWriter.APP_ID_STR, StringType),
+    (QualOutputWriter.SPEEDUP_BUCKET_STR, StringType),
+    (QualOutputWriter.ESTIMATED_GPU_SPEEDUP, DoubleType),
+    (QualOutputWriter.ESTIMATED_GPU_DURATION, DoubleType),
+    (QualOutputWriter.ESTIMATED_GPU_TIMESAVED, DoubleType),
+    (QualOutputWriter.SQL_DUR_STR, LongType),
+    (QualOutputWriter.TASK_DUR_STR, LongType),
+    (QualOutputWriter.APP_DUR_STR, LongType),
+    (QualOutputWriter.GPU_OPPORTUNITY_STR, LongType),
+    (QualOutputWriter.EXEC_CPU_PERCENT_STR, DoubleType),
+    (QualOutputWriter.SQL_IDS_FAILURES_STR, StringType),
+    (QualOutputWriter.READ_FILE_FORMAT_TYPES_STR, StringType),
+    (QualOutputWriter.WRITE_DATA_FORMAT_STR, StringType),
+    (QualOutputWriter.COMPLEX_TYPES_STR, StringType),
+    (QualOutputWriter.NESTED_TYPES_STR, StringType),
+    (QualOutputWriter.POT_PROBLEM_STR, StringType),
+    (QualOutputWriter.LONGEST_SQL_DURATION_STR, LongType),
+    (QualOutputWriter.NONSQL_DUR_STR, LongType),
+    (QualOutputWriter.UNSUPPORTED_TASK_DURATION_STR, LongType),
+    (QualOutputWriter.SUPPORTED_SQL_TASK_DURATION_STR, LongType),
+    (QualOutputWriter.SPEEDUP_FACTOR_STR, DoubleType),
+    (QualOutputWriter.APP_DUR_ESTIMATED_STR, BooleanType),
+    (QualOutputWriter.UNSUPPORTED_EXECS, StringType),
+    (QualOutputWriter.UNSUPPORTED_EXPRS, StringType),
+    (QualOutputWriter.ESTIMATED_FREQUENCY, LongType))
 
   private val csvPerSQLFields = Seq(
-    ("App Name", StringType),
-    ("App ID", StringType),
-    ("SQL ID", StringType),
-    ("SQL Description", StringType),
-    ("SQL DF Duration", LongType),
-    ("GPU Opportunity", LongType),
-    ("Estimated GPU Duration", DoubleType),
-    ("Estimated GPU Speedup", DoubleType),
-    ("Estimated GPU Time Saved", DoubleType),
-    ("Recommendation", StringType))
+    (QualOutputWriter.APP_NAME_STR, StringType),
+    (QualOutputWriter.APP_ID_STR, StringType),
+    (QualOutputWriter.SQL_ID_STR, StringType),
+    (QualOutputWriter.SQL_DESC_STR, StringType),
+    (QualOutputWriter.SQL_DUR_STR, LongType),
+    (QualOutputWriter.GPU_OPPORTUNITY_STR, LongType),
+    (QualOutputWriter.ESTIMATED_GPU_DURATION, DoubleType),
+    (QualOutputWriter.ESTIMATED_GPU_SPEEDUP, DoubleType),
+    (QualOutputWriter.ESTIMATED_GPU_TIMESAVED, DoubleType),
+    (QualOutputWriter.SPEEDUP_BUCKET_STR, StringType))
 
   val schema = new StructType(csvDetailedFields.map(f => StructField(f._1, f._2, true)).toArray)
   val perSQLSchema = new StructType(csvPerSQLFields.map(f => StructField(f._1, f._2, true)).toArray)
@@ -949,6 +949,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
       }
     }
   }
+
   test("running qualification print unsupported Execs and Exprs") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val qualApp = new RunningQualificationApp()
@@ -1003,8 +1004,10 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
         val expectedExecs = "Scan;Filter;SerializeFromObject" // Unsupported Execs
         val expectedExprs = "hex" //Unsupported Exprs
-        val unsupportedExecs = outputActual.select("Unsupported Execs").first.getString(0)
-        val unsupportedExprs = outputActual.select("Unsupported Expressions").first.getString(0)
+        val unsupportedExecs =
+          outputActual.select(QualOutputWriter.UNSUPPORTED_EXECS).first.getString(0)
+        val unsupportedExprs =
+          outputActual.select(QualOutputWriter.UNSUPPORTED_EXPRS).first.getString(0)
         assert(expectedExecs == unsupportedExecs)
         assert(expectedExprs == unsupportedExprs)
       }
@@ -1066,8 +1069,10 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
         // check that recommendation field is relevant to GPU Speed-up
         // Note that range-check does not apply for NOT-APPLICABLE
-        val speedup = outputActual.select("Estimated GPU Speedup").first.getDouble(0)
-        val recommendation = outputActual.select("Recommendation").first.getString(0)
+        val speedup =
+          outputActual.select(QualOutputWriter.ESTIMATED_GPU_SPEEDUP).first.getDouble(0)
+        val recommendation =
+          outputActual.select(QualOutputWriter.SPEEDUP_BUCKET_STR).first.getString(0)
         assert(speedup >= 1.0)
         if (recommendation != QualificationAppInfo.NOT_APPLICABLE) {
           if (speedup >= QualificationAppInfo.LOWER_BOUND_STRONGLY_RECOMMENDED) {
@@ -1080,7 +1085,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         }
 
         // check numeric fields skipping "Estimated Speed-up" on purpose
-        val appDur = outputActual.select("App Duration").first.getLong(0)
+        val appDur = outputActual.select(QualOutputWriter.APP_DUR_STR).first.getLong(0)
         for (ind <- 4 until csvDetailedFields.size) {
           val (header, dt) = csvDetailedFields(ind)
           val fetched: Option[Double] = dt match {
@@ -1096,7 +1101,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
             } else if (header == "Executor CPU Time Percent") {
               // cpu percentage 0-100
               assert(numValue >= 0.0 && numValue <= 100.0)
-            } else if (header == "GPU Opportunity" || header == "SQL DF Duration") {
+            } else if (header == QualOutputWriter.GPU_OPPORTUNITY_STR ||
+                        header == QualOutputWriter.SQL_DUR_STR) {
               // "SQL DF Duration" and "GPU Opportunity" cannot be larger than App Duration
               assert(numValue >= 0 && numValue <= appDur)
             } else {
@@ -1435,7 +1441,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
           val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
             s"rapids_4_spark_qualification_output.csv"
           val outputActual = readExpectedFile(new File(outputResults), "\"")
-          assert(outputActual.select("App Name").first.getString(0) == jobName)
+          assert(outputActual.select(QualOutputWriter.APP_NAME_STR).first.getString(0) == jobName)
 
           val persqlResults = s"$outpath/rapids_4_spark_qualification_output/" +
             s"rapids_4_spark_qualification_output_persql.csv"
