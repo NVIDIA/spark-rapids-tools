@@ -978,8 +978,10 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
       val stdOut = sumOut.split("\n")
       val stdOutHeader = stdOut(0).split("\\|")
       val stdOutValues = stdOut(1).split("\\|")
-      val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3) // index of unsupportedExecs
-      val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 2) // index of unsupportedExprs
+      // index of unsupportedExecs
+      val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3)
+      // index of unsupportedExprs
+      val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 2)
       val expectedstdOutExecs = "Scan;Filter;SerializeF..."
       assert(stdOutunsupportedExecs == expectedstdOutExecs)
       // Exec value is Scan;Filter;SerializeFromObject and UNSUPPORTED_EXECS_MAX_SIZE is 25

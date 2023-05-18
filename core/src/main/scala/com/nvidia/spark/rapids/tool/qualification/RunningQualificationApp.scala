@@ -153,7 +153,8 @@ class RunningQualificationApp(
    */
   def getPerSqlTextAndCSVSummary(sqlID: Long): (String, String) = {
     val sqlInfo = aggregatePerSQLStats(sqlID)
-    val csvResult = constructPerSqlResult(sqlInfo, QualOutputWriter.CSV_DELIMITER, false, escapeCSV = true)
+    val csvResult =
+      constructPerSqlResult(sqlInfo, QualOutputWriter.CSV_DELIMITER, false, escapeCSV = true)
     val textResult = constructPerSqlResult(sqlInfo, QualOutputWriter.TEXT_DELIMITER, true)
     (csvResult, textResult)
   }
