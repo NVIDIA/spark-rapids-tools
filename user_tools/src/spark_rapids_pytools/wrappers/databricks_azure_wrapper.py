@@ -34,7 +34,6 @@ class CliDBAzureLocalMode:  # pylint: disable=too-few-public-methods
                       gpu_cluster: str = None,
                       tools_jar: str = None,
                       credentials_file: str = None,
-                      azcopy_credentials_file: str = None,
                       filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS),
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
@@ -73,10 +72,6 @@ class CliDBAzureLocalMode:  # pylint: disable=too-few-public-methods
                If missing, the wrapper looks for "DATABRICKS_CONFIG_FILE" environment variable
                to provide the location of a credential file. The default credentials file exists as
                "~/.databrickscfg" on Unix, Linux, or macOS
-        :param azcopy_credentials_file: The local path of text file that contains the azcopy Shared Access
-               Signature (SAS) token credentials. SAS token is used to authorize AzCopy to copy blobs or files
-               to or from a storage account. This file is optional because the user can also provide authorization
-               credentials by using Azure Active Directory (AD)
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
                 is one of the following (NONE, SPEEDUPS, savings).
                 Note that this filter does not affect the CSV report.
@@ -105,7 +100,6 @@ class CliDBAzureLocalMode:  # pylint: disable=too-few-public-methods
                 # the databricks profile
                 'profile': profile,
                 'credentialFile': credentials_file,
-                'azcopy_credentials_file': azcopy_credentials_file,
                 'deployMode': DeployMode.LOCAL,
             },
             'migrationClustersProps': {

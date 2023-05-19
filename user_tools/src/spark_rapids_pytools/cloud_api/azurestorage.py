@@ -48,12 +48,12 @@ class AzureStorageDriver(StorageDriver):
     def resource_is_dir(self, src: str) -> bool:
         if not src.startswith('abfss://'):
             return super().resource_is_dir(src)
-        cmd_args = self.get_cmd_prefix()
 
         file_system = self.get_file_system(src)
         account_name = self.get_account_name(src)
         path = self.get_path(src)
 
+        cmd_args = self.get_cmd_prefix()
         cmd_args.extend(['file list', '-f', file_system, '--account-name', account_name])
         if len(path) > 0:
             cmd_args.extend(['--path', path])
@@ -61,8 +61,9 @@ class AzureStorageDriver(StorageDriver):
         try:
             std_out = self.cli.run_sys_cmd(cmd_args)
             stdout_info = JSONPropertiesContainer(prop_arg=std_out, file_load=False)
-            if len(stdout_info.props) != 1:
-                # not a file
+            if path[0] == '/':
+                path = path[1:]
+            if len(stdout_info.props) != 1 or stdout_info.props[0]['name'] != path:  # not a file
                 return True
         except RuntimeError:
             self.cli.logger.debug('Error in checking resource [%s] is directory', src)
@@ -71,13 +72,13 @@ class AzureStorageDriver(StorageDriver):
     def resource_exists(self, src) -> bool:
         if not src.startswith('abfss://'):
             return super().resource_exists(src)
-        # run 'az storage fs file list' if result is 0, then the resource exists.
-        cmd_args = self.get_cmd_prefix()
 
+        # run 'az storage fs file list' if result is 0, then the resource exists.
         file_system = self.get_file_system(src)
         account_name = self.get_account_name(src)
         path = self.get_path(src)
 
+        cmd_args = self.get_cmd_prefix()
         cmd_args.extend(['file list', '-f', file_system, '--account-name', account_name])
         if len(path) > 0:
             cmd_args.extend(['--path', path])
@@ -99,7 +100,6 @@ class AzureStorageDriver(StorageDriver):
         path = self.get_path(src)
 
         cmd_args = self.get_cmd_prefix()
-
         if self.resource_is_dir(src):
             cmd_args.extend(['directory download', '-f', file_system, '--account-name', account_name])
             cmd_args.extend(['-s', path, '-d', dest, '--recursive'])
@@ -118,13 +118,12 @@ class AzureStorageDriver(StorageDriver):
         path = self.get_path(dest)
 
         cmd_args = self.get_cmd_prefix()
-
         if self.resource_is_dir(src):
             cmd_args.extend(['directory upload', '-f', file_system, '--account-name', account_name])
             cmd_args.extend(['-s', src, '-d', path, '--recursive'])
         else:
             if self.resource_is_dir(dest):
-                if not path[-1] == '/':
+                if path[-1] != '/':
                     path = path + '/'
                 path = path + FSUtil.get_resource_name(src)
                 cmd_args.extend(['directory upload', '-f', file_system, '--account-name', account_name])
@@ -144,12 +143,12 @@ class AzureStorageDriver(StorageDriver):
         if not src.startswith('abfss://'):
             super()._delete_path(src)
         else:
-            cmd_args = self.get_cmd_prefix()
             # this is azure data lake storage
             file_system = self.get_file_system(src)
             account_name = self.get_account_name(src)
             path = self.get_path(src)
 
+            cmd_args = self.get_cmd_prefix()
             if self.resource_is_dir(src):
                 cmd_args.extend(['directory delete', '-f', file_system, '--account-name', account_name])
                 cmd_args.extend(['-n', path, '-y'])
