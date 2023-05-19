@@ -212,18 +212,18 @@ class DatabricksAzureCluster(ClusterBase):
         self.name = self.props.get_value('cluster_name')
 
     def _init_nodes(self):
-        # assume that only one master node
-        master_nodes_from_conf = self.props.get_value_silent('driver')
+        # assume that only one driver node
+        driver_nodes_from_conf = self.props.get_value_silent('driver')
         worker_nodes_from_conf = self.props.get_value_silent('executors')
         num_workers = self.props.get_value_silent('num_workers')
         if num_workers is None:
             num_workers = 0
-        # construct master node info when cluster is inactive
-        if master_nodes_from_conf is None:
-            master_node_type_id = self.props.get_value('driver_node_type_id')
-            if master_node_type_id is None:
-                raise RuntimeError('Failed to find master node information from cluster properties')
-            master_nodes_from_conf = {'node_id': None}
+        # construct driver node info when cluster is inactive
+        if driver_nodes_from_conf is None:
+            driver_node_type_id = self.props.get_value('driver_node_type_id')
+            if driver_node_type_id is None:
+                raise RuntimeError('Failed to find driver node information from cluster properties')
+            driver_nodes_from_conf = {'node_id': None}
         # construct worker nodes info when cluster is inactive
         if worker_nodes_from_conf is None:
             worker_node_type_id = self.props.get_value('node_type_id')
@@ -243,18 +243,18 @@ class DatabricksAzureCluster(ClusterBase):
             worker = DatabricksAzureNode.create_worker_node().set_fields_from_dict(worker_props)
             worker.fetch_and_set_hw_info(self.cli)
             worker_nodes.append(worker)
-        master_props = {
-            'Id': master_nodes_from_conf['node_id'],
-            'props': JSONPropertiesContainer(prop_arg=master_nodes_from_conf, file_load=False),
+        driver_props = {
+            'Id': driver_nodes_from_conf['node_id'],
+            'props': JSONPropertiesContainer(prop_arg=driver_nodes_from_conf, file_load=False),
             # set the node region based on the wrapper defined region
             'region': self.region,
             'instance_type': self.props.get_value('driver_node_type_id')
         }
-        master_node = DatabricksAzureNode.create_master_node().set_fields_from_dict(master_props)
-        master_node.fetch_and_set_hw_info(self.cli)
+        driver_node = DatabricksAzureNode.create_master_node().set_fields_from_dict(driver_props)
+        driver_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
             SparkNodeType.WORKER: worker_nodes,
-            SparkNodeType.MASTER: master_node
+            SparkNodeType.MASTER: driver_node
         }
 
     def _init_connection(self, cluster_id: str = None,
