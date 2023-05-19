@@ -113,7 +113,7 @@ object DataWritingCommandExecParser {
           case Some(f) => f
           case None => getWriteFormatString(node.desc)
         }
-        val physicalCmd = logicalToPhysicalCmdMap.getOrElse(wCmd, defaultPhysicalCMD)
+        val physicalCmd = logicalToPhysicalCmdMap(wCmd)
         Some(DataWritingCmdWrapper(wCmd, physicalCmd, dataFormat))
     }
   }
