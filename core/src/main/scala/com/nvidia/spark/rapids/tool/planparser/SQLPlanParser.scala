@@ -607,7 +607,7 @@ object SQLPlanParser extends Logging {
     } else if (buildSide == BuildSide.BuildRight) {
       joinType == JoinType.Inner || joinType == JoinType.Cross ||
         joinType == JoinType.LeftOuter || joinType == JoinType.LeftSemi ||
-        joinType == JoinType.LeftAnti
+        joinType == JoinType.LeftAnti || joinType == JoinType.FullOuter
     } else {
       true
     }
