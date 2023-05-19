@@ -123,6 +123,7 @@ class CloudPlatform(EnumeratedType):
     DATABRICKS_AWS = 'databricks_aws'
     DATAPROC = 'dataproc'
     EMR = 'emr'
+    ONPREM = 'onprem'
     LOCAL = 'local'
     NONE = 'NONE'
 
@@ -358,7 +359,7 @@ class CMDDriverBase:
 
     def get_rapids_job_configs(self, deploy_mode: DeployMode) -> dict:
         cmd_runner_props = self.get_cmd_run_configs()
-        if cmd_runner_props:
+        if cmd_runner_props and deploy_mode is not None:
             deploy_mode_configs = get_elem_non_safe(cmd_runner_props,
                                                     ['rapidsJobs', DeployMode.tostring(deploy_mode)])
             return deploy_mode_configs
@@ -1124,6 +1125,7 @@ def get_platform(platform_id: Enum) -> Type[PlatformBase]:
         CloudPlatform.DATABRICKS_AWS: ('spark_rapids_pytools.cloud_api.databricks_aws', 'DBAWSPlatform'),
         CloudPlatform.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
         CloudPlatform.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
+        CloudPlatform.ONPREM: ('spark_rapids_pytools.cloud_api.onprem', 'OnPremPlatform'),
     }
     if platform_id in platform_hash:
         mod_name, clz_name = platform_hash[platform_id]

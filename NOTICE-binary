@@ -12,6 +12,8 @@ Copyright 2014 and onwards The Apache Software Foundation
 This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
 
+snakeyaml
+
 ---------------------------------------------------------------------
 This product bundles various third-party components under other open source licenses.
 
@@ -37,3 +39,11 @@ Mustache.js V4.10 - The MIT License (MIT)
 Spur Dashboard V1.1.0 - The MIT License (MIT)
     License Text ( https://github.com/HackerThemes/spur-template/blob/master/LICENSE )
     Copyright 2016 - 2019 Alexander Rechsteiner
+
+jsoup - The MIT License (MIT)
+    License Text ( https://jsoup.org/license )
+    Copyright (c) 2009 - 2023 Jonathan Hedley (https://jsoup.org/)
+
+scallop - The MIT License (MIT)
+    License Text ( https://github.com/scallop/scallop/blob/develop/license.txt )
+    Copyright (c) 2012 Platon Pronko and Chris Hodapp

@@ -7,7 +7,7 @@ analysis using the RAPIDS Accelerator for Apache Spark across multiple cloud ser
 The following diagram shows an overview of the Python package installed on a client machine allowing
 to build analysis reports on Amazon EMR, GCloud Dataproc, and Databricks.
 
-![Overview](resources/overview-01.png)
+![Overview](resources/spark_rapids_user_tools_overview-01.png)
 
 ## Available commands
 
@@ -20,7 +20,7 @@ query to GPU.
 The tool will process each app individually, but will group apps with the same name into the same output row after
 averaging duration metrics accordingly.
 For more details, please visit the
-[Qualification Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html).
+[Qualification Tool on GitHub pages](https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html).
 
 ### Bootstrap
 
@@ -37,7 +37,7 @@ can be used for debugging and profiling Apache Spark applications.
 In addition, the wrapper output provides optimized RAPIDS configurations based on the worker's
 information.  
 For more details, please visit the
-[Profiling Tool on Github pages](https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html).
+[Profiling Tool on GitHub pages](https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html).
 
 ## Deploy modes
 
@@ -132,6 +132,25 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               +-------------+---------------------------------------+----------+
 |                  |               | cluster     |           unsupported                 |    N/A   |
 +------------------+---------------+-------------+---------------------------------------+----------+
+| OnPrem           | qualification | local       | spark_rapids_user_tools \             |  23.06+  |
+|                  |               |             |   onprem qualification [ARGS]         |          |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | serverless  |           unsupported                 |    N/A   |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | cluster     |           unsupported                 |    N/A   |
+|                  +---------------+-------------+---------------------------------------+----------+
+|                  | profiling     | local       |           unsupported                 |    N/A   |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | serverless  |           unsupported                 |    N/A   |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | cluster     |           unsupported                 |    N/A   |
+|                  +---------------+-------------+---------------------------------------+----------+
+|                  | bootstrap     | local       |           unsupported                 |    N/A   |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | serverless  |           unsupported                 |    N/A   |
+|                  |               +-------------+---------------------------------------+----------+
+|                  |               | cluster     |           unsupported                 |    N/A   |
++------------------+---------------+-------------+---------------------------------------+----------+
 ```
 
 Please visit the following guides for details on how to use the wrapper CLI on each of the following
@@ -141,3 +160,4 @@ platform:
 - [Google Cloud Dataproc](user-tools-dataproc.md)
   - To view documentation for the deprecated CLI on dataproc, visit the [spark_rapids_dataproc command](legacy-user-tools-dataproc.md) page.
 - [Databricks_AWS](user-tools-databricks-aws.md)
+- [OnPrem](user-tools-onprem.md)
