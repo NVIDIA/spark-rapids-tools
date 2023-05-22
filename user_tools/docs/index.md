@@ -38,7 +38,7 @@ Apache Spark default configurations.
 Provides a wrapper to simplify the execution of [RAPIDS Profiling tool](../../core/docs/spark-profiling-tool.md).
 The latter analyzes both CPU or GPU generated event logs and generates information which
 can be used for debugging and profiling Apache Spark applications.  The tool also will recommend setting
-for the application assuming that job will be able to use all the cluster resources (CPU and GPU) when
+for the application assuming that the job will be able to use all the cluster resources (CPU and GPU) when
 it is running.
 
 In addition, the wrapper output provides optimized RAPIDS configurations based on the worker's
