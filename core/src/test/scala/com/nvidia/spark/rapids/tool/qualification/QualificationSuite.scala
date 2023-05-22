@@ -814,14 +814,14 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
   test("test clusterTags when redacted") {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
-
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted") {
+        val tagConfs =
+          Map("spark.databricks.clusterUsageTags.clusterAllTags" -> "*********(redacted)",
+            "spark.databricks.clusterUsageTags.clusterId" -> "0617-131246-dray530",
+            "spark.databricks.clusterUsageTags.clusterName" -> "job-215-run-34243234")
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted",
+          Some(tagConfs)) {
           spark =>
             import spark.implicits._
-            spark.conf.set("spark.databricks.clusterUsageTags.clusterAllTags",
-              "*********(redacted)")
-            spark.conf.set("spark.databricks.clusterUsageTags.clusterId", "0617-131246-dray530")
-            spark.conf.set("spark.databricks.clusterUsageTags.clusterName", "job-215-run-34243234")
 
             val df1 = spark.sparkContext.makeRDD(1 to 1000, 6).toDF
             df1.sample(0.1)
@@ -848,15 +848,18 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
 
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertags") { spark =>
+        val allTagsConfVal =
+          """[{"key":"Vendor",
+            |"value":"Databricks"},{"key":"Creator","value":"abc@company.com"},
+            |{"key":"ClusterName","value":"job-215-run-1"},{"key":"ClusterId",
+            |"value":"0617-131246-dray530"},{"key":"JobId","value":"215"},
+            |{"key":"RunName","value":"test73longer"},{"key":"DatabricksEnvironment",
+            |"value":"workerenv-7026851462233806"}]""".stripMargin
+        val tagConfs =
+          Map("spark.databricks.clusterUsageTags.clusterAllTags" -> allTagsConfVal)
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertags",
+          Some(tagConfs)) { spark =>
           import spark.implicits._
-          spark.conf.set("spark.databricks.clusterUsageTags.clusterAllTags",
-            """[{"key":"Vendor",
-              |"value":"Databricks"},{"key":"Creator","value":"abc@company.com"},
-              |{"key":"ClusterName","value":"job-215-run-1"},{"key":"ClusterId",
-              |"value":"0617-131246-dray530"},{"key":"JobId","value":"215"},
-              |{"key":"RunName","value":"test73longer"},{"key":"DatabricksEnvironment",
-              |"value":"workerenv-7026851462233806"}]""".stripMargin)
 
           val df1 = spark.sparkContext.makeRDD(1 to 1000, 6).toDF
           df1.sample(0.1)

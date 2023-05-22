@@ -19,7 +19,7 @@ package org.apache.spark.sql.rapids.tool.qualification
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
-import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo, SQLPlanParser}
+import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, ExecInfo, PlanInfo, SQLPlanParser}
 import com.nvidia.spark.rapids.tool.profiling._
 import com.nvidia.spark.rapids.tool.qualification._
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
@@ -586,15 +586,17 @@ class QualificationAppInfo(
         sqlIDtoProblematic(sqlID) = existingIssues ++ issues
       }
       // Get the write data format
-      if (!perSqlOnly && node.name.contains("InsertIntoHadoopFsRelationCommand")) {
-        writeDataFormat += pluginTypeChecker.getWriteFormatString(node.desc)
+      if (!perSqlOnly) {
+        DataWritingCommandExecParser.getWriteCMDWrapper(node).map { wWrapper =>
+          writeDataFormat += wWrapper.dataFormat
+        }
       }
     }
   }
 
   private def writeFormatNotSupported(writeFormat: ArrayBuffer[String]): Seq[String] = {
     // Filter unsupported write data format
-    val unSupportedWriteFormat = pluginTypeChecker.isWriteFormatsupported(writeFormat)
+    val unSupportedWriteFormat = pluginTypeChecker.isWriteFormatSupported(writeFormat)
     unSupportedWriteFormat.distinct
   }
 }
