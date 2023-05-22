@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import org.apache.hadoop.fs.{FileSystem, FSDataOutputStream, Path}
 import org.apache.hadoop.fs.permission.FsPermission
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 /**
  * Class for writing local files, allows writing to distributed file systems.
@@ -36,7 +37,7 @@ class ToolTextFileWriter(
   val LOG_FILE_PERMISSIONS = new FsPermission(Integer.parseInt("660", 8).toShort)
   val LOG_FOLDER_PERMISSIONS = new FsPermission(Integer.parseInt("770", 8).toShort)
   private val textOutputPath = new Path(s"$finalOutputDir/$logFileName")
-  private val hadoopConfToUse = hadoopConf.getOrElse(new Configuration())
+  private val hadoopConfToUse = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf)
 
   private val defaultFs = FileSystem.getDefaultUri(hadoopConfToUse).getScheme
   private val isDefaultLocal = defaultFs == null || defaultFs == "file"
