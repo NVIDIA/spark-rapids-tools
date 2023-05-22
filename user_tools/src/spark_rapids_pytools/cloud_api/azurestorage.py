@@ -63,7 +63,7 @@ class AzureStorageDriver(StorageDriver):
             stdout_info = JSONPropertiesContainer(prop_arg=std_out, file_load=False)
             if path[0] == '/':
                 path = path[1:]
-            if len(stdout_info.props) != 1 or stdout_info.props[0]['name'] != path:  # not a file
+            if not (len(stdout_info.props) == 1 and stdout_info.props[0]['name'] == path):  # not a file
                 return True
         except RuntimeError:
             self.cli.logger.debug('Error in checking resource [%s] is directory', src)
