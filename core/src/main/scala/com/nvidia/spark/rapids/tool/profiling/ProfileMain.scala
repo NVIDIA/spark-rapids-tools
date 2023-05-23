@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import com.nvidia.spark.rapids.tool.EventLogPathProcessor
-import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 /**
  * A profiling tool to parse Spark Event Log
@@ -45,7 +45,7 @@ object ProfileMain extends Logging {
     val eventlogPaths = appArgs.eventlog()
     val filterN = appArgs.filterCriteria
     val matchEventLogs = appArgs.matchEventLogs
-    val hadoopConf = new Configuration()
+    val hadoopConf = RapidsToolsConfUtil.newHadoopConf
     val numOutputRows = appArgs.numOutputRows.getOrElse(1000)
     val timeout = appArgs.timeout.toOption
     val nThreads = appArgs.numThreads.getOrElse(

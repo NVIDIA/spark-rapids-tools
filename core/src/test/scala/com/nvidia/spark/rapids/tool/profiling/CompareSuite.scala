@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,14 +20,14 @@ package com.nvidia.spark.rapids.tool.profiling
 import scala.collection.mutable.ArrayBuffer
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
-import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 class CompareSuite extends FunSuite {
 
-  val hadoopConf = new Configuration()
+  val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
   private val logDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
 
   test("test spark2 and spark3 event logs compare") {

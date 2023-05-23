@@ -25,7 +25,6 @@ import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.qualification._
-import org.apache.hadoop.conf.Configuration
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.scalatest.exceptions.TestFailedException
 
@@ -35,6 +34,7 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, floor, hex, json_tuple, round, row_number, sum}
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types.StringType
 
 
@@ -83,7 +83,7 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   private def createAppFromEventlog(eventLog: String): QualificationAppInfo = {
-    val hadoopConf = new Configuration()
+    val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
     val (_, allEventLogs) = EventLogPathProcessor.processAllPaths(
       None, None, List(eventLog), hadoopConf)
     val pluginTypeChecker = new PluginTypeChecker()

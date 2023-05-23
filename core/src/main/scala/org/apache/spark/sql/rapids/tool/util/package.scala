@@ -16,9 +16,19 @@
 
 package org.apache.spark.sql.rapids.tool
 
+import scala.collection.JavaConverters._
+
 /**
- * RAPIDS tools utilities
+ * RAPIDS tools utilities.
  */
 package object util {
+  val RAPIDS_TOOLS_SYS_PROP_PREFIX = "rapids.tools."
+  def getSystemProperties: Map[String, String] = {
+    System.getProperties.stringPropertyNames().asScala
+      .map(key => (key, System.getProperty(key))).toMap
+  }
 
+  def loadConfFromSystemProperties: Map[String, String] = {
+    getSystemProperties.filter(_._1.startsWith(RAPIDS_TOOLS_SYS_PROP_PREFIX))
+  }
 }
