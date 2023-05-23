@@ -718,7 +718,8 @@ object QualOutputWriter {
       val data = ListBuffer[(String, Int)](
         reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
         info.stageId.toString -> headersAndSizes(STAGE_ID_STR),
-        ToolUtils.renderTextField(info.mlOps, ";", delimiter) -> headersAndSizes(ML_FUNCTIONS),
+        reformatCSVFunc(ToolUtils.renderTextField(info.mlOps, ";", delimiter)) ->
+          headersAndSizes(ML_FUNCTIONS),
         info.duration.toString -> headersAndSizes(STAGE_DUR_STR))
       constructOutputRow(data, delimiter, prettyPrint)
     }
@@ -736,8 +737,9 @@ object QualOutputWriter {
     sumInfo.mlFunctionsStageDurations.get.map { info =>
       val data = ListBuffer[(String, Int)](
         reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-        ToolUtils.renderTextField(info.stageIds, ";", delimiter) -> headersAndSizes(ML_STAGE_IDS),
-        info.mlFuncName -> headersAndSizes(ML_FUNCTION_NAME),
+        reformatCSVFunc(ToolUtils.renderTextField(info.stageIds, ";", delimiter)) ->
+          headersAndSizes(ML_STAGE_IDS),
+        reformatCSVFunc(info.mlFuncName) -> headersAndSizes(ML_FUNCTION_NAME),
         info.duration.toString -> headersAndSizes(ML_TOTAL_STAGE_DURATION))
       constructOutputRow(data, delimiter, prettyPrint)
     }
@@ -787,10 +789,10 @@ object QualOutputWriter {
       info.duration.getOrElse(0).toString -> headersAndSizes(EXEC_DURATION),
       info.nodeId.toString -> headersAndSizes(EXEC_NODEID),
       info.isSupported.toString -> headersAndSizes(EXEC_IS_SUPPORTED),
-      info.stages.mkString(":") -> headersAndSizes(EXEC_STAGES),
-      info.children.getOrElse(Seq.empty).map(_.exec).mkString(":") ->
+      reformatCSVFunc(info.stages.mkString(":")) -> headersAndSizes(EXEC_STAGES),
+      reformatCSVFunc(info.children.getOrElse(Seq.empty).map(_.exec).mkString(":")) ->
         headersAndSizes(EXEC_CHILDREN),
-      info.children.getOrElse(Seq.empty).map(_.nodeId).mkString(":") ->
+      reformatCSVFunc(info.children.getOrElse(Seq.empty).map(_.nodeId).mkString(":")) ->
         headersAndSizes(EXEC_CHILDREN_NODE_IDS),
       info.shouldRemove.toString -> headersAndSizes(EXEC_SHOULD_REMOVE))
     constructOutputRow(data, delimiter, prettyPrint)
