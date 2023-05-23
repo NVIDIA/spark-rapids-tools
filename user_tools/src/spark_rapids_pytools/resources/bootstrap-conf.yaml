@@ -14,8 +14,6 @@ local:
       maxPinnedMemoryMB: 4096
       # Default pageable pool size per executor in megabytes
       defaultPageablePoolMB: 1024
-      # Default spill storage size per executor in megabytes
-      defaultSpillStorageMB: 1024
       # Maximum number of concurrent tasks to run on the GPU
       maxGpuConcurrent: 4
       # Amount of GPU memory to use per concurrent task in megabytes
