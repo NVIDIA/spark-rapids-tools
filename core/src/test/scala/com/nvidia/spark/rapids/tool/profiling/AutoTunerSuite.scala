@@ -136,7 +136,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=7372m
+          |--conf spark.executor.memoryOverhead=9420m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
@@ -276,7 +276,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=7372m
+          |--conf spark.executor.memoryOverhead=9420m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
@@ -334,7 +334,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Spark Properties:
           |--conf spark.executor.cores=32
           |--conf spark.executor.memory=65536m
-          |--conf spark.executor.memoryOverhead=10649m
+          |--conf spark.executor.memoryOverhead=12697m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=32
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=32
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
@@ -364,7 +364,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "9420m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -402,7 +402,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "9420m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -437,7 +437,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "9420m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -476,7 +476,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "9420m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -513,7 +513,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "9420m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -551,7 +551,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "spark.dynamicAllocation.enabled" -> "false",
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "9420m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -591,7 +591,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=7372m
+          |--conf spark.executor.memoryOverhead=9420m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
@@ -673,7 +673,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=5734m
+          |--conf spark.executor.memoryOverhead=7782m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -853,7 +853,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=5734m
+          |--conf spark.executor.memoryOverhead=7782m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -916,7 +916,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=5734m
+          |--conf spark.executor.memoryOverhead=7782m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -974,7 +974,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=5734m
+          |--conf spark.executor.memoryOverhead=7782m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -998,7 +998,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "9420m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",

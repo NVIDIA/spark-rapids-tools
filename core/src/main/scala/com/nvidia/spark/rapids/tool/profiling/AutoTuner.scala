@@ -499,10 +499,12 @@ class AutoTuner(
       containerMemCalculator: () => Double): (Long, Long) = {
     val executorHeap = execHeapCalculator()
     var executorMemOverhead = (executorHeap * DEF_HEAP_OVERHEAD_FRACTION).toLong
+    val pageablePool = DEF_PAGEABLE_POOL_MB.toLong
+    val spillStorage = DEF_SPILL_STORAGE_MB.toLong
     // pinned memory uses any unused space up to 4GB
-    val pinnedMem = Math.min(MAX_PINNED_MEMORY_MB,
-      containerMemCalculator.apply() - executorHeap - executorMemOverhead).toLong
-    executorMemOverhead += pinnedMem
+    val pinnedMem = Math.min(MAX_PINNED_MEMORY_MB, containerMemCalculator.apply() -
+      executorHeap - executorMemOverhead - pageablePool - spillStorage).toLong
+    executorMemOverhead += pinnedMem + pageablePool + spillStorage
     (pinnedMem, executorMemOverhead)
   }
 
@@ -894,6 +896,10 @@ object AutoTuner extends Logging {
   val MAX_PINNED_MEMORY_MB: Long = 4 * 1024L
   // Default pinned memory to use per executor in MB
   val DEF_PINNED_MEMORY_MB: Long = 2 * 1024L
+  // Default pageable pool to use per executor in MB
+  val DEF_PAGEABLE_POOL_MB: Long = 1 * 1024L
+  // Default spill storage to use per executor in MB
+  val DEF_SPILL_STORAGE_MB: Long = 1 * 1024L
   // value in MB
   val MIN_PARTITION_BYTES_RANGE_MB = 128L
   // value in MB
