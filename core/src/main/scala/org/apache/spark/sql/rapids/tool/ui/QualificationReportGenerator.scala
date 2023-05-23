@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,13 @@ import java.nio.file.{Files, FileSystems, Paths}
 
 import scala.collection.JavaConverters.mapAsJavaMapConverter
 
-import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataOutputStream, Path}
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.QualificationSummaryInfo
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.util.Utils
 
 class QualificationReportGenerator(outputDir: String,
@@ -37,7 +37,7 @@ class QualificationReportGenerator(outputDir: String,
   implicit val formats = DefaultFormats
 
   val outputWorkPath = new Path(outputDir)
-  val fs = Some(FileSystem.get(outputWorkPath.toUri, new Configuration()))
+  val fs = Some(FileSystem.get(outputWorkPath.toUri, RapidsToolsConfUtil.newHadoopConf))
 
   def launch(): Unit = {
     val uiRootPath = getPathForResource(RAPIDS_UI_ASSETS_DIR)

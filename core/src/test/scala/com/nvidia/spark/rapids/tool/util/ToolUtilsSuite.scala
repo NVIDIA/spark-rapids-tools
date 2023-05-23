@@ -20,7 +20,9 @@ import org.scalatest.FunSuite
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper}
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.util.WebCrawlerUtil
+import org.apache.spark.sql.TrampolineUtil
+import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, WebCrawlerUtil}
+
 
 class ToolUtilsSuite extends FunSuite with Logging {
   test("get page links of a url") {
@@ -118,5 +120,15 @@ class ToolUtilsSuite extends FunSuite with Logging {
     // get the latest release from the mvn url
     val actualRelease = versionPattern.findAllMatchIn(allLinks).map(_.group(1)).toSeq.sorted.last
     latestRelease shouldBe actualRelease
+  }
+
+  test("Hadoop Configuration should load system properties") {
+    // Tests that Hadoop configurations can load the system property passed to the
+    // command line. i.e., "-Dspark.hadoop.property.key=value"
+    TrampolineUtil.cleanupAnyExistingSession()
+    // sets a hadoop property through Spark Prefix
+    System.setProperty("spark.hadoop.property.key1", "value1")
+    val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
+    hadoopConf.get("property.key1") shouldBe "value1"
   }
 }

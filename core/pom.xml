@@ -82,6 +82,7 @@
             <properties>
                 <buildver>311</buildver>
                 <spark.version>${spark311.version}</spark.version>
+                <delta.core.version>${delta10x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -95,6 +96,7 @@
             <properties>
                 <buildver>312</buildver>
                 <spark.version>${spark312.version}</spark.version>
+                <delta.core.version>${delta10x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -108,6 +110,7 @@
             <properties>
                 <buildver>313</buildver>
                 <spark.version>${spark313.version}</spark.version>
+                <delta.core.version>${delta10x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -121,6 +124,7 @@
             <properties>
                 <buildver>320</buildver>
                 <spark.version>${spark320.version}</spark.version>
+                <delta.core.version>${delta20x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -134,6 +138,7 @@
             <properties>
                 <buildver>321</buildver>
                 <spark.version>${spark321.version}</spark.version>
+                <delta.core.version>${delta20x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -147,6 +152,7 @@
             <properties>
                 <buildver>322</buildver>
                 <spark.version>${spark322.version}</spark.version>
+                <delta.core.version>${delta20x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -160,6 +166,7 @@
             <properties>
                 <buildver>323</buildver>
                 <spark.version>${spark323.version}</spark.version>
+                <delta.core.version>${delta20x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -173,6 +180,7 @@
             <properties>
                 <buildver>330</buildver>
                 <spark.version>${spark330.version}</spark.version>
+                <delta.core.version>${delta23x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -186,6 +194,7 @@
             <properties>
                 <buildver>331</buildver>
                 <spark.version>${spark331.version}</spark.version>
+                <delta.core.version>${delta23x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -212,6 +221,7 @@
             <properties>
                 <buildver>333</buildver>
                 <spark.version>${spark333.version}</spark.version>
+                <delta.core.version>${delta23x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -225,6 +235,7 @@
             <properties>
                 <buildver>340</buildver>
                 <spark.version>${spark340.version}</spark.version>
+                <delta.core.version>${delta23x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -238,6 +249,7 @@
             <properties>
                 <buildver>350</buildver>
                 <spark.version>${spark350.version}</spark.version>
+                <delta.core.version>${delta23x.version}</delta.core.version>
             </properties>
         </profile>
     </profiles>
@@ -280,6 +292,15 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.sourceEncoding>UTF-8</project.reporting.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <!-- properties used for DeltaLake -->
+        <delta10x.version>1.0.1</delta10x.version>
+        <delta11x.version>1.1.0</delta11x.version>
+        <delta12x.version>1.2.1</delta12x.version>
+        <delta20x.version>2.0.2</delta20x.version>
+        <delta21x.version>2.1.1</delta21x.version>
+        <delta22x.version>2.2.0</delta22x.version>
+        <delta23x.version>2.3.0</delta23x.version>
+        <delta.core.version>${delta10x.version}</delta.core.version>
     </properties>
 
     <dependencies>
@@ -327,12 +348,6 @@
             <version>${snakeyaml.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-mllib_${scala.binary.version}</artifactId>
-            <version>${spark.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-artifact</artifactId>
             <version>${maven.artifact.version}</version>
@@ -342,6 +357,20 @@
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
             <version>${jsoup.version}</version>
+        </dependency>
+        <!-- Dependencies used in testing -->
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-mllib_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- add delta-lake to test against delta-lake write optimizations -->
+            <groupId>io.delta</groupId>
+            <artifactId>delta-core_${scala.binary.version}</artifactId>
+            <version>${delta.core.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

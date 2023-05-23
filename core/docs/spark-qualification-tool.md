@@ -112,7 +112,7 @@ more information.
 The Qualification tool require the Spark 3.x jars to be able to run but do not need an Apache Spark run time.
 If you do not already have Spark 3.x installed, you can download the Spark distribution to
 any machine and include the jars in the classpath.
-- Download the jar file from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/23.02.0/)
+- Download the latest jar from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/)
 - [Download Apache Spark 3.x](http://spark.apache.org/downloads.html) - Spark 3.1.1 for Apache Hadoop is recommended
 
 ### Step 2 Run the Qualification tool
@@ -133,7 +133,7 @@ any machine and include the jars in the classpath.
     multiple event logs files or directories containing spark event logs in the local filesystem, HDFS, S3 or mixed.
 
     ```bash
-    Usage: java ${QUALIFICATION_HEAP}
+    Usage: java ${QUALIFICATION_HEAP} \
              -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/* \
              com.nvidia.spark.rapids.tool.qualification.QualificationMain [options]
              <eventlogs | eventlog directories ...>
@@ -141,7 +141,7 @@ any machine and include the jars in the classpath.
 
     ```bash
     Sample: java ${QUALIFICATION_HEAP} \
-              -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
+              -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/* \
               com.nvidia.spark.rapids.tool.qualification.QualificationMain /usr/logs/app-name1
     ```
 
@@ -376,18 +376,78 @@ For information on the files content and processing the Qualification report and
 to [Understanding the Qualification tool output](#understanding-the-qualification-tool-output) and
 [Output Formats](#output-formats) sections below.
 
+## Running using a Spark Listener
+
+We provide a Spark Listener that can be installed at application start that will produce output
+for each SQL queries in the running application and indicate if that query is a good fit to try
+with the Rapids Accelerator for Spark.
+
+### Prerequisites
+- Java 8 or above, Spark 3.0.1+
+
+### Download the tools jar
+- Download the latest jar from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/)
+
+### Configuration
+
+Add the RunningQualificationEventProcess to the spark listeners configuration:
+`spark.extraListeners=org.apache.spark.sql.rapids.tool.qualification.RunningQualificationEventProcessor`
+
+The user should specify the output directory if they want the output to go to separate
+files, otherwise it will go to the Spark driver log. If the output directory is specified, it outputs
+two different files, one csv and one pretty printed log file. The output directory can be a local directory
+or point to a distributed file system or blobstore like S3.
+ - `spark.rapids.qualification.outputDir`
+
+By default, this will output results for 10 SQL queries per file and will
+keep 100 files. This behavior is because many blob stores don't show files until
+they are fully written so you wouldn't be able to see the results for a running
+application until it finishes the number of SQL queries per file. This behavior
+can be configured with the following configs.
+ - `spark.rapids.qualification.output.numSQLQueriesPerFile` - default 10
+ - `spark.rapids.qualification.output.maxNumFiles` - default 100
+
+### Run the Spark application
+
+Run the application and include the tools jar, `spark.extraListeners` config and optionally the other
+configs to control the tools behavior.
+
+For example:
+
+```bash
+$SPARK_HOME/bin/spark-shell \
+--jars rapids-4-spark-tools_2.12-<version>.jar \
+--conf spark.extraListeners=org.apache.spark.sql.rapids.tool.qualification.RunningQualificationEventProcessor \
+--conf spark.rapids.qualification.outputDir=/tmp/qualPerSqlOutput \
+--conf spark.rapids.qualification.output.numSQLQueriesPerFile=5 \
+--conf spark.rapids.qualification.output.maxNumFiles=10
+```
+
+After running some SQL queries you can look in the output directory and see files like:
+
+```
+rapids_4_spark_qualification_output_persql_0.csv
+rapids_4_spark_qualification_output_persql_0.log
+rapids_4_spark_qualification_output_persql_1.csv
+rapids_4_spark_qualification_output_persql_1.log
+rapids_4_spark_qualification_output_persql_2.csv
+rapids_4_spark_qualification_output_persql_2.log
+```
+
+See the [Understanding the Qualification tool output](#understanding-the-qualification-tool-output)
+section on the file contents details.
+
 ## Running the Qualification tool inside a running Spark application using the API
 
 ### Prerequisites
 - Java 8 or above, Spark 3.0.1+
 
 ### Download the tools jar
-- Download the jar file from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/23.02.0/)
+- Download the latest jar from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/)
 
 ### Modify your application code to call the api's
 
-Currently only Scala api's are supported. Note this does not support reporting at the per sql level currently. This can be done
-manually by just wrapping and reporting around those queries instead of the entire application.
+Currently only Scala api's are supported. Note this does not support reporting at the per sql level currently. This can be done manually by just wrapping and reporting around those queries instead of the entire application.
 
 Create the `RunningQualicationApp`:
 ```
@@ -458,67 +518,6 @@ For example, if running the spark-shell:
 ```
 $SPARK_HOME/bin/spark-shell --jars rapids-4-spark-tools_2.12-<version>.jar
 ```
-
-## Running using a Spark Listener
-
-We provide a Spark Listener that can be installed at application start that will produce output
-for each SQL queries in the running application and indicate if that query is a good fit to try
-with the Rapids Accelerator for Spark.
-
-### Prerequisites
-- Java 8 or above, Spark 3.0.1+
-
-### Download the tools jar
-- Download the jar file from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/23.02.0/)
-
-### Configuration
-
-Add the RunningQualificationEventProcess to the spark listeners configuration:
-`spark.extraListeners=org.apache.spark.sql.rapids.tool.qualification.RunningQualificationEventProcessor`
-
-The user should specify the output directory if they want the output to go to separate
-files, otherwise it will go to the Spark driver log. If the output directory is specified, it outputs
-two different files, one csv and one pretty printed log file. The output directory can be a local directory
-or point to a distributed file system or blobstore like S3.
- - `spark.rapids.qualification.outputDir`
-
-By default, this will output results for 10 SQL queries per file and will
-keep 100 files. This behavior is because many blob stores don't show files until
-they are fully written so you wouldn't be able to see the results for a running
-application until it finishes the number of SQL queries per file. This behavior
-can be configured with the following configs.
- - `spark.rapids.qualification.output.numSQLQueriesPerFile` - default 10
- - `spark.rapids.qualification.output.maxNumFiles` - default 100
-
-### Run the Spark application
-
-Run the application and include the tools jar, `spark.extraListeners` config and optionally the other
-configs to control the tools behavior.
-
-For example:
-
-```bash
-SPARK_HOME/bin/spark-shell \
---jars rapids-4-spark-tools_2.12-<version>.jar \
---conf spark.extraListeners=org.apache.spark.sql.rapids.tool.qualification.RunningQualificationEventProcessor \
---conf spark.rapids.qualification.outputDir=/tmp/qualPerSqlOutput \
---conf spark.rapids.qualification.output.numSQLQueriesPerFile=5 \
---conf spark.rapids.qualification.output.maxNumFiles=10
-```
-
-After running some SQL queries you can look in the output directory and see files like:
-
-```
-rapids_4_spark_qualification_output_persql_0.csv
-rapids_4_spark_qualification_output_persql_0.log
-rapids_4_spark_qualification_output_persql_1.csv
-rapids_4_spark_qualification_output_persql_1.log
-rapids_4_spark_qualification_output_persql_2.csv
-rapids_4_spark_qualification_output_persql_2.log
-```
-
-See the [Understanding the Qualification tool output](#understanding-the-qualification-tool-output)
-section on the file contents details.
 
 ## Understanding the Qualification tool output
 
