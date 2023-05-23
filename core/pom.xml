@@ -170,6 +170,20 @@
             </properties>
         </profile>
         <profile>
+            <id>release325</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>325</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>325</buildver>
+                <spark.version>${spark325.version}</spark.version>
+                <delta.core.version>${delta20x.version}</delta.core.version>
+            </properties>
+        </profile>
+        <profile>
             <id>release330</id>
             <activation>
                 <property>
@@ -235,7 +249,21 @@
             <properties>
                 <buildver>340</buildver>
                 <spark.version>${spark340.version}</spark.version>
-                <delta.core.version>${delta23x.version}</delta.core.version>
+                <delta.core.version>${delta24x.version}</delta.core.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release341</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>341</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>341</buildver>
+                <spark.version>${spark341.version}</spark.version>
+                <delta.core.version>${delta24x.version}</delta.core.version>
             </properties>
         </profile>
         <profile>
@@ -249,7 +277,7 @@
             <properties>
                 <buildver>350</buildver>
                 <spark.version>${spark350.version}</spark.version>
-                <delta.core.version>${delta23x.version}</delta.core.version>
+                <delta.core.version>${delta24x.version}</delta.core.version>
             </properties>
         </profile>
     </profiles>
@@ -261,11 +289,13 @@
         <spark321.version>3.2.1</spark321.version>
         <spark322.version>3.2.2</spark322.version>
         <spark323.version>3.2.3</spark323.version>
+        <spark325.version>3.2.5-SNAPSHOT</spark325.version>
         <spark330.version>3.3.0</spark330.version>
         <spark331.version>3.3.1</spark331.version>
         <spark332.version>3.3.2</spark332.version>
         <spark333.version>3.3.3-SNAPSHOT</spark333.version>
         <spark340.version>3.4.0</spark340.version>
+        <spark341.version>3.4.1-SNAPSHOT</spark341.version>
         <spark350.version>3.5.0-SNAPSHOT</spark350.version>
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>
@@ -300,6 +330,7 @@
         <delta21x.version>2.1.1</delta21x.version>
         <delta22x.version>2.2.0</delta22x.version>
         <delta23x.version>2.3.0</delta23x.version>
+        <delta24x.version>2.4.0rc1</delta24x.version>
         <delta.core.version>${delta10x.version}</delta.core.version>
     </properties>
 
@@ -324,6 +355,13 @@
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client</artifactId>
             <version>${hadoop.version}</version>
+            <exclusions>
+                <exclusion>
+                    <!-- Exclude slf4j-reload4j from Hadoop-Client -->
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-reload4j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.hadoop</groupId>
@@ -725,6 +763,11 @@
             <snapshots>
                 <enabled>true</enabled>
             </snapshots>
+        </repository>
+        <repository>
+            <!-- added to support preview releases from iodelta -->
+            <id>iodelta-staging-repo</id>
+            <url> https://oss.sonatype.org/content/repositories/iodelta-1080/</url>
         </repository>
     </repositories>
 </project>
