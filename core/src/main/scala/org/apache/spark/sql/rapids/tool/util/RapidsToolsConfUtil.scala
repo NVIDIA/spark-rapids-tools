@@ -26,25 +26,12 @@ import org.apache.spark.sql.SparkSession
 /**
  * Contains util methods to interact with Spark/Hadoop configurations.
  */
-class RapidsToolsConfUtil extends Logging {
-  val hadoopConf: Configuration = newHadoopConf
-
-  def newHadoopConf: Configuration = {
-    val hConf = SparkHadoopUtil.get.conf
-    RapidsToolsConfUtil.appendRapidsToolsHadoopConfigs(hConf)
-    hConf
-  }
-}
-
 
 object RapidsToolsConfUtil extends Logging {
   val hadoopConfPrefix = s"${RAPIDS_TOOLS_SYS_PROP_PREFIX}hadoop."
   val sparkConfPrefix = s"${RAPIDS_TOOLS_SYS_PROP_PREFIX}spark."
 
   private lazy val configMap = loadConfFromSystemProperties
-  private lazy val instance = new RapidsToolsConfUtil
-
-  def get: RapidsToolsConfUtil = instance
 
   /**
    * Creates a sparkConfiguration object from the existing sparkSession if any.
@@ -68,7 +55,7 @@ object RapidsToolsConfUtil extends Logging {
    */
   def newHadoopConf(conf: SparkConf): Configuration = {
     appendRapidsToolsSparkConfigs(conf)
-    val hadoopConf = SparkHadoopUtil.newConfiguration(conf)
+    val hadoopConf = SparkHadoopUtil.get.newConfiguration(conf)
     appendRapidsToolsHadoopConfigs(hadoopConf)
     hadoopConf
   }
