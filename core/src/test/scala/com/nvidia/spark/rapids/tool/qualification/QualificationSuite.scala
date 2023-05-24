@@ -22,11 +22,10 @@ import java.util.concurrent.TimeUnit.NANOSECONDS
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
+import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import org.apache.hadoop.fs.{FileSystem, Path}
-import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.ml.feature.PCA
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
@@ -65,9 +64,7 @@ case class TestQualificationSummary(
     unsupportedExprs: String,
     estimatedFrequency: Long)
 
-class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
-
-  private var sparkSession: SparkSession = _
+class QualificationSuite extends BaseTestSuite {
 
   private val expRoot = ToolTestUtils.getTestResourceFile("QualificationExpectations")
   private val logDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
@@ -116,19 +113,6 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
   val perSQLSchema = new StructType(csvPerSQLFields.map(f => StructField(f._1, f._2, true)).toArray)
 
   def csvDetailedHeader(ind: Int) = csvDetailedFields(ind)._1
-
-  private def createSparkSession(): Unit = {
-    sparkSession = SparkSession
-      .builder()
-      .master("local[*]")
-      .appName("Rapids Spark Profiling Tool Unit Tests")
-      .getOrCreate()
-  }
-
-  override protected def beforeEach(): Unit = {
-    TrampolineUtil.cleanupAnyExistingSession()
-    createSparkSession()
-  }
 
   def readExpectedFile(expected: File, escape: String = "\\"): DataFrame = {
     ToolTestUtils.readExpectationCSV(sparkSession, expected.getPath(), Some(schema), escape)
@@ -552,7 +536,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     runQualificationTest(logFiles, "db_sim_test_expectation.csv")
   }
 
-  test("test nds q86 with failure test") {
+  runConditionalTest("test nds q86 with failure test",
+    shouldSkipFailedLogsForSpark) {
     val logFiles = Array(s"$logDir/nds_q86_fail_test")
     runQualificationTest(logFiles, "nds_q86_fail_test_expectation.csv",
       expectPerSqlFileName = Some("nds_q86_fail_test_expectation_persql.csv"))
@@ -765,7 +750,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     }
   }
 
-  test("test generate udf different sql ops") {
+  runConditionalTest("test generate udf different sql ops",
+    checkUDFDetectionSupportForSpark) {
     TrampolineUtil.withTempDir { outpath =>
 
       TrampolineUtil.withTempDir { eventLogDir =>
@@ -773,7 +759,6 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         val grpParquet = s"$outpath/grpParquet"
         createDecFile(sparkSession, tmpParquet)
         createIntFile(sparkSession, grpParquet)
-        val sparkVersion = ToolUtils.sparkRuntimeVersion
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "dot") { spark =>
           val plusOne = udf((x: Int) => x + 1)
           import spark.implicits._
@@ -798,12 +783,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(exit == 0)
         assert(appSum.size == 1)
         val probApp = appSum.head
-        if (!ToolUtils.isSpark320OrLater(sparkVersion)) {
-          // The UDF can be detected only for Spark3.1.1
-          // Follow https://issues.apache.org/jira/browse/SPARK-43131 for updates on detecting
-          // UDFs in spark3.2+
-          assert(probApp.potentialProblems.contains("UDF"))
-        }
+        assert(probApp.potentialProblems.contains("UDF"))
         assert(probApp.unsupportedSQLTaskDuration > 0) // only UDF is unsupported in the query.
       }
     }
@@ -812,14 +792,14 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
   test("test clusterTags when redacted") {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
-
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted") {
+        val tagConfs =
+          Map("spark.databricks.clusterUsageTags.clusterAllTags" -> "*********(redacted)",
+            "spark.databricks.clusterUsageTags.clusterId" -> "0617-131246-dray530",
+            "spark.databricks.clusterUsageTags.clusterName" -> "job-215-run-34243234")
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted",
+          Some(tagConfs)) {
           spark =>
             import spark.implicits._
-            spark.conf.set("spark.databricks.clusterUsageTags.clusterAllTags",
-              "*********(redacted)")
-            spark.conf.set("spark.databricks.clusterUsageTags.clusterId", "0617-131246-dray530")
-            spark.conf.set("spark.databricks.clusterUsageTags.clusterName", "job-215-run-34243234")
 
             val df1 = spark.sparkContext.makeRDD(1 to 1000, 6).toDF
             df1.sample(0.1)
@@ -846,15 +826,18 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
 
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertags") { spark =>
+        val allTagsConfVal =
+          """[{"key":"Vendor",
+            |"value":"Databricks"},{"key":"Creator","value":"abc@company.com"},
+            |{"key":"ClusterName","value":"job-215-run-1"},{"key":"ClusterId",
+            |"value":"0617-131246-dray530"},{"key":"JobId","value":"215"},
+            |{"key":"RunName","value":"test73longer"},{"key":"DatabricksEnvironment",
+            |"value":"workerenv-7026851462233806"}]""".stripMargin
+        val tagConfs =
+          Map("spark.databricks.clusterUsageTags.clusterAllTags" -> allTagsConfVal)
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertags",
+          Some(tagConfs)) { spark =>
           import spark.implicits._
-          spark.conf.set("spark.databricks.clusterUsageTags.clusterAllTags",
-            """[{"key":"Vendor",
-              |"value":"Databricks"},{"key":"Creator","value":"abc@company.com"},
-              |{"key":"ClusterName","value":"job-215-run-1"},{"key":"ClusterId",
-              |"value":"0617-131246-dray530"},{"key":"JobId","value":"215"},
-              |{"key":"RunName","value":"test73longer"},{"key":"DatabricksEnvironment",
-              |"value":"workerenv-7026851462233806"}]""".stripMargin)
 
           val df1 = spark.sparkContext.makeRDD(1 to 1000, 6).toDF
           df1.sample(0.1)

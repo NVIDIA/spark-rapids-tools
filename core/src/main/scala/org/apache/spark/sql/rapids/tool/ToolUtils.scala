@@ -116,6 +116,10 @@ object ToolUtils extends Logging {
     }
   }
 
+  def runtimeIsSparkVersion(refVersion: String): Boolean = {
+    compareVersions(refVersion, sparkRuntimeVersion) == 0
+  }
+
   def compareToSparkVersion(currVersion: String, lookupVersion: String): Int = {
     val lookupVersionObj = lookupVersions.get(lookupVersion).get
     val currVersionObj = new ComparableVersion(currVersion)

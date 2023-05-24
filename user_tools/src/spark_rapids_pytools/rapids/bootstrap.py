@@ -61,10 +61,12 @@ class Bootstrap(RapidsTool):
         # give up to 2GB of heap to each executor core
         executor_heap = min(max_executor_heap, constants.get('heapPerCoreMB') * num_executor_cores)
         executor_mem_overhead = int(executor_heap * constants.get('heapOverheadFraction'))
+        # use default for pageable_pool to add to memory overhead
+        pageable_pool = constants.get('defaultPageablePoolMB')
         # pinned memory uses any unused space up to 4GB
         pinned_mem = min(constants.get('maxPinnedMemoryMB'),
-                         executor_container_mem - executor_heap - executor_mem_overhead)
-        executor_mem_overhead += pinned_mem
+                         executor_container_mem - executor_heap - executor_mem_overhead - pageable_pool)
+        executor_mem_overhead += pinned_mem + pageable_pool
         res = {
             'spark.executor.cores': num_executor_cores,
             'spark.executor.memory': f'{executor_heap}m',

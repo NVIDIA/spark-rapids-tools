@@ -61,20 +61,22 @@ object ToolTestUtils extends Logging {
     appId
   }
 
-  def generateEventLog(eventLogDir: File, appName: String)
-      (fun: SparkSession => DataFrame): (String, String) = {
+  def generateEventLog(eventLogDir: File, appName: String,
+      confs: Option[Map[String, String]] = None)
+    (fun: SparkSession => DataFrame): (String, String) = {
 
     // we need to close any existing sessions to ensure that we can
     // create a session with a new event log dir
     TrampolineUtil.cleanupAnyExistingSession()
 
-    lazy val spark = SparkSession
+    lazy val sparkBuilder = SparkSession
       .builder()
       .master("local[*]")
       .appName(appName)
       .config("spark.eventLog.enabled", "true")
       .config("spark.eventLog.dir", eventLogDir.getAbsolutePath)
-      .getOrCreate()
+    confs.foreach(_.foreach {case (k, v) => sparkBuilder.config(k, v)})
+    lazy val spark  = sparkBuilder.getOrCreate()
 
     // execute the query and generate events
     val df = fun(spark)

@@ -17,11 +17,11 @@
 package com.nvidia.spark.rapids.tool.qualification
 
 import com.nvidia.spark.rapids.tool.EventLogPathProcessor
-import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
 import org.apache.spark.sql.rapids.tool.qualification.QualificationSummaryInfo
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 /**
  * A tool to analyze Spark event logs and determine if 
@@ -61,7 +61,7 @@ object QualificationMain extends Logging {
     val platform = appArgs.platform.getOrElse("onprem")
     val mlOpsEnabled = appArgs.mlFunctions.getOrElse(false)
 
-    val hadoopConf = new Configuration()
+    val hadoopConf = RapidsToolsConfUtil.newHadoopConf
 
     val pluginTypeChecker = try {
       new PluginTypeChecker(platform)

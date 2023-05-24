@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -233,8 +233,7 @@ object SQLPlanParser extends Logging {
             LocalLimitExecParser(node, checker, sqlID).parse
           case "InMemoryTableScan" =>
             InMemoryTableScanExecParser(node, checker, sqlID).parse
-          case i if (i.contains("InsertIntoHadoopFsRelationCommand") ||
-            i == "DataWritingCommandExec") =>
+          case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
             DataWritingCommandExecParser(node, checker, sqlID).parse
           case "MapInPandas" =>
             MapInPandasExecParser(node, checker, sqlID).parse
@@ -607,7 +606,7 @@ object SQLPlanParser extends Logging {
     } else if (buildSide == BuildSide.BuildRight) {
       joinType == JoinType.Inner || joinType == JoinType.Cross ||
         joinType == JoinType.LeftOuter || joinType == JoinType.LeftSemi ||
-        joinType == JoinType.LeftAnti
+        joinType == JoinType.LeftAnti || joinType == JoinType.FullOuter
     } else {
       true
     }
