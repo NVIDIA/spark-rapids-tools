@@ -48,7 +48,7 @@ object RapidsToolsConfUtil extends Logging {
 
   /**
    * Creates a sparkConfiguration object from the existing sparkSession if any.
-   * Then it will call [[RapidsToolsConfUtil.newHadoopConf(SparkConf)]]
+   * Then it will call {@link RapidsToolsConfUtil.newHadoopConf(org.apache.spark.SparkConf)}
    * @return a hadoop configuration object
    */
   def newHadoopConf(): Configuration = {
