@@ -128,7 +128,7 @@ class ToolUtilsSuite extends FunSuite with Logging {
     TrampolineUtil.cleanupAnyExistingSession()
     // sets a hadoop property through Spark Prefix
     System.setProperty("spark.hadoop.property.key1", "value1")
-    val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
+    lazy val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
     hadoopConf.get("property.key1") shouldBe "value1"
   }
 }

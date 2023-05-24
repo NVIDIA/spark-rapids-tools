@@ -22,11 +22,10 @@ import java.util.concurrent.TimeUnit.NANOSECONDS
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
+import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import org.apache.hadoop.fs.{FileSystem, Path}
-import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.ml.feature.PCA
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
@@ -65,9 +64,7 @@ case class TestQualificationSummary(
     unsupportedExprs: String,
     estimatedFrequency: Long)
 
-class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
-
-  private var sparkSession: SparkSession = _
+class QualificationSuite extends BaseTestSuite {
 
   private val expRoot = ToolTestUtils.getTestResourceFile("QualificationExpectations")
   private val logDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
@@ -116,19 +113,6 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
   val perSQLSchema = new StructType(csvPerSQLFields.map(f => StructField(f._1, f._2, true)).toArray)
 
   def csvDetailedHeader(ind: Int) = csvDetailedFields(ind)._1
-
-  private def createSparkSession(): Unit = {
-    sparkSession = SparkSession
-      .builder()
-      .master("local[*]")
-      .appName("Rapids Spark Profiling Tool Unit Tests")
-      .getOrCreate()
-  }
-
-  override protected def beforeEach(): Unit = {
-    TrampolineUtil.cleanupAnyExistingSession()
-    createSparkSession()
-  }
 
   def readExpectedFile(expected: File): DataFrame = {
     ToolTestUtils.readExpectationCSV(sparkSession, expected.getPath(),
@@ -554,7 +538,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     runQualificationTest(logFiles, "db_sim_test_expectation.csv")
   }
 
-  test("test nds q86 with failure test") {
+  runConditionalTest("test nds q86 with failure test",
+    shouldSkipFailedLogsForSpark) {
     val logFiles = Array(s"$logDir/nds_q86_fail_test")
     runQualificationTest(logFiles, "nds_q86_fail_test_expectation.csv",
       expectPerSqlFileName = Some("nds_q86_fail_test_expectation_persql.csv"))
@@ -767,7 +752,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     }
   }
 
-  test("test generate udf different sql ops") {
+  runConditionalTest("test generate udf different sql ops",
+    checkUDFDetectionSupportForSpark) {
     TrampolineUtil.withTempDir { outpath =>
 
       TrampolineUtil.withTempDir { eventLogDir =>
@@ -775,7 +761,6 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         val grpParquet = s"$outpath/grpParquet"
         createDecFile(sparkSession, tmpParquet)
         createIntFile(sparkSession, grpParquet)
-        val sparkVersion = ToolUtils.sparkRuntimeVersion
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "dot") { spark =>
           val plusOne = udf((x: Int) => x + 1)
           import spark.implicits._
@@ -800,12 +785,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(exit == 0)
         assert(appSum.size == 1)
         val probApp = appSum.head
-        if (!ToolUtils.isSpark320OrLater(sparkVersion)) {
-          // The UDF can be detected only for Spark3.1.1
-          // Follow https://issues.apache.org/jira/browse/SPARK-43131 for updates on detecting
-          // UDFs in spark3.2+
-          assert(probApp.potentialProblems.contains("UDF"))
-        }
+        assert(probApp.potentialProblems.contains("UDF"))
         assert(probApp.unsupportedSQLTaskDuration > 0) // only UDF is unsupported in the query.
       }
     }

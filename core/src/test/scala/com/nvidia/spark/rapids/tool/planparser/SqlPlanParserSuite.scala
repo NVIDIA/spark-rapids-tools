@@ -20,16 +20,14 @@ import java.io.{File, PrintWriter}
 
 import scala.collection.mutable
 import scala.io.Source
-import scala.util.{Failure, Success,Try}
 import scala.util.control.NonFatal
 
+import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.qualification._
-import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.scalatest.exceptions.TestFailedException
 
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{SparkSession, TrampolineUtil}
+import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, floor, hex, json_tuple, round, row_number, sum}
 import org.apache.spark.sql.rapids.tool.ToolUtils
@@ -38,21 +36,10 @@ import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types.StringType
 
 
-class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
-
-  private var sparkSession: SparkSession = _
+class SQLPlanParserSuite extends BaseTestSuite {
 
   private val profileLogDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
   private val qualLogDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
-
-  override protected def beforeEach(): Unit = {
-    TrampolineUtil.cleanupAnyExistingSession()
-    sparkSession = SparkSession
-      .builder()
-      .master("local[*]")
-      .appName("Rapids Spark Profiling Tool Unit Tests")
-      .getOrCreate()
-  }
 
   private def assertSizeAndNotSupported(size: Int, execs: Seq[ExecInfo]): Unit = {
     for (t <- Seq(execs)) {
@@ -98,24 +85,6 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val topExecInfo = plans.flatMap(_.execInfo)
     topExecInfo.flatMap { e =>
       e.children.getOrElse(Seq.empty) :+ e
-    }
-  }
-
-  private def checkDeltaLakeSparkRelease(): (Boolean, String) = {
-    (!ToolUtils.isSpark340OrLater(), "DeltaLake release is not supported in Spark Version")
-  }
-
-  def runConditionalTest(testName: String, assumeCondition: () => (Boolean, String))
-    (fun: => Unit): Unit = {
-    val (isAllowed, ignoreMessage) = assumeCondition()
-    Try(assume(isAllowed)) match {
-      case Success(_) =>
-        test(testName) {
-          fun
-        }
-      case Failure(_) =>
-        // it does not matter the type of the failure
-        ignore(s"$testName. Ignore Reason: $ignoreMessage") {}
     }
   }
 
