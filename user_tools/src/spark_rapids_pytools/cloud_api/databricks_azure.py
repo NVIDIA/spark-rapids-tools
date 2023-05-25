@@ -22,6 +22,7 @@ from logging import Logger
 from typing import Any, List
 
 from spark_rapids_pytools.cloud_api.azurestorage import AzureStorageDriver
+from spark_rapids_pytools.cloud_api.databricks_azure_job import DBAzureLocalRapidsJob
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, \
     PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
@@ -64,7 +65,7 @@ class DBAzurePlatform(PlatformBase):
         pass
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
-        pass
+        return DBAzureLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass
@@ -157,12 +158,10 @@ class DBAzureCMDDriver(CMDDriverBase):
         raise NotImplementedError
 
     def get_region(self) -> str:
-        cmd_params = ['az config get defaults.location']
         try:
-            location_description = self.run_sys_cmd(cmd_params)
+            return self.env_vars.get('location')
         except RuntimeError:
             return self.env_vars.get('region')
-        return JSONPropertiesContainer(prop_arg=location_description, file_load=False).get_value('value')
 
 
 @dataclass
