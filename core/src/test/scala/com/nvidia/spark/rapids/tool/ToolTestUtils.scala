@@ -25,6 +25,7 @@ import com.nvidia.spark.rapids.tool.profiling.ProfileArgs
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types._
 
 object ToolTestUtils extends Logging {
@@ -129,9 +130,9 @@ object ToolTestUtils extends Logging {
     var index: Int = 1
     for (path <- appArgs.eventlog()) {
       val eventLogInfo = EventLogPathProcessor
-        .getEventLogInfo(path, sparkSession.sparkContext.hadoopConfiguration)
+        .getEventLogInfo(path, RapidsToolsConfUtil.newHadoopConf())
       assert(eventLogInfo.size >= 1, s"event log not parsed as expected $path")
-      apps += new ApplicationInfo(sparkSession.sparkContext.hadoopConfiguration,
+      apps += new ApplicationInfo(RapidsToolsConfUtil.newHadoopConf(),
         eventLogInfo.head._1, index)
       index += 1
     }

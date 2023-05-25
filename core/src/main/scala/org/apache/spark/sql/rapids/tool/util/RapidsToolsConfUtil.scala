@@ -18,62 +18,53 @@ package org.apache.spark.sql.rapids.tool.util
 
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.SparkConf
-import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 
 /**
  * Contains util methods to interact with Spark/Hadoop configurations.
  */
-
 object RapidsToolsConfUtil extends Logging {
-  val hadoopConfPrefix = s"${RAPIDS_TOOLS_SYS_PROP_PREFIX}hadoop."
-  val sparkConfPrefix = s"${RAPIDS_TOOLS_SYS_PROP_PREFIX}spark."
-
-  private lazy val configMap = loadConfFromSystemProperties
+  private val HADOOP_CONF_PREFIX = s"${RAPIDS_TOOLS_SYS_PROP_PREFIX}hadoop."
 
   /**
-   * Creates a sparkConfiguration object from the existing sparkSession if any.
-   * Then it will call {@link RapidsToolsConfUtil.newHadoopConf(org.apache.spark.SparkConf)}
+   * Creates a sparkConfiguration object with system properties applied on-top.
    * @return a hadoop configuration object
    */
   def newHadoopConf(): Configuration = {
-    val sparkConf = SparkSession.getActiveSession match {
-      case Some(spark) => spark.sparkContext.getConf
-      case None => new SparkConf()
-    }
-    newHadoopConf(sparkConf)
+    newHadoopConf(loadConfFromSystemProperties)
   }
 
   /**
-   * Returns a Configuration object with Spark configuration applied on top.
-   * It also applies system properties with prefix "rapids.tools.hadoop" on top of all.
-   *
-   * @param conf a spark configuration instance
+   * Created a new Configuration object after applying the properties on top.
+   * The configuration map keys should be prefixed with "rapids.tools.hadoop."
+   * @param confMap a key value pair of properties to be applied to the default configurations.
    * @return a hadoop configuration object
    */
-  def newHadoopConf(conf: SparkConf): Configuration = {
-    appendRapidsToolsSparkConfigs(conf)
-    val hadoopConf = SparkHadoopUtil.get.newConfiguration(conf)
-    appendRapidsToolsHadoopConfigs(hadoopConf)
+  def newHadoopConf(confMap: Map[String, String]): Configuration = {
+    val hadoopConf = SparkSession.getActiveSession match {
+      case Some(spark) =>
+        // get the hadoop configuration attached to the session
+        new Configuration(spark.sparkContext.hadoopConfiguration)
+      case _ =>
+        new Configuration()
+    }
+    // append the configuration map
+    appendRapidsToolsHadoopConfigs(confMap, hadoopConf)
     hadoopConf
   }
 
-  private def appendRapidsToolsHadoopConfigs(hadoopConf: Configuration): Unit = {
-    // Copy any "rapids.tools.hadoop.prop=val" system properties into hadoopConf as "prop=val"
-    for ((key, value) <- configMap if key.startsWith(hadoopConfPrefix)) {
-      val keyVal = key.substring(hadoopConfPrefix.length)
-      hadoopConf.set(keyVal, value,
-        s"Set by Rapids Tools from keys starting with '$hadoopConfPrefix'")
-    }
-  }
-
-  private def appendRapidsToolsSparkConfigs(sparkConf: SparkConf): Unit = {
-    // Copy any "rapids.tools.spark.prop=val" system properties into sparkConf as "spark.prop=val"
-    for ((key, value) <- configMap if key.startsWith(sparkConfPrefix)) {
-      val keyVal = key.substring(RAPIDS_TOOLS_SYS_PROP_PREFIX.length)
-      sparkConf.set(keyVal, value)
+  /**
+   * Appends rapids.tools.hadoop.* configurations from a Map to another without
+   * the rapids.tools.hadoop. prefix.
+   */
+  def appendRapidsToolsHadoopConfigs(
+      srcMap: Map[String, String],
+      destMap: Configuration): Unit = {
+    // Copy any "rapids.tools.hadoop.foo=bar" system properties into destMap as "foo=bar"
+    for ((key, value) <- srcMap if key.startsWith(HADOOP_CONF_PREFIX)) {
+      val k = key.substring(HADOOP_CONF_PREFIX.length)
+      destMap.set(k, value)
     }
   }
 }

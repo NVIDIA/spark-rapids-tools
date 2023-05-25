@@ -86,8 +86,10 @@ object EventLogPathProcessor extends Logging {
 
   def getEventLogInfo(pathString: String, hadoopConf: Configuration): Map[EventLogInfo, Long] = {
     val inputPath = new Path(pathString)
-    val fs = inputPath.getFileSystem(hadoopConf)
     try {
+      // Note that some cloud storage APIs may throw FileNotFoundException when the pathPrefix
+      // (i.e., bucketName) is not visible to the current configuration instance.
+      val fs = inputPath.getFileSystem(hadoopConf)
       val fileStatus = fs.getFileStatus(inputPath)
       val filePath = fileStatus.getPath()
       val fileName = filePath.getName()
