@@ -34,6 +34,7 @@ import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.qualification.MLFunctions
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.util.Utils
 
 abstract class AppBase(
@@ -198,7 +199,7 @@ abstract class AppBase(
         logInfo("Parsing Event Log: " + eventLogPath.toString)
 
         // at this point all paths should be valid event logs or event log dirs
-        val hconf = hadoopConf.getOrElse(new Configuration())
+        val hconf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf)
         val fs = eventLogPath.getFileSystem(hconf)
         var totalNumEvents = 0
         val readerOpt = eventLog match {

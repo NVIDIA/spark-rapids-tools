@@ -22,36 +22,24 @@ import scala.collection.mutable
 import scala.io.Source
 import scala.util.control.NonFatal
 
+import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.qualification._
-import org.apache.hadoop.conf.Configuration
-import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.scalatest.exceptions.TestFailedException
 
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{SparkSession, TrampolineUtil}
+import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, floor, hex, json_tuple, round, row_number, sum}
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types.StringType
 
 
-class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
-
-  private var sparkSession: SparkSession = _
+class SQLPlanParserSuite extends BaseTestSuite {
 
   private val profileLogDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
   private val qualLogDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
-
-  override protected def beforeEach(): Unit = {
-    TrampolineUtil.cleanupAnyExistingSession()
-    sparkSession = SparkSession
-      .builder()
-      .master("local[*]")
-      .appName("Rapids Spark Profiling Tool Unit Tests")
-      .getOrCreate()
-  }
 
   private def assertSizeAndNotSupported(size: Int, execs: Seq[ExecInfo]): Unit = {
     for (t <- Seq(execs)) {
@@ -82,7 +70,7 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   private def createAppFromEventlog(eventLog: String): QualificationAppInfo = {
-    val hadoopConf = new Configuration()
+    val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
     val (_, allEventLogs) = EventLogPathProcessor.processAllPaths(
       None, None, List(eventLog), hadoopConf)
     val pluginTypeChecker = new PluginTypeChecker()
@@ -297,10 +285,10 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   test("InsertIntoHadoopFsRelationCommand") {
+    val dataWriteCMD = DataWritingCommandExecParser.insertIntoHadoopCMD
     TrampolineUtil.withTempDir { outputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          "InsertIntoHadoopFsRelationCommand") { spark =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, dataWriteCMD) { spark =>
           import spark.implicits._
           val df = spark.sparkContext.makeRDD(1 to 10000, 6).toDF
           val dfWithStrings = df.select(col("value").cast("string"))
@@ -318,12 +306,12 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-        val text = allExecInfo.filter(_.exec.contains("InsertIntoHadoopFsRelationCommand text"))
-        val json = allExecInfo.filter(_.exec.contains("InsertIntoHadoopFsRelationCommand json"))
-        val orc = allExecInfo.filter(_.exec.contains("InsertIntoHadoopFsRelationCommand orc"))
+        val text = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD text"))
+        val json = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD json"))
+        val orc = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD orc"))
         val parquet =
-          allExecInfo.filter(_.exec.contains("InsertIntoHadoopFsRelationCommand parquet"))
-        val csv = allExecInfo.filter(_.exec.contains("InsertIntoHadoopFsRelationCommand csv"))
+          allExecInfo.filter(_.exec.contains(s"$dataWriteCMD parquet"))
+        val csv = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD csv"))
         for (t <- Seq(json, csv, text)) {
           assertSizeAndNotSupported(1, t.toSeq)
         }
@@ -589,9 +577,10 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   test("Expressions not supported in SortMergeJoin") {
     TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "sqlmetric") { spark =>
+      val broadcastConfs = Map("spark.sql.autoBroadcastJoinThreshold" -> "-1")
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "sqlmetric",
+        Some(broadcastConfs)) { spark =>
         import spark.implicits._
-        spark.conf.set("spark.sql.autoBroadcastJoinThreshold", "-1") // force SortMergeJoin
         val df1 = Seq((1, "ABC", 1.2), (2, "DEF", 2.3), (3, "GHI", 1.4)).toDF(
           "emp_id", "name", "dept")
         val df2 = Seq(("Fin", 1.2, "ABC"), ("IT", 2.3, "DEF")).toDF(
@@ -614,9 +603,10 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   test("Parse Exec - SortAggregate") {
     TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "sqlmetric") { spark =>
+      val aggConfs = Map("spark.sql.execution.useObjectHashAggregateExec" -> "false")
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "sqlmetric",
+        Some(aggConfs)) { spark =>
         import spark.implicits._
-        spark.conf.set("spark.sql.execution.useObjectHashAggregateExec", "false")
         val df1 = Seq((1, "a"), (1, "aa"), (1, "a"), (2, "b"),
                          (2, "b"), (3, "c"), (3, "c")).toDF("num", "letter")
         df1.groupBy("num").agg(collect_list("letter").as("collected_letters"))
@@ -816,9 +806,10 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   test("Expressions supported in SortAggregateExec") {
     TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "sqlmetric") { spark =>
+      val aggConfs = Map("spark.sql.execution.useObjectHashAggregateExec" -> "false")
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "sqlmetric",
+        Some(aggConfs)) { spark =>
         import spark.implicits._
-        spark.conf.set("spark.sql.execution.useObjectHashAggregateExec", "false")
         val df1 = Seq((1, "a"), (1, "aa"), (1, "a"), (2, "b"),
           (2, "b"), (3, "c"), (3, "c")).toDF("num", "letter")
         df1.groupBy("num").agg(collect_list("letter").as("collected_letters"),
@@ -984,6 +975,36 @@ class SQLPlanParserSuite extends FunSuite with BeforeAndAfterEach with Logging {
         s"The parsed expressions are not as expected. Expression: ${condExpr}, " +
           s"Expected: ${expectedOutput.mkString}, " +
           s"Output: ${currOutput.mkString}")
+    }
+  }
+
+  runConditionalTest("SaveIntoDataSourceCommand is supported",
+    checkDeltaLakeSparkRelease) {
+    // This unit test enables deltaLake which generate SaveIntoDataSourceCommand
+    // It is ignored for Spark-340+ because delta releases are not available.
+    TrampolineUtil.withTempDir { outputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val dataWriteCMD = DataWritingCommandExecParser.saveIntoDataSrcCMD
+        val deltaConfs = Map(
+          "spark.sql.extensions" -> "io.delta.sql.DeltaSparkSessionExtension",
+          ("spark.sql.catalog.spark_catalog" ->
+            "org.apache.spark.sql.delta.catalog.DeltaCatalog"))
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "DeltaLakeWrites", Some(deltaConfs)) { spark =>
+          import spark.implicits._
+          val df = spark.sparkContext.makeRDD(1 to 10000, 6).toDF
+          df.write.format("delta").mode("overwrite").save(s"$outputLoc/testdelta")
+          df
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val deltaLakeWrites = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD"))
+        assertSizeAndSupported(1, deltaLakeWrites)
+      }
     }
   }
 }

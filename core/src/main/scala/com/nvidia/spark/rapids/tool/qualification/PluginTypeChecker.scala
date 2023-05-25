@@ -257,29 +257,12 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
     score
   }
 
-  def getWriteFormatString(node: String): String = {
-    // We need to parse the input string to get the write format. Write format is either third
-    // or fourth parameter in the input string. If the partition columns is provided, then the
-    // write format will be the fourth parameter.
-    // Example string in the eventlog:
-    // Execute InsertIntoHadoopFsRelationCommand
-    // gs://08f3844/, false, [op_cmpny_cd#25, clnt_rq_sent_dt#26], ORC, Map(path -> gs://08f3844)
-    val parsedString = node.split(",", 3).last.trim // remove first 2 parameters from the string
-    if (parsedString.startsWith("[")) {
-      // Optional parameter is present in the eventlog. Get the fourth parameter by skipping the
-      // optional parameter string.
-      parsedString.split("(?<=],)").map(_.trim).slice(1, 2)(0).split(",")(0)
-    } else {
-      parsedString.split(",")(0) // return third parameter from the input string
-    }
-  }
-
-  def isWriteFormatsupported(writeFormat: String): Boolean = {
+  def isWriteFormatSupported(writeFormat: String): Boolean = {
     val format = writeFormat.toLowerCase.trim
     writeFormats.map(x => x.trim).contains(format)
   }
 
-  def isWriteFormatsupported(writeFormat: ArrayBuffer[String]): ArrayBuffer[String] = {
+  def isWriteFormatSupported(writeFormat: ArrayBuffer[String]): ArrayBuffer[String] = {
     writeFormat.map(x => x.toLowerCase.trim).filterNot(
       writeFormats.map(x => x.trim).contains(_))
   }

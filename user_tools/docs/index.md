@@ -17,6 +17,7 @@ Provides a wrapper to simplify the execution of [RAPIDS Qualification tool](../.
 The latter analyzes Spark events generated from  CPU based Spark applications to help
 quantify the expected acceleration and costs savings of migrating a Spark application or
 query to GPU.  
+
 The tool will process each app individually, but will group apps with the same name into the same output row after
 averaging duration metrics accordingly.
 For more details, please visit the
@@ -25,7 +26,10 @@ For more details, please visit the
 ### Bootstrap
 
 Provides optimized RAPIDS Accelerator for Apache Spark configs based on GPU cluster shape.
-This tool is supposed to be used once a cluster has been created to set the recommended configurations.  
+This tool is supposed to be used once a cluster has been created to set the recommended configurations.  The tool
+will apply settings for the cluster assuming that jobs will run serially so that each job can use up all the
+cluster resources (CPU and GPU) when it is running.
+
 Note that the command may require `SSH` access on the cluster nodes to read the GPU settings and to update
 Apache Spark default configurations.
 
@@ -33,9 +37,13 @@ Apache Spark default configurations.
 
 Provides a wrapper to simplify the execution of [RAPIDS Profiling tool](../../core/docs/spark-profiling-tool.md).
 The latter analyzes both CPU or GPU generated event logs and generates information which
-can be used for debugging and profiling Apache Spark applications.  
+can be used for debugging and profiling Apache Spark applications.  The tool also will recommend setting
+for the application assuming that the job will be able to use all the cluster resources (CPU and GPU) when
+it is running.
+
 In addition, the wrapper output provides optimized RAPIDS configurations based on the worker's
 information.  
+
 For more details, please visit the
 [Profiling Tool on GitHub pages](https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html).
 
