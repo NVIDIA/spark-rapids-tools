@@ -23,11 +23,11 @@
     },
   "environment": {
     "//description": "Define the metadata related to the system, prerequisites, and configurations",
-    "envParams": ["profile", "deployMode"],
+    "envParams": ["profile", "deployMode", "azureRegionSection", "azureStorageSection"],
     "//initialConfigList": "represents the list of the configurations that need to be loaded first",
-    "initialConfigList": ["profile", "cliConfigFile", "azureConfigFile", "region"],
+    "initialConfigList": ["profile", "cliConfigFile", "azureCliConfigFile", "region", "azureRegionSection", "azureStorageSection"],
     "//loadedConfigProps": "list of properties read by the configParser",
-    "loadedConfigProps": ["region", "output"],
+    "loadedConfigProps": ["region"],
     "cliConfig": {
       "envVariables": [
         {
@@ -51,20 +51,44 @@
           "defaultValue": "DEFAULT"
         },
         {
-          "envVariableKey": "AZURE_CONFIG_DIR",
-          "confProperty": "azureConfigFile",
+          "envVariableKey": "AZURE_CONFIG_FILE",
+          "confProperty": "azureCliConfigFile",
           "defaultValue": "~/.azure/config"
         },
         {
           "envVariableKey": "AZURE_DEFAULTS_LOCATION",
           "confProperty": "region",
           "defaultValue": "westus"
+        },
+        {
+          "envVariableKey": "AZURE_REGION_SECTION",
+          "confProperty": "azureRegionSection",
+          "defaultValue": "defaults"
+        },
+        {
+          "envVariableKey": "AZURE_STORAGE_SECTION",
+          "confProperty": "azureStorageSection",
+          "defaultValue": "storage"
         }
       ],
       "confProperties": {
         "//lookupList_description": "Define the list of properties needed for the run to be successful",
-        "propertiesMap": [],
-        "credentialsMap": []
+        "propertiesMap": [
+          {
+            "confProperty": "region",
+            "propKey": "location",
+            "section": "_azureRegionSection_",
+            "configFileProp": "_azureCliConfigFile_"
+          }
+        ],
+        "credentialsMap": [
+          {
+            "confProperty": "azure_access_key",
+            "section": "_azureStorageSection_",
+            "propKey": "key",
+            "configFileProp": "_azureCliConfigFile_"
+          }
+        ]
       }
     },
     "cmdRunnerProperties": {
@@ -98,7 +122,13 @@
       },
       "rapidsJobs": {
         "LOCAL": {
-          "definedVars": []
+          "definedVars": [
+            {
+              "varLabel": "azureAccessKey",
+              "confProperty": "azure_access_key",
+              "varKey": "AZURE_ACCESS_KEY"
+            }
+          ]
         }
       }
     }
