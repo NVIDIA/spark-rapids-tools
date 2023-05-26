@@ -37,7 +37,7 @@ class ToolTextFileWriter(
   val LOG_FILE_PERMISSIONS = new FsPermission(Integer.parseInt("660", 8).toShort)
   val LOG_FOLDER_PERMISSIONS = new FsPermission(Integer.parseInt("770", 8).toShort)
   private val textOutputPath = new Path(s"$finalOutputDir/$logFileName")
-  private lazy val hadoopConfToUse = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf)
+  private val hadoopConfToUse = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf)
 
   private val defaultFs = FileSystem.getDefaultUri(hadoopConfToUse).getScheme
   private val isDefaultLocal = defaultFs == null || defaultFs == "file"
