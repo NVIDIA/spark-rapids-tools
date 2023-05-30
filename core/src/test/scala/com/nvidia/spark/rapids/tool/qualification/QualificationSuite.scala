@@ -33,6 +33,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, udf}
 import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo, RunningQualificationEventProcessor}
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types._
 
 // drop the fields that won't go to DataFrame without encoders
@@ -218,8 +219,7 @@ class QualificationSuite extends BaseTestSuite {
           // check that there are 6 files since configured for 3 and have 1 csv and 1 log
           // file each
           val outputDirPath = new Path(outputDir)
-          val fs = FileSystem.get(outputDirPath.toUri,
-            sparkSession.sparkContext.hadoopConfiguration)
+          val fs = FileSystem.get(outputDirPath.toUri, RapidsToolsConfUtil.newHadoopConf())
           val allFiles = fs.listStatus(outputDirPath)
           assert(allFiles.size == 6)
           val dfPerSqlActual = readPerSqlFile(new File(csvOutput0))
@@ -456,9 +456,9 @@ class QualificationSuite extends BaseTestSuite {
 
     val (eventLogInfo, _) = EventLogPathProcessor.processAllPaths(
       appArgs.filterCriteria.toOption, appArgs.matchEventLogs.toOption, appArgs.eventlog(),
-      sparkSession.sparkContext.hadoopConfiguration)
+      RapidsToolsConfUtil.newHadoopConf())
 
-    val appFilter = new AppFilterImpl(1000, sparkSession.sparkContext.hadoopConfiguration,
+    val appFilter = new AppFilterImpl(1000, RapidsToolsConfUtil.newHadoopConf(),
       Some(84000), 2)
     val result = appFilter.filterEventLogs(eventLogInfo, appArgs)
     assert(eventLogInfo.length == 3)
@@ -477,9 +477,9 @@ class QualificationSuite extends BaseTestSuite {
 
     val (eventLogInfo, _) = EventLogPathProcessor.processAllPaths(
       appArgs.filterCriteria.toOption, appArgs.matchEventLogs.toOption, appArgs.eventlog(),
-      sparkSession.sparkContext.hadoopConfiguration)
+      RapidsToolsConfUtil.newHadoopConf())
 
-    val appFilter = new AppFilterImpl(1000, sparkSession.sparkContext.hadoopConfiguration,
+    val appFilter = new AppFilterImpl(1000, RapidsToolsConfUtil.newHadoopConf(),
       Some(84000), 2)
     val result = appFilter.filterEventLogs(eventLogInfo, appArgs)
     assert(eventLogInfo.length == 3)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,8 +86,10 @@ object EventLogPathProcessor extends Logging {
 
   def getEventLogInfo(pathString: String, hadoopConf: Configuration): Map[EventLogInfo, Long] = {
     val inputPath = new Path(pathString)
-    val fs = inputPath.getFileSystem(hadoopConf)
     try {
+      // Note that some cloud storage APIs may throw FileNotFoundException when the pathPrefix
+      // (i.e., bucketName) is not visible to the current configuration instance.
+      val fs = inputPath.getFileSystem(hadoopConf)
       val fileStatus = fs.getFileStatus(inputPath)
       val filePath = fileStatus.getPath()
       val fileName = filePath.getName()

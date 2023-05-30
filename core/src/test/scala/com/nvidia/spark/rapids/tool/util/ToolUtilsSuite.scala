@@ -124,11 +124,12 @@ class ToolUtilsSuite extends FunSuite with Logging {
 
   test("Hadoop Configuration should load system properties") {
     // Tests that Hadoop configurations can load the system property passed to the
-    // command line. i.e., "-Dspark.hadoop.property.key=value"
+    // command line. i.e., "-Drapids.tools.hadoop.property.key=value"
     TrampolineUtil.cleanupAnyExistingSession()
-    // sets a hadoop property through Spark Prefix
-    System.setProperty("spark.hadoop.property.key1", "value1")
+    // sets a hadoop property through Rapids-Tools prefix
+    System.setProperty("rapids.tools.hadoop.property.key1", "value1")
     lazy val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
     hadoopConf.get("property.key1") shouldBe "value1"
+    System.clearProperty("rapids.tools.hadoop.property.key1")
   }
 }

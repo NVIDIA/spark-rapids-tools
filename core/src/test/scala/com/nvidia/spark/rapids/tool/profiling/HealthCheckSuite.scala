@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,8 +49,7 @@ class HealthCheckSuite extends FunSuite {
     val eventlogPaths = appArgs.eventlog()
     for (path <- eventlogPaths) {
       apps += new ApplicationInfo(hadoopConf,
-        EventLogPathProcessor.getEventLogInfo(path,
-          sparkSession.sparkContext.hadoopConfiguration).head._1, index)
+        EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1, index)
       index += 1
     }
     assert(apps.size == 1)
@@ -98,8 +97,7 @@ class HealthCheckSuite extends FunSuite {
     val eventlogPaths = appArgs.eventlog()
     for (path <- eventlogPaths) {
       apps += new ApplicationInfo(hadoopConf,
-        EventLogPathProcessor.getEventLogInfo(path,
-          sparkSession.sparkContext.hadoopConfiguration).head._1, index)
+        EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1, index)
       index += 1
     }
     assert(apps.size == 1)
@@ -132,8 +130,7 @@ class HealthCheckSuite extends FunSuite {
     val eventlogPaths = appArgs.eventlog()
     for (path <- eventlogPaths) {
       apps += new ApplicationInfo(hadoopConf,
-        EventLogPathProcessor.getEventLogInfo(path,
-          sparkSession.sparkContext.hadoopConfiguration).head._1, index)
+        EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1, index)
       index += 1
     }
     assert(apps.size == 1)

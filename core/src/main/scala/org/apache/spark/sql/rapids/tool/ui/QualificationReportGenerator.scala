@@ -37,7 +37,7 @@ class QualificationReportGenerator(outputDir: String,
   implicit val formats = DefaultFormats
 
   val outputWorkPath = new Path(outputDir)
-  val fs = Some(FileSystem.get(outputWorkPath.toUri, RapidsToolsConfUtil.newHadoopConf))
+  lazy val fs = Some(FileSystem.get(outputWorkPath.toUri, RapidsToolsConfUtil.newHadoopConf))
 
   def launch(): Unit = {
     val uiRootPath = getPathForResource(RAPIDS_UI_ASSETS_DIR)
