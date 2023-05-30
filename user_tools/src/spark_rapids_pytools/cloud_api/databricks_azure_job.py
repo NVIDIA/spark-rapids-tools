@@ -26,12 +26,19 @@ class DBAzureLocalRapidsJob(RapidsLocalJob):
     """
     job_label = 'DBAzureLocal'
 
-    def _build_submission_cmd(self) -> list:
-        # env vars are added later as a separate dictionary
-        cmd_arg = super()._build_submission_cmd()
-        # # any s3 link has to be converted to S3a:
-        # for index, arr_entry in enumerate(cmd_arg):
-        #     cmd_arg[index] = arr_entry.replace('s3://', 's3a://')
-        
-        cmd_arg.append('-Dspark.hadoop.fs.azure.account.key.databricksazuretest.dfs.core.windows.net="s+8yEZn2NIbaxrhV1Vhbxz5KSCCm2qrVI2awDL96JgDiApnRetIQOZbfC6o7Ucrzm3SLciTjDPRX+AStPNNAvg=="')
-        return cmd_arg
+    @classmethod
+    def get_account_name(cls, url: str):
+        return url.split('@')[1].split('.')[0]
+
+    def _build_jvm_args(self):
+        vm_args = super()._build_jvm_args()
+        key = ""
+        if 'key' in self.exec_ctxt.platform.ctxt:
+            key = self.exec_ctxt.platform.ctxt['key']
+        else:
+            eventlogs = self.exec_ctxt.get_value('wrapperCtx', 'eventLogs')
+            if eventlogs and len(eventlogs) > 0:
+                key = get_account_name(eventlogs[0])
+        if key != "":
+            vm_args.append(f'-Dspark.hadoop.fs.azure.account.key.databricksazuretest.dfs.core.windows.net={key}')
+        return vm_args
