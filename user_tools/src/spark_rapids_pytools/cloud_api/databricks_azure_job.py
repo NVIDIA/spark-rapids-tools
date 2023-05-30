@@ -16,6 +16,7 @@
 
 from dataclasses import dataclass
 
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob
 
 
@@ -32,13 +33,17 @@ class DBAzureLocalRapidsJob(RapidsLocalJob):
 
     def _build_jvm_args(self):
         vm_args = super()._build_jvm_args()
-        key = ""
+        key = ''
         if 'key' in self.exec_ctxt.platform.ctxt:
             key = self.exec_ctxt.platform.ctxt['key']
         else:
             eventlogs = self.exec_ctxt.get_value('wrapperCtx', 'eventLogs')
             if eventlogs and len(eventlogs) > 0:
-                key = get_account_name(eventlogs[0])
-        if key != "":
-            vm_args.append(f'-Dspark.hadoop.fs.azure.account.key.databricksazuretest.dfs.core.windows.net={key}')
+                account_name = self.get_account_name(eventlogs[0])
+                cmd_args = ['az storage account show-connection-string', '--name', account_name]
+                std_out = self.exec_ctxt.platform.cli.run_sys_cmd(cmd_args)
+                conn_str = JSONPropertiesContainer(prop_arg=std_out, file_load=False).get_value('connectionString')
+                key = conn_str.split('AccountKey=')[1].split(';')[0]
+        if key != '':
+            vm_args.append(f'-Drapids.tools.hadoop.fs.azure.account.key.databricksazuretest.dfs.core.windows.net={key}')
         return vm_args

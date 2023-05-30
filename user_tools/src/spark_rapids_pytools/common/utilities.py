@@ -291,6 +291,14 @@ class SysCmd:
         return sys_env_vars
 
     def exec(self) -> str:
+        def process_credentials_option(cmd: list):
+            res = []
+            for arg in cmd:
+                if 'fs.azure.account.key' in arg:
+                    arg = arg.split('=')[0] + '=MY_ACCESS_KEY'
+                res.append(arg)
+            return res
+
         # pylint: disable=subprocess-run-check
         if isinstance(self.cmd, str):
             cmd_args = [self.cmd]
@@ -299,7 +307,7 @@ class SysCmd:
         if ToolLogging.is_debug_mode_enabled():
             # do not dump the entire command to debugging to avoid exposing the env-variables
             self.logger.debug('submitting system command: <%s>',
-                              Utils.gen_joined_str(' ', cmd_args))
+                              Utils.gen_joined_str(' ', process_credentials_option(cmd_args)))
         full_cmd = self._process_env_vars()
         full_cmd.extend(cmd_args)
         actual_cmd = Utils.gen_joined_str(' ', full_cmd)
