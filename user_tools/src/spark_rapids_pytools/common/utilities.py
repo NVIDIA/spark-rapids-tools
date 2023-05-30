@@ -323,7 +323,7 @@ class SysCmd:
                                stderr=stderr)
         self.res = c.returncode
         # pylint: enable=subprocess-run-check
-        self.err_std = c.stderr if isinstance(c.stderr, str) else c.stderr.decode('utf-8')
+        self.err_std = c.stderr if isinstance(c.stderr, str) else c.stderr.decode('utf-8', errors='ignore')
         if self.has_failed():
             std_error_lines = [f'\t| {line}' for line in self.err_std.splitlines()]
             stderr_str = ''
@@ -333,7 +333,7 @@ class SysCmd:
             cmd_err_msg = f'Error invoking CMD <{Utils.gen_joined_str(" ", cmd_args)}>: {stderr_str}'
             raise RuntimeError(f'{cmd_err_msg}')
 
-        self.out_std = c.stdout if isinstance(c.stdout, str) else c.stdout.decode('utf-8')
+        self.out_std = c.stdout if isinstance(c.stdout, str) else c.stdout.decode('utf-8', errors='ignore')
         if self.process_streams_cb is not None:
             self.process_streams_cb(self.out_std, self.err_std)
         if self.out_std:
