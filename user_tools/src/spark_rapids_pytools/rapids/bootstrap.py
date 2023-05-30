@@ -72,7 +72,10 @@ class Bootstrap(RapidsTool):
             'spark.rapids.sql.concurrentGpuTasks': gpu_concurrent_tasks,
             'spark.rapids.memory.pinnedPool.size': f'{pinned_mem}m',
             'spark.sql.files.maxPartitionBytes': f'{constants.get("maxSqlFilesPartitionsMB")}m',
-            'spark.task.resource.gpu.amount': 1 / num_executor_cores
+            'spark.task.resource.gpu.amount': 1 / num_executor_cores,
+            'spark.rapids.shuffle.multiThreaded.reader.threads': num_executor_cores,
+            'spark.rapids.shuffle.multiThreaded.writer.threads': num_executor_cores,
+            'spark.rapids.sql.multiThreadedRead.numThreads': max(20, num_executor_cores)
         }
         return res
 
@@ -119,6 +122,10 @@ class Bootstrap(RapidsTool):
             for conf_key, conf_val in tool_result.items():
                 wrapper_out_content_arr.append(f'{conf_key}={conf_val}')
             wrapper_out_content_arr.append(f'##### END : RAPIDS bootstrap settings for {exec_cluster.name}\n')
+            shuffle_manager_note = "Note: to turn on the Spark RAPIDS multithreaded shuffle, you will also\n" \
+                                   "have to enable this setting based on the Spark version of your cluster:\n" \
+                                   "spark.shuffle.manager=com.nvidia.spark.rapids.spark3xx.RapidShuffleManager.\n"
+            wrapper_out_content_arr.append(shuffle_manager_note)
             wrapper_out_content = Utils.gen_multiline_str(wrapper_out_content_arr)
             self.ctxt.set_ctxt('wrapperOutputContent', wrapper_out_content)
             if dry_run:
