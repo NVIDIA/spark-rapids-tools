@@ -137,43 +137,12 @@
     "catalog": {
       "onlineResources": [
         {
-          "resourceKey": "databricks-standard-catalog",
-          "onlineURL": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
+          "resourceKey": "databricks-azure-catalog",
+          "onlineURL": "https://azure.microsoft.com/en-us/pricing/details/databricks/",
           "//localFile": "the name of the local file",
-          "localFile": "databricks-standard-catalog.json",
-          "backupArchive": {
-            "//description": "We use this archive as a backup. It is stored in the resources",
-            "archiveName": "databricks-standard-catalog.json"
-          }
-        },
-        {
-          "resourceKey": "databricks-premium-catalog",
-          "onlineURL": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
-          "//localFile": "the name of the local file",
-          "localFile": "databricks-premium-catalog.json",
-          "backupArchive": {
-            "//description": "We use this archive as a backup. It is stored in the resources",
-            "archiveName": "databricks-premium-catalog.json"
-          }
-        },
-        {
-          "resourceKey": "databricks-enterprise-catalog",
-          "onlineURL": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
-          "//localFile": "the name of the local file",
-          "localFile": "databricks-enterprise-catalog.json",
-          "backupArchive": {
-            "//description": "We use this archive as a backup. It is stored in the resources",
-            "archiveName": "databricks-enterprise-catalog.json"
-          }
-        },
-        {
-          "resourceKey": "azure-catalog",
-          "onlineURL": "https://azure.microsoft.com/en-us/pricing/details/databricks/#pricing",
-          "//localFile": "the name of the file after downloading",
           "localFile": "TODO",
           "backupArchive": {
-            "//description-1": "In case the file is stuck, we use this archive as a backup.",
-            "//description-2": "It is stored in the resources",
+            "//description": "We use this archive as a backup. It is stored in the resources",
             "archiveName": "TODO"
           }
         }
