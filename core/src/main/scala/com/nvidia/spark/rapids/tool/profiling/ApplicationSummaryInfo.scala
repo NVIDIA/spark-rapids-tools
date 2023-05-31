@@ -58,13 +58,20 @@ trait AppInfoSQLMaxTaskInputSizes {
   def getMaxInput: Double
 }
 
+trait AppInfoReadMetrics {
+  def isParquetOrOrc: Boolean
+  def getDistinctLocationPct: Double
+  def getTotalReadSize: Long
+}
+
 /**
  * A base class definition that provides an empty implementation of the profile results embedded in
  * [[ApplicationSummaryInfo]].
  */
 class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   with AppInfoSqlTaskAggMetricsVisitor
-  with AppInfoSQLMaxTaskInputSizes {
+  with AppInfoSQLMaxTaskInputSizes
+  with AppInfoReadMetrics {
   override def getSparkProperty(propKey: String): Option[String] = None
   override def getRapidsProperty(propKey: String): Option[String] = None
   override def getProperty(propKey: String): Option[String] = None
@@ -73,6 +80,9 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getJvmGCFractions: Seq[Double] = Seq()
   override def getSpilledMetrics: Seq[Long] = Seq()
   override def getRapidsJars: Seq[String] = Seq()
+  override def isParquetOrOrc: Boolean = false
+  override def getDistinctLocationPct: Double = 0.0
+  override def getTotalReadSize: Long = 0
 }
 
 /**
@@ -135,5 +145,19 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
 
   override def getRapidsJars: Seq[String] = {
     app.rapidsJar.map(_.jar).seq
+  }
+
+  override def isParquetOrOrc: Boolean = {
+    app.dsInfo.map(_.format).distinct.exists(str => str.contains("Parquet")) ||
+       app.dsInfo.map(_.format).distinct.exists(str => str.contains("ORC"))
+  }
+
+
+  override def getDistinctLocationPct: Double = {
+    100.0 * app.dsInfo.groupBy(ds => (ds.location)).size / app.dsInfo.size
+  }
+
+  override def getTotalReadSize: Long = {
+    app.dsInfo.map(_.data_size).sum
   }
 }
