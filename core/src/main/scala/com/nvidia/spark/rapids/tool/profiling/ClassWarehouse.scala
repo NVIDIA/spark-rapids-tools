@@ -22,6 +22,7 @@ import scala.collection.Map
 
 import org.apache.spark.resource.{ExecutorResourceRequest, ResourceInformation, ResourceProfile, TaskResourceRequest}
 import org.apache.spark.scheduler.StageInfo
+import org.apache.spark.sql.rapids.tool.ToolUtils
 
 /**
  * This is a warehouse to store all Classes
@@ -30,7 +31,7 @@ import org.apache.spark.scheduler.StageInfo
 
 trait ProfileResult {
   val outputHeaders: Seq[String]
-  def convertToSeq: Seq[String]
+  def convertToSeq(reformatCSV: Boolean = false): Seq[String]
 }
 
 case class DriverInfo(val executorId: String, maxMemory: Long, totalOnHeap: Long,
@@ -68,7 +69,7 @@ case class ExecutorInfoProfileResult(appIndex: Int, resourceProfileId: Int,
       "maxMem", "maxOnHeapMem", "maxOffHeapMem", "executorMemory", "numGpusPerExecutor",
       "executorOffHeap", "taskCpu", "taskGpu")
   }
-  override def convertToSeq: Seq[String] = {
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
     Seq(appIndex.toString, resourceProfileId.toString, numExecutors.toString,
       executorCores.toString, maxMem.toString, maxOnHeapMem.toString,
       maxOffHeapMem.toString, executorMemory.map(_.toString).getOrElse(null),
@@ -97,9 +98,11 @@ case class JobInfoProfileResult(
     startTime: Long,
     endTime: Option[Long]) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "jobID", "stageIds", "sqlID", "startTime", "endTime")
-  override def convertToSeq: Seq[String] = {
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     val stageIdStr = s"[${stageIds.mkString(",")}]"
-    Seq(appIndex.toString, jobID.toString, stageIdStr, sqlID.map(_.toString).getOrElse(null),
+    Seq(appIndex.toString, jobID.toString, reformatCSVFunc(stageIdStr), sqlID.map(_.toString).getOrElse(null),
       startTime.toString, endTime.map(_.toString).getOrElse(null))
   }
 }
@@ -115,17 +118,21 @@ case class SQLStageInfoProfileResult(
   override val outputHeaders = Seq("appIndex", "sqlID", "jobID", "stageId",
     "stageAttemptId", "Stage Duration", "SQL Nodes(IDs)")
 
-  override def convertToSeq: Seq[String] = {
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     Seq(appIndex.toString, sqlID.toString, jobID.toString, stageId.toString,
       stageAttemptId.toString, duration.map(_.toString).getOrElse(null),
-      nodeNames.mkString(","))
+      reformatCSVFunc(nodeNames.mkString(",")))
   }
 }
 
 case class RapidsJarProfileResult(appIndex: Int, jar: String)  extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "Rapids4Spark jars")
-  override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, jar)
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
+    Seq(appIndex.toString, reformatCSVFunc(jar))
   }
 }
 
@@ -137,10 +144,12 @@ extends ProfileResult {
     Seq("appIndex", "sqlID", "nodeId", "format", "buffer_time", "scan_time", "data_size",
       "decode_time", "location", "pushedFilters", "schema")
 
-  override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, nodeId.toString, format, buffer_time.toString,
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
+    Seq(appIndex.toString, sqlID.toString, nodeId.toString, reformatCSVFunc(format), buffer_time.toString,
       scan_time.toString, data_size.toString, decode_time.toString,
-      location, pushedFilters, schema)
+      reformatCSVFunc(location), reformatCSVFunc(pushedFilters), reformatCSVFunc(schema))
   }
 }
 
@@ -167,9 +176,11 @@ case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
     metricType: String, stageIds: String) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "sqlID", "nodeID", "nodeName", "accumulatorId",
     "name", "max_value", "metricType", "stageIds")
-  override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, nodeID.toString, nodeName, accumulatorId.toString,
-      name, max_value.toString, metricType, stageIds)
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
+    Seq(appIndex.toString, sqlID.toString, nodeID.toString, reformatCSVFunc(nodeName), accumulatorId.toString,
+      reformatCSVFunc(name), max_value.toString, reformatCSVFunc(metricType), reformatCSVFunc(stageIds))
   }
 }
 
@@ -184,8 +195,10 @@ case class BlockManagerRemovedCase(
 case class BlockManagerRemovedProfileResult(appIndex: Int,
     executorID: String, time: Long) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "executorID", "time")
-  override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, executorID, time.toString)
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
+    Seq(appIndex.toString, reformatCSVFunc(executorID), time.toString)
   }
 }
 
@@ -193,8 +206,10 @@ case class ExecutorsRemovedProfileResult(appIndex: Int,
     executorID: String, time: Long, reason: String) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "executorId", "time", "reason")
 
-  override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, executorID, time.toString, reason)
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
+    Seq(appIndex.toString, reformatCSVFunc(executorID), time.toString, reformatCSVFunc(reason))
   }
 }
 
@@ -204,9 +219,11 @@ case class UnsupportedOpsProfileResult(appIndex: Int,
   override val outputHeaders = Seq("appIndex", "sqlID", "nodeID", "nodeName",
     "nodeDescription", "reason")
 
-  override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, nodeID.toString, nodeName,
-      nodeDescription, reason)
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
+    Seq(appIndex.toString, sqlID.toString, nodeID.toString, reformatCSVFunc(nodeName),
+      reformatCSVFunc(nodeDescription), reformatCSVFunc(reason))
   }
 }
 
@@ -233,10 +250,12 @@ case class AppInfoProfileResults(appIndex: Int, appName: String,
     }
   }
 
-  override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, appName, appId.getOrElse(""),
-      sparkUser,  startTime.toString, endTimeToStr, durToStr,
-      durationStr, sparkVersion, pluginEnabled.toString)
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
+    Seq(appIndex.toString, reformatCSVFunc(appName), reformatCSVFunc(appId.getOrElse("")),//this will likely need to switch to a reformat specific if else inside the getorelse
+      reformatCSVFunc(sparkUser),  startTime.toString, endTimeToStr, durToStr,
+      reformatCSVFunc(durationStr), reformatCSVFunc(sparkVersion), pluginEnabled.toString)
   }
 }
 
@@ -245,9 +264,11 @@ case class AppLogPathProfileResults(appIndex: Int, appName: String,
   override val outputHeaders = Seq("appIndex", "appName", "appId",
     "eventLogPath")
 
-  override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, appName, appId.getOrElse(""),
-      eventLogPath)
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
+    Seq(appIndex.toString, reformatCSVFunc(appName), reformatCSVFunc(appId.getOrElse("")),
+      reformatCSVFunc(eventLogPath))
   }
 }
 
@@ -353,9 +374,11 @@ case class FailedTaskProfileResults(appIndex: Int, stageId: Int, stageAttemptId:
     taskId: Long, taskAttemptId: Int, endReason: String) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "stageId", "stageAttemptId", "taskId",
     "attempt", "failureReason")
-  override def convertToSeq: Seq[String] = {
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     Seq(appIndex.toString, stageId.toString, stageAttemptId.toString,
-      taskId.toString, taskAttemptId.toString, ProfileUtils.truncateFailureStr(endReason))
+      taskId.toString, taskAttemptId.toString, reformatCSVFunc(ProfileUtils.truncateFailureStr(endReason)))
   }
 }
 
@@ -363,9 +386,11 @@ case class FailedStagesProfileResults(appIndex: Int, stageId: Int, stageAttemptI
     name: String, numTasks: Int, endReason: String) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "stageId", "attemptId", "name",
     "numTasks", "failureReason")
-  override def convertToSeq: Seq[String] = {
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     Seq(appIndex.toString, stageId.toString, stageAttemptId.toString,
-      name, numTasks.toString, ProfileUtils.truncateFailureStr(endReason))
+      reformatCSVFunc(name), numTasks.toString, reformatCSVFunc(ProfileUtils.truncateFailureStr(endReason)))
   }
 }
 
@@ -373,9 +398,11 @@ case class FailedJobsProfileResults(appIndex: Int, jobId: Int,
     jobResult: String, endReason: String) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "jobID", "jobResult", "failureReason")
 
-  override def convertToSeq: Seq[String] = {
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     Seq(appIndex.toString, jobId.toString,
-      jobResult, ProfileUtils.truncateFailureStr(endReason))
+      reformatCSVFunc(jobResult), reformatCSVFunc(ProfileUtils.truncateFailureStr(endReason)))
   }
 }
 
@@ -428,7 +455,7 @@ case class JobStageAggTaskMetricsProfileResult(
     case None => "null"
   }
 
-  override def convertToSeq: Seq[String] = {
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
     Seq(appIndex.toString,
       id,
       numTasks.toString,
@@ -529,11 +556,13 @@ case class SQLTaskAggMetricsProfileResult(
     case None => ""
   }
 
-  override def convertToSeq: Seq[String] = {
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     Seq(appIndex.toString,
-      appId,
+      reformatCSVFunc(appId),
       sqlId.toString,
-      description,
+      reformatCSVFunc(description),
       numTasks.toString,
       durStr,
       executorCpuTime.toString,
@@ -588,9 +617,11 @@ case class IOAnalysisProfileResult(
     "diskBytesSpilled_sum", "memoryBytesSpilled_sum", "sr_totalBytesRead_sum",
     "sw_bytesWritten_sum")
 
-  override def convertToSeq: Seq[String] = {
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     Seq(appIndex.toString,
-      appId,
+      reformatCSVFunc(appId),
       sqlId.toString,
       inputBytesReadSum.toString,
       inputRecordsReadSum.toString,
@@ -627,9 +658,11 @@ case class SQLDurationExecutorTimeProfileResult(appIndex: Int, appId: String, sq
     potentialProbs
   }
 
-  override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, appId, sqlID.toString, durStr, containsDataset.toString,
-      appDurStr, potentialStr, execCpuTimePercent)
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
+    Seq(appIndex.toString, reformatCSVFunc(appId), sqlID.toString, durStr, containsDataset.toString,
+      appDurStr, reformatCSVFunc(potentialStr), execCpuTimePercent)
   }
 }
 
@@ -641,7 +674,9 @@ case class ShuffleSkewProfileResult(appIndex: Int, stageId: Long, stageAttemptId
     "taskDurationSec", "avgDurationSec", "taskShuffleReadMB", "avgShuffleReadMB",
     "taskPeakMemoryMB", "successful", "reason")
 
-  override def convertToSeq: Seq[String] = {
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     Seq(appIndex.toString,
       stageId.toString,
       stageAttemptId.toString,
@@ -653,7 +688,7 @@ case class ShuffleSkewProfileResult(appIndex: Int, stageId: Long, stageAttemptId
       f"${avgShuffleReadMB / 1024 / 1024}%1.2f",
       f"${taskPeakMemoryMB.toDouble / 1024 / 1024}%1.2f",
       successful.toString,
-      ProfileUtils.truncateFailureStr(reason))
+      reformatCSVFunc(ProfileUtils.truncateFailureStr(reason)))
   }
 }
 
@@ -661,14 +696,25 @@ case class RapidsPropertyProfileResult(key: String, outputHeadersIn: Seq[String]
     rows: Seq[String]) extends ProfileResult {
 
   override val outputHeaders: Seq[String] = outputHeadersIn
-  override def convertToSeq: Seq[String] = rows
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
+    rows.map(reformatCSVFunc(_))
+  }
+    // rows
 }
 
 case class CompareProfileResults(outputHeadersIn: Seq[String],
     rows: Seq[String]) extends ProfileResult {
 
   override val outputHeaders: Seq[String] = outputHeadersIn
-  override def convertToSeq: Seq[String] = rows
+  // fix this
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
+    rows.map(reformatCSVFunc(_))
+  }
+    // rows
 }
 
 case class WholeStageCodeGenResults(
@@ -681,12 +727,14 @@ case class WholeStageCodeGenResults(
 ) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "sqlID", "nodeID", "SQL Node",
     "Child Node", "Child NodeID")
-  override def convertToSeq: Seq[String] = {
+  override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     Seq(appIndex.toString,
       sqlID.toString,
       nodeID.toString,
-      parent,
-      child,
+      reformatCSVFunc(parent),
+      reformatCSVFunc(child),
       childNodeID.toString)
   }
 }

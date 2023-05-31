@@ -262,6 +262,7 @@ object ToolUtils extends Logging {
    */
   def renderTextField(values: Seq[Any], separator: String, txtDelimiter: String): String = {
     replaceDelimiter(values.mkString(separator), txtDelimiter)
+    // values.mkString(separator)
   }
 
   def formatComplexTypes(
@@ -272,6 +273,10 @@ object ToolUtils extends Logging {
   def formatPotentialProblems(
       values: Seq[String], fileDelimiter: String = QualOutputWriter.CSV_DELIMITER): String = {
     renderTextField(values, ":", fileDelimiter)
+  }
+
+  def reformatCSVString(str: String): String = {
+    "\"" + str.replace("\"", "\"\"") + "\""
   }
 }
 
