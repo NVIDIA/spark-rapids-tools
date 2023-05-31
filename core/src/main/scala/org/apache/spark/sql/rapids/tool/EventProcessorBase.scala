@@ -16,8 +16,6 @@
 
 package org.apache.spark.sql.rapids.tool
 
-import java.util.concurrent.TimeUnit
-
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 
@@ -26,6 +24,7 @@ import com.nvidia.spark.rapids.tool.profiling.{DriverAccumCase, JobInfoClass, Pr
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui._
+import org.apache.spark.sql.rapids.tool.util.EventUtils
 
 abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener with Logging {
 
@@ -273,40 +272,21 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     doSparkListenerTaskStart(app, taskStart)
   }
 
-  def parseAccumToLong(data: Any): Long = {
-    val strData = data.toString
-    try {
-      strData.toLong
-    } catch {
-      case e: NumberFormatException =>
-        if (strData.matches("^\\d+:\\d+:\\d+\\.\\d+$")) {
-          val interm = strData.split(":")
-          TimeUnit.HOURS.toMillis(interm(0).toLong) +
-                  TimeUnit.MINUTES.toMillis(interm(1).toLong) +
-                  Math.floor(interm(2).toDouble * 1000).toLong
-        } else {
-          throw e
-        }
-    }
-  }
-
   def doSparkListenerTaskEnd(
       app: T,
       event: SparkListenerTaskEnd): Unit = {
     // Parse task accumulables
     for (res <- event.taskInfo.accumulables) {
       try {
-        val value = res.value.map(parseAccumToLong)
-        val update = res.update.map(parseAccumToLong)
-        val thisMetric = TaskStageAccumCase(
-          event.stageId, event.stageAttemptId, Some(event.taskInfo.taskId),
-          res.id, res.name, value, update, res.internal)
-        val arrBuf =  app.taskStageAccumMap.getOrElseUpdate(res.id,
-          ArrayBuffer[TaskStageAccumCase]())
-        arrBuf += thisMetric
+        EventUtils.buildTaskStageAccumFromAccumInfo(res,
+          event.stageId, event.stageAttemptId, Some(event.taskInfo.taskId)).foreach { thisMetric =>
+          val arrBuf = app.taskStageAccumMap.getOrElseUpdate(res.id,
+            ArrayBuffer[TaskStageAccumCase]())
+          arrBuf += thisMetric
+        }
       } catch {
         case NonFatal(e) =>
-          logWarning("Exception when parsing accumulables for task "
+          logWarning("Exception when parsing accumulables on task-completed "
             + "stageID=" + event.stageId + ",taskId=" + event.taskInfo.taskId
             + ": ")
           logWarning(e.toString)
