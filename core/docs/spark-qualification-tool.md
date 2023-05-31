@@ -857,6 +857,12 @@ The Qualification tool generates a set of log/CSV files in the output folder
 `${OUTPUT_FOLDER}/rapids_4_spark_qualification_output`. The content of each
 file is summarized in the following two sections.
 
+Note: Starting with release "_23.06_", CSV output uses escapes and quotes to avoid parsing errors.
+Spark's default CSV escape character is the backslash(`\`), but standard spreadsheets use the double quote(`"`).
+The Qualification tool output uses the double quote(`"`) escape character to avoid breaking
+spreadsheet software functionality. As a result, the data source must be configured using
+`option("ESCAPE", "\"")` when reading the Qualification tool CSV files into Spark.
+
 #### Application Report Summary
 
 The Qualification tool generates a brief summary that includes the projected application's performance

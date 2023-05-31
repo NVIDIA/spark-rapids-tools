@@ -208,7 +208,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     val finalSums = sortedInfo.take(numOutputRows)
     finalSums.foreach { estInfo =>
       val wStr = QualOutputWriter.constructPerSqlSummaryInfo(estInfo, headersAndSizes,
-        appIdSize, TEXT_DELIMITER, true, maxSQLDescLength)
+        appIdSize, TEXT_DELIMITER, true, maxSQLDescLength, false)
       writer.write(wStr)
       if (printStdout) print(wStr)
     }
@@ -275,7 +275,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       csvFileWriter.write(QualOutputWriter.constructDetailedHeader(headersAndSizes, ",", false))
       supportedMlFuns.foreach { sumInfo =>
         val rows = QualOutputWriter.constructMlFuncsTotalDurationInfo(
-          sumInfo, headersAndSizes, ",", false)
+          sumInfo, headersAndSizes, ",", false, true)
         rows.foreach(csvFileWriter.write(_))
       }
     } finally {
@@ -417,7 +417,7 @@ object QualOutputWriter {
 
   def getSqlDescSize(sums: Seq[QualificationSummaryInfo], maxSQLDescLength: Int,
       delimiter: String): Int = {
-    val sizes = sums.flatMap(_.perSQLEstimatedInfo).flatten.map{ info =>
+    val sizes = sums.flatMap(_.perSQLEstimatedInfo).flatten.map { info =>
       formatSQLDescription(info.sqlDesc, maxSQLDescLength, delimiter).size
     }
     val maxSizeOfDesc = getMaxSizeForHeader(sizes, QualOutputWriter.SQL_DESC_STR)
@@ -479,6 +479,10 @@ object QualOutputWriter {
 
   private def stringIfempty(str: String): String = {
     if (str.isEmpty) "\"\"" else str
+  }
+
+  private def reformatCSVString(str: String): String = {
+    "\"" + str.replace("\"", "\"\"") + "\""
   }
 
   private def stringLengthExceedsMax(str: String, strSize: Int, delimiter: String): String = {
@@ -659,12 +663,15 @@ object QualOutputWriter {
       appIdMaxSize: Int,
       delimiter: String,
       prettyPrint: Boolean,
-      maxSQLDescLength: Int): String = {
+      maxSQLDescLength: Int,
+      reformatCSV: Boolean = true): String = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => reformatCSVString(str) else str => str
     val data = ListBuffer[(String, Int)](
-      sumInfo.info.appName -> headersAndSizes(APP_NAME_STR),
-      sumInfo.info.appId -> appIdMaxSize,
+      reformatCSVFunc(sumInfo.info.appName) -> headersAndSizes(APP_NAME_STR),
+      reformatCSVFunc(sumInfo.info.appId) -> appIdMaxSize,
       sumInfo.sqlID.toString -> SQL_ID_STR.size,
-      formatSQLDescription(sumInfo.sqlDesc, maxSQLDescLength, delimiter) ->
+      reformatCSVFunc(formatSQLDescription(sumInfo.sqlDesc, maxSQLDescLength, delimiter)) ->
         headersAndSizes(SQL_DESC_STR),
       sumInfo.info.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
       sumInfo.info.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
@@ -673,7 +680,7 @@ object QualOutputWriter {
         ESTIMATED_GPU_SPEEDUP.size,
       ToolUtils.formatDoublePrecision(sumInfo.info.estimatedGpuTimeSaved) ->
         ESTIMATED_GPU_TIMESAVED.size,
-      sumInfo.info.recommendation -> SPEEDUP_BUCKET_STR_SIZE
+      reformatCSVFunc(sumInfo.info.recommendation) -> SPEEDUP_BUCKET_STR_SIZE
     )
     constructOutputRow(data, delimiter, prettyPrint)
   }
@@ -702,13 +709,17 @@ object QualOutputWriter {
       sumInfo: QualificationSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String = TEXT_DELIMITER,
-      prettyPrint: Boolean): Seq[String] = {
+      prettyPrint: Boolean,
+      reformatCSV: Boolean = true): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => reformatCSVString(str) else str => stringIfempty(str)
     val appId = sumInfo.appId
     sumInfo.mlFunctions.get.map { info =>
       val data = ListBuffer[(String, Int)](
-        stringIfempty(appId) -> headersAndSizes(APP_ID_STR),
+        reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
         info.stageId.toString -> headersAndSizes(STAGE_ID_STR),
-        ToolUtils.renderTextField(info.mlOps, ";", delimiter) -> headersAndSizes(ML_FUNCTIONS),
+        reformatCSVFunc(ToolUtils.renderTextField(info.mlOps, ";", delimiter)) ->
+          headersAndSizes(ML_FUNCTIONS),
         info.duration.toString -> headersAndSizes(STAGE_DUR_STR))
       constructOutputRow(data, delimiter, prettyPrint)
     }
@@ -718,13 +729,17 @@ object QualOutputWriter {
       sumInfo: QualificationSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String = TEXT_DELIMITER,
-      prettyPrint: Boolean): Seq[String] = {
+      prettyPrint: Boolean,
+      reformatCSV: Boolean = true): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => reformatCSVString(str) else str => stringIfempty(str)
     val appId = sumInfo.appId
     sumInfo.mlFunctionsStageDurations.get.map { info =>
       val data = ListBuffer[(String, Int)](
-        stringIfempty(appId) -> headersAndSizes(APP_ID_STR),
-        ToolUtils.renderTextField(info.stageIds, ";", delimiter) -> headersAndSizes(ML_STAGE_IDS),
-        info.mlFuncName -> headersAndSizes(ML_FUNCTION_NAME),
+        reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
+        reformatCSVFunc(ToolUtils.renderTextField(info.stageIds, ";", delimiter)) ->
+          headersAndSizes(ML_STAGE_IDS),
+        reformatCSVFunc(info.mlFuncName) -> headersAndSizes(ML_FUNCTION_NAME),
         info.duration.toString -> headersAndSizes(ML_TOTAL_STAGE_DURATION))
       constructOutputRow(data, delimiter, prettyPrint)
     }
@@ -761,20 +776,23 @@ object QualOutputWriter {
       appId: String,
       delimiter: String = TEXT_DELIMITER,
       prettyPrint: Boolean,
-      headersAndSizes: LinkedHashMap[String, Int]): String = {
+      headersAndSizes: LinkedHashMap[String, Int],
+      reformatCSV: Boolean = true): String = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => reformatCSVString(str) else str => stringIfempty(str)
     val data = ListBuffer[(String, Int)](
-      stringIfempty(appId) -> headersAndSizes(APP_ID_STR),
+      reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
       info.sqlID.toString -> headersAndSizes(SQL_ID_STR),
-      stringIfempty(info.exec) -> headersAndSizes(EXEC_STR),
-      stringIfempty(info.expr) -> headersAndSizes(EXEC_STR),
+      reformatCSVFunc(info.exec) -> headersAndSizes(EXEC_STR),
+      reformatCSVFunc(info.expr) -> headersAndSizes(EXEC_STR),
       ToolUtils.formatDoublePrecision(info.speedupFactor) -> headersAndSizes(SPEEDUP_FACTOR_STR),
       info.duration.getOrElse(0).toString -> headersAndSizes(EXEC_DURATION),
       info.nodeId.toString -> headersAndSizes(EXEC_NODEID),
       info.isSupported.toString -> headersAndSizes(EXEC_IS_SUPPORTED),
-      info.stages.mkString(":") -> headersAndSizes(EXEC_STAGES),
-      info.children.getOrElse(Seq.empty).map(_.exec).mkString(":") ->
+      reformatCSVFunc(info.stages.mkString(":")) -> headersAndSizes(EXEC_STAGES),
+      reformatCSVFunc(info.children.getOrElse(Seq.empty).map(_.exec).mkString(":")) ->
         headersAndSizes(EXEC_CHILDREN),
-      info.children.getOrElse(Seq.empty).map(_.nodeId).mkString(":") ->
+      reformatCSVFunc(info.children.getOrElse(Seq.empty).map(_.nodeId).mkString(":")) ->
         headersAndSizes(EXEC_CHILDREN_NODE_IDS),
       info.shouldRemove.toString -> headersAndSizes(EXEC_SHOULD_REMOVE))
     constructOutputRow(data, delimiter, prettyPrint)
@@ -797,11 +815,14 @@ object QualOutputWriter {
       sumInfo: QualificationSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String = TEXT_DELIMITER,
-      prettyPrint: Boolean): Seq[String] = {
+      prettyPrint: Boolean,
+      reformatCSV: Boolean = true): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => reformatCSVString(str) else str => stringIfempty(str)
     val appId = sumInfo.appId
     sumInfo.stageInfo.map { info =>
       val data = ListBuffer[(String, Int)](
-        stringIfempty(appId) -> headersAndSizes(APP_ID_STR),
+        reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
         info.stageId.toString -> headersAndSizes(STAGE_ID_STR),
         ToolUtils.formatDoublePrecision(info.averageSpeedup) ->
           headersAndSizes(AVERAGE_SPEEDUP_STR),
@@ -828,9 +849,11 @@ object QualOutputWriter {
     val appId = sumInfo.appId
     allExecs.flatMap { info =>
       val children = info.children
-        .map(_.map(constructExecInfoBuffer(_, appId, delimiter, prettyPrint, headersAndSizes)))
+        .map(_.map(constructExecInfoBuffer(
+          _, appId, delimiter, prettyPrint, headersAndSizes)))
         .getOrElse(Seq.empty)
-      children :+ constructExecInfoBuffer(info, appId, delimiter, prettyPrint, headersAndSizes)
+      children :+ constructExecInfoBuffer(
+        info, appId, delimiter, prettyPrint, headersAndSizes)
     }
   }
 
@@ -872,11 +895,14 @@ object QualOutputWriter {
   private def constructDetailedAppInfoCSVRow(
       appInfo: FormattedQualificationSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
-      reportReadSchema: Boolean = false): ListBuffer[(String, Int)] = {
+      reportReadSchema: Boolean = false,
+      reformatCSV: Boolean = true): ListBuffer[(String, Int)] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => reformatCSVString(str) else str => stringIfempty(str)
     val data = ListBuffer[(String, Int)](
-      stringIfempty(appInfo.appName) -> headersAndSizes(APP_NAME_STR),
-      stringIfempty(appInfo.appId) -> headersAndSizes(APP_ID_STR),
-      stringIfempty(appInfo.recommendation) -> headersAndSizes(SPEEDUP_BUCKET_STR),
+      reformatCSVFunc(appInfo.appName) -> headersAndSizes(APP_NAME_STR),
+      reformatCSVFunc(appInfo.appId) -> headersAndSizes(APP_ID_STR),
+      reformatCSVFunc(appInfo.recommendation) -> headersAndSizes(SPEEDUP_BUCKET_STR),
       appInfo.estimatedGpuSpeedup.toString -> ESTIMATED_GPU_SPEEDUP.size,
       appInfo.estimatedGpuDur.toString -> ESTIMATED_GPU_DURATION.size,
       appInfo.estimatedGpuTimeSaved.toString -> ESTIMATED_GPU_TIMESAVED.size,
@@ -885,28 +911,29 @@ object QualOutputWriter {
       appInfo.appDuration.toString -> headersAndSizes(APP_DUR_STR),
       appInfo.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
       appInfo.executorCpuTimePercent.toString -> headersAndSizes(EXEC_CPU_PERCENT_STR),
-      stringIfempty(appInfo.failedSQLIds) -> headersAndSizes(SQL_IDS_FAILURES_STR),
-      stringIfempty(appInfo.readFileFormatAndTypesNotSupported) ->
+      reformatCSVFunc(appInfo.failedSQLIds) -> headersAndSizes(SQL_IDS_FAILURES_STR),
+      reformatCSVFunc(appInfo.readFileFormatAndTypesNotSupported) ->
         headersAndSizes(READ_FILE_FORMAT_TYPES_STR),
-      stringIfempty(appInfo.writeDataFormat) -> headersAndSizes(WRITE_DATA_FORMAT_STR),
-      stringIfempty(appInfo.complexTypes) -> headersAndSizes(COMPLEX_TYPES_STR),
-      stringIfempty(appInfo.nestedComplexTypes) -> headersAndSizes(NESTED_TYPES_STR),
-      stringIfempty(appInfo.potentialProblems) -> headersAndSizes(POT_PROBLEM_STR),
+      reformatCSVFunc(appInfo.writeDataFormat) -> headersAndSizes(WRITE_DATA_FORMAT_STR),
+      reformatCSVFunc(appInfo.complexTypes) -> headersAndSizes(COMPLEX_TYPES_STR),
+      reformatCSVFunc(appInfo.nestedComplexTypes) -> headersAndSizes(NESTED_TYPES_STR),
+      reformatCSVFunc(appInfo.potentialProblems) -> headersAndSizes(POT_PROBLEM_STR),
       appInfo.longestSqlDuration.toString -> headersAndSizes(LONGEST_SQL_DURATION_STR),
       appInfo.nonSqlTaskDurationAndOverhead.toString -> headersAndSizes(NONSQL_DUR_STR),
       appInfo.unsupportedSQLTaskDuration.toString -> headersAndSizes(UNSUPPORTED_TASK_DURATION_STR),
       appInfo.supportedSQLTaskDuration.toString -> headersAndSizes(SUPPORTED_SQL_TASK_DURATION_STR),
       appInfo.taskSpeedupFactor.toString -> headersAndSizes(SPEEDUP_FACTOR_STR),
       appInfo.endDurationEstimated.toString -> headersAndSizes(APP_DUR_ESTIMATED_STR),
-      stringIfempty(appInfo.unSupportedExecs) -> headersAndSizes(UNSUPPORTED_EXECS),
-      stringIfempty(appInfo.unSupportedExprs) -> headersAndSizes(UNSUPPORTED_EXPRS),
+      reformatCSVFunc(appInfo.unSupportedExecs) -> headersAndSizes(UNSUPPORTED_EXECS),
+      reformatCSVFunc(appInfo.unSupportedExprs) -> headersAndSizes(UNSUPPORTED_EXPRS),
       appInfo.estimatedFrequency.toString -> headersAndSizes(ESTIMATED_FREQUENCY)
     )
+
     if (appInfo.clusterTags.nonEmpty) {
-      data += appInfo.clusterTags.mkString(";") -> headersAndSizes(CLUSTER_TAGS)
+      data += reformatCSVFunc(appInfo.clusterTags.mkString(";")) -> headersAndSizes(CLUSTER_TAGS)
     }
     if (reportReadSchema) {
-      data += (stringIfempty(appInfo.readFileFormats) -> headersAndSizes(READ_SCHEMA_STR))
+      data += reformatCSVFunc(appInfo.readFileFormats) -> headersAndSizes(READ_SCHEMA_STR)
     }
     data
   }

@@ -27,7 +27,7 @@ import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 class CompareSuite extends FunSuite {
 
-  val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
+  lazy val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
   private val logDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
 
   test("test spark2 and spark3 event logs compare") {

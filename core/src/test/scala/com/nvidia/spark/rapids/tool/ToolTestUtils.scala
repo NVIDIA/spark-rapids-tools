@@ -25,6 +25,7 @@ import com.nvidia.spark.rapids.tool.profiling.ProfileArgs
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types._
 
 object ToolTestUtils extends Logging {
@@ -112,13 +113,14 @@ object ToolTestUtils extends Logging {
   }
 
   def readExpectationCSV(sparkSession: SparkSession, path: String,
-      schema: Option[StructType] = None): DataFrame = {
+      schema: Option[StructType] = None, escape: String = "\\"): DataFrame = {
     // make sure to change null value so empty strings don't show up as nulls
     if (schema.isDefined) {
-      sparkSession.read.option("header", "true").option("nullValue", "-")
+      sparkSession.read.option("header", "true").option("nullValue", "-").option("escape", escape)
         .schema(schema.get).csv(path)
     } else {
-      sparkSession.read.option("header", "true").option("nullValue", "-").csv(path)
+      sparkSession.read.option("header", "true").option("nullValue", "-").option("escape", escape)
+        .csv(path)
     }
   }
 
@@ -129,9 +131,9 @@ object ToolTestUtils extends Logging {
     var index: Int = 1
     for (path <- appArgs.eventlog()) {
       val eventLogInfo = EventLogPathProcessor
-        .getEventLogInfo(path, sparkSession.sparkContext.hadoopConfiguration)
+        .getEventLogInfo(path, RapidsToolsConfUtil.newHadoopConf())
       assert(eventLogInfo.size >= 1, s"event log not parsed as expected $path")
-      apps += new ApplicationInfo(sparkSession.sparkContext.hadoopConfiguration,
+      apps += new ApplicationInfo(RapidsToolsConfUtil.newHadoopConf(),
         eventLogInfo.head._1, index)
       index += 1
     }

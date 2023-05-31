@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -153,7 +153,8 @@ class RunningQualificationApp(
    */
   def getPerSqlTextAndCSVSummary(sqlID: Long): (String, String) = {
     val sqlInfo = aggregatePerSQLStats(sqlID)
-    val csvResult = constructPerSqlResult(sqlInfo, QualOutputWriter.CSV_DELIMITER, false)
+    val csvResult =
+      constructPerSqlResult(sqlInfo, QualOutputWriter.CSV_DELIMITER, false, escapeCSV = true)
     val textResult = constructPerSqlResult(sqlInfo, QualOutputWriter.TEXT_DELIMITER, true)
     (csvResult, textResult)
   }
@@ -167,22 +168,23 @@ class RunningQualificationApp(
    * @param sqlDescLength Maximum length to use for the SQL query description.
    * @return String containing the summary report, or empty string if its not available.
    */
-  def getPerSQLSummary(sqlID: Long, delimiter: String = "|",
-      prettyPrint: Boolean = true, sqlDescLength: Int = SQL_DESC_LENGTH): String = {
+  def getPerSQLSummary(sqlID: Long, delimiter: String = "|", prettyPrint: Boolean = true,
+    sqlDescLength: Int = SQL_DESC_LENGTH, escapeCSV: Boolean = false): String = {
     val sqlInfo = aggregatePerSQLStats(sqlID)
-    constructPerSqlResult(sqlInfo, delimiter, prettyPrint, sqlDescLength)
+    constructPerSqlResult(sqlInfo, delimiter, prettyPrint, sqlDescLength, escapeCSV)
   }
 
   private def constructPerSqlResult(
       sqlInfo: Option[EstimatedPerSQLSummaryInfo],
       delimiter: String = "|",
       prettyPrint: Boolean = true,
-      sqlDescLength: Int = SQL_DESC_LENGTH): String = {
+      sqlDescLength: Int = SQL_DESC_LENGTH,
+      escapeCSV: Boolean = false): String = {
     sqlInfo match {
       case Some(info) =>
         perSqlHeadersAndSizes(SQL_DESC_STR) = sqlDescLength
         QualOutputWriter.constructPerSqlSummaryInfo(info, perSqlHeadersAndSizes,
-          appId.size, delimiter, prettyPrint, sqlDescLength)
+          appId.size, delimiter, prettyPrint, sqlDescLength, escapeCSV)
       case None =>
         logWarning(s"Unable to get qualification information for this application")
         ""
