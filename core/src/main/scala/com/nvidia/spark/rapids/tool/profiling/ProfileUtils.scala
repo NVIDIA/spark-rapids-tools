@@ -72,7 +72,8 @@ object ProfileUtils {
   // if a string contains what we are going to use for a delimiter, replace
   // it with something else
   def replaceDelimiter(str: String, delimiter: String): String = {
-    if (str != null && !delimiter.equals(ProfileOutputWriter.CSVDelimiter) && str.contains(delimiter)) {
+    if (str != null && !delimiter.equals(ProfileOutputWriter.CSVDelimiter) &&
+          str.contains(delimiter)) {
       val replaceWith = if (delimiter.equals(";")) {
         ":"
       } else if (delimiter.equals("|")) {

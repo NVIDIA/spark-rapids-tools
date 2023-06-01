@@ -102,8 +102,9 @@ case class JobInfoProfileResult(
     val reformatCSVFunc : String => String =
       if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     val stageIdStr = s"[${stageIds.mkString(",")}]"
-    Seq(appIndex.toString, jobID.toString, reformatCSVFunc(stageIdStr), sqlID.map(_.toString).getOrElse(null),
-      startTime.toString, endTime.map(_.toString).getOrElse(null))
+    Seq(appIndex.toString, jobID.toString, reformatCSVFunc(stageIdStr),
+      sqlID.map(_.toString).getOrElse(null), startTime.toString,
+      endTime.map(_.toString).getOrElse(null))
   }
 }
 
@@ -147,8 +148,8 @@ extends ProfileResult {
   override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
     val reformatCSVFunc : String => String =
       if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
-    Seq(appIndex.toString, sqlID.toString, nodeId.toString, reformatCSVFunc(format), buffer_time.toString,
-      scan_time.toString, data_size.toString, decode_time.toString,
+    Seq(appIndex.toString, sqlID.toString, nodeId.toString, reformatCSVFunc(format),
+      buffer_time.toString, scan_time.toString, data_size.toString, decode_time.toString,
       reformatCSVFunc(location), reformatCSVFunc(pushedFilters), reformatCSVFunc(schema))
   }
 }
@@ -179,8 +180,9 @@ case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
   override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
     val reformatCSVFunc : String => String =
       if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
-    Seq(appIndex.toString, sqlID.toString, nodeID.toString, reformatCSVFunc(nodeName), accumulatorId.toString,
-      reformatCSVFunc(name), max_value.toString, reformatCSVFunc(metricType), reformatCSVFunc(stageIds))
+    Seq(appIndex.toString, sqlID.toString, nodeID.toString, reformatCSVFunc(nodeName),
+      accumulatorId.toString, reformatCSVFunc(name), max_value.toString,
+      reformatCSVFunc(metricType), reformatCSVFunc(stageIds))
   }
 }
 
@@ -253,7 +255,7 @@ case class AppInfoProfileResults(appIndex: Int, appName: String,
   override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
     val reformatCSVFunc : String => String =
       if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
-    Seq(appIndex.toString, reformatCSVFunc(appName), reformatCSVFunc(appId.getOrElse("")),//this will likely need to switch to a reformat specific if else inside the getorelse
+    Seq(appIndex.toString, reformatCSVFunc(appName), reformatCSVFunc(appId.getOrElse("")),
       reformatCSVFunc(sparkUser),  startTime.toString, endTimeToStr, durToStr,
       reformatCSVFunc(durationStr), reformatCSVFunc(sparkVersion), pluginEnabled.toString)
   }
@@ -378,7 +380,8 @@ case class FailedTaskProfileResults(appIndex: Int, stageId: Int, stageAttemptId:
     val reformatCSVFunc : String => String =
       if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     Seq(appIndex.toString, stageId.toString, stageAttemptId.toString,
-      taskId.toString, taskAttemptId.toString, reformatCSVFunc(ProfileUtils.truncateFailureStr(endReason)))
+      taskId.toString, taskAttemptId.toString,
+      reformatCSVFunc(ProfileUtils.truncateFailureStr(endReason)))
   }
 }
 
@@ -390,7 +393,8 @@ case class FailedStagesProfileResults(appIndex: Int, stageId: Int, stageAttemptI
     val reformatCSVFunc : String => String =
       if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     Seq(appIndex.toString, stageId.toString, stageAttemptId.toString,
-      reformatCSVFunc(name), numTasks.toString, reformatCSVFunc(ProfileUtils.truncateFailureStr(endReason)))
+      reformatCSVFunc(name), numTasks.toString,
+      reformatCSVFunc(ProfileUtils.truncateFailureStr(endReason)))
   }
 }
 
