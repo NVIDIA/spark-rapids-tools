@@ -59,9 +59,9 @@ trait AppInfoSQLMaxTaskInputSizes {
 }
 
 trait AppInfoReadMetrics {
-  def isParquetOrOrc: Boolean
+  def hasFileCacheSupportedFormat: Boolean
   def getDistinctLocationPct: Double
-  def getTotalReadSize: Long
+  def getRedundantReadSize: Long
 }
 
 /**
@@ -80,9 +80,9 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getJvmGCFractions: Seq[Double] = Seq()
   override def getSpilledMetrics: Seq[Long] = Seq()
   override def getRapidsJars: Seq[String] = Seq()
-  override def isParquetOrOrc: Boolean = false
+  override def hasFileCacheSupportedFormat: Boolean = false
   override def getDistinctLocationPct: Double = 0.0
-  override def getTotalReadSize: Long = 0
+  override def getRedundantReadSize: Long = 0
 }
 
 /**
@@ -147,17 +147,21 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
     app.rapidsJar.map(_.jar).seq
   }
 
-  override def isParquetOrOrc: Boolean = {
-    app.dsInfo.map(_.format).distinct.exists(str => str.contains("Parquet")) ||
-       app.dsInfo.map(_.format).distinct.exists(str => str.contains("ORC"))
+  override def hasFileCacheSupportedFormat: Boolean = {
+    app.dsInfo.exists { info =>
+      info.format.contains("Parquet")
+    }
   }
-
 
   override def getDistinctLocationPct: Double = {
-    100.0 * app.dsInfo.groupBy(ds => (ds.location)).size / app.dsInfo.size
+    100.0 * app.dsInfo.groupBy(_.location).size / app.dsInfo.size
   }
 
-  override def getTotalReadSize: Long = {
-    app.dsInfo.map(_.data_size).sum
+  override def getRedundantReadSize: Long = {
+    app.dsInfo.groupBy(_.location)
+      .filter { case(_, objects) => objects.size > 1 }
+      .mapValues(_.map(_.data_size).sum)
+      .values
+      .sum
   }
 }

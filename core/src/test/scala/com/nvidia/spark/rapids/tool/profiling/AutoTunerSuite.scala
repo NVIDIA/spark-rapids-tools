@@ -35,18 +35,18 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val propsFromLog: mutable.Map[String, String],
     val sparkVersion: Option[String],
     val rapidsJars: Seq[String],
-    val parquetOrOrc: Boolean,
+    val fileCacheSupportedFormat: Boolean,
     val distinctLocationPct: Double,
-    val totalReadSize: Long) extends AppSummaryInfoBaseProvider {
+    val redundantReadSize: Long) extends AppSummaryInfoBaseProvider {
   override def getMaxInput: Double = maxInput
   override def getSpilledMetrics: Seq[Long] = spilledMetrics
   override def getJvmGCFractions: Seq[Double] = jvmGCFractions
   override def getProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
   override def getSparkVersion: Option[String] = sparkVersion
   override def getRapidsJars: Seq[String] = rapidsJars
-  override def isParquetOrOrc: Boolean = parquetOrOrc
+  override def hasFileCacheSupportedFormat: Boolean = fileCacheSupportedFormat
   override def getDistinctLocationPct: Double = distinctLocationPct
-  override def getTotalReadSize: Long = totalReadSize
+  override def getRedundantReadSize: Long = redundantReadSize
 }
 
 class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
@@ -123,11 +123,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       propsFromLog: mutable.Map[String, String],
       sparkVersion: Option[String],
       rapidsJars: Seq[String] = Seq(),
-      parquetOrOrc: Boolean = false,
+      fileCacheSupportedFormat: Boolean = false,
       distinctLocationPct: Double = 0.0,
-      totalReadSize: Long = 0): AppSummaryInfoBaseProvider = {
+      redundantReadSize: Long = 0): AppSummaryInfoBaseProvider = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
-      sparkVersion, rapidsJars, parquetOrOrc, distinctLocationPct, totalReadSize)
+      sparkVersion, rapidsJars, fileCacheSupportedFormat, distinctLocationPct, redundantReadSize)
   }
 
   test("verify 3.2.0+ auto conf setting") {
@@ -1155,7 +1155,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.rapids.filecache.enabled' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
-          |- Enable file cache only if disk speed is > 1 GB/s
+          |- Enable file cache only if Spark local disks bandwidth is > 1 GB/s
           |- ${AutoTuner.classPathComments("rapids.jars.missing")}
           |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin

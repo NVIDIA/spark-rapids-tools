@@ -752,11 +752,11 @@ class AutoTuner(
    * Recommendation for 'spark.rapids.file.cache' based on read characteristics of job.
    */
   private def recommendFileCache() {
-    if (appInfoProvider.isParquetOrOrc
+    if (appInfoProvider.hasFileCacheSupportedFormat
           && appInfoProvider.getDistinctLocationPct < DEF_DISTINCT_READ_THRESHOLD
-          && appInfoProvider.getTotalReadSize > DEF_READ_SIZE_THRESHOLD) {
+          && appInfoProvider.getRedundantReadSize > DEF_READ_SIZE_THRESHOLD) {
       appendRecommendation("spark.rapids.filecache.enabled", "true")
-      appendComment("Enable file cache only if disk speed is > 1 GB/s")
+      appendComment("Enable file cache only if Spark local disks bandwidth is > 1 GB/s")
     } else {
       null
     }
