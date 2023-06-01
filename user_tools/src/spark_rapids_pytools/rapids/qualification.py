@@ -289,6 +289,8 @@ class Qualification(RapidsJarTool):
         cuda_arg = self.wrapper_options.get('cuda')
         if cuda_arg is not None:
             cuda = cuda_arg
+        target_platform = self.wrapper_options.get('target_platform')
+        self.ctxt.set_ctxt('targetPlatform', target_platform)
         self.ctxt.set_ctxt('gpuPerMachine', gpu_per_machine)
         self.ctxt.set_ctxt('gpuDevice', gpu_device)
         self.ctxt.set_ctxt('cuda', cuda)
@@ -618,12 +620,15 @@ class Qualification(RapidsJarTool):
             report_comments.append(reshaped_notes)
 
         pricing_config = self.ctxt.platform.configs.get_value_silent('pricing')
+        target_platform = self.ctxt.get_ctxt('targetPlatform')
+        if target_platform is not None:
+            pricing_config = self.ctxt.platform.configs.get_value_silent('csp_pricing')
         reshape_col = self.ctxt.get_value('local', 'output', 'processDFProps',
                                           'clusterShapeCols', 'columnName')
         speed_recommendation_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
         apps_reshaped_df, per_row_flag = self.__apply_gpu_cluster_reshape(apps_pruned_df)
         # OnPrem platform doesn't have pricing information. We do not calculate cost savings for
-        # OnPrem platform.
+        # OnPrem platform if the target_platform is not specified.
         if pricing_config is None:
             df_final_result = apps_reshaped_df
             if not apps_reshaped_df.empty:
@@ -672,7 +677,8 @@ class Qualification(RapidsJarTool):
                 selected_cols = list(raw_df.columns)
 
             pricing_config = self.ctxt.platform.configs.get_value_silent('pricing')
-            if pricing_config is None:
+            target_platform = self.ctxt.get_ctxt('targetPlatform')
+            if pricing_config is None and target_platform is None:
                 selected_cols = list(raw_df.columns)
             # filter by recommendations if enabled
             if filter_recommendation_enabled:
@@ -752,7 +758,7 @@ class Qualification(RapidsJarTool):
 
     def _init_rapids_arg_list(self) -> List[str]:
         # TODO: Make sure we add this argument only for jar versions 23.02+
-        return ['--platform', self.ctxt.get_platform_name().replace('_', '-')]
+        return ['--platform', self.ctxt.platform.get_platform_name().replace('_', '-')]
 
     def _generate_section_lines(self, sec_conf: dict) -> List[str]:
         if sec_conf.get('sectionID') == 'initializationScript':

@@ -128,6 +128,12 @@ class CloudPlatform(EnumeratedType):
     NONE = 'NONE'
 
 
+class TargetPlatform(EnumeratedType):
+    """Determine CostSavings for target platform based on OnPrem cluster configuration"""
+    DATAPROC = 'dataproc'
+    NONE = None
+
+
 class SparkNodeType(EnumeratedType):
     """
     Node type from Spark perspective. We either have a master node or a worker node.
@@ -178,6 +184,7 @@ class ClusterNode:
     node_type: SparkNodeType
     name: str = field(default=None, init=False)
     instance_type: str = field(default=None, init=False)
+    platform_name: str = field(default=None, init=False)
     props: AbstractPropertiesContainer = field(default=None, init=False)
     mc_props: AbstractPropertiesContainer = field(default=None, init=False)
     hw_info: NodeHWInfo = field(default=None, init=False)
@@ -587,6 +594,7 @@ class PlatformBase:
     """
     ctxt_args: dict
     type_id: CloudPlatform = field(default_factory=lambda: CloudPlatform.NONE, init=False)
+    platform: str = field(default=None, init=False)
     cli: CMDDriverBase = field(default=None, init=False)
     storage: StorageDriver = field(default=None, init=False)
     ctxt: dict = field(default_factory=dict, init=False)
@@ -835,6 +843,13 @@ class PlatformBase:
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         raise NotImplementedError
+
+    def get_platform_name(self) -> str:
+        """
+        This used to get the lower case of the platform of the runtime.
+        :return: the name of the platform of the runtime in lower_case.
+        """
+        return CloudPlatform.pretty_print(self.type_id)
 
 
 @dataclass

@@ -13,6 +13,115 @@
       ]
     }
   },
+  "csp_pricing": {
+    "catalog": {
+      "onlineResources": [
+        {
+          "resourceKey": "gcloud-catalog",
+          "onlineURL": "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json",
+          "//localFile": "the name of the file after downloading",
+          "localFile": "gcloud-catalog.json",
+          "backupArchive": {
+            "//description-1": "In case the file is stuck, we use this archive as a backup.",
+            "//description-2": "It is stored in the resources",
+            "archiveName": "gcloud-catalog.tgz"
+          }
+        }
+      ],
+      "components": {
+        "ssd": {
+          "unitSizeFactor": 0.513698630136986
+        }
+      }
+    }
+  },
+  "gpuConfigs": {
+    "dataproc" : {
+      "user-tools": {
+        "gpuPerMachine": {
+          "criteria": {
+            "numCores": [
+              {
+                "title": "smallSize",
+                "lowerBound": 1,
+                "upperBound": 16,
+                "gpuCount": 1
+              },
+              {
+                "title": "largeSize",
+                "lowerBound": 16,
+                "upperBound": 1024,
+                "gpuCount": 2
+              }
+            ]
+          }
+        },
+        "supportedGpuInstances": {
+          "n1-standard": {
+            "//description": "N1 standard machine types have 3.75 GB of system memory per vCPU",
+            "software": {},
+            "SysInfo": {},
+            "GpuHWInfo": {},
+            "seriesInfo": {
+              "//description": "describe the sys info based on",
+              "name": "n1-standard-(\\d+)",
+              "vCPUs": [
+                1,
+                2,
+                4,
+                8,
+                16,
+                32,
+                64,
+                96
+              ],
+              "memPerCPU": 3840
+            }
+          },
+          "n1-highmem": {
+            "//description": "N1 high-memory machine types have 6.5 GB of system memory per vCPU.",
+            "software": {},
+            "SysInfo": {},
+            "GpuHWInfo": {},
+            "seriesInfo": {
+              "//description": "describe the sys info based on",
+              "name": "n1-highmem-(\\d+)",
+              "vCPUs": [
+                2,
+                4,
+                8,
+                16,
+                32,
+                64,
+                96
+              ],
+              "memPerCPU": 6656
+            }
+          },
+          "n1-highcpu": {
+            "//description": "N1 high-cpu machine types have 0.9 GB of system memory per vCPU",
+            "software": {},
+            "SysInfo": {},
+            "GpuHWInfo": {},
+            "seriesInfo": {
+              "//description": "describe the sys info based on",
+              "name": "n1-highcpu-(\\d+)",
+              "vCPUs": [
+                2,
+                4,
+                8,
+                16,
+                32,
+                64,
+                96
+              ],
+              "memPerCPU": 921.6
+            }
+          }
+        }
+      }
+    }
+  },
   "environment": {
     "//description": "Define the metadata related to the system, prerequisites, and configurations",
     "envParams": [],
