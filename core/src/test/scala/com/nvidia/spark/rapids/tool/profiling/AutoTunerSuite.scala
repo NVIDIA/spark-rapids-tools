@@ -1139,10 +1139,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=5734m
+          |--conf spark.executor.memoryOverhead=6758m
           |--conf spark.rapids.filecache.enabled=true
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |--conf spark.task.resource.gpu.amount=0.125
           |
@@ -1150,6 +1151,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.filecache.enabled' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
           |- Enable file cache only if Spark local disks bandwidth is > 1 GB/s
@@ -1197,15 +1199,17 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=5734m
+          |--conf spark.executor.memoryOverhead=6758m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |--conf spark.task.resource.gpu.amount=0.125
           |
           |Comments:
           |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
           |- ${AutoTuner.classPathComments("rapids.jars.missing")}
