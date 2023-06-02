@@ -24,10 +24,12 @@ from typing import Any, List
 from spark_rapids_pytools.cloud_api.azurestorage import AzureStorageDriver
 from spark_rapids_pytools.cloud_api.databricks_azure_job import DBAzureLocalRapidsJob
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, \
-    PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType
+    PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType, ClusterGetAccessor, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
+from spark_rapids_pytools.pricing.databricks_azure_pricing import DatabricksAzurePriceProvider
+from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
 @dataclass
@@ -56,10 +58,29 @@ class DBAzurePlatform(PlatformBase):
         pass
 
     def migrate_cluster_to_gpu(self, orig_cluster):
-        pass
+        """
+        given a cluster, convert it to run NVIDIA Gpu based on mapping instance types
+        :param orig_cluster: the original cluster to migrate from
+        :return: a new object cluster that supports GPU
+        """
+        gpu_cluster_ob = DatabricksAzureCluster(self)
+        gpu_cluster_ob.migrate_from_cluster(orig_cluster)
+        return gpu_cluster_ob
 
-    def create_saving_estimator(self, source_cluster, reshaped_cluster):
-        pass
+    def create_saving_estimator(self,
+                                source_cluster: ClusterGetAccessor,
+                                reshaped_cluster: ClusterGetAccessor):
+        raw_pricing_config = self.configs.get_value_silent('pricing')
+        if raw_pricing_config:
+            pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
+        else:
+            pricing_config: JSONPropertiesContainer = None
+        db_azure_price_provider = DatabricksAzurePriceProvider(region=self.cli.get_region(),
+                                                               pricing_configs={'databricks-azure': pricing_config})
+        saving_estimator = DBAzureSavingsEstimator(price_provider=db_azure_price_provider,
+                                                   reshaped_cluster=reshaped_cluster,
+                                                   source_cluster=source_cluster)
+        return saving_estimator
 
     def create_submission_job(self, job_prop, ctxt) -> Any:
         pass
@@ -72,6 +93,17 @@ class DBAzurePlatform(PlatformBase):
 
     def create_spark_submission_job(self, job_prop, ctxt) -> Any:
         raise NotImplementedError
+
+    def get_supported_gpus(self) -> dict:
+        gpus_from_configs = self.configs.get_value('gpuConfigs', 'user-tools', 'supportedGpuInstances')
+        gpu_scopes = {}
+        for mc_prof, mc_info in gpus_from_configs.items():
+            hw_info_json = mc_info['SysInfo']
+            hw_info_ob = SysInfo(num_cpus=hw_info_json['num_cpus'], cpu_mem=hw_info_json['cpu_mem'])
+            gpu_info_json = mc_info['GpuInfo']['GPUs'][0]
+            gpu_info_obj = GpuHWInfo(num_gpus=gpu_info_json['Count'], gpu_mem=gpu_info_json['MemoryInfo']['SizeInMiB'])
+            gpu_scopes[mc_prof] = NodeHWInfo(sys_info=hw_info_ob, gpu_info=gpu_info_obj)
+        return gpu_scopes
 
 
 @dataclass
@@ -307,3 +339,24 @@ class DatabricksAzureCluster(ClusterBase):
 
     def get_tmp_storage(self) -> str:
         raise NotImplementedError
+
+
+@dataclass
+class DBAzureSavingsEstimator(SavingsEstimator):
+    """
+    A class that calculates the savings based on a Databricks-Azure price provider
+    """
+
+    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
+        db_azure_cost = 0.0
+        for node_type in [SparkNodeType.MASTER, SparkNodeType.WORKER]:
+            instance_type = cluster.get_node_instance_type(node_type)
+            nodes_cnt = cluster.get_nodes_cnt(node_type)
+            cost = self.price_provider.get_instance_price(instance=instance_type)
+            db_azure_cost += cost * nodes_cnt
+        return db_azure_cost
+
+    def _setup_costs(self):
+        # calculate target_cost
+        self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
+        self.source_cost = self._get_cost_per_cluster(self.source_cluster)
