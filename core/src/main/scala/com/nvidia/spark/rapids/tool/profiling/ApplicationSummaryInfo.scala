@@ -59,7 +59,6 @@ trait AppInfoSQLMaxTaskInputSizes {
 }
 
 trait AppInfoReadMetrics {
-  def hasFileCacheSupportedFormat: Boolean
   def getDistinctLocationPct: Double
   def getRedundantReadSize: Long
 }
@@ -80,7 +79,6 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getJvmGCFractions: Seq[Double] = Seq()
   override def getSpilledMetrics: Seq[Long] = Seq()
   override def getRapidsJars: Seq[String] = Seq()
-  override def hasFileCacheSupportedFormat: Boolean = false
   override def getDistinctLocationPct: Double = 0.0
   override def getRedundantReadSize: Long = 0
 }
@@ -94,6 +92,9 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
  */
 class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   extends AppSummaryInfoBaseProvider {
+
+  private lazy val distinctLocations = app.dsInfo.groupBy(_.location)
+
   private def findPropertyInProfPropertyResults(
       key: String,
       props: Seq[RapidsPropertyProfileResult]): Option[String] = {
@@ -147,19 +148,15 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
     app.rapidsJar.map(_.jar).seq
   }
 
-  override def hasFileCacheSupportedFormat: Boolean = {
-    app.dsInfo.exists { info =>
-      info.format.contains("Parquet")
-    }
-  }
-
   override def getDistinctLocationPct: Double = {
-    100.0 * app.dsInfo.groupBy(_.location).size / app.dsInfo.size
+    100.0 * distinctLocations.size / app.dsInfo.size
   }
 
   override def getRedundantReadSize: Long = {
-    app.dsInfo.groupBy(_.location)
-      .filter { case(_, objects) => objects.size > 1 }
+    distinctLocations
+      .filter {
+        case(_, objects) => objects.size > 1 && objects.exists(_.format.contains("Parquet"))
+      }
       .mapValues(_.map(_.data_size).sum)
       .values
       .sum

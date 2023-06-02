@@ -730,8 +730,7 @@ class AutoTuner(
    * Recommendation for 'spark.rapids.file.cache' based on read characteristics of job.
    */
   private def recommendFileCache() {
-    if (appInfoProvider.hasFileCacheSupportedFormat
-          && appInfoProvider.getDistinctLocationPct < DEF_DISTINCT_READ_THRESHOLD
+    if (appInfoProvider.getDistinctLocationPct < DEF_DISTINCT_READ_THRESHOLD
           && appInfoProvider.getRedundantReadSize > DEF_READ_SIZE_THRESHOLD) {
       appendRecommendation("spark.rapids.filecache.enabled", "true")
       appendComment("Enable file cache only if Spark local disks bandwidth is > 1 GB/s")
@@ -909,7 +908,7 @@ object AutoTuner extends Logging {
   // Default distinct read location thresholds is 50%
   val DEF_DISTINCT_READ_THRESHOLD = 50.0
   // Default file cache size minimum is 100 GB
-  val DEF_READ_SIZE_THRESHOLD = 100 * 1024 * 1024 * 1024
+  val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
   val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
 
