@@ -15,6 +15,9 @@
 # limitations under the License.
 #
 
+# Internal script used by diagnostic tool to collect info from cluster node, such as
+# OS version, Yarn configuration, Spark version and error logs etc.
+
 set -e
 
 PREFIX=${PREFIX:-`date +%Y%m%d%H%M`}
