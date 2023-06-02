@@ -35,7 +35,6 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val propsFromLog: mutable.Map[String, String],
     val sparkVersion: Option[String],
     val rapidsJars: Seq[String],
-    val fileCacheSupportedFormat: Boolean,
     val distinctLocationPct: Double,
     val redundantReadSize: Long) extends AppSummaryInfoBaseProvider {
   override def getMaxInput: Double = maxInput
@@ -44,7 +43,6 @@ class AppInfoProviderMockTest(val maxInput: Double,
   override def getProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
   override def getSparkVersion: Option[String] = sparkVersion
   override def getRapidsJars: Seq[String] = rapidsJars
-  override def hasFileCacheSupportedFormat: Boolean = fileCacheSupportedFormat
   override def getDistinctLocationPct: Double = distinctLocationPct
   override def getRedundantReadSize: Long = redundantReadSize
 }
@@ -123,11 +121,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       propsFromLog: mutable.Map[String, String],
       sparkVersion: Option[String],
       rapidsJars: Seq[String] = Seq(),
-      fileCacheSupportedFormat: Boolean = false,
       distinctLocationPct: Double = 0.0,
       redundantReadSize: Long = 0): AppSummaryInfoBaseProvider = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
-      sparkVersion, rapidsJars, fileCacheSupportedFormat, distinctLocationPct, redundantReadSize)
+      sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize)
   }
 
   test("verify 3.2.0+ auto conf setting") {
@@ -1131,7 +1128,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
-      Some(defaultSparkVersion), Seq(), true, 40.0, 200000000000L)
+      Some(defaultSparkVersion), Seq(), 40.0, 200000000000L)
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
@@ -1163,7 +1160,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     assert(expectedResults == autoTunerOutput)
   }
 
-  test("Do not recommend file cache if not parquet or orc") {
+  test("Do not recommend file cache if small redundant size") {
     val customProps = mutable.LinkedHashMap(
       "spark.sql.files.maxPartitionBytes" -> "12345678")
     // mock the properties loaded from eventLog
@@ -1189,7 +1186,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
-      Some(defaultSparkVersion), Seq(), false, 40.0, 200000000000L)
+      Some(defaultSparkVersion), Seq(), 40.0, 2000000L)
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
