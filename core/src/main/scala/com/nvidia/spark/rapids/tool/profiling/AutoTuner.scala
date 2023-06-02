@@ -588,6 +588,7 @@ class AutoTuner(
       "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
     appendComment(classPathComments("rapids.shuffle.jars"))
 
+    recommendFileCache()
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
     recommendGeneralProperties()
@@ -744,6 +745,19 @@ class AutoTuner(
         // Do not recommend maxPartitionBytes
         null
       }
+    }
+  }
+
+  /**
+   * Recommendation for 'spark.rapids.file.cache' based on read characteristics of job.
+   */
+  private def recommendFileCache() {
+    if (appInfoProvider.getDistinctLocationPct < DEF_DISTINCT_READ_THRESHOLD
+          && appInfoProvider.getRedundantReadSize > DEF_READ_SIZE_THRESHOLD) {
+      appendRecommendation("spark.rapids.filecache.enabled", "true")
+      appendComment("Enable file cache only if Spark local disks bandwidth is > 1 GB/s")
+    } else {
+      null
     }
   }
 
@@ -915,6 +929,10 @@ object AutoTuner extends Logging {
   val DEF_WORKER_GPU_MEMORY_MB: Map[String, String] = Map("T4"-> "15109m", "A100" -> "40960m")
   // Default Number of Workers 1
   val DEF_NUM_WORKERS = 1
+  // Default distinct read location thresholds is 50%
+  val DEF_DISTINCT_READ_THRESHOLD = 50.0
+  // Default file cache size minimum is 100 GB
+  val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
   val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
 
