@@ -10,7 +10,7 @@ LocalLimitExec,3.0
 ProjectExec,3.0
 RangeExec,3.0
 SampleExec,3.0
-SortExec,15.0
+SortExec,16.0
 SubqueryBroadcastExec,3.0
 TakeOrderedAndProjectExec,3.0
 UnionExec,3.0
@@ -28,7 +28,7 @@ BroadcastHashJoinExec,6.0
 BroadcastNestedLoopJoinExec,3.0
 CartesianProductExec,3.0
 ShuffledHashJoinExec,3.0
-SortMergeJoinExec,40.0
+SortMergeJoinExec,42.0
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2
 FlatMapCoGroupsInPandasExec,3.0
