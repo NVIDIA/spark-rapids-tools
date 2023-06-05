@@ -61,10 +61,12 @@ class Bootstrap(RapidsTool):
         # give up to 2GB of heap to each executor core
         executor_heap = min(max_executor_heap, constants.get('heapPerCoreMB') * num_executor_cores)
         executor_mem_overhead = int(executor_heap * constants.get('heapOverheadFraction'))
+        # use default for pageable_pool to add to memory overhead
+        pageable_pool = constants.get('defaultPageablePoolMB')
         # pinned memory uses any unused space up to 4GB
         pinned_mem = min(constants.get('maxPinnedMemoryMB'),
-                         executor_container_mem - executor_heap - executor_mem_overhead)
-        executor_mem_overhead += pinned_mem
+                         executor_container_mem - executor_heap - executor_mem_overhead - pageable_pool)
+        executor_mem_overhead += pinned_mem + pageable_pool
         res = {
             'spark.executor.cores': num_executor_cores,
             'spark.executor.memory': f'{executor_heap}m',
@@ -72,7 +74,10 @@ class Bootstrap(RapidsTool):
             'spark.rapids.sql.concurrentGpuTasks': gpu_concurrent_tasks,
             'spark.rapids.memory.pinnedPool.size': f'{pinned_mem}m',
             'spark.sql.files.maxPartitionBytes': f'{constants.get("maxSqlFilesPartitionsMB")}m',
-            'spark.task.resource.gpu.amount': 1 / num_executor_cores
+            'spark.task.resource.gpu.amount': 1 / num_executor_cores,
+            'spark.rapids.shuffle.multiThreaded.reader.threads': num_executor_cores,
+            'spark.rapids.shuffle.multiThreaded.writer.threads': num_executor_cores,
+            'spark.rapids.sql.multiThreadedRead.numThreads': max(20, num_executor_cores)
         }
         return res
 
@@ -119,6 +124,10 @@ class Bootstrap(RapidsTool):
             for conf_key, conf_val in tool_result.items():
                 wrapper_out_content_arr.append(f'{conf_key}={conf_val}')
             wrapper_out_content_arr.append(f'##### END : RAPIDS bootstrap settings for {exec_cluster.name}\n')
+            shuffle_manager_note = 'Note: to turn on the Spark RAPIDS multithreaded shuffle, you will also\n' \
+                                   'have to enable this setting based on the Spark version of your cluster:\n' \
+                                   'spark.shuffle.manager=com.nvidia.spark.rapids.spark3xx.RapidShuffleManager.\n'
+            wrapper_out_content_arr.append(shuffle_manager_note)
             wrapper_out_content = Utils.gen_multiline_str(wrapper_out_content_arr)
             self.ctxt.set_ctxt('wrapperOutputContent', wrapper_out_content)
             if dry_run:

@@ -58,13 +58,19 @@ trait AppInfoSQLMaxTaskInputSizes {
   def getMaxInput: Double
 }
 
+trait AppInfoReadMetrics {
+  def getDistinctLocationPct: Double
+  def getRedundantReadSize: Long
+}
+
 /**
  * A base class definition that provides an empty implementation of the profile results embedded in
  * [[ApplicationSummaryInfo]].
  */
 class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   with AppInfoSqlTaskAggMetricsVisitor
-  with AppInfoSQLMaxTaskInputSizes {
+  with AppInfoSQLMaxTaskInputSizes
+  with AppInfoReadMetrics {
   override def getSparkProperty(propKey: String): Option[String] = None
   override def getRapidsProperty(propKey: String): Option[String] = None
   override def getProperty(propKey: String): Option[String] = None
@@ -73,6 +79,8 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getJvmGCFractions: Seq[Double] = Seq()
   override def getSpilledMetrics: Seq[Long] = Seq()
   override def getRapidsJars: Seq[String] = Seq()
+  override def getDistinctLocationPct: Double = 0.0
+  override def getRedundantReadSize: Long = 0
 }
 
 /**
@@ -84,6 +92,9 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
  */
 class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   extends AppSummaryInfoBaseProvider {
+
+  private lazy val distinctLocations = app.dsInfo.groupBy(_.location)
+
   private def findPropertyInProfPropertyResults(
       key: String,
       props: Seq[RapidsPropertyProfileResult]): Option[String] = {
@@ -135,5 +146,19 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
 
   override def getRapidsJars: Seq[String] = {
     app.rapidsJar.map(_.jar).seq
+  }
+
+  override def getDistinctLocationPct: Double = {
+    100.0 * distinctLocations.size / app.dsInfo.size
+  }
+
+  override def getRedundantReadSize: Long = {
+    distinctLocations
+      .filter {
+        case(_, objects) => objects.size > 1 && objects.exists(_.format.contains("Parquet"))
+      }
+      .mapValues(_.map(_.data_size).sum)
+      .values
+      .sum
   }
 }

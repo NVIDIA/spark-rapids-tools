@@ -121,6 +121,7 @@ class ClusterState(EnumeratedType):
 class CloudPlatform(EnumeratedType):
     """symbolic names (members) bound to supported cloud platforms."""
     DATABRICKS_AWS = 'databricks_aws'
+    DATABRICKS_AZURE = 'databricks_azure'
     DATAPROC = 'dataproc'
     EMR = 'emr'
     ONPREM = 'onprem'
@@ -410,6 +411,13 @@ class CMDDriverBase:
                     cmd_input: str = None,
                     fail_ok: bool = False,
                     env_vars: dict = None) -> str:
+        def process_credentials_option(cmd: list):
+            for idx, item in enumerate(cmd):
+                if 'fs.azure.account.key' in item:
+                    cmd[idx] = item.split('=')[0] + '=MY_ACCESS_KEY'
+                    break
+            return cmd
+
         def process_streams(std_out, std_err):
             if ToolLogging.is_debug_mode_enabled():
                 # reformat lines to make the log more readable
@@ -419,7 +427,7 @@ class CMDDriverBase:
                 if len(stdout_splits) > 0:
                     std_out_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stdout_splits])
                     stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
-                cmd_log_str = Utils.gen_joined_str(' ', cmd)
+                cmd_log_str = Utils.gen_joined_str(' ', process_credentials_option(cmd))
                 if len(stderr_splits) > 0:
                     std_err_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stderr_splits])
                     stderr_str = f'\n\t<STDERR>\n{std_err_lines}'
@@ -1138,6 +1146,7 @@ class ClusterReshape(ClusterGetAccessor):
 def get_platform(platform_id: Enum) -> Type[PlatformBase]:
     platform_hash = {
         CloudPlatform.DATABRICKS_AWS: ('spark_rapids_pytools.cloud_api.databricks_aws', 'DBAWSPlatform'),
+        CloudPlatform.DATABRICKS_AZURE: ('spark_rapids_pytools.cloud_api.databricks_azure', 'DBAzurePlatform'),
         CloudPlatform.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
         CloudPlatform.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
         CloudPlatform.ONPREM: ('spark_rapids_pytools.cloud_api.onprem', 'OnPremPlatform'),

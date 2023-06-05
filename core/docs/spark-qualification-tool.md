@@ -16,7 +16,9 @@ that could not run on GPU because they are unsupported operators or not SQL/Data
 
 This tool is intended to give the users a starting point and does not guarantee the
 queries or applications with the highest _recommendation_ will actually be accelerated the most. Currently,
-it reports by looking at the amount of time spent in tasks of SQL Dataframe operations.
+it reports by looking at the amount of time spent in tasks of SQL Dataframe operations.  Note that the qualification
+tool estimates assume that the application is run on a dedicated cluster where it can use all of the available
+Spark resources.
 
 The estimations for GPU duration are available for different environments and are based on benchmarks run in the
 applicable environments.  Here are the cluster information for the ETL benchmarks used for the estimates:
@@ -854,6 +856,12 @@ unique.
 The Qualification tool generates a set of log/CSV files in the output folder
 `${OUTPUT_FOLDER}/rapids_4_spark_qualification_output`. The content of each
 file is summarized in the following two sections.
+
+Note: Starting with release "_23.06_", CSV output uses escapes and quotes to avoid parsing errors.
+Spark's default CSV escape character is the backslash(`\`), but standard spreadsheets use the double quote(`"`).
+The Qualification tool output uses the double quote(`"`) escape character to avoid breaking
+spreadsheet software functionality. As a result, the data source must be configured using
+`option("ESCAPE", "\"")` when reading the Qualification tool CSV files into Spark.
 
 #### Application Report Summary
 

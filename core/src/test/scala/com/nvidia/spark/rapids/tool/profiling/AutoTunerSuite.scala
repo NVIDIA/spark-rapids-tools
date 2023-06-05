@@ -34,13 +34,17 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val jvmGCFractions: Seq[Double],
     val propsFromLog: mutable.Map[String, String],
     val sparkVersion: Option[String],
-    val rapidsJars: Seq[String]) extends AppSummaryInfoBaseProvider {
+    val rapidsJars: Seq[String],
+    val distinctLocationPct: Double,
+    val redundantReadSize: Long) extends AppSummaryInfoBaseProvider {
   override def getMaxInput: Double = maxInput
   override def getSpilledMetrics: Seq[Long] = spilledMetrics
   override def getJvmGCFractions: Seq[Double] = jvmGCFractions
   override def getProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
   override def getSparkVersion: Option[String] = sparkVersion
   override def getRapidsJars: Seq[String] = rapidsJars
+  override def getDistinctLocationPct: Double = distinctLocationPct
+  override def getRedundantReadSize: Long = redundantReadSize
 }
 
 class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
@@ -116,9 +120,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       jvmGCFractions: Seq[Double],
       propsFromLog: mutable.Map[String, String],
       sparkVersion: Option[String],
-      rapidsJars: Seq[String] = Seq()): AppSummaryInfoBaseProvider = {
+      rapidsJars: Seq[String] = Seq(),
+      distinctLocationPct: Double = 0.0,
+      redundantReadSize: Long = 0): AppSummaryInfoBaseProvider = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
-      sparkVersion, rapidsJars)
+      sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize)
   }
 
   test("verify 3.2.0+ auto conf setting") {
@@ -136,7 +142,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=7372m
+          |--conf spark.executor.memoryOverhead=8396m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
@@ -276,7 +282,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=7372m
+          |--conf spark.executor.memoryOverhead=8396m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
@@ -334,7 +340,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Spark Properties:
           |--conf spark.executor.cores=32
           |--conf spark.executor.memory=65536m
-          |--conf spark.executor.memoryOverhead=10649m
+          |--conf spark.executor.memoryOverhead=11673m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=32
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=32
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
@@ -364,7 +370,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "8396m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -402,7 +408,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "8396m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -437,7 +443,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "8396m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -476,7 +482,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "8396m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -513,7 +519,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "8396m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -551,7 +557,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "spark.dynamicAllocation.enabled" -> "false",
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "8396m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -591,7 +597,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=7372m
+          |--conf spark.executor.memoryOverhead=8396m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
@@ -673,7 +679,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=5734m
+          |--conf spark.executor.memoryOverhead=6758m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -853,7 +859,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=5734m
+          |--conf spark.executor.memoryOverhead=6758m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -916,7 +922,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=5734m
+          |--conf spark.executor.memoryOverhead=6758m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -974,7 +980,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=5734m
+          |--conf spark.executor.memoryOverhead=6758m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -998,7 +1004,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "7372m",
+      "spark.executor.memoryOverhead" -> "8396m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
@@ -1094,5 +1100,122 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$latestRelease.jar")
     val autoTunerOutput = generateRecommendationsForRapidsJars(rapidsJarsArr)
     autoTunerOutput shouldBe expectedResults
+  }
+
+  test("Recommend file cache if parquet/orc and data thresholds are met") {
+    val customProps = mutable.LinkedHashMap(
+      "spark.sql.files.maxPartitionBytes" -> "12345678")
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.instances" -> "1",
+        "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1",
+        "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
+        "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
+        "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
+        "spark.sql.shuffle.partitions" -> "1000",
+        "spark.sql.files.maxPartitionBytes" -> "1g",
+        "spark.task.resource.gpu.amount" -> "0.25",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "1")
+    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+    val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
+      Some(defaultSparkVersion), Seq(), 40.0, 200000000000L)
+    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.cores=8
+          |--conf spark.executor.instances=20
+          |--conf spark.executor.memory=16384m
+          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.rapids.filecache.enabled=true
+          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.files.maxPartitionBytes=3669m
+          |--conf spark.task.resource.gpu.amount=0.125
+          |
+          |Comments:
+          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.filecache.enabled' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
+          |- Enable file cache only if Spark local disks bandwidth is > 1 GB/s
+          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
+          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    assert(expectedResults == autoTunerOutput)
+  }
+
+  test("Do not recommend file cache if small redundant size") {
+    val customProps = mutable.LinkedHashMap(
+      "spark.sql.files.maxPartitionBytes" -> "12345678")
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.instances" -> "1",
+        "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1",
+        "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
+        "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
+        "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
+        "spark.sql.shuffle.partitions" -> "1000",
+        "spark.sql.files.maxPartitionBytes" -> "1g",
+        "spark.task.resource.gpu.amount" -> "0.25",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "1")
+    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+    val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
+      Some(defaultSparkVersion), Seq(), 40.0, 2000000L)
+    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.cores=8
+          |--conf spark.executor.instances=20
+          |--conf spark.executor.memory=16384m
+          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.files.maxPartitionBytes=3669m
+          |--conf spark.task.resource.gpu.amount=0.125
+          |
+          |Comments:
+          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
+          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
+          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    assert(expectedResults == autoTunerOutput)
   }
 }

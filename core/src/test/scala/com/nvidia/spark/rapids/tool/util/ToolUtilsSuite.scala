@@ -16,12 +16,17 @@
 
 package com.nvidia.spark.rapids.tool.util
 
+import java.text.SimpleDateFormat
+import java.util.Calendar
+
 import org.scalatest.FunSuite
-import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper}
+import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, not}
+import scala.concurrent.duration._
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.sql.TrampolineUtil
-import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, WebCrawlerUtil}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
 
 
 class ToolUtilsSuite extends FunSuite with Logging {
@@ -124,11 +129,67 @@ class ToolUtilsSuite extends FunSuite with Logging {
 
   test("Hadoop Configuration should load system properties") {
     // Tests that Hadoop configurations can load the system property passed to the
-    // command line. i.e., "-Dspark.hadoop.property.key=value"
+    // command line. i.e., "-Drapids.tools.hadoop.property.key=value"
     TrampolineUtil.cleanupAnyExistingSession()
-    // sets a hadoop property through Spark Prefix
-    System.setProperty("spark.hadoop.property.key1", "value1")
-    val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
+    // sets a hadoop property through Rapids-Tools prefix
+    System.setProperty("rapids.tools.hadoop.property.key1", "value1")
+    lazy val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
     hadoopConf.get("property.key1") shouldBe "value1"
+    System.clearProperty("rapids.tools.hadoop.property.key1")
+  }
+
+  test("parse timeFormat 'HH:MM:SS.FFF' to Long") {
+    val currCalendar = Calendar.getInstance()
+    val acceptedTimeFormat = new SimpleDateFormat("HH:mm:ss.SSS")
+
+    val hour = currCalendar.get(Calendar.HOUR_OF_DAY)
+    val minute = currCalendar.get(Calendar.MINUTE)
+    val seconds = currCalendar.get(Calendar.SECOND)
+    val millis = currCalendar.get(Calendar.MILLISECOND)
+    val currTimeAsStr = acceptedTimeFormat.format(currCalendar.getTime)
+    val duration =
+      hour.hours.toMillis + minute.minutes.toMillis + seconds.seconds.toMillis + millis
+    // test successful parsing
+    StringUtils.parseFromDurationToLongOption(currTimeAsStr).get shouldBe duration
+    // test non-successful with milliseconds is not 3 digits
+    val timeNoMillisAsStr = f"$hour:$minute%02d:$seconds%02d.1"
+    StringUtils.parseFromDurationToLongOption(timeNoMillisAsStr).get shouldBe {
+      duration - millis + 100
+    }
+    // test successful with high number of hours
+    StringUtils.parseFromDurationToLongOption("50:30:30.000").get shouldBe {
+      50.hours.toMillis + 30.minutes.toMillis + 30.seconds.toMillis
+    }
+    // test incorrect format with overflowing minutes
+    val timeBrokenMinutesAsString = f"$hour:${minute + 60}%02d:$seconds%02d.$millis%03d"
+    StringUtils.parseFromDurationToLongOption(timeBrokenMinutesAsString) should not be 'defined
+    // test random string won't cause any exceptions
+    StringUtils.parseFromDurationToLongOption("Hello Worlds") should not be 'defined
+  }
+
+  test("parse Accumulable fields") {
+    val problematicAccum =
+      AccumulableInfo(100, Some("problematicAccum"), Some(Array()), Some(None), true, true, None)
+    EventUtils.buildTaskStageAccumFromAccumInfo(
+      problematicAccum, 1, 1, None) should not be 'defined
+    // test successful value field
+    val accumWithValue =
+      AccumulableInfo(100, Some("successAccum"), Some(None), Some(1000), true, true, None)
+    EventUtils.buildTaskStageAccumFromAccumInfo(
+      accumWithValue, 1, 1, None).get.value.get shouldBe 1000
+    // test successful update field
+    val accumWithUpdate =
+      AccumulableInfo(100, Some("successAccum"), Some(1000), Some(None), true, true, None)
+    EventUtils.buildTaskStageAccumFromAccumInfo(
+      accumWithUpdate, 1, 1, None).get.update.get shouldBe 1000
+    // test successful parse of durations
+    val updateField = "0:00:00.100"
+    val valueField = "0:00:59.200"
+    val accumWithDuration =
+      AccumulableInfo(100, Some("successAccum"),
+        Some(updateField), Some(valueField), true, true, None)
+    val result = EventUtils.buildTaskStageAccumFromAccumInfo(accumWithDuration, 1, 1, None).get
+    result.update.get shouldBe 100
+    result.value.get shouldBe (59 * 1000 + 200)
   }
 }

@@ -499,10 +499,11 @@ class AutoTuner(
       containerMemCalculator: () => Double): (Long, Long) = {
     val executorHeap = execHeapCalculator()
     var executorMemOverhead = (executorHeap * DEF_HEAP_OVERHEAD_FRACTION).toLong
+    val pageablePool = DEF_PAGEABLE_POOL_MB.toLong
     // pinned memory uses any unused space up to 4GB
-    val pinnedMem = Math.min(MAX_PINNED_MEMORY_MB,
-      containerMemCalculator.apply() - executorHeap - executorMemOverhead).toLong
-    executorMemOverhead += pinnedMem
+    val pinnedMem = Math.min(MAX_PINNED_MEMORY_MB, containerMemCalculator.apply() -
+      executorHeap - executorMemOverhead - pageablePool).toLong
+    executorMemOverhead += pinnedMem + pageablePool
     (pinnedMem, executorMemOverhead)
   }
 
@@ -587,6 +588,7 @@ class AutoTuner(
       "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
     appendComment(classPathComments("rapids.shuffle.jars"))
 
+    recommendFileCache()
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
     recommendGeneralProperties()
@@ -747,6 +749,19 @@ class AutoTuner(
   }
 
   /**
+   * Recommendation for 'spark.rapids.file.cache' based on read characteristics of job.
+   */
+  private def recommendFileCache() {
+    if (appInfoProvider.getDistinctLocationPct < DEF_DISTINCT_READ_THRESHOLD
+          && appInfoProvider.getRedundantReadSize > DEF_READ_SIZE_THRESHOLD) {
+      appendRecommendation("spark.rapids.filecache.enabled", "true")
+      appendComment("Enable file cache only if Spark local disks bandwidth is > 1 GB/s")
+    } else {
+      null
+    }
+  }
+
+  /**
    * Recommendation for 'spark.sql.files.maxPartitionBytes' based on input size for each task.
    * Note that the logic can be disabled by adding the property to [[limitedLogicRecommendations]]
    * which is one of the arguments of [[getRecommendedProperties()]].
@@ -894,6 +909,8 @@ object AutoTuner extends Logging {
   val MAX_PINNED_MEMORY_MB: Long = 4 * 1024L
   // Default pinned memory to use per executor in MB
   val DEF_PINNED_MEMORY_MB: Long = 2 * 1024L
+  // Default pageable pool to use per executor in MB
+  val DEF_PAGEABLE_POOL_MB: Long = 1 * 1024L
   // value in MB
   val MIN_PARTITION_BYTES_RANGE_MB = 128L
   // value in MB
@@ -912,6 +929,10 @@ object AutoTuner extends Logging {
   val DEF_WORKER_GPU_MEMORY_MB: Map[String, String] = Map("T4"-> "15109m", "A100" -> "40960m")
   // Default Number of Workers 1
   val DEF_NUM_WORKERS = 1
+  // Default distinct read location thresholds is 50%
+  val DEF_DISTINCT_READ_THRESHOLD = 50.0
+  // Default file cache size minimum is 100 GB
+  val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
   val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
 

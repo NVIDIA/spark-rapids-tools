@@ -22,11 +22,10 @@ import java.util.concurrent.TimeUnit.NANOSECONDS
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
+import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import org.apache.hadoop.fs.{FileSystem, Path}
-import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.ml.feature.PCA
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
@@ -34,6 +33,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, udf}
 import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo, RunningQualificationEventProcessor}
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types._
 
 // drop the fields that won't go to DataFrame without encoders
@@ -65,79 +65,62 @@ case class TestQualificationSummary(
     unsupportedExprs: String,
     estimatedFrequency: Long)
 
-class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
-
-  private var sparkSession: SparkSession = _
+class QualificationSuite extends BaseTestSuite {
 
   private val expRoot = ToolTestUtils.getTestResourceFile("QualificationExpectations")
   private val logDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
 
   private val csvDetailedFields = Seq(
-    ("App Name", StringType),
-    ("App ID", StringType),
-    ("Recommendation", StringType),
-    ("Estimated GPU Speedup", DoubleType),
-    ("Estimated GPU Duration", DoubleType),
-    ("Estimated GPU Time Saved", DoubleType),
-    ("SQL DF Duration", LongType),
-    ("SQL Dataframe Task Duration", LongType),
-    ("App Duration", LongType),
-    ("GPU Opportunity", LongType),
-    ("Executor CPU Time Percent", DoubleType),
-    ("SQL Ids with Failures", StringType),
-    ("Unsupported Read File Formats and Types", StringType),
-    ("Unsupported Write Data Format", StringType),
-    ("Complex Types", StringType),
-    ("Nested Complex Types", StringType),
-    ("Potential Problems", StringType),
-    ("Longest SQL Duration", LongType),
-    ("NONSQL Task Duration Plus Overhead", LongType),
-    ("Unsupported Task Duration", LongType),
-    ("Supported SQL DF Task Duration", LongType),
-    ("Task Speedup Factor", DoubleType),
-    ("App Duration Estimated", BooleanType),
-    ("Unsupported Execs", StringType),
-    ("Unsupported Expressions", StringType),
-    ("Estimated Job Frequency (monthly)", LongType))
+    (QualOutputWriter.APP_NAME_STR, StringType),
+    (QualOutputWriter.APP_ID_STR, StringType),
+    (QualOutputWriter.SPEEDUP_BUCKET_STR, StringType),
+    (QualOutputWriter.ESTIMATED_GPU_SPEEDUP, DoubleType),
+    (QualOutputWriter.ESTIMATED_GPU_DURATION, DoubleType),
+    (QualOutputWriter.ESTIMATED_GPU_TIMESAVED, DoubleType),
+    (QualOutputWriter.SQL_DUR_STR, LongType),
+    (QualOutputWriter.TASK_DUR_STR, LongType),
+    (QualOutputWriter.APP_DUR_STR, LongType),
+    (QualOutputWriter.GPU_OPPORTUNITY_STR, LongType),
+    (QualOutputWriter.EXEC_CPU_PERCENT_STR, DoubleType),
+    (QualOutputWriter.SQL_IDS_FAILURES_STR, StringType),
+    (QualOutputWriter.READ_FILE_FORMAT_TYPES_STR, StringType),
+    (QualOutputWriter.WRITE_DATA_FORMAT_STR, StringType),
+    (QualOutputWriter.COMPLEX_TYPES_STR, StringType),
+    (QualOutputWriter.NESTED_TYPES_STR, StringType),
+    (QualOutputWriter.POT_PROBLEM_STR, StringType),
+    (QualOutputWriter.LONGEST_SQL_DURATION_STR, LongType),
+    (QualOutputWriter.NONSQL_DUR_STR, LongType),
+    (QualOutputWriter.UNSUPPORTED_TASK_DURATION_STR, LongType),
+    (QualOutputWriter.SUPPORTED_SQL_TASK_DURATION_STR, LongType),
+    (QualOutputWriter.SPEEDUP_FACTOR_STR, DoubleType),
+    (QualOutputWriter.APP_DUR_ESTIMATED_STR, BooleanType),
+    (QualOutputWriter.UNSUPPORTED_EXECS, StringType),
+    (QualOutputWriter.UNSUPPORTED_EXPRS, StringType),
+    (QualOutputWriter.ESTIMATED_FREQUENCY, LongType))
 
   private val csvPerSQLFields = Seq(
-    ("App Name", StringType),
-    ("App ID", StringType),
-    ("SQL ID", StringType),
-    ("SQL Description", StringType),
-    ("SQL DF Duration", LongType),
-    ("GPU Opportunity", LongType),
-    ("Estimated GPU Duration", DoubleType),
-    ("Estimated GPU Speedup", DoubleType),
-    ("Estimated GPU Time Saved", DoubleType),
-    ("Recommendation", StringType))
+    (QualOutputWriter.APP_NAME_STR, StringType),
+    (QualOutputWriter.APP_ID_STR, StringType),
+    (QualOutputWriter.SQL_ID_STR, StringType),
+    (QualOutputWriter.SQL_DESC_STR, StringType),
+    (QualOutputWriter.SQL_DUR_STR, LongType),
+    (QualOutputWriter.GPU_OPPORTUNITY_STR, LongType),
+    (QualOutputWriter.ESTIMATED_GPU_DURATION, DoubleType),
+    (QualOutputWriter.ESTIMATED_GPU_SPEEDUP, DoubleType),
+    (QualOutputWriter.ESTIMATED_GPU_TIMESAVED, DoubleType),
+    (QualOutputWriter.SPEEDUP_BUCKET_STR, StringType))
 
   val schema = new StructType(csvDetailedFields.map(f => StructField(f._1, f._2, true)).toArray)
   val perSQLSchema = new StructType(csvPerSQLFields.map(f => StructField(f._1, f._2, true)).toArray)
 
   def csvDetailedHeader(ind: Int) = csvDetailedFields(ind)._1
 
-  private def createSparkSession(): Unit = {
-    sparkSession = SparkSession
-      .builder()
-      .master("local[*]")
-      .appName("Rapids Spark Profiling Tool Unit Tests")
-      .getOrCreate()
+  def readExpectedFile(expected: File, escape: String = "\\"): DataFrame = {
+    ToolTestUtils.readExpectationCSV(sparkSession, expected.getPath(), Some(schema), escape)
   }
 
-  override protected def beforeEach(): Unit = {
-    TrampolineUtil.cleanupAnyExistingSession()
-    createSparkSession()
-  }
-
-  def readExpectedFile(expected: File): DataFrame = {
-    ToolTestUtils.readExpectationCSV(sparkSession, expected.getPath(),
-      Some(schema))
-  }
-
-  def readPerSqlFile(expected: File): DataFrame = {
-    ToolTestUtils.readExpectationCSV(sparkSession, expected.getPath(),
-      Some(perSQLSchema))
+  def readPerSqlFile(expected: File, escape: String = "\\"): DataFrame = {
+    ToolTestUtils.readExpectationCSV(sparkSession, expected.getPath(), Some(perSQLSchema), escape)
   }
 
   def readPerSqlTextFile(expected: File): Dataset[String] = {
@@ -236,8 +219,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
           // check that there are 6 files since configured for 3 and have 1 csv and 1 log
           // file each
           val outputDirPath = new Path(outputDir)
-          val fs = FileSystem.get(outputDirPath.toUri,
-            sparkSession.sparkContext.hadoopConfiguration)
+          val fs = FileSystem.get(outputDirPath.toUri, RapidsToolsConfUtil.newHadoopConf())
           val allFiles = fs.listStatus(outputDirPath)
           assert(allFiles.size == 6)
           val dfPerSqlActual = readPerSqlFile(new File(csvOutput0))
@@ -474,9 +456,9 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
     val (eventLogInfo, _) = EventLogPathProcessor.processAllPaths(
       appArgs.filterCriteria.toOption, appArgs.matchEventLogs.toOption, appArgs.eventlog(),
-      sparkSession.sparkContext.hadoopConfiguration)
+      RapidsToolsConfUtil.newHadoopConf())
 
-    val appFilter = new AppFilterImpl(1000, sparkSession.sparkContext.hadoopConfiguration,
+    val appFilter = new AppFilterImpl(1000, RapidsToolsConfUtil.newHadoopConf(),
       Some(84000), 2)
     val result = appFilter.filterEventLogs(eventLogInfo, appArgs)
     assert(eventLogInfo.length == 3)
@@ -495,9 +477,9 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
     val (eventLogInfo, _) = EventLogPathProcessor.processAllPaths(
       appArgs.filterCriteria.toOption, appArgs.matchEventLogs.toOption, appArgs.eventlog(),
-      sparkSession.sparkContext.hadoopConfiguration)
+      RapidsToolsConfUtil.newHadoopConf())
 
-    val appFilter = new AppFilterImpl(1000, sparkSession.sparkContext.hadoopConfiguration,
+    val appFilter = new AppFilterImpl(1000, RapidsToolsConfUtil.newHadoopConf(),
       Some(84000), 2)
     val result = appFilter.filterEventLogs(eventLogInfo, appArgs)
     assert(eventLogInfo.length == 3)
@@ -554,7 +536,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     runQualificationTest(logFiles, "db_sim_test_expectation.csv")
   }
 
-  test("test nds q86 with failure test") {
+  runConditionalTest("test nds q86 with failure test",
+    shouldSkipFailedLogsForSpark) {
     val logFiles = Array(s"$logDir/nds_q86_fail_test")
     runQualificationTest(logFiles, "nds_q86_fail_test_expectation.csv",
       expectPerSqlFileName = Some("nds_q86_fail_test_expectation_persql.csv"))
@@ -767,7 +750,8 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
     }
   }
 
-  test("test generate udf different sql ops") {
+  runConditionalTest("test generate udf different sql ops",
+    checkUDFDetectionSupportForSpark) {
     TrampolineUtil.withTempDir { outpath =>
 
       TrampolineUtil.withTempDir { eventLogDir =>
@@ -775,7 +759,6 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         val grpParquet = s"$outpath/grpParquet"
         createDecFile(sparkSession, tmpParquet)
         createIntFile(sparkSession, grpParquet)
-        val sparkVersion = ToolUtils.sparkRuntimeVersion
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "dot") { spark =>
           val plusOne = udf((x: Int) => x + 1)
           import spark.implicits._
@@ -800,12 +783,7 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
         assert(exit == 0)
         assert(appSum.size == 1)
         val probApp = appSum.head
-        if (!ToolUtils.isSpark320OrLater(sparkVersion)) {
-          // The UDF can be detected only for Spark3.1.1
-          // Follow https://issues.apache.org/jira/browse/SPARK-43131 for updates on detecting
-          // UDFs in spark3.2+
-          assert(probApp.potentialProblems.contains("UDF"))
-        }
+        assert(probApp.potentialProblems.contains("UDF"))
         assert(probApp.unsupportedSQLTaskDuration > 0) // only UDF is unsupported in the query.
       }
     }
@@ -964,130 +942,166 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   test("running qualification print unsupported Execs and Exprs") {
-    val qualApp = new RunningQualificationApp()
-    ToolTestUtils.runAndCollect("streaming") { spark =>
-      val listener = qualApp.getEventListener
-      spark.sparkContext.addSparkListener(listener)
-      import spark.implicits._
-      val df1 = spark.sparkContext.parallelize(List(10, 20, 30, 40)).toDF
-      df1.filter(hex($"value") === "A") // hex is not supported in GPU yet.
-    }
-    //stdout output tests
-    val sumOut = qualApp.getSummary()
-    val detailedOut = qualApp.getDetailed()
-    assert(sumOut.nonEmpty)
-    assert(sumOut.startsWith("|") && sumOut.endsWith("|\n"))
-    assert(detailedOut.nonEmpty)
-    assert(detailedOut.startsWith("|") && detailedOut.endsWith("|\n"))
-    val stdOut = sumOut.split("\n")
-    val stdOutHeader = stdOut(0).split("\\|")
-    val stdOutValues = stdOut(1).split("\\|")
-    val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3) // index of unsupportedExecs
-    val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 2) // index of unsupportedExprs
-    val expectedstdOutExecs = "Scan;Filter;SerializeF..."
-    assert(stdOutunsupportedExecs == expectedstdOutExecs)
-    // Exec value is Scan;Filter;SerializeFromObject and UNSUPPORTED_EXECS_MAX_SIZE is 25
-    val expectedStdOutExecsMaxLength = 25
-    // Expr value is hex and length of expr header is 23 (Unsupported Expressions)
-    val expectedStdOutExprsMaxLength = 23
-    assert(stdOutunsupportedExecs.size == expectedStdOutExecsMaxLength)
-    assert(stdOutunsupportedExprs.size == expectedStdOutExprsMaxLength)
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val qualApp = new RunningQualificationApp()
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "streaming") { spark =>
+        val listener = qualApp.getEventListener
+        spark.sparkContext.addSparkListener(listener)
+        import spark.implicits._
+        val df1 = spark.sparkContext.parallelize(List(10, 20, 30, 40)).toDF
+        df1.filter(hex($"value") === "A") // hex is not supported in GPU yet.
+      }
+      //stdout output tests
+      val sumOut = qualApp.getSummary()
+      val detailedOut = qualApp.getDetailed()
+      assert(sumOut.nonEmpty)
+      assert(sumOut.startsWith("|") && sumOut.endsWith("|\n"))
+      assert(detailedOut.nonEmpty)
+      assert(detailedOut.startsWith("|") && detailedOut.endsWith("|\n"))
+      val stdOut = sumOut.split("\n")
+      val stdOutHeader = stdOut(0).split("\\|")
+      val stdOutValues = stdOut(1).split("\\|")
+      // index of unsupportedExecs
+      val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3)
+      // index of unsupportedExprs
+      val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 2)
+      val expectedstdOutExecs = "Scan;Filter;SerializeF..."
+      assert(stdOutunsupportedExecs == expectedstdOutExecs)
+      // Exec value is Scan;Filter;SerializeFromObject and UNSUPPORTED_EXECS_MAX_SIZE is 25
+      val expectedStdOutExecsMaxLength = 25
+      // Expr value is hex and length of expr header is 23 (Unsupported Expressions)
+      val expectedStdOutExprsMaxLength = 23
+      assert(stdOutunsupportedExecs.size == expectedStdOutExecsMaxLength)
+      assert(stdOutunsupportedExprs.size == expectedStdOutExprsMaxLength)
 
-    //csv output tests
-    val csvSumOut = qualApp.getSummary(",", false)
-    val rowsSumOut = csvSumOut.split("\n")
-    val headers = rowsSumOut(0).split(",")
-    val values = rowsSumOut(1).split(",")
-    val expectedExecs = "Scan;Filter;SerializeFromObject" // Unsupported Execs
-    val expectedExprs = "hex" //Unsupported Exprs
-    val unsupportedExecs = values(values.length - 3) // index of unsupportedExecs
-    val unsupportedExprs = values(values.length - 2) // index of unsupportedExprs
-    assert(expectedExecs == unsupportedExecs)
-    assert(expectedExprs == unsupportedExprs)
+      // run the qualification tool
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          eventLog))
+
+        val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        //csv output tests
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults), "\"")
+        val rows = outputActual.collect()
+        assert(rows.size == 1)
+
+        val expectedExecs = "Scan;Filter;SerializeFromObject" // Unsupported Execs
+        val expectedExprs = "hex" //Unsupported Exprs
+        val unsupportedExecs =
+          outputActual.select(QualOutputWriter.UNSUPPORTED_EXECS).first.getString(0)
+        val unsupportedExprs =
+          outputActual.select(QualOutputWriter.UNSUPPORTED_EXPRS).first.getString(0)
+        assert(expectedExecs == unsupportedExecs)
+        assert(expectedExprs == unsupportedExprs)
+      }
+    }
   }
 
   test("running qualification app join") {
-    val qualApp = new RunningQualificationApp()
-    ToolTestUtils.runAndCollect("streaming") { spark =>
-      val listener = qualApp.getEventListener
-      spark.sparkContext.addSparkListener(listener)
-      import spark.implicits._
-      val testData = Seq((1, 2), (3, 4)).toDF("a", "b")
-      testData.createOrReplaceTempView("t1")
-      testData.createOrReplaceTempView("t2")
-      spark.sql("SELECT a, MAX(b) FROM (SELECT t1.a, t2.b " +
-        "FROM t1 JOIN t2 ON t1.a = t2.a) AS t " +
-        "GROUP BY a ORDER BY a")
-    }
-    val sumOut = qualApp.getSummary()
-    val detailedOut = qualApp.getDetailed()
-    assert(sumOut.nonEmpty)
-    assert(sumOut.startsWith("|") && sumOut.endsWith("|\n"))
-    assert(detailedOut.nonEmpty)
-    assert(detailedOut.startsWith("|") && detailedOut.endsWith("|\n"))
-
-    val csvSumOut = qualApp.getSummary(",", false)
-    val rowsSumOut = csvSumOut.split("\n")
-    assert(rowsSumOut.size == 2)
-    val headers = rowsSumOut(0).split(",")
-    val values = rowsSumOut(1).split(",")
-    val appInfo = qualApp.aggregateStats()
-    assert(appInfo.nonEmpty)
-    val appNameMaxSize = QualOutputWriter.getAppNameSize(Seq(appInfo.get))
-    assert(headers.size ==
-      QualOutputWriter.getSummaryHeaderStringsAndSizes(appNameMaxSize, 0).keys.size)
-    assert(values.size == headers.size)
-    // 3 should be the SQL DF Duration
-    assert(headers(3).contains("SQL DF"))
-    assert(values(3).toInt > 0)
-    val csvDetailedOut = qualApp.getDetailed(",", false)
-    val rowsDetailedOut = csvDetailedOut.split("\n")
-    assert(rowsDetailedOut.size == 2)
-    val headersDetailed = rowsDetailedOut(0).split(",")
-    val valuesDetailed = rowsDetailedOut(1).split(",")
-    assert(headersDetailed.size == QualOutputWriter
-      .getDetailedHeaderStringsAndSizes(Seq(qualApp.aggregateStats.get), false).keys.size)
-    assert(headersDetailed.size == csvDetailedFields.size)
-    assert(valuesDetailed.size == csvDetailedFields.size)
-    // check all headers exists
-    for (ind <- 0 until csvDetailedFields.size) {
-      assert(csvDetailedHeader(ind).equals(headersDetailed(ind)))
-    }
-
-    // check that recommendation field is relevant to GPU Speed-up
-    // Note that range-check does not apply for NOT-APPLICABLE
-    val estimatedFieldsIndStart = 2
-    assert(valuesDetailed(estimatedFieldsIndStart + 1).toDouble >= 1.0)
-    if (!valuesDetailed(estimatedFieldsIndStart).equals(QualificationAppInfo.NOT_APPLICABLE)) {
-      if (valuesDetailed(estimatedFieldsIndStart + 1).toDouble >=
-        QualificationAppInfo.LOWER_BOUND_STRONGLY_RECOMMENDED) {
-        assert(
-          valuesDetailed(estimatedFieldsIndStart).equals(QualificationAppInfo.STRONGLY_RECOMMENDED))
-      } else if (valuesDetailed(estimatedFieldsIndStart + 1).toDouble >=
-        QualificationAppInfo.LOWER_BOUND_RECOMMENDED) {
-        assert(valuesDetailed(estimatedFieldsIndStart).equals(QualificationAppInfo.RECOMMENDED))
-      } else {
-        assert(valuesDetailed(estimatedFieldsIndStart).equals(QualificationAppInfo.NOT_RECOMMENDED))
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val qualApp = new RunningQualificationApp()
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "streaming") { spark =>
+        val listener = qualApp.getEventListener
+        spark.sparkContext.addSparkListener(listener)
+        import spark.implicits._
+        val testData = Seq((1, 2), (3, 4)).toDF("a", "b")
+        testData.createOrReplaceTempView("t1")
+        testData.createOrReplaceTempView("t2")
+        spark.sql("SELECT a, MAX(b) FROM (SELECT t1.a, t2.b " +
+          "FROM t1 JOIN t2 ON t1.a = t2.a) AS t " +
+          "GROUP BY a ORDER BY a")
       }
-    }
 
-    // check numeric fields skipping "Estimated Speed-up" on purpose
-    for (ind <- estimatedFieldsIndStart + 2  until csvDetailedFields.size) {
-      if (csvDetailedFields(ind)._1.equals(DoubleType)
-        || csvDetailedFields(ind)._1.equals(LongType)) {
-        val numValue = valuesDetailed(ind).toDouble
-        if (headersDetailed(ind).equals(csvDetailedHeader(19))) {
-          // unsupported task duration can be 0
-          assert(numValue >= 0)
-        } else if (headersDetailed(ind).equals(csvDetailedHeader(10))) {
-          // cpu percentage 0-100
-          assert(numValue >= 0.0 && numValue <= 100.0)
-        } else if (headersDetailed(ind).equals(csvDetailedHeader(6)) ||
-          headersDetailed(ind).equals(csvDetailedHeader(9))) {
-          // "SQL DF Duration" and "GPU Opportunity" cannot be larger than App Duration
-          assert(numValue >= 0 && numValue <= valuesDetailed(8).toDouble)
-        } else {
-          assert(valuesDetailed(ind).toDouble > 0)
+      val sumOut = qualApp.getSummary()
+      val detailedOut = qualApp.getDetailed()
+      assert(sumOut.nonEmpty)
+      assert(sumOut.startsWith("|") && sumOut.endsWith("|\n"))
+      assert(detailedOut.nonEmpty)
+      assert(detailedOut.startsWith("|") && detailedOut.endsWith("|\n"))
+
+      // run the qualification tool
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          eventLog))
+
+        val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults), "\"")
+        val rowsDetailed = outputActual.collect()
+        assert(rowsDetailed.size == 1)
+        val headersDetailed = outputActual.columns
+        val valuesDetailed = rowsDetailed(0)
+        assert(headersDetailed.size == QualOutputWriter
+          .getDetailedHeaderStringsAndSizes(Seq(qualApp.aggregateStats.get), false).keys.size)
+        assert(headersDetailed.size == csvDetailedFields.size)
+        assert(valuesDetailed.size == csvDetailedFields.size)
+        // check all headers exists
+        for (ind <- 0 until csvDetailedFields.size) {
+          assert(csvDetailedHeader(ind).equals(headersDetailed(ind)))
+        }
+
+        // check that recommendation field is relevant to GPU Speed-up
+        // Note that range-check does not apply for NOT-APPLICABLE
+        val speedup =
+          outputActual.select(QualOutputWriter.ESTIMATED_GPU_SPEEDUP).first.getDouble(0)
+        val recommendation =
+          outputActual.select(QualOutputWriter.SPEEDUP_BUCKET_STR).first.getString(0)
+        assert(speedup >= 1.0)
+        if (recommendation != QualificationAppInfo.NOT_APPLICABLE) {
+          if (speedup >= QualificationAppInfo.LOWER_BOUND_STRONGLY_RECOMMENDED) {
+            assert(recommendation == QualificationAppInfo.STRONGLY_RECOMMENDED)
+          } else if (speedup >= QualificationAppInfo.LOWER_BOUND_RECOMMENDED) {
+            assert(recommendation == QualificationAppInfo.RECOMMENDED)
+          } else {
+            assert(recommendation == QualificationAppInfo.NOT_RECOMMENDED)
+          }
+        }
+
+        // check numeric fields skipping "Estimated Speed-up" on purpose
+        val appDur = outputActual.select(QualOutputWriter.APP_DUR_STR).first.getLong(0)
+        for (ind <- 4 until csvDetailedFields.size) {
+          val (header, dt) = csvDetailedFields(ind)
+          val fetched: Option[Double] = dt match {
+            case DoubleType => Some(outputActual.select(header).first.getDouble(0))
+            case LongType => Some(outputActual.select(header).first.getLong(0).doubleValue)
+            case _ => None
+          }
+          if (fetched.isDefined) {
+            val numValue = fetched.get
+            if (header == "Unsupported Task Duration") {
+              // unsupported task duration can be 0
+              assert(numValue >= 0)
+            } else if (header == "Executor CPU Time Percent") {
+              // cpu percentage 0-100
+              assert(numValue >= 0.0 && numValue <= 100.0)
+            } else if (header == QualOutputWriter.GPU_OPPORTUNITY_STR ||
+                        header == QualOutputWriter.SQL_DUR_STR) {
+              // "SQL DF Duration" and "GPU Opportunity" cannot be larger than App Duration
+              assert(numValue >= 0 && numValue <= appDur)
+            } else {
+              assert(numValue > 0)
+            }
+          }
         }
       }
     }
@@ -1386,6 +1400,50 @@ class QualificationSuite extends FunSuite with BeforeAndAfterEach with Logging {
   test("test frequency of repeated job") {
     val logFiles = Array(s"$logDir/empty_eventlog",  s"$logDir/nested_type_eventlog")
     runQualificationTest(logFiles, "multi_run_freq_test_expectation.csv")
+  }
+
+  test("test CSV qual output with escaped characters") {
+    val jobNames = List("test,name",  "\"test\"name\"", "\"", ",", ",\"")
+    jobNames.foreach { jobName =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) =
+          ToolTestUtils.generateEventLog(eventLogDir, jobName) { spark =>
+            import spark.implicits._
+            val testData = Seq((1), (2)).toDF("id")
+            spark.sparkContext.setJobDescription("run job with problematic name")
+            testData.createOrReplaceTempView("t1")
+            spark.sql("SELECT id FROM t1")
+          }
+
+        // run the qualification tool
+        TrampolineUtil.withTempDir { outpath =>
+          val appArgs = new QualificationArgs(Array(
+            "--per-sql",
+            "--output-directory",
+            outpath.getAbsolutePath,
+            eventLog))
+
+          val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+          assert(exit == 0)
+
+          // the code above that runs the Spark query stops the Sparksession
+          // so create a new one to read in the csv file
+          createSparkSession()
+
+          // validate that the SQL description in the csv file escapes commas properly
+          val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+            s"rapids_4_spark_qualification_output.csv"
+          val outputActual = readExpectedFile(new File(outputResults), "\"")
+          assert(outputActual.select(QualOutputWriter.APP_NAME_STR).first.getString(0) == jobName)
+
+          val persqlResults = s"$outpath/rapids_4_spark_qualification_output/" +
+            s"rapids_4_spark_qualification_output_persql.csv"
+          val outputPerSqlActual = readPerSqlFile(new File(persqlResults), "\"")
+          val rows = outputPerSqlActual.collect()
+          assert(rows(1)(0).toString == jobName)
+        }
+      }
+    }
   }
 }
 
