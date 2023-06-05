@@ -165,10 +165,30 @@ class OnPremNode(ClusterNode):
         num_cpus = self.props.get_value('numCores')
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
+    def _get_dataproc_nearest_cpu_cores(self, num_cores):
+        if num_cores == 1:
+            cpu_cores = 1
+        elif num_cores == 2:
+            cpu_cores = 2
+        elif 3 <= num_cores <= 4:
+            cpu_cores = 4
+        elif 5 <= num_cores <= 8:
+            cpu_cores = 8
+        elif 9 <= num_cores <= 16:
+            cpu_cores = 16
+        elif 17 <= num_cores <= 32:
+            cpu_cores = 32
+        elif 33 <= num_cores <= 64:
+            cpu_cores = 64
+        else:
+            cpu_cores = 96
+        return cpu_cores
+
     def _get_instance_type(self, platform_name=None):
         instance_type = None
         if platform_name == 'dataproc':
             cpu_cores = self.props.get_value('numCores')
+            cpu_cores = self._get_dataproc_nearest_cpu_cores(cpu_cores)
             instance_type = 'n1-standard-' + str(cpu_cores)
         return instance_type
 
@@ -225,25 +245,13 @@ class OnPremCluster(ClusterBase):
     def _build_migrated_cluster(self, orig_cluster):
         """
         specific to the platform on how to build a cluster based on migration
-        :param orig_cluster: the cpu_cluster that does not support the GPU devices.
+        :param orig_cluster: the cpu_cluster
         """
         # get the map of the instance types
-        mc_type_map, supported_mc_map = orig_cluster.find_matches_for_node()
+        _, supported_mc_map = orig_cluster.find_matches_for_node()
         new_worker_nodes: list = []
         for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
-            # loop on all worker nodes.
-            # even if the node is the same type, we still need to set the hardware
-            if anode.instance_type not in mc_type_map:
-                # the node stays the same
-                # skip converting the node
-                new_instance_type = anode.instance_type
-                self.logger.info('Node with %s supports GPU devices.',
-                                 anode.instance_type)
-            else:
-                new_instance_type = mc_type_map.get(anode.instance_type)
-                self.logger.info('Converting node %s into GPU supported instance-type %s',
-                                 anode.instance_type,
-                                 new_instance_type)
+            new_instance_type = anode.instance_type
             worker_props = {
                 'instance_type': new_instance_type,
                 'name': anode.name,
@@ -255,13 +263,17 @@ class OnPremCluster(ClusterBase):
                                        gpu_info=gpu_mc_hw.gpu_info,
                                        sys_info=gpu_mc_hw.sys_info)
             new_worker_nodes.append(new_node)
+        master_node = orig_cluster.nodes.get(SparkNodeType.MASTER)
         self.nodes = {
             SparkNodeType.WORKER: new_worker_nodes,
             SparkNodeType.MASTER: orig_cluster.nodes.get(SparkNodeType.MASTER)
         }
-        if bool(mc_type_map):
-            # update the platform notes
-            self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
+        # force filling mc_type_map for on_prem platform.
+        mc_type_map = {
+            'Driver node': master_node.instance_type,
+            'Worker node': new_worker_nodes[0].instance_type
+        }
+        self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
 
     def _set_render_args_create_template(self) -> dict:
         pass
