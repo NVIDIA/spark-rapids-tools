@@ -457,8 +457,7 @@ class Qualification(RapidsJarTool):
                 for mc_src, mc_target in node_conversions.items():
                     conversion_items.append([mc_src, 'to', mc_target])
                 report_content.append(tabulate(conversion_items))
-                report_content.append('To support acceleration with T4 GPUs, switch the worker node '
-                                      'instance types.')
+                report_content.append(self.ctxt.platform.get_footer_message())
         return report_content
 
     def __generate_cluster_shape_report(self) -> str:

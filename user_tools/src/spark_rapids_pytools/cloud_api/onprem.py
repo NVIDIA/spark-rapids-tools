@@ -78,6 +78,9 @@ class OnPremPlatform(PlatformBase):
             self_id = self.type_id
         return CloudPlatform.pretty_print(self_id)
 
+    def get_footer_message(self) -> str:
+        return 'To support acceleration with T4 GPUs, please use these worker node instance types.'
+
     def create_submission_job(self, job_prop, ctxt) -> Any:
         pass
 

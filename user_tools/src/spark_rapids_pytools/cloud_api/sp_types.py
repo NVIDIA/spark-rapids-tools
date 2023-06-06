@@ -859,6 +859,9 @@ class PlatformBase:
         """
         return CloudPlatform.pretty_print(self.type_id)
 
+    def get_footer_message(self) -> str:
+        return 'To support acceleration with T4 GPUs, switch the worker node instance types'
+
 
 @dataclass
 class ClusterBase(ClusterGetAccessor):

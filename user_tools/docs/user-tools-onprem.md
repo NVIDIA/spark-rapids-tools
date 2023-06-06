@@ -1,7 +1,7 @@
 # RAPIDS User Tools on OnPrem platform
 
 This is a guide for the RAPIDS tools for Apache Spark clusters that are provisioned manually (a.k.a onPrem). At the end of this guide, the user will be able to run the RAPIDS tools to analyze the clusters and the applications running OnPrem.
-RAPIDS tools to analyze the clusters and the applications running OnPrem. <Space><Space>
+RAPIDS tools to analyze the clusters and the applications running OnPrem.  
 Additionally, user can see cost savings and speedup recommendations for a comparable cluster on different cloud platforms by providing target_platform. Currently "`dataproc`" platform is supported.
 If the target_platform is not specified, then the qualification recommendation is based on speedup which is the default behavior.
 ## Assumptions
