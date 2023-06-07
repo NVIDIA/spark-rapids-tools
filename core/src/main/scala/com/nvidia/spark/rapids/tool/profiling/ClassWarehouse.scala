@@ -460,8 +460,10 @@ case class JobStageAggTaskMetricsProfileResult(
   }
 
   override def convertToSeq(reformatCSV: Boolean = false): Seq[String] = {
+    val reformatCSVFunc : String => String =
+      if (reformatCSV) str => ToolUtils.reformatCSVString(str) else str => str
     Seq(appIndex.toString,
-      id,
+      reformatCSVFunc(id),
       numTasks.toString,
       durStr,
       diskBytesSpilledSum.toString,
