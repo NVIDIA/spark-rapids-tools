@@ -55,7 +55,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS)
             else:
                 raise RuntimeError(target_platform + ' platform is currently not supported to calculate savings'
-                                   'from OnPrem cluster')
+                                   ' from OnPrem cluster')
 
         wrapper_qual_options = {
             'platformOpts': {
