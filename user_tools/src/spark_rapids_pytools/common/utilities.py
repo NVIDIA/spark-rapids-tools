@@ -338,7 +338,8 @@ class SysCmd:
             if len(std_error_lines) > 0:
                 error_lines = Utils.gen_multiline_str(std_error_lines)
                 stderr_str = f'\n{error_lines}'
-            cmd_err_msg = f'Error invoking CMD <{Utils.gen_joined_str(" ", cmd_args)}>: {stderr_str}'
+            processed_cmd_args = process_credentials_option(cmd_args)
+            cmd_err_msg = f'Error invoking CMD <{Utils.gen_joined_str(" ", processed_cmd_args)}>: {stderr_str}'
             raise RuntimeError(f'{cmd_err_msg}')
 
         self.out_std = c.stdout if isinstance(c.stdout, str) else c.stdout.decode('utf-8', errors='ignore')
