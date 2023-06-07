@@ -49,26 +49,26 @@ The local deployment runs on the local development machine. It requires:
 
 #### Command options
 
-| Option               | Description                                                                                                                                                                                                                                                                      | Default                                                                                                                                              | Required |
-|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|:--------:|
-| **cpu_cluster**      | The Onprem-cluster on which the Apache Spark applications were executed. Accepted value is valid path to the cluster properties file (json format)                                                                                                                               | N/A                                                                                                                                                  |    N     |
-| **eventlogs**        | A comma separated list of urls pointing to event logs in local directory                                                                                                                                                                                                         | Reads the Spark's property `spark.eventLog.dir` defined in `cpu_cluster`.  Note that the wrapper will raise an exception if the property is not set. |    N     |
-| **local_folder**     | Local work-directory path to store the output and to be used as root directory for temporary folders/files. The final output will go into a subdirectory named `qual-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution.                        | If the argument is NONE, the default value is the env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory.        |    N     |
-| **target_platform**  | Cost savings and speedup recommendation for comparable cluster in target_platform based on OnPrem cluster configuration. Currently only `dataproc` is supported for target_platform.If not provided, the final report will be limited to GPU speedups only without cost-savings. | N/A                                                                                                                                                  |    N     |
-| **jvm_heap_size**    | The maximum heap size of the JVM in gigabytes                                                                                                                                                                                                                                    | 24                                                                                                                                                   |    N     |
-| **tools_jar**        | Path to a bundled jar including RAPIDS tool. The path is a local filesystem                                                                                                                                                                                                      | Downloads the latest rapids-tools_*.jar from mvn repo                                                                                                |    N     |
-| **filter_apps**      | Filtering criteria of the applications listed in the final STDOUT table is one of the following (`NONE`, `SPEEDUPS`). "`NONE`" means no filter applied. "`SPEEDUPS`" lists all the apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups.          | `SPEEDUPS`                                                                                                                                           |    N     |
-| **verbose**          | True or False to enable verbosity to the wrapper script                                                                                                                                                                                                                          | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                                                                                    |    N     |
-| **rapids_options**** | A list of valid [Qualification tool options](../../core/docs/spark-qualification-tool.md#qualification-tool-options). Note that (`output-directory`, `platform`) flags are ignored, and that multiple "spark-property" is not supported.                                         | N/A                                                                                                                                                  |    N     |
+| Option               | Description                                                                                                                                                                                                                                                                           | Default                                                                                                                                              | Required |
+|----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|:--------:|
+| **cpu_cluster**      | The on-premises cluster on which the Apache Spark applications were executed. Accepted value is valid path to the cluster properties file (json format)                                                                                                                               | N/A                                                                                                                                                  |    N     |
+| **eventlogs**        | A comma separated list of urls pointing to event logs in local directory                                                                                                                                                                                                              | Reads the Spark's property `spark.eventLog.dir` defined in `cpu_cluster`.  Note that the wrapper will raise an exception if the property is not set. |    N     |
+| **local_folder**     | Local work-directory path to store the output and to be used as root directory for temporary folders/files. The final output will go into a subdirectory named `qual-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution.                             | If the argument is NONE, the default value is the env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory.        |    N     |
+| **target_platform**  | Cost savings and speedup recommendation for comparable cluster in target_platform based on on-premises cluster configuration. Currently only `dataproc` is supported for target_platform.If not provided, the final report will be limited to GPU speedups only without cost-savings. | N/A                                                                                                                                                  |    N     |
+| **jvm_heap_size**    | The maximum heap size of the JVM in gigabytes                                                                                                                                                                                                                                         | 24                                                                                                                                                   |    N     |
+| **tools_jar**        | Path to a bundled jar including RAPIDS tool. The path is a local filesystem                                                                                                                                                                                                           | Downloads the latest rapids-tools_*.jar from mvn repo                                                                                                |    N     |
+| **filter_apps**      | Filtering criteria of the applications listed in the final STDOUT table is one of the following (`NONE`, `SPEEDUPS`). "`NONE`" means no filter applied. "`SPEEDUPS`" lists all the apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups.               | `SPEEDUPS`                                                                                                                                           |    N     |
+| **verbose**          | True or False to enable verbosity to the wrapper script                                                                                                                                                                                                                               | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                                                                                    |    N     |
+| **rapids_options**** | A list of valid [Qualification tool options](../../core/docs/spark-qualification-tool.md#qualification-tool-options). Note that (`output-directory`, `platform`) flags are ignored, and that multiple "spark-property" is not supported.                                              | N/A                                                                                                                                                  |    N     |
 
-### Use case scenario to run qualification tool for OnPrem Cluster 
+### Use case scenario to run qualification tool for on-premises Cluster 
 
 A typical workflow to successfully run the `qualification` command in local mode is described as follows:
 
 1. Store the Apache Spark event logs in local directory.
 2. On a machine with JDK8+ installed:
    1. user installs `spark_rapids_user_tools`
-3. User defines the onprem-cluster on which the Spark application were running. Note that the cluster does not have to be
+3. User defines the on-premises cluster on which the Spark application were running. Note that the cluster does not have to be
    active.
 4. The following script runs qualification tool locally:
 
@@ -129,7 +129,7 @@ The command creates a directory with UUID that contains the following:
     └── qualification_summary.csv
     3 directories, 9 files
     ```
-### Use case scenario to run qualification tool to get savings on cloud platform based on OnPrem cluster config 
+### Use case scenario to run qualification tool to get savings on cloud platform based on on-premises cluster config 
 
 A typical workflow to successfully run the `qualification` command in local mode to get savings for cloud platform
 is described as follows:
@@ -137,11 +137,11 @@ is described as follows:
 1. Store the Apache Spark event logs in local directory.
 2. On a machine with JDK8+ installed:
     1. user installs `spark_rapids_user_tools`
-3. User defines the cluster configuration of OnPrem platform. Template of the required configs is provided below and
+3. User defines the cluster configuration of on-premises platform. Template of the required configs is provided below and
    the file should be in yaml format. 
 4. User specifies the target_platform for which the cost savings and speedup recommendations are required. Currently,
    only `dataproc` platform is supported. We do best match effort based on the number of cores provided in the yaml file
-   for Onprem cluster to the GPU supported cluster. Format of the yaml file is as below:
+   for on-premises cluster to the GPU supported cluster. Format of the yaml file is as below:
    ```
    config:
     masterConfig:
