@@ -69,11 +69,12 @@ object ProfileUtils {
     failureStr.substring(0, Math.min(failureStr.size, 100))
   }
 
-  // if a string contains what we are going to use for a delimiter, replace
-  // it with something else
+  // if a string contains what we are going to use for a delimiter, replace it with something else
+  // unless the delimiter is a comma. In CSV, quoting the string makes the comma safe to use. This
+  // entire function could be removed if the tests that relied on naive split behavior was removed
   def replaceDelimiter(str: String, delimiter: String): String = {
     if (str != null && !delimiter.equals(ProfileOutputWriter.CSVDelimiter) &&
-          str.contains(delimiter)) {
+      str.contains(delimiter)) {
       val replaceWith = if (delimiter.equals(";")) {
         ":"
       } else if (delimiter.equals("|")) {
