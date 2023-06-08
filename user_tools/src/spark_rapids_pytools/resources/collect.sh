@@ -136,5 +136,6 @@ echo "Archive '${TEMP_PATH}_info.tgz' is successfully created!"
 # 1. sudo privilege is required to access log files
 # 2. exclude core files in pattern: *.out or *.out.*
 # 3. exclude 'lastlog' which will block tar command on Dataproc
-cd /var/log && sudo tar --exclude='*.out' --exclude='*.out.*' --exclude='lastlog' --warning=no-file-changed -zcf ${TEMP_PATH}_log.tgz *
+# 4. ignore exit code 1 as it happened if found file changed during read
+cd /var/log && sudo tar --exclude='*.out' --exclude='*.out.*' --exclude='lastlog' --warning=no-file-changed -zcf ${TEMP_PATH}_log.tgz * || [[ $? -eq 1 ]]
 echo "Archive '${TEMP_PATH}_log.tgz' is successfully created!"
