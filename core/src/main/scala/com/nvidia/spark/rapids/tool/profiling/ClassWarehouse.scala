@@ -209,28 +209,28 @@ case class ResourceProfileInfoCase(
     val taskResources: Map[String, TaskResourceRequest])
 
 case class BlockManagerRemovedCase(
-    executorID: String, host: String, port: Int, time: Long)
+    executorId: String, host: String, port: Int, time: Long)
 
 case class BlockManagerRemovedProfileResult(appIndex: Int,
-    executorID: String, time: Long) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "executorID", "time")
+    executorId: String, time: Long) extends ProfileResult {
+  override val outputHeaders = Seq("appIndex", "executorId", "time")
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, executorID, time.toString)
+    Seq(appIndex.toString, executorId, time.toString)
   }
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, StringUtils.reformatCSVString(executorID), time.toString)
+    Seq(appIndex.toString, StringUtils.reformatCSVString(executorId), time.toString)
   }
 }
 
 case class ExecutorsRemovedProfileResult(appIndex: Int,
-    executorID: String, time: Long, reason: String) extends ProfileResult {
+    executorId: String, time: Long, reason: String) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "executorId", "time", "reason")
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, executorID, time.toString, reason)
+    Seq(appIndex.toString, executorId, time.toString, reason)
   }
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, StringUtils.reformatCSVString(executorID), time.toString,
+    Seq(appIndex.toString, StringUtils.reformatCSVString(executorId), time.toString,
       StringUtils.reformatCSVString(reason))
   }
 }
