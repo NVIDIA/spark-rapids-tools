@@ -26,7 +26,7 @@ import sys
 import urllib
 from dataclasses import dataclass, field
 from logging import Logger
-from shutil import which
+from shutil import which, make_archive
 from typing import Callable, Any
 
 import certifi
@@ -134,6 +134,17 @@ class Utils:
         :return: True or False
         """
         return which(tool_name) is not None
+
+    @classmethod
+    def make_archive(cls, base_name, fmt, root_dir) -> None:
+        """
+        check whether a tool is installed on the system.
+        :param base_name: the name of the file to create
+        :param format: the archive format: "zip", "tar", "gztar"
+        :param root_dir: the root directory of the archive
+        :return:
+        """
+        return make_archive(base_name=base_name, format=fmt, root_dir=root_dir)
 
     @classmethod
     def find_full_rapids_tools_env_key(cls, actual_key: str) -> str:
