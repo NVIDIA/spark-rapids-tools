@@ -653,7 +653,6 @@ object QualOutputWriter {
       Math.min(maxSQLDescLength, escapedMetaStr.length))
     // should be a one for one replacement so length wouldn't be affected by this
     replaceDelimiter(sqlDescTruncated, delimiter)
-    // sqlDescTruncated
   }
 
   def constructPerSqlSummaryInfo(

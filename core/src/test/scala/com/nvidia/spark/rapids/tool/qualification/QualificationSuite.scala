@@ -597,8 +597,8 @@ class QualificationSuite extends BaseTestSuite {
 
     val result = testSchemas.map(x => AppBase.parseReadSchemaForNestedTypes(x))
     result.foreach { actualResult =>
-      assert(ToolUtils.formatComplexTypes(actualResult._1) == (expectedResult(index)._1))
-      assert(ToolUtils.formatComplexTypes(actualResult._2) == (expectedResult(index)._2))
+      assert(ToolUtils.formatComplexTypes(actualResult._1).equals(expectedResult(index)._1))
+      assert(ToolUtils.formatComplexTypes(actualResult._2).equals(expectedResult(index)._2))
       index += 1
     }
   }
