@@ -66,7 +66,7 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
         try {
           val headerString = outRows.head.outputHeaders.mkString(ProfileOutputWriter.CSVDelimiter)
           csvWriter.write(headerString + "\n")
-          val rows = outRows.map(_.convertToSeq)
+          val rows = outRows.map(_.convertToCSVSeq)
           rows.foreach { row =>
             val delimiterHandledRow =
               row.map(ProfileUtils.replaceDelimiter(_, ProfileOutputWriter.CSVDelimiter))

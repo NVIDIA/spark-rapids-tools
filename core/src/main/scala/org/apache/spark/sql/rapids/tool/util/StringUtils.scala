@@ -47,4 +47,8 @@ object StringUtils {
       None
     }
   }
+
+  def reformatCSVString(str: String): String = {
+    "\"" + str.replace("\"", "\"\"") + "\""
+  }
 }
