@@ -39,10 +39,6 @@ class DBAzureLocalRapidsJob(RapidsLocalJob):
         eventlogs = self.exec_ctxt.get_value('wrapperCtx', 'eventLogs')
         if eventlogs:
             account_name = self.get_account_name(eventlogs[0])
-
-        if 'key' in self.exec_ctxt.platform.ctxt:
-            key = self.exec_ctxt.platform.ctxt['key']
-        elif eventlogs:
             cmd_args = ['az storage account show-connection-string', '--name', account_name]
             std_out = self.exec_ctxt.platform.cli.run_sys_cmd(cmd_args)
             conn_str = JSONPropertiesContainer(prop_arg=std_out, file_load=False).get_value('connectionString')
