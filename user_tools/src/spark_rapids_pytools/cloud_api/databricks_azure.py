@@ -112,7 +112,7 @@ class DBAzureCMDDriver(CMDDriverBase):
 
     configs: JSONPropertiesContainer = None
     cache_expiration_secs: int = field(default=604800, init=False)  # update the file once a week
-    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.databricks.azure'), init=False)
+    # logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.databricks.azure'), init=False)
 
     def _list_inconsistent_configurations(self) -> list:
         incorrect_envs = super()._list_inconsistent_configurations()

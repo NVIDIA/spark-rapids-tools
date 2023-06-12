@@ -28,23 +28,36 @@ class DBAzureLocalRapidsJob(RapidsLocalJob):
     job_label = 'DBAzureLocal'
 
     @classmethod
-    def get_account_name(cls, url: str):
-        return url.split('@')[1].split('.')[0]
+    def get_account_name(cls, eventlogs: list):
+        if not eventlogs:
+            return ''
+        for path in eventlogs:
+            if path.startswith('abfss://'):
+                # assume all eventlogs are under the same storage account
+                return path.split('@')[1].split('.')[0]
+        return ''
 
     def _build_jvm_args(self):
         vm_args = super()._build_jvm_args()
-        key = ''
-        account_name = ''
 
         eventlogs = self.exec_ctxt.get_value('wrapperCtx', 'eventLogs')
-        if eventlogs:
-            account_name = self.get_account_name(eventlogs[0])
+        if not eventlogs:
+            self.logger.info("No event logs found at this stage!")
+
+        key = ''
+        account_name = self.get_account_name(eventlogs)
+
+        if account_name:
             cmd_args = ['az storage account show-connection-string', '--name', account_name]
             std_out = self.exec_ctxt.platform.cli.run_sys_cmd(cmd_args)
             conn_str = JSONPropertiesContainer(prop_arg=std_out, file_load=False).get_value('connectionString')
-            key = conn_str.split('AccountKey=')[1].split(';')[0]
+            try:
+                key = conn_str.split('AccountKey=')[1].split(';')[0]
+            except:
+                self.logger.info(f"Error retrieving access key for storage account {account_name}")
+                key = ''
 
-        if key and account_name:
+        if key:
             vm_args.append(f'-Drapids.tools.hadoop.fs.azure.account.key.{account_name}.dfs.core.windows.net={key}')
 
         return vm_args
