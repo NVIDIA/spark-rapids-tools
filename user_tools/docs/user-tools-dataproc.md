@@ -401,7 +401,7 @@ Run diagnostic command to collects information from Dataproc cluster, such as OS
 nodes, Yarn configuration, Spark version and error logs etc. The cluster has to be running and the
 user must have SSH access.
 
-### diagnostic options
+### Diagnostic options
 
 | Option            | Description                                                               | Default                                                                                     | Required |
 |-------------------|---------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|:--------:|
@@ -424,5 +424,4 @@ The steps to run the command:
       --cluster my-cluster-name
     ```
 
-If the connection to Dataproc instances cannot be established through SSH, the command will still
-raise error.
+If the connection to Dataproc instances cannot be established through SSH, the command will raise error.
