@@ -15,56 +15,47 @@
 
 from unittest.mock import patch, Mock
 
-import json
 import re
-import yaml
-from cli_test_helpers import ArgvContext  # pylint: disable=import-error
+import os
+import tempfile
+import pytest  # pylint: disable=import-error
+from cli_test_helpers import ArgvContext, EnvironContext  # pylint: disable=import-error
 
+from mock_cluster import mock_live_cluster
 from spark_rapids_pytools import wrapper
 
 
 @patch('spark_rapids_pytools.common.utilities.SysCmd.build')
-def test_info_collect(build_mock, capsys):
+@pytest.mark.parametrize('cloud', ['dataproc', 'emr'])
+def test_info_collect(build_mock, cloud, capsys):
     """Test diagnostic function about info collection."""
-
-    cluster_info = None
-
-    with open('tests/resources/dataproc-test-gpu-cluster.yaml', 'r', encoding='utf-8') as yaml_file:
-        static_properties = yaml.safe_load(yaml_file)
-        cluster_info = json.dumps(static_properties)
-
-    node_info = json.dumps({
-        'guestCpus': 32,
-        'memoryMb': 212992,
-    })
-
-    gpu_info = json.dumps({'description': 'NVIDIA T4'})
-
-    # Mock return values for connect to a live cluster
-    return_values = [
-        'us-central1',          # gcloud config get compute/region
-        'us-central1-a',        # gcloud config get compute/zone
-        'dataproc-project-id',  # gcloud config get core/project
-        cluster_info,
-        node_info,
-        gpu_info,
-        node_info,
-        gpu_info,
-        node_info,
-    ]
+    return_values = mock_live_cluster[cloud]
 
     # Mock return values for info collection
-    return_values += ['done'] * 9
+    return_values += ['done'] * 6
 
     mock = Mock()
     mock.exec = Mock(side_effect=return_values)
     build_mock.return_value = mock
 
-    with ArgvContext('spark_rapids_user_tools', 'dataproc', 'diagnostic', 'dataproc-test-gpu-cluster',
-                     '--output-folder', '/tmp'):
-        wrapper.main()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        key_file = os.path.join(tmpdir, 'test.pem')
 
-    assert len(build_mock.call_args_list) == 18
+        if cloud == 'emr':
+            # create empty ssh key file for EMR test
+            with open(key_file, 'a', encoding='utf8') as file:
+                file.close()
+
+        with EnvironContext(RAPIDS_USER_TOOLS_KEY_PAIR_PATH=key_file):
+            with ArgvContext('spark_rapids_user_tools', cloud, 'diagnostic', 'test-cluster',
+                             '--output-folder', tmpdir, '--verbose'):
+                wrapper.main()
+
+    if cloud == 'dataproc':
+        assert len(build_mock.call_args_list) == 13
+
+    elif cloud == 'emr':
+        assert len(build_mock.call_args_list) == 12
 
     _, stderr = capsys.readouterr()
-    assert re.match(r".*Archive '/tmp/diag_.*\.tar' is successfully created\..*", stderr, re.DOTALL)
+    assert re.match(r".*Archive '/tmp/.*/diag_.*\.tar' is successfully created\..*", stderr, re.DOTALL)
