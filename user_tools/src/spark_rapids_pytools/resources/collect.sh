@@ -52,7 +52,7 @@ if command -v lshw ; then
     lshw -C network >> $OUTPUT_NODE_INFO
 else
     # Downgrade to 'lspci' on EMR as it's not installed by default
-    lspci | grep 'Ethernet controller' >> $OUTPUT_NODE_INFO
+    /usr/sbin/lspci | grep 'Ethernet controller' >> $OUTPUT_NODE_INFO
 fi
 
 echo "" >> $OUTPUT_NODE_INFO
@@ -65,7 +65,7 @@ if command -v lshw ; then
     lshw -C display >> $OUTPUT_NODE_INFO
 else
     # Downgrade to 'lspci' on EMR as it's not installed by default
-    lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
+    /usr/sbin/lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
 fi
 
 echo "" >> $OUTPUT_NODE_INFO
