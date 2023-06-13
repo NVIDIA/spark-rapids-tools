@@ -404,12 +404,16 @@ class CMDDriverBase:
                     cmd_input: str = None,
                     fail_ok: bool = False,
                     env_vars: dict = None) -> str:
+
         def process_credentials_option(cmd: list):
-            for idx, item in enumerate(cmd):
-                if 'fs.azure.account.key' in item:
-                    cmd[idx] = item.split('=')[0] + '=MY_ACCESS_KEY'
-                    break
-            return cmd
+            res = []
+            for i, arg in enumerate(cmd):
+                if 'account-key' in cmd[i - 1]:
+                    arg = 'MY_ACCESS_KEY'
+                elif 'fs.azure.account.key' in arg:
+                    arg = arg.split('=')[0] + '=MY_ACCESS_KEY'
+                res.append(arg)
+            return res
 
         def process_streams(std_out, std_err):
             if ToolLogging.is_debug_mode_enabled():
@@ -941,7 +945,7 @@ class ClusterBase(ClusterGetAccessor):
     def get_eventlogs_from_config(self) -> List[str]:
         res_arr = []
         spark_props = self.get_all_spark_properties()
-        if 'spark.eventLog.dir' in spark_props:
+        if spark_props and 'spark.eventLog.dir' in spark_props:
             res_arr.append(spark_props.get('spark.eventLog.dir'))
         return res_arr
 

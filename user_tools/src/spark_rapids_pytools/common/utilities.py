@@ -293,8 +293,10 @@ class SysCmd:
     def exec(self) -> str:
         def process_credentials_option(cmd: list):
             res = []
-            for arg in cmd:
-                if 'fs.azure.account.key' in arg:
+            for i, arg in enumerate(cmd):
+                if 'account-key' in cmd[i - 1]:
+                    arg = 'MY_ACCESS_KEY'
+                elif 'fs.azure.account.key' in arg:
                     arg = arg.split('=')[0] + '=MY_ACCESS_KEY'
                 res.append(arg)
             return res

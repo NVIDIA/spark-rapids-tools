@@ -42,19 +42,19 @@ class DBAzureLocalRapidsJob(RapidsLocalJob):
 
         eventlogs = self.exec_ctxt.get_value('wrapperCtx', 'eventLogs')
         if not eventlogs:
-            self.logger.info("No event logs found at this stage!")
+            self.logger.info('No event logs found!')
 
         key = ''
         account_name = self.get_account_name(eventlogs)
 
         if account_name:
-            cmd_args = ['az storage account show-connection-string', '--name', account_name]
-            std_out = self.exec_ctxt.platform.cli.run_sys_cmd(cmd_args)
-            conn_str = JSONPropertiesContainer(prop_arg=std_out, file_load=False).get_value('connectionString')
             try:
+                cmd_args = ['az storage account show-connection-string', '--name', account_name]
+                std_out = self.exec_ctxt.platform.cli.run_sys_cmd(cmd_args)
+                conn_str = JSONPropertiesContainer(prop_arg=std_out, file_load=False).get_value('connectionString')
                 key = conn_str.split('AccountKey=')[1].split(';')[0]
-            except:
-                self.logger.info(f"Error retrieving access key for storage account {account_name}")
+            except Exception as ex:  # pylint: disable=broad-except
+                self.logger.info('Error retrieving access key for storage account %s: %s', account_name, ex)
                 key = ''
 
         if key:

@@ -18,7 +18,6 @@ import datetime
 import json
 import os
 from dataclasses import dataclass, field
-from logging import Logger
 from typing import Any, List
 
 from spark_rapids_pytools.cloud_api.azurestorage import AzureStorageDriver
@@ -27,7 +26,7 @@ from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase
     PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType, ClusterGetAccessor, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import ToolLogging, Utils
+from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.databricks_azure_pricing import DatabricksAzurePriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 

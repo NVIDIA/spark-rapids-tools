@@ -14,11 +14,13 @@
 
 """Implementation of Azure Data Lake Storage with ABFS (Azure Blob File System) related functionalities."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from logging import Logger
 
 from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
+from spark_rapids_pytools.common.utilities import ToolLogging
 
 
 @dataclass
@@ -27,6 +29,8 @@ class AzureStorageDriver(StorageDriver):
     Wrapper around azure commands such as copying/moving/listing files.
     """
     cli: CMDDriverBase
+    account_keys: dict = field(default_factory=dict, init=False)
+    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.azurestoragedriver'), init=False)
 
     @classmethod
     def get_cmd_prefix(cls):
@@ -45,6 +49,22 @@ class AzureStorageDriver(StorageDriver):
     def get_path(cls, url: str):
         return url.split('dfs.core.windows.net')[1]
 
+    def get_account_key(self, account_name: str):
+        if account_name in self.account_keys:
+            return self.account_keys[account_name]
+
+        try:
+            cmd_args = ['az storage account show-connection-string', '--name', account_name]
+            std_out = self.cli.run_sys_cmd(cmd_args)
+            conn_str = JSONPropertiesContainer(prop_arg=std_out, file_load=False).get_value('connectionString')
+            key = conn_str.split('AccountKey=')[1].split(';')[0]
+            self.account_keys[account_name] = key
+        except Exception as ex:  # pylint: disable=broad-except
+            self.logger.info('Error retrieving access key for storage account %s: %s', account_name, ex)
+            key = ''
+
+        return key
+
     def resource_is_dir(self, src: str) -> bool:
         if not src.startswith('abfss://'):
             return super().resource_is_dir(src)
@@ -61,9 +81,8 @@ class AzureStorageDriver(StorageDriver):
 
             std_out = self.cli.run_sys_cmd(cmd_args)
             stdout_info = JSONPropertiesContainer(prop_arg=std_out, file_load=False)
-            # if path[0] == '/':
-            #     path = path[1:]
             path = path.lstrip('/')
+
             if not (len(stdout_info.props) == 1 and stdout_info.props[0]['name'] == path):  # not a file
                 return True
         except RuntimeError:
@@ -84,6 +103,10 @@ class AzureStorageDriver(StorageDriver):
             cmd_args.extend(['file list', '-f', file_system, '--account-name', account_name])
             if path:
                 cmd_args.extend(['--path', path])
+
+            account_key = self.get_account_key(account_name)
+            if account_key:
+                cmd_args.extend(['--account-key', account_key])
 
             self.cli.run_sys_cmd(cmd_args)
             res = True
@@ -106,6 +129,11 @@ class AzureStorageDriver(StorageDriver):
         else:
             cmd_args.extend(['file download', '-f', file_system, '--account-name', account_name])
             cmd_args.extend(['-p', path, '-d', dest])
+
+        account_key = self.get_account_key(account_name)
+        if account_key:
+            cmd_args.extend(['--account-key', account_key])
+
         self.cli.run_sys_cmd(cmd_args)
         return FSUtil.build_full_path(dest, FSUtil.get_resource_name(src))
 
@@ -129,13 +157,17 @@ class AzureStorageDriver(StorageDriver):
                 dest_path = dest_path.split(src_resource_name)[0].rstrip('/')
             cmd_args.extend(['directory upload', '-f', file_system, '--account-name', account_name])
             cmd_args.extend(['-s', src, '-d', dest_path, '--recursive'])
-        else: # source is a file
+        else:  # source is a file
             cmd_args.extend(['file upload', '-f', file_system, '--account-name', account_name])
             # dest is a directory, we will append the source resource name to it
             if self.resource_is_dir(dest):
                 dest_path = dest_path if dest_path[-1] == '/' else dest_path + '/'
                 dest_path = dest_path + src_resource_name
             cmd_args.extend(['-s', src, '-p', dest_path])
+
+        account_key = self.get_account_key(account_name)
+        if account_key:
+            cmd_args.extend(['--account-key', account_key])
 
         self.cli.run_sys_cmd(cmd_args)
         return FSUtil.build_path(dest, FSUtil.get_resource_name(src))
@@ -162,5 +194,9 @@ class AzureStorageDriver(StorageDriver):
         else:
             cmd_args.extend(['file delete', '-f', file_system, '--account-name', account_name])
             cmd_args.extend(['-p', path, '-y'])
+
+        account_key = self.get_account_key(account_name)
+        if account_key:
+            cmd_args.extend(['--account-key', account_key])
 
         self.cli.run_sys_cmd(cmd_args)
