@@ -79,6 +79,10 @@ class AzureStorageDriver(StorageDriver):
             if path:
                 cmd_args.extend(['--path', path])
 
+            account_key = self.get_account_key(account_name)
+            if account_key:
+                cmd_args.extend(['--account-key', account_key])
+
             std_out = self.cli.run_sys_cmd(cmd_args)
             stdout_info = JSONPropertiesContainer(prop_arg=std_out, file_load=False)
             path = path.lstrip('/')
