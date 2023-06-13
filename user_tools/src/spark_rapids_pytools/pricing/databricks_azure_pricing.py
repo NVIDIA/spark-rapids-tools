@@ -72,8 +72,15 @@ class DatabricksAzurePriceProvider(PriceProvider):
         pass
 
     def get_instance_price(self, instance, compute_type: str = 'Jobs Compute') -> float:
-        job_type_conf = self.catalogs[self.plan].get_value(compute_type)
-        instance_name = instance.split('Standard_')[1] if instance.startswith('Standard_') else instance
-        instance_conf = job_type_conf.get('Instances').get(instance_name)
-        rate_per_hour = instance_conf.get('TotalPricePerHour')
-        return rate_per_hour
+        try:
+            job_type_conf = self.catalogs[self.plan].get_value(compute_type)
+            instance_name = instance.split('Standard_')[1] if instance.startswith('Standard_') else instance
+            instance_conf = job_type_conf.get('Instances').get(instance_name)
+            rate_per_hour = instance_conf.get('TotalPricePerHour')
+            if rate_per_hour < 0:
+                self.logger.info('The rate per hour for instance %s is not available online, '
+                                 'will replace with -1.0', instance)
+            return rate_per_hour
+        except Exception as ex:  # pylint: disable=broad-except
+            self.logger.info('Encountered exception when retrieving price for instance %s: %s', instance, ex)
+            return -1.0
