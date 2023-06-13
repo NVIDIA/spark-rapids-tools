@@ -48,7 +48,7 @@ def test_info_collect(build_mock, cloud, capsys):
 
         with EnvironContext(RAPIDS_USER_TOOLS_KEY_PAIR_PATH=key_file):
             with ArgvContext('spark_rapids_user_tools', cloud, 'diagnostic', 'test-cluster',
-                             '--output-folder', tmpdir, '--verbose'):
+                             '--output_folder', tmpdir, '--verbose'):
                 wrapper.main()
 
     if cloud == 'dataproc':
