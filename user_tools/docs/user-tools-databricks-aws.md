@@ -9,7 +9,7 @@ The tool currently only supports event logs stored on S3 (no DBFS paths). The re
 ## Prerequisites
 
 ### 1.Databricks CLI
-- Install the Databricks CLI. Follow the instructions on [Databricks CLI setup & documentation](https://docs.databricks.com/dev-tools/cli/index.html).
+- Install the Databricks CLI. Follow the instructions on [Install the CLI](https://docs.databricks.com/dev-tools/cli/index.html#install-the-cli).
 - Set the configuration settings and credentials of the Databricks CLI:
   - Set up authentication by following these [instructions](https://docs.databricks.com/dev-tools/cli/index.html#set-up-authentication)
   - Test the authentication setup by following these [instructions](https://docs.databricks.com/dev-tools/cli/index.html#test-your-authentication-setup)
