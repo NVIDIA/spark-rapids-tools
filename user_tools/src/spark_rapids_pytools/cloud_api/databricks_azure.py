@@ -295,7 +295,7 @@ class DatabricksAzureCluster(ClusterBase):
         return cluster_args
 
     def get_all_spark_properties(self) -> dict:
-        return self.props.get_value('spark_conf')
+        return self.props.get_value_silent('spark_conf')
 
     def _build_migrated_cluster(self, orig_cluster):
         """

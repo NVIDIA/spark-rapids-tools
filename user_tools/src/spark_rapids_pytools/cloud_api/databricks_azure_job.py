@@ -42,7 +42,7 @@ class DBAzureLocalRapidsJob(RapidsLocalJob):
 
         eventlogs = self.exec_ctxt.get_value('wrapperCtx', 'eventLogs')
         if not eventlogs:
-            self.logger.info('No event logs found!')
+            self.logger.info('The list of Apache Spark event logs is empty.')
 
         key = ''
         account_name = self.get_account_name(eventlogs)
