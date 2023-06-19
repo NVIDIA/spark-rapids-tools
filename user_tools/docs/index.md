@@ -47,6 +47,14 @@ information.
 For more details, please visit the
 [Profiling Tool on GitHub pages](https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html).
 
+### Diagnostic
+
+Collect proper information from Spark cluster and save to an archive for troubleshooting, such as OS version,
+number of worker nodes, Yarn configuration, Spark version and error logs etc.
+
+Note that the command would require `SSH` access on the cluster nodes to collect information otherwise error would
+be raised.
+
 ## Deploy modes
 
 The wrapper has the following deployment modes:
@@ -96,6 +104,13 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | cluster     | spark_rapids_user_tools \               |  23.02+  |
 |                  |               |             |   emr bootstrap [ARGS]                  |          |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | diagnostic    | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     | spark_rapids_user_tools \               |  23.06+  |
+|                  |               |             |   emr diagnostic [ARGS]                 |          |
 +------------------+---------------+-------------+-----------------------------------------+----------+
 | Dataproc         | qualification | local       | spark_rapids_user_tools \               | 23.02.1+ |
 |                  |               |             |   dataproc qualification [ARGS]         |          |
@@ -120,6 +135,13 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | cluster     | spark_rapids_dataproc \                 | 22.10.1+ |
 |                  |               |             |   bootstrap [ARGS]                      |          |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | diagnostic    | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     | spark_rapids_user_tools \               |  23.06+  |
+|                  |               |             |   dataproc diagnostic [ARGS]            |          |
 +------------------+---------------+-------------+-----------------------------------------+----------+
 | Databricks_AWS   | qualification | local       | spark_rapids_user_tools \               |  23.04+  |
 |                  |               |             |   databricks_aws qualification [ARGS]   |          |
@@ -135,6 +157,12 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               | cluster     |           unsupported                   |    N/A   |
 |                  +---------------+-------------+-----------------------------------------+----------+
 |                  | bootstrap     | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | diagnostic    | local       |           unsupported                   |    N/A   |
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | serverless  |           unsupported                   |    N/A   |
 |                  |               +-------------+-----------------------------------------+----------+
@@ -158,6 +186,12 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               | serverless  |           unsupported                   |    N/A   |
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | diagnostic    | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
 +------------------+---------------+-------------+-----------------------------------------+----------+
 | OnPrem           | qualification | local       | spark_rapids_user_tools \               |  23.06+  |
 |                  |               |             |   onprem qualification [ARGS]           |          |
@@ -173,6 +207,12 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               | cluster     |           unsupported                   |    N/A   |
 |                  +---------------+-------------+-----------------------------------------+----------+
 |                  | bootstrap     | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | diagnostic    | local       |           unsupported                   |    N/A   |
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | serverless  |           unsupported                   |    N/A   |
 |                  |               +-------------+-----------------------------------------+----------+
