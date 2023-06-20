@@ -4,7 +4,7 @@ This is a guide for the RAPIDS tools for Apache Spark on [Databricks Azure](http
 
 ## Assumptions
 
-The tool currently only supports event logs stored on ABFS ([Azure Blob File System](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri)). The remote output storage is also expected to be ABFS.
+The tool currently only supports event logs stored on ABFS ([Azure Blob File System](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri)). The remote output storage is also expected to be ABFS (no DBFS paths).
 
 ## Prerequisites
 
@@ -14,12 +14,15 @@ The tool currently only supports event logs stored on ABFS ([Azure Blob File Sys
 - Set the configuration settings and credentials of the Databricks CLI:
   - Set up authentication using a Databricks personal access token by following these [instructions](https://docs.databricks.com/dev-tools/cli/index.html#set-up-authentication-using-a-databricks-personal-access-token)
   - Test the authentication setup by following these [instructions](https://docs.databricks.com/dev-tools/cli/index.html#test-your-authentication-setup)
-  - Verify that the access credentials are stored in the file `~/.databrickscfg` on Unix, Linux, or macOS, or in another file defined by 
-    environment variable `DATABRICKS_CONFIG_FILE`.
+  - Verify that the access credentials are stored in the file `~/.databrickscfg` on Unix, Linux, or macOS, or in another file defined by environment variable `DATABRICKS_CONFIG_FILE`.
 
 ### 2.Azure CLI
 
-- TODO
+- Install the Azure CLI. Follow the instructions on [How to install the Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli).
+- Set the configuration settings and credentials of the Azure CLI:
+  - Set up the authentication by following these [instructions](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli).
+  - Configure the Azure CLI by following these [instructions](https://learn.microsoft.com/en-us/cli/azure/azure-cli-configuration).
+    - Location is used for retreving instance type description (default is `westus`).
 
 ### 3.RAPIDS tools
 
