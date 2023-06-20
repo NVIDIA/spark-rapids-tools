@@ -134,13 +134,13 @@ class TestInfoCollect:
         mock.exec = mock_exec
         build_mock.return_value = mock
 
-        self.run_tool(cloud, expected_exception=SystemExit)
+        self.run_tool(cloud, ['--thread_num', '1', '--verbose'], expected_exception=SystemExit)
 
         if cloud == 'dataproc':
-            assert len(build_mock.call_args_list) == 9
+            assert len(build_mock.call_args_list) == 8
 
         elif cloud == 'emr':
-            assert len(build_mock.call_args_list) == 8
+            assert len(build_mock.call_args_list) == 7
 
         _, stderr = capsys.readouterr()
 
@@ -166,7 +166,7 @@ class TestInfoCollect:
         mock.exec = mock_exec
         build_mock.return_value = mock
 
-        self.run_tool(cloud, expected_exception=SystemExit)
+        self.run_tool(cloud, ['--thread_num', '1', '--verbose'], expected_exception=SystemExit)
 
         if cloud == 'dataproc':
             assert len(build_mock.call_args_list) == 13
