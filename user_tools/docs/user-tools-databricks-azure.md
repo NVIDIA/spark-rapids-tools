@@ -48,7 +48,7 @@ Before running any command, you can set environment variables to specify configu
   - `RAPIDS_USER_TOOLS_CACHE_FOLDER`: specifies the location of a local directory that the RAPIDS-cli uses to store and cache the downloaded resources. The default is `/var/tmp/spark_rapids_user_tools_cache`.  Note that caching the resources locally has an impact on the total execution time of the command.
   - `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY`: specifies the location of a local directory that the RAPIDS-cli uses to generate the output. The wrapper CLI arguments override that environment variable (`--local_folder` for Qualification).
 - For Databricks CLI, some environment variables can be set and picked by the RAPIDS-user tools such as: `DATABRICKS_CONFIG_FILE`, `DATABRICKS_HOST` and `DATABRICKS_TOKEN`. See the description of the variables in [Environment variables](https://docs.databricks.com/dev-tools/auth.html#environment-variables).
-- For Azure CLI, TODO
+- For Azure CLI, some environment variables can be set and picked by the RAPIDS-user tools such as: `AZURE_CONFIG_FILE` and `AZURE_DEFAULTS_LOCATION`.
 
 ## Qualification command
 
