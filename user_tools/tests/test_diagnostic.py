@@ -137,10 +137,10 @@ class TestInfoCollect:
         self.run_tool(cloud, expected_exception=SystemExit)
 
         if cloud == 'dataproc':
-            assert len(build_mock.call_args_list) == 8
+            assert len(build_mock.call_args_list) == 9
 
         elif cloud == 'emr':
-            assert len(build_mock.call_args_list) == 7
+            assert len(build_mock.call_args_list) == 8
 
         _, stderr = capsys.readouterr()
 
