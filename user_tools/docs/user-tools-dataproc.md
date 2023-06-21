@@ -408,6 +408,7 @@ user must have SSH access.
 | **cluster**       | Name of the Dataproc cluster running an accelerated computing instance    | N/A                                                                                         |     Y    |
 | **output_folder** | Path to local directory where the final recommendations is logged         | env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. |     N    |
 | **thread_num**    | Number of threads to access remote cluster nodes in parallel              | 3                                                                                           |     N    |
+| **yes**           | auto confirm to interactive question                                      | False                                                                                       |     N    |
 | **verbose**       | True or False to enable verbosity to the wrapper script                   | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                           |     N    |
 
 ### Info collection
