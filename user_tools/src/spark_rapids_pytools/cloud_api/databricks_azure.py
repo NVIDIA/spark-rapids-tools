@@ -189,10 +189,9 @@ class DBAzureCMDDriver(CMDDriverBase):
         raise NotImplementedError
 
     def get_region(self) -> str:
-        try:
+        if self.env_vars.get('location'):
             return self.env_vars.get('location')
-        except RuntimeError:
-            return self.env_vars.get('region')
+        return self.env_vars.get('region')
 
 
 @dataclass
