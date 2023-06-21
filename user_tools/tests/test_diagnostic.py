@@ -29,7 +29,7 @@ from spark_rapids_pytools import wrapper
 class TestInfoCollect:
     """Test info collect functions."""
 
-    def run_tool(self, cloud, args=['--verbose'], expected_exception=None):  # pylint: disable=dangerous-default-value
+    def run_tool(self, cloud, args=['--yes', '--verbose'], expected_exception=None):  # pylint: disable=dangerous-default-value
         with tempfile.TemporaryDirectory() as tmpdir:
             key_file = os.path.join(tmpdir, 'test.pem')
 
@@ -80,7 +80,7 @@ class TestInfoCollect:
         mock.exec = Mock(side_effect=return_values)
         build_mock.return_value = mock
 
-        self.run_tool(cloud, ['--thread_num', '7', '--verbose'])
+        self.run_tool(cloud, ['--thread_num', '7', '--yes', '--verbose'])
 
         if cloud == 'dataproc':
             assert len(build_mock.call_args_list) == 13
@@ -105,7 +105,7 @@ class TestInfoCollect:
         mock.exec = Mock(side_effect=return_values)
         build_mock.return_value = mock
 
-        self.run_tool(cloud, ['--thread_num', thread_num, '--verbose'], SystemExit)
+        self.run_tool(cloud, ['--thread_num', thread_num, '--yes', '--verbose'], SystemExit)
 
         if cloud == 'dataproc':
             assert len(build_mock.call_args_list) == 7
@@ -134,7 +134,7 @@ class TestInfoCollect:
         mock.exec = mock_exec
         build_mock.return_value = mock
 
-        self.run_tool(cloud, ['--thread_num', '1', '--verbose'], expected_exception=SystemExit)
+        self.run_tool(cloud, ['--thread_num', '1', '--yes', '--verbose'], expected_exception=SystemExit)
 
         if cloud == 'dataproc':
             assert len(build_mock.call_args_list) >= 8
@@ -166,7 +166,33 @@ class TestInfoCollect:
         mock.exec = mock_exec
         build_mock.return_value = mock
 
-        self.run_tool(cloud, ['--thread_num', '1', '--verbose'], expected_exception=SystemExit)
+        self.run_tool(cloud, ['--thread_num', '1', '--yes', '--verbose'], expected_exception=SystemExit)
+
+        if cloud == 'dataproc':
+            assert len(build_mock.call_args_list) >= 12
+
+        elif cloud == 'emr':
+            assert len(build_mock.call_args_list) >= 11
+
+        _, stderr = capsys.readouterr()
+
+        assert 'Error while downloading collected info from node' in stderr
+        assert 'Raised an error in phase [Collecting-Results]' in stderr
+
+    @patch('spark_rapids_pytools.common.utilities.SysCmd.build')
+    @pytest.mark.parametrize('user_input', ['yes', 'YES', 'Yes', 'y', 'Y'])
+    def test_auto_confirm(self, build_mock, cloud, user_input, capsys):
+        return_values = mock_live_cluster[cloud].copy()
+
+        # Mock return values for info collection
+        return_values += ['done'] * 6
+
+        mock = Mock()
+        mock.exec = Mock(side_effect=return_values)
+        build_mock.return_value = mock
+
+        with patch('builtins.input', return_value=user_input):
+            self.run_tool(cloud, ['--verbose'])
 
         if cloud == 'dataproc':
             assert len(build_mock.call_args_list) == 13
@@ -175,6 +201,27 @@ class TestInfoCollect:
             assert len(build_mock.call_args_list) == 12
 
         _, stderr = capsys.readouterr()
+        assert re.match(r".*Archive '/tmp/.*/diag_.*\.tar' is successfully created\..*", stderr, re.DOTALL)
 
-        assert 'Error while downloading collected info from node' in stderr
-        assert 'Raised an error in phase [Collecting-Results]' in stderr
+    @patch('spark_rapids_pytools.common.utilities.SysCmd.build')
+    @pytest.mark.parametrize('user_input', ['', 'n', 'no', 'NO', 'nO'])
+    def test_cancel_confirm(self, build_mock, cloud, user_input, capsys):
+        return_values = mock_live_cluster[cloud].copy()
+
+        mock = Mock()
+        mock.exec = Mock(side_effect=return_values)
+        build_mock.return_value = mock
+
+        with patch('builtins.input', return_value=user_input):
+            self.run_tool(cloud, ['--thread_num', '1', '--verbose'], expected_exception=SystemExit)
+
+        if cloud == 'dataproc':
+            assert len(build_mock.call_args_list) >= 7
+
+        elif cloud == 'emr':
+            assert len(build_mock.call_args_list) >= 6
+
+        _, stderr = capsys.readouterr()
+
+        assert 'User canceled the operation' in stderr
+        assert 'Raised an error in phase [Process-Arguments]' in stderr
