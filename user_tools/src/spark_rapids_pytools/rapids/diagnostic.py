@@ -41,6 +41,16 @@ class Diagnostic(RapidsTool):
         self.thread_num = thread_num
         self.logger.debug('Set thread number as: %d', self.thread_num)
 
+        self.logger.warning('This operation will collect sensitive information from your cluster, '
+                            'such as OS & HW info, Yarn/Spark configurations and log files etc.')
+        yes = self.wrapper_options.get('yes', False)
+        if yes:
+            self.logger.info('Confirmed by command line option.')
+        else:
+            user_input = input('Do you want to continue (yes/no): ')
+            if user_input.lower() not in ['yes', 'y']:
+                raise RuntimeError('User canceled the operation.')
+
     def requires_cluster_connection(self) -> bool:
         return True
 
