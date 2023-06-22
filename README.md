@@ -1,6 +1,6 @@
 # RAPIDS Accelerator for Apache Spark Tools
 
-This repo provides the tools to effectively use the [RAPIDS Accelerator for Apache Spark](https://github.com/NVIDIA/spark-rapids).
+This repo provides tools to help effectively use the [RAPIDS Accelerator for Apache Spark](https://github.com/NVIDIA/spark-rapids).
 
 ## Catalog
 

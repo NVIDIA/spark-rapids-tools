@@ -47,7 +47,7 @@ GPU acceleration estimates are available for different CSP environments based on
 
 
 
-## Running the Qualfication Tool
+## Running the Qualification Tool
 
 The Qualification tool can be run three different ways:
 1. A standalone application running on Spark event logs after the applications are done
