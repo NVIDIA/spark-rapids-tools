@@ -38,7 +38,7 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
     logDebug("Processing event: " + event.getClass)
     val sparkProperties = event.environmentDetails("Spark Properties").toMap
     if (ToolUtils.isPluginEnabled(sparkProperties)) {
-      throw GpuEventLogException(s"Eventlog is from GPU run. Skipping ...")
+      throw GpuEventLogException(s"Cannot parse event logs from GPU run")
     }
     app.clusterTags = sparkProperties.getOrElse(
       "spark.databricks.clusterUsageTags.clusterAllTags", "")
