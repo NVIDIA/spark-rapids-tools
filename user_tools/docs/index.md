@@ -47,6 +47,14 @@ information.
 For more details, please visit the
 [Profiling Tool on GitHub pages](https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html).
 
+### Diagnostic
+
+Collect proper information from Spark cluster and save to an archive for troubleshooting, such as OS version,
+number of worker nodes, Yarn configuration, Spark version and error logs etc.
+
+Note that the command would require `SSH` access on the cluster nodes to collect information otherwise error would
+be raised.
+
 ## Deploy modes
 
 The wrapper has the following deployment modes:
@@ -71,94 +79,145 @@ The wrapper has the following deployment modes:
 The following table summarizes the commands supported for each cloud platform:
 
 ```
-+------------------+---------------+-------------+---------------------------------------+----------+
-| platform         | command       | deploy mode |              CLI                      |  version |
-+==================+===============+=============+=======================================+==========+
-| EMR              | qualification | local       | spark_rapids_user_tools \             |  23.02+  |
-|                  |               |             |   emr qualification [ARGS]            |          |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  | spark_rapids_user_tools \             |  23.02+  |
-|                  |               |             |   emr qualification [ARGS] \          |          |
-|                  |               |             |   --mode=serverless                   |          |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     |           unsupported                 |    N/A   |
-|                  +---------------+-------------+---------------------------------------+----------+
-|                  | profiling     | local       |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     |           unsupported                 |    N/A   |
-|                  +---------------+-------------+---------------------------------------+----------+
-|                  | bootstrap     | local       | spark_rapids_user_tools \             |  23.02+  |
-|                  |               |             |   emr bootstrap [ARGS]                |          |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     | spark_rapids_user_tools \             |  23.02+  |
-|                  |               |             |   emr bootstrap [ARGS]                |          |
-+------------------+---------------+-------------+---------------------------------------+----------+
-| Dataproc         | qualification | local       | spark_rapids_user_tools \             | 23.02.1+ |
-|                  |               |             |   dataproc qualification [ARGS]       |          |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     | spark_rapids_user_tools \             |  23.04+  |
-|                  |               |             |   dataproc qualification [ARGS]       |          |
-|                  +---------------+-------------+---------------------------------------+----------+
-|                  | profiling     | local       | spark_rapids_user_tools \             | 23.02.1+ |
-|                  |               |             |   dataproc profiling [ARGS]           |          |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     | spark_rapids_dataproc \               | 22.10.1+ |
-|                  |               |             |   profiling [ARGS]                    |          |
-|                  +---------------+-------------+---------------------------------------+----------+
-|                  | bootstrap     | local       | spark_rapids_user_tools \             | 23.02.1+ |
-|                  |               |             |   dataproc bootstrap [ARGS]           |          |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     | spark_rapids_dataproc \               | 22.10.1+ |
-|                  |               |             |   bootstrap [ARGS]                    |          |
-+------------------+---------------+-------------+---------------------------------------+----------+
-| Databricks_AWS   | qualification | local       | spark_rapids_user_tools \             |  23.04+  |
-|                  |               |             |   databricks_aws qualification [ARGS] |          |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     |           unsupported                 |    N/A   |
-|                  +---------------+-------------+---------------------------------------+----------+
-|                  | profiling     | local       |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     |           unsupported                 |    N/A   |
-|                  +---------------+-------------+---------------------------------------+----------+
-|                  | bootstrap     | local       |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     |           unsupported                 |    N/A   |
-+------------------+---------------+-------------+---------------------------------------+----------+
-| OnPrem           | qualification | local       | spark_rapids_user_tools \             |  23.06+  |
-|                  |               |             |   onprem qualification [ARGS]         |          |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     |           unsupported                 |    N/A   |
-|                  +---------------+-------------+---------------------------------------+----------+
-|                  | profiling     | local       |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     |           unsupported                 |    N/A   |
-|                  +---------------+-------------+---------------------------------------+----------+
-|                  | bootstrap     | local       |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | serverless  |           unsupported                 |    N/A   |
-|                  |               +-------------+---------------------------------------+----------+
-|                  |               | cluster     |           unsupported                 |    N/A   |
-+------------------+---------------+-------------+---------------------------------------+----------+
++------------------+---------------+-------------+-----------------------------------------+----------+
+| platform         | command       | deploy mode |              CLI                        |  version |
++==================+===============+=============+=========================================+==========+
+| EMR              | qualification | local       | spark_rapids_user_tools \               |  23.02+  |
+|                  |               |             |   emr qualification [ARGS]              |          |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  | spark_rapids_user_tools \               |  23.02+  |
+|                  |               |             |   emr qualification [ARGS] \            |          |
+|                  |               |             |   --mode=serverless                     |          |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | profiling     | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | bootstrap     | local       | spark_rapids_user_tools \               |  23.02+  |
+|                  |               |             |   emr bootstrap [ARGS]                  |          |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     | spark_rapids_user_tools \               |  23.02+  |
+|                  |               |             |   emr bootstrap [ARGS]                  |          |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | diagnostic    | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     | spark_rapids_user_tools \               |  23.06+  |
+|                  |               |             |   emr diagnostic [ARGS]                 |          |
++------------------+---------------+-------------+-----------------------------------------+----------+
+| Dataproc         | qualification | local       | spark_rapids_user_tools \               | 23.02.1+ |
+|                  |               |             |   dataproc qualification [ARGS]         |          |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     | spark_rapids_user_tools \               |  23.04+  |
+|                  |               |             |   dataproc qualification [ARGS]         |          |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | profiling     | local       | spark_rapids_user_tools \               | 23.02.1+ |
+|                  |               |             |   dataproc profiling [ARGS]             |          |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     | spark_rapids_dataproc \                 | 22.10.1+ |
+|                  |               |             |   profiling [ARGS]                      |          |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | bootstrap     | local       | spark_rapids_user_tools \               | 23.02.1+ |
+|                  |               |             |   dataproc bootstrap [ARGS]             |          |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     | spark_rapids_dataproc \                 | 22.10.1+ |
+|                  |               |             |   bootstrap [ARGS]                      |          |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | diagnostic    | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     | spark_rapids_user_tools \               |  23.06+  |
+|                  |               |             |   dataproc diagnostic [ARGS]            |          |
++------------------+---------------+-------------+-----------------------------------------+----------+
+| Databricks_AWS   | qualification | local       | spark_rapids_user_tools \               |  23.04+  |
+|                  |               |             |   databricks_aws qualification [ARGS]   |          |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | profiling     | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | bootstrap     | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | diagnostic    | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
++------------------+---------------+-------------+-----------------------------------------+----------+
+| Databricks_Azure | qualification | local       | spark_rapids_user_tools \               |  23.06+  |
+|                  |               |             |   databricks_azure qualification [ARGS] |          |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | profiling     | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | bootstrap     | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | diagnostic    | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
++------------------+---------------+-------------+-----------------------------------------+----------+
+| OnPrem           | qualification | local       | spark_rapids_user_tools \               |  23.06+  |
+|                  |               |             |   onprem qualification [ARGS]           |          |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | profiling     | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | bootstrap     | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
+|                  +---------------+-------------+-----------------------------------------+----------+
+|                  | diagnostic    | local       |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | serverless  |           unsupported                   |    N/A   |
+|                  |               +-------------+-----------------------------------------+----------+
+|                  |               | cluster     |           unsupported                   |    N/A   |
++------------------+---------------+-------------+-----------------------------------------+----------+
 ```
 
 Please visit the following guides for details on how to use the wrapper CLI on each of the following
@@ -168,4 +227,5 @@ platform:
 - [Google Cloud Dataproc](user-tools-dataproc.md)
   - To view documentation for the deprecated CLI on dataproc, visit the [spark_rapids_dataproc command](legacy-user-tools-dataproc.md) page.
 - [Databricks_AWS](user-tools-databricks-aws.md)
+- [Databricks_Azure](user-tools-databricks-azure.md)
 - [OnPrem](user-tools-onprem.md)

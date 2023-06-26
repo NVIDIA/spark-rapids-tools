@@ -182,6 +182,26 @@ class EMRCMDDriver(CMDDriverBase):
                        f'hadoop@{node.name}']
         return Utils.gen_joined_str(' ', prefix_args)
 
+    def _build_cmd_scp_to_node(self, node: ClusterNode, src: str, dest: str) -> str:
+        # get the pem file
+        pem_file_path = self.env_vars.get('keyPairPath')
+        prefix_args = ['scp',
+                       '-o StrictHostKeyChecking=no',
+                       f'-i {pem_file_path}',
+                       src,
+                       f'hadoop@{node.name}:{dest}']
+        return Utils.gen_joined_str(' ', prefix_args)
+
+    def _build_cmd_scp_from_node(self, node: ClusterNode, src: str, dest: str) -> str:
+        # get the pem file
+        pem_file_path = self.env_vars.get('keyPairPath')
+        prefix_args = ['scp',
+                       '-o StrictHostKeyChecking=no',
+                       f'-i {pem_file_path}',
+                       f'hadoop@{node.name}:{src}',
+                       dest]
+        return Utils.gen_joined_str(' ', prefix_args)
+
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',
                       '--region', f'{self.get_region()}',

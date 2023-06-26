@@ -29,6 +29,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui.{SparkListenerSQLAdaptiveExecutionUpdate, SparkListenerSQLAdaptiveSQLMetricUpdates, SparkListenerSQLExecutionStart}
 import org.apache.spark.sql.rapids.tool.EventProcessorBase
+import org.apache.spark.sql.rapids.tool.util.EventUtils
 
 /**
  * This class is to process all events and do validation in the end.
@@ -279,18 +280,17 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     // Parse stage accumulables
     for (res <- event.stageInfo.accumulables) {
       try {
-        val value = res._2.value.map(parseAccumToLong)
-        val update = res._2.update.map(parseAccumToLong)
-        val thisMetric = TaskStageAccumCase(
-          event.stageInfo.stageId, event.stageInfo.attemptNumber(),
-          None, res._2.id, res._2.name, value, update, res._2.internal)
-        val arrBuf =  app.taskStageAccumMap.getOrElseUpdate(res._2.id,
-          ArrayBuffer[TaskStageAccumCase]())
-        app.accumIdToStageId.put(res._2.id, event.stageInfo.stageId)
-        arrBuf += thisMetric
+        val accumInfo = res._2
+        EventUtils.buildTaskStageAccumFromAccumInfo(accumInfo,
+          event.stageInfo.stageId, event.stageInfo.attemptNumber()).foreach { thisMetric =>
+          val arrBuf = app.taskStageAccumMap.getOrElseUpdate(accumInfo.id,
+            ArrayBuffer[TaskStageAccumCase]())
+          app.accumIdToStageId.put(accumInfo.id, event.stageInfo.stageId)
+          arrBuf += thisMetric
+        }
       } catch {
         case NonFatal(e) =>
-          logWarning("Exception when parsing accumulables for task " +
+          logWarning("Exception when parsing accumulables on stage-completed " +
               "stageID=" + event.stageInfo.stageId + ": ")
           logWarning(e.toString)
           logWarning("The problematic accumulable is: name="

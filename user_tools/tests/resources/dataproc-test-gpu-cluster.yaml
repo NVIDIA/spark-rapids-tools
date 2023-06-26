@@ -130,7 +130,7 @@ labels:
   goog-dataproc-location: us-central1
 projectId: dataproc-project-id
 status:
-  state: STOPPED
+  state: RUNNING
   stateStartTime: '2022-12-05T22:06:37.269291Z'
 statusHistory:
 - state: CREATING

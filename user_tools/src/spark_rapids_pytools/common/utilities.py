@@ -26,7 +26,7 @@ import sys
 import urllib
 from dataclasses import dataclass, field
 from logging import Logger
-from shutil import which
+from shutil import which, make_archive
 from typing import Callable, Any
 
 import certifi
@@ -134,6 +134,17 @@ class Utils:
         :return: True or False
         """
         return which(tool_name) is not None
+
+    @classmethod
+    def make_archive(cls, base_name, fmt, root_dir) -> None:
+        """
+        check whether a tool is installed on the system.
+        :param base_name: the name of the file to create
+        :param format: the archive format: "zip", "tar", "gztar"
+        :param root_dir: the root directory of the archive
+        :return:
+        """
+        return make_archive(base_name=base_name, format=fmt, root_dir=root_dir)
 
     @classmethod
     def find_full_rapids_tools_env_key(cls, actual_key: str) -> str:
@@ -291,6 +302,16 @@ class SysCmd:
         return sys_env_vars
 
     def exec(self) -> str:
+        def process_credentials_option(cmd: list):
+            res = []
+            for i, arg in enumerate(cmd):
+                if 'account-key' in cmd[i - 1]:
+                    arg = 'MY_ACCESS_KEY'
+                elif 'fs.azure.account.key' in arg:
+                    arg = arg.split('=')[0] + '=MY_ACCESS_KEY'
+                res.append(arg)
+            return res
+
         # pylint: disable=subprocess-run-check
         if isinstance(self.cmd, str):
             cmd_args = [self.cmd]
@@ -299,7 +320,7 @@ class SysCmd:
         if ToolLogging.is_debug_mode_enabled():
             # do not dump the entire command to debugging to avoid exposing the env-variables
             self.logger.debug('submitting system command: <%s>',
-                              Utils.gen_joined_str(' ', cmd_args))
+                              Utils.gen_joined_str(' ', process_credentials_option(cmd_args)))
         full_cmd = self._process_env_vars()
         full_cmd.extend(cmd_args)
         actual_cmd = Utils.gen_joined_str(' ', full_cmd)
@@ -323,17 +344,18 @@ class SysCmd:
                                stderr=stderr)
         self.res = c.returncode
         # pylint: enable=subprocess-run-check
-        self.err_std = c.stderr if isinstance(c.stderr, str) else c.stderr.decode('utf-8')
+        self.err_std = c.stderr if isinstance(c.stderr, str) else c.stderr.decode('utf-8', errors='ignore')
         if self.has_failed():
             std_error_lines = [f'\t| {line}' for line in self.err_std.splitlines()]
             stderr_str = ''
             if len(std_error_lines) > 0:
                 error_lines = Utils.gen_multiline_str(std_error_lines)
                 stderr_str = f'\n{error_lines}'
-            cmd_err_msg = f'Error invoking CMD <{Utils.gen_joined_str(" ", cmd_args)}>: {stderr_str}'
+            processed_cmd_args = process_credentials_option(cmd_args)
+            cmd_err_msg = f'Error invoking CMD <{Utils.gen_joined_str(" ", processed_cmd_args)}>: {stderr_str}'
             raise RuntimeError(f'{cmd_err_msg}')
 
-        self.out_std = c.stdout if isinstance(c.stdout, str) else c.stdout.decode('utf-8')
+        self.out_std = c.stdout if isinstance(c.stdout, str) else c.stdout.decode('utf-8', errors='ignore')
         if self.process_streams_cb is not None:
             self.process_streams_cb(self.out_std, self.err_std)
         if self.out_std:

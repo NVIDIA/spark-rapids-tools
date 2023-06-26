@@ -36,6 +36,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                       tools_jar: str = None,
                       credentials_file: str = None,
                       filter_apps: str = QualFilterApp.tostring(QualFilterApp.SPEEDUPS),
+                      target_platform: str = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
                       jvm_heap_size: int = 24,
@@ -44,10 +45,23 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         if verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
+        # if target_platform is specified, check if it's valid supported platform and filter the
+        # apps based on savings
+        if target_platform is not None:
+            if CliOnpremLocalMode.is_target_platform_supported(target_platform):
+                if cpu_cluster is None:
+                    raise RuntimeError('OnPrem\'s cluster property file required to calculate'
+                                       'savings for ' + target_platform + ' platform')
+                filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS)
+            else:
+                raise RuntimeError(target_platform + ' platform is currently not supported to calculate savings'
+                                   ' from OnPrem cluster')
+
         wrapper_qual_options = {
             'platformOpts': {
                 'credentialFile': credentials_file,
                 'deployMode': DeployMode.LOCAL,
+                'targetPlatform': target_platform
             },
             'migrationClustersProps': {
                 'cpuCluster': cpu_cluster,
@@ -62,7 +76,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             'eventlogs': eventlogs,
             'filterApps': filter_apps,
             'toolsJar': tools_jar,
-            'gpuClusterRecommendation': gpu_cluster_recommendation
+            'gpuClusterRecommendation': gpu_cluster_recommendation,
+            'target_platform': target_platform
         }
         tool_obj = QualificationAsLocal(platform_type=CloudPlatform.ONPREM,
                                         cluster=execution_cluster,
@@ -70,6 +85,10 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                                         wrapper_options=wrapper_qual_options,
                                         rapids_options=rapids_options)
         tool_obj.launch()
+
+    @staticmethod
+    def is_target_platform_supported(target_platform: str):
+        return target_platform == 'dataproc'
 
 
 class OnPremWrapper:  # pylint: disable=too-few-public-methods
