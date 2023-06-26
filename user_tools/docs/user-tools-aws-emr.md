@@ -316,3 +316,45 @@ The steps to run the command:
 
 If the connection to EC2 instances cannot be established through SSH, the command will still
 generate an output while displaying warning that the remote changes failed. 
+
+## Diagnostic command
+
+```
+spark_rapids_user_tools emr diagnostic [options]
+spark_rapids_user_tools emr diagnostic --help
+```
+
+Run diagnostic command to collects information from Dataproc cluster, such as OS version, # of worker
+nodes, Yarn configuration, Spark version and error logs etc. The cluster has to be running and the
+user must have SSH access.
+
+### Diagnostic options
+
+| Option            | Description                                                                                                                                                                                                                 | Default                                                                                     | Required |
+|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|:--------:|
+| **cluster**       | Name of the EMR cluster running an accelerated computing instance                                                                                                                                                           | N/A                                                                                         |     Y    |
+| **profile**       | A named AWS profile that you can specify to get the settings/credentials of the AWS account.                                                                                                                                | "default" if the the env-variable `AWS_PROFILE` is not set                                  |     N    |
+| **output_folder** | Path to local directory where the final recommendations is logged                                                                                                                                                           | env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. |     N    |
+| **key_pair_path** | A '.pem' file path that enables to connect to EC2 instances using SSH. For more details on creating key pairs, visit [aws-create-key-pair-guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html) | env variable '`RAPIDS_USER_TOOLS_KEY_PAIR_PATH`' if any                                     |     N    |
+| **verbose**       | True or False to enable verbosity to the wrapper script                                                                                                                                                                     | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                           |     N    |
+
+### Info collection
+
+The default is to collect info from each cluster node via SSH access and an archive would be created
+to output folder at last.
+
+The steps to run the command:
+
+1. The user creates a cluster
+2. The user creates a key pair access "_.pem_" file as instructed in
+   [aws-create-key-pair-guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html)
+3. The user runs the following command:
+
+    ```bash
+    spark_rapids_user_tools emr diagnostic \
+      --cluster my-cluster-name \
+      --key_pair_path my-file-path
+    ```
+   If `key_pair_path` is missing, the user must set an ev-variable `RAPIDS_USER_TOOLS_KEY_PAIR_PATH`
+
+If the connection to EC2 instances cannot be established through SSH, the command will raise error.
