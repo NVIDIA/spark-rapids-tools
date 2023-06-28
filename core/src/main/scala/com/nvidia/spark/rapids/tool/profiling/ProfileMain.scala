@@ -52,7 +52,7 @@ object ProfileMain extends Logging {
       Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
 
     // Get the event logs required to process
-    val (eventLogFsFiltered, _) = EventLogPathProcessor.processAllPaths(filterN.toOption,
+    val (eventLogFsFiltered, _, _) = EventLogPathProcessor.processAllPaths(filterN.toOption,
       matchEventLogs.toOption, eventlogPaths, hadoopConf)
 
     val filteredLogs = if (argsContainsAppFilters(appArgs)) {

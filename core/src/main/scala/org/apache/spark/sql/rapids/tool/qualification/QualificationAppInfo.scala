@@ -731,6 +731,12 @@ case class StageQualSummaryInfo(
     unsupportedTaskDur: Long,
     estimated: Boolean = false)
 
+case class StatusQualSummaryInfo(
+    path: String,
+    status: String,
+    appInfo: Option[QualificationAppInfo] = None,
+    message: String = "")
+
 object QualificationAppInfo extends Logging {
   // define recommendation constants
   val RECOMMENDED = "Recommended"

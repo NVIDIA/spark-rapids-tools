@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import java.util.concurrent.{ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
 
 import scala.collection.JavaConverters._
 
@@ -26,6 +26,7 @@ import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_F
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.{Status, StatusFailure, StatusNotAvailable, StatusSuccess}
 import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.{ConsoleProgressBar, QualificationReportGenerator}
 
@@ -36,6 +37,8 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean) extends Logging {
 
   private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
+  private val appStatuses =
+    new ConcurrentHashMap[EventLogInfo, Status[QualificationAppInfo]]()
 
   // default is 24 hours
   private val waitTimeInSec = timeout.getOrElse(60 * 60 * 24L)
@@ -52,7 +55,10 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     def run: Unit = qualifyApp(path, hadoopConf)
   }
 
-  def qualifyApps(allPaths: Seq[EventLogInfo]): Seq[QualificationSummaryInfo] = {
+  def qualifyApps(
+      allPaths: Seq[EventLogInfo],
+      eventStatusMap: Map[String, Status[EventLogInfo]])
+  : Seq[QualificationSummaryInfo] = {
     if (enablePB && allPaths.nonEmpty) { // total count to start the PB cannot be 0
       progressBar = Some(new ConsoleProgressBar("Qual Tool", allPaths.length))
     }
@@ -73,6 +79,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     }
     progressBar.foreach(_.finishAll())
     val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
+    val statusSummary = generateStatusSummary(eventStatusMap, appStatuses.asScala.toMap)
 
     val qWriter = new QualOutputWriter(getReportOutputPath, reportReadSchema, printStdout,
       order)
@@ -157,37 +164,46 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
   private def qualifyApp(
       path: EventLogInfo,
       hadoopConf: Configuration): Unit = {
+    var message: String = ""
     try {
       val startTime = System.currentTimeMillis()
       val app = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker, reportSqlLevel,
         mlOpsEnabled)
       if (!app.isDefined) {
         progressBar.foreach(_.reportUnkownStatusProcess())
-        logWarning(s"No Application found that contain SQL for ${path.eventLog.toString}!")
-        None
+        message = s"No Application found that contain SQL for ${path.eventLog.toString}!"
+        logWarning(message)
+        appStatuses.put(path, StatusNotAvailable(None, message))
       } else {
         val qualSumInfo = app.get.aggregateStats()
         if (qualSumInfo.isDefined) {
           allApps.add(qualSumInfo.get)
+          appStatuses.put(path, StatusSuccess(app))
           progressBar.foreach(_.reportSuccessfulProcess())
           val endTime = System.currentTimeMillis()
           logInfo(s"Took ${endTime - startTime}ms to process ${path.eventLog.toString}")
         } else {
           progressBar.foreach(_.reportUnkownStatusProcess())
-          logWarning(s"No aggregated stats for event log at: ${path.eventLog.toString}")
+          message = s"No aggregated stats for event log at: ${path.eventLog.toString}"
+          logWarning(message)
+          appStatuses.put(path, StatusNotAvailable(app, message))
         }
       }
     } catch {
       case oom: OutOfMemoryError =>
-        logError(s"OOM error while processing large file: ${path.eventLog.toString}." +
-            s"Increase heap size.", oom)
+        message = s"OOM error while processing large file: ${path.eventLog.toString}." +
+          s"Increase heap size."
+        logError(message, oom)
         System.exit(1)
       case o: Error =>
-        logError(s"Error occured while processing file: ${path.eventLog.toString}", o)
+        message = s"Error occured while processing file: ${path.eventLog.toString}"
+        logError(message, o)
         System.exit(1)
       case e: Exception =>
         progressBar.foreach(_.reportFailedProcess())
-        logWarning(s"Unexpected exception processing log ${path.eventLog.toString}, skipping!", e)
+        message = s"Unexpected exception processing log ${path.eventLog.toString}, skipping!"
+        logWarning(message, e)
+        appStatuses.put(path, StatusFailure(message))
     }
   }
 
@@ -196,5 +212,23 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
    */
   def getReportOutputPath: String = {
     s"$outputDir/rapids_4_spark_qualification_output"
+  }
+
+  private def generateStatusSummary(
+      eventStatusMap: Map[String, Status[EventLogInfo]],
+      appStatuses: Map[EventLogInfo, Status[QualificationAppInfo]]): Seq[StatusQualSummaryInfo] = {
+    eventStatusMap.map {
+      case (path, StatusSuccess(Some(eventLogInfo: EventLogInfo))) =>
+        appStatuses.get(eventLogInfo) match {
+          case Some(StatusSuccess(appInfo)) =>
+            StatusQualSummaryInfo(path, "SUCCESS", appInfo)
+          case Some(StatusNotAvailable(appInfo, appMessage)) =>
+            StatusQualSummaryInfo(path, "NOT AVAILABLE", appInfo, appMessage)
+          case _ =>
+            throw new NoSuchElementException(s"${eventLogInfo.eventLog.toString} key not found")
+        }
+      case (path, StatusFailure(evMessage)) =>
+        StatusQualSummaryInfo(path, "FAILURE", None, s"$evMessage")
+    }.toSeq
   }
 }

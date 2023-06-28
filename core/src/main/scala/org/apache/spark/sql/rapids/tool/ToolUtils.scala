@@ -313,3 +313,8 @@ object SupportedMLFuncsName {
 }
 
 case class GpuEventLogException(message: String) extends Exception(message)
+
+trait Status[T]
+case class StatusSuccess[T](value: Option[T]) extends Status[T]
+case class StatusNotAvailable[T](value: Option[T], message: String) extends Status[T]
+case class StatusFailure[T](message: String) extends Status[T]
