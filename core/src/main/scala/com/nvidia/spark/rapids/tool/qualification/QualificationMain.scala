@@ -95,7 +95,6 @@ object QualificationMain extends Logging {
       nThreads, order, pluginTypeChecker, reportReadSchema, printStdout, uiEnabled,
       enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled)
     val res = qual.qualifyApps(filteredLogs, eventStatusMap)
-
     (0, res)
   }
 

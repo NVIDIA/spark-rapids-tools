@@ -37,6 +37,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean) extends Logging {
 
   private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
+  // Store the status of applications running in multiple threads
   private val appStatuses =
     new ConcurrentHashMap[EventLogInfo, Status[QualificationAppInfo]]()
 
@@ -214,6 +215,13 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     s"$outputDir/rapids_4_spark_qualification_output"
   }
 
+  /**
+   * For each event log processed, generate a summary containing appId and message (if any).
+   * If the event log was a valid path, `appStatuses` will contain application level status.
+   * @param eventStatusMap - Map[Path -> Event Log Status]
+   * @param appStatuses - Map[Event Log -> Application Status]
+   * @return Summary - path, status, [appId], [message]
+   */
   private def generateStatusSummary(
       eventStatusMap: Map[String, Status[EventLogInfo]],
       appStatuses: Map[EventLogInfo, Status[QualificationAppInfo]]): Seq[StatusQualSummaryInfo] = {
