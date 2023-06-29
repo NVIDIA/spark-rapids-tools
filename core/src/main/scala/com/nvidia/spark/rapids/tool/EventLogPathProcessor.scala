@@ -87,9 +87,7 @@ object EventLogPathProcessor extends Logging {
 
   def getEventLogInfo(
       pathString: String,
-      hadoopConf: Configuration)
-  : (Map[EventLogInfo, Long], Map[String, Status[EventLogInfo]]) = {
-
+      hadoopConf: Configuration): (Map[EventLogInfo, Long], Map[String, Status[EventLogInfo]]) = {
     val inputPath = new Path(pathString)
     try {
       // Note that some cloud storage APIs may throw FileNotFoundException when the pathPrefix
@@ -242,6 +240,26 @@ object EventLogPathProcessor extends Logging {
       val hour = Integer.parseInt(time(0))
       val min = Integer.parseInt(minParse(0))
       LocalDateTime.of(year, month, day, hour, min)
+    }
+  }
+
+  /**
+   * Update `eventStatusMap` based on eventLogs present in filteredLogs.
+   * If the eventLog is absent in filtered log, the status is changed to Failure
+   * @param eventStatusMap - Map[String -> Status(Event Log)]
+   * @param filteredLogs - Seq[Event Log]
+   */
+  def filterEventStatusMap(
+      eventStatusMap: Map[String, Status[EventLogInfo]],
+      filteredLogs: Seq[EventLogInfo]): Map[String, Status[EventLogInfo]] = {
+    eventStatusMap.map {
+      case (path, StatusSuccess(Some(eventLog))) =>
+        if (filteredLogs.contains(eventLog)) {
+          (path, StatusSuccess[EventLogInfo](Some(eventLog)))
+        } else {
+          (path, StatusFailure[EventLogInfo]("Invalid event log after filtering"))
+        }
+      case mapEntry => mapEntry
     }
   }
 }

@@ -86,15 +86,23 @@ object QualificationMain extends Logging {
       eventLogFsFiltered
     }
 
-    if (filteredLogs.isEmpty) {
-      logWarning("No event logs to process after checking paths, exiting!")
-      return (0, Seq[QualificationSummaryInfo]())
-    }
+    // Update the status of event logs that were filtered above
+    val eventStatusFilteredMap = if(filteredLogs.size != eventStatusMap.size) {
+      EventLogPathProcessor.filterEventStatusMap(eventStatusMap, filteredLogs)
+    } else eventStatusMap
 
     val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf, timeout,
       nThreads, order, pluginTypeChecker, reportReadSchema, printStdout, uiEnabled,
       enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled)
-    val res = qual.qualifyApps(filteredLogs, eventStatusMap)
+
+    val res = if (filteredLogs.isEmpty) {
+      logWarning("No event logs to process after checking paths, exiting!")
+      Seq.empty
+    } else {
+      qual.qualifyApps(filteredLogs)
+    }
+
+    qual.writeEventLogsStatus(eventStatusFilteredMap)
     (0, res)
   }
 

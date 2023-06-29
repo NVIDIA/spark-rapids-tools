@@ -38,7 +38,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
 
   private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
   // Store the status of applications running in multiple threads
-  private val appStatuses =
+  private val appStatusMap =
     new ConcurrentHashMap[EventLogInfo, Status[QualificationAppInfo]]()
 
   // default is 24 hours
@@ -56,10 +56,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     def run: Unit = qualifyApp(path, hadoopConf)
   }
 
-  def qualifyApps(
-      allPaths: Seq[EventLogInfo],
-      eventStatusMap: Map[String, Status[EventLogInfo]])
-  : Seq[QualificationSummaryInfo] = {
+  def qualifyApps(allPaths: Seq[EventLogInfo]): Seq[QualificationSummaryInfo] = {
     if (enablePB && allPaths.nonEmpty) { // total count to start the PB cannot be 0
       progressBar = Some(new ConsoleProgressBar("Qual Tool", allPaths.length))
     }
@@ -68,7 +65,9 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
         threadPool.submit(new QualifyThread(path))
       } catch {
         case e: Exception =>
-          logError(s"Unexpected exception submitting log ${path.eventLog.toString}, skipping!", e)
+          val message = s"Unexpected exception submitting log ${path.eventLog.toString}, skipping"
+          logError(message, e)
+          appStatusMap.put(path, StatusFailure(message))
       }
     }
     // wait for the threads to finish processing the files
@@ -80,7 +79,6 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     }
     progressBar.foreach(_.finishAll())
     val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
-    val statusSummary = generateStatusSummary(eventStatusMap, appStatuses.asScala.toMap)
 
     val qWriter = new QualOutputWriter(getReportOutputPath, reportReadSchema, printStdout,
       order)
@@ -174,12 +172,12 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
         progressBar.foreach(_.reportUnkownStatusProcess())
         message = s"No Application found that contain SQL for ${path.eventLog.toString}!"
         logWarning(message)
-        appStatuses.put(path, StatusNotAvailable(None, message))
+        appStatusMap.put(path, StatusNotAvailable(None, message))
       } else {
         val qualSumInfo = app.get.aggregateStats()
         if (qualSumInfo.isDefined) {
           allApps.add(qualSumInfo.get)
-          appStatuses.put(path, StatusSuccess(app))
+          appStatusMap.put(path, StatusSuccess(app))
           progressBar.foreach(_.reportSuccessfulProcess())
           val endTime = System.currentTimeMillis()
           logInfo(s"Took ${endTime - startTime}ms to process ${path.eventLog.toString}")
@@ -187,7 +185,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
           progressBar.foreach(_.reportUnkownStatusProcess())
           message = s"No aggregated stats for event log at: ${path.eventLog.toString}"
           logWarning(message)
-          appStatuses.put(path, StatusNotAvailable(app, message))
+          appStatusMap.put(path, StatusNotAvailable(app, message))
         }
       }
     } catch {
@@ -202,9 +200,9 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
         System.exit(1)
       case e: Exception =>
         progressBar.foreach(_.reportFailedProcess())
-        message = s"Unexpected exception processing log ${path.eventLog.toString}, skipping!"
+        message = s"Unexpected exception processing log ${path.eventLog.toString}, skipping"
         logWarning(message, e)
-        appStatuses.put(path, StatusFailure(message))
+        appStatusMap.put(path, StatusFailure(message))
     }
   }
 
@@ -217,26 +215,33 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
 
   /**
    * For each event log processed, generate a summary containing appId and message (if any).
-   * If the event log was a valid path, `appStatuses` will contain application level status.
+   * If the event log was a valid path, `appStatusMap` will contain application level status.
    * @param eventStatusMap - Map[Path -> Event Log Status]
-   * @param appStatuses - Map[Event Log -> Application Status]
    * @return Summary - path, status, [appId], [message]
    */
   private def generateStatusSummary(
-      eventStatusMap: Map[String, Status[EventLogInfo]],
-      appStatuses: Map[EventLogInfo, Status[QualificationAppInfo]]): Seq[StatusQualSummaryInfo] = {
+      eventStatusMap: Map[String, Status[EventLogInfo]]): Seq[StatusSummaryInfo] = {
+    val _appStatusMap = appStatusMap.asScala.toMap
     eventStatusMap.map {
       case (path, StatusSuccess(Some(eventLogInfo: EventLogInfo))) =>
-        appStatuses.get(eventLogInfo) match {
+        // For each successful event log that was parsed, generate a summary of status
+        // on application level
+        _appStatusMap.get(eventLogInfo) match {
           case Some(StatusSuccess(appInfo)) =>
-            StatusQualSummaryInfo(path, "SUCCESS", appInfo)
+            StatusSummaryInfo(path, "SUCCESS", appInfo)
           case Some(StatusNotAvailable(appInfo, appMessage)) =>
-            StatusQualSummaryInfo(path, "NOT AVAILABLE", appInfo, appMessage)
+            StatusSummaryInfo(path, "NOT AVAILABLE", appInfo, appMessage)
           case _ =>
             throw new NoSuchElementException(s"${eventLogInfo.eventLog.toString} key not found")
         }
       case (path, StatusFailure(evMessage)) =>
-        StatusQualSummaryInfo(path, "FAILURE", None, s"$evMessage")
+        StatusSummaryInfo(path, "FAILURE", None, s"$evMessage")
     }.toSeq
+  }
+
+  def writeEventLogsStatus(eventStatusMap: Map[String, Status[EventLogInfo]]): Unit = {
+    val statusSummary = generateStatusSummary(eventStatusMap)
+    val qWriter = new QualOutputWriter(getReportOutputPath, reportReadSchema, printStdout, order)
+    qWriter.writeStatusReport(statusSummary, order)
   }
 }

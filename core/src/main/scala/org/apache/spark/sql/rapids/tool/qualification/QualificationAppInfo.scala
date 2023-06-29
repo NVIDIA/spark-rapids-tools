@@ -731,7 +731,7 @@ case class StageQualSummaryInfo(
     unsupportedTaskDur: Long,
     estimated: Boolean = false)
 
-case class StatusQualSummaryInfo(
+case class StatusSummaryInfo(
     path: String,
     status: String,
     appInfo: Option[QualificationAppInfo] = None,
