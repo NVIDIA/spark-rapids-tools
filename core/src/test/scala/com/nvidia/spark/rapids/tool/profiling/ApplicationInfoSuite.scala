@@ -566,7 +566,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       s"$qualLogDir/dataset_eventlog"
     ))
 
-    val (result, _) = EventLogPathProcessor.processAllPaths(appArgs.filterCriteria.toOption,
+    val (result, _, _) = EventLogPathProcessor.processAllPaths(appArgs.filterCriteria.toOption,
       appArgs.matchEventLogs.toOption, appArgs.eventlog(), hadoopConf)
     assert(result.length == 2)
   }
@@ -595,7 +595,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         tempFile3.toString
       ))
 
-      val (result, _) = EventLogPathProcessor.processAllPaths(appArgs.filterCriteria.toOption,
+      val (result, _, _) = EventLogPathProcessor.processAllPaths(appArgs.filterCriteria.toOption,
         appArgs.matchEventLogs.toOption, appArgs.eventlog(), hadoopConf)
       assert(result.length == 2)
       // Validate 2 newest files
@@ -639,7 +639,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         tempFile4.toString
       ))
 
-      val (result, _) = EventLogPathProcessor.processAllPaths(appArgs.filterCriteria.toOption,
+      val (result, _, _) = EventLogPathProcessor.processAllPaths(appArgs.filterCriteria.toOption,
         appArgs.matchEventLogs.toOption, appArgs.eventlog(), hadoopConf)
       assert(result.length == 3)
       // Validate 3 oldest files

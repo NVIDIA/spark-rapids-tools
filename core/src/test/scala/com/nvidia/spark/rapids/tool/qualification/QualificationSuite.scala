@@ -454,7 +454,7 @@ class QualificationSuite extends BaseTestSuite {
       s"$logDir/udf_func_eventlog"
     ))
 
-    val (eventLogInfo, _) = EventLogPathProcessor.processAllPaths(
+    val (eventLogInfo, _, _) = EventLogPathProcessor.processAllPaths(
       appArgs.filterCriteria.toOption, appArgs.matchEventLogs.toOption, appArgs.eventlog(),
       RapidsToolsConfUtil.newHadoopConf())
 
@@ -475,7 +475,7 @@ class QualificationSuite extends BaseTestSuite {
       s"$logDir/udf_func_eventlog"
     ))
 
-    val (eventLogInfo, _) = EventLogPathProcessor.processAllPaths(
+    val (eventLogInfo, _, _) = EventLogPathProcessor.processAllPaths(
       appArgs.filterCriteria.toOption, appArgs.matchEventLogs.toOption, appArgs.eventlog(),
       RapidsToolsConfUtil.newHadoopConf())
 

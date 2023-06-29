@@ -71,7 +71,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
 
   private def createAppFromEventlog(eventLog: String): QualificationAppInfo = {
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
-    val (_, allEventLogs) = EventLogPathProcessor.processAllPaths(
+    val (_, allEventLogs, _) = EventLogPathProcessor.processAllPaths(
       None, None, List(eventLog), hadoopConf)
     val pluginTypeChecker = new PluginTypeChecker()
     assert(allEventLogs.size == 1)
