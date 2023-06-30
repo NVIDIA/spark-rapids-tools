@@ -2,8 +2,21 @@
 
 import json
 
-# pricing info: https://azure.microsoft.com/en-us/pricing/details/databricks/
-with open('databricks_azure_price_raw_westus2.txt', 'r', encoding='utf-8') as f:
+# We use this Python script to process Databricks Azure instance pricing information
+# and store the results in a file `premium-databricks-azure-catalog.json`, used by the
+# Databricks Azure user tools.
+# Follow the instructions below:
+#   1. Go to https://azure.microsoft.com/en-us/pricing/details/databricks/ and select
+#      the prices for `Jobs Cmpute` Workload, `Premium` Tier, `West US 2` Region, 
+#      `United States -Dollar ($) USD` Currency, and Display pricing by `Hour`.
+#   2. Copy the prices into `databricks-azure-price-jobs-compute-premium-westus2-raw.txt`,
+#      under the same directory as this script, the file is already included under `/dev`
+#   3. Run the script:
+#     `python process_databricks_azure_pricing.py`
+#   4. The output is a file named `premium-databricks-azure-catalog.json` under the same
+#      directory
+
+with open('databricks-azure-price-jobs-compute-premium-westus2-raw.txt', 'r', encoding='utf-8') as f:
     all_lines = f.read().splitlines()
 
 instances_dict = {}
