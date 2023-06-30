@@ -867,7 +867,8 @@ object QualOutputWriter {
       delimiter: String = TEXT_DELIMITER,
       prettyPrint: Boolean,
       reformatCSV: Boolean = true): Seq[String] = {
-    val reformatCSVFunc: String => String = if (reformatCSV) reformatCSVString else stringIfempty
+    val reformatCSVFunc: String => String =
+      if (reformatCSV) str => StringUtils.reformatCSVString(str) else str => stringIfempty(str)
     val appId = sumInfo.appId
     val readFormat = sumInfo.readFileFormatAndTypesNotSupported
     val writeFormat = sumInfo.writeDataFormat
@@ -913,7 +914,7 @@ object QualOutputWriter {
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
           "Exec" -> headersAndSizes(UNSUPPORTED_TYPE),
           exec -> headersAndSizes(DETAILS),
-          s"$exec Exec is not supported as expressions are not supported ${exprs}" ->
+          s"$exec Exec is not supported as expressions are not supported -  `${exprs}`" ->
             headersAndSizes(NOTES)
         )
         constructOutputRow(data, delimiter, prettyPrint)
