@@ -7,7 +7,6 @@ name = "spark-rapids-user-tools"
 authors = [
   { name="NVIDIA Corporation" , email="spark-rapids-support@nvidia.com" },
 ]
-repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
 description = "A simple wrapper process around cloud service providers to run tools for the RAPIDS Accelerator for Apache Spark."
 readme = "README.md"
 requires-python = ">=3.8"
@@ -37,3 +36,5 @@ dependencies = [
 dynamic=["entry-points", "version"]
 [tool.setuptools.dynamic]
 version = {attr = "spark_rapids_pytools.__version__"}
+[tool.poetry]
+repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
