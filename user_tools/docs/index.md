@@ -144,14 +144,14 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               |             |   dataproc diagnostic [ARGS]            |          |
 +------------------+---------------+-------------+-----------------------------------------+----------+
 | Databricks_AWS   | qualification | local       | spark_rapids_user_tools \               |  23.04+  |
-|                  |               |             |   databricks_aws qualification [ARGS]   |          |
+|                  |               |             |   databricks-aws qualification [ARGS]   |          |
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | serverless  |           unsupported                   |    N/A   |
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | cluster     |           unsupported                   |    N/A   |
 |                  +---------------+-------------+-----------------------------------------+----------+
 |                  | profiling     | local       | spark_rapids_user_tools \               |  23.08+  |
-|                  |               |             |   databricks_aws profiling [ARGS]       |          |
+|                  |               |             |   databricks-aws profiling [ARGS]       |          |
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | serverless  |           unsupported                   |    N/A   |
 |                  |               +-------------+-----------------------------------------+----------+
@@ -170,7 +170,7 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               | cluster     |           unsupported                   |    N/A   |
 +------------------+---------------+-------------+-----------------------------------------+----------+
 | Databricks_Azure | qualification | local       | spark_rapids_user_tools \               |  23.06+  |
-|                  |               |             |   databricks_azure qualification [ARGS] |          |
+|                  |               |             |   databricks-azure qualification [ARGS] |          |
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | serverless  |           unsupported                   |    N/A   |
 |                  |               +-------------+-----------------------------------------+----------+

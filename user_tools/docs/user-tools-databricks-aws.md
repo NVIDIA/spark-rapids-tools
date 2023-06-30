@@ -35,7 +35,7 @@ The tool currently only supports event logs stored on S3 (no DBFS paths). The re
   - from source: `pip install -e .`
 - verify the command is installed correctly by running
   ```bash
-    spark_rapids_user_tools databricks_aws --help
+    spark_rapids_user_tools databricks-aws --help
   ```
 
 ### 5.Environment variables
@@ -52,8 +52,8 @@ Before running any command, you can set environment variables to specify configu
 ### Local deployment
 
 ```
-spark_rapids_user_tools databricks_aws qualification [options]
-spark_rapids_user_tools databricks_aws qualification --help
+spark_rapids_user_tools databricks-aws qualification [options]
+spark_rapids_user_tools databricks-aws qualification --help
 ```
 
 The local deployment runs on the local development machine. It requires:
@@ -74,7 +74,7 @@ The local deployment runs on the local development machine. It requires:
 | **jvm_heap_size**              | The maximum heap size of the JVM in gigabytes                                                                                                                                                                                                                                                                                                                                                               | 24                                                                                                                                                                                                                                              |     N    |
 | **profile**                    | A named Databricks profile that you can specify to get the settings/credentials of the Databricks account                                                                                                                                                                                                                                                                                                   | "DEFAULT"                                                                                                                                                                                                                                       |     N    |
 | **aws_profile**                | A named AWS profile that you can specify to get the settings/credentials of the AWS account                                                                                                                                                                                                                                                                                                                 | "default" if the env-variable `AWS_PROFILE` is not set                                                                                                                                                                                          |     N    |
-| **tools_jar**                  | Path to a bundled jar including RAPIDS tool. The path is a local filesystem, or remote S3 url                                                                                                                                                                                                                                                                                                               | Downloads the latest `rapids-tools_*.jar` from mvn repo                                                                                                                                                                                         |     N    |
+| **tools_jar**                  | Path to a bundled jar including RAPIDS tool. The path is a local filesystem, or remote S3 url                                                                                                                                                                                                                                                                                                               | Downloads the latest `rapids-4-spark-tools_*.jar` from mvn repo                                                                                                                                                                                 |     N    |
 | **filter_apps**                | Filtering criteria of the applications listed in the final STDOUT table is one of the following (`NONE`, `SPEEDUPS`, `SAVINGS`). "`NONE`" means no filter applied. "`SPEEDUPS`" lists all the apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups. "`SAVINGS`" lists all the apps that have positive estimated GPU savings except for the apps that are '_Not Applicable_'. | `SAVINGS`                                                                                                                                                                                                                                       |     N    |
 | **gpu_cluster_recommendation** | The type of GPU cluster recommendation to generate. It accepts one of the following (`CLUSTER`, `JOB`, `MATCH`). `MATCH`: keep GPU cluster same number of nodes as CPU cluster; `CLUSTER`: recommend optimal GPU cluster by cost for entire cluster. `JOB`: recommend optimal GPU cluster by cost per job                                                                                                   | `MATCH`                                                                                                                                                                                                                                         |     N    |
 | **credentials_file**           | The local path of JSON file that contains the application credentials                                                                                                                                                                                                                                                                                                                                       | If missing, loads the env variable `DATABRICKS_CONFIG_FILE` if any. Otherwise, it uses the default path `~/.databrickscfg` on Unix, Linux, or macOS                                                                                             |     N    |
@@ -106,7 +106,7 @@ A typical workflow to successfully run the `qualification` command in local mode
    export CLUSTER_NAME=my-databricks-cpu-cluster
    export REMOTE_FOLDER=s3://OUT_BUCKET/wrapper_output
    
-   spark_rapids_user_tools databricks_aws qualification \
+   spark_rapids_user_tools databricks-aws qualification \
       --eventlogs $EVENTLOGS \
       --cpu_cluster $CLUSTER_NAME \
       --remote_folder $REMOTE_FOLDER
@@ -167,8 +167,8 @@ The command creates a directory with UUID that contains the following:
 ### Local deployment
 
 ```
-spark_rapids_user_tools databricks_aws profiling [options]
-spark_rapids_user_tools databricks_aws profiling -- --help
+spark_rapids_user_tools databricks-aws profiling [options]
+spark_rapids_user_tools databricks-aws profiling -- --help
 ```
 
 1. Installing and configuring the Databricks and AWS CLI (`databricks` and `aws` commands)
@@ -188,7 +188,7 @@ spark_rapids_user_tools databricks_aws profiling -- --help
 | **profile**          | A named Databricks profile that you can specify to get the settings/credentials of the Databricks account                                                                                                                                                              | "DEFAULT"                                                                                                                                                                                                                                       |     N    |
 | **aws_profile**      | A named AWS profile that you can specify to get the settings/credentials of the AWS account                                                                                                                                                                            | "default" if the env-variable `AWS_PROFILE` is not set                                                                                                                                                                                          |     N    |
 | **jvm_heap_size**    | The maximum heap size of the JVM in gigabytes                                                                                                                                                                                                                          | 24                                                                                                                                                                                                                                              |     N    |
-| **tools_jar**        | Path to a bundled jar including RAPIDS tool. The path is a local filesystem, or remote S3 url                                                                                                                                                                          | Downloads the latest `rapids-tools_*.jar` from mvn repo                                                                                                                                                                                         |     N    |
+| **tools_jar**        | Path to a bundled jar including RAPIDS tool. The path is a local filesystem, or remote S3 url                                                                                                                                                                          | Downloads the latest `rapids-4-spark-tools_*.jar` from mvn repo                                                                                                                                                                                 |     N    |
 | **credentials_file** | The local path of JSON file that contains the application credentials                                                                                                                                                                                                  | If missing, loads the env variable `DATABRICKS_CONFIG_FILE` if any. Otherwise, it uses the default path `~/.databrickscfg` on Unix, Linux, or macOS                                                                                             |     N    |
 | **verbose**          | True or False to enable verbosity to the wrapper script                                                                                                                                                                                                                | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                                                                                                                                                                               |     N    |
 | **rapids_options**** | A list of valid [Profiling tool options](../../core/docs/spark-profiling-tool.md#qualification-tool-options). Note that (`output-directory`, `auto-tuner`, `combined`) flags are ignored                                                                               | N/A                                                                                                                                                                                                                                             |     N    |
@@ -268,7 +268,7 @@ A cluster property is still accessible if one of the following conditions applie
        export CLUSTER_NAME=my-databricks-gpu-cluster
        export REMOTE_FOLDER=s3://OUT_BUCKET/wrapper_output
        
-       spark_rapids_user_tools databricks_aws profiling \
+       spark_rapids_user_tools databricks-aws profiling \
           --eventlogs $EVENTLOGS \
           --gpu_cluster $CLUSTER_NAME \
           --remote_folder $REMOTE_FOLDER
@@ -282,7 +282,7 @@ A cluster property is still accessible if one of the following conditions applie
    Trigger the CLI by providing the path to the properties file `--gpu_cluster $CLUSTER_PROPS_FILE`
 
    ```
-   $> spark_rapids_user_tools databricks_aws profiling \
+   $> spark_rapids_user_tools databricks-aws profiling \
         --eventlogs $EVENTLOGS \
         --gpu_cluster $CLUSTER_PROPS_FILE \
         --remote_folder $REMOTE_FOLDER
@@ -302,7 +302,7 @@ The CLI is triggered by providing the location where the yaml file is stored `--
     # First, create a yaml file as described in previous section
     $> export WORKER_INFO_PATH=worker-info.yaml
     # Run the profiling cmd
-    $> spark_rapids_user_tools databricks_aws profiling \
+    $> spark_rapids_user_tools databricks-aws profiling \
             --eventlogs $EVENTLOGS \
             --worker_info $WORKER_INFO_PATH \
             --remote_folder $REMOTE_FOLDER
