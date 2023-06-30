@@ -450,7 +450,7 @@ class QualificationAppInfo(
       }.map(_.exec).toSet.mkString(";").trim.replaceAll("\n", "")
         .replace(",", ":")
       // Get all the unsupported Expressions from the plan
-      val unSupportedExprs = planInfos.map(_.execInfo.flatMap(
+      val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(
         _.unsupportedExprs)).flatten.filter(_.nonEmpty).toSet.mkString(";")
         .trim.replaceAll("\n", "").replace(",", ":")
 
