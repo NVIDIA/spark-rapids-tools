@@ -125,16 +125,14 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | serverless  |           unsupported                   |    N/A   |
 |                  |               +-------------+-----------------------------------------+----------+
-|                  |               | cluster     | spark_rapids_dataproc \                 | 22.10.1+ |
-|                  |               |             |   profiling [ARGS]                      |          |
+|                  |               | cluster     |           unsupported                   |    N/A   |
 |                  +---------------+-------------+-----------------------------------------+----------+
 |                  | bootstrap     | local       | spark_rapids_user_tools \               | 23.02.1+ |
 |                  |               |             |   dataproc bootstrap [ARGS]             |          |
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | serverless  |           unsupported                   |    N/A   |
 |                  |               +-------------+-----------------------------------------+----------+
-|                  |               | cluster     | spark_rapids_dataproc \                 | 22.10.1+ |
-|                  |               |             |   bootstrap [ARGS]                      |          |
+|                  |               | cluster     |           unsupported                   |    N/A   |
 |                  +---------------+-------------+-----------------------------------------+----------+
 |                  | diagnostic    | local       |           unsupported                   |    N/A   |
 |                  |               +-------------+-----------------------------------------+----------+
@@ -225,7 +223,6 @@ platform:
 
 - [AWS EMR](user-tools-aws-emr.md)
 - [Google Cloud Dataproc](user-tools-dataproc.md)
-  - To view documentation for the deprecated CLI on dataproc, visit the [spark_rapids_dataproc command](legacy-user-tools-dataproc.md) page.
 - [Databricks_AWS](user-tools-databricks-aws.md)
 - [Databricks_Azure](user-tools-databricks-azure.md)
 - [OnPrem](user-tools-onprem.md)
