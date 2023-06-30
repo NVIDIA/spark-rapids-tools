@@ -1107,6 +1107,41 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
+  test("test csv output for unsupported operators") {
+    TrampolineUtil.withTempDir { outpath =>
+      val tmpJson = s"$outpath/jsonfile"
+      TrampolineUtil.withTempDir { jsonOutputFile =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(jsonOutputFile, "jsonFile") { spark =>
+          import spark.implicits._
+          val testData = Seq((1, 2), (3, 4)).toDF("a", "b")
+          testData.write.json(tmpJson)
+          val df = spark.read.json(tmpJson)
+          val res = df.join(df.select($"a" as "a2"), $"a" === $"a2")
+          res
+        }
+        val allArgs = Array(
+          "--output-directory",
+          outpath.getAbsolutePath())
+        val appArgs = new QualificationArgs(allArgs ++ Array(eventLog))
+        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+
+        val filename = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
+        val inputSource = Source.fromFile(filename)
+        try {
+          val lines = inputSource.getLines.toSeq
+          // 1 for header, 1 for values
+          assert(lines.size == 6)
+          assert(lines.head.contains("App ID,Unsupported Type,"))
+          assert(lines(1).contains("Read,JSON,Types not supported - bigint:int"))
+        } finally {
+          inputSource.close()
+        }
+      }
+    }
+  }
+
   test("running qualification app files with per sql") {
     TrampolineUtil.withTempPath { outParquetFile =>
       TrampolineUtil.withTempPath { outJsonFile =>
