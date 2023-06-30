@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "spark-rapids-user-tools"
 authors = [
-  { name="Raza Jafri", email="raza.jafri@gmail.com" },
-  { name="Ahmed Hussein", email="a@ahussein.me" },
+  { name="NVIDIA Corporation" , email="spark-rapids-support@nvidia.com" },
 ]
+repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
 description = "A simple wrapper process around cloud service providers to run tools for the RAPIDS Accelerator for Apache Spark."
 readme = "README.md"
 requires-python = ">=3.8"
