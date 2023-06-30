@@ -1,0 +1,1566 @@
+{
+  "Jobs Compute": {
+    "Instances": {
+      "DS3_v2": {
+        "RAMinMB": 14336,
+        "vCPUs": 4,
+        "Instance": "DS3_v2",
+        "DBUCount": 0.75,
+        "DBUPricePerHour": 0.225,
+        "TotalPricePerHour": 0.454
+      },
+      "DS4_v2": {
+        "RAMinMB": 28672,
+        "vCPUs": 8,
+        "Instance": "DS4_v2",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.908
+      },
+      "DS5_v2": {
+        "RAMinMB": 57344,
+        "vCPUs": 16,
+        "Instance": "DS5_v2",
+        "DBUCount": 3.0,
+        "DBUPricePerHour": 0.9,
+        "TotalPricePerHour": 1.816
+      },
+      "D3_v2": {
+        "RAMinMB": 14336,
+        "vCPUs": 4,
+        "Instance": "D3_v2",
+        "DBUCount": 0.75,
+        "DBUPricePerHour": 0.225,
+        "TotalPricePerHour": 0.454
+      },
+      "D8s_v3": {
+        "RAMinMB": 32768,
+        "vCPUs": 8,
+        "Instance": "D8s_v3",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.834
+      },
+      "D16s_v3": {
+        "RAMinMB": 65536,
+        "vCPUs": 16,
+        "Instance": "D16s_v3",
+        "DBUCount": 3.0,
+        "DBUPricePerHour": 0.9,
+        "TotalPricePerHour": 1.668
+      },
+      "D32s_v3": {
+        "RAMinMB": 131072,
+        "vCPUs": 32,
+        "Instance": "D32s_v3",
+        "DBUCount": 6.0,
+        "DBUPricePerHour": 1.8,
+        "TotalPricePerHour": 3.336
+      },
+      "D64s_v3": {
+        "RAMinMB": 262144,
+        "vCPUs": 64,
+        "Instance": "D64s_v3",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 6.672
+      },
+      "D8_v3": {
+        "RAMinMB": 32768,
+        "vCPUs": 8,
+        "Instance": "D8_v3",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.834
+      },
+      "D16_v3": {
+        "RAMinMB": 65536,
+        "vCPUs": 16,
+        "Instance": "D16_v3",
+        "DBUCount": 3.0,
+        "DBUPricePerHour": 0.9,
+        "TotalPricePerHour": 1.668
+      },
+      "D32_v3": {
+        "RAMinMB": 131072,
+        "vCPUs": 32,
+        "Instance": "D32_v3",
+        "DBUCount": 6.0,
+        "DBUPricePerHour": 1.8,
+        "TotalPricePerHour": 3.336
+      },
+      "D64_v3": {
+        "RAMinMB": 262144,
+        "vCPUs": 64,
+        "Instance": "D64_v3",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 6.672
+      },
+      "D8as_v4": {
+        "RAMinMB": 32768,
+        "vCPUs": 8,
+        "Instance": "D8as_v4",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.834
+      },
+      "D16as_v4": {
+        "RAMinMB": 65536,
+        "vCPUs": 16,
+        "Instance": "D16as_v4",
+        "DBUCount": 3.0,
+        "DBUPricePerHour": 0.9,
+        "TotalPricePerHour": 1.668
+      },
+      "D32as_v4": {
+        "RAMinMB": 131072,
+        "vCPUs": 32,
+        "Instance": "D32as_v4",
+        "DBUCount": 6.0,
+        "DBUPricePerHour": 1.8,
+        "TotalPricePerHour": 3.336
+      },
+      "D48as_v4": {
+        "RAMinMB": 196608,
+        "vCPUs": 48,
+        "Instance": "D48as_v4",
+        "DBUCount": 9.0,
+        "DBUPricePerHour": 2.7,
+        "TotalPricePerHour": 5.004
+      },
+      "D64as_v4": {
+        "RAMinMB": 262144,
+        "vCPUs": 64,
+        "Instance": "D64as_v4",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 6.672
+      },
+      "D96as_v4": {
+        "RAMinMB": 393216,
+        "vCPUs": 96,
+        "Instance": "D96as_v4",
+        "DBUCount": 18.0,
+        "DBUPricePerHour": 5.4,
+        "TotalPricePerHour": 10.008
+      },
+      "D4a_v4": {
+        "RAMinMB": 16384,
+        "vCPUs": 4,
+        "Instance": "D4a_v4",
+        "DBUCount": 0.75,
+        "DBUPricePerHour": 0.225,
+        "TotalPricePerHour": 0.417
+      },
+      "D8a_v4": {
+        "RAMinMB": 32768,
+        "vCPUs": 8,
+        "Instance": "D8a_v4",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.834
+      },
+      "D16a_v4": {
+        "RAMinMB": 65536,
+        "vCPUs": 16,
+        "Instance": "D16a_v4",
+        "DBUCount": 3.0,
+        "DBUPricePerHour": 0.9,
+        "TotalPricePerHour": 1.668
+      },
+      "D32a_v4": {
+        "RAMinMB": 131072,
+        "vCPUs": 32,
+        "Instance": "D32a_v4",
+        "DBUCount": 6.0,
+        "DBUPricePerHour": 1.8,
+        "TotalPricePerHour": 3.336
+      },
+      "D48a_v4": {
+        "RAMinMB": 196608,
+        "vCPUs": 48,
+        "Instance": "D48a_v4",
+        "DBUCount": 9.0,
+        "DBUPricePerHour": 2.7,
+        "TotalPricePerHour": 5.004
+      },
+      "D64a_v4": {
+        "RAMinMB": 262144,
+        "vCPUs": 64,
+        "Instance": "D64a_v4",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 6.672
+      },
+      "D96a_v4": {
+        "RAMinMB": 393216,
+        "vCPUs": 96,
+        "Instance": "D96a_v4",
+        "DBUCount": 18.0,
+        "DBUPricePerHour": 5.4,
+        "TotalPricePerHour": 10.008
+      },
+      "D4ds_v4": {
+        "RAMinMB": 16384,
+        "vCPUs": 4,
+        "Instance": "D4ds_v4",
+        "DBUCount": 0.75,
+        "DBUPricePerHour": 0.225,
+        "TotalPricePerHour": 0.451
+      },
+      "D8ds_v4": {
+        "RAMinMB": 32768,
+        "vCPUs": 8,
+        "Instance": "D8ds_v4",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.902
+      },
+      "D16ds_v4": {
+        "RAMinMB": 65536,
+        "vCPUs": 16,
+        "Instance": "D16ds_v4",
+        "DBUCount": 3.0,
+        "DBUPricePerHour": 0.9,
+        "TotalPricePerHour": 1.804
+      },
+      "D32ds_v4": {
+        "RAMinMB": 131072,
+        "vCPUs": 32,
+        "Instance": "D32ds_v4",
+        "DBUCount": 6.0,
+        "DBUPricePerHour": 1.8,
+        "TotalPricePerHour": 3.608
+      },
+      "D48ds_v4": {
+        "RAMinMB": 196608,
+        "vCPUs": 48,
+        "Instance": "D48ds_v4",
+        "DBUCount": 9.0,
+        "DBUPricePerHour": 2.7,
+        "TotalPricePerHour": 5.412
+      },
+      "D64ds_v4": {
+        "RAMinMB": 262144,
+        "vCPUs": 64,
+        "Instance": "D64ds_v4",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 7.216
+      },
+      "D4ads_v5": {
+        "RAMinMB": 16384,
+        "vCPUs": 4,
+        "Instance": "D4ads_v5",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.506
+      },
+      "D8ads_v5": {
+        "RAMinMB": 32768,
+        "vCPUs": 8,
+        "Instance": "D8ads_v5",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.012
+      },
+      "D16ads_v5": {
+        "RAMinMB": 65536,
+        "vCPUs": 16,
+        "Instance": "D16ads_v5",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.024
+      },
+      "D32ads_v5": {
+        "RAMinMB": 131072,
+        "vCPUs": 32,
+        "Instance": "D32ads_v5",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 4.048
+      },
+      "D48ads_v5": {
+        "RAMinMB": 196608,
+        "vCPUs": 48,
+        "Instance": "D48ads_v5",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 6.072
+      },
+      "D64ads_v5": {
+        "RAMinMB": 262144,
+        "vCPUs": 64,
+        "Instance": "D64ads_v5",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 8.096
+      },
+      "D96ads_v5": {
+        "RAMinMB": 393216,
+        "vCPUs": 96,
+        "Instance": "D96ads_v5",
+        "DBUCount": 24.0,
+        "DBUPricePerHour": 7.2,
+        "TotalPricePerHour": 12.144
+      },
+      "D4as_v5": {
+        "RAMinMB": 16384,
+        "vCPUs": 4,
+        "Instance": "D4as_v5",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.472
+      },
+      "D8as_v5": {
+        "RAMinMB": 32768,
+        "vCPUs": 8,
+        "Instance": "D8as_v5",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 0.944
+      },
+      "D16as_v5": {
+        "RAMinMB": 65536,
+        "vCPUs": 16,
+        "Instance": "D16as_v5",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 1.888
+      },
+      "D32as_v5": {
+        "RAMinMB": 131072,
+        "vCPUs": 32,
+        "Instance": "D32as_v5",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 3.776
+      },
+      "D48as_v5": {
+        "RAMinMB": 196608,
+        "vCPUs": 48,
+        "Instance": "D48as_v5",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 5.664
+      },
+      "D64as_v5": {
+        "RAMinMB": 262144,
+        "vCPUs": 64,
+        "Instance": "D64as_v5",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 7.552
+      },
+      "D96as_v5": {
+        "RAMinMB": 393216,
+        "vCPUs": 96,
+        "Instance": "D96as_v5",
+        "DBUCount": 24.0,
+        "DBUPricePerHour": 7.2,
+        "TotalPricePerHour": 11.328
+      },
+      "D4ds_v5": {
+        "RAMinMB": 16384,
+        "vCPUs": 4,
+        "Instance": "D4ds_v5",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.526
+      },
+      "D8ds_v5": {
+        "RAMinMB": 32768,
+        "vCPUs": 8,
+        "Instance": "D8ds_v5",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.052
+      },
+      "D16ds_v5": {
+        "RAMinMB": 65536,
+        "vCPUs": 16,
+        "Instance": "D16ds_v5",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.104
+      },
+      "D32ds_v5": {
+        "RAMinMB": 131072,
+        "vCPUs": 32,
+        "Instance": "D32ds_v5",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 4.208
+      },
+      "D48ds_v5": {
+        "RAMinMB": 196608,
+        "vCPUs": 48,
+        "Instance": "D48ds_v5",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 6.312
+      },
+      "D64ds_v5": {
+        "RAMinMB": 262144,
+        "vCPUs": 64,
+        "Instance": "D64ds_v5",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 8.416
+      },
+      "D96ds_v5": {
+        "RAMinMB": 393216,
+        "vCPUs": 96,
+        "Instance": "D96ds_v5",
+        "DBUCount": 24.0,
+        "DBUPricePerHour": 7.2,
+        "TotalPricePerHour": 12.624
+      },
+      "D4d_v4": {
+        "RAMinMB": 16384,
+        "vCPUs": 4,
+        "Instance": "D4d_v4",
+        "DBUCount": 0.75,
+        "DBUPricePerHour": 0.225,
+        "TotalPricePerHour": 0.451
+      },
+      "D8d_v4": {
+        "RAMinMB": 32768,
+        "vCPUs": 8,
+        "Instance": "D8d_v4",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.902
+      },
+      "D16d_v4": {
+        "RAMinMB": 65536,
+        "vCPUs": 16,
+        "Instance": "D16d_v4",
+        "DBUCount": 3.0,
+        "DBUPricePerHour": 0.9,
+        "TotalPricePerHour": 1.804
+      },
+      "D32d_v4": {
+        "RAMinMB": 131072,
+        "vCPUs": 32,
+        "Instance": "D32d_v4",
+        "DBUCount": 6.0,
+        "DBUPricePerHour": 1.8,
+        "TotalPricePerHour": 3.608
+      },
+      "D48d_v4": {
+        "RAMinMB": 196608,
+        "vCPUs": 48,
+        "Instance": "D48d_v4",
+        "DBUCount": 9.0,
+        "DBUPricePerHour": 2.7,
+        "TotalPricePerHour": 5.412
+      },
+      "D64d_v4": {
+        "RAMinMB": 262144,
+        "vCPUs": 64,
+        "Instance": "D64d_v4",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 7.216
+      },
+      "D4s_v5": {
+        "RAMinMB": 16384,
+        "vCPUs": 4,
+        "Instance": "D4s_v5",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.492
+      },
+      "D8s_v5": {
+        "RAMinMB": 32768,
+        "vCPUs": 8,
+        "Instance": "D8s_v5",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 0.984
+      },
+      "D16s_v5": {
+        "RAMinMB": 65536,
+        "vCPUs": 16,
+        "Instance": "D16s_v5",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 1.968
+      },
+      "D32s_v5": {
+        "RAMinMB": 131072,
+        "vCPUs": 32,
+        "Instance": "D32s_v5",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 3.936
+      },
+      "D48s_v5": {
+        "RAMinMB": 196608,
+        "vCPUs": 48,
+        "Instance": "D48s_v5",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 5.904
+      },
+      "D64s_v5": {
+        "RAMinMB": 262144,
+        "vCPUs": 64,
+        "Instance": "D64s_v5",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 7.872
+      },
+      "D96s_v5": {
+        "RAMinMB": 393216,
+        "vCPUs": 96,
+        "Instance": "D96s_v5",
+        "DBUCount": 24.0,
+        "DBUPricePerHour": 7.2,
+        "TotalPricePerHour": 11.808
+      },
+      "DS12_v2": {
+        "RAMinMB": 28672,
+        "vCPUs": 4,
+        "Instance": "DS12_v2",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.599
+      },
+      "DS13_v2": {
+        "RAMinMB": 57344,
+        "vCPUs": 8,
+        "Instance": "DS13_v2",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.198
+      },
+      "DS14_v2": {
+        "RAMinMB": 114688,
+        "vCPUs": 16,
+        "Instance": "DS14_v2",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.396
+      },
+      "DS15_v2": {
+        "RAMinMB": 143360,
+        "vCPUs": 20,
+        "Instance": "DS15_v2",
+        "DBUCount": 5.0,
+        "DBUPricePerHour": 1.5,
+        "TotalPricePerHour": 2.995
+      },
+      "D12_v2": {
+        "RAMinMB": 28672,
+        "vCPUs": 4,
+        "Instance": "D12_v2",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.599
+      },
+      "D13_v2": {
+        "RAMinMB": 57344,
+        "vCPUs": 8,
+        "Instance": "D13_v2",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.198
+      },
+      "D14_v2": {
+        "RAMinMB": 114688,
+        "vCPUs": 16,
+        "Instance": "D14_v2",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.396
+      },
+      "D15_v2": {
+        "RAMinMB": 143360,
+        "vCPUs": 20,
+        "Instance": "D15_v2",
+        "DBUCount": 5.0,
+        "DBUPricePerHour": 1.5,
+        "TotalPricePerHour": 2.995
+      },
+      "E4as_v4": {
+        "RAMinMB": 32768,
+        "vCPUs": 4,
+        "Instance": "E4as_v4",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.552
+      },
+      "E8as_v4": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "E8as_v4",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.104
+      },
+      "E16as_v4": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "E16as_v4",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.208
+      },
+      "E20as_v4": {
+        "RAMinMB": 163840,
+        "vCPUs": 20,
+        "Instance": "E20as_v4",
+        "DBUCount": 5.0,
+        "DBUPricePerHour": 1.5,
+        "TotalPricePerHour": 2.76
+      },
+      "E32as_v4": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "E32as_v4",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 4.416
+      },
+      "E48as_v4": {
+        "RAMinMB": 393216,
+        "vCPUs": 48,
+        "Instance": "E48as_v4",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 6.624
+      },
+      "E64as_v4": {
+        "RAMinMB": 524288,
+        "vCPUs": 64,
+        "Instance": "E64as_v4",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 8.832
+      },
+      "E96as_v4": {
+        "RAMinMB": 688128,
+        "vCPUs": 96,
+        "Instance": "E96as_v4",
+        "DBUCount": 24.0,
+        "DBUPricePerHour": 7.2,
+        "TotalPricePerHour": 13.248
+      },
+      "E4as_v5": {
+        "RAMinMB": 32768,
+        "vCPUs": 4,
+        "Instance": "E4as_v5",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.676
+      },
+      "E8as_v5": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "E8as_v5",
+        "DBUCount": 2.75,
+        "DBUPricePerHour": 0.825,
+        "TotalPricePerHour": 1.277
+      },
+      "E16as_v5": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "E16as_v5",
+        "DBUCount": 5.5,
+        "DBUPricePerHour": 1.65,
+        "TotalPricePerHour": 2.554
+      },
+      "E20as_v5": {
+        "RAMinMB": 163840,
+        "vCPUs": 20,
+        "Instance": "E20as_v5",
+        "DBUCount": 7.0,
+        "DBUPricePerHour": 2.1,
+        "TotalPricePerHour": 3.23
+      },
+      "E32as_v5": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "E32as_v5",
+        "DBUCount": 11.0,
+        "DBUPricePerHour": 3.3,
+        "TotalPricePerHour": 5.108
+      },
+      "E48as_v5": {
+        "RAMinMB": 393216,
+        "vCPUs": 48,
+        "Instance": "E48as_v5",
+        "DBUCount": 16.5,
+        "DBUPricePerHour": 4.95,
+        "TotalPricePerHour": 7.662
+      },
+      "E64as_v5": {
+        "RAMinMB": 524288,
+        "vCPUs": 64,
+        "Instance": "E64as_v5",
+        "DBUCount": 22.0,
+        "DBUPricePerHour": 6.6,
+        "TotalPricePerHour": 10.216
+      },
+      "E96as_v5": {
+        "RAMinMB": 688128,
+        "vCPUs": 96,
+        "Instance": "E96as_v5",
+        "DBUCount": 33.0,
+        "DBUPricePerHour": 9.9,
+        "TotalPricePerHour": 15.324
+      },
+      "E4ads_v5": {
+        "RAMinMB": 32768,
+        "vCPUs": 4,
+        "Instance": "E4ads_v5",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.712
+      },
+      "E8ads_v5": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "E8ads_v5",
+        "DBUCount": 2.75,
+        "DBUPricePerHour": 0.825,
+        "TotalPricePerHour": 1.349
+      },
+      "E16ads_v5": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "E16ads_v5",
+        "DBUCount": 5.5,
+        "DBUPricePerHour": 1.65,
+        "TotalPricePerHour": 2.698
+      },
+      "E20ads_v5": {
+        "RAMinMB": 163840,
+        "vCPUs": 20,
+        "Instance": "E20ads_v5",
+        "DBUCount": 7.0,
+        "DBUPricePerHour": 2.1,
+        "TotalPricePerHour": 3.41
+      },
+      "E32ads_v5": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "E32ads_v5",
+        "DBUCount": 11.0,
+        "DBUPricePerHour": 3.3,
+        "TotalPricePerHour": 5.396
+      },
+      "E48ads_v5": {
+        "RAMinMB": 393216,
+        "vCPUs": 48,
+        "Instance": "E48ads_v5",
+        "DBUCount": 16.5,
+        "DBUPricePerHour": 4.95,
+        "TotalPricePerHour": 8.094
+      },
+      "E64ads_v5": {
+        "RAMinMB": 524288,
+        "vCPUs": 64,
+        "Instance": "E64ads_v5",
+        "DBUCount": 22.0,
+        "DBUPricePerHour": 6.6,
+        "TotalPricePerHour": 10.792
+      },
+      "E96ads_v5": {
+        "RAMinMB": 688128,
+        "vCPUs": 96,
+        "Instance": "E96ads_v5",
+        "DBUCount": 33.0,
+        "DBUPricePerHour": 9.9,
+        "TotalPricePerHour": 16.188
+      },
+      "E8s_v3": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "E8s_v3",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.104
+      },
+      "E16s_v3": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "E16s_v3",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.208
+      },
+      "E32s_v3": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "E32s_v3",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 4.416
+      },
+      "E64s_v3": {
+        "RAMinMB": 442368,
+        "vCPUs": 64,
+        "Instance": "E64s_v3",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 8.429
+      },
+      "E8_v3": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "E8_v3",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.104
+      },
+      "E16_v3": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "E16_v3",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.208
+      },
+      "E32_v3": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "E32_v3",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 4.416
+      },
+      "E64_v3": {
+        "RAMinMB": 442368,
+        "vCPUs": 64,
+        "Instance": "E64_v3",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 8.429
+      },
+      "E4a_v4": {
+        "RAMinMB": 32768,
+        "vCPUs": 4,
+        "Instance": "E4a_v4",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.552
+      },
+      "E8a_v4": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "E8a_v4",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.104
+      },
+      "E16a_v4": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "E16a_v4",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.208
+      },
+      "E20a_v4": {
+        "RAMinMB": 163840,
+        "vCPUs": 20,
+        "Instance": "E20a_v4",
+        "DBUCount": 5.0,
+        "DBUPricePerHour": 1.5,
+        "TotalPricePerHour": 2.76
+      },
+      "E32a_v4": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "E32a_v4",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 4.416
+      },
+      "E48a_v4": {
+        "RAMinMB": 393216,
+        "vCPUs": 48,
+        "Instance": "E48a_v4",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 6.624
+      },
+      "E64a_v4": {
+        "RAMinMB": 524288,
+        "vCPUs": 64,
+        "Instance": "E64a_v4",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 8.832
+      },
+      "E96a_v4": {
+        "RAMinMB": 688128,
+        "vCPUs": 96,
+        "Instance": "E96a_v4",
+        "DBUCount": 24.0,
+        "DBUPricePerHour": 7.2,
+        "TotalPricePerHour": 13.248
+      },
+      "E4ds_v4": {
+        "RAMinMB": 32768,
+        "vCPUs": 4,
+        "Instance": "E4ds_v4",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.588
+      },
+      "E8ds_v4": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "E8ds_v4",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.176
+      },
+      "E16ds_v4": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "E16ds_v4",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.352
+      },
+      "E20ds_v4": {
+        "RAMinMB": 163840,
+        "vCPUs": 20,
+        "Instance": "E20ds_v4",
+        "DBUCount": 5.0,
+        "DBUPricePerHour": 1.5,
+        "TotalPricePerHour": 2.94
+      },
+      "E32ds_v4": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "E32ds_v4",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 4.704
+      },
+      "E48ds_v4": {
+        "RAMinMB": 393216,
+        "vCPUs": 48,
+        "Instance": "E48ds_v4",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 7.056
+      },
+      "E64ds_v4": {
+        "RAMinMB": 516096,
+        "vCPUs": 64,
+        "Instance": "E64ds_v4",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 9.408
+      },
+      "E80ids_v4": {
+        "RAMinMB": 516096,
+        "vCPUs": 80,
+        "Instance": "E80ids_v4",
+        "DBUCount": 20.0,
+        "DBUPricePerHour": 6.0,
+        "TotalPricePerHour": 11.76
+      },
+      "E4ds_v5": {
+        "RAMinMB": 32768,
+        "vCPUs": 4,
+        "Instance": "E4ds_v5",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.738
+      },
+      "E8ds_v5": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "E8ds_v5",
+        "DBUCount": 2.75,
+        "DBUPricePerHour": 0.825,
+        "TotalPricePerHour": 1.401
+      },
+      "E16ds_v5": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "E16ds_v5",
+        "DBUCount": 5.5,
+        "DBUPricePerHour": 1.65,
+        "TotalPricePerHour": 2.802
+      },
+      "E20ds_v5": {
+        "RAMinMB": 163840,
+        "vCPUs": 20,
+        "Instance": "E20ds_v5",
+        "DBUCount": 7.0,
+        "DBUPricePerHour": 2.1,
+        "TotalPricePerHour": 3.54
+      },
+      "E32ds_v5": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "E32ds_v5",
+        "DBUCount": 11.0,
+        "DBUPricePerHour": 3.3,
+        "TotalPricePerHour": 5.604
+      },
+      "E48ds_v5": {
+        "RAMinMB": 393216,
+        "vCPUs": 48,
+        "Instance": "E48ds_v5",
+        "DBUCount": 16.5,
+        "DBUPricePerHour": 4.95,
+        "TotalPricePerHour": 8.406
+      },
+      "E64ds_v5": {
+        "RAMinMB": 524288,
+        "vCPUs": 64,
+        "Instance": "E64ds_v5",
+        "DBUCount": 22.0,
+        "DBUPricePerHour": 6.6,
+        "TotalPricePerHour": 11.208
+      },
+      "E96ds_v5": {
+        "RAMinMB": 688128,
+        "vCPUs": 96,
+        "Instance": "E96ds_v5",
+        "DBUCount": 33.0,
+        "DBUPricePerHour": 9.9,
+        "TotalPricePerHour": 16.812
+      },
+      "E4d_v4": {
+        "RAMinMB": 32768,
+        "vCPUs": 4,
+        "Instance": "E4d_v4",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.588
+      },
+      "E8d_v4": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "E8d_v4",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.176
+      },
+      "E16d_v4": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "E16d_v4",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.352
+      },
+      "E20d_v4": {
+        "RAMinMB": 163840,
+        "vCPUs": 20,
+        "Instance": "E20d_v4",
+        "DBUCount": 5.0,
+        "DBUPricePerHour": 1.5,
+        "TotalPricePerHour": 2.94
+      },
+      "E32d_v4": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "E32d_v4",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 4.704
+      },
+      "E48d_v4": {
+        "RAMinMB": 393216,
+        "vCPUs": 48,
+        "Instance": "E48d_v4",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 7.056
+      },
+      "E64d_v4": {
+        "RAMinMB": 516096,
+        "vCPUs": 64,
+        "Instance": "E64d_v4",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 9.408
+      },
+      "E4s_v4": {
+        "RAMinMB": 32768,
+        "vCPUs": 4,
+        "Instance": "E4s_v4",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.552
+      },
+      "E8s_v4": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "E8s_v4",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.104
+      },
+      "E16s_v4": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "E16s_v4",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.208
+      },
+      "E20s_v4": {
+        "RAMinMB": 163840,
+        "vCPUs": 20,
+        "Instance": "E20s_v4",
+        "DBUCount": 5.0,
+        "DBUPricePerHour": 1.5,
+        "TotalPricePerHour": 2.76
+      },
+      "E32s_v4": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "E32s_v4",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 4.416
+      },
+      "E48s_v4": {
+        "RAMinMB": 393216,
+        "vCPUs": 48,
+        "Instance": "E48s_v4",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 6.624
+      },
+      "E64s_v4": {
+        "RAMinMB": 516096,
+        "vCPUs": 64,
+        "Instance": "E64s_v4",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 8.832
+      },
+      "E80is_v4": {
+        "RAMinMB": 516096,
+        "vCPUs": 80,
+        "Instance": "E80is_v4",
+        "DBUCount": 20.0,
+        "DBUPricePerHour": 6.0,
+        "TotalPricePerHour": 11.04
+      },
+      "E4s_v5": {
+        "RAMinMB": 32768,
+        "vCPUs": 4,
+        "Instance": "E4s_v5",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.702
+      },
+      "E8s_v5": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "E8s_v5",
+        "DBUCount": 2.75,
+        "DBUPricePerHour": 0.825,
+        "TotalPricePerHour": 1.329
+      },
+      "E16s_v5": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "E16s_v5",
+        "DBUCount": 5.5,
+        "DBUPricePerHour": 1.65,
+        "TotalPricePerHour": 2.658
+      },
+      "E20s_v5": {
+        "RAMinMB": 163840,
+        "vCPUs": 20,
+        "Instance": "E20s_v5",
+        "DBUCount": 7.0,
+        "DBUPricePerHour": 2.1,
+        "TotalPricePerHour": 3.36
+      },
+      "E32s_v5": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "E32s_v5",
+        "DBUCount": 11.0,
+        "DBUPricePerHour": 3.3,
+        "TotalPricePerHour": 5.316
+      },
+      "E48s_v5": {
+        "RAMinMB": 393216,
+        "vCPUs": 48,
+        "Instance": "E48s_v5",
+        "DBUCount": 16.5,
+        "DBUPricePerHour": 4.95,
+        "TotalPricePerHour": 7.974
+      },
+      "E64s_v5": {
+        "RAMinMB": 524288,
+        "vCPUs": 64,
+        "Instance": "E64s_v5",
+        "DBUCount": 22.0,
+        "DBUPricePerHour": 6.6,
+        "TotalPricePerHour": 10.632
+      },
+      "E96s_v5": {
+        "RAMinMB": 688128,
+        "vCPUs": 96,
+        "Instance": "E96s_v5",
+        "DBUCount": 33.0,
+        "DBUPricePerHour": 9.9,
+        "TotalPricePerHour": 15.948
+      },
+      "L4s": {
+        "RAMinMB": 32768,
+        "vCPUs": 4,
+        "Instance": "L4s",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.612
+      },
+      "L8s": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "L8s",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.224
+      },
+      "L16s": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "L16s",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.448
+      },
+      "L32s": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "L32s",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 4.896
+      },
+      "L8s_v2": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "L8s_v2",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.224
+      },
+      "L16s_v2": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "L16s_v2",
+        "DBUCount": 4.0,
+        "DBUPricePerHour": 1.2,
+        "TotalPricePerHour": 2.448
+      },
+      "L32s_v2": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "L32s_v2",
+        "DBUCount": 8.0,
+        "DBUPricePerHour": 2.4,
+        "TotalPricePerHour": 4.896
+      },
+      "L64s_v2": {
+        "RAMinMB": 524288,
+        "vCPUs": 64,
+        "Instance": "L64s_v2",
+        "DBUCount": 16.0,
+        "DBUPricePerHour": 4.8,
+        "TotalPricePerHour": 9.792
+      },
+      "L80s_v2": {
+        "RAMinMB": 655360,
+        "vCPUs": 80,
+        "Instance": "L80s_v2",
+        "DBUCount": 20.0,
+        "DBUPricePerHour": 6.0,
+        "TotalPricePerHour": 12.24
+      },
+      "L8as_v3": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "L8as_v3",
+        "DBUCount": 2.75,
+        "DBUPricePerHour": 0.825,
+        "TotalPricePerHour": 1.449
+      },
+      "L16as_v3": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "L16as_v3",
+        "DBUCount": 5.5,
+        "DBUPricePerHour": 1.65,
+        "TotalPricePerHour": 2.898
+      },
+      "L32as_v3": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "L32as_v3",
+        "DBUCount": 11.0,
+        "DBUPricePerHour": 3.3,
+        "TotalPricePerHour": 5.796
+      },
+      "L48as_v3": {
+        "RAMinMB": 393216,
+        "vCPUs": 48,
+        "Instance": "L48as_v3",
+        "DBUCount": 16.5,
+        "DBUPricePerHour": 4.95,
+        "TotalPricePerHour": 8.694
+      },
+      "L64as_v3": {
+        "RAMinMB": 524288,
+        "vCPUs": 64,
+        "Instance": "L64as_v3",
+        "DBUCount": 22.0,
+        "DBUPricePerHour": 6.6,
+        "TotalPricePerHour": 11.592
+      },
+      "L80as_v3": {
+        "RAMinMB": 655360,
+        "vCPUs": 80,
+        "Instance": "L80as_v3",
+        "DBUCount": 27.5,
+        "DBUPricePerHour": 8.25,
+        "TotalPricePerHour": 14.49
+      },
+      "L8s_v3": {
+        "RAMinMB": 65536,
+        "vCPUs": 8,
+        "Instance": "L8s_v3",
+        "DBUCount": 2.75,
+        "DBUPricePerHour": 0.825,
+        "TotalPricePerHour": 1.523
+      },
+      "L16s_v3": {
+        "RAMinMB": 131072,
+        "vCPUs": 16,
+        "Instance": "L16s_v3",
+        "DBUCount": 5.5,
+        "DBUPricePerHour": 1.65,
+        "TotalPricePerHour": 3.046
+      },
+      "L32s_v3": {
+        "RAMinMB": 262144,
+        "vCPUs": 32,
+        "Instance": "L32s_v3",
+        "DBUCount": 11.0,
+        "DBUPricePerHour": 3.3,
+        "TotalPricePerHour": 6.092
+      },
+      "L48s_v3": {
+        "RAMinMB": 393216,
+        "vCPUs": 48,
+        "Instance": "L48s_v3",
+        "DBUCount": 16.5,
+        "DBUPricePerHour": 4.95,
+        "TotalPricePerHour": 9.138
+      },
+      "L64s_v3": {
+        "RAMinMB": 524288,
+        "vCPUs": 64,
+        "Instance": "L64s_v3",
+        "DBUCount": 22.0,
+        "DBUPricePerHour": 6.6,
+        "TotalPricePerHour": 12.184
+      },
+      "L80s_v3": {
+        "RAMinMB": 655360,
+        "vCPUs": 80,
+        "Instance": "L80s_v3",
+        "DBUCount": 27.5,
+        "DBUPricePerHour": 8.25,
+        "TotalPricePerHour": 15.23
+      },
+      "F4s_v2": {
+        "RAMinMB": 8192,
+        "vCPUs": 4,
+        "Instance": "F4s_v2",
+        "DBUCount": 0.75,
+        "DBUPricePerHour": 0.225,
+        "TotalPricePerHour": 0.394
+      },
+      "F8s_v2": {
+        "RAMinMB": 16384,
+        "vCPUs": 8,
+        "Instance": "F8s_v2",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 0.788
+      },
+      "F16s_v2": {
+        "RAMinMB": 32768,
+        "vCPUs": 16,
+        "Instance": "F16s_v2",
+        "DBUCount": 3.0,
+        "DBUPricePerHour": 0.9,
+        "TotalPricePerHour": 1.577
+      },
+      "F32s_v2": {
+        "RAMinMB": 65536,
+        "vCPUs": 32,
+        "Instance": "F32s_v2",
+        "DBUCount": 6.0,
+        "DBUPricePerHour": 1.8,
+        "TotalPricePerHour": 3.153
+      },
+      "F64s_v2": {
+        "RAMinMB": 131072,
+        "vCPUs": 64,
+        "Instance": "F64s_v2",
+        "DBUCount": 12.0,
+        "DBUPricePerHour": 3.6,
+        "TotalPricePerHour": 6.306
+      },
+      "F72s_v2": {
+        "RAMinMB": 147456,
+        "vCPUs": 72,
+        "Instance": "F72s_v2",
+        "DBUCount": 13.5,
+        "DBUPricePerHour": 4.05,
+        "TotalPricePerHour": 7.095
+      },
+      "F4": {
+        "RAMinMB": 8192,
+        "vCPUs": 4,
+        "Instance": "F4",
+        "DBUCount": 0.5,
+        "DBUPricePerHour": 0.15,
+        "TotalPricePerHour": 0.349
+      },
+      "F8": {
+        "RAMinMB": 16384,
+        "vCPUs": 8,
+        "Instance": "F8",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.698
+      },
+      "F16": {
+        "RAMinMB": 32768,
+        "vCPUs": 16,
+        "Instance": "F16",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.396
+      },
+      "F4s": {
+        "RAMinMB": 8192,
+        "vCPUs": 4,
+        "Instance": "F4s",
+        "DBUCount": 0.5,
+        "DBUPricePerHour": 0.15,
+        "TotalPricePerHour": 0.349
+      },
+      "F8s": {
+        "RAMinMB": 16384,
+        "vCPUs": 8,
+        "Instance": "F8s",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.698
+      },
+      "F16s": {
+        "RAMinMB": 32768,
+        "vCPUs": 16,
+        "Instance": "F16s",
+        "DBUCount": 2.0,
+        "DBUPricePerHour": 0.6,
+        "TotalPricePerHour": 1.396
+      },
+      "NC12": {
+        "RAMinMB": 114688,
+        "vCPUs": 12,
+        "Instance": "NC12",
+        "DBUCount": 3.0,
+        "DBUPricePerHour": 0.9,
+        "TotalPricePerHour": 2.7
+      },
+      "NC24": {
+        "RAMinMB": 229376,
+        "vCPUs": 24,
+        "Instance": "NC24",
+        "DBUCount": 6.0,
+        "DBUPricePerHour": 1.8,
+        "TotalPricePerHour": 5.4
+      },
+      "NC6s_v3": {
+        "RAMinMB": 114688,
+        "vCPUs": 6,
+        "Instance": "NC6s_v3",
+        "DBUCount": 5.0,
+        "DBUPricePerHour": 1.5,
+        "TotalPricePerHour": 4.56
+      },
+      "NC12s_v3": {
+        "RAMinMB": 229376,
+        "vCPUs": 12,
+        "Instance": "NC12s_v3",
+        "DBUCount": 10.0,
+        "DBUPricePerHour": 3.0,
+        "TotalPricePerHour": 9.12
+      },
+      "NC24s_v3": {
+        "RAMinMB": 458752,
+        "vCPUs": 24,
+        "Instance": "NC24s_v3",
+        "DBUCount": 20.0,
+        "DBUPricePerHour": 6.0,
+        "TotalPricePerHour": 18.24
+      },
+      "NC4as_T4_v3": {
+        "RAMinMB": 28672,
+        "vCPUs": 4,
+        "Instance": "NC4as_T4_v3",
+        "DBUCount": 1.0,
+        "DBUPricePerHour": 0.3,
+        "TotalPricePerHour": 0.826
+      },
+      "NC8as_T4_v3": {
+        "RAMinMB": 57344,
+        "vCPUs": 8,
+        "Instance": "NC8as_T4_v3",
+        "DBUCount": 1.5,
+        "DBUPricePerHour": 0.45,
+        "TotalPricePerHour": 1.202
+      },
+      "NC16as_T4_v3": {
+        "RAMinMB": 112640,
+        "vCPUs": 16,
+        "Instance": "NC16as_T4_v3",
+        "DBUCount": 2.5,
+        "DBUPricePerHour": 0.75,
+        "TotalPricePerHour": 1.954
+      },
+      "NC64as_T4_v3": {
+        "RAMinMB": 450560,
+        "vCPUs": 64,
+        "Instance": "NC64as_T4_v3",
+        "DBUCount": 10.0,
+        "DBUPricePerHour": 3.0,
+        "TotalPricePerHour": 7.352
+      },
+      "ND96asr_A100_v4": {
+        "RAMinMB": 921600,
+        "vCPUs": 96,
+        "Instance": "ND96asr_A100_v4",
+        "DBUCount": 44.0,
+        "DBUPricePerHour": 13.2,
+        "TotalPricePerHour": 40.397
+      }
+    }
+  }
+}

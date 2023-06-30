@@ -209,6 +209,9 @@ class ClusterNode:
     def _pull_sys_info(self, cli=None) -> SysInfo:
         raise NotImplementedError
 
+    def get_name(self) -> str:
+        return self.name
+
     def construct_hw_info(self,
                           cli=None,
                           gpu_info: GpuHWInfo = None,
@@ -267,6 +270,9 @@ class ClusterGetAccessor:
     used by other entities such as the SavingEstimator
     """
     def get_node(self, node_type: SparkNodeType) -> ClusterNode:
+        raise NotImplementedError
+
+    def get_all_nodes(self) -> list:
         raise NotImplementedError
 
     def get_nodes_cnt(self, node_type: SparkNodeType) -> int:
@@ -411,12 +417,16 @@ class CMDDriverBase:
                     cmd_input: str = None,
                     fail_ok: bool = False,
                     env_vars: dict = None) -> str:
+
         def process_credentials_option(cmd: list):
-            for idx, item in enumerate(cmd):
-                if 'fs.azure.account.key' in item:
-                    cmd[idx] = item.split('=')[0] + '=MY_ACCESS_KEY'
-                    break
-            return cmd
+            res = []
+            for i, arg in enumerate(cmd):
+                if 'account-key' in cmd[i - 1]:
+                    arg = 'MY_ACCESS_KEY'
+                elif 'fs.azure.account.key' in arg:
+                    arg = arg.split('=')[0] + '=MY_ACCESS_KEY'
+                res.append(arg)
+            return res
 
         def process_streams(std_out, std_err):
             if ToolLogging.is_debug_mode_enabled():
@@ -501,6 +511,14 @@ class CMDDriverBase:
         del node  # Unused by super method.
         return ''
 
+    def _build_cmd_scp_to_node(self, node: ClusterNode, src: str, dest: str) -> str:  # pylint: disable=unused-argument
+        del node  # Unused by super method.
+        return ''
+
+    def _build_cmd_scp_from_node(self, node: ClusterNode, src: str, dest: str) -> str:  # pylint: disable=unused-argument
+        del node  # Unused by super method.
+        return ''
+
     def _construct_ssh_cmd_with_prefix(self, prefix: str, remote_cmd: str) -> str:
         return f'{prefix} {remote_cmd}'
 
@@ -508,6 +526,14 @@ class CMDDriverBase:
         prefix_cmd = self._build_ssh_cmd_prefix_for_node(node=node)
         full_ssh_cmd = self._construct_ssh_cmd_with_prefix(prefix=prefix_cmd, remote_cmd=ssh_cmd)
         return self.run_sys_cmd(full_ssh_cmd, cmd_input=cmd_input)
+
+    def scp_to_node(self, node: ClusterNode, src: str, dest: str) -> str:
+        cmd = self._build_cmd_scp_to_node(node=node, src=src, dest=dest)
+        return self.run_sys_cmd(cmd)
+
+    def scp_from_node(self, node: ClusterNode, src: str, dest: str) -> str:
+        cmd = self._build_cmd_scp_from_node(node=node, src=src, dest=dest)
+        return self.run_sys_cmd(cmd)
 
     def pull_cluster_props_by_args(self, args: dict) -> str or None:
         del args  # Unused by super method.
@@ -959,7 +985,7 @@ class ClusterBase(ClusterGetAccessor):
     def get_eventlogs_from_config(self) -> List[str]:
         res_arr = []
         spark_props = self.get_all_spark_properties()
-        if 'spark.eventLog.dir' in spark_props:
+        if spark_props and 'spark.eventLog.dir' in spark_props:
             res_arr.append(spark_props.get('spark.eventLog.dir'))
         return res_arr
 
@@ -988,6 +1014,38 @@ class ClusterBase(ClusterGetAccessor):
         # get the worker node
         worker_node: ClusterNode = self.get_worker_node(ind)
         return self.cli.ssh_cmd_node(worker_node, ssh_cmd, cmd_input=cmd_input)
+
+    def run_cmd_node(self, node: ClusterNode, ssh_cmd: str, cmd_input: str = None) -> str or None:
+        """
+        Execute command on the node
+        :param node: the cluster node where the command to be executed on
+        :param ssh_cmd: the command to be executed on the remote node. Note that the quotes
+                        surrounding the shell command should be included
+        :param cmd_input: optional argument string used as an input to the command line.
+                          i.e., writing to a file
+        """
+        return self.cli.ssh_cmd_node(node, ssh_cmd, cmd_input=cmd_input)
+
+    def scp_to_node(self, node: ClusterNode, src: str, dest: str) -> str or None:
+        """
+        Scp file to the node
+        :param node: the cluster node to upload file to.
+        :param src: the file path to be uploaded to the cluster node.
+        :param dest: the file path where to store uploaded file on the cluster node.
+        """
+        return self.cli.scp_to_node(node, src, dest)
+
+    def scp_from_node(self, node: ClusterNode, src: str, dest: str) -> str or None:
+        """
+        Scp file from the node
+        :param node: the cluster node to download file from.
+        :param src: the file path on the cluster node to be downloaded.
+        :param dest: the file path where to store downloaded file.
+        """
+        return self.cli.scp_from_node(node, src, dest)
+
+    def get_region(self) -> str:
+        return self.cli.get_region()
 
     def get_worker_hw_info(self) -> NodeHWInfo:
         worker_node = self.get_worker_node()
@@ -1050,6 +1108,17 @@ class ClusterBase(ClusterGetAccessor):
             res = node_values
         return res
 
+    def get_all_nodes(self) -> list:
+        nodes = []
+
+        for value in self.nodes.values():
+            if isinstance(value, list):
+                nodes += value
+            else:
+                nodes += [value]
+
+        return nodes
+
     def get_master_node(self) -> ClusterNode:
         return self.nodes.get(SparkNodeType.MASTER)
 
@@ -1111,6 +1180,9 @@ class ClusterReshape(ClusterGetAccessor):
         if node_type == SparkNodeType.WORKER:
             return self.cluster_inst.get_worker_node()
         return self.cluster_inst.get_master_node()
+
+    def get_all_nodes(self) -> list:
+        raise NotImplementedError
 
     def get_node_instance_type(self, node_type: SparkNodeType) -> str:
         res = super().get_node_instance_type(node_type)

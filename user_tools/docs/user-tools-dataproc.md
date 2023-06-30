@@ -389,3 +389,39 @@ The steps to run the command:
 
 If the connection to Dataproc instances cannot be established through SSH, the command will still
 generate an output while displaying warning that the remote changes failed. 
+
+## Diagnostic command
+
+```
+spark_rapids_user_tools dataproc diagnostic [options]
+spark_rapids_user_tools dataproc diagnostic --help
+```
+
+Run diagnostic command to collects information from Dataproc cluster, such as OS version, # of worker
+nodes, Yarn configuration, Spark version and error logs etc. The cluster has to be running and the
+user must have SSH access.
+
+### Diagnostic options
+
+| Option            | Description                                                               | Default                                                                                     | Required |
+|-------------------|---------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|:--------:|
+| **cluster**       | Name of the Dataproc cluster running an accelerated computing instance    | N/A                                                                                         |     Y    |
+| **output_folder** | Path to local directory where the final recommendations is logged         | env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. |     N    |
+| **verbose**       | True or False to enable verbosity to the wrapper script                   | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                           |     N    |
+
+### Info collection
+
+The default is to collect info from each cluster node via SSH access and an archive would be created
+to output folder at last.
+
+The steps to run the command:
+
+1. The user creates a cluster
+2. The user runs the following command:
+
+    ```bash
+    spark_rapids_user_tools dataproc diagnostic \
+      --cluster my-cluster-name
+    ```
+
+If the connection to Dataproc instances cannot be established through SSH, the command will raise error.

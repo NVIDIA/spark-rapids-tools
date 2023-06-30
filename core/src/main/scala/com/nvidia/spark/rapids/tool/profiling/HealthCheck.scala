@@ -86,11 +86,11 @@ class HealthCheck(apps: Seq[ApplicationInfo]) {
   def getRemovedBlockManager: Seq[BlockManagerRemovedProfileResult] = {
     val res = apps.flatMap { app =>
       app.blockManagersRemoved.map { bm =>
-        BlockManagerRemovedProfileResult(app.index, bm.executorID, bm.time)
+        BlockManagerRemovedProfileResult(app.index, bm.executorId, bm.time)
       }
     }
     if (res.size > 0) {
-      res.sortBy(cols => (cols.appIndex, cols.executorID))
+      res.sortBy(cols => (cols.appIndex, cols.executorId))
     } else {
       Seq.empty
     }
@@ -106,7 +106,7 @@ class HealthCheck(apps: Seq[ApplicationInfo]) {
       }
     }
     if (res.size > 0) {
-      res.sortBy(cols => (cols.appIndex, cols.executorID))
+      res.sortBy(cols => (cols.appIndex, cols.executorId))
     } else {
       Seq.empty
     }

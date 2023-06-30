@@ -137,13 +137,13 @@
     "catalog": {
       "onlineResources": [
         {
-          "resourceKey": "databricks-azure-catalog",
+          "resourceKey": "premium-databricks-azure-catalog",
           "onlineURL": "https://azure.microsoft.com/en-us/pricing/details/databricks/",
           "//localFile": "the name of the local file",
-          "localFile": "TODO",
+          "localFile": "premium-databricks-azure-catalog.json",
           "backupArchive": {
             "//description": "We use this archive as a backup. It is stored in the resources",
-            "archiveName": "TODO"
+            "archiveName": "premium-databricks-azure-catalog.json"
           }
         }
       ]
@@ -153,6 +153,10 @@
     "user-tools": {
       "supportedGpuInstances": {
         "Standard_NC12": {
+          "SysInfo": {
+            "num_cpus": 12,
+            "cpu_mem": 114688
+          },
           "GpuInfo": {
             "GPUs": [
               {
@@ -167,6 +171,10 @@
           }
         },
         "Standard_NC24": {
+          "SysInfo": {
+            "num_cpus": 24,
+            "cpu_mem": 229376
+          },
           "GpuInfo": {
             "GPUs": [
               {
@@ -181,6 +189,10 @@
           }
         },
         "Standard_NC6s_v3": {
+          "SysInfo": {
+            "num_cpus": 6,
+            "cpu_mem": 114688
+          },
           "GpuInfo": {
             "GPUs": [
               {
@@ -195,6 +207,10 @@
           }
         },
         "Standard_NC12s_v3": {
+          "SysInfo": {
+            "num_cpus": 12,
+            "cpu_mem": 229376
+          },
           "GpuInfo": {
             "GPUs": [
               {
@@ -209,6 +225,10 @@
           }
         },
         "Standard_NC24s_v3": {
+          "SysInfo": {
+            "num_cpus": 24,
+            "cpu_mem": 458752
+          },
           "GpuInfo": {
             "GPUs": [
               {
@@ -223,6 +243,10 @@
           }
         },
         "Standard_NC4as_T4_v3": {
+          "SysInfo": {
+            "num_cpus": 4,
+            "cpu_mem": 28672
+          },
           "GpuInfo": {
             "GPUs": [
               {
@@ -237,6 +261,10 @@
           }
         },
         "Standard_NC8as_T4_v3": {
+          "SysInfo": {
+            "num_cpus": 8,
+            "cpu_mem": 57344
+          },
           "GpuInfo": {
             "GPUs": [
               {
@@ -251,6 +279,10 @@
           }
         },
         "Standard_NC16as_T4_v3": {
+          "SysInfo": {
+            "num_cpus": 16,
+            "cpu_mem": 112640
+          },
           "GpuInfo": {
             "GPUs": [
               {
@@ -265,6 +297,10 @@
           }
         },
         "Standard_NC64as_T4_v3": {
+          "SysInfo": {
+            "num_cpus": 64,
+            "cpu_mem": 450560
+          },
           "GpuInfo": {
             "GPUs": [
               {
@@ -279,6 +315,10 @@
           }
         },
         "Standard_ND96asr_v4": {
+          "SysInfo": {
+            "num_cpus": 96,
+            "cpu_mem": 921600
+          },
           "GpuInfo": {
             "GPUs": [
               {

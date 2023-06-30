@@ -18,6 +18,7 @@
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode, CloudPlatform
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
+from spark_rapids_pytools.rapids.diagnostic import Diagnostic
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType, \
     QualificationAsRemote
@@ -236,6 +237,32 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                                    wrapper_options=wrapper_boot_options)
         bootstrap_tool.launch()
 
+    @staticmethod
+    def diagnostic(cluster: str,
+                   output_folder: str = None,
+                   verbose: bool = False) -> None:
+        """
+        Diagnostic tool to collects information from Dataproc cluster, such as OS version, # of worker nodes,
+        Yarn configuration, Spark version and error logs etc.
+        :param cluster: Name of the Dataproc cluster running an accelerated computing instance class
+        :param output_folder: Local path where the final recommendations will be saved.
+               Note that this argument only accepts local filesystem. If the argument is NONE,
+               the default value is the env variable "RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY" if any;
+               or the current working directory
+        :param verbose: True or False to enable verbosity to the wrapper script.
+        """
+        if verbose:
+            # when debug is set to true set it in the environment.
+            ToolLogging.enable_debug_mode()
+        wrapper_diag_options = {
+            'platformOpts': {},
+        }
+        diag_tool = Diagnostic(platform_type=CloudPlatform.DATAPROC,
+                               cluster=cluster,
+                               output_folder=output_folder,
+                               wrapper_options=wrapper_diag_options)
+        diag_tool.launch()
+
 
 class DataprocWrapper:  # pylint: disable=too-few-public-methods
     """
@@ -245,3 +272,4 @@ class DataprocWrapper:  # pylint: disable=too-few-public-methods
         self.qualification = CliDataprocLocalMode.qualification
         self.profiling = CliDataprocLocalMode.profiling
         self.bootstrap = CliDataprocLocalMode.bootstrap
+        self.diagnostic = CliDataprocLocalMode.diagnostic

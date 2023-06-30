@@ -26,7 +26,7 @@ import sys
 import urllib
 from dataclasses import dataclass, field
 from logging import Logger
-from shutil import which
+from shutil import which, make_archive
 from typing import Callable, Any
 
 import certifi
@@ -134,6 +134,17 @@ class Utils:
         :return: True or False
         """
         return which(tool_name) is not None
+
+    @classmethod
+    def make_archive(cls, base_name, fmt, root_dir) -> None:
+        """
+        check whether a tool is installed on the system.
+        :param base_name: the name of the file to create
+        :param format: the archive format: "zip", "tar", "gztar"
+        :param root_dir: the root directory of the archive
+        :return:
+        """
+        return make_archive(base_name=base_name, format=fmt, root_dir=root_dir)
 
     @classmethod
     def find_full_rapids_tools_env_key(cls, actual_key: str) -> str:
@@ -293,8 +304,10 @@ class SysCmd:
     def exec(self) -> str:
         def process_credentials_option(cmd: list):
             res = []
-            for arg in cmd:
-                if 'fs.azure.account.key' in arg:
+            for i, arg in enumerate(cmd):
+                if 'account-key' in cmd[i - 1]:
+                    arg = 'MY_ACCESS_KEY'
+                elif 'fs.azure.account.key' in arg:
                     arg = arg.split('=')[0] + '=MY_ACCESS_KEY'
                 res.append(arg)
             return res
@@ -338,7 +351,8 @@ class SysCmd:
             if len(std_error_lines) > 0:
                 error_lines = Utils.gen_multiline_str(std_error_lines)
                 stderr_str = f'\n{error_lines}'
-            cmd_err_msg = f'Error invoking CMD <{Utils.gen_joined_str(" ", cmd_args)}>: {stderr_str}'
+            processed_cmd_args = process_credentials_option(cmd_args)
+            cmd_err_msg = f'Error invoking CMD <{Utils.gen_joined_str(" ", processed_cmd_args)}>: {stderr_str}'
             raise RuntimeError(f'{cmd_err_msg}')
 
         self.out_std = c.stdout if isinstance(c.stdout, str) else c.stdout.decode('utf-8', errors='ignore')

@@ -1,31 +1,34 @@
-# RAPIDS User Tools on Databricks AWS
+# RAPIDS User Tools on Databricks Azure
 
-This is a guide for the RAPIDS tools for Apache Spark on [Databricks AWS](https://www.databricks.com/product/aws). At the end of this guide, the user will be able to run the RAPIDS tools to analyze the clusters and the applications running on Databricks AWS.
+This is a guide for the RAPIDS tools for Apache Spark on [Databricks Azure](https://www.databricks.com/product/azure). At the end of this guide, the user will be able to run the RAPIDS tools to analyze the clusters and the applications running on Databricks Azure.
 
 ## Assumptions
 
-The tool currently only supports event logs stored on S3 (no DBFS paths). The remote output storage is also expected to be S3.
+The tool currently only supports event logs stored on ABFS ([Azure Blob File System](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri)). The remote output storage is also expected to be ABFS (no DBFS paths).
 
 ## Prerequisites
 
 ### 1.Databricks CLI
+
 - Install the Databricks CLI. Follow the instructions on [Install the CLI](https://docs.databricks.com/dev-tools/cli/index.html#install-the-cli).
 - Set the configuration settings and credentials of the Databricks CLI:
-  - Set up authentication by following these [instructions](https://docs.databricks.com/dev-tools/cli/index.html#set-up-authentication)
+  - Set up authentication using a Databricks personal access token by following these [instructions](https://docs.databricks.com/dev-tools/cli/index.html#set-up-authentication-using-a-databricks-personal-access-token)
   - Test the authentication setup by following these [instructions](https://docs.databricks.com/dev-tools/cli/index.html#test-your-authentication-setup)
-  - Verify that the access credentials are stored in the file `~/.databrickscfg` on Unix, Linux, or macOS, or in another file defined by 
-    environment variable `DATABRICKS_CONFIG_FILE`.
+  - Verify that the access credentials are stored in the file `~/.databrickscfg` on Unix, Linux, or macOS, or in another file defined by environment variable `DATABRICKS_CONFIG_FILE`.
 
-### 2.AWS CLI
+### 2.Azure CLI
 
-- Install the AWS CLI version 2. Follow the instructions on [aws-cli-getting-started](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html).
-- Set the configuration settings and credentials of the AWS CLI by creating `credentials` and `config` files as described in [aws-cli-configure-files](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html).
+- Install the Azure CLI. Follow the instructions on [How to install the Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli).
+- Set the configuration settings and credentials of the Azure CLI:
+  - Set up the authentication by following these [instructions](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli).
+  - Configure the Azure CLI by following these [instructions](https://learn.microsoft.com/en-us/cli/azure/azure-cli-configuration).
+    - Location is used for retreving instance type description (default is `westus`).
 
 ### 3.RAPIDS tools
 
 - Spark event logs:
   - The RAPIDS tools can process Apache Spark CPU event logs from Spark 2.0 or higher (raw, .lz4, .lzf, .snappy, .zstd)
-  - For `qualification` commands, the event logs need to be archived to an accessible S3 folder.
+  - For `qualification` commands, the event logs need to be archived to an accessible local or ABFS folder.
 
 ### 4.Install the package
 
@@ -35,7 +38,7 @@ The tool currently only supports event logs stored on S3 (no DBFS paths). The re
   - from source: `pip install -e .`
 - verify the command is installed correctly by running
   ```bash
-    spark_rapids_user_tools databricks_aws --help
+    spark_rapids_user_tools databricks_azure --help
   ```
 
 ### 5.Environment variables
@@ -45,21 +48,21 @@ Before running any command, you can set environment variables to specify configu
   - `RAPIDS_USER_TOOLS_CACHE_FOLDER`: specifies the location of a local directory that the RAPIDS-cli uses to store and cache the downloaded resources. The default is `/var/tmp/spark_rapids_user_tools_cache`.  Note that caching the resources locally has an impact on the total execution time of the command.
   - `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY`: specifies the location of a local directory that the RAPIDS-cli uses to generate the output. The wrapper CLI arguments override that environment variable (`--local_folder` for Qualification).
 - For Databricks CLI, some environment variables can be set and picked by the RAPIDS-user tools such as: `DATABRICKS_CONFIG_FILE`, `DATABRICKS_HOST` and `DATABRICKS_TOKEN`. See the description of the variables in [Environment variables](https://docs.databricks.com/dev-tools/auth.html#environment-variables).
-- For AWS CLI, some environment variables can be set and picked by the RAPIDS-user tools such as: `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, `AWS_REGION`, `AWS_DEFAULT_REGION`, `AWS_PROFILE` and `AWS_DEFAULT_OUTPUT`. See the full list of variables in [aws-cli-configure-envvars](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
+- For Azure CLI, some environment variables can be set and picked by the RAPIDS-user tools such as: `AZURE_CONFIG_FILE` and `AZURE_DEFAULTS_LOCATION`.
 
 ## Qualification command
 
 ### Local deployment
 
 ```
-spark_rapids_user_tools databricks_aws qualification [options]
-spark_rapids_user_tools databricks_aws qualification --help
+spark_rapids_user_tools databricks_azure qualification [options]
+spark_rapids_user_tools databricks_azure qualification --help
 ```
 
 The local deployment runs on the local development machine. It requires:
-1. Installing and configuring the Databricks and AWS CLI
+1. Installing and configuring the Databricks and Azure CLI
 2. Java 1.8+ development environment
-3. Internet access to download JAR dependencies from mvn: `spark-*.jar`, `hadoop-aws-*.jar`, and `aws-java-sdk-bundle*.jar`
+3. Internet access to download JAR dependencies from mvn: `spark-*.jar`, and `hadoop-azure-*.jar`
 4. Dependencies are cached on the local disk to reduce the overhead of the download.
 
 #### Command options
@@ -67,14 +70,13 @@ The local deployment runs on the local development machine. It requires:
 | Option                         | Description                                                                                                                                                                                                                                                                                                                                                                                                 | Default                                                                                                                                                                                                                                         | Required |
 |--------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:--------:|
 | **cpu_cluster**                | The Databricks-cluster on which the Apache Spark applications were executed. Accepted values are an Databricks-cluster name, or a valid path to the cluster properties file (json format) generated by Databricks CLI command `databricks clusters get --cluster-name`                                                                                                                                      | N/A                                                                                                                                                                                                                                             |     Y    |
-| **eventlogs**                  | A comma seperated list of S3 urls pointing to event logs or S3 directory                                                                                                                                                                                                                                                                                                                                    | Reads the Spark's property `spark.eventLog.dir` defined in `cpu_cluster`. This property should be included in the output of `databricks clusters get --cluster-name`. Note that the wrapper will raise an exception if the property is not set. |     N    |
-| **remote_folder**              | The S3 folder where the output of the wrapper's output is copied. If missing, the output will be available only on local disk                                                                                                                                                                                                                                                                               | N/A                                                                                                                                                                                                                                             |     N    |
-| **gpu_cluster**                | The Databricks-cluster on which the Spark applications is planned to be migrated. The argument can be an Databricks-cluster or a valid path to the cluster's properties file (json format) generated by the Databricks CLI `databricks clusters get --cluster-name` command                                                                                                                                 | The wrapper maps the AWS EC2 machine instances of the original cluster into AWS EC2 instances that support GPU acceleration.                                                                                                                    |     N    |
+| **eventlogs**                  | A comma seperated list of ABFS urls pointing to event logs or ABFS directory                                                                                                                                                                                                                                                                                                                                | Reads the Spark's property `spark.eventLog.dir` defined in `cpu_cluster`. This property should be included in the output of `databricks clusters get --cluster-name`. Note that the wrapper will raise an exception if the property is not set. |     N    |
+| **remote_folder**              | The ABFS folder where the output of the wrapper's output is copied. If missing, the output will be available only on local disk                                                                                                                                                                                                                                                                             | N/A                                                                                                                                                                                                                                             |     N    |
+| **gpu_cluster**                | The Databricks-cluster on which the Spark applications is planned to be migrated. The argument can be an Databricks-cluster or a valid path to the cluster's properties file (json format) generated by the Databricks CLI `databricks clusters get --cluster-name` command                                                                                                                                 | The wrapper maps the Azure machine instances of the original cluster into Azure instances that support GPU acceleration.                                                                                                                        |     N    |
 | **local_folder**               | Local work-directory path to store the output and to be used as root directory for temporary folders/files. The final output will go into a subdirectory named `qual-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution.                                                                                                                                                   | If the argument is NONE, the default value is the env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory.                                                                                                   |     N    |
 | **jvm_heap_size**              | The maximum heap size of the JVM in gigabytes                                                                                                                                                                                                                                                                                                                                                               | 24                                                                                                                                                                                                                                              |     N    |
 | **profile**                    | A named Databricks profile that you can specify to get the settings/credentials of the Databricks account                                                                                                                                                                                                                                                                                                   | "DEFAULT"                                                                                                                                                                                                                                       |     N    |
-| **aws_profile**                | A named AWS profile that you can specify to get the settings/credentials of the AWS account                                                                                                                                                                                                                                                                                                                 | "default" if the env-variable `AWS_PROFILE` is not set                                                                                                                                                                                          |     N    |
-| **tools_jar**                  | Path to a bundled jar including RAPIDS tool. The path is a local filesystem, or remote S3 url                                                                                                                                                                                                                                                                                                               | Downloads the latest rapids-tools_*.jar from mvn repo                                                                                                                                                                                           |     N    |
+| **tools_jar**                  | Path to a bundled jar including RAPIDS tool. The path is a local filesystem, or remote ABFS url                                                                                                                                                                                                                                                                                                             | Downloads the latest rapids-tools_*.jar from mvn repo                                                                                                                                                                                           |     N    |
 | **filter_apps**                | Filtering criteria of the applications listed in the final STDOUT table is one of the following (`NONE`, `SPEEDUPS`, `SAVINGS`). "`NONE`" means no filter applied. "`SPEEDUPS`" lists all the apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups. "`SAVINGS`" lists all the apps that have positive estimated GPU savings except for the apps that are '_Not Applicable_'. | `SAVINGS`                                                                                                                                                                                                                                       |     N    |
 | **gpu_cluster_recommendation** | The type of GPU cluster recommendation to generate. It accepts one of the following (`CLUSTER`, `JOB`, `MATCH`). `MATCH`: keep GPU cluster same number of nodes as CPU cluster; `CLUSTER`: recommend optimal GPU cluster by cost for entire cluster. `JOB`: recommend optimal GPU cluster by cost per job                                                                                                   | `MATCH`                                                                                                                                                                                                                                         |     N    |
 | **verbose**                    | True or False to enable verbosity to the wrapper script                                                                                                                                                                                                                                                                                                                                                     | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                                                                                                                                                                               |     N    |
@@ -84,35 +86,35 @@ The local deployment runs on the local development machine. It requires:
 
 A typical workflow to successfully run the `qualification` command in local mode is described as follows:
 
-1. Store the Apache Spark event logs in S3 folder.
+1. Store the Apache Spark event logs in ABFS folder.
 2. A user sets up his development machine:
    1. configures Java
    2. installs Databricks CLI and configures the profile and the credentials to make sure the
       access credentials are stored in the file `~/.databrickscfg` on Unix, Linux, or macOS,
       or in another file defined by environment variable `DATABRICKS_CONFIG_FILE`.
-   3. installs AWS CLI and configures the profile and the credentials to make sure the AWS CLI
-      commands can access the S3 resources `LOGS_BUCKET`.
+   3. installs Azure CLI and configures the profile and the credentials to make sure the Azure CLI
+      commands can access the ABFS resources `LOGS_CONTAINER` and `OUT_CONTAINER`.
    4. installs `spark_rapids_user_tools`
-3. If the results of the wrapper need to be stored on S3, then another s3 uri is required `REMOTE_FOLDER=s3://OUT_BUCKET/`
+3. If the results of the wrapper need to be stored on ABFS, then another ABFS uri is required `REMOTE_FOLDER=abfss://OUT_BUCKET/`
 4. User defines the Databricks-cluster on which the Spark application were running. Note that the cluster does not have to be
    active; but it has to be visible by the Databricks CLI (i.e., can run `databricks clusters get --cluster-name`).
-5. The following script runs qualification by passing an S3 remote directory to store the output:
+5. The following script runs qualification by passing an ABFS remote directory to store the output:
 
    ```
    # define the wrapper cache directory if necessary
    export RAPIDS_USER_TOOLS_CACHE_FOLDER=my_cache_folder
-   export EVENTLOGS=s3://LOGS_BUCKET/eventlogs/
+   export EVENTLOGS=abfss://LOGS_CONTAINER/eventlogs/
    export CLUSTER_NAME=my-databricks-cpu-cluster
-   export REMOTE_FOLDER=s3://OUT_BUCKET/wrapper_output
+   export REMOTE_FOLDER=abfss://OUT_CONTAINER/wrapper_output
    
-   spark_rapids_user_tools databricks_aws qualification \
+   spark_rapids_user_tools databricks_azure qualification \
       --eventlogs $EVENTLOGS \
       --cpu_cluster $CLUSTER_NAME \
       --remote_folder $REMOTE_FOLDER
    ```
    The wrapper generates a unique-Id for each execution in the format of `qual_<YYYYmmddHHmmss>_<0x%08X>`
    The above command will generate a directory containing `qualification_summary.csv` in addition to
-   the actual folder of the RAPIDS Qualification tool. The directory will be mirrored to S3 path (`REMOTE_FOLDER`).
+   the actual folder of the RAPIDS Qualification tool. The directory will be mirrored to ABFS path (`REMOTE_FOLDER`).
 
    ```
     ./qual_<YYYYmmddHHmmss>_<0x%08X>/qualification_summary.csv

@@ -18,6 +18,7 @@
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode, CloudPlatform
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
+from spark_rapids_pytools.rapids.diagnostic import Diagnostic
 from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, \
     Qualification, QualGpuClusterReshapeType
 
@@ -158,6 +159,42 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                                    wrapper_options=wrapper_boot_options)
         bootstrap_tool.launch()
 
+    @staticmethod
+    def diagnostic(cluster: str,
+                   profile: str = None,
+                   output_folder: str = None,
+                   key_pair_path: str = None,
+                   verbose: bool = False) -> None:
+        """
+        Diagnostic tool to collects information from Dataproc cluster, such as OS version, # of worker nodes,
+        Yarn configuration, Spark version and error logs etc.
+        :param cluster: Name of the EMR cluster running an accelerated computing instance class g4dn.*
+        :param profile: A named AWS profile to get the settings/credentials of the AWS account.
+        :param output_folder: Local path where the archived result will be saved.
+               Note that this argument only accepts local filesystem. If the argument is NONE,
+               the default value is the env variable "RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY" if any;
+               or the current working directory.
+        :param key_pair_path: A '.pem' file path that enables to connect to EC2 instances using SSH.
+               If missing, the wrapper reads the env variable 'RAPIDS_USER_TOOLS_KEY_PAIR_PATH' if any.
+               For more details on creating key pairs,
+               visit https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html.
+        :param verbose: True or False to enable verbosity to the wrapper script.
+        """
+        if verbose:
+            # when debug is set to true set it in the environment.
+            ToolLogging.enable_debug_mode()
+        wrapper_diag_options = {
+            'platformOpts': {
+                'profile': profile,
+                'keyPairPath': key_pair_path,
+            },
+        }
+        diag_tool = Diagnostic(platform_type=CloudPlatform.EMR,
+                               cluster=cluster,
+                               output_folder=output_folder,
+                               wrapper_options=wrapper_diag_options)
+        diag_tool.launch()
+
 
 class CliEmrServerlessMode:  # pylint: disable=too-few-public-methods
     """
@@ -268,3 +305,4 @@ class EMRWrapper:  # pylint: disable=too-few-public-methods
         else:
             self.qualification = CliEmrLocalMode.qualification
             self.bootstrap = CliEmrLocalMode.bootstrap
+            self.diagnostic = CliEmrLocalMode.diagnostic

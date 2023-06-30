@@ -740,6 +740,22 @@ object QualificationAppInfo extends Logging {
   val LOWER_BOUND_RECOMMENDED = 1.3
   val LOWER_BOUND_STRONGLY_RECOMMENDED = 2.5
 
+  private def handleException(e: Exception, path: EventLogInfo): Unit = {
+    val message: String = e match {
+      case gpuLog: GpuEventLogException =>
+        gpuLog.message
+      case _: com.fasterxml.jackson.core.JsonParseException =>
+        s"Error parsing JSON: ${path.eventLog.toString}"
+      case _: IllegalArgumentException =>
+        s"Error parsing file: ${path.eventLog.toString}"
+      case _: Exception =>
+        // catch all exceptions and skip that file
+        s"Got unexpected exception processing file: ${path.eventLog.toString}"
+    }
+
+    logWarning(s"${e.getClass.getSimpleName}: $message")
+  }
+
   def getRecommendation(totalSpeedup: Double,
       hasFailures: Boolean): String = {
     if (hasFailures) {
@@ -816,18 +832,8 @@ object QualificationAppInfo extends Logging {
         logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
         Some(app)
       } catch {
-        case gpuLog: GpuEventLogException =>
-          logWarning(gpuLog.message)
-          None
-        case json: com.fasterxml.jackson.core.JsonParseException =>
-          logWarning(s"Error parsing JSON: ${path.eventLog.toString}")
-          None
-        case il: IllegalArgumentException =>
-          logWarning(s"Error parsing file: ${path.eventLog.toString}", il)
-          None
         case e: Exception =>
-          // catch all exceptions and skip that file
-          logWarning(s"Got unexpected exception processing file: ${path.eventLog.toString}", e)
+          handleException(e, path)
           None
       }
     app
