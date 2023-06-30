@@ -324,7 +324,7 @@ spark_rapids_user_tools emr diagnostic [options]
 spark_rapids_user_tools emr diagnostic --help
 ```
 
-Run diagnostic command to collects information from Dataproc cluster, such as OS version, # of worker
+Run diagnostic command to collects information from EMR cluster, such as OS version, # of worker
 nodes, Yarn configuration, Spark version and error logs etc. The cluster has to be running and the
 user must have SSH access.
 
@@ -336,6 +336,7 @@ user must have SSH access.
 | **profile**       | A named AWS profile that you can specify to get the settings/credentials of the AWS account.                                                                                                                                | "default" if the the env-variable `AWS_PROFILE` is not set                                  |     N    |
 | **output_folder** | Path to local directory where the final recommendations is logged                                                                                                                                                           | env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. |     N    |
 | **key_pair_path** | A '.pem' file path that enables to connect to EC2 instances using SSH. For more details on creating key pairs, visit [aws-create-key-pair-guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html) | env variable '`RAPIDS_USER_TOOLS_KEY_PAIR_PATH`' if any                                     |     N    |
+| **thread_num**    | Number of threads to access remote cluster nodes in parallel                                                                                                                                                                | 3                                                                                           |     N    |
 | **verbose**       | True or False to enable verbosity to the wrapper script                                                                                                                                                                     | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                           |     N    |
 
 ### Info collection
