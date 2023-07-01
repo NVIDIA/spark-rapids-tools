@@ -7,7 +7,7 @@ import json
 # Databricks Azure user tools.
 # Follow the instructions below:
 #   1. Go to https://azure.microsoft.com/en-us/pricing/details/databricks/ and select
-#      the prices for `Jobs Cmpute` Workload, `Premium` Tier, `West US 2` Region, 
+#      the prices for `Jobs Cmpute` Workload, `Premium` Tier, `West US 2` Region,
 #      `United States -Dollar ($) USD` Currency, and Display pricing by `Hour`.
 #   2. Copy the prices into `databricks-azure-price-jobs-compute-premium-westus2-raw.txt`,
 #      under the same directory as this script, the file is already included under `/dev`
