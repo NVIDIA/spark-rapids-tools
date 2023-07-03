@@ -15,6 +15,7 @@
 """Implementation class representing wrapper around the RAPIDS acceleration Profiling tool."""
 
 import re
+from copy import deepcopy
 from dataclasses import dataclass
 from itertools import chain
 from typing import List
@@ -108,7 +109,14 @@ class Profiling(RapidsJarTool):
             },
             'softwareProperties': cluster_ob.get_all_spark_properties()
         }
-        self.logger.debug('Auto-tuner worker info: %s', worker_info)
+        worker_info_redacted = deepcopy(worker_info)
+        if worker_info_redacted['softwareProperties']:
+            for key in worker_info_redacted['softwareProperties']:
+                if 's3a.secret.key' in key:
+                    worker_info_redacted['softwareProperties'][key] = 'MY_S3A_SECRET_KEY'
+                elif 's3a.access.key' in key:
+                    worker_info_redacted['softwareProperties'][key] = 'MY_S3A_ACCESS_KEY'
+        self.logger.debug('Auto-tuner worker info: %s', worker_info_redacted)
         with open(file_path, 'w', encoding='utf-8') as worker_info_file:
             self.logger.debug('Opening file %s to write worker info', file_path)
             yaml.dump(worker_info, worker_info_file, sort_keys=False)

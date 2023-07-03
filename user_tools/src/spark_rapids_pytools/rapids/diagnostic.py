@@ -14,6 +14,7 @@
 
 """Implementation class representing wrapper around diagnostic tool."""
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase, SparkNodeType
@@ -30,6 +31,25 @@ class Diagnostic(RapidsTool):
     name = 'diagnostic'
     exec_cluster: ClusterBase = None
     all_nodes: list = None
+    thread_num: int = 3
+
+    def _process_custom_args(self):
+        thread_num = self.wrapper_options.get('threadNum', 3)
+        if thread_num < 1 or thread_num > 10:
+            raise RuntimeError(f'Invalid thread number: {thread_num} (Valid value: 1~10)')
+
+        self.thread_num = thread_num
+        self.logger.debug('Set thread number as: %d', self.thread_num)
+
+        self.logger.warning('This operation will collect sensitive information from your cluster, '
+                            'such as OS & HW info, Yarn/Spark configurations and log files etc.')
+        yes = self.wrapper_options.get('yes', False)
+        if yes:
+            self.logger.info('Confirmed by command line option.')
+        else:
+            user_input = input('Do you want to continue (yes/no): ')
+            if user_input.lower() not in ['yes', 'y']:
+                raise RuntimeError('User canceled the operation.')
 
     def requires_cluster_connection(self) -> bool:
         return True
@@ -48,20 +68,37 @@ class Diagnostic(RapidsTool):
         folder_name = FSUtil.get_resource_name(output_path)
         self.ctxt.set_remote('outputFolder', folder_name)
 
-    def _upload_scripts(self):
+    def _upload_scripts(self, node):
         """
-        Upload scripts to both driver & worker nodes
+        Upload scripts to specified node
         :return:
         """
         script = Utils.resource_path('collect.sh')
 
         try:
-            for node in self.all_nodes:
-                self.logger.info('Uploading script to node: %s', node.get_name())
-                self.exec_cluster.scp_to_node(node, str(script), '/tmp/')
+            self.logger.info('Uploading script to node: %s', node.get_name())
+            self.exec_cluster.scp_to_node(node, str(script), '/tmp/')
 
         except Exception as e:
-            self.logger.error('Error while uploading script to remote node')
+            self.logger.error('Error while uploading script to node: %s', node.get_name())
+            raise e
+
+    def _collect_info(self, node):
+        """
+        Run task to collect info from specified node
+        :return:
+        """
+        self._upload_scripts(node)
+
+        remote_output_folder = self.ctxt.get_remote('outputFolder')
+        ssh_cmd = f'"PREFIX={remote_output_folder} /tmp/collect.sh"'
+
+        try:
+            self.logger.info('Collecting info on node: %s', node.get_name())
+            self.exec_cluster.run_cmd_node(node, ssh_cmd)
+
+        except Exception as e:
+            self.logger.error('Error while collecting info from node: %s', node.get_name())
             raise e
 
     def _run_rapids_tool(self):
@@ -69,21 +106,11 @@ class Diagnostic(RapidsTool):
         Run diagnostic tool from both driver & worker nodes to collect info
         :return:
         """
-        self.logger.info('Uploading script to remote cluster nodes:')
-        self._upload_scripts()
-
-        self.logger.info('Collecting info on remote cluster nodes:')
-        remote_output_folder = self.ctxt.get_remote('outputFolder')
-        ssh_cmd = f'"PREFIX={remote_output_folder} /tmp/collect.sh"'
-
-        try:
-            for node in self.all_nodes:
-                self.logger.info('Collecting info on node: %s', node.get_name())
-                self.exec_cluster.run_cmd_node(node, ssh_cmd)
-
-        except Exception as e:
-            self.logger.error('Error while collecting info from remote node')
-            raise e
+        with ThreadPoolExecutor(max_workers=self.thread_num) as executor:
+            for e in executor.map(self._collect_info, self.all_nodes):
+                # Raise exception if any error occurred
+                if e:
+                    raise e
 
     def _download_output(self):
         self.logger.info('Downloading results from remote nodes:')
@@ -92,17 +119,23 @@ class Diagnostic(RapidsTool):
         remote_output_folder = self.ctxt.get_remote('outputFolder')
         remote_output_result = f'/tmp/{remote_output_folder}*.tgz'
 
-        try:
-            for node in self.all_nodes:
+        def _download_result(node):
+            try:
                 node_output_path = FSUtil.build_path(output_path, node.get_name())
                 FSUtil.make_dirs(node_output_path, exist_ok=True)
 
                 self.logger.info('Downloading results from node: %s', node.get_name())
                 self.exec_cluster.scp_from_node(node, remote_output_result, node_output_path)
 
-        except Exception as e:
-            self.logger.error('Error while downloading collected info from remote node')
-            raise e
+            except Exception as e:
+                self.logger.error('Error while downloading collected info from node: %s', node.get_name())
+                raise e
+
+        with ThreadPoolExecutor(max_workers=self.thread_num) as executor:
+            for e in executor.map(_download_result, self.all_nodes):
+                # Raise exception if any error occurred
+                if e:
+                    raise e
 
     def _process_output(self):
         self.logger.info('Processing the collected results.')
