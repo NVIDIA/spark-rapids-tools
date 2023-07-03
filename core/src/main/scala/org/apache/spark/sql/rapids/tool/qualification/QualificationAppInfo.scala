@@ -455,7 +455,7 @@ class QualificationAppInfo(
         .trim.replaceAll("\n", "").replace(",", ":")
 
       // Get all unsupported execs and expressions from the plan in form of map[exec -> exprs]
-      val unsupportedExecExprsMap = planInfos.map { p =>
+      val unsupportedExecExprsMap = planInfos.flatMap { p =>
         val topLevelExecs = p.execInfo.filterNot(_.isSupported).filterNot(
           x => x.exec.startsWith("WholeStage"))
         val childrenExecs = p.execInfo.flatMap { e =>
@@ -465,7 +465,7 @@ class QualificationAppInfo(
         val exprs = execs.filter(_.unsupportedExprs.nonEmpty).map(
           e => e.exec -> e.unsupportedExprs.mkString(";")).toMap
         exprs
-      }.flatten.toMap
+      }.toMap
 
       // check if there are any SparkML/XGBoost functions or expressions if the mlOpsEnabled
       // config is true

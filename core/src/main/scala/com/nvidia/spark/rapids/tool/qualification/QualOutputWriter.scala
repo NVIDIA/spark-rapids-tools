@@ -889,8 +889,8 @@ object QualOutputWriter {
         val data = ListBuffer(
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
           "Read" -> headersAndSizes(UNSUPPORTED_TYPE),
-          readFormat -> headersAndSizes(DETAILS),
-          readType -> headersAndSizes(NOTES)
+          reformatCSVFunc(readFormat) -> headersAndSizes(DETAILS),
+          reformatCSVFunc(readType) -> headersAndSizes(NOTES)
         )
         constructOutputRow(data, delimiter, prettyPrint)
       }
@@ -901,8 +901,8 @@ object QualOutputWriter {
         val data = ListBuffer(
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
           "Exec" -> headersAndSizes(UNSUPPORTED_TYPE),
-          exec -> headersAndSizes(DETAILS),
-          "" -> headersAndSizes(NOTES)
+          reformatCSVFunc(exec) -> headersAndSizes(DETAILS),
+          reformatCSVFunc("") -> headersAndSizes(NOTES)
         )
         constructOutputRow(data, delimiter, prettyPrint)
       }
@@ -913,9 +913,9 @@ object QualOutputWriter {
         val data = ListBuffer(
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
           "Exec" -> headersAndSizes(UNSUPPORTED_TYPE),
-          exec -> headersAndSizes(DETAILS),
-          s"$exec Exec is not supported as expressions are not supported -  `${exprs}`" ->
-            headersAndSizes(NOTES)
+          reformatCSVFunc(exec) -> headersAndSizes(DETAILS),
+          reformatCSVFunc("$exec Exec is not supported as expressions are " +
+            "not supported -  `${exprs}`") -> headersAndSizes(NOTES)
         )
         constructOutputRow(data, delimiter, prettyPrint)
       }.toArray
@@ -926,8 +926,8 @@ object QualOutputWriter {
         val data = ListBuffer(
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
           "Expression" -> headersAndSizes(UNSUPPORTED_TYPE),
-          expr -> headersAndSizes(DETAILS),
-          "" -> headersAndSizes(NOTES)
+          reformatCSVFunc(expr) -> headersAndSizes(DETAILS),
+          reformatCSVFunc("") -> headersAndSizes(NOTES)
         )
         constructOutputRow(data, delimiter, prettyPrint)
       }
@@ -938,8 +938,8 @@ object QualOutputWriter {
         val data = ListBuffer(
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
           "Write" -> headersAndSizes(UNSUPPORTED_TYPE),
-          format -> headersAndSizes(DETAILS),
-          "" -> headersAndSizes(NOTES)
+          reformatCSVFunc(format) -> headersAndSizes(DETAILS),
+          reformatCSVFunc("") -> headersAndSizes(NOTES)
         )
         constructOutputRow(data, delimiter, prettyPrint)
       }
