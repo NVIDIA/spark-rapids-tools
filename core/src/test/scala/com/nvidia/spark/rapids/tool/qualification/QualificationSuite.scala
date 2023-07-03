@@ -1134,7 +1134,7 @@ class QualificationSuite extends BaseTestSuite {
           // 1 for header, 1 for values
           assert(lines.size == 6)
           assert(lines.head.contains("App ID,Unsupported Type,"))
-          assert(lines(1).contains("Read,JSON,Types not supported - bigint:int"))
+          assert(lines(1).contains("\"Read\",\"JSON\",\"Types not supported - bigint:int\""))
         } finally {
           inputSource.close()
         }

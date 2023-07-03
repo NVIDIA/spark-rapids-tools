@@ -888,7 +888,7 @@ object QualOutputWriter {
         }
         val data = ListBuffer(
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-          "Read" -> headersAndSizes(UNSUPPORTED_TYPE),
+          reformatCSVFunc("Read")-> headersAndSizes(UNSUPPORTED_TYPE),
           reformatCSVFunc(readFormat) -> headersAndSizes(DETAILS),
           reformatCSVFunc(readType) -> headersAndSizes(NOTES)
         )
@@ -900,7 +900,7 @@ object QualOutputWriter {
       val unsupportedExecRows = unsupportedExecs.split(";").map { exec =>
         val data = ListBuffer(
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-          "Exec" -> headersAndSizes(UNSUPPORTED_TYPE),
+          reformatCSVFunc("Exec") -> headersAndSizes(UNSUPPORTED_TYPE),
           reformatCSVFunc(exec) -> headersAndSizes(DETAILS),
           reformatCSVFunc("") -> headersAndSizes(NOTES)
         )
@@ -912,7 +912,7 @@ object QualOutputWriter {
       val unsupportedExecExprMapRows = unsupportedExecExprsMap.map { case (exec, exprs) =>
         val data = ListBuffer(
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-          "Exec" -> headersAndSizes(UNSUPPORTED_TYPE),
+          reformatCSVFunc("Exec") -> headersAndSizes(UNSUPPORTED_TYPE),
           reformatCSVFunc(exec) -> headersAndSizes(DETAILS),
           reformatCSVFunc("$exec Exec is not supported as expressions are " +
             "not supported -  `${exprs}`") -> headersAndSizes(NOTES)
@@ -925,7 +925,7 @@ object QualOutputWriter {
       val unsupportedExprRows = unsupportedExprs.split(";").map { expr =>
         val data = ListBuffer(
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-          "Expression" -> headersAndSizes(UNSUPPORTED_TYPE),
+          reformatCSVFunc("Expression") -> headersAndSizes(UNSUPPORTED_TYPE),
           reformatCSVFunc(expr) -> headersAndSizes(DETAILS),
           reformatCSVFunc("") -> headersAndSizes(NOTES)
         )
@@ -937,7 +937,7 @@ object QualOutputWriter {
       val unsupportedwriteFormatRows = writeFormat.map { format =>
         val data = ListBuffer(
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-          "Write" -> headersAndSizes(UNSUPPORTED_TYPE),
+          reformatCSVFunc("Write") -> headersAndSizes(UNSUPPORTED_TYPE),
           reformatCSVFunc(format) -> headersAndSizes(DETAILS),
           reformatCSVFunc("") -> headersAndSizes(NOTES)
         )
