@@ -27,8 +27,8 @@ def main():
     fire.Fire({
         'emr': EMRWrapper,
         'dataproc': DataprocWrapper,
-        'databricks_aws': DBAWSWrapper,
-        'databricks_azure': DBAzureWrapper,
+        'databricks-aws': DBAWSWrapper,
+        'databricks-azure': DBAzureWrapper,
         'onprem': OnPremWrapper
     })
 

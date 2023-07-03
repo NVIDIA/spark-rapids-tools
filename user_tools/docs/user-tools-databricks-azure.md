@@ -38,7 +38,7 @@ The tool currently only supports event logs stored on ABFS ([Azure Blob File Sys
   - from source: `pip install -e .`
 - verify the command is installed correctly by running
   ```bash
-    spark_rapids_user_tools databricks_azure --help
+    spark_rapids_user_tools databricks-azure --help
   ```
 
 ### 5.Environment variables
@@ -55,8 +55,8 @@ Before running any command, you can set environment variables to specify configu
 ### Local deployment
 
 ```
-spark_rapids_user_tools databricks_azure qualification [options]
-spark_rapids_user_tools databricks_azure qualification --help
+spark_rapids_user_tools databricks-azure qualification [options]
+spark_rapids_user_tools databricks-azure qualification --help
 ```
 
 The local deployment runs on the local development machine. It requires:
@@ -76,7 +76,7 @@ The local deployment runs on the local development machine. It requires:
 | **local_folder**               | Local work-directory path to store the output and to be used as root directory for temporary folders/files. The final output will go into a subdirectory named `qual-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution.                                                                                                                                                   | If the argument is NONE, the default value is the env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory.                                                                                                   |     N    |
 | **jvm_heap_size**              | The maximum heap size of the JVM in gigabytes                                                                                                                                                                                                                                                                                                                                                               | 24                                                                                                                                                                                                                                              |     N    |
 | **profile**                    | A named Databricks profile that you can specify to get the settings/credentials of the Databricks account                                                                                                                                                                                                                                                                                                   | "DEFAULT"                                                                                                                                                                                                                                       |     N    |
-| **tools_jar**                  | Path to a bundled jar including RAPIDS tool. The path is a local filesystem, or remote ABFS url                                                                                                                                                                                                                                                                                                             | Downloads the latest rapids-tools_*.jar from mvn repo                                                                                                                                                                                           |     N    |
+| **tools_jar**                  | Path to a bundled jar including RAPIDS tool. The path is a local filesystem, or remote ABFS url                                                                                                                                                                                                                                                                                                             | Downloads the latest `rapids-4-spark-tools_*.jar` from mvn repo                                                                                                                                                                                 |     N    |
 | **filter_apps**                | Filtering criteria of the applications listed in the final STDOUT table is one of the following (`NONE`, `SPEEDUPS`, `SAVINGS`). "`NONE`" means no filter applied. "`SPEEDUPS`" lists all the apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups. "`SAVINGS`" lists all the apps that have positive estimated GPU savings except for the apps that are '_Not Applicable_'. | `SAVINGS`                                                                                                                                                                                                                                       |     N    |
 | **gpu_cluster_recommendation** | The type of GPU cluster recommendation to generate. It accepts one of the following (`CLUSTER`, `JOB`, `MATCH`). `MATCH`: keep GPU cluster same number of nodes as CPU cluster; `CLUSTER`: recommend optimal GPU cluster by cost for entire cluster. `JOB`: recommend optimal GPU cluster by cost per job                                                                                                   | `MATCH`                                                                                                                                                                                                                                         |     N    |
 | **verbose**                    | True or False to enable verbosity to the wrapper script                                                                                                                                                                                                                                                                                                                                                     | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                                                                                                                                                                               |     N    |
@@ -107,7 +107,7 @@ A typical workflow to successfully run the `qualification` command in local mode
    export CLUSTER_NAME=my-databricks-cpu-cluster
    export REMOTE_FOLDER=abfss://OUT_CONTAINER/wrapper_output
    
-   spark_rapids_user_tools databricks_azure qualification \
+   spark_rapids_user_tools databricks-azure qualification \
       --eventlogs $EVENTLOGS \
       --cpu_cluster $CLUSTER_NAME \
       --remote_folder $REMOTE_FOLDER
