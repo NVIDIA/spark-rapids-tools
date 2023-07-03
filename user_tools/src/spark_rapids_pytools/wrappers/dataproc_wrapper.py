@@ -241,10 +241,12 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
     def diagnostic(cluster: str,
                    output_folder: str = None,
                    thread_num: int = 3,
+                   yes: bool = False,
                    verbose: bool = False) -> None:
         """
-        Diagnostic tool to collects information from Dataproc cluster, such as OS version, # of worker nodes,
-        Yarn configuration, Spark version and error logs etc.
+        Diagnostic tool to collect information from Dataproc cluster, such as OS version, # of worker nodes,
+        Yarn configuration, Spark version and error logs etc. Please note, some sensitive information might
+        be collected by this tool, e.g. access secret configured in configuration files or dumped to log files.
         :param cluster: Name of the Dataproc cluster running an accelerated computing instance class
         :param output_folder: Local path where the final recommendations will be saved.
                Note that this argument only accepts local filesystem. If the argument is NONE,
@@ -252,6 +254,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                or the current working directory
         :param thread_num: Number of threads to access remote cluster nodes in parallel. The valid value
                is 1~10. The default value is 3.
+        :param yes: auto confirm to interactive question.
         :param verbose: True or False to enable verbosity to the wrapper script.
         """
         if verbose:
@@ -260,6 +263,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
         wrapper_diag_options = {
             'platformOpts': {},
             'threadNum': thread_num,
+            'yes': yes,
         }
         diag_tool = Diagnostic(platform_type=CloudPlatform.DATAPROC,
                                cluster=cluster,

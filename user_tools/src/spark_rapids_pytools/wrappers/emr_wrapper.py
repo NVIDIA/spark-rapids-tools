@@ -165,10 +165,12 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                    output_folder: str = None,
                    key_pair_path: str = None,
                    thread_num: int = 3,
+                   yes: bool = False,
                    verbose: bool = False) -> None:
         """
-        Diagnostic tool to collects information from EMR cluster, such as OS version, # of worker nodes,
-        Yarn configuration, Spark version and error logs etc.
+        Diagnostic tool to collect information from EMR cluster, such as OS version, # of worker nodes,
+        Yarn configuration, Spark version and error logs etc. Please note, some sensitive information might
+        be collected by this tool, e.g. access secret configured in configuration files or dumped to log files.
         :param cluster: Name of the EMR cluster running an accelerated computing instance class g4dn.*
         :param profile: A named AWS profile to get the settings/credentials of the AWS account.
         :param output_folder: Local path where the archived result will be saved.
@@ -181,6 +183,7 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                visit https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html.
         :param thread_num: Number of threads to access remote cluster nodes in parallel. The valid value
                is 1~10. The default value is 3.
+        :param yes: auto confirm to interactive question.
         :param verbose: True or False to enable verbosity to the wrapper script.
         """
         if verbose:
@@ -192,6 +195,7 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                 'keyPairPath': key_pair_path,
             },
             'threadNum': thread_num,
+            'yes': yes,
         }
         diag_tool = Diagnostic(platform_type=CloudPlatform.EMR,
                                cluster=cluster,
