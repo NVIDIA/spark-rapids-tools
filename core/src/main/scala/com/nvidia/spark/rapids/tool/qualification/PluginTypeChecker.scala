@@ -112,7 +112,7 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
     // Some SQL function names have backquotes(`) around their names,
     // so we remove them before saving.
     readSupportedOperators(source, "exprs").map(
-      x => (x._1.toLowerCase.replaceAll("\\`", ""), x._2))
+      x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ",""), x._2))
   }
 
   private def readSupportedTypesForPlugin: (
@@ -300,7 +300,7 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
     val exprLowercase = if (expr.equalsIgnoreCase("date_format")) {
       expr
     } else {
-      expr.toLowerCase.replace("_", "")
+      expr.toLowerCase
     }
     if (supportedExprs.contains(exprLowercase)) {
       val exprSupported = supportedExprs.getOrElse(exprLowercase, "NS")
