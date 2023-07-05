@@ -112,7 +112,7 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
     // Some SQL function names have backquotes(`) around their names,
     // so we remove them before saving.
     readSupportedOperators(source, "exprs").map(
-      x => (x._1.toLowerCase.replaceAll("\\`", ""), x._2))
+      x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ",""), x._2))
   }
 
   private def readSupportedTypesForPlugin: (
@@ -293,15 +293,7 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
   }
 
   def isExprSupported(expr: String): Boolean = {
-    // Remove _ from the string. Example: collect_list => collectlist.
-    // collect_list is alias for CollectList aggregate function.
-    // An exception is date_format since the Expression and sql function name is different
-    // Expression: DateFormatClass, sql function- date_format
-    val exprLowercase = if (expr.equalsIgnoreCase("date_format")) {
-      expr
-    } else {
-      expr.toLowerCase.replace("_", "")
-    }
+    val exprLowercase = expr.toLowerCase
     if (supportedExprs.contains(exprLowercase)) {
       val exprSupported = supportedExprs.getOrElse(exprLowercase, "NS")
       if (exprSupported == "S") {
