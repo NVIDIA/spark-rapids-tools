@@ -439,7 +439,7 @@ class QualificationAppInfo(
       val supportedSQLTaskDuration = calculateSQLSupportedTaskDuration(allStagesSummary)
       val taskSpeedupFactor = calculateSpeedupFactor(allStagesSummary)
       // Get all the unsupported Execs from the plan
-      val unSupportedExecs = origPlanInfos.flatMap { p =>
+      val unSupportedExecs = planInfos.flatMap { p =>
         // WholeStageCodeGen is excluded from the result.
         val topLevelExecs = p.execInfo.filterNot(_.isSupported).filterNot(
           x => x.exec.startsWith("WholeStage"))
@@ -453,6 +453,19 @@ class QualificationAppInfo(
       val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(
         _.unsupportedExprs)).flatten.filter(_.nonEmpty).toSet.mkString(";")
         .trim.replaceAll("\n", "").replace(",", ":")
+
+      // Get all unsupported execs and expressions from the plan in form of map[exec -> exprs]
+      val unsupportedExecExprsMap = planInfos.flatMap { p =>
+        val topLevelExecs = p.execInfo.filterNot(_.isSupported).filterNot(
+          x => x.exec.startsWith("WholeStage"))
+        val childrenExecs = p.execInfo.flatMap { e =>
+          e.children.map(x => x.filterNot(_.isSupported))
+        }.flatten
+        val execs = topLevelExecs ++ childrenExecs
+        val exprs = execs.filter(_.unsupportedExprs.nonEmpty).map(
+          e => e.exec -> e.unsupportedExprs.mkString(";")).toMap
+        exprs
+      }.toMap
 
       // check if there are any SparkML/XGBoost functions or expressions if the mlOpsEnabled
       // config is true
@@ -494,7 +507,7 @@ class QualificationAppInfo(
         taskSpeedupFactor, info.sparkUser, info.startTime, origPlanInfos,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
-        mlTotalStageDuration)
+        mlTotalStageDuration, unsupportedExecExprsMap)
     }
   }
 
@@ -708,6 +721,7 @@ case class QualificationSummaryInfo(
     allClusterTagsMap: Map[String, String],
     mlFunctions: Option[Seq[MLFunctions]],
     mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]],
+    unsupportedExecstoExprsMap: Map[String, String],
     estimatedFrequency: Option[Long] = None)
 
 case class StageQualSummaryInfo(
