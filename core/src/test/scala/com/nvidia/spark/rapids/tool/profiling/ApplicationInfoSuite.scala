@@ -869,4 +869,28 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       }
     }
   }
+
+  test("test values for platform argument") {
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "platform-test") { spark =>
+        import spark.implicits._
+        val testData = Seq((1, 1662519019), (2, 1662519020)).toDF("id", "timestamp")
+        spark.sparkContext.setJobDescription("timestamp functions as potential problems")
+        testData.createOrReplaceTempView("t1")
+        spark.sql("SELECT id, hour(current_timestamp()), second(to_timestamp(timestamp)) FROM t1")
+      }
+
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new ProfileArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "onprem",
+          eventLog))
+
+        val (exit, _) = ProfileMain.mainInternal(appArgs)
+        assert(exit == 0)
+      }
+    }
+  }
 }

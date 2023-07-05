@@ -626,6 +626,8 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   -p, --print-plans               Print the SQL plans to a file named
                                   'planDescriptions.log'.
                                   Default is false.
+      --platform  <arg>           Cluster platform where Spark CPU workloads were
+                                  executed. Default is onprem.
   -s, --start-app-time  <arg>     Filter event logs whose application start
                                   occurred within the past specified time
                                   period. Valid time periods are
