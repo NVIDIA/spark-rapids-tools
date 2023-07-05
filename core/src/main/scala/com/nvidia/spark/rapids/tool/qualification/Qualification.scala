@@ -88,6 +88,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     }
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
+    qWriter.writeUnsupportedOperatorsCSVReport(allAppsSum, order)
     if (mlOpsEnabled) {
       if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
         qWriter.writeMlFuncsReports(allAppsSum, order)
