@@ -212,7 +212,7 @@ class CliEmrServerlessMode:  # pylint: disable=too-few-public-methods
     @staticmethod
     def qualification(cpu_cluster: str,
                       remote_folder: str,
-                      job_role_arn: str,
+                      job_arn: str,
                       eventlogs: str,
                       profile: str = None,
                       app_id: str = None,
@@ -236,7 +236,7 @@ class CliEmrServerlessMode:  # pylint: disable=too-few-public-methods
                in the output of `emr describe-cluster`. Note that the wrapper will raise an exception
                if the property is not set.
         :param remote_folder: The S3 folder where the output is archived.
-        :param job_role_arn: The execution role ARN for the job run.
+        :param job_arn: The execution role ARN for the job run.
         :param app_id: The ID of the EMR-serverless application on which to run the job.
                 If missing, the wrapper creates an EMR-serverless application that gets deleted at
                 the end of the execution. Note that creating an EMR-serverless application takes a few
@@ -283,7 +283,7 @@ class CliEmrServerlessMode:  # pylint: disable=too-few-public-methods
                 'remoteFolder': remote_folder,
                 'platformArgs': {
                     'application-id': app_id,
-                    'execution-role-arn': job_role_arn,
+                    'execution-role-arn': job_arn,
                 }
             },
             'eventlogs': eventlogs,
