@@ -30,7 +30,7 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
 
     @staticmethod
     def qualification(cpu_cluster: str,
-                      eventlogs: str,
+                      eventlogs: str = None,
                       profile: str = None,
                       local_folder: str = None,
                       remote_folder: str = None,
@@ -213,7 +213,7 @@ class CliEmrServerlessMode:  # pylint: disable=too-few-public-methods
     def qualification(cpu_cluster: str,
                       remote_folder: str,
                       job_arn: str,
-                      eventlogs: str,
+                      eventlogs: str = None,
                       profile: str = None,
                       app_id: str = None,
                       gpu_cluster: str = None,
