@@ -112,9 +112,6 @@ class DataprocPlatform(PlatformBase):
                                                     source_cluster=source_cluster)
         return saving_estimator
 
-    def create_submission_job(self, job_prop, ctxt) -> Any:
-        pass
-
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return DataprocLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 

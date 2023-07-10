@@ -850,9 +850,6 @@ class PlatformBase:
                                 reshaped_cluster: ClusterGetAccessor):
         raise NotImplementedError
 
-    def create_submission_job(self, job_prop, ctxt) -> Any:
-        raise NotImplementedError
-
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         raise NotImplementedError
 

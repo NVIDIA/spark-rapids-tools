@@ -16,7 +16,7 @@
 
 from dataclasses import dataclass
 
-from spark_rapids_pytools.rapids.rapids_job import RapidsJob, RapidsLocalJob, RapidsSubmitSparkJob
+from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob, RapidsSubmitSparkJob
 
 
 @dataclass
@@ -33,16 +33,3 @@ class DataprocSubmitSparkRapidsJob(RapidsSubmitSparkJob):
     Implementation of a RAPIDS job that runs on a remote .
     """
     job_label = 'dataprocRemoteSparkJobSubmission'
-
-
-@dataclass
-class DataprocServerlessRapidsJob(RapidsJob):
-    """
-    An implementation that uses Dataproc-Serverless to run RAPIDS accelerator tool.
-    """
-
-    def _build_submission_cmd(self):
-        pass
-
-    def _submit_job(self, cmd_args: list) -> str:
-        pass
