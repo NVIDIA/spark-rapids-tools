@@ -151,7 +151,6 @@ class CliDBAzureLocalMode:  # pylint: disable=too-few-public-methods
                 in the output of `databricks clusters get [--cluster-id CLUSTER_ID| --cluster-name CLUSTER_NAME]`.
                 Note that the wrapper will raise an exception if the property is not set.
         :param profile: A named Databricks profile to get the settings/credentials of the Databricks CLI.
-        :param aws_profile: A named AWS profile to get the settings/credentials of the AWS account.
         :param local_folder: Local work-directory path to store the output and to be used as root
                 directory for temporary folders/files. The final output will go into a subdirectory called
                 ${local_folder}/prof-${EXEC_ID} where exec_id is an auto-generated unique identifier of the
