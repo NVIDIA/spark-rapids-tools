@@ -16,7 +16,7 @@
 
 from dataclasses import dataclass
 
-from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob, RapidsSubmitSparkJob
+from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob
 
 
 @dataclass
@@ -25,11 +25,3 @@ class DataprocLocalRapidsJob(RapidsLocalJob):
     Implementation of a RAPIDS job that runs on a local machine.
     """
     job_label = 'dataprocLocal'
-
-
-@dataclass
-class DataprocSubmitSparkRapidsJob(RapidsSubmitSparkJob):
-    """
-    Implementation of a RAPIDS job that runs on a remote .
-    """
-    job_label = 'dataprocRemoteSparkJobSubmission'

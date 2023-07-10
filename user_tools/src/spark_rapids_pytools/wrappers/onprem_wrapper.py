@@ -28,7 +28,6 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
 
     @staticmethod
     def qualification(cpu_cluster: str = None,
-                      execution_cluster: str = None,
                       eventlogs: str = None,
                       local_folder: str = None,
                       remote_folder: str = None,
@@ -80,7 +79,6 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             'target_platform': target_platform
         }
         tool_obj = QualificationAsLocal(platform_type=CloudPlatform.ONPREM,
-                                        cluster=execution_cluster,
                                         output_folder=local_folder,
                                         wrapper_options=wrapper_qual_options,
                                         rapids_options=rapids_options)

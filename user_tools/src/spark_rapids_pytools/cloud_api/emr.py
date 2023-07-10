@@ -110,9 +110,6 @@ class EMRPlatform(PlatformBase):
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return EmrLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
-    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
-        raise NotImplementedError
-
 
 @dataclass
 class EMRCMDDriver(CMDDriverBase):
