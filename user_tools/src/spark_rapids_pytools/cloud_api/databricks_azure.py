@@ -87,9 +87,6 @@ class DBAzurePlatform(PlatformBase):
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass
 
-    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
-        raise NotImplementedError
-
     def get_supported_gpus(self) -> dict:
         gpus_from_configs = self.configs.get_value('gpuConfigs', 'user-tools', 'supportedGpuInstances')
         gpu_scopes = {}

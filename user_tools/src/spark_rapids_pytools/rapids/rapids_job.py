@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import List
 
-from spark_rapids_pytools.cloud_api.sp_types import ClusterGetAccessor
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
@@ -152,29 +151,3 @@ class RapidsLocalJob(RapidsJob):
         out_std = self.exec_ctxt.platform.cli.run_sys_cmd(cmd=cmd_args,
                                                           env_vars=env_args)
         return out_std
-
-
-@dataclass
-class RapidsSubmitSparkJob(RapidsJob):
-    """
-    Class to submit a spark job to remote Cluster
-    """
-
-    def _submit_job(self, cmd_args: list) -> str:
-        env_args = self.prop_container.get_value_silent('platformArgs', 'envArgs')
-        out_std = self.exec_ctxt.platform.cli.run_sys_cmd(cmd=cmd_args,
-                                                          env_vars=env_args)
-        return out_std
-
-    def _build_submission_cmd(self) -> List[str]:
-        submit_args = {
-            'jarArgs': self._build_rapids_args(),
-            'platformSparkJobArgs': {
-                'jars': self.prop_container.get_jar_file(),
-                'class': self.prop_container.get_jar_main_class()
-            },
-        }
-        exec_cluster: ClusterGetAccessor = self.exec_ctxt.get_ctxt('execCluster')
-        cluster_name = exec_cluster.get_name()
-        return self.exec_ctxt.platform.cli.get_submit_spark_job_cmd_for_cluster(cluster_name,
-                                                                                submit_args)
