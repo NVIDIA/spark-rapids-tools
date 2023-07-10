@@ -22,7 +22,7 @@ from typing import Any, List, Callable
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType, ClusterReshape, DeployMode
+from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType, ClusterReshape
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -367,11 +367,8 @@ class Qualification(RapidsJarTool):
         }
         job_properties = RapidsJobPropContainer(prop_arg=job_properties_json,
                                                 file_load=False)
-        if self.ctxt.get_deploy_mode() == DeployMode.REMOTE_CLUSTER:
-            job_obj = self.ctxt.platform.create_spark_submission_job(job_prop=job_properties,
-                                                                     ctxt=self.ctxt)
-        else:
-            job_obj = self.ctxt.platform.create_submission_job(job_prop=job_properties, ctxt=self.ctxt)
+        job_obj = self.ctxt.platform.create_spark_submission_job(job_prop=job_properties,
+                                                                 ctxt=self.ctxt)
         job_obj.run_job()
 
     def __get_recommended_apps(self, all_rows, selected_cols=None) -> pd.DataFrame:
