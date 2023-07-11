@@ -93,7 +93,7 @@ A typical workflow to successfully run the `qualification` command in local mode
       access credentials are stored in the file `~/.databrickscfg` on Unix, Linux, or macOS,
       or in another file defined by environment variable `DATABRICKS_CONFIG_FILE`.
    3. installs Azure CLI and configures the credentials to make sure the Azure CLI
-      commands can access the ABFS resources `LOGS_CONTAINER`.
+      commands can access the ABFS resources (i.e. storage container `LOGS_CONTAINER` which stores the event logs).
    4. installs `spark_rapids_user_tools`
 3. If the results of the wrapper need to be stored on ABFS, then another ABFS uri is required `REMOTE_FOLDER=abfss://OUT_BUCKET/`
 4. User defines the Databricks-cluster on which the Spark application were running. Note that the cluster does not have to be active; but it has to be visible by the Databricks CLI (i.e., can run `databricks clusters get --cluster-name`).
@@ -239,7 +239,7 @@ A typical workflow to successfully run the `profiling` command in local mode is 
       access credentials are stored in the file `~/.databrickscfg` on Unix, Linux, or macOS,
       or in another file defined by environment variable `DATABRICKS_CONFIG_FILE`.
    3. installs Azure CLI and configures the credentials to make sure the Azure CLI
-      commands can access the ABFS resources `LOGS_CONTAINER`.
+      commands can access the ABFS resources (i.e. storage container `LOGS_CONTAINER` which stores the event logs).
    4. installs `spark_rapids_user_tools`
 3. If the results of the wrapper need to be stored on ABFS, then another ABFS uri is required `REMOTE_FOLDER=abfss://OUT_BUCKET/`
 4. Depending on the accessibility of the cluster properties, the user chooses one of the 2 cases below (_"Case-A"_, and _"Case-B"_) to trigger the CLI.
@@ -264,7 +264,7 @@ A cluster property is still accessible if one of the following conditions applie
        ```
        # run the command using the GPU cluster name
        export RAPIDS_USER_TOOLS_CACHE_FOLDER=my_cache_folder
-       export EVENTLOGS=abfss://LOGS_BUCKET/eventlogs/
+       export EVENTLOGS=abfss://LOGS_CONTAINER/eventlogs/
        export CLUSTER_NAME=my-databricks-gpu-cluster
        export REMOTE_FOLDER=abfss://OUT_BUCKET/wrapper_output
        
