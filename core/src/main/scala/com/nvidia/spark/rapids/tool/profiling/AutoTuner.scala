@@ -988,9 +988,10 @@ object AutoTuner extends Logging {
 
   private def handleException(
       ex: Exception,
-      appInfo: AppSummaryInfoBaseProvider): AutoTuner = {
+      appInfo: AppSummaryInfoBaseProvider,
+      platform: String): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
-    val tuning = new AutoTuner(new ClusterProperties(), appInfo)
+    val tuning = new AutoTuner(new ClusterProperties(), appInfo, platform)
     val msg = ex match {
       case cEx: ConstructorException => cEx.getContext
       case _ => if (ex.getCause != null) ex.getCause.toString else ex.toString
@@ -1041,7 +1042,7 @@ object AutoTuner extends Logging {
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform)
     } catch {
       case e: Exception =>
-        handleException(e, singleAppProvider)
+        handleException(e, singleAppProvider, platform)
     }
   }
 
@@ -1054,7 +1055,7 @@ object AutoTuner extends Logging {
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform)
     } catch {
       case e: Exception =>
-        handleException(e, singleAppProvider)
+        handleException(e, singleAppProvider, platform)
     }
   }
 
