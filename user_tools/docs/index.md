@@ -142,7 +142,8 @@ The following table summarizes the commands supported for each cloud platform:
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | cluster     |           unsupported                   |    N/A   |
 |                  +---------------+-------------+-----------------------------------------+----------+
-|                  | profiling     | local       |           unsupported                   |    N/A   |
+|                  | profiling     | local       | spark_rapids_user_tools \               |  23.08+  |
+|                  |               |             |   databricks-azure profiling [ARGS]     |          |
 |                  |               +-------------+-----------------------------------------+----------+
 |                  |               | cluster     |           unsupported                   |    N/A   |
 |                  +---------------+-------------+-----------------------------------------+----------+
