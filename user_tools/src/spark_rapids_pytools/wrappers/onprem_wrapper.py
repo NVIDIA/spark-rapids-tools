@@ -110,9 +110,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         ${local_folder}/prof-${EXEC_ID} where exec_id is an auto-generated unique identifier of the
         execution. If the argument is NONE, the default value is the env variable
         RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY if any; or the current working directory.
-        :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem,
-        or remote gs url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
-        from maven repo
+        :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem.
+        If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar from maven repo
         :param verbose: True or False to enable verbosity to the wrapper script
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes
         :param rapids_options: A list of valid Profiling tool options.
