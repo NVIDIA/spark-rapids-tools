@@ -936,7 +936,6 @@ object AutoTuner extends Logging {
   val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
   val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
-  val DEFAULT_PLATFORM = "onprem"
 
   val commentsForMissingProps: Map[String, String] = Map(
     "spark.executor.memory" ->
@@ -1036,7 +1035,7 @@ object AutoTuner extends Logging {
   def buildAutoTunerFromProps(
       clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: String = DEFAULT_PLATFORM): AutoTuner = {
+      platform: String = Profiler.DEFAULT_PLATFORM): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform)
@@ -1049,7 +1048,7 @@ object AutoTuner extends Logging {
   def buildAutoTuner(
       filePath: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: String = DEFAULT_PLATFORM): AutoTuner = {
+      platform: String = Profiler.DEFAULT_PLATFORM): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(filePath)
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform)
