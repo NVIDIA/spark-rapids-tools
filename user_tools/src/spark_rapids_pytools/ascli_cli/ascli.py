@@ -17,11 +17,12 @@
 import fire
 
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, DeployMode
+from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType, QualFilterApp, QualificationAsLocal
 from spark_rapids_pytools.wrappers.onprem_wrapper import CliOnpremLocalMode
 
 
-class ASCLIWrapper(object):
+class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
     """CLI to run tools associated with RAPIDS Accelerator for Apache Spark plugin.
 
     A wrapper script to run RAPIDS Accelerator tools (Qualification, Profiling, and Bootstrap)
@@ -44,14 +45,15 @@ class ASCLIWrapper(object):
         or query to GPU. The wrapper downloads dependencies and executes the analysis on the local
         dev machine.
 
-        :param eventlogs: Event log filenames or gs storage directories containing event logs
+        :param eventlogs: Event log filenames or CSP storage directories containing event logs
                 (comma separated).
 
                 Skipping this argument requires that the cluster argument points to a valid
                 cluster name on the CSP.
         :param cluster: Name of cluster or path to cluster-properties. Note that using a "file path"
                 requires the `platform` argument.
-        :param platform: defines one of the following "onprem", "emr", "dataproc", "databricks".
+        :param platform: defines one of the following "onprem", "emr", "dataproc", "databricks-aws",
+                and "databricks-azure".
         :param output_folder: path to store the output
         :param target_platform: Cost savings and speedup recommendation for comparable cluster in
                 target_platform based on on-premises cluster configuration.
@@ -116,6 +118,52 @@ class ASCLIWrapper(object):
                                         output_folder=output_folder,
                                         wrapper_options=wrapper_qual_options)
         return tool_obj.launch()
+
+    def profiling(self,
+                  eventlogs: str = None,
+                  cluster: str = None,
+                  platform: str = CloudPlatform.tostring(CloudPlatform.get_default()),
+                  output_folder: str = None):
+        """Provides a wrapper to simplify the execution of RAPIDS Profiling tool.
+
+        The Profiling tool analyzes GPU event logs and generates information
+        which can be used for debugging and profiling Apache Spark applications.
+
+        :param eventlogs: Event log filenames or CSP storage directories containing event logs
+                (comma separated).
+
+                Skipping this argument requires that the cluster argument points to a valid
+                cluster name on the CSP.
+        :param cluster: The cluster on which the Apache Spark applications were executed.
+                It can either be a CSP-cluster name or a path to the cluster/worker's info properties
+                file (json format).
+        :param platform: defines one of the following "onprem", "emr", "dataproc", "databricks-aws",
+                and "databricks-azure".
+        :param output_folder: path to store the output
+        """
+
+        wrapper_prof_options = {
+            'platformOpts': {
+                'credentialFile': None,
+                'deployMode': DeployMode.LOCAL,
+            },
+            'migrationClustersProps': {
+                'gpuCluster': cluster
+            },
+            'jobSubmissionProps': {
+                'remoteFolder': None,
+                'platformArgs': {
+                    'jvmMaxHeapSize': 24
+                }
+            },
+            'eventlogs': eventlogs,
+            'toolsJar': None,
+            'autoTunerFileInput': None
+        }
+        prof_tool_obj = ProfilingAsLocal(platform_type=CloudPlatform.fromstring(platform),
+                                         output_folder=output_folder,
+                                         wrapper_options=wrapper_prof_options)
+        return prof_tool_obj.launch()
 
 
 def main():
