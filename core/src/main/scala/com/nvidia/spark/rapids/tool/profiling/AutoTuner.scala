@@ -328,7 +328,8 @@ class RecommendationEntry(val name: String,
  */
 class AutoTuner(
     val clusterProps: ClusterProperties,
-    val appInfoProvider: AppSummaryInfoBaseProvider)  extends Logging {
+    val appInfoProvider: AppSummaryInfoBaseProvider,
+    val platform: String)  extends Logging {
 
   import AutoTuner._
 
@@ -987,9 +988,10 @@ object AutoTuner extends Logging {
 
   private def handleException(
       ex: Exception,
-      appInfo: AppSummaryInfoBaseProvider): AutoTuner = {
+      appInfo: AppSummaryInfoBaseProvider,
+      platform: String): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
-    val tuning = new AutoTuner(new ClusterProperties(), appInfo)
+    val tuning = new AutoTuner(new ClusterProperties(), appInfo, platform)
     val msg = ex match {
       case cEx: ConstructorException => cEx.getContext
       case _ => if (ex.getCause != null) ex.getCause.toString else ex.toString
@@ -1033,25 +1035,27 @@ object AutoTuner extends Logging {
    */
   def buildAutoTunerFromProps(
       clusterProps: String,
-      singleAppProvider: AppSummaryInfoBaseProvider): AutoTuner = {
+      singleAppProvider: AppSummaryInfoBaseProvider,
+      platform: String = Profiler.DEFAULT_PLATFORM): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
-      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider)
+      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform)
     } catch {
       case e: Exception =>
-        handleException(e, singleAppProvider)
+        handleException(e, singleAppProvider, platform)
     }
   }
 
   def buildAutoTuner(
       filePath: String,
-      singleAppProvider: AppSummaryInfoBaseProvider): AutoTuner = {
+      singleAppProvider: AppSummaryInfoBaseProvider,
+      platform: String = Profiler.DEFAULT_PLATFORM): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(filePath)
-      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider)
+      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform)
     } catch {
       case e: Exception =>
-        handleException(e, singleAppProvider)
+        handleException(e, singleAppProvider, platform)
     }
   }
 

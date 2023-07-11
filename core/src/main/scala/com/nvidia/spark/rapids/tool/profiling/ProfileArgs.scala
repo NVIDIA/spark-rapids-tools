@@ -63,6 +63,12 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[Boolean](required = false,
       descr = "Print the SQL plans to a file named 'planDescriptions.log'." +
         " Default is false.")
+  val platform: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "Cluster platform where Spark GPU workloads were executed. Options include " +
+        "onprem, dataproc, emr, databricks." +
+        " Default is onprem.",
+      default = Some(Profiler.DEFAULT_PLATFORM))
   val generateTimeline: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Write an SVG graph out for the full application timeline.")
