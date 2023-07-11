@@ -67,7 +67,7 @@ class TestInfoCollect:
             assert len(build_mock.call_args_list) == 12
 
         _, stderr = capsys.readouterr()
-        assert re.match(r".*Archive '/tmp/.*/diag_.*\.tar' is successfully created\..*", stderr, re.DOTALL)
+        assert re.match(r".*Archive '/(tmp|var)/.*/diag_.*\.tar' is successfully created\..*", stderr, re.DOTALL)
 
     @patch('spark_rapids_pytools.common.utilities.SysCmd.build')
     def test_thread_num(self, build_mock, cloud, capsys):
@@ -91,7 +91,7 @@ class TestInfoCollect:
         _, stderr = capsys.readouterr()
 
         assert 'Set thread number as: 7' in stderr
-        assert re.match(r".*Archive '/tmp/.*/diag_.*\.tar' is successfully created\..*", stderr, re.DOTALL)
+        assert re.match(r".*Archive '/(tmp|var)/.*/diag_.*\.tar' is successfully created\..*", stderr, re.DOTALL)
 
     @patch('spark_rapids_pytools.common.utilities.SysCmd.build')
     @pytest.mark.parametrize('thread_num', ['0', '11', '123'])
@@ -201,7 +201,7 @@ class TestInfoCollect:
             assert len(build_mock.call_args_list) == 12
 
         _, stderr = capsys.readouterr()
-        assert re.match(r".*Archive '/tmp/.*/diag_.*\.tar' is successfully created\..*", stderr, re.DOTALL)
+        assert re.match(r".*Archive '/(tmp|var)/.*/diag_.*\.tar' is successfully created\..*", stderr, re.DOTALL)
 
     @patch('spark_rapids_pytools.common.utilities.SysCmd.build')
     @pytest.mark.parametrize('user_input', ['', 'n', 'no', 'NO', 'nO'])
