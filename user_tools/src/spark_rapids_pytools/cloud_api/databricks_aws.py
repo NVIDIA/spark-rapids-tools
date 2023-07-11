@@ -86,9 +86,6 @@ class DBAWSPlatform(EMRPlatform):
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass
 
-    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
-        raise NotImplementedError
-
 
 @dataclass
 class DBAWSCMDDriver(CMDDriverBase):

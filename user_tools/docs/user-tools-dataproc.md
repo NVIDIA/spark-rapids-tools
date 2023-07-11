@@ -176,20 +176,6 @@ Spark RAPIDS with your applications.
 A GSheet template with instructions can be found at here: [link](https://docs.google.com/spreadsheets/d/1CslQHTwxHEDTlAP4lcrOzbSrmucvn8z4iFlJo6EAhxs/edit#gid=1607726286).  
 Make a copy of the GSheet template and then follow the instructions listed in the `Instructions` tab.
 
-### Cluster deployment
-
-This deployment option allows running the RAPIDS tools on an active Dataproc cluster that is
-running a Spark-3.x+.  
-This option offers the scalability in handling large pool of event logs.
-
-The Cluster-deployment mode is similar to the [Local-deployment](#local-deployment) except that the CLI
-takes a new argument `execution_cluster` which is the name of the Dataproc cluster on which the tool is
-intended to run.
-
-```
-spark_rapids_user_tools dataproc qualification --execution_cluster <CLUSTER_NAME> [options]
-spark_rapids_user_tools dataproc qualification --help
-```
 
 ## Profiling command
 

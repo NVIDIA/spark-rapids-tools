@@ -23,7 +23,7 @@ from typing import Any, List
 from spark_rapids_pytools.cloud_api.azurestorage import AzureStorageDriver
 from spark_rapids_pytools.cloud_api.databricks_azure_job import DBAzureLocalRapidsJob
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, \
-    PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType, ClusterGetAccessor, NodeHWInfo
+    PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType, ClusterGetAccessor, NodeHWInfo, GpuDevice
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
@@ -86,9 +86,6 @@ class DBAzurePlatform(PlatformBase):
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass
-
-    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
-        raise NotImplementedError
 
     def get_supported_gpus(self) -> dict:
         gpus_from_configs = self.configs.get_value('gpuConfigs', 'user-tools', 'supportedGpuInstances')
@@ -218,8 +215,9 @@ class DatabricksAzureNode(ClusterNode):
         if self.instance_type not in gpu_info:
             return None
         gpu_instance = gpu_info[self.instance_type]['GpuInfo']['GPUs'][0]
+        gpu_device = GpuDevice.fromstring(gpu_instance['Name'])
         return GpuHWInfo(num_gpus=gpu_instance['Count'],
-                         gpu_device=gpu_instance['Name'],
+                         gpu_device=gpu_device,
                          gpu_mem=gpu_instance['MemoryInfo']['SizeInMiB'])
 
 
