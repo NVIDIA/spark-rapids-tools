@@ -71,7 +71,7 @@ object QualificationMain extends Logging {
         return (1, Seq[QualificationSummaryInfo]())
     }
 
-    val (eventLogFsFiltered, allEventLogs, eventStatusMap) = EventLogPathProcessor.processAllPaths(
+    val (eventLogFsFiltered, allEventLogs, statusReporter) = EventLogPathProcessor.processAllPaths(
       filterN.toOption, matchEventLogs.toOption, eventlogPaths, hadoopConf)
 
     val filteredLogs = if (argsContainsAppFilters(appArgs)) {
@@ -86,10 +86,10 @@ object QualificationMain extends Logging {
       eventLogFsFiltered
     }
 
-    // Update the status of event logs that were filtered above
-    val eventStatusFilteredMap = if(filteredLogs.size != eventStatusMap.size) {
-      EventLogPathProcessor.filterEventStatusMap(eventStatusMap, filteredLogs)
-    } else eventStatusMap
+    // Add the status of event logs that were filtered above
+    eventLogFsFiltered.filterNot(filteredLogs.contains).foreach { eventLogInfo =>
+      statusReporter.reportFiltered(eventLogInfo.eventLog.toString)
+    }
 
     val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf, timeout,
       nThreads, order, pluginTypeChecker, reportReadSchema, printStdout, uiEnabled,
@@ -102,7 +102,7 @@ object QualificationMain extends Logging {
       qual.qualifyApps(filteredLogs)
     }
 
-    qual.writeEventLogsStatus(eventStatusFilteredMap)
+    qual.writeEventLogsStatus(statusReporter)
     (0, res)
   }
 

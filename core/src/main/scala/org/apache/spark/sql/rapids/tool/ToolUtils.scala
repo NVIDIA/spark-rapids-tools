@@ -17,7 +17,9 @@
 package org.apache.spark.sql.rapids.tool
 
 import java.lang.reflect.InvocationTargetException
+import java.util.concurrent.ConcurrentHashMap
 
+import scala.collection.convert.ImplicitConversions.`map AsScala`
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
@@ -317,7 +319,33 @@ case class GpuEventLogException(message: String) extends Exception(message)
 /**
  * Classes for storing event/application level status.
  */
-trait Status[T]
-case class StatusSuccess[T](value: Option[T]) extends Status[T]
-case class StatusNotAvailable[T](value: Option[T], message: String) extends Status[T]
-case class StatusFailure[T](message: String) extends Status[T]
+sealed trait Status
+case class StatusSuccess(value: String) extends Status
+case class StatusFailure(message: String) extends Status
+case class StatusUnavailable(value: String, message: String) extends Status
+case class StatusFiltered() extends Status
+
+/**
+ * Used to store the status of event logs in a thread-safe hashmap
+ */
+class StatusReporter {
+  private val statusReports =
+    new ConcurrentHashMap[String, Status]()
+
+  def reportSuccess(key: String, value: String): Unit = {
+    statusReports.put(key, StatusSuccess(value))
+  }
+  def reportFailure(key: String, message: String): Unit = {
+    statusReports.put(key, StatusFailure(message))
+  }
+  def reportUnavailable(key: String, value: String, message: String): Unit = {
+    statusReports.put(key, StatusUnavailable(value, message))
+  }
+  def reportFiltered(key: String): Unit = {
+    statusReports.put(key, StatusFiltered())
+  }
+  def clear(): Unit = {
+    statusReports.clear()
+  }
+  def getAllReports: Map[String, Status] = statusReports.toMap
+}

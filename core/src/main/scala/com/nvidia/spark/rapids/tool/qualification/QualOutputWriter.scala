@@ -1090,7 +1090,7 @@ object QualOutputWriter {
   private def getDetailedStatusHeaderStringsAndSizes(
       statusInfos: Seq[StatusSummaryInfo]): mutable.LinkedHashMap[String, Int] = {
     val descLengthList = statusInfos.map { statusInfo =>
-      statusInfo.appInfo.map(_.appId).getOrElse("").length + statusInfo.message.length + 1
+      statusInfo.appId.length + statusInfo.message.length + 1
     }
     val detailedHeadersAndFields = mutable.LinkedHashMap[String, Int](
       EVENT_PATH_STR -> getMaxSizeForHeader(statusInfos.map(_.path.length), APP_NAME_STR),
@@ -1108,10 +1108,9 @@ object QualOutputWriter {
       reformatCSV: Boolean = true): Seq[String] = {
     val reformatCSVFunc: String => String =
       if (reformatCSV) str => StringUtils.reformatCSVString(str) else str => stringIfempty(str)
-    val descriptionStr = statusInfo.appInfo match {
-      case Some(app) =>
-        if(statusInfo.message.isEmpty) app.appId else s"${app.appId},${statusInfo.message}"
-      case None => statusInfo.message
+    val descriptionStr = statusInfo.appId match {
+      case "" => statusInfo.message
+      case appId => if (statusInfo.message.isEmpty) appId else s"$appId,${statusInfo.message}"
     }
     val data = ListBuffer[(String, Int)](
       reformatCSVFunc(statusInfo.path) -> headersAndSizes(EVENT_PATH_STR),

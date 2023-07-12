@@ -734,7 +734,7 @@ case class StageQualSummaryInfo(
 case class StatusSummaryInfo(
     path: String,
     status: String,
-    appInfo: Option[QualificationAppInfo] = None,
+    appId: String = "",
     message: String = "")
 
 object QualificationAppInfo extends Logging {
