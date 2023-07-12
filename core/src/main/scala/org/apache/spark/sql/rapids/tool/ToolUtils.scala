@@ -283,6 +283,7 @@ object JoinType {
   val FullOuter = "FullOuter"
   val LeftSemi = "LeftSemi"
   val LeftAnti = "LeftAnti"
+  val ExistenceJoin = "ExistenceJoin"
 }
 
 object BuildSide {

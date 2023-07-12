@@ -532,6 +532,8 @@ object SQLPlanParser extends Logging {
      // SortMergeJoin [name#11, CEIL(dept#12)], [name#28, CEIL(dept_id#27)], Inner
      // BroadcastHashJoin [name#11, CEIL(dept#12)], [name#28, CEIL(dept_id#27)], Inner,
      // BuildRight, false
+     // BroadcastHashJoin exprString: [i_item_id#56], [i_item_id#56#86], ExistenceJoin(exists#86),
+     // BuildRight
      val parsedExpressions = ArrayBuffer[String]()
      // Get all the join expressions and split it with delimiter :: so that it could be used to
      // parse function names (if present) later.
@@ -540,7 +542,7 @@ object SQLPlanParser extends Logging {
      val joinParams = equiJoinRegexPattern.replaceAllIn(
        exprStr, "").split(",").map(_.trim).filter(_.nonEmpty)
      val joinType = if (joinParams.nonEmpty) {
-       joinParams(0).trim
+       joinParams(0).split("\\(")(0).trim
      } else {
        ""
      }
@@ -580,7 +582,6 @@ object SQLPlanParser extends Logging {
   }
 
   private def isJoinTypeSupported(joinType: String): Boolean = {
-    // Existence join doesn't show up in eventlog, so we return false for existence joins.
     // There is caveat for FullOuter join for equiJoins.
     // FullOuter join id not supported with struct keys but we are sending true for all
     // data structures.
@@ -592,6 +593,7 @@ object SQLPlanParser extends Logging {
       case JoinType.LeftOuter => true
       case JoinType.RightOuter => true
       case JoinType.LeftAnti => true
+      case JoinType.ExistenceJoin => true
       case _ => false
     }
   }
@@ -606,7 +608,8 @@ object SQLPlanParser extends Logging {
     } else if (buildSide == BuildSide.BuildRight) {
       joinType == JoinType.Inner || joinType == JoinType.Cross ||
         joinType == JoinType.LeftOuter || joinType == JoinType.LeftSemi ||
-        joinType == JoinType.LeftAnti || joinType == JoinType.FullOuter
+        joinType == JoinType.LeftAnti || joinType == JoinType.FullOuter ||
+        joinType == JoinType.ExistenceJoin
     } else {
       true
     }
