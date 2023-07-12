@@ -31,10 +31,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
     def qualification(cpu_cluster: str = None,
                       eventlogs: str = None,
                       local_folder: str = None,
-                      remote_folder: str = None,
-                      gpu_cluster: str = None,
                       tools_jar: str = None,
-                      credentials_file: str = None,
                       filter_apps: str = QualFilterApp.tostring(QualFilterApp.SPEEDUPS),
                       target_platform: str = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
@@ -42,6 +39,38 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                       jvm_heap_size: int = 24,
                       verbose: bool = False,
                       **rapids_options) -> None:
+        """
+        The Qualification tool analyzes Spark events generated from CPU based Spark applications to
+        help quantify the expected acceleration and costs savings of migrating a Spark application
+        or query to GPU. The wrapper downloads dependencies and executes the analysis on the local
+        dev machine
+        :param cpu_cluster: The on-premises cluster on which the Apache Spark applications were executed.
+                Accepted value is valid path to the cluster properties file (json format).
+        :param eventlogs: A comma separated list of urls pointing to event logs in local directory.
+        :param local_folder: Local work-directory path to store the output and to be used as root
+                directory for temporary folders/files. The final output will go into a subdirectory
+                named `qual-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution.
+        :param tools_jar: Path to a bundled jar including RAPIDS tool. The path is a local filesystem path
+        :param filter_apps:  Filtering criteria of the applications listed in the final STDOUT table is one of
+                the following (`NONE`, `SPEEDUPS`). "`NONE`" means no filter applied. "`SPEEDUPS`" lists all the
+                apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups.
+        :param target_platform: Cost savings and speedup recommendation for comparable cluster in target_platform
+                based on on-premises cluster configuration. Currently only `dataproc` is supported for
+                target_platform.If not provided, the final report will be limited to GPU speedups only
+                without cost-savings.
+        :param gpu_cluster_recommendation: The type of GPU cluster recommendation to generate.
+               It accepts one of the following ("CLUSTER", "JOB" and the default value "MATCH").
+                "MATCH": keep GPU cluster same number of nodes as CPU cluster;
+                "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
+                "JOB": recommend optimal GPU cluster by cost per job
+        :param jvm_heap_size: The maximum heap size of the JVM in gigabytes
+        :param verbose: True or False to enable verbosity to the wrapper script
+        :param rapids_options: A list of valid Qualification tool options.
+                Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
+                multiple "spark-property" arguments.
+                For more details on Qualification tool options, please visit
+                https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#qualification-tool-options
+        """
         if verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
@@ -59,16 +88,13 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
 
         wrapper_qual_options = {
             'platformOpts': {
-                'credentialFile': credentials_file,
                 'deployMode': DeployMode.LOCAL,
                 'targetPlatform': target_platform
             },
             'migrationClustersProps': {
-                'cpuCluster': cpu_cluster,
-                'gpuCluster': gpu_cluster
+                'cpuCluster': cpu_cluster
             },
             'jobSubmissionProps': {
-                'remoteFolder': remote_folder,
                 'platformArgs': {
                     'jvmMaxHeapSize': jvm_heap_size
                 }
