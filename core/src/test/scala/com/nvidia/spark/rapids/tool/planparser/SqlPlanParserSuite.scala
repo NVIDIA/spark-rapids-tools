@@ -32,7 +32,7 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, floor, hex, json_tuple, round, row_number, sum}
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
+import org.apache.spark.sql.rapids.tool.util.{FailureResult, OperationResult, RapidsToolsConfUtil, SuccessResult}
 import org.apache.spark.sql.types.StringType
 
 
@@ -75,10 +75,12 @@ class SQLPlanParserSuite extends BaseTestSuite {
       None, None, List(eventLog), hadoopConf)
     val pluginTypeChecker = new PluginTypeChecker()
     assert(allEventLogs.size == 1)
-    val appOption = QualificationAppInfo.createApp(allEventLogs.head, hadoopConf,
+    val appResult = QualificationAppInfo.createApp(allEventLogs.head, hadoopConf,
       pluginTypeChecker, reportSqlLevel = false, mlOpsEnabled = false)
-    assert(appOption.nonEmpty)
-    appOption.get
+    appResult match {
+      case SuccessResult(app) => app
+      case _: FailureResult => throw new AssertionError("Cannot create application")
+    }
   }
 
   private def getAllExecsFromPlan(plans: Seq[PlanInfo]): Seq[ExecInfo] = {

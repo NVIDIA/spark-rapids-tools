@@ -28,6 +28,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.{ConsoleProgressBar, QualificationReportGenerator}
+import org.apache.spark.sql.rapids.tool.util.{FailureResult, SuccessResult}
 
 class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     timeout: Option[Long], nThreads: Int, order: String,
@@ -159,23 +160,24 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       hadoopConf: Configuration): Unit = {
     try {
       val startTime = System.currentTimeMillis()
-      val app = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker, reportSqlLevel,
-        mlOpsEnabled)
-      if (!app.isDefined) {
-        progressBar.foreach(_.reportUnkownStatusProcess())
-        logWarning(s"No Application found that contain SQL for ${path.eventLog.toString}!")
-        None
-      } else {
-        val qualSumInfo = app.get.aggregateStats()
-        if (qualSumInfo.isDefined) {
-          allApps.add(qualSumInfo.get)
-          progressBar.foreach(_.reportSuccessfulProcess())
-          val endTime = System.currentTimeMillis()
-          logInfo(s"Took ${endTime - startTime}ms to process ${path.eventLog.toString}")
-        } else {
+      val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
+        reportSqlLevel, mlOpsEnabled)
+      appResult match {
+        case FailureResult(errorMessage: String) =>
           progressBar.foreach(_.reportUnkownStatusProcess())
-          logWarning(s"No aggregated stats for event log at: ${path.eventLog.toString}")
-        }
+          logWarning(s"No Application found that contain SQL for ${path.eventLog.toString}!")
+          logWarning(errorMessage)
+        case SuccessResult(app: QualificationAppInfo) =>
+          val qualSumInfo = app.aggregateStats()
+          if (qualSumInfo.isDefined) {
+            allApps.add(qualSumInfo.get)
+            progressBar.foreach(_.reportSuccessfulProcess())
+            val endTime = System.currentTimeMillis()
+            logInfo(s"Took ${endTime - startTime}ms to process ${path.eventLog.toString}")
+          } else {
+            progressBar.foreach(_.reportUnkownStatusProcess())
+            logWarning(s"No aggregated stats for event log at: ${path.eventLog.toString}")
+          }
       }
     } catch {
       case oom: OutOfMemoryError =>
