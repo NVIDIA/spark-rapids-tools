@@ -207,7 +207,7 @@ class Qualification(RapidsJarTool):
             cpu_cluster_obj = self._create_migration_cluster('CPU', cpu_cluster_arg)
             self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
-    def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None):
+    def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
         if gpu_cluster_arg is None:
             self.logger.info('Creating GPU cluster by converting the CPU cluster instances to GPU supported types')
@@ -217,6 +217,7 @@ class Qualification(RapidsJarTool):
         else:
             gpu_cluster_obj = self._create_migration_cluster('GPU', gpu_cluster_arg)
         self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster_obj)
+        return True
 
     def _process_offline_cluster_args(self):
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})

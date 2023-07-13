@@ -507,7 +507,7 @@ class RapidsJarTool(RapidsTool):
     def _process_offline_cluster_args(self):
         pass
 
-    def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None):
+    def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
         pass
 
     def _copy_dependencies_to_remote(self):

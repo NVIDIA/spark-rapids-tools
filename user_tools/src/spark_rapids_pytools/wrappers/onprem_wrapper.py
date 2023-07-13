@@ -147,10 +147,6 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html#profiling-tool-options
         """
 
-        if worker_info is None:
-            raise RuntimeError('worker_info.yaml file containing the system information of '
-                               'a worker node is required to run profiling tool on OnPrem '
-                               'cluster')
         if verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
