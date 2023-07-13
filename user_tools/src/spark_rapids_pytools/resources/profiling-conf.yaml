@@ -2,6 +2,7 @@ toolOutput:
   subFolder: rapids_4_spark_profile
   recommendations:
     fileName: profile.log
+    disabledInfoMsgTemplate: 'info_recommendations_disabled.ms'
     headers:
       section: '### D. Recommended Configuration ###'
       sparkProperties: 'Spark Properties:'
