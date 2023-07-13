@@ -12,16 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Implementation of Job submissions on GCloud Dataproc"""
-
-from dataclasses import dataclass
-
-from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob
-
-
-@dataclass
-class DataprocLocalRapidsJob(RapidsLocalJob):
-    """
-    Implementation of a RAPIDS job that runs on a local machine.
-    """
-    job_label = 'dataprocLocal'
+"""init file of the ascli package."""

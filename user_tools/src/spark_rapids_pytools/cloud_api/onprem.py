@@ -81,9 +81,6 @@ class OnPremPlatform(PlatformBase):
     def get_footer_message(self) -> str:
         return 'To support acceleration with T4 GPUs, please use these worker node instance types.'
 
-    def create_submission_job(self, job_prop, ctxt) -> Any:
-        pass
-
     def create_saving_estimator(self,
                                 source_cluster: ClusterGetAccessor,
                                 reshaped_cluster: ClusterGetAccessor):
@@ -101,9 +98,6 @@ class OnPremPlatform(PlatformBase):
                                                       reshaped_cluster=reshaped_cluster,
                                                       source_cluster=source_cluster)
         return saving_estimator
-
-    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
-        pass
 
     def set_offline_cluster(self, cluster_args: dict = None):
         pass

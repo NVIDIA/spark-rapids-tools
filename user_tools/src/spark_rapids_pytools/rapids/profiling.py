@@ -25,7 +25,7 @@ from tabulate import tabulate
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import Utils
+from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 
 
@@ -66,24 +66,27 @@ class Profiling(RapidsJarTool):
 
     def _process_offline_cluster_args(self):
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
-        self._process_gpu_cluster_args(offline_cluster_opts)
-        self._generate_autotuner_input()
+        if self._process_gpu_cluster_args(offline_cluster_opts):
+            # only if we succeed to get the GPU cluster, we can generate auto-tuner-input
+            self._generate_autotuner_input()
+
+    def __load_disabled_recommendation_report(self) -> str:
+        template_file_name = self.ctxt.get_value('toolOutput', 'recommendations', 'disabledInfoMsgTemplate')
+        template_path = Utils.resource_path(f'templates/{template_file_name}')
+        return TemplateGenerator.render_template_file(template_path, {'CLUSTER_ARG': 'cluster'})
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None):
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
         if gpu_cluster_arg:
             gpu_cluster_obj = self._create_migration_cluster('GPU', gpu_cluster_arg)
             self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster_obj)
-        else:
-            # If we are here, we know that the workerInfoPath was not set as well.
-            # Then we should fail
-            self.logger.error('The gpuCluster argument was not set. '
-                              'Please make sure to set the arguments properly by either:\n'
-                              '  1. Setting <gpu_cluster> argument and optional set <eventlogs> if '
-                              'the path is not defined by the cluster properties ; or\n'
-                              '  2. Setting both <worker_info> and <eventlogs>')
-            raise RuntimeError('Invalid Arguments: The <gpu_cluster> and <worker_info> arguments are '
-                               'not defined. Aborting Execution.')
+            return True
+        # If we are here, we know that the workerInfoPath was not set as well.
+        # Then we can remind the user that recommendations won't be calculated
+        disabled_recommendations_msg = self.__load_disabled_recommendation_report()
+        self.ctxt.set_ctxt('disabledRecommendationsMsg', disabled_recommendations_msg)
+        self.logger.info(disabled_recommendations_msg)
+        return False
 
     def _generate_autotuner_file_for_cluster(self, file_path: str, cluster_ob: ClusterBase):
         """
@@ -132,11 +135,11 @@ class Profiling(RapidsJarTool):
         self.ctxt.set_ctxt('autoTunerFilePath', autotuner_input_path)
 
     def _create_autotuner_rapids_args(self) -> list:
-        # add the autotuner argument
-        autotuner_args = ['--auto-tuner',
-                          '--worker-info',
-                          self.ctxt.get_ctxt('autoTunerFilePath')]
-        return autotuner_args
+        # Add the autotuner argument if the autotunerPath exists
+        autotuner_path = self.ctxt.get_ctxt('autoTunerFilePath')
+        if autotuner_path is None:
+            return []
+        return ['--auto-tuner', '--worker-info', autotuner_path]
 
     def __read_single_app_output(self, file_path: str) -> (str, List[str], List[str]):
         def split_list_str_by_pattern(input_seq: List[str], pattern: str) -> int:
@@ -206,9 +209,15 @@ class Profiling(RapidsJarTool):
         print(Utils.gen_multiline_str(self._report_tool_full_location(),
                                       self.ctxt.get_ctxt('wrapperOutputContent')))
 
-    def _process_output(self):
-        if not self._evaluate_rapids_jar_tool_output_exist():
-            return
+    def __generate_report_no_recommendations(self):
+        prof_app_dirs = FSUtil.get_subdirectories(self.ctxt.get_rapids_output_folder())
+        wrapper_content = [Utils.gen_report_sec_header('Recommendations'),
+                           self.ctxt.get_ctxt('disabledRecommendationsMsg'),
+                           Utils.gen_report_sec_header('Profiling status'),
+                           f'Total application profiled: {len(prof_app_dirs)}']
+        self.ctxt.set_ctxt('wrapperOutputContent', wrapper_content)
+
+    def __generate_report_with_recommendations(self):
         prof_app_dirs = FSUtil.get_subdirectories(self.ctxt.get_rapids_output_folder())
         profiling_log = self.ctxt.get_value('toolOutput', 'recommendations', 'fileName')
         recommendations_table = []
@@ -247,6 +256,17 @@ class Profiling(RapidsJarTool):
                            '### Recommendations Table Summary ###',
                            tabulate(recommendations_table, headers, tablefmt='grid')]
         self.ctxt.set_ctxt('wrapperOutputContent', wrapper_content)
+
+    def _process_output(self):
+        if not self._evaluate_rapids_jar_tool_output_exist():
+            return
+
+        if self.ctxt.get_ctxt('autoTunerFilePath'):
+            # if autotuner is enabled, generate full recommendations summary
+            self.__generate_report_with_recommendations()
+        else:
+            # generate a brief summary
+            self.__generate_report_no_recommendations()
 
     def _init_rapids_arg_list(self) -> List[str]:
         return self._create_autotuner_rapids_args()

@@ -95,8 +95,7 @@ A typical workflow to successfully run the `qualification` command in local mode
       commands can access the S3 resources `LOGS_BUCKET`.
    4. installs `spark_rapids_user_tools`
 3. If the results of the wrapper need to be stored on S3, then another S3 uri is required `REMOTE_FOLDER=s3://OUT_BUCKET/`
-4. User defines the Databricks-cluster on which the Spark application were running. Note that the cluster does not have to be
-   active; but it has to be visible by the Databricks CLI (i.e., can run `databricks clusters get --cluster-name`).
+4. User defines the Databricks-cluster on which the Spark application were running. Note that the cluster does not have to be active; but it has to be visible by the Databricks CLI (i.e., can run `databricks clusters get --cluster-name`).
 5. The following script runs qualification by passing an S3 remote directory to store the output:
 
    ```
@@ -171,6 +170,7 @@ spark_rapids_user_tools databricks-aws profiling [options]
 spark_rapids_user_tools databricks-aws profiling -- --help
 ```
 
+The local deployment runs on the local development machine. It requires:
 1. Installing and configuring the Databricks and AWS CLI (`databricks` and `aws` commands)
 2. Java 1.8+ development environment
 3. Internet access to download JAR dependencies from mvn: `spark-*.jar`, `hadoop-aws-*.jar`, and `aws-java-sdk-bundle*.jar`

@@ -64,15 +64,13 @@ class EnumeratedType(str, Enum):
 
 class DeployMode(EnumeratedType):
     """List of tools deployment methods"""
-    # The rapids job runs by submitting a spinning serverless job
-    SERVERLESS = 'serverless'
     # The rapids job is running on local node
     LOCAL = 'local'
     # The rapids job is submitted on a remote cluster
     REMOTE_CLUSTER = 'remote'
 
     def requires_remote_storage(self) -> bool:
-        return self.value in [self.SERVERLESS, self.REMOTE_CLUSTER]
+        return self.value in [self.REMOTE_CLUSTER]
 
 
 class GpuDevice(EnumeratedType):
@@ -125,8 +123,11 @@ class CloudPlatform(EnumeratedType):
     DATAPROC = 'dataproc'
     EMR = 'emr'
     ONPREM = 'onprem'
-    LOCAL = 'local'
     NONE = 'NONE'
+
+    @classmethod
+    def get_default(cls):
+        return cls.ONPREM
 
 
 class TargetPlatform(EnumeratedType):
@@ -850,13 +851,7 @@ class PlatformBase:
                                 reshaped_cluster: ClusterGetAccessor):
         raise NotImplementedError
 
-    def create_submission_job(self, job_prop, ctxt) -> Any:
-        raise NotImplementedError
-
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
-        raise NotImplementedError
-
-    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
         raise NotImplementedError
 
     def load_platform_configs(self):

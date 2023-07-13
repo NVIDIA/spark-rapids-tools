@@ -19,7 +19,7 @@ import os
 from dataclasses import field, dataclass
 from typing import Any, List
 
-from spark_rapids_pytools.cloud_api.emr_job import EmrServerlessRapidsJob, EmrLocalRapidsJob
+from spark_rapids_pytools.cloud_api.emr_job import EmrLocalRapidsJob
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, \
     CloudPlatform, ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice, \
@@ -29,7 +29,6 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, \
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.emr_pricing import EMREc2PriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
-from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer, RapidsJob
 
 
 @dataclass
@@ -91,15 +90,6 @@ class EMRPlatform(PlatformBase):
         :return: a dictionary with the processed arguments.
         """
         # TODO: verify that all arguments are valid
-        valid_keys = ['execution-role-arn', 'application-id']
-        for submit_arg in submission_args:
-            if submit_arg not in valid_keys:
-                raise RuntimeError(f'Invalid submission argument [{submit_arg}]. Accepted arguments: {valid_keys}.')
-            if submit_arg == 'application-id' and submission_args.get(submit_arg) is None:
-                # show a message that the appID is not passed
-                self.cli.logger.warning('The EMR-Serverless application-ID is not set. '
-                                        'Note that it is recommended to use a pre-existing SPARK EMR-Serverless '
-                                        'application-id to reduce the overhead of initializing the job.')
         return submission_args
 
     def create_saving_estimator(self,
@@ -117,14 +107,8 @@ class EMRPlatform(PlatformBase):
                                                source_cluster=source_cluster)
         return saving_estimator
 
-    def create_submission_job(self, job_prop: RapidsJobPropContainer, ctxt) -> RapidsJob:
-        return EmrServerlessRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
-
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return EmrLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
-
-    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
-        raise NotImplementedError
 
 
 @dataclass

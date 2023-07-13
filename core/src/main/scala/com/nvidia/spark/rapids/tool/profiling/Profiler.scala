@@ -470,8 +470,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
 
       if (useAutoTuner) {
         val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
+        val platform = appArgs.platform.getOrElse(Profiler.DEFAULT_PLATFORM)
         val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(workerInfoPath,
-          new SingleAppSummaryInfoProvider(app))
+          new SingleAppSummaryInfoProvider(app), platform)
         // the autotuner allows skipping some properties
         // e.g. getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
         // recommendation related to executor instances.
@@ -489,6 +490,8 @@ object Profiler {
   val COMPARE_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_compare"
   val COMBINED_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_combined"
   val SUBDIR = "rapids_4_spark_profile"
+  val DEFAULT_PLATFORM = "onprem"
+
   def getAutoTunerResultsAsString(props: Seq[RecommendedPropertyResult],
       comments: Seq[RecommendedCommentResult]): String = {
     val propStr = if (props.nonEmpty) {

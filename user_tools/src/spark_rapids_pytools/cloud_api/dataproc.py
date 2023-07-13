@@ -19,7 +19,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, List
 
-from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob, DataprocSubmitSparkRapidsJob
+from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob
 from spark_rapids_pytools.cloud_api.gstorage import GStorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CMDDriverBase, CloudPlatform, \
     ClusterBase, ClusterNode, SysInfo, GpuHWInfo, SparkNodeType, ClusterState, GpuDevice, \
@@ -112,14 +112,8 @@ class DataprocPlatform(PlatformBase):
                                                     source_cluster=source_cluster)
         return saving_estimator
 
-    def create_submission_job(self, job_prop, ctxt) -> Any:
-        pass
-
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return DataprocLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
-
-    def create_spark_submission_job(self, job_prop, ctxt) -> Any:
-        return DataprocSubmitSparkRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass
