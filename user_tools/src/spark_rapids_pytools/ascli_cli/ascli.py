@@ -167,7 +167,7 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
 
 
 def main():
-    fire.Fire(ASCLIWrapper)
+    fire.Fire(ASCLIWrapper())
 
 
 if __name__ == '__main__':
