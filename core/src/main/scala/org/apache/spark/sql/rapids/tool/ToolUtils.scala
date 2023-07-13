@@ -322,7 +322,7 @@ case class GpuEventLogException(message: String) extends Exception(message)
 sealed trait Status
 case class StatusSuccess(value: String) extends Status
 case class StatusFailure(message: String) extends Status
-case class StatusUnavailable(value: String, message: String) extends Status
+case class StatusUnknown(value: String, message: String) extends Status
 case class StatusFiltered() extends Status
 
 /**
@@ -338,8 +338,8 @@ class StatusReporter {
   def reportFailure(key: String, message: String): Unit = {
     statusReports.put(key, StatusFailure(message))
   }
-  def reportUnavailable(key: String, value: String, message: String): Unit = {
-    statusReports.put(key, StatusUnavailable(value, message))
+  def reportUnknown(key: String, value: String, message: String): Unit = {
+    statusReports.put(key, StatusUnknown(value, message))
   }
   def reportFiltered(key: String): Unit = {
     statusReports.put(key, StatusFiltered())

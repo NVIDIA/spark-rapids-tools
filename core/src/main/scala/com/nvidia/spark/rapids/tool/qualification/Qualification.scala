@@ -26,7 +26,7 @@ import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_F
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.{StatusFailure, StatusFiltered, StatusReporter, StatusSuccess, StatusUnavailable}
+import org.apache.spark.sql.rapids.tool.{StatusFailure, StatusFiltered, StatusReporter, StatusSuccess, StatusUnknown}
 import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.{ConsoleProgressBar, QualificationReportGenerator}
 
@@ -54,22 +54,6 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     def run: Unit = qualifyApp(path, hadoopConf)
   }
 
-  /**
-   * Update the progress bar based on app status reports
-   */
-  private def updateProgressBarStatus(): Unit = {
-    appStatusReporter.getAllReports.foreach {
-      case (_, _: StatusSuccess) =>
-        progressBar.foreach(_.reportSuccessfulProcess())
-      case (_, _: StatusUnavailable) =>
-        progressBar.foreach(_.reportUnkownStatusProcess())
-      case (_, _: StatusFailure) =>
-        progressBar.foreach(_.reportFailedProcess())
-      case (eventLogPath, _) =>
-        throw new IllegalArgumentException(s"Illegal status for $eventLogPath")
-    }
-  }
-
   def qualifyApps(allPaths: Seq[EventLogInfo]): Seq[QualificationSummaryInfo] = {
     if (enablePB && allPaths.nonEmpty) { // total count to start the PB cannot be 0
       progressBar = Some(new ConsoleProgressBar("Qual Tool", allPaths.length))
@@ -81,7 +65,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
         case e: Exception =>
           val message = s"Unexpected exception submitting log ${path.eventLog.toString}, skipping"
           logError(message, e)
-          appStatusReporter.reportFailure(path.eventLog.toString, message)
+          reportFailure(path.eventLog.toString, message)
       }
     }
     // wait for the threads to finish processing the files
@@ -91,7 +75,6 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
         " stopping processing any more event logs")
       threadPool.shutdownNow()
     }
-    updateProgressBarStatus()
     progressBar.foreach(_.finishAll())
     val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
 
@@ -186,20 +169,18 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       if (!app.isDefined) {
         message = s"No Application found that contain SQL for ${path.eventLog.toString}!"
         logWarning(message)
-        appStatusReporter.reportUnavailable(path.eventLog.toString, "", message)
+        reportUnknown(path.eventLog.toString, "", message)
       } else {
         val qualSumInfo = app.get.aggregateStats()
         if (qualSumInfo.isDefined) {
           allApps.add(qualSumInfo.get)
-          appStatusReporter.reportSuccess(path.eventLog.toString,
-            app.map(_.appId).getOrElse(""))
+          reportSuccess(path.eventLog.toString, app.map(_.appId).getOrElse(""))
           val endTime = System.currentTimeMillis()
           logInfo(s"Took ${endTime - startTime}ms to process ${path.eventLog.toString}")
         } else {
           message = s"No aggregated stats for event log at: ${path.eventLog.toString}"
           logWarning(message)
-          appStatusReporter.reportUnavailable(path.eventLog.toString,
-            app.map(_.appId).getOrElse("") , message)
+          reportUnknown(path.eventLog.toString, app.map(_.appId).getOrElse("") , message)
         }
       }
     } catch {
@@ -213,7 +194,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       case e: Exception =>
         message = s"Unexpected exception processing log ${path.eventLog.toString}, skipping"
         logWarning(message, e)
-        appStatusReporter.reportFailure(path.eventLog.toString, message)
+        reportFailure(path.eventLog.toString, message)
     }
   }
 
@@ -236,8 +217,8 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     allReports.map {
       case (path, StatusSuccess(appId)) =>
         StatusSummaryInfo(path, "SUCCESS", appId)
-      case (path, StatusUnavailable(appId, message)) =>
-        StatusSummaryInfo(path, "UNAVAILABLE", appId, message)
+      case (path, StatusUnknown(appId, message)) =>
+        StatusSummaryInfo(path, "UNKNOWN", appId, message)
       case (path, StatusFailure(message)) =>
         StatusSummaryInfo(path, "FAILURE", "", message)
       case (path, StatusFiltered()) =>
@@ -251,5 +232,20 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     val statusSummary = generateStatusSummary(statusReporter)
     val qWriter = new QualOutputWriter(getReportOutputPath, reportReadSchema, printStdout, order)
     qWriter.writeStatusReport(statusSummary, order)
+  }
+
+  private def reportSuccess(key: String, value: String): Unit = {
+    appStatusReporter.reportSuccess(key, value)
+    progressBar.foreach(_.reportSuccessfulProcess())
+  }
+
+  private def reportUnknown(key: String, value: String, message: String): Unit = {
+    appStatusReporter.reportUnknown(key, value, message)
+    progressBar.foreach(_.reportUnkownStatusProcess())
+  }
+
+  private def reportFailure(key: String, message: String): Unit = {
+    appStatusReporter.reportFailure(key, message)
+    progressBar.foreach(_.reportFailedProcess())
   }
 }

@@ -87,7 +87,7 @@ object QualificationMain extends Logging {
     }
 
     // Add the status of event logs that were filtered above
-    eventLogFsFiltered.filterNot(filteredLogs.contains).foreach { eventLogInfo =>
+    allEventLogs.filterNot(filteredLogs.contains).foreach { eventLogInfo =>
       statusReporter.reportFiltered(eventLogInfo.eventLog.toString)
     }
 
