@@ -142,13 +142,19 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
         :param output_folder: path to store the output
         """
 
+        runtime_platform = CloudPlatform.fromstring(platform)
+        auto_tuner_file_input = None
+        gpu_cluster = cluster
+        if runtime_platform == CloudPlatform.ONPREM:
+            auto_tuner_file_input = cluster
+            gpu_cluster = None
         wrapper_prof_options = {
             'platformOpts': {
                 'credentialFile': None,
                 'deployMode': DeployMode.LOCAL,
             },
             'migrationClustersProps': {
-                'gpuCluster': cluster
+                'gpuCluster': gpu_cluster
             },
             'jobSubmissionProps': {
                 'remoteFolder': None,
@@ -158,7 +164,7 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
             },
             'eventlogs': eventlogs,
             'toolsJar': None,
-            'autoTunerFileInput': None
+            'autoTunerFileInput': auto_tuner_file_input
         }
         prof_tool_obj = ProfilingAsLocal(platform_type=CloudPlatform.fromstring(platform),
                                          output_folder=output_folder,

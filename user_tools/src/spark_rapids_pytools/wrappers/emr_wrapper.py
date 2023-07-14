@@ -29,7 +29,7 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
     """
 
     @staticmethod
-    def qualification(cpu_cluster: str,
+    def qualification(cpu_cluster: str = None,
                       eventlogs: str = None,
                       profile: str = None,
                       local_folder: str = None,
