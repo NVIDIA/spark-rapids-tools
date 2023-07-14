@@ -93,15 +93,23 @@ local:
     savingColumn: 'Estimated GPU Savings(%)'
     speedupRecommendColumn: 'Speedup Based Recommendation'
     savingRecommendColumn: 'Savings Based Recommendation'
-    summaryColumns:
-      - 'App ID'
-      - 'App Name'
-      - 'Speedup Based Recommendation'
-      - 'Savings Based Recommendation'
-      - 'App Duration'
-      - 'Estimated GPU Duration'
-      - 'Estimated GPU Speedup'
-      - 'Estimated GPU Savings(%)'
+    summaryColumns: #columns to be displayed on the stdout as part of the final report
+      savingsReportEnabledTrue: #columns with savings estimates enabled
+        - 'App ID'
+        - 'App Name'
+        - 'Speedup Based Recommendation'
+        - 'Savings Based Recommendation'
+        - 'App Duration'
+        - 'Estimated GPU Duration'
+        - 'Estimated GPU Speedup'
+        - 'Estimated GPU Savings(%)'
+      savingsReportEnabledFalse: #columns with savings estimates disabled
+        - 'App ID'
+        - 'App Name'
+        - 'Speedup Based Recommendation'
+        - 'App Duration'
+        - 'Estimated GPU Duration'
+        - 'Estimated GPU Speedup'
     processDFProps:
       minimumWorkerCount: 2
       gpuScaleFactor: 0.80

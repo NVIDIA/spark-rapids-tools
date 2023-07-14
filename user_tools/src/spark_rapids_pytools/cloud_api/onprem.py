@@ -60,11 +60,9 @@ class OnPremPlatform(PlatformBase):
             :param orig_cluster: the original cluster to migrate from
             :return: a new object cluster that supports GPU.
         """
-        if orig_cluster is not None:
-            gpu_cluster_ob = OnPremCluster(self)
-            gpu_cluster_ob.migrate_from_cluster(orig_cluster)
-            return gpu_cluster_ob
-        return orig_cluster
+        gpu_cluster_ob = OnPremCluster(self)
+        gpu_cluster_ob.migrate_from_cluster(orig_cluster)
+        return gpu_cluster_ob
 
     def get_platform_name(self) -> str:
         """
