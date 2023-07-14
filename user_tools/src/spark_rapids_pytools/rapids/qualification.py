@@ -224,21 +224,25 @@ class Qualification(RapidsJarTool):
     def _process_offline_cluster_args(self):
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
         self._process_cpu_cluster_args(offline_cluster_opts)
-        enable_savings_calculations = self._process_gpu_cluster_args(offline_cluster_opts)
-        # if no gpu cluster is defined, then we are not supposed to run cost calculations
-        self._set_savings_calculations_flag(enable_savings_calculations)
+        if self.ctxt.get_ctxt('cpuClusterProxy') is None:
+            # if no cpu-cluster is defined, then we are not supposed to run cost calculations
+            enable_savings_flag = False
+        else:
+            # if no gpu-cluster is defined, then we are not supposed to run cost calculations
+            enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
+        self._set_savings_calculations_flag(enable_savings_flag)
 
     def _set_savings_calculations_flag(self, enable_flag: bool):
         self.ctxt.set_ctxt('enableSavingsCalculations', enable_flag)
         if not enable_flag:
-            self.logger.info('Savings calculations are disabled because the cluster-information is '
+            self.logger.info('Savings estimates are disabled because the cluster-information is '
                              'not provided.')
             # revisit the filtering-apps flag
             if self.ctxt.get_ctxt('filterApps') == QualFilterApp.SAVINGS:
                 # When no cost calculations, the filters should be revisited
                 # set it to none
                 self.logger.info('Filtering criteria `filter_apps` will be reset to NONE because savings '
-                                 'estimations are disabled')
+                                 'estimates are disabled')
                 self.ctxt.set_ctxt('filterApps', QualFilterApp.NONE)
 
     def __process_gpu_cluster_recommendation(self, arg_val: str):
@@ -576,13 +580,14 @@ class Qualification(RapidsJarTool):
             # OnPrem platform if the target_platform is not specified.
             self.logger.warning('The pricing configuration for the given platform is not defined.\n\t'
                                 'Savings estimates cannot be generated.')
-        lunch_savings_calc = self.__is_savings_calc_enabled() and (pricing_config is not None)
+        # enable savings report only if the price_config exists and the estimates are enabled
+        launch_savings_calc = self.__is_savings_calc_enabled() and (pricing_config is not None)
         reshape_col = self.ctxt.get_value('local', 'output', 'processDFProps',
                                           'clusterShapeCols', 'columnName')
         speed_recommendation_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
         apps_reshaped_df, per_row_flag = self.__apply_gpu_cluster_reshape(apps_pruned_df)
 
-        if lunch_savings_calc:
+        if launch_savings_calc:
             # Now, the dataframe is ready to calculate the cost and the savings
             apps_working_set = self.__calc_apps_cost(apps_reshaped_df,
                                                      reshape_col,
@@ -604,7 +609,7 @@ class Qualification(RapidsJarTool):
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_pruned_df,
                                     recommended_apps=recommended_apps,
-                                    savings_report_flag=lunch_savings_calc,
+                                    savings_report_flag=launch_savings_calc,
                                     df_result=df_final_result,
                                     irrelevant_speedups=speedups_irrelevant_flag,
                                     sections_generators=[self.__generate_mc_types_conversion_report])
