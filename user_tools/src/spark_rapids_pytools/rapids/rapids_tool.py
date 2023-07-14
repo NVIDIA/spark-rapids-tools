@@ -311,14 +311,8 @@ class RapidsTool(object):
             rep_lines = []
             for curr_sec in section_arr:
                 required_flag = curr_sec.get('requiresBoolFlag')
-                append_section_flag = True
-                if required_flag is not None:
-                    # section requires a condition that was not enabled
-                    # the section should be skipped
-                    required_flag_val = self.ctxt.get_ctxt(required_flag)
-                    if not required_flag_val:
-                        append_section_flag = False
-                if append_section_flag:
+                # if section requires a condition that was not enabled the section is skipped
+                if not required_flag or self.ctxt.get_ctxt(required_flag):
                     rep_lines.extend(self._generate_section_content(curr_sec))
             return rep_lines
         return None
