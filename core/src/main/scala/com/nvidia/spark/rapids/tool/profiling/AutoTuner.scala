@@ -891,7 +891,8 @@ class AutoTuner(
         calculateRecommendations()
       } else {
         // add all default comments for properties (except the skipped ones)
-        val filteredComments = commentsForMissingProps.filterKeys(!skippedRecommendations.contains(_))
+        val filteredComments =
+          commentsForMissingProps.filterKeys(!skippedRecommendations.contains(_))
         filteredComments.values.foreach(appendComment)
       }
       selectedPlatform.includeRecommendations.foreach {
