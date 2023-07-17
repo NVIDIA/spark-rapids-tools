@@ -42,6 +42,25 @@ class Platform {
    * @return Optional string containing the recommendation, or `None` if unavailable.
    */
   def getRecommendation(sparkProperty: String, args: Any*): Option[String] = None
+
+  /**
+   * Checks if the `property` is valid:
+   * 1. It should not be in exclusion list
+   *   OR
+   * 2. It should be in the inclusion list
+   */
+  def isValidRecommendation(property: String): Boolean = {
+    !recommendationsToExclude.contains(property) ||
+      recommendationsToInclude.map(_._1).contains(property)
+  }
+
+  /**
+   * Checks if the `comment` is valid:
+   * 1. It should not have any property from the exclusion list
+   */
+  def isValidComment(comment: String): Boolean = {
+    recommendationsToExclude.forall(excluded => !comment.contains(excluded))
+  }
 }
 class DatabricksPlatform extends Platform {
   override val recommendationsToExclude: Seq[String] = Seq(
