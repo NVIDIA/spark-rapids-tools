@@ -25,7 +25,7 @@ import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.{CLUSTER_ID, 
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.qualification.{EstimatedPerSQLSummaryInfo, EstimatedSummaryInfo, QualificationAppInfo, QualificationSummaryInfo}
+import org.apache.spark.sql.rapids.tool.qualification.{EstimatedPerSQLSummaryInfo, EstimatedSummaryInfo, QualificationAppInfo, QualificationSummaryInfo, StatusSummaryInfo}
 import org.apache.spark.sql.rapids.tool.util._
 
 /**

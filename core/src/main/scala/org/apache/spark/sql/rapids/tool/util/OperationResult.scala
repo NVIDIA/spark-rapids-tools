@@ -27,7 +27,7 @@ case class SuccessResult[T](result: T) extends OperationResult[T]
 case class FailureResult(errorMessage: String) extends OperationResult[Nothing]
 
 /**
- *  Represents a result specific to [[QualificationAppInfo]] class. This is a base class for
+ *  Represents a result specific to `QualificationAppInfo` class. This is a base class for
  *  Success, Failure and Unknown types.
  */
 class QualAppResult(path: String, message: String)
