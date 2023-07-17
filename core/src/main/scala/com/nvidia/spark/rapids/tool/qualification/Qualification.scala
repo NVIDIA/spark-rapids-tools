@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import java.util.concurrent.{ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
 
 import scala.collection.JavaConverters._
 
@@ -28,7 +28,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.{ConsoleProgressBar, QualificationReportGenerator}
-import org.apache.spark.sql.rapids.tool.util.{FailureResult, SuccessResult}
+import org.apache.spark.sql.rapids.tool.util._
 
 class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     timeout: Option[Long], nThreads: Int, order: String,
@@ -48,6 +48,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     .asInstanceOf[ThreadPoolExecutor]
 
   private var progressBar: Option[ConsoleProgressBar] = None
+  private val appStatusReporter = new ConcurrentHashMap[String, QualAppResult]
 
   private class QualifyThread(path: EventLogInfo) extends Runnable {
     def run: Unit = qualifyApp(path, hadoopConf)
@@ -158,38 +159,45 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
   private def qualifyApp(
       path: EventLogInfo,
       hadoopConf: Configuration): Unit = {
+    val pathStr = path.eventLog.toString
     try {
       val startTime = System.currentTimeMillis()
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
         reportSqlLevel, mlOpsEnabled)
-      appResult match {
+      val qualAppResult = appResult match {
         case FailureResult(errorMessage: String) =>
           progressBar.foreach(_.reportUnkownStatusProcess())
-          logWarning(s"No Application found that contain SQL for ${path.eventLog.toString}!")
-          logWarning(errorMessage)
+          FailureQualAppResult(pathStr, errorMessage)
         case SuccessResult(app: QualificationAppInfo) =>
           val qualSumInfo = app.aggregateStats()
           if (qualSumInfo.isDefined) {
             allApps.add(qualSumInfo.get)
             progressBar.foreach(_.reportSuccessfulProcess())
             val endTime = System.currentTimeMillis()
-            logInfo(s"Took ${endTime - startTime}ms to process ${path.eventLog.toString}")
+            SuccessQualAppResult(pathStr, app.appId,
+              s"Took ${endTime - startTime}ms to process")
           } else {
             progressBar.foreach(_.reportUnkownStatusProcess())
-            logWarning(s"No aggregated stats for event log at: ${path.eventLog.toString}")
+            UnknownQualAppResult(pathStr, app.appId,
+              "No aggregated stats for event log")
           }
       }
+      qualAppResult.logMessage()
+      appStatusReporter.put(pathStr, qualAppResult)
     } catch {
       case oom: OutOfMemoryError =>
-        logError(s"OOM error while processing large file: ${path.eventLog.toString}." +
+        logError(s"OOM error while processing large file: $pathStr." +
             s"Increase heap size.", oom)
         System.exit(1)
       case o: Error =>
-        logError(s"Error occured while processing file: ${path.eventLog.toString}", o)
+        logError(s"Error occured while processing file: $pathStr", o)
         System.exit(1)
       case e: Exception =>
         progressBar.foreach(_.reportFailedProcess())
-        logWarning(s"Unexpected exception processing log ${path.eventLog.toString}, skipping!", e)
+        val failureAppResult = FailureQualAppResult(pathStr,
+          s"Unexpected exception processing log, skipping!")
+        failureAppResult.logMessage(Some(e))
+        appStatusReporter.put(pathStr, failureAppResult)
     }
   }
 
