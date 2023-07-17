@@ -91,6 +91,9 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOperatorsCSVReport(allAppsSum, order)
+
+    val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
+    qWriter.writeStatusReport(appStatusResult, order)
     if (mlOpsEnabled) {
       if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
         qWriter.writeMlFuncsReports(allAppsSum, order)
@@ -181,6 +184,8 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
             UnknownQualAppResult(pathStr, app.appId,
               "No aggregated stats for event log")
           }
+        case result =>
+          throw new IllegalArgumentException(s"Unsupported result type: $result")
       }
       qualAppResult.logMessage()
       appStatusReporter.put(pathStr, qualAppResult)
@@ -206,5 +211,22 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
    */
   def getReportOutputPath: String = {
     s"$outputDir/rapids_4_spark_qualification_output"
+  }
+
+  /**
+   * For each app status report, generate a summary containing appId and message (if any).
+   * @return Seq[Summary] - Seq[(path, status, [appId], [message])]
+   */
+  private def generateStatusSummary(appStatuses: Seq[QualAppResult]): Seq[StatusSummaryInfo] = {
+    appStatuses.map {
+      case SuccessQualAppResult(path, appId, message) =>
+        StatusSummaryInfo(path, "SUCCESS", appId, message)
+      case FailureQualAppResult(path, message) =>
+        StatusSummaryInfo(path, "FAILURE", "", message)
+      case UnknownQualAppResult(path, appId, message) =>
+        StatusSummaryInfo(path, "UNKNOWN", appId, message)
+      case qualAppResult: QualAppResult =>
+        throw new IllegalArgumentException(s"Invalid status for $qualAppResult")
+    }
   }
 }

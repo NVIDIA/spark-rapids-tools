@@ -692,6 +692,12 @@ case class QualSQLExecutionInfo(
     hasDataset: Boolean,
     problematic: String = "")
 
+case class StatusSummaryInfo(
+    path: String,
+    status: String,
+    appId: String = "",
+    message: String = "")
+
 case class QualificationSummaryInfo(
     appName: String,
     appId: String,

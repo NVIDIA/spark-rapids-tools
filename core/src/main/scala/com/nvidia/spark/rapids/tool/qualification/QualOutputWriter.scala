@@ -26,7 +26,7 @@ import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.{EstimatedPerSQLSummaryInfo, EstimatedSummaryInfo, QualificationAppInfo, QualificationSummaryInfo}
-import org.apache.spark.sql.rapids.tool.util.StringUtils
+import org.apache.spark.sql.rapids.tool.util._
 
 /**
  * This class handles the output files for qualification.
@@ -299,6 +299,25 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       csvFileWriter.close()
     }
   }
+
+  def writeStatusReport(statusReports: Seq[StatusSummaryInfo], order: String): Unit = {
+    val csvFileWriter = new ToolTextFileWriter(outputDir,
+      s"${QualOutputWriter.LOGFILE_NAME}_status.csv",
+      "Status Report Info", hadoopConf)
+    try {
+      val headersAndSizes = QualOutputWriter
+        .getDetailedStatusHeaderStringsAndSizes(statusReports)
+      csvFileWriter.write(
+        QualOutputWriter.constructDetailedHeader(headersAndSizes, ",", prettyPrint = false))
+      statusReports.foreach { statusReport =>
+        val rows = QualOutputWriter.constructStatusReportInfo(
+          statusReport, headersAndSizes, ",", prettyPrint = false)
+        rows.foreach(csvFileWriter.write)
+      }
+    } finally {
+      csvFileWriter.close()
+    }
+  }
 }
 
 case class FormattedQualificationSummaryInfo(
@@ -386,6 +405,9 @@ object QualOutputWriter {
   val ML_FUNCTION_NAME = "ML Function Name"
   val ML_TOTAL_STAGE_DURATION = "Total Duration"
   val ML_STAGE_IDS = "Stage Ids"
+  val STATUS_REPORT_PATH_STR = "Event Log"
+  val STATUS_REPORT_STATUS_STR = "Status"
+  val STATUS_REPORT_DESC_STR = "Description"
   // Default frequency for jobs with a single instance is 30 times every month (30 days)
   val DEFAULT_JOB_FREQUENCY = 30L
 
@@ -1062,5 +1084,40 @@ object QualOutputWriter {
     val formattedAppInfo = createFormattedQualSummaryInfo(summaryAppInfo, delimiter)
     val data = constructDetailedAppInfoCSVRow(formattedAppInfo, headersAndSizes, reportReadSchema)
     constructOutputRow(data, delimiter, prettyPrint)
+  }
+
+  private def getDetailedStatusHeaderStringsAndSizes(
+      statusInfos: Seq[StatusSummaryInfo]): LinkedHashMap[String, Int] = {
+    val descLengthList = statusInfos.map { statusInfo =>
+      statusInfo.appId.length + statusInfo.message.length + 1
+    }
+    val detailedHeadersAndFields = LinkedHashMap[String, Int](
+      STATUS_REPORT_PATH_STR ->
+        getMaxSizeForHeader(statusInfos.map(_.path.length), STATUS_REPORT_PATH_STR),
+      STATUS_REPORT_STATUS_STR ->
+        getMaxSizeForHeader(statusInfos.map(_.status.length), STATUS_REPORT_STATUS_STR),
+      STATUS_REPORT_DESC_STR ->
+        getMaxSizeForHeader(descLengthList, STATUS_REPORT_DESC_STR)
+    )
+    detailedHeadersAndFields
+  }
+
+  private def constructStatusReportInfo(
+      statusInfo: StatusSummaryInfo,
+      headersAndSizes: LinkedHashMap[String, Int],
+      delimiter: String = TEXT_DELIMITER,
+      prettyPrint: Boolean,
+      reformatCSV: Boolean = true): Seq[String] = {
+    val reformatCSVFunc: String => String =
+      if (reformatCSV) str => StringUtils.reformatCSVString(str) else str => stringIfempty(str)
+    val descriptionStr = statusInfo.appId match {
+      case "" => statusInfo.message
+      case appId => if (statusInfo.message.isEmpty) appId else s"$appId,${statusInfo.message}"
+    }
+    val data = ListBuffer[(String, Int)](
+      reformatCSVFunc(statusInfo.path) -> headersAndSizes(STATUS_REPORT_PATH_STR),
+      reformatCSVFunc(statusInfo.status) -> headersAndSizes(STATUS_REPORT_STATUS_STR),
+      reformatCSVFunc(descriptionStr) -> headersAndSizes(STATUS_REPORT_DESC_STR))
+    Seq(constructOutputRow(data, delimiter, prettyPrint))
   }
 }
