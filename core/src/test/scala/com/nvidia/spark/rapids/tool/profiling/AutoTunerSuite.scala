@@ -1227,12 +1227,14 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
     // Assert recommendations are skipped in properties
     assert(properties.forall(propertyResult =>
-      !autoTuner.selectedPlatform.skipRecommendations.contains(propertyResult.property)))
+      !autoTuner.selectedPlatform.recommendationsToExclude.contains(propertyResult.property)))
     // Assert recommendations are skipped in comments
     assert(comments.forall(comment =>
-      !autoTuner.selectedPlatform.skipRecommendations.contains(comment.comment)))
+      !autoTuner.selectedPlatform.recommendationsToExclude.contains(comment.comment)))
     // Assert recommendations are included in properties
-    assert(autoTuner.selectedPlatform.includeRecommendations.keys.forall(key =>
-      properties.map(_.property).contains(key)))
+    assert(autoTuner.selectedPlatform.recommendationsToInclude.forall {
+      case (property, _) =>
+        properties.map(_.property).contains(property)
+    })
   }
 }

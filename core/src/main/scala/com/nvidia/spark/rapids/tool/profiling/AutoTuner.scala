@@ -823,6 +823,17 @@ class AutoTuner(
     clusterProps.toString
   }
 
+  /**
+   * Add default comments for missing properties except the ones
+   * which should be skipped.
+   */
+  private def addDefaultComments(): Unit = {
+    commentsForMissingProps.foreach {
+      case (key, value) if !skippedRecommendations.contains(key) =>
+        appendComment(value)
+    }
+  }
+
   private def toCommentProfileResult: Seq[RecommendedCommentResult] = {
     comments.map(RecommendedCommentResult).sortBy(_.comment)
   }
@@ -885,18 +896,17 @@ class AutoTuner(
         limitedSeq.foreach(_ => limitedLogicRecommendations.add(_))
       }
       skipList.foreach(skipSeq => skipSeq.foreach(_ => skippedRecommendations.add(_)))
-      selectedPlatform.skipRecommendations.foreach(skippedRecommendations.add)
+      skippedRecommendations ++= selectedPlatform.recommendationsToExclude
       if (processPropsAndCheck) {
         initRecommendations()
         calculateRecommendations()
       } else {
-        // add all default comments for properties (except the skipped ones)
-        val filteredComments =
-          commentsForMissingProps.filterKeys(!skippedRecommendations.contains(_))
-        filteredComments.values.foreach(appendComment)
+        // add all default comments
+        addDefaultComments()
       }
-      selectedPlatform.includeRecommendations.foreach {
-        case (key, value) => appendRecommendation(key, value)
+      // add all platform specific recommendations
+      selectedPlatform.recommendationsToInclude.foreach {
+        case (property, value) => appendRecommendation(property, value)
       }
     }
     (toRecommendationsProfileResult, toCommentProfileResult)

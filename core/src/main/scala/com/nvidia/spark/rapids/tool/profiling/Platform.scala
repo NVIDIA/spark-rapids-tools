@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,31 +14,46 @@
  * limitations under the License.
  */
 package com.nvidia.spark.rapids.tool.profiling
-abstract class Platform {
-  val skipRecommendations: Seq[String]
-  val includeRecommendations: Map[String, String]
+
+/**
+ * Represents a platform and its associated recommendations.
+ */
+class Platform {
+  /**
+   * Recommendations to be excluded from the list of recommendations.
+   * These have the highest priority.
+   */
+  val recommendationsToExclude: Seq[String] = Seq.empty
+  /**
+   * Recommendations to be included in the final list of recommendations.
+   * These properties should be specific to the platform and not general Spark properties.
+   * For example: "spark.databricks.optimizer.dynamicFilePruning" for the Databricks platform.
+   *
+   * Represented as a tuple of (propertyKey, propertyValue).
+   */
+  val recommendationsToInclude: Seq[(String, String)] = Seq.empty
+  /**
+   * Dynamically calculates the recommendation for a specific Spark property by invoking
+   * the appropriate function based on `sparkProperty`.
+   *
+   * @param sparkProperty The Spark property for which the recommendation is calculated.
+   * @param args Variable list of arguments passed to the calculation function for dynamic
+   *             processing.
+   * @return Optional string containing the recommendation, or `None` if unavailable.
+   */
+  def getRecommendation(sparkProperty: String, args: Any*): Option[String] = None
 }
 class DatabricksPlatform extends Platform {
-  val skipRecommendations: Seq[String] = Seq(
+  override val recommendationsToExclude: Seq[String] = Seq(
     "spark.executor.cores",
     "spark.executor.instances",
     "spark.executor.memory",
     "spark.executor.memoryOverhead"
   )
-
-  val includeRecommendations: Map[String, String] = Map(
-    "spark.databricks.optimizer.dynamicFilePruning" -> "false"
+  override val recommendationsToInclude: Seq[(String, String)] = Seq(
+    ("spark.databricks.optimizer.dynamicFilePruning", "false")
   )
 }
-class DataprocPlatform extends Platform {
-  val skipRecommendations: Seq[String] = Seq.empty
-  val includeRecommendations: Map[String, String] = Map.empty
-}
-class EmrPlatform extends Platform {
-  val skipRecommendations: Seq[String] = Seq.empty
-  val includeRecommendations: Map[String, String] = Map.empty
-}
-class OnPremPlatform extends Platform {
-  val skipRecommendations: Seq[String] = Seq.empty
-  val includeRecommendations: Map[String, String] = Map.empty
-}
+class DataprocPlatform extends Platform {}
+class EmrPlatform extends Platform {}
+class OnPremPlatform extends Platform {}
