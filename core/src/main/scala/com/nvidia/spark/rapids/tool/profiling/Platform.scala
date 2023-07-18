@@ -63,6 +63,7 @@ class Platform {
     recommendationsToExclude.forall(excluded => !comment.contains(excluded))
   }
 }
+
 class DatabricksPlatform extends Platform {
   override val recommendationsToExclude: Seq[String] = Seq(
     "spark.executor.cores",
@@ -74,6 +75,9 @@ class DatabricksPlatform extends Platform {
     ("spark.databricks.optimizer.dynamicFilePruning", "false")
   )
 }
+
 class DataprocPlatform extends Platform {}
+
 class EmrPlatform extends Platform {}
+
 class OnPremPlatform extends Platform {}
