@@ -123,8 +123,11 @@ class CloudPlatform(EnumeratedType):
     DATAPROC = 'dataproc'
     EMR = 'emr'
     ONPREM = 'onprem'
-    LOCAL = 'local'
     NONE = 'NONE'
+
+    @classmethod
+    def get_default(cls):
+        return cls.ONPREM
 
 
 class TargetPlatform(EnumeratedType):

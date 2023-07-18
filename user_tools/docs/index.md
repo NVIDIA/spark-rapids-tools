@@ -97,7 +97,7 @@ The following table summarizes the commands supported for each cloud platform:
 | Databricks_AWS   | qualification | spark_rapids_user_tools \               |  23.04+  |
 |                  |               |   databricks-aws qualification [ARGS]   |          |
 |                  +---------------+-----------------------------------------+----------+
-|                  | profiling     | spark_rapids_user_tools \               |  23.08+  |
+|                  | profiling     | spark_rapids_user_tools \               | 23.06.1+ |
 |                  |               |   databricks-aws profiling [ARGS]       |          |
 |                  +---------------+-----------------------------------------+----------+
 |                  | bootstrap     |               N/A                       |    TBD   |
@@ -107,7 +107,8 @@ The following table summarizes the commands supported for each cloud platform:
 | Databricks_Azure | qualification | spark_rapids_user_tools \               |  23.06+  |
 |                  |               |   databricks-azure qualification [ARGS] |          |
 |                  +---------------+-----------------------------------------+----------+
-|                  | profiling     |               N/A                       |    TBD   |
+|                  | profiling     | spark_rapids_user_tools \               | 23.06.2+ |
+|                  |               |   databricks-azure profiling [ARGS]     |          |
 |                  +---------------+-----------------------------------------+----------+
 |                  | bootstrap     |               N/A                       |    TBD   |
 |                  +---------------+-----------------------------------------+----------+

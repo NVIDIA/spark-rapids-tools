@@ -310,7 +310,10 @@ class RapidsTool(object):
         if section_arr:
             rep_lines = []
             for curr_sec in section_arr:
-                rep_lines.extend(self._generate_section_content(curr_sec))
+                required_flag = curr_sec.get('requiresBoolFlag')
+                # if section requires a condition that was not enabled the section is skipped
+                if not required_flag or self.ctxt.get_ctxt(required_flag):
+                    rep_lines.extend(self._generate_section_content(curr_sec))
             return rep_lines
         return None
 
@@ -507,7 +510,7 @@ class RapidsJarTool(RapidsTool):
     def _process_offline_cluster_args(self):
         pass
 
-    def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None):
+    def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
         pass
 
     def _copy_dependencies_to_remote(self):

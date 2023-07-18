@@ -244,6 +244,7 @@
         {
           "sectionID": "gpuClusterCreationScript",
           "sectionName": "Initialization Scripts",
+          "requiresBoolFlag": "enableSavingsCalculations",
           "content": {
             "header": [
               "",
@@ -254,6 +255,7 @@
         },
         {
           "sectionID": "runUserToolsBootstrap",
+          "requiresBoolFlag": "enableSavingsCalculations",
           "content": {
             "header": [
               "",
