@@ -603,10 +603,8 @@ object SQLPlanParser extends Logging {
     // We are checking if the joinType is supported for the buildSide. If the buildSide is not
     // in the supportedBuildSides map then we are assuming that the
     // joinType is supported for that buildSide.
-    val supportedBuildSides = Map(BuildSide.BuildLeft -> JoinType.supportedJoinTypeForBuildLeft,
-      BuildSide.BuildRight -> JoinType.supportedJoinTypeForBuildRight)
-    val buildSideSupported = supportedBuildSides.getOrElse(buildSide, JoinType.allsupportedJoinType)
-      .contains(joinType)
+    val buildSideSupported = BuildSide.supportedBuildSides.getOrElse(
+      buildSide, JoinType.allsupportedJoinType).contains(joinType)
 
     joinTypeSupported && buildSideSupported
   }

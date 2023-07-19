@@ -297,6 +297,9 @@ object JoinType {
 object BuildSide {
   val BuildLeft = "BuildLeft"
   val BuildRight = "BuildRight"
+
+  val supportedBuildSides = Map(BuildLeft -> JoinType.supportedJoinTypeForBuildLeft,
+    BuildRight -> JoinType.supportedJoinTypeForBuildRight)
 }
 
 object MlOps {
