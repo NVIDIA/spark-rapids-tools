@@ -832,16 +832,15 @@ object QualificationAppInfo extends Logging {
       hadoopConf: Configuration,
       pluginTypeChecker: PluginTypeChecker,
       reportSqlLevel: Boolean,
-      mlOpsEnabled: Boolean): OperationResult[QualificationAppInfo] = {
+      mlOpsEnabled: Boolean): Either[String, QualificationAppInfo] = {
     try {
         val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
           reportSqlLevel, false, mlOpsEnabled)
         logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
-        SuccessResult(app)
+        Right(app)
       } catch {
         case e: Exception =>
-          val errorMessage = handleException(e, path)
-          FailureResult(errorMessage)
+          Left(handleException(e, path))
       }
   }
 }

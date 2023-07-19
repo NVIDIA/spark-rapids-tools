@@ -168,10 +168,10 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
         reportSqlLevel, mlOpsEnabled)
       val qualAppResult = appResult match {
-        case FailureResult(errorMessage: String) =>
+        case Left(errorMessage: String) =>
           progressBar.foreach(_.reportUnkownStatusProcess())
           FailureQualAppResult(pathStr, errorMessage)
-        case SuccessResult(app: QualificationAppInfo) =>
+        case Right(app: QualificationAppInfo) =>
           val qualSumInfo = app.aggregateStats()
           if (qualSumInfo.isDefined) {
             allApps.add(qualSumInfo.get)
@@ -184,8 +184,6 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
             UnknownQualAppResult(pathStr, app.appId,
               "No aggregated stats for event log")
           }
-        case result =>
-          throw new IllegalArgumentException(s"Unsupported result type: $result")
       }
       qualAppResult.logMessage()
       appStatusReporter.put(pathStr, qualAppResult)
@@ -226,7 +224,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       case UnknownQualAppResult(path, appId, message) =>
         StatusSummaryInfo(path, "UNKNOWN", appId, message)
       case qualAppResult: QualAppResult =>
-        throw new IllegalArgumentException(s"Invalid status for $qualAppResult")
+        throw new UnsupportedOperationException(s"Invalid status for $qualAppResult")
     }
   }
 }

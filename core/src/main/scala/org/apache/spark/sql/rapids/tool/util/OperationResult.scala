@@ -17,21 +17,12 @@
 package org.apache.spark.sql.rapids.tool.util
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
-
-/**
- * Represents the result of an operation, which can be either a success or failure.
- */
-sealed trait OperationResult[+T]
-case class SuccessResult[T](result: T) extends OperationResult[T]
-case class FailureResult(errorMessage: String) extends OperationResult[Nothing]
 
 /**
  *  Represents a result specific to `QualificationAppInfo` class. This is a base class for
  *  Success, Failure and Unknown types.
  */
-class QualAppResult(path: String, message: String)
-  extends OperationResult[QualificationAppInfo] with Logging {
+class QualAppResult(path: String, message: String) extends Logging {
   /**
    * Logs the message along with an optional exception, if provided.
    */
