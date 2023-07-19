@@ -284,6 +284,14 @@ object JoinType {
   val LeftSemi = "LeftSemi"
   val LeftAnti = "LeftAnti"
   val ExistenceJoin = "ExistenceJoin"
+
+  val supportedJoinTypeForBuildRight = Set(Inner, Cross, LeftOuter, LeftSemi,
+    LeftAnti, FullOuter, ExistenceJoin)
+
+  val supportedJoinTypeForBuildLeft = Set(Inner, Cross, RightOuter, FullOuter)
+
+  val allsupportedJoinType = Set(Inner, Cross, LeftOuter, RightOuter, FullOuter, LeftSemi,
+    LeftAnti, ExistenceJoin)
 }
 
 object BuildSide {

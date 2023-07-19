@@ -600,19 +600,14 @@ object SQLPlanParser extends Logging {
 
   private def equiJoinSupportedTypes(buildSide: String, joinType: String): Boolean = {
     val joinTypeSupported = isJoinTypeSupported(joinType)
-    // This is from GpuHashJoin.tagJoin where the Exec is tagged to run on GPU if one of the
-    // below condition is met.
-    val buildSideSupported = if (buildSide == BuildSide.BuildLeft) {
-      joinType == JoinType.Inner || joinType == JoinType.Cross ||
-        joinType == JoinType.RightOuter || joinType == JoinType.FullOuter
-    } else if (buildSide == BuildSide.BuildRight) {
-      joinType == JoinType.Inner || joinType == JoinType.Cross ||
-        joinType == JoinType.LeftOuter || joinType == JoinType.LeftSemi ||
-        joinType == JoinType.LeftAnti || joinType == JoinType.FullOuter ||
-        joinType == JoinType.ExistenceJoin
-    } else {
-      true
-    }
+    // We are checking if the joinType is supported for the buildSide. If the buildSide is not
+    // in the supportedBuildSides map then we are assuming that the
+    // joinType is supported for that buildSide.
+    val supportedBuildSides = Map(BuildSide.BuildLeft -> JoinType.supportedJoinTypeForBuildLeft,
+      BuildSide.BuildRight -> JoinType.supportedJoinTypeForBuildRight)
+    val buildSideSupported = supportedBuildSides.getOrElse(buildSide, JoinType.allsupportedJoinType)
+      .contains(joinType)
+
     joinTypeSupported && buildSideSupported
   }
 
