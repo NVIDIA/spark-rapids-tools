@@ -22,7 +22,7 @@ from typing import Any, List, Callable
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType, ClusterReshape
+from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType, ClusterReshape, NodeHWInfo
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -175,7 +175,8 @@ class QualificationSummary:
             report_content.extend(f' - {line}' for line in self.comments)
         if self.sections_generators:
             for section_generator in self.sections_generators:
-                report_content.append(Utils.gen_multiline_str(section_generator()))
+                if section_generator:
+                    report_content.append(Utils.gen_multiline_str(section_generator()))
         if self.has_gpu_recommendation():
             csp_report = csp_report_provider()
             if csp_report:
@@ -191,6 +192,51 @@ class Qualification(RapidsJarTool):
     Wrapper layer around Qualification Tool.
     """
     name = 'qualification'
+
+    def __calculate_spark_settings(self, worker_info: NodeHWInfo) -> dict:
+        """
+        Calculate the cluster properties that we need to append to the /etc/defaults of the spark
+        if necessary.
+        :param worker_info: the hardware info as extracted from the worker. Note that we assume
+                            that all the workers have the same configurations.
+        :return: dictionary containing 7 spark properties to be set by default on the cluster.
+        """
+        num_gpus = worker_info.gpu_info.num_gpus
+        gpu_mem = worker_info.gpu_info.gpu_mem
+        num_cpus = worker_info.sys_info.num_cpus
+        cpu_mem = worker_info.sys_info.cpu_mem
+
+        constants = self.ctxt.get_value('local', 'clusterConfigs', 'constants')
+        executors_per_node = num_gpus
+        num_executor_cores = max(1, num_cpus // executors_per_node)
+        gpu_concurrent_tasks = min(constants.get('maxGpuConcurrent'), gpu_mem // constants.get('gpuMemPerTaskMB'))
+        # account for system overhead
+        usable_worker_mem = max(0, cpu_mem - constants.get('systemReserveMB'))
+        executor_container_mem = usable_worker_mem // executors_per_node
+        # reserve 10% of heap as memory overhead
+        max_executor_heap = max(0, int(executor_container_mem * (1 - constants.get('heapOverheadFraction'))))
+        # give up to 2GB of heap to each executor core
+        executor_heap = min(max_executor_heap, constants.get('heapPerCoreMB') * num_executor_cores)
+        executor_mem_overhead = int(executor_heap * constants.get('heapOverheadFraction'))
+        # use default for pageable_pool to add to memory overhead
+        pageable_pool = constants.get('defaultPageablePoolMB')
+        # pinned memory uses any unused space up to 4GB
+        pinned_mem = min(constants.get('maxPinnedMemoryMB'),
+                         executor_container_mem - executor_heap - executor_mem_overhead - pageable_pool)
+        executor_mem_overhead += pinned_mem + pageable_pool
+        res = {
+            'spark.executor.cores': num_executor_cores,
+            'spark.executor.memory': f'{executor_heap}m',
+            'spark.executor.memoryOverhead': f'{executor_mem_overhead}m',
+            'spark.rapids.sql.concurrentGpuTasks': gpu_concurrent_tasks,
+            'spark.rapids.memory.pinnedPool.size': f'{pinned_mem}m',
+            'spark.sql.files.maxPartitionBytes': f'{constants.get("maxSqlFilesPartitionsMB")}m',
+            'spark.task.resource.gpu.amount': 1 / num_executor_cores,
+            'spark.rapids.shuffle.multiThreaded.reader.threads': num_executor_cores,
+            'spark.rapids.shuffle.multiThreaded.writer.threads': num_executor_cores,
+            'spark.rapids.sql.multiThreadedRead.numThreads': max(20, num_executor_cores)
+        }
+        return res
 
     def _process_rapids_args(self):
         """
@@ -208,6 +254,13 @@ class Qualification(RapidsJarTool):
             self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
+        def _process_gpu_cluster_worker_node():
+            worker_node = gpu_cluster_obj.get_worker_node()
+            worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+            sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+            gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+            worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
+
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
         if gpu_cluster_arg:
             gpu_cluster_obj = self._create_migration_cluster('GPU', gpu_cluster_arg)
@@ -219,6 +272,12 @@ class Qualification(RapidsJarTool):
                 self.logger.info('Creating GPU cluster by converting the CPU cluster instances to GPU supported types')
                 gpu_cluster_obj = self.ctxt.platform.migrate_cluster_to_gpu(orig_cluster)
         self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster_obj)
+
+        _process_gpu_cluster_worker_node()
+        worker_node_hw_info = gpu_cluster_obj.get_worker_hw_info()
+        if gpu_cluster_obj:
+            self.ctxt.set_ctxt('recommendedConfigs', self.__calculate_spark_settings(worker_node_hw_info))
+
         return gpu_cluster_obj is not None
 
     def _process_offline_cluster_args(self):
@@ -411,6 +470,19 @@ class Qualification(RapidsJarTool):
                     conversion_items.append([mc_src, 'to', mc_target])
                 report_content.append(tabulate(conversion_items))
                 report_content.append(self.ctxt.platform.get_footer_message())
+        return report_content
+
+    def __generate_recommended_configs_report(self):
+        report_content = []
+        if self.ctxt.get_ctxt('recommendedConfigs'):
+            report_content = [
+                Utils.gen_report_sec_header('Recommended Spark configurations', hrule=False),
+            ]
+            conversion_items = []
+            recommended_configs = self.ctxt.get_ctxt('recommendedConfigs')
+            for config in recommended_configs:
+                conversion_items.append([config, recommended_configs[config]])
+            report_content.append(tabulate(conversion_items))
         return report_content
 
     def __generate_cluster_shape_report(self) -> str:
@@ -612,7 +684,8 @@ class Qualification(RapidsJarTool):
                                     savings_report_flag=launch_savings_calc,
                                     df_result=df_final_result,
                                     irrelevant_speedups=speedups_irrelevant_flag,
-                                    sections_generators=[self.__generate_mc_types_conversion_report])
+                                    sections_generators=[self.__generate_mc_types_conversion_report,
+                                                         self.__generate_recommended_configs_report])
 
     def _process_output(self):
         def process_df_for_stdout(raw_df):
