@@ -255,11 +255,14 @@ class Qualification(RapidsJarTool):
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
         def _process_gpu_cluster_worker_node():
-            worker_node = gpu_cluster_obj.get_worker_node()
-            worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-            sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-            gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-            worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
+            try:
+                worker_node = gpu_cluster_obj.get_worker_node()
+                worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
+            except Exception:  # pylint: disable=broad-except
+                return
 
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
         if gpu_cluster_arg:
@@ -472,7 +475,7 @@ class Qualification(RapidsJarTool):
                 report_content.append(self.ctxt.platform.get_footer_message())
         return report_content
 
-    def __generate_recommended_configs_report(self):
+    def __generate_recommended_configs_report(self) -> list:
         report_content = []
         if self.ctxt.get_ctxt('recommendedConfigs'):
             report_content = [
@@ -630,6 +633,10 @@ class Qualification(RapidsJarTool):
     def __build_global_report_summary(self,
                                       all_apps: pd.DataFrame,
                                       csv_out: str) -> QualificationSummary:
+        def get_summary_log_file_path():
+            output_dir = csv_out.split('qualification_summary.csv')[0]
+            return output_dir + 'rapids_4_spark_qualification_output/rapids_4_spark_qualification_output.log'
+
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
@@ -667,7 +674,7 @@ class Qualification(RapidsJarTool):
                                                      per_row_flag)
             df_final_result = apps_working_set
             if not apps_working_set.empty:
-                self.logger.info('Generating GPU Estimated Speedup and Savings as %s', csv_out)
+                self.logger.info('Generating GPU Estimated Speedup and Savings as: %s', csv_out)
                 # we can use the general format as well but this will transform numbers to E+. So, stick with %f
                 apps_working_set.to_csv(csv_out, float_format='%.2f')
         else:
@@ -675,8 +682,13 @@ class Qualification(RapidsJarTool):
             if not apps_reshaped_df.empty:
                 # Do not include estimated job frequency in csv file
                 apps_reshaped_df = apps_reshaped_df.drop(columns=['Estimated Job Frequency (monthly)'])
-                self.logger.info('Generating GPU Estimated Speedup as %s', csv_out)
+                self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
+
+        # add recommended Spark configurations to the summary log file
+        with open(get_summary_log_file_path(), 'a', encoding='UTF-8') as summary_log_file:
+            recommended_configs = Utils.gen_multiline_str(self.__generate_recommended_configs_report())
+            summary_log_file.write(recommended_configs)
 
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_pruned_df,
