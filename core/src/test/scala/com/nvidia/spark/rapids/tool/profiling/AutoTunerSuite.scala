@@ -1218,4 +1218,16 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
   }
+
+  test("test recommendations for databricks platform argument") {
+    val databricksWorkerInfo = buildWorkerInfoAsString()
+    val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
+      getGpuAppMockInfoProvider, "databricks")
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+
+    // Assert recommendations are excluded in properties
+    assert(properties.map(_.property).forall(autoTuner.selectedPlatform.isValidRecommendation))
+    // Assert recommendations are skipped in comments
+    assert(comments.map(_.comment).forall(autoTuner.selectedPlatform.isValidComment))
+  }
 }
