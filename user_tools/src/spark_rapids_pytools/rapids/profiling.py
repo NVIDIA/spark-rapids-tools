@@ -97,12 +97,12 @@ class Profiling(RapidsJarTool):
         :return:
         """
         self.logger.info('Generating input file for Auto-tuner')
-        worker_hw_info = cluster_ob.get_worker_hw_info()
+        worker_hw_info = cluster_ob.get_executor_hw_info()
         worker_info = {
             'system': {
                 'numCores': worker_hw_info.sys_info.num_cpus,
                 'memory': f'{worker_hw_info.sys_info.cpu_mem}MiB',
-                'numWorkers': cluster_ob.get_workers_count()
+                'numWorkers': cluster_ob.get_executors_count()
             },
             'gpu': {
                 # the scala code expects a unit

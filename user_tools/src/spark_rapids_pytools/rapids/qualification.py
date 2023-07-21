@@ -490,7 +490,7 @@ class Qualification(RapidsJarTool):
         per_row_flag = False
         if self.__recommendation_is_non_standard():
             apps_df, per_row_flag = self.__apply_non_standard_gpu_shape(all_apps,
-                                                                        gpu_cluster.get_workers_count(),
+                                                                        gpu_cluster.get_executors_count(),
                                                                         gpu_reshape_type)
         else:
             apps_df = all_apps
@@ -534,7 +534,7 @@ class Qualification(RapidsJarTool):
             if not estimator_obj:
                 # create the object and add it to the caching dict
                 reshaped_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'),
-                                                  reshape_workers_cnt=lambda x: workers_cnt)
+                                                  reshape_executors_cnt=lambda x: workers_cnt)
                 estimator_obj = self.ctxt.platform.create_saving_estimator(self.ctxt.get_ctxt('cpuClusterProxy'),
                                                                            reshaped_cluster)
                 saving_estimator_cache.setdefault(workers_cnt, estimator_obj)
@@ -710,7 +710,7 @@ class Qualification(RapidsJarTool):
         if sec_conf.get('sectionID') == 'initializationScript':
             # format the initialization scripts
             reshaped_gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
-            gpu_per_machine, gpu_device = reshaped_gpu_cluster.get_gpu_per_worker()
+            gpu_per_machine, gpu_device = reshaped_gpu_cluster.get_gpu_per_executor()
             fill_map = {
                 0: self.ctxt.platform.cli.get_region(),
                 1: [gpu_device.lower(), gpu_per_machine]

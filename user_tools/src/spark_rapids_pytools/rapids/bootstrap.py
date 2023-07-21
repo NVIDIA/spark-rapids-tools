@@ -88,7 +88,7 @@ class Bootstrap(RapidsTool):
         """
         self.logger.info('Executing Bootstrap commands on remote cluster to calculate default configurations.')
         exec_cluster: ClusterBase = self.get_exec_cluster()
-        worker_hw_info = exec_cluster.get_worker_hw_info()
+        worker_hw_info = exec_cluster.get_executor_hw_info()
         self.logger.debug('Worker hardware INFO %s', worker_hw_info)
         try:
             spark_settings = self.__calculate_spark_settings(worker_info=worker_hw_info)

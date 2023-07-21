@@ -138,7 +138,7 @@ class TargetPlatform(EnumeratedType):
 
 class SparkNodeType(EnumeratedType):
     """
-    Node type from Spark perspective. We either have a master node or a worker node.
+    Node type from Spark perspective. We either have a primary node or a executor node.
     Note that the provider could have different grouping.
     For example EMR has: master, task, and core.
     Another categorization: onDemand..etc.
@@ -247,20 +247,20 @@ class ClusterNode:
         return best_match
 
     @classmethod
-    def create_worker_node(cls) -> Any:
+    def create_executor_node(cls) -> Any:
         return cls(SparkNodeType.WORKER)
 
     @classmethod
-    def create_master_node(cls) -> Any:
+    def create_primary_node(cls) -> Any:
         return cls(SparkNodeType.MASTER)
 
     @classmethod
     def create_node(cls, value):
         if isinstance(value, SparkNodeType):
             if value == SparkNodeType.MASTER:
-                return cls.create_master_node()
+                return cls.create_primary_node()
             if value == SparkNodeType.WORKER:
-                return cls.create_worker_node()
+                return cls.create_executor_node()
         raise RuntimeError(f'Invalid node type while creating cluster node {value}')
 
 
@@ -303,19 +303,19 @@ class ClusterGetAccessor:
         node = self.get_node(node_type)
         return node.instance_type
 
-    def get_workers_instant_types(self) -> str:
+    def get_executors_instant_types(self) -> str:
         return self.get_node_instance_type(SparkNodeType.WORKER)
 
-    def get_workers_count(self) -> int:
+    def get_executors_count(self) -> int:
         return self.get_nodes_cnt(SparkNodeType.WORKER)
 
-    def get_workers_cores_count(self) -> int:
+    def get_executors_cores_count(self) -> int:
         return self.get_node_core_count(SparkNodeType.WORKER)
 
-    def get_workers_mem_mb(self) -> int:
+    def get_executors_mem_mb(self) -> int:
         return self.get_node_mem_mb(SparkNodeType.WORKER)
 
-    def get_gpu_per_worker(self) -> (int, str):
+    def get_gpu_per_executor(self) -> (int, str):
         return self.get_gpu_per_node(SparkNodeType.WORKER)
 
 
@@ -881,7 +881,7 @@ class PlatformBase:
         return CloudPlatform.pretty_print(self.type_id)
 
     def get_footer_message(self) -> str:
-        return 'To support acceleration with T4 GPUs, switch the worker node instance types'
+        return 'To support acceleration with T4 GPUs, switch the executor node instance types'
 
 
 @dataclass
@@ -902,15 +902,15 @@ class ClusterBase(ClusterGetAccessor):
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster'), init=False)
 
     @staticmethod
-    def _verify_workers_exist(has_no_workers_cb: Callable[[], bool]):
+    def _verify_executors_exist(has_no_executors_cb: Callable[[], bool]):
         """
-        Specifies how to handle cluster definitions that have no workers
-        :param has_no_workers_cb: A callback that returns True if the cluster does not have any
-               workers
+        Specifies how to handle cluster definitions that have no executors
+        :param has_no_executors_cb: A callback that returns True if the cluster does not have any
+               executors
         """
-        if has_no_workers_cb():
-            raise RuntimeError('Invalid cluster: The cluster has no worker nodes.\n\t'
-                               'It is recommended to define a with (1 master, N workers).')
+        if has_no_executors_cb():
+            raise RuntimeError('Invalid cluster: The cluster has no executor nodes.\n\t'
+                               'It is recommended to define a with (1 primary, N executors).')
 
     def __post_init__(self):
         self.cli = self.platform.cli
@@ -970,8 +970,8 @@ class ClusterBase(ClusterGetAccessor):
         pre_init_args = self._init_connection(cluster_id, props)
         self.set_fields_from_dict(pre_init_args)
         self._init_nodes()
-        # Verify that the cluster has defined workers
-        self._verify_workers_exist(lambda: not self.nodes.get(SparkNodeType.WORKER))
+        # Verify that the cluster has defined executors
+        self._verify_executors_exist(lambda: not self.nodes.get(SparkNodeType.WORKER))
         return self
 
     def is_cluster_running(self) -> bool:
@@ -993,22 +993,22 @@ class ClusterBase(ClusterGetAccessor):
                         i.e., writing to a file.
         :return:
         """
-        # get the master node
-        master_node: ClusterNode = self.get_master_node()
-        return self.cli.ssh_cmd_node(master_node, ssh_cmd, cmd_input=cmd_input)
+        # get the primary node
+        primary_node: ClusterNode = self.get_primary_node()
+        return self.cli.ssh_cmd_node(primary_node, ssh_cmd, cmd_input=cmd_input)
 
-    def run_cmd_worker(self, ssh_cmd: str, cmd_input: str = None, ind: int = 0) -> str or None:
+    def run_cmd_executor(self, ssh_cmd: str, cmd_input: str = None, ind: int = 0) -> str or None:
         """
-        Execute command on the worker node
+        Execute command on the executor node
         :param ssh_cmd: the command to be executed on the remote node. Note that the quotes
                         surrounding the shell command should be included
         :param cmd_input: optional argument string used as an input to the command line.
                           i.e., writing to a file
-        :param ind: the node index. By default, the command is executed on first worker node.
+        :param ind: the node index. By default, the command is executed on first executor node.
         """
-        # get the worker node
-        worker_node: ClusterNode = self.get_worker_node(ind)
-        return self.cli.ssh_cmd_node(worker_node, ssh_cmd, cmd_input=cmd_input)
+        # get the executor node
+        executor_node: ClusterNode = self.get_executor_node(ind)
+        return self.cli.ssh_cmd_node(executor_node, ssh_cmd, cmd_input=cmd_input)
 
     def run_cmd_node(self, node: ClusterNode, ssh_cmd: str, cmd_input: str = None) -> str or None:
         """
@@ -1042,9 +1042,9 @@ class ClusterBase(ClusterGetAccessor):
     def get_region(self) -> str:
         return self.cli.get_region()
 
-    def get_worker_hw_info(self) -> NodeHWInfo:
-        worker_node = self.get_worker_node()
-        return worker_node.hw_info
+    def get_executor_hw_info(self) -> NodeHWInfo:
+        executor_node = self.get_executor_node()
+        return executor_node.hw_info
 
     def _build_migrated_cluster(self, orig_cluster):
         """
@@ -1114,10 +1114,10 @@ class ClusterBase(ClusterGetAccessor):
 
         return nodes
 
-    def get_master_node(self) -> ClusterNode:
+    def get_primary_node(self) -> ClusterNode:
         return self.nodes.get(SparkNodeType.MASTER)
 
-    def get_worker_node(self, ind: int = 0) -> ClusterNode:
+    def get_executor_node(self, ind: int = 0) -> ClusterNode:
         return self.nodes.get(SparkNodeType.WORKER)[ind]
 
     def get_name(self) -> str:
@@ -1159,22 +1159,22 @@ class ClusterReshape(ClusterGetAccessor):
     The caller can override the behavior by passing a callback method.
     The caller also can control which node type is affected by the reshap-methods.
     This can be done by setting the "node_types". By default, the reshaping
-    is limited to the worker nodes of a cluster.
+    is limited to the executor nodes of a cluster.
     """
 
     cluster_inst: ClusterBase
     node_types: List[SparkNodeType] = field(default_factory=lambda: [SparkNodeType.WORKER])
-    reshape_workers_mc_type: Callable[[str], str] = field(default_factory=lambda: lambda x: x)
-    reshape_workers_cnt: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
-    reshape_workers_cpus: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
-    reshape_workers_mem: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
-    reshape_workers_gpu_cnt: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
-    reshape_workers_gpu_device: Callable[[str], str] = field(default_factory=lambda: lambda x: x)
+    reshape_executors_mc_type: Callable[[str], str] = field(default_factory=lambda: lambda x: x)
+    reshape_executors_cnt: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_executors_cpus: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_executors_mem: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_executors_gpu_cnt: Callable[[int], int] = field(default_factory=lambda: lambda x: x)
+    reshape_executors_gpu_device: Callable[[str], str] = field(default_factory=lambda: lambda x: x)
 
     def get_node(self, node_type: SparkNodeType) -> ClusterNode:
         if node_type == SparkNodeType.WORKER:
-            return self.cluster_inst.get_worker_node()
-        return self.cluster_inst.get_master_node()
+            return self.cluster_inst.get_executor_node()
+        return self.cluster_inst.get_primary_node()
 
     def get_all_nodes(self) -> list:
         raise NotImplementedError
@@ -1182,31 +1182,31 @@ class ClusterReshape(ClusterGetAccessor):
     def get_node_instance_type(self, node_type: SparkNodeType) -> str:
         res = super().get_node_instance_type(node_type)
         if node_type in self.node_types:
-            return self.reshape_workers_mc_type(res)
+            return self.reshape_executors_mc_type(res)
         return res
 
     def get_nodes_cnt(self, node_type: SparkNodeType) -> int:
         res = self.cluster_inst.get_nodes_cnt(node_type)
         if node_type in self.node_types:
-            return self.reshape_workers_cnt(res)
+            return self.reshape_executors_cnt(res)
         return res
 
     def get_node_core_count(self, node_type: SparkNodeType) -> int:
         res = super().get_node_core_count(node_type)
         if node_type in self.node_types:
-            return self.reshape_workers_cpus(res)
+            return self.reshape_executors_cpus(res)
         return res
 
     def get_node_mem_mb(self, node_type: SparkNodeType) -> int:
         res = super().get_node_mem_mb(node_type)
         if node_type in self.node_types:
-            return self.reshape_workers_mem(res)
+            return self.reshape_executors_mem(res)
         return res
 
     def get_gpu_per_node(self, node_type: SparkNodeType) -> (int, str):
         num_gpus, gpu_device = super().get_gpu_per_node(node_type)
         if node_type in self.node_types:
-            return self.reshape_workers_gpu_cnt(num_gpus), self.reshape_workers_gpu_device(gpu_device)
+            return self.reshape_executors_gpu_cnt(num_gpus), self.reshape_executors_gpu_device(gpu_device)
         return num_gpus, gpu_device
 
     def get_name(self) -> str:

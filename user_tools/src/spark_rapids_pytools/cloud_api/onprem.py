@@ -217,7 +217,7 @@ class OnPremCluster(ClusterBase):
                     'zone': self.zone,
                     'platform_name': self.platform.get_platform_name()
                 }
-                executor = OnPremNode.create_worker_node().set_fields_from_dict(executor_props)
+                executor = OnPremNode.create_executor_node().set_fields_from_dict(executor_props)
                 # TODO for optimization, we should set HW props for 1 executor
                 executor.fetch_and_set_hw_info(self.cli)
                 executor_nodes.append(executor)
@@ -230,7 +230,7 @@ class OnPremCluster(ClusterBase):
             'platform_name': self.platform.get_platform_name()
         }
 
-        primary_node = OnPremNode.create_master_node().set_fields_from_dict(primary_props)
+        primary_node = OnPremNode.create_primary_node().set_fields_from_dict(primary_props)
         primary_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
             SparkNodeType.WORKER: executor_nodes,
@@ -252,7 +252,7 @@ class OnPremCluster(ClusterBase):
                 'name': anode.name,
                 'zone': anode.zone,
             }
-            new_node = OnPremNode.create_worker_node().set_fields_from_dict(executor_props)
+            new_node = OnPremNode.create_executor_node().set_fields_from_dict(executor_props)
             gpu_mc_hw: ClusterNode = supported_mc_map.get(new_instance_type)
             new_node.construct_hw_info(cli=None,
                                        gpu_info=gpu_mc_hw.gpu_info,

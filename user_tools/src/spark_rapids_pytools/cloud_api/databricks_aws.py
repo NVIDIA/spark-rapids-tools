@@ -183,7 +183,7 @@ class DatabricksCluster(ClusterBase):
                 'region': self.region,
                 'instance_type': self.props.get_value('node_type_id')
             }
-            executor = DatabricksNode.create_worker_node().set_fields_from_dict(executor_props)
+            executor = DatabricksNode.create_executor_node().set_fields_from_dict(executor_props)
             executor.fetch_and_set_hw_info(self.cli)
             executor_nodes.append(executor)
         primary_props = {
@@ -193,7 +193,7 @@ class DatabricksCluster(ClusterBase):
             'region': self.region,
             'instance_type': self.props.get_value('driver_node_type_id')
         }
-        primary_node = DatabricksNode.create_master_node().set_fields_from_dict(primary_props)
+        primary_node = DatabricksNode.create_primary_node().set_fields_from_dict(primary_props)
         primary_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
             SparkNodeType.WORKER: executor_nodes,
@@ -239,7 +239,7 @@ class DatabricksCluster(ClusterBase):
                 'region': anode.region,
                 'props': anode.props,
             }
-            new_node = DatabricksNode.create_worker_node().set_fields_from_dict(executor_props)
+            new_node = DatabricksNode.create_executor_node().set_fields_from_dict(executor_props)
             new_executor_nodes.append(new_node)
         self.nodes = {
             SparkNodeType.WORKER: new_executor_nodes,

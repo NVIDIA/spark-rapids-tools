@@ -399,7 +399,7 @@ class DataprocCluster(ClusterBase):
                     # set the node zone based on the wrapper defined zone
                     'zone': self.zone
                 }
-                executor = DataprocNode.create_worker_node().set_fields_from_dict(executor_props)
+                executor = DataprocNode.create_executor_node().set_fields_from_dict(executor_props)
                 # TODO for optimization, we should set HW props for 1 executor
                 executor.fetch_and_set_hw_info(self.cli)
                 executor_nodes.append(executor)
@@ -410,7 +410,7 @@ class DataprocCluster(ClusterBase):
             # set the node zone based on the wrapper defined zone
             'zone': self.zone
         }
-        primary_node = DataprocNode.create_master_node().set_fields_from_dict(primary_props)
+        primary_node = DataprocNode.create_primary_node().set_fields_from_dict(primary_props)
         primary_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
             SparkNodeType.WORKER: executor_nodes,
@@ -451,7 +451,7 @@ class DataprocCluster(ClusterBase):
                 'name': anode.name,
                 'zone': anode.zone,
             }
-            new_node = DataprocNode.create_worker_node().set_fields_from_dict(executor_props)
+            new_node = DataprocNode.create_executor_node().set_fields_from_dict(executor_props)
             # we cannot rely on setting gpu info from the SDK because
             # dataproc does not bind machine types to GPUs
             # new_node.fetch_and_set_hw_info(self.cli)
@@ -483,8 +483,8 @@ class DataprocCluster(ClusterBase):
         return self.props.get_value_silent('config', 'softwareConfig', 'imageVersion')
 
     def _set_render_args_create_template(self) -> dict:
-        executor_node = self.get_worker_node()
-        gpu_per_machine, gpu_device = self.get_gpu_per_worker()
+        executor_node = self.get_executor_node()
+        gpu_per_machine, gpu_device = self.get_gpu_per_executor()
         # map the gpu device to the equivalent accepted argument
         gpu_device_hash = {
             'T4': 'nvidia-tesla-t4',
@@ -495,8 +495,8 @@ class DataprocCluster(ClusterBase):
             'REGION': self.region,
             'ZONE': self.zone,
             'IMAGE': self.get_image_version(),
-            'MASTER_MACHINE': self.get_master_node().instance_type,
-            'WORKERS_COUNT': self.get_workers_count(),
+            'MASTER_MACHINE': self.get_primary_node().instance_type,
+            'WORKERS_COUNT': self.get_executors_count(),
             'WORKERS_MACHINE': executor_node.instance_type,
             'LOCAL_SSD': 2,
             'GPU_DEVICE': gpu_device_hash.get(gpu_device),

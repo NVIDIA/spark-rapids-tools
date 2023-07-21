@@ -264,7 +264,7 @@ class DatabricksAzureCluster(ClusterBase):
                 'region': self.region,
                 'instance_type': self.props.get_value('node_type_id')
             }
-            executor = DatabricksAzureNode.create_worker_node().set_fields_from_dict(executor_props)
+            executor = DatabricksAzureNode.create_executor_node().set_fields_from_dict(executor_props)
             executor.fetch_and_set_hw_info(self.cli)
             executor_nodes.append(executor)
         driver_props = {
@@ -274,7 +274,7 @@ class DatabricksAzureCluster(ClusterBase):
             'region': self.region,
             'instance_type': self.props.get_value('driver_node_type_id')
         }
-        driver_node = DatabricksAzureNode.create_master_node().set_fields_from_dict(driver_props)
+        driver_node = DatabricksAzureNode.create_primary_node().set_fields_from_dict(driver_props)
         driver_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
             SparkNodeType.WORKER: executor_nodes,
@@ -320,7 +320,7 @@ class DatabricksAzureCluster(ClusterBase):
                 'region': anode.region,
                 'props': anode.props,
             }
-            new_node = DatabricksAzureNode.create_worker_node().set_fields_from_dict(executor_props)
+            new_node = DatabricksAzureNode.create_executor_node().set_fields_from_dict(executor_props)
             new_executor_nodes.append(new_node)
         self.nodes = {
             SparkNodeType.WORKER: new_executor_nodes,

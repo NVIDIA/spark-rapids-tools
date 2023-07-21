@@ -451,13 +451,13 @@ class EMRCluster(ClusterBase):
         return self.props.get_value('ReleaseLabel')
 
     def _set_render_args_create_template(self) -> dict:
-        worker_node = self.get_worker_node()
+        worker_node = self.get_executor_node()
         return {
             'CLUSTER_NAME': self.get_name(),
             'ZONE': self.zone,
             'IMAGE': self.get_image_version(),
-            'MASTER_MACHINE': self.get_master_node().instance_type,
-            'WORKERS_COUNT': self.get_workers_count(),
+            'MASTER_MACHINE': self.get_primary_node().instance_type,
+            'WORKERS_COUNT': self.get_executors_count(),
             'WORKERS_MACHINE': worker_node.instance_type
         }
 
