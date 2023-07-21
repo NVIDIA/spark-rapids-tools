@@ -26,7 +26,7 @@ mock_live_cluster = {
             "config": {
                 "masterConfig": {
                     "instanceNames": [
-                        "test-master",
+                        "test-primary",
                     ],
                     "machineTypeUri": "https://www.googleapis.com/compute/v1/projects/project-id/zones/us-central1-a/"\
                                       "machineTypes/n1-standard-2",
@@ -37,7 +37,7 @@ mock_live_cluster = {
                                               "us-central1-a/acceleratorTypes/nvidia-tesla-t4"
                     }],
                     "instanceNames": [
-                        "test-worker-0",
+                        "test-executor-0",
                     ],
                     "machineTypeUri": "https://www.googleapis.com/compute/v1/projects/project-id/zones/us-central1-a/"\
                                       "machineTypes/n1-standard-8",

@@ -521,14 +521,14 @@ class AutoTuner(
    *         or "spark.executor.memoryOverheadFactor".
    */
   def memoryOverheadLabel: String = {
-    val sparkMasterConf = getPropertyValue("spark.master")
+    val sparkClusterConf = getPropertyValue("spark.master")
     val defaultLabel = "spark.executor.memoryOverhead"
-    sparkMasterConf match {
+    sparkClusterConf match {
       case None => defaultLabel
-      case Some(sparkMaster) =>
-        if (sparkMaster.contains("yarn")) {
+      case Some(clusterMode) =>
+        if (clusterMode.contains("yarn")) {
           defaultLabel
-        } else if (sparkMaster.contains("k8s")) {
+        } else if (clusterMode.contains("k8s")) {
           appInfoProvider.getSparkVersion match {
             case Some(version) =>
               if (ToolUtils.isSpark331OrLater(version)) {

@@ -338,7 +338,7 @@ class EMRCluster(ClusterBase):
         # get the map of the instance types
         mc_type_map, _ = orig_cluster.find_matches_for_node()
         # convert instances and groups
-        # master groups should stay the same
+        # primary groups should stay the same
         for curr_group in orig_cluster.instance_groups:
             if curr_group.spark_grp_type == SparkNodeType.MASTER:
                 new_inst_grp = curr_group
@@ -376,8 +376,8 @@ class EMRCluster(ClusterBase):
             self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
 
     def __create_node_from_instances(self):
-        worker_nodes = []
-        master_nodes = []
+        executor_nodes = []
+        primary_nodes = []
         for ec2_inst in self.ec2_instances:
             node_props = {
                 'ec2_instance': ec2_inst
@@ -385,12 +385,12 @@ class EMRCluster(ClusterBase):
             c_node = EMRNode.create_node(ec2_inst.group.spark_grp_type).set_fields_from_dict(node_props)
             c_node.fetch_and_set_hw_info(self.cli)
             if c_node.node_type == SparkNodeType.WORKER:
-                worker_nodes.append(c_node)
+                executor_nodes.append(c_node)
             else:
-                master_nodes.append(c_node)
+                primary_nodes.append(c_node)
         return {
-            SparkNodeType.WORKER: worker_nodes,
-            SparkNodeType.MASTER: master_nodes[0]
+            SparkNodeType.WORKER: executor_nodes,
+            SparkNodeType.MASTER: primary_nodes[0]
         }
 
     def _init_nodes(self):

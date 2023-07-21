@@ -58,21 +58,21 @@ class Dataproc(CspBase):
 
     def get_nodes(self, node='all'):
         """Get cluster node address."""
-        # node format: <all|master|workers|workers-n>
+        # node format: <all|primary|executors|executors-n>
         if not self.nodes:
             info = self.get_info()
 
-            master = info.get('config', {}).get('masterConfig', {}).get('instanceNames')
-            if master:
-                self.nodes['master'] = master
+            primary = info.get('config', {}).get('masterConfig', {}).get('instanceNames')
+            if primary:
+                self.nodes['primary'] = primary
             else:
                 raise Exception("not found 'masterConfig' from cluster info")
 
-            workers = info.get('config', {}).get('workerConfig', {}).get('instanceNames')
-            if workers and len(workers) > 0:
-                self.nodes['workers'] = workers
+            executors = info.get('config', {}).get('workerConfig', {}).get('instanceNames')
+            if executors and len(executors) > 0:
+                self.nodes['executors'] = executors
             else:
-                raise Exception('sorry, single node cluster (1 master, 0 workers) not supported')
+                raise Exception('sorry, single node cluster (1 primary, 0 executors) not supported')
 
             zone_uri = info.get('config', {}).get('gceClusterConfig', {}).get('zoneUri')
             if zone_uri:
@@ -82,22 +82,22 @@ class Dataproc(CspBase):
 
         logger.debug('cluster nodes: %s from zone: %s', self.nodes, self.zone)
 
-        if not node or node == 'master':
-            # Return master node by default
-            return self.nodes['master']
+        if not node or node == 'primary':
+            # Return primary node by default
+            return self.nodes['primary']
 
         if node == 'all':
-            # Return both master & worker nodes
+            # Return both primary & executor nodes
             nodes = []
             for i in self.nodes.values():
                 nodes += i
             return nodes
 
-        if node == 'workers':
-            # Return worker nodes
-            return self.nodes['workers']
+        if node == 'executors':
+            # Return executor nodes
+            return self.nodes['executors']
 
-        # Node format: workers-n
+        # Node format: executors-n
         node_type, index_str = node.split('-')
 
         nodes = self.nodes.get(node_type)

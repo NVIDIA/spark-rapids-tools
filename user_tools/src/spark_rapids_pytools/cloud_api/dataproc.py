@@ -385,36 +385,36 @@ class DataprocCluster(ClusterBase):
         self.name = self.props.get_value('clusterName')
 
     def _init_nodes(self):
-        # assume that only one master node
-        master_nodes_from_conf = self.props.get_value('config', 'masterConfig', 'instanceNames')
-        raw_worker_prop = self.props.get_value_silent('config', 'workerConfig')
-        worker_nodes: list = []
-        if raw_worker_prop:
-            worker_nodes_from_conf = self.props.get_value('config', 'workerConfig', 'instanceNames')
-            # create workers array
-            for worker_node in worker_nodes_from_conf:
-                worker_props = {
-                    'name': worker_node,
-                    'props': JSONPropertiesContainer(prop_arg=raw_worker_prop, file_load=False),
+        # assume that only one primary node
+        primary_nodes_from_conf = self.props.get_value('config', 'masterConfig', 'instanceNames')
+        raw_executor_prop = self.props.get_value_silent('config', 'workerConfig')
+        executor_nodes: list = []
+        if raw_executor_prop:
+            executor_nodes_from_conf = self.props.get_value('config', 'workerConfig', 'instanceNames')
+            # create executors array
+            for executor_node in executor_nodes_from_conf:
+                executor_props = {
+                    'name': executor_node,
+                    'props': JSONPropertiesContainer(prop_arg=raw_executor_prop, file_load=False),
                     # set the node zone based on the wrapper defined zone
                     'zone': self.zone
                 }
-                worker = DataprocNode.create_worker_node().set_fields_from_dict(worker_props)
-                # TODO for optimization, we should set HW props for 1 worker
-                worker.fetch_and_set_hw_info(self.cli)
-                worker_nodes.append(worker)
-        raw_master_props = self.props.get_value('config', 'masterConfig')
-        master_props = {
-            'name': master_nodes_from_conf[0],
-            'props': JSONPropertiesContainer(prop_arg=raw_master_props, file_load=False),
+                executor = DataprocNode.create_worker_node().set_fields_from_dict(executor_props)
+                # TODO for optimization, we should set HW props for 1 executor
+                executor.fetch_and_set_hw_info(self.cli)
+                executor_nodes.append(executor)
+        raw_primary_props = self.props.get_value('config', 'masterConfig')
+        primary_props = {
+            'name': primary_nodes_from_conf[0],
+            'props': JSONPropertiesContainer(prop_arg=raw_primary_props, file_load=False),
             # set the node zone based on the wrapper defined zone
             'zone': self.zone
         }
-        master_node = DataprocNode.create_master_node().set_fields_from_dict(master_props)
-        master_node.fetch_and_set_hw_info(self.cli)
+        primary_node = DataprocNode.create_master_node().set_fields_from_dict(primary_props)
+        primary_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
-            SparkNodeType.WORKER: worker_nodes,
-            SparkNodeType.MASTER: master_node
+            SparkNodeType.WORKER: executor_nodes,
+            SparkNodeType.MASTER: primary_node
         }
 
     def _init_connection(self, cluster_id: str = None,
@@ -431,9 +431,9 @@ class DataprocCluster(ClusterBase):
         """
         # get the map of the instance types
         mc_type_map, supported_mc_map = orig_cluster.find_matches_for_node()
-        new_worker_nodes: list = []
+        new_executor_nodes: list = []
         for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
-            # loop on all worker nodes.
+            # loop on all executor nodes.
             # even if the node is the same type, we still need to set the hardware
             if anode.instance_type not in mc_type_map:
                 # the node stays the same
@@ -446,12 +446,12 @@ class DataprocCluster(ClusterBase):
                 self.logger.info('Converting node %s into GPU supported instance-type %s',
                                  anode.instance_type,
                                  new_instance_type)
-            worker_props = {
+            executor_props = {
                 'instance_type': new_instance_type,
                 'name': anode.name,
                 'zone': anode.zone,
             }
-            new_node = DataprocNode.create_worker_node().set_fields_from_dict(worker_props)
+            new_node = DataprocNode.create_worker_node().set_fields_from_dict(executor_props)
             # we cannot rely on setting gpu info from the SDK because
             # dataproc does not bind machine types to GPUs
             # new_node.fetch_and_set_hw_info(self.cli)
@@ -459,9 +459,9 @@ class DataprocCluster(ClusterBase):
             new_node.construct_hw_info(cli=None,
                                        gpu_info=gpu_mc_hw.gpu_info,
                                        sys_info=gpu_mc_hw.sys_info)
-            new_worker_nodes.append(new_node)
+            new_executor_nodes.append(new_node)
         self.nodes = {
-            SparkNodeType.WORKER: new_worker_nodes,
+            SparkNodeType.WORKER: new_executor_nodes,
             SparkNodeType.MASTER: orig_cluster.nodes.get(SparkNodeType.MASTER)
         }
         if bool(mc_type_map):
@@ -483,7 +483,7 @@ class DataprocCluster(ClusterBase):
         return self.props.get_value_silent('config', 'softwareConfig', 'imageVersion')
 
     def _set_render_args_create_template(self) -> dict:
-        worker_node = self.get_worker_node()
+        executor_node = self.get_worker_node()
         gpu_per_machine, gpu_device = self.get_gpu_per_worker()
         # map the gpu device to the equivalent accepted argument
         gpu_device_hash = {
@@ -497,7 +497,7 @@ class DataprocCluster(ClusterBase):
             'IMAGE': self.get_image_version(),
             'MASTER_MACHINE': self.get_master_node().instance_type,
             'WORKERS_COUNT': self.get_workers_count(),
-            'WORKERS_MACHINE': worker_node.instance_type,
+            'WORKERS_MACHINE': executor_node.instance_type,
             'LOCAL_SSD': 2,
             'GPU_DEVICE': gpu_device_hash.get(gpu_device),
             'GPU_PER_WORKER': gpu_per_machine
@@ -527,10 +527,10 @@ class DataprocSavingsEstimator(SavingsEstimator):
         return nodes_cnt * (cores_cost + memory_cost + gpu_cost)
 
     def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
-        master_cost = self.__calculate_group_cost(cluster, SparkNodeType.MASTER)
-        workers_cost = self.__calculate_group_cost(cluster, SparkNodeType.WORKER)
+        primary_node_cost = self.__calculate_group_cost(cluster, SparkNodeType.MASTER)
+        executor_nodes_cost = self.__calculate_group_cost(cluster, SparkNodeType.WORKER)
         dataproc_cost = self.price_provider.get_container_cost()
-        return master_cost + workers_cost + dataproc_cost
+        return primary_node_cost + executor_nodes_cost + dataproc_cost
 
     def _setup_costs(self):
         # calculate target_cost

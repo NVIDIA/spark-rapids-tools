@@ -155,49 +155,49 @@ class DatabricksCluster(ClusterBase):
         self.name = self.props.get_value('cluster_name')
 
     def _init_nodes(self):
-        # assume that only one master node
-        master_nodes_from_conf = self.props.get_value_silent('driver')
-        worker_nodes_from_conf = self.props.get_value_silent('executors')
-        num_workers = self.props.get_value_silent('num_workers')
-        if num_workers is None:
-            num_workers = 0
-        # construct master node info when cluster is inactive
-        if master_nodes_from_conf is None:
-            master_node_type_id = self.props.get_value('driver_node_type_id')
-            if master_node_type_id is None:
-                raise RuntimeError('Failed to find master node information from cluster properties')
-            master_nodes_from_conf = {'node_id': None}
-        # construct worker nodes info when cluster is inactive
-        if worker_nodes_from_conf is None:
-            worker_node_type_id = self.props.get_value('node_type_id')
-            if worker_node_type_id is None:
-                raise RuntimeError('Failed to find worker node information from cluster properties')
-            worker_nodes_from_conf = [{'node_id': None} for i in range(num_workers)]
-        # create workers array
-        worker_nodes: list = []
-        for worker_node in worker_nodes_from_conf:
-            worker_props = {
-                'Id': worker_node['node_id'],
-                'props': JSONPropertiesContainer(prop_arg=worker_node, file_load=False),
+        # assume that only one primary node
+        primary_nodes_from_conf = self.props.get_value_silent('driver')
+        executor_nodes_from_conf = self.props.get_value_silent('executors')
+        num_executors = self.props.get_value_silent('num_workers')
+        if num_executors is None:
+            num_executors = 0
+        # construct primary node info when cluster is inactive
+        if primary_nodes_from_conf is None:
+            primary_node_type_id = self.props.get_value('driver_node_type_id')
+            if primary_node_type_id is None:
+                raise RuntimeError('Failed to find primary node information from cluster properties')
+            primary_nodes_from_conf = {'node_id': None}
+        # construct executor nodes info when cluster is inactive
+        if executor_nodes_from_conf is None:
+            executor_node_type_id = self.props.get_value('node_type_id')
+            if executor_node_type_id is None:
+                raise RuntimeError('Failed to find executor node information from cluster properties')
+            executor_nodes_from_conf = [{'node_id': None} for i in range(num_executors)]
+        # create executors array
+        executor_nodes: list = []
+        for executor_node in executor_nodes_from_conf:
+            executor_props = {
+                'Id': executor_node['node_id'],
+                'props': JSONPropertiesContainer(prop_arg=executor_node, file_load=False),
                 # set the node region based on the wrapper defined region
                 'region': self.region,
                 'instance_type': self.props.get_value('node_type_id')
             }
-            worker = DatabricksNode.create_worker_node().set_fields_from_dict(worker_props)
-            worker.fetch_and_set_hw_info(self.cli)
-            worker_nodes.append(worker)
-        master_props = {
-            'Id': master_nodes_from_conf['node_id'],
-            'props': JSONPropertiesContainer(prop_arg=master_nodes_from_conf, file_load=False),
+            executor = DatabricksNode.create_worker_node().set_fields_from_dict(executor_props)
+            executor.fetch_and_set_hw_info(self.cli)
+            executor_nodes.append(executor)
+        primary_props = {
+            'Id': primary_nodes_from_conf['node_id'],
+            'props': JSONPropertiesContainer(prop_arg=primary_nodes_from_conf, file_load=False),
             # set the node region based on the wrapper defined region
             'region': self.region,
             'instance_type': self.props.get_value('driver_node_type_id')
         }
-        master_node = DatabricksNode.create_master_node().set_fields_from_dict(master_props)
-        master_node.fetch_and_set_hw_info(self.cli)
+        primary_node = DatabricksNode.create_master_node().set_fields_from_dict(primary_props)
+        primary_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
-            SparkNodeType.WORKER: worker_nodes,
-            SparkNodeType.MASTER: master_node
+            SparkNodeType.WORKER: executor_nodes,
+            SparkNodeType.MASTER: primary_node
         }
 
     def _init_connection(self, cluster_id: str = None,
@@ -217,9 +217,9 @@ class DatabricksCluster(ClusterBase):
         """
         # get the map of the instance types
         mc_type_map, _ = orig_cluster.find_matches_for_node()
-        new_worker_nodes: list = []
+        new_executor_nodes: list = []
         for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
-            # loop on all worker nodes.
+            # loop on all executor nodes.
             # even if the node is the same type, we still need to set the hardware
             if anode.instance_type not in mc_type_map:
                 # the node stays the same
@@ -232,17 +232,17 @@ class DatabricksCluster(ClusterBase):
                 self.logger.info('Converting node %s into GPU supported instance-type %s',
                                  anode.instance_type,
                                  new_instance_type)
-            worker_props = {
+            executor_props = {
                 'instance_type': new_instance_type,
                 'name': anode.name,
                 'Id': anode.Id,
                 'region': anode.region,
                 'props': anode.props,
             }
-            new_node = DatabricksNode.create_worker_node().set_fields_from_dict(worker_props)
-            new_worker_nodes.append(new_node)
+            new_node = DatabricksNode.create_worker_node().set_fields_from_dict(executor_props)
+            new_executor_nodes.append(new_node)
         self.nodes = {
-            SparkNodeType.WORKER: new_worker_nodes,
+            SparkNodeType.WORKER: new_executor_nodes,
             SparkNodeType.MASTER: orig_cluster.nodes.get(SparkNodeType.MASTER)
         }
         if bool(mc_type_map):

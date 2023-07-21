@@ -144,8 +144,8 @@ class Diagnostic(RapidsTool):
         region = self.exec_cluster.get_region()
         worker_count = self.exec_cluster.get_nodes_cnt(SparkNodeType.WORKER)
 
-        master_type = self.exec_cluster.get_node_instance_type(SparkNodeType.MASTER)
-        worker_type = self.exec_cluster.get_node_instance_type(SparkNodeType.WORKER)
+        primary_type = self.exec_cluster.get_node_instance_type(SparkNodeType.MASTER)
+        executor_type = self.exec_cluster.get_node_instance_type(SparkNodeType.WORKER)
 
         # Cleanup unused work dir
         work_dir = FSUtil.build_path(output_path, self.ctxt.get_local_work_dir())
@@ -157,8 +157,8 @@ class Diagnostic(RapidsTool):
         with open(output_file, 'w', encoding='UTF-8') as f:
             f.write(f'Region: {region}\n')
             f.write(f'Worker count: {worker_count}\n')
-            f.write(f'Master type: {master_type}\n')
-            f.write(f'Worker type: {worker_type}\n')
+            f.write(f'Master type: {primary_type}\n')
+            f.write(f'Worker type: {executor_type}\n')
 
     def _archive_results(self):
         output_path = self.ctxt.get_output_folder()

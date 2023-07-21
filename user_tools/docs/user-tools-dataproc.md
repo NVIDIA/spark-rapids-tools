@@ -333,12 +333,12 @@ access.
 
 ### Bootstrap options
 
-| Option            | Description                                                               | Default                                                                                     | Required |
-|-------------------|---------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|:--------:|
-| **cluster**       | Name of the Dataproc cluster running an accelerated computing instance    | N/A                                                                                         |     Y    |
-| **output_folder** | Path to local directory where the final recommendations is logged         | env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. |     N    |
-| **dry_run**       | True or False to update the Spark config settings on Dataproc master node | True                                                                                        |     N    |
-| **verbose**       | True or False to enable verbosity to the wrapper script                   | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                           |     N    |
+| Option            | Description                                                                | Default                                                                                     | Required |
+|-------------------|----------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|:--------:|
+| **cluster**       | Name of the Dataproc cluster running an accelerated computing instance     | N/A                                                                                         |     Y    |
+| **output_folder** | Path to local directory where the final recommendations is logged          | env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. |     N    |
+| **dry_run**       | True or False to update the Spark config settings on Dataproc primary node | True                                                                                        |     N    |
+| **verbose**       | True or False to enable verbosity to the wrapper script                    | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                           |     N    |
 
 ### Dry-run enabled
 

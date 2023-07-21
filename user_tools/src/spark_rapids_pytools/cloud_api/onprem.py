@@ -77,7 +77,7 @@ class OnPremPlatform(PlatformBase):
         return CloudPlatform.pretty_print(self_id)
 
     def get_footer_message(self) -> str:
-        return 'To support acceleration with T4 GPUs, please use these worker node instance types.'
+        return 'To support acceleration with T4 GPUs, please use these executor node instance types.'
 
     def create_saving_estimator(self,
                                 source_cluster: ClusterGetAccessor,
@@ -205,36 +205,36 @@ class OnPremCluster(ClusterBase):
     """
 
     def _init_nodes(self):
-        raw_worker_prop = self.props.get_value_silent('config', 'workerConfig')
-        worker_nodes: list = []
-        if raw_worker_prop:
-            worker_nodes_total = self.props.get_value('config', 'workerConfig', 'numWorkers')
-            for i in range(worker_nodes_total):
-                worker_props = {
-                    'name': 'worker' + str(i),
-                    'props': JSONPropertiesContainer(prop_arg=raw_worker_prop, file_load=False),
+        raw_executor_prop = self.props.get_value_silent('config', 'workerConfig')
+        executor_nodes: list = []
+        if raw_executor_prop:
+            executor_nodes_total = self.props.get_value('config', 'workerConfig', 'numWorkers')
+            for i in range(executor_nodes_total):
+                executor_props = {
+                    'name': 'executor' + str(i),
+                    'props': JSONPropertiesContainer(prop_arg=raw_executor_prop, file_load=False),
                     # set the node zone based on the wrapper defined zone
                     'zone': self.zone,
                     'platform_name': self.platform.get_platform_name()
                 }
-                worker = OnPremNode.create_worker_node().set_fields_from_dict(worker_props)
-                # TODO for optimization, we should set HW props for 1 worker
-                worker.fetch_and_set_hw_info(self.cli)
-                worker_nodes.append(worker)
-        raw_master_props = self.props.get_value('config', 'masterConfig')
-        master_props = {
-            'name': 'master',
-            'props': JSONPropertiesContainer(prop_arg=raw_master_props, file_load=False),
+                executor = OnPremNode.create_worker_node().set_fields_from_dict(executor_props)
+                # TODO for optimization, we should set HW props for 1 executor
+                executor.fetch_and_set_hw_info(self.cli)
+                executor_nodes.append(executor)
+        raw_primary_props = self.props.get_value('config', 'masterConfig')
+        primary_props = {
+            'name': 'primary',
+            'props': JSONPropertiesContainer(prop_arg=raw_primary_props, file_load=False),
             # set the node zone based on the wrapper defined zone
             'zone': self.zone,
             'platform_name': self.platform.get_platform_name()
         }
 
-        master_node = OnPremNode.create_master_node().set_fields_from_dict(master_props)
-        master_node.fetch_and_set_hw_info(self.cli)
+        primary_node = OnPremNode.create_master_node().set_fields_from_dict(primary_props)
+        primary_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
-            SparkNodeType.WORKER: worker_nodes,
-            SparkNodeType.MASTER: master_node
+            SparkNodeType.WORKER: executor_nodes,
+            SparkNodeType.MASTER: primary_node
         }
 
     def _build_migrated_cluster(self, orig_cluster):
@@ -244,29 +244,29 @@ class OnPremCluster(ClusterBase):
         """
         # get the map of the instance types
         _, supported_mc_map = orig_cluster.find_matches_for_node()
-        new_worker_nodes: list = []
+        new_executor_nodes: list = []
         for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
             new_instance_type = anode.instance_type
-            worker_props = {
+            executor_props = {
                 'instance_type': new_instance_type,
                 'name': anode.name,
                 'zone': anode.zone,
             }
-            new_node = OnPremNode.create_worker_node().set_fields_from_dict(worker_props)
+            new_node = OnPremNode.create_worker_node().set_fields_from_dict(executor_props)
             gpu_mc_hw: ClusterNode = supported_mc_map.get(new_instance_type)
             new_node.construct_hw_info(cli=None,
                                        gpu_info=gpu_mc_hw.gpu_info,
                                        sys_info=gpu_mc_hw.sys_info)
-            new_worker_nodes.append(new_node)
-        master_node = orig_cluster.nodes.get(SparkNodeType.MASTER)
+            new_executor_nodes.append(new_node)
+        primary_node = orig_cluster.nodes.get(SparkNodeType.MASTER)
         self.nodes = {
-            SparkNodeType.WORKER: new_worker_nodes,
+            SparkNodeType.WORKER: new_executor_nodes,
             SparkNodeType.MASTER: orig_cluster.nodes.get(SparkNodeType.MASTER)
         }
         # force filling mc_type_map for on_prem platform.
         mc_type_map = {
-            'Driver node': master_node.instance_type,
-            'Worker node': new_worker_nodes[0].instance_type
+            'Driver node': primary_node.instance_type,
+            'Worker node': new_executor_nodes[0].instance_type
         }
         self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
 
@@ -305,10 +305,10 @@ class OnpremSavingsEstimator(SavingsEstimator):
 
     def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
         if self.price_provider.name.casefold() == 'dataproc':
-            master_cost = self.__calculate_dataproc_group_cost(cluster, SparkNodeType.MASTER)
-            workers_cost = self.__calculate_dataproc_group_cost(cluster, SparkNodeType.WORKER)
+            primary_node_cost = self.__calculate_dataproc_group_cost(cluster, SparkNodeType.MASTER)
+            executor_nodes_cost = self.__calculate_dataproc_group_cost(cluster, SparkNodeType.WORKER)
             dataproc_cost = self.price_provider.get_container_cost()
-            total_cost = master_cost + workers_cost + dataproc_cost
+            total_cost = primary_node_cost + executor_nodes_cost + dataproc_cost
         return total_cost
 
     def _setup_costs(self):
