@@ -295,7 +295,7 @@ class Qualification(RapidsJarTool):
         Qualification tool processes extra arguments:
         1. filter out applications.
         2. gpu-device type to be used for the cost estimation.
-        3. gpu_per_machine: number of gpu installed on a worker node.
+        3. gpu_per_machine: number of gpu installed on a executor node.
         4. cuda version
         """
         gpu_device = self.ctxt.get_value('sparkRapids', 'gpu', 'device')
@@ -426,13 +426,13 @@ class Qualification(RapidsJarTool):
 
     def __apply_non_standard_gpu_shape(self,
                                        all_apps: pd.DataFrame,
-                                       cluster_workers_cnt: int,
+                                       cluster_executors_cnt: int,
                                        cluster_shape_t: QualGpuClusterReshapeType):
         min_w_cnt_from_conf = self.ctxt.platform.configs.get_value_silent('clusterSpecs',
                                                                           'minWorkerNodes')
         scale_factor_from_conf = self.ctxt.platform.configs.get_value_silent('clusterSpecs',
                                                                              'gpuScaleFactor')
-        # get the min_worker_cnt from the qualification config in case it is not defined for the platform
+        # get the min_executor_cnt from the qualification config in case it is not defined for the platform
         default_min_w_cnt = self.ctxt.get_value('local', 'output', 'processDFProps',
                                                 'minimumWorkerCount')
         # get the scale factor from the qualification config in case it is not defined for the platform
@@ -450,39 +450,39 @@ class Qualification(RapidsJarTool):
         def f_cell(x):
             return ceil(x * 100) / 100
 
-        def calc_cluster_shape_col(df_row, min_worker_cnt: int, old_workers_cnt: int) -> pd.Series:
+        def calc_cluster_shape_col(df_row, min_executor_cnt: int, old_executors_cnt: int) -> pd.Series:
             gpu_speedup = df_row[speedup_col]
             # We should not worry about division by 0 because speedup is BGE 1.0
-            cluster_shape = max(min_worker_cnt, ceil(scale_f * old_workers_cnt / gpu_speedup))
+            cluster_shape = max(min_executor_cnt, ceil(scale_f * old_executors_cnt / gpu_speedup))
             return pd.Series([cluster_shape])
 
         def update_cols_with_new_shape(apps_df: pd.DataFrame,
-                                       old_workers_cnt: int) -> (pd.DataFrame, bool):
+                                       old_executors_cnt: int) -> (pd.DataFrame, bool):
             apps_df[gpu_dur_col] = apps_df.apply(lambda row: f_cell(
-                (old_workers_cnt / row[reshape_col]) * scale_f * row[cpu_dur_col] / row[speedup_col]), axis=1)
+                (old_executors_cnt / row[reshape_col]) * scale_f * row[cpu_dur_col] / row[speedup_col]), axis=1)
             apps_df[speedup_col] = apps_df.apply(
                 lambda row: f_cell(row[cpu_dur_col] / row[gpu_dur_col]), axis=1
             )
             return apps_df
 
         all_apps[[reshape_col]] = all_apps.apply(
-            lambda row: calc_cluster_shape_col(row, min_w_cnt, cluster_workers_cnt), axis=1)
+            lambda row: calc_cluster_shape_col(row, min_w_cnt, cluster_executors_cnt), axis=1)
         recalc_speedups_flag = True
         if cluster_shape_t == QualGpuClusterReshapeType.CLUSTER:
             # the column value should be reset to the maximum of all the rows
-            max_workers_cnt = all_apps[reshape_col].max()
-            all_apps[reshape_col] = max_workers_cnt
+            max_executors_cnt = all_apps[reshape_col].max()
+            all_apps[reshape_col] = max_executors_cnt
             # Append a node to be part of the summary report
             reshape_msg_plain = self.ctxt.get_value('local', 'output', 'processDFProps',
                                                     'clusterShapeCols', 'noteMsg')
             self.ctxt.platform.update_ctxt_notes('clusterShape',
-                                                 reshape_msg_plain.format(max_workers_cnt))
-            # If max_workers_cnt EQ gpu_cluster nodes then no need to recalculate the columns
-            recalc_speedups_flag = max_workers_cnt != cluster_workers_cnt
+                                                 reshape_msg_plain.format(max_executors_cnt))
+            # If max_executors_cnt EQ gpu_cluster nodes then no need to recalculate the columns
+            recalc_speedups_flag = max_executors_cnt != cluster_executors_cnt
         # check if we need to recalculate the flags
         if not recalc_speedups_flag:
             return all_apps, False
-        return update_cols_with_new_shape(all_apps, cluster_workers_cnt), True
+        return update_cols_with_new_shape(all_apps, cluster_executors_cnt), True
 
     def __apply_gpu_cluster_reshape(self, all_apps: pd.DataFrame) -> (pd.DataFrame, bool):
         gpu_reshape_type = self.ctxt.get_ctxt('gpuClusterShapeRecommendation')
@@ -529,15 +529,15 @@ class Qualification(RapidsJarTool):
 
         def get_cost_per_row(df_row, reshape_col: str) -> pd.Series:
             nonlocal saving_estimator_cache
-            workers_cnt = df_row[reshape_col]
-            estimator_obj = saving_estimator_cache.get(workers_cnt)
+            executors_cnt = df_row[reshape_col]
+            estimator_obj = saving_estimator_cache.get(executors_cnt)
             if not estimator_obj:
                 # create the object and add it to the caching dict
                 reshaped_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'),
-                                                  reshape_executors_cnt=lambda x: workers_cnt)
+                                                  reshape_executors_cnt=lambda x: executors_cnt)
                 estimator_obj = self.ctxt.platform.create_saving_estimator(self.ctxt.get_ctxt('cpuClusterProxy'),
                                                                            reshaped_cluster)
-                saving_estimator_cache.setdefault(workers_cnt, estimator_obj)
+                saving_estimator_cache.setdefault(executors_cnt, estimator_obj)
             cost_pd_series = get_costs_for_single_app(df_row, estimator_obj)
             return cost_pd_series
 

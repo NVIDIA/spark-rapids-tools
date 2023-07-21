@@ -103,7 +103,7 @@ class Diagnostic(RapidsTool):
 
     def _run_rapids_tool(self):
         """
-        Run diagnostic tool from both driver & worker nodes to collect info
+        Run diagnostic tool from both driver & executor nodes to collect info
         :return:
         """
         with ThreadPoolExecutor(max_workers=self.thread_num) as executor:
@@ -142,7 +142,7 @@ class Diagnostic(RapidsTool):
 
         output_path = self.ctxt.get_output_folder()
         region = self.exec_cluster.get_region()
-        worker_count = self.exec_cluster.get_nodes_cnt(SparkNodeType.WORKER)
+        executor_count = self.exec_cluster.get_nodes_cnt(SparkNodeType.WORKER)
 
         driver_type = self.exec_cluster.get_node_instance_type(SparkNodeType.MASTER)
         executor_type = self.exec_cluster.get_node_instance_type(SparkNodeType.WORKER)
@@ -156,7 +156,7 @@ class Diagnostic(RapidsTool):
         output_file = FSUtil.build_path(output_path, 'cluster.info')
         with open(output_file, 'w', encoding='UTF-8') as f:
             f.write(f'Region: {region}\n')
-            f.write(f'Worker count: {worker_count}\n')
+            f.write(f'Worker count: {executor_count}\n')
             f.write(f'Master type: {driver_type}\n')
             f.write(f'Worker type: {executor_type}\n')
 

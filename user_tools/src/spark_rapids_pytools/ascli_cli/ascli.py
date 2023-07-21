@@ -135,7 +135,7 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
                 Skipping this argument requires that the cluster argument points to a valid
                 cluster name on the CSP.
         :param cluster: The cluster on which the Apache Spark applications were executed.
-                It can either be a CSP-cluster name or a path to the cluster/worker's info properties
+                It can either be a CSP-cluster name or a path to the cluster/executor's info properties
                 file (json format).
         :param platform: defines one of the following "onprem", "emr", "dataproc", "databricks-aws",
                 and "databricks-azure".

@@ -231,7 +231,7 @@ spark_rapids_user_tools emr diagnostic [options]
 spark_rapids_user_tools emr diagnostic --help
 ```
 
-Run diagnostic command to collects information from EMR cluster, such as OS version, # of worker
+Run diagnostic command to collects information from EMR cluster, such as OS version, # of executor
 nodes, Yarn configuration, Spark version and error logs etc. The cluster has to be running and the
 user must have SSH access.
 

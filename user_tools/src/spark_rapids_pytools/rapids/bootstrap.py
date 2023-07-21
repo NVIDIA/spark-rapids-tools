@@ -36,26 +36,26 @@ class Bootstrap(RapidsTool):
     def requires_cluster_connection(self) -> bool:
         return True
 
-    def __calculate_spark_settings(self, worker_info: NodeHWInfo) -> dict:
+    def __calculate_spark_settings(self, executor_info: NodeHWInfo) -> dict:
         """
         Calculate the cluster properties that we need to append to the /etc/defaults of the spark
         if necessary.
-        :param worker_info: the hardware info as extracted from the worker. Note that we assume
-                            that all the workers have the same configurations.
+        :param executor_info: the hardware info as extracted from the executor. Note that we assume
+                            that all the executors have the same configurations.
         :return: dictionary containing 7 spark properties to be set by default on the cluster.
         """
-        num_gpus = worker_info.gpu_info.num_gpus
-        gpu_mem = worker_info.gpu_info.gpu_mem
-        num_cpus = worker_info.sys_info.num_cpus
-        cpu_mem = worker_info.sys_info.cpu_mem
+        num_gpus = executor_info.gpu_info.num_gpus
+        gpu_mem = executor_info.gpu_info.gpu_mem
+        num_cpus = executor_info.sys_info.num_cpus
+        cpu_mem = executor_info.sys_info.cpu_mem
 
         constants = self.ctxt.get_value('local', 'clusterConfigs', 'constants')
         executors_per_node = num_gpus
         num_executor_cores = max(1, num_cpus // executors_per_node)
         gpu_concurrent_tasks = min(constants.get('maxGpuConcurrent'), gpu_mem // constants.get('gpuMemPerTaskMB'))
         # account for system overhead
-        usable_worker_mem = max(0, cpu_mem - constants.get('systemReserveMB'))
-        executor_container_mem = usable_worker_mem // executors_per_node
+        usable_executor_mem = max(0, cpu_mem - constants.get('systemReserveMB'))
+        executor_container_mem = usable_executor_mem // executors_per_node
         # reserve 10% of heap as memory overhead
         max_executor_heap = max(0, int(executor_container_mem * (1 - constants.get('heapOverheadFraction'))))
         # give up to 2GB of heap to each executor core
@@ -88,10 +88,10 @@ class Bootstrap(RapidsTool):
         """
         self.logger.info('Executing Bootstrap commands on remote cluster to calculate default configurations.')
         exec_cluster: ClusterBase = self.get_exec_cluster()
-        worker_hw_info = exec_cluster.get_executor_hw_info()
-        self.logger.debug('Worker hardware INFO %s', worker_hw_info)
+        executor_hw_info = exec_cluster.get_executor_hw_info()
+        self.logger.debug('Worker hardware INFO %s', executor_hw_info)
         try:
-            spark_settings = self.__calculate_spark_settings(worker_info=worker_hw_info)
+            spark_settings = self.__calculate_spark_settings(executor_info=executor_hw_info)
             self.ctxt.set_ctxt('bootstrap_results', spark_settings)
             self.logger.debug('%s Tool finished calculating recommended Apache Spark configurations for cluster %s: %s',
                               self.pretty_name(),

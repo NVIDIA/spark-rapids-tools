@@ -147,7 +147,7 @@ is described as follows:
     masterConfig:
       numCores: 2
       memory: 7680MiB
-    workerConfig:
+    executorConfig:
       numCores: 8
       memory: 7680MiB
       numWorkers: 2
@@ -238,7 +238,7 @@ The local deployment runs on the local development machine. It requires:
 
 | Option               | Description                                                                                                                                                                                                                                               | Default                                                                                                                                       | Required |
 |----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|----------|
-| **worker_info**      | A path pointing to a yaml file containing the system information of a worker node. It is assumed that all workers are homogenous. The format of the file is described in the following section.                                                           | None                                                                                                                                          | Y        |
+| **executor_info**      | A path pointing to a yaml file containing the system information of a executor node. It is assumed that all executors are homogenous. The format of the file is described in the following section.                                                           | None                                                                                                                                          | Y        |
 | **eventlogs**        | A comma separated list to event logs or directory                                                                                                                                                                                                         | None                                                                                                                                          | N        |
 | **local_folder**     | Local work-directory path to store the output and to be used as root directory for temporary folders/files. The final output will go into a subdirectory named `prof-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution. | If the argument is NONE, the default value is the env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. | N        |
 | **jvm_heap_size**    | The maximum heap size of the JVM in gigabytes                                                                                                                                                                                                             | 24                                                                                                                                            | N        |
@@ -246,17 +246,17 @@ The local deployment runs on the local development machine. It requires:
 | **verbose**          | True or False to enable verbosity to the wrapper script                                                                                                                                                                                                   | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                                                                             | N        |
 | **rapids_options**** | A list of valid [Profiling tool options](../../core/docs/spark-profiling-tool.md#qualification-tool-options). Note that (`output-directory`, `auto-tuner`, `combined`) flags are ignored                                                                  | N/A                                                                                                                                           | N        |
 
-If the CLI does not provide an argument `worker_info`, the tool will throw an error and exit.
-The `worker_info` is a yaml file that contains the HW description of the workers. It must contain
+If the CLI does not provide an argument `executor_info`, the tool will throw an error and exit.
+The `executor_info` is a yaml file that contains the HW description of the executors. It must contain
 the following properties:
-- `system.numCores`: number of cores of a single worker node
+- `system.numCores`: number of cores of a single executor node
 - `system.memory`: RAM size in MiB of a single node
-- `system.numWorkers`: number of workers
-- `gpu.name`: the accelerator installed on the worker node
+- `system.numWorkers`: number of executors
+- `gpu.name`: the accelerator installed on the executor node
 - `gpu.memory`: memory size of the accelerator in MiB. (i.e., 16GB for Nvidia-T4)
 - `softwareProperties`: Spark default-configurations of the target cluster
 
-An example of valid `worker_info.yaml`:
+An example of valid `executor_info.yaml`:
 
   ```
   system:
@@ -288,7 +288,7 @@ A typical workflow to successfully run the `profiling` command in local mode is 
 2. On a machine with JDK8+ installed:
     1. user installs `spark_rapids_user_tools`
 3. User defines the cluster configuration of on-premises platform. Template of the required configs is provided below and
-   the file should be in yaml format mentioned above(`worker_info.yaml`).
+   the file should be in yaml format mentioned above(`executor_info.yaml`).
 4. User runs profiling tool CLI command.
 
 For each successful execution, the wrapper generates a new directory in the format of
@@ -300,14 +300,14 @@ the actual folder of the RAPIDS Profiling tool.
     ./prof_<YYYYmmddHHmmss>_<0x%08X>/rapids_4_spark_profile/
    ```
 
-Users can provide a simple yaml file to describe the shape of the worker nodes.
-The CLI is triggered by providing the location where the yaml file is stored `--worker_info $WORKER_INFO_PATH`
+Users can provide a simple yaml file to describe the shape of the executor nodes.
+The CLI is triggered by providing the location where the yaml file is stored `--executor_info $WORKER_INFO_PATH`
 
     ```
     # First, create a yaml file as described in previous section
-    $> export WORKER_INFO_PATH=worker-info.yaml
+    $> export WORKER_INFO_PATH=executor-info.yaml
     # Run the profiling cmd
     $> spark_rapids_user_tools onprem profiling \
             --eventlogs $EVENTLOGS \
-            --worker_info $WORKER_INFO_PATH
+            --executor_info $WORKER_INFO_PATH
     ```

@@ -116,7 +116,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         return target_platform == 'dataproc'
 
     @staticmethod
-    def profiling(worker_info: str = None,
+    def profiling(executor_info: str = None,
                   eventlogs: str = None,
                   local_folder: str = None,
                   tools_jar: str = None,
@@ -127,8 +127,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         The Profiling tool analyzes both CPU or GPU generated event logs and generates information
         which can be used for debugging and profiling Apache Spark applications.
 
-        :param  worker_info: A path pointing to a yaml file containing the system information of a
-        worker node. It is assumed that all workers are homogenous.
+        :param  executor_info: A path pointing to a yaml file containing the system information of a
+        executor node. It is assumed that all executors are homogenous.
         If missing, it throws an error.
         :param  eventlogs: Event log filenames or directories containing event logs (comma separated).
         :param local_folder: Local work-directory path to store the output and to be used as root
@@ -141,7 +141,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         :param verbose: True or False to enable verbosity to the wrapper script
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes
         :param rapids_options: A list of valid Profiling tool options.
-        Note that the wrapper ignores ["output-directory", "worker-info"] flags, and it does not support
+        Note that the wrapper ignores ["output-directory", "executor-info"] flags, and it does not support
         multiple "spark-property" arguments.
         For more details on Profiling tool options, please visit
         https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html#profiling-tool-options
@@ -162,7 +162,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             },
             'eventlogs': eventlogs,
             'toolsJar': tools_jar,
-            'autoTunerFileInput': worker_info
+            'autoTunerFileInput': executor_info
         }
         ProfilingAsLocal(platform_type=CloudPlatform.ONPREM,
                          output_folder=local_folder,

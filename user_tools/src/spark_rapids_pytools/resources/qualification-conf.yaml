@@ -128,7 +128,7 @@ local:
           upperBound: 1000000.0
       clusterShapeCols:
         columnName: 'Recommended Cluster Shape'
-        noteMsg: 'The GPU estimations are done with a recommended GPU cluster shape of {} worker nodes'
+        noteMsg: 'The GPU estimations are done with a recommended GPU cluster shape of {} executor nodes'
         colsPerShapeType:
           CLUSTER:
             excludeColumns:

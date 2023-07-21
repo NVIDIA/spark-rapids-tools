@@ -36,13 +36,13 @@ class Profiling(RapidsJarTool):
     """
     name = 'profiling'
 
-    def _process_worker_info_arg(self):
-        worker_info_arg = self.wrapper_options.get('autoTunerFileInput')
-        if not worker_info_arg:
+    def _process_executor_info_arg(self):
+        executor_info_arg = self.wrapper_options.get('autoTunerFileInput')
+        if not executor_info_arg:
             return
-        self.logger.info('Processing WorkerInfo argument [%s]', worker_info_arg)
-        # download the worker_file into the work dir
-        input_path = self.ctxt.platform.storage.download_resource(worker_info_arg,
+        self.logger.info('Processing WorkerInfo argument [%s]', executor_info_arg)
+        # download the executor_file into the work dir
+        input_path = self.ctxt.platform.storage.download_resource(executor_info_arg,
                                                                   self.ctxt.get_local_work_dir(),
                                                                   fail_ok=False,
                                                                   create_dir=True)
@@ -53,11 +53,11 @@ class Profiling(RapidsJarTool):
     def _process_custom_args(self):
         """
         Profiling tool processes extra arguments:
-        1. the worker_info argument
+        1. the executor_info argument
         2. the clusters
         """
-        self._process_worker_info_arg()
-        # if the workerInfo is not set, then we need to use the gpu_cluster
+        self._process_executor_info_arg()
+        # if the executorInfo is not set, then we need to use the gpu_cluster
         if not self.ctxt.get_ctxt('autoTunerFilePath'):
             self._process_offline_cluster_args()
         else:
@@ -81,7 +81,7 @@ class Profiling(RapidsJarTool):
             gpu_cluster_obj = self._create_migration_cluster('GPU', gpu_cluster_arg)
             self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster_obj)
             return True
-        # If we are here, we know that the workerInfoPath was not set as well.
+        # If we are here, we know that the executorInfoPath was not set as well.
         # Then we can remind the user that recommendations won't be calculated
         disabled_recommendations_msg = self.__load_disabled_recommendation_report()
         self.ctxt.set_ctxt('disabledRecommendationsMsg', disabled_recommendations_msg)
@@ -97,41 +97,41 @@ class Profiling(RapidsJarTool):
         :return:
         """
         self.logger.info('Generating input file for Auto-tuner')
-        worker_hw_info = cluster_ob.get_executor_hw_info()
-        worker_info = {
+        executor_hw_info = cluster_ob.get_executor_hw_info()
+        executor_info = {
             'system': {
-                'numCores': worker_hw_info.sys_info.num_cpus,
-                'memory': f'{worker_hw_info.sys_info.cpu_mem}MiB',
+                'numCores': executor_hw_info.sys_info.num_cpus,
+                'memory': f'{executor_hw_info.sys_info.cpu_mem}MiB',
                 'numWorkers': cluster_ob.get_executors_count()
             },
             'gpu': {
                 # the scala code expects a unit
-                'memory': f'{worker_hw_info.gpu_info.gpu_mem}MiB',
-                'count': worker_hw_info.gpu_info.num_gpus,
-                'name': worker_hw_info.gpu_info.get_gpu_device_name()
+                'memory': f'{executor_hw_info.gpu_info.gpu_mem}MiB',
+                'count': executor_hw_info.gpu_info.num_gpus,
+                'name': executor_hw_info.gpu_info.get_gpu_device_name()
             },
             'softwareProperties': cluster_ob.get_all_spark_properties()
         }
-        worker_info_redacted = deepcopy(worker_info)
-        if worker_info_redacted['softwareProperties']:
-            for key in worker_info_redacted['softwareProperties']:
+        executor_info_redacted = deepcopy(executor_info)
+        if executor_info_redacted['softwareProperties']:
+            for key in executor_info_redacted['softwareProperties']:
                 if 's3a.secret.key' in key:
-                    worker_info_redacted['softwareProperties'][key] = 'MY_S3A_SECRET_KEY'
+                    executor_info_redacted['softwareProperties'][key] = 'MY_S3A_SECRET_KEY'
                 elif 's3a.access.key' in key:
-                    worker_info_redacted['softwareProperties'][key] = 'MY_S3A_ACCESS_KEY'
-        self.logger.debug('Auto-tuner worker info: %s', worker_info_redacted)
-        with open(file_path, 'w', encoding='utf-8') as worker_info_file:
-            self.logger.debug('Opening file %s to write worker info', file_path)
-            yaml.dump(worker_info, worker_info_file, sort_keys=False)
+                    executor_info_redacted['softwareProperties'][key] = 'MY_S3A_ACCESS_KEY'
+        self.logger.debug('Auto-tuner executor info: %s', executor_info_redacted)
+        with open(file_path, 'w', encoding='utf-8') as executor_info_file:
+            self.logger.debug('Opening file %s to write executor info', file_path)
+            yaml.dump(executor_info, executor_info_file, sort_keys=False)
 
     def _generate_autotuner_input(self):
         gpu_cluster_obj = self.ctxt.get_ctxt('gpuClusterProxy')
-        input_file_name = 'worker_info.yaml'
+        input_file_name = 'executor_info.yaml'
         self.ctxt.set_ctxt('autoTunerFileName', input_file_name)
-        autotuner_input_path = FSUtil.build_path(self.ctxt.get_local_work_dir(), 'worker_info.yaml')
+        autotuner_input_path = FSUtil.build_path(self.ctxt.get_local_work_dir(), 'executor_info.yaml')
         self._generate_autotuner_file_for_cluster(file_path=autotuner_input_path,
                                                   cluster_ob=gpu_cluster_obj)
-        self.logger.info('Generated autotuner worker info: %s', autotuner_input_path)
+        self.logger.info('Generated autotuner executor info: %s', autotuner_input_path)
         self.ctxt.set_ctxt('autoTunerFilePath', autotuner_input_path)
 
     def _create_autotuner_rapids_args(self) -> list:
@@ -139,7 +139,7 @@ class Profiling(RapidsJarTool):
         autotuner_path = self.ctxt.get_ctxt('autoTunerFilePath')
         if autotuner_path is None:
             return []
-        return ['--auto-tuner', '--worker-info', autotuner_path]
+        return ['--auto-tuner', '--executor-info', autotuner_path]
 
     def __read_single_app_output(self, file_path: str) -> (str, List[str], List[str]):
         def split_list_str_by_pattern(input_seq: List[str], pattern: str) -> int:

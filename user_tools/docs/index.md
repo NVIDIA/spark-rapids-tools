@@ -41,7 +41,7 @@ can be used for debugging and profiling Apache Spark applications.  The tool als
 for the application assuming that the job will be able to use all the cluster resources (CPU and GPU) when
 it is running.
 
-In addition, the wrapper output provides optimized RAPIDS configurations based on the worker's
+In addition, the wrapper output provides optimized RAPIDS configurations based on the executor's
 information.  
 
 For more details, please visit the
@@ -50,7 +50,7 @@ For more details, please visit the
 ### Diagnostic
 
 Collect proper information from Spark cluster and save to an archive for troubleshooting, such as OS version,
-number of worker nodes, Yarn configuration, Spark version and error logs etc.
+number of executor nodes, Yarn configuration, Spark version and error logs etc.
 
 Note that the command would require `SSH` access on the cluster nodes to collect information otherwise error would
 be raised.
