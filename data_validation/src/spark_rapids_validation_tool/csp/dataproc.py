@@ -58,13 +58,13 @@ class Dataproc(CspBase):
 
     def get_nodes(self, node='all'):
         """Get cluster node address."""
-        # node format: <all|primary|executors|executors-n>
+        # node format: <all|driver|executors|executors-n>
         if not self.nodes:
             info = self.get_info()
 
-            primary = info.get('config', {}).get('masterConfig', {}).get('instanceNames')
-            if primary:
-                self.nodes['primary'] = primary
+            driver = info.get('config', {}).get('masterConfig', {}).get('instanceNames')
+            if driver:
+                self.nodes['driver'] = driver
             else:
                 raise Exception("not found 'masterConfig' from cluster info")
 
@@ -72,7 +72,7 @@ class Dataproc(CspBase):
             if executors and len(executors) > 0:
                 self.nodes['executors'] = executors
             else:
-                raise Exception('sorry, single node cluster (1 primary, 0 executors) not supported')
+                raise Exception('sorry, single node cluster (1 driver, 0 executors) not supported')
 
             zone_uri = info.get('config', {}).get('gceClusterConfig', {}).get('zoneUri')
             if zone_uri:
@@ -82,12 +82,12 @@ class Dataproc(CspBase):
 
         logger.debug('cluster nodes: %s from zone: %s', self.nodes, self.zone)
 
-        if not node or node == 'primary':
-            # Return primary node by default
-            return self.nodes['primary']
+        if not node or node == 'driver':
+            # Return driver node by default
+            return self.nodes['driver']
 
         if node == 'all':
-            # Return both primary & executor nodes
+            # Return both driver & executor nodes
             nodes = []
             for i in self.nodes.values():
                 nodes += i
