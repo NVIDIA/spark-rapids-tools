@@ -40,7 +40,7 @@ import org.apache.spark.sql.rapids.tool.util.WebCrawlerUtil
  * The BeanProperty enables loading and parsing the YAML formatted content using the
  * Constructor SnakeYaml approach.
  */
-class GpuWorkerProps(
+class GpuExecutorProps(
     @BeanProperty var memory: String,
     @BeanProperty var count: Int,
     @BeanProperty var name: String) {
@@ -62,7 +62,7 @@ class GpuWorkerProps(
    */
   def setDefaultGpuCountIfMissing(): Boolean = {
     if (count == 0) {
-      count = AutoTuner.DEF_WORKER_GPU_COUNT
+      count = AutoTuner.DEF_EXECUTOR_GPU_COUNT
       true
     } else {
       false
@@ -70,7 +70,7 @@ class GpuWorkerProps(
   }
   def setDefaultGpuNameIfMissing(): Boolean = {
     if (name == null || name.isEmpty || name == "None") {
-      name = AutoTuner.DEF_WORKER_GPU_NAME
+      name = AutoTuner.DEF_EXECUTOR_GPU_NAME
       true
     } else {
       false
@@ -79,14 +79,14 @@ class GpuWorkerProps(
 
   /**
    * If the GPU memory is missing, it will sets a default valued based on the GPU device and the
-   * static HashMap [[AutoTuner.DEF_WORKER_GPU_MEMORY_MB]].
+   * static HashMap [[AutoTuner.DEF_EXECUTOR_GPU_MEMORY_MB]].
    * If it is still missing, it sets a default to 15109m.
    *
    * @return true if the value has been updated.
    */
   def setDefaultGpuMemIfMissing(): Boolean = {
     if (memory == null || memory.isEmpty || memory.startsWith("0")) {
-      memory = AutoTuner.DEF_WORKER_GPU_MEMORY_MB.getOrElse(getName, "15109m")
+      memory = AutoTuner.DEF_EXECUTOR_GPU_MEMORY_MB.getOrElse(getName, "15109m")
       true
     } else {
       false
@@ -124,21 +124,21 @@ class GpuWorkerProps(
 class SystemClusterProps(
     @BeanProperty var numCores: Int,
     @BeanProperty var memory: String,
-    @BeanProperty var numWorkers: Int) {
+    @BeanProperty var numExecutors: Int) {
   def this() {
     this(0, "0m", 0)
   }
   def isMissingInfo: Boolean = {
     // keep for future expansion as we may add more fields later.
-    numWorkers <= 0
+    numExecutors <= 0
   }
   def isEmpty: Boolean = {
     // consider the object incorrect if either numCores or memory are not set.
     memory == null || memory.isEmpty || numCores <= 0 || memory.startsWith("0")
   }
-  def setDefaultNumWorkersIfMissing(): Boolean = {
-    if (numWorkers <= 0) {
-      numWorkers = AutoTuner.DEF_NUM_WORKERS
+  def setDefaultNumExecutorsIfMissing(): Boolean = {
+    if (numExecutors <= 0) {
+      numExecutors = AutoTuner.DEF_NUM_EXECUTORS
       true
     } else {
       false
@@ -151,13 +151,13 @@ class SystemClusterProps(
    */
   def setMissingFields(): Seq[String] = {
     val res = new ListBuffer[String]()
-    if (setDefaultNumWorkersIfMissing()) {
-      res += s"Number of workers is missing. Setting default to $getNumWorkers."
+    if (setDefaultNumExecutorsIfMissing()) {
+      res += s"Number of executors is missing. Setting default to $getNumExecutors."
     }
     res
   }
   override def toString: String =
-    s"{numCores: $numCores, memory: $memory, numWorkers: $numWorkers}"
+    s"{numCores: $numCores, memory: $memory, numExecutors: $numExecutors}"
 }
 
 /**
@@ -174,13 +174,13 @@ class SystemClusterProps(
  */
 class ClusterProperties(
     @BeanProperty var system: SystemClusterProps,
-    @BeanProperty var gpu: GpuWorkerProps,
+    @BeanProperty var gpu: GpuExecutorProps,
     @BeanProperty var softwareProperties: util.LinkedHashMap[String, String]) {
 
   import AutoTuner._
 
   def this() {
-    this(new SystemClusterProps(), new GpuWorkerProps(), new util.LinkedHashMap[String, String]())
+    this(new SystemClusterProps(), new GpuExecutorProps(), new util.LinkedHashMap[String, String]())
   }
   def isEmpty: Boolean = {
     system.isEmpty && gpu.isEmpty
@@ -261,7 +261,7 @@ class RecommendationEntry(val name: String,
 }
 
 /**
- * AutoTuner module that uses event logs and worker's system properties to recommend Spark
+ * AutoTuner module that uses event logs and executor's system properties to recommend Spark
  * RAPIDS configuration based on heuristics.
  *
  * Example:
@@ -273,7 +273,7 @@ class RecommendationEntry(val name: String,
  *        memory: 512gb
  *        free_disk_space: 800gb
  *        time_zone: America/Los_Angeles
- *        num_workers: 4
+ *        num_executors: 4
  *      gpu:
  *        count: 8
  *        memory: 32gb
@@ -314,9 +314,9 @@ class RecommendationEntry(val name: String,
  *      Cannot recommend properties. See Comments.
  *
  *      Comments:
- *      - java.io.FileNotFoundException: File worker_info.yaml does not exist
+ *      - java.io.FileNotFoundException: File executor_info.yaml does not exist
  *      - 'spark.executor.memory' should be set to at least 2GB/core.
- *      - 'spark.executor.instances' should be set to (gpuCount * numWorkers).
+ *      - 'spark.executor.instances' should be set to (gpuCount * numExecutors).
  *      - 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
  *      - 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
  *      - 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
@@ -416,15 +416,15 @@ class AutoTuner(
   }
 
   /**
-   * calculated 'spark.executor.instances' based on number of gpus and workers.
+   * calculated 'spark.executor.instances' based on number of gpus and executors.
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   def calcExecInstances(): Int = {
-    clusterProps.gpu.getCount * clusterProps.system.numWorkers
+    clusterProps.gpu.getCount * clusterProps.system.numExecutors
   }
 
   /**
-   * Recommendation for 'spark.executor.instances' based on number of gpus and workers.
+   * Recommendation for 'spark.executor.instances' based on number of gpus and executors.
    * Assumption - If the properties include "spark.dynamicAllocation.enabled=true", then ignore
    * spark.executor.instances.
    */
@@ -472,16 +472,16 @@ class AutoTuner(
   }
 
   /**
-   * Calculates the available memory for each executor on the worker based on the number of
+   * Calculates the available memory for each executor on the executor based on the number of
    * executors per node and the memory.
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   private def calcAvailableMemPerExec(): Double = {
     // account for system overhead
-    val usableWorkerMem =
+    val usableExecutorMem =
       Math.max(0, convertToMB(clusterProps.system.memory) - DEF_SYSTEM_RESERVE_MB)
     // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
-    (1.0 * usableWorkerMem) / clusterProps.gpu.getCount
+    (1.0 * usableExecutorMem) / clusterProps.gpu.getCount
   }
 
   /**
@@ -521,14 +521,14 @@ class AutoTuner(
    *         or "spark.executor.memoryOverheadFactor".
    */
   def memoryOverheadLabel: String = {
-    val sparkMasterConf = getPropertyValue("spark.master")
+    val sparkClusterConf = getPropertyValue("spark.master")
     val defaultLabel = "spark.executor.memoryOverhead"
-    sparkMasterConf match {
+    sparkClusterConf match {
       case None => defaultLabel
-      case Some(sparkMaster) =>
-        if (sparkMaster.contains("yarn")) {
+      case Some(clusterMode) =>
+        if (clusterMode.contains("yarn")) {
           defaultLabel
-        } else if (sparkMaster.contains("k8s")) {
+        } else if (clusterMode.contains("k8s")) {
           appInfoProvider.getSparkVersion match {
             case Some(version) =>
               if (ToolUtils.isSpark331OrLater(version)) {
@@ -604,7 +604,7 @@ class AutoTuner(
 
   /**
    * Checks whether the cluster properties are valid.
-   * If the cluster worker-info is missing entries (i.e., CPU and GPU count), it sets the entries
+   * If the cluster executor-info is missing entries (i.e., CPU and GPU count), it sets the entries
    * to default values. For each default value, a comment is added to the [[comments]].
    *
    * @return false if the cluster properties are not loaded. e.g, all entries are set to 0.
@@ -614,7 +614,7 @@ class AutoTuner(
     if (clusterProps.system.isEmpty) {
       if (!clusterProps.isEmpty) {
         appendComment(
-          s"Incorrect values in worker system information: ${clusterProps.system}.")
+          s"Incorrect values in executor system information: ${clusterProps.system}.")
       }
       false
     } else {
@@ -647,9 +647,9 @@ class AutoTuner(
           if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
             // The ideal setting is for the parallelism of the cluster
             val numCoresPerExec = calcNumExecutorCores
-            val numExecutorsPerWorker = clusterProps.gpu.getCount
-            val numWorkers = clusterProps.system.getNumWorkers
-            val total = numWorkers * numExecutorsPerWorker * numCoresPerExec
+            val numExecutorsPerExecutor = clusterProps.gpu.getCount
+            val numExecutors = clusterProps.system.getNumExecutors
+            val total = numExecutors * numExecutorsPerExecutor * numCoresPerExec
             appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum",
               total.toString)
           }
@@ -944,26 +944,26 @@ object AutoTuner extends Logging {
   val DEF_SHUFFLE_PARTITIONS = "200"
   val DEF_SHUFFLE_PARTITION_MULTIPLIER: Int = 2
   // GPU count defaults to 1 if it is missing.
-  val DEF_WORKER_GPU_COUNT = 1
+  val DEF_EXECUTOR_GPU_COUNT = 1
   // GPU default device is T4
-  val DEF_WORKER_GPU_NAME = "T4"
+  val DEF_EXECUTOR_GPU_NAME = "T4"
   // T4 default memory is 16G
   // A100 set default to 40GB
-  val DEF_WORKER_GPU_MEMORY_MB: Map[String, String] = Map("T4"-> "15109m", "A100" -> "40960m")
-  // Default Number of Workers 1
-  val DEF_NUM_WORKERS = 1
+  val DEF_EXECUTOR_GPU_MEMORY_MB: Map[String, String] = Map("T4"-> "15109m", "A100" -> "40960m")
+  // Default Number of Executors 1
+  val DEF_NUM_EXECUTORS = 1
   // Default distinct read location thresholds is 50%
   val DEF_DISTINCT_READ_THRESHOLD = 50.0
   // Default file cache size minimum is 100 GB
   val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
-  val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
+  val DEFAULT_EXECUTOR_INFO_PATH = "./executor_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
 
   val commentsForMissingProps: Map[String, String] = Map(
     "spark.executor.memory" ->
       "'spark.executor.memory' should be set to at least 2GB/core.",
     "spark.executor.instances" ->
-      "'spark.executor.instances' should be set to (gpuCount * numWorkers).",
+      "'spark.executor.instances' should be set to (gpuCount * numExecutors).",
     "spark.task.resource.gpu.amount" ->
       "'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).",
     "spark.rapids.sql.concurrentGpuTasks" ->

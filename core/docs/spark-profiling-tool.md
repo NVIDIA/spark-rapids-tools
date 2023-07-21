@@ -10,7 +10,7 @@ The Profiling tool analyzes both CPU or GPU generated event logs and generates i
 which can be used for debugging and profiling Apache Spark applications.
 The output information contains the Spark version, executor details, properties, etc.  
 Starting with release _22.10_, the Profiling tool optionally provides optimized RAPIDS
-configurations based on the worker's information (see [Auto-Tuner support](#auto-tuner-support)).
+configurations based on the executor's information (see [Auto-Tuner support](#auto-tuner-support)).
 
 * TOC
 {:toc}
@@ -493,13 +493,13 @@ The _Auto-Tuner_ output has 2 main sections:
   - 'spark.sql.shuffle.partitions' was not set.
   ```
 
-- Failing to load the worker info:
+- Failing to load the executor info:
 
   ```
   Cannot recommend properties. See Comments.
 
   Comments:
-  - java.io.FileNotFoundException: File worker-info.yaml does not exist
+  - java.io.FileNotFoundException: File executor-info.yaml does not exist
   - 'spark.executor.memory' should be set to at least 2GB/core.
   - 'spark.executor.instances' should be set to (gpuCount * numWorkers).
   - 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
@@ -609,6 +609,10 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
                                   applications). Default is false.
       --csv                       Output each table to a CSV file as well
                                   creating the summary text file.
+  -e, --executor-info  <arg>      File path containing the system information of
+                                  a executor node. It is assumed that all executors
+                                  are homogenous. It requires the AutoTuner to
+                                  be enabled. Default is ./executor_info.yaml
   -f, --filter-criteria  <arg>    Filter newest or oldest N eventlogs based on
                                   application start timestamp for processing.
                                   Filesystem based filtering happens before
@@ -651,10 +655,6 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
                                   (86400 seconds) and must be greater than 3
                                   seconds. If it times out, it will report what
                                   it was able to process up until the timeout.
-  -w, --worker-info  <arg>        File path containing the system information of
-                                  a worker node. It is assumed that all workers
-                                  are homogenous. It requires the AutoTuner to
-                                  be enabled. Default is ./worker_info.yaml
   -h, --help                      Show help message
 
  trailing arguments:
@@ -682,12 +682,12 @@ more details on the output of the _Auto-Tuner_.
 Note the following _Auto-Tuner_ limitations:
 
 - It is currently only supported in the _Collection Mode_ (see [the 3 different modes](#step-2-how-to-run-the-profiling-tool)), and
-- It is assumed that all the _worker_ nodes on the cluster are homogenous.
+- It is assumed that all the _executor_ nodes on the cluster are homogenous.
 
-To run the _Auto-Tuner_, enable the `auto-tuner` flag and pass a valid `--worker-info <FILE_PATH>`.
-The _Auto-Tuner_ needs to learn the system properties of the _worker_ nodes that run application
+To run the _Auto-Tuner_, enable the `auto-tuner` flag and pass a valid `--executor-info <FILE_PATH>`.
+The _Auto-Tuner_ needs to learn the system properties of the _executor_ nodes that run application
 code in the cluster. The argument `FILE_PATH` can either be local or remote file (i.e., HDFS).   
-A template of the worker information is shown below:
+A template of the executor information is shown below:
 
   ```
   system:

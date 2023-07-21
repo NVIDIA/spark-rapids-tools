@@ -15,15 +15,15 @@
 # limitations under the License.
 #
 
-# This script copies and executes discoveryScript.sh to the worker and copies
+# This script copies and executes discoveryScript.sh to the executor and copies
 # back the generated YAML file. The YAML file is used by the AutoTuner for
 # recommending Spark RAPIDS configurations.
 # Assumption: 'discoveryScript.sh' is present in the same directory as this script.
 
-# Usage: ./getWorkerInfo.sh [num-workers] [worker-ip] [output-file]
+# Usage: ./getWorkerInfo.sh [num-executors] [executor-ip] [output-file]
 
 function usage() {
-  echo "Usage: ./getWorkerInfo.sh [num-workers] [worker-ip] [output-file]"
+  echo "Usage: ./getWorkerInfo.sh [num-executors] [executor-ip] [output-file]"
 }
 
 if [ "$#" -ne 3 ]; then
@@ -32,14 +32,14 @@ if [ "$#" -ne 3 ]; then
   exit 1
 fi
 
-NUM_WORKERS=$1
-WORKER_IP=$2
+NUM_EXECUTORS=$1
+EXECUTOR_IP=$2
 OUTPUT_FILE_ON_DRIVER=$3
-OUTPUT_FILE_ON_WORKER=/tmp/system_props.yaml
+OUTPUT_FILE_ON_EXECUTOR=/tmp/system_props.yaml
 DISCOVERY_SCRIPT=discoveryScript.sh
 
-echo "Fetching system information from worker - $WORKER_IP"
-scp -q ./$DISCOVERY_SCRIPT "$WORKER_IP":/tmp
-ssh "$WORKER_IP" "bash /tmp/$DISCOVERY_SCRIPT $NUM_WORKERS $OUTPUT_FILE_ON_WORKER"
-scp -q "$WORKER_IP":$OUTPUT_FILE_ON_WORKER $OUTPUT_FILE_ON_DRIVER
+echo "Fetching system information from executor - $EXECUTOR_IP"
+scp -q ./$DISCOVERY_SCRIPT "$EXECUTOR_IP":/tmp
+ssh "$EXECUTOR_IP" "bash /tmp/$DISCOVERY_SCRIPT $NUM_EXECUTORS $OUTPUT_FILE_ON_EXECUTOR"
+scp -q "$EXECUTOR_IP":$OUTPUT_FILE_ON_EXECUTOR $OUTPUT_FILE_ON_DRIVER
 echo -e "\nYAML file copied to driver at $OUTPUT_FILE_ON_DRIVER"

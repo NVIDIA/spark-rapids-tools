@@ -469,9 +469,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
         Some("Unsupported SQL Ops"))
 
       if (useAutoTuner) {
-        val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
+        val executorInfoPath = appArgs.executorInfo.getOrElse(AutoTuner.DEFAULT_EXECUTOR_INFO_PATH)
         val platform = appArgs.platform.getOrElse(Profiler.DEFAULT_PLATFORM)
-        val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(workerInfoPath,
+        val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(executorInfoPath,
           new SingleAppSummaryInfoProvider(app), platform)
         // the autotuner allows skipping some properties
         // e.g. getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
