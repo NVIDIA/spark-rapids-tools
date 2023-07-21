@@ -234,8 +234,7 @@ class Qualification(RapidsJarTool):
         _process_gpu_cluster_worker_node()
         worker_node_hw_info = gpu_cluster_obj.get_worker_hw_info()
         if gpu_cluster_obj:
-            self.ctxt.set_ctxt('recommendedConfigs',
-                               super(RapidsJarTool, self)._calculate_spark_settings(worker_node_hw_info))
+            self.ctxt.set_ctxt('recommendedConfigs', self._calculate_spark_settings(worker_node_hw_info))
 
         return gpu_cluster_obj is not None
 

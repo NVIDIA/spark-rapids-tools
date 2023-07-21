@@ -46,7 +46,7 @@ class Bootstrap(RapidsTool):
         worker_hw_info = exec_cluster.get_worker_hw_info()
         self.logger.debug('Worker hardware INFO %s', worker_hw_info)
         try:
-            spark_settings = super()._calculate_spark_settings(worker_info=worker_hw_info)
+            spark_settings = self._calculate_spark_settings(worker_info=worker_hw_info)
             self.ctxt.set_ctxt('bootstrap_results', spark_settings)
             self.logger.debug('%s Tool finished calculating recommended Apache Spark configurations for cluster %s: %s',
                               self.pretty_name(),
