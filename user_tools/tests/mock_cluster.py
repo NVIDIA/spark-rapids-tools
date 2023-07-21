@@ -26,7 +26,7 @@ mock_live_cluster = {
             "config": {
                 "masterConfig": {
                     "instanceNames": [
-                        "test-primary",
+                        "test-driver",
                     ],
                     "machineTypeUri": "https://www.googleapis.com/compute/v1/projects/project-id/zones/us-central1-a/"\
                                       "machineTypes/n1-standard-2",

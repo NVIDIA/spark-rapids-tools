@@ -155,18 +155,18 @@ class DatabricksCluster(ClusterBase):
         self.name = self.props.get_value('cluster_name')
 
     def _init_nodes(self):
-        # assume that only one primary node
-        primary_nodes_from_conf = self.props.get_value_silent('driver')
+        # assume that only one driver node
+        driver_nodes_from_conf = self.props.get_value_silent('driver')
         executor_nodes_from_conf = self.props.get_value_silent('executors')
         num_executors = self.props.get_value_silent('num_workers')
         if num_executors is None:
             num_executors = 0
-        # construct primary node info when cluster is inactive
-        if primary_nodes_from_conf is None:
-            primary_node_type_id = self.props.get_value('driver_node_type_id')
-            if primary_node_type_id is None:
-                raise RuntimeError('Failed to find primary node information from cluster properties')
-            primary_nodes_from_conf = {'node_id': None}
+        # construct driver node info when cluster is inactive
+        if driver_nodes_from_conf is None:
+            driver_node_type_id = self.props.get_value('driver_node_type_id')
+            if driver_node_type_id is None:
+                raise RuntimeError('Failed to find driver node information from cluster properties')
+            driver_nodes_from_conf = {'node_id': None}
         # construct executor nodes info when cluster is inactive
         if executor_nodes_from_conf is None:
             executor_node_type_id = self.props.get_value('node_type_id')
@@ -186,18 +186,18 @@ class DatabricksCluster(ClusterBase):
             executor = DatabricksNode.create_executor_node().set_fields_from_dict(executor_props)
             executor.fetch_and_set_hw_info(self.cli)
             executor_nodes.append(executor)
-        primary_props = {
-            'Id': primary_nodes_from_conf['node_id'],
-            'props': JSONPropertiesContainer(prop_arg=primary_nodes_from_conf, file_load=False),
+        driver_props = {
+            'Id': driver_nodes_from_conf['node_id'],
+            'props': JSONPropertiesContainer(prop_arg=driver_nodes_from_conf, file_load=False),
             # set the node region based on the wrapper defined region
             'region': self.region,
             'instance_type': self.props.get_value('driver_node_type_id')
         }
-        primary_node = DatabricksNode.create_primary_node().set_fields_from_dict(primary_props)
-        primary_node.fetch_and_set_hw_info(self.cli)
+        driver_node = DatabricksNode.create_driver_node().set_fields_from_dict(driver_props)
+        driver_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
             SparkNodeType.WORKER: executor_nodes,
-            SparkNodeType.MASTER: primary_node
+            SparkNodeType.MASTER: driver_node
         }
 
     def _init_connection(self, cluster_id: str = None,

@@ -385,8 +385,8 @@ class DataprocCluster(ClusterBase):
         self.name = self.props.get_value('clusterName')
 
     def _init_nodes(self):
-        # assume that only one primary node
-        primary_nodes_from_conf = self.props.get_value('config', 'masterConfig', 'instanceNames')
+        # assume that only one driver node
+        driver_nodes_from_conf = self.props.get_value('config', 'masterConfig', 'instanceNames')
         raw_executor_prop = self.props.get_value_silent('config', 'workerConfig')
         executor_nodes: list = []
         if raw_executor_prop:
@@ -403,18 +403,18 @@ class DataprocCluster(ClusterBase):
                 # TODO for optimization, we should set HW props for 1 executor
                 executor.fetch_and_set_hw_info(self.cli)
                 executor_nodes.append(executor)
-        raw_primary_props = self.props.get_value('config', 'masterConfig')
-        primary_props = {
-            'name': primary_nodes_from_conf[0],
-            'props': JSONPropertiesContainer(prop_arg=raw_primary_props, file_load=False),
+        raw_driver_props = self.props.get_value('config', 'masterConfig')
+        driver_props = {
+            'name': driver_nodes_from_conf[0],
+            'props': JSONPropertiesContainer(prop_arg=raw_driver_props, file_load=False),
             # set the node zone based on the wrapper defined zone
             'zone': self.zone
         }
-        primary_node = DataprocNode.create_primary_node().set_fields_from_dict(primary_props)
-        primary_node.fetch_and_set_hw_info(self.cli)
+        driver_node = DataprocNode.create_driver_node().set_fields_from_dict(driver_props)
+        driver_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
             SparkNodeType.WORKER: executor_nodes,
-            SparkNodeType.MASTER: primary_node
+            SparkNodeType.MASTER: driver_node
         }
 
     def _init_connection(self, cluster_id: str = None,
@@ -495,7 +495,7 @@ class DataprocCluster(ClusterBase):
             'REGION': self.region,
             'ZONE': self.zone,
             'IMAGE': self.get_image_version(),
-            'MASTER_MACHINE': self.get_primary_node().instance_type,
+            'MASTER_MACHINE': self.get_driver_node().instance_type,
             'WORKERS_COUNT': self.get_executors_count(),
             'WORKERS_MACHINE': executor_node.instance_type,
             'LOCAL_SSD': 2,
@@ -527,10 +527,10 @@ class DataprocSavingsEstimator(SavingsEstimator):
         return nodes_cnt * (cores_cost + memory_cost + gpu_cost)
 
     def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
-        primary_node_cost = self.__calculate_group_cost(cluster, SparkNodeType.MASTER)
+        driver_node_cost = self.__calculate_group_cost(cluster, SparkNodeType.MASTER)
         executor_nodes_cost = self.__calculate_group_cost(cluster, SparkNodeType.WORKER)
         dataproc_cost = self.price_provider.get_container_cost()
-        return primary_node_cost + executor_nodes_cost + dataproc_cost
+        return driver_node_cost + executor_nodes_cost + dataproc_cost
 
     def _setup_costs(self):
         # calculate target_cost

@@ -274,7 +274,7 @@ class DatabricksAzureCluster(ClusterBase):
             'region': self.region,
             'instance_type': self.props.get_value('driver_node_type_id')
         }
-        driver_node = DatabricksAzureNode.create_primary_node().set_fields_from_dict(driver_props)
+        driver_node = DatabricksAzureNode.create_driver_node().set_fields_from_dict(driver_props)
         driver_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
             SparkNodeType.WORKER: executor_nodes,

@@ -221,20 +221,20 @@ class OnPremCluster(ClusterBase):
                 # TODO for optimization, we should set HW props for 1 executor
                 executor.fetch_and_set_hw_info(self.cli)
                 executor_nodes.append(executor)
-        raw_primary_props = self.props.get_value('config', 'masterConfig')
-        primary_props = {
-            'name': 'primary',
-            'props': JSONPropertiesContainer(prop_arg=raw_primary_props, file_load=False),
+        raw_driver_props = self.props.get_value('config', 'masterConfig')
+        driver_props = {
+            'name': 'driver',
+            'props': JSONPropertiesContainer(prop_arg=raw_driver_props, file_load=False),
             # set the node zone based on the wrapper defined zone
             'zone': self.zone,
             'platform_name': self.platform.get_platform_name()
         }
 
-        primary_node = OnPremNode.create_primary_node().set_fields_from_dict(primary_props)
-        primary_node.fetch_and_set_hw_info(self.cli)
+        driver_node = OnPremNode.create_driver_node().set_fields_from_dict(driver_props)
+        driver_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
             SparkNodeType.WORKER: executor_nodes,
-            SparkNodeType.MASTER: primary_node
+            SparkNodeType.MASTER: driver_node
         }
 
     def _build_migrated_cluster(self, orig_cluster):
@@ -258,14 +258,14 @@ class OnPremCluster(ClusterBase):
                                        gpu_info=gpu_mc_hw.gpu_info,
                                        sys_info=gpu_mc_hw.sys_info)
             new_executor_nodes.append(new_node)
-        primary_node = orig_cluster.nodes.get(SparkNodeType.MASTER)
+        driver_node = orig_cluster.nodes.get(SparkNodeType.MASTER)
         self.nodes = {
             SparkNodeType.WORKER: new_executor_nodes,
             SparkNodeType.MASTER: orig_cluster.nodes.get(SparkNodeType.MASTER)
         }
         # force filling mc_type_map for on_prem platform.
         mc_type_map = {
-            'Driver node': primary_node.instance_type,
+            'Driver node': driver_node.instance_type,
             'Worker node': new_executor_nodes[0].instance_type
         }
         self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
@@ -305,10 +305,10 @@ class OnpremSavingsEstimator(SavingsEstimator):
 
     def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
         if self.price_provider.name.casefold() == 'dataproc':
-            primary_node_cost = self.__calculate_dataproc_group_cost(cluster, SparkNodeType.MASTER)
+            driver_node_cost = self.__calculate_dataproc_group_cost(cluster, SparkNodeType.MASTER)
             executor_nodes_cost = self.__calculate_dataproc_group_cost(cluster, SparkNodeType.WORKER)
             dataproc_cost = self.price_provider.get_container_cost()
-            total_cost = primary_node_cost + executor_nodes_cost + dataproc_cost
+            total_cost = driver_node_cost + executor_nodes_cost + dataproc_cost
         return total_cost
 
     def _setup_costs(self):

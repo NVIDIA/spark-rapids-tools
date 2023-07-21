@@ -138,7 +138,7 @@ class TargetPlatform(EnumeratedType):
 
 class SparkNodeType(EnumeratedType):
     """
-    Node type from Spark perspective. We either have a primary node or a executor node.
+    Node type from Spark perspective. We either have a driver node or a executor node.
     Note that the provider could have different grouping.
     For example EMR has: master, task, and core.
     Another categorization: onDemand..etc.
@@ -251,14 +251,14 @@ class ClusterNode:
         return cls(SparkNodeType.WORKER)
 
     @classmethod
-    def create_primary_node(cls) -> Any:
+    def create_driver_node(cls) -> Any:
         return cls(SparkNodeType.MASTER)
 
     @classmethod
     def create_node(cls, value):
         if isinstance(value, SparkNodeType):
             if value == SparkNodeType.MASTER:
-                return cls.create_primary_node()
+                return cls.create_driver_node()
             if value == SparkNodeType.WORKER:
                 return cls.create_executor_node()
         raise RuntimeError(f'Invalid node type while creating cluster node {value}')
@@ -910,7 +910,7 @@ class ClusterBase(ClusterGetAccessor):
         """
         if has_no_executors_cb():
             raise RuntimeError('Invalid cluster: The cluster has no executor nodes.\n\t'
-                               'It is recommended to define a with (1 primary, N executors).')
+                               'It is recommended to define a with (1 driver, N executors).')
 
     def __post_init__(self):
         self.cli = self.platform.cli
@@ -993,9 +993,9 @@ class ClusterBase(ClusterGetAccessor):
                         i.e., writing to a file.
         :return:
         """
-        # get the primary node
-        primary_node: ClusterNode = self.get_primary_node()
-        return self.cli.ssh_cmd_node(primary_node, ssh_cmd, cmd_input=cmd_input)
+        # get the driver node
+        driver_node: ClusterNode = self.get_driver_node()
+        return self.cli.ssh_cmd_node(driver_node, ssh_cmd, cmd_input=cmd_input)
 
     def run_cmd_executor(self, ssh_cmd: str, cmd_input: str = None, ind: int = 0) -> str or None:
         """
@@ -1114,7 +1114,7 @@ class ClusterBase(ClusterGetAccessor):
 
         return nodes
 
-    def get_primary_node(self) -> ClusterNode:
+    def get_driver_node(self) -> ClusterNode:
         return self.nodes.get(SparkNodeType.MASTER)
 
     def get_executor_node(self, ind: int = 0) -> ClusterNode:
@@ -1174,7 +1174,7 @@ class ClusterReshape(ClusterGetAccessor):
     def get_node(self, node_type: SparkNodeType) -> ClusterNode:
         if node_type == SparkNodeType.WORKER:
             return self.cluster_inst.get_executor_node()
-        return self.cluster_inst.get_primary_node()
+        return self.cluster_inst.get_driver_node()
 
     def get_all_nodes(self) -> list:
         raise NotImplementedError
