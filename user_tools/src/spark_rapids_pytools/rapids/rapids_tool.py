@@ -28,6 +28,7 @@ from typing import Any, Callable, Dict, List
 
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
+from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
@@ -330,7 +331,8 @@ class RapidsTool(object):
         num_cpus = worker_info.sys_info.num_cpus
         cpu_mem = worker_info.sys_info.cpu_mem
 
-        constants = self.ctxt.get_value('local', 'clusterConfigs', 'constants')
+        config_path = Utils.resource_path('cluster-configs.yaml')
+        constants = YAMLPropertiesContainer(prop_arg=config_path).get_value('clusterConfigs', 'constants')
         executors_per_node = num_gpus
         num_executor_cores = max(1, num_cpus // executors_per_node)
         gpu_concurrent_tasks = min(constants.get('maxGpuConcurrent'), gpu_mem // constants.get('gpuMemPerTaskMB'))

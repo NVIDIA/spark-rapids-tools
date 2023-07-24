@@ -434,7 +434,7 @@ class Qualification(RapidsJarTool):
         report_content = []
         if self.ctxt.get_ctxt('recommendedConfigs'):
             report_content = [
-                Utils.gen_report_sec_header('Recommended Spark configurations', hrule=False),
+                Utils.gen_report_sec_header('Recommended Spark configurations for running on GPUs', hrule=False),
             ]
             conversion_items = []
             recommended_configs = self.ctxt.get_ctxt('recommendedConfigs')
