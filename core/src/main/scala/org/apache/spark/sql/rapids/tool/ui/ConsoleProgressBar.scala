@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2023, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -132,6 +132,23 @@ class ConsoleProgressBar(
     totalCounter.incrementAndGet()
   }
 
+  def reportSuccessfulProcesses(n: Int): Unit = {
+    for(_ <- 1 to n) {
+      reportSuccessfulProcess()
+    }
+  }
+
+  def reportFailedProcesses(n: Int): Unit = {
+    for (_ <- 1 to n) {
+      reportFailedProcess()
+    }
+  }
+  def reportUnknownStatusProcesses(n: Int): Unit = {
+    for (_ <- 1 to n) {
+      reportUnkownStatusProcess()
+    }
+  }
+
   def metricsToString: String = {
     val sb = new mutable.StringBuilder()
     metrics.foreach { case (name, counter) =>
@@ -193,6 +210,8 @@ class ConsoleProgressBar(
 
   /**
    * Mark all processing as finished.
+   * TODO: All processes that have not been finished (totalCount - currentCount)
+   *       should be marked as unknown.
    */
   def finishAll(): Unit = synchronized {
     stop()
