@@ -91,6 +91,9 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOperatorsCSVReport(allAppsSum, order)
+
+    val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
+    qWriter.writeStatusReport(appStatusResult, order)
     if (mlOpsEnabled) {
       if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
         qWriter.writeMlFuncsReports(allAppsSum, order)
@@ -165,10 +168,10 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
         reportSqlLevel, mlOpsEnabled)
       val qualAppResult = appResult match {
-        case FailureResult(errorMessage: String) =>
+        case Left(errorMessage: String) =>
           progressBar.foreach(_.reportUnkownStatusProcess())
           FailureQualAppResult(pathStr, errorMessage)
-        case SuccessResult(app: QualificationAppInfo) =>
+        case Right(app: QualificationAppInfo) =>
           val qualSumInfo = app.aggregateStats()
           if (qualSumInfo.isDefined) {
             allApps.add(qualSumInfo.get)
@@ -206,5 +209,22 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
    */
   def getReportOutputPath: String = {
     s"$outputDir/rapids_4_spark_qualification_output"
+  }
+
+  /**
+   * For each app status report, generate a summary containing appId and message (if any).
+   * @return Seq[Summary] - Seq[(path, status, [appId], [message])]
+   */
+  private def generateStatusSummary(appStatuses: Seq[QualAppResult]): Seq[StatusSummaryInfo] = {
+    appStatuses.map {
+      case SuccessQualAppResult(path, appId, message) =>
+        StatusSummaryInfo(path, "SUCCESS", appId, message)
+      case FailureQualAppResult(path, message) =>
+        StatusSummaryInfo(path, "FAILURE", "", message)
+      case UnknownQualAppResult(path, appId, message) =>
+        StatusSummaryInfo(path, "UNKNOWN", appId, message)
+      case qualAppResult: QualAppResult =>
+        throw new UnsupportedOperationException(s"Invalid status for $qualAppResult")
+    }
   }
 }
