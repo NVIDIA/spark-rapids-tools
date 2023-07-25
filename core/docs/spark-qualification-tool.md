@@ -98,7 +98,7 @@ Example output:
 ## Running the Qualification tool standalone on Spark event logs
 
 ### Prerequisites
-- Java 8 or above, Spark 3.0.1+ jars.
+- Java 8 or above, Spark 3.1.1+ jars.
 - Spark event log(s) from Spark 2.0 or above version. Supports both rolled and compressed event logs
   with `.lz4`, `.lzf`, `.snappy` and `.zstd` suffixes as well as Databricks-specific rolled and compressed(.gz) event logs.
 - The tool does not support nested directories.
@@ -385,7 +385,7 @@ for each SQL queries in the running application and indicate if that query is a 
 with the Rapids Accelerator for Spark.
 
 ### Prerequisites
-- Java 8 or above, Spark 3.0.1+
+- Java 8 or above, Spark 3.1.1+
 
 ### Download the tools jar
 - Download the latest jar from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/)
@@ -442,7 +442,7 @@ section on the file contents details.
 ## Running the Qualification tool inside a running Spark application using the API
 
 ### Prerequisites
-- Java 8 or above, Spark 3.0.1+
+- Java 8 or above, Spark 3.1.1+
 
 ### Download the tools jar
 - Download the latest jar from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/)
