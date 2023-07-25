@@ -521,14 +521,14 @@ class AutoTuner(
    *         or "spark.executor.memoryOverheadFactor".
    */
   def memoryOverheadLabel: String = {
-    val sparkClusterConf = getPropertyValue("spark.master")
+    val sparkDriverConf = getPropertyValue("spark.master")
     val defaultLabel = "spark.executor.memoryOverhead"
-    sparkClusterConf match {
+    sparkDriverConf match {
       case None => defaultLabel
-      case Some(clusterMode) =>
-        if (clusterMode.contains("yarn")) {
+      case Some(driverMode) =>
+        if (driverMode.contains("yarn")) {
           defaultLabel
-        } else if (clusterMode.contains("k8s")) {
+        } else if (driverMode.contains("k8s")) {
           appInfoProvider.getSparkVersion match {
             case Some(version) =>
               if (ToolUtils.isSpark331OrLater(version)) {
@@ -647,9 +647,9 @@ class AutoTuner(
           if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
             // The ideal setting is for the parallelism of the cluster
             val numCoresPerExec = calcNumExecutorCores
-            val numExecutorsPerExecutor = clusterProps.gpu.getCount
+            val numGpusPerExecutor = clusterProps.gpu.getCount
             val numExecutors = clusterProps.system.getNumExecutors
-            val total = numExecutors * numExecutorsPerExecutor * numCoresPerExec
+            val total = numExecutors * numGpusPerExecutor * numCoresPerExec
             appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum",
               total.toString)
           }
