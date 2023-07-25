@@ -133,20 +133,15 @@ class ConsoleProgressBar(
   }
 
   def reportSuccessfulProcesses(n: Int): Unit = {
-    for(_ <- 1 to n) {
-      reportSuccessfulProcess()
-    }
+    (1 to n).foreach(_ => reportSuccessfulProcess())
   }
 
   def reportFailedProcesses(n: Int): Unit = {
-    for (_ <- 1 to n) {
-      reportFailedProcess()
-    }
+    (1 to n).foreach(_ => reportFailedProcess())
   }
+
   def reportUnknownStatusProcesses(n: Int): Unit = {
-    for (_ <- 1 to n) {
-      reportUnkownStatusProcess()
-    }
+    (1 to n).foreach(_ => reportUnkownStatusProcess())
   }
 
   def metricsToString: String = {
