@@ -97,11 +97,11 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[Boolean](required = false,
       descr = "Toggle AutoTuner module.",
       default = Some(false))
-  val executorInfo: ScallopOption[String] =
+  val workerInfo: ScallopOption[String] =
     opt[String](required = false,
       descr = "File path containing the system information of a executor node. It is assumed " +
         "that all executors are homogenous. It requires the AutoTuner to be enabled. Default is " +
-        "./executor_info.yaml",
+        "./worker_info.yaml",
       default = Some(AutoTuner.DEFAULT_EXECUTOR_INFO_PATH))
 
   validate(filterCriteria) {

@@ -314,7 +314,7 @@ class RecommendationEntry(val name: String,
  *      Cannot recommend properties. See Comments.
  *
  *      Comments:
- *      - java.io.FileNotFoundException: File executor_info.yaml does not exist
+ *      - java.io.FileNotFoundException: File worker_info.yaml does not exist
  *      - 'spark.executor.memory' should be set to at least 2GB/core.
  *      - 'spark.executor.instances' should be set to (gpuCount * numExecutors).
  *      - 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
@@ -956,7 +956,7 @@ object AutoTuner extends Logging {
   val DEF_DISTINCT_READ_THRESHOLD = 50.0
   // Default file cache size minimum is 100 GB
   val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
-  val DEFAULT_EXECUTOR_INFO_PATH = "./executor_info.yaml"
+  val DEFAULT_EXECUTOR_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
 
   val commentsForMissingProps: Map[String, String] = Map(

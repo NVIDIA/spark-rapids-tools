@@ -609,10 +609,6 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
                                   applications). Default is false.
       --csv                       Output each table to a CSV file as well
                                   creating the summary text file.
-  -e, --executor-info  <arg>      File path containing the system information of
-                                  a executor node. It is assumed that all executors
-                                  are homogenous. It requires the AutoTuner to
-                                  be enabled. Default is ./executor_info.yaml
   -f, --filter-criteria  <arg>    Filter newest or oldest N eventlogs based on
                                   application start timestamp for processing.
                                   Filesystem based filtering happens before
@@ -655,6 +651,10 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
                                   (86400 seconds) and must be greater than 3
                                   seconds. If it times out, it will report what
                                   it was able to process up until the timeout.
+  -w, --worker-info  <arg>        File path containing the system information of
+                                  a executor node. It is assumed that all executors
+                                  are homogenous. It requires the AutoTuner to
+                                  be enabled. Default is ./worker_info.yaml
   -h, --help                      Show help message
 
  trailing arguments:
