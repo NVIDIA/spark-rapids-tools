@@ -22,7 +22,7 @@ from typing import Any, List, Callable
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType, ClusterReshape
+from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType, ClusterReshape, NodeHWInfo
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -175,7 +175,8 @@ class QualificationSummary:
             report_content.extend(f' - {line}' for line in self.comments)
         if self.sections_generators:
             for section_generator in self.sections_generators:
-                report_content.append(Utils.gen_multiline_str(section_generator()))
+                if section_generator:
+                    report_content.append(Utils.gen_multiline_str(section_generator()))
         if self.has_gpu_recommendation():
             csp_report = csp_report_provider()
             if csp_report:
@@ -208,6 +209,16 @@ class Qualification(RapidsJarTool):
             self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
+        def _process_gpu_cluster_worker_node():
+            try:
+                worker_node = gpu_cluster_obj.get_worker_node()
+                worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
+            except Exception:  # pylint: disable=broad-except
+                return
+
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
         if gpu_cluster_arg:
             gpu_cluster_obj = self._create_migration_cluster('GPU', gpu_cluster_arg)
@@ -219,6 +230,12 @@ class Qualification(RapidsJarTool):
                 self.logger.info('Creating GPU cluster by converting the CPU cluster instances to GPU supported types')
                 gpu_cluster_obj = self.ctxt.platform.migrate_cluster_to_gpu(orig_cluster)
         self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster_obj)
+
+        _process_gpu_cluster_worker_node()
+        worker_node_hw_info = gpu_cluster_obj.get_worker_hw_info()
+        if gpu_cluster_obj:
+            self.ctxt.set_ctxt('recommendedConfigs', self._calculate_spark_settings(worker_node_hw_info))
+
         return gpu_cluster_obj is not None
 
     def _process_offline_cluster_args(self):
@@ -413,6 +430,26 @@ class Qualification(RapidsJarTool):
                 report_content.append(self.ctxt.platform.get_footer_message())
         return report_content
 
+    def __generate_recommended_configs_report(self) -> list:
+        report_content = []
+        if self.ctxt.get_ctxt('recommendedConfigs'):
+            conversion_items = []
+            recommended_configs = self.ctxt.get_ctxt('recommendedConfigs')
+            for config in recommended_configs:
+                conversion_items.append([config, recommended_configs[config]])
+            report_content.append(tabulate(conversion_items))
+        # the report should be appended to the log_summary file
+        rapids_output_dir = self.ctxt.get_rapids_output_folder()
+        rapids_log_file = FSUtil.build_path(rapids_output_dir,
+                                            self.ctxt.get_value('toolOutput', 'textFormat', 'summaryLog',
+                                                                'fileName'))
+        with open(rapids_log_file, 'a', encoding='UTF-8') as summary_log_file:
+            log_report = [Utils.gen_report_sec_header('Recommended Spark configurations for running on GPUs',
+                                                      hrule=False)]
+            log_report.extend(report_content)
+            summary_log_file.write(Utils.gen_multiline_str(log_report))
+        return report_content
+
     def __generate_cluster_shape_report(self) -> str:
         if bool(self.ctxt.platform.ctxt['notes']):
             return Utils.gen_multiline_str(self.ctxt.platform.ctxt['notes'].get('clusterShape'))
@@ -595,7 +632,7 @@ class Qualification(RapidsJarTool):
                                                      per_row_flag)
             df_final_result = apps_working_set
             if not apps_working_set.empty:
-                self.logger.info('Generating GPU Estimated Speedup and Savings as %s', csv_out)
+                self.logger.info('Generating GPU Estimated Speedup and Savings as: %s', csv_out)
                 # we can use the general format as well but this will transform numbers to E+. So, stick with %f
                 apps_working_set.to_csv(csv_out, float_format='%.2f')
         else:
@@ -603,7 +640,7 @@ class Qualification(RapidsJarTool):
             if not apps_reshaped_df.empty:
                 # Do not include estimated job frequency in csv file
                 apps_reshaped_df = apps_reshaped_df.drop(columns=['Estimated Job Frequency (monthly)'])
-                self.logger.info('Generating GPU Estimated Speedup as %s', csv_out)
+                self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
 
         return QualificationSummary(comments=report_comments,
@@ -735,6 +772,8 @@ class Qualification(RapidsJarTool):
             script_content = gpu_cluster.generate_bootstrap_script(overridden_args=override_args)
             highlighted_code = TemplateGenerator.highlight_bash_code(script_content)
             return ['```bash', highlighted_code, '```', '']
+        if sec_conf.get('sectionID') == 'gpuBootstrapRecommendedConfigs':
+            return self.__generate_recommended_configs_report()
         return super()._generate_section_content(sec_conf)
 
 

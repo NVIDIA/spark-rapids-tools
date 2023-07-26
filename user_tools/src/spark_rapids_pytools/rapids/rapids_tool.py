@@ -27,7 +27,8 @@ from logging import Logger
 from typing import Any, Callable, Dict, List
 
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, \
-    ClusterBase, DeployMode
+    ClusterBase, DeployMode, NodeHWInfo
+from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
@@ -316,6 +317,52 @@ class RapidsTool(object):
                     rep_lines.extend(self._generate_section_content(curr_sec))
             return rep_lines
         return None
+
+    def _calculate_spark_settings(self, worker_info: NodeHWInfo) -> dict:
+        """
+        Calculate the cluster properties that we need to append to the /etc/defaults of the spark
+        if necessary.
+        :param worker_info: the hardware info as extracted from the worker. Note that we assume
+                            that all the workers have the same configurations.
+        :return: dictionary containing 7 spark properties to be set by default on the cluster.
+        """
+        num_gpus = worker_info.gpu_info.num_gpus
+        gpu_mem = worker_info.gpu_info.gpu_mem
+        num_cpus = worker_info.sys_info.num_cpus
+        cpu_mem = worker_info.sys_info.cpu_mem
+
+        config_path = Utils.resource_path('cluster-configs.yaml')
+        constants = YAMLPropertiesContainer(prop_arg=config_path).get_value('clusterConfigs', 'constants')
+        executors_per_node = num_gpus
+        num_executor_cores = max(1, num_cpus // executors_per_node)
+        gpu_concurrent_tasks = min(constants.get('maxGpuConcurrent'), gpu_mem // constants.get('gpuMemPerTaskMB'))
+        # account for system overhead
+        usable_worker_mem = max(0, cpu_mem - constants.get('systemReserveMB'))
+        executor_container_mem = usable_worker_mem // executors_per_node
+        # reserve 10% of heap as memory overhead
+        max_executor_heap = max(0, int(executor_container_mem * (1 - constants.get('heapOverheadFraction'))))
+        # give up to 2GB of heap to each executor core
+        executor_heap = min(max_executor_heap, constants.get('heapPerCoreMB') * num_executor_cores)
+        executor_mem_overhead = int(executor_heap * constants.get('heapOverheadFraction'))
+        # use default for pageable_pool to add to memory overhead
+        pageable_pool = constants.get('defaultPageablePoolMB')
+        # pinned memory uses any unused space up to 4GB
+        pinned_mem = min(constants.get('maxPinnedMemoryMB'),
+                         executor_container_mem - executor_heap - executor_mem_overhead - pageable_pool)
+        executor_mem_overhead += pinned_mem + pageable_pool
+        res = {
+            'spark.executor.cores': num_executor_cores,
+            'spark.executor.memory': f'{executor_heap}m',
+            'spark.executor.memoryOverhead': f'{executor_mem_overhead}m',
+            'spark.rapids.sql.concurrentGpuTasks': gpu_concurrent_tasks,
+            'spark.rapids.memory.pinnedPool.size': f'{pinned_mem}m',
+            'spark.sql.files.maxPartitionBytes': f'{constants.get("maxSqlFilesPartitionsMB")}m',
+            'spark.task.resource.gpu.amount': 1 / num_executor_cores,
+            'spark.rapids.shuffle.multiThreaded.reader.threads': num_executor_cores,
+            'spark.rapids.shuffle.multiThreaded.writer.threads': num_executor_cores,
+            'spark.rapids.sql.multiThreadedRead.numThreads': max(20, num_executor_cores)
+        }
+        return res
 
 
 @dataclass
