@@ -254,14 +254,29 @@
           }
         },
         {
-          "sectionID": "runUserToolsBootstrap",
+          "sectionID": "gpuBootstrapRecommendedConfigs",
           "requiresBoolFlag": "enableSavingsCalculations",
+          "sectionName": "Recommended Spark configurations for running on GPUs",
           "content": {
             "header": [
               "",
-              "Once the cluster is created, run the Bootstrap tool to provide optimized",
-              "RAPIDS Accelerator for Apache Spark configs based on GPU cluster shape.",
-              "Notes:",
+              "For the new GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark,",
+              "  it is recommended to set the following Spark configurations:",
+              ""
+            ]
+          }
+        },
+        {
+          "sectionID": "runUserToolsBootstrap",
+          "requiresBoolFlag": "DISABLED",
+          "sectionName": "Regenerating recommended configurations for an existing GPU-Cluster",
+          "content": {
+            "header": [
+              "",
+              "To generate the recommended configurations on an existing GPU-Cluster,",
+              "  re-run the Bootstrap tool to provide optimized RAPIDS Accelerator",
+              "  for Apache Spark configs based on GPU cluster shape.",
+              "  Notes:",
               "    - Overriding the Apache Spark default configurations on the cluster",
               "      requires SSH access.",
               "    - If SSH access is unavailable, you can still dump the recommended",

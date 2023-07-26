@@ -1,6 +1,9 @@
 toolOutput:
   completeOutput: true
   subFolder: rapids_4_spark_qualification_output
+  textFormat:
+    summaryLog:
+      fileName: rapids_4_spark_qualification_output.log
   csv:
     summaryReport:
       fileName: rapids_4_spark_qualification_output.csv

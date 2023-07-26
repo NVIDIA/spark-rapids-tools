@@ -432,18 +432,22 @@ class Qualification(RapidsJarTool):
 
     def __generate_recommended_configs_report(self) -> list:
         report_content = []
-        # TODO: add bootstrap configs support for databricks platforms
-        if 'databricks' in self.ctxt.platform.get_platform_name():
-            return report_content
         if self.ctxt.get_ctxt('recommendedConfigs'):
-            report_content = [
-                Utils.gen_report_sec_header('Recommended Spark configurations for running on GPUs', hrule=False),
-            ]
             conversion_items = []
             recommended_configs = self.ctxt.get_ctxt('recommendedConfigs')
             for config in recommended_configs:
                 conversion_items.append([config, recommended_configs[config]])
             report_content.append(tabulate(conversion_items))
+        # the report should be appended to the log_summary file
+        rapids_output_dir = self.ctxt.get_rapids_output_folder()
+        rapids_log_file = FSUtil.build_path(rapids_output_dir,
+                                            self.ctxt.get_value('toolOutput', 'textFormat', 'summaryLog',
+                                                                'fileName'))
+        with open(rapids_log_file, 'a', encoding='UTF-8') as summary_log_file:
+            log_report = [Utils.gen_report_sec_header('Recommended Spark configurations for running on GPUs',
+                                                      hrule=False)]
+            log_report.extend(report_content)
+            summary_log_file.write(Utils.gen_multiline_str(log_report))
         return report_content
 
     def __generate_cluster_shape_report(self) -> str:
@@ -591,10 +595,6 @@ class Qualification(RapidsJarTool):
     def __build_global_report_summary(self,
                                       all_apps: pd.DataFrame,
                                       csv_out: str) -> QualificationSummary:
-        def get_summary_log_file_path():
-            output_dir = csv_out.split('qualification_summary.csv')[0]
-            return output_dir + 'rapids_4_spark_qualification_output/rapids_4_spark_qualification_output.log'
-
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
@@ -643,19 +643,13 @@ class Qualification(RapidsJarTool):
                 self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
 
-        # add recommended Spark configurations to the summary log file
-        with open(get_summary_log_file_path(), 'a', encoding='UTF-8') as summary_log_file:
-            recommended_configs = Utils.gen_multiline_str(self.__generate_recommended_configs_report())
-            summary_log_file.write(recommended_configs)
-
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_pruned_df,
                                     recommended_apps=recommended_apps,
                                     savings_report_flag=launch_savings_calc,
                                     df_result=df_final_result,
                                     irrelevant_speedups=speedups_irrelevant_flag,
-                                    sections_generators=[self.__generate_mc_types_conversion_report,
-                                                         self.__generate_recommended_configs_report])
+                                    sections_generators=[self.__generate_mc_types_conversion_report])
 
     def _process_output(self):
         def process_df_for_stdout(raw_df):
@@ -778,6 +772,8 @@ class Qualification(RapidsJarTool):
             script_content = gpu_cluster.generate_bootstrap_script(overridden_args=override_args)
             highlighted_code = TemplateGenerator.highlight_bash_code(script_content)
             return ['```bash', highlighted_code, '```', '']
+        if sec_conf.get('sectionID') == 'gpuBootstrapRecommendedConfigs':
+            return self.__generate_recommended_configs_report()
         return super()._generate_section_content(sec_conf)
 
 
