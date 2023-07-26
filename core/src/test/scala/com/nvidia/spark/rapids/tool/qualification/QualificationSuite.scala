@@ -432,6 +432,12 @@ class QualificationSuite extends BaseTestSuite {
       assert(exit == 0)
       assert(appSum.size == 0)
 
+      // Application should fail.
+      val expectedStatusCounts = StatusReportCounts(0, 1, 0)
+      // Compare the expected status counts with the actual status counts from the application
+      ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
+        expectedStatusCounts)
+
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.csv"
       val inputSource = Source.fromFile(filename)
