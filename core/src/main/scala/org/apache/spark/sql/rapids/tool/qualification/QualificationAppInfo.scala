@@ -30,7 +30,6 @@ import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraph
 import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
-import org.apache.spark.sql.rapids.tool.util._
 
 class QualificationAppInfo(
     eventLogInfo: Option[EventLogInfo],
