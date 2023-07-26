@@ -432,7 +432,7 @@ class QualificationSuite extends BaseTestSuite {
       assert(exit == 0)
       assert(appSum.size == 0)
 
-      // Application should fail.
+      // Application should fail. Status counts: 0 SUCCESS, 1 FAILURE, 0 UNKNOWN
       val expectedStatusCounts = StatusReportCounts(0, 1, 0)
       // Compare the expected status counts with the actual status counts from the application
       ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
@@ -455,6 +455,7 @@ class QualificationSuite extends BaseTestSuite {
     val profileLogDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
     val badEventLog = s"$profileLogDir/malformed_json_eventlog.zstd"
     val logFiles = Array(s"$logDir/nds_q86_test", badEventLog)
+    // Status counts: 1 SUCCESS, 1 FAILURE, 0 UNKNOWN
     val expectedStatus = Some(StatusReportCounts(1, 1, 0))
     runQualificationTest(logFiles, "nds_q86_test_expectation.csv", expectedStatus = expectedStatus)
   }

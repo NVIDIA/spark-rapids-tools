@@ -48,6 +48,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     .asInstanceOf[ThreadPoolExecutor]
 
   private var progressBar: Option[ConsoleProgressBar] = None
+  // Store application status reports indexed by event log path.
   private val appStatusReporter = new ConcurrentHashMap[String, QualAppResult]
 
   private class QualifyThread(path: EventLogInfo) extends Runnable {
@@ -91,7 +92,6 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOperatorsCSVReport(allAppsSum, order)
-
     val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
     qWriter.writeStatusReport(appStatusResult, order)
     if (mlOpsEnabled) {
@@ -169,9 +169,11 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
         reportSqlLevel, mlOpsEnabled)
       val qualAppResult = appResult match {
         case Left(errorMessage: String) =>
+          // Case when an error occurred during QualificationAppInfo creation
           progressBar.foreach(_.reportUnkownStatusProcess())
           FailureQualAppResult(pathStr, errorMessage)
         case Right(app: QualificationAppInfo) =>
+          // Case with successful creation of QualificationAppInfo
           val qualSumInfo = app.aggregateStats()
           if (qualSumInfo.isDefined) {
             allApps.add(qualSumInfo.get)
@@ -185,7 +187,9 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
               "No aggregated stats for event log")
           }
       }
+      // Log the information to the console
       qualAppResult.logMessage()
+      // Update the appStatusReporter with the result of QualificationAppInfo processing
       appStatusReporter.put(pathStr, qualAppResult)
     } catch {
       case oom: OutOfMemoryError =>

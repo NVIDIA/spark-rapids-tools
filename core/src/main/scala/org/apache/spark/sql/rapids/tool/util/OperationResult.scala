@@ -34,6 +34,7 @@ class QualAppResult(path: String, message: String) extends Logging {
     }
   }
 }
+
 case class SuccessQualAppResult(
     path: String,
     appId: String,
@@ -42,7 +43,9 @@ case class SuccessQualAppResult(
     logInfo(s"File: $path, Message: $message")
   }
 }
+
 case class FailureQualAppResult(path: String, message: String)
   extends QualAppResult(path, message) {}
+
 case class UnknownQualAppResult(path: String, appId: String, message: String)
   extends QualAppResult(path, message) {}

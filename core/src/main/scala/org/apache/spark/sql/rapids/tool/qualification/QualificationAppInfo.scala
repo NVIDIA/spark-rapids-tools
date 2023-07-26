@@ -691,6 +691,7 @@ case class QualSQLExecutionInfo(
     hasDataset: Boolean,
     problematic: String = "")
 
+// Case class representing status summary information for a particular application.
 case class StatusSummaryInfo(
     path: String,
     status: String,
@@ -826,6 +827,12 @@ object QualificationAppInfo extends Logging {
       allClusterTagsMap)
   }
 
+  /**
+   * Create a QualificationAppInfo object based on the provided parameters.
+   *
+   * @return Either a Right with the created QualificationAppInfo if successful,
+   *         or a Left with an error message if an exception occurs during creation.
+   */
   def createApp(
       path: EventLogInfo,
       hadoopConf: Configuration,
