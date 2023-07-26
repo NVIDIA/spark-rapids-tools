@@ -171,7 +171,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
         case Left(errorMessage: String) =>
           // Case when an error occurred during QualificationAppInfo creation
           progressBar.foreach(_.reportUnkownStatusProcess())
-          FailureQualAppResult(pathStr, errorMessage)
+          UnknownQualAppResult(pathStr, "", errorMessage)
         case Right(app: QualificationAppInfo) =>
           // Case with successful creation of QualificationAppInfo
           val qualSumInfo = app.aggregateStats()
