@@ -28,7 +28,8 @@ applicable environments.  Here are the cluster information for the ETL benchmark
 | On-prem          | 8x 128-core       | 8x 128-core + 8x A100 40 GB    |
 | Dataproc (T4)    | 4x n1-standard-32 | 4x n1-standard-32 + 8x T4 16GB |
 | Dataproc (L4)    | 8x n1-standard-16 | 8x g2-standard-16              |
-| EMR              | 8x m5d.8xlarge    | 4x g4dn.12xlarge               |
+| EMR (T4)         | 8x m5d.8xlarge    | 4x g4dn.12xlarge               |
+| EMR (A10)        | 8x m5d.8xlarge    | 8x g5.8xlarge                  |
 | Databricks AWS   | 8x m6gd.8xlage    | 8x g5.8xlarge                  |
 | Databricks Azure | 8x E8ds_v4        | 8x NC8as_T4_v3                 |
 
@@ -98,7 +99,7 @@ Example output:
 ## Running the Qualification tool standalone on Spark event logs
 
 ### Prerequisites
-- Java 8 or above, Spark 3.0.1+ jars.
+- Java 8 or above, Spark 3.1.1+ jars.
 - Spark event log(s) from Spark 2.0 or above version. Supports both rolled and compressed event logs
   with `.lz4`, `.lzf`, `.snappy` and `.zstd` suffixes as well as Databricks-specific rolled and compressed(.gz) event logs.
 - The tool does not support nested directories.
@@ -246,7 +247,7 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   -p, --per-sql                      Report at the individual SQL query level.
       --platform  <arg>              Cluster platform where Spark CPU workloads were
                                      executed. Options include onprem, dataproc-t4,
-                                     dataproc-l4, emr, databricks-aws, and
+                                     dataproc-l4, emr-t4, emr-a10, databricks-aws, and
                                      databricks-azure.
                                      Default is onprem.
   -r, --report-read-schema           Whether to output the read formats and
@@ -385,7 +386,7 @@ for each SQL queries in the running application and indicate if that query is a 
 with the Rapids Accelerator for Spark.
 
 ### Prerequisites
-- Java 8 or above, Spark 3.0.1+
+- Java 8 or above, Spark 3.1.1+
 
 ### Download the tools jar
 - Download the latest jar from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/)
@@ -442,7 +443,7 @@ section on the file contents details.
 ## Running the Qualification tool inside a running Spark application using the API
 
 ### Prerequisites
-- Java 8 or above, Spark 3.0.1+
+- Java 8 or above, Spark 3.1.1+
 
 ### Download the tools jar
 - Download the latest jar from [Maven repository](https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12/)

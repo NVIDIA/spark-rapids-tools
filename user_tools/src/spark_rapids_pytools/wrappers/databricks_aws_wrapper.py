@@ -27,7 +27,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
     """
 
     @staticmethod
-    def qualification(cpu_cluster: str,
+    def qualification(cpu_cluster: str = None,
                       eventlogs: str = None,
                       profile: str = None,
                       aws_profile: str = None,

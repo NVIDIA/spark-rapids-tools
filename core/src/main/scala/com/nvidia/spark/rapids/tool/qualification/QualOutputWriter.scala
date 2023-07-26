@@ -936,8 +936,8 @@ object QualOutputWriter {
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
           reformatCSVFunc("Exec") -> headersAndSizes(UNSUPPORTED_TYPE),
           reformatCSVFunc(exec) -> headersAndSizes(DETAILS),
-          reformatCSVFunc("$exec Exec is not supported as expressions are " +
-            "not supported -  `${exprs}`") -> headersAndSizes(NOTES)
+          reformatCSVFunc(s"$exec Exec is not supported as expressions are " +
+            s"not supported -  `$exprs`") -> headersAndSizes(NOTES)
         )
         constructOutputRow(data, delimiter, prettyPrint)
       }.toArray

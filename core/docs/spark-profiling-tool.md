@@ -19,7 +19,7 @@ configurations based on the worker's information (see [Auto-Tuner support](#auto
 
 ### Prerequisites
 
-- Java 8 or above, Spark 3.0.1+ jars
+- Java 8 or above, Spark 3.1.1+ jars
 - Spark event log(s) from Spark 2.0 or above version. Supports both rolled and compressed event logs 
   with `.lz4`, `.lzf`, `.snappy` and `.zstd` suffixes as well as 
   Databricks-specific rolled and compressed(`.gz`) event logs.
@@ -161,8 +161,8 @@ We can input multiple Spark event logs and this tool can compare environments, e
   +--------+-----------+-----------------------+---------+-------------+-------------+--------+-----------+------------+-------------+
   |appIndex|appName    |appId                  |sparkUser|startTime    |endTime      |duration|durationStr|sparkVersion|pluginEnabled|
   +--------+-----------+-----------------------+---------+-------------+-------------+--------+-----------+------------+-------------+
-  |1       |Spark shell|app-20210329165943-0103|user1    |1617037182848|1617037490515|307667  |5.1 min    |3.0.1       |false        |
-  |2       |Spark shell|app-20210329170243-0018|user1    |1617037362324|1617038578035|1215711 |20 min     |3.0.1       |true         |
+  |1       |Spark shell|app-20210329165943-0103|user1    |1617037182848|1617037490515|307667  |5.1 min    |3.1.1       |false        |
+  |2       |Spark shell|app-20210329170243-0018|user1    |1617037362324|1617038578035|1215711 |20 min     |3.1.1       |true         |
   +--------+-----------+-----------------------+---------+-------------+-------------+--------+-----------+------------+-------------+
   ```
 

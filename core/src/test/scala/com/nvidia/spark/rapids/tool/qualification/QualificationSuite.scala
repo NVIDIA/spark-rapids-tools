@@ -1273,6 +1273,50 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
+  test("test existence join as supported join type") {
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "existenceJoin") { spark =>
+        import spark.implicits._
+        val df1 = Seq(("A", 20, 90), ("B", 25, 91), ("C", 30, 94)).toDF("name", "age", "score")
+        val df2 = Seq(("A", 15, 90), ("B", 25, 92), ("C", 30, 94)).toDF("name", "age", "score")
+        df1.createOrReplaceTempView("tableA")
+        df2.createOrReplaceTempView("tableB")
+        spark.sql("SELECT * from tableA as l where l.age > 24 or exists" +
+          " (SELECT  * from tableB as r where l.age=r.age and l.score <= r.score)")
+      }
+      // validate that the eventlog contains ExistenceJoin and BroadcastHashJoin
+      val reader = Source.fromFile(eventLog).mkString
+      assert(reader.contains("ExistenceJoin"))
+      assert(reader.contains("BroadcastHashJoin"))
+
+      // run the qualification tool
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          eventLog))
+
+        val (exit, _) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        // validate that ExistenceJoin is supported since BroadcastHashJoin is not in unsupported
+        // Execs list
+        val outputActual = readExpectedFile(new File(outputResults), "\"")
+        val unsupportedExecs = {
+          outputActual.select(QualOutputWriter.UNSUPPORTED_EXECS).first.getString(0)
+        }
+        assert(!unsupportedExecs.contains("BroadcastHashJoin"))
+      }
+    }
+  }
+
   test("test different values for platform argument") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "timezone") { spark =>
@@ -1307,7 +1351,7 @@ class QualificationSuite extends BaseTestSuite {
         assert(outputActual.collect().size == 1)
       }
 
-      // run the qualification tool for emr
+      // run the qualification tool for emr. It should default to emr-t4.
       TrampolineUtil.withTempDir { outpath =>
         val appArgs = new QualificationArgs(Array(
           "--output-directory",
@@ -1320,6 +1364,54 @@ class QualificationSuite extends BaseTestSuite {
           QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
   
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
+      }
+
+      // run the qualification tool for emr-t4
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "emr-t4",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+
+        // the code above that runs the Spark query stops the Sparksession
+        // so create a new one to read in the csv file
+        createSparkSession()
+
+        // validate that the SQL description in the csv file escapes commas properly
+        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output.csv"
+        val outputActual = readExpectedFile(new File(outputResults))
+        assert(outputActual.collect().size == 1)
+      }
+
+      // run the qualification tool for emr-a10
+      TrampolineUtil.withTempDir { outpath =>
+        val appArgs = new QualificationArgs(Array(
+          "--output-directory",
+          outpath.getAbsolutePath,
+          "--platform",
+          "emr-a10",
+          eventLog))
+
+        val (exit, sumInfo) =
+          QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+
         // the code above that runs the Spark query stops the Sparksession
         // so create a new one to read in the csv file
         createSparkSession()
