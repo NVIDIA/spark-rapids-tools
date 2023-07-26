@@ -28,8 +28,9 @@ import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 
-class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging {
+class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean) extends Logging {
 
   private val nThreads = appArgs.numThreads.getOrElse(
     Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
@@ -48,6 +49,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
   private val outputCombined: Boolean = appArgs.combined()
 
   private val useAutoTuner: Boolean = appArgs.autoTuner()
+  private var progressBar: Option[ConsoleProgressBar] = None
 
   logInfo(s"Threadpool size is $nThreads")
 
@@ -58,6 +60,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
    * what else we can do in parallel.
    */
   def profile(eventLogInfos: Seq[EventLogInfo]): Unit = {
+    if (enablePB && eventLogInfos.nonEmpty) { // total count to start the PB cannot be 0
+      progressBar = Some(new ConsoleProgressBar("Profile Tool", eventLogInfos.length))
+    }
     if (appArgs.compare()) {
       if (outputCombined) {
         logError("Output combined option not valid with compare mode!")
@@ -69,6 +74,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
           val apps = createApps(eventLogInfos)
 
           if (apps.size < 2) {
+            progressBar.foreach(_.reportUnknownStatusProcesses(apps.size))
             logError("At least 2 applications are required for comparison mode. Exiting!")
           } else {
             val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/compare",
@@ -76,9 +82,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
             try {
               // we need the info for all of the apps to be able to compare so this happens serially
               val (sums, comparedRes) = processApps(apps, printPlans = false, profileOutputWriter)
-              writeOutput(profileOutputWriter, Seq(sums), false, comparedRes)
-            }
-            finally {
+              progressBar.foreach(_.reportSuccessfulProcesses(apps.size))
+              writeSafelyToOutput(profileOutputWriter, Seq(sums), false, comparedRes)
+            } catch {
+              case _: Exception =>
+                progressBar.foreach(_.reportFailedProcesses(apps.size))
+            } finally {
               profileOutputWriter.close()
             }
           }
@@ -94,11 +103,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
         val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/combined",
           Profiler.COMBINED_LOG_FILE_NAME_PREFIX, numOutputRows, outputCSV = outputCSV)
         val sums = createAppsAndSummarize(eventLogInfos, false, profileOutputWriter)
-        try {
-          writeOutput(profileOutputWriter, sums, outputCombined)
-        } finally {
-          profileOutputWriter.close()
-        }
+        writeSafelyToOutput(profileOutputWriter, sums, outputCombined)
+        profileOutputWriter.close()
       }
     } else {
       // Read each application and process it separately to save memory.
@@ -115,6 +121,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
         threadPool.shutdownNow()
       }
     }
+    progressBar.foreach(_.finishAll())
   }
 
   private def errorHandler(error: Throwable, path: EventLogInfo) = {
@@ -139,9 +146,16 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
       def run: Unit = {
         try {
           val appOpt = createApp(path, index, hadoopConf)
-          appOpt.foreach(app => allApps.add(app))
+          appOpt match {
+            case Some(app) =>
+              allApps.add(app)
+            case None =>
+              progressBar.foreach(_.reportUnkownStatusProcess())
+          }
         } catch {
-          case t: Throwable => errorHandler(t, path)
+          case t: Throwable =>
+            progressBar.foreach(_.reportFailedProcess())
+            errorHandler(t, path)
         }
       }
     }
@@ -176,19 +190,24 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
       def run: Unit = {
         try {
           val appOpt = createApp(path, index, hadoopConf)
-          appOpt.foreach { app =>
-            val sum = try {
-              val (s, _) = processApps(Seq(app), false, profileOutputWriter)
-              Some(s)
-            } catch {
-              case e: Exception =>
-                logWarning(s"Unexpected exception thrown ${path.eventLog.toString}, skipping! ", e)
-                None
-            }
-            sum.foreach(allApps.add(_))
+          appOpt match {
+            case Some(app) =>
+              try {
+                val (s, _) = processApps(Seq(app), false, profileOutputWriter)
+                progressBar.foreach(_.reportSuccessfulProcess())
+                allApps.add(s)
+              } catch {
+                case t: Throwable =>
+                  progressBar.foreach(_.reportFailedProcess())
+                  errorHandler(t, path)
+              }
+            case None =>
+              progressBar.foreach(_.reportUnkownStatusProcess())
           }
         } catch {
-          case t: Throwable => errorHandler(t, path)
+          case t: Throwable =>
+            progressBar.foreach(_.reportFailedProcess())
+            errorHandler(t, path)
         }
       }
     }
@@ -228,15 +247,23 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
               try {
                 val (sum, _) =
                   processApps(Seq(appOpt.get), appArgs.printPlans(), profileOutputWriter)
-                writeOutput(profileOutputWriter, Seq(sum), false)
+                progressBar.foreach(_.reportSuccessfulProcess())
+                writeSafelyToOutput(profileOutputWriter, Seq(sum), false)
+              } catch {
+                case t: Throwable =>
+                  progressBar.foreach(_.reportFailedProcess())
+                  errorHandler(t, path)
               } finally {
                 profileOutputWriter.close()
               }
             case None =>
+              progressBar.foreach(_.reportUnkownStatusProcess())
               logInfo("No application to process. Exiting")
           }
         } catch {
-          case t: Throwable => errorHandler(t, path)
+          case t: Throwable =>
+            progressBar.foreach(_.reportFailedProcess())
+            errorHandler(t, path)
         }
       }
     }
@@ -480,6 +507,22 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs) extends Logging 
         profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
       }
+    }
+  }
+
+  /**
+   * Safely writes the application summary information to the specified profileOutputWriter.
+   * If an exception occurs during the writing process, it will be caught and logged, preventing
+   * it from propagating further.
+   */
+  private def writeSafelyToOutput(profileOutputWriter: ProfileOutputWriter,
+      appsSum: Seq[ApplicationSummaryInfo], outputCombined: Boolean,
+      comparedRes: Option[CompareSummaryInfo] = None): Unit = {
+    try {
+      writeOutput(profileOutputWriter, appsSum, outputCombined, comparedRes)
+    } catch {
+      case e: Exception =>
+        logError("Exception thrown while writing", e)
     }
   }
 }
