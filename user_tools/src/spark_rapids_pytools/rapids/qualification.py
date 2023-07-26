@@ -432,6 +432,9 @@ class Qualification(RapidsJarTool):
 
     def __generate_recommended_configs_report(self) -> list:
         report_content = []
+        # TODO: add bootstrap configs support for databricks platforms
+        if 'databricks' in self.ctxt.platform.get_platform_name():
+            return report_content
         if self.ctxt.get_ctxt('recommendedConfigs'):
             report_content = [
                 Utils.gen_report_sec_header('Recommended Spark configurations for running on GPUs', hrule=False),
