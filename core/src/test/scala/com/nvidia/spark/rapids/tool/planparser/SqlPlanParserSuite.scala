@@ -75,10 +75,12 @@ class SQLPlanParserSuite extends BaseTestSuite {
       None, None, List(eventLog), hadoopConf)
     val pluginTypeChecker = new PluginTypeChecker()
     assert(allEventLogs.size == 1)
-    val appOption = QualificationAppInfo.createApp(allEventLogs.head, hadoopConf,
+    val appResult = QualificationAppInfo.createApp(allEventLogs.head, hadoopConf,
       pluginTypeChecker, reportSqlLevel = false, mlOpsEnabled = false)
-    assert(appOption.nonEmpty)
-    appOption.get
+    appResult match {
+      case Right(app) => app
+      case Left(_) => throw new AssertionError("Cannot create application")
+    }
   }
 
   private def getAllExecsFromPlan(plans: Seq[PlanInfo]): Seq[ExecInfo] = {

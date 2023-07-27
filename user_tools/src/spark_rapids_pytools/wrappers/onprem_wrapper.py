@@ -103,7 +103,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             'filterApps': filter_apps,
             'toolsJar': tools_jar,
             'gpuClusterRecommendation': gpu_cluster_recommendation,
-            'target_platform': target_platform
+            'targetPlatform': target_platform
         }
         tool_obj = QualificationAsLocal(platform_type=CloudPlatform.ONPREM,
                                         output_folder=local_folder,

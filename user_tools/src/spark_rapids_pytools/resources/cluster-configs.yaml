@@ -1,0 +1,22 @@
+clusterConfigs:
+  constants:
+    # Maximum amount of pinned memory to use per executor in megabytes
+    maxPinnedMemoryMB: 4096
+    # Default pageable pool size per executor in megabytes
+    defaultPageablePoolMB: 1024
+    # Maximum number of concurrent tasks to run on the GPU
+    maxGpuConcurrent: 4
+    # Amount of GPU memory to use per concurrent task in megabytes
+    # Using a bit less than 8GB here since Dataproc clusters advertise
+    # T4s as only having around 14.75 GB and we want to run with
+    # 2 concurrent by default on T4s.
+    gpuMemPerTaskMB: 7500
+    # Ideal amount of JVM heap memory to request per CPU core in megabytes
+    heapPerCoreMB: 2048
+    # Fraction of the executor JVM heap size that should be additionally reserved
+    # for JVM off-heap overhead (thread stacks, native libraries, etc.)
+    heapOverheadFraction: 0.1
+    # Amount of CPU memory to reserve for system overhead (kernel, buffers, etc.) in megabytes
+    systemReserveMB: 2048
+    # By default set the spark.sql.files.maxPartitionBytes to 512m
+    maxSqlFilesPartitionsMB: 512

@@ -343,6 +343,12 @@ class AutoTuner(
   private val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
+  val selectedPlatform: Platform = platform match {
+    case "databricks" => new DatabricksPlatform()
+    case "dataproc" => new DataprocPlatform()
+    case "emr" => new EmrPlatform()
+    case "onprem" => new OnPremPlatform()
+  }
 
   private def isCalculationEnabled(prop: String) : Boolean = {
     !limitedLogicRecommendations.contains(prop)
@@ -817,6 +823,17 @@ class AutoTuner(
     clusterProps.toString
   }
 
+  /**
+   * Add default comments for missing properties except the ones
+   * which should be skipped.
+   */
+  private def addDefaultComments(): Unit = {
+    commentsForMissingProps.foreach {
+      case (key, value) if !skippedRecommendations.contains(key) =>
+        appendComment(value)
+    }
+  }
+
   private def toCommentProfileResult: Seq[RecommendedCommentResult] = {
     comments.map(RecommendedCommentResult).sortBy(_.comment)
   }
@@ -879,12 +896,17 @@ class AutoTuner(
         limitedSeq.foreach(_ => limitedLogicRecommendations.add(_))
       }
       skipList.foreach(skipSeq => skipSeq.foreach(_ => skippedRecommendations.add(_)))
+      skippedRecommendations ++= selectedPlatform.recommendationsToExclude
       if (processPropsAndCheck) {
         initRecommendations()
         calculateRecommendations()
       } else {
         // add all default comments
-        commentsForMissingProps.foreach(commentEntry => appendComment(commentEntry._2))
+        addDefaultComments()
+      }
+      // add all platform specific recommendations
+      selectedPlatform.recommendationsToInclude.foreach {
+        case (property, value) => appendRecommendation(property, value)
       }
     }
     (toRecommendationsProfileResult, toCommentProfileResult)
