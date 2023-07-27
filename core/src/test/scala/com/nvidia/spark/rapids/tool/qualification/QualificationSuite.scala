@@ -23,7 +23,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
 import com.nvidia.spark.rapids.BaseTestSuite
-import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, StatusReportCounts, ToolTestUtils}
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.ml.feature.PCA
@@ -146,7 +146,8 @@ class QualificationSuite extends BaseTestSuite {
   }
 
   private def runQualificationTest(eventLogs: Array[String], expectFileName: String,
-      shouldReturnEmpty: Boolean = false, expectPerSqlFileName: Option[String] = None) = {
+      shouldReturnEmpty: Boolean = false, expectPerSqlFileName: Option[String] = None,
+      expectedStatus: Option[StatusReportCounts] = None) = {
     TrampolineUtil.withTempDir { outpath =>
       val resultExpectation = new File(expRoot, expectFileName)
       val outputArgs = Array(
@@ -166,6 +167,14 @@ class QualificationSuite extends BaseTestSuite {
       import spark2.implicits._
       val summaryDF = createSummaryForDF(appSum).toDF
       val dfQual = sparkSession.createDataFrame(summaryDF.rdd, schema)
+
+      // Default expectation for the status counts - All applications are successful.
+      val expectedStatusCounts =
+        expectedStatus.getOrElse(StatusReportCounts(appSum.length, 0, 0))
+      // Compare the expected status counts with the actual status counts from the application
+      ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
+        expectedStatusCounts)
+
       if (shouldReturnEmpty) {
         assert(appSum.head.estimatedInfo.sqlDfDuration == 0.0)
       } else {
@@ -264,6 +273,11 @@ class QualificationSuite extends BaseTestSuite {
       assert(exit == 0)
       assert(appSum.size == 4)
       assert(appSum.head.appId.equals("local-1622043423018"))
+
+      // Default expectation for the status counts - All applications are successful.
+      val expectedStatusCount = StatusReportCounts(appSum.length, 0, 0)
+      // Compare the expected status counts with the actual status counts from the application
+      ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath, expectedStatusCount)
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.log"
@@ -418,6 +432,12 @@ class QualificationSuite extends BaseTestSuite {
       assert(exit == 0)
       assert(appSum.size == 0)
 
+      // Application should fail. Status counts: 0 SUCCESS, 0 FAILURE, 1 UNKNOWN
+      val expectedStatusCounts = StatusReportCounts(0, 0, 1)
+      // Compare the expected status counts with the actual status counts from the application
+      ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
+        expectedStatusCounts)
+
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.csv"
       val inputSource = Source.fromFile(filename)
@@ -435,7 +455,9 @@ class QualificationSuite extends BaseTestSuite {
     val profileLogDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
     val badEventLog = s"$profileLogDir/malformed_json_eventlog.zstd"
     val logFiles = Array(s"$logDir/nds_q86_test", badEventLog)
-    runQualificationTest(logFiles, "nds_q86_test_expectation.csv")
+    // Status counts: 1 SUCCESS, 0 FAILURE, 1 UNKNOWN
+    val expectedStatus = Some(StatusReportCounts(1, 0, 1))
+    runQualificationTest(logFiles, "nds_q86_test_expectation.csv", expectedStatus = expectedStatus)
   }
 
   test("spark2 eventlog") {
