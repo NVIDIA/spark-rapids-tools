@@ -18,9 +18,10 @@ package com.nvidia.spark.rapids.tool.qualification
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import org.rogach.scallop.exceptions.ScallopException
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
 
-class QualificationArgs(arguments: Seq[String]) extends ScallopConf(arguments) {
+class QualificationArgs(arguments: Seq[String]) extends ScallopConf(arguments) with Logging {
 
   banner("""
 RAPIDS Accelerator for Apache Spark qualification tool
@@ -174,6 +175,26 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     case time if (AppFilterImpl.parseAppTimePeriod(time) > 0L) => Right(Unit)
     case _ => Left("Time period specified, must be greater than 0 and valid periods " +
       "are min(minute),h(hours),d(days),w(weeks),m(months).")
+  }
+
+  /**
+   * Assumption: Event-log files do not begin with a '-'.
+   *
+   * Inform the user that all options after the event-logs will be ignored.
+   * Eg,  Arguments: '--output-directory result_dir /path-to-log --timeout 50 --num-threads 100'
+   * Result: Option '--timeout 50 --num-threads 100' will be ignored.
+   */
+  validate(eventlog) { log =>
+    // `log/eventlog` is a trailing argument.
+    // Drop all elements in it until the first occurrence of '-'.
+    val ignoredOptions = log.dropWhile(s => !s.startsWith("-"))
+    // If any elements exist in the `ignored` list, these are additional options that
+    // will be skipped by EventLogPathProcessor
+    if (ignoredOptions.nonEmpty) {
+      logWarning(s"Options provided after event logs will be ignored: " +
+        s"${ignoredOptions.mkString(" ")}")
+    }
+    Right(Unit)
   }
 
   verify()
