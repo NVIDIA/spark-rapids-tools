@@ -15,6 +15,7 @@
 """Definition of global utilities and helpers methods."""
 
 import datetime
+import hashlib
 import logging.config
 import os
 import re
@@ -361,3 +362,52 @@ class SysCmd:
         if self.out_std:
             return self.out_std.strip()
         return self.out_std
+
+
+class DownloaderVerification:
+    """
+    Utility class to verify the integrity of a downloaded file using hash algorithms.
+    Supported hash algorithms: md5, sha1, sha256, sha512.
+    """
+    SUPPORTED_ALGORITHMS = {
+        'md5': hashlib.md5,
+        'sha1': hashlib.sha1,
+        'sha256': hashlib.sha256,
+        'sha512': hashlib.sha512
+    }
+
+    @classmethod
+    def get_integrity_algorithm(cls, hash_info: dict):
+        for algorithm in cls.SUPPORTED_ALGORITHMS:
+            if algorithm in hash_info:
+                return algorithm
+        return None
+
+    @classmethod
+    def check_integrity(cls, file_path, algorithm, expected_hash):
+        """
+        Checks the integrity of a downloaded file by calculating its hash and comparing it with the expected hash.
+
+        :param file_path: Path of the downloaded file.
+        :param algorithm: Name of the hash algorithm to use for calculating
+        :param expected_hash: Expected hash value for the file
+        :return: True if the calculated hash matches the expected hash, False otherwise.
+        """
+        if not os.path.isfile(file_path):
+            # Cannot verify file
+            return False
+
+        # Helper function to calculate the hash of the file using the specified algorithm
+        def calculate_hash(hash_algorithm='sha256'):
+            if hash_algorithm not in cls.SUPPORTED_ALGORITHMS:
+                # Unsupported hash algorithm
+                return False
+
+            hash_function = cls.SUPPORTED_ALGORITHMS[hash_algorithm]()
+            with open(file_path, 'rb') as file:
+                while chunk := file.read(8192):
+                    hash_function.update(chunk)
+            return hash_function.hexdigest()
+
+        calculated_hash = calculate_hash(algorithm)
+        return calculated_hash == expected_hash
