@@ -82,6 +82,7 @@ class GpuDevice(EnumeratedType):
     P100 = 'P100'
     P4 = 'P4'
     L4 = 'l4'
+    A10 = 'a10'
 
     @classmethod
     def get_default_gpu(cls):
@@ -95,7 +96,8 @@ class GpuDevice(EnumeratedType):
             self.P4: [8192],
             self.K80: [12288],
             self.V100: [16384],
-            self.P100: [16384]
+            self.P100: [16384],
+            self.A10: [24576]
         }
         return memory_hash.get(self)
 
@@ -123,8 +125,11 @@ class CloudPlatform(EnumeratedType):
     DATAPROC = 'dataproc'
     EMR = 'emr'
     ONPREM = 'onprem'
-    LOCAL = 'local'
     NONE = 'NONE'
+
+    @classmethod
+    def get_default(cls):
+        return cls.ONPREM
 
 
 class TargetPlatform(EnumeratedType):
@@ -635,7 +640,7 @@ class PlatformBase:
 
     @classmethod
     def list_supported_gpus(cls):
-        return [GpuDevice.T4, GpuDevice.A100, GpuDevice.L4]
+        return [GpuDevice.T4, GpuDevice.A100, GpuDevice.L4, GpuDevice.A10]
 
     def load_from_config_parser(self, conf_file, **prop_args) -> dict:
         res = None

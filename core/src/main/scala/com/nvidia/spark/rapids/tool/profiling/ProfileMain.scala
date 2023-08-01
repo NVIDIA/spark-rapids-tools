@@ -30,7 +30,7 @@ object ProfileMain extends Logging {
    * Entry point from spark-submit running this as the driver.
    */
   def main(args: Array[String]) {
-    val (exitCode, _) = mainInternal(new ProfileArgs(args))
+    val (exitCode, _) = mainInternal(new ProfileArgs(args), enablePB = true)
     if (exitCode != 0) {
       System.exit(exitCode)
     }
@@ -39,7 +39,7 @@ object ProfileMain extends Logging {
   /**
    * Entry point for tests
    */
-  def mainInternal(appArgs: ProfileArgs): (Int, Int) = {
+  def mainInternal(appArgs: ProfileArgs, enablePB: Boolean = false): (Int, Int) = {
 
     // Parsing args
     val eventlogPaths = appArgs.eventlog()
@@ -67,7 +67,7 @@ object ProfileMain extends Logging {
       return (0, filteredLogs.size)
     }
 
-    val profiler = new Profiler(hadoopConf, appArgs)
+    val profiler = new Profiler(hadoopConf, appArgs, enablePB)
     profiler.profile(eventLogFsFiltered)
     (0, filteredLogs.size)
   }

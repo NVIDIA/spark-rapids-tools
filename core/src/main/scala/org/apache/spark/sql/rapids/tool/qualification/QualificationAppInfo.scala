@@ -740,6 +740,13 @@ case class QualSQLExecutionInfo(
     hasDataset: Boolean,
     problematic: String = "")
 
+// Case class representing status summary information for a particular application.
+case class StatusSummaryInfo(
+    path: String,
+    status: String,
+    appId: String = "",
+    message: String = "")
+
 case class QualificationSummaryInfo(
     appName: String,
     appId: String,
@@ -791,7 +798,7 @@ object QualificationAppInfo extends Logging {
   val CPU_GPU_TRANSFER_RATE = 10000000L
   val SECONDS_TO_MILLISECONDS = 1000L
 
-  private def handleException(e: Exception, path: EventLogInfo): Unit = {
+  private def handleException(e: Exception, path: EventLogInfo): String = {
     val message: String = e match {
       case gpuLog: GpuEventLogException =>
         gpuLog.message
@@ -804,7 +811,7 @@ object QualificationAppInfo extends Logging {
         s"Got unexpected exception processing file: ${path.eventLog.toString}"
     }
 
-    logWarning(s"${e.getClass.getSimpleName}: $message")
+    s"${e.getClass.getSimpleName}: $message"
   }
 
   def getRecommendation(totalSpeedup: Double,
@@ -871,22 +878,26 @@ object QualificationAppInfo extends Logging {
       allClusterTagsMap)
   }
 
+  /**
+   * Create a QualificationAppInfo object based on the provided parameters.
+   *
+   * @return Either a Right with the created QualificationAppInfo if successful,
+   *         or a Left with an error message if an exception occurs during creation.
+   */
   def createApp(
       path: EventLogInfo,
       hadoopConf: Configuration,
       pluginTypeChecker: PluginTypeChecker,
       reportSqlLevel: Boolean,
-      mlOpsEnabled: Boolean): Option[QualificationAppInfo] = {
-    val app = try {
+      mlOpsEnabled: Boolean): Either[String, QualificationAppInfo] = {
+    try {
         val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
           reportSqlLevel, false, mlOpsEnabled)
         logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
-        Some(app)
+        Right(app)
       } catch {
         case e: Exception =>
-          handleException(e, path)
-          None
+          Left(handleException(e, path))
       }
-    app
   }
 }

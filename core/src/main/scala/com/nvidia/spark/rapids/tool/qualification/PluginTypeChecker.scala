@@ -41,7 +41,8 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
   private val OPERATORS_SCORE_FILE_ONPREM = "operatorsScore.csv"
   private val OPERATORS_SCORE_FILE_DATAPROC_T4 = "operatorsScore-dataproc-t4.csv"
   private val OPERATORS_SCORE_FILE_DATAPROC_L4 = "operatorsScore-dataproc-l4.csv"
-  private val OPERATORS_SCORE_FILE_EMR = "operatorsScore-emr.csv"
+  private val OPERATORS_SCORE_FILE_EMR_T4 = "operatorsScore-emr-t4.csv"
+  private val OPERATORS_SCORE_FILE_EMR_A10 = "operatorsScore-emr-a10.csv"
   private val OPERATORS_SCORE_FILE_DATABRICKS_AWS = "operatorsScore-databricks-aws.csv"
   private val OPERATORS_SCORE_FILE_DATABRICKS_AZURE = "operatorsScore-databricks-azure.csv"
   private val SUPPORTED_EXECS_FILE = "supportedExecs.csv"
@@ -92,7 +93,9 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
       // if no GPU specified, then default to dataproc-t4 for backward compatibility
       case "dataproc-t4" | "dataproc" => OPERATORS_SCORE_FILE_DATAPROC_T4
       case "dataproc-l4" => OPERATORS_SCORE_FILE_DATAPROC_L4
-      case "emr" => OPERATORS_SCORE_FILE_EMR
+      // if no GPU specified, then default to emr-t4 for backward compatibility
+      case "emr-t4" | "emr" => OPERATORS_SCORE_FILE_EMR_T4
+      case "emr-a10" => OPERATORS_SCORE_FILE_EMR_A10
       case "databricks-aws" => OPERATORS_SCORE_FILE_DATABRICKS_AWS
       case "databricks-azure" => OPERATORS_SCORE_FILE_DATABRICKS_AZURE
       case _ => OPERATORS_SCORE_FILE_ONPREM

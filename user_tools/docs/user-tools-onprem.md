@@ -219,4 +219,95 @@ The command creates a directory with UUID that contains the following:
     └── qualification_summary.csv
     3 directories, 9 files
     ```
-  
+
+## Profiling command
+
+### Local deployment
+
+```
+spark_rapids_user_tools onprem profiling [options]
+spark_rapids_user_tools onprem profiling -- --help
+```
+
+The local deployment runs on the local development machine. It requires:
+1. Java 1.8+ development environment.
+2. Internet access to download JAR dependencies from mvn: `spark-*.jar`.
+3. Dependencies are cached on the local disk to reduce the overhead of the download.
+
+#### Command options
+
+| Option               | Description                                                                                                                                                                                                                                               | Default                                                                                                                                       | Required |
+|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|----------|
+| **worker_info**      | A path pointing to a yaml file containing the system information of a worker node. It is assumed that all workers are homogenous. The format of the file is described in the following section.                                                           | None                                                                                                                                          | Y        |
+| **eventlogs**        | A comma separated list to event logs or directory                                                                                                                                                                                                         | None                                                                                                                                          | N        |
+| **local_folder**     | Local work-directory path to store the output and to be used as root directory for temporary folders/files. The final output will go into a subdirectory named `prof-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution. | If the argument is NONE, the default value is the env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. | N        |
+| **jvm_heap_size**    | The maximum heap size of the JVM in gigabytes                                                                                                                                                                                                             | 24                                                                                                                                            | N        |
+| **tools_jar**        | Path to a bundled jar including RAPIDS tool. The path is a local filesystem.                                                                                                                                                                              | Downloads the latest `rapids-4-spark-tools_*.jar` from mvn repo                                                                               | N        |
+| **verbose**          | True or False to enable verbosity to the wrapper script                                                                                                                                                                                                   | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                                                                             | N        |
+| **rapids_options**** | A list of valid [Profiling tool options](../../core/docs/spark-profiling-tool.md#qualification-tool-options). Note that (`output-directory`, `auto-tuner`, `combined`) flags are ignored                                                                  | N/A                                                                                                                                           | N        |
+
+If the CLI does not provide an argument `worker_info`, the tool will throw an error and exit.
+The `worker_info` is a yaml file that contains the HW description of the workers. It must contain
+the following properties:
+- `system.numCores`: number of cores of a single worker node
+- `system.memory`: RAM size in MiB of a single node
+- `system.numWorkers`: number of workers
+- `gpu.name`: the accelerator installed on the worker node
+- `gpu.memory`: memory size of the accelerator in MiB. (i.e., 16GB for Nvidia-T4)
+- `softwareProperties`: Spark default-configurations of the target cluster
+
+An example of valid `worker_info.yaml`:
+
+  ```
+  system:
+    numCores: 32
+    memory: 212992MiB
+    numWorkers: 5
+  gpu:
+    memory: 15109MiB
+    count: 4
+    name: T4
+  softwareProperties:
+    spark.driver.maxResultSize: 7680m
+    spark.driver.memory: 15360m
+    spark.executor.cores: '8'
+    spark.executor.instances: '2'
+    spark.executor.memory: 47222m
+    spark.executorEnv.OPENBLAS_NUM_THREADS: '1'
+    spark.scheduler.mode: FAIR
+    spark.sql.cbo.enabled: 'true'
+    spark.ui.port: '0'
+    spark.yarn.am.memory: 640m
+  ```
+
+#### Use case scenario
+
+A typical workflow to successfully run the `profiling` command in local mode is described as follows:
+
+1. Store the Apache Spark event logs (local folder).
+2. On a machine with JDK8+ installed:
+    1. user installs `spark_rapids_user_tools`
+3. User defines the cluster configuration of on-premises platform. Template of the required configs is provided below and
+   the file should be in yaml format mentioned above(`worker_info.yaml`).
+4. User runs profiling tool CLI command.
+
+For each successful execution, the wrapper generates a new directory in the format of
+`prof_<YYYYmmddHHmmss>_<0x%08X>`. The directory contains `profiling_summary.log` in addition to
+the actual folder of the RAPIDS Profiling tool.
+
+   ```
+    ./prof_<YYYYmmddHHmmss>_<0x%08X>/profiling_summary.log
+    ./prof_<YYYYmmddHHmmss>_<0x%08X>/rapids_4_spark_profile/
+   ```
+
+Users can provide a simple yaml file to describe the shape of the worker nodes.
+The CLI is triggered by providing the location where the yaml file is stored `--worker_info $WORKER_INFO_PATH`
+
+    ```
+    # First, create a yaml file as described in previous section
+    $> export WORKER_INFO_PATH=worker-info.yaml
+    # Run the profiling cmd
+    $> spark_rapids_user_tools onprem profiling \
+            --eventlogs $EVENTLOGS \
+            --worker_info $WORKER_INFO_PATH
+    ```

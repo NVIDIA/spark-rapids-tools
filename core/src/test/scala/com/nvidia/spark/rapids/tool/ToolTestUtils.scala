@@ -21,14 +21,25 @@ import java.io.{File, FilenameFilter, FileNotFoundException}
 import scala.collection.mutable.ArrayBuffer
 
 import com.nvidia.spark.rapids.tool.profiling.ProfileArgs
+import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
+import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types._
 
 object ToolTestUtils extends Logging {
+
+  // Scheme fields for Status Report file
+  private val csvStatusFields = Seq(
+    (QualOutputWriter.STATUS_REPORT_PATH_STR, StringType),
+    (QualOutputWriter.STATUS_REPORT_STATUS_STR, StringType),
+    (QualOutputWriter.STATUS_REPORT_DESC_STR, StringType))
+
+  val statusReportSchema =
+    new StructType(csvStatusFields.map(f => StructField(f._1, f._2)).toArray)
 
   def getTestResourceFile(file: String): File = {
     new File(getClass.getClassLoader.getResource(file).getFile)
@@ -139,5 +150,39 @@ object ToolTestUtils extends Logging {
     }
     apps
   }
+
+  /**
+   * Performs an expected status report dataframe to validate the counts
+   * of different status categories (SUCCESS, FAILURE, UNKNOWN).
+   */
+  def compareStatusReport(sparkSession: SparkSession, outpath: String,
+      expStatusReportCount: StatusReportCounts): Unit = {
+    val filename = s"$outpath/rapids_4_spark_qualification_output/" +
+      s"rapids_4_spark_qualification_output_status.csv"
+    val csvFile = new File(filename)
+
+    // If the status report file does not exist, all applications are expected to be failures.
+    if(!csvFile.exists()) {
+      assert(expStatusReportCount.success == 0 &&
+        expStatusReportCount.unknown == 0 &&
+        expStatusReportCount.failure > 0)
+    } else {
+      val expectedStatusDf = readExpectationCSV(sparkSession, filename, Some(statusReportSchema))
+
+      // Function to count the occurrences of a specific status in the DataFrame
+      def countStatus(status: String): Long =
+        expectedStatusDf.filter(col("STATUS") === lit(status)).count()
+
+      val actualStatusReportCount = StatusReportCounts(
+        countStatus("SUCCESS"),
+        countStatus("FAILURE"),
+        countStatus("UNKNOWN"))
+      assert(actualStatusReportCount == expStatusReportCount)
+    }
+  }
 }
 
+/**
+ * Case class representing the counts of different status categories in a status report.
+ */
+case class StatusReportCounts(success: Long, failure: Long, unknown: Long)
