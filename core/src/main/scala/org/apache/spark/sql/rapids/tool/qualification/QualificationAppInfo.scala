@@ -51,6 +51,7 @@ class QualificationAppInfo(
     HashMap.empty[Long, StageTaskQualificationSummary]
   val stageIdToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
     HashMap.empty[Long, StageTaskQualificationSummary]
+  val stageIdToGpuCpuTransitions: HashMap[Int, Int] = HashMap.empty[Int, Int]
 
   val stageIdToSqlID: HashMap[Int, Long] = HashMap.empty[Int, Long]
   val sqlIDtoFailures: HashMap[Long, ArrayBuffer[String]] = HashMap.empty[Long, ArrayBuffer[String]]
@@ -241,13 +242,60 @@ class QualificationAppInfo(
     stages.map { stageId =>
       val stageTaskTime = stageIdToTaskEndSum.get(stageId)
         .map(_.totalTaskDuration).getOrElse(0L)
+      val transitionsTime = if (stageIdToGpuCpuTransitions.get(stageId).isDefined) {
+        val gpuCpuTransitions = stageIdToGpuCpuTransitions.get(stageId).get
+        if (gpuCpuTransitions > 0) {
+          val totalBytesRead =
+            stageIdToTaskEndSum.get(stageId).map(_.totalbytesRead).getOrElse(0L).toDouble
+          // Duration to transfer data from GPU to CPU and vice versa.
+          // Assuming it's a PCI-E Gen3, but also assuming that some of the result could be
+          // spilled to disk.
+          // Duration in Spark metrics is in millisecond, so multiply this by 1000 to make
+          // it consistent
+          if (totalBytesRead > 0) {
+            val fallback_duration =
+              (totalBytesRead / QualificationAppInfo.CPU_GPU_TRANSFER_RATE) *
+                QualificationAppInfo.SECONDS_TO_MILLISECONDS * gpuCpuTransitions
+            fallback_duration.toLong
+          } else {
+            0L
+          }
+        } else {
+          0L
+        }
+      } else {
+        0L
+      }
+      // Update totaltaskduration of stageIdToTaskEndSum to include transitions time
+      val stageIdToTasksMetrics = stageIdToTaskEndSum.get(stageId).orElse(None)
+      if (stageIdToTasksMetrics.isDefined) {
+        stageIdToTasksMetrics.get.totalTaskDuration += transitionsTime
+      }
       StageQualSummaryInfo(stageId, allSpeedupFactorAvg, stageTaskTime,
-        eachStageUnsupported, estimated)
+        eachStageUnsupported + transitionsTime, estimated)
     }.toSet
   }
 
   def summarizeStageLevel(execInfos: Seq[ExecInfo], sqlID: Long): Set[StageQualSummaryInfo] = {
     val (allStagesToExecs, execsNoStage) = getStageToExec(execInfos)
+
+    // Get the total number of transitions between CPU and GPU for each stage and
+    // store it in a Map.
+    allStagesToExecs.foreach { case (stageId, execs) =>
+      val topLevelExecs = execs.filterNot(
+        x => x.exec.startsWith("WholeStage"))
+      val childrenExecs = execs.flatMap { e =>
+        e.children.map(x => x)
+      }.flatten
+      val allExecs = topLevelExecs ++ childrenExecs
+      val transitions = if (allExecs.size > 1) {
+        allExecs.sliding(2).count(x => (x(0).isSupported && !x(1).isSupported)
+          || (!x(0).isSupported && x(1).isSupported))
+      } else {
+        0
+      }
+      stageIdToGpuCpuTransitions(stageId) = transitions
+    }
     if (allStagesToExecs.isEmpty) {
       // use job level
       // also get the job ids associated with the SQLId
@@ -670,7 +718,8 @@ class StageTaskQualificationSummary(
     val stageAttemptId: Int,
     var executorRunTime: Long,
     var executorCPUTime: Long,
-    var totalTaskDuration: Long)
+    var totalTaskDuration: Long,
+    var totalbytesRead: Long)
 
 case class QualApplicationInfo(
     appName: String,
@@ -739,6 +788,8 @@ object QualificationAppInfo extends Logging {
   val NOT_APPLICABLE = "Not Applicable"
   val LOWER_BOUND_RECOMMENDED = 1.3
   val LOWER_BOUND_STRONGLY_RECOMMENDED = 2.5
+  val CPU_GPU_TRANSFER_RATE = 10000000L
+  val SECONDS_TO_MILLISECONDS = 1000L
 
   private def handleException(e: Exception, path: EventLogInfo): Unit = {
     val message: String = e match {
