@@ -16,15 +16,17 @@
 
 import datetime
 import glob
+import hashlib
 import os
 import pathlib
 import re
 import shutil
 import ssl
+import subprocess
 import urllib
 from dataclasses import dataclass
 from itertools import islice
-from shutil import rmtree
+from shutil import rmtree, which
 from typing import List
 
 import certifi
@@ -32,7 +34,7 @@ from fastcore.all import urlsave
 from fastprogress.fastprogress import progress_bar
 
 from spark_rapids_pytools.common.exceptions import StorageException
-from spark_rapids_pytools.common.utilities import Utils, DownloaderVerification
+from spark_rapids_pytools.common.utilities import Utils
 
 
 class FSUtil:
@@ -166,7 +168,7 @@ class FSUtil:
                 diff_time = int(datetime.datetime.now().timestamp() - modified_time)
                 if diff_time > expiration_time_s:
                     return False
-            return DownloaderVerification.check_integrity(fpath, checks_args)
+            return FileVerifier.check_integrity(fpath, checks_args)
 
         curr_time_stamp = datetime.datetime.now().timestamp()
         if check_cached_file(cache_file, file_checks):
@@ -374,3 +376,117 @@ class StorageDriver:
             return True
         # check if the file ends with common extension
         return value.endswith('.json') or value.endswith('.yaml') or value.endswith('.yml')
+
+
+class FileVerifier:
+    """
+    Utility class to verify the integrity of a downloaded file using hash algorithms.
+    Supported hash algorithms: md5, sha1, sha256, sha512.
+    """
+    SUPPORTED_ALGORITHMS = {
+        'md5': hashlib.md5,
+        'sha1': hashlib.sha1,
+        'sha256': hashlib.sha256,
+        'sha512': hashlib.sha512
+    }
+    GPG_TIMEOUT_SEC = 5  # Timeout for GPG process
+
+    @classmethod
+    def get_signature_file(cls, file_url: str, dest_folder: str):
+        try:
+            return FSUtil.download_from_url(file_url + '.asc', dest_folder)
+        except urllib.error.URLError:
+            return None
+
+    @classmethod
+    def get_integrity_algorithm(cls, hash_info: dict):
+        for algorithm in cls.SUPPORTED_ALGORITHMS:
+            if algorithm in hash_info:
+                return algorithm
+        return None
+
+    @classmethod
+    def _check_integrity_using_gpg(cls, file_path: str, signature_file_path: str) -> bool:
+        """
+        Verify file integrity using GPG and its corresponding .asc signature file.
+        Note - The verification has a timeout of `GPG_TIMEOUT_SEC`
+
+        :param file_path: Path to the file to be verified.
+        :param signature_file_path: Path to the .asc signature file.
+        :return: True if the file integrity is valid and the signature is verified, False otherwise.
+        """
+        if not (os.path.isfile(file_path) and os.path.isfile(signature_file_path)):
+            return False
+
+        if which('gpg') is None:
+            # GPG is not found in the system
+            return False
+
+        gpg_command = [
+            'gpg',
+            '--auto-key-locate keyserver',
+            '--keyserver pgp.mit.edu',
+            '--keyserver-options auto-key-retrieve',
+            '--verify',
+            signature_file_path,
+            file_path
+        ]
+
+        try:
+            result = subprocess.check_output(' '.join(gpg_command),
+                                             shell=True,
+                                             text=True,
+                                             timeout=cls.GPG_TIMEOUT_SEC,
+                                             stderr=subprocess.STDOUT)
+            return 'Good signature' in result
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+            return False
+
+    @classmethod
+    def _check_integrity_using_algorithm(cls, file_path: str, algorithm: str, expected_hash: str) -> bool:
+        """
+        Checks the integrity of a downloaded file by calculating its hash and comparing it with the expected hash.
+
+        :param file_path: Path of the downloaded file.
+        :param algorithm: Name of the hash algorithm to use for calculating
+        :param expected_hash: Expected hash value for the file
+        :return: True if the calculated hash matches the expected hash, False otherwise.
+        """
+        if not os.path.isfile(file_path):
+            # Cannot verify file
+            return False
+
+        # Helper function to calculate the hash of the file using the specified algorithm
+        def calculate_hash(hash_algorithm='sha256'):
+            if hash_algorithm not in cls.SUPPORTED_ALGORITHMS:
+                # Unsupported hash algorithm
+                return False
+            hash_function = cls.SUPPORTED_ALGORITHMS[hash_algorithm]()
+            with open(file_path, 'rb') as file:
+                while chunk := file.read(8192):
+                    hash_function.update(chunk)
+            return hash_function.hexdigest()
+
+        calculated_hash = calculate_hash(algorithm)
+        return calculated_hash == expected_hash
+
+    @classmethod
+    def check_integrity(cls, file_path: str, check_args: dict) -> bool:
+        """
+        Check the integrity of a downloaded file.This method checks the integrity of a downloaded file using
+        hash algorithms or GPG verification, if available.
+
+        :param file_path: Path of the downloaded file.
+        :param check_args: Dictionary containing the hash algorithm, expected hash value and/or the signature file path.
+        :return:
+        """
+        result = False
+        # Verify integrity using GPG-based verification
+        signature_file_path = check_args.get('signature_file')
+        if signature_file_path:
+            result = cls._check_integrity_using_gpg(file_path, signature_file_path)
+        # Verify integrity using hashing algorithm
+        algorithm = cls.get_integrity_algorithm(check_args)
+        if not result and algorithm:
+            result = cls._check_integrity_using_algorithm(file_path, algorithm, check_args.get(algorithm))
+        return result
