@@ -166,11 +166,7 @@ class FSUtil:
                 diff_time = int(datetime.datetime.now().timestamp() - modified_time)
                 if diff_time > expiration_time_s:
                     return False
-            algorithm = DownloaderVerification.get_integrity_algorithm(checks_args)
-            # If valid algorithm present in check_args dictionary, verify integrity
-            if algorithm is not None:
-                return DownloaderVerification.check_integrity(fpath, algorithm, checks_args[algorithm])
-            return True
+            return DownloaderVerification.check_integrity(fpath, checks_args)
 
         curr_time_stamp = datetime.datetime.now().timestamp()
         if check_cached_file(cache_file, file_checks):

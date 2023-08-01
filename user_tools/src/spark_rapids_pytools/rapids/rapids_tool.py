@@ -488,11 +488,12 @@ class RapidsJarTool(RapidsTool):
             dest_folder = self.ctxt.get_cache_folder()
             resource_file_name = FSUtil.get_resource_name(dep['uri'])
             resource_file = FSUtil.build_path(dest_folder, resource_file_name)
+            signature_file = FSUtil.download_from_url(dep['uri'] + '.asc', dest_folder)
             # Find the first supported algorithm present in the dependency dictionary 'dep'
             algorithm = DownloaderVerification.get_integrity_algorithm(dep)
             if algorithm is None:
                 raise ValueError(f'Unsupported hash algorithm in dependency: {dep}')
-            file_check_dict = {'size': dep['size'], algorithm: dep[algorithm]}
+            file_check_dict = {'size': dep['size'], algorithm: dep[algorithm], 'signature_file': signature_file}
             is_created = FSUtil.cache_from_url(dep['uri'], resource_file, file_checks=file_check_dict)
             if is_created:
                 self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],
