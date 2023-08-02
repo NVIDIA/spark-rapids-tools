@@ -25,8 +25,9 @@ import ssl
 import subprocess
 import urllib
 from dataclasses import dataclass
+from functools import partial
 from itertools import islice
-from shutil import rmtree, which
+from shutil import rmtree
 from typing import List
 
 import certifi
@@ -158,10 +159,6 @@ class FSUtil:
                 return False
             if not checks_args:
                 return True
-            expected_size = checks_args.get('size')
-            if expected_size:
-                if expected_size != os.path.getsize(fpath):
-                    return False
             expiration_time_s = checks_args.get('cacheExpirationSecs')
             if expiration_time_s:
                 modified_time = os.path.getmtime(fpath)
@@ -389,7 +386,7 @@ class FileVerifier:
         'sha256': hashlib.sha256,
         'sha512': hashlib.sha512
     }
-    GPG_TIMEOUT_SEC = 5  # Timeout for GPG process
+    GPG_TIMEOUT_SEC = 60    # Timeout for GPG process
     READ_CHUNK_SIZE = 8192  # Size of chunk in bytes
 
     @classmethod
@@ -407,6 +404,10 @@ class FileVerifier:
         return None
 
     @classmethod
+    def _gpg_prerequisites_satisfied(cls) -> bool:
+        return Utils.is_system_tool('gpg')
+
+    @classmethod
     def _check_integrity_using_gpg(cls, file_path: str, signature_file_path: str) -> bool:
         """
         Verify file integrity using GPG and its corresponding .asc signature file.
@@ -419,9 +420,7 @@ class FileVerifier:
         if not (os.path.isfile(file_path) and os.path.isfile(signature_file_path)):
             return False
 
-        if which('gpg') is None:
-            # GPG is not found in the system
-            return False
+        assert cls._gpg_prerequisites_satisfied()
 
         gpg_command = [
             'gpg',
@@ -458,7 +457,7 @@ class FileVerifier:
             return False
 
         # Helper function to calculate the hash of the file using the specified algorithm
-        def calculate_hash(hash_algorithm='sha256'):
+        def calculate_hash(hash_algorithm):
             hash_function = cls.SUPPORTED_ALGORITHMS[hash_algorithm]()
             with open(file_path, 'rb') as file:
                 while chunk := file.read(cls.READ_CHUNK_SIZE):
@@ -478,13 +477,30 @@ class FileVerifier:
         :param check_args: Dictionary containing the hash algorithm, expected hash value and/or the signature file path.
         :return:
         """
-        result = False
-        # Verify integrity using GPG-based verification
-        signature_file_path = check_args.get('signature_file')
-        if signature_file_path:
-            result = cls._check_integrity_using_gpg(file_path, signature_file_path)
-        # Verify integrity using hashing algorithm
-        algorithm = cls.get_integrity_algorithm(check_args)
-        if not result and algorithm:
-            result = cls._check_integrity_using_algorithm(file_path, algorithm, check_args.get(algorithm))
+        # shortcircuit. if size is available. verify the size if correct.
+        expected_size = check_args.get('size')
+        if expected_size:
+            if expected_size != os.path.getsize(file_path):
+                return False
+        # Return True if no verification can be performed.
+        # Otherwise, the verification would fail on every single time a file is downloaded;
+        # especially if the gpg is not installed
+        result = True
+        cb = None
+
+        if 'signatureFile' in check_args and cls._gpg_prerequisites_satisfied():
+            # try to use gpg if available
+            signature_file_path = check_args.get('signatureFile')
+            if signature_file_path is not None:
+                cb = partial(cls._check_integrity_using_gpg, file_path, signature_file_path)
+        if cb is None:
+            # if cb is still None, Verify integrity using hashing algorithm
+            hashlib_args = check_args.get('hashlib')
+            if hashlib_args:
+                algo = hashlib_args['algorithm']
+                hash_value = hashlib_args['hash']
+                cb = partial(cls._check_integrity_using_algorithm, file_path, algo, hash_value)
+        if cb is not None:
+            # the call back is set, then we can run the verification
+            result = cb()
         return result

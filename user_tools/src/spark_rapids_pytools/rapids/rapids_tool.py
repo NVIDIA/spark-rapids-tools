@@ -491,10 +491,13 @@ class RapidsJarTool(RapidsTool):
             file_check_dict = {'size': dep['size']}
             signature_file = FileVerifier.get_signature_file(dep['uri'], dest_folder)
             if signature_file is not None:
-                file_check_dict['signature_file'] = signature_file
+                file_check_dict['signatureFile'] = signature_file
             algorithm = FileVerifier.get_integrity_algorithm(dep)
             if algorithm is not None:
-                file_check_dict['algorithm'] = dep[algorithm]
+                file_check_dict['hashlib'] = {
+                    'algorithm': algorithm,
+                    'hash': dep[algorithm]
+                }
             is_created = FSUtil.cache_from_url(dep['uri'], resource_file, file_checks=file_check_dict)
             if is_created:
                 self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],
