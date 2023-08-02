@@ -242,29 +242,23 @@ class QualificationAppInfo(
     stages.map { stageId =>
       val stageTaskTime = stageIdToTaskEndSum.get(stageId)
         .map(_.totalTaskDuration).getOrElse(0L)
-      val transitionsTime = if (stageIdToGpuCpuTransitions.get(stageId).isDefined) {
-        val gpuCpuTransitions = stageIdToGpuCpuTransitions.get(stageId).get
-        if (gpuCpuTransitions > 0) {
-          val totalBytesRead =
-            stageIdToTaskEndSum.get(stageId).map(_.totalbytesRead).getOrElse(0L).toDouble
+      val transitionsTime = stageIdToGpuCpuTransitions.getOrElse(stageId, 0) match {
+        case gpuCpuTransitions if gpuCpuTransitions > 0 =>
           // Duration to transfer data from GPU to CPU and vice versa.
           // Assuming it's a PCI-E Gen3, but also assuming that some of the result could be
           // spilled to disk.
           // Duration in Spark metrics is in millisecond, so multiply this by 1000 to make
           // it consistent
+          val totalBytesRead =
+            stageIdToTaskEndSum.get(stageId).map(_.totalbytesRead).getOrElse(0L).toDouble
           if (totalBytesRead > 0) {
-            val fallback_duration =
-              (totalBytesRead / QualificationAppInfo.CPU_GPU_TRANSFER_RATE) *
-                QualificationAppInfo.SECONDS_TO_MILLISECONDS * gpuCpuTransitions
+            val fallback_duration = (totalBytesRead / QualificationAppInfo.CPU_GPU_TRANSFER_RATE) *
+              QualificationAppInfo.SECONDS_TO_MILLISECONDS * gpuCpuTransitions
             fallback_duration.toLong
           } else {
             0L
           }
-        } else {
-          0L
-        }
-      } else {
-        0L
+        case _ => 0L
       }
       // Update totaltaskduration of stageIdToTaskEndSum to include transitions time
       val stageIdToTasksMetrics = stageIdToTaskEndSum.get(stageId).orElse(None)
@@ -282,17 +276,12 @@ class QualificationAppInfo(
     // Get the total number of transitions between CPU and GPU for each stage and
     // store it in a Map.
     allStagesToExecs.foreach { case (stageId, execs) =>
-      val topLevelExecs = execs.filterNot(
-        x => x.exec.startsWith("WholeStage"))
-      val childrenExecs = execs.flatMap { e =>
-        e.children.map(x => x)
-      }.flatten
+      val topLevelExecs = execs.filterNot(x => x.exec.startsWith("WholeStage"))
+      val childrenExecs = execs.flatMap(_.children).flatten
       val allExecs = topLevelExecs ++ childrenExecs
-      val transitions = if (allExecs.size > 1) {
-        allExecs.sliding(2).count(x => (x(0).isSupported && !x(1).isSupported)
-          || (!x(0).isSupported && x(1).isSupported))
-      } else {
-        0
+      val transitions = allExecs.zip(allExecs.drop(1)).count {
+        case (exec1, exec2) =>
+          (exec1.isSupported && !exec2.isSupported) || (!exec1.isSupported && exec2.isSupported)
       }
       stageIdToGpuCpuTransitions(stageId) = transitions
     }
