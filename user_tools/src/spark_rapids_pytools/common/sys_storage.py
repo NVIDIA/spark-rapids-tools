@@ -390,6 +390,7 @@ class FileVerifier:
         'sha512': hashlib.sha512
     }
     GPG_TIMEOUT_SEC = 5  # Timeout for GPG process
+    READ_CHUNK_SIZE = 8192  # Size of chunk in bytes
 
     @classmethod
     def get_signature_file(cls, file_url: str, dest_folder: str):
@@ -458,12 +459,9 @@ class FileVerifier:
 
         # Helper function to calculate the hash of the file using the specified algorithm
         def calculate_hash(hash_algorithm='sha256'):
-            if hash_algorithm not in cls.SUPPORTED_ALGORITHMS:
-                # Unsupported hash algorithm
-                return False
             hash_function = cls.SUPPORTED_ALGORITHMS[hash_algorithm]()
             with open(file_path, 'rb') as file:
-                while chunk := file.read(8192):
+                while chunk := file.read(cls.READ_CHUNK_SIZE):
                     hash_function.update(chunk)
             return hash_function.hexdigest()
 
