@@ -35,7 +35,7 @@ from fastcore.all import urlsave
 from fastprogress.fastprogress import progress_bar
 
 from spark_rapids_pytools.common.exceptions import StorageException
-from spark_rapids_pytools.common.utilities import Utils
+from spark_rapids_pytools.common.utilities import Utils, SysCmd
 
 
 class FSUtil:
@@ -388,6 +388,7 @@ class FileVerifier:
     }
     GPG_TIMEOUT_SEC = 60    # Timeout for GPG process
     READ_CHUNK_SIZE = 8192  # Size of chunk in bytes
+    GPG_SIGNATURE_ENABLED = False  # enable/disable gpg-signature usage
 
     @classmethod
     def get_signature_file(cls, file_url: str, dest_folder: str):
@@ -405,7 +406,7 @@ class FileVerifier:
 
     @classmethod
     def _gpg_prerequisites_satisfied(cls) -> bool:
-        return Utils.is_system_tool('gpg')
+        return cls.GPG_SIGNATURE_ENABLED and Utils.is_system_tool('gpg')
 
     @classmethod
     def _check_integrity_using_gpg(cls, file_path: str, signature_file_path: str) -> bool:
@@ -421,7 +422,6 @@ class FileVerifier:
             return False
 
         assert cls._gpg_prerequisites_satisfied()
-
         gpg_command = [
             'gpg',
             '--auto-key-locate keyserver',
@@ -431,13 +431,13 @@ class FileVerifier:
             signature_file_path,
             file_path
         ]
-
+        gpg_cmd_args = {
+            'cmd': gpg_command,
+            'timeout_secs': cls.GPG_TIMEOUT_SEC
+        }
         try:
-            result = subprocess.check_output(' '.join(gpg_command),
-                                             shell=True,
-                                             text=True,
-                                             timeout=cls.GPG_TIMEOUT_SEC,
-                                             stderr=subprocess.STDOUT)
+            gpg_cmd_obj = SysCmd().build(gpg_cmd_args)
+            result = gpg_cmd_obj.exec()
             return 'Good signature' in result
         except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
             return False
