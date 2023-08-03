@@ -27,7 +27,7 @@ import org.apache.spark.internal.Logging
  * By default it relies on a csv file included in the jar which is generated
  * by the plugin which lists the formats and types supported.
  */
-class PluginTypeChecker(platform: String = "onprem") extends Logging {
+class PluginTypeChecker(platform: String = "onprem", speedupFactorFile: String = "") extends Logging {
 
   private val NS = "NS"
   private val PS = "PS"
@@ -89,19 +89,25 @@ class PluginTypeChecker(platform: String = "onprem") extends Logging {
   def getSupportedExprs: Map[String, String] = supportedExprs
 
   private def readOperatorsScore: Map[String, Double] = {
-    val file = platform match {
-      // if no GPU specified, then default to dataproc-t4 for backward compatibility
-      case "dataproc-t4" | "dataproc" => OPERATORS_SCORE_FILE_DATAPROC_T4
-      case "dataproc-l4" => OPERATORS_SCORE_FILE_DATAPROC_L4
-      // if no GPU specified, then default to emr-t4 for backward compatibility
-      case "emr-t4" | "emr" => OPERATORS_SCORE_FILE_EMR_T4
-      case "emr-a10" => OPERATORS_SCORE_FILE_EMR_A10
-      case "databricks-aws" => OPERATORS_SCORE_FILE_DATABRICKS_AWS
-      case "databricks-azure" => OPERATORS_SCORE_FILE_DATABRICKS_AZURE
-      case _ => OPERATORS_SCORE_FILE_ONPREM
-    }
     logInfo(s"Reading operators scores with platform: $platform")
-    val source = Source.fromResource(file)
+
+    val source = if (speedupFactorFile == "") {
+      val file = platform match {
+        // if no GPU specified, then default to dataproc-t4 for backward compatibility
+        case "dataproc-t4" | "dataproc" => OPERATORS_SCORE_FILE_DATAPROC_T4
+        case "dataproc-l4" => OPERATORS_SCORE_FILE_DATAPROC_L4
+        // if no GPU specified, then default to emr-t4 for backward compatibility
+        case "emr-t4" | "emr" => OPERATORS_SCORE_FILE_EMR_T4
+        case "emr-a10" => OPERATORS_SCORE_FILE_EMR_A10
+        case "databricks-aws" => OPERATORS_SCORE_FILE_DATABRICKS_AWS
+        case "databricks-azure" => OPERATORS_SCORE_FILE_DATABRICKS_AZURE
+        case _ => OPERATORS_SCORE_FILE_ONPREM
+      }
+      Source.fromResource(file)
+    } else {
+      Source.fromFile(speedupFactorFile)
+    }
+
     readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
   }
 

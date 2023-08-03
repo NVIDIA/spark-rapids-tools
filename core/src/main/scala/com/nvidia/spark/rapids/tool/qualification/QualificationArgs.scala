@@ -152,6 +152,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
         "databricks-azure. " +
         "Default is onprem.",
       default = Some("onprem"))
+  val speedupFactorFile: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "Custom speed up factor file")
 
   validate(order) {
     case o if (QualificationArgs.isOrderAsc(o) || QualificationArgs.isOrderDesc(o)) => Right(Unit)
