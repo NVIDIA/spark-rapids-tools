@@ -27,7 +27,8 @@ import org.apache.spark.internal.Logging
  * By default it relies on a csv file included in the jar which is generated
  * by the plugin which lists the formats and types supported.
  */
-class PluginTypeChecker(platform: String = "onprem", speedupFactorFile: String = "") extends Logging {
+class PluginTypeChecker(platform: String = "onprem",
+                        speedupFactorFile: String = "") extends Logging {
 
   private val NS = "NS"
   private val PS = "PS"
