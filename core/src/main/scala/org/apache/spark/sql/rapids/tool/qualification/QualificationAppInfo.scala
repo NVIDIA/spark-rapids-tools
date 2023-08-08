@@ -16,6 +16,8 @@
 
 package org.apache.spark.sql.rapids.tool.qualification
 
+import java.util.concurrent.TimeUnit
+
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
@@ -242,19 +244,19 @@ class QualificationAppInfo(
     stages.map { stageId =>
       val stageTaskTime = stageIdToTaskEndSum.get(stageId)
         .map(_.totalTaskDuration).getOrElse(0L)
-      val transitionsTime = stageIdToGpuCpuTransitions.getOrElse(stageId, 0) match {
+      val numTransitions = stageIdToGpuCpuTransitions.getOrElse(stageId, 0)
+      val transitionsTime = numTransitions match {
         case gpuCpuTransitions if gpuCpuTransitions > 0 =>
           // Duration to transfer data from GPU to CPU and vice versa.
           // Assuming it's a PCI-E Gen3, but also assuming that some of the result could be
           // spilled to disk.
-          // Duration in Spark metrics is in millisecond, so multiply this by 1000 to make
-          // it consistent
+          // Duration in Spark metrics is in milliseconds and CPU-GPU transfer rate is in bytes/sec.
+          // So we need to convert the transitions time to milliseconds.
           val totalBytesRead =
-            stageIdToTaskEndSum.get(stageId).map(_.totalbytesRead).getOrElse(0L).toDouble
+            stageIdToTaskEndSum.get(stageId).map(_.totalbytesRead).getOrElse(0L)
           if (totalBytesRead > 0) {
-            val fallback_duration = (totalBytesRead / QualificationAppInfo.CPU_GPU_TRANSFER_RATE) *
-              QualificationAppInfo.SECONDS_TO_MILLISECONDS * gpuCpuTransitions
-            fallback_duration.toLong
+            TimeUnit.SECONDS.toMillis(
+              totalBytesRead / QualificationAppInfo.CPU_GPU_TRANSFER_RATE) * gpuCpuTransitions
           } else {
             0L
           }
@@ -266,7 +268,7 @@ class QualificationAppInfo(
         stageIdToTasksMetrics.get.totalTaskDuration += transitionsTime
       }
       StageQualSummaryInfo(stageId, allSpeedupFactorAvg, stageTaskTime,
-        eachStageUnsupported + transitionsTime, estimated)
+        eachStageUnsupported + transitionsTime, estimated, numTransitions)
     }.toSet
   }
 
@@ -279,9 +281,17 @@ class QualificationAppInfo(
       val topLevelExecs = execs.filterNot(x => x.exec.startsWith("WholeStage"))
       val childrenExecs = execs.flatMap(_.children).flatten
       val allExecs = topLevelExecs ++ childrenExecs
+      // Create a list of transitions by zipping allExecs with itself but with the first element
+      // This will create a list of adjacent pairs.
+      // Example: If allExecs = (ScanExec, FilterExec, SortExec, ProjectExec), then it will create
+      // a list of tuples as follows:
+      // (ScanExec, FilterExec), (FilterExec, SortExec), (SortExec, ProjectExec)
       val transitions = allExecs.zip(allExecs.drop(1)).count {
-        case (exec1, exec2) =>
-          (exec1.isSupported && !exec2.isSupported) || (!exec1.isSupported && exec2.isSupported)
+        // If the current execution (currExec) is supported, and the next execution (nextExec)
+        // is not supported, or if the current execution is not supported and the next execution
+        // is supported, then we consider this as a transition.
+        case (currExec, nextExec) => (currExec.isSupported && !nextExec.isSupported) ||
+          (!currExec.isSupported && nextExec.isSupported)
       }
       stageIdToGpuCpuTransitions(stageId) = transitions
     }
@@ -774,7 +784,8 @@ case class StageQualSummaryInfo(
     averageSpeedup: Double,
     stageTaskTime: Long,
     unsupportedTaskDur: Long,
-    estimated: Boolean = false)
+    estimated: Boolean = false,
+    numTransitions: Int)
 
 object QualificationAppInfo extends Logging {
   // define recommendation constants
@@ -784,8 +795,13 @@ object QualificationAppInfo extends Logging {
   val NOT_APPLICABLE = "Not Applicable"
   val LOWER_BOUND_RECOMMENDED = 1.3
   val LOWER_BOUND_STRONGLY_RECOMMENDED = 2.5
+  // Below is the total time taken whenever there are ColumnarToRow or RowToColumnar transitions
+  // This includes the time taken to convert the data from one format to another and the time taken
+  // to transfer the data from CPU to GPU and vice versa. Current transfer rate is 10MB/s and is
+  // based on the testing on few eventlogs.
+  // TODO: Need to test this on more eventlogs including NDS queries
+  //  and come up with a better transfer rate.
   val CPU_GPU_TRANSFER_RATE = 10000000L
-  val SECONDS_TO_MILLISECONDS = 1000L
 
   private def handleException(e: Exception, path: EventLogInfo): String = {
     val message: String = e match {
