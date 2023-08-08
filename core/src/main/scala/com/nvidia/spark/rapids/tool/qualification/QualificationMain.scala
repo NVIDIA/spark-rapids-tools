@@ -60,12 +60,11 @@ object QualificationMain extends Logging {
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
     val platform = appArgs.platform.getOrElse("onprem")
     val mlOpsEnabled = appArgs.mlFunctions.getOrElse(false)
-    val speedupFactorFile = appArgs.speedupFactorFile.getOrElse("")
 
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf
 
     val pluginTypeChecker = try {
-      new PluginTypeChecker(platform, speedupFactorFile)
+      new PluginTypeChecker(platform, appArgs.speedupFactorFile.toOption)
     } catch {
       case ie: IllegalStateException =>
         logError("Error creating the plugin type checker!", ie)

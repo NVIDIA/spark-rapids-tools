@@ -26,9 +26,10 @@ import org.apache.spark.internal.Logging
  * supports for data formats and data types.
  * By default it relies on a csv file included in the jar which is generated
  * by the plugin which lists the formats and types supported.
+ * The class also supports a custom speedup factor file as input.
  */
 class PluginTypeChecker(platform: String = "onprem",
-                        speedupFactorFile: String = "") extends Logging {
+                        speedupFactorFile: Option[String] = None) extends Logging {
 
   private val NS = "NS"
   private val PS = "PS"
@@ -90,26 +91,37 @@ class PluginTypeChecker(platform: String = "onprem",
   def getSupportedExprs: Map[String, String] = supportedExprs
 
   private def readOperatorsScore: Map[String, Double] = {
-    logInfo(s"Reading operators scores with platform: $platform")
 
-    val source = if (speedupFactorFile == "") {
-      val file = platform match {
-        // if no GPU specified, then default to dataproc-t4 for backward compatibility
-        case "dataproc-t4" | "dataproc" => OPERATORS_SCORE_FILE_DATAPROC_T4
-        case "dataproc-l4" => OPERATORS_SCORE_FILE_DATAPROC_L4
-        // if no GPU specified, then default to emr-t4 for backward compatibility
-        case "emr-t4" | "emr" => OPERATORS_SCORE_FILE_EMR_T4
-        case "emr-a10" => OPERATORS_SCORE_FILE_EMR_A10
-        case "databricks-aws" => OPERATORS_SCORE_FILE_DATABRICKS_AWS
-        case "databricks-azure" => OPERATORS_SCORE_FILE_DATABRICKS_AZURE
-        case _ => OPERATORS_SCORE_FILE_ONPREM
+    try {
+      val source = speedupFactorFile match {
+        case None =>
+          logInfo(s"Reading operators scores with platform: $platform")
+          val file = platform match {
+            // if no GPU specified, then default to dataproc-t4 for backward compatibility
+            case "dataproc-t4" | "dataproc" => OPERATORS_SCORE_FILE_DATAPROC_T4
+            case "dataproc-l4" => OPERATORS_SCORE_FILE_DATAPROC_L4
+            // if no GPU specified, then default to emr-t4 for backward compatibility
+            case "emr-t4" | "emr" => OPERATORS_SCORE_FILE_EMR_T4
+            case "emr-a10" => OPERATORS_SCORE_FILE_EMR_A10
+            case "databricks-aws" => OPERATORS_SCORE_FILE_DATABRICKS_AWS
+            case "databricks-azure" => OPERATORS_SCORE_FILE_DATABRICKS_AZURE
+            case _ => OPERATORS_SCORE_FILE_ONPREM
+          }
+          Source.fromResource(file)
+        case Some(file) =>
+          logInfo(s"Reading operators scores from custom speedup factor file: $file")
+          Source.fromFile(file)
       }
-      Source.fromResource(file)
-    } else {
-      Source.fromFile(speedupFactorFile)
+      readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
+    } catch {
+      case e: Exception => speedupFactorFile match {
+        case Some(file) =>
+          logError(s"Exception processing operators scores with $file", e)
+        case None =>
+          logError(s"Exception processing operators scores with platform $platform", e)
+      }
+      Map.empty[String, Double]
     }
-
-    readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
   }
 
   private def readSupportedExecs: Map[String, String] = {
