@@ -20,46 +20,13 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from typing import cast, Type, Any, List, Union, Optional, Callable
+from typing import Type, Any, List, Callable
 
+from as_pytools import EnumeratedType
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
     get_elem_non_safe
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, SysCmd, Utils, TemplateGenerator
-
-
-class EnumeratedType(str, Enum):
-    """Abstract representation of enumerated values"""
-
-    @classmethod
-    def tostring(cls, value: Union[Enum, str]) -> str:
-        """Return the string representation of the state object attribute
-        :param str value: the state object to turn into string
-        :return: the uppercase string that represents the state object
-        :rtype: str
-        """
-        value = cast(Enum, value)
-        return str(value._value_).upper()  # pylint: disable=protected-access
-
-    @classmethod
-    def fromstring(cls, value: str) -> Optional[str]:
-        """Return the state object attribute that matches the string
-        :param str value: the string to look up
-        :return: the state object attribute that matches the string
-        :rtype: str
-        """
-        return getattr(cls, value.upper(), None)
-
-    @classmethod
-    def pretty_print(cls, value):
-        # type: (Union[Enum, str]) -> str
-        """Return the string representation of the state object attribute
-        :param str value: the state object to turn into string
-        :return: the string that represents the state object
-        :rtype: str
-        """
-        value = cast(Enum, value)
-        return str(value._value_)  # pylint: disable=protected-access
 
 
 class DeployMode(EnumeratedType):
