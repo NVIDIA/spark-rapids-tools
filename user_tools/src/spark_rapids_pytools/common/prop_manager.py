@@ -16,28 +16,13 @@
 
 import json
 from dataclasses import field, dataclass
-from functools import reduce
 from json import JSONDecodeError
-from operator import getitem
 from pathlib import Path
 from typing import Any, Callable
 
 import yaml
 
-
-def get_elem_from_dict(data, keys):
-    try:
-        return reduce(getitem, keys, data)
-    except LookupError:
-        print(f'ERROR: Could not find elements [{keys}]')
-        return None
-
-
-def get_elem_non_safe(data, keys):
-    try:
-        return reduce(getitem, keys, data)
-    except LookupError:
-        return None
+from as_pytools import get_elem_from_dict, get_elem_non_safe
 
 
 def convert_dict_to_camel_case(dic: dict):

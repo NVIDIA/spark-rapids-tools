@@ -22,7 +22,8 @@ from typing import Any, List, Callable
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_pytools.cloud_api.sp_types import EnumeratedType, ClusterReshape, NodeHWInfo
+from as_pytools import EnumeratedType
+from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
