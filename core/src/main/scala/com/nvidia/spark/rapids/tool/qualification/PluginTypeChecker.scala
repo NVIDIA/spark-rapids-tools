@@ -19,6 +19,9 @@ package com.nvidia.spark.rapids.tool.qualification
 import scala.collection.mutable.{ArrayBuffer,HashMap}
 import scala.io.{BufferedSource, Source}
 
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
+
 import org.apache.spark.internal.Logging
 
 /**
@@ -110,7 +113,9 @@ class PluginTypeChecker(platform: String = "onprem",
           Source.fromResource(file)
         case Some(file) =>
           logInfo(s"Reading operators scores from custom speedup factor file: $file")
-          Source.fromFile(file)
+          val path = new Path(file)
+          val fs = FileSystem.get(path.toUri, new Configuration())
+          new BufferedSource(fs.open(path))
       }
       readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
     } catch {
