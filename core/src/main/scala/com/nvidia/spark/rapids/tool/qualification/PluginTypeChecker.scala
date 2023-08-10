@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.qualification
 
 import scala.collection.mutable.{ArrayBuffer,HashMap}
 import scala.io.{BufferedSource, Source}
+import scala.util.control.NonFatal
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -119,7 +120,7 @@ class PluginTypeChecker(platform: String = "onprem",
       }
       readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
     } catch {
-      case e: Exception => speedupFactorFile match {
+      case NonFatal(e) => speedupFactorFile match {
         case Some(file) =>
           logError(s"Exception processing operators scores with $file", e)
         case None =>
