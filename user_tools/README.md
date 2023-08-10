@@ -14,7 +14,7 @@ The wrapper improves end-user experience within the following dimensions:
    make sure the cluster is healthy and ready for Spark jobs.
 
 
-## Getting Started
+## Getting started
 
 Set up a Python environment with a version between 3.8 and 3.10
 
@@ -43,10 +43,11 @@ Set up a Python environment with a version between 3.8 and 3.10
       ```
 3. Make sure to install CSP SDK if you plan to run the tool wrapper.
 
-## Usage and Supported Platforms
+## Usage and supported platforms
 
 Please refer to [spark-rapids-user-tools guide](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/index.md) for details on how to use the tools
 and the platform.
 
-## What's New
+## What's new
+
 Please refer to [CHANGELOG.md](https://github.com/NVIDIA/spark-rapids-tools/blob/main/CHANGELOG.md) for our latest changes.
