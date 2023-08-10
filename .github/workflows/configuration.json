@@ -1,0 +1,21 @@
+{
+  "categories": [
+    {
+      "title": "### User Tools",
+      "labels": ["user_tools"]
+    },
+    {
+      "title": "### Core",
+      "labels": ["tools"]
+    },
+    {
+      "title": "### Miscellaneous",
+      "labels": []
+    }
+  ],
+  "sort": {
+    "order": "DESC",
+    "on_property": "mergedAt"
+  },
+  "pr_template": "- ${{TITLE}} ([#${{NUMBER}}](${{URL}}))"
+}
