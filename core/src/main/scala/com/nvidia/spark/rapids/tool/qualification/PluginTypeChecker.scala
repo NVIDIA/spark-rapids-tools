@@ -295,7 +295,7 @@ class PluginTypeChecker(platform: String = "onprem",
   }
 
   def getSpeedupFactor(execOrExpr: String): Double = {
-    supportedOperatorsScore.get(execOrExpr).getOrElse(-1)
+    supportedOperatorsScore.get(execOrExpr).getOrElse(1)
   }
 
   def isExecSupported(exec: String): Boolean = {

@@ -109,7 +109,7 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
       Files.write(csvSupportedFile, supText)
       checker.setOperatorScore(csvSupportedFile.toString)
       assert(checker.getSpeedupFactor("UnionExec") == 3)
-      assert(checker.getSpeedupFactor("ProjectExec") == -1)
+      assert(checker.getSpeedupFactor("ProjectExec") == 1)
     }
   }
 
