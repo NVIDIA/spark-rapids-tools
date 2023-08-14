@@ -29,7 +29,7 @@ from typing import Any, Callable, Dict, List
 from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
-from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.sys_storage import FSUtil, FileVerifier
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
@@ -489,6 +489,15 @@ class RapidsJarTool(RapidsTool):
             resource_file_name = FSUtil.get_resource_name(dep['uri'])
             resource_file = FSUtil.build_path(dest_folder, resource_file_name)
             file_check_dict = {'size': dep['size']}
+            signature_file = FileVerifier.get_signature_file(dep['uri'], dest_folder)
+            if signature_file is not None:
+                file_check_dict['signatureFile'] = signature_file
+            algorithm = FileVerifier.get_integrity_algorithm(dep)
+            if algorithm is not None:
+                file_check_dict['hashlib'] = {
+                    'algorithm': algorithm,
+                    'hash': dep[algorithm]
+                }
             is_created = FSUtil.cache_from_url(dep['uri'], resource_file, file_checks=file_check_dict)
             if is_created:
                 self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],

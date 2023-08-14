@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  workflow_dispatch: # Allow manual triggering
+  push:
+    tags:
+      - 'v*' # Trigger only on tags starting with 'v'
+
+env:
+  MAVEN_URL: "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12"
+  PYPI_URL: "https://pypi.org/project/spark-rapids-user-tools"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build Changelog
+        id: build_changelog
+        uses: mikepenz/release-changelog-builder-action@v4
+        with:
+          configuration: ".github/workflows/configuration.json" # Configuration file for the changelog builder (optional)z
+          outputFile: "CHANGELOG_BODY.md"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and Push Changelog
+        if: steps.build_changelog.outputs.changes > 0
+        run: |
+          CURRENT_DATE=$(date +'%Y-%m-%d')
+          BRANCH_URL=https://github.com/$GITHUB_REPOSITORY/tree/${{ github.ref_name }}
+          echo -e "\n<br/>\n" > CURRENT_CHANGELOG.md
+          echo "## Release [${{ github.ref_name }}]($BRANCH_URL)" >> CURRENT_CHANGELOG.md
+          echo "Generated on $CURRENT_DATE" >> CURRENT_CHANGELOG.md
+          cat CURRENT_CHANGELOG.md CHANGELOG_BODY.md >> TEMP_CHANGELOG.md
+          cat TEMP_CHANGELOG.md CHANGELOG.md > NEW_CHANGELOG.md
+
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          git fetch origin main
+          git checkout main
+          mv NEW_CHANGELOG.md CHANGELOG.md
+          git add CHANGELOG.md
+          git commit -m "Update changelogs"
+          git push origin main
+
+      - name: Set Version Number
+        id: set_version
+        run: |
+          VERSION=${{ github.ref_name }}
+          VERSION=${VERSION#v}  # Remove 'v' prefix
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }} # Use the version number from the tag
+          release_name: ${{ github.ref }} # Use the version number as the release name
+          body: |
+            ## Packages
+            
+            - Maven Release: ${{ env.MAVEN_URL }}/${{ env.VERSION }}/
+            - PyPI Package: ${{ env.PYPI_URL }}/${{ env.VERSION }}/
+            
+            ## Changes
+            ${{ steps.build_changelog.outputs.changelog }}
+          draft: false

@@ -152,6 +152,11 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
         "databricks-azure. " +
         "Default is onprem.",
       default = Some("onprem"))
+  val speedupFactorFile: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "Custom speedup factor file used to get estimated GPU speedup that is specific " +
+        "to the user's environment. If the file is not provided, it defaults to use the " +
+        "speedup files included in the jar.")
 
   validate(order) {
     case o if (QualificationArgs.isOrderAsc(o) || QualificationArgs.isOrderDesc(o)) => Right(Unit)

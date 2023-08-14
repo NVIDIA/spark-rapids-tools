@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.qualification
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 
+import com.nvidia.spark.rapids.tool.ToolTestUtils
 import com.nvidia.spark.rapids.tool.planparser.DataWritingCommandExecParser
 import org.scalatest.FunSuite
 
@@ -108,7 +109,7 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
       Files.write(csvSupportedFile, supText)
       checker.setOperatorScore(csvSupportedFile.toString)
       assert(checker.getSpeedupFactor("UnionExec") == 3)
-      assert(checker.getSpeedupFactor("ProjectExec") == -1)
+      assert(checker.getSpeedupFactor("ProjectExec") == 1)
     }
   }
 
@@ -192,5 +193,12 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     val checker = new PluginTypeChecker("emr-a10")
     assert(checker.getSpeedupFactor("UnionExec") == 3.0)
     assert(checker.getSpeedupFactor("Ceil") == 4)
+  }
+
+  test("supported operator score from custom speedup factor file") {
+    val speedupFactorFile = ToolTestUtils.getTestResourcePath("operatorsScore-databricks-azure.csv")
+    val checker = new PluginTypeChecker(speedupFactorFile=Some(speedupFactorFile))
+    assert(checker.getSpeedupFactor("SortExec") == 14.15)
+    assert(checker.getSpeedupFactor("FilterExec") == 3.12)
   }
 }
