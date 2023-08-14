@@ -283,6 +283,7 @@ class SysCmd:
     res: int = field(default=0, init=False)
     out_std: str = field(default=None, init=False)
     err_std: str = field(default=None, init=False)
+    timeout_secs: float = None
 
     def has_failed(self):
         return self.expected != self.res and not self.fail_ok
@@ -331,6 +332,7 @@ class SysCmd:
             c = subprocess.run(actual_cmd,
                                executable='/bin/bash',
                                shell=True,
+                               timeout=self.timeout_secs,
                                stdout=stdout,
                                stderr=stderr)
         else:
@@ -340,6 +342,7 @@ class SysCmd:
                                shell=True,
                                input=self.cmd_input,
                                text=True,
+                               timeout=self.timeout_secs,
                                stdout=stdout,
                                stderr=stderr)
         self.res = c.returncode

@@ -64,7 +64,7 @@ object QualificationMain extends Logging {
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf
 
     val pluginTypeChecker = try {
-      new PluginTypeChecker(platform)
+      new PluginTypeChecker(platform, appArgs.speedupFactorFile.toOption)
     } catch {
       case ie: IllegalStateException =>
         logError("Error creating the plugin type checker!", ie)
