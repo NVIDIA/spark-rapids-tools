@@ -266,6 +266,10 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
                                      configs:
                                      --spark-property=spark.eventLog.enabled:true
                                      --spark-property=spark.driver.port
+      --speedup-factor-file <arg>    Custom speedup factor file used to get estimated
+                                     GPU speedup that is specific to the user's environment.
+                                     If the file is not provided, it defaults to use the
+                                     speedup factor files included in the jar.
   -s, --start-app-time  <arg>        Filter event logs whose application start
                                      occurred within the past specified time
                                      period. Valid time periods are
