@@ -29,8 +29,6 @@ jobs:
 
       - name: Commit and Push Changelog
         if: steps.build_changelog.outputs.changes > 0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           CURRENT_DATE=$(date +'%Y-%m-%d')
           BRANCH_URL=https://github.com/$GITHUB_REPOSITORY/tree/${{ github.ref_name }}
@@ -40,15 +38,15 @@ jobs:
           cat CURRENT_CHANGELOG.md CHANGELOG_BODY.md >> TEMP_CHANGELOG.md
           cat TEMP_CHANGELOG.md CHANGELOG.md > NEW_CHANGELOG.md
 
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
+          git config user.name ${{ secrets.NVAUTO_USER }}
+          git config user.email ${{ secrets.NVAUTO_EMAIL }}
 
           git fetch origin main
           git checkout main
           mv NEW_CHANGELOG.md CHANGELOG.md
           git add CHANGELOG.md
           git commit -s -m "Update changelogs"
-          git push -f https://nvauto:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git main
+          git push -f https://nvauto:${{ secrets.NVAUTO_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git main
 
       - name: Set Version Number
         id: set_version
