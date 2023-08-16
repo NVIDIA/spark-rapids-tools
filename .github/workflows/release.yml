@@ -16,7 +16,9 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.NVAUTO_TOKEN }}
 
       - name: Build Changelog
         id: build_changelog
@@ -25,7 +27,7 @@ jobs:
           configuration: ".github/workflows/configuration.json" # Configuration file for the changelog builder (optional)z
           outputFile: "CHANGELOG_BODY.md"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.NVAUTO_TOKEN }}
 
       - name: Commit and Push Changelog
         if: steps.build_changelog.outputs.changes > 0
