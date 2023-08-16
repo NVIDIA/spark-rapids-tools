@@ -24,8 +24,8 @@ from ..cspfs import CspFs, BoundedArrowFsT, register_fs_class
 
 @register_fs_class("adls", "PyFileSystem")
 class AdlsFs(CspFs):
-    """
-    Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access.
+    """Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol
+    Access (Docstring copied from adlfs).
 
     Since AzureBlobFileSystem follows the fsspec interface, this class wraps it into a python-based
     PyArrow filesystem (PyFileSystem) using FSSpecHandler.
