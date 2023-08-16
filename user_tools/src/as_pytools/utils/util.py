@@ -77,5 +77,4 @@ def to_camel_capital_case(word: str) -> str:
 
 
 def to_snake_case(word: str) -> str:
-    # return reduce(lambda x, y: x + ('_' if y.isupper() else '') + y, str).lower()
     return ''.join(['_' + i.lower() if i.isupper() else i for i in word]).lstrip('_')

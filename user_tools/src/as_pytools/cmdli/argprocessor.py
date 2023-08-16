@@ -29,7 +29,7 @@ from as_pytools.utils import AbstractPropContainer, is_http_file
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
-from ..enums import QualFilterApp, CloudPlatform
+from ..enums import QualFilterApp, CspEnv
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
 
@@ -63,7 +63,7 @@ class AbstractToolUserArgModel:
     This is used as doing preliminary validation against some of the common pattern
     """
     cluster: Optional[str] = None
-    platform: Optional[CloudPlatform] = None
+    platform: Optional[CspEnv] = None
     output_folder: Optional[str] = None
     rejected: dict = dataclasses.field(init=False, default_factory=dict)
     detected: dict = dataclasses.field(init=False, default_factory=dict)
@@ -101,15 +101,15 @@ class AbstractToolUserArgModel:
 
     def detect_platform_from_cluster_prop(self):
         client_cluster = ClientCluster(CspPath(self.cluster))
-        self.p_args['toolArgs']['platform'] = CloudPlatform.fromstring(client_cluster.platform_name)
+        self.p_args['toolArgs']['platform'] = CspEnv.fromstring(client_cluster.platform_name)
 
     def detect_platform_from_eventlogs_prefix(self):
         map_storage_to_platform = {
-            'gcs': CloudPlatform.DATAPROC,
-            's3': CloudPlatform.EMR,
-            'local': CloudPlatform.ONPREM,
-            'hdfs': CloudPlatform.ONPREM,
-            'adls': CloudPlatform.DATABRICKS_AZURE
+            'gcs': CspEnv.DATAPROC,
+            's3': CspEnv.EMR,
+            'local': CspEnv.ONPREM,
+            'hdfs': CspEnv.ONPREM,
+            'adls': CspEnv.DATABRICKS_AZURE
         }
         # in case we have a list of eventlogs, we need to split them and take the first one
         ev_logs_path = CspPath(self.get_eventlogs().split(',')[0])
@@ -117,9 +117,9 @@ class AbstractToolUserArgModel:
         self.p_args['toolArgs']['platform'] = map_storage_to_platform[storage_type]
 
     def validate_onprem_with_cluster_name(self):
-        if self.platform == CloudPlatform.ONPREM:
+        if self.platform == CspEnv.ONPREM:
             raise IllegalArgumentError(
-                f'Invalid arguments: Cannot run cluster by name with platform [{CloudPlatform.ONPREM}]')
+                f'Invalid arguments: Cannot run cluster by name with platform [{CspEnv.ONPREM}]')
 
     def init_extra_arg_cases(self) -> list:
         return []
@@ -233,7 +233,7 @@ class QualifyUserArgModel(ToolUserArgModel):
     Represents the arguments collected by the user to run the qualification tool.
     This is used as doing preliminary validation against some of the common pattern
     """
-    target_platform: Optional[CloudPlatform] = None
+    target_platform: Optional[CspEnv] = None
     filter_apps: Optional[QualFilterApp] = None
     gpu_cluster_recommendation: Optional[QualGpuClusterReshapeType] = None
     # p_args: dict = dataclasses.field(init=False, default_factory=dict)
@@ -276,7 +276,7 @@ class QualifyUserArgModel(ToolUserArgModel):
         # which is the onPrem platform.
         if self.p_args['toolArgs']['platform'] is None:
             # set the platform to default onPrem
-            runtime_platform = CloudPlatform.get_default()
+            runtime_platform = CspEnv.get_default()
         else:
             runtime_platform = self.p_args['toolArgs']['platform']
         # check the targetPlatform argument
@@ -296,7 +296,7 @@ class QualifyUserArgModel(ToolUserArgModel):
         else:
             # target platform is not set, then we disable cost savings if the runtime platform if
             # onprem
-            if CloudPlatform.requires_pricing_map(runtime_platform):
+            if CspEnv.requires_pricing_map(runtime_platform):
                 self._reset_savings_flags(reason_msg=f'Platform [{runtime_platform}] requires '
                                                      '"target_platform" argument to generate cost savings')
 
@@ -385,7 +385,7 @@ class ProfileUserArgModel(ToolUserArgModel):
     def build_tools_args(self) -> dict:
         if self.p_args['toolArgs']['platform'] is None:
             # set the platform to default onPrem
-            runtime_platform = CloudPlatform.get_default()
+            runtime_platform = CspEnv.get_default()
         else:
             runtime_platform = self.p_args['toolArgs']['platform']
         # check if the cluster infor was autotuner_input

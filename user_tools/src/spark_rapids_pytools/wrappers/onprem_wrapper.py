@@ -14,7 +14,7 @@
 
 
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on On-Prem cluster."""
-from as_pytools import CloudPlatform
+from as_pytools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
@@ -105,7 +105,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             'gpuClusterRecommendation': gpu_cluster_recommendation,
             'targetPlatform': target_platform
         }
-        tool_obj = QualificationAsLocal(platform_type=CloudPlatform.ONPREM,
+        tool_obj = QualificationAsLocal(platform_type=CspEnv.ONPREM,
                                         output_folder=local_folder,
                                         wrapper_options=wrapper_qual_options,
                                         rapids_options=rapids_options)
@@ -153,7 +153,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         wrapper_prof_options = {
             'platformOpts': {
                 'deployMode': DeployMode.LOCAL,
-                'targetPlatform': CloudPlatform.ONPREM
+                'targetPlatform': CspEnv.ONPREM
             },
             'jobSubmissionProps': {
                 'platformArgs': {
@@ -164,7 +164,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             'toolsJar': tools_jar,
             'autoTunerFileInput': worker_info
         }
-        ProfilingAsLocal(platform_type=CloudPlatform.ONPREM,
+        ProfilingAsLocal(platform_type=CspEnv.ONPREM,
                          output_folder=local_folder,
                          wrapper_options=wrapper_prof_options,
                          rapids_options=rapids_options).launch()
