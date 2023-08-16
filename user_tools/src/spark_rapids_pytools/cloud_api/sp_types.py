@@ -22,7 +22,7 @@ from enum import Enum
 from logging import Logger
 from typing import Type, Any, List, Callable
 
-from as_pytools import EnumeratedType
+from as_pytools import EnumeratedType, CloudPlatform
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
     get_elem_non_safe
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
@@ -83,20 +83,6 @@ class ClusterState(EnumeratedType):
     STOPPED = 'stopped'
     OFFLINE = 'offline'
     UNKNOWN = 'unknown'
-
-
-class CloudPlatform(EnumeratedType):
-    """symbolic names (members) bound to supported cloud platforms."""
-    DATABRICKS_AWS = 'databricks_aws'
-    DATABRICKS_AZURE = 'databricks_azure'
-    DATAPROC = 'dataproc'
-    EMR = 'emr'
-    ONPREM = 'onprem'
-    NONE = 'NONE'
-
-    @classmethod
-    def get_default(cls):
-        return cls.ONPREM
 
 
 class TargetPlatform(EnumeratedType):

@@ -18,10 +18,11 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, List
 
+from as_pytools import CloudPlatform
 from spark_rapids_pytools.cloud_api.databricks_aws_job import DBAWSLocalRapidsJob
 from spark_rapids_pytools.cloud_api.emr import EMRNode, EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, \
+from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase, ClusterBase, ClusterNode, \
     ClusterGetAccessor
 from spark_rapids_pytools.cloud_api.sp_types import ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer

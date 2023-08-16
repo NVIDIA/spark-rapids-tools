@@ -12,21 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the utils package for the Accelerated Spark tools"""
-
-from .util import (
-    get_elem_from_dict, get_elem_non_safe, is_http_file
-)
-
-from .propmanager import (
-    AbstractPropContainer,
-    PropValidatorSchema
-)
-
-__all__ = [
-    'get_elem_from_dict',
-    'get_elem_non_safe',
-    'AbstractPropContainer',
-    'PropValidatorSchema',
-    'is_http_file'
-]
+"""init file of the library that interface with RAPIDS tools"""

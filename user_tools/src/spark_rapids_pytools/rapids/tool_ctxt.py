@@ -18,7 +18,8 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Type, Any
 
-from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CloudPlatform
+from as_pytools import CloudPlatform
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils

@@ -19,7 +19,8 @@ import pathlib
 import re
 from functools import reduce
 from operator import getitem
-
+from typing import Any
+from pydantic import ValidationError, AnyHttpUrl, TypeAdapter
 from as_pytools.exceptions import AsPathAttributeError
 
 
@@ -47,6 +48,15 @@ def stringify_path(fpath) -> str:
         raise AsPathAttributeError('Not a valid path')
 
     return os.path.expanduser(actual_val)
+
+
+def is_http_file(value: Any) -> bool:
+    try:
+        TypeAdapter(AnyHttpUrl).validate_python(value)
+        return True
+    except ValidationError:
+        # ignore
+        return False
 
 
 def get_path_as_uri(fpath: str) -> str:

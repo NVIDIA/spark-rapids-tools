@@ -20,7 +20,8 @@ from typing import Generic, Callable, TypeVar, Any, Union
 
 from pyarrow import fs as arrow_fs
 
-from as_pytools.storagelib.aspath import ASPathImplementation, ASFsPath, path_impl_registry
+from .aspath import ASPathImplementation, ASFsPath, path_impl_registry
+
 from ..exceptions import (
     AsPathNotFoundException
 )

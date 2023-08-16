@@ -65,9 +65,66 @@ class EnumeratedType(str, Enum):
 # CSP Enums
 ###########
 
-class CSPEnv(EnumeratedType):
+class CloudPlatform(EnumeratedType):
+    """Represents the supported types of runtime CSP"""
     DATABRICKS_AWS = 'databricks_aws'
     DATABRICKS_AZURE = 'databricks_azure'
     DATAPROC = 'dataproc'
     EMR = 'emr'
     ONPREM = 'onprem'
+    NONE = 'NONE'
+
+    @classmethod
+    def get_default(cls):
+        return cls.ONPREM
+
+    @classmethod
+    def _missing_(cls, value):
+        value = value.lower()
+        # convert hyphens to underscores
+        value = value.replace('-', '_')
+        for member in cls:
+            if member.lower() == value:
+                return member
+        return None
+
+    @classmethod
+    def requires_pricing_map(cls, value) -> bool:
+        return value in [cls.ONPREM]
+
+    def get_equivalent_pricing_platform(self) -> list:
+        platforms_map = {
+            self.ONPREM: [CloudPlatform.DATAPROC]
+        }
+        return platforms_map.get(self)
+
+    def map_to_java_arg(self) -> str:
+        str_value = self.__class__.pretty_print(self)
+        # convert_underscores_to-hyphens
+        return str_value.replace('_', '-')
+
+
+#############
+# Tools Enums
+#############
+
+class QualFilterApp(EnumeratedType):
+    """Values used to filter out the applications in the qualification report"""
+    SAVINGS = 'savings'
+    SPEEDUPS = 'speedups'
+    ALL = 'all'
+
+    @classmethod
+    def get_default(cls):
+        return cls.SAVINGS
+
+
+class QualGpuClusterReshapeType(EnumeratedType):
+    """Values used to filter out the applications in the qualification report"""
+    MATCH = 'match'
+    CLUSTER = 'cluster'
+    JOB = 'job'
+
+    @classmethod
+    def get_default(cls):
+        return cls.MATCH

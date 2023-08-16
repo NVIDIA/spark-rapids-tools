@@ -40,7 +40,7 @@ from ..exceptions import (
     FSMismatchError, ASFileExistsError
 )
 
-from ..utils.util import get_path_as_uri
+from ..utils.util import get_path_as_uri, is_http_file
 
 if sys.version_info >= (3, 10):
     from typing import TypeGuard
@@ -127,12 +127,7 @@ class AcceptedFilePath:
                      f'Accepted: {self.extensions}'))
 
     def is_http_file(self) -> bool:
-        try:
-            TypeAdapter(AnyHttpUrl).validate_python(self.file_path)
-            return True
-        except ValidationError:
-            # ignore
-            return False
+        return is_http_file(self.file_path)
 
 
 class ASFsPathMeta(abc.ABCMeta):
@@ -218,7 +213,6 @@ class ASFsPath(metaclass=ASFsPathMeta):
     >>> gs_path = ASFsPath('gs://bucket-name/folder_00/subfolder_01')
     >>> print(gs_path.is_file())
     """
-
     protocol_prefix: str
     _path_meta: ASPathImplementation
 
@@ -327,3 +321,7 @@ class ASFsPath(metaclass=ASFsPathMeta):
     @classmethod
     def download_files(cls, src_url: str, dest_url: str):
         fs.copy_files(src_url, dest_url)
+
+    @classmethod
+    def get_storage_name(cls) -> str:
+        return cls._path_meta.name

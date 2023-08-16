@@ -12,21 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the utils package for the Accelerated Spark tools"""
+"""Includes classes and wrappers related to autotuner feature"""
 
-from .util import (
-    get_elem_from_dict, get_elem_non_safe, is_http_file
-)
+from typing import Optional, ClassVar, Type
 
-from .propmanager import (
-    AbstractPropContainer,
-    PropValidatorSchema
-)
+from as_pytools.utils.propmanager import PropValidatorSchemaCamel, PropValidatorSchema, AbstractPropContainer
 
-__all__ = [
-    'get_elem_from_dict',
-    'get_elem_non_safe',
-    'AbstractPropContainer',
-    'PropValidatorSchema',
-    'is_http_file'
-]
+
+class AutoTunerInputSchema(PropValidatorSchemaCamel):
+    system: dict
+    gpu: Optional[dict]
+    software_properties: Optional[dict]
+
+
+class AutoTunerPropMgr(AbstractPropContainer):
+    schema_clzz: ClassVar[Type['PropValidatorSchema']] = AutoTunerInputSchema

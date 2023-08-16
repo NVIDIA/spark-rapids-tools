@@ -12,21 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the utils package for the Accelerated Spark tools"""
+"""init file of the user CLI used to run the tools"""
 
-from .util import (
-    get_elem_from_dict, get_elem_non_safe, is_http_file
-)
-
-from .propmanager import (
-    AbstractPropContainer,
-    PropValidatorSchema
-)
+from .argprocessor import QualifyUserArgModel, ProfileUserArgModel, BootstrapUserArgModel
+from .ascli import ASCLIWrapper
 
 __all__ = [
-    'get_elem_from_dict',
-    'get_elem_non_safe',
-    'AbstractPropContainer',
-    'PropValidatorSchema',
-    'is_http_file'
+    'QualifyUserArgModel',
+    'ProfileUserArgModel',
+    'BootstrapUserArgModel',
+    'ASCLIWrapper'
 ]

@@ -40,6 +40,8 @@ dependencies = [
     "adlfs==2023.4.0"
 ]
 dynamic=["entry-points", "version"]
+[tool.setuptools]
+package-dir = {"" = "src"}
 [tool.setuptools.dynamic]
 version = {attr = "spark_rapids_pytools.__version__"}
 [tool.poetry]

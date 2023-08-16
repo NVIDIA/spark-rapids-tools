@@ -16,16 +16,23 @@
 
 
 from .enums import (
-    EnumeratedType, CSPEnv
+    EnumeratedType, CloudPlatform
 )
 
 from .utils import (
     get_elem_from_dict, get_elem_non_safe
 )
 
+from .storagelib.aspath import (
+    ASFsPath, path_impl_registry, ASFsPathT
+)
+
 __all__ = [
     'EnumeratedType',
-    'CSPEnv',
+    'CloudPlatform',
     'get_elem_from_dict',
-    'get_elem_non_safe'
+    'get_elem_non_safe',
+    'ASFsPathT',
+    'path_impl_registry',
+    'ASFsPath'
 ]
