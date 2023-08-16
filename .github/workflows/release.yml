@@ -46,13 +46,7 @@ jobs:
           mv NEW_CHANGELOG.md CHANGELOG.md
           git add CHANGELOG.md
           git commit -s -m "Update changelogs"
-
-      - name: Push to protected branch
-        uses: CasperWA/push-protected@v2
-        with:
-          token: ${{ secrets.NVAUTO_TOKEN }}
-          branch: main
-          unprotect_reviews: true
+          git push -f https://nvauto:${{ secrets.NVAUTO_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git main
 
       - name: Set Version Number
         id: set_version
