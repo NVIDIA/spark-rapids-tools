@@ -22,6 +22,7 @@ from as_pytools.storagelib.cspfs import register_fs_class, CspFs
 class S3Fs(CspFs):
     """
     Implementation of FileSystem for S3-backed filesystem on top of pyArrow
+    (Docstring copied from pyArrow.S3FileSystem)
 
     The S3FileSystem is initialized with the following list of arguments:
 

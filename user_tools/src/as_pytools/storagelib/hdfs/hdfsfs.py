@@ -19,8 +19,8 @@ from ..cspfs import CspFs, register_fs_class
 
 @register_fs_class("hdfs", "HadoopFileSystem")
 class HdfsFs(CspFs):
-    """
-    Implementation of FileSystem for HAdoopFileSystem on top of pyArrow
+    """Implementation of FileSystem for HAdoopFileSystem on top of pyArrow
+    (Docstring copied from pyArrow.HadoopFileSystem)
 
     The HadoopFileSystem is initialized with the following list of arguments:
 

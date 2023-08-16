@@ -19,8 +19,8 @@ from ..cspfs import CspFs, register_fs_class
 
 @register_fs_class('gcs', 'GcsFileSystem')
 class GcsFs(CspFs):
-    """
-    Implementation of FileSystem for Google storage on top of pyArrow
+    """Implementation of FileSystem for Google storage on top of pyArrow
+    (Docstring copied from pyArrow.GcsFileSystem).
 
     The GcsFileSystem is initialized with the following list of arguments:
 
