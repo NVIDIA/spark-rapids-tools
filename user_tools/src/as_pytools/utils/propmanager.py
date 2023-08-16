@@ -24,13 +24,13 @@ import yaml
 from pydantic import BaseModel, ConfigDict, model_validator, ValidationError
 
 from as_pytools.exceptions import JsonLoadException, YamlLoadException, InvalidPropertiesSchema
-from as_pytools.storagelib.aspath import ASFsPath, ASFsPathT
+from as_pytools.storagelib.csppath import CspPath, CspPathT
 from as_pytools.utils.util import to_camel_case, to_camel_capital_case, get_elem_from_dict, get_elem_non_safe
 
 
-def load_json(file_path: Union[str, ASFsPathT]) -> Any:
+def load_json(file_path: Union[str, CspPathT]) -> Any:
     if isinstance(file_path, str):
-        file_path = ASFsPath(file_path)
+        file_path = CspPath(file_path)
     with file_path.open_input_stream() as fis:
         try:
             return json.load(fis)
@@ -40,9 +40,9 @@ def load_json(file_path: Union[str, ASFsPathT]) -> Any:
             raise JsonLoadException('Incorrect Type of JSON content') from e
 
 
-def load_yaml(file_path: Union[str, ASFsPathT]) -> Any:
+def load_yaml(file_path: Union[str, CspPathT]) -> Any:
     if isinstance(file_path, str):
-        file_path = ASFsPath(file_path)
+        file_path = CspPath(file_path)
     with file_path.open_input_stream() as fis:
         try:
             return yaml.safe_load(fis)
@@ -94,9 +94,9 @@ class AbstractPropContainer(BaseModel):
     def is_valid_prop_path(cls,
                            file_path: Union[str, PathlibPath],
                            raise_on_error: bool = True) -> bool:
-        return ASFsPath.is_file_path(file_path,
-                                     extensions=['json', 'yaml', 'yml'],
-                                     raise_on_error=raise_on_error)
+        return CspPath.is_file_path(file_path,
+                                    extensions=['json', 'yaml', 'yml'],
+                                    raise_on_error=raise_on_error)
 
     @model_validator(mode='before')
     @classmethod
@@ -108,7 +108,7 @@ class AbstractPropContainer(BaseModel):
 
     @classmethod
     def load_from_file(cls,
-                       file_path: Union[str, ASFsPathT],
+                       file_path: Union[str, CspPathT],
                        raise_on_error: bool = True) -> Optional[PropContainerT]:
         loader_func = partial(load_json, file_path)
         if not str(file_path).endswith('.json'):

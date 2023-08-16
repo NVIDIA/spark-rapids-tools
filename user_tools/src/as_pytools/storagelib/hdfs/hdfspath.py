@@ -14,9 +14,9 @@
 
 """Wrapper implementation for HDFS remote path"""
 
-from ..aspath import register_path_class, ASFsPath
+from ..csppath import register_path_class, CspPath
 
 
 @register_path_class("hdfs")
-class HdfsPath(ASFsPath):
+class HdfsPath(CspPath):
     protocol_prefix: str = "hdfs://"

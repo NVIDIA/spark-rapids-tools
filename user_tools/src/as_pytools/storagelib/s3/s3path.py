@@ -14,9 +14,9 @@
 
 """Wrapper implementation for S3 remote path"""
 
-from ..aspath import ASFsPath, register_path_class
+from ..csppath import CspPath, register_path_class
 
 
 @register_path_class("s3")
-class S3AsPath(ASFsPath):
+class S3Path(CspPath):
     protocol_prefix: str = "s3://"

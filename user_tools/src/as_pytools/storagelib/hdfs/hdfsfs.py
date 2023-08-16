@@ -14,11 +14,11 @@
 
 """Wrapper for the Hadoop File system"""
 
-from ..fs import AsFs, register_fs_class
+from ..cspfs import CspFs, register_fs_class
 
 
 @register_fs_class("hdfs", "HadoopFileSystem")
-class HdfsFs(AsFs):
+class HdfsFs(CspFs):
     """
     Implementation of FileSystem for HAdoopFileSystem on top of pyArrow
 

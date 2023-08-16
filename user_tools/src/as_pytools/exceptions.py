@@ -22,39 +22,39 @@ from typing import Optional
 from pydantic import ValidationError
 
 
-class ASFsPathException(Exception):
-    """Base exception for all cloudpathlib custom exceptions."""
+class CspPathException(Exception):
+    """Base exception for all custom exceptions."""
 
 
-class InvalidProtocolPrefixError(ASFsPathException, ValueError):
+class InvalidProtocolPrefixError(CspPathException, ValueError):
     pass
 
 
-class FSMismatchError(ASFsPathException, ValueError):
+class FSMismatchError(CspPathException, ValueError):
     pass
 
 
-class ASFileExistsError(ASFsPathException, ValueError):
+class CspFileExistsError(CspPathException, ValueError):
     pass
 
 
-class AsPathNotFoundException(ASFsPathException, ValueError):
+class CspPathNotFoundException(CspPathException, ValueError):
     pass
 
 
-class JsonLoadException(ASFsPathException, ValueError):
+class JsonLoadException(CspPathException, ValueError):
     pass
 
 
-class YamlLoadException(ASFsPathException, ValueError):
+class YamlLoadException(CspPathException, ValueError):
     pass
 
 
-class AsPathAttributeError(ASFsPathException, ValueError):
+class CspPathAttributeError(CspPathException, ValueError):
     pass
 
 
-class InvalidPropertiesSchema(ASFsPathException, ValueError):
+class InvalidPropertiesSchema(CspPathException, ValueError):
     """
     Defines a class to represent errors caused by invalid properties schema
     """
@@ -72,5 +72,5 @@ class InvalidPropertiesSchema(ASFsPathException, ValueError):
         super().__init__(self.message)
 
 
-class IllegalArgumentError(ASFsPathException, ValueError):
+class IllegalArgumentError(CspPathException, ValueError):
     pass

@@ -20,20 +20,20 @@ from typing import Generic, Callable, TypeVar, Any, Union
 
 from pyarrow import fs as arrow_fs
 
-from .aspath import ASPathImplementation, ASFsPath, path_impl_registry
+from .csppath import CspPathImplementation, CspPath, path_impl_registry
 
 from ..exceptions import (
-    AsPathNotFoundException
+    CspPathNotFoundException
 )
 
-BoundedASPath = TypeVar('BoundedASPath', bound=ASFsPath)
+BoundedCspPath = TypeVar('BoundedCspPath', bound=CspPath)
 BoundedArrowFsT = TypeVar('BoundedArrowFsT', bound=arrow_fs.FileSystem)
 
 
 def register_fs_class(key: str, fs_subclass: str) -> Callable:
     def decorator(cls: type) -> type:
-        if not issubclass(cls, AsFs):
-            raise TypeError('Only subclasses of AsFs can be registered.')
+        if not issubclass(cls, CspFs):
+            raise TypeError('Only subclasses of CspFs can be registered.')
         path_impl_registry[key].fs_class = cls
         path_impl_registry[key].name = key
         imported_module = __import__('pyarrow.fs', globals(), locals(), [fs_subclass])
@@ -48,12 +48,12 @@ def register_fs_class(key: str, fs_subclass: str) -> Callable:
 def custom_dir(orig_type, new_type):
     """
     Given a type orig_type, it adds the attributes found in the new_type. used by the delegator.
-    See the description in AsFs class.
+    See the description in CspFs class.
     """
     return dir(type(orig_type)) + list(orig_type.__dict__.keys()) + new_type
 
 
-class AsFs(abc.ABC, Generic[BoundedASPath]):
+class CspFs(abc.ABC, Generic[BoundedCspPath]):
     """
     Abstract FileSystem that provides input and output streams as well as directory operations.
 
@@ -65,7 +65,7 @@ class AsFs(abc.ABC, Generic[BoundedASPath]):
     https://www.fast.ai/posts/2019-08-06-delegation.html
     Base class for attr accesses in "self._xtra" passed down to "self.fs"
     """
-    _path_meta: ASPathImplementation
+    _path_meta: CspPathImplementation
     _default_fs = None
 
     @classmethod
@@ -73,7 +73,7 @@ class AsFs(abc.ABC, Generic[BoundedASPath]):
         return cls._path_meta.fslib_class(*args, **kwargs)
 
     @classmethod
-    def get_default_client(cls) -> 'AsFs':
+    def get_default_client(cls) -> 'CspFs':
         if cls._default_fs is None:
             cls._default_fs = cls()
         return cls._default_fs
@@ -96,11 +96,11 @@ class AsFs(abc.ABC, Generic[BoundedASPath]):
     def __init__(self, *args: Any, **kwargs: Any):
         self.fs = self.create_fs_handler(*args, **kwargs)
 
-    def create_as_path(self, entry_path: Union[str, BoundedASPath]) -> BoundedASPath:
+    def create_as_path(self, entry_path: Union[str, BoundedCspPath]) -> BoundedCspPath:
         return self._path_meta.path_class(entry_path=entry_path, fs_obj=self)
 
     @classmethod
-    def copy_resources(cls, src: BoundedASPath, dest: BoundedASPath):
+    def copy_resources(cls, src: BoundedCspPath, dest: BoundedCspPath):
         """
         Copy files between FileSystems.
 
@@ -108,10 +108,10 @@ class AsFs(abc.ABC, Generic[BoundedASPath]):
         one file system to another, such as from S3 to your local machine. Note that the
         copy_resources uses threads by default. The chunk size is set to 1 MB.
 
-        :param src: BoundedASPath
+        :param src: BoundedCspPath
             Source file path or URI to a single file or directory
             If a directory, files will be copied recursively from this path.
-        :param dest: BoundedASPath
+        :param dest: BoundedCspPath
             Destination directory where the source is copied to.
             If the directory does not exist, it will be created first.
             If the source is a file, then the final destination will be dest/file_name
@@ -120,7 +120,7 @@ class AsFs(abc.ABC, Generic[BoundedASPath]):
         """
         # check that the src path exists
         if not src.exists():
-            raise AsPathNotFoundException(f'Source Path does not exist {src}')
+            raise CspPathNotFoundException(f'Source Path does not exist {src}')
         dest_path = os.path.join(str(dest), src.base_name())
         if src.is_dir():
             # create a subfolder in the destination

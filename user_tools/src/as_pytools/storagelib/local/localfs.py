@@ -15,11 +15,11 @@
 """Wrapper for the local File system"""
 
 
-from ..fs import AsFs, register_fs_class
+from ..cspfs import CspFs, register_fs_class
 
 
 @register_fs_class('local', 'LocalFileSystem')
-class LocalFs(AsFs):
+class LocalFs(CspFs):
     """
      A FileSystem implementation accessing files on the local machine. Implemented on top of pyArrow.
     """
