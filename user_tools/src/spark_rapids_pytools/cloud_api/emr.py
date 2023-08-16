@@ -19,10 +19,11 @@ import os
 from dataclasses import field, dataclass
 from typing import Any, List
 
+from as_pytools import CloudPlatform
 from spark_rapids_pytools.cloud_api.emr_job import EmrLocalRapidsJob
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, \
-    CloudPlatform, ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice, \
+    ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice, \
     ClusterGetAccessor
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, \
     AbstractPropertiesContainer

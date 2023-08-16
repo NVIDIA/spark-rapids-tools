@@ -14,8 +14,8 @@
 
 
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on AWS-EMR."""
-
-from spark_rapids_pytools.cloud_api.sp_types import DeployMode, CloudPlatform
+from as_pytools import CloudPlatform
+from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.diagnostic import Diagnostic

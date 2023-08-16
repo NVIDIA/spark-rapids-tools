@@ -91,8 +91,12 @@ class AbstractPropContainer(BaseModel):
     schema_clzz: ClassVar[Type['PropValidatorSchema']] = None
 
     @classmethod
-    def is_valid_prop_path(cls, file_path: Union[str, PathlibPath]):
-        ASFsPath.is_file_path(file_path, extensions=['json', 'yaml', 'yml'])
+    def is_valid_prop_path(cls,
+                           file_path: Union[str, PathlibPath],
+                           raise_on_error: bool = True) -> bool:
+        return ASFsPath.is_file_path(file_path,
+                                     extensions=['json', 'yaml', 'yml'],
+                                     raise_on_error=raise_on_error)
 
     @model_validator(mode='before')
     @classmethod
@@ -113,7 +117,7 @@ class AbstractPropContainer(BaseModel):
         try:
             new_prop_obj = cls(props=prop)
             return new_prop_obj
-        except InvalidPropertiesSchema as e:
+        except (InvalidPropertiesSchema, ValidationError) as e:
             if raise_on_error:
                 raise e
         return None

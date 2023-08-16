@@ -22,30 +22,12 @@ from typing import Any, List, Callable
 import pandas as pd
 from tabulate import tabulate
 
-from as_pytools import EnumeratedType
+from as_pytools.enums import QualFilterApp, QualGpuClusterReshapeType
 from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
-
-
-class QualFilterApp(EnumeratedType):
-    """Values used to filter out the applications in the qualification report"""
-    SAVINGS = 'savings'
-    SPEEDUPS = 'speedups'
-    NONE = 'none'
-
-
-class QualGpuClusterReshapeType(EnumeratedType):
-    """Values used to filter out the applications in the qualification report"""
-    MATCH = 'match'
-    CLUSTER = 'cluster'
-    JOB = 'job'
-
-    @classmethod
-    def get_default(cls):
-        return cls.MATCH
 
 
 @dataclass
@@ -261,7 +243,7 @@ class Qualification(RapidsJarTool):
                 # set it to none
                 self.logger.info('Filtering criteria `filter_apps` will be reset to NONE because savings '
                                  'estimates are disabled')
-                self.ctxt.set_ctxt('filterApps', QualFilterApp.NONE)
+                self.ctxt.set_ctxt('filterApps', QualFilterApp.ALL)
 
     def __process_gpu_cluster_recommendation(self, arg_val: str):
         available_types = [filter_enum.value for filter_enum in QualGpuClusterReshapeType]
