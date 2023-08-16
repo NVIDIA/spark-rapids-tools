@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Type, Any
 
-from as_pytools import CloudPlatform
+from as_pytools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
@@ -152,4 +152,4 @@ class ToolContext(YAMLPropertiesContainer):
         This used to get the lower case of the platform of the runtime.
         :return: the name of the platform of the runtime in lower_case.
         """
-        return CloudPlatform.pretty_print(self.platform.type_id)
+        return CspEnv.pretty_print(self.platform.type_id)

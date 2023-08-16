@@ -65,7 +65,7 @@ class EnumeratedType(str, Enum):
 # CSP Enums
 ###########
 
-class CloudPlatform(EnumeratedType):
+class CspEnv(EnumeratedType):
     """Represents the supported types of runtime CSP"""
     DATABRICKS_AWS = 'databricks_aws'
     DATABRICKS_AZURE = 'databricks_azure'
@@ -94,7 +94,7 @@ class CloudPlatform(EnumeratedType):
 
     def get_equivalent_pricing_platform(self) -> list:
         platforms_map = {
-            self.ONPREM: [CloudPlatform.DATAPROC]
+            self.ONPREM: [CspEnv.DATAPROC]
         }
         return platforms_map.get(self)
 

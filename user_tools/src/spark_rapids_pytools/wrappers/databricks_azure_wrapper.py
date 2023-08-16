@@ -14,7 +14,7 @@
 
 
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on DATABRICKS_AZURE."""
-from as_pytools import CloudPlatform
+from as_pytools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
@@ -118,7 +118,7 @@ class CliDBAzureLocalMode:  # pylint: disable=too-few-public-methods
             'toolsJar': tools_jar,
             'gpuClusterRecommendation': gpu_cluster_recommendation
         }
-        QualificationAsLocal(platform_type=CloudPlatform.DATABRICKS_AZURE,
+        QualificationAsLocal(platform_type=CspEnv.DATABRICKS_AZURE,
                              cluster=None,
                              output_folder=local_folder,
                              wrapper_options=wrapper_qual_options,
@@ -196,7 +196,7 @@ class CliDBAzureLocalMode:  # pylint: disable=too-few-public-methods
             'toolsJar': tools_jar,
             'autoTunerFileInput': worker_info
         }
-        ProfilingAsLocal(platform_type=CloudPlatform.DATABRICKS_AZURE,
+        ProfilingAsLocal(platform_type=CspEnv.DATABRICKS_AZURE,
                          output_folder=local_folder,
                          wrapper_options=wrapper_prof_options,
                          rapids_options=rapids_options).launch()

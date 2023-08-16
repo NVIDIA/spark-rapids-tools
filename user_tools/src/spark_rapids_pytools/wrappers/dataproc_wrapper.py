@@ -14,7 +14,7 @@
 
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on Dataproc."""
 
-from as_pytools import CloudPlatform
+from as_pytools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
@@ -117,7 +117,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'gpuClusterRecommendation': gpu_cluster_recommendation
         }
 
-        tool_obj = QualificationAsLocal(platform_type=CloudPlatform.DATAPROC,
+        tool_obj = QualificationAsLocal(platform_type=CspEnv.DATAPROC,
                                         output_folder=local_folder,
                                         wrapper_options=wrapper_qual_options,
                                         rapids_options=rapids_options)
@@ -193,7 +193,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'autoTunerFileInput': worker_info
         }
 
-        ProfilingAsLocal(platform_type=CloudPlatform.DATAPROC,
+        ProfilingAsLocal(platform_type=CspEnv.DATAPROC,
                          output_folder=local_folder,
                          wrapper_options=wrapper_prof_options,
                          rapids_options=rapids_options).launch()
@@ -221,7 +221,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'platformOpts': {},
             'dryRun': dry_run
         }
-        bootstrap_tool = Bootstrap(platform_type=CloudPlatform.DATAPROC,
+        bootstrap_tool = Bootstrap(platform_type=CspEnv.DATAPROC,
                                    cluster=cluster,
                                    output_folder=output_folder,
                                    wrapper_options=wrapper_boot_options)
@@ -255,7 +255,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'threadNum': thread_num,
             'yes': yes,
         }
-        diag_tool = Diagnostic(platform_type=CloudPlatform.DATAPROC,
+        diag_tool = Diagnostic(platform_type=CspEnv.DATAPROC,
                                cluster=cluster,
                                output_folder=output_folder,
                                wrapper_options=wrapper_diag_options)

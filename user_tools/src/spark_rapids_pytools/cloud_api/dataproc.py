@@ -19,7 +19,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, List
 
-from as_pytools import CloudPlatform
+from as_pytools import CspEnv
 from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob
 from spark_rapids_pytools.cloud_api.gstorage import GStorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CMDDriverBase, \
@@ -43,7 +43,7 @@ class DataprocPlatform(PlatformBase):
     """
 
     def __post_init__(self):
-        self.type_id = CloudPlatform.DATAPROC
+        self.type_id = CspEnv.DATAPROC
         super().__post_init__()
 
     def _set_remaining_configuration_list(self) -> None:

@@ -16,7 +16,7 @@
 
 
 from .enums import (
-    EnumeratedType, CloudPlatform
+    EnumeratedType, CspEnv
 )
 
 from .utils import (
@@ -29,7 +29,7 @@ from .storagelib.csppath import (
 
 __all__ = [
     'EnumeratedType',
-    'CloudPlatform',
+    'CspEnv',
     'get_elem_from_dict',
     'get_elem_non_safe',
     'CspPathT',
