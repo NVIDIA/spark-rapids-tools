@@ -75,7 +75,7 @@ class AbstractToolUserArgModel:
         'toolArgs': {}
     })
     logger: Logger = dataclasses.field(init=False,
-                                       default=ToolLogging.get_and_setup_logger(f'ascli.argparser'))
+                                       default=ToolLogging.get_and_setup_logger('ascli.argparser'))
 
     def get_eventlogs(self) -> Optional[str]:
         if hasattr(self, 'eventlogs'):
@@ -155,7 +155,7 @@ class AbstractToolUserArgModel:
             for case_key, case_value in curr_cases.items():
                 if any(ArgValueCase.array_equal(self.argv_cases, case_i) for case_i in case_value['cases']):
                     # debug the case key
-                    self.logger.info(f'...applying argument case: {case_key}')
+                    self.logger.info('...applying argument case: %s', case_key)
                     case_value['callable']()
 
     def validate_arguments(self):
@@ -259,7 +259,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             # we cannot use QualFilterApp.SAVINGS if savingsCalculations is disabled.
             self.p_args['toolArgs']['filterApps'] = QualFilterApp.SPEEDUPS
         if reason_msg:
-            self.logger.info(f'Cost saving is disabled: {reason_msg}')
+            self.logger.info('Cost saving is disabled: %s', reason_msg)
 
     def disable_savings_calculations(self):
         self._reset_savings_flags(reason_msg='Cluster\'s information is missing.')
@@ -285,7 +285,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             if not equivalent_pricing_list:
                 # no target_platform for that runtime environment
                 self.logger.info(
-                    f'Argument target_platform does not support the current cluster [{runtime_platform}]')
+                    'Argument target_platform does not support the current cluster [%s]', runtime_platform)
                 self.p_args['toolArgs']['targetPlatform'] = None
             else:
                 if not self.p_args['toolArgs']['targetPlatform'] in equivalent_pricing_list:
