@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Wrapper implementation for Gstorage remote path"""
+"""init file of the storage library of googleStorage systems"""
 
-from ..aspath import register_path_class, ASFsPath
+from .gcsfs import GcsFs
+from .gcspath import GcsPath
 
-
-@register_path_class("gs")
-class GSAsPath(ASFsPath):
-    protocol_prefix: str = "gs://"
+__all__ = [
+    'GcsFs',
+    'GcsPath',
+]

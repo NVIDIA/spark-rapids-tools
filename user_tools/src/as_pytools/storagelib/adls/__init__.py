@@ -15,9 +15,9 @@
 """init file of the storage library of ADLS systems (Azure data lake storage)"""
 
 from .adlsfs import AdlsFs
-from .adlspath import AdlsAsPath
+from .adlspath import AdlsPath
 
 __all__ = [
     'AdlsFs',
-    'AdlsAsPath',
+    'AdlsPath',
 ]

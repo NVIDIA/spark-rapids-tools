@@ -14,9 +14,9 @@
 
 """Wrapper implementation for ADLS remote path"""
 
-from ..aspath import ASFsPath, register_path_class
+from ..csppath import CspPath, register_path_class
 
 
 @register_path_class("adls")
-class AdlsAsPath(ASFsPath):
+class AdlsPath(CspPath):
     protocol_prefix: str = "abfss://"

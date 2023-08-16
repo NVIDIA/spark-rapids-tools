@@ -15,11 +15,11 @@
 """Wrapper for the S3 File system"""
 
 
-from as_pytools.storagelib.fs import register_fs_class, AsFs
+from as_pytools.storagelib.cspfs import register_fs_class, CspFs
 
 
 @register_fs_class('s3', 'S3FileSystem')
-class S3Fs(AsFs):
+class S3Fs(CspFs):
     """
     Implementation of FileSystem for S3-backed filesystem on top of pyArrow
 

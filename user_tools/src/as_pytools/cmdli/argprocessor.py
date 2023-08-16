@@ -30,7 +30,7 @@ from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
 from ..enums import QualFilterApp, CloudPlatform
-from ..storagelib.aspath import ASFsPath
+from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
 
 
@@ -100,19 +100,19 @@ class AbstractToolUserArgModel:
         return cluster_case
 
     def detect_platform_from_cluster_prop(self):
-        client_cluster = ClientCluster(ASFsPath(self.cluster))
+        client_cluster = ClientCluster(CspPath(self.cluster))
         self.p_args['toolArgs']['platform'] = CloudPlatform.fromstring(client_cluster.platform_name)
 
     def detect_platform_from_eventlogs_prefix(self):
         map_storage_to_platform = {
-            'gs': CloudPlatform.DATAPROC,
+            'gcs': CloudPlatform.DATAPROC,
             's3': CloudPlatform.EMR,
             'local': CloudPlatform.ONPREM,
             'hdfs': CloudPlatform.ONPREM,
             'adls': CloudPlatform.DATABRICKS_AZURE
         }
         # in case we have a list of eventlogs, we need to split them and take the first one
-        ev_logs_path = ASFsPath(self.get_eventlogs().split(',')[0])
+        ev_logs_path = CspPath(self.get_eventlogs().split(',')[0])
         storage_type = ev_logs_path.get_storage_name()
         self.p_args['toolArgs']['platform'] = map_storage_to_platform[storage_type]
 

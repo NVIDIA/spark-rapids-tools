@@ -37,7 +37,7 @@ from typing_extensions import Annotated
 
 from ..exceptions import (
     InvalidProtocolPrefixError,
-    FSMismatchError, ASFileExistsError
+    FSMismatchError, CspFileExistsError
 )
 
 from ..utils.util import get_path_as_uri, is_http_file
@@ -52,23 +52,23 @@ else:
     from typing_extensions import Self
 
 if TYPE_CHECKING:
-    from .fs import AsFs
+    from .cspfs import CspFs
 
 
-CSPPathString = Annotated[str, StringConstraints(pattern=r'^\w+://.*')]
+CspPathString = Annotated[str, StringConstraints(pattern=r'^\w+://.*')]
 
 
-class ASPathImplementation:
+class CspPathImplementation:
     """
     A metaclass implementation that describes the behavior of the path class
     """
     name: str
-    _path_class: Type['ASFsPath']
-    _fs_class: Type['AsFs']
+    _path_class: Type['CspPath']
+    _fs_class: Type['CspFs']
     _fslib_class: Type['FileSystem']
 
     @property
-    def fs_class(self) -> Type['AsFs']:
+    def fs_class(self) -> Type['CspFs']:
         return self._fs_class
 
     @fs_class.setter
@@ -76,7 +76,7 @@ class ASPathImplementation:
         self._fs_class = clazz
 
     @property
-    def path_class(self) -> Type['ASFsPath']:
+    def path_class(self) -> Type['CspPath']:
         return self._path_class
 
     @path_class.setter
@@ -92,15 +92,15 @@ class ASPathImplementation:
         self._fslib_class = clazz
 
 
-path_impl_registry: Dict[str, ASPathImplementation] = defaultdict(ASPathImplementation)
+path_impl_registry: Dict[str, CspPathImplementation] = defaultdict(CspPathImplementation)
 
 T = TypeVar('T')
-ASFsPathT = TypeVar('ASFsPathT', bound='ASFsPath')
+CspPathT = TypeVar('CspPathT', bound='CspPath')
 
 
-def register_path_class(key: str) -> Callable[[Type[ASFsPathT]], Type[ASFsPathT]]:
-    def decorator(cls: Type[ASFsPathT]) -> Type[ASFsPathT]:
-        if not issubclass(cls, ASFsPath):
+def register_path_class(key: str) -> Callable[[Type[CspPathT]], Type[CspPathT]]:
+    def decorator(cls: Type[CspPathT]) -> Type[CspPathT]:
+        if not issubclass(cls, CspPath):
             raise TypeError('Only subclasses of CloudPath can be registered.')
         path_impl_registry[key].path_class = cls
         cls._path_meta = path_impl_registry[key]  # pylint: disable=protected-access
@@ -114,7 +114,7 @@ class AcceptedFilePath:
     """
     Class used to represent input that can be accepted as file paths.
     """
-    file_path: Union[CSPPathString, FilePath, AnyHttpUrl]
+    file_path: Union[CspPathString, FilePath, AnyHttpUrl]
     extensions: Optional[List[str]] = None
 
     @model_validator(mode='after')
@@ -130,40 +130,40 @@ class AcceptedFilePath:
         return is_http_file(self.file_path)
 
 
-class ASFsPathMeta(abc.ABCMeta):
+class CspPathMeta(abc.ABCMeta):
     """
-    Class meta used to add hooks to the type of the ASFsPath as needed.
-    This is used typically to dynamically assign any class type as subclass to ASFsPath.
+    Class meta used to add hooks to the type of the CspPath as needed.
+    This is used typically to dynamically assign any class type as subclass to CspPath.
     """
 
     @overload
     def __call__(
-            cls: Type[T], entry_path: ASFsPathT, *args: Any, **kwargs: Any
-    ) -> ASFsPathT:
+            cls: Type[T], entry_path: CspPathT, *args: Any, **kwargs: Any
+    ) -> CspPathT:
         ...
 
     @overload
     def __call__(
-            cls: Type[T], entry_path: Union[str, 'ASFsPath'], *args: Any, **kwargs: Any
+            cls: Type[T], entry_path: Union[str, 'CspPath'], *args: Any, **kwargs: Any
     ) -> T:
         ...
 
     def __call__(
-            cls: Type[T], entry_path: Union[str, ASFsPathT], *args: Any, **kwargs: Any
-    ) -> Union[T, ASFsPathT]:
+            cls: Type[T], entry_path: Union[str, CspPathT], *args: Any, **kwargs: Any
+    ) -> Union[T, CspPathT]:
         # cls is a class that is the instance of this metaclass, e.g., CloudPath
-        if not issubclass(cls, ASFsPath):
+        if not issubclass(cls, CspPath):
             raise TypeError(
-                f'Only subclasses of {ASFsPath.__name__} can be instantiated from its meta class.'
+                f'Only subclasses of {CspPath.__name__} can be instantiated from its meta class.'
             )
         if isinstance(entry_path, str):
             # convert the string to uri if it is not
             entry_path = get_path_as_uri(entry_path)
         # Dispatch to subclass if base ASFsPath
-        if cls is ASFsPath:
+        if cls is CspPath:
             for path_clz_entry in path_impl_registry.values():
                 path_class = path_clz_entry.path_class
-                if path_class is not None and path_class.is_valid_asfspath(
+                if path_class is not None and path_class.is_valid_csppath(
                         entry_path, raise_on_error=False
                 ):
                     # Instantiate path_class instance
@@ -175,7 +175,7 @@ class ASFsPathMeta(abc.ABCMeta):
         return new_obj
 
 
-class ASFsPath(metaclass=ASFsPathMeta):
+class CspPath(metaclass=CspPathMeta):
     """
     Base class for storage systems, based on pyArrow's FileSystem. The class provides support for
     URI/local file path like "gs://", "s3://", "abfss://", "file://".
@@ -187,21 +187,21 @@ class ASFsPath(metaclass=ASFsPathMeta):
 
     Examples
     --------
-    Create a new path subclass from a gs URI:
+    Create a new path subclass from a gcs URI:
 
-    >>> gs_path = ASFsPath('gs://bucket-name/folder_00/subfolder_01')
-    <as_pytools.storagelib.gs.gcpath.GSAsPath object at ...>
+    >>> gs_path = CspPath('gs://bucket-name/folder_00/subfolder_01')
+    <as_pytools.storagelib.gcs.gcpath.GcsPath object at ...>
 
     or from S3 URI:
 
-    >>> s3_path = ASFsPath('s3://bucket-name/folder_00/subfolder_01')
-    <as_pytools.storagelib.s3.s3path.S3AsPath object at ...>
+    >>> s3_path = CspPath('s3://bucket-name/folder_00/subfolder_01')
+    <as_pytools.storagelib.s3.s3path.S3Path object at ...>
 
     or from local file URI:
 
-    >>> local_path1, local_path2 = (ASFsPath('~/my_folder'), ASFsPath('file:///my_folder'))
-    <as_pytools.storagelib.local.localpath.LocalAsPath object at ...,
-      as_pytools.storagelib.local.localpath.LocalAsPath object at ...>
+    >>> local_path1, local_path2 = (CspPath('~/my_folder'), CspPath('file:///my_folder'))
+    <as_pytools.storagelib.local.localpath.LocalPath object at ...,
+      as_pytools.storagelib.local.localpath.LocalPath object at ...>
 
     Print the data from the file with `open_input_file()`:
 
@@ -210,11 +210,12 @@ class ASFsPath(metaclass=ASFsPathMeta):
     b'data'
 
     Check that path is file
-    >>> gs_path = ASFsPath('gs://bucket-name/folder_00/subfolder_01')
+
+    >>> gs_path = CspPath('gs://bucket-name/folder_00/subfolder_01')
     >>> print(gs_path.is_file())
     """
     protocol_prefix: str
-    _path_meta: ASPathImplementation
+    _path_meta: CspPathImplementation
 
     @staticmethod
     def is_file_path(file_path: Union[str, PathlibPath],
@@ -230,17 +231,17 @@ class ASFsPath(metaclass=ASFsPathMeta):
 
     @overload
     @classmethod
-    def is_valid_asfspath(cls, path: str, raise_on_error: bool = ...) -> bool:
+    def is_valid_csppath(cls, path: str, raise_on_error: bool = ...) -> bool:
         ...
 
     @overload
     @classmethod
-    def is_valid_asfspath(cls, path: 'ASFsPath', raise_on_error: bool = ...) -> TypeGuard[Self]:
+    def is_valid_csppath(cls, path: 'CspPath', raise_on_error: bool = ...) -> TypeGuard[Self]:
         ...
 
     @classmethod
-    def is_valid_asfspath(
-            cls, path: Union[str, 'ASFsPath'], raise_on_error: bool = False
+    def is_valid_csppath(
+            cls, path: Union[str, 'CspPath'], raise_on_error: bool = False
     ) -> Union[bool, TypeGuard[Self]]:
         valid = cls.is_protocol_prefix(str(path))
         if raise_on_error and not valid:
@@ -252,12 +253,12 @@ class ASFsPath(metaclass=ASFsPathMeta):
     def __init__(
             self,
             entry_path: Union[str, Self],
-            fs_obj: Optional['AsFs'] = None
+            fs_obj: Optional['CspFs'] = None
     ) -> None:
-        self.is_valid_asfspath(entry_path, raise_on_error=True)
+        self.is_valid_csppath(entry_path, raise_on_error=True)
         self._fpath = str(entry_path)
         if fs_obj is None:
-            if isinstance(entry_path, ASFsPath):
+            if isinstance(entry_path, CspPath):
                 fs_obj = entry_path.fs_obj
             else:
                 fs_obj = self._path_meta.fs_class.get_default_client()
@@ -306,7 +307,7 @@ class ASFsPath(metaclass=ASFsPathMeta):
         if not exist_ok:
             # check that the file does not exist
             if self.exists():
-                raise ASFileExistsError(f'Path already Exists: {self}')
+                raise CspFileExistsError(f'Path already Exists: {self}')
         self.fs_obj.create_dir(self.no_prefix)
         # force the file information object to be retrieved again by invalidating the cached property
         if 'file_info' in self.__dict__:

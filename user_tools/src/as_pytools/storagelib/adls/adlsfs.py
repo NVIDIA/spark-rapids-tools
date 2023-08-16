@@ -19,11 +19,11 @@ from typing import Any
 import adlfs
 from pyarrow.fs import PyFileSystem, FSSpecHandler
 
-from ..fs import AsFs, BoundedArrowFsT, register_fs_class
+from ..cspfs import CspFs, BoundedArrowFsT, register_fs_class
 
 
 @register_fs_class("adls", "PyFileSystem")
-class AdlsFs(AsFs):
+class AdlsFs(CspFs):
     """
     Access Azure Datalake Gen2 and Azure Storage if it were a file system using Multiprotocol Access.
 

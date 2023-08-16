@@ -22,7 +22,7 @@ from collections import defaultdict
 from typing import Type, Union, Any, TypeVar, Dict, Callable, ClassVar, Optional
 
 from ..exceptions import InvalidPropertiesSchema
-from ..storagelib import ASFsPathT
+from ..storagelib import CspPathT
 from ..utils import AbstractPropContainer, PropValidatorSchema
 
 CT = TypeVar('CT')
@@ -83,7 +83,7 @@ class ClientClusterMeta(abc.ABCMeta):
     """
     Meta class representing client cluster
     """
-    def __call__(cls: Type[CT], file_path: ASFsPathT, *args: Any, **kwargs: Any
+    def __call__(cls: Type[CT], file_path: CspPathT, *args: Any, **kwargs: Any
                  ) -> Union[CT, ClientClusterT]:
         # cls is a class that is the instance of this metaclass, e.g., CloudPath
         if not issubclass(cls, ClientCluster):

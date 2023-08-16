@@ -15,34 +15,34 @@
 """init file of the storagelib package which offers a common interface to access any FS protocol."""
 
 from .s3.s3fs import S3Fs
-from .s3.s3path import S3AsPath
-from .gs.gcsfs import GcFs
-from .gs.gcpath import GSAsPath
+from .s3.s3path import S3Path
+from .gcs.gcsfs import GcsFs
+from .gcs.gcspath import GcsPath
 from .hdfs.hdfsfs import HdfsFs
 from .hdfs.hdfspath import HdfsPath
 from .adls.adlsfs import AdlsFs
-from .adls.adlspath import AdlsAsPath
+from .adls.adlspath import AdlsPath
 from .local.localfs import LocalFs
-from .local.localpath import LocalAsPath
-from .aspath import ASFsPathT, path_impl_registry, ASFsPath
-from .fs import AsFs, BoundedArrowFsT, register_fs_class
+from .local.localpath import LocalPath
+from .csppath import CspPathT, path_impl_registry, CspPath
+from .cspfs import CspFs, BoundedArrowFsT, register_fs_class
 
 __all__ = [
     'AdlsFs',
-    'AdlsAsPath',
-    'AsFs',
-    'ASFsPath',
+    'AdlsPath',
+    'CspFs',
+    'CspPath',
     'BoundedArrowFsT',
-    'GcFs',
-    'GSAsPath',
+    'GcsFs',
+    'GcsPath',
     'HdfsFs',
     'HdfsPath',
     'LocalFs',
-    'LocalAsPath',
-    'ASFsPath',
-    'ASFsPathT',
+    'LocalPath',
+    'CspPath',
+    'CspPathT',
     'path_impl_registry',
     'register_fs_class',
     'S3Fs',
-    'S3AsPath',
+    'S3Path',
 ]

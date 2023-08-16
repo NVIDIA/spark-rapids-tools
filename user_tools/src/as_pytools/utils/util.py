@@ -21,7 +21,7 @@ from functools import reduce
 from operator import getitem
 from typing import Any
 from pydantic import ValidationError, AnyHttpUrl, TypeAdapter
-from as_pytools.exceptions import AsPathAttributeError
+from as_pytools.exceptions import CspPathAttributeError
 
 
 def get_elem_from_dict(data, keys):
@@ -45,7 +45,7 @@ def stringify_path(fpath) -> str:
     elif hasattr(fpath, '__fspath__'):
         actual_val = os.fspath(fpath)
     else:
-        raise AsPathAttributeError('Not a valid path')
+        raise CspPathAttributeError('Not a valid path')
 
     return os.path.expanduser(actual_val)
 

@@ -23,8 +23,8 @@ from .utils import (
     get_elem_from_dict, get_elem_non_safe
 )
 
-from .storagelib.aspath import (
-    ASFsPath, path_impl_registry, ASFsPathT
+from .storagelib.csppath import (
+    CspPath, path_impl_registry, CspPathT
 )
 
 __all__ = [
@@ -32,7 +32,7 @@ __all__ = [
     'CloudPlatform',
     'get_elem_from_dict',
     'get_elem_non_safe',
-    'ASFsPathT',
+    'CspPathT',
     'path_impl_registry',
-    'ASFsPath'
+    'CspPath'
 ]

@@ -15,9 +15,9 @@
 """init file of the storage library of local disk storage"""
 
 from .localfs import LocalFs
-from .localpath import LocalAsPath
+from .localpath import LocalPath
 
 __all__ = [
     'LocalFs',
-    'LocalAsPath',
+    'LocalPath',
 ]

@@ -14,11 +14,11 @@
 
 """Wrapper for the Google storage File system"""
 
-from ..fs import AsFs, register_fs_class
+from ..cspfs import CspFs, register_fs_class
 
 
-@register_fs_class('gs', 'GcsFileSystem')
-class GcFs(AsFs):
+@register_fs_class('gcs', 'GcsFileSystem')
+class GcsFs(CspFs):
     """
     Implementation of FileSystem for Google storage on top of pyArrow
 
