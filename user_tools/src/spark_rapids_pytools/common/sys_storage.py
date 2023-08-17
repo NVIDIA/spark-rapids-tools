@@ -141,6 +141,20 @@ class FSUtil:
         return urlsave(url, fpath, reporthook=progress_bar_cb if pbar_enabled else None, timeout=timeout)
 
     @classmethod
+    def verify_file(cls, fpath: str, file_checks: dict) -> bool:
+        if not os.path.exists(fpath):
+            return False
+        if not file_checks:
+            return True
+        expiration_time_s = file_checks.get('cacheExpirationSecs')
+        if expiration_time_s:
+            modified_time = os.path.getmtime(fpath)
+            diff_time = int(datetime.datetime.now().timestamp() - modified_time)
+            if diff_time > expiration_time_s:
+                return False
+        return FileVerifier.check_integrity(fpath, file_checks)
+
+    @classmethod
     def cache_from_url(cls,
                        src_url: str,
                        cache_file: str,
@@ -153,22 +167,8 @@ class FSUtil:
                same.
         :return: true if the file is re-downloaded. False, if the cached file is not modified.
         """
-
-        def check_cached_file(fpath: str, checks_args: dict) -> bool:
-            if not os.path.exists(fpath):
-                return False
-            if not checks_args:
-                return True
-            expiration_time_s = checks_args.get('cacheExpirationSecs')
-            if expiration_time_s:
-                modified_time = os.path.getmtime(fpath)
-                diff_time = int(datetime.datetime.now().timestamp() - modified_time)
-                if diff_time > expiration_time_s:
-                    return False
-            return FileVerifier.check_integrity(fpath, checks_args)
-
         curr_time_stamp = datetime.datetime.now().timestamp()
-        if check_cached_file(cache_file, file_checks):
+        if cls.verify_file(cache_file, file_checks):
             # the file already exists and matches the validation
             # update the access-time and return True
             # update modified time and access time
@@ -177,7 +177,7 @@ class FSUtil:
         cls.fast_download_url(src_url, cache_file)
         # update modified time and access time
         os.utime(cache_file, times=(curr_time_stamp, curr_time_stamp))
-        if not check_cached_file(cache_file, file_checks):
+        if not cls.verify_file(cache_file, file_checks):
             raise RuntimeError(f'Failed downloading resource {src_url}')
         return True
 

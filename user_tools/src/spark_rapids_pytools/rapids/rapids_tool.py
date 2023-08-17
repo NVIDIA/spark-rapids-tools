@@ -485,11 +485,16 @@ class RapidsJarTool(RapidsTool):
             """
             start_time = time.monotonic()
             self.logger.info('Checking dependency %s', dep['name'])
-            dest_folder = self.ctxt.get_cache_folder()
             resource_file_name = FSUtil.get_resource_name(dep['uri'])
-            resource_file = FSUtil.build_path(dest_folder, resource_file_name)
             file_check_dict = {'size': dep['size']}
-            signature_file = FileVerifier.get_signature_file(dep['uri'], dest_folder)
+            if self.ctxt.is_offline_mode():
+                resource_file = FSUtil.build_path(self.ctxt.get_offline_folder(), resource_file_name)
+                signature_file = FSUtil.build_path(self.ctxt.get_offline_folder(), resource_file_name + ".asc")
+            else:
+                dest_folder = self.ctxt.get_cache_folder()
+                resource_file = FSUtil.build_path(dest_folder, resource_file_name)
+                signature_file = FileVerifier.get_signature_file(dep['uri'], dest_folder)
+
             if signature_file is not None:
                 file_check_dict['signatureFile'] = signature_file
             algorithm = FileVerifier.get_integrity_algorithm(dep)
@@ -498,10 +503,20 @@ class RapidsJarTool(RapidsTool):
                     'algorithm': algorithm,
                     'hash': dep[algorithm]
                 }
-            is_created = FSUtil.cache_from_url(dep['uri'], resource_file, file_checks=file_check_dict)
-            if is_created:
-                self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],
-                                 resource_file)
+
+            if self.ctxt.is_offline_mode():
+                valid_file = FSUtil.verify_file(resource_file, file_checks=file_check_dict)
+                success_message = f'Using dependency {resource_file_name} from offline directory {resource_file}'
+            else:
+                valid_file = FSUtil.cache_from_url(dep['uri'], resource_file, file_checks=file_check_dict)
+                success_message = f'The dependency  {dep["uri"]} has been downloaded into {resource_file}'
+
+            if valid_file:
+                self.logger.info(success_message)
+            else:
+                error_message = f'The dependency {resource_file_name} cannot be downloaded/verified'
+                raise ValueError(error_message)
+
                 # check if we need to decompress files
             if dep['type'] == 'archive':
                 destination_path = self.ctxt.get_local_work_dir()
