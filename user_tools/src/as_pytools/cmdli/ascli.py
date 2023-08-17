@@ -82,18 +82,19 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
                 "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
                 "JOB": recommend optimal GPU cluster by cost per job
         """
-        user_model = QualifyUserArgModel(eventlogs=eventlogs,
-                                         cluster=cluster,
-                                         platform=platform,
-                                         target_platform=target_platform,
-                                         output_folder=output_folder,
-                                         filter_apps=filter_apps,
-                                         gpu_cluster_recommendation=gpu_cluster_recommendation)
-        processed_args = user_model.build_tools_args()
-        tool_obj = QualificationAsLocal(platform_type=processed_args['runtimePlatform'],
-                                        output_folder=processed_args['outputFolder'],
-                                        wrapper_options=processed_args)
-        tool_obj.launch()
+
+        qual_args = QualifyUserArgModel.create_tool_args(eventlogs=eventlogs,
+                                                         cluster=cluster,
+                                                         platform=platform,
+                                                         target_platform=target_platform,
+                                                         output_folder=output_folder,
+                                                         filter_apps=filter_apps,
+                                                         gpu_cluster_recommendation=gpu_cluster_recommendation)
+        if qual_args:
+            tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
+                                            output_folder=qual_args['outputFolder'],
+                                            wrapper_options=qual_args)
+            tool_obj.launch()
 
     def profiling(self,
                   eventlogs: str = None,
@@ -118,15 +119,15 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
                 and "databricks-azure".
         :param output_folder: path to store the output.
         """
-        user_model = ProfileUserArgModel(eventlogs=eventlogs,
-                                         cluster=cluster,
-                                         platform=platform,
-                                         output_folder=output_folder)
-        processed_args = user_model.build_tools_args()
-        tool_obj = ProfilingAsLocal(platform_type=processed_args['runtimePlatform'],
-                                    output_folder=processed_args['outputFolder'],
-                                    wrapper_options=processed_args)
-        tool_obj.launch()
+        prof_args = ProfileUserArgModel.create_tool_args(eventlogs=eventlogs,
+                                                         cluster=cluster,
+                                                         platform=platform,
+                                                         output_folder=output_folder)
+        if prof_args:
+            tool_obj = ProfilingAsLocal(platform_type=prof_args['runtimePlatform'],
+                                        output_folder=prof_args['outputFolder'],
+                                        wrapper_options=prof_args)
+            tool_obj.launch()
 
     def bootstrap(self,
                   cluster: str,
@@ -146,16 +147,16 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
         :param output_folder: path where the final recommendations will be saved.
         :param dry_run: True or False to update the Spark config settings on Dataproc driver node.
         """
-        user_model = BootstrapUserArgModel(cluster=cluster,
-                                           platform=platform,
-                                           output_folder=output_folder,
-                                           dry_run=dry_run)
-        processed_args = user_model.build_tools_args()
-        tool_obj = Bootstrap(platform_type=processed_args['runtimePlatform'],
-                             cluster=cluster,
-                             output_folder=processed_args['outputFolder'],
-                             wrapper_options=processed_args)
-        tool_obj.launch()
+        boot_args = BootstrapUserArgModel.create_tool_args(cluster=cluster,
+                                                           platform=platform,
+                                                           output_folder=output_folder,
+                                                           dry_run=dry_run)
+        if boot_args:
+            tool_obj = Bootstrap(platform_type=boot_args['runtimePlatform'],
+                                 cluster=cluster,
+                                 output_folder=boot_args['outputFolder'],
+                                 wrapper_options=boot_args)
+            tool_obj.launch()
 
 
 def main():
