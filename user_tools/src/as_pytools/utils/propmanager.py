@@ -113,13 +113,16 @@ class AbstractPropContainer(BaseModel):
         loader_func = partial(load_json, file_path)
         if not str(file_path).endswith('.json'):
             loader_func = partial(load_yaml, file_path)
-        prop = loader_func()
         try:
+            prop = loader_func()
             new_prop_obj = cls(props=prop)
             return new_prop_obj
-        except (InvalidPropertiesSchema, ValidationError) as e:
+        except FileNotFoundError as fe:
             if raise_on_error:
-                raise e
+                raise ValueError(f'Input file {file_path} does not exist') from fe
+        except (InvalidPropertiesSchema, ValidationError) as ve:
+            if raise_on_error:
+                raise ve
         return None
 
     def get_value(self, *key_strs):

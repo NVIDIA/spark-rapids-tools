@@ -13,14 +13,16 @@
 # limitations under the License.
 
 """Utility and helper methods"""
-
 import os
 import pathlib
 import re
 from functools import reduce
 from operator import getitem
-from typing import Any
+from typing import Any, Optional
+
+import fire
 from pydantic import ValidationError, AnyHttpUrl, TypeAdapter
+
 from as_pytools.exceptions import CspPathAttributeError
 
 
@@ -78,3 +80,10 @@ def to_camel_capital_case(word: str) -> str:
 
 def to_snake_case(word: str) -> str:
     return ''.join(['_' + i.lower() if i.isupper() else i for i in word]).lstrip('_')
+
+
+def get_tool_usage(tool_name: Optional[str]) -> str:
+    imported_module = __import__('as_pytools.cmdli', globals(), locals(), ['ASCLIWrapper'])
+    wrapper_clzz = getattr(imported_module, 'ASCLIWrapper')
+    usage_cmd = '--help' if tool_name is None else f'{tool_name} --help'
+    return fire.Fire(wrapper_clzz(), command=usage_cmd)
