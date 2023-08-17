@@ -17,11 +17,11 @@
 
 import fire
 
-from as_pytools.cmdli import QualifyUserArgModel, ProfileUserArgModel, BootstrapUserArgModel
 from as_pytools.enums import QualGpuClusterReshapeType
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
+from .argprocessor import AbsToolUserArgModel
 
 
 class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
@@ -83,7 +83,8 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
                 "JOB": recommend optimal GPU cluster by cost per job
         """
 
-        qual_args = QualifyUserArgModel.create_tool_args(eventlogs=eventlogs,
+        qual_args = AbsToolUserArgModel.create_tool_args('qualification',
+                                                         eventlogs=eventlogs,
                                                          cluster=cluster,
                                                          platform=platform,
                                                          target_platform=target_platform,
@@ -119,7 +120,8 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
                 and "databricks-azure".
         :param output_folder: path to store the output.
         """
-        prof_args = ProfileUserArgModel.create_tool_args(eventlogs=eventlogs,
+        prof_args = AbsToolUserArgModel.create_tool_args('profiling',
+                                                         eventlogs=eventlogs,
                                                          cluster=cluster,
                                                          platform=platform,
                                                          output_folder=output_folder)
@@ -147,10 +149,11 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
         :param output_folder: path where the final recommendations will be saved.
         :param dry_run: True or False to update the Spark config settings on Dataproc driver node.
         """
-        boot_args = BootstrapUserArgModel.create_tool_args(cluster=cluster,
-                                                           platform=platform,
-                                                           output_folder=output_folder,
-                                                           dry_run=dry_run)
+        boot_args = AbsToolUserArgModel.create_tool_args('qualification',
+                                                         cluster=cluster,
+                                                         platform=platform,
+                                                         output_folder=output_folder,
+                                                         dry_run=dry_run)
         if boot_args:
             tool_obj = Bootstrap(platform_type=boot_args['runtimePlatform'],
                                  cluster=cluster,

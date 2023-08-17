@@ -103,7 +103,9 @@ class ClientClusterMeta(abc.ABCMeta):
                         return client_obj
             # no implementation matched the provided property file
             # raise an error
-            raise InvalidPropertiesSchema(msg='The loaded properties file does not match a valid Schema')
+            raise InvalidPropertiesSchema(
+                msg=f'Incorrect properties files: [{file_path}] '
+                    'is incorrect or it does not match a valid Schema')
         prop_mgr_obj = cls._client_impl_meta.prop_mgr_clzz.load_from_file(file_path, True)
         client_obj = object.__new__(cls)
         cls.__init__(client_obj, prop_mgr=prop_mgr_obj, *args, **kwargs)

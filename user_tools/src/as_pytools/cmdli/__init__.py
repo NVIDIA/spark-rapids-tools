@@ -14,12 +14,8 @@
 
 """init file of the user CLI used to run the tools"""
 
-from .argprocessor import QualifyUserArgModel, ProfileUserArgModel, BootstrapUserArgModel
 from .ascli import ASCLIWrapper
 
 __all__ = [
-    'QualifyUserArgModel',
-    'ProfileUserArgModel',
-    'BootstrapUserArgModel',
     'ASCLIWrapper'
 ]

@@ -15,10 +15,11 @@
 """Implementation of argument processors for Tools"""
 
 import dataclasses
+from collections import defaultdict
 from enum import IntEnum
 from functools import partial
 from logging import Logger
-from typing import Optional, Any, ClassVar
+from typing import Optional, Any, ClassVar, Callable, Type, Dict
 
 from pydantic import model_validator, ValidationError
 from pydantic.dataclasses import dataclass
@@ -33,6 +34,7 @@ from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
 from ..enums import QualFilterApp, CspEnv
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
+from ..utils.util import get_tool_usage
 
 
 class ArgValueCase(IntEnum):
@@ -57,8 +59,36 @@ class ArgValueCase(IntEnum):
         return all(cls.are_equal(arr1[i], arr2[i]) for i in range(len(arr1)))
 
 
+class UserArgValidatorImpl:  # pylint: disable=too-few-public-methods
+    """
+    A metaclass holding information about the validator responsible to process user's input.
+    """
+    name: str
+    _validator_class: Type['AbsToolUserArgModel']
+
+    @property
+    def validator_class(self) -> Type['AbsToolUserArgModel']:
+        return self._validator_class
+
+    @validator_class.setter
+    def validator_class(self, clazz):
+        self._validator_class = clazz
+
+
+user_arg_validation_registry: Dict[str, UserArgValidatorImpl] = defaultdict(UserArgValidatorImpl)
+
+
+def register_tool_arg_validator(tool_name: str) -> Callable:
+    def decorator(cls: type) -> type:
+        cls.tool_name = tool_name
+        user_arg_validation_registry[tool_name].name = tool_name
+        user_arg_validation_registry[tool_name].validator_class = cls
+        return cls
+    return decorator
+
+
 @dataclass
-class AbstractToolUserArgModel:
+class AbsToolUserArgModel:
     """
     Abstract class that represent the arguments collected by the user to run the tools.
     This is used as doing preliminary validation against some of the common pattern
@@ -76,15 +106,18 @@ class AbstractToolUserArgModel:
         'toolArgs': {}
     })
     logger: ClassVar[Logger] = ToolLogging.get_and_setup_logger('ascli.argparser')
+    tool_name: ClassVar[str] = None
 
     @classmethod
-    def create_tool_args(cls, *args: Any, **kwargs: Any) -> Optional[dict]:
+    def create_tool_args(cls, tool_name: str, *args: Any, **kwargs: Any) -> Optional[dict]:
         try:
-            new_obj = object.__new__(cls)
-            cls.__init__(new_obj, *args, **kwargs)
+            impl_entry = user_arg_validation_registry.get(tool_name)
+            impl_class = impl_entry.validator_class
+            new_obj = impl_class(*args, **kwargs)
             return new_obj.build_tools_args()
         except ValidationError as e:
-            cls.logger.error('Validation err: %s', e)
+            impl_class.logger.error('Validation err: %s', e)
+            print(get_tool_usage(impl_class.tool_name))
         return None
 
     def get_eventlogs(self) -> Optional[str]:
@@ -184,7 +217,7 @@ class AbstractToolUserArgModel:
 
 
 @dataclass
-class ToolUserArgModel(AbstractToolUserArgModel):
+class ToolUserArgModel(AbsToolUserArgModel):
     """
     Abstract class that represents the arguments collected by the user to run the tool.
     This is used as doing preliminary validation against some of the common pattern
@@ -244,6 +277,7 @@ class ToolUserArgModel(AbstractToolUserArgModel):
 
 
 @dataclass
+@register_tool_arg_validator('qualification')
 class QualifyUserArgModel(ToolUserArgModel):
     """
     Represents the arguments collected by the user to run the qualification tool.
@@ -354,11 +388,13 @@ class QualifyUserArgModel(ToolUserArgModel):
 
 
 @dataclass
+@register_tool_arg_validator('profiling')
 class ProfileUserArgModel(ToolUserArgModel):
     """
     Represents the arguments collected by the user to run the profiling tool.
     This is used as doing preliminary validation against some of the common pattern
     """
+
     def determine_cluster_arg_type(self) -> ArgValueCase:
         cluster_case = super().determine_cluster_arg_type()
         if cluster_case == ArgValueCase.VALUE_B:
@@ -436,7 +472,8 @@ class ProfileUserArgModel(ToolUserArgModel):
 
 
 @dataclass
-class BootstrapUserArgModel(AbstractToolUserArgModel):
+@register_tool_arg_validator('bootstrap')
+class BootstrapUserArgModel(AbsToolUserArgModel):
     dry_run: Optional[bool] = True
 
     def build_tools_args(self) -> dict:
