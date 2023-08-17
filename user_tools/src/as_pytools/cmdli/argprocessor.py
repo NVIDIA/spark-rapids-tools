@@ -18,10 +18,11 @@ import dataclasses
 from enum import IntEnum
 from functools import partial
 from logging import Logger
-from typing import Optional
+from typing import Optional, Any, ClassVar
 
-from pydantic import model_validator
+from pydantic import model_validator, ValidationError
 from pydantic.dataclasses import dataclass
+from pydantic_core import PydanticCustomError
 
 from as_pytools.cloud import ClientCluster
 from as_pytools.exceptions import IllegalArgumentError
@@ -74,8 +75,17 @@ class AbstractToolUserArgModel:
         'meta': {},
         'toolArgs': {}
     })
-    logger: Logger = dataclasses.field(init=False,
-                                       default=ToolLogging.get_and_setup_logger('ascli.argparser'))
+    logger: ClassVar[Logger] = ToolLogging.get_and_setup_logger('ascli.argparser')
+
+    @classmethod
+    def create_tool_args(cls, *args: Any, **kwargs: Any) -> Optional[dict]:
+        try:
+            new_obj = object.__new__(cls)
+            cls.__init__(new_obj, *args, **kwargs)
+            return new_obj.build_tools_args()
+        except ValidationError as e:
+            cls.logger.error('Validation err: %s', e)
+        return None
 
     def get_eventlogs(self) -> Optional[str]:
         if hasattr(self, 'eventlogs'):
@@ -88,13 +98,19 @@ class AbstractToolUserArgModel:
 
     def determine_cluster_arg_type(self) -> ArgValueCase:
         # self.cluster is provided. then we need to verify that the expected files are there
-        if AbstractPropContainer.is_valid_prop_path(self.cluster, raise_on_error=False):
-            # the file cannot be a http_url
-            if is_http_file(self.cluster):
-                # we do not accept http://urls
-                raise IllegalArgumentError(
-                    f'Cluster properties cannot be a web URL path: {self.cluster}')
-            cluster_case = ArgValueCase.VALUE_B
+        if CspPath.is_file_path(self.cluster, raise_on_error=False):
+            # check it is valid prop file
+            if AbstractPropContainer.is_valid_prop_path(self.cluster, raise_on_error=False):
+                # the file cannot be a http_url
+                if is_http_file(self.cluster):
+                    # we do not accept http://urls
+                    raise IllegalArgumentError(
+                        f'Cluster properties cannot be a web URL path: {self.cluster}')
+                cluster_case = ArgValueCase.VALUE_B
+            else:
+                raise PydanticCustomError(
+                    'file_path',
+                    'Cluster property file is not in valid format {.json, .yaml, or .yml}')
         else:
             cluster_case = ArgValueCase.VALUE_A
         return cluster_case
@@ -236,7 +252,6 @@ class QualifyUserArgModel(ToolUserArgModel):
     target_platform: Optional[CspEnv] = None
     filter_apps: Optional[QualFilterApp] = None
     gpu_cluster_recommendation: Optional[QualGpuClusterReshapeType] = None
-    # p_args: dict = dataclasses.field(init=False, default_factory=dict)
 
     def init_tool_args(self):
         self.p_args['toolArgs']['platform'] = self.platform
