@@ -489,7 +489,7 @@ class RapidsJarTool(RapidsTool):
             file_check_dict = {'size': dep['size']}
             if self.ctxt.is_offline_mode():
                 resource_file = FSUtil.build_path(self.ctxt.get_offline_folder(), resource_file_name)
-                signature_file = FSUtil.build_path(self.ctxt.get_offline_folder(), resource_file_name + ".asc")
+                signature_file = FSUtil.build_path(self.ctxt.get_offline_folder(), resource_file_name + '.asc')
             else:
                 dest_folder = self.ctxt.get_cache_folder()
                 resource_file = FSUtil.build_path(dest_folder, resource_file_name)
