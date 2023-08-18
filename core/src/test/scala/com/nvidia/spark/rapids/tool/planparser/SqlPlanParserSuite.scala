@@ -217,6 +217,41 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
+  test("Parse Execs within WholeStageCodeGen in Order") {
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+        "Execs within WSCG ") { spark =>
+        import spark.implicits._
+        val df = Seq(("foo", 1L, 1.2), ("foo", 2L, 2.2), ("bar", 2L, 3.2),
+          ("bar", 2L, 4.2)).toDF("x", "y", "z")
+        df.cube($"x", ceil($"y")).count // hex is not supported in GPU yet.
+      }
+      val pluginTypeChecker = new PluginTypeChecker()
+      val app = createAppFromEventlog(eventLog)
+      assert(app.sqlPlans.size == 1)
+      app.sqlPlans.foreach { case (sqlID, plan) =>
+        val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
+          pluginTypeChecker, app)
+        val allExecInfo = planInfo.execInfo
+        // allExecInfo is : WholeStageCodegen, Exchange, WholeStageCodegen
+        assert(allExecInfo.size == 3)
+        val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 2)
+        // Expanding the children of WholeStageCodegen
+        val allExecs = allExecInfo.map(x => if (x.exec.startsWith("WholeStage")) {
+          x.children.getOrElse(Seq.empty)
+        } else {
+          Seq(x)
+        }).flatten.reverse
+        // Order should be: LocalTableScan, Expand, HashAggregate, Exchange, HashAggregate
+        assert(allExecs.size == 5)
+        assert(allExecs(0).exec == "LocalTableScan")
+        assert(allExecs(1).exec == "Expand")
+        assert(allExecs(2).exec == "HashAggregate")
+      }
+    }
+  }
+
   test("HashAggregate") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,

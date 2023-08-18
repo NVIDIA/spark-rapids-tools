@@ -54,6 +54,7 @@ class QualificationAppInfo(
   val stageIdToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
     HashMap.empty[Long, StageTaskQualificationSummary]
   val stageIdToGpuCpuTransitions: HashMap[Int, Int] = HashMap.empty[Int, Int]
+  var execsNoStageTransitions: Int = 0
 
   val stageIdToSqlID: HashMap[Int, Long] = HashMap.empty[Int, Long]
   val sqlIDtoFailures: HashMap[Long, ArrayBuffer[String]] = HashMap.empty[Long, ArrayBuffer[String]]
@@ -164,17 +165,34 @@ class QualificationAppInfo(
   }
 
   private def calculateSQLSupportedTaskDuration(all: Seq[StageQualSummaryInfo]): Long = {
-    all.map(s => s.stageTaskTime - s.unsupportedTaskDur).sum
+    all.map(s => s.stageTaskTime - s.unsupportedTaskDur).sum - calculateNoExecsStageDurations(all)
   }
 
   private def calculateSQLUnsupportedTaskDuration(all: Seq[StageQualSummaryInfo]): Long = {
-    all.map(_.unsupportedTaskDur).sum
+    all.map(_.unsupportedTaskDur).sum  + calculateNoExecsStageDurations(all)
   }
 
   private def calculateSpeedupFactor(all: Seq[StageQualSummaryInfo]): Double = {
     val allSpeedupFactors = all.filter(_.stageTaskTime > 0).map(_.averageSpeedup)
     val res = SQLPlanParser.averageSpeedup(allSpeedupFactors)
     res
+  }
+
+  private def calculateNoExecsStageDurations(all: Seq[StageQualSummaryInfo]): Long = {
+    // If there are Execs not associated with any stage, then some of the Execs may not be
+    // supported on GPU.  We need to estimate the duration of these Execs and add it to the
+    // unsupportedTaskDur. We estimate the duration by taking the average of the unsupportedTaskDur
+    // of all the stages and multiplying it by the number of Execs that are not associated with
+    // any stage. We multiply with a penalty factor of 0.05
+    // TODO: Need to come up with better heuristics for penalty factor.
+    val unsupportedTasksize= all.map(_.unsupportedTaskDur).size
+    if (execsNoStageTransitions != 0 && unsupportedTasksize != 0) {
+      execsNoStageTransitions * (
+        all.map(_.unsupportedTaskDur).sum / unsupportedTasksize) * 0.05
+    }.toLong
+    else {
+      0L
+    }
   }
 
   private def getAllReadFileFormats: Seq[String] = {
@@ -278,15 +296,29 @@ class QualificationAppInfo(
     // Get the total number of transitions between CPU and GPU for each stage and
     // store it in a Map.
     allStagesToExecs.foreach { case (stageId, execs) =>
-      val topLevelExecs = execs.filterNot(x => x.exec.startsWith("WholeStage"))
-      val childrenExecs = execs.flatMap(_.children).flatten
-      val allExecs = topLevelExecs ++ childrenExecs
+      // Flatten all the Execs within a stage.
+      // Example: Exchange;WholeStageCodegen (14);Exchange;WholeStageCodegen (13);Exchange
+      // will be flattened to Exchange;Sort;Exchange;Sort;SortMergeJoin;SortMergeJoin;Exchange;
+      val allExecs = execs.map(x => if (x.exec.startsWith("WholeStage")) {
+        x.children.getOrElse(Seq.empty)
+      } else {
+        Seq(x)
+      }).flatten.reverse
+
+      // If it's a shuffle stage, then we need to keep the first and last Exchange and remove
+      // all the intermediate Exchanges as input size is captured in Exchange node.
+      val dedupedExecs = if (allExecs.size > 2) {
+        allExecs.head +:
+          allExecs.tail.init.filter(x => x.exec != "Exchange") :+ allExecs.last
+      } else {
+        allExecs
+      }
       // Create a list of transitions by zipping allExecs with itself but with the first element
       // This will create a list of adjacent pairs.
       // Example: If allExecs = (ScanExec, FilterExec, SortExec, ProjectExec), then it will create
       // a list of tuples as follows:
       // (ScanExec, FilterExec), (FilterExec, SortExec), (SortExec, ProjectExec)
-      val transitions = allExecs.zip(allExecs.drop(1)).count {
+      val transitions = dedupedExecs.zip(dedupedExecs.drop(1)).count {
         // If the current execution (currExec) is supported, and the next execution (nextExec)
         // is not supported, or if the current execution is not supported and the next execution
         // is supported, then we consider this as a transition.
@@ -294,6 +326,9 @@ class QualificationAppInfo(
           (!currExec.isSupported && nextExec.isSupported)
       }
       stageIdToGpuCpuTransitions(stageId) = transitions
+    }
+    if (execsNoStage.nonEmpty) {
+      execsNoStageTransitions += execsNoStage.filterNot(exec => exec.isSupported).size
     }
     if (allStagesToExecs.isEmpty) {
       // use job level
