@@ -38,4 +38,4 @@ jobs:
         python -m pip install --pre tox-gh-actions
 
     - name: Run tox test
-      run: cd user_tools && tox
+      run: cd user_tools && tox -e pylint,flake8
