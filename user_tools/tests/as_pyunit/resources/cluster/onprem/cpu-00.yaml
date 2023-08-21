@@ -1,0 +1,8 @@
+config:
+  masterConfig:
+    numCores: 2
+    memory: 7680MiB
+  workerConfig:
+    numCores: 8
+    memory: 7680MiB
+    numWorkers: 2
