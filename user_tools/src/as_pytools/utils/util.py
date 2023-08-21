@@ -49,8 +49,9 @@ def stringify_path(fpath) -> str:
         actual_val = os.fspath(fpath)
     else:
         raise CspPathAttributeError('Not a valid path')
-
-    return os.path.expanduser(actual_val)
+    expanded_path = os.path.expanduser(actual_val)
+    # make sure we return absolute path
+    return os.path.abspath(expanded_path)
 
 
 def is_http_file(value: Any) -> bool:

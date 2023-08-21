@@ -16,12 +16,13 @@
 
 
 import fire
-import pytest
+import pytest  # pylint: disable=import-error
 
 from as_pytools.cmdli.argprocessor import AbsToolUserArgModel
+from .conftest import AsCliUnitTest
 
 
-class TestToolArgProcessor:  # pylint: disable=too-few-public-methods
+class TestToolArgProcessor(AsCliUnitTest):  # pylint: disable=too-few-public-methods
     """
     Class testing toolArgProcessor functionalities
     """
