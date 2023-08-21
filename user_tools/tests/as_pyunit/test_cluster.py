@@ -14,7 +14,7 @@
 
 """Test Identifying cluster from properties"""
 
-import pytest
+import pytest  # pylint: disable=import-error
 
 from as_pytools import CspPath
 from as_pytools.cloud import ClientCluster

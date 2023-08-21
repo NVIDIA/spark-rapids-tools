@@ -16,7 +16,7 @@
 
 import sys
 
-import pytest
+import pytest   # pylint: disable=import-error
 
 
 class AsCliUnitTest:   # pylint: disable=too-few-public-methods
