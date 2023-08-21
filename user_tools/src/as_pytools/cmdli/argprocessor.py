@@ -34,7 +34,7 @@ from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
 from ..enums import QualFilterApp, CspEnv
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
-from ..utils.util import get_tool_usage
+from ..utils.util import dump_tool_usage
 
 
 class ArgValueCase(IntEnum):
@@ -117,7 +117,7 @@ class AbsToolUserArgModel:
             return new_obj.build_tools_args()
         except ValidationError as e:
             impl_class.logger.error('Validation err: %s', e)
-            print(get_tool_usage(impl_class.tool_name))
+            dump_tool_usage(impl_class.tool_name)
         return None
 
     def get_eventlogs(self) -> Optional[str]:
@@ -474,6 +474,10 @@ class ProfileUserArgModel(ToolUserArgModel):
 @dataclass
 @register_tool_arg_validator('bootstrap')
 class BootstrapUserArgModel(AbsToolUserArgModel):
+    """
+    Represents the arguments collected by the user to run the bootstrap tool.
+    This is used as doing preliminary validation against some of the common pattern
+    """
     dry_run: Optional[bool] = True
 
     def build_tools_args(self) -> dict:
@@ -483,3 +487,18 @@ class BootstrapUserArgModel(AbsToolUserArgModel):
             'platformOpts': {},
             'dryRun': self.dry_run
         }
+
+    @model_validator(mode='after')
+    def validate_non_empty_args(self) -> 'BootstrapUserArgModel':
+        error_flag = 0
+        components = []
+        if self.cluster is None:
+            error_flag = 1
+            components.append('cluster')
+        if self.platform is None:
+            error_flag |= 2
+            components.append('platform')
+        if error_flag > 0:
+            missing = str.join(' and ', components)
+            raise ValueError(f'Cmd requires [{missing}] to be specified')
+        return self

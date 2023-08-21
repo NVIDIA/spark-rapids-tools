@@ -46,3 +46,7 @@ package-dir = {"" = "src"}
 version = {attr = "spark_rapids_pytools.__version__"}
 [tool.poetry]
 repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
+[project.optional-dependencies]
+test = [
+    "tox", 'pytest', 'cli_test_helpers'
+]
