@@ -16,6 +16,7 @@
 import os
 import pathlib
 import re
+import sys
 from functools import reduce
 from operator import getitem
 from typing import Any, Optional
@@ -82,8 +83,16 @@ def to_snake_case(word: str) -> str:
     return ''.join(['_' + i.lower() if i.isupper() else i for i in word]).lstrip('_')
 
 
-def get_tool_usage(tool_name: Optional[str]) -> str:
+def dump_tool_usage(tool_name: Optional[str], raise_sys_exit: Optional[bool] = True):
     imported_module = __import__('as_pytools.cmdli', globals(), locals(), ['ASCLIWrapper'])
     wrapper_clzz = getattr(imported_module, 'ASCLIWrapper')
-    usage_cmd = '--help' if tool_name is None else f'{tool_name} --help'
-    return fire.Fire(wrapper_clzz(), command=usage_cmd)
+    help_name = 'ascli'
+    usage_cmd = f'{tool_name} --help'
+    try:
+        fire.Fire(wrapper_clzz(), name=help_name, command=usage_cmd)
+    except fire.core.FireExit:
+        # ignore the sys.exit(0) thrown by the help usage.
+        # ideally we want to exit with error
+        pass
+    if raise_sys_exit:
+        sys.exit(1)
