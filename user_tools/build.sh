@@ -31,4 +31,7 @@ else
   remove_offline_dependencies "$resource_dir"
 fi
 
-python -m build
+pip install build
+python -m build --wheel
+
+echo "Build successful. To install, use: pip install <wheel-file>"

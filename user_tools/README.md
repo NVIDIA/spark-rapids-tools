@@ -35,11 +35,14 @@ Set up a Python environment with a version between 3.8 and 3.10
       $ pip install -e .
       ```
     - Using wheel package built from the repo
-
       ```sh
-      $ pip install build
-      $ python -m build --wheel
+      $ ./build.sh
       $ pip install <wheel-file>
+      ```
+    - **Offline Mode** - Include the argument `offline` to enable offline mode. This mode downloads
+      the necessary dependencies and packages them with the source code into a single 'wheel' file.
+      ```sh
+      $ ./build.sh offline
       ```
 3. Make sure to install CSP SDK if you plan to run the tool wrapper.
 
