@@ -327,7 +327,7 @@
         <spark332.version>3.3.2</spark332.version>
         <spark333.version>3.3.3-SNAPSHOT</spark333.version>
         <spark340.version>3.4.0</spark340.version>
-        <spark341.version>3.4.1-SNAPSHOT</spark341.version>
+        <spark341.version>3.4.1</spark341.version>
         <spark350.version>3.5.0-SNAPSHOT</spark350.version>
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>
@@ -361,7 +361,7 @@
         <delta21x.version>2.1.1</delta21x.version>
         <delta22x.version>2.2.0</delta22x.version>
         <delta23x.version>2.3.0</delta23x.version>
-        <delta24x.version>2.4.0rc1</delta24x.version>
+        <delta24x.version>2.4.0</delta24x.version>
         <delta.core.version>${delta10x.version}</delta.core.version>
         <java.version>1.8</java.version>
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>

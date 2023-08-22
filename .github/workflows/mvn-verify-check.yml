@@ -22,7 +22,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        spark-version: ['311', '320', '330', '341']
     steps:
     - uses: actions/checkout@v3
 
@@ -32,5 +34,5 @@ jobs:
         distribution: adopt
         java-version: 8
 
-    - name: Run mvn verify
-      run: cd core && mvn verify
+    - name: Run mvn verify with Spark ${{ matrix.spark-version }}
+      run: cd core && mvn -Dbuildver=${{ matrix.spark-version }} verify
