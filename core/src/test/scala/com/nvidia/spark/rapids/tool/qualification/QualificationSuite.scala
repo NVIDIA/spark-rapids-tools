@@ -1154,7 +1154,15 @@ class QualificationSuite extends BaseTestSuite {
         try {
           val lines = inputSource.getLines.toSeq
           // 1 for header, 1 for values
-          val expLinesSize = if (ToolUtils.isSpark340OrLater()) 8 else 6
+
+          val expLinesSize =
+            if (ToolUtils.isSpark340OrLater()) {
+              8
+            } else if (!ToolUtils.isSpark320OrLater()) {
+              6
+            } else {
+              7
+            }
           assert(lines.size == expLinesSize)
           assert(lines.head.contains("App ID,Unsupported Type,"))
           assert(lines(1).contains("\"Read\",\"JSON\",\"Types not supported - bigint:int\""))
