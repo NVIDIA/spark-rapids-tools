@@ -42,3 +42,4 @@ wheels/
 dependency-reduced-pom.xml
 # Scala classes
 target/
+offline/

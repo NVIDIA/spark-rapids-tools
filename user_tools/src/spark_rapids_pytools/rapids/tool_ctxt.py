@@ -14,11 +14,11 @@
 
 """Implementation of class holding the execution context of a rapids tool"""
 
+import os
 from glob import glob
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import Type, Any
-from urllib.error import URLError
 
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CloudPlatform
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
@@ -69,7 +69,6 @@ class ToolContext(YAMLPropertiesContainer):
         self.props['wrapperCtx']['jobArgs'] = {}
         # create cache_folder that will be used to hold large downloaded files
         self.__create_and_set_cache_folder()
-        self.set_ctxt('offline', False)
 
     def get_deploy_mode(self) -> Any:
         return self.platform_opts.get('deployMode')
@@ -123,8 +122,14 @@ class ToolContext(YAMLPropertiesContainer):
         self.logger.info('Dependencies are generated locally in local disk as: %s', dep_folder)
         self.logger.info('Local output folder is set as: %s', exec_root_dir)
         offline_dir = Utils.resource_path('offline')
-        self.set_local('offlineFolder', offline_dir)
-        self.logger.info('Offline folder is set as: %s', offline_dir)
+        # Toggle offline mode, if there are any files in offline_dir
+        if os.path.exists(offline_dir) and os.listdir(offline_dir):
+            self.logger.info('******* [Offline Mode Enabled] *******')
+            self.set_local('offlineFolder', offline_dir)
+            self.logger.info('Offline folder is set as: %s', offline_dir)
+            self.set_ctxt('offline', True)
+        else:
+            self.set_ctxt('offline', False)
 
     def get_output_folder(self) -> str:
         return self.get_local('outputFolder')
@@ -143,20 +148,17 @@ class ToolContext(YAMLPropertiesContainer):
     def get_rapids_jar_url(self) -> str:
         # get the version from the package, instead of the yaml file
         # jar_version = self.get_value('sparkRapids', 'version')
-        try:
-            mvn_base_url = self.get_value('sparkRapids', 'mvnUrl')
-            jar_version = Utils.get_latest_available_jar_version(mvn_base_url, Utils.get_base_release())
-            rapids_url = self.get_value('sparkRapids', 'repoUrl').format(mvn_base_url, jar_version, jar_version)
-        except URLError as exc:
+        if self.is_offline_mode():
             offline_path_regex = FSUtil.build_path(self.get_offline_folder(), 'rapids-4-spark-tools_*.jar')
             matching_files = glob(offline_path_regex)
             if not matching_files:
-                raise FileNotFoundError('In Offline Mode. No matching JAR files found.') from exc
-            rapids_url = matching_files[0]
-            self.set_ctxt('offline', True)
-            self.logger.info('******* [Offline Mode]: Unable to download latest dependencies. Executing using '
-                             'available offline jars ******* ')
-        return rapids_url
+                raise FileNotFoundError('In Offline Mode. No matching JAR files found.')
+            return matching_files[0]
+        else:
+            mvn_base_url = self.get_value('sparkRapids', 'mvnUrl')
+            jar_version = Utils.get_latest_available_jar_version(mvn_base_url, Utils.get_base_release())
+            rapids_url = self.get_value('sparkRapids', 'repoUrl').format(mvn_base_url, jar_version, jar_version)
+            return rapids_url
 
     def get_tool_main_class(self) -> str:
         return self.get_value('sparkRapids', 'mainClass')

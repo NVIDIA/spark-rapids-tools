@@ -506,18 +506,18 @@ class RapidsJarTool(RapidsTool):
 
             if self.ctxt.is_offline_mode():
                 valid_file = FSUtil.verify_file(resource_file, file_checks=file_check_dict)
-                success_message = f'Using dependency {resource_file_name} from offline directory {resource_file}'
+                if valid_file:
+                    self.logger.info('Using dependency %s from offline directory %s',
+                                     resource_file_name, resource_file)
+                else:
+                    raise ValueError(f'The dependency {resource_file_name} cannot be downloaded/verified')
             else:
-                valid_file = FSUtil.cache_from_url(dep['uri'], resource_file, file_checks=file_check_dict)
-                success_message = f'The dependency  {dep["uri"]} has been downloaded into {resource_file}'
+                is_created = FSUtil.cache_from_url(dep['uri'], resource_file, file_checks=file_check_dict)
+                if is_created:
+                    self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],
+                                     resource_file)
 
-            if valid_file:
-                self.logger.info(success_message)
-            else:
-                error_message = f'The dependency {resource_file_name} cannot be downloaded/verified'
-                raise ValueError(error_message)
-
-                # check if we need to decompress files
+            # check if we need to decompress files
             if dep['type'] == 'archive':
                 destination_path = self.ctxt.get_local_work_dir()
                 with tarfile.open(resource_file, mode='r:*') as tar:
