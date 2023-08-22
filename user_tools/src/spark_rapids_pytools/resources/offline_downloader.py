@@ -1,7 +1,7 @@
 import os
 import json
 import sys
-
+from concurrent.futures import ThreadPoolExecutor
 from typing import Set
 
 from spark_rapids_pytools.common.sys_storage import FSUtil
@@ -34,7 +34,6 @@ class OfflineDownloader:
                 for dependency in dependency_list:
                     uri = dependency['uri']
                     dependency_uris.add(uri)
-                    dependency_uris.add(uri + '.asc')
         return dependency_uris
 
     def download_dependencies(self, dependency_uris: Set[str]):
@@ -43,12 +42,17 @@ class OfflineDownloader:
         :param dependency_uris: Set of dependency URIs.
         """
         offline_dir = os.path.join(self.RESOURCE_DIR, 'offline')
-        for dependency_uri in dependency_uris:
+
+        def download_dependency(dependency_uri):
             resource_file_name = FSUtil.get_resource_name(dependency_uri)
             resource_file_path = os.path.join(offline_dir, resource_file_name)
 
             print(f"Downloading dependency: {resource_file_name}")
             FSUtil.fast_download_url(dependency_uri, resource_file_path)
+            FSUtil.fast_download_url(dependency_uri + '.asc', resource_file_path, pbar_enabled=False)
+
+        with ThreadPoolExecutor() as executor:
+            executor.map(download_dependency, dependency_uris)
 
     def run(self):
         """
