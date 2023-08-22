@@ -16,7 +16,9 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.NVAUTO_TOKEN }}
 
       - name: Build Changelog
         id: build_changelog
@@ -25,7 +27,7 @@ jobs:
           configuration: ".github/workflows/configuration.json" # Configuration file for the changelog builder (optional)z
           outputFile: "CHANGELOG_BODY.md"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.NVAUTO_TOKEN }}
 
       - name: Commit and Push Changelog
         if: steps.build_changelog.outputs.changes > 0
@@ -38,15 +40,15 @@ jobs:
           cat CURRENT_CHANGELOG.md CHANGELOG_BODY.md >> TEMP_CHANGELOG.md
           cat TEMP_CHANGELOG.md CHANGELOG.md > NEW_CHANGELOG.md
 
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
+          git config user.name ${{ secrets.NVAUTO_USER }}
+          git config user.email ${{ secrets.NVAUTO_EMAIL }}
 
           git fetch origin main
           git checkout main
           mv NEW_CHANGELOG.md CHANGELOG.md
           git add CHANGELOG.md
-          git commit -m "Update changelogs"
-          git push origin main
+          git commit -s -m "Update changelogs"
+          git push -f https://nvauto:${{ secrets.NVAUTO_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git main
 
       - name: Set Version Number
         id: set_version
