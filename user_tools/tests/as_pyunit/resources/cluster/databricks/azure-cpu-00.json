@@ -1,0 +1,85 @@
+{
+  "cluster_id": "0555-002222-i0233r42",
+  "creator_user_name": "user@domain.com",
+  "driver": {
+    "private_ip": "10.5.128.6",
+    "public_dns": "6.156.136.63",
+    "node_id": "bbbba71e471848ffbca205e13e807019",
+    "instance_id": "bbbb178b4f79400aa8370644aa2e2252",
+    "start_timestamp": 1683159942003,
+    "node_attributes": {
+      "is_spot": false
+    },
+    "host_private_ip": "10.6.64.4"
+  },
+  "executors": [
+    {
+      "private_ip": "10.5.128.7",
+      "public_dns": "6.156.136.142",
+      "node_id": "c2caf2d740124ca08eaebb5c7bbbbbe4",
+      "instance_id": "bbbb1e81bac042358f4b84711a6a409b",
+      "start_timestamp": 1683159941959,
+      "node_attributes": {
+        "is_spot": false
+      },
+      "host_private_ip": "10.5.128.8"
+    },
+    {
+      "private_ip": "10.5.128.6",
+      "public_dns": "4.154.136.202",
+      "node_id": "bbbb050d6cb7493d9dda007af6c897a8",
+      "instance_id": "bbbbce6f92394137a5382abf4838f346",
+      "start_timestamp": 1683159941927,
+      "node_attributes": {
+        "is_spot": false
+      },
+      "host_private_ip": "10.5.128.9"
+    }
+  ],
+  "spark_context_id": 9055182870409100836,
+  "driver_healthy": true,
+  "jdbc_port": 10000,
+  "cluster_name": "db-azure-multinode",
+  "spark_version": "11.3.x-scala2.12",
+  "azure_attributes": {
+    "first_on_demand": 1,
+    "availability": "ON_DEMAND_AZURE",
+    "spot_bid_max_price": -1.0
+  },
+  "node_type_id": "Standard_DS3_v2",
+  "driver_node_type_id": "Standard_DS4_v2",
+  "spark_env_vars": {
+    "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+  },
+  "autotermination_minutes": 30,
+  "enable_elastic_disk": true,
+  "disk_spec": {},
+  "cluster_source": "UI",
+  "single_user_name": "user@domain.com",
+  "enable_local_disk_encryption": false,
+  "instance_source": {
+    "node_type_id": "Standard_DS3_v2"
+  },
+  "driver_instance_source": {
+    "node_type_id": "Standard_DS4_v2"
+  },
+  "data_security_mode": "LEGACY_SINGLE_USER_STANDARD",
+  "runtime_engine": "STANDARD",
+  "effective_spark_version": "11.3.x-scala2.12",
+  "state": "RUNNING",
+  "state_message": "",
+  "start_time": 1683159781123,
+  "last_state_loss_time": 0,
+  "last_activity_time": 1683159969783,
+  "last_restarted_time": 1683159987248,
+  "num_workers": 2,
+  "cluster_memory_mb": 57344,
+  "cluster_cores": 16.0,
+  "default_tags": {
+    "Vendor": "Databricks",
+    "Creator": "user@domain.com",
+    "ClusterName": "db-azure-multinode",
+    "ClusterId": "0555-002222-i0233r42"
+  },
+  "init_scripts_safe_mode": false
+}

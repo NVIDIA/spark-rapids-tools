@@ -16,7 +16,7 @@
 Define implementation for the databricks cluster
 """
 
-from typing import ClassVar, Type
+from typing import ClassVar, Type, Optional
 
 from as_pytools.cloud.cluster import register_client_cluster, register_cluster_prop_mgr, ClusterPropMgr, ClientCluster
 from as_pytools.utils.propmanager import PropValidatorSchema
@@ -25,15 +25,15 @@ from as_pytools.utils.propmanager import PropValidatorSchema
 class DBAwsClusterSchema(PropValidatorSchema):
     cluster_id: str
     driver: dict
-    spark_conf: dict
     aws_attributes: dict
+    spark_conf: Optional[dict] = None
 
 
 class DBAzureClusterSchema(PropValidatorSchema):
     cluster_id: str
     driver: dict
-    spark_conf: dict
     azure_attributes: dict
+    spark_conf: Optional[dict] = None
 
 
 @register_cluster_prop_mgr('databricks_aws')
