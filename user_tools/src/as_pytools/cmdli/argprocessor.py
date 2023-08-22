@@ -215,6 +215,23 @@ class AbsToolUserArgModel:
         self.define_extra_arg_cases()
         self.apply_arg_cases()
 
+    def get_or_set_platform(self) -> CspEnv:
+        if self.p_args['toolArgs']['platform'] is None:
+            # set the platform to default onPrem
+            runtime_platform = CspEnv.get_default()
+        else:
+            runtime_platform = self.p_args['toolArgs']['platform']
+        self.post_platform_assignment_validation(runtime_platform)
+        return runtime_platform
+
+    def post_platform_assignment_validation(self, assigned_platform):
+        # do some validation after we decide the cluster type
+        if self.argv_cases[1] == ArgValueCase.VALUE_A:
+            if assigned_platform == CspEnv.ONPREM:
+                # it is not allowed to run cluster_by_name on an OnPrem platform
+                raise IllegalArgumentError(
+                    f'Invalid arguments: Cannot run cluster by name with platform [{CspEnv.ONPREM}]')
+
 
 @dataclass
 class ToolUserArgModel(AbsToolUserArgModel):
@@ -292,6 +309,11 @@ class QualifyUserArgModel(ToolUserArgModel):
         self.p_args['toolArgs']['savingsCalculations'] = True
         self.p_args['toolArgs']['filterApps'] = self.filter_apps
         self.p_args['toolArgs']['targetPlatform'] = self.target_platform
+        # check the reshapeType argument
+        if self.gpu_cluster_recommendation is None:
+            self.p_args['toolArgs']['gpuClusterRecommendation'] = QualGpuClusterReshapeType.get_default()
+        else:
+            self.p_args['toolArgs']['gpuClusterRecommendation'] = self.gpu_cluster_recommendation
 
     def define_extra_arg_cases(self):
         self.extra['Disable CostSavings'] = {
@@ -323,11 +345,7 @@ class QualifyUserArgModel(ToolUserArgModel):
     def build_tools_args(self) -> dict:
         # At this point, if the platform is still none, then we can set it to the default value
         # which is the onPrem platform.
-        if self.p_args['toolArgs']['platform'] is None:
-            # set the platform to default onPrem
-            runtime_platform = CspEnv.get_default()
-        else:
-            runtime_platform = self.p_args['toolArgs']['platform']
+        runtime_platform = self.get_or_set_platform()
         # check the targetPlatform argument
         if self.p_args['toolArgs']['targetPlatform']:
             equivalent_pricing_list = runtime_platform.get_equivalent_pricing_platform()
@@ -377,10 +395,11 @@ class QualifyUserArgModel(ToolUserArgModel):
                     'jvmMaxHeapSize': 24
                 }
             },
+            'savingsCalculations': self.p_args['toolArgs']['savingsCalculations'],
             'eventlogs': self.eventlogs,
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': None,
-            'gpuClusterRecommendation': QualGpuClusterReshapeType.fromstring(self.gpu_cluster_recommendation),
+            'gpuClusterRecommendation': self.p_args['toolArgs']['gpuClusterRecommendation'],
             # used to initialize the pricing information
             'targetPlatform': self.p_args['toolArgs']['targetPlatform']
         }
@@ -434,11 +453,7 @@ class ProfileUserArgModel(ToolUserArgModel):
         return self
 
     def build_tools_args(self) -> dict:
-        if self.p_args['toolArgs']['platform'] is None:
-            # set the platform to default onPrem
-            runtime_platform = CspEnv.get_default()
-        else:
-            runtime_platform = self.p_args['toolArgs']['platform']
+        runtime_platform = self.get_or_set_platform()
         # check if the cluster infor was autotuner_input
         if self.p_args['toolArgs']['autotuner']:
             # this is an autotuner input

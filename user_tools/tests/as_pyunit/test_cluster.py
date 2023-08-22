@@ -19,7 +19,7 @@ import pytest  # pylint: disable=import-error
 from as_pytools import CspPath
 from as_pytools.cloud import ClientCluster
 from as_pytools.exceptions import InvalidPropertiesSchema
-from .conftest import AsCliUnitTest
+from .conftest import AsCliUnitTest, all_cpu_cluster_props
 
 
 class TestClusterCSP(AsCliUnitTest):  # pylint: disable=too-few-public-methods
@@ -32,13 +32,7 @@ class TestClusterCSP(AsCliUnitTest):  # pylint: disable=too-few-public-methods
             ClientCluster(CspPath(f'{get_ut_data_dir}/non_existing_file.json'))
         assert 'Incorrect properties files:' in ex_schema.value.message
 
-    @pytest.mark.parametrize('cluster_type,cluster_prop_path', [
-        ('dataproc', 'cluster/dataproc/cpu-00.yaml'),
-        ('emr', 'cluster/emr/cpu-00.json'),
-        ('onprem', 'cluster/onprem/cpu-00.yaml'),
-        ('databricks_aws', 'cluster/databricks/aws-cpu-00.json'),
-        ('databricks_azure', 'cluster/databricks/azure-cpu-00.json')
-    ])
-    def test_define_cluster_type_from_schema(self, cluster_type, cluster_prop_path, get_ut_data_dir):
-        client_cluster = ClientCluster(CspPath(f'{get_ut_data_dir}/{cluster_prop_path}'))
-        assert client_cluster.platform_name == cluster_type
+    @pytest.mark.parametrize('csp,prop_path', all_cpu_cluster_props)
+    def test_define_cluster_type_from_schema(self, csp, prop_path, get_ut_data_dir):
+        client_cluster = ClientCluster(CspPath(f'{get_ut_data_dir}/{prop_path}'))
+        assert client_cluster.platform_name == csp

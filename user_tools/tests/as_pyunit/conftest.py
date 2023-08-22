@@ -19,17 +19,33 @@ import sys
 import pytest   # pylint: disable=import-error
 
 
+def get_test_resources_path():
+    # pylint: disable=import-outside-toplevel
+    if sys.version_info < (3, 9):
+        import importlib_resources
+    else:
+        import importlib.resources as importlib_resources
+    pkg = importlib_resources.files('tests.as_pyunit')
+    return pkg / 'resources'
+
+
+def gen_cpu_cluster_props():
+    return [
+        ('dataproc', 'cluster/dataproc/cpu-00.yaml'),
+        ('emr', 'cluster/emr/cpu-00.json'),
+        ('onprem', 'cluster/onprem/cpu-00.yaml'),
+        ('databricks_aws', 'cluster/databricks/aws-cpu-00.json'),
+        ('databricks_azure', 'cluster/databricks/azure-cpu-00.json')
+    ]
+
+
+all_cpu_cluster_props = gen_cpu_cluster_props()
+all_csps = ['dataproc', 'emr', 'onprem', 'databricks_aws', 'databricks_azure']
+
+
 class AsCliUnitTest:   # pylint: disable=too-few-public-methods
 
     @pytest.fixture(autouse=True)
     def get_ut_data_dir(self):
-        # pylint: disable=import-outside-toplevel
         # TODO: find a dynamic way to load the package name, instead of having it hardcoded
-        # cls = type(self)
-        # module_name = cls.__module__
-        if sys.version_info < (3, 9):
-            import importlib_resources
-        else:
-            import importlib.resources as importlib_resources
-        pkg = importlib_resources.files('tests.as_pyunit')
-        return pkg / 'resources'
+        return get_test_resources_path()
