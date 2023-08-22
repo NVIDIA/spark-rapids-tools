@@ -224,7 +224,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         import spark.implicits._
         val df = Seq(("foo", 1L, 1.2), ("foo", 2L, 2.2), ("bar", 2L, 3.2),
           ("bar", 2L, 4.2)).toDF("x", "y", "z")
-        df.cube($"x", ceil($"y")).count // hex is not supported in GPU yet.
+        df.cube($"x", ceil($"y")).count
       }
       val pluginTypeChecker = new PluginTypeChecker()
       val app = createAppFromEventlog(eventLog)
@@ -233,8 +233,13 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
           pluginTypeChecker, app)
         val allExecInfo = planInfo.execInfo
-        // allExecInfo is : WholeStageCodegen, Exchange, WholeStageCodegen
-        assert(allExecInfo.size == 3)
+        val expectedAllExecInfoSize = if (ToolUtils.isSpark320OrLater()) {
+          // AdaptiveSparkPlan, WholeStageCodegen, AQEShuffleRead, Exchange, WholeStageCodegen
+          5
+        } else {
+          // WholeStageCodegen, Exchange, WholeStageCodegen
+          3
+        }
         val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
         assert(wholeStages.size == 2)
         // Expanding the children of WholeStageCodegen
@@ -243,11 +248,16 @@ class SQLPlanParserSuite extends BaseTestSuite {
         } else {
           Seq(x)
         }).flatten.reverse
-        // Order should be: LocalTableScan, Expand, HashAggregate, Exchange, HashAggregate
-        assert(allExecs.size == 5)
-        assert(allExecs(0).exec == "LocalTableScan")
-        assert(allExecs(1).exec == "Expand")
-        assert(allExecs(2).exec == "HashAggregate")
+        val expectedOrder = if (ToolUtils.isSpark320OrLater()) {
+          // Order should be: LocalTableScan, Expand, HashAggregate, Exchange,
+          // AQEShuffleRead, HashAggregate, AdaptiveSparkPlan
+          Seq("LocalTableScan", "Expand", "HashAggregate", "Exchange", "AQEShuffleRead",
+            "HashAggregate", "AdaptiveSparkPlan")
+        } else {
+          // Order should be: LocalTableScan, Expand, HashAggregate, Exchange, HashAggregate
+          Seq("LocalTableScan", "Expand", "HashAggregate", "Exchange", "HashAggregate")
+        }
+        assert(allExecs.map(_.exec) == expectedOrder)
       }
     }
   }
