@@ -112,6 +112,11 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[Boolean](required = false,
       descr = "Whether to parse ML functions in the eventlogs. Default is false.",
       default = Some(false))
+  val ignoreTransitions: ScallopOption[Boolean] =
+    opt[Boolean](required = false,
+      descr = "Whether to ignore durations for ColumnarToRow and RowToColumnar transitions " +
+        "in the eventlogs while calculating the speedup. Default is false.",
+      default = Some(false))
   val sparkProperty: ScallopOption[List[String]] =
     opt[List[String]](required = false,
       descr = "Filter applications based on certain Spark properties that were set during " +

@@ -39,7 +39,8 @@ class QualificationAppInfo(
     pluginTypeChecker: PluginTypeChecker,
     reportSqlLevel: Boolean,
     perSqlOnly: Boolean = false,
-    mlOpsEnabled: Boolean = false)
+    mlOpsEnabled: Boolean = false,
+    ignoreTransitions: Boolean = false)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
   var appId: String = ""
@@ -262,8 +263,13 @@ class QualificationAppInfo(
     stages.map { stageId =>
       val stageTaskTime = stageIdToTaskEndSum.get(stageId)
         .map(_.totalTaskDuration).getOrElse(0L)
-      val numTransitions = stageIdToGpuCpuTransitions.getOrElse(stageId, 0)
+      val numTransitions = ignoreTransitions match {
+        case false => stageIdToGpuCpuTransitions.getOrElse(stageId, 0)
+        case true => 0
+      }
+      // val numTransitions = stageIdToGpuCpuTransitions.getOrElse(stageId, 0)
       val transitionsTime = numTransitions match {
+        case 0 => 0L // no transitions
         case gpuCpuTransitions if gpuCpuTransitions > 0 =>
           // Duration to transfer data from GPU to CPU and vice versa.
           // Assuming it's a PCI-E Gen3, but also assuming that some of the result could be
@@ -929,10 +935,11 @@ object QualificationAppInfo extends Logging {
       hadoopConf: Configuration,
       pluginTypeChecker: PluginTypeChecker,
       reportSqlLevel: Boolean,
-      mlOpsEnabled: Boolean): Either[String, QualificationAppInfo] = {
+      mlOpsEnabled: Boolean,
+      ignoreTransitions: Boolean): Either[String, QualificationAppInfo] = {
     try {
         val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
-          reportSqlLevel, false, mlOpsEnabled)
+          reportSqlLevel, false, mlOpsEnabled, ignoreTransitions)
         logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
         Right(app)
       } catch {

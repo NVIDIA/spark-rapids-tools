@@ -60,6 +60,7 @@ object QualificationMain extends Logging {
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
     val platform = appArgs.platform.getOrElse("onprem")
     val mlOpsEnabled = appArgs.mlFunctions.getOrElse(false)
+    val ignoreTransitions = appArgs.ignoreTransitions.getOrElse(false)
 
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf
 
@@ -93,7 +94,7 @@ object QualificationMain extends Logging {
 
     val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf, timeout,
       nThreads, order, pluginTypeChecker, reportReadSchema, printStdout, uiEnabled,
-      enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled)
+      enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled, ignoreTransitions)
     val res = qual.qualifyApps(filteredLogs)
     (0, res)
   }
