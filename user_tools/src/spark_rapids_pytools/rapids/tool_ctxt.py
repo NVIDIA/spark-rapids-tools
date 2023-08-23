@@ -154,11 +154,10 @@ class ToolContext(YAMLPropertiesContainer):
             if not matching_files:
                 raise FileNotFoundError('In Offline Mode. No matching JAR files found.')
             return matching_files[0]
-        else:
-            mvn_base_url = self.get_value('sparkRapids', 'mvnUrl')
-            jar_version = Utils.get_latest_available_jar_version(mvn_base_url, Utils.get_base_release())
-            rapids_url = self.get_value('sparkRapids', 'repoUrl').format(mvn_base_url, jar_version, jar_version)
-            return rapids_url
+        mvn_base_url = self.get_value('sparkRapids', 'mvnUrl')
+        jar_version = Utils.get_latest_available_jar_version(mvn_base_url, Utils.get_base_release())
+        rapids_url = self.get_value('sparkRapids', 'repoUrl').format(mvn_base_url, jar_version, jar_version)
+        return rapids_url
 
     def get_tool_main_class(self) -> str:
         return self.get_value('sparkRapids', 'mainClass')
