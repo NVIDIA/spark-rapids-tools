@@ -21,8 +21,8 @@ from as_pytools.utils.propmanager import PropValidatorSchemaCamel, PropValidator
 
 class AutoTunerInputSchema(PropValidatorSchemaCamel):
     system: dict
-    gpu: Optional[dict]
-    software_properties: Optional[dict]
+    gpu: Optional[dict] = None
+    software_properties: Optional[dict] = None
 
 
 class AutoTunerPropMgr(AbstractPropContainer):

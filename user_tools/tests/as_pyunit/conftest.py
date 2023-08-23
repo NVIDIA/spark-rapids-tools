@@ -40,7 +40,11 @@ def gen_cpu_cluster_props():
 
 
 all_cpu_cluster_props = gen_cpu_cluster_props()
-all_csps = ['dataproc', 'emr', 'onprem', 'databricks_aws', 'databricks_azure']
+# all cpu_cluster_props except the onPrem
+csp_cpu_cluster_props = [(e_1, e_2) for (e_1, e_2) in all_cpu_cluster_props if e_1 != 'onprem']
+# all csps except onprem
+csps = ['dataproc', 'emr', 'databricks_aws', 'databricks_azure']
+all_csps = csps + ['onprem']
 
 
 class AsCliUnitTest:   # pylint: disable=too-few-public-methods
