@@ -22,22 +22,24 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Set
 
 from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import Utils
 
 
 class OfflineDownloader:
     """
     Class for downloading dependencies for offline usage.
     """
+    supported_platforms: list = ['emr', 'databricks_aws', 'databricks_azure', 'dataproc', 'onprem']
+    configs_suffix: str = '-configs.json'
+    mvn_base_url: str = 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
+
     def __init__(self, resource_dir: str):
-        self.supported_platforms = ['emr', 'databricks_aws', 'databricks_azure', 'dataproc', 'onprem']
-        self.configs_suffix = '-configs.json'
         self.resource_dir = resource_dir
-        self.mvn_base_url = 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
-        self.rapids_version = '23.06.4'
-        self.rapids_url = (
-            f'{self.mvn_base_url}/{self.rapids_version}/'
-            f'rapids-4-spark-tools_2.12-{self.rapids_version}.jar'
-        )
+
+    def get_spark_rapids_jar_url(self) -> str:
+        jar_version = Utils.get_latest_available_jar_version(self.mvn_base_url,
+                                                             Utils.get_base_release())
+        return f'{self.mvn_base_url}/{jar_version}/rapids-4-spark-tools_2.12-{jar_version}.jar'
 
     def fetch_dependencies(self) -> Set[str]:
         """
@@ -45,7 +47,7 @@ class OfflineDownloader:
         Returns a set of dependency URIs.
         """
         dependency_uris = set()
-        dependency_uris.add(self.rapids_url)  # Add RAPIDS JAR as dependency
+        dependency_uris.add(self.get_spark_rapids_jar_url())  # Add RAPIDS JAR as dependency
         for platform in self.supported_platforms:
             config_file = os.path.join(self.resource_dir, f'{platform}{self.configs_suffix}')
             with open(config_file, 'r', encoding='utf-8') as file:
@@ -70,7 +72,7 @@ class OfflineDownloader:
 
             print(f'Downloading dependency: {resource_file_name}')
             FSUtil.fast_download_url(dependency_uri, resource_file_path)
-            FSUtil.fast_download_url(dependency_uri + '.asc', resource_file_path, pbar_enabled=False)
+            FSUtil.fast_download_url(dependency_uri + '.asc', resource_file_path + '.asc', pbar_enabled=False)
 
         with ThreadPoolExecutor() as executor:
             executor.map(download_dependency, dependency_uris)

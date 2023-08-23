@@ -14,15 +14,23 @@
 # limitations under the License.
 
 
-# This script takes a build mode ("offline" or otherwise) as a parameter.
-# If the build mode is "offline", it runs the dependency downloader script.
-# If the build mode is not "offline", it removes dependencies from the offline directory
+# Usage: $0 [build_mode]
+# This script takes an optional build_mode ("offline" or otherwise) as a parameter.
+# If the build_mode is "offline", it runs the dependency downloader script.
+# If the build_mode is not "offline", it removes dependencies from the offline directory
 # Finally performs the default build process.
+
+# Get the build mode argument
+build_mode="$1"
+
+# Define resource directory
+resource_dir="src/spark_rapids_pytools/resources"
 
 # Function to run the dependency downloader script for offline mode
 download_offline_dependencies() {
   local resource_dir="$1"
-  python "$resource_dir/offline_downloader.py" "$resource_dir"
+  local offline_downloader_script="$resource_dir/dev/offline_downloader.py"
+  python $offline_downloader_script "$resource_dir"
   if [ $? -ne 0 ]; then
     echo "Dependency download failed for offline mode. Exiting"
     exit 1
@@ -35,17 +43,31 @@ remove_offline_dependencies() {
   rm -rf "$resource_dir/offline"/*
 }
 
-build_mode="$1"
-resource_dir="src/spark_rapids_pytools/resources"
+# Pre-build setup
+pre_build() {
+  rm -rf build/ dist/
+  pip install build -e .
+}
 
-if [ "$build_mode" = "offline" ]; then
-  echo "Building in offline mode"
-  download_offline_dependencies "$resource_dir"
+# Build process
+build() {
+  if [ "$build_mode" = "offline" ]; then
+    echo "Building in offline mode"
+    download_offline_dependencies "$resource_dir"
+  else
+    remove_offline_dependencies "$resource_dir"
+  fi
+  python -m build --wheel
+}
+
+# Main script execution
+pre_build
+build "$build_mode"
+
+# Check build status
+if [ $? -eq 0 ]; then
+  echo "Build successful. To install, use: pip install <wheel-file>"
 else
-  remove_offline_dependencies "$resource_dir"
+  echo "Build failed."
+  exit 1
 fi
-
-pip install build
-python -m build --wheel
-
-echo "Build successful. To install, use: pip install <wheel-file>"

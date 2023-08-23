@@ -124,18 +124,12 @@ class ToolContext(YAMLPropertiesContainer):
         offline_dir = Utils.resource_path('offline')
         # Toggle offline mode, if there are any files in offline_dir
         if os.path.exists(offline_dir) and os.listdir(offline_dir):
-            self.logger.info('******* [Offline Mode Enabled] *******')
-            self.set_local('offlineFolder', offline_dir)
+            self.logger.info(Utils.gen_str_header('Offline Mode Enabled', ruler='_', line_width=50))
             self.logger.info('Offline folder is set as: %s', offline_dir)
-            self.set_ctxt('offline', True)
-        else:
-            self.set_ctxt('offline', False)
+            FSUtil.copy_resources(offline_dir, self.get_cache_folder())
 
     def get_output_folder(self) -> str:
         return self.get_local('outputFolder')
-
-    def get_offline_folder(self) -> str:
-        return self.get_local('offlineFolder')
 
     def get_wrapper_summary_file_path(self) -> str:
         summary_file_name = self.get_value('local', 'output', 'fileName')
@@ -149,7 +143,7 @@ class ToolContext(YAMLPropertiesContainer):
         # get the version from the package, instead of the yaml file
         # jar_version = self.get_value('sparkRapids', 'version')
         if self.is_offline_mode():
-            offline_path_regex = FSUtil.build_path(self.get_offline_folder(), 'rapids-4-spark-tools_*.jar')
+            offline_path_regex = FSUtil.build_path(self.get_cache_folder(), 'rapids-4-spark-tools_*.jar')
             matching_files = glob(offline_path_regex)
             if not matching_files:
                 raise FileNotFoundError('In Offline Mode. No matching JAR files found.')
