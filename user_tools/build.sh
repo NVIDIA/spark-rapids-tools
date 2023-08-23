@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-# Usage: $0 [build_mode]
+# Usage: ./build.sh [build_mode]
 # This script takes an optional build_mode ("offline" or otherwise) as a parameter.
 # If the build_mode is "offline", it runs the dependency downloader script.
 # If the build_mode is not "offline", it removes dependencies from the offline directory
