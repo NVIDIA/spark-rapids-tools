@@ -40,10 +40,19 @@ dependencies = [
     "adlfs==2023.4.0"
 ]
 dynamic=["entry-points", "version"]
+
+[project.scripts]
+spark_rapids_user_tools = "spark_rapids_pytools.wrapper:main"
+ascli = "as_pytools.cmdli.ascli:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
+[tool.setuptools.packages.find]
+where = ["src"]
 [tool.setuptools.dynamic]
 version = {attr = "spark_rapids_pytools.__version__"}
+[tool.setuptools.package-data]
+"*"= ["*.json", "*.yaml", "*.ms", "*.sh"]
 [tool.poetry]
 repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
 [project.optional-dependencies]
