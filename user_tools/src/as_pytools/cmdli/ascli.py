@@ -165,6 +165,7 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
 def main():
     # Make Python Fire not use a pager when it prints a help text
     fire.core.Display = lambda lines, out: out.write('\n'.join(lines) + '\n')
+
     fire.Fire(ASCLIWrapper())
 
 

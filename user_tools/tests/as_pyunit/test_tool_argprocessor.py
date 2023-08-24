@@ -24,7 +24,6 @@ import pytest  # pylint: disable=import-error
 from as_pytools import CspEnv
 from as_pytools.cmdli.argprocessor import AbsToolUserArgModel, ArgValueCase
 from as_pytools.enums import QualFilterApp
-from as_pytools.exceptions import IllegalArgumentError
 from .conftest import AsCliUnitTest, all_cpu_cluster_props, csp_cpu_cluster_props, csps
 
 
@@ -76,11 +75,19 @@ class TestToolArgProcessor(AsCliUnitTest):  # pylint: disable=too-few-public-met
             assert t_args['filterApps'] == QualFilterApp.SPEEDUPS
 
     @pytest.mark.parametrize('tool_name', ['qualification', 'profiling', 'bootstrap'])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED])
+    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED])
     def test_no_args(self, tool_name):
         fire.core.Display = lambda lines, out: out.write('\n'.join(lines) + '\n')
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             AbsToolUserArgModel.create_tool_args(tool_name)
+        assert pytest_wrapped_e.type == SystemExit
+
+    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling', 'bootstrap'])
+    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED])
+    def test_cluster__name_no_hints(self, tool_name):
+        fire.core.Display = lambda lines, out: out.write('\n'.join(lines) + '\n')
+        with pytest.raises(SystemExit) as pytest_wrapped_e:
+            AbsToolUserArgModel.create_tool_args(tool_name, cluster='mycluster')
         assert pytest_wrapped_e.type == SystemExit
 
     @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
@@ -112,13 +119,19 @@ class TestToolArgProcessor(AsCliUnitTest):  # pylint: disable=too-few-public-met
 
     @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
     @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.VALUE_A])
+    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_A, ArgValueCase.IGNORE])
     def test_onprem_disallow_cluster_by_name(self, get_ut_data_dir, tool_name):
         # onprem platform cannot run when the cluster is by_name
-        with pytest.raises(IllegalArgumentError) as ex_arg:
+        with pytest.raises(SystemExit) as pytest_exit_e:
             AbsToolUserArgModel.create_tool_args(tool_name,
                                                  cluster='my_cluster',
                                                  eventlogs=f'{get_ut_data_dir}/eventlogs')
-        assert 'Invalid arguments: Cannot run cluster by name with platform [onprem]' in str(ex_arg.value)
+        assert pytest_exit_e.type == SystemExit
+        with pytest.raises(SystemExit) as pytest_wrapped_e:
+            AbsToolUserArgModel.create_tool_args(tool_name,
+                                                 platform='onprem',
+                                                 cluster='my_cluster')
+        assert pytest_wrapped_e.type == SystemExit
 
     @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
     @pytest.mark.parametrize('csp', csps)

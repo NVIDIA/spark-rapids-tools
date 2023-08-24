@@ -115,7 +115,7 @@ class AbsToolUserArgModel:
             impl_class = impl_entry.validator_class
             new_obj = impl_class(*args, **kwargs)
             return new_obj.build_tools_args()
-        except ValidationError as e:
+        except (ValidationError, IllegalArgumentError) as e:
             impl_class.logger.error('Validation err: %s', e)
             dump_tool_usage(impl_class.tool_name)
         return None
