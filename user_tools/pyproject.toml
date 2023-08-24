@@ -39,5 +39,7 @@ ascli = "spark_rapids_pytools.ascli_cli.ascli:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "spark_rapids_pytools.__version__"}
+[tool.setuptools.package-data]
+spark_rapids_pytools = ["*.json", "*.yaml", "*.ms", "*.sh"]
 [tool.poetry]
 repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
