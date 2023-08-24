@@ -104,8 +104,7 @@ class FSUtil:
         # Determine whether to copy a single resource or a directory
         if os.path.isfile(abs_src):
             return shutil.copy2(abs_src, abs_dest)
-        else:
-            return shutil.copytree(abs_src, abs_dest, dirs_exist_ok=True)
+        return shutil.copytree(abs_src, abs_dest, dirs_exist_ok=True)
 
     @classmethod
     def cache_resource(cls, src: str, dest: str):
