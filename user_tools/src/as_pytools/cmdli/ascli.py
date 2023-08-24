@@ -18,6 +18,7 @@
 import fire
 
 from as_pytools.enums import QualGpuClusterReshapeType
+from as_pytools.utils.util import gen_app_banner
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
@@ -165,7 +166,7 @@ class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
 def main():
     # Make Python Fire not use a pager when it prints a help text
     fire.core.Display = lambda lines, out: out.write('\n'.join(lines) + '\n')
-
+    print(gen_app_banner())
     fire.Fire(ASCLIWrapper())
 
 
