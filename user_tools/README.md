@@ -29,7 +29,7 @@ Set up a Python environment with a version between 3.8 and 3.10
       ```sh
       $ pip install spark-rapids-user-tools
       ```
-    - Using local version from the repo.
+    - Install from source.
 
       ```sh
       $ pip install -e .
@@ -48,14 +48,7 @@ Set up a Python environment similar to the steps above.
 
 1. Run the provided build script to compile the project.
       ```sh
-      $ pip install -e .
       $ ./build.sh
-      ``` 
-2. **Offline Mode** - Include the offline argument when running the build script. This mode 
-   downloads the necessary dependencies and packages them with the source code into a single 'wheel' file.
-      ```sh
-      $ pip install -e .
-      $ ./build.sh offline
       ``` 
 ## Usage and supported platforms
 

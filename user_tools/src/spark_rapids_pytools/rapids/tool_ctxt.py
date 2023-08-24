@@ -126,7 +126,7 @@ class ToolContext(YAMLPropertiesContainer):
         if os.path.exists(offline_dir) and os.listdir(offline_dir):
             self.logger.info(Utils.gen_str_header('Offline Mode Enabled', ruler='_', line_width=50))
             self.logger.info('Offline folder is set as: %s', offline_dir)
-            FSUtil.copy_resources(offline_dir, self.get_cache_folder())
+            FSUtil.copy_resource(offline_dir, self.get_cache_folder())
 
     def get_output_folder(self) -> str:
         return self.get_local('outputFolder')

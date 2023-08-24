@@ -100,18 +100,12 @@ class FSUtil:
         if not os.path.exists(abs_src):
             raise StorageException('Error copying resource on local disk. '
                                    f'Resource {abs_src} does not exist')
-        return shutil.copy2(abs_src, abs_dest)
 
-    @classmethod
-    def copy_resources(cls, src_dir: str, dest_dir: str) -> str:
-        abs_src = os.path.abspath(src_dir)
-        abs_dest = os.path.abspath(dest_dir)
-
-        # check if path exists
-        if not os.path.exists(abs_src):
-            raise StorageException('Error copying resources on local disk. '
-                                   f'Resource {abs_src} does not exist')
-        return shutil.copytree(abs_src, abs_dest, dirs_exist_ok=True)
+        # Determine whether to copy a single resource or a directory
+        if os.path.isfile(abs_src):
+            return shutil.copy2(abs_src, abs_dest)
+        else:
+            return shutil.copytree(abs_src, abs_dest, dirs_exist_ok=True)
 
     @classmethod
     def cache_resource(cls, src: str, dest: str):
