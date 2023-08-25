@@ -763,8 +763,6 @@ class AutoTuner(
           && appInfoProvider.getRedundantReadSize > DEF_READ_SIZE_THRESHOLD) {
       appendRecommendation("spark.rapids.filecache.enabled", "true")
       appendComment("Enable file cache only if Spark local disks bandwidth is > 1 GB/s")
-    } else {
-      null
     }
   }
 

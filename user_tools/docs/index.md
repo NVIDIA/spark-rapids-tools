@@ -74,7 +74,8 @@ The following table summarizes the commands supported for each cloud platform:
 | EMR              | qualification | spark_rapids_user_tools \               |  23.02+  |
 |                  |               |   emr qualification [ARGS]              |          |
 |                  +---------------+-----------------------------------------+----------+
-|                  | profiling     |               N/A                       |    TBD   |
+|                  | profiling     | spark_rapids_user_tools \               |  23.08+  |
+|                  |               |   emr profiling [ARGS]                  |          |
 |                  +---------------+-----------------------------------------+----------+
 |                  | bootstrap     | spark_rapids_user_tools \               |  23.02+  |
 |                  |               |   emr bootstrap [ARGS]                  |          |
