@@ -29,20 +29,27 @@ Set up a Python environment with a version between 3.8 and 3.10
       ```sh
       $ pip install spark-rapids-user-tools
       ```
-    - Using local version from the repo
+    - Install from source.
 
       ```sh
       $ pip install -e .
       ```
-    - Using wheel package built from the repo
-
+    - Using wheel package built from the repo (see the build steps below).
       ```sh
-      $ pip install build
-      $ python -m build --wheel
       $ pip install <wheel-file>
       ```
+
+
 3. Make sure to install CSP SDK if you plan to run the tool wrapper.
 
+## Building from source
+
+Set up a Python environment similar to the steps above.
+
+1. Run the provided build script to compile the project.
+      ```sh
+      $ ./build.sh
+      ``` 
 ## Usage and supported platforms
 
 Please refer to [spark-rapids-user-tools guide](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/index.md) for details on how to use the tools
