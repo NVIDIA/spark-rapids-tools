@@ -55,7 +55,6 @@ class QualificationAppInfo(
   val stageIdToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
     HashMap.empty[Long, StageTaskQualificationSummary]
   val stageIdToGpuCpuTransitions: HashMap[Int, Int] = HashMap.empty[Int, Int]
-  var execsNoStageTransitions: Int = 0
 
   val stageIdToSqlID: HashMap[Int, Long] = HashMap.empty[Int, Long]
   val sqlIDtoFailures: HashMap[Long, ArrayBuffer[String]] = HashMap.empty[Long, ArrayBuffer[String]]
@@ -152,8 +151,10 @@ class QualificationAppInfo(
 
   // Look at the total task times for all jobs/stages that aren't SQL or
   // SQL but dataset or rdd
-  private def calculateNonSQLTaskDataframeDuration(taskDFDuration: Long): Long = {
-    val allTaskTime = stageIdToTaskEndSum.values.map(_.totalTaskDuration).sum
+  private def calculateNonSQLTaskDataframeDuration(
+      taskDFDuration: Long,
+      totalTransitionTime: Long): Long = {
+    val allTaskTime = stageIdToTaskEndSum.values.map(_.totalTaskDuration).sum + totalTransitionTime
     val res = allTaskTime - taskDFDuration
     assert(res >= 0)
     res
@@ -166,34 +167,17 @@ class QualificationAppInfo(
   }
 
   private def calculateSQLSupportedTaskDuration(all: Seq[StageQualSummaryInfo]): Long = {
-    all.map(s => s.stageTaskTime - s.unsupportedTaskDur).sum - calculateNoExecsStageDurations(all)
+    all.map(s => s.stageTaskTime - s.unsupportedTaskDur).sum
   }
 
   private def calculateSQLUnsupportedTaskDuration(all: Seq[StageQualSummaryInfo]): Long = {
-    all.map(_.unsupportedTaskDur).sum  + calculateNoExecsStageDurations(all)
+    all.map(_.unsupportedTaskDur).sum
   }
 
   private def calculateSpeedupFactor(all: Seq[StageQualSummaryInfo]): Double = {
     val allSpeedupFactors = all.filter(_.stageTaskTime > 0).map(_.averageSpeedup)
     val res = SQLPlanParser.averageSpeedup(allSpeedupFactors)
     res
-  }
-
-  private def calculateNoExecsStageDurations(all: Seq[StageQualSummaryInfo]): Long = {
-    // If there are Execs not associated with any stage, then some of the Execs may not be
-    // supported on GPU.  We need to estimate the duration of these Execs and add it to the
-    // unsupportedTaskDur. We estimate the duration by taking the average of the unsupportedTaskDur
-    // of all the stages and multiplying it by the number of Execs that are not associated with
-    // any stage. We multiply with a penalty factor of 0.05
-    // TODO: Need to come up with better heuristics for penalty factor.
-    val unsupportedTasksize= all.map(_.unsupportedTaskDur).size
-    if (execsNoStageTransitions != 0 && unsupportedTasksize != 0) {
-      execsNoStageTransitions * (
-        all.map(_.unsupportedTaskDur).sum / unsupportedTasksize) * 0.05
-    }.toLong
-    else {
-      0L
-    }
   }
 
   private def getAllReadFileFormats: Seq[String] = {
@@ -267,7 +251,6 @@ class QualificationAppInfo(
         case false => stageIdToGpuCpuTransitions.getOrElse(stageId, 0)
         case true => 0
       }
-      // val numTransitions = stageIdToGpuCpuTransitions.getOrElse(stageId, 0)
       val transitionsTime = numTransitions match {
         case 0 => 0L // no transitions
         case gpuCpuTransitions if gpuCpuTransitions > 0 =>
@@ -286,13 +269,8 @@ class QualificationAppInfo(
           }
         case _ => 0L
       }
-      // Update totaltaskduration of stageIdToTaskEndSum to include transitions time
-      val stageIdToTasksMetrics = stageIdToTaskEndSum.get(stageId).orElse(None)
-      if (stageIdToTasksMetrics.isDefined) {
-        stageIdToTasksMetrics.get.totalTaskDuration += transitionsTime
-      }
       StageQualSummaryInfo(stageId, allSpeedupFactorAvg, stageTaskTime,
-        eachStageUnsupported + transitionsTime, estimated, numTransitions)
+        eachStageUnsupported + transitionsTime, numTransitions, transitionsTime, estimated)
     }.toSet
   }
 
@@ -332,9 +310,6 @@ class QualificationAppInfo(
           (!currExec.isSupported && nextExec.isSupported)
       }
       stageIdToGpuCpuTransitions(stageId) = transitions
-    }
-    if (execsNoStage.nonEmpty) {
-      execsNoStageTransitions += execsNoStage.filterNot(exec => exec.isSupported).size
     }
     if (allStagesToExecs.isEmpty) {
       // use job level
@@ -516,11 +491,12 @@ class QualificationAppInfo(
       val allStagesSummary = perSqlStageSummary.flatMap(_.stageSum)
         .map(sum => sum.stageId -> sum).toMap.values.toSeq
       val sqlDataframeTaskDuration = allStagesSummary.map(s => s.stageTaskTime).sum
+      val totalTransitionsTime = allStagesSummary.map(s=> s.transitionTime).sum
       val unsupportedSQLTaskDuration = calculateSQLUnsupportedTaskDuration(allStagesSummary)
       val endDurationEstimated = this.appEndTime.isEmpty && appDuration > 0
       val jobOverheadTime = calculateJobOverHeadTime(info.startTime)
       val nonSQLDataframeTaskDuration =
-        calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration)
+        calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration, totalTransitionsTime)
       val nonSQLTaskDuration = nonSQLDataframeTaskDuration + jobOverheadTime
       // note that these ratios are based off the stage times which may be missing some stage
       // overhead or execs that didn't have associated stages
@@ -577,7 +553,8 @@ class QualificationAppInfo(
 
       // get the ratio based on the Task durations that we will use for wall clock durations
       val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
-        supportedSQLTaskDuration.toDouble / sqlDataframeTaskDuration.toDouble
+        supportedSQLTaskDuration.toDouble / (
+          sqlDataframeTaskDuration.toDouble + totalTransitionsTime.toDouble)
       } else {
         1
       }
@@ -825,8 +802,9 @@ case class StageQualSummaryInfo(
     averageSpeedup: Double,
     stageTaskTime: Long,
     unsupportedTaskDur: Long,
-    estimated: Boolean = false,
-    numTransitions: Int)
+    numTransitions: Int,
+    transitionTime: Long,
+    estimated: Boolean = false)
 
 object QualificationAppInfo extends Logging {
   // define recommendation constants
