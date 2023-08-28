@@ -82,8 +82,8 @@ class ToolContext(YAMLPropertiesContainer):
     def get_deploy_mode(self) -> Any:
         return self.platform_opts.get('deployMode')
 
-    def is_offline_mode(self) -> bool:
-        return self.get_ctxt('offlineModeEnabled')
+    def is_fatwheel_mode(self) -> bool:
+        return self.get_ctxt('fatwheelModeEnabled')
 
     def set_ctxt(self, key: str, val: Any):
         self.props['wrapperCtx'][key] = val
@@ -138,8 +138,8 @@ class ToolContext(YAMLPropertiesContainer):
         """
         if not self.are_resources_prepackaged():
             return
-        self.set_ctxt('offlineModeEnabled', True)
-        self.logger.info(Utils.gen_str_header('Fat Mode Is Enabled',
+        self.set_ctxt('fatwheelModeEnabled', True)
+        self.logger.info(Utils.gen_str_header('Fat Wheel Mode Is Enabled',
                                               ruler='_', line_width=50))
 
         for res_path in self.prepackage_paths:
@@ -167,7 +167,7 @@ class ToolContext(YAMLPropertiesContainer):
     def get_rapids_jar_url(self) -> str:
         # get the version from the package, instead of the yaml file
         # jar_version = self.get_value('sparkRapids', 'version')
-        if self.is_offline_mode():
+        if self.is_fatwheel_mode():
             offline_path_regex = FSUtil.build_path(self.get_cache_folder(), 'rapids-4-spark-tools_*.jar')
             matching_files = glob(offline_path_regex)
             if not matching_files:
