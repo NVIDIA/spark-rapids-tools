@@ -47,9 +47,20 @@ Set up a Python environment with a version between 3.8 and 3.10
 Set up a Python environment similar to the steps above.
 
 1. Run the provided build script to compile the project.
-      ```sh
-      $ ./build.sh
-      ``` 
+
+   ```sh
+   $> ./build.sh
+   ```
+ 
+2. **Fat Mode:** Similar to `fat jar` in Java, this mode solves the problem when web access is not
+   available to download resources having Url-paths (http/https).  
+   The command builds the tools jar file and downloads the necessary dependencies and packages them
+   with the source code into a single 'wheel' file.
+
+   ```sh
+   $> ./build.sh fat
+   ```
+ 
 ## Usage and supported platforms
 
 Please refer to [spark-rapids-user-tools guide](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/index.md) for details on how to use the tools

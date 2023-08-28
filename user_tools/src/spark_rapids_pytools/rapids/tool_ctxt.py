@@ -15,10 +15,11 @@
 """Implementation of class holding the execution context of a rapids tool"""
 
 import os
+import tarfile
 from glob import glob
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Type, Any
+from typing import Type, Any, ClassVar, List
 
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CloudPlatform
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
@@ -37,6 +38,14 @@ class ToolContext(YAMLPropertiesContainer):
     logger: Logger = field(default=None, init=False)
     platform: PlatformBase = field(default=None, init=False)
     uuid: str = field(default=None, init=False)
+    prepackage_paths: ClassVar[List[str]] = [
+        Utils.resource_path('csp-resources.tgz'),
+        Utils.resource_path('csp-resources')
+    ]
+
+    @classmethod
+    def are_resources_prepackaged(cls) -> bool:
+        return any(os.path.exists(f) for f in cls.prepackage_paths)
 
     def __connect_to_platform(self):
         self.logger.info('Start connecting to the platform')
@@ -74,7 +83,7 @@ class ToolContext(YAMLPropertiesContainer):
         return self.platform_opts.get('deployMode')
 
     def is_offline_mode(self) -> bool:
-        return self.get_ctxt('offline')
+        return self.get_ctxt('offlineModeEnabled')
 
     def set_ctxt(self, key: str, val: Any):
         self.props['wrapperCtx'][key] = val
@@ -121,12 +130,28 @@ class ToolContext(YAMLPropertiesContainer):
         self.set_local('depFolder', dep_folder)
         self.logger.info('Dependencies are generated locally in local disk as: %s', dep_folder)
         self.logger.info('Local output folder is set as: %s', exec_root_dir)
-        offline_dir = Utils.resource_path('offline')
-        # Toggle offline mode, if there are any files in offline_dir
-        if os.path.exists(offline_dir) and os.listdir(offline_dir):
-            self.logger.info(Utils.gen_str_header('Offline Mode Enabled', ruler='_', line_width=50))
-            self.logger.info('Offline folder is set as: %s', offline_dir)
-            FSUtil.copy_resource(offline_dir, self.get_cache_folder())
+
+    def load_prepackaged_resources(self):
+        """
+        Checks if the packaging includes the CSP dependencies. If so, it moves the dependencies
+        into the tmp folder. This allows the tool to pick the resources from cache folder.
+        """
+        if not self.are_resources_prepackaged():
+            return
+        self.set_ctxt('offlineModeEnabled', True)
+        self.logger.info(Utils.gen_str_header('Fat Mode Is Enabled',
+                                              ruler='_', line_width=50))
+
+        for res_path in self.prepackage_paths:
+            if os.path.exists(res_path):
+                if os.path.isdir(res_path):
+                    # this is a directory, copy all the contents to the tmp
+                    FSUtil.copy_resource(res_path, self.get_cache_folder())
+                else:
+                    # this is an archived file
+                    with tarfile.open(res_path, mode='r:*') as tar_file:
+                        tar_file.extractall(self.get_cache_folder())
+                        tar_file.close()
 
     def get_output_folder(self) -> str:
         return self.get_local('outputFolder')
@@ -146,7 +171,7 @@ class ToolContext(YAMLPropertiesContainer):
             offline_path_regex = FSUtil.build_path(self.get_cache_folder(), 'rapids-4-spark-tools_*.jar')
             matching_files = glob(offline_path_regex)
             if not matching_files:
-                raise FileNotFoundError('In Offline Mode. No matching JAR files found.')
+                raise FileNotFoundError('In Fat Mode. No matching JAR files found.')
             return matching_files[0]
         mvn_base_url = self.get_value('sparkRapids', 'mvnUrl')
         jar_version = Utils.get_latest_available_jar_version(mvn_base_url, Utils.get_base_release())
