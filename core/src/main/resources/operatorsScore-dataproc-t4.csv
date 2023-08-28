@@ -250,15 +250,3 @@ ArrowEvalPythonExec,1.2
 FlatMapGroupsInPandasExec,1.2
 MapInPandasExec,1.2
 WindowInPandasExec,1.2
-KMeans-pyspark,8.86
-KMeans-scala,1.0
-PCA-pyspark,2.24
-PCA-scala,2.69
-LinearRegression-pyspark,2.0
-LinearRegression-scala,1.0
-RandomForestClassifier-pyspark,6.31
-RandomForestClassifier-scala,1.0
-RandomForestRegressor-pyspark,3.66
-RandomForestRegressor-scala,1.0
-XGBoost-pyspark,1.0
-XGBoost-scala,3.31
