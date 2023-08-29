@@ -52,7 +52,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 named `qual-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution.
         :param tools_jar: Path to a bundled jar including RAPIDS tool. The path is a local filesystem path
         :param filter_apps:  Filtering criteria of the applications listed in the final STDOUT table is one of
-                the following (`NONE`, `SPEEDUPS`). "`NONE`" means no filter applied. "`SPEEDUPS`" lists all the
+                the following (`ALL`, `SPEEDUPS`). "`ALL`" means no filter applied. "`SPEEDUPS`" lists all the
                 apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups.
         :param target_platform: Cost savings and speedup recommendation for comparable cluster in target_platform
                 based on on-premises cluster configuration. Currently only `dataproc` is supported for

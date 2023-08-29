@@ -241,9 +241,10 @@ class Qualification(RapidsJarTool):
             if self.ctxt.get_ctxt('filterApps') == QualFilterApp.SAVINGS:
                 # When no cost calculations, the filters should be revisited
                 # set it to none
-                self.logger.info('Filtering criteria `filter_apps` will be reset to NONE because savings '
-                                 'estimates are disabled')
-                self.ctxt.set_ctxt('filterApps', QualFilterApp.ALL)
+                new_filter = QualFilterApp.ALL
+                self.logger.info('Filtering criteria `filter_apps` will be reset to %s because savings '
+                                 'estimates are disabled', QualFilterApp.tostring(new_filter))
+                self.ctxt.set_ctxt('filterApps', new_filter)
 
     def __process_gpu_cluster_recommendation(self, arg_val: str):
         available_types = [filter_enum.value for filter_enum in QualGpuClusterReshapeType]

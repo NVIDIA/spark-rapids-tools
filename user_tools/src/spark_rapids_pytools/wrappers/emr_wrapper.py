@@ -72,9 +72,9 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                 or remote S3 url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
                 from maven repo
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
-                is one of the following (NONE, SPEEDUPS, savings). Default is "SAVINGS".
+                is one of the following (ALL, SPEEDUPS, SAVINGS). Default is "SAVINGS".
                 Note that this filter does not affect the CSV report.
-                "NONE" means no filter applied. "SPEEDUPS" lists all the apps that are either
+                "ALL" means no filter applied. "SPEEDUPS" lists all the apps that are either
                 'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
                 lists all the apps that have positive estimated GPU savings except for the apps that
                 are "Not Applicable"

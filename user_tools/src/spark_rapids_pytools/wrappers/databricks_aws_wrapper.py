@@ -76,9 +76,9 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
                to provide the location of a credential file. The default credentials file exists as
                "~/.databrickscfg" on Unix, Linux, or macOS
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
-                is one of the following (NONE, SPEEDUPS, savings).
+                is one of the following (ALL, SPEEDUPS, savings).
                 Note that this filter does not affect the CSV report.
-                "NONE" means no filter applied. "SPEEDUPS" lists all the apps that are either
+                "ALL" means no filter applied. "SPEEDUPS" lists all the apps that are either
                 'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
                 lists all the apps that have positive estimated GPU savings except for the apps that
                 are "Not Applicable".
