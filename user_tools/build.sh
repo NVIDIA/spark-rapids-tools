@@ -39,9 +39,10 @@ TOOLS_JAR_FILE=""
 # Function to run mvn command to build the tools jar
 build_jar_from_source() {
   # store teh current directory
-  local curr_dir=$(pwd)
-  local jar_dir=$CORE_DIR/target
-  cd "$CORE_DIR"
+  local curr_dir
+  curr_dir=$(pwd)
+  local jar_dir="$CORE_DIR"/target
+  cd "$CORE_DIR" || exit
   # build mvn
   mvn clean package -DskipTests
   if [ $? -ne 0 ]; then
@@ -58,27 +59,27 @@ build_jar_from_source() {
     echo "Using tools jar file: $TOOLS_JAR_FILE"
   fi
   # restore the current directory
-  cd "$curr_dir"
+  cd "$curr_dir" || exit
 }
 
-# Function to run the dependency downloader script for offline mode
-download_offline_dependencies() {
+# Function to run the dependency downloader script for fat mode
+download_web_dependencies() {
   local res_dir="$1"
-  local offline_downloader_script="$res_dir/dev/prepackage_mgr.py"
-  python "$offline_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE"
+  local web_downloader_script="$res_dir/dev/prepackage_mgr.py"
+  python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE"
   if [ $? -ne 0 ]; then
-    echo "Dependency download failed for offline mode. Exiting"
+    echo "Dependency download failed for fat mode. Exiting"
     exit 1
   fi
 }
 
-# Function to remove dependencies from the offline directory
-remove_offline_dependencies() {
+# Function to remove dependencies from the fat directory
+remove_web_dependencies() {
   local res_dir="$1"
   # remove folder recursively
-  rm -rf "$res_dir/$PREPACKAGED_FOLDER"
+  rm -rf "${res_dir:?}"/"$PREPACKAGED_FOLDER"
   # remove compressed file in case archive-mode was enabled
-  rm "$res_dir/$PREPACKAGED_FOLDER.tgz"
+  rm "${res_dir:?}"/"$PREPACKAGED_FOLDER".tgz
 }
 
 # Pre-build setup
@@ -89,11 +90,11 @@ pre_build() {
 
 # Build process
 build() {
-  remove_offline_dependencies "$RESOURCE_DIR"
+  remove_web_dependencies "$RESOURCE_DIR"
   if [ "$build_mode" = "fat" ]; then
     echo "Building in fat mode"
     build_jar_from_source
-    download_offline_dependencies "$RESOURCE_DIR"
+    download_web_dependencies "$RESOURCE_DIR"
   fi
   python -m build --wheel
 }

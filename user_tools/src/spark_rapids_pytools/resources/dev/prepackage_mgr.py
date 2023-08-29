@@ -47,14 +47,19 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
     For example:
 
     $> python prepackage_mgr.py --resource_dir=RESOURCE_DIR --tools_jar=TOOLS_JAR run
+    $> python prepackage_mgr.py run --resource_dir=RESOURCE_DIR --tools_jar=TOOLS_JAR
 
-    :param resource_dir: root folder where the configuration files are located.
-    :param dest_dir: directory in which the resources are downloaded and stored.
+    For more information:
+
+    $> python prepackage_mgr.py --help
+
+    :param resource_dir: Root folder where the configuration files are located.
+    :param dest_dir: Directory in which the resources are downloaded and stored.
            If missing, the tool creates a subfolder '$resource_dir/csp-resources'.
            Warning: the 'dest_dir' may be deleted when 'archive_enabled' is set to True.
-    :param tools_jar: path of the spark-rapids-user-tools jar file. Typically, this is the snapshot
+    :param tools_jar: Path of the spark-rapids-user-tools jar file. Typically, this is the snapshot
            jar file of the current build.
-    :param archive_enabled: a flag to enable/disable compressing the resources.
+    :param archive_enabled: A flag to enable/disable compressing the resources.
            Note that a wheel-package with compressed prepackaged resources is 30% less size
            compared to the non-compressed one (~ 600 Vs. 900 MB).
            When enabled, the prepackaged-resources are stored in '$resource_dir/csp-resources.tgz'.
@@ -65,7 +70,7 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
                  resource_dir: str,
                  dest_dir: str = None,
                  tools_jar: str = None,
-                 archive_enabled: bool = True):  # pylint: disable=no-member
+                 archive_enabled: bool = True):
         for field_name in prepackage_conf:
             setattr(self, field_name, prepackage_conf.get(field_name))
         self.resource_dir = resource_dir
