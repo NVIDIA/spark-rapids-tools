@@ -25,6 +25,7 @@ import scala.util.control.NonFatal
 import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.qualification._
+import org.scalatest.Matchers.convertToAnyShouldWrapper
 import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.TrampolineUtil
@@ -1008,5 +1009,17 @@ class SQLPlanParserSuite extends BaseTestSuite {
         assertSizeAndSupported(1, deltaLakeWrites)
       }
     }
+  }
+
+  test("Parse conditional expression does not list ignored expressions") {
+    val exprString = "((((((isnotnull(action#191L) AND isnotnull(content#192)) " +
+      "AND isnotnull(content_name_16#197L)) AND (action#191L = 0)) AND NOT (content#192 = )) " +
+      "AND (content_name_16#197L = 1)) AND NOT (split(split(split(replace(replace(replace" +
+      "(replace(trim(replace(cast(unbase64(content#192) as string),  , ), Some( )), *., ), *, ), " +
+      "https://, ), http://, ), /, -1)[0], :, -1)[0], \\?, -1)[0] = ))"
+    val expected = Array("isnotnull", "split", "replace", "trim", "unbase64", "And",
+      "EqualTo", "Not")
+    val expressions = SQLPlanParser.parseFilterExpressions(exprString)
+    expressions should ===(expected)
   }
 }
