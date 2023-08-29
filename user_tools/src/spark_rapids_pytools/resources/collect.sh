@@ -48,11 +48,16 @@ free -h >> $OUTPUT_NODE_INFO
 
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Network adapter]" >> $OUTPUT_NODE_INFO
-if command -v lshw ; then
+
+if [ "$PLATFORM_TYPE" == "databricks_aws" ]; then
+    # install pciutils on Databricks
+    sudo apt install -y pciutils
+    lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
+elif command -v lshw ; then
     lshw -C network >> $OUTPUT_NODE_INFO
 else
     # Downgrade to 'lspci' on EMR as it's not installed by default
-    /usr/sbin/lspci | grep 'Ethernet controller' >> $OUTPUT_NODE_INFO
+    lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
 fi
 
 echo "" >> $OUTPUT_NODE_INFO
@@ -65,7 +70,7 @@ if command -v lshw ; then
     lshw -C display >> $OUTPUT_NODE_INFO
 else
     # Downgrade to 'lspci' on EMR as it's not installed by default
-    /usr/sbin/lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
+    lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
 fi
 
 echo "" >> $OUTPUT_NODE_INFO
@@ -82,14 +87,24 @@ java -version 2>> $OUTPUT_NODE_INFO
 
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Spark version]" >> $OUTPUT_NODE_INFO
-spark-submit --version 2>> $OUTPUT_NODE_INFO
+
+if [ "$PLATFORM_TYPE" == "databricks_aws" ]; then
+    SPARK_HOME='/databricks/spark'
+    echo "$(cat $SPARK_HOME/VERSION)" >> $OUTPUT_NODE_INFO
+elif command -v spark-submit; then
+    spark-submit --version >> $OUTPUT_NODE_INFO
+else
+    echo 'not found' >> $OUTPUT_NODE_INFO
+fi
 
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Spark rapids plugin]" >> $OUTPUT_NODE_INFO
 
 if [ -z "$SPARK_HOME" ]; then
     # Source spark env variables if not set $SPARK_HOME, e.g. on EMR node
-    source /etc/spark/conf/spark-env.sh
+    if [ -f /etc/spark/conf/spark-env.sh ]; then
+        source /etc/spark/conf/spark-env.sh
+    fi
 fi
 
 if [ -f $SPARK_HOME/jars/rapids-4-spark*.jar ]; then
@@ -105,7 +120,12 @@ echo "[CUDA version]" >> $OUTPUT_NODE_INFO
 if [ -f /usr/local/cuda/version.json ]; then
     cat  /usr/local/cuda/version.json | grep '\<cuda\>' -A 2 | grep version >> $OUTPUT_NODE_INFO
 else
-    echo 'not found' >> $OUTPUT_NODE_INFO
+    # Fetch CUDA version from nvidia-smi
+    if command -v nvidia-smi ; then
+        nvidia-smi --query | grep "CUDA Version" | awk '{print $4}' >> $OUTPUT_NODE_INFO
+    else
+        echo 'not found' >> $OUTPUT_NODE_INFO
+    fi
 fi
 
 # Copy config files
