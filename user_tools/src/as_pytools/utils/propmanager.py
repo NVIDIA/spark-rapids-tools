@@ -66,8 +66,6 @@ class PropValidatorSchema(BaseModel):
         try:
             # Instantiate cluster_schema instance
             new_obj = cls(**prop)
-            # new_obj = object.__new__(cls)
-            # cls.__init__(new_obj, *args, **kwargs)
             return True, new_obj
         except ValidationError as exc:
             if raise_on_error:

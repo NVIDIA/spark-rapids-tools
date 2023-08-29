@@ -123,7 +123,7 @@ class AcceptedFilePath:
             if not any(str(self.file_path).endswith(ext) for ext in self.extensions):
                 raise PydanticCustomError(
                     'file_path',
-                    (f'Invalid file extension for of input file {self.file_path}. '
+                    (f'Invalid file extension for input file {self.file_path}. '
                      f'Accepted: {self.extensions}'))
 
     def is_http_file(self) -> bool:
