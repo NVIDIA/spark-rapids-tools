@@ -100,10 +100,10 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     def getIoMetrics(sqlAccums: Seq[SQLAccumProfileResults]): IoMetrics = {
       val finalRes = IoMetrics(0, 0, 0, 0)
       sqlAccums.map(accum => accum.name match {
-        case `buffer_time` => finalRes.buffer_time = accum.max_value
-        case `scan_time` => finalRes.scan_time = accum.max_value
-        case `data_size` => finalRes.data_size = accum.max_value
-        case `decode_time` => finalRes.decode_time = accum.max_value
+        case `buffer_time` => finalRes.buffer_time = accum.total
+        case `scan_time` => finalRes.scan_time = accum.total
+        case `data_size` => finalRes.data_size = accum.total
+        case `decode_time` => finalRes.decode_time = accum.total
       })
       finalRes
     }
@@ -261,6 +261,8 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 
 object CollectInformation extends Logging {
 
+ // Store (min, median, max, total) for a given metric
+  case class statisticsMetrics(min: Long, med:Long, max:Long, total: Long)
   def generateSQLAccums(apps: Seq[ApplicationInfo]): Seq[SQLAccumProfileResults] = {
     val allRows = apps.flatMap { app =>
       app.allSQLMetrics.map { metric =>
@@ -276,11 +278,27 @@ object CollectInformation extends Logging {
             val filtered = accums.filter { a =>
               stageIdsForSQL.contains(a.stageId)
             }
-            val accumValues = filtered.map(_.value.getOrElse(0L))
-            if (accumValues.isEmpty) {
-              None
+            // If metricType is size or timing, we want to use the update value to get the
+            // min, median, max, and total. Otherwise, we want to use the value.
+            if (metric.metricType == "size" || metric.metricType == "timing" ||
+              metric.metricType == "nsTiming") {
+              val accumValues = filtered.map(_.update.getOrElse(0L)).sortWith(_ < _)
+              if (accumValues.isEmpty) {
+                None
+              }
+              else if (accumValues.length <= 1) {
+                Some(statisticsMetrics(0L, 0L, 0L, accumValues.sum))
+              } else {
+                Some(statisticsMetrics(accumValues(0), accumValues(accumValues.size / 2),
+                  accumValues(accumValues.size - 1), accumValues.sum))
+              }
             } else {
-              Some(accumValues.max)
+              val accumValues = filtered.map(_.value.getOrElse(0L))
+              if (accumValues.isEmpty) {
+                None
+              } else {
+                Some(statisticsMetrics(0L, 0L, 0L, accumValues.max))
+              }
             }
           case None => None
         }
@@ -292,21 +310,37 @@ object CollectInformation extends Logging {
             val filtered = accums.filter { a =>
               a.sqlID == sqlId
             }
-            val accumValues = filtered.map(_.value)
+            val accumValues = filtered.map(_.value).sortWith(_ < _)
             if (accumValues.isEmpty) {
               None
+            } else if (accumValues.length <= 1) {
+              Some(statisticsMetrics(0L, 0L, 0L, accumValues.sum))
             } else {
-              Some(accumValues.max)
+              Some(statisticsMetrics(accumValues(0), accumValues(accumValues.size / 2),
+                accumValues(accumValues.size - 1), accumValues.sum))
             }
           case None =>
             None
         }
 
         if ((taskMax.isDefined) || (driverMax.isDefined)) {
-          val max = Math.max(driverMax.getOrElse(0L), taskMax.getOrElse(0L))
+          val taskInfo = taskMax match {
+            case Some(task) => task
+            case None => statisticsMetrics(0L, 0L, 0L, 0L)
+          }
+          val driverInfo = driverMax match {
+            case Some(driver) => driver
+            case None => statisticsMetrics(0L, 0L, 0L, 0L)
+          }
+
+          val max = Math.max(taskInfo.max, driverInfo.max)
+          val min = Math.max(taskInfo.min, driverInfo.min)
+          val med = Math.max(taskInfo.med, driverInfo.med)
+          val total = Math.max(taskInfo.total, driverInfo.total)
+
           Some(SQLAccumProfileResults(app.index, metric.sqlID,
-            metric.nodeID, metric.nodeName, metric.accumulatorId,
-            metric.name, max, metric.metricType, metric.stageIds.mkString(",")))
+            metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
+            min, med, max, total, metric.metricType, metric.stageIds.mkString(",")))
         } else {
           None
         }
