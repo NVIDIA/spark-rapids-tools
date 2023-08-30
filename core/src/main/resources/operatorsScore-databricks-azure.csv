@@ -245,3 +245,8 @@ WeekDay,2.73
 WindowExpression,2.73
 WindowSpecDefinition,2.73
 Year,2.73
+AggregateInPandasExec,1.2
+ArrowEvalPythonExec,1.2
+FlatMapGroupsInPandasExec,1.2
+MapInPandasExec,1.2
+WindowInPandasExec,1.2
