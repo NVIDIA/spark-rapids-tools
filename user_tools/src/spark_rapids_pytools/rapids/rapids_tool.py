@@ -130,6 +130,7 @@ class RapidsTool(object):
         self.output_folder = FSUtil.get_abs_path(self.output_folder)
         self.logger.debug('Root directory of local storage is set as: %s', self.output_folder)
         self.ctxt.set_local_workdir(self.output_folder)
+        self.ctxt.load_prepackaged_resources()
 
     def _process_rapids_args(self):
         pass
