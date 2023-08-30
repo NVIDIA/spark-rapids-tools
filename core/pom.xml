@@ -350,9 +350,6 @@
         <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
         <jsoup.version>1.16.1</jsoup.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.sourceEncoding>UTF-8</project.reporting.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- properties used for DeltaLake -->
         <delta10x.version>1.0.1</delta10x.version>
         <delta11x.version>1.1.0</delta11x.version>
@@ -363,10 +360,15 @@
         <delta23x.version>2.3.0</delta23x.version>
         <delta24x.version>2.4.0</delta24x.version>
         <delta.core.version>${delta10x.version}</delta.core.version>
+        <!-- environment properties -->
         <java.version>1.8</java.version>
+        <platform-encoding>UTF-8</platform-encoding>
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
+        <project.build.sourceEncoding>${platform-encoding}</project.build.sourceEncoding>
+        <project.reporting.sourceEncoding>${platform-encoding}</project.reporting.sourceEncoding>
+        <project.reporting.outputEncoding>${platform-encoding}</project.reporting.outputEncoding>
     </properties>
 
     <dependencies>
@@ -609,6 +611,7 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <encoding>${platform-encoding}</encoding>
                     <scalaVersion>${scala.version}</scalaVersion>
                     <checkMultipleScalaVersions>true</checkMultipleScalaVersions>
                     <failOnMultipleScalaVersions>true</failOnMultipleScalaVersions>
@@ -786,6 +789,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler-plugin.version}</version>
                 <configuration>
+                    <encoding>${platform-encoding}</encoding>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
                 </configuration>
