@@ -283,8 +283,8 @@ object CollectInformation extends Logging {
             val filtered = accums.filter { a =>
               stageIdsForSQL.contains(a.stageId)
             }
-            // If metricType is size, average or timing, we want to use the update value to get the
-            // min, median, max, and total. Otherwise, we want to use the value.
+            // If metricType is size, average or timing, we want to read field `update` value to get the
+            // min, median, max, and total. Otherwise, we want to use field `value`.
             if (metric.metricType == SIZE_METRIC ||  metric.metricType == TIMING_METRIC ||
               metric.metricType == NS_TIMING_METRIC || metric.metricType == AVERAGE_METRIC) {
               val accumValues = filtered.map(_.update.getOrElse(0L)).sortWith(_ < _)
