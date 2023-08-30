@@ -173,14 +173,14 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
 
   test("supported operator score from databricks-aws") {
     val checker = new PluginTypeChecker("databricks-aws")
-    assert(checker.getSpeedupFactor("UnionExec") == 3.0)
-    assert(checker.getSpeedupFactor("Ceil") == 4)
+    assert(checker.getSpeedupFactor("UnionExec") == 2.45)
+    assert(checker.getSpeedupFactor("Ceil") == 2.45)
   }
 
   test("supported operator score from databricks-azure") {
     val checker = new PluginTypeChecker("databricks-azure")
-    assert(checker.getSpeedupFactor("UnionExec") == 3.0)
-    assert(checker.getSpeedupFactor("Ceil") == 4)
+    assert(checker.getSpeedupFactor("UnionExec") == 2.73)
+    assert(checker.getSpeedupFactor("Ceil") == 2.73)
   }
 
   test("supported operator score from dataproc-l4") {
@@ -198,7 +198,7 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
   test("supported operator score from custom speedup factor file") {
     val speedupFactorFile = ToolTestUtils.getTestResourcePath("operatorsScore-databricks-azure.csv")
     val checker = new PluginTypeChecker(speedupFactorFile=Some(speedupFactorFile))
-    assert(checker.getSpeedupFactor("SortExec") == 14.15)
-    assert(checker.getSpeedupFactor("FilterExec") == 3.12)
+    assert(checker.getSpeedupFactor("SortExec") == 13.11)
+    assert(checker.getSpeedupFactor("FilterExec") == 3.14)
   }
 }
