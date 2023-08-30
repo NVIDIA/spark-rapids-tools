@@ -161,8 +161,8 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
 
   test("supported operator score from dataproc-t4") {
     val checker = new PluginTypeChecker("dataproc-t4")
-    assert(checker.getSpeedupFactor("UnionExec") == 3.0)
-    assert(checker.getSpeedupFactor("Ceil") == 4)
+    assert(checker.getSpeedupFactor("UnionExec") == 4.88)
+    assert(checker.getSpeedupFactor("Ceil") == 4.88)
   }
 
   test("supported operator score from emr-t4") {
@@ -185,8 +185,8 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
 
   test("supported operator score from dataproc-l4") {
     val checker = new PluginTypeChecker("dataproc-l4")
-    assert(checker.getSpeedupFactor("UnionExec") == 3.0)
-    assert(checker.getSpeedupFactor("Ceil") == 4)
+    assert(checker.getSpeedupFactor("UnionExec") == 4.16)
+    assert(checker.getSpeedupFactor("Ceil") == 4.16)
   }
 
   test("supported operator score from emr-a10") {

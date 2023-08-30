@@ -14,6 +14,8 @@
 
 """Implementation of class holding the execution context of a rapids tool"""
 
+import os
+from glob import glob
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import Type, Any
@@ -71,6 +73,9 @@ class ToolContext(YAMLPropertiesContainer):
     def get_deploy_mode(self) -> Any:
         return self.platform_opts.get('deployMode')
 
+    def is_offline_mode(self) -> bool:
+        return self.get_ctxt('offline')
+
     def set_ctxt(self, key: str, val: Any):
         self.props['wrapperCtx'][key] = val
 
@@ -116,6 +121,12 @@ class ToolContext(YAMLPropertiesContainer):
         self.set_local('depFolder', dep_folder)
         self.logger.info('Dependencies are generated locally in local disk as: %s', dep_folder)
         self.logger.info('Local output folder is set as: %s', exec_root_dir)
+        offline_dir = Utils.resource_path('offline')
+        # Toggle offline mode, if there are any files in offline_dir
+        if os.path.exists(offline_dir) and os.listdir(offline_dir):
+            self.logger.info(Utils.gen_str_header('Offline Mode Enabled', ruler='_', line_width=50))
+            self.logger.info('Offline folder is set as: %s', offline_dir)
+            FSUtil.copy_resource(offline_dir, self.get_cache_folder())
 
     def get_output_folder(self) -> str:
         return self.get_local('outputFolder')
@@ -131,6 +142,12 @@ class ToolContext(YAMLPropertiesContainer):
     def get_rapids_jar_url(self) -> str:
         # get the version from the package, instead of the yaml file
         # jar_version = self.get_value('sparkRapids', 'version')
+        if self.is_offline_mode():
+            offline_path_regex = FSUtil.build_path(self.get_cache_folder(), 'rapids-4-spark-tools_*.jar')
+            matching_files = glob(offline_path_regex)
+            if not matching_files:
+                raise FileNotFoundError('In Offline Mode. No matching JAR files found.')
+            return matching_files[0]
         mvn_base_url = self.get_value('sparkRapids', 'mvnUrl')
         jar_version = Utils.get_latest_available_jar_version(mvn_base_url, Utils.get_base_release())
         rapids_url = self.get_value('sparkRapids', 'repoUrl').format(mvn_base_url, jar_version, jar_version)
