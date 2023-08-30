@@ -29,25 +29,42 @@ Set up a Python environment with a version between 3.8 and 3.10
       ```sh
       $ pip install spark-rapids-user-tools
       ```
-    - Using local version from the repo
+    - Install from source.
 
       ```sh
       $ pip install -e .
       ```
       
       Note that you can also use optional `test` to install dependencies required to run the unit-tests
-      `pip install -e '.[test]'`    
+      `pip install -e '.[test]'`
 
-    - Using wheel package built from the repo
+    - Using wheel package built from the repo (see the build steps below).
 
       ```sh
-      $ pip install build
-      $ python -m build --wheel
       $ pip install <wheel-file>
       ```
 
 3. Make sure to install CSP SDK if you plan to run the tool wrapper.
 
+## Building from source
+
+Set up a Python environment similar to the steps above.
+
+1. Run the provided build script to compile the project.
+
+   ```sh
+   $> ./build.sh
+   ```
+ 
+2. **Fat Mode:** Similar to `fat jar` in Java, this mode solves the problem when web access is not
+   available to download resources having Url-paths (http/https).  
+   The command builds the tools jar file and downloads the necessary dependencies and packages them
+   with the source code into a single 'wheel' file.
+
+   ```sh
+   $> ./build.sh fat
+   ```
+ 
 ## Usage and supported platforms
 
 Please refer to [spark-rapids-user-tools guide](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/index.md) for details on how to use the tools

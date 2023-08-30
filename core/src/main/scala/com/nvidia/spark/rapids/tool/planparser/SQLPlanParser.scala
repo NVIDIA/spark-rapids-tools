@@ -697,7 +697,7 @@ object SQLPlanParser extends Logging {
     // Step-2: Extract function names from the expression
     val functionMatches = functionsRegEx.findAllMatchIn(processedExpr)
     parsedExpressions ++=
-      functionMatches.map(_.group(1)).filter(_.toLowerCase() != "cast")
+      functionMatches.map(_.group(1)).filterNot(ignoreExpression(_))
     // remove all function calls. No need to keep them in the expression
     processedExpr = functionsRegEx.replaceAllIn(processedExpr, " ")
 
