@@ -263,6 +263,11 @@ object CollectInformation extends Logging {
 
  // Store (min, median, max, total) for a given metric
   case class statisticsMetrics(min: Long, med:Long, max:Long, total: Long)
+
+  private val SIZE_METRIC = "size"
+  private val TIMING_METRIC = "timing"
+  private val NS_TIMING_METRIC = "nsTiming"
+  private val AVERAGE_METRIC = "average"
   def generateSQLAccums(apps: Seq[ApplicationInfo]): Seq[SQLAccumProfileResults] = {
     val allRows = apps.flatMap { app =>
       app.allSQLMetrics.map { metric =>
@@ -278,10 +283,10 @@ object CollectInformation extends Logging {
             val filtered = accums.filter { a =>
               stageIdsForSQL.contains(a.stageId)
             }
-            // If metricType is size or timing, we want to use the update value to get the
+            // If metricType is size, average or timing, we want to use the update value to get the
             // min, median, max, and total. Otherwise, we want to use the value.
-            if (metric.metricType == "size" || metric.metricType == "timing" ||
-              metric.metricType == "nsTiming") {
+            if (metric.metricType == SIZE_METRIC ||  metric.metricType == TIMING_METRIC ||
+              metric.metricType == NS_TIMING_METRIC || metric.metricType == AVERAGE_METRIC) {
               val accumValues = filtered.map(_.update.getOrElse(0L)).sortWith(_ < _)
               if (accumValues.isEmpty) {
                 None
