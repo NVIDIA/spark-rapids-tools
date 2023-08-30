@@ -25,7 +25,7 @@ from typing import Optional
 
 import fire
 
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform
+from as_pytools import CspEnv
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
@@ -33,7 +33,7 @@ from spark_rapids_pytools.common.utilities import Utils
 
 # Defines the constants and static configurations
 prepackage_conf = {
-    '_supported_platforms': [csp.value for csp in CloudPlatform if csp != CloudPlatform.NONE],
+    '_supported_platforms': [csp.value for csp in CspEnv if csp != CspEnv.NONE],
     '_configs_suffix': '-configs.json',
     '_mvn_base_url': 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12',
     '_folder_name': 'csp-resources'
