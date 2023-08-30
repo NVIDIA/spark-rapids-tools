@@ -22,6 +22,7 @@ import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.resource.ResourceProfile
+import org.apache.spark.sql.rapids.tool.SQLMetricsStats
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
 case class StageMetrics(numTasks: Int, duration: String)
@@ -264,10 +265,6 @@ object CollectInformation extends Logging {
  // Store (min, median, max, total) for a given metric
   case class statisticsMetrics(min: Long, med:Long, max:Long, total: Long)
 
-  private val SIZE_METRIC = "size"
-  private val TIMING_METRIC = "timing"
-  private val NS_TIMING_METRIC = "nsTiming"
-  private val AVERAGE_METRIC = "average"
   def generateSQLAccums(apps: Seq[ApplicationInfo]): Seq[SQLAccumProfileResults] = {
     val allRows = apps.flatMap { app =>
       app.allSQLMetrics.map { metric =>
@@ -283,10 +280,9 @@ object CollectInformation extends Logging {
             val filtered = accums.filter { a =>
               stageIdsForSQL.contains(a.stageId)
             }
-            // If metricType is size, average or timing, we want to read field `update` value to get the
-            // min, median, max, and total. Otherwise, we want to use field `value`.
-            if (metric.metricType == SIZE_METRIC ||  metric.metricType == TIMING_METRIC ||
-              metric.metricType == NS_TIMING_METRIC || metric.metricType == AVERAGE_METRIC) {
+            // If metricType is size, average or timing, we want to read field `update` value
+            // to get the min, median, max, and total. Otherwise, we want to use field `value`.
+            if (SQLMetricsStats.hasStats(metric.metricType)) {
               val accumValues = filtered.map(_.update.getOrElse(0L)).sortWith(_ < _)
               if (accumValues.isEmpty) {
                 None
@@ -328,7 +324,7 @@ object CollectInformation extends Logging {
             None
         }
 
-        if ((taskMax.isDefined) || (driverMax.isDefined)) {
+        if (taskMax.isDefined || driverMax.isDefined) {
           val taskInfo = taskMax match {
             case Some(task) => task
             case None => statisticsMetrics(0L, 0L, 0L, 0L)
