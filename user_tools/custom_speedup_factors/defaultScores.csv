@@ -2,6 +2,7 @@ CPUOperator,Score
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2
 FlatMapGroupsInPandasExec,1.2
+FlatMapCoGroupsInPandasExec,1.2
 MapInPandasExec,1.2
 WindowInPandasExec,1.2
 KMeans-pyspark,8.86

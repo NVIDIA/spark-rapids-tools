@@ -39,6 +39,10 @@ verbose = args.verbose
 
 cpu_stage_log = {}
 gpu_stage_log = {}
+cpu_duration = 0.0
+gpu_duration = 0.0
+
+min_speedup = 1.0
 
 if args.chdir:
     # Change to work dir that's the script located
@@ -50,6 +54,7 @@ for app in os.listdir(cpu_dir):
     # - figure out query from application_info.csv
     app_info = pd.read_csv(cpu_dir + "/" + app + "/application_information.csv")
     app_name = app_info.loc[0]["appName"]
+    cpu_duration = cpu_duration + app_info.loc[0]["duration"]
     cpu_stage_log[app_name] = {}
 
     # - load wholestagecodegen_mapping.csv into a dictionary for lookups (CPU only)
@@ -79,17 +84,14 @@ for app in os.listdir(cpu_dir):
     # - parse top-level execs from sql_to_stage_information.csv
     cpu_stage_info = pd.read_csv(cpu_dir + "/" + app + "/sql_to_stage_information.csv")
     cpu_stage_times = cpu_stage_info[['Stage Duration', 'SQL Nodes(IDs)']]
-
     cpu_stage_times_df = cpu_stage_times.dropna()
+
     for index, row in cpu_stage_times_df.iterrows():
-        operators = str(row['SQL Nodes(IDs)']).split(',')
-        duration = 0.0
-        if "WholeStageCodegen" in operators:
-            duration = row['Stage Duration']/(len(operators)-1)
-        else:
-            duration = row['Stage Duration']/(len(operators))
+        node_list = str(row['SQL Nodes(IDs)'])
+        operators = node_list.split(',')
+        duration = row['Stage Duration']/(len(operators)-node_list.count("WholeStageCodegen"))
+
         for operator in operators:
-            # handle WholeStageCodegen node
             if "WholeStageCodegen" in operator:
                 continue
 
@@ -105,6 +107,7 @@ for app in os.listdir(gpu_dir):
     # - figure out query from application_info.csv
     app_info = pd.read_csv(gpu_dir + "/" + app + "/application_information.csv")
     app_name = app_info.loc[0]["appName"]
+    gpu_duration = gpu_duration + app_info.loc[0]["duration"]
     gpu_stage_log[app_name] = {}
 
     # - process sql_to_stage_information.csv to get stage durations
@@ -136,7 +139,6 @@ for app_key in cpu_stage_log:
             cpu_stage_totals[op_key] = cpu_stage_totals[op_key] + cpu_stage_log[app_key][op_key]
         cpu_stage_total = cpu_stage_total + cpu_stage_log[app_key][op_key]
 
-
 for app_key in gpu_stage_log:
     for op_key in gpu_stage_log[app_key]:
         if op_key not in gpu_stage_totals:
@@ -148,20 +150,41 @@ for app_key in gpu_stage_log:
 # Create dictionary of execs where speedup factors can be calculated
 scores_dict = {}
 
+# Scan operators
+if 'Scan parquet ' in cpu_stage_totals and 'GpuScan parquet ' in gpu_stage_totals:
+    scores_dict["BatchScanExec"] = str(round(cpu_stage_totals['Scan parquet '] / gpu_stage_totals['GpuScan parquet '], 2))
+    scores_dict["FileSourceScanExec"] = str(round(cpu_stage_totals['Scan parquet '] / gpu_stage_totals['GpuScan parquet '], 2))
+if 'Scan orc ' in cpu_stage_totals and 'GpuScan orc ' in gpu_stage_totals:
+    scores_dict["BatchScanExec"] = str(round(cpu_stage_totals['Scan orc '] / gpu_stage_totals['GpuScan orc '], 2))
+    scores_dict["FileSourceScanExec"] = str(round(cpu_stage_totals['Scan orc '] / gpu_stage_totals['GpuScan orc '], 2))
+
+# Other operators
+if 'Project' in cpu_stage_totals and 'GpuProject' in gpu_stage_totals:
+    scores_dict["ProjectExec"] = str(round(cpu_stage_totals['Project'] / gpu_stage_totals['GpuProject'], 2))
+if 'Expand' in cpu_stage_totals and 'GpuExpand' in gpu_stage_totals:
+    scores_dict["ExpandExec"] = str(round(cpu_stage_totals['Expand'] / gpu_stage_totals['GpuExpand'], 2))
+if 'CartesianProduct' in cpu_stage_totals and 'GpuCartesianProduct' in gpu_stage_totals:
+    scores_dict["CartesianProductExec"] = str(round(cpu_stage_totals['CartesianProduct'] / gpu_stage_totals['GpuCartesianProduct'], 2))
 if 'Filter' in cpu_stage_totals and 'GpuFilter' in gpu_stage_totals:
     scores_dict["FilterExec"] = str(round(cpu_stage_totals['Filter'] / gpu_stage_totals['GpuFilter'], 2))
 if 'SortMergeJoin' in cpu_stage_totals and 'GpuShuffledHashJoin' in gpu_stage_totals:
-    scores_dict["SortExec"] = str(round(cpu_stage_totals['SortMergeJoin'] / gpu_stage_totals['GpuShuffledHashJoin'], 2))
+    scores_dict["SortMergeJoinExec"] = str(round(cpu_stage_totals['SortMergeJoin'] / gpu_stage_totals['GpuShuffledHashJoin'], 2))
 if 'BroadcastHashJoin' in cpu_stage_totals and 'GpuBroadcastHashJoin' in gpu_stage_totals:
     scores_dict["BroadcastHashJoinExec"] = str(round(cpu_stage_totals['BroadcastHashJoin'] / gpu_stage_totals['GpuBroadcastHashJoin'], 2))
 if 'Exchange' in cpu_stage_totals and 'GpuColumnarExchange' in gpu_stage_totals:
     scores_dict["ShuffleExchangeExec"] = str(round(cpu_stage_totals['Exchange'] / gpu_stage_totals['GpuColumnarExchange'], 2))
 if 'HashAggregate' in cpu_stage_totals and 'GpuHashAggregate' in gpu_stage_totals:
     scores_dict["HashAggregateExec"] = str(round(cpu_stage_totals['HashAggregate'] / gpu_stage_totals['GpuHashAggregate'], 2))
-if all(cpu_keys in cpu_stage_totals for cpu_keys in ('SortMergeJoin', 'Sort' )) and all(gpu_keys in gpu_stage_totals for gpu_keys in ('GpuShuffledHashJoin', 'GpuSort')):
-    scores_dict["SortMergeJoinExec"] = str(round((cpu_stage_totals['SortMergeJoin'] + cpu_stage_totals['Sort']) / (gpu_stage_totals['GpuShuffledHashJoin'] + gpu_stage_totals['GpuSort']), 2))
+    scores_dict["ObjectHashAggregateExec"] = str(round(cpu_stage_totals['HashAggregate'] / gpu_stage_totals['GpuHashAggregate'], 2))
+    scores_dict["SortAggregateExec"] = str(round(cpu_stage_totals['HashAggregate'] / gpu_stage_totals['GpuHashAggregate'], 2))
 
-overall_speedup = str(round(cpu_stage_total/gpu_stage_total, 2))
+# Set minimum to 1.0 for speedup factors
+for key in scores_dict:
+    if float(scores_dict[key]) < min_speedup:
+        scores_dict[key] = f"{min_speedup}"
+
+# Set overall speedup for default value for execs not in logs
+overall_speedup = str(max(min_speedup, round(cpu_duration/gpu_duration, 2)))
 
 # Print out node metrics (if verbose)
 if verbose:

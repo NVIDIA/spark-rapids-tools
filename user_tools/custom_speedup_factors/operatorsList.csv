@@ -13,12 +13,9 @@ SampleExec
 SortExec
 SubqueryBroadcastExec
 TakeOrderedAndProjectExec
-UnionExec
-CustomShuffleReaderExec
 HashAggregateExec
 ObjectHashAggregateExec
 SortAggregateExec
-InMemoryTableScanExec
 DataWritingCommandExec
 ExecutedCommandExec
 BatchScanExec
@@ -29,9 +26,7 @@ BroadcastNestedLoopJoinExec
 CartesianProductExec
 ShuffledHashJoinExec
 SortMergeJoinExec
-FlatMapCoGroupsInPandasExec
 WindowExec
-HiveTableScanExec
 Abs
 Acos
 Acosh
