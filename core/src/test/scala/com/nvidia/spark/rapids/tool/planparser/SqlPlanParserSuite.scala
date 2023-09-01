@@ -1022,4 +1022,18 @@ class SQLPlanParserSuite extends BaseTestSuite {
     val expressions = SQLPlanParser.parseFilterExpressions(exprString)
     expressions should ===(expected)
   }
+
+
+  test("Parse aggregate expressions") {
+    val exprString = "(keys=[], functions=[split(split(split(replace(replace(replace(replace(" +
+      "trim(replace(cast(unbase64(content#192) as string),  , ), Some( )), *., ), *, ), " +
+      "https://, ), http://, ), /, -1)[0], :, -1)[0], \\?, -1)[0]#199, " +
+      "CASE WHEN (instr(replace(cast(unbase64(content#192) as string),  , ), *) = 0) " +
+      "THEN concat(replace(cast(unbase64(content#192) as string),  , ), %) " +
+      "ELSE replace(replace(replace(cast(unbase64(content#192) as string),  , ), %, " +
+      "\\%), *, %) END#200])"
+    val expected = Array("replace", "concat", "instr", "split", "trim", "unbase64")
+    val expressions = SQLPlanParser.parseAggregateExpressions(exprString)
+    expressions should ===(expected)
+  }
 }
