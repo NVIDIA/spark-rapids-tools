@@ -37,3 +37,19 @@ Now that you have a custom *operatorsScore.csv* file, you can run the Spark RAPI
 ```
 spark_rapids_user_tools onprem qualification --speedup-factor-file newScores.csv --eventlogs <CPU-event-logs>
 ```
+
+## Validating Custom Speedup Factors
+
+There is a utility script in the directory to allow for validation of custom speedup factors given CPU and GPU event logs for a corresponding job or set of jobs.  By default, the script will generate custom speedup factors, run the qualification tool with the generated custom speed up factors, and then generate validation metrics for the estimations against the actuals.
+
+Example execution of the script:
+```
+python validate_speedup_factors.py --cpu_log CPU-nds-eventlog --gpu_log GPU-nds-eventlog --output test-speedup
+```
+
+The script also allows you to pass in a custom speedup factor file if you have previously generated them.  Example:
+```
+python validate_speedup_factors.py --cpu_log CPU-nds-eventlog --gpu_log GPU-nds-eventlog --output test-speedup --speedups test-scores.csv
+```
+
+Other options include passing in the CPU and/or GPU profiler output if that has already been done via the `cpu_profile` and `gpu_profile` arguments.  Additionally, you can pass in a custom tools jar via `--jar` if that is needed.
