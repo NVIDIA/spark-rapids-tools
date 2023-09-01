@@ -17,15 +17,15 @@
 
 import fire
 
-from as_pytools.enums import QualGpuClusterReshapeType
-from as_pytools.utils.util import gen_app_banner
+from pyrapids.enums import QualGpuClusterReshapeType
+from pyrapids.utils.util import gen_app_banner
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
 from .argprocessor import AbsToolUserArgModel
 
 
-class ASCLIWrapper(object):  # pylint: disable=too-few-public-methods
+class PyRapids(object):  # pylint: disable=too-few-public-methods
     """CLI that provides a runtime environment that simplifies running cost and performance analysis
     using the RAPIDS Accelerator for Apache Spark.
 
@@ -167,7 +167,7 @@ def main():
     # Make Python Fire not use a pager when it prints a help text
     fire.core.Display = lambda lines, out: out.write('\n'.join(lines) + '\n')
     print(gen_app_banner())
-    fire.Fire(ASCLIWrapper())
+    fire.Fire(PyRapids())
 
 
 if __name__ == '__main__':

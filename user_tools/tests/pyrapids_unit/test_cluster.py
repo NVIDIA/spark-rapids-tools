@@ -16,13 +16,13 @@
 
 import pytest  # pylint: disable=import-error
 
-from as_pytools import CspPath
-from as_pytools.cloud import ClientCluster
-from as_pytools.exceptions import InvalidPropertiesSchema
-from .conftest import AsCliUnitTest, all_cpu_cluster_props
+from pyrapids import CspPath
+from pyrapids.cloud import ClientCluster
+from pyrapids.exceptions import InvalidPropertiesSchema
+from .conftest import PyrapidsUnitTest, all_cpu_cluster_props
 
 
-class TestClusterCSP(AsCliUnitTest):  # pylint: disable=too-few-public-methods
+class TestClusterCSP(PyrapidsUnitTest):  # pylint: disable=too-few-public-methods
     """
     Class testing identifying the cluster type by comparing the properties to
     the defined Schema

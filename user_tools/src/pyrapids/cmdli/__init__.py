@@ -14,8 +14,8 @@
 
 """init file of the user CLI used to run the tools"""
 
-from .ascli import ASCLIWrapper
+from .pyrapids_cli import PyRapids
 
 __all__ = [
-    'ASCLIWrapper'
+    'PyRapids'
 ]

@@ -18,8 +18,8 @@ Define implementation for the EMR cluster
 
 from typing import ClassVar, Type
 
-from as_pytools.cloud.cluster import register_cluster_prop_mgr, register_client_cluster, ClusterPropMgr, ClientCluster
-from as_pytools.utils.propmanager import PropValidatorSchemaUpper, PropValidatorSchema
+from pyrapids.cloud.cluster import register_cluster_prop_mgr, register_client_cluster, ClusterPropMgr, ClientCluster
+from pyrapids.utils.propmanager import PropValidatorSchemaUpper, PropValidatorSchema
 
 
 class EmrClusterSchema(PropValidatorSchemaUpper):

@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from typing import Any, List
 
-from as_pytools import CspEnv
+from pyrapids import CspEnv
 from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, ClusterNode, \
     CMDDriverBase, ClusterGetAccessor, GpuDevice, \

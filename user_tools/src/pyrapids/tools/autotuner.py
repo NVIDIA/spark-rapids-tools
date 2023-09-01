@@ -16,7 +16,7 @@
 
 from typing import Optional, ClassVar, Type
 
-from as_pytools.utils.propmanager import PropValidatorSchemaCamel, PropValidatorSchema, AbstractPropContainer
+from pyrapids.utils.propmanager import PropValidatorSchemaCamel, PropValidatorSchema, AbstractPropContainer
 
 
 class AutoTunerInputSchema(PropValidatorSchemaCamel):

@@ -21,10 +21,10 @@ from typing import Dict, Callable, List
 import fire
 import pytest  # pylint: disable=import-error
 
-from as_pytools import CspEnv
-from as_pytools.cmdli.argprocessor import AbsToolUserArgModel, ArgValueCase
-from as_pytools.enums import QualFilterApp
-from .conftest import AsCliUnitTest, all_cpu_cluster_props, csp_cpu_cluster_props, csps
+from pyrapids import CspEnv
+from pyrapids.cmdli.argprocessor import AbsToolUserArgModel, ArgValueCase
+from pyrapids.enums import QualFilterApp
+from .conftest import PyrapidsUnitTest, all_cpu_cluster_props, csp_cpu_cluster_props, csps
 
 
 @dataclasses.dataclass
@@ -55,7 +55,7 @@ def register_triplet_test(argv_cases: list):
     return decorator
 
 
-class TestToolArgProcessor(AsCliUnitTest):  # pylint: disable=too-few-public-methods
+class TestToolArgProcessor(PyrapidsUnitTest):  # pylint: disable=too-few-public-methods
     """
     Class testing toolArgProcessor functionalities
     """

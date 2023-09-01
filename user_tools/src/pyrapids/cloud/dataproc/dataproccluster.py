@@ -15,10 +15,11 @@
 """
 Define implementation for the dataproc cluster
 """
+
 from typing import ClassVar, Type
 
-from as_pytools.cloud.cluster import ClientCluster, register_client_cluster, ClusterPropMgr, register_cluster_prop_mgr
-from as_pytools.utils.propmanager import PropValidatorSchemaCamel, PropValidatorSchema
+from pyrapids.cloud.cluster import ClientCluster, register_client_cluster, ClusterPropMgr, register_cluster_prop_mgr
+from pyrapids.utils.propmanager import PropValidatorSchemaCamel, PropValidatorSchema
 
 
 class DataprocClusterSchema(PropValidatorSchemaCamel):

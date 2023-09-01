@@ -15,7 +15,7 @@
 """Wrapper for the S3 File system"""
 
 
-from as_pytools.storagelib.cspfs import register_fs_class, CspFs
+from pyrapids.storagelib.cspfs import register_fs_class, CspFs
 
 
 @register_fs_class('s3', 'S3FileSystem')

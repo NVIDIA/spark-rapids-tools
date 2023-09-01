@@ -25,7 +25,7 @@ from typing import Optional
 
 import fire
 
-from as_pytools import CspEnv
+from pyrapids import CspEnv
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils

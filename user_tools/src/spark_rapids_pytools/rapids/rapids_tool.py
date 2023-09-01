@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List
 
-from as_pytools import CspEnv
+from pyrapids import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer

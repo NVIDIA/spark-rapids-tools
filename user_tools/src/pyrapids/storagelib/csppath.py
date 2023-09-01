@@ -190,18 +190,18 @@ class CspPath(metaclass=CspPathMeta):
     Create a new path subclass from a gcs URI:
 
     >>> gs_path = CspPath('gs://bucket-name/folder_00/subfolder_01')
-    <as_pytools.storagelib.gcs.gcpath.GcsPath object at ...>
+    <pyrapids.storagelib.gcs.gcpath.GcsPath object at ...>
 
     or from S3 URI:
 
     >>> s3_path = CspPath('s3://bucket-name/folder_00/subfolder_01')
-    <as_pytools.storagelib.s3.s3path.S3Path object at ...>
+    <pyrapids.storagelib.s3.s3path.S3Path object at ...>
 
     or from local file URI:
 
     >>> local_path1, local_path2 = (CspPath('~/my_folder'), CspPath('file:///my_folder'))
-    <as_pytools.storagelib.local.localpath.LocalPath object at ...,
-      as_pytools.storagelib.local.localpath.LocalPath object at ...>
+    <pyrapids.storagelib.local.localpath.LocalPath object at ...,
+      pyrapids.storagelib.local.localpath.LocalPath object at ...>
 
     Print the data from the file with `open_input_file()`:
 

@@ -43,7 +43,7 @@ dynamic=["entry-points", "version"]
 
 [project.scripts]
 spark_rapids_user_tools = "spark_rapids_pytools.wrapper:main"
-ascli = "as_pytools.cmdli.ascli:main"
+ascli = "pyrapids.cmdli.pyrapids_cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

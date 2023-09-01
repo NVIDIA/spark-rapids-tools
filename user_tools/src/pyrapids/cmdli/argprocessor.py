@@ -25,9 +25,9 @@ from pydantic import model_validator, ValidationError
 from pydantic.dataclasses import dataclass
 from pydantic_core import PydanticCustomError
 
-from as_pytools.cloud import ClientCluster
-from as_pytools.exceptions import IllegalArgumentError
-from as_pytools.utils import AbstractPropContainer, is_http_file
+from pyrapids.cloud import ClientCluster
+from pyrapids.exceptions import IllegalArgumentError
+from pyrapids.utils import AbstractPropContainer, is_http_file
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
@@ -105,7 +105,7 @@ class AbsToolUserArgModel:
         'meta': {},
         'toolArgs': {}
     })
-    logger: ClassVar[Logger] = ToolLogging.get_and_setup_logger('ascli.argparser')
+    logger: ClassVar[Logger] = ToolLogging.get_and_setup_logger('pyrapids.argparser')
     tool_name: ClassVar[str] = None
 
     @classmethod

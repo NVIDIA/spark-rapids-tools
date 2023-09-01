@@ -19,9 +19,9 @@ Define implementation for the onPrem cluster
 from typing import ClassVar, Type
 from typing_extensions import TypedDict
 from pydantic import ConfigDict
-from as_pytools.cloud.cluster import ClientCluster, ClusterPropMgr, register_cluster_prop_mgr, register_client_cluster
-from as_pytools.utils.propmanager import PropValidatorSchema
-from as_pytools.utils.util import to_camel_case
+from pyrapids.cloud.cluster import ClientCluster, ClusterPropMgr, register_cluster_prop_mgr, register_client_cluster
+from pyrapids.utils.propmanager import PropValidatorSchema
+from pyrapids.utils.util import to_camel_case
 
 
 class OnPremDriverConfigSchema(TypedDict):
