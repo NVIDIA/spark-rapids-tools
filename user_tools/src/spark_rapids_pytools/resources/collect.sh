@@ -49,15 +49,16 @@ free -h >> $OUTPUT_NODE_INFO
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Network adapter]" >> $OUTPUT_NODE_INFO
 
-if [ "$PLATFORM_TYPE" == "databricks_aws" ]; then
-    # install pciutils on Databricks
-    sudo apt install -y pciutils
-    lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
-elif command -v lshw ; then
+if command -v lshw ; then
     lshw -C network >> $OUTPUT_NODE_INFO
 else
-    # Downgrade to 'lspci' on EMR as it's not installed by default
-    lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
+    # Downgrade to 'lspci'
+    if [ "$PLATFORM_TYPE" == "databricks_aws" ]; then
+        sudo apt install -y pciutils
+        lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
+    elif [ "$PLATFORM_TYPE" == "emr" ]; then
+        /usr/sbin/lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
+    fi
 fi
 
 echo "" >> $OUTPUT_NODE_INFO
@@ -69,8 +70,12 @@ echo "[GPU adapter]" >> $OUTPUT_NODE_INFO
 if command -v lshw ; then
     lshw -C display >> $OUTPUT_NODE_INFO
 else
-    # Downgrade to 'lspci' on EMR as it's not installed by default
-    lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
+    # Downgrade to 'lspci'
+    if [ "$PLATFORM_TYPE" == "databricks_aws" ]; then
+        lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
+    elif [ "$PLATFORM_TYPE" == "emr" ]; then
+        /usr/sbin/lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
+    fi
 fi
 
 echo "" >> $OUTPUT_NODE_INFO
@@ -90,9 +95,12 @@ echo "[Spark version]" >> $OUTPUT_NODE_INFO
 
 if [ "$PLATFORM_TYPE" == "databricks_aws" ]; then
     SPARK_HOME='/databricks/spark'
-    echo "$(cat $SPARK_HOME/VERSION)" >> $OUTPUT_NODE_INFO
-elif command -v spark-submit; then
-    spark-submit --version >> $OUTPUT_NODE_INFO
+else
+    SPARK_HOME='/usr/lib/spark'
+fi
+
+if command -v $SPARK_HOME/bin/pyspark ; then
+    $SPARK_HOME/bin/pyspark --version 2>&1|grep -v Scala|awk '/version\ [0-9.]+/{print $NF}' >> $OUTPUT_NODE_INFO
 else
     echo 'not found' >> $OUTPUT_NODE_INFO
 fi
@@ -100,12 +108,6 @@ fi
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Spark rapids plugin]" >> $OUTPUT_NODE_INFO
 
-if [ -z "$SPARK_HOME" ]; then
-    # Source spark env variables if not set $SPARK_HOME, e.g. on EMR node
-    if [ -f /etc/spark/conf/spark-env.sh ]; then
-        source /etc/spark/conf/spark-env.sh
-    fi
-fi
 
 if [ -f $SPARK_HOME/jars/rapids-4-spark*.jar ]; then
     ls -l $SPARK_HOME/jars/rapids-4-spark*.jar >> $OUTPUT_NODE_INFO
