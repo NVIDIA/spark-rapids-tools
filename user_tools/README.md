@@ -34,11 +34,15 @@ Set up a Python environment with a version between 3.8 and 3.10
       ```sh
       $ pip install -e .
       ```
+      
+      Note that you can also use optional `test` to install dependencies required to run the unit-tests
+      `pip install -e '.[test]'`
+
     - Using wheel package built from the repo (see the build steps below).
+
       ```sh
       $ pip install <wheel-file>
       ```
-
 
 3. Make sure to install CSP SDK if you plan to run the tool wrapper.
 

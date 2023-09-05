@@ -16,7 +16,8 @@
 
 from dataclasses import dataclass, field
 
-from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, get_elem_from_dict, get_elem_non_safe
+from pyrapids import get_elem_from_dict, get_elem_non_safe
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.pricing.price_provider import PriceProvider
 

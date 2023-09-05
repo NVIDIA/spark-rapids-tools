@@ -30,13 +30,23 @@ dependencies = [
     "idna==3.4",
     "urllib3==1.26.14",
     "beautifulsoup4==4.11.2",
-    "pygments==2.15.0"
+    "pygments==2.15.0",
+    # used to apply validator on objects and models
+    "pydantic==2.1.1",
+    # used for common API to access remote filesystems like local/s3/gcs/hdfs
+    # this will include numpy
+    "pyarrow==12.0.1",
+    # used for ADLS filesystem implementation
+    "adlfs==2023.4.0"
 ]
 dynamic=["entry-points", "version"]
+
 [project.scripts]
 spark_rapids_user_tools = "spark_rapids_pytools.wrapper:main"
-ascli = "spark_rapids_pytools.ascli_cli.ascli:main"
+ascli = "pyrapids.cmdli.pyrapids_cli:main"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 [tool.setuptools.dynamic]
@@ -45,3 +55,7 @@ version = {attr = "spark_rapids_pytools.__version__"}
 "*"= ["*.json", "*.yaml", "*.ms", "*.sh", "*.tgz"]
 [tool.poetry]
 repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
+[project.optional-dependencies]
+test = [
+    "tox", 'pytest', 'cli_test_helpers'
+]

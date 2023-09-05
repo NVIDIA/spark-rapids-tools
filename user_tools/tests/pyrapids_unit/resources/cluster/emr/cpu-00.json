@@ -1,0 +1,138 @@
+{
+    "Cluster": {
+        "Id": "j-383838383838383",
+        "Name": "cpu-emr-cluster",
+        "Status": {
+            "State": "WAITING",
+            "StateChangeReason": {
+                "Message": "Cluster ready to run steps."
+            },
+            "Timeline": {
+                "CreationDateTime": "2022-12-13T13:27:23.119000-06:00",
+                "ReadyDateTime": "2022-12-13T13:32:41.192000-06:00"
+            }
+        },
+        "Ec2InstanceAttributes": {
+            "Ec2KeyName": "my-ec2-key-name",
+            "RequestedEc2SubnetIds": [],
+            "Ec2AvailabilityZone": "us-east-2c",
+            "RequestedEc2AvailabilityZones": [],
+            "IamInstanceProfile": "EMR_EC2_DefaultRole",
+            "EmrManagedMasterSecurityGroup": "sg-1111111111111111",
+            "EmrManagedSlaveSecurityGroup": "sg-010101010101010101"
+        },
+        "InstanceCollectionType": "INSTANCE_GROUP",
+        "LogUri": "s3://my-log-bucket/logs/",
+        "ReleaseLabel": "emr-5.28.0",
+        "AutoTerminate": false,
+        "TerminationProtected": false,
+        "VisibleToAllUsers": true,
+        "Applications": [
+            {
+                "Name": "JupyterHub",
+                "Version": "1.0.0"
+            },
+            {
+                "Name": "Spark",
+                "Version": "2.4.4"
+            },
+            {
+                "Name": "Hadoop",
+                "Version": "2.8.5"
+            }
+        ],
+        "Tags": [],
+        "ServiceRole": "EMR_DefaultRole",
+        "NormalizedInstanceHours": 0,
+        "MasterPublicDnsName": "ec2-1-1-1.us-east-2.compute.amazonaws.com",
+        "Configurations": [],
+        "ScaleDownBehavior": "TERMINATE_AT_TASK_COMPLETION",
+        "KerberosAttributes": {},
+        "ClusterArn": "arn:aws:elasticmapreduce:us-east-2:11111111111:cluster/j-1111111111",
+        "StepConcurrencyLevel": 1,
+        "PlacementGroups": [],
+        "BootstrapActions": [],
+        "InstanceGroups": [
+            {
+                "Id": "ig-e77347373737373",
+                "Name": "MASTER",
+                "Market": "ON_DEMAND",
+                "InstanceGroupType": "MASTER",
+                "InstanceType": "m5.xlarge",
+                "RequestedInstanceCount": 1,
+                "RunningInstanceCount": 1,
+                "Status": {
+                    "State": "RUNNING",
+                    "StateChangeReason": {
+                        "Message": ""
+                    },
+                    "Timeline": {
+                        "CreationDateTime": "2022-12-13T13:27:23.128000-06:00",
+                        "ReadyDateTime": "2022-12-13T13:32:09.208000-06:00"
+                    }
+                },
+                "Configurations": [],
+                "ConfigurationsVersion": 0,
+                "LastSuccessfullyAppliedConfigurations": [],
+                "LastSuccessfullyAppliedConfigurationsVersion": 0,
+                "EbsBlockDevices": [
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdb"
+                    },
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdc"
+                    }
+                ],
+                "ShrinkPolicy": {}
+            },
+            {
+                "Id": "ig-29292929292929",
+                "Name": "CORE",
+                "Market": "ON_DEMAND",
+                "InstanceGroupType": "CORE",
+                "InstanceType": "m5.xlarge",
+                "RequestedInstanceCount": 2,
+                "RunningInstanceCount": 2,
+                "Status": {
+                    "State": "RUNNING",
+                    "StateChangeReason": {
+                        "Message": ""
+                    },
+                    "Timeline": {
+                        "CreationDateTime": "2022-12-13T13:27:23.128000-06:00",
+                        "ReadyDateTime": "2022-12-13T13:32:41.192000-06:00"
+                    }
+                },
+                "Configurations": [],
+                "ConfigurationsVersion": 0,
+                "LastSuccessfullyAppliedConfigurations": [],
+                "LastSuccessfullyAppliedConfigurationsVersion": 0,
+                "EbsBlockDevices": [
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdb"
+                    },
+                    {
+                        "VolumeSpecification": {
+                            "VolumeType": "gp2",
+                            "SizeInGB": 32
+                        },
+                        "Device": "/dev/sdc"
+                    }
+                ],
+                "ShrinkPolicy": {}
+            }
+        ]
+    }
+}

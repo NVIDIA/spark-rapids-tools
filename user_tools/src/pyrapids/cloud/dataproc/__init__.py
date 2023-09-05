@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the ascli package."""
+"""init file of the cloud implementation for dataproc."""
