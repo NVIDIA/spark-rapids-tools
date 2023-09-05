@@ -3,15 +3,15 @@
     "deployMode": {
       "LOCAL": [
         {
-          "name":  "Apache Spark",
-          "uri": "https://archive.apache.org/dist/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz",
+          "name": "Apache Spark",
+          "uri": "https://archive.apache.org/dist/spark/spark-3.3.3/spark-3.3.3-bin-hadoop3.tgz",
           "type": "archive",
           "relativePath": "jars/*",
-          "sha512": "769db39a560a95fd88b58ed3e9e7d1e92fb68ee406689fb4d30c033cb5911e05c1942dcc70e5ec4585df84e80aabbc272b9386a208debda89522efff1335c8ff",
-          "size": 299350810
+          "sha512": "ebf79c7861f3120d5ed9465fdd8d5302a734ff30713a0454b714bbded7ab9f218b3108dc46a5de4cc2102c86e7be53908f84d2c7a19e59bc75880766eeefeef9",
+          "size": 299426263
         },
         {
-          "name":  "Hadoop AWS",
+          "name": "Hadoop AWS",
           "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar",
           "type": "jar",
           "md5": "59907e790ce713441955015d79f670bc",
@@ -19,7 +19,7 @@
           "size": 962685
         },
         {
-          "name":  "AWS Java SDK Bundled",
+          "name": "AWS Java SDK Bundled",
           "uri": "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar",
           "type": "jar",
           "md5": "8a22f2d30b7e8eee9ea44f04fb13b35a",
