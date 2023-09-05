@@ -95,14 +95,14 @@ echo "[Spark version]" >> $OUTPUT_NODE_INFO
 
 if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
     SPARK_HOME='/databricks/spark'
+    echo "$(cat "$SPARK_HOME/VERSION")" >> $OUTPUT_NODE_INFO
 else
     SPARK_HOME='/usr/lib/spark'
-fi
-
-if command -v $SPARK_HOME/bin/pyspark ; then
-    $SPARK_HOME/bin/pyspark --version 2>&1|grep -v Scala|awk '/version\ [0-9.]+/{print $NF}' >> $OUTPUT_NODE_INFO
-else
-    echo 'not found' >> $OUTPUT_NODE_INFO
+    if command -v $SPARK_HOME/bin/pyspark ; then
+        $SPARK_HOME/bin/pyspark --version 2>&1|grep -v Scala|awk '/version\ [0-9.]+/{print $NF}' >> $OUTPUT_NODE_INFO
+    else
+        echo 'not found' >> $OUTPUT_NODE_INFO
+    fi
 fi
 
 echo "" >> $OUTPUT_NODE_INFO

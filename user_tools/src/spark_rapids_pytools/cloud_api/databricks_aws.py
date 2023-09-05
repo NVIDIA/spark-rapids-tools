@@ -124,16 +124,20 @@ class DBAWSCMDDriver(CMDDriverBase):
 
     def _build_ssh_cmd_prefix_for_node(self, node: ClusterNode) -> str:
         port = self.env_vars.get('sshPort')
+        key_file = self.env_vars.get('sshKeyFile')
         prefix_args = ['ssh',
                        '-o StrictHostKeyChecking=no',
+                       f'-i {key_file} ' if key_file else '',
                        f'-p {port}',
                        f'ubuntu@{node.name}']
         return Utils.gen_joined_str(' ', prefix_args)
 
     def _build_cmd_scp_to_node(self, node: ClusterNode, src: str, dest: str) -> str:
         port = self.env_vars.get('sshPort')
+        key_file = self.env_vars.get('sshKeyFile')
         prefix_args = ['scp',
                        '-o StrictHostKeyChecking=no',
+                       f'-i {key_file} ' if key_file else '',
                        f'-P {port}',
                        src,
                        f'ubuntu@{node.name}:{dest}']
@@ -141,8 +145,10 @@ class DBAWSCMDDriver(CMDDriverBase):
 
     def _build_cmd_scp_from_node(self, node: ClusterNode, src: str, dest: str) -> str:
         port = self.env_vars.get('sshPort')
+        key_file = self.env_vars.get('sshKeyFile')
         prefix_args = ['scp',
                        '-o StrictHostKeyChecking=no',
+                       f'-i {key_file} ' if key_file else '',
                        f'-P {port}',
                        f'ubuntu@{node.name}:{src}',
                        dest]

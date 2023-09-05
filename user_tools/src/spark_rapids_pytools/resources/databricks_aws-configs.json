@@ -33,7 +33,7 @@
     "//description": "Define the metadata related to the system, prerequisites, and configurations",
     "envParams": ["profile", "awsProfile", "deployMode"],
     "//initialConfigList": "represents the list of the configurations that need to be loaded first",
-    "initialConfigList": ["profile", "awsProfile", "cliConfigFile", "awsCliConfigFile", "awsCredentialFile"],
+    "initialConfigList": ["profile", "awsProfile", "cliConfigFile", "awsCliConfigFile", "awsCredentialFile", "sshPort", "sshKeyFile"],
     "//loadedConfigProps": "list of properties read by the configParser",
     "loadedConfigProps": ["region", "output"],
     "cliConfig": {

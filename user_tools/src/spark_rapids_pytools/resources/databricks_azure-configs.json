@@ -23,7 +23,7 @@
     },
   "environment": {
     "//description": "Define the metadata related to the system, prerequisites, and configurations",
-    "envParams": ["profile", "deployMode", "azureRegionSection", "azureStorageSection"],
+    "envParams": ["profile", "deployMode", "azureRegionSection", "azureStorageSection", "sshPort", "sshKeyFile"],
     "//initialConfigList": "represents the list of the configurations that need to be loaded first",
     "initialConfigList": ["profile", "cliConfigFile", "azureCliConfigFile", "region", "azureRegionSection", "azureStorageSection"],
     "//loadedConfigProps": "list of properties read by the configParser",

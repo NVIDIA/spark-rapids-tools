@@ -216,6 +216,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
                    output_folder: str = None,
                    credentials_file: str = None,
                    port: int = 2200,
+                   key_file: str = None,
                    thread_num: int = 3,
                    yes: bool = False,
                    verbose: bool = False) -> None:
@@ -235,6 +236,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
                to provide the location of a credential file. The default credentials file exists as
                "~/.databrickscfg" on Unix, Linux, or macOS.
         :param port: Port number to be used for the ssh connections.
+        :param key_file: Path to the private key file to be used for the ssh connections.
         :param thread_num: Number of threads to access remote cluster nodes in parallel. The valid value
                is 1~10. The default value is 3.
         :param yes: auto confirm to interactive question.
@@ -248,7 +250,8 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
                 'profile': profile,
                 'awsProfile': aws_profile,
                 'credentialFile': credentials_file,
-                'sshPort': port
+                'sshPort': port,
+                'sshKeyFile': key_file,
             },
             'threadNum': thread_num,
             'yes': yes,
@@ -262,7 +265,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
 
 class DBAWSWrapper:  # pylint: disable=too-few-public-methods
     """
-    A wrapper script to run RAPIDS Accelerator tools (Qualification, Profiling, and Bootstrap) on Databricks_AWS.
+    A wrapper script to run RAPIDS Accelerator tools (Qualification, Profiling, and Diagnostic) on Databricks_AWS.
     """
 
     def __init__(self):
