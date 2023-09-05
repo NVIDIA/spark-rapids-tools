@@ -53,7 +53,7 @@ if command -v lshw ; then
     lshw -C network >> $OUTPUT_NODE_INFO
 else
     # Downgrade to 'lspci'
-    if [ "$PLATFORM_TYPE" == "databricks_aws" ]; then
+    if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
         sudo apt install -y pciutils
         lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
     elif [ "$PLATFORM_TYPE" == "emr" ]; then
@@ -71,7 +71,7 @@ if command -v lshw ; then
     lshw -C display >> $OUTPUT_NODE_INFO
 else
     # Downgrade to 'lspci'
-    if [ "$PLATFORM_TYPE" == "databricks_aws" ]; then
+    if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
         lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
     elif [ "$PLATFORM_TYPE" == "emr" ]; then
         /usr/sbin/lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
@@ -93,7 +93,7 @@ java -version 2>> $OUTPUT_NODE_INFO
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Spark version]" >> $OUTPUT_NODE_INFO
 
-if [ "$PLATFORM_TYPE" == "databricks_aws" ]; then
+if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
     SPARK_HOME='/databricks/spark'
 else
     SPARK_HOME='/usr/lib/spark'

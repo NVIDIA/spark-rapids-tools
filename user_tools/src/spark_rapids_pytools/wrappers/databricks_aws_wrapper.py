@@ -253,7 +253,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
             'threadNum': thread_num,
             'yes': yes,
         }
-        diag_tool = Diagnostic(platform_type=CloudPlatform.DATABRICKS_AWS,
+        diag_tool = Diagnostic(platform_type=CspEnv.DATABRICKS_AWS,
                                cluster=cluster,
                                output_folder=output_folder,
                                wrapper_options=wrapper_diag_options)
