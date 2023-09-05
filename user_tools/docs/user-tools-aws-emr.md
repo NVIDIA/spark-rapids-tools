@@ -32,7 +32,7 @@ the applications running on AWS EMR.
   - from source: `pip install -e .`
 - verify the command is installed correctly by running
   ```bash
-    spark_rapids_user_tools emr --help
+    spark_rapids_user_tools emr -- --help
   ```
 
 ### 4.Environment variables
@@ -55,7 +55,7 @@ Before running any command, you can set environment variables to specify configu
 
 ```
 spark_rapids_user_tools emr qualification [options]
-spark_rapids_user_tools emr qualification --help
+spark_rapids_user_tools emr qualification -- --help
 ```
 
 The local deployment runs on the local development machine. It requires:
@@ -307,7 +307,7 @@ The CLI is triggered by providing the location where the yaml file is stored `--
 
 ```
 spark_rapids_user_tools emr bootstrap [options]
-spark_rapids_user_tools emr bootstrap --help
+spark_rapids_user_tools emr bootstrap -- --help
 ```
 
 The command generates an output with a list of properties to be applied to Spark configurations.
@@ -370,7 +370,7 @@ generate an output while displaying warning that the remote changes failed.
 
 ```
 spark_rapids_user_tools emr diagnostic [options]
-spark_rapids_user_tools emr diagnostic --help
+spark_rapids_user_tools emr diagnostic -- --help
 ```
 
 Run diagnostic command to collects information from EMR cluster, such as OS version, # of worker
