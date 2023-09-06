@@ -25,7 +25,7 @@ from spark_rapids_pytools import wrapper
 from .mock_cluster import mock_live_cluster
 
 
-@pytest.mark.parametrize('cloud', ['dataproc', 'emr'])
+@pytest.mark.parametrize('cloud', ['dataproc', 'emr', 'databricks-aws', 'databricks-azure'])
 class TestInfoCollect:
     """Test info collect functions."""
 
