@@ -30,6 +30,13 @@ mkdir -p $TEMP_PATH
 NODE_ID=`hostname`
 OUTPUT_NODE_INFO="$TEMP_PATH/$HOSTNAME.info"
 
+if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
+    DATABRICKS_HOME='/databricks'
+    SPARK_HOME="$DATABRICKS_HOME/spark"
+else
+    SPARK_HOME='/usr/lib/spark'
+fi
+
 echo "[OS version]" >> $OUTPUT_NODE_INFO
 cat /etc/os-release >> $OUTPUT_NODE_INFO
 
@@ -94,10 +101,12 @@ echo "" >> $OUTPUT_NODE_INFO
 echo "[Spark version]" >> $OUTPUT_NODE_INFO
 
 if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
-    SPARK_HOME='/databricks/spark'
-    echo "$(cat "$SPARK_HOME/VERSION")" >> $OUTPUT_NODE_INFO
+    if [ -f $SPARK_HOME/VERSION ]; then
+        echo "$(cat "$SPARK_HOME/VERSION")" >> $OUTPUT_NODE_INFO
+    else
+        echo 'not found' >> $OUTPUT_NODE_INFO
+    fi
 else
-    SPARK_HOME='/usr/lib/spark'
     if command -v $SPARK_HOME/bin/pyspark ; then
         $SPARK_HOME/bin/pyspark --version 2>&1|grep -v Scala|awk '/version\ [0-9.]+/{print $NF}' >> $OUTPUT_NODE_INFO
     else
@@ -108,10 +117,13 @@ fi
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Spark rapids plugin]" >> $OUTPUT_NODE_INFO
 
-
-if [ -f $SPARK_HOME/jars/rapids-4-spark*.jar ]; then
-    ls -l $SPARK_HOME/jars/rapids-4-spark*.jar >> $OUTPUT_NODE_INFO
-elif [ -f /usr/lib/spark/jars/rapids-4-spark_n-0.jar ]; then
+if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
+    if [ -f $DATABRICKS_HOME/jars/rapids-4-spark*.jar ]; then
+        ls -l $DATABRICKS_HOME/jars/rapids-4-spark*.jar >> $OUTPUT_NODE_INFO
+    else
+        echo 'not found' >> $OUTPUT_NODE_INFO
+    fi
+elif [ -f $SPARK_HOME/jars/rapids-4-spark*.jar ]; then
     ls -l $SPARK_HOME/jars/rapids-4-spark*.jar >> $OUTPUT_NODE_INFO
 else
     echo 'not found' >> $OUTPUT_NODE_INFO
