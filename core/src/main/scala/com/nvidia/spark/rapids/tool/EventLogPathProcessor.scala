@@ -140,7 +140,7 @@ object EventLogPathProcessor extends Logging {
           // could be supported..
           s"File: $fileName. Detected a text file. No extension is expected. skipping this file."
         } else {
-          s"File: $fileName it not a supported file type. " +
+          s"File: $fileName is not a supported file type. " +
             "Supported compression types are: " +
             s"${SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER.mkString(", ")}. " +
             "Skipping this file."
