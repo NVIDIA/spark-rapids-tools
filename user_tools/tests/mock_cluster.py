@@ -238,37 +238,7 @@ mock_live_cluster = {
             "num_workers": 1,
         }),
         # az vm list-skus --location westus
-        # json.dumps([{
-        #     "capabilities": [
-        #         {
-        #         "name": "vCPUs",
-        #         "value": "4"
-        #         },
-        #         {
-        #         "name": "GPUs",
-        #         "value": "1"
-        #         },
-        #         {
-        #         "name": "vCPUsPerCore",
-        #         "value": "1"
-        #         }
-        #     ],
-        #     "family": "Standard NCASv3_T4 Family",
-        #     "locationInfo": [
-        #         {
-        #         "location": "westus",
-        #         "zoneDetails": [],
-        #         "zones": []
-        #         }
-        #     ],
-        #     "locations": [
-        #         "westus"
-        #     ],
-        #     "name": "Standard_NC4as_T4_v3",
-        #     "resourceType": "virtualMachines",
-        #     "restrictions": [],
-        #     "size": "NC4as_T4_v3",
-        #     "tier": "Standard"
-        # }])
+        # This output is not required for the test because we are using a mock
+        # that reads data from the test catalog file instead.
     ]
 }

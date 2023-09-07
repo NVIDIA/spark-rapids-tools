@@ -22,6 +22,7 @@ import pytest  # pylint: disable=import-error
 from cli_test_helpers import ArgvContext, EnvironContext  # pylint: disable=import-error
 
 from spark_rapids_pytools import wrapper
+from .pyrapids_unit import conftest
 from .mock_cluster import mock_live_cluster
 
 
@@ -50,6 +51,12 @@ class TestInfoCollect:
     @patch('spark_rapids_pytools.common.utilities.SysCmd.build')
     def test_info_collect(self, build_mock, cloud, capsys):
         return_values = mock_live_cluster[cloud].copy()
+        expected_syscmd_calls = {
+            'dataproc': 13,
+            'emr': 12,
+            'databricks-aws': 9,
+            'databricks-azure': 7
+        }
 
         # Mock return values for info collection
         return_values += ['done'] * 6
@@ -60,11 +67,7 @@ class TestInfoCollect:
 
         self.run_tool(cloud)
 
-        if cloud == 'dataproc':
-            assert len(build_mock.call_args_list) == 13
-
-        elif cloud == 'emr':
-            assert len(build_mock.call_args_list) == 12
+        assert len(build_mock.call_args_list) == expected_syscmd_calls[cloud]
 
         _, stderr = capsys.readouterr()
         assert re.match(r".*Archive '/(tmp|var)/.*/diag_.*\.tar' is successfully created\..*", stderr, re.DOTALL)
@@ -72,6 +75,12 @@ class TestInfoCollect:
     @patch('spark_rapids_pytools.common.utilities.SysCmd.build')
     def test_thread_num(self, build_mock, cloud, capsys):
         return_values = mock_live_cluster[cloud].copy()
+        expected_syscmd_calls = {
+            'dataproc': 13,
+            'emr': 12,
+            'databricks-aws': 9,
+            'databricks-azure': 7
+        }
 
         # Mock return values for info collection
         return_values += ['done'] * 6
@@ -82,11 +91,7 @@ class TestInfoCollect:
 
         self.run_tool(cloud, ['--thread_num', '7', '--yes', '--verbose'])
 
-        if cloud == 'dataproc':
-            assert len(build_mock.call_args_list) == 13
-
-        elif cloud == 'emr':
-            assert len(build_mock.call_args_list) == 12
+        assert len(build_mock.call_args_list) == expected_syscmd_calls[cloud]
 
         _, stderr = capsys.readouterr()
 
@@ -97,6 +102,12 @@ class TestInfoCollect:
     @pytest.mark.parametrize('thread_num', ['0', '11', '123'])
     def test_invalid_thread_num(self, build_mock, cloud, thread_num, capsys):
         return_values = mock_live_cluster[cloud].copy()
+        expected_syscmd_calls = {
+            'dataproc': 7,
+            'emr': 6,
+            'databricks-aws': 3,
+            'databricks-azure': 1
+        }
 
         # Mock return values for info collection
         return_values += ['done'] * 6
@@ -107,11 +118,7 @@ class TestInfoCollect:
 
         self.run_tool(cloud, ['--thread_num', thread_num, '--yes', '--verbose'], SystemExit)
 
-        if cloud == 'dataproc':
-            assert len(build_mock.call_args_list) == 7
-
-        elif cloud == 'emr':
-            assert len(build_mock.call_args_list) == 6
+        assert len(build_mock.call_args_list) == expected_syscmd_calls[cloud]
 
         _, stderr = capsys.readouterr()
 
@@ -122,6 +129,12 @@ class TestInfoCollect:
     def test_upload_failed(self, build_mock, cloud, capsys):
         return_values = mock_live_cluster[cloud].copy()
         return_values.reverse()
+        expected_syscmd_calls = {
+            'dataproc': 8,
+            'emr': 7,
+            'databricks-aws': 4,
+            'databricks-azure': 2
+        }
 
         # Mock failure for upload
         def mock_exec():
@@ -136,11 +149,7 @@ class TestInfoCollect:
 
         self.run_tool(cloud, ['--thread_num', '1', '--yes', '--verbose'], expected_exception=SystemExit)
 
-        if cloud == 'dataproc':
-            assert len(build_mock.call_args_list) >= 8
-
-        elif cloud == 'emr':
-            assert len(build_mock.call_args_list) >= 7
+        assert len(build_mock.call_args_list) >= expected_syscmd_calls[cloud]
 
         _, stderr = capsys.readouterr()
 
@@ -150,6 +159,12 @@ class TestInfoCollect:
     @patch('spark_rapids_pytools.common.utilities.SysCmd.build')
     def test_download_failed(self, build_mock, cloud, capsys):
         return_values = mock_live_cluster[cloud].copy()
+        expected_syscmd_calls = {
+            'dataproc': 13,
+            'emr': 12,
+            'databricks-aws': 9,
+            'databricks-azure': 7
+        }
 
         # Mock return values for info collection
         return_values += ['done'] * 4
@@ -168,11 +183,7 @@ class TestInfoCollect:
 
         self.run_tool(cloud, ['--thread_num', '1', '--yes', '--verbose'], expected_exception=SystemExit)
 
-        if cloud == 'dataproc':
-            assert len(build_mock.call_args_list) >= 12
-
-        elif cloud == 'emr':
-            assert len(build_mock.call_args_list) >= 11
+        assert len(build_mock.call_args_list) >= expected_syscmd_calls[cloud]
 
         _, stderr = capsys.readouterr()
 
@@ -183,6 +194,12 @@ class TestInfoCollect:
     @pytest.mark.parametrize('user_input', ['yes', 'YES', 'Yes', 'y', 'Y'])
     def test_auto_confirm(self, build_mock, cloud, user_input, capsys):
         return_values = mock_live_cluster[cloud].copy()
+        expected_syscmd_calls = {
+            'dataproc': 13,
+            'emr': 12,
+            'databricks-aws': 9,
+            'databricks-azure': 7
+        }
 
         # Mock return values for info collection
         return_values += ['done'] * 6
@@ -194,11 +211,7 @@ class TestInfoCollect:
         with patch('builtins.input', return_value=user_input):
             self.run_tool(cloud, ['--verbose'])
 
-        if cloud == 'dataproc':
-            assert len(build_mock.call_args_list) == 13
-
-        elif cloud == 'emr':
-            assert len(build_mock.call_args_list) == 12
+        assert len(build_mock.call_args_list) == expected_syscmd_calls[cloud]
 
         _, stderr = capsys.readouterr()
         assert re.match(r".*Archive '/(tmp|var)/.*/diag_.*\.tar' is successfully created\..*", stderr, re.DOTALL)
@@ -207,6 +220,12 @@ class TestInfoCollect:
     @pytest.mark.parametrize('user_input', ['', 'n', 'no', 'NO', 'nO'])
     def test_cancel_confirm(self, build_mock, cloud, user_input, capsys):
         return_values = mock_live_cluster[cloud].copy()
+        expected_syscmd_calls = {
+            'dataproc': 7,
+            'emr': 6,
+            'databricks-aws': 3,
+            'databricks-azure': 1
+        }
 
         mock = Mock()
         mock.exec = Mock(side_effect=return_values)
@@ -215,13 +234,26 @@ class TestInfoCollect:
         with patch('builtins.input', return_value=user_input):
             self.run_tool(cloud, ['--thread_num', '1', '--verbose'], expected_exception=SystemExit)
 
-        if cloud == 'dataproc':
-            assert len(build_mock.call_args_list) >= 7
-
-        elif cloud == 'emr':
-            assert len(build_mock.call_args_list) >= 6
+        assert len(build_mock.call_args_list) >= expected_syscmd_calls[cloud]
 
         _, stderr = capsys.readouterr()
 
         assert 'User canceled the operation' in stderr
         assert 'Raised an error in phase [Process-Arguments]' in stderr
+
+    @pytest.fixture(scope='function', autouse=True)
+    def mock_databricks_azure_instance_description(self, cloud, monkeypatch):
+        """
+        Mock `init_instances_description()` for Databricks Azure tests to return a test JSON file path.
+        This is needed to avoid creating an actual azure-instance-catalog.json file in the `CACHE_FOLDER`.
+        """
+        def mock_init_instances_description(_):
+            resource_dir = conftest.get_test_resources_path()
+            test_azure_catalog_file = 'cluster/databricks/test-azure-instances-catalog.json'
+            return os.path.join(resource_dir, test_azure_catalog_file)
+
+        if cloud == 'databricks-azure':
+            monkeypatch.setattr(
+                'spark_rapids_pytools.cloud_api.databricks_azure.DBAzureCMDDriver.init_instances_description',
+                mock_init_instances_description
+            )
