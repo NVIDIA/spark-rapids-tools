@@ -30,7 +30,7 @@ import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, floor, hex, json_tuple, round, row_number, sum}
+import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, floor, hex, json_tuple, round, row_number, sum, translate}
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
@@ -864,10 +864,12 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "ProjectExprsSupported") { spark =>
           import spark.implicits._
-          val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
+          val df1 = Seq((9.9, "ABC"), (10.2, "abc"), (11.6, ""), (12.5, "AaBbCc"))
+                      .toDF("num", "str")
           df1.write.parquet(s"$parquetoutputLoc/testtext")
           val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
-          df2.select(df2("value").cast(StringType), ceil(df2("value")), df2("value"))
+          df2.select(df2("num").cast(StringType), ceil(df2("num")), df2("num"))
+          df2.select(translate(df2("str"), "ABC", "123"))
         }
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)
