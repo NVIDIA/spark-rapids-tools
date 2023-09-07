@@ -866,9 +866,11 @@ class SQLPlanParserSuite extends BaseTestSuite {
           import spark.implicits._
           val df1 = Seq((9.9, "ABC"), (10.2, "abc"), (11.6, ""), (12.5, "AaBbCc"))
                       .toDF("num", "str")
+          // write df1 to parquet to transform LocalTableScan to ProjectExec
           df1.write.parquet(s"$parquetoutputLoc/testtext")
           val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
           df2.select(df2("num").cast(StringType), ceil(df2("num")), df2("num"))
+          // translate should be part of ProjectExec
           df2.select(translate(df2("str"), "ABC", "123"))
         }
         val pluginTypeChecker = new PluginTypeChecker()
