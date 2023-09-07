@@ -41,7 +41,10 @@ object WebCrawlerUtil extends Logging {
   private val ARTIFACT_VERSION_REGEX = "\\d{2}\\.\\d{2}\\.\\d+/"
   // given an artifactID returns the full mvn url that lists all the
   // releases
-  private def getMVNArtifactURL(artifactID: String) : String = s"$NV_MVN_BASE_URL/$artifactID"
+  def getMVNArtifactURL(artifactID: String) : String = {
+    val artifactUrlPart = NV_ARTIFACTS_LOOKUP.getOrElse(artifactID, artifactID)
+    s"$NV_MVN_BASE_URL/$artifactUrlPart"
+  }
 
   /**
    * Given a valid URL, this method recursively picks all the hrefs defined in the HTML doc.
@@ -72,7 +75,7 @@ object WebCrawlerUtil extends Logging {
           }
         } catch {
           case x: IOException =>
-            logError(s"Exception while visiting webURL $webURL", x)
+            logWarning(s"Exception while visiting webURL $webURL: ${x.toString}")
         }
       }
     }
