@@ -34,7 +34,6 @@ import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, 
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
-import org.apache.spark.sql.types.StringType
 
 
 class SQLPlanParserSuite extends BaseTestSuite {
@@ -864,6 +863,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "ProjectExprsSupported") { spark =>
           import spark.implicits._
+          import org.apache.spark.sql.types.StringType
           val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
           df1.write.parquet(s"$parquetoutputLoc/testtext")
           val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
@@ -1036,4 +1036,41 @@ class SQLPlanParserSuite extends BaseTestSuite {
     val expressions = SQLPlanParser.parseAggregateExpressions(exprString)
     expressions should ===(expected)
   }
+
+  runConditionalTest("promote_precision is supported for Spark LT 3.4.0: issue-517",
+    shouldSkipUnsupportedExprForSparkLT340) {
+    // Spark-3.4.0 removed the promote_precision SQL function
+    // the SQL generates the following physical plan
+    // (1) Project [CheckOverflow((promote_precision(cast(dec1#24 as decimal(13,2)))
+    //     + promote_precision(cast(dec2#25 as decimal(13,2)))), DecimalType(13,2))
+    //     AS (dec1 + dec2)#30]
+    // For Spark3.4.0, the promote_precision was removed from the plan.
+    // (1) Project [(dec1#24 + dec2#25) AS (dec1 + dec2)#30]
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "projectPromotePrecision") { spark =>
+          import spark.implicits._
+          import org.apache.spark.sql.types.DecimalType
+          val df = Seq(("12347.21", "1234154"), ("92233.08", "1")).toDF
+            .withColumn("dec1", col("_1").cast(DecimalType(7, 2)))
+            .withColumn("dec2", col("_2").cast(DecimalType(10, 0)))
+          // write the df to parquet to transform localTableScan to projectExec
+          df.write.parquet(s"$parquetoutputLoc/testPromotePrecision")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testPromotePrecision")
+          df2.selectExpr("dec1+dec2")
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        // The promote_precision should be part of the project exec.
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val projExecs = allExecInfo.filter(_.exec.contains("Project"))
+        assertSizeAndSupported(1, projExecs)
+      }
+    }
+  }
+
 }

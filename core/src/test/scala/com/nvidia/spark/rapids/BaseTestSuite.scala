@@ -68,6 +68,11 @@ class BaseTestSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "Spark340 does not parse the eventlog correctly")
   }
 
+  protected def shouldSkipUnsupportedExprForSparkLT340(): (Boolean, String) = {
+    (!ToolUtils.isSpark340OrLater(),
+      "Spark340 does not support the expression")
+  }
+
   def runConditionalTest(testName: String, assumeCondition: () => (Boolean, String))
     (fun: => Unit): Unit = {
     val (isAllowed, ignoreMessage) = assumeCondition()
