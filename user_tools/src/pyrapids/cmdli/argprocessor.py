@@ -105,11 +105,12 @@ class AbsToolUserArgModel:
         'meta': {},
         'toolArgs': {}
     })
-    logger: ClassVar[Logger] = ToolLogging.get_and_setup_logger('pyrapids.argparser')
+    logger: ClassVar[Logger] = None
     tool_name: ClassVar[str] = None
 
     @classmethod
     def create_tool_args(cls, tool_name: str, *args: Any, **kwargs: Any) -> Optional[dict]:
+        cls.logger = ToolLogging.get_and_setup_logger('pyrapids.argparser')
         try:
             impl_entry = user_arg_validation_registry.get(tool_name)
             impl_class = impl_entry.validator_class

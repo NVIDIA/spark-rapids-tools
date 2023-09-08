@@ -14,11 +14,12 @@
 
 """CLI to run tools associated with RAPIDS Accelerator for Apache Spark plugin."""
 
-
 import fire
 
 from pyrapids.enums import QualGpuClusterReshapeType
 from pyrapids.utils.util import gen_app_banner
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils
+from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
@@ -41,7 +42,8 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
                       output_folder: str = None,
                       filter_apps: str = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
-                          QualGpuClusterReshapeType.get_default())):
+                          QualGpuClusterReshapeType.get_default()),
+                      verbose: bool = False):
         """The Qualification cmd provides estimated running costs and speedups by migrating Apache
         Spark applications to GPU accelerated clusters.
 
@@ -82,7 +84,10 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
                 "MATCH": keep GPU cluster same number of nodes as CPU cluster;
                 "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
                 "JOB": recommend optimal GPU cluster by cost per job
+        :param verbose: True or False to enable verbosity of the script.
         """
+        if verbose:
+            ToolLogging.enable_debug_mode()
 
         qual_args = AbsToolUserArgModel.create_tool_args('qualification',
                                                          eventlogs=eventlogs,
@@ -102,7 +107,8 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
                   eventlogs: str = None,
                   cluster: str = None,
                   platform: str = None,
-                  output_folder: str = None):
+                  output_folder: str = None,
+                  verbose: bool = False):
         """The Profiling cmd provides information which can be used for debugging and profiling
         Apache Spark applications running on accelerated GPU cluster.
 
@@ -120,7 +126,11 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
         :param platform: defines one of the following "onprem", "emr", "dataproc", "databricks-aws",
                 and "databricks-azure".
         :param output_folder: path to store the output.
+        :param verbose: True or False to enable verbosity of the script.
         """
+        if verbose:
+            ToolLogging.enable_debug_mode()
+
         prof_args = AbsToolUserArgModel.create_tool_args('profiling',
                                                          eventlogs=eventlogs,
                                                          cluster=cluster,
@@ -136,7 +146,8 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
                   cluster: str,
                   platform: str,
                   output_folder: str = None,
-                  dry_run: bool = True):
+                  dry_run: bool = True,
+                  verbose: bool = False):
         """Provides optimized RAPIDS Accelerator for Apache Spark configs based on GPU cluster shape.
 
         This tool is supposed to be used once a cluster has been created to set the recommended
@@ -149,7 +160,11 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
                 and "databricks-azure".
         :param output_folder: path where the final recommendations will be saved.
         :param dry_run: True or False to update the Spark config settings on Dataproc driver node.
+        :param verbose: True or False to enable verbosity of the script.
         """
+        if verbose:
+            ToolLogging.enable_debug_mode()
+
         boot_args = AbsToolUserArgModel.create_tool_args('qualification',
                                                          cluster=cluster,
                                                          platform=platform,
@@ -163,7 +178,28 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
             tool_obj.launch()
 
 
+def init_environment():
+    """
+    Initialize the Python Rapids tool environment.
+    TODO: Finalize 'PY_RAPIDS_HOME' and log file prefix 'ascli'.
+    """
+    # Set the 'UUID' environment variable with a unique identifier.
+    uuid = Utils.gen_uuid_with_ts(suffix_len=8)
+    Utils.set_rapids_tools_env('UUID', uuid)
+
+    # Set the 'PY_RAPIDS_HOME' to store logs and other configuration files.
+    home_dir = Utils.get_sys_env_var("HOME", "/tmp")
+    py_rapids_home = FSUtil.build_path(home_dir, ".pyrapids")
+    Utils.set_rapids_tools_env('PY_RAPIDS_HOME', py_rapids_home)
+
+    # Set the 'LOG_FILE' environment variable and create the log directory.
+    log_dir = f'{py_rapids_home}/logs/'
+    Utils.set_rapids_tools_env('LOG_FILE', f'{log_dir}/ascli_{uuid}.log')
+    FSUtil.make_dirs(log_dir)
+
+
 def main():
+    init_environment()
     # Make Python Fire not use a pager when it prints a help text
     fire.core.Display = lambda lines, out: out.write('\n'.join(lines) + '\n')
     print(gen_app_banner())

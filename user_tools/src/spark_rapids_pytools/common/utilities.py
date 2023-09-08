@@ -224,11 +224,12 @@ class ToolLogging:
                 'console': {
                     'class': 'logging.StreamHandler',
                     'formatter': 'simple',
+                    'level': 'DEBUG' if args.get('debug') else 'ERROR',
                 },
             },
             'root': {
                 'handlers': ['console'],
-                'level': 'DEBUG' if args.get('debug') else 'INFO',
+                'level': 'DEBUG',
             },
         }
 
@@ -249,15 +250,16 @@ class ToolLogging:
         if log_file:
             # create file handler which logs even debug messages
             fh = logging.FileHandler(log_file)
-            # TODO: set the formatter and handler for file logging
-            # fh.setLevel(log_level)
-            # fh.setFormatter(ExtraLogFormatter())
+            fh.setLevel(logging.DEBUG)
+            formatter = logging.Formatter('{asctime} {levelname} {name}: {message}', style='{')
+            fh.setFormatter(formatter)
             logger.addHandler(fh)
         return logger
 
 
 class TemplateGenerator:
     """A class to manage templates and content generation"""
+
     @classmethod
     def render_template_file(cls, fpath: string, template_args: dict) -> str:
         with open(fpath, 'r', encoding='UTF-8') as f:
@@ -318,10 +320,9 @@ class SysCmd:
             cmd_args = [self.cmd]
         else:
             cmd_args = self.cmd[:]
-        if ToolLogging.is_debug_mode_enabled():
-            # do not dump the entire command to debugging to avoid exposing the env-variables
-            self.logger.debug('submitting system command: <%s>',
-                              Utils.gen_joined_str(' ', process_credentials_option(cmd_args)))
+        # do not dump the entire command to debugging to avoid exposing the env-variables
+        self.logger.debug('submitting system command: <%s>',
+                          Utils.gen_joined_str(' ', process_credentials_option(cmd_args)))
         full_cmd = self._process_env_vars()
         full_cmd.extend(cmd_args)
         actual_cmd = Utils.gen_joined_str(' ', full_cmd)
