@@ -155,8 +155,6 @@ if 'Scan orc ' in cpu_stage_totals and 'GpuScan orc ' in gpu_stage_totals:
     scores_dict["FileSourceScanExec"] = str(round(cpu_stage_totals['Scan orc '] / gpu_stage_totals['GpuScan orc '], 2))
 
 # Other operators
-if 'Project' in cpu_stage_totals and 'GpuProject' in gpu_stage_totals:
-    scores_dict["ProjectExec"] = str(round(cpu_stage_totals['Project'] / gpu_stage_totals['GpuProject'], 2))
 if 'Expand' in cpu_stage_totals and 'GpuExpand' in gpu_stage_totals:
     scores_dict["ExpandExec"] = str(round(cpu_stage_totals['Expand'] / gpu_stage_totals['GpuExpand'], 2))
 if 'CartesianProduct' in cpu_stage_totals and 'GpuCartesianProduct' in gpu_stage_totals:
@@ -173,6 +171,10 @@ if 'HashAggregate' in cpu_stage_totals and 'GpuHashAggregate' in gpu_stage_total
     scores_dict["HashAggregateExec"] = str(round(cpu_stage_totals['HashAggregate'] / gpu_stage_totals['GpuHashAggregate'], 2))
     scores_dict["ObjectHashAggregateExec"] = str(round(cpu_stage_totals['HashAggregate'] / gpu_stage_totals['GpuHashAggregate'], 2))
     scores_dict["SortAggregateExec"] = str(round(cpu_stage_totals['HashAggregate'] / gpu_stage_totals['GpuHashAggregate'], 2))
+if 'TakeOrderedAndProject' in cpu_stage_totals and 'GpuTopN' in gpu_stage_totals:
+    scores_dict["TakeOrderedAndProjectExec"] = str(round(cpu_stage_totals['TakeOrderedAndProject'] / gpu_stage_totals['GpuTopN'], 2))
+if 'BroadcastNestedLoopJoin' in cpu_stage_totals and 'GpuBroadcastNestedLoopJoin' in gpu_stage_totals:
+    scores_dict["BroadcastNestedLoopJoinExec"] = str(round(cpu_stage_totals['BroadcastNestedLoopJoin'] / gpu_stage_totals['GpuBroadcastNestedLoopJoin'], 2))
 
 # Set minimum to 1.0 for speedup factors
 for key in scores_dict:
