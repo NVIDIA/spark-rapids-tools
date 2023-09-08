@@ -858,6 +858,34 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
+  // test("Expressions supported in ProjectExec") {
+  //   TrampolineUtil.withTempDir { parquetoutputLoc =>
+  //     TrampolineUtil.withTempDir { eventLogDir =>
+  //       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+  //         "ProjectExprsSupported") { spark =>
+  //         import spark.implicits._
+  //         val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
+  //         df1.write.parquet(s"$parquetoutputLoc/testtext")
+  //         val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+  //         df2.select(df2("value").cast(StringType), ceil(df2("value")), df2("value"))
+  //       }
+  //       val pluginTypeChecker = new PluginTypeChecker()
+  //       val app = createAppFromEventlog(eventLog)
+  //       assert(app.sqlPlans.size == 2)
+  //       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+  //         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+  //       }
+  //       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+  //       val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+  //       assert(wholeStages.size == 1)
+  //       assert(wholeStages.forall(_.duration.nonEmpty))
+  //       val allChildren = wholeStages.flatMap(_.children).flatten
+  //       val projects = allChildren.filter(_.exec == "Project")
+  //       assertSizeAndSupported(1, projects)
+  //     }
+  //   }
+  // }
+
   test("Expressions supported in ProjectExec") {
     TrampolineUtil.withTempDir { parquetoutputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
@@ -868,10 +896,14 @@ class SQLPlanParserSuite extends BaseTestSuite {
           df1.write.parquet(s"$parquetoutputLoc/testtext")
           val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
           df2.select(df2("value").cast(StringType), ceil(df2("value")), df2("value"))
+          val df3 = Seq((1230219000123123L, 1230219000123L, 1230219000)).toDF("micro", "milli", "sec")
+          df3.write.parquet(s"$parquetoutputLoc/testtext1")
+          val df4 = spark.read.parquet(s"$parquetoutputLoc/testtext1")
+          df4.selectExpr("timestamp_micros(micro)")
         }
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)
-        assert(app.sqlPlans.size == 2)
+        assert(app.sqlPlans.size == 3)
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
