@@ -31,7 +31,7 @@ from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil, FileVerifier
-from spark_rapids_pytools.common.utilities import ToolLogging, Utils
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils, Loader
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
@@ -49,6 +49,7 @@ class RapidsTool(object):
     :param name: the name of the tool
     :param ctxt: context manager for the current tool execution.
     :param logger: the logger instant associated to the current tool.
+    :param loader: the loader instance for loading animation.
     """
     platform_type: CspEnv
     cluster: str = None
@@ -59,6 +60,7 @@ class RapidsTool(object):
     name: str = field(default=None, init=False)
     ctxt: ToolContext = field(default=None, init=False)
     logger: Logger = field(default=None, init=False)
+    loader: Loader = field(default=Loader(), init=False)
 
     def pretty_name(self):
         return self.name.capitalize()
@@ -272,13 +274,14 @@ class RapidsTool(object):
         self._handle_non_running_exec_cluster(msg)
 
     def launch(self):
-        self._init_tool()
-        self._connect_to_execution_cluster()
-        self._process_arguments()
-        self._execute()
-        self._collect_result()
-        self._archive_phase()
-        self._finalize()
+        with Loader(ToolLogging.is_debug_mode_enabled()):
+            self._init_tool()
+            self._connect_to_execution_cluster()
+            self._process_arguments()
+            self._execute()
+            self._collect_result()
+            self._archive_phase()
+            self._finalize()
 
     def _report_tool_full_location(self) -> str:
         pass

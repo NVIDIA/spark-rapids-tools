@@ -24,9 +24,12 @@ import string
 import subprocess
 import sys
 import urllib
+from itertools import cycle
+from shutil import make_archive, which
+from threading import Thread
+from time import sleep
 from dataclasses import dataclass, field
 from logging import Logger
-from shutil import which, make_archive
 from typing import Callable, Any
 
 import certifi
@@ -281,7 +284,7 @@ class SysCmd:
     expected: int = 0
     fail_ok: bool = False
     process_streams_cb: Callable = None
-    logger: Logger = ToolLogging.get_and_setup_logger('rapids.tools.cmd')
+    logger: Logger = None
     res: int = field(default=0, init=False)
     out_std: str = field(default=None, init=False)
     err_std: str = field(default=None, init=False)
@@ -365,3 +368,54 @@ class SysCmd:
         if self.out_std:
             return self.out_std.strip()
         return self.out_std
+
+    def __post_init__(self):
+        self.logger = ToolLogging.get_and_setup_logger('rapids.tools.cmd')
+
+
+@dataclass
+class Loader:
+    """
+    A class to manage the loading animation.
+    :param in_debug_mode: Flag indicating whether to run in debug mode. Defaults to False.
+    :param desc: The loader's description. Defaults to "Executing...".
+    :param end: Final print message. Defaults to "Done!".
+    :param timeout: Sleep time between prints. Defaults to 0.1.
+    """
+    in_debug_mode: bool = False
+    desc: str = 'Executing...'
+    end: str = 'Done!'
+    timeout: float = 0.1
+    steps: list = field(default_factory=lambda: ['⢿', '⣻', '⣽', '⣾', '⣷', '⣯', '⣟', '⡿'])
+    done: bool = False
+    _thread: Thread = None
+
+    def start(self):
+        # Don't start if in debug mode
+        if not self.in_debug_mode:
+            self._thread = Thread(target=self._animate, daemon=True)
+            self._thread.start()
+        return self
+
+    def _animate(self):
+        for c in cycle(self.steps):
+            if self.done:
+                break
+            print(f'\r{self.desc} {c}', flush=True, end='')
+            sleep(self.timeout)
+
+    def stop(self):
+        self.done = True
+        cols = 80  # Default value
+        try:
+            cols = os.get_terminal_size().columns
+        except OSError:
+            pass
+        print('\r' + ' ' * cols, end='', flush=True)
+        print(f'\r{self.end}', flush=True)
+
+    def __enter__(self):
+        return self.start()
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self.stop()

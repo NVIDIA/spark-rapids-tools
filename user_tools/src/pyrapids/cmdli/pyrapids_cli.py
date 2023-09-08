@@ -177,29 +177,31 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
                                  wrapper_options=boot_args)
             tool_obj.launch()
 
+    def __init__(self):
+        """
+        Initialize the Python Rapids tool environment.
+        TODO: Finalize 'PY_RAPIDS_HOME' and log file prefix 'ascli'.
+        """
+        # Set the 'UUID' environment variable with a unique identifier.
+        uuid = Utils.gen_uuid_with_ts(suffix_len=8)
+        Utils.set_rapids_tools_env('UUID', uuid)
 
-def init_environment():
-    """
-    Initialize the Python Rapids tool environment.
-    TODO: Finalize 'PY_RAPIDS_HOME' and log file prefix 'ascli'.
-    """
-    # Set the 'UUID' environment variable with a unique identifier.
-    uuid = Utils.gen_uuid_with_ts(suffix_len=8)
-    Utils.set_rapids_tools_env('UUID', uuid)
+        # Set the 'PY_RAPIDS_HOME' to store logs and other configuration files.
+        home_dir = Utils.get_sys_env_var('HOME', '/tmp')
+        py_rapids_home = FSUtil.build_path(home_dir, '.pyrapids')
+        Utils.set_rapids_tools_env('PY_RAPIDS_HOME', py_rapids_home)
 
-    # Set the 'PY_RAPIDS_HOME' to store logs and other configuration files.
-    home_dir = Utils.get_sys_env_var("HOME", "/tmp")
-    py_rapids_home = FSUtil.build_path(home_dir, ".pyrapids")
-    Utils.set_rapids_tools_env('PY_RAPIDS_HOME', py_rapids_home)
+        # Set the 'LOG_FILE' environment variable and create the log directory.
+        log_dir = f'{py_rapids_home}/logs'
+        log_file = f'{log_dir}/ascli_{uuid}.log'
+        Utils.set_rapids_tools_env('LOG_FILE', log_file)
+        FSUtil.make_dirs(log_dir)
 
-    # Set the 'LOG_FILE' environment variable and create the log directory.
-    log_dir = f'{py_rapids_home}/logs/'
-    Utils.set_rapids_tools_env('LOG_FILE', f'{log_dir}/ascli_{uuid}.log')
-    FSUtil.make_dirs(log_dir)
+        # print the log file location
+        print(f'Application logs are stored at {log_file}')
 
 
 def main():
-    init_environment()
     # Make Python Fire not use a pager when it prints a help text
     fire.core.Display = lambda lines, out: out.write('\n'.join(lines) + '\n')
     print(gen_app_banner())
