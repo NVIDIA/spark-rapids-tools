@@ -1038,7 +1038,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
   }
 
   runConditionalTest("promote_precision is supported for Spark LT 3.4.0: issue-517",
-    shouldSkipUnsupportedExprForSparkLT340) {
+    ignoreExprForSparkGTE340) {
     // Spark-3.4.0 removed the promote_precision SQL function
     // the SQL generates the following physical plan
     // (1) Project [CheckOverflow((promote_precision(cast(dec1#24 as decimal(13,2)))
