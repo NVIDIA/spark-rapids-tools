@@ -922,12 +922,12 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "ProjectExprsSupported") { spark =>
           import spark.implicits._
-          val df1 = Seq((1230219000123123L, 1230219000123L, 1230219000)).toDF("micro", "millis", "seconds")
+          val init_df = Seq((1230219000123123L, 1230219000123L, 1230219000.123))
+          val df1 = init_df.toDF("micro", "millis", "seconds")
           df1.write.parquet(s"$parquetoutputLoc/testtext")
           val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
-          df2.selectExpr("timestamp_micros(micro)")
-          df2.selectExpr("timestamp_millis(millis)")
-          df2.selectExpr("timestamp_seconds(seconds)")
+          df2.selectExpr("timestamp_micros(micro)", "timestamp_millis(millis)",
+                         "timestamp_seconds(seconds)")
         }
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)
