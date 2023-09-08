@@ -922,7 +922,6 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "ProjectExprsSupported") { spark =>
           import spark.implicits._
-          import org.apache.spark.sql.types.StringType
           val df1 = Seq("", "abc", "ABC", "AaBbCc").toDF("value")
           // write df1 to parquet to transform LocalTableScan to ProjectExec
           df1.write.parquet(s"$parquetoutputLoc/testtext")
