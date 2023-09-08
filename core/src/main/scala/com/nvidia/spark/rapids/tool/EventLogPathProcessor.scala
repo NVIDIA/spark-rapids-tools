@@ -67,9 +67,18 @@ object EventLogPathProcessor extends Logging {
   val SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER =
     SPARK_SHORT_COMPRESSION_CODEC_NAMES ++ Set("gz")
 
+  // Show a special message if the eventlog is one of the following formats
+  // https://github.com/NVIDIA/spark-rapids-tools/issues/506
+  val EVENTLOGS_IN_PLAIN_TEXT_CODEC_NAMES = Set("log", "txt")
+
   def eventLogNameFilter(logFile: Path): Boolean = {
     EventLogFileWriter.codecName(logFile)
       .forall(suffix => SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER.contains(suffix))
+  }
+
+  def isPlainTxtFileName(logFile: Path): Boolean = {
+    EventLogFileWriter.codecName(logFile)
+      .forall(suffix => EVENTLOGS_IN_PLAIN_TEXT_CODEC_NAMES.contains(suffix))
   }
 
   // Databricks has the latest events in file named eventlog and then any rolled in format
@@ -126,10 +135,17 @@ object EventLogPathProcessor extends Logging {
       val fileName = filePath.getName()
 
       if (fileStatus.isFile() && !eventLogNameFilter(filePath)) {
-        logWarning(s"File: $fileName it not a supported file type. " +
-          "Supported compression types are: " +
-          s"${SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER.mkString(", ")}. " +
-          "Skipping this file.")
+        val msg = if (isPlainTxtFileName(filePath)) {
+          // if the file is plain text, we want to show that the filePath without extension
+          // could be supported..
+          s"File: $fileName. Detected a text file. No extension is expected. skipping this file."
+        } else {
+          s"File: $fileName is not a supported file type. " +
+            "Supported compression types are: " +
+            s"${SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER.mkString(", ")}. " +
+            "Skipping this file."
+        }
+        logWarning(msg)
         Map.empty[EventLogInfo, Long]
       } else if (fileStatus.isDirectory && isEventLogDir(fileStatus)) {
         // either event logDir v2 directory or regular event log

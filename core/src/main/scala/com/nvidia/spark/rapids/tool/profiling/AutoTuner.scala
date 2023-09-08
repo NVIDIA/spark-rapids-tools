@@ -706,7 +706,14 @@ class AutoTuner(
                       s"  $jarURL\n" +
                       s"  Version used in application is $jarVer.")
                 }
-              case None => logError("Could not pull the latest release of plugin jar.")
+              case None =>
+                logError("Could not pull the latest release of RAPIDS-plugin jar.")
+                val pluginRepoUrl = WebCrawlerUtil.getMVNArtifactURL("rapids.plugin")
+                appendComment(
+                  "Failed to validate the latest release of Apache Spark plugin.\n" +
+                    s"  Verify that the version used in application ($jarVer) is the latest on:\n" +
+                    s"  $pluginRepoUrl")
+
             }
         }
     }
