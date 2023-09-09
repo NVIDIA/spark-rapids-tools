@@ -120,8 +120,8 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
                 uri = dependency.get('uri')
                 name = FSUtil.get_resource_name(uri)
                 if uri:
-                    resource_uris[uri] = {'name': name, 'pbar_enabled': True}
-                    resource_uris[uri + '.asc'] = {'name': name + '.asc', 'pbar_enabled': False}
+                    resource_uris[uri] = {'name': name}
+                    resource_uris[uri + '.asc'] = {'name': name + '.asc'}
 
             # Add pricing files as resources
             if platform_conf.get_value_silent('pricing'):
@@ -129,7 +129,7 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
                     uri = pricing_entry.get('onlineURL')
                     name = pricing_entry.get('localFile')
                     if uri and name:
-                        resource_uris[uri] = {'name': name, 'pbar_enabled': False}
+                        resource_uris[uri] = {'name': name}
 
         return resource_uris
 
@@ -138,11 +138,10 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
 
         def download_task(resource_uri, resource_info):
             resource_name = resource_info['name']
-            pbar_enabled = resource_info['pbar_enabled']
             resource_file_path = FSUtil.build_full_path(self.dest_dir, resource_name)
 
             print(f'Downloading {resource_name}')
-            FSUtil.fast_download_url(resource_uri, resource_file_path, pbar_enabled=pbar_enabled)
+            FSUtil.fast_download_url(resource_uri, resource_file_path)
 
         with ThreadPoolExecutor() as executor:
             executor.map(lambda x: download_task(x[0], x[1]), resource_uris_list)
