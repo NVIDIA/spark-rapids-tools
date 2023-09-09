@@ -27,6 +27,8 @@ from pydantic import ValidationError, AnyHttpUrl, TypeAdapter
 
 import spark_rapids_pytools
 from pyrapids.exceptions import CspPathAttributeError
+from spark_rapids_pytools.common.utilities import Utils
+from spark_rapids_pytools.common.sys_storage import FSUtil
 
 
 def get_elem_from_dict(data, keys):
@@ -130,3 +132,32 @@ def gen_app_banner() -> str:
 ********************************************************************
 
 """
+
+
+def init_environment(short_name: str):
+    """
+    Initialize the Python Rapids tool environment.
+    Note:
+    - This function is not implemented as the `__init__()` method to avoid execution
+      when `--help` argument is passed.
+    """
+    # Set the 'UUID' environment variable with a unique identifier.
+    uuid = Utils.gen_uuid_with_ts(suffix_len=8)
+    Utils.set_rapids_tools_env('UUID', uuid)
+
+    # Set the 'PY_RAPIDS_HOME' to store logs and other configuration files.
+    # TODO: Finalize the location of the 'PY_RAPIDS_HOME' directory.
+    home_dir = Utils.get_sys_env_var('HOME', '/tmp')
+    py_rapids_home = FSUtil.build_path(home_dir, '.pyrapids')
+    Utils.set_rapids_tools_env('PY_RAPIDS_HOME', py_rapids_home)
+
+    # Set the 'LOG_FILE' environment variable and create the log directory.
+    log_dir = f'{py_rapids_home}/logs'
+    log_file = f'{log_dir}/{short_name}_{uuid}.log'
+    Utils.set_rapids_tools_env('LOG_FILE', log_file)
+    FSUtil.make_dirs(log_dir)
+
+    # Print the log file location
+    print(Utils.gen_report_sec_header('Application Logs'))
+    print(f'Location: {log_file}')
+    print('In case of any errors, please share the log file with the Spark RAPIDS team.\n')

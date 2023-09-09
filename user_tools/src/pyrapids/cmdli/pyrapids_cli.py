@@ -17,9 +17,8 @@
 import fire
 
 from pyrapids.enums import QualGpuClusterReshapeType
-from pyrapids.utils.util import gen_app_banner
-from spark_rapids_pytools.common.utilities import ToolLogging, Utils
-from spark_rapids_pytools.common.sys_storage import FSUtil
+from pyrapids.utils.util import gen_app_banner, init_environment
+from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
@@ -88,7 +87,7 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
         """
         if verbose:
             ToolLogging.enable_debug_mode()
-
+        init_environment('qual')
         qual_args = AbsToolUserArgModel.create_tool_args('qualification',
                                                          eventlogs=eventlogs,
                                                          cluster=cluster,
@@ -130,7 +129,7 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
         """
         if verbose:
             ToolLogging.enable_debug_mode()
-
+        init_environment('prof')
         prof_args = AbsToolUserArgModel.create_tool_args('profiling',
                                                          eventlogs=eventlogs,
                                                          cluster=cluster,
@@ -164,8 +163,8 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
         """
         if verbose:
             ToolLogging.enable_debug_mode()
-
-        boot_args = AbsToolUserArgModel.create_tool_args('qualification',
+        init_environment('boot')
+        boot_args = AbsToolUserArgModel.create_tool_args('bootstrap',
                                                          cluster=cluster,
                                                          platform=platform,
                                                          output_folder=output_folder,
@@ -176,29 +175,6 @@ class PyRapids(object):  # pylint: disable=too-few-public-methods
                                  output_folder=boot_args['outputFolder'],
                                  wrapper_options=boot_args)
             tool_obj.launch()
-
-    def __init__(self):
-        """
-        Initialize the Python Rapids tool environment.
-        TODO: Finalize 'PY_RAPIDS_HOME' and log file prefix 'ascli'.
-        """
-        # Set the 'UUID' environment variable with a unique identifier.
-        uuid = Utils.gen_uuid_with_ts(suffix_len=8)
-        Utils.set_rapids_tools_env('UUID', uuid)
-
-        # Set the 'PY_RAPIDS_HOME' to store logs and other configuration files.
-        home_dir = Utils.get_sys_env_var('HOME', '/tmp')
-        py_rapids_home = FSUtil.build_path(home_dir, '.pyrapids')
-        Utils.set_rapids_tools_env('PY_RAPIDS_HOME', py_rapids_home)
-
-        # Set the 'LOG_FILE' environment variable and create the log directory.
-        log_dir = f'{py_rapids_home}/logs'
-        log_file = f'{log_dir}/ascli_{uuid}.log'
-        Utils.set_rapids_tools_env('LOG_FILE', log_file)
-        FSUtil.make_dirs(log_dir)
-
-        # print the log file location
-        print(f'Application logs are stored at {log_file}')
 
 
 def main():

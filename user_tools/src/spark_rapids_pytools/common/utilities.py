@@ -250,8 +250,8 @@ class ToolLogging:
         logging.config.dictConfig(cls.get_log_dict({'debug': debug_enabled}))
         logger = logging.getLogger(type_label)
         log_file = Utils.get_rapids_tools_env('LOG_FILE')
-        if log_file:
-            # create file handler which logs even debug messages
+        # Ensure multiple handlers are not added
+        if log_file and not logger.handlers:
             fh = logging.FileHandler(log_file)
             fh.setLevel(logging.DEBUG)
             formatter = logging.Formatter('{asctime} {levelname} {name}: {message}', style='{')
