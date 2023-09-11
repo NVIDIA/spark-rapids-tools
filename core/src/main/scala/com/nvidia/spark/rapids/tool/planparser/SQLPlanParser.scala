@@ -80,7 +80,7 @@ object SQLPlanParser extends Logging {
     "list",
     // current_database does not cause any CPU fallbacks
     "current_database",
-    // ArrayBuffer is a Scala and may appear in some of the JavaRDDs/UDAFs)
+    // ArrayBuffer is a Scala function and may appear in some of the JavaRDDs/UDAFs)
     "arraybuffer")
 
   /**

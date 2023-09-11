@@ -1114,7 +1114,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
           val df1 = spark.sparkContext.parallelize(List(10, 20, 30, 40)).toDF
           df1.write.parquet(s"$parquetoutputLoc/ignore_current_database")
           val df2 = spark.read.parquet(s"$parquetoutputLoc/ignore_current_database")
-          // Note that the current_database will show up in project only it it is used as a column
+          // Note that the current_database will show up in project only if it is used as a column
           // name. For example:
           // > SELECT current_database(), current_database() as my_db;
           //   +------------------+-------+
@@ -1138,7 +1138,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
-        // The current_database should be part of the project exec and it is to be ignored.
+        // The current_database should be part of the project-exec and the parser should ignore it.
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projExecs = allExecInfo.filter(_.exec.contains("Project"))
         assertSizeAndSupported(1, projExecs)
