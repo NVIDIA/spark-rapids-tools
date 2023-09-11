@@ -377,7 +377,7 @@ class SysCmd:
 class Loader:
     """
     A class to manage the loading animation.
-    :param in_debug_mode: Flag indicating whether to run in debug mode. Defaults to False.
+    :param in_debug_mode: Flag indicating if running in debug (verbose) mode. Defaults to False.
     :param desc: The loader's description. Defaults to "Executing...".
     :param end: Final print message. Defaults to "Done!".
     :param timeout: Sleep time between prints. Defaults to 0.1.
