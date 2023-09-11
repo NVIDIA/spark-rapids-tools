@@ -67,7 +67,7 @@ if gpu_profile is not None:
     gpu_profile_dir = gpu_profile
 else:
     gpu_profile_dir = f"{output}/gpu_profile"
-    subprocess.run(f"spark_rapids_user_tools onprem profiling --csv --local_folder {gpu_profile_dir} --eventlogs {gpu_log}", shell=True)
+    subprocess.run(f"spark_rapids_user_tools onprem profiling --csv {jar_arg} --local_folder {gpu_profile_dir} --eventlogs {gpu_log}", shell=True)
 
 if speedups is None:
     ### run CPU profiler if needed
@@ -76,7 +76,7 @@ if speedups is None:
         cpu_profile_dir = cpu_profile
     else:
         cpu_profile_dir = f"{output}/cpu_profile"
-        subprocess.run(f"spark_rapids_user_tools onprem profiling --csv --local_folder {cpu_profile_dir} --eventlogs {cpu_log}", shell=True)
+        subprocess.run(f"spark_rapids_user_tools onprem profiling --csv {jar_arg} --local_folder {cpu_profile_dir} --eventlogs {cpu_log}", shell=True)
 
     ### run speedup factor generation
     subprocess.run(f"python generate_speedup_factors.py --cpu {cpu_profile_dir}/*/rapids_4_spark_profile --gpu {gpu_profile_dir}/*/rapids_4_spark_profile --output {output}/generatedScores.csv", shell=True)
