@@ -155,6 +155,8 @@ MapKeys,2.73
 MapValues,2.73
 Max,2.73
 Md5,2.73
+MicrosToTimestamp,2.73
+MillisToTimestamp,2.73
 Min,2.73
 Minute,2.73
 MonotonicallyIncreasingID,2.73
@@ -193,6 +195,7 @@ RowNumber,2.73
 ScalaUDF,2.73
 ScalarSubquery,2.73
 Second,2.73
+SecondsToTimestamp,2.73
 Sequence,2.73
 ShiftLeft,2.73
 ShiftRight,2.73

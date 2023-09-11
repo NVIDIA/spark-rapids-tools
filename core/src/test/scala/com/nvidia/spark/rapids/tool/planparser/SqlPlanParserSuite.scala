@@ -946,6 +946,36 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
+  test("Timestamp functions supported in ProjectExec") {
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ProjectExprsSupported") { spark =>
+          import spark.implicits._
+          val init_df = Seq((1230219000123123L, 1230219000123L, 1230219000.123))
+          val df1 = init_df.toDF("micro", "millis", "seconds")
+          df1.write.parquet(s"$parquetoutputLoc/testtext")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+          df2.selectExpr("timestamp_micros(micro)", "timestamp_millis(millis)",
+                         "timestamp_seconds(seconds)")
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 1)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        val allChildren = wholeStages.flatMap(_.children).flatten
+        val projects = allChildren.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projects)
+      }
+    }
+  }
+
   test("Parse SQL function Name in HashAggregateExec") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "sqlmetric") { spark =>
