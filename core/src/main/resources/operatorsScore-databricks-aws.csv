@@ -217,6 +217,7 @@ StringRepeat,2.45
 StringReplace,2.45
 StringSplit,2.45
 StringToMap,2.45
+StringTranslate,2.45
 StringTrim,2.45
 StringTrimLeft,2.45
 StringTrimRight,2.45
