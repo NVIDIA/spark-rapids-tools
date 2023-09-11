@@ -220,6 +220,7 @@ StringRepeat,2.59
 StringReplace,2.59
 StringSplit,2.59
 StringToMap,2.59
+StringTranslate,2.59
 StringTrim,2.59
 StringTrimLeft,2.59
 StringTrimRight,2.59

@@ -220,6 +220,7 @@ StringRepeat,4.88
 StringReplace,4.88
 StringSplit,4.88
 StringToMap,4.88
+StringTranslate,4.88
 StringTrim,4.88
 StringTrimLeft,4.88
 StringTrimRight,4.88

@@ -66,11 +66,11 @@ for app in os.listdir(cpu_dir):
     cpu_sql_combined = cpu_sql_times.set_index('nodeName').join(mapping_info.set_index('SQL Node'), how='left')
 
     #  - parse WholeStageCodegen durations with child node mapping
-    cpu_sql_times_df = cpu_sql_combined[['Child Node', 'max_value']]
+    cpu_sql_times_df = cpu_sql_combined[['Child Node', 'total']]
 
     for index, row in cpu_sql_times_df.iterrows():
         operators = str(row['Child Node']).split(',')
-        duration = row['max_value']/len(operators)/1000.0
+        duration = row['total']/len(operators)/1000.0
         for operator in operators:
             if operator in cpu_stage_log[app_name]:
                 cpu_stage_log[app_name][operator] = cpu_stage_log[app_name][operator] + duration
@@ -155,8 +155,6 @@ if 'Scan orc ' in cpu_stage_totals and 'GpuScan orc ' in gpu_stage_totals:
     scores_dict["FileSourceScanExec"] = str(round(cpu_stage_totals['Scan orc '] / gpu_stage_totals['GpuScan orc '], 2))
 
 # Other operators
-if 'Project' in cpu_stage_totals and 'GpuProject' in gpu_stage_totals:
-    scores_dict["ProjectExec"] = str(round(cpu_stage_totals['Project'] / gpu_stage_totals['GpuProject'], 2))
 if 'Expand' in cpu_stage_totals and 'GpuExpand' in gpu_stage_totals:
     scores_dict["ExpandExec"] = str(round(cpu_stage_totals['Expand'] / gpu_stage_totals['GpuExpand'], 2))
 if 'CartesianProduct' in cpu_stage_totals and 'GpuCartesianProduct' in gpu_stage_totals:
@@ -173,6 +171,10 @@ if 'HashAggregate' in cpu_stage_totals and 'GpuHashAggregate' in gpu_stage_total
     scores_dict["HashAggregateExec"] = str(round(cpu_stage_totals['HashAggregate'] / gpu_stage_totals['GpuHashAggregate'], 2))
     scores_dict["ObjectHashAggregateExec"] = str(round(cpu_stage_totals['HashAggregate'] / gpu_stage_totals['GpuHashAggregate'], 2))
     scores_dict["SortAggregateExec"] = str(round(cpu_stage_totals['HashAggregate'] / gpu_stage_totals['GpuHashAggregate'], 2))
+if 'TakeOrderedAndProject' in cpu_stage_totals and 'GpuTopN' in gpu_stage_totals:
+    scores_dict["TakeOrderedAndProjectExec"] = str(round(cpu_stage_totals['TakeOrderedAndProject'] / gpu_stage_totals['GpuTopN'], 2))
+if 'BroadcastNestedLoopJoin' in cpu_stage_totals and 'GpuBroadcastNestedLoopJoin' in gpu_stage_totals:
+    scores_dict["BroadcastNestedLoopJoinExec"] = str(round(cpu_stage_totals['BroadcastNestedLoopJoin'] / gpu_stage_totals['GpuBroadcastNestedLoopJoin'], 2))
 
 # Set minimum to 1.0 for speedup factors
 for key in scores_dict:
