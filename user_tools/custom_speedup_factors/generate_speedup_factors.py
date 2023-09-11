@@ -66,11 +66,11 @@ for app in os.listdir(cpu_dir):
     cpu_sql_combined = cpu_sql_times.set_index('nodeName').join(mapping_info.set_index('SQL Node'), how='left')
 
     #  - parse WholeStageCodegen durations with child node mapping
-    cpu_sql_times_df = cpu_sql_combined[['Child Node', 'max_value']]
+    cpu_sql_times_df = cpu_sql_combined[['Child Node', 'total']]
 
     for index, row in cpu_sql_times_df.iterrows():
         operators = str(row['Child Node']).split(',')
-        duration = row['max_value']/len(operators)/1000.0
+        duration = row['total']/len(operators)/1000.0
         for operator in operators:
             if operator in cpu_stage_log[app_name]:
                 cpu_stage_log[app_name][operator] = cpu_stage_log[app_name][operator] + duration
