@@ -1151,12 +1151,7 @@ object AutoTuner extends Logging {
    */
   def enableMemoryOverheadRecommendation(confValue: Option[String]): Boolean = {
     confValue match {
-      case Some(sparkMaster) =>
-        if (sparkMaster.startsWith("spark:")) {
-          false
-        } else {
-          true
-        }
+      case Some(sparkMaster) if sparkMaster.startsWith("spark:") => false
       case _ => true
     }
   }
