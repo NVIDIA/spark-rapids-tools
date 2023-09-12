@@ -24,10 +24,7 @@ import string
 import subprocess
 import sys
 import urllib
-from itertools import cycle
 from shutil import make_archive, which
-from threading import Thread
-from time import sleep
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import Callable, Any
@@ -371,53 +368,3 @@ class SysCmd:
 
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.cmd')
-
-
-@dataclass
-class Loader:
-    """
-    A class to manage the loading animation.
-    Reference: https://stackoverflow.com/a/66558182
-
-    :param in_debug_mode: Flag indicating if running in debug (verbose) mode. Defaults to False.
-    :param desc: The loader's description. Defaults to "Executing...".
-    :param end: Final print message. Defaults to "Done!".
-    :param timeout: Sleep time between prints. Defaults to 0.1.
-    """
-    in_debug_mode: bool = False
-    desc: str = 'Executing...'
-    end: str = 'Done!'
-    timeout: float = 0.1
-    steps: list = field(default_factory=lambda: ['⢿', '⣻', '⣽', '⣾', '⣷', '⣯', '⣟', '⡿'])
-    done: bool = False
-    _thread: Thread = None
-
-    def start(self):
-        # Don't start if in debug mode
-        if not self.in_debug_mode:
-            self._thread = Thread(target=self._animate, daemon=True)
-            self._thread.start()
-        return self
-
-    def _animate(self):
-        for c in cycle(self.steps):
-            if self.done:
-                break
-            print(f'\r{self.desc} {c}', flush=True, end='')
-            sleep(self.timeout)
-
-    def stop(self):
-        self.done = True
-        cols = 80  # Default value
-        try:
-            cols = os.get_terminal_size().columns
-        except OSError:
-            pass
-        print('\r' + ' ' * cols, end='', flush=True)
-        print(f'\r{self.end}', flush=True)
-
-    def __enter__(self):
-        return self.start()
-
-    def __exit__(self, exc_type, exc_value, tb):
-        self.stop()

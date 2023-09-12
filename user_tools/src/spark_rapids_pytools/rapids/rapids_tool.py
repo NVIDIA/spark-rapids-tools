@@ -20,18 +20,20 @@ import os
 import re
 import sys
 import tarfile
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List
+from progress.spinner import PixelSpinner
 
 from pyrapids import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil, FileVerifier
-from spark_rapids_pytools.common.utilities import ToolLogging, Utils, Loader
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
@@ -49,7 +51,6 @@ class RapidsTool(object):
     :param name: the name of the tool
     :param ctxt: context manager for the current tool execution.
     :param logger: the logger instant associated to the current tool.
-    :param loader: the loader instance for loading animation.
     """
     platform_type: CspEnv
     cluster: str = None
@@ -60,7 +61,6 @@ class RapidsTool(object):
     name: str = field(default=None, init=False)
     ctxt: ToolContext = field(default=None, init=False)
     logger: Logger = field(default=None, init=False)
-    loader: Loader = field(default=Loader(), init=False)
 
     def pretty_name(self):
         return self.name.capitalize()
@@ -273,15 +273,30 @@ class RapidsTool(object):
                   f'The execution cluster should be in RUNNING state'
         self._handle_non_running_exec_cluster(msg)
 
+    def _launch_tool(self):
+        self._init_tool()
+        self._connect_to_execution_cluster()
+        self._process_arguments()
+        self._execute()
+        self._collect_result()
+        self._archive_phase()
+        self._finalize()
+
     def launch(self):
-        with Loader(ToolLogging.is_debug_mode_enabled()):
-            self._init_tool()
-            self._connect_to_execution_cluster()
-            self._process_arguments()
-            self._execute()
-            self._collect_result()
-            self._archive_phase()
-            self._finalize()
+        stop_event = threading.Event()
+        pixel_spinner = PixelSpinner('Processing...')
+
+        # Create and start a thread for the spinner animation
+        def spinner_animation():
+            while not stop_event.is_set():
+                pixel_spinner.next()
+                time.sleep(0.1)
+        # Create and start a daemon thread for the spinner animation
+        spinner_thread = threading.Thread(target=spinner_animation, daemon=True)
+        spinner_thread.start()
+        self._launch_tool()
+        # Stop the spinner animation
+        stop_event.set()
 
     def _report_tool_full_location(self) -> str:
         pass
