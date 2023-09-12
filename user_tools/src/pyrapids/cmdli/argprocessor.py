@@ -115,7 +115,7 @@ class AbsToolUserArgModel:
             impl_class = impl_entry.validator_class
             new_obj = impl_class(*args, **kwargs)
             return new_obj.build_tools_args()
-        except (ValidationError, IllegalArgumentError) as e:
+        except (ValidationError, IllegalArgumentError, PydanticCustomError) as e:
             impl_class.logger.error('Validation err: %s\n', e)
             dump_tool_usage(impl_class.tool_name)
         return None
@@ -126,7 +126,7 @@ class AbsToolUserArgModel:
         return None
 
     def raise_validation_exception(self, validation_err: str):
-        raise IllegalArgumentError(
+        raise PydanticCustomError('invalid_argument',
             f'Invalid arguments: {validation_err}')
 
     def determine_cluster_arg_type(self) -> ArgValueCase:
@@ -137,7 +137,7 @@ class AbsToolUserArgModel:
                 # the file cannot be a http_url
                 if is_http_file(self.cluster):
                     # we do not accept http://urls
-                    raise IllegalArgumentError(
+                    raise PydanticCustomError('invalid_argument',
                         f'Cluster properties cannot be a web URL path: {self.cluster}')
                 cluster_case = ArgValueCase.VALUE_B
             else:
@@ -167,7 +167,7 @@ class AbsToolUserArgModel:
 
     def validate_onprem_with_cluster_name(self):
         if self.platform == CspEnv.ONPREM:
-            raise IllegalArgumentError(
+            raise PydanticCustomError('invalid_argument',
                 f'Invalid arguments: Cannot run cluster by name with platform [{CspEnv.ONPREM}]')
 
     def init_extra_arg_cases(self) -> list:
@@ -229,7 +229,7 @@ class AbsToolUserArgModel:
         if self.argv_cases[1] == ArgValueCase.VALUE_A:
             if assigned_platform == CspEnv.ONPREM:
                 # it is not allowed to run cluster_by_name on an OnPrem platform
-                raise IllegalArgumentError(
+                raise PydanticCustomError('invalid_argument',
                     f'Invalid arguments: Cannot run cluster by name with platform [{CspEnv.ONPREM}]')
 
 
@@ -356,7 +356,7 @@ class QualifyUserArgModel(ToolUserArgModel):
                 self.p_args['toolArgs']['targetPlatform'] = None
             else:
                 if not self.p_args['toolArgs']['targetPlatform'] in equivalent_pricing_list:
-                    raise IllegalArgumentError(
+                    raise PydanticCustomError('invalid_argument',
                         'Invalid arguments: '
                         f'The platform [{self.p_args["toolArgs"]["targetPlatform"]}] is currently '
                         f'not supported to calculate savings from [{runtime_platform}] cluster')
