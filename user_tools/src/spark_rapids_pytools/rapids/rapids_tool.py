@@ -26,7 +26,8 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List
 
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, get_platform, \
+from pyrapids import CspEnv
+from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil, FileVerifier
@@ -49,7 +50,7 @@ class RapidsTool(object):
     :param ctxt: context manager for the current tool execution.
     :param logger: the logger instant associated to the current tool.
     """
-    platform_type: CloudPlatform
+    platform_type: CspEnv
     cluster: str = None
     output_folder: str = None
     config_path: str = None
@@ -130,6 +131,7 @@ class RapidsTool(object):
         self.output_folder = FSUtil.get_abs_path(self.output_folder)
         self.logger.debug('Root directory of local storage is set as: %s', self.output_folder)
         self.ctxt.set_local_workdir(self.output_folder)
+        self.ctxt.load_prepackaged_resources()
 
     def _process_rapids_args(self):
         pass

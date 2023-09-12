@@ -76,7 +76,12 @@ object SQLPlanParser extends Logging {
 
   val windowFunctionPattern = """(\w+)\(""".r
 
-  val ignoreExpressions = Array("any", "cast", "decimal", "decimaltype", "every", "some", "list")
+  val ignoreExpressions = Array("any", "cast", "decimal", "decimaltype", "every", "some",
+    "list",
+    // current_database does not cause any CPU fallbacks
+    "current_database",
+    // ArrayBuffer is a Scala function and may appear in some of the JavaRDDs/UDAFs)
+    "arraybuffer")
 
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
@@ -404,25 +409,33 @@ object SQLPlanParser extends Logging {
   // This parser is used for SortAggregateExec, HashAggregateExec and ObjectHashAggregateExec
   def parseAggregateExpressions(exprStr: String): Array[String] = {
     val parsedExpressions = ArrayBuffer[String]()
-    // (key=[num#83], functions=[partial_collect_list(letter#84, 0, 0), partial_count(letter#84)])
-    val pattern = """functions=\[([\w#, +*\\\-\.<>=\`\(\)]+\])""".r
-    val aggregatesString = pattern.findFirstMatchIn(exprStr)
-    // This is to split multiple column names in AggregateExec. Each column will be aggregating
-    // based on the aggregate function. Here "partial_"  and "merge_" is removed and
-    // only function name is preserved. Below regex will first remove the
-    // "functions=" from the string followed by removing "partial_" and "merge_". That string is
-    // split which produces an array containing column names. Finally we remove the parentheses
-    // from the beginning and end to get only the expressions. Result will be as below.
-    // paranRemoved = Array(collect_list(letter#84, 0, 0),, count(letter#84))
-    if (aggregatesString.isDefined) {
-      val paranRemoved = aggregatesString.get.toString.replaceAll("functions=", "").
-          replaceAll("partial_", "").replaceAll("merge_", "").split("(?<=\\),)").map(_.trim).
-          map(_.replaceAll("""^\[+""", "").replaceAll("""\]+$""", ""))
-      paranRemoved.foreach { case expr =>
-        val functionName = getFunctionName(functionPattern, expr)
-        functionName match {
-          case Some(func) => parsedExpressions += func
-          case _ => // NO OP
+    // (keys=[num#83], functions=[partial_collect_list(letter#84, 0, 0), partial_count(letter#84)])
+    // Currently we only parse the functions expressions.
+    // "Keys" parsing is disabled for now because we won't be able to detect the types
+
+    // A map (value -> parseEnabled) between the group and the parsing metadata
+    val patternMap = Map(
+      "functions" -> true,
+      "keys" -> false
+    )
+    // It won't hurt to define a pattern that is neutral to the order of the functions/keys.
+    // This can avoid mismatches when exprStr comes in the fom of (functions=[], keys=[]).
+    val pattern = """^\((keys|functions)=\[(.*)\]\s*,\s*(keys|functions)=\[(.*)\]\s*\)$""".r
+    // Iterate through the matches and exclude disabled clauses
+    pattern.findAllMatchIn(exprStr).foreach { m =>
+      // The matching groups are:
+      // 0 -> entire expression
+      // 1 -> "keys"; 2 -> keys' expression
+      // 3 -> "functions"; 4 -> functions' expression
+      Array(1, 3).foreach { group_ind =>
+        val group_value = m.group(group_ind)
+        if (patternMap.getOrElse(group_value, false)) {
+          val clauseExpr = m.group(group_ind + 1)
+          // Here "partial_"  and "merge_" is removed and only function name is preserved.
+          val processedExpr = clauseExpr.replaceAll("partial_", "").replaceAll("merge_", "")
+          // No need to split the expr any further because we are only interested in function names
+          val used_functions = getAllFunctionNames(functionPrefixPattern, processedExpr)
+          parsedExpressions ++= used_functions
         }
       }
     }
@@ -697,7 +710,7 @@ object SQLPlanParser extends Logging {
     // Step-2: Extract function names from the expression
     val functionMatches = functionsRegEx.findAllMatchIn(processedExpr)
     parsedExpressions ++=
-      functionMatches.map(_.group(1)).filter(_.toLowerCase() != "cast")
+      functionMatches.map(_.group(1)).filterNot(ignoreExpression(_))
     // remove all function calls. No need to keep them in the expression
     processedExpr = functionsRegEx.replaceAllIn(processedExpr, " ")
 
