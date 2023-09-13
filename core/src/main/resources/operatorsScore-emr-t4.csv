@@ -155,6 +155,8 @@ MapKeys,2.07
 MapValues,2.07
 Max,2.07
 Md5,2.07
+MicrosToTimestamp,2.07
+MillisToTimestamp,2.07
 Min,2.07
 Minute,2.07
 MonotonicallyIncreasingID,2.07
@@ -193,6 +195,7 @@ RowNumber,2.07
 ScalaUDF,2.07
 ScalarSubquery,2.07
 Second,2.07
+SecondsToTimestamp,2.07
 Sequence,2.07
 ShiftLeft,2.07
 ShiftRight,2.07
@@ -217,6 +220,7 @@ StringRepeat,2.07
 StringReplace,2.07
 StringSplit,2.07
 StringToMap,2.07
+StringTranslate,2.07
 StringTrim,2.07
 StringTrimLeft,2.07
 StringTrimRight,2.07

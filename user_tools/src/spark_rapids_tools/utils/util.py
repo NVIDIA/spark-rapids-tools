@@ -26,7 +26,7 @@ import fire
 from pydantic import ValidationError, AnyHttpUrl, TypeAdapter
 
 import spark_rapids_pytools
-from pyrapids.exceptions import CspPathAttributeError
+from spark_rapids_tools.exceptions import CspPathAttributeError
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.common.sys_storage import FSUtil
 
@@ -89,8 +89,8 @@ def to_snake_case(word: str) -> str:
 
 
 def dump_tool_usage(tool_name: Optional[str], raise_sys_exit: Optional[bool] = True):
-    imported_module = __import__('pyrapids.cmdli', globals(), locals(), ['PyRapids'])
-    wrapper_clzz = getattr(imported_module, 'PyRapids')
+    imported_module = __import__('spark_rapids_tools.cmdli', globals(), locals(), ['ToolsCLI'])
+    wrapper_clzz = getattr(imported_module, 'ToolsCLI')
     help_name = 'ascli'
     usage_cmd = f'{tool_name} --help'
     try:

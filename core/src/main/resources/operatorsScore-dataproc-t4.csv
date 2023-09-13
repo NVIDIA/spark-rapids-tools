@@ -155,6 +155,8 @@ MapKeys,4.88
 MapValues,4.88
 Max,4.88
 Md5,4.88
+MicrosToTimestamp,4.88
+MillisToTimestamp,4.88
 Min,4.88
 Minute,4.88
 MonotonicallyIncreasingID,4.88
@@ -193,6 +195,7 @@ RowNumber,4.88
 ScalaUDF,4.88
 ScalarSubquery,4.88
 Second,4.88
+SecondsToTimestamp,4.88
 Sequence,4.88
 ShiftLeft,4.88
 ShiftRight,4.88
@@ -217,6 +220,7 @@ StringRepeat,4.88
 StringReplace,4.88
 StringSplit,4.88
 StringToMap,4.88
+StringTranslate,4.88
 StringTrim,4.88
 StringTrimLeft,4.88
 StringTrimRight,4.88

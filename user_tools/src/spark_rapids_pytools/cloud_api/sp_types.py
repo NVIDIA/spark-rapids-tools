@@ -22,7 +22,7 @@ from enum import Enum
 from logging import Logger
 from typing import Type, Any, List, Callable
 
-from pyrapids import EnumeratedType, CspEnv
+from spark_rapids_tools import EnumeratedType, CspEnv
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
     get_elem_non_safe
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil

@@ -25,9 +25,9 @@ from pydantic import model_validator, ValidationError
 from pydantic.dataclasses import dataclass
 from pydantic_core import PydanticCustomError
 
-from pyrapids.cloud import ClientCluster
-from pyrapids.exceptions import IllegalArgumentError
-from pyrapids.utils import AbstractPropContainer, is_http_file
+from spark_rapids_tools.cloud import ClientCluster
+from spark_rapids_tools.exceptions import IllegalArgumentError
+from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
@@ -110,7 +110,7 @@ class AbsToolUserArgModel:
 
     @classmethod
     def create_tool_args(cls, tool_name: str, *args: Any, **kwargs: Any) -> Optional[dict]:
-        cls.logger = ToolLogging.get_and_setup_logger('pyrapids.argparser')
+        cls.logger = ToolLogging.get_and_setup_logger('spark_rapids_tools.argparser')
         try:
             impl_entry = user_arg_validation_registry.get(tool_name)
             impl_class = impl_entry.validator_class

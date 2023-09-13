@@ -76,7 +76,12 @@ object SQLPlanParser extends Logging {
 
   val windowFunctionPattern = """(\w+)\(""".r
 
-  val ignoreExpressions = Array("any", "cast", "decimal", "decimaltype", "every", "some", "list")
+  val ignoreExpressions = Array("any", "cast", "decimal", "decimaltype", "every", "some",
+    "list",
+    // current_database does not cause any CPU fallbacks
+    "current_database",
+    // ArrayBuffer is a Scala function and may appear in some of the JavaRDDs/UDAFs)
+    "arraybuffer")
 
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
