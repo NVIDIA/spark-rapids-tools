@@ -22,7 +22,7 @@ from typing import Any, List, Callable
 import pandas as pd
 from tabulate import tabulate
 
-from pyrapids.enums import QualFilterApp, QualGpuClusterReshapeType
+from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType
 from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
