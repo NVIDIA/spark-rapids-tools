@@ -18,8 +18,8 @@ Define implementation for the EMR cluster
 
 from typing import ClassVar, Type
 
-from pyrapids.cloud.cluster import register_cluster_prop_mgr, register_client_cluster, ClusterPropMgr, ClientCluster
-from pyrapids.utils.propmanager import PropValidatorSchemaUpper, PropValidatorSchema
+from spark_rapids_tools.cloud.cluster import register_cluster_prop_mgr, register_client_cluster, ClusterPropMgr, ClientCluster
+from spark_rapids_tools.utils.propmanager import PropValidatorSchemaUpper, PropValidatorSchema
 
 
 class EmrClusterSchema(PropValidatorSchemaUpper):

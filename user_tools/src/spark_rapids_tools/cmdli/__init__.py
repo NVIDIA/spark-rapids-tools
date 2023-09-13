@@ -12,18 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Includes classes and wrappers related to autotuner feature"""
+"""init file of the user CLI used to run the tools"""
 
-from typing import Optional, ClassVar, Type
+from .tools_cli import ToolsCLI
 
-from pyrapids.utils.propmanager import PropValidatorSchemaCamel, PropValidatorSchema, AbstractPropContainer
-
-
-class AutoTunerInputSchema(PropValidatorSchemaCamel):
-    system: dict
-    gpu: Optional[dict] = None
-    software_properties: Optional[dict] = None
-
-
-class AutoTunerPropMgr(AbstractPropContainer):
-    schema_clzz: ClassVar[Type['PropValidatorSchema']] = AutoTunerInputSchema
+__all__ = [
+    'ToolsCLI'
+]

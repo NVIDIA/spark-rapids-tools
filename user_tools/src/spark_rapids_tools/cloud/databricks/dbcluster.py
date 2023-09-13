@@ -18,8 +18,8 @@ Define implementation for the databricks cluster
 
 from typing import ClassVar, Type, Optional
 
-from pyrapids.cloud.cluster import register_client_cluster, register_cluster_prop_mgr, ClusterPropMgr, ClientCluster
-from pyrapids.utils.propmanager import PropValidatorSchema
+from spark_rapids_tools.cloud.cluster import register_client_cluster, register_cluster_prop_mgr, ClusterPropMgr, ClientCluster
+from spark_rapids_tools.utils.propmanager import PropValidatorSchema
 
 
 class DBAwsClusterSchema(PropValidatorSchema):

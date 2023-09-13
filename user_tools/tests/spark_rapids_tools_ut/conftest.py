@@ -25,7 +25,7 @@ def get_test_resources_path():
         import importlib_resources
     else:
         import importlib.resources as importlib_resources
-    pkg = importlib_resources.files('tests.pyrapids_unit')
+    pkg = importlib_resources.files('tests.spark_rapids_tools_ut')
     return pkg / 'resources'
 
 
@@ -47,7 +47,7 @@ csps = ['dataproc', 'emr', 'databricks_aws', 'databricks_azure']
 all_csps = csps + ['onprem']
 
 
-class PyrapidsUnitTest:   # pylint: disable=too-few-public-methods
+class SparkRapidsToolsUT:   # pylint: disable=too-few-public-methods
 
     @pytest.fixture(autouse=True)
     def get_ut_data_dir(self):

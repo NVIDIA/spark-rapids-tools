@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Type, Any, ClassVar, List
 
-from pyrapids import CspEnv
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
