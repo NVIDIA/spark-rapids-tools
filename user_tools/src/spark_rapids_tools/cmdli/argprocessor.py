@@ -25,14 +25,8 @@ from pydantic import model_validator, ValidationError
 from pydantic.dataclasses import dataclass
 from pydantic_core import PydanticCustomError
 
-<<<<<<< HEAD:user_tools/src/pyrapids/cmdli/argprocessor.py
 from pyrapids.cloud import ClientCluster
 from pyrapids.utils import AbstractPropContainer, is_http_file
-=======
-from spark_rapids_tools.cloud import ClientCluster
-from spark_rapids_tools.exceptions import IllegalArgumentError
-from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
->>>>>>> dev:user_tools/src/spark_rapids_tools/cmdli/argprocessor.py
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
