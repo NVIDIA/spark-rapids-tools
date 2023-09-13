@@ -16,13 +16,13 @@
 
 import pytest  # pylint: disable=import-error
 
-from pyrapids import CspPath
-from pyrapids.cloud import ClientCluster
-from pyrapids.exceptions import InvalidPropertiesSchema
-from .conftest import PyrapidsUnitTest, all_cpu_cluster_props
+from spark_rapids_tools import CspPath
+from spark_rapids_tools.cloud import ClientCluster
+from spark_rapids_tools.exceptions import InvalidPropertiesSchema
+from .conftest import SparkRapidsToolsUT, all_cpu_cluster_props
 
 
-class TestClusterCSP(PyrapidsUnitTest):  # pylint: disable=too-few-public-methods
+class TestClusterCSP(SparkRapidsToolsUT):  # pylint: disable=too-few-public-methods
     """
     Class testing identifying the cluster type by comparing the properties to
     the defined Schema

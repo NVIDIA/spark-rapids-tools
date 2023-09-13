@@ -18,8 +18,8 @@ Define implementation for the dataproc cluster
 
 from typing import ClassVar, Type
 
-from pyrapids.cloud.cluster import ClientCluster, register_client_cluster, ClusterPropMgr, register_cluster_prop_mgr
-from pyrapids.utils.propmanager import PropValidatorSchemaCamel, PropValidatorSchema
+from spark_rapids_tools.cloud.cluster import ClientCluster, register_client_cluster, ClusterPropMgr, register_cluster_prop_mgr
+from spark_rapids_tools.utils.propmanager import PropValidatorSchemaCamel, PropValidatorSchema
 
 
 class DataprocClusterSchema(PropValidatorSchemaCamel):

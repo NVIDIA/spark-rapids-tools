@@ -12,10 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the user CLI used to run the tools"""
+"""Includes classes and wrappers related to autotuner feature"""
 
-from .pyrapids_cli import PyRapids
+from typing import Optional, ClassVar, Type
 
-__all__ = [
-    'PyRapids'
-]
+from spark_rapids_tools.utils.propmanager import PropValidatorSchemaCamel, PropValidatorSchema, AbstractPropContainer
+
+
+class AutoTunerInputSchema(PropValidatorSchemaCamel):
+    system: dict
+    gpu: Optional[dict] = None
+    software_properties: Optional[dict] = None
+
+
+class AutoTunerPropMgr(AbstractPropContainer):
+    schema_clzz: ClassVar[Type['PropValidatorSchema']] = AutoTunerInputSchema

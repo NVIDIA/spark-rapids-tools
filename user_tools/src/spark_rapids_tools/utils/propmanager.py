@@ -23,9 +23,9 @@ from typing import Union, Any, TypeVar, ClassVar, Type, Tuple, Optional
 import yaml
 from pydantic import BaseModel, ConfigDict, model_validator, ValidationError
 
-from pyrapids.exceptions import JsonLoadException, YamlLoadException, InvalidPropertiesSchema
-from pyrapids.storagelib.csppath import CspPath, CspPathT
-from pyrapids.utils.util import to_camel_case, to_camel_capital_case, get_elem_from_dict, get_elem_non_safe
+from spark_rapids_tools.exceptions import JsonLoadException, YamlLoadException, InvalidPropertiesSchema
+from spark_rapids_tools.storagelib.csppath import CspPath, CspPathT
+from spark_rapids_tools.utils.util import to_camel_case, to_camel_capital_case, get_elem_from_dict, get_elem_non_safe
 
 
 def load_json(file_path: Union[str, CspPathT]) -> Any:
