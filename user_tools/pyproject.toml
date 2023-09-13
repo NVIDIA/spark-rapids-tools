@@ -37,6 +37,8 @@ dependencies = [
     # this will include numpy
     "pyarrow==12.0.1",
     # used for ADLS filesystem implementation
+    # Issue-568: use 12.17.0 as the new 12.18.0 causes an error in runtime
+    "azure-storage-blob==12.17.0",
     "adlfs==2023.4.0"
 ]
 dynamic=["entry-points", "version"]
