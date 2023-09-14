@@ -23,6 +23,8 @@ import ssl
 import string
 import subprocess
 import sys
+import threading
+import time
 import urllib
 from shutil import make_archive, which
 from dataclasses import dataclass, field
@@ -33,6 +35,7 @@ import certifi
 import chevron
 from bs4 import BeautifulSoup
 from packaging.version import Version
+from progress.spinner import PixelSpinner
 from pygments import highlight
 from pygments.formatters import get_formatter_by_name
 from pygments.lexers import get_lexer_by_name
@@ -368,3 +371,41 @@ class SysCmd:
 
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.cmd')
+
+
+@dataclass
+class ToolsSpinner:
+    """
+    A class to manage the spinner animation.
+    Reference: https://stackoverflow.com/a/66558182
+
+    :param in_debug_mode: Flag indicating if running in debug (verbose) mode. Defaults to False.
+    """
+    in_debug_mode: bool = field(default=True, init=True)
+    pixel_spinner: PixelSpinner = field(default=PixelSpinner('Processing...'), init=False)
+    end: str = field(default='Processing Completed!', init=False)
+    timeout: float = field(default=0.1, init=False)
+    completed: bool = field(default=False, init=False)
+    spinner_thread: threading.Thread = field(default=None, init=False)
+
+    def _spinner_animation(self):
+        while not self.completed:
+            self.pixel_spinner.next()
+            time.sleep(self.timeout)
+
+    def start(self):
+        # Don't start if in debug mode
+        if not self.in_debug_mode:
+            self.spinner_thread = threading.Thread(target=self._spinner_animation, daemon=True)
+            self.spinner_thread.start()
+        return self
+
+    def stop(self):
+        self.completed = True
+        print(f'\r{self.end}', flush=True)
+
+    def __enter__(self):
+        return self.start()
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self.stop()

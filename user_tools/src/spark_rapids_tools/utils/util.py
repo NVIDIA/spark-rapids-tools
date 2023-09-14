@@ -145,14 +145,13 @@ def init_environment(short_name: str):
     uuid = Utils.gen_uuid_with_ts(suffix_len=8)
     Utils.set_rapids_tools_env('UUID', uuid)
 
-    # Set the 'PY_RAPIDS_HOME' to store logs and other configuration files.
-    # TODO: Finalize the location of the 'PY_RAPIDS_HOME' directory.
+    # Set the 'tools_home_dir' to store logs and other configuration files.
     home_dir = Utils.get_sys_env_var('HOME', '/tmp')
-    py_rapids_home = FSUtil.build_path(home_dir, '.pyrapids')
-    Utils.set_rapids_tools_env('PY_RAPIDS_HOME', py_rapids_home)
+    tools_home_dir = FSUtil.build_path(home_dir, '.spark_rapids_tools')
+    Utils.set_rapids_tools_env('HOME', tools_home_dir)
 
     # Set the 'LOG_FILE' environment variable and create the log directory.
-    log_dir = f'{py_rapids_home}/logs'
+    log_dir = f'{tools_home_dir}/logs'
     log_file = f'{log_dir}/{short_name}_{uuid}.log'
     Utils.set_rapids_tools_env('LOG_FILE', log_file)
     FSUtil.make_dirs(log_dir)
