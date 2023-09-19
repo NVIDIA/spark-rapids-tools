@@ -13,16 +13,16 @@
 # limitations under the License.
 """Test Diagnostic functions."""
 
+import os
+import re
+import tempfile
 from unittest.mock import patch, Mock
 
-import re
-import os
-import tempfile
 import pytest  # pylint: disable=import-error
 from cli_test_helpers import ArgvContext, EnvironContext  # pylint: disable=import-error
 
-from mock_cluster import mock_live_cluster
 from spark_rapids_pytools import wrapper
+from .mock_cluster import mock_live_cluster
 
 
 @pytest.mark.parametrize('cloud', ['dataproc', 'emr'])

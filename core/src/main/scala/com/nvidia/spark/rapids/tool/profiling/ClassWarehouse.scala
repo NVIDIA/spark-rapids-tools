@@ -187,19 +187,20 @@ class SQLExecutionInfoClass(
     var sqlCpuTimePercent: Double = -1)
 
 case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
-    nodeName: String, accumulatorId: Long, name: String, max_value: Long,
-    metricType: String, stageIds: String) extends ProfileResult {
+    nodeName: String, accumulatorId: Long, name: String, min: Long, median:Long,
+    max: Long, total: Long, metricType: String, stageIds: String) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "sqlID", "nodeID", "nodeName", "accumulatorId",
-    "name", "max_value", "metricType", "stageIds")
+    "name", "min", "median", "max", "total", "metricType", "stageIds")
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, sqlID.toString, nodeID.toString, nodeName, accumulatorId.toString,
-      name, max_value.toString, metricType, stageIds)
+      name, min.toString, median.toString, max.toString, total.toString, metricType, stageIds)
   }
   override def convertToCSVSeq: Seq[String] = {
     Seq(appIndex.toString, sqlID.toString, nodeID.toString,
       StringUtils.reformatCSVString(nodeName), accumulatorId.toString,
-      StringUtils.reformatCSVString(name), max_value.toString,
-      StringUtils.reformatCSVString(metricType), StringUtils.reformatCSVString(stageIds))
+      StringUtils.reformatCSVString(name), min.toString, median.toString, max.toString,
+      total.toString, StringUtils.reformatCSVString(metricType),
+      StringUtils.reformatCSVString(stageIds))
   }
 }
 

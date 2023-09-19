@@ -18,6 +18,9 @@ venv.bak/
 .idea/
 *.iml
 
+# vscode
+.vscode/
+
 ### macOS ###
 *.DS_Store
 
@@ -42,3 +45,6 @@ wheels/
 dependency-reduced-pom.xml
 # Scala classes
 target/
+
+# prepackage locations
+csp-resources*

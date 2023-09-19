@@ -19,10 +19,11 @@ import os
 from dataclasses import field, dataclass
 from typing import Any, List
 
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.emr_job import EmrLocalRapidsJob
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, \
-    CloudPlatform, ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice, \
+    ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice, \
     ClusterGetAccessor
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, \
     AbstractPropertiesContainer
@@ -59,7 +60,7 @@ class EMRPlatform(PlatformBase):
         return json.dumps(prop_container.props)
 
     def __post_init__(self):
-        self.type_id = CloudPlatform.EMR
+        self.type_id = CspEnv.EMR
         super().__post_init__()
 
     def _construct_cli_object(self) -> CMDDriverBase:

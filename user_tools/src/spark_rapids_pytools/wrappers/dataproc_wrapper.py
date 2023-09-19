@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on Dataproc."""
 
-from spark_rapids_pytools.cloud_api.sp_types import DeployMode, CloudPlatform
+from spark_rapids_tools import CspEnv
+from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.diagnostic import Diagnostic
@@ -74,9 +74,9 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                to provide the location of a credential JSON file. The default credentials file exists as
                "$HOME/.config/gcloud/application_default_credentials.json"
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
-                is one of the following (NONE, SPEEDUPS, savings).
+                is one of the following (ALL, SPEEDUPS, savings).
                 Note that this filter does not affect the CSV report.
-                "NONE" means no filter applied. "SPEEDUPS" lists all the apps that are either
+                "ALL" means no filter applied. "SPEEDUPS" lists all the apps that are either
                 'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
                 lists all the apps that have positive estimated GPU savings except for the apps that
                 are "Not Applicable"
@@ -117,7 +117,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'gpuClusterRecommendation': gpu_cluster_recommendation
         }
 
-        tool_obj = QualificationAsLocal(platform_type=CloudPlatform.DATAPROC,
+        tool_obj = QualificationAsLocal(platform_type=CspEnv.DATAPROC,
                                         output_folder=local_folder,
                                         wrapper_options=wrapper_qual_options,
                                         rapids_options=rapids_options)
@@ -144,7 +144,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
         :param  worker_info: A path pointing to a yaml file containing the system information of a
                 worker node. It is assumed that all workers are homogenous.
                 If missing, the wrapper pulls the worker info from the "gpu_cluster"
-        :param  eventlogs: Event log filenames or gs storage directories
+        :param  eventlogs: Event log filenames or gcs directories
                 containing event logs (comma separated). If missing, the wrapper reads the Spark's
                 property `spark.eventLog.dir` defined in `gpu_cluster`. This property should be included
                 in the output of `gcloud dataproc clusters describe`.
@@ -154,10 +154,10 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                 ${local_folder}/prof-${EXEC_ID} where exec_id is an auto-generated unique identifier of the
                 execution. If the argument is NONE, the default value is the env variable
                 RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY if any; or the current working directory.
-        :param remote_folder: A gs folder where the output is uploaded at the end of execution.
+        :param remote_folder: A gcs folder where the output is uploaded at the end of execution.
                 If no value is provided, the output will be only available on local disk
         :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem,
-                or remote gs url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
+                or remote gcs url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
                 from maven repo
         :param credentials_file: The local path of JSON file that contains the application credentials.
                If missing, the wrapper looks for "GOOGLE_APPLICATION_CREDENTIALS" environment variable
@@ -193,7 +193,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'autoTunerFileInput': worker_info
         }
 
-        ProfilingAsLocal(platform_type=CloudPlatform.DATAPROC,
+        ProfilingAsLocal(platform_type=CspEnv.DATAPROC,
                          output_folder=local_folder,
                          wrapper_options=wrapper_prof_options,
                          rapids_options=rapids_options).launch()
@@ -221,7 +221,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'platformOpts': {},
             'dryRun': dry_run
         }
-        bootstrap_tool = Bootstrap(platform_type=CloudPlatform.DATAPROC,
+        bootstrap_tool = Bootstrap(platform_type=CspEnv.DATAPROC,
                                    cluster=cluster,
                                    output_folder=output_folder,
                                    wrapper_options=wrapper_boot_options)
@@ -255,7 +255,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'threadNum': thread_num,
             'yes': yes,
         }
-        diag_tool = Diagnostic(platform_type=CloudPlatform.DATAPROC,
+        diag_tool = Diagnostic(platform_type=CspEnv.DATAPROC,
                                cluster=cluster,
                                output_folder=output_folder,
                                wrapper_options=wrapper_diag_options)

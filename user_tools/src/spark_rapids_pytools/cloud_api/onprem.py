@@ -18,9 +18,10 @@
 from dataclasses import dataclass
 from typing import Any, List
 
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, ClusterNode, \
-    CMDDriverBase, CloudPlatform, ClusterGetAccessor, GpuDevice, \
+    CMDDriverBase, ClusterGetAccessor, GpuDevice, \
     GpuHWInfo, NodeHWInfo, SparkNodeType, SysInfo
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import StorageDriver
@@ -35,7 +36,7 @@ class OnPremPlatform(PlatformBase):
     """
 
     def __post_init__(self):
-        self.type_id = CloudPlatform.ONPREM
+        self.type_id = CspEnv.ONPREM
         self.platform = self.ctxt_args.get('targetPlatform')
         super().__post_init__()
 
@@ -71,10 +72,10 @@ class OnPremPlatform(PlatformBase):
         """
         if self.platform is not None:
             if self.platform == 'dataproc':
-                self_id = CloudPlatform.DATAPROC
+                self_id = CspEnv.DATAPROC
         else:
             self_id = self.type_id
-        return CloudPlatform.pretty_print(self_id)
+        return CspEnv.pretty_print(self_id)
 
     def get_footer_message(self) -> str:
         return 'To support acceleration with T4 GPUs, please use these worker node instance types.'

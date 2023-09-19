@@ -20,9 +20,10 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, List
 
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.azurestorage import AzureStorageDriver
 from spark_rapids_pytools.cloud_api.databricks_azure_job import DBAzureLocalRapidsJob
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, \
+from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase, ClusterBase, ClusterNode, \
     PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType, ClusterGetAccessor, NodeHWInfo, GpuDevice
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
@@ -41,7 +42,7 @@ class DBAzurePlatform(PlatformBase):
     - configure the azure cli
     """
     def __post_init__(self):
-        self.type_id = CloudPlatform.DATABRICKS_AZURE
+        self.type_id = CspEnv.DATABRICKS_AZURE
         super().__post_init__()
 
     def _construct_cli_object(self) -> CMDDriverBase:

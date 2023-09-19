@@ -1,0 +1,139 @@
+{
+  "cluster_id": "0221-171858-ss76mx7n",
+  "creator_user_name": "user@domain.com",
+  "driver": {
+    "private_ip": "10.122.128.80",
+    "public_dns": "ec2-100-202-216-187.us-west-2.compute.amazonaws.com",
+    "node_id": "a0f4207728858c84f9c0f93f9460c643",
+    "instance_id": "i-0c10e259cfe8119d4",
+    "start_timestamp": 1677000034632,
+    "node_aws_attributes": {
+      "is_spot": false
+    },
+    "node_attributes": {
+      "is_spot": false
+    },
+    "host_private_ip": "10.64.35.184"
+  },
+  "executors": [
+    {
+      "private_ip": "10.114.43.214",
+      "public_dns": "ec2-101-203-183-20.us-west-2.compute.amazonaws.com",
+      "node_id": "c56e4886f9a02026bdb1563be55a350f",
+      "instance_id": "i-e00331cc5b15f403b7",
+      "start_timestamp": 1677007049345,
+      "node_aws_attributes": {
+        "is_spot": false
+      },
+      "node_attributes": {
+        "is_spot": false
+      },
+      "host_private_ip": "10.66.51.95"
+    },
+    {
+      "private_ip": "10.100.19.170",
+      "public_dns": "ec2-102-204-58-77.us-west-2.compute.amazonaws.com",
+      "node_id": "36195d2ba37a208153f350742f3d29ff",
+      "instance_id": "i-e67d3750c98b65cca",
+      "start_timestamp": 1677007989430,
+      "node_aws_attributes": {
+        "is_spot": false
+      },
+      "node_attributes": {
+        "is_spot": false
+      },
+      "host_private_ip": "10.112.232.156"
+    },
+    {
+      "private_ip": "10.62.100.143",
+      "public_dns": "ec2-103-205-105-37.us-west-2.compute.amazonaws.com",
+      "node_id": "a89ebf23da092cb07cac6264b6e36feb",
+      "instance_id": "i-84e5831d12a164efe",
+      "start_timestamp": 1677007989389,
+      "node_aws_attributes": {
+        "is_spot": false
+      },
+      "node_attributes": {
+        "is_spot": false
+      },
+      "host_private_ip": "10.117.124.94"
+    },
+    {
+      "private_ip": "10.59.253.16",
+      "public_dns": "ec2-34-220-136-192.us-west-2.compute.amazonaws.com",
+      "node_id": "bde4896f438f2cb2328bb20a9f7f7414",
+      "instance_id": "i-dfa9fc20f2974daee",
+      "start_timestamp": 1677007989471,
+      "node_aws_attributes": {
+        "is_spot": false
+      },
+      "node_attributes": {
+        "is_spot": false
+      },
+      "host_private_ip": "10.122.240.236"
+    }
+  ],
+  "spark_context_id": 6728990533302840294,
+  "driver_healthy": true,
+  "jdbc_port": 10000,
+  "cluster_name": "db-aws-23022-cpu",
+  "spark_version": "10.4.x-scala2.12",
+  "spark_conf": {
+    "spark.driver.maxResultSize": "2GB",
+    "spark.hadoop.fs.s3a.path.style.access": "true",
+    "spark.hadoop.fs.s3a.secret.key": "{{secrets/user-s3/secret_access_key}}",
+    "spark.locality.wait": "0s",
+    "spark.hadoop.fs.s3a.access.key": "{{secrets/user-s3/access_key_id}}",
+    "spark.sql.optimizer.dynamicPartitionPruning.enabled": "true"
+  },
+  "aws_attributes": {
+    "first_on_demand": 1,
+    "availability": "SPOT_WITH_FALLBACK",
+    "zone_id": "auto",
+    "spot_bid_price_percent": 100,
+    "ebs_volume_count": 0
+  },
+  "node_type_id": "m6gd.2xlarge",
+  "driver_node_type_id": "m6gd.xlarge",
+  "cluster_log_conf": {
+    "dbfs": {
+      "destination": "dbfs:/user/scratch/cluster-logs"
+    }
+  },
+  "autotermination_minutes": 120,
+  "enable_elastic_disk": false,
+  "disk_spec": {
+    "disk_count": 0
+  },
+  "cluster_source": "API",
+  "single_user_name": "user@domain.com",
+  "enable_local_disk_encryption": false,
+  "instance_source": {
+    "node_type_id": "m6gd.2xlarge"
+  },
+  "driver_instance_source": {
+    "node_type_id": "m6gd.xlarge"
+  },
+  "data_security_mode": "LEGACY_SINGLE_USER_STANDARD",
+  "runtime_engine": "STANDARD",
+  "effective_spark_version": "10.4.x-aarch64-scala2.12",
+  "state": "RUNNING",
+  "state_message": "",
+  "start_time": 1676999938183,
+  "last_state_loss_time": 0,
+  "last_activity_time": 1677018928224,
+  "last_restarted_time": 1677000095921,
+  "num_workers": 4,
+  "cluster_memory_mb": 147456,
+  "cluster_cores": 36.0,
+  "default_tags": {
+    "Vendor": "Databricks",
+    "Creator": "user@domain.com",
+    "ClusterName": "db-aws-2302-cpu",
+    "ClusterId": "0221-171858-ss76mx7n"
+  },
+  "cluster_log_status": {
+    "last_attempted": 1677018726035
+  },
+  "init_scripts_safe_mode": false
+}

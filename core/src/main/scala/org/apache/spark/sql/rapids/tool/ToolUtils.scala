@@ -302,6 +302,21 @@ object BuildSide {
     BuildRight -> JoinType.supportedJoinTypeForBuildRight)
 }
 
+object SQLMetricsStats {
+  val SIZE_METRIC = "size"
+  val TIMING_METRIC = "timing"
+  val NS_TIMING_METRIC = "nsTiming"
+  val AVERAGE_METRIC = "average"
+  val SUM_METRIC = "sum"
+
+  def hasStats(metrics : String): Boolean = {
+    metrics match {
+      case SIZE_METRIC | TIMING_METRIC | NS_TIMING_METRIC | AVERAGE_METRIC => true
+      case _ => false
+    }
+  }
+}
+
 object MlOps {
   val sparkml = "spark.ml."
   val xgBoost = "spark.XGBoost"

@@ -546,6 +546,7 @@ class AutoTuner(
 
   /**
    * Flow:
+   *   if "spark.master" is standalone => Do Nothing
    *   if "spark.rapids.memory.pinnedPool.size" is set
    *     if yarn -> recommend "spark.executor.memoryOverhead"
    *     if using k8s ->
@@ -553,13 +554,15 @@ class AutoTuner(
    *         else recommend "spark.kubernetes.memoryOverheadFactor" and add comment if missing
    */
   def addRecommendationForMemoryOverhead(recomValue: String): Unit = {
-    val memOverheadLookup = memoryOverheadLabel
-    appendRecommendationForMemoryMB(memOverheadLookup, recomValue)
-    getPropertyValue("spark.rapids.memory.pinnedPool.size").foreach { lookup =>
-      if (lookup != "spark.executor.memoryOverhead") {
-        if (getPropertyValue(memOverheadLookup).isEmpty) {
-          appendComment(s"'$memOverheadLookup' must be set if using " +
-            s"'spark.rapids.memory.pinnedPool.size")
+    if (enableMemoryOverheadRecommendation(getPropertyValue("spark.master"))) {
+      val memOverheadLookup = memoryOverheadLabel
+      appendRecommendationForMemoryMB(memOverheadLookup, recomValue)
+      getPropertyValue("spark.rapids.memory.pinnedPool.size").foreach { lookup =>
+        if (lookup != "spark.executor.memoryOverhead") {
+          if (getPropertyValue(memOverheadLookup).isEmpty) {
+            appendComment(s"'$memOverheadLookup' must be set if using " +
+              s"'spark.rapids.memory.pinnedPool.size")
+          }
         }
       }
     }
@@ -706,7 +709,14 @@ class AutoTuner(
                       s"  $jarURL\n" +
                       s"  Version used in application is $jarVer.")
                 }
-              case None => logError("Could not pull the latest release of plugin jar.")
+              case None =>
+                logError("Could not pull the latest release of RAPIDS-plugin jar.")
+                val pluginRepoUrl = WebCrawlerUtil.getMVNArtifactURL("rapids.plugin")
+                appendComment(
+                  "Failed to validate the latest release of Apache Spark plugin.\n" +
+                    s"  Verify that the version used in application ($jarVer) is the latest on:\n" +
+                    s"  $pluginRepoUrl")
+
             }
         }
     }
@@ -1129,6 +1139,20 @@ object AutoTuner extends Logging {
       f"${sizeNum.toLong}$sizeUnit"
     } else {
       f"$sizeNum%.2f$sizeUnit"
+    }
+  }
+
+  /**
+   * Given the spark property "spark.master", it checks whether memoryOverhead should be
+   * enabled/disabled. For Spark Standalone Mode, memoryOverhead property is skipped.
+   * @param confValue the value of property "spark.master"
+   * @return False if the value is a spark standalone. True if the value is not defined or
+   *         set for yarn/Mesos
+   */
+  def enableMemoryOverheadRecommendation(confValue: Option[String]): Boolean = {
+    confValue match {
+      case Some(sparkMaster) if sparkMaster.startsWith("spark:") => false
+      case _ => true
     }
   }
 }

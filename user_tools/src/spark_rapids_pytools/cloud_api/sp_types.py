@@ -20,46 +20,13 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from typing import cast, Type, Any, List, Union, Optional, Callable
+from typing import Type, Any, List, Callable
 
+from spark_rapids_tools import EnumeratedType, CspEnv
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
     get_elem_non_safe
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, SysCmd, Utils, TemplateGenerator
-
-
-class EnumeratedType(str, Enum):
-    """Abstract representation of enumerated values"""
-
-    @classmethod
-    def tostring(cls, value: Union[Enum, str]) -> str:
-        """Return the string representation of the state object attribute
-        :param str value: the state object to turn into string
-        :return: the uppercase string that represents the state object
-        :rtype: str
-        """
-        value = cast(Enum, value)
-        return str(value._value_).upper()  # pylint: disable=protected-access
-
-    @classmethod
-    def fromstring(cls, value: str) -> Optional[str]:
-        """Return the state object attribute that matches the string
-        :param str value: the string to look up
-        :return: the state object attribute that matches the string
-        :rtype: str
-        """
-        return getattr(cls, value.upper(), None)
-
-    @classmethod
-    def pretty_print(cls, value):
-        # type: (Union[Enum, str]) -> str
-        """Return the string representation of the state object attribute
-        :param str value: the state object to turn into string
-        :return: the string that represents the state object
-        :rtype: str
-        """
-        value = cast(Enum, value)
-        return str(value._value_)  # pylint: disable=protected-access
 
 
 class DeployMode(EnumeratedType):
@@ -116,20 +83,6 @@ class ClusterState(EnumeratedType):
     STOPPED = 'stopped'
     OFFLINE = 'offline'
     UNKNOWN = 'unknown'
-
-
-class CloudPlatform(EnumeratedType):
-    """symbolic names (members) bound to supported cloud platforms."""
-    DATABRICKS_AWS = 'databricks_aws'
-    DATABRICKS_AZURE = 'databricks_azure'
-    DATAPROC = 'dataproc'
-    EMR = 'emr'
-    ONPREM = 'onprem'
-    NONE = 'NONE'
-
-    @classmethod
-    def get_default(cls):
-        return cls.ONPREM
 
 
 class TargetPlatform(EnumeratedType):
@@ -630,7 +583,7 @@ class PlatformBase:
     4- pricing catalog
     """
     ctxt_args: dict
-    type_id: CloudPlatform = field(default_factory=lambda: CloudPlatform.NONE, init=False)
+    type_id: CspEnv = field(default_factory=lambda: CspEnv.NONE, init=False)
     platform: str = field(default=None, init=False)
     cli: CMDDriverBase = field(default=None, init=False)
     storage: StorageDriver = field(default=None, init=False)
@@ -857,7 +810,7 @@ class PlatformBase:
         raise NotImplementedError
 
     def load_platform_configs(self):
-        config_file_name = f'{CloudPlatform.tostring(self.type_id).lower()}-configs.json'
+        config_file_name = f'{CspEnv.tostring(self.type_id).lower()}-configs.json'
         config_path = Utils.resource_path(config_file_name)
         self.configs = JSONPropertiesContainer(prop_arg=config_path)
 
@@ -880,7 +833,7 @@ class PlatformBase:
         This used to get the lower case of the platform of the runtime.
         :return: the name of the platform of the runtime in lower_case.
         """
-        return CloudPlatform.pretty_print(self.type_id)
+        return CspEnv.pretty_print(self.type_id)
 
     def get_footer_message(self) -> str:
         return 'To support acceleration with T4 GPUs, switch the worker node instance types'
@@ -1132,7 +1085,7 @@ class ClusterBase(ClusterGetAccessor):
         raise NotImplementedError
 
     def generate_create_script(self) -> str:
-        platform_name = CloudPlatform.pretty_print(self.platform.type_id)
+        platform_name = CspEnv.pretty_print(self.platform.type_id)
         template_path = Utils.resource_path(f'templates/{platform_name}-create_gpu_cluster_script.ms')
         render_args = self._set_render_args_create_template()
         return TemplateGenerator.render_template_file(template_path, render_args)
@@ -1145,7 +1098,7 @@ class ClusterBase(ClusterGetAccessor):
         return res
 
     def generate_bootstrap_script(self, overridden_args: dict = None) -> str:
-        platform_name = CloudPlatform.pretty_print(self.platform.type_id)
+        platform_name = CspEnv.pretty_print(self.platform.type_id)
         template_path = Utils.resource_path(f'templates/{platform_name}-run_bootstrap.ms')
         render_args = self._set_render_args_bootstrap_template(overridden_args)
         return TemplateGenerator.render_template_file(template_path, render_args)
@@ -1217,11 +1170,11 @@ class ClusterReshape(ClusterGetAccessor):
 
 def get_platform(platform_id: Enum) -> Type[PlatformBase]:
     platform_hash = {
-        CloudPlatform.DATABRICKS_AWS: ('spark_rapids_pytools.cloud_api.databricks_aws', 'DBAWSPlatform'),
-        CloudPlatform.DATABRICKS_AZURE: ('spark_rapids_pytools.cloud_api.databricks_azure', 'DBAzurePlatform'),
-        CloudPlatform.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
-        CloudPlatform.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
-        CloudPlatform.ONPREM: ('spark_rapids_pytools.cloud_api.onprem', 'OnPremPlatform'),
+        CspEnv.DATABRICKS_AWS: ('spark_rapids_pytools.cloud_api.databricks_aws', 'DBAWSPlatform'),
+        CspEnv.DATABRICKS_AZURE: ('spark_rapids_pytools.cloud_api.databricks_azure', 'DBAzurePlatform'),
+        CspEnv.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
+        CspEnv.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
+        CspEnv.ONPREM: ('spark_rapids_pytools.cloud_api.onprem', 'OnPremPlatform'),
     }
     if platform_id in platform_hash:
         mod_name, clz_name = platform_hash[platform_id]

@@ -25,15 +25,15 @@ import scala.util.control.NonFatal
 import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.qualification._
+import org.scalatest.Matchers.convertToAnyShouldWrapper
 import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, floor, hex, json_tuple, round, row_number, sum}
+import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, floor, hex, json_tuple, round, row_number, sum, translate}
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
-import org.apache.spark.sql.types.StringType
 
 
 class SQLPlanParserSuite extends BaseTestSuite {
@@ -908,6 +908,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "ProjectExprsSupported") { spark =>
           import spark.implicits._
+          import org.apache.spark.sql.types.StringType
           val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
           df1.write.parquet(s"$parquetoutputLoc/testtext")
           val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
@@ -956,6 +957,66 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val allChildren = wholeStages.flatMap(_.children).flatten
         val projects = allChildren.filter(_.exec == "Project")
         assertSizeAndNotSupported(1, projects)
+      }
+    }
+  }
+
+  test("translate is supported in ProjectExec") {
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ProjectExprsSupported") { spark =>
+          import spark.implicits._
+          val df1 = Seq("", "abc", "ABC", "AaBbCc").toDF("value")
+          // write df1 to parquet to transform LocalTableScan to ProjectExec
+          df1.write.parquet(s"$parquetoutputLoc/testtext")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+          // translate should be part of ProjectExec
+          df2.select(translate(df2("value"), "ABC", "123"))
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 1)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        val allChildren = wholeStages.flatMap(_.children).flatten
+        val projects = allChildren.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projects)
+      }
+    }
+  }
+
+  test("Timestamp functions supported in ProjectExec") {
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ProjectExprsSupported") { spark =>
+          import spark.implicits._
+          val init_df = Seq((1230219000123123L, 1230219000123L, 1230219000.123))
+          val df1 = init_df.toDF("micro", "millis", "seconds")
+          df1.write.parquet(s"$parquetoutputLoc/testtext")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+          df2.selectExpr("timestamp_micros(micro)", "timestamp_millis(millis)",
+                         "timestamp_seconds(seconds)")
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 1)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        val allChildren = wholeStages.flatMap(_.children).flatten
+        val projects = allChildren.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projects)
       }
     }
   }
@@ -1053,5 +1114,132 @@ class SQLPlanParserSuite extends BaseTestSuite {
         assertSizeAndSupported(1, deltaLakeWrites)
       }
     }
+  }
+
+  test("Parse conditional expression does not list ignored expressions") {
+    val exprString = "((((((isnotnull(action#191L) AND isnotnull(content#192)) " +
+      "AND isnotnull(content_name_16#197L)) AND (action#191L = 0)) AND NOT (content#192 = )) " +
+      "AND (content_name_16#197L = 1)) AND NOT (split(split(split(replace(replace(replace" +
+      "(replace(trim(replace(cast(unbase64(content#192) as string),  , ), Some( )), *., ), *, ), " +
+      "https://, ), http://, ), /, -1)[0], :, -1)[0], \\?, -1)[0] = ))"
+    val expected = Array("isnotnull", "split", "replace", "trim", "unbase64", "And",
+      "EqualTo", "Not")
+    val expressions = SQLPlanParser.parseFilterExpressions(exprString)
+    expressions should ===(expected)
+  }
+
+
+  test("Parse aggregate expressions") {
+    val exprString = "(keys=[], functions=[split(split(split(replace(replace(replace(replace(" +
+      "trim(replace(cast(unbase64(content#192) as string),  , ), Some( )), *., ), *, ), " +
+      "https://, ), http://, ), /, -1)[0], :, -1)[0], \\?, -1)[0]#199, " +
+      "CASE WHEN (instr(replace(cast(unbase64(content#192) as string),  , ), *) = 0) " +
+      "THEN concat(replace(cast(unbase64(content#192) as string),  , ), %) " +
+      "ELSE replace(replace(replace(cast(unbase64(content#192) as string),  , ), %, " +
+      "\\%), *, %) END#200])"
+    val expected = Array("replace", "concat", "instr", "split", "trim", "unbase64")
+    val expressions = SQLPlanParser.parseAggregateExpressions(exprString)
+    expressions should ===(expected)
+  }
+
+  runConditionalTest("promote_precision is supported for Spark LT 3.4.0: issue-517",
+    ignoreExprForSparkGTE340) {
+    // Spark-3.4.0 removed the promote_precision SQL function
+    // the SQL generates the following physical plan
+    // (1) Project [CheckOverflow((promote_precision(cast(dec1#24 as decimal(13,2)))
+    //     + promote_precision(cast(dec2#25 as decimal(13,2)))), DecimalType(13,2))
+    //     AS (dec1 + dec2)#30]
+    // For Spark3.4.0, the promote_precision was removed from the plan.
+    // (1) Project [(dec1#24 + dec2#25) AS (dec1 + dec2)#30]
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "projectPromotePrecision") { spark =>
+          import spark.implicits._
+          import org.apache.spark.sql.types.DecimalType
+          val df = Seq(("12347.21", "1234154"), ("92233.08", "1")).toDF
+            .withColumn("dec1", col("_1").cast(DecimalType(7, 2)))
+            .withColumn("dec2", col("_2").cast(DecimalType(10, 0)))
+          // write the df to parquet to transform localTableScan to projectExec
+          df.write.parquet(s"$parquetoutputLoc/testPromotePrecision")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testPromotePrecision")
+          df2.selectExpr("dec1+dec2")
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        // The promote_precision should be part of the project exec.
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val projExecs = allExecInfo.filter(_.exec.contains("Project"))
+        assertSizeAndSupported(1, projExecs)
+      }
+    }
+  }
+
+  test("current_database is not listed as unsupported: issue-547") {
+    // current_database is a scalar value that does not cause any CPU fallbacks
+    // we should not list it as unsupported expression if it appears in the SQL.
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ignoreCurrentDatabase") { spark =>
+          import spark.implicits._
+          val df1 = spark.sparkContext.parallelize(List(10, 20, 30, 40)).toDF
+          df1.write.parquet(s"$parquetoutputLoc/ignore_current_database")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/ignore_current_database")
+          // Note that the current_database will show up in project only if it is used as a column
+          // name. For example:
+          // > SELECT current_database(), current_database() as my_db;
+          //   +------------------+-------+
+          //   |current_database()|  my_db|
+          //   +------------------+-------+
+          //   |           default|default|
+          //   |           default|default|
+          //   |           default|default|
+          //   |           default|default|
+          //   +------------------+-------+
+          //   == Physical Plan ==
+          //   *(1) Project [default AS current_database()#10, default AS my_db#9]
+          //   +- *(1) ColumnarToRow
+          //      +- FileScan parquet [] Batched: true, DataFilters: [], Format: Parquet, Location:
+          //         InMemoryFileIndex(1 paths)[file:/tmp_folder/T/toolTest..., PartitionFilters: []
+          //         PushedFilters: [], ReadSchema: struct<>
+          df2.selectExpr("current_database()","current_database() as my_db")
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        // The current_database should be part of the project-exec and the parser should ignore it.
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val projExecs = allExecInfo.filter(_.exec.contains("Project"))
+        assertSizeAndSupported(1, projExecs)
+      }
+    }
+  }
+
+  test("ArrayBuffer should be ignored in Expand: issue-554") {
+    // ArrayBuffer appears in some SQL queries.
+    // It is a non-Spark expression and it should not be considered as SQL-Function
+    val exprString = "[" +
+      "ArrayBuffer(cast((cast(ds#1241L as double) / 100.0) as bigint), null, null, 0," +
+      "            cast(if ((ret_type#1236 = 2)) 1 else 0 as bigint))," +
+      "ArrayBuffer(cast((cast(ds#1241L as double) / 100.0) as bigint), wuid#1234, null, 1, null)," +
+      "ArrayBuffer(cast((cast(ds#1241L as double) / 100.0) as bigint), null," +
+      "            if ((if ((ret_type#1236 = 2)) 1 else 0 = 1)) wuid#1234 else null, 2, null)," +
+      "[" +
+      "CAST((CAST(supersql_t12.`ds` AS DOUBLE) / 100.0D) AS BIGINT)#1297L," +
+      "supersql_t12.`wuid`#1298," +
+      "(IF(((IF((supersql_t12.`ret_type` = 2), 1, 0)) = 1), supersql_t12.`wuid`," +
+      "CAST(NULL AS STRING)))#1299," +
+      "gid#1296," +
+      "CAST((IF((supersql_t12.`ret_type` = 2), 1, 0)) AS BIGINT)#1300L]]"
+    // Only "IF" should be picked up as a function name
+    val expected = Array("IF")
+    val expressions = SQLPlanParser.parseExpandExpressions(exprString)
+    expressions should ===(expected)
   }
 }

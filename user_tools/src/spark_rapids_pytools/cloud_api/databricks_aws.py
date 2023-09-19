@@ -18,10 +18,11 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, List
 
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.databricks_aws_job import DBAWSLocalRapidsJob
 from spark_rapids_pytools.cloud_api.emr import EMRNode, EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
-from spark_rapids_pytools.cloud_api.sp_types import CloudPlatform, CMDDriverBase, ClusterBase, ClusterNode, \
+from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase, ClusterBase, ClusterNode, \
     ClusterGetAccessor
 from spark_rapids_pytools.cloud_api.sp_types import ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
@@ -40,7 +41,7 @@ class DBAWSPlatform(EMRPlatform):
     """
 
     def __post_init__(self):
-        self.type_id = CloudPlatform.DATABRICKS_AWS
+        self.type_id = CspEnv.DATABRICKS_AWS
         super(EMRPlatform, self).__post_init__()
 
     def _construct_cli_object(self) -> CMDDriverBase:
