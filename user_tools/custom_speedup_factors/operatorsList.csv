@@ -68,6 +68,7 @@ CollectSet
 Concat
 ConcatWs
 Contains
+Conv
 Cos
 Cosh
 Cot
@@ -148,6 +149,8 @@ MapKeys
 MapValues
 Max
 Md5
+MicrosToTimestamp
+MillisToTimestamp
 Min
 Minute
 MonotonicallyIncreasingID
@@ -186,6 +189,7 @@ RowNumber
 ScalaUDF
 ScalarSubquery
 Second
+SecondsToTimestamp
 Sequence
 ShiftLeft
 ShiftRight
@@ -210,6 +214,7 @@ StringRepeat
 StringReplace
 StringSplit
 StringToMap
+StringTranslate
 StringTrim
 StringTrimLeft
 StringTrimRight
