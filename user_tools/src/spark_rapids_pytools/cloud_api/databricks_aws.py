@@ -122,7 +122,7 @@ class DBAWSCMDDriver(CMDDriverBase):
             return json.dumps(raw_prop_container.props)
         return cluster_described
 
-    def _build_ssh_cmd_prefix_for_node(self, node: ClusterNode) -> str:
+    def _build_cmd_ssh_prefix_for_node(self, node: ClusterNode) -> str:
         port = self.env_vars.get('sshPort')
         key_file = self.env_vars.get('sshKeyFile')
         prefix_args = ['ssh',

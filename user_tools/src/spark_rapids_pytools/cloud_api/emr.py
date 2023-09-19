@@ -158,7 +158,7 @@ class EMRCMDDriver(CMDDriverBase):
             return EMRPlatform.process_raw_cluster_prop(raw_prop_container)
         return cluster_described
 
-    def _build_ssh_cmd_prefix_for_node(self, node: ClusterNode) -> str:
+    def _build_cmd_ssh_prefix_for_node(self, node: ClusterNode) -> str:
         # get the pem file
         pem_file_path = self.env_vars.get('keyPairPath')
         prefix_args = ['ssh',

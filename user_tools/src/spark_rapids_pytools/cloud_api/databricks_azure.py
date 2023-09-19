@@ -125,7 +125,7 @@ class DBAzureCMDDriver(CMDDriverBase):
             self.logger.error('Invalid arguments to pull the cluster properties')
         return self.run_sys_cmd(get_cluster_cmd)
 
-    def _build_ssh_cmd_prefix_for_node(self, node: ClusterNode) -> str:
+    def _build_cmd_ssh_prefix_for_node(self, node: ClusterNode) -> str:
         port = self.env_vars.get('sshPort')
         key_file = self.env_vars.get('sshKeyFile')
         prefix_args = ['ssh',

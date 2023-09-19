@@ -61,10 +61,20 @@ if command -v lshw ; then
 else
     # Downgrade to 'lspci'
     if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
-        sudo apt install -y pciutils
-        lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
+        if command -v sudo ; then
+            sudo apt install -y pciutils
+        fi
+        if command -v lspci ; then
+            lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
+        else
+             echo 'not found' >> $OUTPUT_NODE_INFO
+        fi
     elif [ "$PLATFORM_TYPE" == "emr" ]; then
-        /usr/sbin/lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
+        if command -v /usr/sbin/lspci ; then
+            /usr/sbin/lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
+        else
+             echo 'not found' >> $OUTPUT_NODE_INFO
+        fi
     fi
 fi
 
