@@ -70,7 +70,3 @@ class InvalidPropertiesSchema(CspPathException, ValueError):
                 content.append(str.join('. ', single_err))
             self.message = str.join('\n', content)
         super().__init__(self.message)
-
-
-class IllegalArgumentError(CspPathException, ValueError):
-    pass
