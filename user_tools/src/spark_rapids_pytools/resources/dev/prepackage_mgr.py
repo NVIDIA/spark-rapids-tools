@@ -110,7 +110,7 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
             # get the latest tools_jar from mvn
             rapids_url = self._get_spark_rapids_jar_url()
             rapids_name = FSUtil.get_resource_name(rapids_url)
-            resource_uris[rapids_url] = {'name': rapids_name, 'pbar_enabled': True}
+            resource_uris[rapids_url] = {'name': rapids_name, 'pbar_enabled': False}
 
         for platform in self._supported_platforms:  # pylint: disable=no-member
             config_file = FSUtil.build_full_path(self.resource_dir,
@@ -120,7 +120,7 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
                 uri = dependency.get('uri')
                 name = FSUtil.get_resource_name(uri)
                 if uri:
-                    resource_uris[uri] = {'name': name, 'pbar_enabled': True}
+                    resource_uris[uri] = {'name': name, 'pbar_enabled': False}
                     resource_uris[uri + '.asc'] = {'name': name + '.asc', 'pbar_enabled': False}
 
             # Add pricing files as resources

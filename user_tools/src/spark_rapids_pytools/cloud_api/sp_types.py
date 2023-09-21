@@ -289,7 +289,7 @@ class CMDDriverBase:
     cloud_ctxt: dict
     timeout: int = 0
     env_vars: dict = field(default_factory=dict, init=False)
-    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cmd'), init=False)
+    logger: Logger = None
 
     def get_env_var(self, key: str):
         return self.env_vars.get(key)
@@ -570,6 +570,9 @@ class CMDDriverBase:
                                              cluster_name: str,
                                              submit_args: dict) -> List[str]:
         raise NotImplementedError
+
+    def __post_init__(self):
+        self.logger = ToolLogging.get_and_setup_logger('rapids.tools.cmd_driver')
 
 
 @dataclass

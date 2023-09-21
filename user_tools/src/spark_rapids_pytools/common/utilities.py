@@ -23,16 +23,19 @@ import ssl
 import string
 import subprocess
 import sys
+import threading
+import time
 import urllib
+from shutil import make_archive, which
 from dataclasses import dataclass, field
 from logging import Logger
-from shutil import which, make_archive
 from typing import Callable, Any
 
 import certifi
 import chevron
 from bs4 import BeautifulSoup
 from packaging.version import Version
+from progress.spinner import PixelSpinner
 from pygments import highlight
 from pygments.formatters import get_formatter_by_name
 from pygments.lexers import get_lexer_by_name
@@ -224,11 +227,12 @@ class ToolLogging:
                 'console': {
                     'class': 'logging.StreamHandler',
                     'formatter': 'simple',
+                    'level': 'DEBUG' if args.get('debug') else 'ERROR',
                 },
             },
             'root': {
                 'handlers': ['console'],
-                'level': 'DEBUG' if args.get('debug') else 'INFO',
+                'level': 'DEBUG',
             },
         }
 
@@ -246,18 +250,19 @@ class ToolLogging:
         logging.config.dictConfig(cls.get_log_dict({'debug': debug_enabled}))
         logger = logging.getLogger(type_label)
         log_file = Utils.get_rapids_tools_env('LOG_FILE')
-        if log_file:
-            # create file handler which logs even debug messages
+        # Ensure multiple handlers are not added
+        if log_file and not logger.handlers:
             fh = logging.FileHandler(log_file)
-            # TODO: set the formatter and handler for file logging
-            # fh.setLevel(log_level)
-            # fh.setFormatter(ExtraLogFormatter())
+            fh.setLevel(logging.DEBUG)
+            formatter = logging.Formatter('{asctime} {levelname} {name}: {message}', style='{')
+            fh.setFormatter(formatter)
             logger.addHandler(fh)
         return logger
 
 
 class TemplateGenerator:
     """A class to manage templates and content generation"""
+
     @classmethod
     def render_template_file(cls, fpath: string, template_args: dict) -> str:
         with open(fpath, 'r', encoding='UTF-8') as f:
@@ -279,7 +284,7 @@ class SysCmd:
     expected: int = 0
     fail_ok: bool = False
     process_streams_cb: Callable = None
-    logger: Logger = ToolLogging.get_and_setup_logger('rapids.tools.cmd')
+    logger: Logger = None
     res: int = field(default=0, init=False)
     out_std: str = field(default=None, init=False)
     err_std: str = field(default=None, init=False)
@@ -318,10 +323,9 @@ class SysCmd:
             cmd_args = [self.cmd]
         else:
             cmd_args = self.cmd[:]
-        if ToolLogging.is_debug_mode_enabled():
-            # do not dump the entire command to debugging to avoid exposing the env-variables
-            self.logger.debug('submitting system command: <%s>',
-                              Utils.gen_joined_str(' ', process_credentials_option(cmd_args)))
+        # do not dump the entire command to debugging to avoid exposing the env-variables
+        self.logger.debug('submitting system command: <%s>',
+                          Utils.gen_joined_str(' ', process_credentials_option(cmd_args)))
         full_cmd = self._process_env_vars()
         full_cmd.extend(cmd_args)
         actual_cmd = Utils.gen_joined_str(' ', full_cmd)
@@ -364,3 +368,44 @@ class SysCmd:
         if self.out_std:
             return self.out_std.strip()
         return self.out_std
+
+    def __post_init__(self):
+        self.logger = ToolLogging.get_and_setup_logger('rapids.tools.cmd')
+
+
+@dataclass
+class ToolsSpinner:
+    """
+    A class to manage the spinner animation.
+    Reference: https://stackoverflow.com/a/66558182
+
+    :param in_debug_mode: Flag indicating if running in debug (verbose) mode. Defaults to False.
+    """
+    in_debug_mode: bool = field(default=False, init=True)
+    pixel_spinner: PixelSpinner = field(default=PixelSpinner('Processing...'), init=False)
+    end: str = field(default='Processing Completed!', init=False)
+    timeout: float = field(default=0.1, init=False)
+    completed: bool = field(default=False, init=False)
+    spinner_thread: threading.Thread = field(default=None, init=False)
+
+    def _spinner_animation(self):
+        while not self.completed:
+            self.pixel_spinner.next()
+            time.sleep(self.timeout)
+
+    def start(self):
+        # Don't start if in debug mode
+        if not self.in_debug_mode:
+            self.spinner_thread = threading.Thread(target=self._spinner_animation, daemon=True)
+            self.spinner_thread.start()
+        return self
+
+    def stop(self):
+        self.completed = True
+        print(f'\r\n{self.end}', flush=True)
+
+    def __enter__(self):
+        return self.start()
+
+    def __exit__(self, exc_type, exc_value, tb):
+        self.stop()

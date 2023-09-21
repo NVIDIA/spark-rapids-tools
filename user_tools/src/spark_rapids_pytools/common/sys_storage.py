@@ -132,7 +132,7 @@ class FSUtil:
         return dest_file
 
     @classmethod
-    def fast_download_url(cls, url: str, fpath: str, timeout=None, pbar_enabled=True) -> str:
+    def fast_download_url(cls, url: str, fpath: str, timeout=None, pbar_enabled=False) -> str:
         """
         Download the given url and display a progress bar
         """
