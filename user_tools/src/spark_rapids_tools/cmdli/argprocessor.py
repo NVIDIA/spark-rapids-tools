@@ -303,12 +303,18 @@ class QualifyUserArgModel(ToolUserArgModel):
     target_platform: Optional[CspEnv] = None
     filter_apps: Optional[QualFilterApp] = None
     gpu_cluster_recommendation: Optional[QualGpuClusterReshapeType] = None
+    cpu_discount: Optional[int] = None
+    gpu_discount: Optional[int] = None
+    global_discount: Optional[int] = None
 
     def init_tool_args(self):
         self.p_args['toolArgs']['platform'] = self.platform
         self.p_args['toolArgs']['savingsCalculations'] = True
         self.p_args['toolArgs']['filterApps'] = self.filter_apps
         self.p_args['toolArgs']['targetPlatform'] = self.target_platform
+        self.p_args['toolArgs']['cpuDiscount'] = self.cpu_discount
+        self.p_args['toolArgs']['gpuDiscount'] = self.gpu_discount
+        self.p_args['toolArgs']['globalDiscount'] = self.global_discount
         # check the reshapeType argument
         if self.gpu_cluster_recommendation is None:
             self.p_args['toolArgs']['gpuClusterRecommendation'] = QualGpuClusterReshapeType.get_default()
@@ -401,7 +407,10 @@ class QualifyUserArgModel(ToolUserArgModel):
             'toolsJar': None,
             'gpuClusterRecommendation': self.p_args['toolArgs']['gpuClusterRecommendation'],
             # used to initialize the pricing information
-            'targetPlatform': self.p_args['toolArgs']['targetPlatform']
+            'targetPlatform': self.p_args['toolArgs']['targetPlatform'],
+            'cpuDiscount': self.p_args['toolArgs']['cpuDiscount'],
+            'gpuDiscount': self.p_args['toolArgs']['gpuDiscount'],
+            'globalDiscount': self.p_args['toolArgs']['globalDiscount']
         }
         return wrapped_args
 

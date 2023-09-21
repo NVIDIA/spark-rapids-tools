@@ -40,6 +40,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       target_platform: str = None,
                       output_folder: str = None,
                       filter_apps: str = None,
+                      cpu_discount: int = None,
+                      gpu_discount: int = None,
+                      global_discount: int = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default())):
         """The Qualification cmd provides estimated running costs and speedups by migrating Apache
@@ -75,6 +78,12 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
                 lists all the apps that have positive estimated GPU savings except for the apps that
                 are "Not Applicable"
+        :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
+                (e.g. 30 for 30% discount).
+        :param gpu_discount: A percent discount for the gpu cluster cost in the form of an integer value
+                (e.g. 30 for 30% discount).
+        :param global_discount: A percent discount for both the cpu and gpu cluster costs in the form of an
+                integer value (e.g. 30 for 30% discount).
         :param gpu_cluster_recommendation: The type of GPU cluster recommendation to generate.
                 Requires "Cluster".
 
@@ -91,6 +100,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          target_platform=target_platform,
                                                          output_folder=output_folder,
                                                          filter_apps=filter_apps,
+                                                         cpu_discount=cpu_discount,
+                                                         gpu_discount=gpu_discount,
+                                                         global_discount=global_discount,
                                                          gpu_cluster_recommendation=gpu_cluster_recommendation)
         if qual_args:
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
