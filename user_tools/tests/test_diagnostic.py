@@ -22,7 +22,7 @@ import pytest  # pylint: disable=import-error
 from cli_test_helpers import ArgvContext, EnvironContext  # pylint: disable=import-error
 
 from spark_rapids_pytools import wrapper
-from .pyrapids_unit import conftest
+from .spark_rapids_tools_ut import conftest
 from .mock_cluster import mock_live_cluster
 
 
