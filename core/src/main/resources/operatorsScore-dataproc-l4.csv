@@ -75,6 +75,7 @@ CollectSet,4.16
 Concat,4.16
 ConcatWs,4.16
 Contains,4.16
+Conv,4.16
 Cos,4.16
 Cosh,4.16
 Cot,4.16

@@ -75,6 +75,7 @@ CollectSet,2.45
 Concat,2.45
 ConcatWs,2.45
 Contains,2.45
+Conv,2.45
 Cos,2.45
 Cosh,2.45
 Cot,2.45
