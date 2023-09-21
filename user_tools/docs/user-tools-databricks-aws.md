@@ -35,7 +35,7 @@ The tool currently only supports event logs stored on S3 (no DBFS paths). The re
   - from source: `pip install -e .`
 - verify the command is installed correctly by running
   ```bash
-    spark_rapids_user_tools databricks-aws --help
+    spark_rapids_user_tools databricks-aws -- --help
   ```
 
 ### 5.Environment variables
@@ -53,7 +53,7 @@ Before running any command, you can set environment variables to specify configu
 
 ```
 spark_rapids_user_tools databricks-aws qualification [options]
-spark_rapids_user_tools databricks-aws qualification --help
+spark_rapids_user_tools databricks-aws qualification -- --help
 ```
 
 The local deployment runs on the local development machine. It requires:

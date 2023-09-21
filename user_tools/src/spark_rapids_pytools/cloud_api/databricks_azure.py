@@ -20,7 +20,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, List
 
-from pyrapids import CspEnv
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.azurestorage import AzureStorageDriver
 from spark_rapids_pytools.cloud_api.databricks_azure_job import DBAzureLocalRapidsJob
 from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase, ClusterBase, ClusterNode, \

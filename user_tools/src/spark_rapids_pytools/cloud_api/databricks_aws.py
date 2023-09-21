@@ -18,7 +18,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, List
 
-from pyrapids import CspEnv
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.databricks_aws_job import DBAWSLocalRapidsJob
 from spark_rapids_pytools.cloud_api.emr import EMRNode, EMRPlatform
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver

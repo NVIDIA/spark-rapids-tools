@@ -14,7 +14,7 @@
 
 
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on DATABRICKS_AWS."""
-from pyrapids import CspEnv
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.diagnostic import Diagnostic

@@ -1230,4 +1230,67 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     // Assert recommendations are skipped in comments
     assert(comments.map(_.comment).forall(autoTuner.selectedPlatform.isValidComment))
   }
+
+  // When spark is running as a standalone, the memoryOverhead should not be listed as a
+  // recommendation: issue-553.
+  test("memoryOverhead should not be recommended for Spark Standalone") {
+    // This UT sets a custom spark-property "spark.master" pointing to a spark-standalone value
+    // The Autotuner should detects that the spark-master is standalone and refrains from
+    // recommending memoryOverhead value
+    val customProps = mutable.LinkedHashMap(
+      "spark.executor.cores" -> "8",
+      "spark.executor.memory" -> "47222m",
+      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
+      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
+      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+      "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
+      "spark.task.resource.gpu.amount" -> "0.0625")
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.master" -> "spark://HOST_NAME:7077",
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.instances" -> "1",
+        "spark.sql.shuffle.partitions" -> "200",
+        "spark.sql.files.maxPartitionBytes" -> "1g",
+        "spark.task.resource.gpu.amount" -> "0.0625",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "4")
+    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+    val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
+      Some(defaultSparkVersion))
+    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+      |Spark Properties:
+          |--conf spark.executor.cores=8
+          |--conf spark.executor.instances=20
+          |--conf spark.executor.memory=16384m
+          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=160
+          |--conf spark.sql.files.maxPartitionBytes=4096m
+          |--conf spark.task.resource.gpu.amount=0.125
+          |
+          |Comments:
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
+          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    assert(expectedResults == autoTunerOutput)
+  }
 }

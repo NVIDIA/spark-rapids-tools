@@ -39,7 +39,7 @@ The tool currently only supports event logs stored on ABFS ([Azure Blob File Sys
   - from source: `pip install -e .`
 - Verify the command is installed correctly by running
   ```bash
-    spark_rapids_user_tools databricks-azure --help
+    spark_rapids_user_tools databricks-azure -- --help
   ```
 
 ### 5.Environment variables
@@ -57,7 +57,7 @@ Before running any command, you can set environment variables to specify configu
 
 ```
 spark_rapids_user_tools databricks-azure qualification [options]
-spark_rapids_user_tools databricks-azure qualification --help
+spark_rapids_user_tools databricks-azure qualification -- --help
 ```
 
 The local deployment runs on the local development machine. It requires:

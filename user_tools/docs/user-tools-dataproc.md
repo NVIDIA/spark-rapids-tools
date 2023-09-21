@@ -35,7 +35,7 @@ the applications running on _Google Cloud Dataproc_.
     - from source: `pip install -e .`
 - verify the command is installed correctly by running
   ```bash
-    spark_rapids_user_tools dataproc --help
+    spark_rapids_user_tools dataproc -- --help
   ```
 
 ### 4.Environment variables
@@ -55,7 +55,7 @@ RAPIDS variables have a naming pattern `RAPIDS_USER_TOOLS_*`:
 
 ```
 spark_rapids_user_tools dataproc qualification [options]
-spark_rapids_user_tools dataproc qualification --help
+spark_rapids_user_tools dataproc qualification -- --help
 ```
 
 The local deployment runs on the local development machine. It requires:
@@ -380,7 +380,7 @@ generate an output while displaying warning that the remote changes failed.
 
 ```
 spark_rapids_user_tools dataproc diagnostic [options]
-spark_rapids_user_tools dataproc diagnostic --help
+spark_rapids_user_tools dataproc diagnostic -- --help
 ```
 
 Run diagnostic command to collects information from Dataproc cluster, such as OS version, # of worker

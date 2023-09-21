@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        spark-version: ['311', '320', '330', '341']
+        spark-version: ['311', '320', '333', '341']
     steps:
     - uses: actions/checkout@v3
 
