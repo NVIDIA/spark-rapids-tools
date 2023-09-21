@@ -307,3 +307,45 @@ The CLI is triggered by providing the location where the yaml file is stored `--
             --worker_info $WORKER_INFO_PATH \
             --remote_folder $REMOTE_FOLDER
     ```
+
+## Diagnostic command
+
+```
+spark_rapids_user_tools databricks-aws diagnostic [options]
+spark_rapids_user_tools databricks-aws diagnostic --help
+```
+
+Run diagnostic command to collects information from Databricks cluster, such as OS version, # of worker
+nodes, Yarn configuration, Spark version and error logs etc. The cluster has to be running and the
+user must have SSH access.
+
+### Diagnostic options
+
+| Option            | Description                                                                                               | Default                                                                                     | Required |
+|-------------------|-----------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|:--------:|
+| **cluster**       | Name of the Databricks cluster running an accelerated computing instance                                  | N/A                                                                                         |    Y     |
+| **profile**       | A named Databricks profile that you can specify to get the settings/credentials of the Databricks account | "DEFAULT"                                                                                   |    N     |
+| **aws_profile**   | A named AWS profile that you can specify to get the settings/credentials of the AWS account               | "default" if the the env-variable `AWS_PROFILE` is not set                                  |    N     |
+| **output_folder** | Path to local directory where the final recommendations is logged                                         | env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. |    N     |
+| **port**          | Port number to be used for the ssh connections                                                            | 2200                                                                                        |    N     |
+| **key_file**      | Path to the private key file to be used for the ssh connections.                                          | Default ssh key based on the OS                                                             |    N     |
+| **thread_num**    | Number of threads to access remote cluster nodes in parallel                                              | 3                                                                                           |    N     |
+| **yes**           | auto confirm to interactive question                                                                      | False                                                                                       |    N     |
+| **verbose**       | True or False to enable verbosity to the wrapper script                                                   | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                           |    N     |
+
+### Info collection
+
+The default is to collect info from each cluster node via SSH access and an archive would be created
+to output folder at last.
+
+The steps to run the command:
+
+1. The user creates a cluster
+2. The user runs the following command:
+
+    ```bash
+    spark_rapids_user_tools databricks-aws diagnostic \
+      --cluster my-cluster-name
+    ```
+   
+If the connection to Databricks instances cannot be established through SSH, the command will raise error.

@@ -91,7 +91,7 @@ class Diagnostic(RapidsTool):
         self._upload_scripts(node)
 
         remote_output_folder = self.ctxt.get_remote('outputFolder')
-        ssh_cmd = f'"PREFIX={remote_output_folder} /tmp/collect.sh"'
+        ssh_cmd = f'"PREFIX={remote_output_folder} PLATFORM_TYPE={self.platform_type} /tmp/collect.sh"'
 
         try:
             self.logger.info('Collecting info on node: %s', node.get_name())

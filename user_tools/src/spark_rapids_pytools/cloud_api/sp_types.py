@@ -463,7 +463,7 @@ class CMDDriverBase:
         sys_cmd = SysCmd().build(cmd_args)
         return sys_cmd.exec()
 
-    def _build_ssh_cmd_prefix_for_node(self, node: ClusterNode) -> str:
+    def _build_cmd_ssh_prefix_for_node(self, node: ClusterNode) -> str:
         del node  # Unused by super method.
         return ''
 
@@ -479,7 +479,7 @@ class CMDDriverBase:
         return f'{prefix} {remote_cmd}'
 
     def ssh_cmd_node(self, node: ClusterNode, ssh_cmd: str, cmd_input: str = None) -> str:
-        prefix_cmd = self._build_ssh_cmd_prefix_for_node(node=node)
+        prefix_cmd = self._build_cmd_ssh_prefix_for_node(node=node)
         full_ssh_cmd = self._construct_ssh_cmd_with_prefix(prefix=prefix_cmd, remote_cmd=ssh_cmd)
         return self.run_sys_cmd(full_ssh_cmd, cmd_input=cmd_input)
 

@@ -213,7 +213,7 @@ class DataprocCMDDriver(CMDDriverBase):
                     self.get_env_var('zone')]
         return self.run_sys_cmd(cmd_args)
 
-    def _build_ssh_cmd_prefix_for_node(self, node: ClusterNode) -> str:
+    def _build_cmd_ssh_prefix_for_node(self, node: ClusterNode) -> str:
         pref_args = ['gcloud',
                      'compute', 'ssh',
                      node.name,
