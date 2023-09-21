@@ -381,7 +381,7 @@ class ToolsSpinner:
 
     :param in_debug_mode: Flag indicating if running in debug (verbose) mode. Defaults to False.
     """
-    in_debug_mode: bool = field(default=True, init=True)
+    in_debug_mode: bool = field(default=False, init=True)
     pixel_spinner: PixelSpinner = field(default=PixelSpinner('Processing...'), init=False)
     end: str = field(default='Processing Completed!', init=False)
     timeout: float = field(default=0.1, init=False)
@@ -402,7 +402,7 @@ class ToolsSpinner:
 
     def stop(self):
         self.completed = True
-        print(f'\r{self.end}', flush=True)
+        print(f'\r\n{self.end}', flush=True)
 
     def __enter__(self):
         return self.start()
