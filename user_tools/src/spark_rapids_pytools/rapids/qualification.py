@@ -305,8 +305,8 @@ class Qualification(RapidsJarTool):
             gpu_discount = int(raw_gpu_discount) if raw_gpu_discount != None else 0
             global_discount = int(raw_global_discount) if raw_global_discount != None else 0
         except Exception as ex:
-            self.logger.error('Invalid arguments. Failed to process discount arguments: %s', ex)
-            raise ex
+            self.logger.error('Discount arguments have incorrect type.')
+            raise RuntimeError('Invalid arguments. Discount arguments cannot be converted to integer.')
 
         if cpu_discount < 0 or cpu_discount > 100:
             self.logger.error('cpu_discount is out of range [0, 100]')
@@ -327,9 +327,6 @@ class Qualification(RapidsJarTool):
         else:
             self.ctxt.set_ctxt('cpu_discount', cpu_discount)
             self.ctxt.set_ctxt('gpu_discount', gpu_discount)
-
-        self.logger.info("cpu_discount = %s", cpu_discount)
-        self.logger.info("gpu_discount = %s", gpu_discount)
 
     def _process_custom_args(self):
         """
@@ -569,10 +566,11 @@ class Qualification(RapidsJarTool):
                                              'savingRecommendationsRanges')
 
         def get_costs_for_single_app(df_row, estimator: SavingsEstimator) -> pd.Series:
-            cpu_cost, gpu_cost, est_savings = estimator.get_costs_and_savings(df_row['App Duration'],
-                                                                              df_row['Estimated GPU Duration'])
-            cpu_cost = (100 - self.ctxt.get_ctxt('cpu_discount')) / 100 * cpu_cost
-            gpu_cost = (100 - self.ctxt.get_ctxt('gpu_discount')) / 100 * gpu_cost
+            raw_cpu_cost, raw_gpu_cost, _ = estimator.get_costs_and_savings(df_row['App Duration'],
+                                                                            df_row['Estimated GPU Duration'])
+            cpu_cost = (100 - self.ctxt.get_ctxt('cpu_discount')) / 100 * raw_cpu_cost
+            gpu_cost = (100 - self.ctxt.get_ctxt('gpu_discount')) / 100 * raw_gpu_cost
+            est_savings = 100.0 - ((100.0 * gpu_cost) / cpu_cost)
             # We do not want to mistakenly mark a Not-applicable app as Recommended in the savings column
             if df_row[speedup_rec_col] == 'Not Applicable':
                 savings_recommendations = 'Not Applicable'
