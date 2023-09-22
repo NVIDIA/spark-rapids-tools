@@ -41,7 +41,7 @@ dependencies = [
     "azure-storage-blob==12.17.0",
     "adlfs==2023.4.0"
 ]
-dynamic=["entry-points", "version"]
+dynamic=["version"]
 
 [project.scripts]
 spark_rapids_user_tools = "spark_rapids_pytools.wrapper:main"

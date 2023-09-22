@@ -295,18 +295,18 @@ class Qualification(RapidsJarTool):
         raw_cpu_discount = self.wrapper_options.get('cpuDiscount')
         raw_gpu_discount = self.wrapper_options.get('gpuDiscount')
         raw_global_discount = self.wrapper_options.get('globalDiscount')
-        if raw_global_discount != None and (raw_cpu_discount != None or raw_gpu_discount != None):
+        if raw_global_discount is not None and (raw_cpu_discount is not None or raw_gpu_discount is not None):
             self.logger.error('Setting both global_discount and either cpu_discount or '
                               'gpu_discount is inconsistent.')
             raise RuntimeError('Invalid arguments. If global_discount is specified, no additional '
                                'discount arguments (cpu_discount or gpu_discount) should be set.')
         try:
-            cpu_discount = int(raw_cpu_discount) if raw_cpu_discount != None else 0
-            gpu_discount = int(raw_gpu_discount) if raw_gpu_discount != None else 0
-            global_discount = int(raw_global_discount) if raw_global_discount != None else 0
+            cpu_discount = int(raw_cpu_discount) if raw_cpu_discount is not None else 0
+            gpu_discount = int(raw_gpu_discount) if raw_gpu_discount is not None else 0
+            global_discount = int(raw_global_discount) if raw_global_discount is not None else 0
         except Exception as ex:
             self.logger.error('Discount arguments have incorrect type.')
-            raise RuntimeError('Invalid arguments. Discount arguments cannot be converted to integer.')
+            raise RuntimeError('Invalid arguments. Discount arguments cannot be converted to integer.') from ex
 
         if cpu_discount < 0 or cpu_discount > 100:
             self.logger.error('cpu_discount is out of range [0, 100]')
