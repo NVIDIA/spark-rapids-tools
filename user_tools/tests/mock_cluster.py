@@ -152,4 +152,93 @@ mock_live_cluster = {
             }]
         }),
     ],
+
+    "databricks-aws": [
+        # databricks clusters get --profile DEFAULT --cluster-name test-cluster
+        json.dumps({
+            "cluster_id": "1234-567890-test-cluster",
+            "driver": {
+                "public_dns": "12.34.56.789",
+                "node_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            },
+            "executors": [
+                {
+                    "public_dns": "12.34.56.798",
+                    "node_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                },
+            ],
+            "node_type_id": "g4dn.12xlarge",
+            "driver_node_type_id": "m5a.12xlarge",
+            "instance_source": {
+                "node_type_id": "g4dn.12xlarge"
+            },
+            "driver_instance_source": {
+                "node_type_id": "m5a.12xlarge"
+            },
+            "state": "RUNNING",
+            "num_workers": 1
+        }),
+        # aws ec2 describe-instance-types --region us-west-2 --instance-types m5a.12xlarge
+        json.dumps({
+            "InstanceTypes": [{
+                "VCpuInfo": {
+                    "DefaultVCpus": 48,
+                },
+                "MemoryInfo": {
+                    "SizeInMiB": 196608,
+                },
+            }]
+        }),
+        # aws ec2 describe-instance-types --region us-west-2 --instance-types g4dn.12xlarge
+        json.dumps({
+            "InstanceTypes": [{
+                "VCpuInfo": {
+                    "DefaultVCpus": 48,
+                },
+                "MemoryInfo": {
+                    "SizeInMiB": 196608,
+                },
+                "GpuInfo": {
+                    "Gpus": [{
+                        "Name": "T4",
+                        "Manufacturer": "NVIDIA",
+                        "Count": 4,
+                        "MemoryInfo": {
+                            "SizeInMiB": 16384,
+                        },
+                    }],
+                    "TotalGpuMemoryInMiB": 65536,
+                },
+            }]
+        })
+    ],
+
+    "databricks-azure": [
+        # databricks clusters get --profile AZURE --cluster-name test-cluster
+        json.dumps({
+            "cluster_id": "1234-567890-test-cluster",
+            "driver": {
+                "public_dns": "12.34.56.789",
+                "node_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            },
+            "executors": [{
+                "public_dns": "12.34.56.798",
+                "node_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            }
+            ],
+            "node_type_id": "Standard_NC4as_T4_v3",
+            "driver_node_type_id": "Standard_NC4as_T4_v3",
+            "instance_source": {
+                "node_type_id": "Standard_NC4as_T4_v3"
+            },
+            "driver_instance_source": {
+                "node_type_id": "Standard_NC4as_T4_v3"
+            },
+            "state": "RUNNING",
+            "num_workers": 1,
+        }),
+        # az vm list-skus --location westus
+        # This output is not required for the test because we are using a mock
+        # that reads data from the test catalog file instead.
+    ]
 }

@@ -26,6 +26,7 @@ from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase, ClusterBase, 
     ClusterGetAccessor
 from spark_rapids_pytools.cloud_api.sp_types import ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
+from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.databricks_pricing import DatabricksPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
@@ -120,6 +121,38 @@ class DBAWSCMDDriver(CMDDriverBase):
             raw_prop_container = JSONPropertiesContainer(prop_arg=cluster_described, file_load=False)
             return json.dumps(raw_prop_container.props)
         return cluster_described
+
+    def _build_cmd_ssh_prefix_for_node(self, node: ClusterNode) -> str:
+        port = self.env_vars.get('sshPort')
+        key_file = self.env_vars.get('sshKeyFile')
+        prefix_args = ['ssh',
+                       '-o StrictHostKeyChecking=no',
+                       f'-i {key_file} ' if key_file else '',
+                       f'-p {port}',
+                       f'ubuntu@{node.name}']
+        return Utils.gen_joined_str(' ', prefix_args)
+
+    def _build_cmd_scp_to_node(self, node: ClusterNode, src: str, dest: str) -> str:
+        port = self.env_vars.get('sshPort')
+        key_file = self.env_vars.get('sshKeyFile')
+        prefix_args = ['scp',
+                       '-o StrictHostKeyChecking=no',
+                       f'-i {key_file} ' if key_file else '',
+                       f'-P {port}',
+                       src,
+                       f'ubuntu@{node.name}:{dest}']
+        return Utils.gen_joined_str(' ', prefix_args)
+
+    def _build_cmd_scp_from_node(self, node: ClusterNode, src: str, dest: str) -> str:
+        port = self.env_vars.get('sshPort')
+        key_file = self.env_vars.get('sshKeyFile')
+        prefix_args = ['scp',
+                       '-o StrictHostKeyChecking=no',
+                       f'-i {key_file} ' if key_file else '',
+                       f'-P {port}',
+                       f'ubuntu@{node.name}:{src}',
+                       dest]
+        return Utils.gen_joined_str(' ', prefix_args)
 
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',

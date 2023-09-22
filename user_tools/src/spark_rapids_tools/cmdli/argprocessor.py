@@ -26,7 +26,6 @@ from pydantic.dataclasses import dataclass
 from pydantic_core import PydanticCustomError
 
 from spark_rapids_tools.cloud import ClientCluster
-from spark_rapids_tools.exceptions import IllegalArgumentError
 from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
@@ -105,17 +104,18 @@ class AbsToolUserArgModel:
         'meta': {},
         'toolArgs': {}
     })
-    logger: ClassVar[Logger] = ToolLogging.get_and_setup_logger('spark_rapids_tools.argparser')
+    logger: ClassVar[Logger] = None
     tool_name: ClassVar[str] = None
 
     @classmethod
     def create_tool_args(cls, tool_name: str, *args: Any, **kwargs: Any) -> Optional[dict]:
+        cls.logger = ToolLogging.get_and_setup_logger('spark_rapids_tools.argparser')
         try:
             impl_entry = user_arg_validation_registry.get(tool_name)
             impl_class = impl_entry.validator_class
             new_obj = impl_class(*args, **kwargs)
             return new_obj.build_tools_args()
-        except (ValidationError, IllegalArgumentError) as e:
+        except (ValidationError, PydanticCustomError) as e:
             impl_class.logger.error('Validation err: %s\n', e)
             dump_tool_usage(impl_class.tool_name)
         return None
@@ -126,8 +126,9 @@ class AbsToolUserArgModel:
         return None
 
     def raise_validation_exception(self, validation_err: str):
-        raise IllegalArgumentError(
-            f'Invalid arguments: {validation_err}')
+        raise PydanticCustomError(
+            'invalid_argument',
+            f'{validation_err}\n  Error:')
 
     def determine_cluster_arg_type(self) -> ArgValueCase:
         # self.cluster is provided. then we need to verify that the expected files are there
@@ -137,13 +138,14 @@ class AbsToolUserArgModel:
                 # the file cannot be a http_url
                 if is_http_file(self.cluster):
                     # we do not accept http://urls
-                    raise IllegalArgumentError(
-                        f'Cluster properties cannot be a web URL path: {self.cluster}')
+                    raise PydanticCustomError(
+                        'invalid_argument',
+                        f'Cluster properties cannot be a web URL path: {self.cluster}\n  Error:')
                 cluster_case = ArgValueCase.VALUE_B
             else:
                 raise PydanticCustomError(
                     'file_path',
-                    'Cluster property file is not in valid format {.json, .yaml, or .yml}')
+                    'Cluster property file is not in valid format {.json, .yaml, or .yml}\n  Error:')
         else:
             cluster_case = ArgValueCase.VALUE_A
         return cluster_case
@@ -167,8 +169,9 @@ class AbsToolUserArgModel:
 
     def validate_onprem_with_cluster_name(self):
         if self.platform == CspEnv.ONPREM:
-            raise IllegalArgumentError(
-                f'Invalid arguments: Cannot run cluster by name with platform [{CspEnv.ONPREM}]')
+            raise PydanticCustomError(
+                'invalid_argument',
+                f'Cannot run cluster by name with platform [{CspEnv.ONPREM}]\n  Error:')
 
     def init_extra_arg_cases(self) -> list:
         return []
@@ -229,8 +232,9 @@ class AbsToolUserArgModel:
         if self.argv_cases[1] == ArgValueCase.VALUE_A:
             if assigned_platform == CspEnv.ONPREM:
                 # it is not allowed to run cluster_by_name on an OnPrem platform
-                raise IllegalArgumentError(
-                    f'Invalid arguments: Cannot run cluster by name with platform [{CspEnv.ONPREM}]')
+                raise PydanticCustomError(
+                    'invalid_argument',
+                    f'Cannot run cluster by name with platform [{CspEnv.ONPREM}]\n  Error:')
 
 
 @dataclass
@@ -356,10 +360,10 @@ class QualifyUserArgModel(ToolUserArgModel):
                 self.p_args['toolArgs']['targetPlatform'] = None
             else:
                 if not self.p_args['toolArgs']['targetPlatform'] in equivalent_pricing_list:
-                    raise IllegalArgumentError(
-                        'Invalid arguments: '
+                    raise PydanticCustomError(
+                        'invalid_argument',
                         f'The platform [{self.p_args["toolArgs"]["targetPlatform"]}] is currently '
-                        f'not supported to calculate savings from [{runtime_platform}] cluster')
+                        f'not supported to calculate savings from [{runtime_platform}] cluster\n  Error:')
         else:
             # target platform is not set, then we disable cost savings if the runtime platform if
             # onprem

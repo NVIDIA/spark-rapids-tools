@@ -18,7 +18,8 @@
 import fire
 
 from spark_rapids_tools.enums import QualGpuClusterReshapeType
-from spark_rapids_tools.utils.util import gen_app_banner
+from spark_rapids_tools.utils.util import gen_app_banner, init_environment
+from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
@@ -41,7 +42,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       output_folder: str = None,
                       filter_apps: str = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
-                          QualGpuClusterReshapeType.get_default())):
+                          QualGpuClusterReshapeType.get_default()),
+                      verbose: bool = False):
         """The Qualification cmd provides estimated running costs and speedups by migrating Apache
         Spark applications to GPU accelerated clusters.
 
@@ -82,8 +84,11 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 "MATCH": keep GPU cluster same number of nodes as CPU cluster;
                 "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
                 "JOB": recommend optimal GPU cluster by cost per job
+        :param verbose: True or False to enable verbosity of the script.
         """
-
+        if verbose:
+            ToolLogging.enable_debug_mode()
+        init_environment('qual')
         qual_args = AbsToolUserArgModel.create_tool_args('qualification',
                                                          eventlogs=eventlogs,
                                                          cluster=cluster,
@@ -102,7 +107,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                   eventlogs: str = None,
                   cluster: str = None,
                   platform: str = None,
-                  output_folder: str = None):
+                  output_folder: str = None,
+                  verbose: bool = False):
         """The Profiling cmd provides information which can be used for debugging and profiling
         Apache Spark applications running on accelerated GPU cluster.
 
@@ -120,7 +126,11 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param platform: defines one of the following "onprem", "emr", "dataproc", "databricks-aws",
                 and "databricks-azure".
         :param output_folder: path to store the output.
+        :param verbose: True or False to enable verbosity of the script.
         """
+        if verbose:
+            ToolLogging.enable_debug_mode()
+        init_environment('prof')
         prof_args = AbsToolUserArgModel.create_tool_args('profiling',
                                                          eventlogs=eventlogs,
                                                          cluster=cluster,
@@ -136,7 +146,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                   cluster: str,
                   platform: str,
                   output_folder: str = None,
-                  dry_run: bool = True):
+                  dry_run: bool = True,
+                  verbose: bool = False):
         """Provides optimized RAPIDS Accelerator for Apache Spark configs based on GPU cluster shape.
 
         This tool is supposed to be used once a cluster has been created to set the recommended
@@ -149,8 +160,12 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 and "databricks-azure".
         :param output_folder: path where the final recommendations will be saved.
         :param dry_run: True or False to update the Spark config settings on Dataproc driver node.
+        :param verbose: True or False to enable verbosity of the script.
         """
-        boot_args = AbsToolUserArgModel.create_tool_args('qualification',
+        if verbose:
+            ToolLogging.enable_debug_mode()
+        init_environment('boot')
+        boot_args = AbsToolUserArgModel.create_tool_args('bootstrap',
                                                          cluster=cluster,
                                                          platform=platform,
                                                          output_folder=output_folder,

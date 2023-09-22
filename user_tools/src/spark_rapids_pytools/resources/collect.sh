@@ -30,6 +30,13 @@ mkdir -p $TEMP_PATH
 NODE_ID=`hostname`
 OUTPUT_NODE_INFO="$TEMP_PATH/$HOSTNAME.info"
 
+if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
+    DATABRICKS_HOME='/databricks'
+    SPARK_HOME="$DATABRICKS_HOME/spark"
+else
+    SPARK_HOME='/usr/lib/spark'
+fi
+
 echo "[OS version]" >> $OUTPUT_NODE_INFO
 cat /etc/os-release >> $OUTPUT_NODE_INFO
 
@@ -48,11 +55,27 @@ free -h >> $OUTPUT_NODE_INFO
 
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Network adapter]" >> $OUTPUT_NODE_INFO
+
 if command -v lshw ; then
     lshw -C network >> $OUTPUT_NODE_INFO
 else
-    # Downgrade to 'lspci' on EMR as it's not installed by default
-    /usr/sbin/lspci | grep 'Ethernet controller' >> $OUTPUT_NODE_INFO
+    # Downgrade to 'lspci'
+    if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
+        if command -v sudo ; then
+            sudo apt install -y pciutils
+        fi
+        if command -v lspci ; then
+            lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
+        else
+             echo 'not found' >> $OUTPUT_NODE_INFO
+        fi
+    elif [ "$PLATFORM_TYPE" == "emr" ]; then
+        if command -v /usr/sbin/lspci ; then
+            /usr/sbin/lspci | { grep 'Ethernet controller' || true; } >> $OUTPUT_NODE_INFO
+        else
+             echo 'not found' >> $OUTPUT_NODE_INFO
+        fi
+    fi
 fi
 
 echo "" >> $OUTPUT_NODE_INFO
@@ -64,8 +87,12 @@ echo "[GPU adapter]" >> $OUTPUT_NODE_INFO
 if command -v lshw ; then
     lshw -C display >> $OUTPUT_NODE_INFO
 else
-    # Downgrade to 'lspci' on EMR as it's not installed by default
-    /usr/sbin/lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
+    # Downgrade to 'lspci'
+    if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
+        lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
+    elif [ "$PLATFORM_TYPE" == "emr" ]; then
+        /usr/sbin/lspci | { grep '3D controller' || true; } >> $OUTPUT_NODE_INFO
+    fi
 fi
 
 echo "" >> $OUTPUT_NODE_INFO
@@ -82,19 +109,31 @@ java -version 2>> $OUTPUT_NODE_INFO
 
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Spark version]" >> $OUTPUT_NODE_INFO
-spark-submit --version 2>> $OUTPUT_NODE_INFO
+
+if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
+    if [ -f $SPARK_HOME/VERSION ]; then
+        echo "$(cat "$SPARK_HOME/VERSION")" >> $OUTPUT_NODE_INFO
+    else
+        echo 'not found' >> $OUTPUT_NODE_INFO
+    fi
+else
+    if command -v $SPARK_HOME/bin/pyspark ; then
+        $SPARK_HOME/bin/pyspark --version 2>&1|grep -v Scala|awk '/version\ [0-9.]+/{print $NF}' >> $OUTPUT_NODE_INFO
+    else
+        echo 'not found' >> $OUTPUT_NODE_INFO
+    fi
+fi
 
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Spark rapids plugin]" >> $OUTPUT_NODE_INFO
 
-if [ -z "$SPARK_HOME" ]; then
-    # Source spark env variables if not set $SPARK_HOME, e.g. on EMR node
-    source /etc/spark/conf/spark-env.sh
-fi
-
-if [ -f $SPARK_HOME/jars/rapids-4-spark*.jar ]; then
-    ls -l $SPARK_HOME/jars/rapids-4-spark*.jar >> $OUTPUT_NODE_INFO
-elif [ -f /usr/lib/spark/jars/rapids-4-spark_n-0.jar ]; then
+if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
+    if [ -f $DATABRICKS_HOME/jars/rapids-4-spark*.jar ]; then
+        ls -l $DATABRICKS_HOME/jars/rapids-4-spark*.jar >> $OUTPUT_NODE_INFO
+    else
+        echo 'not found' >> $OUTPUT_NODE_INFO
+    fi
+elif [ -f $SPARK_HOME/jars/rapids-4-spark*.jar ]; then
     ls -l $SPARK_HOME/jars/rapids-4-spark*.jar >> $OUTPUT_NODE_INFO
 else
     echo 'not found' >> $OUTPUT_NODE_INFO
@@ -105,7 +144,12 @@ echo "[CUDA version]" >> $OUTPUT_NODE_INFO
 if [ -f /usr/local/cuda/version.json ]; then
     cat  /usr/local/cuda/version.json | grep '\<cuda\>' -A 2 | grep version >> $OUTPUT_NODE_INFO
 else
-    echo 'not found' >> $OUTPUT_NODE_INFO
+    # Fetch CUDA version from nvidia-smi
+    if command -v nvidia-smi ; then
+        nvidia-smi --query | grep "CUDA Version" | awk '{print $4}' >> $OUTPUT_NODE_INFO
+    else
+        echo 'not found' >> $OUTPUT_NODE_INFO
+    fi
 fi
 
 # Copy config files

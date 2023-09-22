@@ -39,7 +39,9 @@ dependencies = [
     # used for ADLS filesystem implementation
     # Issue-568: use 12.17.0 as the new 12.18.0 causes an error in runtime
     "azure-storage-blob==12.17.0",
-    "adlfs==2023.4.0"
+    "adlfs==2023.4.0",
+    # used for spinner animation
+    "progress==1.6"
 ]
 dynamic=["entry-points", "version"]
 
