@@ -187,20 +187,43 @@ class SQLExecutionInfoClass(
     var sqlCpuTimePercent: Double = -1)
 
 case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
-    nodeName: String, accumulatorId: Long, name: String, min: Long, median:Long,
+    nodeName: String, nodeDesc: String, accumulatorId: Long, name: String, min: Long, median:Long,
     max: Long, total: Long, metricType: String, stageIds: String) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "sqlID", "nodeID", "nodeName", "accumulatorId",
-    "name", "min", "median", "max", "total", "metricType", "stageIds")
+  override val outputHeaders = Seq("appIndex", "sqlID", "nodeID", "nodeName", "nodeDesc",
+    "accumulatorId", "name", "min", "median", "max", "total", "metricType", "stageIds")
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, nodeID.toString, nodeName, accumulatorId.toString,
-      name, min.toString, median.toString, max.toString, total.toString, metricType, stageIds)
+    Seq(appIndex.toString, sqlID.toString, nodeID.toString, nodeName, nodeDesc,
+      accumulatorId.toString, name, min.toString, median.toString, max.toString,
+      total.toString, metricType, stageIds)
   }
   override def convertToCSVSeq: Seq[String] = {
     Seq(appIndex.toString, sqlID.toString, nodeID.toString,
-      StringUtils.reformatCSVString(nodeName), accumulatorId.toString,
-      StringUtils.reformatCSVString(name), min.toString, median.toString, max.toString,
+      StringUtils.reformatCSVString(nodeName), StringUtils.reformatCSVString(nodeDesc),
+      accumulatorId.toString, StringUtils.reformatCSVString(name),
+      min.toString, median.toString, max.toString,
       total.toString, StringUtils.reformatCSVString(metricType),
       StringUtils.reformatCSVString(stageIds))
+  }
+}
+
+case class SQLPlanProfileResults(appIndex: Int, sqlID: Long, physicalPlan: String,
+  finalAdaptivePlan: Option[String], executedPlanBreakdown: String) extends ProfileResult {
+  override val outputHeaders: Seq[String] = Seq("appIndex", "sqlID", "physicalPlan",
+    "finalAdaptivePlan", "executedPlanBreakdown")
+  private def finalAdaptivePlanToStr: String = {
+    finalAdaptivePlan match {
+      case Some(t) => StringUtils.reformatCSVString(t)
+        case None => ""
+      }
+  }
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString, sqlID.toString, StringUtils.reformatCSVString(physicalPlan),
+      finalAdaptivePlanToStr, StringUtils.reformatCSVString(executedPlanBreakdown))
+  }
+
+  override def convertToCSVSeq: Seq[String] = {
+    Seq(appIndex.toString, sqlID.toString, StringUtils.reformatCSVString(physicalPlan),
+      finalAdaptivePlanToStr, StringUtils.reformatCSVString(executedPlanBreakdown))
   }
 }
 

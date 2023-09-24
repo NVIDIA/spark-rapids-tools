@@ -322,6 +322,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val sparkProps = collect.getProperties(rapidsOnly = false)
     val rapidsJar = collect.getRapidsJARInfo
     val sqlMetrics = collect.getSQLPlanMetrics
+    val sqlPlans = collect.getSQLPlanse
     val wholeStage = collect.getWholeStageCodeGenMapping
     // for compare mode we just add in extra tables for matching across applications
     // the rest of the tables simply list all applications specified
@@ -383,7 +384,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
     }
     (ApplicationSummaryInfo(appInfo, dsInfo, execInfo, jobInfo, rapidsProps, 
-      rapidsJar, sqlMetrics, jsMetAgg, sqlTaskAggMetrics, durAndCpuMet, skewInfo,
+      rapidsJar, sqlMetrics, sqlPlans, jsMetAgg, sqlTaskAggMetrics, durAndCpuMet, skewInfo,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, sqlStageInfo, wholeStage, maxTaskInputInfo,
       appLogPath, ioAnalysisMetrics), compareRes)
@@ -429,6 +430,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         combineProps(rapidsOnly=true, appsSum).sortBy(_.key),
         appsSum.flatMap(_.rapidsJar).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlMetrics).sortBy(_.appIndex),
+        appsSum.flatMap(_.sqlPlans).sortBy(_.appIndex),
         appsSum.flatMap(_.jsMetAgg).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlTaskAggMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.durAndCpuMet).sortBy(_.appIndex),
@@ -466,6 +468,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some("Rapids 4 Spark Jars"))
       profileOutputWriter.write("SQL Plan Metrics for Application", app.sqlMetrics,
         Some("SQL Plan Metrics"))
+      profileOutputWriter.write("SQL Plans for Application", app.sqlPlans,
+        Some("SQL Plans"))
       profileOutputWriter.write("WholeStageCodeGen Mapping", app.wholeStage,
         Some("WholeStagecodeGen Mapping"))
       comparedRes.foreach { compareSum =>

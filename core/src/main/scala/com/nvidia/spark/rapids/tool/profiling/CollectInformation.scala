@@ -258,6 +258,15 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
       Seq.empty
     }
   }
+
+  def getSQLPlans: Seq[SQLPlanProfileResults] = {
+    val sqlPlans = CollectInformation.generateSQLPlans(apps)
+    if (sqlPlans.nonEmpty) {
+      sqlPlans.sortBy(cols => (cols.appIndex, cols.sqlID))
+    } else {
+      Seq.empty
+    }
+  }
 }
 
 object CollectInformation extends Logging {
@@ -340,7 +349,7 @@ object CollectInformation extends Logging {
           val total = Math.max(taskInfo.total, driverInfo.total)
 
           Some(SQLAccumProfileResults(app.index, metric.sqlID,
-            metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
+            metric.nodeID, metric.nodeName, metric.nodeDesc, metric.accumulatorId, metric.name,
             min, med, max, total, metric.metricType, metric.stageIds.mkString(",")))
         } else {
           None
@@ -348,6 +357,55 @@ object CollectInformation extends Logging {
       }
     }
     allRows.filter(_.isDefined).map(_.get)
+  }
+
+  def generateSQLPlans(apps: Seq[ApplicationInfo]): Seq[SQLPlanProfileResults] = {
+    val allRows = apps.flatMap { app =>
+      app.physicalPlanDescription.map { case (sqlID, planString) =>
+
+        if (planString.contains("AdaptiveSparkPlan")) {
+          //== Physical Plan == + //AdaptiveSparkPlan (10)
+          //+- == Final Plan == + //   ...
+          //+- == Initial Plan == + //   ...
+          // + //
+          //(1) Scan parquet spark_catalog.default.web_page + //
+          //... +
+          val startMarker = "+- == Final Plan =="
+          val endMarker = "+- == Initial Plan =="
+          val executedPlanBreakdownStartMarker = "\n\n"
+          val startIndex = planString.indexOf(startMarker)
+          val endIndex = planString.indexOf(endMarker)
+
+          val executedPlanStartIndex = planString.indexOf(executedPlanBreakdownStartMarker)
+          val adaptivePlan = planString.substring(startIndex + startMarker.length, endIndex).trim
+          val initialPlan = planString.substring(endIndex + endMarker.length,
+            executedPlanStartIndex).trim
+          val executedPlanBreakdown = planString.substring(executedPlanStartIndex +
+            executedPlanBreakdownStartMarker.length, planString.length).trim
+
+          SQLPlanProfileResults(app.index, sqlID, initialPlan, Some(adaptivePlan),
+            executedPlanBreakdown)
+        } else {
+          //== Physical Plan == + //Execute DropTableCommand (1)
+          //   +- DropTableCommand (2) + //
+          // + //(1) Execute DropTableCommand
+          //  ... +
+          val startMarker = "== Physical Plan =="
+          val executedPlanBreakdownStartMarker = "\n\n"
+          val startIndex = planString.indexOf(startMarker)
+          val executedPlanStartIndex = planString.indexOf(executedPlanBreakdownStartMarker)
+          val startIndex = planString.indexOf(startMarker)
+          val executedPlanStartIndex = planString.indexOf(executedPlanBreakdownStartMarker)
+          val physicalPlan = planString.substring(startIndex + startMarker.length,
+            executedPlanStartIndex).trim
+          val executedPlanBreakdown = planString.substring(executedPlanStartIndex +
+            executedPlanBreakdownStartMarker.length, planString.length).trim
+
+          SQLPlanProfileResults(app.index, sqlID, physicalPlan, None, executedPlanBreakdown)
+        }
+      }
+    }
+    allRows
   }
 
   def printSQLPlans(apps: Seq[ApplicationInfo], outputDir: String): Unit = {

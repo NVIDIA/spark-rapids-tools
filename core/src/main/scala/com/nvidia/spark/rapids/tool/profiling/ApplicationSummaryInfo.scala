@@ -24,6 +24,7 @@ case class ApplicationSummaryInfo(
     val rapidsProps: Seq[RapidsPropertyProfileResult],
     val rapidsJar: Seq[RapidsJarProfileResult],
     val sqlMetrics: Seq[SQLAccumProfileResults],
+    val sqlPlans: Seq[SQLPlanProfileResults],
     val jsMetAgg: Seq[JobStageAggTaskMetricsProfileResult],
     val sqlTaskAggMetrics: Seq[SQLTaskAggMetricsProfileResult],
     val durAndCpuMet: Seq[SQLDurationExecutorTimeProfileResult],
