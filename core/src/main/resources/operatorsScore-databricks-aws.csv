@@ -102,6 +102,7 @@ Exp,2.45
 Explode,2.45
 Expm1,2.45
 First,2.45
+Flatten,2.45
 Floor,2.45
 FromUTCTimestamp,2.45
 FromUnixTime,2.45
