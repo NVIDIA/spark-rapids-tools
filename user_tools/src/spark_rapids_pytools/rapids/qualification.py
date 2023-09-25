@@ -291,6 +291,12 @@ class Qualification(RapidsJarTool):
                 selected_filter = QualFilterApp.fromstring(default_filter_txt)
         self.ctxt.set_ctxt('filterApps', selected_filter)
 
+    def _process_external_pricing_args(self):
+        cpu_cluster_price = self.wrapper_options.get('cpuClusterPrice')
+        estimated_gpu_cluster_price = self.wrapper_options.get('estimatedGpuClusterPrice')
+        self.ctxt.set_ctxt('source_cost', cpu_cluster_price)
+        self.ctxt.set_ctxt('target_cost', estimated_gpu_cluster_price)
+
     def _process_custom_args(self):
         """
         Qualification tool processes extra arguments:
@@ -322,6 +328,7 @@ class Qualification(RapidsJarTool):
 
         self._process_offline_cluster_args()
         self._process_eventlogs_args()
+        self._process_external_pricing_args()
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 
@@ -557,7 +564,9 @@ class Qualification(RapidsJarTool):
                 reshaped_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'),
                                                   reshape_workers_cnt=lambda x: workers_cnt)
                 estimator_obj = self.ctxt.platform.create_saving_estimator(self.ctxt.get_ctxt('cpuClusterProxy'),
-                                                                           reshaped_cluster)
+                                                                           reshaped_cluster,
+                                                                           target_cost=self.ctxt.get_ctxt('target_cost'),
+                                                                           source_cost= self.ctxt.get_ctxt('source_cost'))
                 saving_estimator_cache.setdefault(workers_cnt, estimator_obj)
             cost_pd_series = get_costs_for_single_app(df_row, estimator_obj)
             return cost_pd_series
@@ -567,7 +576,9 @@ class Qualification(RapidsJarTool):
             # initialize the savings estimator only once
             reshaped_gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
             savings_estimator = self.ctxt.platform.create_saving_estimator(self.ctxt.get_ctxt('cpuClusterProxy'),
-                                                                           reshaped_gpu_cluster)
+                                                                           reshaped_gpu_cluster,
+                                                                           target_cost=self.ctxt.get_ctxt('target_cost'),
+                                                                           source_cost= self.ctxt.get_ctxt('source_cost'))
             app_df_set[cost_cols] = app_df_set.apply(
                 lambda row: get_costs_for_single_app(row, estimator=savings_estimator), axis=1)
         else:

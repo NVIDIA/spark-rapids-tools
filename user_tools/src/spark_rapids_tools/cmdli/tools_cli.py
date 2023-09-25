@@ -41,6 +41,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       target_platform: str = None,
                       output_folder: str = None,
                       filter_apps: str = None,
+                      cpu_cluster_price: float = None,
+                      estimated_gpu_cluster_price: float = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
                       verbose: bool = False):
@@ -77,6 +79,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
                 lists all the apps that have positive estimated GPU savings except for the apps that
                 are "Not Applicable"
+        :param cpu_cluster_price: the CPU cluster hourly price provided by the user.
+        :param estimated_gpu_cluster_price: the GPU cluster hourly price provided by the user.
         :param gpu_cluster_recommendation: The type of GPU cluster recommendation to generate.
                 Requires "Cluster".
 
@@ -96,6 +100,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          target_platform=target_platform,
                                                          output_folder=output_folder,
                                                          filter_apps=filter_apps,
+                                                         cpu_cluster_price=cpu_cluster_price,
+                                                         estimated_gpu_cluster_price=estimated_gpu_cluster_price,
                                                          gpu_cluster_recommendation=gpu_cluster_recommendation)
         if qual_args:
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],

@@ -127,14 +127,20 @@ class SavingsEstimator:
     price_provider: PriceProvider
     source_cluster: ClusterGetAccessor
     reshaped_cluster: ClusterGetAccessor
-    target_cost: float = field(default=None, init=False)
-    source_cost: float = field(default=None, init=False)
+    target_cost: float = field(default=None)
+    source_cost: float = field(default=None)
     comments: list = field(default_factory=lambda: [], init=False)
     logger: Logger = field(default=None, init=False)
 
     def _setup_costs(self):
         # calculate target_cost
-        pass
+        if self.target_cost is None:
+            self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
+        if self.source_cost is None:
+            self.source_cost = self._get_cost_per_cluster(self.source_cluster)
+
+        self.logger.info("self.source_cost = %s", self.source_cost)
+        self.logger.info("self.target_cost = %s", self.target_cost)
 
     def __post_init__(self):
         # when debug is set to true set it in the environment.
