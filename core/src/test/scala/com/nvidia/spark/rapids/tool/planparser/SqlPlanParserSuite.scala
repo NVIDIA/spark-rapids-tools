@@ -781,7 +781,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("Expression not supported in Generate") {
+  test("Expression supported in Generate") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
         "Expressions in Generate") { spark =>
