@@ -122,6 +122,7 @@ IntegralDivide
 IsNaN
 IsNotNull
 IsNull
+JsonTuple
 KnownFloatingPointNormalized
 KnownNotNull
 Lag
