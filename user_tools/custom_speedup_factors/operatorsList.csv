@@ -95,6 +95,7 @@ Exp
 Explode
 Expm1
 First
+Flatten
 Floor
 FromUTCTimestamp
 FromUnixTime
