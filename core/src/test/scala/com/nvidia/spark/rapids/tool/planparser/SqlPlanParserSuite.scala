@@ -781,7 +781,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("Expression supported in Generate") {
+  test("json_tuple is supported in Generate") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
         "Expressions in Generate") { spark =>
