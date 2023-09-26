@@ -292,6 +292,12 @@ class Qualification(RapidsJarTool):
         self.ctxt.set_ctxt('filterApps', selected_filter)
 
     def _process_price_discount_args(self):
+        def check_discount_percentage(discount_type: str, discount_value: int):
+            if discount_value < 0 or discount_value > 100:
+                self.logger.error('%s is out of range [0, 100]', discount_type)
+                raise RuntimeError(f'Invalid arguments. {discount_type} = {discount_value} is an invalid '
+                                   'percentage.')
+
         raw_cpu_discount = self.wrapper_options.get('cpuDiscount')
         raw_gpu_discount = self.wrapper_options.get('gpuDiscount')
         raw_global_discount = self.wrapper_options.get('globalDiscount')
@@ -308,18 +314,9 @@ class Qualification(RapidsJarTool):
             self.logger.error('Discount arguments have incorrect type.')
             raise RuntimeError('Invalid arguments. Discount arguments cannot be converted to integer.') from ex
 
-        if cpu_discount < 0 or cpu_discount > 100:
-            self.logger.error('cpu_discount is out of range [0, 100]')
-            raise RuntimeError(f'Invalid arguments. cpu_discount = {cpu_discount} is an invalid '
-                               'percentage.')
-        if gpu_discount < 0 or gpu_discount > 100:
-            self.logger.error('gpu_discount is out of range [0, 100]')
-            raise RuntimeError(f'Invalid arguments. gpu_discount = {gpu_discount} is an invalid '
-                               'percentage.')
-        if global_discount < 0 or global_discount > 100:
-            self.logger.error('global_discount is out of range [0, 100]')
-            raise RuntimeError(f'Invalid arguments. global_discount = {global_discount} is an invalid '
-                               'percentage.')
+        check_discount_percentage('cpu_discount', cpu_discount)
+        check_discount_percentage('gpu_discount', gpu_discount)
+        check_discount_percentage('global_discount', global_discount)
 
         if global_discount != 0:
             self.ctxt.set_ctxt('cpu_discount', global_discount)
