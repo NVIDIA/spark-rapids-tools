@@ -291,6 +291,40 @@ class Qualification(RapidsJarTool):
                 selected_filter = QualFilterApp.fromstring(default_filter_txt)
         self.ctxt.set_ctxt('filterApps', selected_filter)
 
+    def _process_price_discount_args(self):
+        def check_discount_percentage(discount_type: str, discount_value: int):
+            if discount_value < 0 or discount_value > 100:
+                self.logger.error('%s is out of range [0, 100]', discount_type)
+                raise RuntimeError(f'Invalid arguments. {discount_type} = {discount_value} is an invalid '
+                                   'percentage.')
+
+        raw_cpu_discount = self.wrapper_options.get('cpuDiscount')
+        raw_gpu_discount = self.wrapper_options.get('gpuDiscount')
+        raw_global_discount = self.wrapper_options.get('globalDiscount')
+        if raw_global_discount is not None and (raw_cpu_discount is not None or raw_gpu_discount is not None):
+            self.logger.error('Setting both global_discount and either cpu_discount or '
+                              'gpu_discount is inconsistent.')
+            raise RuntimeError('Invalid arguments. If global_discount is specified, no additional '
+                               'discount arguments (cpu_discount or gpu_discount) should be set.')
+        try:
+            cpu_discount = int(raw_cpu_discount) if raw_cpu_discount is not None else 0
+            gpu_discount = int(raw_gpu_discount) if raw_gpu_discount is not None else 0
+            global_discount = int(raw_global_discount) if raw_global_discount is not None else 0
+        except Exception as ex:
+            self.logger.error('Discount arguments have incorrect type.')
+            raise RuntimeError('Invalid arguments. Discount arguments cannot be converted to integer.') from ex
+
+        check_discount_percentage('cpu_discount', cpu_discount)
+        check_discount_percentage('gpu_discount', gpu_discount)
+        check_discount_percentage('global_discount', global_discount)
+
+        if global_discount != 0:
+            self.ctxt.set_ctxt('cpu_discount', global_discount)
+            self.ctxt.set_ctxt('gpu_discount', global_discount)
+        else:
+            self.ctxt.set_ctxt('cpu_discount', cpu_discount)
+            self.ctxt.set_ctxt('gpu_discount', gpu_discount)
+
     def _process_custom_args(self):
         """
         Qualification tool processes extra arguments:
@@ -322,6 +356,7 @@ class Qualification(RapidsJarTool):
 
         self._process_offline_cluster_args()
         self._process_eventlogs_args()
+        self._process_price_discount_args()
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 
@@ -528,8 +563,11 @@ class Qualification(RapidsJarTool):
                                              'savingRecommendationsRanges')
 
         def get_costs_for_single_app(df_row, estimator: SavingsEstimator) -> pd.Series:
-            cpu_cost, gpu_cost, est_savings = estimator.get_costs_and_savings(df_row['App Duration'],
-                                                                              df_row['Estimated GPU Duration'])
+            raw_cpu_cost, raw_gpu_cost, _ = estimator.get_costs_and_savings(df_row['App Duration'],
+                                                                            df_row['Estimated GPU Duration'])
+            cpu_cost = (100 - self.ctxt.get_ctxt('cpu_discount')) / 100 * raw_cpu_cost
+            gpu_cost = (100 - self.ctxt.get_ctxt('gpu_discount')) / 100 * raw_gpu_cost
+            est_savings = 100.0 - ((100.0 * gpu_cost) / cpu_cost)
             # We do not want to mistakenly mark a Not-applicable app as Recommended in the savings column
             if df_row[speedup_rec_col] == 'Not Applicable':
                 savings_recommendations = 'Not Applicable'
