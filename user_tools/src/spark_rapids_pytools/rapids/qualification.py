@@ -296,6 +296,7 @@ class Qualification(RapidsJarTool):
         estimated_gpu_cluster_price = self.wrapper_options.get('estimatedGpuClusterPrice')
         self.ctxt.set_ctxt('source_cost', cpu_cluster_price)
         self.ctxt.set_ctxt('target_cost', estimated_gpu_cluster_price)
+
     def _process_price_discount_args(self):
         def check_discount_percentage(discount_type: str, discount_value: int):
             if discount_value < 0 or discount_value > 100:
@@ -602,8 +603,8 @@ class Qualification(RapidsJarTool):
                                                   reshape_workers_cnt=lambda x: workers_cnt)
                 estimator_obj = self.ctxt.platform.create_saving_estimator(self.ctxt.get_ctxt('cpuClusterProxy'),
                                                                            reshaped_cluster,
-                                                                           target_cost=self.ctxt.get_ctxt('target_cost'),
-                                                                           source_cost= self.ctxt.get_ctxt('source_cost'))
+                                                                           self.ctxt.get_ctxt('target_cost'),
+                                                                           self.ctxt.get_ctxt('source_cost'))
                 saving_estimator_cache.setdefault(workers_cnt, estimator_obj)
             cost_pd_series = get_costs_for_single_app(df_row, estimator_obj)
             return cost_pd_series
@@ -614,8 +615,8 @@ class Qualification(RapidsJarTool):
             reshaped_gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
             savings_estimator = self.ctxt.platform.create_saving_estimator(self.ctxt.get_ctxt('cpuClusterProxy'),
                                                                            reshaped_gpu_cluster,
-                                                                           target_cost=self.ctxt.get_ctxt('target_cost'),
-                                                                           source_cost= self.ctxt.get_ctxt('source_cost'))
+                                                                           self.ctxt.get_ctxt('target_cost'),
+                                                                           self.ctxt.get_ctxt('source_cost'))
             app_df_set[cost_cols] = app_df_set.apply(
                 lambda row: get_costs_for_single_app(row, estimator=savings_estimator), axis=1)
         else:
