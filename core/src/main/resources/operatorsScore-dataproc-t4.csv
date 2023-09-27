@@ -102,6 +102,7 @@ Exp,4.88
 Explode,4.88
 Expm1,4.88
 First,4.88
+Flatten,4.88
 Floor,4.88
 FromUTCTimestamp,4.88
 FromUnixTime,4.88
@@ -129,6 +130,7 @@ IntegralDivide,4.88
 IsNaN,4.88
 IsNotNull,4.88
 IsNull,4.88
+JsonTuple,4.88
 KnownFloatingPointNormalized,4.88
 KnownNotNull,4.88
 Lag,4.88

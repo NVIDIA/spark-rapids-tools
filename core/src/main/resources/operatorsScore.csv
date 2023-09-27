@@ -107,6 +107,7 @@ Exp,4
 Explode,4
 Expm1,4
 First,4
+Flatten,4
 Floor,4
 FromUTCTimestamp,4
 FromUnixTime,4
@@ -134,6 +135,7 @@ IntegralDivide,4
 IsNaN,4
 IsNotNull,4
 IsNull,4
+JsonTuple,4
 KnownFloatingPointNormalized,4
 KnownNotNull,4
 Lag,4

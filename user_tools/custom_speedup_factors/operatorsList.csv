@@ -95,6 +95,7 @@ Exp
 Explode
 Expm1
 First
+Flatten
 Floor
 FromUTCTimestamp
 FromUnixTime
@@ -122,6 +123,7 @@ IntegralDivide
 IsNaN
 IsNotNull
 IsNull
+JsonTuple
 KnownFloatingPointNormalized
 KnownNotNull
 Lag

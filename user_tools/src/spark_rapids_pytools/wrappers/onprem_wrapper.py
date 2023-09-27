@@ -38,6 +38,9 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                           QualGpuClusterReshapeType.get_default()),
                       jvm_heap_size: int = 24,
                       verbose: bool = False,
+                      cpu_discount: int = None,
+                      gpu_discount: int = None,
+                      global_discount: int = None,
                       **rapids_options) -> None:
         """
         The Qualification tool analyzes Spark events generated from CPU based Spark applications to
@@ -65,6 +68,12 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 "JOB": recommend optimal GPU cluster by cost per job
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes
         :param verbose: True or False to enable verbosity to the wrapper script
+        :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
+                (e.g. 30 for 30% discount).
+        :param gpu_discount: A percent discount for the gpu cluster cost in the form of an integer value
+                (e.g. 30 for 30% discount).
+        :param global_discount: A percent discount for both the cpu and gpu cluster costs in the form of an
+                integer value (e.g. 30 for 30% discount).
         :param rapids_options: A list of valid Qualification tool options.
                 Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
                 multiple "spark-property" arguments.
@@ -103,7 +112,10 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             'filterApps': filter_apps,
             'toolsJar': tools_jar,
             'gpuClusterRecommendation': gpu_cluster_recommendation,
-            'targetPlatform': target_platform
+            'targetPlatform': target_platform,
+            'cpuDiscount': cpu_discount,
+            'gpuDiscount': gpu_discount,
+            'globalDiscount': global_discount
         }
         tool_obj = QualificationAsLocal(platform_type=CspEnv.ONPREM,
                                         output_folder=local_folder,
