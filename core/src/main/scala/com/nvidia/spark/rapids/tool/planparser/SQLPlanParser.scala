@@ -393,7 +393,7 @@ object SQLPlanParser extends Logging {
     // such that function name is succeeded by `(`. We use regex to extract all the function names
     // below:
     // paranRemoved = Array(cast(value#136 as string), CEIL(value#136))
-    val pattern: Regex = "([a-zA-Z_]+)\\(".r
+    val pattern: Regex = "([a-zA-Z0-9_]+)\\(".r
     val functionNamePattern: Regex = """(\w+)""".r
     val paranRemoved = pattern.findAllMatchIn(exprStr).toArray.map(_.group(1))
     paranRemoved.foreach { case expr =>
