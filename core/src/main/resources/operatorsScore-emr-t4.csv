@@ -130,6 +130,7 @@ IntegralDivide,2.07
 IsNaN,2.07
 IsNotNull,2.07
 IsNull,2.07
+JsonTuple,2.07
 KnownFloatingPointNormalized,2.07
 KnownNotNull,2.07
 Lag,2.07

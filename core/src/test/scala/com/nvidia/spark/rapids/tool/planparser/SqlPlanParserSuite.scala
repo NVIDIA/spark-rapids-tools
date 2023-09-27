@@ -781,7 +781,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("Expression not supported in Generate") {
+  test("json_tuple is supported in Generate") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
         "Expressions in Generate") { spark =>
@@ -791,7 +791,6 @@ class SQLPlanParserSuite extends BaseTestSuite {
             |"City":"ABCDE","State":"YZ"}""".stripMargin
         val data = Seq((1, jsonString))
         val df = data.toDF("id", "jsonValues")
-        //json_tuple which is called from GenerateExec is not supported in GPU yet.
         df.select(col("id"), json_tuple(col("jsonValues"), "Zipcode", "ZipCodeType", "City"))
       }
       val pluginTypeChecker = new PluginTypeChecker()
@@ -802,7 +801,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
       }
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val generateExprs = execInfo.filter(_.exec == "Generate")
-      assertSizeAndNotSupported(1, generateExprs)
+      assertSizeAndSupported(1, generateExprs)
     }
   }
 
