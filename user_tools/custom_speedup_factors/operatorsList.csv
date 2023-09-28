@@ -87,6 +87,7 @@ DayOfWeek
 DayOfYear
 DenseRank
 Divide
+DynamicPruningExpression
 ElementAt
 EndsWith
 EqualNullSafe
@@ -123,6 +124,7 @@ IntegralDivide
 IsNaN
 IsNotNull
 IsNull
+JsonToStructs
 JsonTuple
 KnownFloatingPointNormalized
 KnownNotNull
