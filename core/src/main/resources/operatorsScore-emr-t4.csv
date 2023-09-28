@@ -251,6 +251,7 @@ VarianceSamp,2.07
 WeekDay,2.07
 WindowExpression,2.07
 WindowSpecDefinition,2.07
+XxHash64,2.07
 Year,2.07
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2

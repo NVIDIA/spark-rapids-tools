@@ -256,6 +256,7 @@ VarianceSamp,4
 WeekDay,4
 WindowExpression,4
 WindowSpecDefinition,4
+XxHash64,4
 Year,4
 KMeans-pyspark,8.86
 KMeans-scala,1
