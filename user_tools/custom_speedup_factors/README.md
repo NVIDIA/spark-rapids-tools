@@ -14,8 +14,9 @@ Speedup factor estimation for the qualification tool is used for determining the
 The high-level process to generate speedup factors for an environment is as follows:
 
 1. Event log generation
-   1. Run the NDS SF3K benchmark on CPU cluster along with any other representative jobs and save event log(s).  Follow steps documented in the [NDS README](https://github.com/NVIDIA/spark-rapids-benchmarks/blob/dev/nds/README.md) for running the Power Run.
-   2. Run the NDS SF3K benchmark on GPU cluster along with any other representative jobs and save event log(s).  Follow steps documented in the [NDS README](https://github.com/NVIDIA/spark-rapids-benchmarks/blob/dev/nds/README.md) for running the Power Run.
+   1. Run the NDS benchmark on CPU cluster along with any other representative jobs and save event log(s).  Follow steps documented in the [NDS README](https://github.com/NVIDIA/spark-rapids-benchmarks/blob/dev/nds/README.md) for running the Power Run.
+   2. Run the NDS benchmark on GPU cluster along with any other representative jobs and save event log(s).  Follow steps documented in the [NDS README](https://github.com/NVIDIA/spark-rapids-benchmarks/blob/dev/nds/README.md) for running the Power Run.
+   3. Note that the benchmark data size (referred to as scale factor) should match the representative data size for your workloads.  If your workloads are 1TB in size, then you should use SF1000.  If your workloads are 500GB in size, then you should use SF500.
 2. Job profiler analysis
    1. Run the Spark RAPIDS profiling tool against the CPU and GPU event log to get stage-level duration metrics.
 ```
