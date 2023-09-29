@@ -99,7 +99,9 @@ class DataprocPlatform(PlatformBase):
 
     def create_saving_estimator(self,
                                 source_cluster: ClusterGetAccessor,
-                                reshaped_cluster: ClusterGetAccessor):
+                                reshaped_cluster: ClusterGetAccessor,
+                                target_cost: float = None,
+                                source_cost: float = None):
         raw_pricing_config = self.configs.get_value_silent('pricing')
         if raw_pricing_config:
             pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config,
@@ -110,7 +112,9 @@ class DataprocPlatform(PlatformBase):
                                                  pricing_configs={'gcloud': pricing_config})
         saving_estimator = DataprocSavingsEstimator(price_provider=pricing_provider,
                                                     reshaped_cluster=reshaped_cluster,
-                                                    source_cluster=source_cluster)
+                                                    source_cluster=source_cluster,
+                                                    target_cost=target_cost,
+                                                    source_cost=source_cost)
         return saving_estimator
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
@@ -532,8 +536,3 @@ class DataprocSavingsEstimator(SavingsEstimator):
         workers_cost = self.__calculate_group_cost(cluster, SparkNodeType.WORKER)
         dataproc_cost = self.price_provider.get_container_cost()
         return master_cost + workers_cost + dataproc_cost
-
-    def _setup_costs(self):
-        # calculate target_cost
-        self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
-        self.source_cost = self._get_cost_per_cluster(self.source_cluster)

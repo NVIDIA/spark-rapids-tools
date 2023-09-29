@@ -41,6 +41,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       target_platform: str = None,
                       output_folder: str = None,
                       filter_apps: str = None,
+                      cpu_cluster_price: float = None,
+                      estimated_gpu_cluster_price: float = None,
                       cpu_discount: int = None,
                       gpu_discount: int = None,
                       global_discount: int = None,
@@ -80,6 +82,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
                 lists all the apps that have positive estimated GPU savings except for the apps that
                 are "Not Applicable"
+        :param cpu_cluster_price: the CPU cluster hourly price provided by the user.
+        :param estimated_gpu_cluster_price: the GPU cluster hourly price provided by the user.
         :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
                 (e.g. 30 for 30% discount).
         :param gpu_discount: A percent discount for the gpu cluster cost in the form of an integer value
@@ -105,6 +109,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          target_platform=target_platform,
                                                          output_folder=output_folder,
                                                          filter_apps=filter_apps,
+                                                         cpu_cluster_price=cpu_cluster_price,
+                                                         estimated_gpu_cluster_price=estimated_gpu_cluster_price,
                                                          cpu_discount=cpu_discount,
                                                          gpu_discount=gpu_discount,
                                                          global_discount=global_discount,

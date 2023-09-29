@@ -307,6 +307,8 @@ class QualifyUserArgModel(ToolUserArgModel):
     target_platform: Optional[CspEnv] = None
     filter_apps: Optional[QualFilterApp] = None
     gpu_cluster_recommendation: Optional[QualGpuClusterReshapeType] = None
+    cpu_cluster_price: Optional[float] = None
+    estimated_gpu_cluster_price: Optional[float] = None
     cpu_discount: Optional[int] = None
     gpu_discount: Optional[int] = None
     global_discount: Optional[int] = None
@@ -316,6 +318,8 @@ class QualifyUserArgModel(ToolUserArgModel):
         self.p_args['toolArgs']['savingsCalculations'] = True
         self.p_args['toolArgs']['filterApps'] = self.filter_apps
         self.p_args['toolArgs']['targetPlatform'] = self.target_platform
+        self.p_args['toolArgs']['cpuClusterPrice'] = self.cpu_cluster_price
+        self.p_args['toolArgs']['estimatedGpuClusterPrice'] = self.estimated_gpu_cluster_price
         self.p_args['toolArgs']['cpuDiscount'] = self.cpu_discount
         self.p_args['toolArgs']['gpuDiscount'] = self.gpu_discount
         self.p_args['toolArgs']['globalDiscount'] = self.global_discount
@@ -412,6 +416,8 @@ class QualifyUserArgModel(ToolUserArgModel):
             'gpuClusterRecommendation': self.p_args['toolArgs']['gpuClusterRecommendation'],
             # used to initialize the pricing information
             'targetPlatform': self.p_args['toolArgs']['targetPlatform'],
+            'cpuClusterPrice': self.p_args['toolArgs']['cpuClusterPrice'],
+            'estimatedGpuClusterPrice': self.p_args['toolArgs']['estimatedGpuClusterPrice'],
             'cpuDiscount': self.p_args['toolArgs']['cpuDiscount'],
             'gpuDiscount': self.p_args['toolArgs']['gpuDiscount'],
             'globalDiscount': self.p_args['toolArgs']['globalDiscount']
