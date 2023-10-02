@@ -94,6 +94,7 @@ DayOfWeek,2.07
 DayOfYear,2.07
 DenseRank,2.07
 Divide,2.07
+DynamicPruningExpression,2.07
 ElementAt,2.07
 EndsWith,2.07
 EqualNullSafe,2.07
@@ -130,6 +131,7 @@ IntegralDivide,2.07
 IsNaN,2.07
 IsNotNull,2.07
 IsNull,2.07
+JsonToStructs,2.07
 JsonTuple,2.07
 KnownFloatingPointNormalized,2.07
 KnownNotNull,2.07
