@@ -87,6 +87,7 @@ DayOfWeek
 DayOfYear
 DenseRank
 Divide
+DynamicPruningExpression
 ElementAt
 EndsWith
 EqualNullSafe
@@ -95,6 +96,7 @@ Exp
 Explode
 Expm1
 First
+Flatten
 Floor
 FromUTCTimestamp
 FromUnixTime
@@ -122,6 +124,8 @@ IntegralDivide
 IsNaN
 IsNotNull
 IsNull
+JsonToStructs
+JsonTuple
 KnownFloatingPointNormalized
 KnownNotNull
 Lag
@@ -242,4 +246,5 @@ VarianceSamp
 WeekDay
 WindowExpression
 WindowSpecDefinition
+XxHash64
 Year

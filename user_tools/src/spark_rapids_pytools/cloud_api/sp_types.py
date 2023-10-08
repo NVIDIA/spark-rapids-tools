@@ -806,7 +806,9 @@ class PlatformBase:
 
     def create_saving_estimator(self,
                                 source_cluster: ClusterGetAccessor,
-                                reshaped_cluster: ClusterGetAccessor):
+                                reshaped_cluster: ClusterGetAccessor,
+                                target_cost: float = None,
+                                source_cost: float = None):
         raise NotImplementedError
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:

@@ -94,6 +94,7 @@ DayOfWeek,2.07
 DayOfYear,2.07
 DenseRank,2.07
 Divide,2.07
+DynamicPruningExpression,2.07
 ElementAt,2.07
 EndsWith,2.07
 EqualNullSafe,2.07
@@ -102,6 +103,7 @@ Exp,2.07
 Explode,2.07
 Expm1,2.07
 First,2.07
+Flatten,2.07
 Floor,2.07
 FromUTCTimestamp,2.07
 FromUnixTime,2.07
@@ -129,6 +131,8 @@ IntegralDivide,2.07
 IsNaN,2.07
 IsNotNull,2.07
 IsNull,2.07
+JsonToStructs,2.07
+JsonTuple,2.07
 KnownFloatingPointNormalized,2.07
 KnownNotNull,2.07
 Lag,2.07
@@ -249,6 +253,7 @@ VarianceSamp,2.07
 WeekDay,2.07
 WindowExpression,2.07
 WindowSpecDefinition,2.07
+XxHash64,2.07
 Year,2.07
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2

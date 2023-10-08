@@ -69,7 +69,9 @@ class DBAzurePlatform(PlatformBase):
 
     def create_saving_estimator(self,
                                 source_cluster: ClusterGetAccessor,
-                                reshaped_cluster: ClusterGetAccessor):
+                                reshaped_cluster: ClusterGetAccessor,
+                                target_cost: float = None,
+                                source_cost: float = None):
         raw_pricing_config = self.configs.get_value_silent('pricing')
         if raw_pricing_config:
             pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
@@ -79,7 +81,9 @@ class DBAzurePlatform(PlatformBase):
                                                                pricing_configs={'databricks-azure': pricing_config})
         saving_estimator = DBAzureSavingsEstimator(price_provider=db_azure_price_provider,
                                                    reshaped_cluster=reshaped_cluster,
-                                                   source_cluster=source_cluster)
+                                                   source_cluster=source_cluster,
+                                                   target_cost=target_cost,
+                                                   source_cost=source_cost)
         return saving_estimator
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
@@ -381,8 +385,3 @@ class DBAzureSavingsEstimator(SavingsEstimator):
             cost = self.price_provider.get_instance_price(instance=instance_type)
             db_azure_cost += cost * nodes_cnt
         return db_azure_cost
-
-    def _setup_costs(self):
-        # calculate target_cost
-        self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
-        self.source_cost = self._get_cost_per_cluster(self.source_cluster)
