@@ -28,7 +28,6 @@ from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, SysCmd, Utils, TemplateGenerator
 
-
 class DeployMode(EnumeratedType):
     """List of tools deployment methods"""
     # The rapids job is running on local node
@@ -512,6 +511,9 @@ class CMDDriverBase:
     def _build_platform_list_cluster(self,
                                      cluster,
                                      query_args: dict = None) -> list:
+        raise NotImplementedError
+
+    def pull_node_pool_props_by_args(self, args: dict) -> str:
         raise NotImplementedError
 
     def exec_platform_list_cluster_instances(self,
@@ -1178,6 +1180,7 @@ def get_platform(platform_id: Enum) -> Type[PlatformBase]:
         CspEnv.DATABRICKS_AWS: ('spark_rapids_pytools.cloud_api.databricks_aws', 'DBAWSPlatform'),
         CspEnv.DATABRICKS_AZURE: ('spark_rapids_pytools.cloud_api.databricks_azure', 'DBAzurePlatform'),
         CspEnv.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
+        CspEnv.DATAPROC_GKE: ('spark_rapids_pytools.cloud_api.dataproc_gke', 'DataprocGkePlatform'),
         CspEnv.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
         CspEnv.ONPREM: ('spark_rapids_pytools.cloud_api.onprem', 'OnPremPlatform'),
     }

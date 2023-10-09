@@ -12,20 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the library that represents CSP interface and functionalities"""
+"""Implementation of Job submissions on GCloud Dataproc GKE"""
 
-from .cluster import ClientCluster
-from .onprem.onpremcluster import OnPremClientCluster
-from .emr.emrcluster import EmrClientCluster
-from .dataproc.dataproccluster import DataprocClientCluster, DataprocGkeClientCluster
-from .databricks.dbcluster import DBAwsClientCluster, DBAzureClientCluster
+from dataclasses import dataclass
 
-__all__ = [
-    'ClientCluster',
-    'DBAwsClientCluster',
-    'DBAzureClientCluster',
-    'DataprocClientCluster',
-    'DataprocGkeClientCluster',
-    'EmrClientCluster',
-    'OnPremClientCluster'
-]
+from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob
+
+
+@dataclass
+class DataprocGkeLocalRapidsJob(RapidsLocalJob):
+    """
+    Implementation of a RAPIDS job that runs on a local machine.
+    """
+    job_label = 'dataprocLocal'

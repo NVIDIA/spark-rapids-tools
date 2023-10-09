@@ -70,6 +70,7 @@ class CspEnv(EnumeratedType):
     DATABRICKS_AWS = 'databricks_aws'
     DATABRICKS_AZURE = 'databricks_azure'
     DATAPROC = 'dataproc'
+    DATAPROC_GKE = 'dataproc_gke'
     EMR = 'emr'
     ONPREM = 'onprem'
     NONE = 'NONE'
