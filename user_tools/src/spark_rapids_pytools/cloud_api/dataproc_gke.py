@@ -22,36 +22,11 @@ from spark_rapids_pytools.cloud_api.dataproc import DataprocCluster, DataprocCMD
     DataprocPlatform, DataprocSavingsEstimator
 from spark_rapids_pytools.cloud_api.dataproc_gke_job import DataprocGkeLocalRapidsJob
 from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase, \
-    ClusterNode, SparkNodeType, ClusterState, ClusterGetAccessor
+    SparkNodeType, ClusterGetAccessor
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.pricing.dataproc_gke_pricing import DataprocGkePriceProvider
 from spark_rapids_tools import CspEnv
-
-
-@dataclass
-class GkeNodePool:
-    role: str
-    pool_name: str
-
-    @staticmethod
-    def __extract_info_from_value(conf_val: str):
-        if '/' in conf_val:
-            # This is a valid url-path
-            return FSUtil.get_resource_name(conf_val)
-        # This is a value
-        return conf_val
-
-    @classmethod
-    def from_dict(cls, node_pool_info: dict):
-        pool_name = cls.__extract_info_from_value(node_pool_info['nodePool'])
-        return cls(role=node_pool_info['roles'], pool_name=pool_name)
-
-
-@dataclass
-class GkeCluster:
-    cluster_name: str
-    node_pools: list[GkeNodePool]
 
 
 @dataclass
@@ -187,17 +162,16 @@ class DataprocGkeCluster(DataprocCluster):
         def create_cluster_node(node_pool):
             if node_pool.spark_node_type is None:
                 return None
-            else:
-                args = {'node_pool_name': node_pool.name, 'gke_cluster_name': node_pool.gke_cluster_name}
-                raw_node_props = self.cli.pull_node_pool_props_by_args(args)
-                node_props = JSONPropertiesContainer(prop_arg=raw_node_props, file_load=False)
-                node = DataprocNode.create_node(node_pool.spark_node_type).set_fields_from_dict({
-                    'name': node_props.get_value('name'),
-                    'props': JSONPropertiesContainer(prop_arg=node_props.get_value('config'), file_load=False),
-                    'zone': self.zone
-                })
-                node.fetch_and_set_hw_info(self.cli)
-                return node
+            args = {'node_pool_name': node_pool.name, 'gke_cluster_name': node_pool.gke_cluster_name}
+            raw_node_props = self.cli.pull_node_pool_props_by_args(args)
+            node_props = JSONPropertiesContainer(prop_arg=raw_node_props, file_load=False)
+            node = DataprocNode.create_node(node_pool.spark_node_type).set_fields_from_dict({
+                'name': node_props.get_value('name'),
+                'props': JSONPropertiesContainer(prop_arg=node_props.get_value('config'), file_load=False),
+                'zone': self.zone
+            })
+            node.fetch_and_set_hw_info(self.cli)
+            return node
 
         executor_nodes = []
         driver_nodes = []

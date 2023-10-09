@@ -54,4 +54,3 @@ class DataprocGkeClusterPropMgr(ClusterPropMgr):
 @register_client_cluster('dataproc_gke')
 class DataprocGkeClientCluster(ClientCluster):   # pylint: disable=too-few-public-methods
     pass
-

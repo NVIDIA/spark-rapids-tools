@@ -155,7 +155,7 @@ class DataprocPlatform(PlatformBase):
 
 
 @dataclass
-class DataprocCMDDriver(CMDDriverBase):
+class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
     """Represents the command interface that will be used by Dataproc"""
 
     def _list_inconsistent_configurations(self) -> list:
