@@ -259,18 +259,26 @@ class QualificationAppInfo(
           // spilled to disk.
           // Duration in Spark metrics is in milliseconds and CPU-GPU transfer rate is in bytes/sec.
           // So we need to convert the transitions time to milliseconds.
-          val totalBytesRead =
+          val totalBytesRead = {
             stageIdToTaskEndSum.get(stageId).map(_.totalbytesRead).getOrElse(0L)
+          }
           if (totalBytesRead > 0) {
-            TimeUnit.SECONDS.toMillis(
-              totalBytesRead / QualificationAppInfo.CPU_GPU_TRANSFER_RATE) * gpuCpuTransitions
+            (TimeUnit.SECONDS.toMillis(totalBytesRead /
+              QualificationAppInfo.CPU_GPU_TRANSFER_RATE) * gpuCpuTransitions)
           } else {
             0L
           }
+
         case _ => 0L
       }
+      val finalEachStageUnsupported = if (transitionsTime != 0) {
+        (allStageTaskTime * numUnsupported.size / allFlattenedExecs.size.toDouble).toLong
+      } else {
+        eachStageUnsupported
+      }
+
       StageQualSummaryInfo(stageId, allSpeedupFactorAvg, stageTaskTime,
-        eachStageUnsupported + transitionsTime, numTransitions, transitionsTime, estimated)
+        finalEachStageUnsupported, numTransitions, transitionsTime, estimated)
     }.toSet
   }
 
@@ -365,7 +373,7 @@ class QualificationAppInfo(
         val numUnsupportedExecs = execInfos.filterNot(_.isSupported).size
         // This is a guestimate at how much wall clock was supported
         val numExecs = execInfos.size.toDouble
-        val numSupportedExecs = (numExecs - numUnsupportedExecs).toDouble
+        val numSupportedExecs = (numExecs - numUnsupportedExecs)
         val ratio = numSupportedExecs / numExecs
         val estimateWallclockSupported = (sqlWallClockDuration * ratio).toInt
         // don't worry about supported execs for these are these are mostly indicator of I/O
@@ -816,11 +824,11 @@ object QualificationAppInfo extends Logging {
   val LOWER_BOUND_STRONGLY_RECOMMENDED = 2.5
   // Below is the total time taken whenever there are ColumnarToRow or RowToColumnar transitions
   // This includes the time taken to convert the data from one format to another and the time taken
-  // to transfer the data from CPU to GPU and vice versa. Current transfer rate is 10MB/s and is
-  // based on the testing on few eventlogs.
+  // to transfer the data from CPU to GPU and vice versa. Current transfer rate is 1GB/s and is
+  // based on the testing on few candidate eventlogs.
   // TODO: Need to test this on more eventlogs including NDS queries
   //  and come up with a better transfer rate.
-  val CPU_GPU_TRANSFER_RATE = 10000000L
+  val CPU_GPU_TRANSFER_RATE = 1000000000L
 
   private def handleException(e: Exception, path: EventLogInfo): String = {
     val message: String = e match {
