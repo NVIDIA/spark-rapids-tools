@@ -58,6 +58,10 @@ disable=
         too-many-arguments,
         # R0914: Too many local variables
         too-many-locals,
+        # R0801: Similar lines in 2 files
+        duplicate-code,
+        # R0401: Cylic import
+        cyclic-import,
         #       R0912: Too many branches
         too-many-branches,
         useless-object-inheritance,
