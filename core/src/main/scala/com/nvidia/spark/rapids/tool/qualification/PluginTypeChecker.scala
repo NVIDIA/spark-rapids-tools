@@ -48,8 +48,7 @@ class PluginTypeChecker(platform: String = "onprem",
   private val OPERATORS_SCORE_FILE_DATAPROC_T4 = "operatorsScore-dataproc-t4.csv"
   private val OPERATORS_SCORE_FILE_DATAPROC_L4 = "operatorsScore-dataproc-l4.csv"
   private val OPERATORS_SCORE_FILE_DATAPROC_SL_L4 = "operatorsScore-dataproc-serverless-l4.csv"
-  // TODO: Replace this with GKE T4 speedup scores
-  private val OPERATORS_SCORE_FILE_DATAPROC_GKE_T4 = "operatorsScore.csv"
+  private val OPERATORS_SCORE_FILE_DATAPROC_GKE_T4 = "operatorsScore-dataproc-gke-t4.csv"
   private val OPERATORS_SCORE_FILE_EMR_T4 = "operatorsScore-emr-t4.csv"
   private val OPERATORS_SCORE_FILE_EMR_A10 = "operatorsScore-emr-a10.csv"
   private val OPERATORS_SCORE_FILE_DATABRICKS_AWS = "operatorsScore-databricks-aws.csv"
