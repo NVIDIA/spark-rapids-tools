@@ -197,8 +197,8 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
 
   test("supported operator score from dataproc-gke-t4") {
     val checker = new PluginTypeChecker("dataproc-gke-t4")
-    assert(checker.getSpeedupFactor("WindowExec") == 4.25)
-    assert(checker.getSpeedupFactor("Ceil") == 4.25)
+    assert(checker.getSpeedupFactor("WindowExec") == 3.65)
+    assert(checker.getSpeedupFactor("Ceil") == 3.65)
   }
 
   test("supported operator score from emr-a10") {
