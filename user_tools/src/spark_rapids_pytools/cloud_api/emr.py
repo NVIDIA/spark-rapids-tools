@@ -141,7 +141,7 @@ class EMRCMDDriver(CMDDriverBase):
     def pull_cluster_props_by_args(self, args: dict) -> str:
         aws_cluster_id = args.get('Id')
         cluster_name = args.get('cluster')
-        if args.get('Id') is None:
+        if aws_cluster_id is None:
             # use cluster name to get the cluster values
             # we need to get the cluster_id from the list command first.
             list_cmd_res = self.exec_platform_list_cluster_by_name(cluster_name)
