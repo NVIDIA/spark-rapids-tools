@@ -391,7 +391,7 @@ object QualOutputWriter {
   val ESTIMATED_GPU_SPEEDUP = "Estimated GPU Speedup"
   val ESTIMATED_GPU_TIMESAVED = "Estimated GPU Time Saved"
   val STAGE_ESTIMATED_STR = "Stage Estimated"
-  val NUM_TRANSITIONS = "Number of CPU-GPU Transitions"
+  val NUM_TRANSITIONS = "Number of transitions from or to GPU"
   val UNSUPPORTED_EXECS = "Unsupported Execs"
   val UNSUPPORTED_EXPRS = "Unsupported Expressions"
   val CLUSTER_TAGS = "Cluster Tags"
