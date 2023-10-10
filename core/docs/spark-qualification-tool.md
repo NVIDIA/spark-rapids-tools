@@ -29,7 +29,7 @@ applicable environments.  Here are the cluster information for the ETL benchmark
 | Dataproc (T4)            | 4x n1-standard-32 | 4x n1-standard-32 + 8x T4 16GB |
 | Dataproc (L4)            | 8x n1-standard-16 | 8x g2-standard-16              |
 | Dataproc Serverless (L4) | 8x 16 cores       | 8x 16 cores + 8x L4 24GB       |
-| Dataproc GKE (T4)        | 4x n1-standard-32 | 4x n1-standard-32 + 8x T4 16GB |
+| Dataproc GKE (T4)        | 8x n1-standard-32 | 8x n1-standard-32 + 8x T4 16GB |
 | EMR (T4)                 | 8x m5d.8xlarge    | 4x g4dn.12xlarge               |
 | EMR (A10)                | 8x m5d.8xlarge    | 8x g5.8xlarge                  |
 | Databricks AWS           | 8x m6gd.8xlage    | 8x g5.8xlarge                  |
