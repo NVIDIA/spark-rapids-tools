@@ -135,7 +135,7 @@ class DataprocGkeCluster(DataprocCluster):
     """
     Represents an instance of running cluster on DataprocGke.
     """
-    node_pools: list[GkeNodePool] = field(default=None, init=False)
+    node_pools: list = field(default=None, init=False)
 
     @staticmethod
     def __extract_info_from_value(conf_val: str):

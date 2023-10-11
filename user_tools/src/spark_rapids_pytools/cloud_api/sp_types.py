@@ -28,6 +28,7 @@ from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, SysCmd, Utils, TemplateGenerator
 
+
 class DeployMode(EnumeratedType):
     """List of tools deployment methods"""
     # The rapids job is running on local node

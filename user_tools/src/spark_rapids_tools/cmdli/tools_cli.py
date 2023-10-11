@@ -64,8 +64,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 Skipping this argument requires that the cluster argument points to a valid
                 cluster name on the CSP.
         :param cluster: Name of cluster or path to cluster-properties.
-        :param platform: defines one of the following "onprem", "emr", "dataproc", "databricks-aws",
-                and "databricks-azure".
+        :param platform: defines one of the following "onprem", "emr", "dataproc", "dataproc-gke",
+               "databricks-aws", and "databricks-azure".
         :param target_platform: Cost savings and speedup recommendation for comparable cluster in
                 target_platform based on on-premises cluster configuration.
 
