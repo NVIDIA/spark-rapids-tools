@@ -136,7 +136,7 @@ class CliDataprocGKELocalMode:  # pylint: disable=too-few-public-methods
 
 class DataprocGKEWrapper:  # pylint: disable=too-few-public-methods
     """
-    A wrapper script to run RAPIDS Accelerator tools (Qualification, Profiling, and Bootstrap) on Gcloud Dataproc GKE.
+    A wrapper script to run RAPIDS Accelerator tool (Qualification) on Gcloud Dataproc GKE.
     """
     def __init__(self):
         self.qualification = CliDataprocGKELocalMode.qualification

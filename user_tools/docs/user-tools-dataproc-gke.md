@@ -46,8 +46,7 @@ RAPIDS variables have a naming pattern `RAPIDS_USER_TOOLS_*`:
     store and cache the downloaded resources. The default is `/var/tmp/spark_rapids_user_tools_cache`.  
     Note that caching the resources locally has an impact on the total execution time of the command.
   - `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY`: specifies the location of a local directory that the RAPIDS-cli uses to
-    generate the output. The wrapper CLI arguments override that environment variable
-    (`--output_folder` and `local_folder` for Bootstrap and Qualification respectively).
+    generate the output. The wrapper CLI arguments override that environment variable (`--local_folder` for Qualification).
   
 ## Qualification command
 
