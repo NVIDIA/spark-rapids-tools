@@ -40,7 +40,7 @@ class QualificationAppInfo(
     reportSqlLevel: Boolean,
     perSqlOnly: Boolean = false,
     mlOpsEnabled: Boolean = false,
-    ignoreTransitions: Boolean = false)
+    penalizeTransitions: Boolean = true)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
   var appId: String = ""
@@ -247,13 +247,13 @@ class QualificationAppInfo(
     stages.map { stageId =>
       val stageTaskTime = stageIdToTaskEndSum.get(stageId)
         .map(_.totalTaskDuration).getOrElse(0L)
-      val numTransitions = ignoreTransitions match {
-        case false => stageIdToGpuCpuTransitions.getOrElse(stageId, 0)
-        case true => 0
+      val numTransitions = penalizeTransitions match {
+        case true => stageIdToGpuCpuTransitions.getOrElse(stageId, 0)
+        case false => 0
       }
       val transitionsTime = numTransitions match {
         case 0 => 0L // no transitions
-        case gpuCpuTransitions if gpuCpuTransitions > 0 =>
+        case gpuCpuTransitions =>
           // Duration to transfer data from GPU to CPU and vice versa.
           // Assuming it's a PCI-E Gen3, but also assuming that some of the result could be
           // spilled to disk.
@@ -272,7 +272,8 @@ class QualificationAppInfo(
         case _ => 0L
       }
       val finalEachStageUnsupported = if (transitionsTime != 0) {
-        (allStageTaskTime * numUnsupported.size / allFlattenedExecs.size.toDouble).toLong
+        // Add 20% penalty for unsupported duration if there are transitions.
+        (eachStageUnsupported * 0.2 + eachStageUnsupported).toLong
       } else {
         eachStageUnsupported
       }
@@ -282,11 +283,7 @@ class QualificationAppInfo(
     }.toSet
   }
 
-  def summarizeStageLevel(execInfos: Seq[ExecInfo], sqlID: Long): Set[StageQualSummaryInfo] = {
-    val (allStagesToExecs, execsNoStage) = getStageToExec(execInfos)
-
-    // Get the total number of transitions between CPU and GPU for each stage and
-    // store it in a Map.
+  private def setNumberOfTransitions(allStagesToExecs: Map[Int, Seq[ExecInfo]]): Unit = {
     allStagesToExecs.foreach { case (stageId, execs) =>
       // Flatten all the Execs within a stage.
       // Example: Exchange;WholeStageCodegen (14);Exchange;WholeStageCodegen (13);Exchange
@@ -319,6 +316,15 @@ class QualificationAppInfo(
       }
       stageIdToGpuCpuTransitions(stageId) = transitions
     }
+  }
+
+  def summarizeStageLevel(execInfos: Seq[ExecInfo], sqlID: Long): Set[StageQualSummaryInfo] = {
+    val (allStagesToExecs, execsNoStage) = getStageToExec(execInfos)
+
+    // Get the total number of transitions between CPU and GPU for each stage and
+    // store it in a Map.
+    setNumberOfTransitions(allStagesToExecs)
+
     if (allStagesToExecs.isEmpty) {
       // use job level
       // also get the job ids associated with the SQLId
@@ -922,10 +928,10 @@ object QualificationAppInfo extends Logging {
       pluginTypeChecker: PluginTypeChecker,
       reportSqlLevel: Boolean,
       mlOpsEnabled: Boolean,
-      ignoreTransitions: Boolean): Either[String, QualificationAppInfo] = {
+      penalizeTransitions: Boolean): Either[String, QualificationAppInfo] = {
     try {
         val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
-          reportSqlLevel, false, mlOpsEnabled, ignoreTransitions)
+          reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
         logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
         Right(app)
       } catch {
