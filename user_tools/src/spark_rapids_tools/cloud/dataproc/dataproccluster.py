@@ -17,16 +17,27 @@ Define implementation for the dataproc cluster
 """
 
 from typing import ClassVar, Type
+from pydantic import field_validator
 
-from spark_rapids_tools.cloud.cluster import ClientCluster, register_client_cluster, ClusterPropMgr, register_cluster_prop_mgr
+from spark_rapids_tools.cloud.cluster import ClientCluster, register_client_cluster, ClusterPropMgr, \
+    register_cluster_prop_mgr
 from spark_rapids_tools.utils.propmanager import PropValidatorSchemaCamel, PropValidatorSchema
 
 
-class DataprocClusterSchema(PropValidatorSchemaCamel):
+class DataprocClusterSchema(PropValidatorSchemaCamel):  # pylint: disable=missing-class-docstring)
     cluster_name: str
     cluster_uuid: str
     project_id: str
     config: dict
+
+    @field_validator('config')
+    def validate_config(cls, config: dict) -> dict:
+        """
+        Validates the cluster config to ensure it is for GCE instead of GKE.
+        """
+        if 'gceClusterConfig' not in config:
+            raise ValueError("'gceClusterConfig' key is missing in config.")
+        return config
 
 
 class DataprocGkeClusterSchema(PropValidatorSchemaCamel):
@@ -34,6 +45,7 @@ class DataprocGkeClusterSchema(PropValidatorSchemaCamel):
     cluster_uuid: str
     project_id: str
     config: dict
+    virtual_cluster_config: dict
 
 
 @register_cluster_prop_mgr('dataproc')
@@ -42,7 +54,7 @@ class DataprocClusterPropMgr(ClusterPropMgr):
 
 
 @register_client_cluster('dataproc')
-class DataprocClientCluster(ClientCluster):   # pylint: disable=too-few-public-methods
+class DataprocClientCluster(ClientCluster):  # pylint: disable=too-few-public-methods
     pass
 
 
@@ -52,5 +64,5 @@ class DataprocGkeClusterPropMgr(ClusterPropMgr):
 
 
 @register_client_cluster('dataproc_gke')
-class DataprocGkeClientCluster(ClientCluster):   # pylint: disable=too-few-public-methods
+class DataprocGkeClientCluster(ClientCluster):  # pylint: disable=too-few-public-methods
     pass

@@ -33,6 +33,8 @@ dependencies = [
     "pygments==2.15.0",
     # used to apply validator on objects and models
     "pydantic==2.1.1",
+    # used to help pylint understand pydantic
+    "pylint-pydantic==0.3.0",
     # used for common API to access remote filesystems like local/s3/gcs/hdfs
     # this will include numpy
     "pyarrow==12.0.1",
