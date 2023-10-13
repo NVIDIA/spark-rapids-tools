@@ -263,8 +263,9 @@ class QualificationAppInfo(
             stageIdToTaskEndSum.get(stageId).map(_.totalbytesRead).getOrElse(0L)
           }
           if (totalBytesRead > 0) {
-            (TimeUnit.SECONDS.toMillis(totalBytesRead /
-              QualificationAppInfo.CPU_GPU_TRANSFER_RATE) * gpuCpuTransitions)
+            val transitionTime = (totalBytesRead /
+              QualificationAppInfo.CPU_GPU_TRANSFER_RATE.toDouble) * gpuCpuTransitions
+            (transitionTime * 1000).toLong // convert to milliseconds
           } else {
             0L
           }
