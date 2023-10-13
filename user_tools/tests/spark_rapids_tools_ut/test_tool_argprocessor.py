@@ -157,6 +157,18 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
         assert tool_args['runtimePlatform'] == CspEnv(csp)
         self.validate_args_w_savings_enabled(tool_name, tool_args)
 
+    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
+    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED])
+    def test_cluster_props_no_eventlogs_on_prem(self, capsys, tool_name):
+        # Missing eventlogs is not accepted for onPrem
+        with pytest.raises(SystemExit) as pytest_wrapped_e:
+            AbsToolUserArgModel.create_tool_args(tool_name,
+                                                 platform='onprem')
+        assert pytest_wrapped_e.type == SystemExit
+        captured = capsys.readouterr()
+        # Verify there is no URL in error message
+        assert 'https://' not in captured.err
+
     @pytest.mark.skip(reason='Unit tests are not completed yet')
     def test_arg_cases_coverage(self):
         args_keys = [
