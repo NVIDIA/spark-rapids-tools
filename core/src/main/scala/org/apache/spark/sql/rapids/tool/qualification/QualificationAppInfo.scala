@@ -284,7 +284,7 @@ class QualificationAppInfo(
     }.toSet
   }
 
-  private def setNumberOfTransitions(allStagesToExecs: Map[Int, Seq[ExecInfo]]): Unit = {
+  private def calculateNumberOfTransitions(allStagesToExecs: Map[Int, Seq[ExecInfo]]): Unit = {
     allStagesToExecs.foreach { case (stageId, execs) =>
       // Flatten all the Execs within a stage.
       // Example: Exchange;WholeStageCodegen (14);Exchange;WholeStageCodegen (13);Exchange
@@ -324,7 +324,7 @@ class QualificationAppInfo(
 
     // Get the total number of transitions between CPU and GPU for each stage and
     // store it in a Map.
-    setNumberOfTransitions(allStagesToExecs)
+    calculateNumberOfTransitions(allStagesToExecs)
 
     if (allStagesToExecs.isEmpty) {
       // use job level
@@ -506,7 +506,7 @@ class QualificationAppInfo(
       val allStagesSummary = perSqlStageSummary.flatMap(_.stageSum)
         .map(sum => sum.stageId -> sum).toMap.values.toSeq
       val sqlDataframeTaskDuration = allStagesSummary.map(s => s.stageTaskTime).sum
-      val totalTransitionsTime = allStagesSummary.map(s=> s.transitionTime).sum
+      val totalTransitionsTime = allStagesSummary.map(s => s.transitionTime).sum
       val unsupportedSQLTaskDuration = calculateSQLUnsupportedTaskDuration(allStagesSummary)
       val endDurationEstimated = this.appEndTime.isEmpty && appDuration > 0
       val jobOverheadTime = calculateJobOverHeadTime(info.startTime)
@@ -567,6 +567,8 @@ class QualificationAppInfo(
       }
 
       // get the ratio based on the Task durations that we will use for wall clock durations
+      // totalTransitionTime is the overhead time for ColumnarToRow/RowToColumnar transitions
+      // which impacts the GPU ratio.
       val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
         supportedSQLTaskDuration.toDouble / (
           sqlDataframeTaskDuration.toDouble + totalTransitionsTime.toDouble)
@@ -833,8 +835,6 @@ object QualificationAppInfo extends Logging {
   // This includes the time taken to convert the data from one format to another and the time taken
   // to transfer the data from CPU to GPU and vice versa. Current transfer rate is 1GB/s and is
   // based on the testing on few candidate eventlogs.
-  // TODO: Need to test this on more eventlogs including NDS queries
-  //  and come up with a better transfer rate.
   val CPU_GPU_TRANSFER_RATE = 1000000000L
 
   private def handleException(e: Exception, path: EventLogInfo): String = {
