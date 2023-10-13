@@ -115,16 +115,24 @@ class DBAWSCMDDriver(CMDDriverBase):
     def pull_cluster_props_by_args(self, args: dict) -> str:
         get_cluster_cmd = ['databricks', 'clusters', 'get']
         if 'Id' in args:
-            get_cluster_cmd.extend(['--cluster-id', args.get('Id')])
+            get_cluster_cmd.extend([args.get('Id')])
         elif 'cluster' in args:
-            get_cluster_cmd.extend(['--cluster-name', args.get('cluster')])
+            # TODO: currently, arguments '--cpu_cluster' or '--gpu_cluster' are processed and stored as
+            # 'cluster' (as cluster names), while they are actually cluster ids for databricks platforms
+            get_cluster_cmd.extend([args.get('cluster')])
         else:
-            self.logger.error('Invalid arguments to pull the cluster properties')
-        cluster_described = self.run_sys_cmd(get_cluster_cmd)
-        if cluster_described is not None:
-            raw_prop_container = JSONPropertiesContainer(prop_arg=cluster_described, file_load=False)
-            return json.dumps(raw_prop_container.props)
-        return cluster_described
+            self.logger.error('Unable to pull cluster id or cluster name information')
+
+        try:
+            cluster_described = self.run_sys_cmd(get_cluster_cmd)
+            if cluster_described is not None:
+                raw_prop_container = JSONPropertiesContainer(prop_arg=cluster_described, file_load=False)
+                return json.dumps(raw_prop_container.props)
+        except Exception as ex:
+            self.logger.error('Invalid arguments to pull the cluster properties: %s', ex)
+            raise ex
+
+        return None
 
     def _build_cmd_ssh_prefix_for_node(self, node: ClusterNode) -> str:
         port = self.env_vars.get('sshPort')
