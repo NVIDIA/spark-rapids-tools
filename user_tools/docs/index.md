@@ -95,6 +95,9 @@ The following table summarizes the commands supported for each cloud platform:
 |                  | diagnostic    | spark_rapids_user_tools \               |  23.06+  |
 |                  |               |   dataproc diagnostic [ARGS]            |          |
 +------------------+---------------+-----------------------------------------+----------+
+| Dataproc_GKE     | qualification | spark_rapids_user_tools \               | 23.08.2+ |
+|                  |               |   dataproc-gke qualification [ARGS]     |          |
++------------------+---------------+-----------------------------------------+----------+
 | Databricks_AWS   | qualification | spark_rapids_user_tools \               |  23.04+  |
 |                  |               |   databricks-aws qualification [ARGS]   |          |
 |                  +---------------+-----------------------------------------+----------+
@@ -131,6 +134,7 @@ platform:
 
 - [AWS EMR](user-tools-aws-emr.md)
 - [Google Cloud Dataproc](user-tools-dataproc.md)
+- [Google Cloud Dataproc GKE](user-tools-dataproc-gke.md)
 - [Databricks_AWS](user-tools-databricks-aws.md)
 - [Databricks_Azure](user-tools-databricks-azure.md)
 - [OnPrem](user-tools-onprem.md)

@@ -514,6 +514,9 @@ class CMDDriverBase:
                                      query_args: dict = None) -> list:
         raise NotImplementedError
 
+    def pull_node_pool_props_by_args(self, args: dict) -> str:
+        raise NotImplementedError
+
     def exec_platform_list_cluster_instances(self,
                                              cluster,
                                              query_args: dict = None) -> str:
@@ -1178,6 +1181,7 @@ def get_platform(platform_id: Enum) -> Type[PlatformBase]:
         CspEnv.DATABRICKS_AWS: ('spark_rapids_pytools.cloud_api.databricks_aws', 'DBAWSPlatform'),
         CspEnv.DATABRICKS_AZURE: ('spark_rapids_pytools.cloud_api.databricks_azure', 'DBAzurePlatform'),
         CspEnv.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
+        CspEnv.DATAPROC_GKE: ('spark_rapids_pytools.cloud_api.dataproc_gke', 'DataprocGkePlatform'),
         CspEnv.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
         CspEnv.ONPREM: ('spark_rapids_pytools.cloud_api.onprem', 'OnPremPlatform'),
     }
