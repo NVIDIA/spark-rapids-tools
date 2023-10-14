@@ -34,7 +34,8 @@ mock_live_cluster = {
                 "workerConfig": {
                     "accelerators": [{
                         "acceleratorTypeUri": "https://www.googleapis.com/compute/beta/projects/project-id/zones/"\
-                                              "us-central1-a/acceleratorTypes/nvidia-tesla-t4"
+                                              "us-central1-a/acceleratorTypes/nvidia-tesla-t4",
+                        "acceleratorCount": 1,
                     }],
                     "instanceNames": [
                         "test-worker-0",

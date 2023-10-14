@@ -155,7 +155,7 @@ class DataprocPlatform(PlatformBase):
 
 
 @dataclass
-class DataprocCMDDriver(CMDDriverBase):
+class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
     """Represents the command interface that will be used by Dataproc"""
 
     def _list_inconsistent_configurations(self) -> list:
@@ -326,8 +326,8 @@ class DataprocNode(ClusterNode):
         for defined_acc in accelerator_arr:
             # TODO: if the accelerator_arr has other non-gpu ones, then we need to loop until we
             #       find the gpu accelerators
-            gpu_configs = {'num_gpus': defined_acc.get('acceleratorCount')}
-            accelerator_type = defined_acc.get('acceleratorTypeUri')
+            gpu_configs = {'num_gpus': int(defined_acc.get('acceleratorCount'))}
+            accelerator_type = defined_acc.get('acceleratorTypeUri') or defined_acc.get('acceleratorType')
             gpu_device_type = self.__extract_info_from_value(accelerator_type)
             gpu_description = cli.exec_platform_describe_accelerator(accelerator_type=gpu_device_type,
                                                                      cmd_args=None)
@@ -350,7 +350,7 @@ class DataprocNode(ClusterNode):
         # set the machine type
         if not self.props:
             return
-        mc_type_uri = self.props.get_value('machineTypeUri')
+        mc_type_uri = self.props.get_value_silent('machineTypeUri')
         if mc_type_uri:
             self.instance_type = self.__extract_info_from_value(mc_type_uri)
         else:
@@ -514,7 +514,7 @@ class DataprocSavingsEstimator(SavingsEstimator):
     """
     A class that calculates the savings based on Dataproc price provider
     """
-    def __calculate_group_cost(self, cluster_inst: ClusterGetAccessor, node_type: SparkNodeType):
+    def _calculate_group_cost(self, cluster_inst: ClusterGetAccessor, node_type: SparkNodeType):
         nodes_cnt = cluster_inst.get_nodes_cnt(node_type)
         cores_count = cluster_inst.get_node_core_count(node_type)
         mem_mb = cluster_inst.get_node_mem_mb(node_type)
@@ -532,7 +532,7 @@ class DataprocSavingsEstimator(SavingsEstimator):
         return nodes_cnt * (cores_cost + memory_cost + gpu_cost)
 
     def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
-        master_cost = self.__calculate_group_cost(cluster, SparkNodeType.MASTER)
-        workers_cost = self.__calculate_group_cost(cluster, SparkNodeType.WORKER)
+        master_cost = self._calculate_group_cost(cluster, SparkNodeType.MASTER)
+        workers_cost = self._calculate_group_cost(cluster, SparkNodeType.WORKER)
         dataproc_cost = self.price_provider.get_container_cost()
         return master_cost + workers_cost + dataproc_cost
