@@ -273,8 +273,10 @@ class QualificationAppInfo(
         case _ => 0L
       }
       val finalEachStageUnsupported = if (transitionsTime != 0) {
-        // Add 20% penalty for unsupported duration if there are transitions.
-        (eachStageUnsupported * 0.2 + eachStageUnsupported).toLong
+        // Add 50% penalty for unsupported duration if there are transitions. This number
+        // was randomly picked because it matched roughly what we saw on the experiments
+        // with customer/nds event logs
+        (eachStageUnsupported * 0.5 + eachStageUnsupported).toLong
       } else {
         eachStageUnsupported
       }
