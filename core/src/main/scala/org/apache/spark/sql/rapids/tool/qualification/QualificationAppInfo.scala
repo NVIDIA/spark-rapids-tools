@@ -16,6 +16,8 @@
 
 package org.apache.spark.sql.rapids.tool.qualification
 
+import java.util.concurrent.TimeUnit
+
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
@@ -37,7 +39,8 @@ class QualificationAppInfo(
     pluginTypeChecker: PluginTypeChecker,
     reportSqlLevel: Boolean,
     perSqlOnly: Boolean = false,
-    mlOpsEnabled: Boolean = false)
+    mlOpsEnabled: Boolean = false,
+    penalizeTransitions: Boolean = true)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
   var appId: String = ""
@@ -51,6 +54,7 @@ class QualificationAppInfo(
     HashMap.empty[Long, StageTaskQualificationSummary]
   val stageIdToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
     HashMap.empty[Long, StageTaskQualificationSummary]
+  val stageIdToGpuCpuTransitions: HashMap[Int, Int] = HashMap.empty[Int, Int]
 
   val stageIdToSqlID: HashMap[Int, Long] = HashMap.empty[Int, Long]
   val sqlIDtoFailures: HashMap[Long, ArrayBuffer[String]] = HashMap.empty[Long, ArrayBuffer[String]]
@@ -147,8 +151,10 @@ class QualificationAppInfo(
 
   // Look at the total task times for all jobs/stages that aren't SQL or
   // SQL but dataset or rdd
-  private def calculateNonSQLTaskDataframeDuration(taskDFDuration: Long): Long = {
-    val allTaskTime = stageIdToTaskEndSum.values.map(_.totalTaskDuration).sum
+  private def calculateNonSQLTaskDataframeDuration(
+      taskDFDuration: Long,
+      totalTransitionTime: Long): Long = {
+    val allTaskTime = stageIdToTaskEndSum.values.map(_.totalTaskDuration).sum + totalTransitionTime
     val res = allTaskTime - taskDFDuration
     assert(res >= 0)
     res
@@ -241,13 +247,87 @@ class QualificationAppInfo(
     stages.map { stageId =>
       val stageTaskTime = stageIdToTaskEndSum.get(stageId)
         .map(_.totalTaskDuration).getOrElse(0L)
+      val numTransitions = penalizeTransitions match {
+        case true => stageIdToGpuCpuTransitions.getOrElse(stageId, 0)
+        case false => 0
+      }
+      val transitionsTime = numTransitions match {
+        case 0 => 0L // no transitions
+        case gpuCpuTransitions =>
+          // Duration to transfer data from GPU to CPU and vice versa.
+          // Assuming it's a PCI-E Gen3, but also assuming that some of the result could be
+          // spilled to disk.
+          // Duration in Spark metrics is in milliseconds and CPU-GPU transfer rate is in bytes/sec.
+          // So we need to convert the transitions time to milliseconds.
+          val totalBytesRead = {
+            stageIdToTaskEndSum.get(stageId).map(_.totalbytesRead).getOrElse(0L)
+          }
+          if (totalBytesRead > 0) {
+            val transitionTime = (totalBytesRead /
+              QualificationAppInfo.CPU_GPU_TRANSFER_RATE.toDouble) * gpuCpuTransitions
+            (transitionTime * 1000).toLong // convert to milliseconds
+          } else {
+            0L
+          }
+
+        case _ => 0L
+      }
+      val finalEachStageUnsupported = if (transitionsTime != 0) {
+        // Add 50% penalty for unsupported duration if there are transitions. This number
+        // was randomly picked because it matched roughly what we saw on the experiments
+        // with customer/nds event logs
+        (eachStageUnsupported * 0.5 + eachStageUnsupported).toLong
+      } else {
+        eachStageUnsupported
+      }
+
       StageQualSummaryInfo(stageId, allSpeedupFactorAvg, stageTaskTime,
-        eachStageUnsupported, estimated)
+        finalEachStageUnsupported, numTransitions, transitionsTime, estimated)
     }.toSet
+  }
+
+  private def calculateNumberOfTransitions(allStagesToExecs: Map[Int, Seq[ExecInfo]]): Unit = {
+    allStagesToExecs.foreach { case (stageId, execs) =>
+      // Flatten all the Execs within a stage.
+      // Example: Exchange;WholeStageCodegen (14);Exchange;WholeStageCodegen (13);Exchange
+      // will be flattened to Exchange;Sort;Exchange;Sort;SortMergeJoin;SortMergeJoin;Exchange;
+      val allExecs = execs.map(x => if (x.exec.startsWith("WholeStage")) {
+        x.children.getOrElse(Seq.empty)
+      } else {
+        Seq(x)
+      }).flatten.reverse
+
+      // If it's a shuffle stage, then we need to keep the first and last Exchange and remove
+      // all the intermediate Exchanges as input size is captured in Exchange node.
+      val dedupedExecs = if (allExecs.size > 2) {
+        allExecs.head +:
+          allExecs.tail.init.filter(x => x.exec != "Exchange") :+ allExecs.last
+      } else {
+        allExecs
+      }
+      // Create a list of transitions by zipping allExecs with itself but with the first element
+      // This will create a list of adjacent pairs.
+      // Example: If allExecs = (ScanExec, FilterExec, SortExec, ProjectExec), then it will create
+      // a list of tuples as follows:
+      // (ScanExec, FilterExec), (FilterExec, SortExec), (SortExec, ProjectExec)
+      val transitions = dedupedExecs.zip(dedupedExecs.drop(1)).count {
+        // If the current execution (currExec) is supported, and the next execution (nextExec)
+        // is not supported, or if the current execution is not supported and the next execution
+        // is supported, then we consider this as a transition.
+        case (currExec, nextExec) => (currExec.isSupported && !nextExec.isSupported) ||
+          (!currExec.isSupported && nextExec.isSupported)
+      }
+      stageIdToGpuCpuTransitions(stageId) = transitions
+    }
   }
 
   def summarizeStageLevel(execInfos: Seq[ExecInfo], sqlID: Long): Set[StageQualSummaryInfo] = {
     val (allStagesToExecs, execsNoStage) = getStageToExec(execInfos)
+
+    // Get the total number of transitions between CPU and GPU for each stage and
+    // store it in a Map.
+    calculateNumberOfTransitions(allStagesToExecs)
+
     if (allStagesToExecs.isEmpty) {
       // use job level
       // also get the job ids associated with the SQLId
@@ -302,7 +382,7 @@ class QualificationAppInfo(
         val numUnsupportedExecs = execInfos.filterNot(_.isSupported).size
         // This is a guestimate at how much wall clock was supported
         val numExecs = execInfos.size.toDouble
-        val numSupportedExecs = (numExecs - numUnsupportedExecs).toDouble
+        val numSupportedExecs = (numExecs - numUnsupportedExecs)
         val ratio = numSupportedExecs / numExecs
         val estimateWallclockSupported = (sqlWallClockDuration * ratio).toInt
         // don't worry about supported execs for these are these are mostly indicator of I/O
@@ -428,11 +508,12 @@ class QualificationAppInfo(
       val allStagesSummary = perSqlStageSummary.flatMap(_.stageSum)
         .map(sum => sum.stageId -> sum).toMap.values.toSeq
       val sqlDataframeTaskDuration = allStagesSummary.map(s => s.stageTaskTime).sum
+      val totalTransitionsTime = allStagesSummary.map(s => s.transitionTime).sum
       val unsupportedSQLTaskDuration = calculateSQLUnsupportedTaskDuration(allStagesSummary)
       val endDurationEstimated = this.appEndTime.isEmpty && appDuration > 0
       val jobOverheadTime = calculateJobOverHeadTime(info.startTime)
       val nonSQLDataframeTaskDuration =
-        calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration)
+        calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration, totalTransitionsTime)
       val nonSQLTaskDuration = nonSQLDataframeTaskDuration + jobOverheadTime
       // note that these ratios are based off the stage times which may be missing some stage
       // overhead or execs that didn't have associated stages
@@ -488,8 +569,11 @@ class QualificationAppInfo(
       }
 
       // get the ratio based on the Task durations that we will use for wall clock durations
+      // totalTransitionTime is the overhead time for ColumnarToRow/RowToColumnar transitions
+      // which impacts the GPU ratio.
       val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
-        supportedSQLTaskDuration.toDouble / sqlDataframeTaskDuration.toDouble
+        supportedSQLTaskDuration.toDouble / (
+          sqlDataframeTaskDuration.toDouble + totalTransitionsTime.toDouble)
       } else {
         1
       }
@@ -670,7 +754,8 @@ class StageTaskQualificationSummary(
     val stageAttemptId: Int,
     var executorRunTime: Long,
     var executorCPUTime: Long,
-    var totalTaskDuration: Long)
+    var totalTaskDuration: Long,
+    var totalbytesRead: Long)
 
 case class QualApplicationInfo(
     appName: String,
@@ -736,6 +821,8 @@ case class StageQualSummaryInfo(
     averageSpeedup: Double,
     stageTaskTime: Long,
     unsupportedTaskDur: Long,
+    numTransitions: Int,
+    transitionTime: Long,
     estimated: Boolean = false)
 
 object QualificationAppInfo extends Logging {
@@ -746,6 +833,11 @@ object QualificationAppInfo extends Logging {
   val NOT_APPLICABLE = "Not Applicable"
   val LOWER_BOUND_RECOMMENDED = 1.3
   val LOWER_BOUND_STRONGLY_RECOMMENDED = 2.5
+  // Below is the total time taken whenever there are ColumnarToRow or RowToColumnar transitions
+  // This includes the time taken to convert the data from one format to another and the time taken
+  // to transfer the data from CPU to GPU and vice versa. Current transfer rate is 1GB/s and is
+  // based on the testing on few candidate eventlogs.
+  val CPU_GPU_TRANSFER_RATE = 1000000000L
 
   private def handleException(e: Exception, path: EventLogInfo): String = {
     val message: String = e match {
@@ -838,10 +930,11 @@ object QualificationAppInfo extends Logging {
       hadoopConf: Configuration,
       pluginTypeChecker: PluginTypeChecker,
       reportSqlLevel: Boolean,
-      mlOpsEnabled: Boolean): Either[String, QualificationAppInfo] = {
+      mlOpsEnabled: Boolean,
+      penalizeTransitions: Boolean): Either[String, QualificationAppInfo] = {
     try {
         val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
-          reportSqlLevel, false, mlOpsEnabled)
+          reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
         logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
         Right(app)
       } catch {

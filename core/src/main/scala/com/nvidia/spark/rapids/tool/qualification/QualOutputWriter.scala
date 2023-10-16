@@ -391,6 +391,7 @@ object QualOutputWriter {
   val ESTIMATED_GPU_SPEEDUP = "Estimated GPU Speedup"
   val ESTIMATED_GPU_TIMESAVED = "Estimated GPU Time Saved"
   val STAGE_ESTIMATED_STR = "Stage Estimated"
+  val NUM_TRANSITIONS = "Number of transitions from or to GPU"
   val UNSUPPORTED_EXECS = "Unsupported Execs"
   val UNSUPPORTED_EXPRS = "Unsupported Expressions"
   val CLUSTER_TAGS = "Cluster Tags"
@@ -856,7 +857,8 @@ object QualOutputWriter {
       AVERAGE_SPEEDUP_STR -> AVERAGE_SPEEDUP_STR.size,
       STAGE_DUR_STR -> STAGE_DUR_STR.size,
       UNSUPPORTED_TASK_DURATION_STR -> UNSUPPORTED_TASK_DURATION_STR.size,
-      STAGE_ESTIMATED_STR -> STAGE_ESTIMATED_STR.size
+      STAGE_ESTIMATED_STR -> STAGE_ESTIMATED_STR.size,
+      NUM_TRANSITIONS -> NUM_TRANSITIONS.size
     )
     detailedHeadersAndFields
   }
@@ -878,7 +880,8 @@ object QualOutputWriter {
           headersAndSizes(AVERAGE_SPEEDUP_STR),
         info.stageTaskTime.toString -> headersAndSizes(STAGE_DUR_STR),
         info.unsupportedTaskDur.toString -> headersAndSizes(UNSUPPORTED_TASK_DURATION_STR),
-        info.estimated.toString -> headersAndSizes(STAGE_ESTIMATED_STR))
+        info.estimated.toString -> headersAndSizes(STAGE_ESTIMATED_STR),
+        info.numTransitions.toString -> headersAndSizes(NUM_TRANSITIONS))
       constructOutputRow(data, delimiter, prettyPrint)
     }
   }

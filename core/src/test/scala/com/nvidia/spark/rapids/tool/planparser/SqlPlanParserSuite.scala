@@ -76,7 +76,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     val pluginTypeChecker = new PluginTypeChecker()
     assert(allEventLogs.size == 1)
     val appResult = QualificationAppInfo.createApp(allEventLogs.head, hadoopConf,
-      pluginTypeChecker, reportSqlLevel = false, mlOpsEnabled = false)
+      pluginTypeChecker, reportSqlLevel = false, mlOpsEnabled = false, penalizeTransitions = true)
     appResult match {
       case Right(app) => app
       case Left(_) => throw new AssertionError("Cannot create application")
@@ -213,6 +213,51 @@ class SQLPlanParserSuite extends BaseTestSuite {
         assertSizeAndSupported(numSort, sorts)
         assertSizeAndSupported(numSMJ, smj)
         assertSizeAndSupported(numBHJ, bhj)
+      }
+    }
+  }
+
+  test("Parse Execs within WholeStageCodeGen in Order") {
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+        "Execs within WSCG ") { spark =>
+        import spark.implicits._
+        val df = Seq(("foo", 1L, 1.2), ("foo", 2L, 2.2), ("bar", 2L, 3.2),
+          ("bar", 2L, 4.2)).toDF("x", "y", "z")
+        df.cube($"x", ceil($"y")).count
+      }
+      val pluginTypeChecker = new PluginTypeChecker()
+      val app = createAppFromEventlog(eventLog)
+      assert(app.sqlPlans.size == 1)
+      app.sqlPlans.foreach { case (sqlID, plan) =>
+        val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
+          pluginTypeChecker, app)
+        val allExecInfo = planInfo.execInfo
+        val expectedAllExecInfoSize = if (ToolUtils.isSpark320OrLater()) {
+          // AdaptiveSparkPlan, WholeStageCodegen, AQEShuffleRead, Exchange, WholeStageCodegen
+          5
+        } else {
+          // WholeStageCodegen, Exchange, WholeStageCodegen
+          3
+        }
+        val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 2)
+        // Expanding the children of WholeStageCodegen
+        val allExecs = allExecInfo.map(x => if (x.exec.startsWith("WholeStage")) {
+          x.children.getOrElse(Seq.empty)
+        } else {
+          Seq(x)
+        }).flatten.reverse
+        val expectedOrder = if (ToolUtils.isSpark320OrLater()) {
+          // Order should be: LocalTableScan, Expand, HashAggregate, Exchange,
+          // AQEShuffleRead, HashAggregate, AdaptiveSparkPlan
+          Seq("LocalTableScan", "Expand", "HashAggregate", "Exchange", "AQEShuffleRead",
+            "HashAggregate", "AdaptiveSparkPlan")
+        } else {
+          // Order should be: LocalTableScan, Expand, HashAggregate, Exchange, HashAggregate
+          Seq("LocalTableScan", "Expand", "HashAggregate", "Exchange", "HashAggregate")
+        }
+        assert(allExecs.map(_.exec) == expectedOrder)
       }
     }
   }
