@@ -30,6 +30,7 @@ applicable environments.  Here are the cluster information for the ETL benchmark
 | Dataproc (L4)            | 8x n1-standard-16 | 8x g2-standard-16              |
 | Dataproc Serverless (L4) | 8x 16 cores       | 8x 16 cores + 8x L4 24GB       |
 | Dataproc GKE (T4)        | 8x n1-standard-32 | 8x n1-standard-32 + 8x T4 16GB |
+| Dataproc GKE (L4)        | 8x n1-standard-32 | 8x n1-standard-32 + 8x L4 24GB |
 | EMR (T4)                 | 8x m5d.8xlarge    | 4x g4dn.12xlarge               |
 | EMR (A10)                | 8x m5d.8xlarge    | 8x g5.8xlarge                  |
 | Databricks AWS           | 8x m6gd.8xlage    | 8x g5.8xlarge                  |
@@ -250,8 +251,8 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       --platform  <arg>              Cluster platform where Spark CPU workloads were
                                      executed. Options include onprem, dataproc-t4,
                                      dataproc-l4, dataproc-serverless-l4, dataproc-gke-t4,
-                                     emr-t4, emr-a10, databricks-aws, and databricks-azure.
-                                     Default is onprem.
+                                     dataproc-gke-l4, emr-t4, emr-a10, databricks-aws,
+                                     and databricks-azure. Default is onprem.
   -r, --report-read-schema           Whether to output the read formats and
                                      datatypes to the CSV file. This can be very
                                      long. Default is false.
