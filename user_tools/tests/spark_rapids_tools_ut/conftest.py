@@ -32,6 +32,7 @@ def get_test_resources_path():
 def gen_cpu_cluster_props():
     return [
         ('dataproc', 'cluster/dataproc/cpu-00.yaml'),
+        ('dataproc_gke', 'cluster/dataproc_gke/cpu-00.yaml'),
         ('emr', 'cluster/emr/cpu-00.json'),
         ('onprem', 'cluster/onprem/cpu-00.yaml'),
         ('databricks_aws', 'cluster/databricks/aws-cpu-00.json'),
@@ -43,7 +44,7 @@ all_cpu_cluster_props = gen_cpu_cluster_props()
 # all cpu_cluster_props except the onPrem
 csp_cpu_cluster_props = [(e_1, e_2) for (e_1, e_2) in all_cpu_cluster_props if e_1 != 'onprem']
 # all csps except onprem
-csps = ['dataproc', 'emr', 'databricks_aws', 'databricks_azure']
+csps = ['dataproc', 'dataproc_gke', 'emr', 'databricks_aws', 'databricks_azure']
 all_csps = csps + ['onprem']
 
 
