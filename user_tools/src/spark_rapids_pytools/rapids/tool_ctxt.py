@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Type, Any, ClassVar, List
 
-from pyrapids import CspEnv
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
@@ -53,7 +53,9 @@ class ToolContext(YAMLPropertiesContainer):
         self.platform = self.platform_cls(ctxt_args=self.platform_opts)
 
     def __create_and_set_uuid(self):
-        self.uuid = Utils.gen_uuid_with_ts(suffix_len=8)
+        # For backward compatibility, we still generate the uuid with timestamp if
+        # the environment variable is not set.
+        self.uuid = Utils.get_rapids_tools_env('UUID', Utils.gen_uuid_with_ts(suffix_len=8))
 
     def __create_and_set_cache_folder(self):
         # get the cache folder from environment variables or set it to default

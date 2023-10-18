@@ -112,6 +112,13 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[Boolean](required = false,
       descr = "Whether to parse ML functions in the eventlogs. Default is false.",
       default = Some(false))
+  val penalizeTransitions: ScallopOption[Boolean] =
+    toggle("penalize-transitions",
+      default = Some(true),
+      prefix = "no-",
+      descrYes = "Add penalty for ColumnarToRow and RowToColumnar transitions. " +
+        "Enabled by default.",
+      descrNo = "Do not add penalty for ColumnarToRow and RowToColumnar transitions.")
   val sparkProperty: ScallopOption[List[String]] =
     opt[List[String]](required = false,
       descr = "Filter applications based on certain Spark properties that were set during " +
@@ -148,9 +155,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val platform: ScallopOption[String] =
     opt[String](required = false,
       descr = "Cluster platform where Spark CPU workloads were executed. Options include " +
-        "onprem, dataproc-t4, dataproc-l4, emr-t4, emr-a10, databricks-aws, and " +
-        "databricks-azure. " +
-        "Default is onprem.",
+        "onprem, dataproc-t4, dataproc-l4, dataproc-serverless-l4, dataproc-gke-t4, " +
+        "dataproc-gke-l4, emr-t4, emr-a10, databricks-aws, and databricks-azure. Default " +
+        "is onprem.",
       default = Some("onprem"))
   val speedupFactorFile: ScallopOption[String] =
     opt[String](required = false,

@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 import yaml
 
-from pyrapids import get_elem_from_dict, get_elem_non_safe
+from spark_rapids_tools import get_elem_from_dict, get_elem_non_safe
 
 
 def convert_dict_to_camel_case(dic: dict):

@@ -75,6 +75,7 @@ CollectSet,2.59
 Concat,2.59
 ConcatWs,2.59
 Contains,2.59
+Conv,2.59
 Cos,2.59
 Cosh,2.59
 Cot,2.59
@@ -93,6 +94,7 @@ DayOfWeek,2.59
 DayOfYear,2.59
 DenseRank,2.59
 Divide,2.59
+DynamicPruningExpression,2.59
 ElementAt,2.59
 EndsWith,2.59
 EqualNullSafe,2.59
@@ -101,6 +103,7 @@ Exp,2.59
 Explode,2.59
 Expm1,2.59
 First,2.59
+Flatten,2.59
 Floor,2.59
 FromUTCTimestamp,2.59
 FromUnixTime,2.59
@@ -128,6 +131,8 @@ IntegralDivide,2.59
 IsNaN,2.59
 IsNotNull,2.59
 IsNull,2.59
+JsonToStructs,2.59
+JsonTuple,2.59
 KnownFloatingPointNormalized,2.59
 KnownNotNull,2.59
 Lag,2.59
@@ -248,6 +253,7 @@ VarianceSamp,2.59
 WeekDay,2.59
 WindowExpression,2.59
 WindowSpecDefinition,2.59
+XxHash64,2.59
 Year,2.59
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2

@@ -68,6 +68,7 @@ CollectSet
 Concat
 ConcatWs
 Contains
+Conv
 Cos
 Cosh
 Cot
@@ -86,6 +87,7 @@ DayOfWeek
 DayOfYear
 DenseRank
 Divide
+DynamicPruningExpression
 ElementAt
 EndsWith
 EqualNullSafe
@@ -94,6 +96,7 @@ Exp
 Explode
 Expm1
 First
+Flatten
 Floor
 FromUTCTimestamp
 FromUnixTime
@@ -121,6 +124,8 @@ IntegralDivide
 IsNaN
 IsNotNull
 IsNull
+JsonToStructs
+JsonTuple
 KnownFloatingPointNormalized
 KnownNotNull
 Lag
@@ -148,6 +153,8 @@ MapKeys
 MapValues
 Max
 Md5
+MicrosToTimestamp
+MillisToTimestamp
 Min
 Minute
 MonotonicallyIncreasingID
@@ -186,6 +193,7 @@ RowNumber
 ScalaUDF
 ScalarSubquery
 Second
+SecondsToTimestamp
 Sequence
 ShiftLeft
 ShiftRight
@@ -210,6 +218,7 @@ StringRepeat
 StringReplace
 StringSplit
 StringToMap
+StringTranslate
 StringTrim
 StringTrimLeft
 StringTrimRight
@@ -237,4 +246,5 @@ VarianceSamp
 WeekDay
 WindowExpression
 WindowSpecDefinition
+XxHash64
 Year

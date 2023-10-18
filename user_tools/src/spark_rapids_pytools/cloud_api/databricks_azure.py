@@ -20,7 +20,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, List
 
-from pyrapids import CspEnv
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.azurestorage import AzureStorageDriver
 from spark_rapids_pytools.cloud_api.databricks_azure_job import DBAzureLocalRapidsJob
 from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase, ClusterBase, ClusterNode, \
@@ -69,7 +69,9 @@ class DBAzurePlatform(PlatformBase):
 
     def create_saving_estimator(self,
                                 source_cluster: ClusterGetAccessor,
-                                reshaped_cluster: ClusterGetAccessor):
+                                reshaped_cluster: ClusterGetAccessor,
+                                target_cost: float = None,
+                                source_cost: float = None):
         raw_pricing_config = self.configs.get_value_silent('pricing')
         if raw_pricing_config:
             pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
@@ -79,7 +81,9 @@ class DBAzurePlatform(PlatformBase):
                                                                pricing_configs={'databricks-azure': pricing_config})
         saving_estimator = DBAzureSavingsEstimator(price_provider=db_azure_price_provider,
                                                    reshaped_cluster=reshaped_cluster,
-                                                   source_cluster=source_cluster)
+                                                   source_cluster=source_cluster,
+                                                   target_cost=target_cost,
+                                                   source_cost=source_cost)
         return saving_estimator
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
@@ -118,12 +122,56 @@ class DBAzureCMDDriver(CMDDriverBase):
     def pull_cluster_props_by_args(self, args: dict) -> str:
         get_cluster_cmd = ['databricks', 'clusters', 'get']
         if 'Id' in args:
-            get_cluster_cmd.extend(['--cluster-id', args.get('Id')])
+            get_cluster_cmd.extend([args.get('Id')])
         elif 'cluster' in args:
-            get_cluster_cmd.extend(['--cluster-name', args.get('cluster')])
+            # TODO: currently, arguments '--cpu_cluster' or '--gpu_cluster' are processed and stored as
+            # 'cluster' (as cluster names), while they are actually cluster ids for databricks platforms
+            get_cluster_cmd.extend([args.get('cluster')])
         else:
-            self.logger.error('Invalid arguments to pull the cluster properties')
-        return self.run_sys_cmd(get_cluster_cmd)
+            self.logger.error('Unable to pull cluster id or cluster name information')
+
+        try:
+            cluster_described = self.run_sys_cmd(get_cluster_cmd)
+            if cluster_described is not None:
+                raw_prop_container = JSONPropertiesContainer(prop_arg=cluster_described, file_load=False)
+                return json.dumps(raw_prop_container.props)
+        except Exception as ex:
+            self.logger.error('Invalid arguments to pull the cluster properties: %s', ex)
+            raise ex
+
+        return None
+
+    def _build_cmd_ssh_prefix_for_node(self, node: ClusterNode) -> str:
+        port = self.env_vars.get('sshPort')
+        key_file = self.env_vars.get('sshKeyFile')
+        prefix_args = ['ssh',
+                       '-o StrictHostKeyChecking=no',
+                       f'-i {key_file} ' if key_file else '',
+                       f'-p {port}',
+                       f'ubuntu@{node.name}']
+        return Utils.gen_joined_str(' ', prefix_args)
+
+    def _build_cmd_scp_to_node(self, node: ClusterNode, src: str, dest: str) -> str:
+        port = self.env_vars.get('sshPort')
+        key_file = self.env_vars.get('sshKeyFile')
+        prefix_args = ['scp',
+                       '-o StrictHostKeyChecking=no',
+                       f'-i {key_file} ' if key_file else '',
+                       f'-P {port}',
+                       src,
+                       f'ubuntu@{node.name}:{dest}']
+        return Utils.gen_joined_str(' ', prefix_args)
+
+    def _build_cmd_scp_from_node(self, node: ClusterNode, src: str, dest: str) -> str:
+        port = self.env_vars.get('sshPort')
+        key_file = self.env_vars.get('sshKeyFile')
+        prefix_args = ['scp',
+                       '-o StrictHostKeyChecking=no',
+                       f'-i {key_file} ' if key_file else '',
+                       f'-P {port}',
+                       f'ubuntu@{node.name}:{src}',
+                       dest]
+        return Utils.gen_joined_str(' ', prefix_args)
 
     def process_instances_description(self, raw_instances_description: str) -> dict:
         processed_instances_description = {}
@@ -349,8 +397,3 @@ class DBAzureSavingsEstimator(SavingsEstimator):
             cost = self.price_provider.get_instance_price(instance=instance_type)
             db_azure_cost += cost * nodes_cnt
         return db_azure_cost
-
-    def _setup_costs(self):
-        # calculate target_cost
-        self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
-        self.source_cost = self._get_cost_per_cluster(self.source_cluster)

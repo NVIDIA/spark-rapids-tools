@@ -72,16 +72,26 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
     super.doSparkListenerTaskEnd(app, event)
     // keep all stage task times to see for nonsql duration
     val taskSum = app.stageIdToTaskEndSum.getOrElseUpdate(event.stageId, {
-      new StageTaskQualificationSummary(event.stageId, event.stageAttemptId, 0, 0, 0)
+      new StageTaskQualificationSummary(event.stageId, event.stageAttemptId, 0, 0, 0, 0)
     })
     taskSum.executorRunTime += event.taskMetrics.executorRunTime
     taskSum.executorCPUTime += NANOSECONDS.toMillis(event.taskMetrics.executorCpuTime)
     taskSum.totalTaskDuration += event.taskInfo.duration
+    // Add the total bytes read from the task if it's available. This is from inputMetrics if
+    // it is reading from datasource, or shuffleReadMetrics if it is reading from shuffle.
+    val inputMetrics = event.taskMetrics.inputMetrics
+    if (inputMetrics != null) {
+      taskSum.totalbytesRead += inputMetrics.bytesRead
+    }
+    val shuffleReadMetrics = event.taskMetrics.shuffleReadMetrics
+    if (shuffleReadMetrics != null) {
+      taskSum.totalbytesRead += shuffleReadMetrics.totalBytesRead
+    }
 
     // Adds in everything (including failures)
     app.stageIdToSqlID.get(event.stageId).foreach { sqlID =>
       val taskSum = app.sqlIDToTaskEndSum.getOrElseUpdate(sqlID, {
-        new StageTaskQualificationSummary(event.stageId, event.stageAttemptId, 0, 0, 0)
+        new StageTaskQualificationSummary(event.stageId, event.stageAttemptId, 0, 0, 0, 0)
       })
       taskSum.executorRunTime += event.taskMetrics.executorRunTime
       taskSum.executorCPUTime += NANOSECONDS.toMillis(event.taskMetrics.executorCpuTime)

@@ -75,6 +75,7 @@ CollectSet,4.88
 Concat,4.88
 ConcatWs,4.88
 Contains,4.88
+Conv,4.88
 Cos,4.88
 Cosh,4.88
 Cot,4.88
@@ -93,6 +94,7 @@ DayOfWeek,4.88
 DayOfYear,4.88
 DenseRank,4.88
 Divide,4.88
+DynamicPruningExpression,4.88
 ElementAt,4.88
 EndsWith,4.88
 EqualNullSafe,4.88
@@ -101,6 +103,7 @@ Exp,4.88
 Explode,4.88
 Expm1,4.88
 First,4.88
+Flatten,4.88
 Floor,4.88
 FromUTCTimestamp,4.88
 FromUnixTime,4.88
@@ -128,6 +131,8 @@ IntegralDivide,4.88
 IsNaN,4.88
 IsNotNull,4.88
 IsNull,4.88
+JsonToStructs,4.88
+JsonTuple,4.88
 KnownFloatingPointNormalized,4.88
 KnownNotNull,4.88
 Lag,4.88
@@ -248,6 +253,7 @@ VarianceSamp,4.88
 WeekDay,4.88
 WindowExpression,4.88
 WindowSpecDefinition,4.88
+XxHash64,4.88
 Year,4.88
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2

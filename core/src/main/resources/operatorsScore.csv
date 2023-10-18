@@ -80,6 +80,7 @@ CollectSet,4
 Concat,4
 ConcatWs,4
 Contains,4
+Conv,4
 Cos,4
 Cosh,4
 Cot,4
@@ -98,6 +99,7 @@ DayOfWeek,4
 DayOfYear,4
 DenseRank,4
 Divide,4
+DynamicPruningExpression,4
 ElementAt,4
 EndsWith,4
 EqualNullSafe,4
@@ -106,6 +108,7 @@ Exp,4
 Explode,4
 Expm1,4
 First,4
+Flatten,4
 Floor,4
 FromUTCTimestamp,4
 FromUnixTime,4
@@ -133,6 +136,8 @@ IntegralDivide,4
 IsNaN,4
 IsNotNull,4
 IsNull,4
+JsonToStructs,4
+JsonTuple,4
 KnownFloatingPointNormalized,4
 KnownNotNull,4
 Lag,4
@@ -253,6 +258,7 @@ VarianceSamp,4
 WeekDay,4
 WindowExpression,4
 WindowSpecDefinition,4
+XxHash64,4
 Year,4
 KMeans-pyspark,8.86
 KMeans-scala,1

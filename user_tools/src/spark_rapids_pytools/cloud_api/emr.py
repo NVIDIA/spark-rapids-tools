@@ -19,7 +19,7 @@ import os
 from dataclasses import field, dataclass
 from typing import Any, List
 
-from pyrapids import CspEnv
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.emr_job import EmrLocalRapidsJob
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, \
@@ -95,7 +95,9 @@ class EMRPlatform(PlatformBase):
 
     def create_saving_estimator(self,
                                 source_cluster: ClusterGetAccessor,
-                                reshaped_cluster: ClusterGetAccessor):
+                                reshaped_cluster: ClusterGetAccessor,
+                                target_cost: float = None,
+                                source_cost: float = None):
         raw_pricing_config = self.configs.get_value_silent('pricing')
         if raw_pricing_config:
             pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
@@ -105,7 +107,9 @@ class EMRPlatform(PlatformBase):
                                                  pricing_configs={'emr': pricing_config})
         saving_estimator = EmrSavingsEstimator(price_provider=emr_price_provider,
                                                reshaped_cluster=reshaped_cluster,
-                                               source_cluster=source_cluster)
+                                               source_cluster=source_cluster,
+                                               target_cost=target_cost,
+                                               source_cost=source_cost)
         return saving_estimator
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
@@ -137,7 +141,7 @@ class EMRCMDDriver(CMDDriverBase):
     def pull_cluster_props_by_args(self, args: dict) -> str:
         aws_cluster_id = args.get('Id')
         cluster_name = args.get('cluster')
-        if args.get('Id') is None:
+        if aws_cluster_id is None:
             # use cluster name to get the cluster values
             # we need to get the cluster_id from the list command first.
             list_cmd_res = self.exec_platform_list_cluster_by_name(cluster_name)
@@ -158,7 +162,7 @@ class EMRCMDDriver(CMDDriverBase):
             return EMRPlatform.process_raw_cluster_prop(raw_prop_container)
         return cluster_described
 
-    def _build_ssh_cmd_prefix_for_node(self, node: ClusterNode) -> str:
+    def _build_cmd_ssh_prefix_for_node(self, node: ClusterNode) -> str:
         # get the pem file
         pem_file_path = self.env_vars.get('keyPairPath')
         prefix_args = ['ssh',
@@ -493,8 +497,3 @@ class EmrSavingsEstimator(SavingsEstimator):
             total_cost += self._calculate_ec2_cost(cluster, node_type)
             total_cost += self._calculate_emr_cost(cluster, node_type)
         return total_cost
-
-    def _setup_costs(self):
-        # calculate target_cost
-        self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
-        self.source_cost = self._get_cost_per_cluster(self.source_cluster)

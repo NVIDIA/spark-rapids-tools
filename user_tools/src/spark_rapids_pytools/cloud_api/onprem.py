@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from typing import Any, List
 
-from pyrapids import CspEnv
+from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, ClusterNode, \
     CMDDriverBase, ClusterGetAccessor, GpuDevice, \
@@ -82,7 +82,9 @@ class OnPremPlatform(PlatformBase):
 
     def create_saving_estimator(self,
                                 source_cluster: ClusterGetAccessor,
-                                reshaped_cluster: ClusterGetAccessor):
+                                reshaped_cluster: ClusterGetAccessor,
+                                target_cost: float = None,
+                                source_cost: float = None):
         if self.platform == 'dataproc':
             region = 'us-central1'
             raw_pricing_config = self.configs.get_value_silent('csp_pricing')
@@ -95,7 +97,9 @@ class OnPremPlatform(PlatformBase):
                                                      pricing_configs={'gcloud': pricing_config})
             saving_estimator = OnpremSavingsEstimator(price_provider=pricing_provider,
                                                       reshaped_cluster=reshaped_cluster,
-                                                      source_cluster=source_cluster)
+                                                      source_cluster=source_cluster,
+                                                      target_cost=target_cost,
+                                                      source_cost=source_cost)
         return saving_estimator
 
     def set_offline_cluster(self, cluster_args: dict = None):
@@ -311,8 +315,3 @@ class OnpremSavingsEstimator(SavingsEstimator):
             dataproc_cost = self.price_provider.get_container_cost()
             total_cost = master_cost + workers_cost + dataproc_cost
         return total_cost
-
-    def _setup_costs(self):
-        # calculate target_cost
-        self.target_cost = self._get_cost_per_cluster(self.reshaped_cluster)
-        self.source_cost = self._get_cost_per_cluster(self.source_cluster)

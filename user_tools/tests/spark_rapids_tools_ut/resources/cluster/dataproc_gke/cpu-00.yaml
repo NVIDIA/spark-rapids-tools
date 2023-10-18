@@ -1,0 +1,44 @@
+clusterName: dataproc-gke-test-nongpu-cluster
+clusterUuid: 11111111-1111-1111-1111-111111111111
+config:
+  softwareConfig: {}
+labels:
+  goog-dataproc-cluster-name: dataproc-gke-test-nongpu-cluster
+  goog-dataproc-cluster-uuid: 11111111-1111-1111-1111-111111111111
+  goog-dataproc-location: us-central1
+projectId: dataproc-gke-project
+status:
+  state: RUNNING
+  stateStartTime: '2022-12-06T23:21:07.637345Z'
+statusHistory:
+- state: CREATING
+  stateStartTime: '2022-11-08T18:02:00.300481Z'
+virtualClusterConfig:
+  auxiliaryServicesConfig:
+    sparkHistoryServerConfig:
+      dataprocCluster: projects/dataproc-gke-project/regions/us-central1/clusters/dataproc-phs-test
+  kubernetesClusterConfig:
+    gkeClusterConfig:
+      gkeClusterTarget: projects/dataproc-gke-project/regions/us-central1/clusters/dataproc-gke-test
+      nodePoolTarget:
+      - nodePool: projects/dataproc-gke-project/regions/us-central1/clusters/dataproc-gke-test/nodePools/controller-pool
+        roles:
+        - DEFAULT
+      - nodePool: projects/dataproc-gke-project/regions/us-central1/clusters/dataproc-gke-test/nodePools/driver-pool
+        roles:
+        - SPARK_DRIVER
+      - nodePool: projects/dataproc-gke-project/regions/us-central1/clusters/dataproc-gke-test/nodePools/executor-pool-cpu
+        roles:
+        - SPARK_EXECUTOR
+    kubernetesNamespace: dataproc-gke-test-nongpu-cluster
+    kubernetesSoftwareConfig:
+      componentVersion:
+        SPARK: 3.1-dataproc-14
+      properties:
+        dataproc:dataproc.gke.agent.google-service-account: eeeeeeeee@dataproc-gke-project.iam.gserviceaccount.com
+        dataproc:dataproc.gke.spark.driver.google-service-account: eeeeeeeee@dataproc-gke-project.iam.gserviceaccount.com
+        dataproc:dataproc.gke.spark.executor.google-service-account: eeeeeeeee@dataproc-gke-project.iam.gserviceaccount.com
+        dpgke:dpgke.unstable.outputOnly.endpoints.sparkHistoryServer: https://eeeeeeeeeeeeee-dot-us-central1.dataproc.googleusercontent.com/sparkhistory/?eventLogDirFilter=11111111-1111-1111-1111-111111111111
+        spark:spark.eventLog.dir: gs://dataproc-gke-test-bucket/11111111-1111-1111-1111-111111111111/spark-job-history
+        spark:spark.eventLog.enabled: 'true'
+  stagingBucket: dataproc-gke-test-bucket

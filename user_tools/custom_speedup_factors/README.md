@@ -14,8 +14,9 @@ Speedup factor estimation for the qualification tool is used for determining the
 The high-level process to generate speedup factors for an environment is as follows:
 
 1. Event log generation
-   1. Run the NDS SF3K benchmark on CPU cluster along with any other representative jobs and save event log(s).  Follow steps documented in the [NDS README](https://github.com/NVIDIA/spark-rapids-benchmarks/blob/dev/nds/README.md) for running the Power Run.
-   2. Run the NDS SF3K benchmark on GPU cluster along with any other representative jobs and save event log(s).  Follow steps documented in the [NDS README](https://github.com/NVIDIA/spark-rapids-benchmarks/blob/dev/nds/README.md) for running the Power Run.
+   1. Run the NDS benchmark on CPU cluster along with any other representative jobs and save event log(s).  Follow steps documented in the [NDS README](https://github.com/NVIDIA/spark-rapids-benchmarks/blob/dev/nds/README.md) for running the Power Run.
+   2. Run the NDS benchmark on GPU cluster along with any other representative jobs and save event log(s).  Follow steps documented in the [NDS README](https://github.com/NVIDIA/spark-rapids-benchmarks/blob/dev/nds/README.md) for running the Power Run.
+   3. Note that the benchmark data size (referred to as scale factor) should match the representative data size for your workloads.  If your workloads are 1TB in size, then you should use SF1000.  If your workloads are 500GB in size, then you should use SF500.
 2. Job profiler analysis
    1. Run the Spark RAPIDS profiling tool against the CPU and GPU event log to get stage-level duration metrics.
 ```
@@ -44,12 +45,12 @@ There is a utility script in the directory to allow for validation of custom spe
 
 Example execution of the script:
 ```
-python validate_speedup_factors.py --cpu_log CPU-nds-eventlog --gpu_log GPU-nds-eventlog --output test-speedup
+python validate_qualification_estimates.py --cpu_log CPU-nds-eventlog --gpu_log GPU-nds-eventlog --output test-speedup
 ```
 
 The script also allows you to pass in a custom speedup factor file if you have previously generated them.  Example:
 ```
-python validate_speedup_factors.py --cpu_log CPU-nds-eventlog --gpu_log GPU-nds-eventlog --output test-speedup --speedups test-scores.csv
+python validate_qualification_estimates.py --cpu_log CPU-nds-eventlog --gpu_log GPU-nds-eventlog --output test-speedup --speedups test-scores.csv
 ```
 
 Other options include passing in the CPU and/or GPU profiler output if that has already been done via the `cpu_profile` and `gpu_profile` arguments.  Additionally, you can pass in a custom tools jar via `--jar` if that is needed.

@@ -30,7 +30,7 @@ import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, floor, hex, json_tuple, round, row_number, sum, translate}
+import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, flatten, floor, hex, json_tuple, round, row_number, sum, translate, xxhash64}
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
@@ -76,7 +76,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     val pluginTypeChecker = new PluginTypeChecker()
     assert(allEventLogs.size == 1)
     val appResult = QualificationAppInfo.createApp(allEventLogs.head, hadoopConf,
-      pluginTypeChecker, reportSqlLevel = false, mlOpsEnabled = false)
+      pluginTypeChecker, reportSqlLevel = false, mlOpsEnabled = false, penalizeTransitions = true)
     appResult match {
       case Right(app) => app
       case Left(_) => throw new AssertionError("Cannot create application")
@@ -213,6 +213,51 @@ class SQLPlanParserSuite extends BaseTestSuite {
         assertSizeAndSupported(numSort, sorts)
         assertSizeAndSupported(numSMJ, smj)
         assertSizeAndSupported(numBHJ, bhj)
+      }
+    }
+  }
+
+  test("Parse Execs within WholeStageCodeGen in Order") {
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+        "Execs within WSCG ") { spark =>
+        import spark.implicits._
+        val df = Seq(("foo", 1L, 1.2), ("foo", 2L, 2.2), ("bar", 2L, 3.2),
+          ("bar", 2L, 4.2)).toDF("x", "y", "z")
+        df.cube($"x", ceil($"y")).count
+      }
+      val pluginTypeChecker = new PluginTypeChecker()
+      val app = createAppFromEventlog(eventLog)
+      assert(app.sqlPlans.size == 1)
+      app.sqlPlans.foreach { case (sqlID, plan) =>
+        val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
+          pluginTypeChecker, app)
+        val allExecInfo = planInfo.execInfo
+        val expectedAllExecInfoSize = if (ToolUtils.isSpark320OrLater()) {
+          // AdaptiveSparkPlan, WholeStageCodegen, AQEShuffleRead, Exchange, WholeStageCodegen
+          5
+        } else {
+          // WholeStageCodegen, Exchange, WholeStageCodegen
+          3
+        }
+        val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 2)
+        // Expanding the children of WholeStageCodegen
+        val allExecs = allExecInfo.map(x => if (x.exec.startsWith("WholeStage")) {
+          x.children.getOrElse(Seq.empty)
+        } else {
+          Seq(x)
+        }).flatten.reverse
+        val expectedOrder = if (ToolUtils.isSpark320OrLater()) {
+          // Order should be: LocalTableScan, Expand, HashAggregate, Exchange,
+          // AQEShuffleRead, HashAggregate, AdaptiveSparkPlan
+          Seq("LocalTableScan", "Expand", "HashAggregate", "Exchange", "AQEShuffleRead",
+            "HashAggregate", "AdaptiveSparkPlan")
+        } else {
+          // Order should be: LocalTableScan, Expand, HashAggregate, Exchange, HashAggregate
+          Seq("LocalTableScan", "Expand", "HashAggregate", "Exchange", "HashAggregate")
+        }
+        assert(allExecs.map(_.exec) == expectedOrder)
       }
     }
   }
@@ -781,7 +826,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("Expression not supported in Generate") {
+  test("json_tuple is supported in Generate") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
         "Expressions in Generate") { spark =>
@@ -791,7 +836,6 @@ class SQLPlanParserSuite extends BaseTestSuite {
             |"City":"ABCDE","State":"YZ"}""".stripMargin
         val data = Seq((1, jsonString))
         val df = data.toDF("id", "jsonValues")
-        //json_tuple which is called from GenerateExec is not supported in GPU yet.
         df.select(col("id"), json_tuple(col("jsonValues"), "Zipcode", "ZipCodeType", "City"))
       }
       val pluginTypeChecker = new PluginTypeChecker()
@@ -802,7 +846,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
       }
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val generateExprs = execInfo.filter(_.exec == "Generate")
-      assertSizeAndNotSupported(1, generateExprs)
+      assertSizeAndSupported(1, generateExprs)
     }
   }
 
@@ -958,6 +1002,66 @@ class SQLPlanParserSuite extends BaseTestSuite {
           val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
           df2.selectExpr("timestamp_micros(micro)", "timestamp_millis(millis)",
                          "timestamp_seconds(seconds)")
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 1)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        val allChildren = wholeStages.flatMap(_.children).flatten
+        val projects = allChildren.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projects)
+      }
+    }
+  }
+
+  test("flatten is supported in ProjectExec") {
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ProjectExprsSupported") { spark =>
+          import spark.implicits._
+          val df1 = Seq(Seq(Seq(1, 2), Seq(3, 4))).toDF("value")
+          // write df1 to parquet to transform LocalTableScan to ProjectExec
+          df1.write.parquet(s"$parquetoutputLoc/testtext")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+          // flatten should be part of ProjectExec
+          df2.select(flatten(df2("value")))
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 1)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        val allChildren = wholeStages.flatMap(_.children).flatten
+        val projects = allChildren.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projects)
+      }
+    }
+  }
+
+  test("xxhash64 is supported in ProjectExec") {
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ProjectExprsSupported") { spark =>
+          import spark.implicits._
+          val df1 = Seq("spark", "", "abc").toDF("value")
+          // write df1 to parquet to transform LocalTableScan to ProjectExec
+          df1.write.parquet(s"$parquetoutputLoc/testtext")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+          // xxhash64 should be part of ProjectExec
+          df2.select(xxhash64(df2("value")))
         }
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)

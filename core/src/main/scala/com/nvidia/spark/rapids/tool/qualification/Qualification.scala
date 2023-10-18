@@ -34,7 +34,8 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     timeout: Option[Long], nThreads: Int, order: String,
     pluginTypeChecker: PluginTypeChecker, reportReadSchema: Boolean,
     printStdout: Boolean, uiEnabled: Boolean, enablePB: Boolean,
-    reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean) extends Logging {
+    reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean,
+    penalizeTransitions: Boolean) extends Logging {
 
   private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
 
@@ -166,7 +167,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     try {
       val startTime = System.currentTimeMillis()
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
-        reportSqlLevel, mlOpsEnabled)
+        reportSqlLevel, mlOpsEnabled, penalizeTransitions)
       val qualAppResult = appResult match {
         case Left(errorMessage: String) =>
           // Case when an error occurred during QualificationAppInfo creation

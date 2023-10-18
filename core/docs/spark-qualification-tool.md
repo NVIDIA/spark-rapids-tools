@@ -23,15 +23,18 @@ Spark resources.
 The estimations for GPU duration are available for different environments and are based on benchmarks run in the
 applicable environments.  Here are the cluster information for the ETL benchmarks used for the estimates:
 
-| Environment      | CPU Cluster       | GPU Cluster                    |
-|------------------|-------------------|--------------------------------|
-| On-prem          | 8x 128-core       | 8x 128-core + 8x A100 40 GB    |
-| Dataproc (T4)    | 4x n1-standard-32 | 4x n1-standard-32 + 8x T4 16GB |
-| Dataproc (L4)    | 8x n1-standard-16 | 8x g2-standard-16              |
-| EMR (T4)         | 8x m5d.8xlarge    | 4x g4dn.12xlarge               |
-| EMR (A10)        | 8x m5d.8xlarge    | 8x g5.8xlarge                  |
-| Databricks AWS   | 8x m6gd.8xlage    | 8x g5.8xlarge                  |
-| Databricks Azure | 8x E8ds_v4        | 8x NC8as_T4_v3                 |
+| Environment              | CPU Cluster       | GPU Cluster                    |
+|--------------------------|-------------------|--------------------------------|
+| On-prem                  | 8x 128-core       | 8x 128-core + 8x A100 40 GB    |
+| Dataproc (T4)            | 4x n1-standard-32 | 4x n1-standard-32 + 8x T4 16GB |
+| Dataproc (L4)            | 8x n1-standard-16 | 8x g2-standard-16              |
+| Dataproc Serverless (L4) | 8x 16 cores       | 8x 16 cores + 8x L4 24GB       |
+| Dataproc GKE (T4)        | 8x n1-standard-32 | 8x n1-standard-32 + 8x T4 16GB |
+| Dataproc GKE (L4)        | 8x n1-standard-32 | 8x n1-standard-32 + 8x L4 24GB |
+| EMR (T4)                 | 8x m5d.8xlarge    | 4x g4dn.12xlarge               |
+| EMR (A10)                | 8x m5d.8xlarge    | 8x g5.8xlarge                  |
+| Databricks AWS           | 8x m6gd.8xlage    | 8x g5.8xlarge                  |
+| Databricks Azure         | 8x E8ds_v4        | 8x NC8as_T4_v3                 |
 
 Note that all benchmarks were run using the [NDS benchmark](https://github.com/NVIDIA/spark-rapids-benchmarks/tree/dev/nds) at SF3K (3 TB).
 
@@ -247,9 +250,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   -p, --per-sql                      Report at the individual SQL query level.
       --platform  <arg>              Cluster platform where Spark CPU workloads were
                                      executed. Options include onprem, dataproc-t4,
-                                     dataproc-l4, emr-t4, emr-a10, databricks-aws, and
-                                     databricks-azure.
-                                     Default is onprem.
+                                     dataproc-l4, dataproc-serverless-l4, dataproc-gke-t4,
+                                     dataproc-gke-l4, emr-t4, emr-a10, databricks-aws,
+                                     and databricks-azure. Default is onprem.
   -r, --report-read-schema           Whether to output the read formats and
                                      datatypes to the CSV file. This can be very
                                      long. Default is false.

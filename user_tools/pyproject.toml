@@ -33,17 +33,23 @@ dependencies = [
     "pygments==2.15.0",
     # used to apply validator on objects and models
     "pydantic==2.1.1",
+    # used to help pylint understand pydantic
+    "pylint-pydantic==0.3.0",
     # used for common API to access remote filesystems like local/s3/gcs/hdfs
     # this will include numpy
     "pyarrow==12.0.1",
     # used for ADLS filesystem implementation
-    "adlfs==2023.4.0"
+    # Issue-568: use 12.17.0 as the new 12.18.0 causes an error in runtime
+    "azure-storage-blob==12.17.0",
+    "adlfs==2023.4.0",
+    # used for spinner animation
+    "progress==1.6"
 ]
 dynamic=["entry-points", "version"]
 
 [project.scripts]
 spark_rapids_user_tools = "spark_rapids_pytools.wrapper:main"
-ascli = "pyrapids.cmdli.pyrapids_cli:main"
+ascli = "spark_rapids_tools.cmdli.tools_cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

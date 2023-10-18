@@ -22,7 +22,7 @@ from enum import Enum
 from logging import Logger
 from typing import Type, Any, List, Callable
 
-from pyrapids import EnumeratedType, CspEnv
+from spark_rapids_tools import EnumeratedType, CspEnv
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
     get_elem_non_safe
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
@@ -289,7 +289,7 @@ class CMDDriverBase:
     cloud_ctxt: dict
     timeout: int = 0
     env_vars: dict = field(default_factory=dict, init=False)
-    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cmd'), init=False)
+    logger: Logger = None
 
     def get_env_var(self, key: str):
         return self.env_vars.get(key)
@@ -463,7 +463,7 @@ class CMDDriverBase:
         sys_cmd = SysCmd().build(cmd_args)
         return sys_cmd.exec()
 
-    def _build_ssh_cmd_prefix_for_node(self, node: ClusterNode) -> str:
+    def _build_cmd_ssh_prefix_for_node(self, node: ClusterNode) -> str:
         del node  # Unused by super method.
         return ''
 
@@ -479,7 +479,7 @@ class CMDDriverBase:
         return f'{prefix} {remote_cmd}'
 
     def ssh_cmd_node(self, node: ClusterNode, ssh_cmd: str, cmd_input: str = None) -> str:
-        prefix_cmd = self._build_ssh_cmd_prefix_for_node(node=node)
+        prefix_cmd = self._build_cmd_ssh_prefix_for_node(node=node)
         full_ssh_cmd = self._construct_ssh_cmd_with_prefix(prefix=prefix_cmd, remote_cmd=ssh_cmd)
         return self.run_sys_cmd(full_ssh_cmd, cmd_input=cmd_input)
 
@@ -512,6 +512,9 @@ class CMDDriverBase:
     def _build_platform_list_cluster(self,
                                      cluster,
                                      query_args: dict = None) -> list:
+        raise NotImplementedError
+
+    def pull_node_pool_props_by_args(self, args: dict) -> str:
         raise NotImplementedError
 
     def exec_platform_list_cluster_instances(self,
@@ -570,6 +573,9 @@ class CMDDriverBase:
                                              cluster_name: str,
                                              submit_args: dict) -> List[str]:
         raise NotImplementedError
+
+    def __post_init__(self):
+        self.logger = ToolLogging.get_and_setup_logger('rapids.tools.cmd_driver')
 
 
 @dataclass
@@ -803,7 +809,9 @@ class PlatformBase:
 
     def create_saving_estimator(self,
                                 source_cluster: ClusterGetAccessor,
-                                reshaped_cluster: ClusterGetAccessor):
+                                reshaped_cluster: ClusterGetAccessor,
+                                target_cost: float = None,
+                                source_cost: float = None):
         raise NotImplementedError
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
@@ -1173,6 +1181,7 @@ def get_platform(platform_id: Enum) -> Type[PlatformBase]:
         CspEnv.DATABRICKS_AWS: ('spark_rapids_pytools.cloud_api.databricks_aws', 'DBAWSPlatform'),
         CspEnv.DATABRICKS_AZURE: ('spark_rapids_pytools.cloud_api.databricks_azure', 'DBAzurePlatform'),
         CspEnv.DATAPROC: ('spark_rapids_pytools.cloud_api.dataproc', 'DataprocPlatform'),
+        CspEnv.DATAPROC_GKE: ('spark_rapids_pytools.cloud_api.dataproc_gke', 'DataprocGkePlatform'),
         CspEnv.EMR: ('spark_rapids_pytools.cloud_api.emr', 'EMRPlatform'),
         CspEnv.ONPREM: ('spark_rapids_pytools.cloud_api.onprem', 'OnPremPlatform'),
     }

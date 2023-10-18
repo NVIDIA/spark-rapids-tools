@@ -26,7 +26,7 @@ dependencies = [
     "packaging==23.0",
     "certifi==2023.7.22",
     "idna==3.4",
-    "urllib3==1.26.14",
+    "urllib3==1.26.18",
     "beautifulsoup4==4.11.2"
 ]
 dynamic=["entry-points", "version"]
