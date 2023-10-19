@@ -1,6 +1,46 @@
 
 <br/>
 
+## Release [v23.08.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.08.2)
+Generated on 2023-10-19
+### User Tools
+
+- Add unit tests for Dataproc GKE with mock GKE cluster ([#618](https://github.com/NVIDIA/spark-rapids-tools/pull/618))
+- Add support in user tools for running qualification on Dataproc GKE ([#612](https://github.com/NVIDIA/spark-rapids-tools/pull/612))
+- [BUG] Update user tools to use latest Databricks CLI version 0.200+ ([#614](https://github.com/NVIDIA/spark-rapids-tools/pull/614))
+- Add argprocessor unit test for checking error messages for onprem with no eventlogs ([#605](https://github.com/NVIDIA/spark-rapids-tools/pull/605))
+- Updating docs for custom speedup factors for scale factor ([#604](https://github.com/NVIDIA/spark-rapids-tools/pull/604))
+- [FEA] Add qualification user tool options to support external pricing ([#595](https://github.com/NVIDIA/spark-rapids-tools/pull/595))
+- [DOC] Add documentation for qualification user tool pricing discount options ([#596](https://github.com/NVIDIA/spark-rapids-tools/pull/596))
+- [FEA] Add user qualification tool options for specifying pricing discounts for CPU or GPU cluster, or both ([#583](https://github.com/NVIDIA/spark-rapids-tools/pull/583))
+- Add diagnostic capabilities for Databricks (AWS/Azure) environments ([#533](https://github.com/NVIDIA/spark-rapids-tools/pull/533))
+- Add verbose option to the CLI ([#550](https://github.com/NVIDIA/spark-rapids-tools/pull/550))
+- [FEA] Remove URLs from pydantic error messages ([#560](https://github.com/NVIDIA/spark-rapids-tools/pull/560))
+- Rename and change pyrapids to spark_rapids_tools ([#570](https://github.com/NVIDIA/spark-rapids-tools/pull/570))
+- Fix sdk_monitor exception thrown by abfs protocol ([#569](https://github.com/NVIDIA/spark-rapids-tools/pull/569))
+
+### Core
+
+- Generating speedup factors for Dataproc GKE L4 GPU instances ([#617](https://github.com/NVIDIA/spark-rapids-tools/pull/617))
+- Qualification tool: Add penalty for row conversions ([#471](https://github.com/NVIDIA/spark-rapids-tools/pull/471))
+- Add support in core tools for running qualification on Dataproc GKE ([#613](https://github.com/NVIDIA/spark-rapids-tools/pull/613))
+- Sync up remaining updated execs and exprs from rapids-plugin ([#602](https://github.com/NVIDIA/spark-rapids-tools/pull/602))
+- Adding speedup factors for Dataproc Serverless and docs fix ([#603](https://github.com/NVIDIA/spark-rapids-tools/pull/603))
+- Add xxhash64 function as supported in qualification tools ([#597](https://github.com/NVIDIA/spark-rapids-tools/pull/597))
+- Fix ProjectExecParser to include digits in expression names ([#592](https://github.com/NVIDIA/spark-rapids-tools/pull/592))
+- [FEA] Add json_tuple function as supported in qualification tool ([#589](https://github.com/NVIDIA/spark-rapids-tools/pull/589))
+- [FEA] Add flatten function as supported in qualification tool ([#587](https://github.com/NVIDIA/spark-rapids-tools/pull/587))
+- [FEA] Sync up conv function with rapids-plugin resources ([#573](https://github.com/NVIDIA/spark-rapids-tools/pull/573))
+
+### Miscellaneous
+
+- Bump urllib3 from 1.26.17 to 1.26.18 in /data_validation ([#622](https://github.com/NVIDIA/spark-rapids-tools/pull/622))
+- Bump urllib3 from 1.26.14 to 1.26.17 in /data_validation ([#606](https://github.com/NVIDIA/spark-rapids-tools/pull/606))
+- Ignore pylint errors to fix python tests ([#611](https://github.com/NVIDIA/spark-rapids-tools/pull/611))
+
+
+<br/>
+
 ## Release [v23.08.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.08.1)
 Generated on 2023-09-12
 ### User Tools
