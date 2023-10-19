@@ -1035,11 +1035,11 @@ object AutoTuner extends Logging {
     representer.getPropertyUtils.setSkipMissingProperties(true)
     val constructor = new Constructor(classOf[ClusterProperties], new LoaderOptions())
     val yamlObjNested = new Yaml(constructor, representer)
-    val clusterPropsOpt = Option(yamlObjNested.load(clusterProps).asInstanceOf[ClusterProperties])
-    if (clusterPropsOpt.isDefined && clusterPropsOpt.get.softwareProperties == null) {
-      clusterPropsOpt.get.softwareProperties = new util.LinkedHashMap[String, String]()
+    val loadedClusterProps = yamlObjNested.load(clusterProps).asInstanceOf[ClusterProperties]
+    if (loadedClusterProps != null && loadedClusterProps.softwareProperties == null) {
+      loadedClusterProps.softwareProperties = new util.LinkedHashMap[String, String]()
     }
-    clusterPropsOpt
+    Option(loadedClusterProps)
   }
 
   def loadClusterProps(filePath: String): Option[ClusterProperties] = {
