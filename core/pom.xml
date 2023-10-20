@@ -518,6 +518,7 @@
         <project.build.sourceEncoding>${platform-encoding}</project.build.sourceEncoding>
         <project.reporting.sourceEncoding>${platform-encoding}</project.reporting.sourceEncoding>
         <project.reporting.outputEncoding>${platform-encoding}</project.reporting.outputEncoding>
+        <hive.version>1.2.2-bd103</hive.version>
     </properties>
 
     <dependencies>
@@ -597,6 +598,40 @@
             <artifactId>spark-hive_${scala.binary.version}</artifactId>
             <version>${spark.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-common</artifactId>
+            <version>${hive.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-exec</artifactId>
+            <version>${hive.version}</version>
+            <scope>provided</scope>
+            <!--            <exclusions>-->
+            <!--                <exclusion>-->
+            <!--                    <groupId>org.codehaus.jackson</groupId>-->
+            <!--                    <artifactId>jackson-core-asl</artifactId>-->
+            <!--                </exclusion>-->
+            <!--                <exclusion>-->
+            <!--                    <groupId>org.codehaus.jackson</groupId>-->
+            <!--                    <artifactId>jackson-mapper-asl</artifactId>-->
+            <!--                </exclusion>-->
+            <!--                <exclusion>-->
+            <!--                    <groupId>org.codehaus.jackson</groupId>-->
+            <!--                    <artifactId>jackson-jaxrs</artifactId>-->
+            <!--                </exclusion>-->
+            <!--                <exclusion>-->
+            <!--                    <groupId>org.codehaus.jackson</groupId>-->
+            <!--                    <artifactId>jackson-xc</artifactId>-->
+            <!--                </exclusion>-->
+            <!--                <exclusion>-->
+            <!--                    <groupId>com.google.protobuf</groupId>-->
+            <!--                    <artifactId>protobuf-java</artifactId>-->
+            <!--                </exclusion>-->
+            <!--            </exclusions>-->
         </dependency>
     </dependencies>
 
