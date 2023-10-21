@@ -1037,6 +1037,7 @@ object AutoTuner extends Logging {
     val yamlObjNested = new Yaml(constructor, representer)
     val loadedClusterProps = yamlObjNested.load(clusterProps).asInstanceOf[ClusterProperties]
     if (loadedClusterProps != null && loadedClusterProps.softwareProperties == null) {
+      logInfo("softwareProperties is empty from input worker_info file")
       loadedClusterProps.softwareProperties = new util.LinkedHashMap[String, String]()
     }
     Option(loadedClusterProps)
