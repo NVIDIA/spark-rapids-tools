@@ -434,8 +434,9 @@ class DataprocCluster(ClusterBase):
     def _init_connection(self, cluster_id: str = None,
                          props: str = None) -> dict:
         cluster_args = super()._init_connection(cluster_id=cluster_id, props=props)
-        # extract and update zone to the environment variable and cluster
+        # extract and update zone to the environment variable
         self._set_zone_from_props(cluster_args['props'])
+        # propagate zone to the cluster
         cluster_args.setdefault('zone', self.cli.get_env_var('zone'))
         return cluster_args
 
@@ -524,7 +525,6 @@ class DataprocSavingsEstimator(SavingsEstimator):
     """
     A class that calculates the savings based on Dataproc price provider
     """
-
     def _calculate_group_cost(self, cluster_inst: ClusterGetAccessor, node_type: SparkNodeType):
         nodes_cnt = cluster_inst.get_nodes_cnt(node_type)
         cores_count = cluster_inst.get_node_core_count(node_type)
