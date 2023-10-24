@@ -59,6 +59,7 @@ class RapidsTool(object):
     name: str = field(default=None, init=False)
     ctxt: ToolContext = field(default=None, init=False)
     logger: Logger = field(default=None, init=False)
+    spinner: ToolsSpinner = field(default=None, init=False)
 
     def pretty_name(self):
         return self.name.capitalize()
@@ -272,7 +273,9 @@ class RapidsTool(object):
         self._handle_non_running_exec_cluster(msg)
 
     def launch(self):
-        with ToolsSpinner(in_debug_mode=ToolLogging.is_debug_mode_enabled()):
+        # Spinner should not be enabled in debug mode
+        enable_spinner = not ToolLogging.is_debug_mode_enabled()
+        with ToolsSpinner(enabled=enable_spinner) as self.spinner:
             self._init_tool()
             self._connect_to_execution_cluster()
             self._process_arguments()
