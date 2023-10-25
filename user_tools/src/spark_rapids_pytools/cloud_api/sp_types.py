@@ -369,7 +369,7 @@ class CMDDriverBase:
         self._handle_inconsistent_configurations(incorrect_envs)
 
     def run_sys_cmd(self,
-                    cmd: Union[str, list[str]],
+                    cmd: Union[str, list],
                     cmd_input: str = None,
                     fail_ok: bool = False,
                     env_vars: dict = None) -> str:
