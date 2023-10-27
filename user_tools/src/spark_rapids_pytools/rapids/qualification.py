@@ -574,7 +574,7 @@ class Qualification(RapidsJarTool):
                                                                             df_row['Estimated GPU Duration'])
             cpu_cost = (100 - self.ctxt.get_ctxt('cpu_discount')) / 100 * raw_cpu_cost
             gpu_cost = (100 - self.ctxt.get_ctxt('gpu_discount')) / 100 * raw_gpu_cost
-            est_savings = 100.0 - ((100.0 * gpu_cost) / cpu_cost)
+            est_savings = 100.0 - ((100.0 * gpu_cost) / cpu_cost) if cpu_cost > 0 else 0
             # We do not want to mistakenly mark a Not-applicable app as Recommended in the savings column
             if df_row[speedup_rec_col] == 'Not Applicable':
                 savings_recommendations = 'Not Applicable'
