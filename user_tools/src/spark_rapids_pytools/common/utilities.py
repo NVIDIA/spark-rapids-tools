@@ -379,23 +379,25 @@ class ToolsSpinner:
     A class to manage the spinner animation.
     Reference: https://stackoverflow.com/a/66558182
 
-    :param in_debug_mode: Flag indicating if running in debug (verbose) mode. Defaults to False.
+    :param enabled: Flag indicating if the spinner is enabled. Defaults to True.
     """
-    in_debug_mode: bool = field(default=False, init=True)
-    pixel_spinner: PixelSpinner = field(default=PixelSpinner('Processing...'), init=False)
+    enabled: bool = field(default=True, init=True)
+    pixel_spinner: PixelSpinner = field(default=PixelSpinner('Processing...', hide_cursor=False), init=False)
     end: str = field(default='Processing Completed!', init=False)
     timeout: float = field(default=0.1, init=False)
     completed: bool = field(default=False, init=False)
     spinner_thread: threading.Thread = field(default=None, init=False)
+    pause_event: threading.Event = field(default=threading.Event(), init=False)
 
     def _spinner_animation(self):
         while not self.completed:
             self.pixel_spinner.next()
             time.sleep(self.timeout)
+            while self.pause_event.is_set():
+                self.pause_event.wait(self.timeout)
 
     def start(self):
-        # Don't start if in debug mode
-        if not self.in_debug_mode:
+        if self.enabled:
             self.spinner_thread = threading.Thread(target=self._spinner_animation, daemon=True)
             self.spinner_thread.start()
         return self
@@ -403,6 +405,16 @@ class ToolsSpinner:
     def stop(self):
         self.completed = True
         print(f'\r\n{self.end}', flush=True)
+
+    def pause(self, insert_newline=False):
+        if self.enabled:
+            if insert_newline:
+                # Print a newline for visual separation
+                print()
+            self.pause_event.set()
+
+    def resume(self):
+        self.pause_event.clear()
 
     def __enter__(self):
         return self.start()
