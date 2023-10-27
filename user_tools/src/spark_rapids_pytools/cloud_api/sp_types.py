@@ -393,10 +393,8 @@ class CMDDriverBase:
                 if len(stdout_splits) > 0:
                     std_out_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stdout_splits])
                     stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
-                if isinstance(cmd, list):
-                    cmd_list = cmd
-                else:
-                    cmd_list = cmd.split(' ')
+                # if the command is already a list, use it as-is. Otherwise, split the string into a list.
+                cmd_list = cmd if isinstance(cmd, list) else cmd.split(' ')
                 cmd_log_str = Utils.gen_joined_str(' ', process_credentials_option(cmd_list))
                 if len(stderr_splits) > 0:
                     std_err_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stderr_splits])
