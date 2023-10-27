@@ -388,11 +388,12 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     val allRows = apps.flatMap { app =>
       app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
         SQLDurationExecutorTimeProfileResult(app.index, app.appId, sqlId, sqlCase.duration,
-          sqlCase.hasDatasetOrRDD, app.appInfo.duration, sqlCase.problematic,
+          sqlCase.hasDatasetOrRDD,
+          Option(app.appInfo).flatMap(_.duration).orElse(Option(0L)),
+          sqlCase.problematic,
           sqlCase.sqlCpuTimePercent)
       }
     }
-
     if (allRows.size > 0) {
       val sortedRows = allRows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
