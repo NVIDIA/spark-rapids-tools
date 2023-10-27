@@ -200,22 +200,79 @@ class QualificationAppInfo(
 
   private def getStageToExec(execInfos: Seq[ExecInfo]): (Map[Int, Seq[ExecInfo]], Seq[ExecInfo]) = {
     val execsWithoutStages = new ArrayBuffer[ExecInfo]()
-    val perStageSum = execInfos.flatMap { execInfo =>
-      if (execInfo.stages.size > 1) {
-        execInfo.stages.map((_, execInfo))
-      } else if (execInfo.stages.size < 1) {
-        // we don't know what stage its in or its duration
-        logDebug(s"No stage associated with ${execInfo.exec} " +
-          s"so speedup factor isn't applied anywhere.")
-        execsWithoutStages += execInfo
-        Seq.empty
-      } else {
-        Seq((execInfo.stages.head, execInfo))
-      }
-    }.groupBy(_._1).map { case (stage, execInfos) =>
+
+    // This is to get the mapping between stageId and execs. This is primarily done based on
+    // accumulatorId. If an Exec has some metrics generated, then an accumulatorId will be
+    // generated for that Exec. This accumulatorId is used to get the stageId. If an Exec
+    // doesn't have any metrics, then we will try to get the stageId by looking at the
+    // neighbor Execs. If either of the neighbor Execs has a stageId, then we will use that
+    // to assign the same stageId to the current Exec as it's most likely that the current
+    // Exec is part of the same stage as the neighbor Exec.
+    val execInfosInOrder = execInfos.reverse
+    val execInfosCombined = Iterator(Seq(execInfosInOrder.head)) ++
+      execInfosInOrder.sliding(3) ++ Iterator(Seq(execInfosInOrder.last))
+    val perStageSum = execInfosCombined.map {
+      case Seq(prev, execInfo, next) =>
+        val associatedStages =
+          if (execInfo.stages.size > 1) execInfo.stages.toSeq
+          else if (execInfo.stages.size < 1) {
+            val prevStages = if (prev.stages.size > 1) prev.stages else Seq.empty
+            val nextStages = if (next.stages.size > 1) next.stages else Seq.empty
+            val singlePrevStage = prev.stages.headOption.toSeq
+            val singleNextStage = next.stages.headOption.toSeq
+            val dedupedStages = Set(singlePrevStage ++ singleNextStage ++ prevStages ++ nextStages).
+              flatten.toSeq
+            if (dedupedStages.nonEmpty) {
+              dedupedStages
+            } else {
+              // we don't know what stage its in or its duration
+              logDebug(s"No stage associated with ${execInfo.exec} " +
+                s"so speedup factor isn't applied anywhere.")
+              execsWithoutStages += execInfo
+              Seq.empty
+            }
+          } else {
+            Seq(execInfo.stages.head)
+          }
+        associatedStages.map((_, execInfo))
+
+      case Seq(prev, execInfo) =>
+        val associatedStages =
+          if (execInfo.stages.size > 1) execInfo.stages.toSeq
+          else if (execInfo.stages.size < 1) {
+            val prevStages = if (prev.stages.size > 1) prev.stages.toSeq else Seq.empty
+            val singlePrevStage = prev.stages.headOption.toSeq
+            val dedupedStages = Set(singlePrevStage ++ prevStages).flatten.toSeq
+            if (dedupedStages.nonEmpty) {
+              dedupedStages
+            } else {
+              // we don't know what stage its in or its duration
+              logDebug(s"No stage associated with ${execInfo.exec} " +
+                s"so speedup factor isn't applied anywhere.")
+              execsWithoutStages += execInfo
+              Seq.empty
+            }
+          } else {
+            Seq(execInfo.stages.head)
+          }
+        associatedStages.map((_, execInfo))
+
+      case Seq(execInfo) =>
+        val associatedStages =
+          if (execInfo.stages.size > 1) execInfo.stages.toSeq
+          else if (execInfo.stages.size < 1) {
+            execsWithoutStages += execInfo
+            Seq.empty
+          } else {
+            Seq(execInfo.stages.head)
+          }
+        associatedStages.map((_, execInfo))
+
+      case _ => Seq.empty
+    }.toSeq.flatten.groupBy(_._1).map { case (stage, execInfos) =>
       (stage, execInfos.map(_._2))
     }
-    (perStageSum, execsWithoutStages.toSeq)
+    (perStageSum, execsWithoutStages)
   }
 
   private def flattenedExecs(execs: Seq[ExecInfo]): Seq[ExecInfo] = {
