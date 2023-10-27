@@ -272,6 +272,15 @@ abstract class AppBase(
     }
   }
 
+  private def trimSchema(str: String): String = {
+    val index = str.lastIndexOf(",")
+    if (index != -1 && str.contains("...")) {
+      str.substring(0, index)
+    } else {
+      str
+    }
+  }
+
   // The ReadSchema metadata is only in the eventlog for DataSource V1 readers
   protected def checkMetadataForReadSchema(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
     // check if planInfo has ReadSchema
@@ -284,7 +293,7 @@ abstract class AppBase(
       val readSchema = ReadParser.formatSchemaStr(meta.getOrElse("ReadSchema", ""))
       val scanNode = allNodes.filter(node => {
         // Get ReadSchema of each Node and sanitize it for comparison
-        val trimmedNode = ReadParser.parseReadNode(node).schema.replace("...", "")
+        val trimmedNode = trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
       }).filter(x => x.name.startsWith("Scan")).head
 
