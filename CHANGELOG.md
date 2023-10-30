@@ -1,6 +1,22 @@
 
 <br/>
 
+## Release [v23.10.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.10.0)
+Generated on 2023-10-30
+### User Tools
+
+- Fix system command processing during logging in user tools ([#633](https://github.com/NVIDIA/spark-rapids-tools/pull/633))
+- Fix spinner animation blocking user input in diagnostic tool ([#631](https://github.com/NVIDIA/spark-rapids-tools/pull/631))
+- Enable Dynamic 'Zone' Configuration for Dataproc User Tools ([#629](https://github.com/NVIDIA/spark-rapids-tools/pull/629))
+
+### Core
+
+- Profiling tool : Update readSchema string parser ([#635](https://github.com/NVIDIA/spark-rapids-tools/pull/635))
+- [FEA] Fix empty softwareProperties field in worker_info.yaml file for profiling tool ([#623](https://github.com/NVIDIA/spark-rapids-tools/pull/623))
+
+
+<br/>
+
 ## Release [v23.08.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.08.2)
 Generated on 2023-10-19
 ### User Tools
