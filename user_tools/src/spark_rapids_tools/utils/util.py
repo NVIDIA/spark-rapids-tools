@@ -92,7 +92,7 @@ def dump_tool_usage(tool_name: Optional[str], raise_sys_exit: Optional[bool] = T
     imported_module = __import__('spark_rapids_tools.cmdli', globals(), locals(), ['ToolsCLI'])
     wrapper_clzz = getattr(imported_module, 'ToolsCLI')
     help_name = 'ascli'
-    usage_cmd = f'{tool_name} --help'
+    usage_cmd = f'{tool_name} -- --help'
     try:
         fire.Fire(wrapper_clzz(), name=help_name, command=usage_cmd)
     except fire.core.FireExit:
