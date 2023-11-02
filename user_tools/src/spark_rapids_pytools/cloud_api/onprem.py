@@ -300,18 +300,18 @@ class OnpremSavingsEstimator(SavingsEstimator):
 
         cores_cost = self.price_provider.get_cpu_price(node_mc_type) * int(cores_count)
         memory_cost = self.price_provider.get_ram_price(node_mc_type) * mem_gb
+        dataproc_cost = self.price_provider.get_container_cost() * int(cores_count)
         # calculate the GPU cost
         gpu_per_machine, gpu_type = cluster_inst.get_gpu_per_node(node_type)
         gpu_cost = 0.0
         if gpu_per_machine > 0:
             gpu_unit_price = self.price_provider.get_gpu_price(gpu_type)
             gpu_cost = gpu_unit_price * gpu_per_machine
-        return nodes_cnt * (cores_cost + memory_cost + gpu_cost)
+        return nodes_cnt * (cores_cost + memory_cost + dataproc_cost + gpu_cost)
 
     def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
         if self.price_provider.name.casefold() == 'dataproc':
             master_cost = self.__calculate_dataproc_group_cost(cluster, SparkNodeType.MASTER)
             workers_cost = self.__calculate_dataproc_group_cost(cluster, SparkNodeType.WORKER)
-            dataproc_cost = self.price_provider.get_container_cost()
-            total_cost = master_cost + workers_cost + dataproc_cost
+            total_cost = master_cost + workers_cost
         return total_cost

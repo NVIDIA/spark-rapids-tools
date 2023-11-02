@@ -196,5 +196,4 @@ class DataprocGkeSavingsEstimator(DataprocSavingsEstimator):
     def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
         master_cost = self._calculate_group_cost(cluster, SparkNodeType.MASTER)
         workers_cost = self._calculate_group_cost(cluster, SparkNodeType.WORKER)
-        dataproc_gke_cost = self.price_provider.get_container_cost()
-        return master_cost + workers_cost + dataproc_gke_cost
+        return master_cost + workers_cost
