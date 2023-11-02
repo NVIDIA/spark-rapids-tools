@@ -20,7 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from typing import Type, Any, List, Callable
+from typing import Type, Any, List, Callable, Union
 
 from spark_rapids_tools import EnumeratedType, CspEnv
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
@@ -369,7 +369,7 @@ class CMDDriverBase:
         self._handle_inconsistent_configurations(incorrect_envs)
 
     def run_sys_cmd(self,
-                    cmd,
+                    cmd: Union[str, list],
                     cmd_input: str = None,
                     fail_ok: bool = False,
                     env_vars: dict = None) -> str:
@@ -393,7 +393,9 @@ class CMDDriverBase:
                 if len(stdout_splits) > 0:
                     std_out_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stdout_splits])
                     stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
-                cmd_log_str = Utils.gen_joined_str(' ', process_credentials_option(cmd))
+                # if the command is already a list, use it as-is. Otherwise, split the string into a list.
+                cmd_list = cmd if isinstance(cmd, list) else cmd.split(' ')
+                cmd_log_str = Utils.gen_joined_str(' ', process_credentials_option(cmd_list))
                 if len(stderr_splits) > 0:
                     std_err_lines = Utils.gen_multiline_str([f'\t| {line}' for line in stderr_splits])
                     stderr_str = f'\n\t<STDERR>\n{std_err_lines}'
