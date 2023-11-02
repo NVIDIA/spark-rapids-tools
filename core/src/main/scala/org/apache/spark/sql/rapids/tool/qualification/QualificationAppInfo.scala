@@ -201,12 +201,12 @@ class QualificationAppInfo(
   private def checkStageIdInExec(prev: Option[ExecInfo],
       execInfo: ExecInfo, next: Option[ExecInfo]): (Seq[(Int, ExecInfo)], Option[ExecInfo]) = {
     val associatedStages = {
-      if (execInfo.stages.size > 1) {
+      if (execInfo.stages.size >= 1) {
         execInfo.stages.toSeq
-      } else if (execInfo.stages.size < 1) {
+      } else {
         if (prev.exists(_.stages.size >= 1)) {
           prev.flatMap(_.stages.headOption).toSeq
-        } else if (next.exists(_.stages.size >= 1)) {
+        } else if (next.nonEmpty) {
           next.flatMap(_.stages.headOption).toSeq
         } else {
           // we don't know what stage its in or its duration
@@ -214,8 +214,6 @@ class QualificationAppInfo(
             s"so speedup factor isn't applied anywhere.")
           Seq.empty
         }
-      } else {
-        Seq(execInfo.stages.head)
       }
     }
     if (associatedStages.nonEmpty) {
