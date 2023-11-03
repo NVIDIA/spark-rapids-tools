@@ -198,6 +198,21 @@ class QualificationAppInfo(
     }
   }
 
+  /**
+   * Checks the stage ID in the execution information.
+   * This function determines the associated stages for the given execution information by
+   * checking the stages in the current execution information, the previous execution information,
+   * and the next execution information. If there are associated stages, it returns a sequence of
+   * stage ID and execution information pairs. Otherwise, it returns an optional execution
+   * information(not associated with any stage). If there is stage ID associated with both the
+   * previous and the next execution information, then the current execution information is
+   * associated with the stage ID of the previous execution information.
+   * @param prev     The previous execution information.
+   * @param execInfo The current execution information.
+   * @param next     The next execution information.
+   * @return A tuple containing a sequence of stage ID and execution information pairs,
+   *         and an optional execution information.
+   */
   private def checkStageIdInExec(prev: Option[ExecInfo],
       execInfo: ExecInfo, next: Option[ExecInfo]): (Seq[(Int, ExecInfo)], Option[ExecInfo]) = {
     val associatedStages = {
