@@ -201,12 +201,12 @@ class QualificationAppInfo(
   private def checkStageIdInExec(prev: Option[ExecInfo],
       execInfo: ExecInfo, next: Option[ExecInfo]): (Seq[(Int, ExecInfo)], Option[ExecInfo]) = {
     val associatedStages = {
-      if (execInfo.stages.size >= 1) {
+      if (execInfo.stages.nonEmpty) {
         execInfo.stages.toSeq
       } else {
-        if (prev.exists(_.stages.size >= 1)) {
+        if (prev.exists(_.stages.nonEmpty)) {
           prev.flatMap(_.stages.headOption).toSeq
-        } else if (next.nonEmpty) {
+        } else if (next.exists(_.stages.nonEmpty)) {
           next.flatMap(_.stages.headOption).toSeq
         } else {
           // we don't know what stage its in or its duration
@@ -222,7 +222,6 @@ class QualificationAppInfo(
       (Seq.empty, Some(execInfo))
     }
   }
-
 
   private def getStageToExec(execInfos: Seq[ExecInfo]): (Map[Int, Seq[ExecInfo]], Seq[ExecInfo]) = {
     val execsWithoutStages = new ArrayBuffer[ExecInfo]()
