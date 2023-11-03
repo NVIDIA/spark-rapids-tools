@@ -545,5 +545,7 @@ class DataprocSavingsEstimator(SavingsEstimator):
     def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
         master_cost = self._calculate_group_cost(cluster, SparkNodeType.MASTER)
         workers_cost = self._calculate_group_cost(cluster, SparkNodeType.WORKER)
-        dataproc_cost = self.price_provider.get_container_cost()
+        master_cores = cluster.get_nodes_cnt(SparkNodeType.MASTER) * cluster.get_node_core_count(SparkNodeType.MASTER)
+        worker_cores = cluster.get_nodes_cnt(SparkNodeType.WORKER) * cluster.get_node_core_count(SparkNodeType.WORKER)
+        dataproc_cost = self.price_provider.get_container_cost() * (master_cores + worker_cores)
         return master_cost + workers_cost + dataproc_cost
