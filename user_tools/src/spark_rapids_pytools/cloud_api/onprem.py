@@ -313,9 +313,9 @@ class OnpremSavingsEstimator(SavingsEstimator):
             master_cost = self.__calculate_dataproc_group_cost(cluster, SparkNodeType.MASTER)
             workers_cost = self.__calculate_dataproc_group_cost(cluster, SparkNodeType.WORKER)
             master_cores = cluster.get_nodes_cnt(SparkNodeType.MASTER) * \
-                               cluster.get_node_core_count(SparkNodeType.MASTER)
+                           cluster.get_node_core_count(SparkNodeType.MASTER)
             worker_cores = cluster.get_nodes_cnt(SparkNodeType.WORKER) * \
-                               cluster.get_node_core_count(SparkNodeType.WORKER)
+                           cluster.get_node_core_count(SparkNodeType.WORKER)
             dataproc_cost = self.price_provider.get_container_cost() * (master_cores + worker_cores)
             total_cost = master_cost + workers_cost + dataproc_cost
         return total_cost
