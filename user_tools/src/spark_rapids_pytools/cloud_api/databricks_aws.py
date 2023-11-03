@@ -205,7 +205,20 @@ class DatabricksCluster(ClusterBase):
         master_nodes_from_conf = self.props.get_value_silent('driver')
         worker_nodes_from_conf = self.props.get_value_silent('executors')
         num_workers = self.props.get_value_silent('num_workers')
+        if num_workers is None and self.props.get_value_silent('autoscale') is not None:
+            target_workers = self.props.get_value_silent('autoscale', 'target_workers')
+            # use min_workers since it is usually the same as target_workers
+            min_workers = self.props.get_value_silent('autoscale', 'min_workers')
+            if target_workers is not None:
+                num_workers = target_workers
+                self.logger.info('Autoscaling cluster, will set number of workers to target_workers = %s',
+                                 num_workers)
+            elif min_workers is not None:
+                num_workers = min_workers
+                self.logger.info('Autoscaling cluster, will set number of workers to min_workers = %s',
+                                 num_workers)
         if num_workers is None:
+            self.logger.info('Unable to find number of workers for cluster, will default to 0')
             num_workers = 0
         # construct master node info when cluster is inactive
         if master_nodes_from_conf is None:
