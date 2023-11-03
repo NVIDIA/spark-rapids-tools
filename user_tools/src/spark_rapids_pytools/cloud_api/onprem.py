@@ -306,7 +306,7 @@ class OnpremSavingsEstimator(SavingsEstimator):
         if gpu_per_machine > 0:
             gpu_unit_price = self.price_provider.get_gpu_price(gpu_type)
             gpu_cost = gpu_unit_price * gpu_per_machine
-        return nodes_cnt * (cores_cost + memory_cost + dataproc_cost + gpu_cost)
+        return nodes_cnt * (cores_cost + memory_cost + gpu_cost)
 
     def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
         if self.price_provider.name.casefold() == 'dataproc':
