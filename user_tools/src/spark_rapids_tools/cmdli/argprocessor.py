@@ -172,6 +172,12 @@ class AbsToolUserArgModel:
             raise PydanticCustomError(
                 'invalid_argument',
                 f'Cannot run cluster by name with platform [{CspEnv.ONPREM}]\n  Error:')
+    
+    def validate_onprem_with_cluster_props(self):
+        if self.platform == CspEnv.ONPREM:
+            raise PydanticCustomError(
+                'invalid_argument',
+                f'Cannot run cluster by properties with platform [{CspEnv.ONPREM}]\n  Error:')
 
     def init_extra_arg_cases(self) -> list:
         return []
@@ -229,12 +235,19 @@ class AbsToolUserArgModel:
 
     def post_platform_assignment_validation(self, assigned_platform):
         # do some validation after we decide the cluster type
-        if self.argv_cases[1] == ArgValueCase.VALUE_A:
-            if assigned_platform == CspEnv.ONPREM:
-                # it is not allowed to run cluster_by_name on an OnPrem platform
+        if assigned_platform == CspEnv.ONPREM:
+            cluster_case = self.argv_cases[1]
+            eventlogs_case = self.argv_cases[2]
+            if cluster_case == ArgValueCase.VALUE_A:
+                # it is not allowed to run cluster by name on an OnPrem platform
                 raise PydanticCustomError(
                     'invalid_argument',
                     f'Cannot run cluster by name with platform [{CspEnv.ONPREM}]\n  Error:')
+            if cluster_case == ArgValueCase.VALUE_B and eventlogs_case == ArgValueCase.UNDEFINED:
+                # it is not allowed to run cluster by props on an OnPrem platform without eventlogs
+                raise PydanticCustomError(
+                    'invalid_argument',
+                    f'Cannot run cluster by properties with platform [{CspEnv.ONPREM}] without eventlogs\n  Error:')
 
 
 @dataclass
@@ -276,6 +289,13 @@ class ToolUserArgModel(AbsToolUserArgModel):
             'callable': partial(self.validate_onprem_with_cluster_name),
             'cases': [
                 [ArgValueCase.VALUE_A, ArgValueCase.VALUE_A, ArgValueCase.IGNORE]
+            ]
+        }
+        self.rejected['Cluster By Properties Cannot go with OnPrem'] = {
+            'valid': False,
+            'callable': partial(self.validate_onprem_with_cluster_props),
+            'cases': [
+                [ArgValueCase.VALUE_A, ArgValueCase.VALUE_C, ArgValueCase.UNDEFINED]
             ]
         }
 
