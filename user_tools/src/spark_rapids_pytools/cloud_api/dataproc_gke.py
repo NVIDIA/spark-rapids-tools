@@ -194,6 +194,6 @@ class DataprocGkeSavingsEstimator(DataprocSavingsEstimator):
     """
 
     def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
-        dataproc_cost = super()._get_cost_per_cluster()
+        dataproc_cost = super()._get_cost_per_cluster(cluster)
         dataproc_gke_cost = self.price_provider.get_container_cost()
         return dataproc_cost + dataproc_gke_cost
