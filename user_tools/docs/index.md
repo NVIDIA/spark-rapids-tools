@@ -21,7 +21,7 @@ query to GPU.
 The tool will process each app individually, but will group apps with the same name into the same output row after
 averaging duration metrics accordingly.
 For more details, please visit the
-[Qualification Tool on GitHub pages](https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html).
+[Qualification Tool guide](https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html).
 
 ### Bootstrap
 
@@ -45,7 +45,7 @@ In addition, the wrapper output provides optimized RAPIDS configurations based o
 information.  
 
 For more details, please visit the
-[Profiling Tool on GitHub pages](https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html).
+[Profiling Tool guide](https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html).
 
 ### Diagnostic
 
