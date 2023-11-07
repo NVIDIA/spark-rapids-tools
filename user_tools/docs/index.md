@@ -13,7 +13,7 @@ to build analysis reports on Amazon EMR, GCloud Dataproc, and Databricks.
 
 ### Qualification
 
-Provides a wrapper to simplify the execution of [RAPIDS Qualification tool](../../core/docs/spark-qualification-tool.md)
+Provides a wrapper to simplify the execution of [RAPIDS Qualification tool](https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html).
 The latter analyzes Spark events generated from  CPU based Spark applications to help
 quantify the expected acceleration and costs savings of migrating a Spark application or
 query to GPU.  
@@ -21,7 +21,7 @@ query to GPU.
 The tool will process each app individually, but will group apps with the same name into the same output row after
 averaging duration metrics accordingly.
 For more details, please visit the
-[Qualification Tool on GitHub pages](https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html).
+[Qualification Tool guide](https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html).
 
 ### Bootstrap
 
@@ -35,7 +35,7 @@ Apache Spark default configurations.
 
 ### Profiling
 
-Provides a wrapper to simplify the execution of [RAPIDS Profiling tool](../../core/docs/spark-profiling-tool.md).
+Provides a wrapper to simplify the execution of [RAPIDS Profiling tool](https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html).
 The latter analyzes both CPU or GPU generated event logs and generates information which
 can be used for debugging and profiling Apache Spark applications.  The tool also will recommend setting
 for the application assuming that the job will be able to use all the cluster resources (CPU and GPU) when
@@ -45,7 +45,7 @@ In addition, the wrapper output provides optimized RAPIDS configurations based o
 information.  
 
 For more details, please visit the
-[Profiling Tool on GitHub pages](https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html).
+[Profiling Tool guide](https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html).
 
 ### Diagnostic
 

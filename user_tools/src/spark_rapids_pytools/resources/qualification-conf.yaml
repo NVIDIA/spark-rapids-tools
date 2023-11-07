@@ -42,7 +42,7 @@ sparkRapids:
   mvnUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
   repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
   mainClass: 'com.nvidia.spark.rapids.tool.qualification.QualificationMain'
-  outputDocURL: 'https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#understanding-the-qualification-tool-output'
+  outputDocURL: 'https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#understanding-the-qualification-tool-output'
   gpu:
     device: 't4'
     workersPerNode: 2
