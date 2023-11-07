@@ -103,7 +103,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
                 multiple "spark-property" arguments.
                 For more details on Qualification tool options, please visit
-                https://nvidia.github.io/spark-rapids/docs/spark-qualification-tool.html#qualification-tool-options
+                https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#qualification-tool-options
         """
         if verbose:
             ToolLogging.enable_debug_mode()
@@ -157,7 +157,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 Note that the wrapper ignores ["output-directory", "worker-info"] flags, and it does not support
                 multiple "spark-property" arguments.
                 For more details on Profiling tool options, please visit
-                https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html#profiling-tool-options
+                https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#profiling-tool-options
         """
         if verbose:
             ToolLogging.enable_debug_mode()
