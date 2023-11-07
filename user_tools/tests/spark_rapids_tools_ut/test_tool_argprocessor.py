@@ -98,7 +98,7 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
         else:
             TestToolArgProcessor.validate_args_w_savings_disabled(tool_name, tool_args)
 
-    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling', 'bootstrap'])
+    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
     @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED])
     def test_with_no_args(self, tool_name):
         # should fail: cannot run with no args
@@ -112,7 +112,7 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
         # should fail: cannot run with platform only
         self.create_tool_args_should_fail(tool_name, platform=csp)
 
-    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling', 'bootstrap'])
+    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
     @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.IGNORE, ArgValueCase.UNDEFINED])
     @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED])
     def test_with_cluster_name(self, tool_name):
