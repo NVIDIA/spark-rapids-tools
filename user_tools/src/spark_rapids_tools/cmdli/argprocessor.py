@@ -172,7 +172,7 @@ class AbsToolUserArgModel:
             raise PydanticCustomError(
                 'invalid_argument',
                 f'Cannot run cluster by name with platform [{CspEnv.ONPREM}]\n  Error:')
-    
+
     def validate_onprem_with_cluster_props(self):
         if self.platform == CspEnv.ONPREM:
             raise PydanticCustomError(
