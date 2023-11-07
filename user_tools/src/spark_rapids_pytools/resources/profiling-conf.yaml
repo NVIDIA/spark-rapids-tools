@@ -10,7 +10,7 @@ sparkRapids:
   mvnUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
   repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
   mainClass: 'com.nvidia.spark.rapids.tool.profiling.ProfileMain'
-  outputDocURL: 'https://nvidia.github.io/spark-rapids/docs/spark-profiling-tool.html#understanding-profiling-tool-detailed-output-and-examples'
+  outputDocURL: 'https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#understanding-profiling-tool-detailed-output-and-examples'
   cli:
     toolOptions:
       - csv

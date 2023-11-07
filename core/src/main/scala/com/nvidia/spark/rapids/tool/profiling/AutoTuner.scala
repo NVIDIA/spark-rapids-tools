@@ -899,7 +899,8 @@ class AutoTuner(
           "Spark applications utilizing RAPIDS Accelerator for Apache Spark")
       if (!isPluginLoaded) {
         appendComment("RAPIDS Accelerator for Apache Spark jar is missing in \"spark.plugins\". " +
-            "Please refer to https://nvidia.github.io/spark-rapids/Getting-Started")
+            "Please refer to " +
+            "https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html")
       }
       if (!rapidsEnabled) {
         appendComment("Please enable Spark RAPIDS Accelerator for Apache Spark by setting " +
