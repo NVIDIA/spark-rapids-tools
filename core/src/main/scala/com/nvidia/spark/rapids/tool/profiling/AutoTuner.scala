@@ -568,7 +568,7 @@ class AutoTuner(
     }
   }
 
-  def calculateRecommendations(): Unit = {
+  def calculateClusterLevelRecommendations(): Unit = {
     recommendExecutorInstances()
     val numExecutorCores = calcNumExecutorCores
     val execCoresExpr = () => numExecutorCores
@@ -593,6 +593,10 @@ class AutoTuner(
     appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
       Math.max(20, numExecutorCores))
 
+    recommendAQEProperties()
+  }
+
+  def calculateJobLevelRecommendations(): Unit = {
     val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.filterNot("().".toSet)
     appendRecommendation("spark.shuffle.manager",
       "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
@@ -601,7 +605,7 @@ class AutoTuner(
     recommendFileCache()
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
-    recommendGeneralProperties()
+    recommendGCProperty()
     recommendClassPathEntries()
   }
 
@@ -631,7 +635,17 @@ class AutoTuner(
     }
   }
 
-  private def recommendGeneralProperties(): Unit = {
+  private def recommendGCProperty(): Unit = {
+    val jvmGCFraction = appInfoProvider.getJvmGCFractions
+    if (jvmGCFraction.nonEmpty) { // avoid zero division
+      if ((jvmGCFraction.sum / jvmGCFraction.size) > MAX_JVM_GCTIME_FRACTION) {
+        appendComment("Average JVM GC time is very high. " +
+          "Other Garbage Collectors can be used for better performance.")
+      }
+    }
+  }
+
+  private def recommendAQEProperties(): Unit = {
     val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled")
             .getOrElse("false").toLowerCase
     if (aqeEnabled == "false") {
@@ -664,13 +678,6 @@ class AutoTuner(
       // scaling until it is full and 128m makes the GPU more full, but too large can be slightly
       // problematic because this is the compressed shuffle size
       appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128m")
-    }
-    val jvmGCFraction = appInfoProvider.getJvmGCFractions
-    if (jvmGCFraction.nonEmpty) { // avoid zero division
-      if ((jvmGCFraction.sum / jvmGCFraction.size) > MAX_JVM_GCTIME_FRACTION) {
-        appendComment("Average JVM GC time is very high. " +
-          "Other Garbage Collectors can be used for better performance.")
-      }
     }
   }
 
@@ -905,9 +912,10 @@ class AutoTuner(
       }
       skipList.foreach(skipSeq => skipSeq.foreach(_ => skippedRecommendations.add(_)))
       skippedRecommendations ++= selectedPlatform.recommendationsToExclude
+      initRecommendations()
+      calculateJobLevelRecommendations()
       if (processPropsAndCheck) {
-        initRecommendations()
-        calculateRecommendations()
+        calculateClusterLevelRecommendations()
       } else {
         // add all default comments
         addDefaultComments()
