@@ -198,24 +198,82 @@ class QualificationAppInfo(
     }
   }
 
+  /**
+   * Checks the stage ID in the execution information.
+   * This function determines the associated stages for the given execution information by
+   * checking the stages in the current execution information, the previous execution information,
+   * and the next execution information. If there are associated stages, it returns a sequence of
+   * stage ID and execution information pairs. Otherwise, it returns an optional execution
+   * information(not associated with any stage). If there is stage ID associated with both the
+   * previous and the next execution information, then the current execution information is
+   * associated with the stage ID of the previous execution information.
+   * @param prev     The previous execution information.
+   * @param execInfo The current execution information.
+   * @param next     The next execution information.
+   * @return A tuple containing a sequence of stage ID and execution information pairs,
+   *         and an optional execution information.
+   */
+  private def checkStageIdInExec(prev: Option[ExecInfo],
+      execInfo: ExecInfo, next: Option[ExecInfo]): (Seq[(Int, ExecInfo)], Option[ExecInfo]) = {
+    val associatedStages = {
+      if (execInfo.stages.nonEmpty) {
+        execInfo.stages.toSeq
+      } else {
+        if (prev.exists(_.stages.nonEmpty)) {
+          prev.flatMap(_.stages.headOption).toSeq
+        } else if (next.exists(_.stages.nonEmpty)) {
+          next.flatMap(_.stages.headOption).toSeq
+        } else {
+          // we don't know what stage its in or its duration
+          logDebug(s"No stage associated with ${execInfo.exec} " +
+            s"so speedup factor isn't applied anywhere.")
+          Seq.empty
+        }
+      }
+    }
+    if (associatedStages.nonEmpty) {
+      (associatedStages.map((_, execInfo)), None)
+    } else {
+      (Seq.empty, Some(execInfo))
+    }
+  }
+
   private def getStageToExec(execInfos: Seq[ExecInfo]): (Map[Int, Seq[ExecInfo]], Seq[ExecInfo]) = {
     val execsWithoutStages = new ArrayBuffer[ExecInfo]()
-    val perStageSum = execInfos.flatMap { execInfo =>
-      if (execInfo.stages.size > 1) {
-        execInfo.stages.map((_, execInfo))
-      } else if (execInfo.stages.size < 1) {
-        // we don't know what stage its in or its duration
-        logDebug(s"No stage associated with ${execInfo.exec} " +
-          s"so speedup factor isn't applied anywhere.")
-        execsWithoutStages += execInfo
-        Seq.empty
+
+    // This is to get the mapping between stageId and execs. This is primarily done based on
+    // accumulatorId. If an Exec has some metrics generated, then an accumulatorId will be
+    // generated for that Exec. This accumulatorId is used to get the stageId. If an Exec
+    // doesn't have any metrics, then we will try to get the stageId by looking at the
+    // neighbor Execs. If either of the neighbor Execs has a stageId, then we will use that
+    // to assign the same stageId to the current Exec as it's most likely that the current
+    // Exec is part of the same stage as the neighbor Exec.
+    val execInfosInOrder = execInfos.reverse
+    val execsToStageMap = execInfosInOrder.indices.map {
+      // corner case to handle first element
+      case 0 => if (execInfosInOrder.size > 1) {
+        // If there are more than one Execs, then check if the next Exec has a stageId.
+        checkStageIdInExec(None, execInfosInOrder(0), Some(execInfosInOrder(1)))
       } else {
-        Seq((execInfo.stages.head, execInfo))
+        checkStageIdInExec(None, execInfosInOrder(0), None)
       }
-    }.groupBy(_._1).map { case (stage, execInfos) =>
-      (stage, execInfos.map(_._2))
+      // corner case to handle last element
+      case i if i == execInfosInOrder.size - 1 && execInfosInOrder.size > 1 =>
+        // If there are more than one Execs, then check if the previous Exec has a stageId.
+        checkStageIdInExec(Some(execInfosInOrder(i - 1)), execInfosInOrder(i), None)
+      case i =>
+        checkStageIdInExec(Some(execInfosInOrder(i - 1)),
+          execInfosInOrder(i), Some(execInfosInOrder(i + 1)))
     }
-    (perStageSum, execsWithoutStages.toSeq)
+    val perStageSum = execsToStageMap.map(_._1).toList.flatten
+      .groupBy(_._1).map { case (stage, execInfo) =>
+        (stage, execInfo.map(_._2))
+      }
+
+    // Add all the execs that don't have a stageId to execsWithoutStages.
+    execsWithoutStages ++= execsToStageMap.map(_._2).toList.flatten
+
+    (perStageSum, execsWithoutStages)
   }
 
   private def flattenedExecs(execs: Seq[ExecInfo]): Seq[ExecInfo] = {
