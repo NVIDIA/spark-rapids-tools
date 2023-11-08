@@ -38,8 +38,11 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
         " rapids_4_spark_profile. It will overwrite any existing files" +
         " with the same name.",
       default = Some("."))
+  val driverlog: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "Driver log filename - eg: /path/to/driverlog. Default is empty.")
   val eventlog: ScallopOption[List[String]] =
-    trailArg[List[String]](required = true,
+    trailArg[List[String]](required = false,
       descr = "Event log filenames(space separated) or directories containing event logs." +
           " eg: s3a://<BUCKET>/eventlog1 /path/to/eventlog2")
   val filterCriteria: ScallopOption[String] =
@@ -143,6 +146,11 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     Right(Unit)
   }
 
+  // verify that either driverlog or eventlog is specified
+  validateOpt(driverlog, eventlog) {
+    case (None, None) => Left("Error, one of driverlog or eventlog must be specified")
+    case _ => Right(Unit)
+  }
   verify()
 
   override def onError(e: Throwable) = e match {

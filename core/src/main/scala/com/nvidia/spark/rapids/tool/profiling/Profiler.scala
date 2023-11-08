@@ -20,6 +20,7 @@ import java.util.concurrent.{ConcurrentLinkedQueue, Executors, ThreadPoolExecuto
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.io.Source
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
@@ -122,6 +123,43 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
     }
     progressBar.foreach(_.finishAll())
+  }
+
+  def profileDriver(driverLogInfos: String): Unit = {
+    val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/driver",
+      Profiler.DRIVER_LOG_NAME, numOutputRows, true)
+
+    try {
+      val unsupportedDrivers = processDriverLog(driverLogInfos)
+      profileOutputWriter.write(s"Unsupported operators in driver log",
+        unsupportedDrivers)
+    } finally {
+      profileOutputWriter.close()
+    }
+  }
+
+  def processDriverLog(driverlogPath: String): Seq[DriverLogUnsupportedOperators] = {
+    val source = Source.fromFile(driverlogPath)
+    // Create a map to store the counts for each operator and reason
+    var countsMap = Map[(String, String), Int]().withDefaultValue(0)
+    try {
+      // Process each line in the file
+      for (line <- source.getLines()) {
+        if (line.contains("cannot run on GPU") &&
+          !line.contains("not all expressions can be replaced")) {
+          val operatorName = line.split("<")(1).split(">")(0)
+          val reason = line.split("because")(1).trim()
+          val key = (operatorName, reason)
+          countsMap += key -> (countsMap(key) + 1)
+        }
+      }
+    } catch {
+      case e: Exception =>
+        logError(s"Unexpected exception processing driver log: $driverlogPath", e)
+    } finally {
+      source.close()
+    }
+    countsMap.map(x => DriverLogUnsupportedOperators(x._1._1, x._2, x._1._2)).toSeq
   }
 
   private def errorHandler(error: Throwable, path: EventLogInfo) = {
@@ -530,6 +568,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 object Profiler {
   // This tool's output log file name
   val PROFILE_LOG_NAME = "profile"
+  val DRIVER_LOG_NAME = "driver"
   val COMPARE_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_compare"
   val COMBINED_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_combined"
   val SUBDIR = "rapids_4_spark_profile"

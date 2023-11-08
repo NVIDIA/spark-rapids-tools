@@ -654,6 +654,32 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
   }
 
+  test("test reading driver log") {
+    val driverlog = s"$logDir/driverlog"
+    TrampolineUtil.withTempDir { tempDir =>
+      val appArgs = new ProfileArgs(Array(
+        "--driverlog", driverlog,
+        "--output-directory",
+        tempDir.getAbsolutePath))
+      val (exit, _) = ProfileMain.mainInternal(appArgs)
+      assert(exit == 0)
+      val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/driver")
+      val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
+        f.endsWith(".csv")
+      })
+      assert(dotDirs.length === 1)
+      for (file <- dotDirs) {
+        assert(file.getAbsolutePath.endsWith(".csv"))
+        val df = sparkSession.read.option("header", "true").csv(file.getAbsolutePath)
+        val res = df.collect()
+        assert(res.nonEmpty)
+        val unsupportedHex = df.filter(df("operatorName") === "Hex").count()
+        assert(unsupportedHex == 1)
+        assert(res.size == 3)
+      }
+    }
+  }
+
   test("test gds-ucx-parameters") {
     val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =

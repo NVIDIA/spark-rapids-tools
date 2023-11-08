@@ -42,7 +42,8 @@ object ProfileMain extends Logging {
   def mainInternal(appArgs: ProfileArgs, enablePB: Boolean = false): (Int, Int) = {
 
     // Parsing args
-    val eventlogPaths = appArgs.eventlog()
+    val eventlogPaths = appArgs.eventlog.getOrElse(List.empty[String])
+    val driverLog = appArgs.driverlog.getOrElse("")
     val filterN = appArgs.filterCriteria
     val matchEventLogs = appArgs.matchEventLogs
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf
@@ -62,13 +63,17 @@ object ProfileMain extends Logging {
       eventLogFsFiltered
     }
 
-    if (filteredLogs.isEmpty) {
-      logWarning("No event logs to process after checking paths, exiting!")
+    if (filteredLogs.isEmpty && driverLog.isEmpty) {
+      logWarning("No event logs to process after checking paths and no driver log " +
+        "to process, exiting!")
       return (0, filteredLogs.size)
     }
 
     val profiler = new Profiler(hadoopConf, appArgs, enablePB)
     profiler.profile(eventLogFsFiltered)
+    if (driverLog.nonEmpty){
+      profiler.profileDriver(driverLog)
+    }
     (0, filteredLogs.size)
   }
 
