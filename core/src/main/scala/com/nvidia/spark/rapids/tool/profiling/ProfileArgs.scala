@@ -28,7 +28,7 @@ Profiling Tool for the RAPIDS Accelerator and Apache Spark
 
 Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
        com.nvidia.spark.rapids.tool.profiling.ProfileMain [options]
-       <eventlogs | eventlog directories ...>
+       [eventlogs | eventlog directories ...]
     """)
 
   val outputDirectory: ScallopOption[String] =
