@@ -52,6 +52,7 @@ def register_triplet_test(argv_cases: list):
             triplet_test_registry[obj_k] = argv_obj
         argv_obj.tests.append(func_cb.__name__)
         return func_cb
+
     return decorator
 
 
@@ -99,65 +100,20 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
             TestToolArgProcessor.validate_args_w_savings_disabled(tool_name, tool_args)
 
     @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
+    @pytest.mark.parametrize('csp', all_csps)
+    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED])
     @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED])
-    def test_with_no_args(self, tool_name):
-        # should fail: cannot run with no args
+    def test_with_platform(self, tool_name, csp):
+        # should fail: platform provided; cannot run with platform only
+        self.create_tool_args_should_fail(tool_name, platform=csp)
+
+        # should fail: platform not provided; cannot run with no args
         self.create_tool_args_should_fail(tool_name=tool_name)
 
     @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
     @pytest.mark.parametrize('csp', all_csps)
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED])
-    def test_with_platform(self, tool_name, csp):
-        # should fail: cannot run with platform only
-        self.create_tool_args_should_fail(tool_name, platform=csp)
-
-    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.IGNORE, ArgValueCase.UNDEFINED])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED])
-    def test_with_cluster_name(self, tool_name):
-        # should fail: cannot run with cluster name only
-        self.create_tool_args_should_fail(tool_name, cluster='my_cluster')
-
-    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED, ArgValueCase.IGNORE])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A])
-    def test_with_eventlogs(self, get_ut_data_dir, tool_name):
-        # should pass: defaults to onprem, event logs are provided
-        tool_args = self.create_tool_args_should_pass(tool_name,
-                                                      eventlogs=f'{get_ut_data_dir}/eventlogs')
-        self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
-                                cost_savings_enabled=False,
-                                expected_platform=CspEnv.ONPREM)
-
-    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
-    @pytest.mark.parametrize('csp', all_csps)
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.IGNORE, ArgValueCase.UNDEFINED])
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.IGNORE, ArgValueCase.UNDEFINED])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED])
-    def test_with_platform_with_cluster_name(self, tool_name, csp):
-        if CspEnv(csp) != CspEnv.ONPREM:
-            # should pass: missing eventlogs should be accepted for all CSPs (except onPrem) because
-            # the event logs can be retrieved from the cluster
-            tool_args = self.create_tool_args_should_pass(tool_name,
-                                                          platform=csp,
-                                                          cluster='my_cluster')
-            self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
-                                    cost_savings_enabled=True,
-                                    expected_platform=csp)
-        else:
-            # should fail: onprem platform needs event logs
-            self.create_tool_args_should_fail(tool_name,
-                                              platform=csp,
-                                              cluster='my_cluster')
-
-    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
-    @pytest.mark.parametrize('csp', all_csps)
     @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A])
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED, ArgValueCase.IGNORE])
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.UNDEFINED, ArgValueCase.IGNORE])
+    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A])
     def test_with_platform_with_eventlogs(self, get_ut_data_dir, tool_name, csp):
         # should pass: platform and event logs are provided
         tool_args = self.create_tool_args_should_pass(tool_name,
@@ -168,27 +124,17 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                 cost_savings_enabled=False,
                                 expected_platform=csp)
 
-    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.IGNORE, ArgValueCase.IGNORE])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.IGNORE, ArgValueCase.VALUE_A])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.IGNORE])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.VALUE_A])
-    def test_with_cluster_name_with_eventlogs(self, get_ut_data_dir, tool_name):
-        # should fail: defaults to onprem, cannot run when the cluster is by name
-        self.create_tool_args_should_fail(tool_name,
-                                          cluster='my_cluster',
-                                          eventlogs=f'{get_ut_data_dir}/eventlogs')
+        # should pass: platform not provided; event logs are provided
+        tool_args = self.create_tool_args_should_pass(tool_name,
+                                                      eventlogs=f'{get_ut_data_dir}/eventlogs')
+        self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
+                                cost_savings_enabled=False,
+                                expected_platform=CspEnv.ONPREM)
 
     @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
     @pytest.mark.parametrize('csp', all_csps)
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.IGNORE, ArgValueCase.IGNORE])
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.IGNORE, ArgValueCase.VALUE_A])
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.VALUE_A, ArgValueCase.IGNORE])
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.VALUE_A, ArgValueCase.VALUE_A])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.IGNORE, ArgValueCase.IGNORE])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.IGNORE, ArgValueCase.VALUE_A])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_A, ArgValueCase.IGNORE])
     @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_A, ArgValueCase.VALUE_A])
+    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED])
     def test_with_platform_with_cluster_name_with_eventlogs(self, get_ut_data_dir, tool_name, csp):
         if CspEnv(csp) != CspEnv.ONPREM:
             # should pass: platform, cluster name and eventlogs are provided
@@ -199,42 +145,60 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
             self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                     cost_savings_enabled=True,
                                     expected_platform=csp)
+
+            # should pass: event logs not provided; missing eventlogs should be accepted for
+            # all CSPs (except onPrem) because the event logs can be retrieved from the cluster
+            tool_args = self.create_tool_args_should_pass(tool_name,
+                                                          platform=csp,
+                                                          cluster='my_cluster')
+            self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
+                                    cost_savings_enabled=True,
+                                    expected_platform=csp)
         else:
-            # should fail: onprem platform cannot run when the cluster is by name
+            # should fail: platform, cluster name and eventlogs are provided; onprem platform
+            # cannot run when the cluster is by name
             self.create_tool_args_should_fail(tool_name,
                                               platform=csp,
                                               cluster='my_cluster',
                                               eventlogs=f'{get_ut_data_dir}/eventlogs')
 
+            # should fail: event logs not provided; onprem platform cannot run when the cluster is by name
+            self.create_tool_args_should_fail(tool_name,
+                                              platform=csp,
+                                              cluster='my_cluster')
+
+    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
+    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.VALUE_A])
+    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED])
+    def test_with_cluster_name_with_eventlogs(self, get_ut_data_dir, tool_name):
+        # should fail: eventlogs provided; defaults platform to onprem, cannot run when the cluster is by name
+        self.create_tool_args_should_fail(tool_name,
+                                          cluster='my_cluster',
+                                          eventlogs=f'{get_ut_data_dir}/eventlogs')
+
+        # should fail: eventlogs not provideds; defaults platform to onprem, cannot run when the cluster is by name
+        self.create_tool_args_should_fail(tool_name,
+                                          cluster='my_cluster')
+
     @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
     @pytest.mark.parametrize('csp,prop_path', all_cpu_cluster_props)
+    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.UNDEFINED])
     @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_B, ArgValueCase.UNDEFINED])
-    def test_with_cluster_props(self, get_ut_data_dir, tool_name, csp, prop_path):
+    def test_with_platform_with_cluster_props(self, get_ut_data_dir, tool_name, csp, prop_path):
         cluster_prop_file = f'{get_ut_data_dir}/{prop_path}'
         if CspEnv(csp) != CspEnv.ONPREM:
-            # should pass: missing eventlogs should be accepted for all CSPs (except onPrem) because
-            # the eventlogs can be retrieved from the cluster
+            # should pass: platform provided; missing eventlogs should be accepted for all CSPs (except onPrem)
+            # because the eventlogs can be retrieved from the cluster properties
             tool_args = self.create_tool_args_should_pass(tool_name,
+                                                          platform=csp,
                                                           cluster=f'{cluster_prop_file}')
             self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                     cost_savings_enabled=True,
                                     expected_platform=csp)
-        else:
-            # should fail: defaults to onprem, cannot retrieve eventlogs from cluster properties
-            self.create_tool_args_should_fail(tool_name,
-                                              cluster=f'{cluster_prop_file}')
 
-    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
-    @pytest.mark.parametrize('csp,prop_path', all_cpu_cluster_props)
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.VALUE_B, ArgValueCase.UNDEFINED])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.UNDEFINED])
-    def test_with_platform_with_cluster_props(self, get_ut_data_dir, tool_name, csp, prop_path):
-        cluster_prop_file = f'{get_ut_data_dir}/{prop_path}'
-        if CspEnv(csp) != CspEnv.ONPREM:
-            # should pass: missing eventlogs should be accepted for all CSPs (except onPrem) because
-            # the eventlogs can be retrieved from the cluster
+            # should pass: platform not provided; missing eventlogs should be accepted for all CSPs (except onPrem)
+            # because the eventlogs can be retrieved from the cluster properties
             tool_args = self.create_tool_args_should_pass(tool_name,
-                                                          platform=csp,
                                                           cluster=f'{cluster_prop_file}')
             self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                     cost_savings_enabled=True,
@@ -245,25 +209,15 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                               platform=csp,
                                               cluster=f'{cluster_prop_file}')
 
-    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
-    @pytest.mark.parametrize('csp,prop_path', all_cpu_cluster_props)
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_B, ArgValueCase.VALUE_A])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_B, ArgValueCase.IGNORE])
-    def test_with_cluster_props_with_eventlogs(self, get_ut_data_dir, tool_name, csp, prop_path):
-        # should pass: cluster properties and eventlogs are provided
-        tool_args = self.create_tool_args_should_pass(tool_name,
-                                                      cluster=f'{get_ut_data_dir}/{prop_path}',
-                                                      eventlogs=f'{get_ut_data_dir}/eventlogs')
-        self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
-                                cost_savings_enabled=CspEnv(csp) != CspEnv.ONPREM,
-                                expected_platform=csp)
+            # should fail: platform not provided; defaults platform to onprem, cannot retrieve eventlogs from
+            # cluster properties
+            self.create_tool_args_should_fail(tool_name,
+                                              cluster=f'{cluster_prop_file}')
 
     @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
     @pytest.mark.parametrize('csp,prop_path', all_cpu_cluster_props)
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.VALUE_B, ArgValueCase.IGNORE])
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.VALUE_B, ArgValueCase.VALUE_A])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.IGNORE])
     @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.VALUE_A])
+    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_B, ArgValueCase.VALUE_A])
     def test_with_platform_with_cluster_props_with_eventlogs(self, get_ut_data_dir, tool_name, csp, prop_path):
         # should pass: platform, cluster properties and eventlogs are provided
         cluster_prop_file = f'{get_ut_data_dir}/{prop_path}'
@@ -275,48 +229,35 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                 cost_savings_enabled=CspEnv(csp) != CspEnv.ONPREM,
                                 expected_platform=csp)
 
-    @pytest.mark.parametrize('tool_name', ['profiling'])
-    @pytest.mark.parametrize('prop_path', [autotuner_prop_path])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_C, ArgValueCase.UNDEFINED])
-    def test_with_autotuner(self, get_ut_data_dir, tool_name, prop_path):
-        # should fail: autotuner needs eventlogs
-        autotuner_prop_file = f'{get_ut_data_dir}/{prop_path}'
-        self.create_tool_args_should_fail(tool_name,
-                                          cluster=f'{autotuner_prop_file}')
+        # should pass: platform not provided; cluster properties and eventlogs are provided
+        tool_args = self.create_tool_args_should_pass(tool_name,
+                                                      cluster=f'{get_ut_data_dir}/{prop_path}',
+                                                      eventlogs=f'{get_ut_data_dir}/eventlogs')
+        self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
+                                cost_savings_enabled=CspEnv(csp) != CspEnv.ONPREM,
+                                expected_platform=csp)
 
     @pytest.mark.parametrize('tool_name', ['profiling'])
     @pytest.mark.parametrize('csp', all_csps)
     @pytest.mark.parametrize('prop_path', [autotuner_prop_path])
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.VALUE_C, ArgValueCase.UNDEFINED])
     @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_C, ArgValueCase.UNDEFINED])
+    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_C, ArgValueCase.UNDEFINED])
     def test_with_platform_with_autotuner(self, get_ut_data_dir, tool_name, csp, prop_path):
-        # should fail: autotuner needs eventlogs
+        # should fail: platform provided; autotuner needs eventlogs
         autotuner_prop_file = f'{get_ut_data_dir}/{prop_path}'
         self.create_tool_args_should_fail(tool_name,
                                           platform=csp,
                                           cluster=f'{autotuner_prop_file}')
 
-    @pytest.mark.parametrize('tool_name', ['profiling'])
-    @pytest.mark.parametrize('prop_path', [autotuner_prop_path])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_C, ArgValueCase.IGNORE])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_C, ArgValueCase.VALUE_A])
-    def test_with_autotuner_with_eventlogs(self, get_ut_data_dir, tool_name, prop_path):
-        autotuner_prop_file = f'{get_ut_data_dir}/{prop_path}'
-        # should pass: autotuner properties and eventlogs are provided
-        tool_args = self.create_tool_args_should_pass(tool_name,
-                                                      cluster=f'{autotuner_prop_file}',
-                                                      eventlogs=f'{get_ut_data_dir}/eventlogs')
-        self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
-                                cost_savings_enabled=False,
-                                expected_platform=CspEnv.ONPREM)
+        # should fail: platform not provided; autotuner needs eventlogs
+        self.create_tool_args_should_fail(tool_name,
+                                          cluster=f'{autotuner_prop_file}')
 
     @pytest.mark.parametrize('tool_name', ['profiling'])
     @pytest.mark.parametrize('csp', all_csps)
     @pytest.mark.parametrize('prop_path', [autotuner_prop_path])
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.VALUE_C, ArgValueCase.IGNORE])
-    @register_triplet_test([ArgValueCase.IGNORE, ArgValueCase.VALUE_C, ArgValueCase.VALUE_A])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_C, ArgValueCase.IGNORE])
     @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_C, ArgValueCase.VALUE_A])
+    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_C, ArgValueCase.VALUE_A])
     def test_with_platform_with_autotuner_with_eventlogs(self, get_ut_data_dir, tool_name, csp, prop_path):
         # should pass: platform, autotuner properties and eventlogs are provided
         autotuner_prop_file = f'{get_ut_data_dir}/{prop_path}'
@@ -328,20 +269,27 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                 cost_savings_enabled=False,
                                 expected_platform=csp)
 
+        # should pass: platform not provided; autotuner properties and eventlogs are provided
+        tool_args = self.create_tool_args_should_pass(tool_name,
+                                                      cluster=f'{autotuner_prop_file}',
+                                                      eventlogs=f'{get_ut_data_dir}/eventlogs')
+        self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
+                                cost_savings_enabled=False,
+                                expected_platform=CspEnv.ONPREM)
+
     def test_arg_cases_coverage(self):
         """
         This test ensures that above tests have covered all possible states of the `platform`, `cluster`,
         and `event logs` fields.
 
         Possible States:
-        - platform:`undefined`, `actual value`, or `ignore`.
-        - cluster: `undefined`, `cluster name`, `cluster property file`, `auto tuner file`, or `ignore`.
-        - event logs: `undefined`, `actual value`, or `ignore`.
+        - platform:`undefined` or `actual value`.
+        - cluster: `undefined`, `cluster name`, `cluster property file` or `auto tuner file`.
+        - event logs: `undefined` or `actual value`.
         """
-        arg_platform_cases = [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.IGNORE]
-        arg_cluster_cases = [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.VALUE_C,
-                             ArgValueCase.IGNORE]
-        arg_eventlogs_cases = [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.IGNORE]
+        arg_platform_cases = [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A]
+        arg_cluster_cases = [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.VALUE_C]
+        arg_eventlogs_cases = [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A]
 
         all_args_keys = [str([p, c, e]) for p in arg_platform_cases for c in arg_cluster_cases for e in
                          arg_eventlogs_cases]
