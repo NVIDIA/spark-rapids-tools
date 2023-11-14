@@ -176,7 +176,7 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                           cluster='my_cluster',
                                           eventlogs=f'{get_ut_data_dir}/eventlogs')
 
-        # should fail: eventlogs not provideds; defaults platform to onprem, cannot run when the cluster is by name
+        # should fail: eventlogs not provided; defaults platform to onprem, cannot run when the cluster is by name
         self.create_tool_args_should_fail(tool_name,
                                           cluster='my_cluster')
 
