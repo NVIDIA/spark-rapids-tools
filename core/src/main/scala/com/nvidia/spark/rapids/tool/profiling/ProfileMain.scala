@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import com.nvidia.spark.rapids.tool.{DatabricksEventLog, EventLogPathProcessor}
+import com.nvidia.spark.rapids.tool.EventLogPathProcessor
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
@@ -69,15 +69,12 @@ object ProfileMain extends Logging {
       return (0, filteredLogs.size)
     }
 
-    // Check only one eventlog is provided when driver log is passed for non-databricks eventlog
-    // For databricks eventlog, eventlogs are stored in a directory with rolled multiple
-    // eventlog files
-    if(driverLog.nonEmpty && filteredLogs.size > 1 &&
-      !filteredLogs.forall(_.isInstanceOf[DatabricksEventLog])) {
-        logWarning("Only a single eventlog should be provided for processing " +
-          "when a driver log is passed, exiting!")
-        return (0, filteredLogs.size)
-      }
+    // Check that only one eventlog is provided when driver log is passed
+    if (driverLog.nonEmpty && filteredLogs.size > 1) {
+      logWarning("Only a single eventlog should be provided for processing " +
+        "when a driver log is passed, exiting!")
+      return (0, filteredLogs.size)
+    }
 
     val profiler = new Profiler(hadoopConf, appArgs, enablePB)
     profiler.profile(eventLogFsFiltered)
