@@ -124,6 +124,20 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     progressBar.foreach(_.finishAll())
   }
 
+  def profileDriver(driverLogInfos: String): Unit = {
+    val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/driver",
+      Profiler.DRIVER_LOG_NAME, numOutputRows, true)
+
+    try {
+      val driverLogProcessor = new DriverLogProcessor(driverLogInfos)
+      val unsupportedDrivers = driverLogProcessor.processDriverLog()
+      profileOutputWriter.write(s"Unsupported operators in driver log",
+        unsupportedDrivers)
+    } finally {
+      profileOutputWriter.close()
+    }
+  }
+
   private def errorHandler(error: Throwable, path: EventLogInfo) = {
     error match {
       case oom: OutOfMemoryError =>
@@ -530,6 +544,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 object Profiler {
   // This tool's output log file name
   val PROFILE_LOG_NAME = "profile"
+  val DRIVER_LOG_NAME = "driver"
   val COMPARE_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_compare"
   val COMBINED_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_combined"
   val SUBDIR = "rapids_4_spark_profile"
