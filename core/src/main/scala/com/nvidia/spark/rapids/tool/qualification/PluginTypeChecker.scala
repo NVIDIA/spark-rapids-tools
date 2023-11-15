@@ -113,7 +113,11 @@ class PluginTypeChecker(platform: String = "onprem",
           case "emr-a10" => OPERATORS_SCORE_FILE_EMR_A10
           case "databricks-aws" => OPERATORS_SCORE_FILE_DATABRICKS_AWS
           case "databricks-azure" => OPERATORS_SCORE_FILE_DATABRICKS_AZURE
-          case _ => OPERATORS_SCORE_FILE_ONPREM
+          case "onprem" => OPERATORS_SCORE_FILE_ONPREM
+          case p if p.isEmpty =>
+            logInfo(s"Platform is not specified, defaulting to onprem")
+            OPERATORS_SCORE_FILE_ONPREM
+          case _ => throw new IllegalArgumentException(s"Platform $platform is not supported")
         }
         val source = Source.fromResource(file)
         readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
