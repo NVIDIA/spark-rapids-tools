@@ -295,7 +295,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
             'valid': False,
             'callable': partial(self.validate_onprem_with_cluster_props),
             'cases': [
-                [ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED]
+                [ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.UNDEFINED]
             ]
         }
 
