@@ -74,7 +74,7 @@ object ProfileMain extends Logging {
     // eventlog files
     if(driverLog.nonEmpty && filteredLogs.size > 1 &&
       !filteredLogs.forall(_.isInstanceOf[DatabricksEventLog])) {
-        logWarning("Only single eventlog should be provided  for processing " +
+        logWarning("Only a single eventlog should be provided for processing " +
           "when a driver log is passed, exiting!")
         return (0, filteredLogs.size)
       }
