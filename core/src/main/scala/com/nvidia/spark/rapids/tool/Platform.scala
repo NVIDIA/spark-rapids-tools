@@ -116,12 +116,14 @@ object PlatformFactory extends Logging {
   private lazy val platformInstancesMap: Map[String, Platform] = Map(
     PlatformTypes.DATABRICKS_AWS -> new DatabricksPlatform(PlatformTypes.DATABRICKS_AWS),
     PlatformTypes.DATABRICKS_AZURE -> new DatabricksPlatform(PlatformTypes.DATABRICKS_AZURE),
+    // if no GPU specified, then default to dataproc-t4 for backward compatibility
     PlatformTypes.DATAPROC -> new DataprocPlatform(PlatformTypes.DATAPROC_T4),
     PlatformTypes.DATAPROC_T4 -> new DataprocPlatform(PlatformTypes.DATAPROC_T4),
     PlatformTypes.DATAPROC_L4 -> new DataprocPlatform(PlatformTypes.DATAPROC_L4),
     PlatformTypes.DATAPROC_SL_L4 -> new DataprocPlatform(PlatformTypes.DATAPROC_SL_L4),
     PlatformTypes.DATAPROC_GKE_L4 -> new DataprocPlatform(PlatformTypes.DATAPROC_GKE_L4),
     PlatformTypes.DATAPROC_GKE_T4 -> new DataprocPlatform(PlatformTypes.DATAPROC_GKE_T4),
+    // if no GPU specified, then default to emr-t4 for backward compatibility
     PlatformTypes.EMR -> new EmrPlatform(PlatformTypes.EMR_T4),
     PlatformTypes.EMR_T4 -> new EmrPlatform(PlatformTypes.EMR_T4),
     PlatformTypes.EMR_A10 -> new EmrPlatform(PlatformTypes.EMR_A10),
