@@ -48,7 +48,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       global_discount: int = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
-                      verbose: bool = False):
+                      verbose: bool = False,
+                      **rapids_options):
         """The Qualification cmd provides estimated running costs and speedups by migrating Apache
         Spark applications to GPU accelerated clusters.
 
@@ -98,6 +99,11 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
                 "JOB": recommend optimal GPU cluster by cost per job
         :param verbose: True or False to enable verbosity of the script.
+        :param rapids_options: A list of valid Qualification tool options.
+                Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
+                multiple "spark-property" arguments.
+                For more details on Qualification tool options, please visit
+                https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#qualification-tool-options
         """
         if verbose:
             ToolLogging.enable_debug_mode()
@@ -118,7 +124,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         if qual_args:
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
                                             output_folder=qual_args['outputFolder'],
-                                            wrapper_options=qual_args)
+                                            wrapper_options=qual_args,
+                                            rapids_options=rapids_options)
             tool_obj.launch()
 
     def profiling(self,
@@ -126,7 +133,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                   cluster: str = None,
                   platform: str = None,
                   output_folder: str = None,
-                  verbose: bool = False):
+                  verbose: bool = False,
+                  **rapids_options):
         """The Profiling cmd provides information which can be used for debugging and profiling
         Apache Spark applications running on accelerated GPU cluster.
 
@@ -145,6 +153,11 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 and "databricks-azure".
         :param output_folder: path to store the output.
         :param verbose: True or False to enable verbosity of the script.
+        :param rapids_options: A list of valid Profiling tool options.
+                Note that the wrapper ignores ["output-directory", "worker-info"] flags, and it does not support
+                multiple "spark-property" arguments.
+                For more details on Profiling tool options, please visit
+                https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#profiling-tool-options
         """
         if verbose:
             ToolLogging.enable_debug_mode()
@@ -157,7 +170,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         if prof_args:
             tool_obj = ProfilingAsLocal(platform_type=prof_args['runtimePlatform'],
                                         output_folder=prof_args['outputFolder'],
-                                        wrapper_options=prof_args)
+                                        wrapper_options=prof_args,
+                                        rapids_options=rapids_options)
             tool_obj.launch()
 
     def bootstrap(self,

@@ -27,9 +27,8 @@ class DataprocGkePriceProvider(DataprocPriceProvider):
     name = 'DataprocGke'
 
     def get_container_cost(self) -> float:
-        dataproc_cost = super().get_container_cost()
         gke_container_cost = self.__get_gke_container_cost()
-        return dataproc_cost + gke_container_cost
+        return gke_container_cost
 
     def __get_gke_container_cost(self) -> float:
         lookup_key = 'CP-GKE-CONTAINER-MANAGMENT-COST'

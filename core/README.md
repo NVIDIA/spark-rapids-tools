@@ -7,8 +7,8 @@ The Profiling tool generates information which can be used for debugging and pro
 Information such as Spark version, executor information, properties and so on. This runs on either CPU or
 GPU generated event logs.
 
-Please refer to [Qualification tool documentation](docs/spark-qualification-tool.md) 
-and [Profiling tool documentation](docs/spark-profiling-tool.md)
+Please refer to [Qualification tool documentation](https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html) 
+and [Profiling tool documentation](https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html)
 for more details on how to use the tools.
 
 ## Build

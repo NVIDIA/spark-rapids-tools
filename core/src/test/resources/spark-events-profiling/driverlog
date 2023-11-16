@@ -1,0 +1,298 @@
+23/11/07 10:59:24.335 main INFO DriverLogger: Added a local log appender at: /tmp/spark-33ef7368-7a1e-44a1-ab42-ccbd843dabf4/__driver_logs__/driver.log
+23/11/07 10:59:24.345 main INFO ResourceUtils: ==============================================================
+23/11/07 10:59:24.345 main INFO ResourceUtils: No custom resources configured for spark.driver.
+23/11/07 10:59:24.346 main INFO ResourceUtils: ==============================================================
+23/11/07 10:59:24.346 main INFO SparkContext: Submitted application: Spark shell
+23/11/07 10:59:24.358 main INFO ResourceProfile: Default ResourceProfile created, executor resources: Map(cores -> name: cores, amount: 1, script: , vendor: , memory -> name: memory, amount: 1024, script: , vendor: , offHeap -> name: offHeap, amount: 0, script: , vendor: ), task resources: Map(cpus -> name: cpus, amount: 1.0)
+23/11/07 10:59:24.367 main INFO ResourceProfile: Limiting resource is cpu
+23/11/07 10:59:24.368 main INFO ResourceProfileManager: Added ResourceProfile id: 0
+23/11/07 10:59:24.397 main INFO SecurityManager: Changing view acls to: test
+23/11/07 10:59:24.397 main INFO SecurityManager: Changing modify acls to: test
+23/11/07 10:59:24.397 main INFO SecurityManager: Changing view acls groups to: 
+23/11/07 10:59:24.397 main INFO SecurityManager: Changing modify acls groups to: 
+23/11/07 10:59:24.398 main INFO SecurityManager: SecurityManager: authentication disabled; ui acls disabled; users  with view permissions: Set(test); groups with view permissions: Set(); users  with modify permissions: Set(test); groups with modify permissions: Set()
+23/11/07 10:59:24.555 main INFO Utils: Successfully started service 'sparkDriver' on port 35365.
+23/11/07 10:59:24.573 main INFO SparkEnv: Registering MapOutputTracker
+23/11/07 10:59:24.591 main INFO SparkEnv: Registering BlockManagerMaster
+23/11/07 10:59:24.606 main INFO BlockManagerMasterEndpoint: Using org.apache.spark.storage.DefaultTopologyMapper for getting topology information
+23/11/07 10:59:24.606 main INFO BlockManagerMasterEndpoint: BlockManagerMasterEndpoint up
+23/11/07 10:59:24.608 main INFO SparkEnv: Registering BlockManagerMasterHeartbeat
+23/11/07 10:59:24.622 main INFO DiskBlockManager: Created local directory at /tmp/blockmgr-385b425e-945b-4542-b103-53b1fd7b99ef
+23/11/07 10:59:24.632 main INFO MemoryStore: MemoryStore started with capacity 366.3 MiB
+23/11/07 10:59:24.642 main INFO SparkEnv: Registering OutputCommitCoordinator
+23/11/07 10:59:24.793 main WARN Utils: Service 'SparkUI' could not bind on port 4040. Attempting port 4041.
+23/11/07 10:59:24.803 main INFO Utils: Successfully started service 'SparkUI' on port 4041.
+23/11/07 10:59:24.834 main INFO SparkContext: Added JAR file:///home/test/spark-rapids-Mar6/spark-rapids/dist/target/rapids-4-spark_2.12-23.10.0-SNAPSHOT-cuda11.jar at spark://localhost:35365/jars/rapids-4-spark_2.12-23.10.0-SNAPSHOT-cuda11.jar with timestamp 1699383564319
+23/11/07 10:59:24.835 main INFO SparkContext: Added JAR file:/home/test/apache-spark-3.3/spark-3.3.0-bin-hadoop3.2/jars/HikariCP-2.5.1.jar at spark://localhost:35365/jars/HikariCP-2.5.1.jar with timestamp 1699383564319
+23/11/07 10:59:24.852 main INFO SparkContext: Added JAR file:/home/test/apache-spark-3.3/spark-3.3.0-bin-hadoop3.2/jars/py4j-0.10.9.5.jar at spark://localhost:35365/jars/py4j-0.10.9.5.jar with timestamp 1699383564319
+23/11/07 10:59:24.852 main INFO SparkContext: Added JAR file:/home/test/apache-spark-3.3/spark-3.3.0-bin-hadoop3.2/jars/rocksdbjni-6.20.3.jar at spark://localhost:35365/jars/rocksdbjni-6.20.3.jar with timestamp 1699383564319
+23/11/07 10:59:24.852 main INFO SparkContext: Added JAR file:/home/test/apache-spark-3.3/spark-3.3.0-bin-hadoop3.2/jars/scala-collection-compat_2.12-2.1.1.jar at spark://localhost:35365/jars/scala-collection-compat_2.12-2.1.1.jar with timestamp 1699383564319
+23/11/07 10:59:24.856 main INFO SparkContext: Added JAR file:/home/test/apache-spark-3.3/spark-3.3.0-bin-hadoop3.2/jars/zstd-jni-1.5.2-1.jar at spark://localhost:35365/jars/zstd-jni-1.5.2-1.jar with timestamp 1699383564319
+23/11/07 10:59:24.870 main INFO ShimLoader: Loading shim for Spark version: 3.3.0
+23/11/07 10:59:24.870 main INFO ShimLoader: Complete Spark build info: 3.3.0, https://github.com/apache/spark, HEAD, f74867bddfbcdd4d08076db36851e88b15e66556, 2022-06-09T19:58:58Z
+23/11/07 10:59:24.886 main INFO ShimLoader: findURLClassLoader found an immutable scala.tools.nsc.interpreter.IMain$TranslatingClassLoader@dbed7fd, trying parent=scala.reflect.internal.util.ScalaClassLoader$URLClassLoader@3211cc84
+23/11/07 10:59:24.886 main INFO ShimLoader: findURLClassLoader found a URLClassLoader scala.reflect.internal.util.ScalaClassLoader$URLClassLoader@3211cc84
+23/11/07 10:59:24.887 main INFO ShimLoader: Updating spark classloader scala.reflect.internal.util.ScalaClassLoader$URLClassLoader@3211cc84 with the URLs: jar:file:/home/test/spark-rapids-Mar6/spark-rapids/dist/target/rapids-4-spark_2.12-23.10.0-SNAPSHOT-cuda11.jar!/spark3xx-common/, jar:file:/home/test/spark-rapids-Mar6/spark-rapids/dist/target/rapids-4-spark_2.12-23.10.0-SNAPSHOT-cuda11.jar!/spark330/
+23/11/07 10:59:24.890 main INFO ShimLoader: Spark classLoader scala.reflect.internal.util.ScalaClassLoader$URLClassLoader@3211cc84 updated successfully
+23/11/07 10:59:24.890 main INFO ShimLoader: Updating spark classloader scala.reflect.internal.util.ScalaClassLoader$URLClassLoader@3211cc84 with the URLs: jar:file:/home/test/spark-rapids-Mar6/spark-rapids/dist/target/rapids-4-spark_2.12-23.10.0-SNAPSHOT-cuda11.jar!/spark3xx-common/, jar:file:/home/test/spark-rapids-Mar6/spark-rapids/dist/target/rapids-4-spark_2.12-23.10.0-SNAPSHOT-cuda11.jar!/spark330/
+23/11/07 10:59:24.891 main INFO ShimLoader: Spark classLoader scala.reflect.internal.util.ScalaClassLoader$URLClassLoader@3211cc84 updated successfully
+23/11/07 10:59:24.896 main INFO RapidsPluginUtils: RAPIDS Accelerator build: {version=23.10.0-SNAPSHOT, user=test, url=git@github.com:NVIDIA/spark-rapids.git, date=2023-11-07T01:56:43Z, revision=7c331d7b805da50c264f71722434d70a26917bd7, cudf_version=23.10.0, branch=Nov6-23.10}
+23/11/07 10:59:24.897 main INFO RapidsPluginUtils: RAPIDS Accelerator JNI build: {version=23.10.0, user=, url=https://github.com/NVIDIA/spark-rapids-jni.git, date=2023-10-12T02:48:23Z, revision=e5fb14eb4bd4087be9b5a7e960edb27fc76ffc2d, branch=HEAD}
+23/11/07 10:59:24.897 main INFO RapidsPluginUtils: cudf build: {version=23.10.0, user=, url=https://github.com/rapidsai/cudf.git, date=2023-10-12T02:48:23Z, revision=9f0c2f452f1cf318c3f7fe2c6f7e07fc513fc335, branch=HEAD}
+23/11/07 10:59:24.897 main WARN RapidsPluginUtils: RAPIDS Accelerator 23.10.0-SNAPSHOT using cudf 23.10.0.
+23/11/07 10:59:24.927 main WARN RapidsPluginUtils: RAPIDS Accelerator is enabled, to disable GPU support set `spark.rapids.sql.enabled` to false.
+23/11/07 10:59:24.927 main WARN RapidsPluginUtils: spark.rapids.sql.explain is set to `ALL`. Set it to 'NONE' to suppress the diagnostics logging about the query placement on the GPU.
+23/11/07 10:59:24.944 main INFO DriverPluginContainer: Initialized driver component for plugin com.nvidia.spark.SQLPlugin.
+23/11/07 10:59:24.980 main INFO Executor: Starting executor ID driver on host localhost
+23/11/07 10:59:24.984 main INFO Executor: Starting executor with user classpath (userClassPathFirst = false): ''
+23/11/07 10:59:24.985 main INFO Executor: Using REPL class URI: spark://localhost:35365/classes
+23/11/07 10:59:24.996 main INFO Executor: Fetching spark://localhost:35365/jars/aopalliance-repackaged-2.6.1.jar with timestamp 1699383564319
+23/11/07 10:59:25.039 main INFO TransportClientFactory: Successfully created connection to /localhost:35365 after 25 ms (0 ms spent in bootstraps)
+23/11/07 10:59:25.045 main INFO Utils: Fetching spark://localhost:35365/jars/aopalliance-repackaged-2.6.1.jar to /tmp/spark-33ef7368-7a1e-44a1-ab42-ccbd843dabf4/userFiles-348d1b75-5c34-4b0b-9359-9585690c1931/fetchFileTemp6383081176374586614.tmp
+23/11/07 10:59:25.063 main INFO Executor: Adding file:/tmp/spark-33ef7368-7a1e-44a1-ab42-ccbd843dabf4/userFiles-348d1b75-5c34-4b0b-9359-9585690c1931/aopalliance-repackaged-2.6.1.jar to class loader
+23/11/07 10:59:25.063 main INFO Executor: Fetching spark://localhost:35365/jars/zjsonpatch-0.3.0.jar with timestamp 1699383564319
+23/11/07 10:59:25.064 main INFO Utils: Fetching spark://localhost:35365/jars/zjsonpatch-0.3.0.jar to /tmp/spark-33ef7368-7a1e-44a1-ab42-ccbd843dabf4/userFiles-348d1b75-5c34-4b0b-9359-9585690c1931/fetchFileTemp7766683870504964453.tmp
+23/11/07 11:00:23.983 dag-scheduler-event-loop INFO DAGScheduler: Got job 0 (parquet at <pastie>:23) with 1824 output partitions
+23/11/07 11:00:23.984 dag-scheduler-event-loop INFO DAGScheduler: Final stage: ResultStage 0 (parquet at <pastie>:23)
+23/11/07 11:00:23.984 dag-scheduler-event-loop INFO DAGScheduler: Parents of final stage: List()
+23/11/07 11:00:23.985 dag-scheduler-event-loop INFO DAGScheduler: Missing parents: List()
+23/11/07 11:00:23.988 dag-scheduler-event-loop INFO DAGScheduler: Submitting ResultStage 0 (MapPartitionsRDD[2] at parquet at <pastie>:23), which has no missing parents
+23/11/07 11:00:24.056 dag-scheduler-event-loop INFO MemoryStore: Block broadcast_0 stored as values in memory (estimated size 164.2 KiB, free 366.1 MiB)
+23/11/07 11:00:24.075 dag-scheduler-event-loop INFO MemoryStore: Block broadcast_0_piece0 stored as bytes in memory (estimated size 49.6 KiB, free 366.1 MiB)
+23/11/07 11:00:24.077 dispatcher-BlockManagerMaster INFO BlockManagerInfo: Added broadcast_0_piece0 in memory on localhost:34199 (size: 49.6 KiB, free: 366.3 MiB)
+23/11/07 11:00:24.080 dag-scheduler-event-loop INFO SparkContext: Created broadcast 0 from broadcast at DAGScheduler.scala:1513
+23/11/07 11:00:24.092 dag-scheduler-event-loop INFO DAGScheduler: Submitting 1824 missing tasks from ResultStage 0 (MapPartitionsRDD[2] at parquet at <pastie>:23) (first 15 tasks are for partitions Vector(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14))
+23/11/07 11:00:24.092 dag-scheduler-event-loop INFO TaskSchedulerImpl: Adding task set 0.0 with 1824 tasks resource profile 0
+23/11/07 11:00:24.144 dispatcher-event-loop-25 INFO TaskSetManager: Starting task 0.0 in stage 0.0 (TID 0) (localhost, executor driver, partition 0, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:24.147 dispatcher-event-loop-25 INFO TaskSetManager: Starting task 1.0 in stage 0.0 (TID 1) (localhost, executor driver, partition 1, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:24.182 Executor task launch worker for task 30.0 in stage 0.0 (TID 30) INFO Executor: Running task 30.0 in stage 0.0 (TID 30)
+23/11/07 11:00:24.182 Executor task launch worker for task 52.0 in stage 0.0 (TID 52) INFO Executor: Running task 52.0 in stage 0.0 (TID 52)
+23/11/07 11:00:24.182 Executor task launch worker for task 24.0 in stage 0.0 (TID 24) INFO Executor: Running task 24.0 in stage 0.0 (TID 24)
+23/11/07 11:00:24.929 Executor task launch worker for task 43.0 in stage 0.0 (TID 43) INFO Executor: Finished task 43.0 in stage 0.0 (TID 43). 1998 bytes result sent to driver
+23/11/07 11:00:24.929 Executor task launch worker for task 37.0 in stage 0.0 (TID 37) INFO Executor: Finished task 37.0 in stage 0.0 (TID 37). 2041 bytes result sent to driver
+23/11/07 11:00:24.929 Executor task launch worker for task 23.0 in stage 0.0 (TID 23) INFO Executor: Finished task 23.0 in stage 0.0 (TID 23). 2041 bytes result sent to driver
+23/11/07 11:00:24.932 Executor task launch worker for task 29.0 in stage 0.0 (TID 29) INFO Executor: Finished task 29.0 in stage 0.0 (TID 29). 1998 bytes result sent to driver
+23/11/07 11:00:24.932 Executor task launch worker for task 48.0 in stage 0.0 (TID 48) INFO Executor: Finished task 48.0 in stage 0.0 (TID 48). 2041 bytes result sent to driver
+23/11/07 11:00:24.936 dispatcher-event-loop-27 INFO TaskSetManager: Starting task 64.0 in stage 0.0 (TID 64) (localhost, executor driver, partition 64, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:24.936 Executor task launch worker for task 64.0 in stage 0.0 (TID 64) INFO Executor: Running task 64.0 in stage 0.0 (TID 64)
+23/11/07 11:00:24.937 dispatcher-event-loop-27 INFO TaskSetManager: Starting task 65.0 in stage 0.0 (TID 65) (localhost, executor driver, partition 65, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:26.196 Executor task launch worker for task 1058.0 in stage 0.0 (TID 1058) INFO Executor: Running task 1058.0 in stage 0.0 (TID 1058)
+23/11/07 11:00:26.196 Executor task launch worker for task 1001.0 in stage 0.0 (TID 1001) INFO Executor: Finished task 1001.0 in stage 0.0 (TID 1001). 1955 bytes result sent to driver
+23/11/07 11:00:26.196 dispatcher-event-loop-48 INFO TaskSetManager: Starting task 1059.0 in stage 0.0 (TID 1059) (localhost, executor driver, partition 1059, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:26.196 Executor task launch worker for task 1059.0 in stage 0.0 (TID 1059) INFO Executor: Running task 1059.0 in stage 0.0 (TID 1059)
+23/11/07 11:00:26.196 task-result-getter-3 INFO TaskSetManager: Finished task 1001.0 in stage 0.0 (TID 1001) in 81 ms on localhost (executor driver) (996/1824)
+23/11/07 11:00:26.196 Executor task launch worker for task 998.0 in stage 0.0 (TID 998) INFO Executor: Finished task 998.0 in stage 0.0 (TID 998). 1955 bytes result sent to driver
+23/11/07 11:00:26.196 dispatcher-event-loop-43 INFO TaskSetManager: Starting task 1060.0 in stage 0.0 (TID 1060) (localhost, executor driver, partition 1060, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:26.197 Executor task launch worker for task 1060.0 in stage 0.0 (TID 1060) INFO Executor: Running task 1060.0 in stage 0.0 (TID 1060)
+23/11/07 11:00:26.197 task-result-getter-1 INFO TaskSetManager: Finished task 998.0 in stage 0.0 (TID 998) in 85 ms on localhost (executor driver) (997/1824)
+23/11/07 11:00:27.192 task-result-getter-1 INFO TaskSetManager: Finished task 1606.0 in stage 0.0 (TID 1606) in 148 ms on localhost (executor driver) (1630/1824)
+23/11/07 11:00:27.192 Executor task launch worker for task 1693.0 in stage 0.0 (TID 1693) INFO Executor: Running task 1693.0 in stage 0.0 (TID 1693)
+23/11/07 11:00:27.193 Executor task launch worker for task 1635.0 in stage 0.0 (TID 1635) INFO Executor: Finished task 1635.0 in stage 0.0 (TID 1635). 1955 bytes result sent to driver
+23/11/07 11:00:27.194 dispatcher-event-loop-35 INFO TaskSetManager: Starting task 1694.0 in stage 0.0 (TID 1694) (localhost, executor driver, partition 1694, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.194 task-result-getter-0 INFO TaskSetManager: Finished task 1635.0 in stage 0.0 (TID 1635) in 89 ms on localhost (executor driver) (1631/1824)
+23/11/07 11:00:27.194 Executor task launch worker for task 1694.0 in stage 0.0 (TID 1694) INFO Executor: Running task 1694.0 in stage 0.0 (TID 1694)
+23/11/07 11:00:27.194 Executor task launch worker for task 1617.0 in stage 0.0 (TID 1617) INFO Executor: Finished task 1617.0 in stage 0.0 (TID 1617). 1955 bytes result sent to driver
+23/11/07 11:00:27.194 dispatcher-event-loop-25 INFO TaskSetManager: Starting task 1695.0 in stage 0.0 (TID 1695) (localhost, executor driver, partition 1695, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.194 task-result-getter-2 INFO TaskSetManager: Finished task 1617.0 in stage 0.0 (TID 1617) in 142 ms on localhost (executor driver) (1632/1824)
+23/11/07 11:00:27.194 Executor task launch worker for task 1695.0 in stage 0.0 (TID 1695) INFO Executor: Running task 1695.0 in stage 0.0 (TID 1695)
+23/11/07 11:00:27.194 Executor task launch worker for task 1624.0 in stage 0.0 (TID 1624) INFO Executor: Finished task 1624.0 in stage 0.0 (TID 1624). 1955 bytes result sent to driver
+23/11/07 11:00:27.195 dispatcher-event-loop-53 INFO TaskSetManager: Starting task 1696.0 in stage 0.0 (TID 1696) (localhost, executor driver, partition 1696, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.195 task-result-getter-3 INFO TaskSetManager: Finished task 1624.0 in stage 0.0 (TID 1624) in 97 ms on localhost (executor driver) (1633/1824)
+23/11/07 11:00:27.195 Executor task launch worker for task 1696.0 in stage 0.0 (TID 1696) INFO Executor: Running task 1696.0 in stage 0.0 (TID 1696)
+23/11/07 11:00:27.196 Executor task launch worker for task 1645.0 in stage 0.0 (TID 1645) INFO Executor: Finished task 1645.0 in stage 0.0 (TID 1645). 1955 bytes result sent to driver
+23/11/07 11:00:27.196 Executor task launch worker for task 1643.0 in stage 0.0 (TID 1643) INFO Executor: Finished task 1643.0 in stage 0.0 (TID 1643). 1955 bytes result sent to driver
+23/11/07 11:00:27.196 dispatcher-event-loop-49 INFO TaskSetManager: Starting task 1697.0 in stage 0.0 (TID 1697) (localhost, executor driver, partition 1697, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.197 Executor task launch worker for task 1697.0 in stage 0.0 (TID 1697) INFO Executor: Running task 1697.0 in stage 0.0 (TID 1697)
+23/11/07 11:00:27.197 dispatcher-event-loop-49 INFO TaskSetManager: Starting task 1698.0 in stage 0.0 (TID 1698) (localhost, executor driver, partition 1698, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.197 task-result-getter-1 INFO TaskSetManager: Finished task 1645.0 in stage 0.0 (TID 1645) in 83 ms on localhost (executor driver) (1634/1824)
+23/11/07 11:00:27.197 Executor task launch worker for task 1698.0 in stage 0.0 (TID 1698) INFO Executor: Running task 1698.0 in stage 0.0 (TID 1698)
+23/11/07 11:00:27.197 task-result-getter-0 INFO TaskSetManager: Finished task 1643.0 in stage 0.0 (TID 1643) in 84 ms on localhost (executor driver) (1635/1824)
+23/11/07 11:00:27.197 Executor task launch worker for task 1662.0 in stage 0.0 (TID 1662) INFO Executor: Finished task 1662.0 in stage 0.0 (TID 1662). 1955 bytes result sent to driver
+23/11/07 11:00:27.197 dispatcher-event-loop-51 INFO TaskSetManager: Starting task 1699.0 in stage 0.0 (TID 1699) (localhost, executor driver, partition 1699, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.198 Executor task launch worker for task 1699.0 in stage 0.0 (TID 1699) INFO Executor: Running task 1699.0 in stage 0.0 (TID 1699)
+23/11/07 11:00:27.198 task-result-getter-2 INFO TaskSetManager: Finished task 1662.0 in stage 0.0 (TID 1662) in 76 ms on localhost (executor driver) (1636/1824)
+23/11/07 11:00:27.198 Executor task launch worker for task 1638.0 in stage 0.0 (TID 1638) INFO Executor: Finished task 1638.0 in stage 0.0 (TID 1638). 1955 bytes result sent to driver
+23/11/07 11:00:27.198 dispatcher-event-loop-42 INFO TaskSetManager: Starting task 1700.0 in stage 0.0 (TID 1700) (localhost, executor driver, partition 1700, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.198 Executor task launch worker for task 1700.0 in stage 0.0 (TID 1700) INFO Executor: Running task 1700.0 in stage 0.0 (TID 1700)
+23/11/07 11:00:27.198 task-result-getter-3 INFO TaskSetManager: Finished task 1638.0 in stage 0.0 (TID 1638) in 92 ms on localhost (executor driver) (1637/1824)
+23/11/07 11:00:27.198 Executor task launch worker for task 1648.0 in stage 0.0 (TID 1648) INFO Executor: Finished task 1648.0 in stage 0.0 (TID 1648). 1955 bytes result sent to driver
+23/11/07 11:00:27.199 dispatcher-event-loop-30 INFO TaskSetManager: Starting task 1701.0 in stage 0.0 (TID 1701) (localhost, executor driver, partition 1701, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.199 Executor task launch worker for task 1701.0 in stage 0.0 (TID 1701) INFO Executor: Running task 1701.0 in stage 0.0 (TID 1701)
+23/11/07 11:00:27.199 task-result-getter-1 INFO TaskSetManager: Finished task 1648.0 in stage 0.0 (TID 1648) in 84 ms on localhost (executor driver) (1638/1824)
+23/11/07 11:00:27.200 Executor task launch worker for task 1628.0 in stage 0.0 (TID 1628) INFO Executor: Finished task 1628.0 in stage 0.0 (TID 1628). 1955 bytes result sent to driver
+23/11/07 11:00:27.200 dispatcher-event-loop-60 INFO TaskSetManager: Starting task 1702.0 in stage 0.0 (TID 1702) (localhost, executor driver, partition 1702, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.200 Executor task launch worker for task 1702.0 in stage 0.0 (TID 1702) INFO Executor: Running task 1702.0 in stage 0.0 (TID 1702)
+23/11/07 11:00:27.200 task-result-getter-0 INFO TaskSetManager: Finished task 1628.0 in stage 0.0 (TID 1628) in 99 ms on localhost (executor driver) (1639/1824)
+23/11/07 11:00:27.203 task-result-getter-3 INFO TaskSetManager: Finished task 1647.0 in stage 0.0 (TID 1647) in 88 ms on localhost (executor driver) (1645/1824)
+23/11/07 11:00:27.205 Executor task launch worker for task 1673.0 in stage 0.0 (TID 1673) INFO Executor: Finished task 1673.0 in stage 0.0 (TID 1673). 1955 bytes result sent to driver
+23/11/07 11:00:27.205 dispatcher-event-loop-6 INFO TaskSetManager: Starting task 1709.0 in stage 0.0 (TID 1709) (localhost, executor driver, partition 1709, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.205 Executor task launch worker for task 1660.0 in stage 0.0 (TID 1660) INFO Executor: Finished task 1660.0 in stage 0.0 (TID 1660). 1955 bytes result sent to driver
+23/11/07 11:00:27.205 Executor task launch worker for task 1632.0 in stage 0.0 (TID 1632) INFO Executor: Finished task 1632.0 in stage 0.0 (TID 1632). 1955 bytes result sent to driver
+23/11/07 11:00:27.205 Executor task launch worker for task 1709.0 in stage 0.0 (TID 1709) INFO Executor: Running task 1709.0 in stage 0.0 (TID 1709)
+23/11/07 11:00:27.205 Executor task launch worker for task 1631.0 in stage 0.0 (TID 1631) INFO Executor: Finished task 1631.0 in stage 0.0 (TID 1631). 1955 bytes result sent to driver
+23/11/07 11:00:27.205 Executor task launch worker for task 1642.0 in stage 0.0 (TID 1642) INFO Executor: Finished task 1642.0 in stage 0.0 (TID 1642). 1955 bytes result sent to driver
+23/11/07 11:00:27.205 dispatcher-event-loop-10 INFO TaskSetManager: Starting task 1710.0 in stage 0.0 (TID 1710) (localhost, executor driver, partition 1710, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.205 task-result-getter-1 INFO TaskSetManager: Finished task 1673.0 in stage 0.0 (TID 1673) in 73 ms on localhost (executor driver) (1646/1824)
+23/11/07 11:00:27.205 Executor task launch worker for task 1710.0 in stage 0.0 (TID 1710) INFO Executor: Running task 1710.0 in stage 0.0 (TID 1710)
+23/11/07 11:00:27.205 dispatcher-event-loop-10 INFO TaskSetManager: Starting task 1711.0 in stage 0.0 (TID 1711) (localhost, executor driver, partition 1711, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.205 Executor task launch worker for task 1711.0 in stage 0.0 (TID 1711) INFO Executor: Running task 1711.0 in stage 0.0 (TID 1711)
+23/11/07 11:00:27.287 Executor task launch worker for task 1728.0 in stage 0.0 (TID 1728) INFO Executor: Finished task 1728.0 in stage 0.0 (TID 1728). 1955 bytes result sent to driver
+23/11/07 11:00:27.302 Executor task launch worker for task 1745.0 in stage 0.0 (TID 1745) INFO Executor: Finished task 1745.0 in stage 0.0 (TID 1745). 1955 bytes result sent to driver
+23/11/07 11:00:27.302 Executor task launch worker for task 1790.0 in stage 0.0 (TID 1790) INFO Executor: Running task 1790.0 in stage 0.0 (TID 1790)
+23/11/07 11:00:27.322 Executor task launch worker for task 1822.0 in stage 0.0 (TID 1822) INFO Executor: Running task 1822.0 in stage 0.0 (TID 1822)
+23/11/07 11:00:27.322 task-result-getter-0 INFO TaskSetManager: Finished task 1779.0 in stage 0.0 (TID 1779) in 30 ms on localhost (executor driver) (1759/1824)
+23/11/07 11:00:27.322 Executor task launch worker for task 1764.0 in stage 0.0 (TID 1764) INFO Executor: Finished task 1764.0 in stage 0.0 (TID 1764). 1912 bytes result sent to driver
+23/11/07 11:00:27.322 dispatcher-event-loop-36 INFO TaskSetManager: Starting task 1823.0 in stage 0.0 (TID 1823) (localhost, executor driver, partition 1823, PROCESS_LOCAL, 4550 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.322 Executor task launch worker for task 1823.0 in stage 0.0 (TID 1823) INFO Executor: Running task 1823.0 in stage 0.0 (TID 1823)
+23/11/07 11:00:27.322 task-result-getter-3 INFO TaskSetManager: Finished task 1764.0 in stage 0.0 (TID 1764) in 42 ms on localhost (executor driver) (1760/1824)
+23/11/07 11:00:27.324 Executor task launch worker for task 1760.0 in stage 0.0 (TID 1760) INFO Executor: Finished task 1760.0 in stage 0.0 (TID 1760). 1955 bytes result sent to driver
+23/11/07 11:00:27.324 Executor task launch worker for task 1754.0 in stage 0.0 (TID 1754) INFO Executor: Finished task 1754.0 in stage 0.0 (TID 1754). 1955 bytes result sent to driver
+23/11/07 11:00:27.367 task-result-getter-3 INFO TaskSetManager: Finished task 1765.0 in stage 0.0 (TID 1765) in 86 ms on localhost (executor driver) (1763/1824)
+23/11/07 11:00:27.367 task-result-getter-0 INFO TaskSetManager: Finished task 1744.0 in stage 0.0 (TID 1744) in 142 ms on localhost (executor driver) (1764/1824)
+23/11/07 11:00:27.367 task-result-getter-2 INFO TaskSetManager: Finished task 1783.0 in stage 0.0 (TID 1783) in 73 ms on localhost (executor driver) (1765/1824)
+23/11/07 11:00:27.367 task-result-getter-3 INFO TaskSetManager: Finished task 1781.0 in stage 0.0 (TID 1781) in 75 ms on localhost (executor driver) (1766/1824)
+23/11/07 11:00:27.367 task-result-getter-1 INFO TaskSetManager: Finished task 1736.0 in stage 0.0 (TID 1736) in 145 ms on localhost (executor driver) (1767/1824)
+23/11/07 11:00:27.386 Executor task launch worker for task 1821.0 in stage 0.0 (TID 1821) INFO Executor: Finished task 1821.0 in stage 0.0 (TID 1821). 1955 bytes result sent to driver
+23/11/07 11:00:27.386 task-result-getter-0 INFO TaskSetManager: Finished task 1821.0 in stage 0.0 (TID 1821) in 65 ms on localhost (executor driver) (1817/1824)
+23/11/07 11:00:27.386 Executor task launch worker for task 1822.0 in stage 0.0 (TID 1822) INFO Executor: Finished task 1822.0 in stage 0.0 (TID 1822). 1955 bytes result sent to driver
+23/11/07 11:00:27.387 task-result-getter-2 INFO TaskSetManager: Finished task 1822.0 in stage 0.0 (TID 1822) in 65 ms on localhost (executor driver) (1818/1824)
+23/11/07 11:00:27.387 task-result-getter-3 INFO TaskSetManager: Finished task 1811.0 in stage 0.0 (TID 1811) in 72 ms on localhost (executor driver) (1819/1824)
+23/11/07 11:00:27.387 Executor task launch worker for task 1803.0 in stage 0.0 (TID 1803) INFO Executor: Finished task 1803.0 in stage 0.0 (TID 1803). 1955 bytes result sent to driver
+23/11/07 11:00:27.387 task-result-getter-1 INFO TaskSetManager: Finished task 1798.0 in stage 0.0 (TID 1798) in 81 ms on localhost (executor driver) (1820/1824)
+23/11/07 11:00:27.387 task-result-getter-0 INFO TaskSetManager: Finished task 1823.0 in stage 0.0 (TID 1823) in 65 ms on localhost (executor driver) (1821/1824)
+23/11/07 11:00:27.387 task-result-getter-2 INFO TaskSetManager: Finished task 1813.0 in stage 0.0 (TID 1813) in 71 ms on localhost (executor driver) (1822/1824)
+23/11/07 11:00:27.387 task-result-getter-3 INFO TaskSetManager: Finished task 1803.0 in stage 0.0 (TID 1803) in 77 ms on localhost (executor driver) (1823/1824)
+23/11/07 11:00:27.387 Executor task launch worker for task 1812.0 in stage 0.0 (TID 1812) INFO Executor: Finished task 1812.0 in stage 0.0 (TID 1812). 1955 bytes result sent to driver
+23/11/07 11:00:27.387 task-result-getter-1 INFO TaskSetManager: Finished task 1812.0 in stage 0.0 (TID 1812) in 72 ms on localhost (executor driver) (1824/1824)
+23/11/07 11:00:27.388 task-result-getter-1 INFO TaskSchedulerImpl: Removed TaskSet 0.0, whose tasks have all completed, from pool 
+23/11/07 11:00:27.389 dag-scheduler-event-loop INFO DAGScheduler: ResultStage 0 (parquet at <pastie>:23) finished in 3.376 s
+23/11/07 11:00:27.391 dag-scheduler-event-loop INFO DAGScheduler: Job 0 is finished. Cancelling potential speculative or zombie tasks for this job
+23/11/07 11:00:27.391 dag-scheduler-event-loop INFO TaskSchedulerImpl: Killing all running tasks in stage 0: Stage finished
+23/11/07 11:00:27.393 main INFO DAGScheduler: Job 0 finished: parquet at <pastie>:23, took 3.424451 s
+23/11/07 11:00:27.429 main INFO InMemoryFileIndex: It took 3774 ms to list leaf files for 1 paths.
+23/11/07 11:00:27.676 main INFO SparkContext: Starting job: parquet at <pastie>:23
+23/11/07 11:00:27.676 dag-scheduler-event-loop INFO DAGScheduler: Got job 1 (parquet at <pastie>:23) with 1 output partitions
+23/11/07 11:00:27.677 dag-scheduler-event-loop INFO DAGScheduler: Final stage: ResultStage 1 (parquet at <pastie>:23)
+23/11/07 11:00:27.677 dag-scheduler-event-loop INFO DAGScheduler: Parents of final stage: List()
+23/11/07 11:00:27.677 dag-scheduler-event-loop INFO DAGScheduler: Missing parents: List()
+23/11/07 11:00:27.678 dag-scheduler-event-loop INFO DAGScheduler: Submitting ResultStage 1 (MapPartitionsRDD[4] at parquet at <pastie>:23), which has no missing parents
+23/11/07 11:00:27.688 dag-scheduler-event-loop INFO MemoryStore: Block broadcast_1 stored as values in memory (estimated size 164.4 KiB, free 365.9 MiB)
+23/11/07 11:00:27.689 dag-scheduler-event-loop INFO MemoryStore: Block broadcast_1_piece0 stored as bytes in memory (estimated size 49.8 KiB, free 365.9 MiB)
+23/11/07 11:00:27.690 dispatcher-BlockManagerMaster INFO BlockManagerInfo: Added broadcast_1_piece0 in memory on localhost:34199 (size: 49.8 KiB, free: 366.2 MiB)
+23/11/07 11:00:27.690 dag-scheduler-event-loop INFO SparkContext: Created broadcast 1 from broadcast at DAGScheduler.scala:1513
+23/11/07 11:00:27.690 dag-scheduler-event-loop INFO DAGScheduler: Submitting 1 missing tasks from ResultStage 1 (MapPartitionsRDD[4] at parquet at <pastie>:23) (first 15 tasks are for partitions Vector(0))
+23/11/07 11:00:27.690 dag-scheduler-event-loop INFO TaskSchedulerImpl: Adding task set 1.0 with 1 tasks resource profile 0
+23/11/07 11:00:27.691 dispatcher-event-loop-38 INFO TaskSetManager: Starting task 0.0 in stage 1.0 (TID 1824) (localhost, executor driver, partition 0, PROCESS_LOCAL, 4714 bytes) taskResourceAssignments Map()
+23/11/07 11:00:27.692 Executor task launch worker for task 0.0 in stage 1.0 (TID 1824) INFO Executor: Running task 0.0 in stage 1.0 (TID 1824)
+23/11/07 11:00:27.893 Executor task launch worker for task 0.0 in stage 1.0 (TID 1824) INFO Executor: Finished task 0.0 in stage 1.0 (TID 1824). 4029 bytes result sent to driver
+23/11/07 11:00:27.893 task-result-getter-0 INFO TaskSetManager: Finished task 0.0 in stage 1.0 (TID 1824) in 202 ms on localhost (executor driver) (1/1)
+23/11/07 11:00:27.893 task-result-getter-0 INFO TaskSchedulerImpl: Removed TaskSet 1.0, whose tasks have all completed, from pool 
+23/11/07 11:00:27.894 dag-scheduler-event-loop INFO DAGScheduler: ResultStage 1 (parquet at <pastie>:23) finished in 0.214 s
+23/11/07 11:00:27.894 dag-scheduler-event-loop INFO DAGScheduler: Job 1 is finished. Cancelling potential speculative or zombie tasks for this job
+23/11/07 11:00:27.894 dag-scheduler-event-loop INFO TaskSchedulerImpl: Killing all running tasks in stage 1: Stage finished
+23/11/07 11:00:27.894 main INFO DAGScheduler: Job 1 finished: parquet at <pastie>:23, took 0.218049 s
+23/11/07 11:00:28.642 main INFO DataSourceStrategy: Pruning directories with: 
+23/11/07 11:00:28.643 main INFO FileSourceStrategy: Pushed Filters: 
+23/11/07 11:00:28.644 main INFO FileSourceStrategy: Post-Scan Filters: 
+23/11/07 11:00:28.645 main INFO FileSourceStrategy: Output Data Schema: struct<ws_sold_time_sk: int, ws_ship_date_sk: int>
+23/11/07 11:00:28.714 main WARN GpuOverrides: 
+!Exec <CollectLimitExec> cannot run on GPU because the Exec CollectLimitExec has been disabled, and is disabled by default because Collect Limit replacement can be slower on the GPU, if huge number of rows in a batch it could help by limiting the number of rows transferred from GPU to CPU. Set spark.rapids.sql.exec.CollectLimitExec to true if you wish to enable it
+  @Partitioning <SinglePartition$> could run on GPU
+  !Exec <ProjectExec> cannot run on GPU because not all expressions can be replaced
+    @Expression <Alias> cast(ws_sold_time_sk#0 as string) AS ws_sold_time_sk#78 could run on GPU
+      @Expression <Cast> cast(ws_sold_time_sk#0 as string) could run on GPU
+        @Expression <AttributeReference> ws_sold_time_sk#0 could run on GPU
+    @Expression <Alias> cast(ws_ship_date_sk#1 as string) AS ws_ship_date_sk#79 could run on GPU
+      @Expression <Cast> cast(ws_ship_date_sk#1 as string) could run on GPU
+        @Expression <AttributeReference> ws_ship_date_sk#1 could run on GPU
+    @Expression <Alias> format_number(cast(ws_ship_date_sk#1 as double), 2) AS formatted_number#80 could run on GPU
+      !Expression <FormatNumber> format_number(cast(ws_ship_date_sk#1 as double), 2) cannot run on GPU because format_number with floating point types on the GPU returns results that have a different precision than the default results of Spark. To enable this operation on the GPU, set spark.rapids.sql.formatNumberFloat.enabled to true.
+        @Expression <Cast> cast(ws_ship_date_sk#1 as double) could run on GPU
+          @Expression <AttributeReference> ws_ship_date_sk#1 could run on GPU
+        @Expression <Literal> 2 could run on GPU
+    *Exec <FileSourceScanExec> will run on GPU
+
+23/11/07 11:00:28.731 main INFO GpuOverrides: Plan conversion to the GPU took 67.30 ms
+23/11/07 11:00:28.762 main INFO GpuOverrides: GPU plan transition optimization took 14.49 ms
+23/11/07 11:00:28.968 main INFO CodeGenerator: Code generated in 135.771897 ms
+23/11/07 11:00:28.982 main INFO GpuFileSourceScanExec: Planning scan with bin packing, max size: 128044734 bytes, open cost is considered as scanning 4194304 bytes.
+23/11/07 11:00:29.017 main INFO MemoryStore: Block broadcast_2 stored as values in memory (estimated size 475.1 KiB, free 365.4 MiB)
+23/11/07 11:00:29.023 main INFO MemoryStore: Block broadcast_2_piece0 stored as bytes in memory (estimated size 46.0 KiB, free 365.4 MiB)
+23/11/07 11:00:29.024 dispatcher-BlockManagerMaster INFO BlockManagerInfo: Added broadcast_2_piece0 in memory on localhost:34199 (size: 46.0 KiB, free: 366.2 MiB)
+23/11/07 11:00:29.024 main INFO SparkContext: Created broadcast 2 from internalDoExecuteColumnar at GpuExec.scala:349
+23/11/07 11:00:29.058 main INFO SparkContext: Starting job: show at <pastie>:31
+23/11/07 11:00:29.058 dag-scheduler-event-loop INFO DAGScheduler: Got job 2 (show at <pastie>:31) with 1 output partitions
+23/11/07 11:00:29.058 dag-scheduler-event-loop INFO DAGScheduler: Final stage: ResultStage 2 (show at <pastie>:31)
+23/11/07 11:00:29.058 dag-scheduler-event-loop INFO DAGScheduler: Parents of final stage: List()
+23/11/07 11:00:29.059 dag-scheduler-event-loop INFO DAGScheduler: Missing parents: List()
+23/11/07 11:00:29.059 dag-scheduler-event-loop INFO DAGScheduler: Submitting ResultStage 2 (MapPartitionsRDD[10] at show at <pastie>:31), which has no missing parents
+23/11/07 11:00:29.098 dag-scheduler-event-loop INFO MemoryStore: Block broadcast_3 stored as values in memory (estimated size 21.6 KiB, free 365.4 MiB)
+23/11/07 11:00:29.099 dag-scheduler-event-loop INFO MemoryStore: Block broadcast_3_piece0 stored as bytes in memory (estimated size 10.0 KiB, free 365.3 MiB)
+23/11/07 11:00:29.100 dispatcher-BlockManagerMaster INFO BlockManagerInfo: Added broadcast_3_piece0 in memory on localhost:34199 (size: 10.0 KiB, free: 366.1 MiB)
+23/11/07 11:00:29.100 dag-scheduler-event-loop INFO SparkContext: Created broadcast 3 from broadcast at DAGScheduler.scala:1513
+23/11/07 11:00:29.100 dag-scheduler-event-loop INFO DAGScheduler: Submitting 1 missing tasks from ResultStage 2 (MapPartitionsRDD[10] at show at <pastie>:31) (first 15 tasks are for partitions Vector(0))
+23/11/07 11:00:29.100 dag-scheduler-event-loop INFO TaskSchedulerImpl: Adding task set 2.0 with 1 tasks resource profile 0
+23/11/07 11:00:29.103 dispatcher-event-loop-51 INFO TaskSetManager: Starting task 0.0 in stage 2.0 (TID 1825) (localhost, executor driver, partition 0, PROCESS_LOCAL, 11104 bytes) taskResourceAssignments Map()
+23/11/07 11:00:29.104 Executor task launch worker for task 0.0 in stage 2.0 (TID 1825) INFO Executor: Running task 0.0 in stage 2.0 (TID 1825)
+23/11/07 11:00:29.151 Executor task launch worker for task 0.0 in stage 2.0 (TID 1825) INFO CodeGenerator: Code generated in 16.566694 ms
+23/11/07 11:00:29.162 Executor task launch worker for task 0.0 in stage 2.0 (TID 1825) INFO GpuParquetMultiFilePartitionReaderFactory: Using the coalesce multi-file Parquet reader, files: file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451181/part-00132-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451546/part-00112-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452277/part-00059-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451491/part-00006-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452641/part-00061-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451492/part-00001-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452221/part-00119-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451162/part-00003-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452614/part-00119-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451170/part-00105-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452608/part-00020-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451503/part-00109-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452258/part-00027-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451155/part-00063-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452595/part-00047-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451126/part-00125-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451138/part-00034-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452260/part-00011-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452261/part-00003-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451148/part-00071-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451908/part-00059-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452587/part-00095-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451530/part-00036-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451160/part-00036-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451500/part-00097-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451145/part-00046-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452244/part-00103-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet task attemptid: 1825
+23/11/07 11:00:29.262 Executor task launch worker for task 0.0 in stage 2.0 (TID 1825) WARN MultiFileReaderThreadPool: Configuring the file reader thread pool with a max of 64 threads instead of spark.rapids.sql.multiThreadedRead.numThreads = 20
+23/11/07 11:00:29.438 dispatcher-BlockManagerMaster INFO BlockManagerInfo: Removed broadcast_0_piece0 on localhost:34199 in memory (size: 49.6 KiB, free: 366.2 MiB)
+23/11/07 11:00:29.442 dispatcher-BlockManagerMaster INFO BlockManagerInfo: Removed broadcast_1_piece0 on localhost:34199 in memory (size: 49.8 KiB, free: 366.2 MiB)
+23/11/07 11:00:29.489 Executor task launch worker for task 0.0 in stage 2.0 (TID 1825) INFO Executor: Finished task 0.0 in stage 2.0 (TID 1825). 3072 bytes result sent to driver
+23/11/07 11:00:29.490 task-result-getter-2 INFO TaskSetManager: Finished task 0.0 in stage 2.0 (TID 1825) in 389 ms on localhost (executor driver) (1/1)
+23/11/07 11:00:29.490 task-result-getter-2 INFO TaskSchedulerImpl: Removed TaskSet 2.0, whose tasks have all completed, from pool 
+23/11/07 11:00:29.491 dag-scheduler-event-loop INFO DAGScheduler: ResultStage 2 (show at <pastie>:31) finished in 0.429 s
+23/11/07 11:00:29.491 dag-scheduler-event-loop INFO DAGScheduler: Job 2 is finished. Cancelling potential speculative or zombie tasks for this job
+23/11/07 11:00:29.491 dag-scheduler-event-loop INFO TaskSchedulerImpl: Killing all running tasks in stage 2: Stage finished
+23/11/07 11:00:29.491 main INFO DAGScheduler: Job 2 finished: show at <pastie>:31, took 0.433102 s
+23/11/07 11:00:29.516 main INFO CodeGenerator: Code generated in 11.518671 ms
+23/11/07 11:00:29.544 main INFO DataSourceStrategy: Pruning directories with: 
+23/11/07 11:00:29.545 main INFO FileSourceStrategy: Pushed Filters: 
+23/11/07 11:00:29.545 main INFO FileSourceStrategy: Post-Scan Filters: 
+23/11/07 11:00:29.545 main INFO FileSourceStrategy: Output Data Schema: struct<ws_sold_time_sk: int>
+23/11/07 11:00:29.550 main WARN GpuOverrides: 
+!Exec <CollectLimitExec> cannot run on GPU because the Exec CollectLimitExec has been disabled, and is disabled by default because Collect Limit replacement can be slower on the GPU, if huge number of rows in a batch it could help by limiting the number of rows transferred from GPU to CPU. Set spark.rapids.sql.exec.CollectLimitExec to true if you wish to enable it
+  @Partitioning <SinglePartition$> could run on GPU
+  !Exec <ProjectExec> cannot run on GPU because not all expressions can be replaced
+    @Expression <Alias> cast(ws_sold_time_sk#0 as string) AS ws_sold_time_sk#94 could run on GPU
+      @Expression <Cast> cast(ws_sold_time_sk#0 as string) could run on GPU
+        @Expression <AttributeReference> ws_sold_time_sk#0 could run on GPU
+    @Expression <Alias> hex(cast(ws_sold_time_sk#0 as bigint)) AS hex_value#95 could run on GPU
+      ! <Hex> hex(cast(ws_sold_time_sk#0 as bigint)) cannot run on GPU because GPU does not currently support the operator class org.apache.spark.sql.catalyst.expressions.Hex
+        @Expression <Cast> cast(ws_sold_time_sk#0 as bigint) could run on GPU
+          @Expression <AttributeReference> ws_sold_time_sk#0 could run on GPU
+    *Exec <FileSourceScanExec> will run on GPU
+
+23/11/07 11:00:29.550 main INFO GpuOverrides: Plan conversion to the GPU took 4.76 ms
+23/11/07 11:00:29.551 main INFO GpuOverrides: GPU plan transition optimization took 0.42 ms
+23/11/07 11:00:29.575 main INFO CodeGenerator: Code generated in 14.419084 ms
+23/11/07 11:00:29.580 main INFO GpuFileSourceScanExec: Planning scan with bin packing, max size: 128044734 bytes, open cost is considered as scanning 4194304 bytes.
+23/11/07 11:00:29.589 main INFO MemoryStore: Block broadcast_4 stored as values in memory (estimated size 475.1 KiB, free 365.3 MiB)
+23/11/07 11:00:29.594 main INFO MemoryStore: Block broadcast_4_piece0 stored as bytes in memory (estimated size 46.0 KiB, free 365.3 MiB)
+23/11/07 11:00:29.595 dispatcher-BlockManagerMaster INFO BlockManagerInfo: Added broadcast_4_piece0 in memory on localhost:34199 (size: 46.0 KiB, free: 366.2 MiB)
+23/11/07 11:00:29.595 main INFO SparkContext: Created broadcast 4 from internalDoExecuteColumnar at GpuExec.scala:349
+23/11/07 11:00:29.604 main INFO SparkContext: Starting job: show at <pastie>:36
+23/11/07 11:00:29.605 dag-scheduler-event-loop INFO DAGScheduler: Got job 3 (show at <pastie>:36) with 1 output partitions
+23/11/07 11:00:29.605 dag-scheduler-event-loop INFO DAGScheduler: Final stage: ResultStage 3 (show at <pastie>:36)
+23/11/07 11:00:29.605 dag-scheduler-event-loop INFO DAGScheduler: Parents of final stage: List()
+23/11/07 11:00:29.605 dag-scheduler-event-loop INFO DAGScheduler: Missing parents: List()
+23/11/07 11:00:29.606 dag-scheduler-event-loop INFO DAGScheduler: Submitting ResultStage 3 (MapPartitionsRDD[16] at show at <pastie>:36), which has no missing parents
+23/11/07 11:00:29.611 dag-scheduler-event-loop INFO MemoryStore: Block broadcast_5 stored as values in memory (estimated size 20.2 KiB, free 365.2 MiB)
+23/11/07 11:00:29.612 dag-scheduler-event-loop INFO MemoryStore: Block broadcast_5_piece0 stored as bytes in memory (estimated size 9.5 KiB, free 365.2 MiB)
+23/11/07 11:00:29.612 dispatcher-BlockManagerMaster INFO BlockManagerInfo: Added broadcast_5_piece0 in memory on localhost:34199 (size: 9.5 KiB, free: 366.2 MiB)
+23/11/07 11:00:29.613 dag-scheduler-event-loop INFO SparkContext: Created broadcast 5 from broadcast at DAGScheduler.scala:1513
+23/11/07 11:00:29.613 dag-scheduler-event-loop INFO DAGScheduler: Submitting 1 missing tasks from ResultStage 3 (MapPartitionsRDD[16] at show at <pastie>:36) (first 15 tasks are for partitions Vector(0))
+23/11/07 11:00:29.613 dag-scheduler-event-loop INFO TaskSchedulerImpl: Adding task set 3.0 with 1 tasks resource profile 0
+23/11/07 11:00:29.614 dispatcher-event-loop-43 INFO TaskSetManager: Starting task 0.0 in stage 3.0 (TID 1826) (localhost, executor driver, partition 0, PROCESS_LOCAL, 11104 bytes) taskResourceAssignments Map()
+23/11/07 11:00:29.614 Executor task launch worker for task 0.0 in stage 3.0 (TID 1826) INFO Executor: Running task 0.0 in stage 3.0 (TID 1826)
+23/11/07 11:00:29.630 Executor task launch worker for task 0.0 in stage 3.0 (TID 1826) INFO CodeGenerator: Code generated in 11.002146 ms
+23/11/07 11:00:29.633 Executor task launch worker for task 0.0 in stage 3.0 (TID 1826) INFO GpuParquetMultiFilePartitionReaderFactory: Using the coalesce multi-file Parquet reader, files: file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451181/part-00132-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451546/part-00112-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452277/part-00059-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451491/part-00006-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452641/part-00061-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451492/part-00001-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452221/part-00119-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451162/part-00003-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452614/part-00119-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451170/part-00105-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452608/part-00020-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451503/part-00109-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452258/part-00027-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451155/part-00063-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452595/part-00047-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451126/part-00125-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451138/part-00034-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452260/part-00011-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452261/part-00003-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451148/part-00071-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451908/part-00059-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452587/part-00095-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451530/part-00036-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451160/part-00036-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451500/part-00097-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2451145/part-00046-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet,file:/home/test/data_parquet_sf10_decimal/parquet_sf10_decimal/web_sales/ws_sold_date_sk=2452244/part-00103-1694ffb1-67ca-4c7a-864e-dea8f457a824.c000.snappy.parquet task attemptid: 1826
+23/11/07 11:00:29.682 Executor task launch worker for task 0.0 in stage 3.0 (TID 1826) INFO Executor: Finished task 0.0 in stage 3.0 (TID 1826). 2860 bytes result sent to driver
+23/11/07 11:00:29.682 task-result-getter-3 INFO TaskSetManager: Finished task 0.0 in stage 3.0 (TID 1826) in 69 ms on localhost (executor driver) (1/1)
+23/11/07 11:00:29.683 task-result-getter-3 INFO TaskSchedulerImpl: Removed TaskSet 3.0, whose tasks have all completed, from pool 
+23/11/07 11:00:29.683 dag-scheduler-event-loop INFO DAGScheduler: ResultStage 3 (show at <pastie>:36) finished in 0.076 s
+23/11/07 11:00:29.683 dag-scheduler-event-loop INFO DAGScheduler: Job 3 is finished. Cancelling potential speculative or zombie tasks for this job
+23/11/07 11:00:29.683 dag-scheduler-event-loop INFO TaskSchedulerImpl: Killing all running tasks in stage 3: Stage finished
+23/11/07 11:00:29.684 main INFO DAGScheduler: Job 3 finished: show at <pastie>:36, took 0.078834 s
+23/11/07 11:00:29.697 main INFO CodeGenerator: Code generated in 9.866734 ms

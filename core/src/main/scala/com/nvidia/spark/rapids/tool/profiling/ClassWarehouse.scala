@@ -168,6 +168,20 @@ extends ProfileResult {
   }
 }
 
+case class DriverLogUnsupportedOperators(
+    operatorName: String, count: Int, reason: String) extends ProfileResult {
+  override val outputHeaders = Seq("operatorName", "count", "reason")
+
+  override def convertToSeq: Seq[String] = {
+    Seq(operatorName, count.toString, reason)
+  }
+
+  override def convertToCSVSeq: Seq[String] = {
+    Seq(StringUtils.reformatCSVString(operatorName), count.toString,
+      StringUtils.reformatCSVString(reason))
+  }
+}
+
 class StageInfoClass(val info: StageInfo) {
   var completionTime: Option[Long] = None
   var failureReason: Option[String] = None

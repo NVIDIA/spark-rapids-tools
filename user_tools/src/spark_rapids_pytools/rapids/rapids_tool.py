@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List
 
+import spark_rapids_pytools
 from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
@@ -120,6 +121,7 @@ class RapidsTool(object):
     def __post_init__(self):
         # when debug is set to true set it in the environment.
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.{self.name}')
+        self.logger.info('Using Spark RAPIDS user tools version %s', spark_rapids_pytools.__version__)
 
     def _check_environment(self) -> None:
         self.ctxt.platform.setup_and_validate_env()
@@ -387,8 +389,12 @@ class RapidsJarTool(RapidsTool):
                                                                 fail_ok=False,
                                                                 create_dir=True)
         self.logger.info('RAPIDS accelerator jar is downloaded to work_dir %s', jar_path)
-        # get the jar file name and add it to the tool args
+        # get the jar file name
         jar_file_name = FSUtil.get_resource_name(jar_path)
+        version_match = re.search(r'\d{2}\.\d{2}\.\d+', jar_file_name)
+        jar_version = version_match.group() if version_match else 'Unknown'
+        self.logger.info('Using Spark RAPIDS accelerator jar version %s', jar_version)
+        #  add jar file name to the tool args
         self.ctxt.add_rapids_args('jarFileName', jar_file_name)
         self.ctxt.add_rapids_args('jarFilePath', jar_path)
 

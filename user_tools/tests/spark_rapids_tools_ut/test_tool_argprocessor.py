@@ -166,8 +166,8 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                                  platform='onprem')
         assert pytest_wrapped_e.type == SystemExit
         captured = capsys.readouterr()
-        # Verify there is no URL in error message
-        assert 'https://' not in captured.err
+        # Verify there is no URL in error message except for the one from the documentation
+        assert 'https://' not in captured.err or 'docs.nvidia.com' in captured.err
 
     @pytest.mark.skip(reason='Unit tests are not completed yet')
     def test_arg_cases_coverage(self):
