@@ -1,6 +1,27 @@
 
 <br/>
 
+## Release [v23.10.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.10.1)
+Generated on 2023-11-16
+### User Tools
+
+- Updating tools docs to remove dead links and profiling docs to not require cluster/worker info ([#651](https://github.com/NVIDIA/spark-rapids-tools/pull/651))
+- Updating autotuner to generation recommendation always, even without cluster info ([#650](https://github.com/NVIDIA/spark-rapids-tools/pull/650))
+- Updating dataproc container cost to be multiplied by number of cores ([#648](https://github.com/NVIDIA/spark-rapids-tools/pull/648))
+- [BUG] Support autoscaling clusters for user qualification tool on Databricks platforms ([#647](https://github.com/NVIDIA/spark-rapids-tools/pull/647))
+- Support extra arguments in new user tools CLI ([#646](https://github.com/NVIDIA/spark-rapids-tools/pull/646))
+- Improve logs with user tools and jar version details ([#642](https://github.com/NVIDIA/spark-rapids-tools/pull/642))
+
+### Core
+
+- Profiling tool: Add support for driver log as input to generate unsupported operators report ([#654](https://github.com/NVIDIA/spark-rapids-tools/pull/654))
+- Updating tools docs to remove dead links and profiling docs to not require cluster/worker info ([#651](https://github.com/NVIDIA/spark-rapids-tools/pull/651))
+- Updating autotuner to generation recommendation always, even without cluster info ([#650](https://github.com/NVIDIA/spark-rapids-tools/pull/650))
+- Qualification tool: Enhance mapping of Execs to stages ([#634](https://github.com/NVIDIA/spark-rapids-tools/pull/634))
+
+
+<br/>
+
 ## Release [v23.10.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.10.0)
 Generated on 2023-10-30
 ### User Tools
