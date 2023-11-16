@@ -33,6 +33,11 @@ object PlatformTypes {
   val EMR_A10 = "emr-a10"
   val EMR_T4 = "emr-t4"
   val ONPREM = "onprem"
+
+  def getAllPlatformNames: List[String] = List(
+    DATABRICKS_AWS, DATABRICKS_AZURE, DATAPROC, DATAPROC_GKE_L4, DATAPROC_GKE_T4,
+    DATAPROC_L4, DATAPROC_SL_L4, DATAPROC_T4, EMR, EMR_A10, EMR_T4, ONPREM
+  )
 }
 
 /**
