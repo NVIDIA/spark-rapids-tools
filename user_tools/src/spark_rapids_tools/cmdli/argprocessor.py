@@ -168,16 +168,20 @@ class AbsToolUserArgModel:
         self.p_args['toolArgs']['platform'] = map_storage_to_platform[storage_type]
 
     def validate_onprem_with_cluster_name(self):
-        if self.platform == CspEnv.ONPREM:
+        # this field has already been populated during initialization
+        selected_platform = self.p_args['toolArgs']['platform']
+        if selected_platform == CspEnv.ONPREM:
             raise PydanticCustomError(
                 'invalid_argument',
                 f'Cannot run cluster by name with platform [{CspEnv.ONPREM}]\n  Error:')
 
-    def validate_onprem_with_cluster_props(self):
-        if self.platform == CspEnv.ONPREM:
+    def validate_onprem_with_cluster_props_without_eventlogs(self):
+        # this field has already been populated during initialization
+        selected_platform = self.p_args['toolArgs']['platform']
+        if selected_platform == CspEnv.ONPREM:
             raise PydanticCustomError(
                 'invalid_argument',
-                f'Cannot run cluster by properties with platform [{CspEnv.ONPREM}]\n  Error:')
+                f'Cannot run cluster by properties with platform [{CspEnv.ONPREM}] without event logs\n  Error:')
 
     def init_extra_arg_cases(self) -> list:
         return []
@@ -208,13 +212,16 @@ class AbsToolUserArgModel:
     def build_tools_args(self) -> dict:
         pass
 
-    def apply_arg_cases(self):
-        for curr_cases in [self.rejected, self.detected, self.extra]:
+    def apply_arg_cases(self, cases_list: list):
+        for curr_cases in cases_list:
             for case_key, case_value in curr_cases.items():
                 if any(ArgValueCase.array_equal(self.argv_cases, case_i) for case_i in case_value['cases']):
                     # debug the case key
                     self.logger.info('...applying argument case: %s', case_key)
                     case_value['callable']()
+
+    def apply_all_arg_cases(self):
+        self.apply_arg_cases([self.rejected, self.detected, self.extra])
 
     def validate_arguments(self):
         self.init_tool_args()
@@ -222,7 +229,7 @@ class AbsToolUserArgModel:
         self.define_invalid_arg_cases()
         self.define_detection_cases()
         self.define_extra_arg_cases()
-        self.apply_arg_cases()
+        self.apply_all_arg_cases()
 
     def get_or_set_platform(self) -> CspEnv:
         if self.p_args['toolArgs']['platform'] is None:
@@ -230,24 +237,11 @@ class AbsToolUserArgModel:
             runtime_platform = CspEnv.get_default()
         else:
             runtime_platform = self.p_args['toolArgs']['platform']
-        self.post_platform_assignment_validation(runtime_platform)
-        return runtime_platform
 
-    def post_platform_assignment_validation(self, assigned_platform):
-        # do some validation after we decide the cluster type
-        if assigned_platform == CspEnv.ONPREM:
-            cluster_case = self.argv_cases[1]
-            eventlogs_case = self.argv_cases[2]
-            if cluster_case == ArgValueCase.VALUE_A:
-                # it is not allowed to run cluster by name on an OnPrem platform
-                raise PydanticCustomError(
-                    'invalid_argument',
-                    f'Cannot run cluster by name with platform [{CspEnv.ONPREM}]\n  Error:')
-            if cluster_case == ArgValueCase.VALUE_B and eventlogs_case == ArgValueCase.UNDEFINED:
-                # it is not allowed to run cluster by props on an OnPrem platform without eventlogs
-                raise PydanticCustomError(
-                    'invalid_argument',
-                    f'Cannot run cluster by properties with platform [{CspEnv.ONPREM}] without eventlogs\n  Error:')
+        # Update argv_cases to reflect the platform and validate post platform assignment
+        self.argv_cases[0] = ArgValueCase.VALUE_A
+        self.apply_arg_cases([self.rejected, self.extra])
+        return runtime_platform
 
 
 @dataclass
@@ -293,7 +287,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
         }
         self.rejected['Cluster By Properties Cannot go with OnPrem'] = {
             'valid': False,
-            'callable': partial(self.validate_onprem_with_cluster_props),
+            'callable': partial(self.validate_onprem_with_cluster_props_without_eventlogs),
             'cases': [
                 [ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.UNDEFINED]
             ]
