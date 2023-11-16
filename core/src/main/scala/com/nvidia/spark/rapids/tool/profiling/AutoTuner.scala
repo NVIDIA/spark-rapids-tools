@@ -592,8 +592,19 @@ class AutoTuner(
 
   def calculateJobLevelRecommendations(): Unit = {
     val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.filterNot("().".toSet)
-    appendRecommendation("spark.shuffle.manager",
-      "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
+    val finalShuffleVersion = if (platform.contains("databricks")) {
+      val dbVersion = appInfoProvider.getProperty(
+        "spark.databricks.clusterUsageTags.sparkVersion").getOrElse("")
+      if (dbVersion.contains("10.4")) {
+        "321db"
+      } else if (dbVersion.contains("11.3")) {
+        "330db"
+      } else {
+        "332db"
+      }
+    } else shuffleManagerVersion
+     appendRecommendation("spark.shuffle.manager",
+       "com.nvidia.spark.rapids.spark" + finalShuffleVersion + ".RapidsShuffleManager")
     appendComment(classPathComments("rapids.shuffle.jars"))
 
     recommendFileCache()
