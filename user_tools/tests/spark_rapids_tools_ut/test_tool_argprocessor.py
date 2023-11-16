@@ -127,6 +127,7 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
         # should pass: platform not provided; event logs are provided
         tool_args = self.create_tool_args_should_pass(tool_name,
                                                       eventlogs=f'{get_ut_data_dir}/eventlogs')
+        # for qualification, cost savings should be disabled because cluster is not provided
         self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                 cost_savings_enabled=False,
                                 expected_platform=CspEnv.ONPREM)
@@ -142,6 +143,7 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                                           platform=csp,
                                                           cluster='my_cluster',
                                                           eventlogs=f'{get_ut_data_dir}/eventlogs')
+            # for qualification, cost savings should be enabled because cluster is provided
             self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                     cost_savings_enabled=True,
                                     expected_platform=csp)
@@ -151,6 +153,7 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
             tool_args = self.create_tool_args_should_pass(tool_name,
                                                           platform=csp,
                                                           cluster='my_cluster')
+            # for qualification, cost savings should be enabled because cluster is provided
             self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                     cost_savings_enabled=True,
                                     expected_platform=csp)
@@ -191,7 +194,8 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
             # because the eventlogs can be retrieved from the cluster properties
             tool_args = self.create_tool_args_should_pass(tool_name,
                                                           platform=csp,
-                                                          cluster=f'{cluster_prop_file}')
+                                                          cluster=cluster_prop_file)
+            # for qualification, cost savings should be enabled because cluster is provided
             self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                     cost_savings_enabled=True,
                                     expected_platform=csp)
@@ -199,7 +203,8 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
             # should pass: platform not provided; missing eventlogs should be accepted for all CSPs (except onPrem)
             # because the eventlogs can be retrieved from the cluster properties
             tool_args = self.create_tool_args_should_pass(tool_name,
-                                                          cluster=f'{cluster_prop_file}')
+                                                          cluster=cluster_prop_file)
+            # for qualification, cost savings should be enabled because cluster is provided
             self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                     cost_savings_enabled=True,
                                     expected_platform=csp)
@@ -207,12 +212,12 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
             # should fail: onprem platform cannot retrieve eventlogs from cluster properties
             self.create_tool_args_should_fail(tool_name,
                                               platform=csp,
-                                              cluster=f'{cluster_prop_file}')
+                                              cluster=cluster_prop_file)
 
             # should fail: platform not provided; defaults platform to onprem, cannot retrieve eventlogs from
             # cluster properties
             self.create_tool_args_should_fail(tool_name,
-                                              cluster=f'{cluster_prop_file}')
+                                              cluster=cluster_prop_file)
 
     @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
     @pytest.mark.parametrize('csp,prop_path', all_cpu_cluster_props)
@@ -223,16 +228,18 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
         cluster_prop_file = f'{get_ut_data_dir}/{prop_path}'
         tool_args = self.create_tool_args_should_pass(tool_name,
                                                       platform=csp,
-                                                      cluster=f'{cluster_prop_file}',
+                                                      cluster=cluster_prop_file,
                                                       eventlogs=f'{get_ut_data_dir}/eventlogs')
+        # for qualification, cost savings should be enabled because cluster is provided (except for onprem)
         self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                 cost_savings_enabled=CspEnv(csp) != CspEnv.ONPREM,
                                 expected_platform=csp)
 
         # should pass: platform not provided; cluster properties and eventlogs are provided
         tool_args = self.create_tool_args_should_pass(tool_name,
-                                                      cluster=f'{get_ut_data_dir}/{prop_path}',
+                                                      cluster=cluster_prop_file,
                                                       eventlogs=f'{get_ut_data_dir}/eventlogs')
+        # for qualification, cost savings should be enabled because cluster is provided (except for onprem)
         self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                 cost_savings_enabled=CspEnv(csp) != CspEnv.ONPREM,
                                 expected_platform=csp)
@@ -247,11 +254,11 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
         autotuner_prop_file = f'{get_ut_data_dir}/{prop_path}'
         self.create_tool_args_should_fail(tool_name,
                                           platform=csp,
-                                          cluster=f'{autotuner_prop_file}')
+                                          cluster=autotuner_prop_file)
 
         # should fail: platform not provided; autotuner needs eventlogs
         self.create_tool_args_should_fail(tool_name,
-                                          cluster=f'{autotuner_prop_file}')
+                                          cluster=autotuner_prop_file)
 
     @pytest.mark.parametrize('tool_name', ['profiling'])
     @pytest.mark.parametrize('csp', all_csps)
@@ -263,16 +270,18 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
         autotuner_prop_file = f'{get_ut_data_dir}/{prop_path}'
         tool_args = self.create_tool_args_should_pass(tool_name,
                                                       platform=csp,
-                                                      cluster=f'{autotuner_prop_file}',
+                                                      cluster=autotuner_prop_file,
                                                       eventlogs=f'{get_ut_data_dir}/eventlogs')
+        # cost savings should be disabled for profiling
         self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                 cost_savings_enabled=False,
                                 expected_platform=csp)
 
         # should pass: platform not provided; autotuner properties and eventlogs are provided
         tool_args = self.create_tool_args_should_pass(tool_name,
-                                                      cluster=f'{autotuner_prop_file}',
+                                                      cluster=autotuner_prop_file,
                                                       eventlogs=f'{get_ut_data_dir}/eventlogs')
+        # cost savings should be disabled for profiling
         self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                 cost_savings_enabled=False,
                                 expected_platform=CspEnv.ONPREM)
