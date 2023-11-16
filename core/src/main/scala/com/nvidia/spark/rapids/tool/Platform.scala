@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool
 import org.apache.spark.internal.Logging
 
 /**
- * Constants representing different platform types.
+ *  Utility object containing constants for various platform names.
  */
 object PlatformTypes {
   val DATABRICKS_AWS = "databricks-aws"
@@ -34,6 +34,9 @@ object PlatformTypes {
   val EMR_T4 = "emr-t4"
   val ONPREM = "onprem"
 
+  /**
+   * Return a list of all platform names.
+   */
   def getAllPlatformNames: List[String] = List(
     DATABRICKS_AWS, DATABRICKS_AZURE, DATAPROC, DATAPROC_GKE_L4, DATAPROC_GKE_T4,
     DATAPROC_L4, DATAPROC_SL_L4, DATAPROC_T4, EMR, EMR_A10, EMR_T4, ONPREM
