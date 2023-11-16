@@ -237,11 +237,14 @@ class AbsToolUserArgModel:
             runtime_platform = CspEnv.get_default()
         else:
             runtime_platform = self.p_args['toolArgs']['platform']
-
-        # Update argv_cases to reflect the platform and validate post platform assignment
-        self.argv_cases[0] = ArgValueCase.VALUE_A
-        self.apply_arg_cases([self.rejected, self.extra])
+        self.post_platform_assignment_validation()
         return runtime_platform
+
+    def post_platform_assignment_validation(self):
+        # Update argv_cases to reflect the platform
+        self.argv_cases[0] = ArgValueCase.VALUE_A
+        # Any validation post platform assignment should be done here
+        self.apply_arg_cases([self.rejected, self.extra])
 
 
 @dataclass
