@@ -93,6 +93,8 @@ class Platform(platformName: String) {
     recommendationsToExclude.forall(excluded => !comment.contains(excluded))
   }
 
+  def getName: String = platformName
+
   def getOperatorScoreFile: String = {
     s"operatorsScore-$platformName.csv"
   }
@@ -147,10 +149,13 @@ object PlatformFactory extends Logging {
       case PlatformNames.EMR_A10 => new EmrPlatform(PlatformNames.EMR_A10)
       case PlatformNames.ONPREM => new OnPremPlatform
       case p if p.isEmpty =>
-        logInfo(s"Platform is not specified. Using ${PlatformNames.ONPREM} as default.")
-        new OnPremPlatform
+        logInfo(s"Platform is not specified. Using ${PlatformFactory.getDefault.getName} " +
+          "as default.")
+        PlatformFactory.getDefault
       case _ => throw new IllegalArgumentException(s"Unsupported platform: $platformKey. " +
         s"Options include ${PlatformNames.getAllNames.mkString(", ")}.")
     }
   }
+
+  def getDefault: Platform = new OnPremPlatform()
 }

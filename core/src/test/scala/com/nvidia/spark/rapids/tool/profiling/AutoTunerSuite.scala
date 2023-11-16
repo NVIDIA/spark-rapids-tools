@@ -21,6 +21,7 @@ import java.util
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
+import com.nvidia.spark.rapids.tool.{PlatformFactory, PlatformNames}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.scalatest.Matchers.convertToAnyShouldWrapper
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
@@ -1285,14 +1286,15 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   test("test recommendations for databricks-aws platform argument") {
     val databricksWorkerInfo = buildWorkerInfoAsString()
+    val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS)
     val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
-      getGpuAppMockInfoProvider, "databricks-aws")
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
 
     // Assert recommendations are excluded in properties
-    assert(properties.map(_.property).forall(autoTuner.selectedPlatform.isValidRecommendation))
+    assert(properties.map(_.property).forall(autoTuner.platform.isValidRecommendation))
     // Assert recommendations are skipped in comments
-    assert(comments.map(_.comment).forall(autoTuner.selectedPlatform.isValidComment))
+    assert(comments.map(_.comment).forall(autoTuner.platform.isValidComment))
   }
 
   // When spark is running as a standalone, the memoryOverhead should not be listed as a

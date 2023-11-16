@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.qualification
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 
-import com.nvidia.spark.rapids.tool.ToolTestUtils
+import com.nvidia.spark.rapids.tool.{PlatformFactory, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.planparser.DataWritingCommandExecParser
 import org.scalatest.FunSuite
 
@@ -154,67 +154,79 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
   }
 
   test("supported operator score from onprem") {
-    val checker = new PluginTypeChecker("onprem")
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+    val checker = new PluginTypeChecker(platform)
     assert(checker.getSpeedupFactor("UnionExec") == 3.0)
     assert(checker.getSpeedupFactor("Ceil") == 4)
   }
 
   test("supported operator score from dataproc-t4") {
-    val checker = new PluginTypeChecker("dataproc-t4")
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC_T4)
+    val checker = new PluginTypeChecker(platform)
     assert(checker.getSpeedupFactor("UnionExec") == 4.88)
     assert(checker.getSpeedupFactor("Ceil") == 4.88)
   }
 
   test("supported operator score from emr-t4") {
-    val checker = new PluginTypeChecker("emr-t4")
+    val platform = PlatformFactory.createInstance(PlatformNames.EMR_T4)
+    val checker = new PluginTypeChecker(platform)
     assert(checker.getSpeedupFactor("UnionExec") == 2.07)
     assert(checker.getSpeedupFactor("Ceil") == 2.07)
   }
 
   test("supported operator score from databricks-aws") {
-    val checker = new PluginTypeChecker("databricks-aws")
+    val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS)
+    val checker = new PluginTypeChecker(platform)
     assert(checker.getSpeedupFactor("UnionExec") == 2.45)
     assert(checker.getSpeedupFactor("Ceil") == 2.45)
   }
 
   test("supported operator score from databricks-azure") {
-    val checker = new PluginTypeChecker("databricks-azure")
+    val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AZURE)
+    val checker = new PluginTypeChecker(platform)
     assert(checker.getSpeedupFactor("UnionExec") == 2.73)
     assert(checker.getSpeedupFactor("Ceil") == 2.73)
   }
 
   test("supported operator score from dataproc-serverless-l4") {
-    val checker = new PluginTypeChecker("dataproc-serverless-l4")
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC_SL_L4)
+    val checker = new PluginTypeChecker(platform)
     assert(checker.getSpeedupFactor("WindowExec") == 4.25)
     assert(checker.getSpeedupFactor("Ceil") == 4.25)
   }
 
   test("supported operator score from dataproc-l4") {
-    val checker = new PluginTypeChecker("dataproc-l4")
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC_L4)
+    val checker = new PluginTypeChecker(platform)
     assert(checker.getSpeedupFactor("UnionExec") == 4.16)
     assert(checker.getSpeedupFactor("Ceil") == 4.16)
   }
 
   test("supported operator score from dataproc-gke-t4") {
-    val checker = new PluginTypeChecker("dataproc-gke-t4")
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC_GKE_T4)
+    val checker = new PluginTypeChecker(platform)
     assert(checker.getSpeedupFactor("WindowExec") == 3.65)
     assert(checker.getSpeedupFactor("Ceil") == 3.65)
   }
 
   test("supported operator score from dataproc-gke-l4") {
-    val checker = new PluginTypeChecker("dataproc-gke-l4")
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC_GKE_L4)
+    val checker = new PluginTypeChecker(platform)
     assert(checker.getSpeedupFactor("WindowExec") == 3.74)
     assert(checker.getSpeedupFactor("Ceil") == 3.74)
   }
 
   test("supported operator score from emr-a10") {
-    val checker = new PluginTypeChecker("emr-a10")
+    val platform = PlatformFactory.createInstance(PlatformNames.EMR_A10)
+    val checker = new PluginTypeChecker(platform)
     assert(checker.getSpeedupFactor("UnionExec") == 2.59)
     assert(checker.getSpeedupFactor("Ceil") == 2.59)
   }
 
   test("supported operator score from custom speedup factor file") {
-    val speedupFactorFile = ToolTestUtils.getTestResourcePath("operatorsScore-databricks-azure.csv")
+    // Using databricks azure speedup factor as custom file
+    val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AZURE)
+    val speedupFactorFile = ToolTestUtils.getTestResourcePath(platform.getOperatorScoreFile)
     val checker = new PluginTypeChecker(speedupFactorFile=Some(speedupFactorFile))
     assert(checker.getSpeedupFactor("SortExec") == 13.11)
     assert(checker.getSpeedupFactor("FilterExec") == 3.14)
