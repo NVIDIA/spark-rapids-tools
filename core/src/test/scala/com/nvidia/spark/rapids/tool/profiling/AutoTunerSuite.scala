@@ -1283,10 +1283,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     assert(expectedResults == autoTunerOutput)
   }
 
-  test("test recommendations for databricks platform argument") {
+  test("test recommendations for databricks-aws platform argument") {
     val databricksWorkerInfo = buildWorkerInfoAsString()
     val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
-      getGpuAppMockInfoProvider, "databricks")
+      getGpuAppMockInfoProvider, "databricks-aws")
     val (properties, comments) = autoTuner.getRecommendedProperties()
 
     // Assert recommendations are excluded in properties

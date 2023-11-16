@@ -23,7 +23,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
-import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor}
+import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, PlatformTypes}
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -533,7 +533,7 @@ object Profiler {
   val COMPARE_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_compare"
   val COMBINED_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_combined"
   val SUBDIR = "rapids_4_spark_profile"
-  val DEFAULT_PLATFORM = "onprem"
+  val DEFAULT_PLATFORM: String = PlatformTypes.ONPREM
 
   def getAutoTunerResultsAsString(props: Seq[RecommendedPropertyResult],
       comments: Seq[RecommendedCommentResult]): String = {

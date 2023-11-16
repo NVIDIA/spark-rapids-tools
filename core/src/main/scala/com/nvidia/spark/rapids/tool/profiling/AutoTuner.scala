@@ -25,6 +25,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
+import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
@@ -343,12 +344,7 @@ class AutoTuner(
   private val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
-  val selectedPlatform: Platform = platform match {
-    case "databricks" => new DatabricksPlatform()
-    case "dataproc" => new DataprocPlatform()
-    case "emr" => new EmrPlatform()
-    case "onprem" => new OnPremPlatform()
-  }
+  val selectedPlatform: Platform = PlatformFactory.createInstance(platform)
 
   private def isCalculationEnabled(prop: String) : Boolean = {
     !limitedLogicRecommendations.contains(prop)
