@@ -20,7 +20,7 @@ import org.apache.spark.internal.Logging
 /**
  *  Utility object containing constants for various platform names.
  */
-object PlatformTypes {
+object PlatformNames {
   val DATABRICKS_AWS = "databricks-aws"
   val DATABRICKS_AZURE = "databricks-azure"
   val DATAPROC = "dataproc"
@@ -37,7 +37,7 @@ object PlatformTypes {
   /**
    * Return a list of all platform names.
    */
-  def getAllPlatformNames: List[String] = List(
+  def getAllNames: List[String] = List(
     DATABRICKS_AWS, DATABRICKS_AZURE, DATAPROC, DATAPROC_GKE_L4, DATAPROC_GKE_T4,
     DATAPROC_L4, DATAPROC_SL_L4, DATAPROC_T4, EMR, EMR_A10, EMR_T4, ONPREM
   )
@@ -45,7 +45,8 @@ object PlatformTypes {
 
 /**
  * Represents a platform and its associated recommendations.
- * @param platformType Type of the platform. See [[PlatformTypes]] for supported platform types.
+ *
+ * @param platformType Type of the platform. See [[PlatformNames]] for supported platform types.
  */
 class Platform(platformType: String) {
   /**
@@ -113,7 +114,7 @@ class DataprocPlatform(platformType: String) extends Platform(platformType)
 
 class EmrPlatform(platformType: String) extends Platform(platformType)
 
-class OnPremPlatform extends Platform(PlatformTypes.ONPREM)
+class OnPremPlatform extends Platform(PlatformNames.ONPREM)
 
 /**
  * Factory for creating instances of different platforms.
@@ -121,23 +122,6 @@ class OnPremPlatform extends Platform(PlatformTypes.ONPREM)
  * corresponding platform instances.
  */
 object PlatformFactory extends Logging {
-  private lazy val platformInstancesMap: Map[String, Platform] = Map(
-    PlatformTypes.DATABRICKS_AWS -> new DatabricksPlatform(PlatformTypes.DATABRICKS_AWS),
-    PlatformTypes.DATABRICKS_AZURE -> new DatabricksPlatform(PlatformTypes.DATABRICKS_AZURE),
-    // if no GPU specified, then default to dataproc-t4 for backward compatibility
-    PlatformTypes.DATAPROC -> new DataprocPlatform(PlatformTypes.DATAPROC_T4),
-    PlatformTypes.DATAPROC_T4 -> new DataprocPlatform(PlatformTypes.DATAPROC_T4),
-    PlatformTypes.DATAPROC_L4 -> new DataprocPlatform(PlatformTypes.DATAPROC_L4),
-    PlatformTypes.DATAPROC_SL_L4 -> new DataprocPlatform(PlatformTypes.DATAPROC_SL_L4),
-    PlatformTypes.DATAPROC_GKE_L4 -> new DataprocPlatform(PlatformTypes.DATAPROC_GKE_L4),
-    PlatformTypes.DATAPROC_GKE_T4 -> new DataprocPlatform(PlatformTypes.DATAPROC_GKE_T4),
-    // if no GPU specified, then default to emr-t4 for backward compatibility
-    PlatformTypes.EMR -> new EmrPlatform(PlatformTypes.EMR_T4),
-    PlatformTypes.EMR_T4 -> new EmrPlatform(PlatformTypes.EMR_T4),
-    PlatformTypes.EMR_A10 -> new EmrPlatform(PlatformTypes.EMR_A10),
-    PlatformTypes.ONPREM -> new OnPremPlatform
-  )
-
   /**
    * Creates an instance of a platform based on the specified platform key.
    *
@@ -146,12 +130,26 @@ object PlatformFactory extends Logging {
    * @throws IllegalArgumentException if the specified platform key is not supported.
    */
   def createInstance(platformKey: String): Platform = {
-    val platformToUse = if (platformKey.isEmpty) {
-      logInfo(s"Platform is not specified, defaulting to ${PlatformTypes.ONPREM}")
-      PlatformTypes.ONPREM
-    } else platformKey
-
-    platformInstancesMap.getOrElse(platformToUse,
-      throw new IllegalArgumentException(s"Platform $platformToUse is not supported"))
+    platformKey match {
+      case PlatformNames.DATABRICKS_AWS => new DatabricksPlatform(PlatformNames.DATABRICKS_AWS)
+      case PlatformNames.DATABRICKS_AZURE => new DatabricksPlatform(PlatformNames.DATABRICKS_AZURE)
+      case PlatformNames.DATAPROC | PlatformNames.DATAPROC_T4 =>
+        // if no GPU specified, then default to dataproc-t4 for backward compatibility
+        new DataprocPlatform(PlatformNames.DATAPROC_T4)
+      case PlatformNames.DATAPROC_L4 => new DataprocPlatform(PlatformNames.DATAPROC_L4)
+      case PlatformNames.DATAPROC_SL_L4 => new DataprocPlatform(PlatformNames.DATAPROC_SL_L4)
+      case PlatformNames.DATAPROC_GKE_L4 => new DataprocPlatform(PlatformNames.DATAPROC_GKE_L4)
+      case PlatformNames.DATAPROC_GKE_T4 => new DataprocPlatform(PlatformNames.DATAPROC_GKE_T4)
+      case PlatformNames.EMR | PlatformNames.EMR_T4 =>
+        // if no GPU specified, then default to emr-t4 for backward compatibility
+        new EmrPlatform(PlatformNames.EMR_T4)
+      case PlatformNames.EMR_A10 => new EmrPlatform(PlatformNames.EMR_A10)
+      case PlatformNames.ONPREM => new OnPremPlatform
+      case p if p.isEmpty =>
+        logInfo(s"Platform is not specified. Using ${PlatformNames.ONPREM} as default.")
+        new OnPremPlatform
+      case _ => throw new IllegalArgumentException(s"Unsupported platform: $platformKey. " +
+        s"Options include ${PlatformNames.getAllNames.mkString(", ")}.")
+    }
   }
 }
