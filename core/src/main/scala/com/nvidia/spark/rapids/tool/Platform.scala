@@ -46,9 +46,9 @@ object PlatformNames {
 /**
  * Represents a platform and its associated recommendations.
  *
- * @param platformType Type of the platform. See [[PlatformNames]] for supported platform types.
+ * @param platformName Name of the platform. See [[PlatformNames]] for supported platform names.
  */
-class Platform(platformType: String) {
+class Platform(platformName: String) {
   /**
    * Recommendations to be excluded from the list of recommendations.
    * These have the highest priority.
@@ -94,7 +94,7 @@ class Platform(platformType: String) {
   }
 
   def getOperatorScoreFile: String = {
-    s"operatorsScore-$platformType.csv"
+    s"operatorsScore-$platformName.csv"
   }
 }
 
@@ -124,6 +124,7 @@ class OnPremPlatform extends Platform(PlatformNames.ONPREM)
 object PlatformFactory extends Logging {
   /**
    * Creates an instance of a platform based on the specified platform key.
+   * If platform key is not defined, returns an instance of onprem platform.
    *
    * @param platformKey The key representing the desired platform.
    * @return An instance of the specified platform.
