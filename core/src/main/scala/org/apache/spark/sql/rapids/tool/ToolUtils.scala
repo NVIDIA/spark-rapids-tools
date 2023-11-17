@@ -148,27 +148,6 @@ object ToolUtils extends Logging {
   }
 
   /**
-   * Removes the specified Exec type from the list of unsupported output. Some of the Execs are not
-   * relevant which can't be accelerated by the GPU.
-   *
-   * @param exec The exec type to be removed.
-   * @return `true` if the specified execution type is successfully removed, `false` otherwise.
-   */
-  def removeExecFromUnsupportedOutput(exec: String): Boolean = {
-    exec match {
-      case IgnoreExecs.AdaptiveSparkPlan => true // AdaptiveSparkPlan is not a real exec. It is
-      // a wrapper for the whole plan.
-      case IgnoreExecs.CollectLimit => true // Collect Limit replacement can be slower on the
-      // GPU. disabled by default.
-      case IgnoreExecs.ScanExistingRDD => true
-      case IgnoreExecs.ExecuteCreateViewCommand => true
-      case IgnoreExecs.ExistingRDD => true
-      case IgnoreExecs.LocalTableScan => true
-      case _ => false
-    }
-  }
-
-  /**
    * Parses the string which contains configs in JSON format ( key : value ) pairs and
    * returns the Map of [String, String]
    * @param clusterTag  String which contains property clusterUsageTags.clusterAllTags in
@@ -339,12 +318,17 @@ object SQLMetricsStats {
 }
 
 object IgnoreExecs {
-  val AdaptiveSparkPlan = "AdaptiveSparkPlan"
-  val CollectLimit = "CollectLimit"
+  val AdaptiveSparkPlan = "AdaptiveSparkPlan" // AdaptiveSparkPlan is not a real exec. It is
+  // a wrapper for the whole plan.
+  val CollectLimit = "CollectLimit" // Collect Limit replacement can be slower on the
+  // GPU. Disabled by default.
   val ScanExistingRDD = "Scan ExistingRDD"
   val ExecuteCreateViewCommand = "Execute CreateViewCommand"
   val ExistingRDD = "ExistingRDD"
   val LocalTableScan = "LocalTableScan"
+
+  def getallIgnoreExecs = Set(AdaptiveSparkPlan, CollectLimit, ScanExistingRDD,
+    ExecuteCreateViewCommand, ExistingRDD, LocalTableScan)
 }
 
 object MlOps {

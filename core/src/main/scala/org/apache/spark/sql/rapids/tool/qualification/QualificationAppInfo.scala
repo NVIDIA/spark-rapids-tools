@@ -31,7 +31,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraph
-import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, IgnoreExecs, SupportedMLFuncsName, ToolUtils}
 
 class QualificationAppInfo(
     eventLogInfo: Option[EventLogInfo],
@@ -586,8 +586,10 @@ class QualificationAppInfo(
           e.children.map(x => x.filterNot(_.isSupported))
         }.flatten
         topLevelExecs ++ childrenExecs
-      }.filter(x => !ToolUtils.removeExecFromUnsupportedOutput(x.exec)).map(
-        _.exec).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
+      }.collect {
+        case x if !IgnoreExecs.getallIgnoreExecs.contains(x.exec) => x.exec
+      }.toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
+
 
       // Get all the unsupported Expressions from the plan
       val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(
