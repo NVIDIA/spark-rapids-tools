@@ -1159,7 +1159,7 @@ class QualificationSuite extends BaseTestSuite {
             if (ToolUtils.isSpark340OrLater()) {
               6
             } else if (!ToolUtils.isSpark320OrLater()) {
-              4
+              5
             } else {
               5
             }
