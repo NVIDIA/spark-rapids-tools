@@ -1,0 +1,19 @@
+system:
+  numCores: 32
+  memory: 212992MiB
+  numWorkers: 5
+gpu:
+  memory: 15109MiB
+  count: 4
+  name: T4
+softwareProperties:
+  spark.driver.maxResultSize: 7680m
+  spark.driver.memory: 15360m
+  spark.executor.cores: '8'
+  spark.executor.instances: '2'
+  spark.executor.memory: 47222m
+  spark.executorEnv.OPENBLAS_NUM_THREADS: '1'
+  spark.scheduler.mode: FAIR
+  spark.sql.cbo.enabled: 'true'
+  spark.ui.port: '0'
+  spark.yarn.am.memory: 640m
