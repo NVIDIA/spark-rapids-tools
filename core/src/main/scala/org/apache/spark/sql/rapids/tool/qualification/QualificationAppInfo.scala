@@ -587,7 +587,7 @@ class QualificationAppInfo(
         }.flatten
         topLevelExecs ++ childrenExecs
       }.collect {
-        case x if !IgnoreExecs.getallIgnoreExecs.contains(x.exec) => x.exec
+        case x if !IgnoreExecs.getAllIgnoreExecs.contains(x.exec) => x.exec
       }.toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
 
 

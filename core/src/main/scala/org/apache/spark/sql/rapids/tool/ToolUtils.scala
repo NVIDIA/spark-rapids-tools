@@ -318,16 +318,16 @@ object SQLMetricsStats {
 }
 
 object IgnoreExecs {
-  val AdaptiveSparkPlan = "AdaptiveSparkPlan" // AdaptiveSparkPlan is not a real exec. It is
-  // a wrapper for the whole plan.
-  val CollectLimit = "CollectLimit" // Collect Limit replacement can be slower on the
-  // GPU. Disabled by default.
-  val ScanExistingRDD = "Scan ExistingRDD"
-  val ExecuteCreateViewCommand = "Execute CreateViewCommand"
-  val ExistingRDD = "ExistingRDD"
-  val LocalTableScan = "LocalTableScan"
+  // AdaptiveSparkPlan is not a real exec. It is a wrapper for the whole plan.
+  private val AdaptiveSparkPlan = "AdaptiveSparkPlan"
+  // Collect Limit replacement can be slower on the GPU. Disabled by default.
+  private val CollectLimit = "CollectLimit"
+  private val ScanExistingRDD = "Scan ExistingRDD"
+  private val ExecuteCreateViewCommand = "Execute CreateViewCommand"
+  private val ExistingRDD = "ExistingRDD"
+  private val LocalTableScan = "LocalTableScan"
 
-  def getallIgnoreExecs = Set(AdaptiveSparkPlan, CollectLimit, ScanExistingRDD,
+  def getAllIgnoreExecs: Set[String] = Set(AdaptiveSparkPlan, CollectLimit, ScanExistingRDD,
     ExecuteCreateViewCommand, ExistingRDD, LocalTableScan)
 }
 
