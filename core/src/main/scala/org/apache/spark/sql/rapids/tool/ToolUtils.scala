@@ -317,6 +317,20 @@ object SQLMetricsStats {
   }
 }
 
+object IgnoreExecs {
+  // AdaptiveSparkPlan is not a real exec. It is a wrapper for the whole plan.
+  private val AdaptiveSparkPlan = "AdaptiveSparkPlan"
+  // Collect Limit replacement can be slower on the GPU. Disabled by default.
+  private val CollectLimit = "CollectLimit"
+  private val ScanExistingRDD = "Scan ExistingRDD"
+  private val ExecuteCreateViewCommand = "Execute CreateViewCommand"
+  private val ExistingRDD = "ExistingRDD"
+  private val LocalTableScan = "LocalTableScan"
+
+  def getAllIgnoreExecs: Set[String] = Set(AdaptiveSparkPlan, CollectLimit, ScanExistingRDD,
+    ExecuteCreateViewCommand, ExistingRDD, LocalTableScan)
+}
+
 object MlOps {
   val sparkml = "spark.ml."
   val xgBoost = "spark.XGBoost"

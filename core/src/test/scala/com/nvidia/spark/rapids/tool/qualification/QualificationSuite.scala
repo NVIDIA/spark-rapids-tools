@@ -1157,11 +1157,11 @@ class QualificationSuite extends BaseTestSuite {
 
           val expLinesSize =
             if (ToolUtils.isSpark340OrLater()) {
-              8
-            } else if (!ToolUtils.isSpark320OrLater()) {
               6
+            } else if (!ToolUtils.isSpark320OrLater()) {
+              5
             } else {
-              7
+              5
             }
           assert(lines.size == expLinesSize)
           assert(lines.head.contains("App ID,Unsupported Type,"))
