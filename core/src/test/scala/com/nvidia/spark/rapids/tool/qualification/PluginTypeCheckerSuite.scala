@@ -163,7 +163,7 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     (PlatformNames.DATAPROC_L4, Map("UnionExec" -> 4.16, "Ceil" -> 4.16)),
     (PlatformNames.DATAPROC_GKE_T4, Map("WindowExec" -> 3.65, "Ceil" -> 3.65)),
     (PlatformNames.DATAPROC_GKE_L4, Map("WindowExec" -> 3.74, "Ceil" -> 3.74)),
-    (PlatformNames.EMR_A10, Map("UnionExec" -> 2.59, "Ceil" -> 2.59)),
+    (PlatformNames.EMR_A10, Map("UnionExec" -> 2.59, "Ceil" -> 2.59))
   )
 
   platformSpeedupEntries.foreach { case (platformName, speedupMap) =>
