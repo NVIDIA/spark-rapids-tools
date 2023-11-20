@@ -20,6 +20,7 @@ import scala.collection.mutable.{ArrayBuffer,HashMap}
 import scala.io.{BufferedSource, Source}
 import scala.util.control.NonFatal
 
+import com.nvidia.spark.rapids.tool.PlatformFactory
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -44,16 +45,6 @@ class PluginTypeChecker(platform: String = "onprem",
   private val NA = "NA"
 
   private val DEFAULT_DS_FILE = "supportedDataSource.csv"
-  private val OPERATORS_SCORE_FILE_ONPREM = "operatorsScore.csv"
-  private val OPERATORS_SCORE_FILE_DATAPROC_T4 = "operatorsScore-dataproc-t4.csv"
-  private val OPERATORS_SCORE_FILE_DATAPROC_L4 = "operatorsScore-dataproc-l4.csv"
-  private val OPERATORS_SCORE_FILE_DATAPROC_SL_L4 = "operatorsScore-dataproc-serverless-l4.csv"
-  private val OPERATORS_SCORE_FILE_DATAPROC_GKE_T4 = "operatorsScore-dataproc-gke-t4.csv"
-  private val OPERATORS_SCORE_FILE_DATAPROC_GKE_L4 = "operatorsScore-dataproc-gke-l4.csv"
-  private val OPERATORS_SCORE_FILE_EMR_T4 = "operatorsScore-emr-t4.csv"
-  private val OPERATORS_SCORE_FILE_EMR_A10 = "operatorsScore-emr-a10.csv"
-  private val OPERATORS_SCORE_FILE_DATABRICKS_AWS = "operatorsScore-databricks-aws.csv"
-  private val OPERATORS_SCORE_FILE_DATABRICKS_AZURE = "operatorsScore-databricks-azure.csv"
   private val SUPPORTED_EXECS_FILE = "supportedExecs.csv"
   private val SUPPORTED_EXPRS_FILE = "supportedExprs.csv"
 
@@ -101,20 +92,7 @@ class PluginTypeChecker(platform: String = "onprem",
     speedupFactorFile match {
       case None =>
         logInfo(s"Reading operators scores with platform: $platform")
-        val file = platform match {
-          // if no GPU specified, then default to dataproc-t4 for backward compatibility
-          case "dataproc-t4" | "dataproc" => OPERATORS_SCORE_FILE_DATAPROC_T4
-          case "dataproc-l4" => OPERATORS_SCORE_FILE_DATAPROC_L4
-          case "dataproc-serverless-l4" => OPERATORS_SCORE_FILE_DATAPROC_SL_L4
-          case "dataproc-gke-t4" => OPERATORS_SCORE_FILE_DATAPROC_GKE_T4
-          case "dataproc-gke-l4" => OPERATORS_SCORE_FILE_DATAPROC_GKE_L4
-          // if no GPU specified, then default to emr-t4 for backward compatibility
-          case "emr-t4" | "emr" => OPERATORS_SCORE_FILE_EMR_T4
-          case "emr-a10" => OPERATORS_SCORE_FILE_EMR_A10
-          case "databricks-aws" => OPERATORS_SCORE_FILE_DATABRICKS_AWS
-          case "databricks-azure" => OPERATORS_SCORE_FILE_DATABRICKS_AZURE
-          case _ => OPERATORS_SCORE_FILE_ONPREM
-        }
+        val file = PlatformFactory.createInstance(platform).getOperatorScoreFile
         val source = Source.fromResource(file)
         readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
       case Some(file) =>
