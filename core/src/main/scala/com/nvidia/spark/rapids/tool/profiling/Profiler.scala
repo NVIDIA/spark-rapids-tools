@@ -50,6 +50,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private var progressBar: Option[ConsoleProgressBar] = None
+  private var unsupportedDriverOperators: Seq[DriverLogUnsupportedOperators] = Seq.empty
 
   logInfo(s"Threadpool size is $nThreads")
 
@@ -124,10 +125,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     progressBar.foreach(_.finishAll())
   }
 
-  def profileDriver(driverLogInfos: String): Unit = {
+  def profileDriver(driverLogInfos: String, eventLogsEmpty: Boolean): Unit = {
     val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/driver",
       Profiler.DRIVER_LOG_NAME, numOutputRows, true)
-
     try {
       val driverLogProcessor = new DriverLogProcessor(driverLogInfos)
       val unsupportedDrivers = driverLogProcessor.processDriverLog()
@@ -464,7 +464,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     } else {
       appsSum
     }
-    sums.foreach { app =>
+    sums.foreach { app: ApplicationSummaryInfo =>
       profileOutputWriter.writeText("### A. Information Collected ###")
       profileOutputWriter.write("Application Information", app.appInfo)
       profileOutputWriter.write("Application Log Path Mapping", app.appLogPath)
