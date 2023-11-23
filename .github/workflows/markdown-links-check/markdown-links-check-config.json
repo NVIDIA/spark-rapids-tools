@@ -1,0 +1,17 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "https://github.com/NVIDIA/spark-rapids-tools/issues/*"
+    },
+    {
+      "pattern": "http://localhost*"
+    },
+    {
+      "pattern": "https://www.nvidia.com/en-us/security/pgp-key"
+    }
+  ],
+  "timeout": "15s",
+  "retryOn429": true,
+  "retryCount":30,
+  "aliveStatusCodes": [200, 403]
+}
