@@ -8,7 +8,7 @@ whether the Spark job using RAPIDS Accelerator(aka GPU Spark job) returns the sa
 
 ### 1.gcloud CLI
 
-- Install the gcloud CLI. Follow the instructions on [gcloud-sdk-install](https://cloud.google.com/sdk/docs/install)
+- Install the gcloud CLI. Follow the instructions on [gcloud-sdk-install](https://cloud.google.com/sdk/docs/installs)
 - Set the configuration settings and credentials of the gcloud CLI:
   - Initialize the gcloud CLI by following [these instructions](https://cloud.google.com/sdk/docs/initializing#initialize_the)
   - Grant authorization to the gcloud CLI [with a user account](https://cloud.google.com/sdk/docs/authorizing#authorize_with_a_user_account)
