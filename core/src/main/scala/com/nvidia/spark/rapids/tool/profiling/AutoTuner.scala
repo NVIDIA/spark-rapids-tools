@@ -822,15 +822,12 @@ class AutoTuner(
    * Analyzes unsupported driver logs and generates recommendations for configuration properties.
    */
   private def recommendFromDriverLogs(): Unit = {
-    val doc_url = "https://nvidia.github.io/spark-rapids/docs/additional-functionality/" +
-      "advanced_configs.html#advanced-configuration"
     // Iterate through unsupported operators' reasons and check for matching properties
     unsupportedOperators.map(_.reason).foreach { operatorReason =>
       recommendationsFromDriverLogs.collect {
         case (config, recommendedValue) if operatorReason.contains(config) =>
           appendRecommendation(config, recommendedValue)
-          appendComment(s"Using $config does not guarantee to produce the same results as CPU. " +
-            s"Please refer to $doc_url")
+          appendComment(commentForExperimentalConfig(config))
       }
     }
   }
@@ -989,6 +986,8 @@ object AutoTuner extends Logging {
   val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
   val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
+  private val DOC_URL: String = "https://nvidia.github.io/spark-rapids/docs/" +
+    "additional-functionality/advanced_configs.html#advanced-configuration"
 
   val commentsForMissingProps: Map[String, String] = Map(
     "spark.executor.memory" ->
@@ -1041,6 +1040,11 @@ object AutoTuner extends Logging {
   private val recommendationsFromDriverLogs: Map[String, String] = Map(
     "spark.rapids.sql.incompatibleDateFormats.enabled" -> "true"
   )
+
+  def commentForExperimentalConfig(config: String): String = {
+    s"Using $config does not guarantee to produce the same results as CPU. " +
+      s"Please refer to $DOC_URL."
+  }
 
   // the plugin jar is in the form of rapids-4-spark_scala_binary-(version)-*.jar
   val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
