@@ -157,8 +157,8 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[String](required = false,
       descr = "Cluster platform where Spark CPU workloads were executed. Options include " +
         s"${PlatformNames.getAllNames.mkString(", ")}. " +
-        s"Default is ${PlatformFactory.getDefault.getName}.",
-      default = Some(PlatformFactory.getDefault.getName))
+        s"Default is ${PlatformNames.DEFAULT}.",
+      default = Some(PlatformNames.DEFAULT))
   val speedupFactorFile: ScallopOption[String] =
     opt[String](required = false,
       descr = "Custom speedup factor file used to get estimated GPU speedup that is specific " +

@@ -15,6 +15,8 @@
  */
 package com.nvidia.spark.rapids.tool
 
+import scala.annotation.tailrec
+
 import org.apache.spark.internal.Logging
 
 /**
@@ -33,6 +35,7 @@ object PlatformNames {
   val EMR_A10 = "emr-a10"
   val EMR_T4 = "emr-t4"
   val ONPREM = "onprem"
+  val DEFAULT: String = ONPREM
 
   /**
    * Return a list of all platform names.
@@ -132,30 +135,28 @@ object PlatformFactory extends Logging {
    * @return An instance of the specified platform.
    * @throws IllegalArgumentException if the specified platform key is not supported.
    */
-  def createInstance(platformKey: String): Platform = {
+  @tailrec
+  def createInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
     platformKey match {
-      case PlatformNames.DATABRICKS_AWS => new DatabricksPlatform(PlatformNames.DATABRICKS_AWS)
-      case PlatformNames.DATABRICKS_AZURE => new DatabricksPlatform(PlatformNames.DATABRICKS_AZURE)
+      case PlatformNames.DATABRICKS_AWS | PlatformNames.DATABRICKS_AZURE =>
+        new DatabricksPlatform(platformKey)
       case PlatformNames.DATAPROC | PlatformNames.DATAPROC_T4 =>
         // if no GPU specified, then default to dataproc-t4 for backward compatibility
         new DataprocPlatform(PlatformNames.DATAPROC_T4)
-      case PlatformNames.DATAPROC_L4 => new DataprocPlatform(PlatformNames.DATAPROC_L4)
-      case PlatformNames.DATAPROC_SL_L4 => new DataprocPlatform(PlatformNames.DATAPROC_SL_L4)
-      case PlatformNames.DATAPROC_GKE_L4 => new DataprocPlatform(PlatformNames.DATAPROC_GKE_L4)
-      case PlatformNames.DATAPROC_GKE_T4 => new DataprocPlatform(PlatformNames.DATAPROC_GKE_T4)
+      case PlatformNames.DATAPROC_L4 | PlatformNames.DATAPROC_SL_L4 |
+           PlatformNames.DATAPROC_GKE_L4 | PlatformNames.DATAPROC_GKE_T4 =>
+        new DataprocPlatform(platformKey)
       case PlatformNames.EMR | PlatformNames.EMR_T4 =>
         // if no GPU specified, then default to emr-t4 for backward compatibility
         new EmrPlatform(PlatformNames.EMR_T4)
       case PlatformNames.EMR_A10 => new EmrPlatform(PlatformNames.EMR_A10)
       case PlatformNames.ONPREM => new OnPremPlatform
       case p if p.isEmpty =>
-        logInfo(s"Platform is not specified. Using ${PlatformFactory.getDefault.getName} " +
+        logInfo(s"Platform is not specified. Using ${PlatformNames.DEFAULT} " +
           "as default.")
-        PlatformFactory.getDefault
+        PlatformFactory.createInstance(PlatformNames.DEFAULT)
       case _ => throw new IllegalArgumentException(s"Unsupported platform: $platformKey. " +
         s"Options include ${PlatformNames.getAllNames.mkString(", ")}.")
     }
   }
-
-  def getDefault: Platform = new OnPremPlatform()
 }
