@@ -20,7 +20,7 @@ import scala.collection.mutable.{ArrayBuffer,HashMap}
 import scala.io.{BufferedSource, Source}
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.tool.PlatformFactory
+import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -33,7 +33,7 @@ import org.apache.spark.internal.Logging
  * by the plugin which lists the formats and types supported.
  * The class also supports a custom speedup factor file as input.
  */
-class PluginTypeChecker(platform: String = "onprem",
+class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
                         speedupFactorFile: Option[String] = None) extends Logging {
 
   private val NS = "NS"
@@ -92,7 +92,7 @@ class PluginTypeChecker(platform: String = "onprem",
     speedupFactorFile match {
       case None =>
         logInfo(s"Reading operators scores with platform: $platform")
-        val file = PlatformFactory.createInstance(platform).getOperatorScoreFile
+        val file = platform.getOperatorScoreFile
         val source = Source.fromResource(file)
         readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
       case Some(file) =>

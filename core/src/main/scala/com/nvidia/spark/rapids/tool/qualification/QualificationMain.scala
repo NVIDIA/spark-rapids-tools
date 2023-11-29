@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import com.nvidia.spark.rapids.tool.EventLogPathProcessor
+import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
@@ -58,14 +58,16 @@ object QualificationMain extends Logging {
     val order = appArgs.order.getOrElse("desc")
     val uiEnabled = appArgs.htmlReport.getOrElse(false)
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
-    val platform = appArgs.platform.getOrElse("onprem")
+    val platform = appArgs.platform()
     val mlOpsEnabled = appArgs.mlFunctions.getOrElse(false)
     val penalizeTransitions = appArgs.penalizeTransitions.getOrElse(true)
 
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf
 
     val pluginTypeChecker = try {
-      new PluginTypeChecker(platform, appArgs.speedupFactorFile.toOption)
+      new PluginTypeChecker(
+        PlatformFactory.createInstance(platform),
+        appArgs.speedupFactorFile.toOption)
     } catch {
       case ie: IllegalStateException =>
         logError("Error creating the plugin type checker!", ie)

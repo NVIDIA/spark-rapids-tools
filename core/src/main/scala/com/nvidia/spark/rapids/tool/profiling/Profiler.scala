@@ -23,7 +23,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
-import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, PlatformNames}
+import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, PlatformFactory}
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -511,9 +511,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
       if (useAutoTuner) {
         val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
-        val platform = appArgs.platform.getOrElse(Profiler.DEFAULT_PLATFORM)
+        val platform = appArgs.platform()
         val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(workerInfoPath,
-          new SingleAppSummaryInfoProvider(app), platform)
+          new SingleAppSummaryInfoProvider(app),
+          PlatformFactory.createInstance(platform))
         // the autotuner allows skipping some properties
         // e.g. getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
         // recommendation related to executor instances.
@@ -548,7 +549,6 @@ object Profiler {
   val COMPARE_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_compare"
   val COMBINED_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_combined"
   val SUBDIR = "rapids_4_spark_profile"
-  val DEFAULT_PLATFORM: String = PlatformNames.ONPREM
 
   def getAutoTunerResultsAsString(props: Seq[RecommendedPropertyResult],
       comments: Seq[RecommendedCommentResult]): String = {

@@ -15,7 +15,7 @@
  */
 package com.nvidia.spark.rapids.tool.profiling
 
-import com.nvidia.spark.rapids.tool.PlatformNames
+import com.nvidia.spark.rapids.tool.{PlatformFactory, PlatformNames}
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import org.rogach.scallop.exceptions.ScallopException
 
@@ -71,8 +71,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val platform: ScallopOption[String] =
     opt[String](required = false,
       descr = "Cluster platform where Spark GPU workloads were executed. Options include " +
-        s"${PlatformNames.getAllNames.mkString(", ")}. Default is ${PlatformNames.ONPREM}.",
-      default = Some(PlatformNames.ONPREM))
+        s"${PlatformNames.getAllNames.mkString(", ")}. " +
+        s"Default is ${PlatformNames.DEFAULT}.",
+      default = Some(PlatformNames.DEFAULT))
   val generateTimeline: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Write an SVG graph out for the full application timeline.")

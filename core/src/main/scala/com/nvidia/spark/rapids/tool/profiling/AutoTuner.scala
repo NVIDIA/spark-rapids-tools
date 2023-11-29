@@ -330,7 +330,7 @@ class RecommendationEntry(val name: String,
 class AutoTuner(
     val clusterProps: ClusterProperties,
     val appInfoProvider: AppSummaryInfoBaseProvider,
-    val platform: String)  extends Logging {
+    val platform: Platform)  extends Logging {
 
   import AutoTuner._
 
@@ -344,7 +344,6 @@ class AutoTuner(
   private val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
-  val selectedPlatform: Platform = PlatformFactory.createInstance(platform)
 
   private def isCalculationEnabled(prop: String) : Boolean = {
     !limitedLogicRecommendations.contains(prop)
@@ -908,7 +907,7 @@ class AutoTuner(
         limitedSeq.foreach(_ => limitedLogicRecommendations.add(_))
       }
       skipList.foreach(skipSeq => skipSeq.foreach(_ => skippedRecommendations.add(_)))
-      skippedRecommendations ++= selectedPlatform.recommendationsToExclude
+      skippedRecommendations ++= platform.recommendationsToExclude
       initRecommendations()
       calculateJobLevelRecommendations()
       if (processPropsAndCheck) {
@@ -918,7 +917,7 @@ class AutoTuner(
         addDefaultComments()
       }
       // add all platform specific recommendations
-      selectedPlatform.recommendationsToInclude.foreach {
+      platform.recommendationsToInclude.foreach {
         case (property, value) => appendRecommendation(property, value)
       }
     }
@@ -1024,7 +1023,7 @@ object AutoTuner extends Logging {
   private def handleException(
       ex: Exception,
       appInfo: AppSummaryInfoBaseProvider,
-      platform: String): AutoTuner = {
+      platform: Platform): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
     val tuning = new AutoTuner(new ClusterProperties(), appInfo, platform)
     val msg = ex match {
@@ -1076,7 +1075,7 @@ object AutoTuner extends Logging {
   def buildAutoTunerFromProps(
       clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: String = Profiler.DEFAULT_PLATFORM): AutoTuner = {
+      platform: Platform = PlatformFactory.createInstance()): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform)
@@ -1089,7 +1088,7 @@ object AutoTuner extends Logging {
   def buildAutoTuner(
       filePath: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: String = Profiler.DEFAULT_PLATFORM): AutoTuner = {
+      platform: Platform = PlatformFactory.createInstance()): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(filePath)
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform)
