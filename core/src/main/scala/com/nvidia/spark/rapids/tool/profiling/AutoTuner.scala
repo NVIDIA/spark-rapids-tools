@@ -1105,7 +1105,8 @@ object AutoTuner extends Logging {
   def buildAutoTunerFromProps(
       clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.createInstance()): AutoTuner = {
+      platform: Platform = PlatformFactory.createInstance(),
+      unsupportedOperators: Seq[DriverLogUnsupportedOperators] = Seq.empty): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
@@ -1119,7 +1120,8 @@ object AutoTuner extends Logging {
   def buildAutoTuner(
       filePath: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.createInstance()): AutoTuner = {
+      platform: Platform = PlatformFactory.createInstance(),
+      unsupportedOperators: Seq[DriverLogUnsupportedOperators] = Seq.empty): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(filePath)
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
