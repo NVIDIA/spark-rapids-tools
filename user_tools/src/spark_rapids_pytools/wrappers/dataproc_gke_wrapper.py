@@ -16,7 +16,7 @@
 
 from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
-from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
 
 
@@ -36,8 +36,8 @@ class CliDataprocGKELocalMode:  # pylint: disable=too-few-public-methods
                       filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS),
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
-                      jvm_heap_size: int = 24,
-                      verbose: bool = False,
+                      jvm_heap_size: int = None,
+                      verbose: bool = None,
                       cpu_discount: int = None,
                       gpu_discount: int = None,
                       global_discount: int = None,
@@ -100,7 +100,8 @@ class CliDataprocGKELocalMode:  # pylint: disable=too-few-public-methods
                 For more details on Qualification tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#qualification-tool-options
         """
-        if verbose:
+        is_verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
+        if is_verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
         wrapper_qual_options = {
@@ -113,14 +114,14 @@ class CliDataprocGKELocalMode:  # pylint: disable=too-few-public-methods
                 'gpuCluster': gpu_cluster
             },
             'jobSubmissionProps': {
-                'remoteFolder': remote_folder,
+                'remoteFolder': Utils.get_value_or_pop(remote_folder, rapids_options, 'r'),
                 'platformArgs': {
-                    'jvmMaxHeapSize': jvm_heap_size
+                    'jvmMaxHeapSize': Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
                 }
             },
-            'eventlogs': eventlogs,
-            'filterApps': filter_apps,
-            'toolsJar': tools_jar,
+            'eventlogs': Utils.get_value_or_pop(eventlogs, rapids_options, 'e'),
+            'filterApps': Utils.get_value_or_pop(filter_apps, rapids_options, 'f'),
+            'toolsJar': Utils.get_value_or_pop(tools_jar, rapids_options, 't'),
             'gpuClusterRecommendation': gpu_cluster_recommendation,
             'cpuDiscount': cpu_discount,
             'gpuDiscount': gpu_discount,
@@ -128,7 +129,7 @@ class CliDataprocGKELocalMode:  # pylint: disable=too-few-public-methods
         }
 
         tool_obj = QualificationAsLocal(platform_type=CspEnv.DATAPROC_GKE,
-                                        output_folder=local_folder,
+                                        output_folder=Utils.get_value_or_pop(local_folder, rapids_options, 'l'),
                                         wrapper_options=wrapper_qual_options,
                                         rapids_options=rapids_options)
         tool_obj.launch()

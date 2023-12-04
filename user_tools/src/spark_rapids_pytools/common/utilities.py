@@ -208,6 +208,24 @@ class Utils:
     def get_os_name(cls) -> str:
         return os.uname().sysname
 
+    @classmethod
+    def get_value_or_pop(cls, provided_value, options_dict, shortcut_key, default_value=None):
+        """
+        Gets a value or pops it from the provided options dictionary if the value is not explicitly provided.
+
+        :param provided_value: The value to return if not None.
+        :param options_dict: Dictionary containing options.
+        :param shortcut_key: Key to look for in options_dict.
+        :param default_value: The default value to return if the target_key is not found. Defaults to None.
+        :return: provided_value or the value from options_dict or the default_value.
+        """
+        if provided_value is not None:
+            return provided_value
+        elif shortcut_key in options_dict:
+            return options_dict.pop(shortcut_key)
+        else:
+            return default_value
+
 
 class ToolLogging:
     """Holds global utilities used for logging."""

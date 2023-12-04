@@ -16,7 +16,7 @@
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on On-Prem cluster."""
 from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
-from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
 
@@ -36,8 +36,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                       target_platform: str = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
-                      jvm_heap_size: int = 24,
-                      verbose: bool = False,
+                      jvm_heap_size: int = None,
+                      verbose: bool = None,
                       cpu_discount: int = None,
                       gpu_discount: int = None,
                       global_discount: int = None,
@@ -80,7 +80,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 For more details on Qualification tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#qualification-tool-options
         """
-        if verbose:
+        is_verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
+        if is_verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
         # if target_platform is specified, check if it's valid supported platform and filter the
@@ -105,11 +106,11 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             },
             'jobSubmissionProps': {
                 'platformArgs': {
-                    'jvmMaxHeapSize': jvm_heap_size
+                    'jvmMaxHeapSize': Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
                 }
             },
-            'eventlogs': eventlogs,
-            'filterApps': filter_apps,
+            'eventlogs': Utils.get_value_or_pop(eventlogs, rapids_options, 'e'),
+            'filterApps': Utils.get_value_or_pop(filter_apps, rapids_options, 'f'),
             'toolsJar': tools_jar,
             'gpuClusterRecommendation': gpu_cluster_recommendation,
             'targetPlatform': target_platform,
@@ -118,7 +119,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             'globalDiscount': global_discount
         }
         tool_obj = QualificationAsLocal(platform_type=CspEnv.ONPREM,
-                                        output_folder=local_folder,
+                                        output_folder=Utils.get_value_or_pop(local_folder, rapids_options, 'l'),
                                         wrapper_options=wrapper_qual_options,
                                         rapids_options=rapids_options)
         tool_obj.launch()
@@ -132,8 +133,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                   eventlogs: str = None,
                   local_folder: str = None,
                   tools_jar: str = None,
-                  jvm_heap_size: int = 24,
-                  verbose: bool = False,
+                  jvm_heap_size: int = None,
+                  verbose: bool = None,
                   **rapids_options) -> None:
         """
         The Profiling tool analyzes both CPU or GPU generated event logs and generates information
@@ -158,8 +159,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         For more details on Profiling tool options, please visit
         https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#profiling-tool-options
         """
-
-        if verbose:
+        is_verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
+        if is_verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
         wrapper_prof_options = {
@@ -169,15 +170,15 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             },
             'jobSubmissionProps': {
                 'platformArgs': {
-                     'jvmMaxHeapSize': jvm_heap_size
+                    'jvmMaxHeapSize': Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
                 }
             },
-            'eventlogs': eventlogs,
-            'toolsJar': tools_jar,
-            'autoTunerFileInput': worker_info
+            'eventlogs': Utils.get_value_or_pop(eventlogs, rapids_options, 'e'),
+            'toolsJar': Utils.get_value_or_pop(tools_jar, rapids_options, 't'),
+            'autoTunerFileInput': Utils.get_value_or_pop(worker_info, rapids_options, 'w')
         }
         ProfilingAsLocal(platform_type=CspEnv.ONPREM,
-                         output_folder=local_folder,
+                         output_folder=Utils.get_value_or_pop(local_folder, rapids_options, 'l'),
                          wrapper_options=wrapper_prof_options,
                          rapids_options=rapids_options).launch()
 
