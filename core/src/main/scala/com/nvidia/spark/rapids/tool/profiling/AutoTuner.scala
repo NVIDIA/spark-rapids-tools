@@ -934,7 +934,7 @@ class AutoTuner(
         case (property, value) => appendRecommendation(property, value)
       }
     }
-    if(unsupportedOperators.nonEmpty) {
+    if (unsupportedOperators.nonEmpty) {
       recommendFromDriverLogs()
     }
     (toRecommendationsProfileResult, toCommentProfileResult)
