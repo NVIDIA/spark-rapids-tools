@@ -80,8 +80,12 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 For more details on Qualification tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#qualification-tool-options
         """
-        is_verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
-        if is_verbose:
+        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
+        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+        eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
+        filter_apps = Utils.get_value_or_pop(filter_apps, rapids_options, 'f')
+        local_folder = Utils.get_value_or_pop(local_folder, rapids_options, 'l')
+        if verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
         # if target_platform is specified, check if it's valid supported platform and filter the
@@ -106,11 +110,11 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             },
             'jobSubmissionProps': {
                 'platformArgs': {
-                    'jvmMaxHeapSize': Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+                    'jvmMaxHeapSize': jvm_heap_size
                 }
             },
-            'eventlogs': Utils.get_value_or_pop(eventlogs, rapids_options, 'e'),
-            'filterApps': Utils.get_value_or_pop(filter_apps, rapids_options, 'f'),
+            'eventlogs': eventlogs,
+            'filterApps': filter_apps,
             'toolsJar': tools_jar,
             'gpuClusterRecommendation': gpu_cluster_recommendation,
             'targetPlatform': target_platform,
@@ -119,7 +123,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             'globalDiscount': global_discount
         }
         tool_obj = QualificationAsLocal(platform_type=CspEnv.ONPREM,
-                                        output_folder=Utils.get_value_or_pop(local_folder, rapids_options, 'l'),
+                                        output_folder=local_folder,
                                         wrapper_options=wrapper_qual_options,
                                         rapids_options=rapids_options)
         tool_obj.launch()
@@ -159,8 +163,13 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         For more details on Profiling tool options, please visit
         https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#profiling-tool-options
         """
-        is_verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
-        if is_verbose:
+        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
+        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+        eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
+        tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
+        worker_info = Utils.get_value_or_pop(worker_info, rapids_options, 'w')
+        local_folder = Utils.get_value_or_pop(local_folder, rapids_options, 'l')
+        if verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
         wrapper_prof_options = {
@@ -170,15 +179,15 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             },
             'jobSubmissionProps': {
                 'platformArgs': {
-                    'jvmMaxHeapSize': Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+                     'jvmMaxHeapSize': jvm_heap_size
                 }
             },
-            'eventlogs': Utils.get_value_or_pop(eventlogs, rapids_options, 'e'),
-            'toolsJar': Utils.get_value_or_pop(tools_jar, rapids_options, 't'),
-            'autoTunerFileInput': Utils.get_value_or_pop(worker_info, rapids_options, 'w')
+            'eventlogs': eventlogs,
+            'toolsJar': tools_jar,
+            'autoTunerFileInput': worker_info
         }
         ProfilingAsLocal(platform_type=CspEnv.ONPREM,
-                         output_folder=Utils.get_value_or_pop(local_folder, rapids_options, 'l'),
+                         output_folder=local_folder,
                          wrapper_options=wrapper_prof_options,
                          rapids_options=rapids_options).launch()
 

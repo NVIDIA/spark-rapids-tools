@@ -100,13 +100,20 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                 For more details on Qualification tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#qualification-tool-options
         """
-        is_verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
-        if is_verbose:
+        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
+        profile = Utils.get_value_or_pop(profile, rapids_options, 'p')
+        remote_folder = Utils.get_value_or_pop(remote_folder, rapids_options, 'r')
+        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+        eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
+        filter_apps = Utils.get_value_or_pop(filter_apps, rapids_options, 'f')
+        tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
+        local_folder = Utils.get_value_or_pop(local_folder, rapids_options, 'l')
+        if verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
         wrapper_qual_options = {
             'platformOpts': {
-                'profile': Utils.get_value_or_pop(profile, rapids_options, 'p'),
+                'profile': profile,
                 'deployMode': DeployMode.LOCAL,
             },
             'migrationClustersProps': {
@@ -114,14 +121,14 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                 'gpuCluster': gpu_cluster
             },
             'jobSubmissionProps': {
-                'remoteFolder': Utils.get_value_or_pop(remote_folder, rapids_options, 'r'),
+                'remoteFolder': remote_folder,
                 'platformArgs': {
-                    'jvmMaxHeapSize': Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+                    'jvmMaxHeapSize': jvm_heap_size
                 }
             },
-            'eventlogs': Utils.get_value_or_pop(eventlogs, rapids_options, 'e'),
-            'filterApps': Utils.get_value_or_pop(filter_apps, rapids_options, 'f'),
-            'toolsJar': Utils.get_value_or_pop(tools_jar, rapids_options, 't'),
+            'eventlogs': eventlogs,
+            'filterApps': filter_apps,
+            'toolsJar': tools_jar,
             'gpuClusterRecommendation': gpu_cluster_recommendation,
             'cpuDiscount': cpu_discount,
             'gpuDiscount': gpu_discount,
@@ -129,7 +136,7 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
         }
         QualificationAsLocal(platform_type=CspEnv.EMR,
                              cluster=None,
-                             output_folder=Utils.get_value_or_pop(local_folder, rapids_options, 'l'),
+                             output_folder=local_folder,
                              wrapper_options=wrapper_qual_options,
                              rapids_options=rapids_options).launch()
 
@@ -178,30 +185,38 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                 For more details on Profiling tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#profiling-tool-options
         """
-        is_verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
-        if is_verbose:
+        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
+        profile = Utils.get_value_or_pop(profile, rapids_options, 'p')
+        gpu_cluster = Utils.get_value_or_pop(gpu_cluster, rapids_options, 'g')
+        remote_folder = Utils.get_value_or_pop(remote_folder, rapids_options, 'r')
+        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+        eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
+        tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
+        worker_info = Utils.get_value_or_pop(worker_info, rapids_options, 'w')
+        local_folder = Utils.get_value_or_pop(local_folder, rapids_options, 'l')
+        if verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
         wrapper_prof_options = {
             'platformOpts': {
-                'profile': Utils.get_value_or_pop(profile, rapids_options, 'p'),
+                'profile': profile,
                 'deployMode': DeployMode.LOCAL,
             },
             'migrationClustersProps': {
-                'gpuCluster': Utils.get_value_or_pop(gpu_cluster, rapids_options, 'g')
+                'gpuCluster': gpu_cluster
             },
             'jobSubmissionProps': {
-                'remoteFolder': Utils.get_value_or_pop(remote_folder, rapids_options, 'r'),
+                'remoteFolder': remote_folder,
                 'platformArgs': {
-                    'jvmMaxHeapSize': Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+                    'jvmMaxHeapSize': jvm_heap_size
                 }
             },
-            'eventlogs': Utils.get_value_or_pop(eventlogs, rapids_options, 'e'),
-            'toolsJar': Utils.get_value_or_pop(tools_jar, rapids_options, 't'),
-            'autoTunerFileInput': Utils.get_value_or_pop(worker_info, rapids_options, 'w')
+            'eventlogs': eventlogs,
+            'toolsJar': tools_jar,
+            'autoTunerFileInput': worker_info
         }
         ProfilingAsLocal(platform_type=CspEnv.EMR,
-                         output_folder=Utils.get_value_or_pop(local_folder, rapids_options, 'l'),
+                         output_folder=local_folder,
                          wrapper_options=wrapper_prof_options,
                          rapids_options=rapids_options).launch()
 

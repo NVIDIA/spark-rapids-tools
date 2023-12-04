@@ -222,13 +222,12 @@ class Utils:
         """
         if not cls.warning_issued:
             cls.warning_issued = True
-            print(f"Warning: Instead of using short flags for argument, consider providing the value directly.")
+            print('Warning: Instead of using short flags for argument, consider providing the value directly.')
         if provided_value is not None:
             return provided_value
-        elif short_flag in options_dict:
+        if short_flag in options_dict:
             return options_dict.pop(short_flag)
-        else:
-            return default_value
+        return default_value
 
 
 class ToolLogging:
