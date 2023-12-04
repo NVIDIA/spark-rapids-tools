@@ -19,7 +19,7 @@ import fire
 
 from spark_rapids_tools.enums import QualGpuClusterReshapeType
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
-from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
@@ -105,6 +105,11 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 For more details on Qualification tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#qualification-tool-options
         """
+        platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
+        target_platform = Utils.get_value_or_pop(target_platform, rapids_options, 't')
+        output_folder = Utils.get_value_or_pop(output_folder, rapids_options, 'o')
+        filter_apps = Utils.get_value_or_pop(filter_apps, rapids_options, 'f')
+        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v')
         if verbose:
             ToolLogging.enable_debug_mode()
         init_environment('qual')
@@ -159,6 +164,11 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 For more details on Profiling tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#profiling-tool-options
         """
+        eventlogs = Utils.get_value_or_pop(platform, rapids_options, 'e')
+        cluster = Utils.get_value_or_pop(cluster, rapids_options, 'c')
+        platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
+        output_folder = Utils.get_value_or_pop(output_folder, rapids_options, 'o')
+        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v')
         if verbose:
             ToolLogging.enable_debug_mode()
         init_environment('prof')
