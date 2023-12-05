@@ -330,7 +330,8 @@ class RecommendationEntry(val name: String,
 class AutoTuner(
     val clusterProps: ClusterProperties,
     val appInfoProvider: AppSummaryInfoBaseProvider,
-    val platform: Platform)  extends Logging {
+    val platform: Platform,
+    unsupportedOperators: Seq[DriverLogUnsupportedOperators])  extends Logging {
 
   import AutoTuner._
 
@@ -350,11 +351,9 @@ class AutoTuner(
   }
 
   def getPropertyValue(key: String): Option[String] = {
-    val fromProfile = appInfoProvider.getProperty(key)
-    fromProfile match {
-      case None => Option(clusterProps.softwareProperties.get(key))
-      case Some(_) => fromProfile
-    }
+    val fromProfile = Option(appInfoProvider).flatMap(_.getProperty(key))
+    // If the value is not found above, fallback to cluster properties
+    fromProfile.orElse(Option(clusterProps.softwareProperties.get(key)))
   }
 
   def initRecommendations(): Unit = {
@@ -819,6 +818,20 @@ class AutoTuner(
     appendRecommendation("spark.sql.shuffle.partitions", s"$shufflePartitions")
   }
 
+  /**
+   * Analyzes unsupported driver logs and generates recommendations for configuration properties.
+   */
+  private def recommendFromDriverLogs(): Unit = {
+    // Iterate through unsupported operators' reasons and check for matching properties
+    unsupportedOperators.map(_.reason).foreach { operatorReason =>
+      recommendationsFromDriverLogs.collect {
+        case (config, recommendedValue) if operatorReason.contains(config) =>
+          appendRecommendation(config, recommendedValue)
+          appendComment(commentForExperimentalConfig(config))
+      }
+    }
+  }
+
   def appendOptionalComment(lookup: String, comment: String): Unit = {
     if (!skippedRecommendations.contains(lookup)) {
       appendComment(comment)
@@ -921,6 +934,9 @@ class AutoTuner(
         case (property, value) => appendRecommendation(property, value)
       }
     }
+    if (unsupportedOperators.nonEmpty) {
+      recommendFromDriverLogs()
+    }
     (toRecommendationsProfileResult, toCommentProfileResult)
   }
 }
@@ -970,6 +986,8 @@ object AutoTuner extends Logging {
   val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
   val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
+  private val DOC_URL: String = "https://nvidia.github.io/spark-rapids/docs/" +
+    "additional-functionality/advanced_configs.html#advanced-configuration"
 
   val commentsForMissingProps: Map[String, String] = Map(
     "spark.executor.memory" ->
@@ -1017,15 +1035,27 @@ object AutoTuner extends Logging {
         "  If the Spark RAPIDS jar is being bundled with your Spark\n" +
         "  distribution, this step is not needed.")
   )
+
+  // Recommended values for specific unsupported configurations
+  private val recommendationsFromDriverLogs: Map[String, String] = Map(
+    "spark.rapids.sql.incompatibleDateFormats.enabled" -> "true"
+  )
+
+  def commentForExperimentalConfig(config: String): String = {
+    s"Using $config does not guarantee to produce the same results as CPU. " +
+      s"Please refer to $DOC_URL."
+  }
+
   // the plugin jar is in the form of rapids-4-spark_scala_binary-(version)-*.jar
   val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
 
   private def handleException(
       ex: Exception,
       appInfo: AppSummaryInfoBaseProvider,
-      platform: Platform): AutoTuner = {
+      platform: Platform,
+      unsupportedOperators: Seq[DriverLogUnsupportedOperators]): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
-    val tuning = new AutoTuner(new ClusterProperties(), appInfo, platform)
+    val tuning = new AutoTuner(new ClusterProperties(), appInfo, platform, unsupportedOperators)
     val msg = ex match {
       case cEx: ConstructorException => cEx.getContext
       case _ => if (ex.getCause != null) ex.getCause.toString else ex.toString
@@ -1075,26 +1105,30 @@ object AutoTuner extends Logging {
   def buildAutoTunerFromProps(
       clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.createInstance()): AutoTuner = {
+      platform: Platform = PlatformFactory.createInstance(),
+      unsupportedOperators: Seq[DriverLogUnsupportedOperators] = Seq.empty): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
-      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform)
+      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
+        unsupportedOperators)
     } catch {
       case e: Exception =>
-        handleException(e, singleAppProvider, platform)
+        handleException(e, singleAppProvider, platform, unsupportedOperators)
     }
   }
 
   def buildAutoTuner(
       filePath: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.createInstance()): AutoTuner = {
+      platform: Platform = PlatformFactory.createInstance(),
+      unsupportedOperators: Seq[DriverLogUnsupportedOperators] = Seq.empty): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(filePath)
-      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform)
+      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
+        unsupportedOperators)
     } catch {
       case e: Exception =>
-        handleException(e, singleAppProvider, platform)
+        handleException(e, singleAppProvider, platform, unsupportedOperators)
     }
   }
 

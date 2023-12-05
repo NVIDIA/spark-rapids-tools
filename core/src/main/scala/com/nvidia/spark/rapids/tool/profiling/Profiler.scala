@@ -124,15 +124,21 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     progressBar.foreach(_.finishAll())
   }
 
-  def profileDriver(driverLogInfos: String): Unit = {
+  def profileDriver(driverLogInfos: String, eventLogsEmpty: Boolean): Unit = {
     val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/driver",
       Profiler.DRIVER_LOG_NAME, numOutputRows, true)
-
     try {
       val driverLogProcessor = new DriverLogProcessor(driverLogInfos)
-      val unsupportedDrivers = driverLogProcessor.processDriverLog()
+      val unsupportedDriverOperators = driverLogProcessor.processDriverLog()
       profileOutputWriter.write(s"Unsupported operators in driver log",
-        unsupportedDrivers)
+        unsupportedDriverOperators)
+      if (eventLogsEmpty && useAutoTuner) {
+        // Since event logs are empty, AutoTuner will not run while processing event logs.
+        // We need to run it here explicitly.
+        val (properties, comments) = runAutoTuner(None, unsupportedDriverOperators)
+        profileOutputWriter.writeText("\n### A. Recommended Configuration ###\n")
+        profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
+      }
     } finally {
       profileOutputWriter.close()
     }
@@ -403,6 +409,26 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       appLogPath, ioAnalysisMetrics), compareRes)
   }
 
+  /**
+   * A wrapper method to run the AutoTuner.
+   * @param appInfo     Summary of the application for tuning.
+   * @param unsupportedDriverOperators List of unsupported operators from driver log
+   */
+  private def runAutoTuner(appInfo: Option[ApplicationSummaryInfo],
+                           unsupportedDriverOperators: Seq[DriverLogUnsupportedOperators])
+  : (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
+      val appInfoProvider = appInfo.map(new SingleAppSummaryInfoProvider(_)).orNull
+      val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
+      val platform = appArgs.platform()
+      val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(workerInfoPath, appInfoProvider,
+        PlatformFactory.createInstance(platform), unsupportedDriverOperators)
+
+      // The autotuner allows skipping some properties,
+      // e.g., getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
+      // recommendation related to executor instances.
+      autoTuner.getRecommendedProperties()
+  }
+
   def writeOutput(profileOutputWriter: ProfileOutputWriter,
       appsSum: Seq[ApplicationSummaryInfo], outputCombined: Boolean,
       comparedRes: Option[CompareSummaryInfo] = None): Unit = {
@@ -464,7 +490,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     } else {
       appsSum
     }
-    sums.foreach { app =>
+    sums.foreach { app: ApplicationSummaryInfo =>
       profileOutputWriter.writeText("### A. Information Collected ###")
       profileOutputWriter.write("Application Information", app.appInfo)
       profileOutputWriter.write("Application Log Path Mapping", app.appLogPath)
@@ -510,15 +536,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some("Unsupported SQL Ops"))
 
       if (useAutoTuner) {
-        val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
-        val platform = appArgs.platform()
-        val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(workerInfoPath,
-          new SingleAppSummaryInfoProvider(app),
-          PlatformFactory.createInstance(platform))
-        // the autotuner allows skipping some properties
-        // e.g. getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
-        // recommendation related to executor instances.
-        val (properties, comments) = autoTuner.getRecommendedProperties()
+        val (properties, comments) = runAutoTuner(Some(app), Seq.empty)
         profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
       }
