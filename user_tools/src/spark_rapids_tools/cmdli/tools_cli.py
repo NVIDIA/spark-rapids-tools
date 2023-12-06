@@ -109,7 +109,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         target_platform = Utils.get_value_or_pop(target_platform, rapids_options, 't')
         output_folder = Utils.get_value_or_pop(output_folder, rapids_options, 'o')
         filter_apps = Utils.get_value_or_pop(filter_apps, rapids_options, 'f')
-        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v')
+        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
         if verbose:
             ToolLogging.enable_debug_mode()
         init_environment('qual')
@@ -168,7 +168,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         cluster = Utils.get_value_or_pop(cluster, rapids_options, 'c')
         platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
         output_folder = Utils.get_value_or_pop(output_folder, rapids_options, 'o')
-        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v')
+        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
         if verbose:
             ToolLogging.enable_debug_mode()
         init_environment('prof')
