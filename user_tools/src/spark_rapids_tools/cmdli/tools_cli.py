@@ -164,7 +164,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 For more details on Profiling tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#profiling-tool-options
         """
-        eventlogs = Utils.get_value_or_pop(platform, rapids_options, 'e')
+        eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         cluster = Utils.get_value_or_pop(cluster, rapids_options, 'c')
         platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
         output_folder = Utils.get_value_or_pop(output_folder, rapids_options, 'o')
