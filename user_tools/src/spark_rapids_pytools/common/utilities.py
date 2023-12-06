@@ -220,12 +220,12 @@ class Utils:
         :param default_value: The default value to return if the target_key is not found. Defaults to None.
         :return: provided_value or the value from options_dict or the default_value.
         """
-        if not cls.warning_issued:
-            cls.warning_issued = True
-            print('Warning: Instead of using short flags for argument, consider providing the value directly.')
         if provided_value is not None:
             return provided_value
         if short_flag in options_dict:
+            if not cls.warning_issued:
+                cls.warning_issued = True
+                print('Warning: Instead of using short flags for argument, consider providing the value directly.')
             return options_dict.pop(short_flag)
         return default_value
 

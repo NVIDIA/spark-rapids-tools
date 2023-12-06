@@ -48,7 +48,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       global_discount: int = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
-                      verbose: bool = False,
+                      verbose: bool = None,
                       **rapids_options):
         """The Qualification cmd provides estimated running costs and speedups by migrating Apache
         Spark applications to GPU accelerated clusters.
@@ -138,7 +138,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                   cluster: str = None,
                   platform: str = None,
                   output_folder: str = None,
-                  verbose: bool = False,
+                  verbose: bool = None,
                   **rapids_options):
         """The Profiling cmd provides information which can be used for debugging and profiling
         Apache Spark applications running on accelerated GPU cluster.
