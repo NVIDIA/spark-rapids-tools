@@ -161,6 +161,23 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
+  def writeUnsupportedOperatorsDetailedStageCSVReport(
+      sums: Seq[QualificationSummaryInfo],
+      order: String): Unit = {
+    val csvFileWriter = new ToolTextFileWriter(outputDir,
+      s"${QualOutputWriter.LOGFILE_NAME}_unsupportedOperatorsStageDuration.csv",
+      "Unsupported Operators StageDuration CSV Report", hadoopConf)
+    val headersAndSizes =
+      QualOutputWriter.getUnsupportedOperatorsStageDurationsHeaderStringsAndSizes(sums)
+    csvFileWriter.write(QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
+      QualOutputWriter.CSV_DELIMITER, false))
+    sums.foreach { sum =>
+      val rows = QualOutputWriter.constructUnsupportedStagesDurationInfo(sum, headersAndSizes,
+        QualOutputWriter.CSV_DELIMITER, false)
+      rows.foreach(row => csvFileWriter.write(row))
+    }
+  }
+
   def writePerSqlCSVReport(sums: Seq[QualificationSummaryInfo], maxSQLDescLength: Int): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_persql.csv",
@@ -361,6 +378,7 @@ object QualOutputWriter {
   val SQL_DUR_STR = "SQL DF Duration"
   val TASK_DUR_STR = "SQL Dataframe Task Duration"
   val STAGE_DUR_STR = "Stage Task Duration"
+  val STAGE_WALLCLOCK_DUR_STR = "Stage Wall Clock Duration"
   val POT_PROBLEM_STR = "Potential Problems"
   val EXEC_CPU_PERCENT_STR = "Executor CPU Time Percent"
   val APP_DUR_ESTIMATED_STR = "App Duration Estimated"
@@ -545,6 +563,18 @@ object QualOutputWriter {
     detailedHeaderAndFields
   }
 
+  def getUnsupportedOperatorsStageDurationsHeaderStringsAndSizes(
+      appInfos: Seq[QualificationSummaryInfo]): LinkedHashMap[String, Int] = {
+    val detailedHeaderAndFields = LinkedHashMap[String, Int](
+      APP_ID_STR -> QualOutputWriter.getAppIdSize(appInfos),
+      UNSUPPORTED_TYPE -> UNSUPPORTED_TYPE.size,
+      STAGE_ID_STR -> STAGE_ID_STR.size,
+      STAGE_WALLCLOCK_DUR_STR -> STAGE_WALLCLOCK_DUR_STR.size,
+      APP_DUR_STR -> APP_DUR_STR.size,
+      SPEEDUP_BUCKET_STR -> SPEEDUP_BUCKET_STR_SIZE
+    )
+    detailedHeaderAndFields
+  }
 
   def getDetailedHeaderStringsAndSizes(appInfos: Seq[QualificationSummaryInfo],
       reportReadSchema: Boolean): LinkedHashMap[String, Int] = {
@@ -886,7 +916,7 @@ object QualOutputWriter {
     }
   }
 
-  def constructUnsupportedOperatorsInfo(
+  def constructUnsupportedStagesDurationInfo(
       sumInfo: QualificationSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String = TEXT_DELIMITER,
@@ -895,81 +925,106 @@ object QualOutputWriter {
     val reformatCSVFunc: String => String =
       if (reformatCSV) str => StringUtils.reformatCSVString(str) else str => stringIfempty(str)
     val appId = sumInfo.appId
-    val readFormat = sumInfo.readFileFormatAndTypesNotSupported
-    val writeFormat = sumInfo.writeDataFormat
-    val unsupportedExecs = sumInfo.unSupportedExecs
-    val unsupportedExprs = sumInfo.unSupportedExprs
-    val unsupportedExecExprsMap = sumInfo.unsupportedExecstoExprsMap
-    val unsupportedOperatorsOutputRows = new ArrayBuffer[String]()
+    val appDuration = sumInfo.sparkSqlDFWallClockDuration
+    val recommendation = sumInfo.estimatedInfo.recommendation
 
-    if (readFormat.nonEmpty) {
-      val unsupportedReadFormatRows = readFormat.map { format =>
-        val readFormatAndType = format.split("\\[")
-        val readFormat = readFormatAndType(0)
-        val readType = if (readFormatAndType.size > 1) {
-          s"Types not supported - ${readFormatAndType(1).replace("]", "")}"
-        } else {
-          ""
-        }
-        val data = ListBuffer(
+    sumInfo.stageInfo.collect {
+      case info if info.stageWallclockDuration > 0 && info.unsupportedExecs.nonEmpty =>
+        val stageAppDuration = info.stageWallclockDuration
+        val unsupportedExecs = info.unsupportedExecs.mkString(";")
+        val data = ListBuffer[(String, Int)](
           reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-          reformatCSVFunc("Read")-> headersAndSizes(UNSUPPORTED_TYPE),
-          reformatCSVFunc(readFormat) -> headersAndSizes(DETAILS),
-          reformatCSVFunc(readType) -> headersAndSizes(NOTES)
+          reformatCSVFunc(unsupportedExecs) -> headersAndSizes(UNSUPPORTED_TYPE),
+          info.stageId.toString -> headersAndSizes(STAGE_ID_STR),
+          stageAppDuration.toString -> headersAndSizes(STAGE_WALLCLOCK_DUR_STR),
+          appDuration.toString -> headersAndSizes(APP_DUR_STR),
+          recommendation -> headersAndSizes(SPEEDUP_BUCKET_STR)
         )
         constructOutputRow(data, delimiter, prettyPrint)
+    }
+  }
+
+  def constructUnsupportedOperatorsInfo(
+      sumInfo: QualificationSummaryInfo,
+      headersAndSizes: LinkedHashMap[String, Int],
+      delimiter: String = TEXT_DELIMITER,
+      prettyPrint: Boolean,
+      reformatCSV: Boolean = true): Seq[String] = {
+
+    val reformatCSVFunc: String => String =
+      if (reformatCSV) str => StringUtils.reformatCSVString(str) else str => stringIfempty(str)
+
+    val appId = reformatCSVFunc(sumInfo.appId)
+    val unsupportedOperatorsOutputRows = new ArrayBuffer[String]()
+    val unsupportedExprs = sumInfo.unSupportedExprs
+    val allExecs = getAllExecsFromPlan(sumInfo.planInfo)
+    val dataSetExecs = allExecs.collect { case x if x.dataSet => x.exec }
+    val udfExecs = allExecs.collect { case x if x.udf => x.exec }
+
+    def createUnsupportedRow(exec: String, execType: String, notes: String): String = {
+      val data = ListBuffer(
+        appId -> headersAndSizes(APP_ID_STR),
+        reformatCSVFunc(execType) -> headersAndSizes(UNSUPPORTED_TYPE),
+        reformatCSVFunc(exec) -> headersAndSizes(DETAILS),
+        reformatCSVFunc(notes) -> headersAndSizes(NOTES)
+      )
+      constructOutputRow(data, delimiter, prettyPrint)
+    }
+
+    val readFormatRows = sumInfo.readFileFormatAndTypesNotSupported.map { format =>
+      val readFormatAndType = format.split("\\[")
+      val readFormat = readFormatAndType(0)
+      val readType = if (readFormatAndType.size > 1) {
+        s"Types not supported - ${readFormatAndType(1).replace("]", "")}"
+      } else {
+        ""
       }
-      unsupportedOperatorsOutputRows ++= unsupportedReadFormatRows
+      createUnsupportedRow(readFormat,"Read", readType)
     }
-    if (unsupportedExecs.nonEmpty) {
-      val unsupportedExecRows = unsupportedExecs.split(";").map { exec =>
-        val data = ListBuffer(
-          reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-          reformatCSVFunc("Exec") -> headersAndSizes(UNSUPPORTED_TYPE),
-          reformatCSVFunc(exec) -> headersAndSizes(DETAILS),
-          reformatCSVFunc("") -> headersAndSizes(NOTES)
-        )
-        constructOutputRow(data, delimiter, prettyPrint)
-      }
-      unsupportedOperatorsOutputRows ++= unsupportedExecRows
+    unsupportedOperatorsOutputRows ++= readFormatRows
+
+    // Unsupported Execs and Execs that are not supported due to unsupported expressions, or if
+    // the operation is from a dataset, or if the operation contains a UDF.
+    val unsupportedExecExprsMap = sumInfo.unsupportedExecstoExprsMap
+    val unsupportedExecsSet = sumInfo.unSupportedExecs.split(";").toSet
+    val unsupportedExecsFiltered = unsupportedExecsSet.filterNot(unsupportedExecExprsMap.contains)
+    val actualunsupportedExecs = unsupportedExecsFiltered.filterNot(x => dataSetExecs.contains(x)
+        || udfExecs.contains(x) || unsupportedExecExprsMap.contains(x))
+    val unsupportedExecRows = actualunsupportedExecs.map { exec =>
+      createUnsupportedRow(exec, "Exec", "")
     }
-    if (unsupportedExecExprsMap.nonEmpty) {
-      val unsupportedExecExprMapRows = unsupportedExecExprsMap.map { case (exec, exprs) =>
-        val data = ListBuffer(
-          reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-          reformatCSVFunc("Exec") -> headersAndSizes(UNSUPPORTED_TYPE),
-          reformatCSVFunc(exec) -> headersAndSizes(DETAILS),
-          reformatCSVFunc(s"$exec Exec is not supported as expressions are " +
-            s"not supported -  `$exprs`") -> headersAndSizes(NOTES)
-        )
-        constructOutputRow(data, delimiter, prettyPrint)
-      }.toArray
-      unsupportedOperatorsOutputRows ++= unsupportedExecExprMapRows
+    unsupportedOperatorsOutputRows ++= unsupportedExecRows
+
+    val unsupportedDatasetExecRows = dataSetExecs.map { exec =>
+      createUnsupportedRow(exec, "Exec", s"$exec Exec is not supported as " +
+        s"this operation is from dataset which is not supported")
     }
+    unsupportedOperatorsOutputRows ++= unsupportedDatasetExecRows
+
+    val unsupportedUdfExecRows = udfExecs.map { exec =>
+      createUnsupportedRow(exec, "Exec", s"$exec Exec is " +
+        s"not supported as it contains UDF which is not supported")
+    }
+    unsupportedOperatorsOutputRows ++= unsupportedUdfExecRows
+
+    val unsupportedExecExprMapRows = sumInfo.unsupportedExecstoExprsMap.map { case (exec, exprs) =>
+      createUnsupportedRow(exec, "Exec", s"$exec Exec is not" +
+        s" supported as expressions are not supported -  `$exprs`")
+    }.toArray
+    unsupportedOperatorsOutputRows ++= unsupportedExecExprMapRows
+
     if (unsupportedExprs.nonEmpty) {
-      val unsupportedExprRows = unsupportedExprs.split(";").map { expr =>
-        val data = ListBuffer(
-          reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-          reformatCSVFunc("Expression") -> headersAndSizes(UNSUPPORTED_TYPE),
-          reformatCSVFunc(expr) -> headersAndSizes(DETAILS),
-          reformatCSVFunc("") -> headersAndSizes(NOTES)
-        )
-        constructOutputRow(data, delimiter, prettyPrint)
+      val unsupportedExprRows = sumInfo.unSupportedExprs.split(";").map { expr =>
+        createUnsupportedRow(expr, "Expression", "")
       }
       unsupportedOperatorsOutputRows ++= unsupportedExprRows
     }
-    if (writeFormat.nonEmpty) {
-      val unsupportedwriteFormatRows = writeFormat.map { format =>
-        val data = ListBuffer(
-          reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-          reformatCSVFunc("Write") -> headersAndSizes(UNSUPPORTED_TYPE),
-          reformatCSVFunc(format) -> headersAndSizes(DETAILS),
-          reformatCSVFunc("") -> headersAndSizes(NOTES)
-        )
-        constructOutputRow(data, delimiter, prettyPrint)
-      }
-      unsupportedOperatorsOutputRows ++= unsupportedwriteFormatRows
+
+    val unsupportedWriteFormatRows = sumInfo.writeDataFormat.map { format =>
+      createUnsupportedRow(format, "Write", "")
     }
+    unsupportedOperatorsOutputRows ++= unsupportedWriteFormatRows
+
     unsupportedOperatorsOutputRows
   }
 
