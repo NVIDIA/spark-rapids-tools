@@ -1150,7 +1150,10 @@ class QualificationSuite extends BaseTestSuite {
 
         val filename = s"$outpath/rapids_4_spark_qualification_output/" +
           s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
+        val stageDurationFile = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output_unsupportedOperatorsStageDuration.csv"
         val inputSource = Source.fromFile(filename)
+        val unsupportedStageDuration = Source.fromFile(stageDurationFile)
         try {
           val lines = inputSource.getLines.toSeq
           // 1 for header, 1 for values
@@ -1166,6 +1169,11 @@ class QualificationSuite extends BaseTestSuite {
           assert(lines.size == expLinesSize)
           assert(lines.head.contains("App ID,Unsupported Type,"))
           assert(lines(1).contains("\"Read\",\"JSON\",\"Types not supported - bigint:int\""))
+
+          val stageDurationLines = unsupportedStageDuration.getLines.toSeq
+          assert(stageDurationLines.head.contains("" +
+            "Stage Wall Clock Duration,App Duration,Recommendation"))
+          assert(stageDurationLines(1).contains("Not Recommended"))
         } finally {
           inputSource.close()
         }
