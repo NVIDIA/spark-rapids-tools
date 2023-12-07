@@ -247,8 +247,7 @@ class Profiling(RapidsJarTool):
         self.__generate_report_with_recommendations()
 
     def _init_rapids_arg_list(self) -> List[str]:
-        platform_arg = super()._init_rapids_arg_list()
-        return [platform_arg] + self._create_autotuner_rapids_args()
+        return super()._init_rapids_arg_list() + self._create_autotuner_rapids_args()
 
 
 @dataclass
