@@ -70,9 +70,8 @@ class OnPremPlatform(PlatformBase):
         This used to get the lower case of the platform of the runtime.
         :return: the name of the platform of the runtime in lower_case.
         """
-        if self.platform is not None:
-            if self.platform == 'dataproc':
-                self_id = CspEnv.DATAPROC
+        if self.platform is not None and self.platform == 'dataproc':
+            self_id = CspEnv.DATAPROC
         else:
             self_id = self.type_id
         return CspEnv.pretty_print(self_id)
