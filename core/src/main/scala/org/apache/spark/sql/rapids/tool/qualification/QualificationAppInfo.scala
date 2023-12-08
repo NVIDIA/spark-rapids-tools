@@ -644,7 +644,7 @@ class QualificationAppInfo(
         1
       }
 
-      val wallClockSqlDFToUse = QualificationAppInfo.wallClocksqlDataFrameToUse(
+      val wallClockSqlDFToUse = QualificationAppInfo.wallClockSqlDataFrameToUse(
         sparkSQLDFWallClockDuration, appDuration)
 
       val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
@@ -940,14 +940,10 @@ object QualificationAppInfo extends Logging {
     }
   }
 
-  def wallClocksqlDataFrameToUse(sqlDataFrameDuration: Long, appDuration: Long): Long = {
-    if (sqlDataFrameDuration > appDuration) {
-      // our app duration is shorter than our sql duration, estimate the sql duration down
-      // to app duration
-      appDuration
-    } else {
-      sqlDataFrameDuration
-    }
+  def wallClockSqlDataFrameToUse(sqlDataFrameDuration: Long, appDuration: Long): Long = {
+    // If our app duration is shorter than our sql duration, estimate the sql duration down
+    // to app duration
+    math.min(sqlDataFrameDuration, appDuration)
   }
 
   // Summarize and estimate based on wall clock times
@@ -956,7 +952,7 @@ object QualificationAppInfo extends Logging {
       hasFailures: Boolean, mlSpeedupFactor: Option[MLFuncsSpeedupAndDuration] = None,
       unsupportedExecs: String = "", unsupportedExprs: String = "",
       allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedAppInfo = {
-    val sqlDataFrameDurationToUse = wallClocksqlDataFrameToUse(sqlDataFrameDuration, appDuration)
+    val sqlDataFrameDurationToUse = wallClockSqlDataFrameToUse(sqlDataFrameDuration, appDuration)
 
     // get the average speedup and duration for ML funcs supported on GPU
     val (mlSpeedup, mlDuration) = if (mlSpeedupFactor.isDefined) {

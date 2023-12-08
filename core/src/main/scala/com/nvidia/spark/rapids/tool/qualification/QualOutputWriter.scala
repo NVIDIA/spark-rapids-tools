@@ -151,13 +151,17 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_unsupportedOperators.csv",
       "Unsupported Operators CSV Report", hadoopConf)
-    val headersAndSizes = QualOutputWriter.getUnsupportedOperatorsHeaderStringsAndSizes(sums)
-    csvFileWriter.write(QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
-      QualOutputWriter.CSV_DELIMITER, false))
-    sums.foreach { sum =>
-      val rows = QualOutputWriter.constructUnsupportedOperatorsInfo(sum, headersAndSizes,
-        QualOutputWriter.CSV_DELIMITER, false)
-      rows.foreach(row => csvFileWriter.write(row))
+    try {
+      val headersAndSizes = QualOutputWriter.getUnsupportedOperatorsHeaderStringsAndSizes(sums)
+      csvFileWriter.write(QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
+        QualOutputWriter.CSV_DELIMITER, false))
+      sums.foreach { sum =>
+        val rows = QualOutputWriter.constructUnsupportedOperatorsInfo(sum, headersAndSizes,
+          QualOutputWriter.CSV_DELIMITER, false)
+        rows.foreach(row => csvFileWriter.write(row))
+      }
+    } finally {
+      csvFileWriter.close()
     }
   }
 
@@ -167,14 +171,18 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_unsupportedOperatorsStageDuration.csv",
       "Unsupported Operators StageDuration CSV Report", hadoopConf)
-    val headersAndSizes =
-      QualOutputWriter.getUnsupportedOperatorsStageDurationsHeaderStringsAndSizes(sums)
-    csvFileWriter.write(QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
-      QualOutputWriter.CSV_DELIMITER, false))
-    sums.foreach { sum =>
-      val rows = QualOutputWriter.constructUnsupportedStagesDurationInfo(sum, headersAndSizes,
-        QualOutputWriter.CSV_DELIMITER, false)
-      rows.foreach(row => csvFileWriter.write(row))
+    try {
+      val headersAndSizes =
+        QualOutputWriter.getUnsupportedOperatorsStageDurationsHeaderStringsAndSizes(sums)
+      csvFileWriter.write(QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
+        QualOutputWriter.CSV_DELIMITER, false))
+      sums.foreach { sum =>
+        val rows = QualOutputWriter.constructUnsupportedStagesDurationInfo(sum, headersAndSizes,
+          QualOutputWriter.CSV_DELIMITER, false)
+        rows.foreach(row => csvFileWriter.write(row))
+      }
+    } finally {
+      csvFileWriter.close()
     }
   }
 
@@ -929,7 +937,7 @@ object QualOutputWriter {
     val recommendation = sumInfo.estimatedInfo.recommendation
 
     sumInfo.stageInfo.collect {
-      case info if info.stageWallclockDuration > 0 && info.unsupportedExecs.nonEmpty =>
+      case info if info.unsupportedExecs.nonEmpty =>
         val stageAppDuration = info.stageWallclockDuration
         val unsupportedExecs = info.unsupportedExecs.mkString(";")
         val data = ListBuffer[(String, Int)](
