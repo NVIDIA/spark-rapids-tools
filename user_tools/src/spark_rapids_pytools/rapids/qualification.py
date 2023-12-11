@@ -24,6 +24,7 @@ from tabulate import tabulate
 
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType
 from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo
+from spark_rapids_pytools.common.cluster_inference import ClusterInference
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -188,8 +189,19 @@ class Qualification(RapidsJarTool):
         # get the name of the cpu_cluster
         cpu_cluster_arg = offline_cluster_opts.get('cpuCluster')
         if cpu_cluster_arg is not None:
+            # If cpu_cluster_arg is provided, create a CPU cluster object and set it in the context
             cpu_cluster_obj = self._create_migration_cluster('CPU', cpu_cluster_arg)
             self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
+        else:
+            # If cpu_cluster_arg is not provided, infer CPU cluster from event logs
+            cluster_inference = ClusterInference(platform=self.ctxt.platform)
+            eventlog_arg = self.wrapper_options.get('eventlogs')
+            cpu_cluster_obj = cluster_inference.infer_cpu_cluster(eventlog_arg)
+            if cpu_cluster_obj is not None:
+                self.logger.info('Infer CPU cluster properties from event logs')
+                self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
+            else:
+                self.logger.info('Cannot infer CPU cluster from event logs')
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
         def _process_gpu_cluster_worker_node():

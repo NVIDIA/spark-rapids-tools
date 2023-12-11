@@ -776,19 +776,36 @@ class PlatformBase:
             self.cli.validate_env()
         # TODO we should fail if the CLI is None
 
-    def _construct_cluster_from_props(self,
-                                      cluster: str,
-                                      props: str = None):
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
         raise NotImplementedError
+
+    def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
+        """
+        This method should be implemented by subclasses to define the logic for constructing
+        the cluster configuration based on the provided `cluster_info` and `default_config`.
+
+        :param cluster_info: Dictionary storing cluster information such as driver instance
+        :param default_config: Default cluster config obtained using `describe` cmd.
+        :return: Constructed cluster configuration
+        """
+        raise NotImplementedError
+
+    def construct_cluster_config(self, cluster_info: dict):
+        default_cluster = self.configs.get_value('clusterInference', 'defaultClusterConfig')
+        return self._construct_cluster_config(cluster_info, default_cluster)
 
     def set_offline_cluster(self, cluster_args: dict = None):
         raise NotImplementedError
 
+    def load_cluster_by_prop(self, cluster_prop: JSONPropertiesContainer, is_inferred=False):
+        cluster = cluster_prop.get_value_silent('cluster_id')
+        return self._construct_cluster_from_props(cluster=cluster,
+                                                  props=json.dumps(cluster_prop.props),
+                                                  is_inferred=is_inferred)
+
     def load_cluster_by_prop_file(self, cluster_prop_path: str):
         prop_container = JSONPropertiesContainer(prop_arg=cluster_prop_path)
-        cluster = prop_container.get_value_silent('cluster_id')
-        return self._construct_cluster_from_props(cluster=cluster,
-                                                  props=json.dumps(prop_container.props))
+        return self.load_cluster_by_prop(prop_container)
 
     def connect_cluster_by_name(self, cluster: str):
         """
@@ -865,6 +882,7 @@ class ClusterBase(ClusterGetAccessor):
     nodes: dict = field(default_factory=dict, init=False)
     props: AbstractPropertiesContainer = field(default=None, init=False)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster'), init=False)
+    is_inferred: bool = field(default=False, init=True)
 
     @staticmethod
     def _verify_workers_exist(has_no_workers_cb: Callable[[], bool]):

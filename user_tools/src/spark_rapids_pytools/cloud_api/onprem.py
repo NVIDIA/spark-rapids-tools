@@ -49,11 +49,15 @@ class OnPremPlatform(PlatformBase):
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return OnPremLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None):
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
         if self.platform is not None:
-            onprem_cluster = OnPremCluster(self).set_connection(cluster_id=cluster, props=props)
+            onprem_cluster = OnPremCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster,
+                                                                                         props=props)
             return onprem_cluster
         return None
+
+    def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
+        pass
 
     def migrate_cluster_to_gpu(self, orig_cluster):
         """

@@ -335,6 +335,35 @@
       }
     }
   },
+  "clusterInference": {
+    "defaultClusterConfig": {
+      "cluster_id": "1234-5678-1234567",
+      "driver": {
+        "node_id": "1234567890"
+      },
+      "executors": [
+        {
+          "node_id": "1234567890"
+        }
+      ],
+      "cluster_name": "default-cluster-prop",
+      "driver_node_type_id": "Standard_DS3_v2",
+      "node_type_id": "Standard_DS3_v2",
+      "state": "TERMINATED",
+      "num_workers": 1
+    },
+    "defaultCpuInstances": {
+      "driver": "Standard_DS3_v2",
+      "executor": [
+        {"name": "Standard_DS3_v2", "vCPUs": 4},
+        {"name": "Standard_DS4_v2", "vCPUs": 8},
+        {"name": "Standard_DS5_v2", "vCPUs": 16},
+        {"name": "Standard_D32_v3", "vCPUs": 32},
+        {"name": "Standard_D64_v3", "vCPUs": 64},
+        {"name": "Standard_D96a_v4", "vCPUs": 96}
+      ]
+    }
+  },
   "clusterSpecs": {
     "minWorkerNodes": 2
   }

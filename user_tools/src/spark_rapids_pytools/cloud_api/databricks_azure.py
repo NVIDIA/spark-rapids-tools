@@ -51,8 +51,16 @@ class DBAzurePlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = AzureStorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None):
-        return DatabricksAzureCluster(self).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+        return DatabricksAzureCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
+
+    def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
+        cluster_conf = default_config
+        cluster_conf['executors'] = [{'node_id': '1234567890'} for _ in range(cluster_info['num_executor_nodes'])]
+        cluster_conf['driver_node_type_id'] = cluster_info['driver_instance']
+        cluster_conf['node_type_id'] = cluster_info['executor_instance']
+        cluster_conf['num_workers'] = cluster_info['num_executor_nodes']
+        return cluster_conf
 
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
