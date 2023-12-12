@@ -80,6 +80,10 @@ object ToolUtils extends Logging {
             val targetEx = i.getTargetException
             if (targetEx != null) {
               targetEx match {
+                case k: com.fasterxml.jackson.core.io.JsonEOFException =>
+                  // Spark3.41+ embeds JsonEOFException in the InvocationTargetException
+                  // We need to show a warning message instead of failing the entire app.
+                  logWarning(s"Incomplete eventlog, ${k.getMessage}")
                 case j: com.fasterxml.jackson.core.JsonParseException =>
                   // this is a parser error thrown by spark-3.4+ which indicates the log is
                   // malformed
