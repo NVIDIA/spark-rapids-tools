@@ -38,6 +38,7 @@ class OnPremPlatform(PlatformBase):
     def __post_init__(self):
         self.type_id = CspEnv.ONPREM
         self.platform = self.ctxt_args.get('targetPlatform')
+        self.cluster_inference_supported = False
         super().__post_init__()
 
     def _construct_cli_object(self):

@@ -598,6 +598,7 @@ class PlatformBase:
     ctxt: dict = field(default_factory=dict, init=False)
     configs: JSONPropertiesContainer = field(default=None, init=False)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.csp'), init=False)
+    cluster_inference_supported: bool = field(default=False, init=False)
 
     @classmethod
     def list_supported_gpus(cls):

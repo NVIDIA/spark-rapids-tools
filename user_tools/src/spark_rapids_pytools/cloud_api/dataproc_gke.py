@@ -42,6 +42,7 @@ class DataprocGkePlatform(DataprocPlatform):
     def __post_init__(self):
         super().__post_init__()
         self.type_id = CspEnv.DATAPROC_GKE
+        self.cluster_inference_supported = False
 
     @classmethod
     def get_spark_node_type_fromstring(cls, value: str):

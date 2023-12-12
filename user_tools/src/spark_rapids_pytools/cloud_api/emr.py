@@ -61,6 +61,7 @@ class EMRPlatform(PlatformBase):
 
     def __post_init__(self):
         self.type_id = CspEnv.EMR
+        self.cluster_inference_supported = True
         super().__post_init__()
 
     def _construct_cli_object(self) -> CMDDriverBase:

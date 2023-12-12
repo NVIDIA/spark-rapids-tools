@@ -44,6 +44,7 @@ class DataprocPlatform(PlatformBase):
 
     def __post_init__(self):
         self.type_id = CspEnv.DATAPROC
+        self.cluster_inference_supported = True
         super().__post_init__()
 
     def _set_remaining_configuration_list(self) -> None:

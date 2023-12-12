@@ -43,6 +43,7 @@ class DBAWSPlatform(EMRPlatform):
 
     def __post_init__(self):
         self.type_id = CspEnv.DATABRICKS_AWS
+        self.cluster_inference_supported = True
         super(EMRPlatform, self).__post_init__()
 
     def _construct_cli_object(self) -> CMDDriverBase:
