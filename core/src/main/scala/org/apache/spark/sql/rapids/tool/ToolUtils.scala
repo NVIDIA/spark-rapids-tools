@@ -94,10 +94,15 @@ object ToolUtils extends Logging {
               // Normally it should not happen that invocation target is null.
               logError(s"Unknown exception while parsing an event", i)
             }
-          case j: com.fasterxml.jackson.core.JsonParseException =>
+          case j: com.fasterxml.jackson.core.io.JsonEOFException =>
+            // Note that JsonEOFException is child of JsonParseException
+            // In case the eventlog is incomplete (i.e., inprogress), we show a warning message
+            // because we do not want to cause the entire app to fail.
+            logWarning(s"Incomplete eventlog, ${j.getMessage}")
+          case k: com.fasterxml.jackson.core.JsonParseException =>
             // this is a parser error thrown by version prior to spark-3.4+ which indicates the
             // log is malformed
-            throw j
+            throw k
         }
         None
     }
