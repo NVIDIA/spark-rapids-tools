@@ -24,7 +24,7 @@ import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.{CLUSTER_ID, CLUSTER_ID_STR_SIZE, JOB_ID, JOB_ID_STR_SIZE, RUN_NAME, RUN_NAME_STR_SIZE, TEXT_DELIMITER}
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.sql.rapids.tool.ToolUtils
+import org.apache.spark.sql.rapids.tool.{IgnoreExecs, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{EstimatedPerSQLSummaryInfo, EstimatedSummaryInfo, QualificationAppInfo, QualificationSummaryInfo, StatusSummaryInfo}
 import org.apache.spark.sql.rapids.tool.util._
 
@@ -939,18 +939,25 @@ object QualOutputWriter {
     sumInfo.stageInfo.collect {
       case info if info.unsupportedExecs.nonEmpty =>
         val stageAppDuration = info.stageWallclockDuration
-        val unsupportedExecs = info.unsupportedExecs.mkString(";")
-        val data = ListBuffer[(String, Int)](
-          reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-          reformatCSVFunc(unsupportedExecs) -> headersAndSizes(UNSUPPORTED_TYPE),
-          info.stageId.toString -> headersAndSizes(STAGE_ID_STR),
-          stageAppDuration.toString -> headersAndSizes(STAGE_WALLCLOCK_DUR_STR),
-          appDuration.toString -> headersAndSizes(APP_DUR_STR),
-          recommendation -> headersAndSizes(SPEEDUP_BUCKET_STR)
-        )
-        constructOutputRow(data, delimiter, prettyPrint)
+        val filteredUnsupportedExecs = info.unsupportedExecs.filterNot(
+          x => IgnoreExecs.getAllIgnoreExecs.contains(x))
+        val unsupportedExecsStr = filteredUnsupportedExecs.mkString(";")
+        if (unsupportedExecsStr.nonEmpty) {
+          val data = ListBuffer[(String, Int)](
+            reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
+            reformatCSVFunc(unsupportedExecsStr) -> headersAndSizes(UNSUPPORTED_TYPE),
+            info.stageId.toString -> headersAndSizes(STAGE_ID_STR),
+            stageAppDuration.toString -> headersAndSizes(STAGE_WALLCLOCK_DUR_STR),
+            appDuration.toString -> headersAndSizes(APP_DUR_STR),
+            recommendation -> headersAndSizes(SPEEDUP_BUCKET_STR)
+          )
+          constructOutputRow(data, delimiter, prettyPrint)
+        } else {
+          ""
+        }
     }
   }
+
 
   def constructUnsupportedOperatorsInfo(
       sumInfo: QualificationSummaryInfo,

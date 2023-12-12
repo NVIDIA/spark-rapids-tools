@@ -78,7 +78,8 @@ object SQLPlanParser extends Logging {
 
   val windowFunctionPattern = """(\w+)\(""".r
 
-  val ignoreExpressions = Array("any", "cast", "decimal", "decimaltype", "every", "some",
+  val ignoreExpressions = Array("any", "cast", "ansi_cast", "decimal", "decimaltype", "every",
+    "some", "merge_max", "merge_min", "merge_sum", "merge_count", "merge_avg", "merge_first",
     "list",
     // current_database does not cause any CPU fallbacks
     "current_database",
