@@ -36,14 +36,18 @@ class ClusterInference:
     platform: PlatformBase = field(default=None, init=True)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster_inference'), init=False)
 
-    @staticmethod
-    def _load_event_logs(eventlog_arg) -> list:
+    def _load_event_logs(self, eventlog_arg) -> list:
         """
         Read the event log file and return a list of event log properties containers.
         """
         eventlog_path = Path(eventlog_arg)
+        # Check if the provided path exists and is a file
         if not eventlog_path.exists():
-            raise FileNotFoundError(f"Path '{eventlog_path}' does not exist.")
+            self.logger.info(f'Unable to infer CPU cluster. Path {eventlog_path} does not exist.')
+            return []
+        if not eventlog_path.is_file():
+            self.logger.info(f'Unable to infer CPU cluster. Path {eventlog_path} should be a file.')
+            return []
         with eventlog_path.open(encoding='utf-8') as file:
             event_logs = [JSONPropertiesContainer(line, file_load=False) for line in file]
         return event_logs
@@ -58,32 +62,27 @@ class ClusterInference:
         driver_instance = None
         executor_instance = None
         is_databricks = isinstance(self.platform, (DBAWSPlatform, DBAzurePlatform))
-
         for event_prop in eventlog_props:
             event_type = event_prop.get_value_silent('Event')
-
             # Check for Databricks environment update event to get driver and executor instances
             if is_databricks and driver_instance is None and event_type == 'SparkListenerEnvironmentUpdate':
                 driver_instance = event_prop.get_value('Spark Properties', 'spark.databricks.driverNodeTypeId')
                 executor_instance = event_prop.get_value('Spark Properties', 'spark.databricks.workerNodeTypeId')
-
             # Check for executor added event to get the number of cores
             if num_cores is None and event_type == 'SparkListenerExecutorAdded':
                 num_cores = event_prop.get_value('Executor Info', 'Total Cores')
-
             # Check for BlockManager added event to count drivers and collect unique hosts
             elif event_type == 'SparkListenerBlockManagerAdded':
                 executor_id = event_prop.get_value('Block Manager ID', 'Executor ID')
                 if executor_id == 'driver':
                     num_driver_nodes += 1
                 else:
+                    # Add host to the set hosts
                     host = event_prop.get_value('Block Manager ID', 'Host')
                     hosts.add(host)
-
         # If driver instance is not set, use the default value from platform configurations
         if driver_instance is None:
             driver_instance = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
-
         # If executor instance is not set, use the default value based on the number of cores
         if executor_instance is None:
             default_instances = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
@@ -92,7 +91,8 @@ class ClusterInference:
                 None
             )
             if matching_instance is None:
-                self.logger.info(f'No matching executor instance found for vCPUs = {num_cores}')
+                self.logger.info(
+                    f'Unable to infer CPU cluster. No matching executor instance found for vCPUs = {num_cores}')
                 return None
             executor_instance = matching_instance
         return {
@@ -106,14 +106,15 @@ class ClusterInference:
         """
         Infer CPU cluster configuration based on event logs and return the constructed cluster object.
         """
+        # Load event logs and return None if no logs are parsed
         parsed_log = self._load_event_logs(eventlog_arg)
         if len(parsed_log) == 0:
             return None
-
+        # Extract cluster information from parsed logs
         cluster_info = self.get_cluster_info(parsed_log)
         if cluster_info is None:
             return None
+        # Construct cluster configuration using platform-specific logic
         cluster_conf = self.platform.construct_cluster_config(cluster_info)
         cluster_props = JSONPropertiesContainer(cluster_conf, file_load=False)
-        inferred_cpu_cluster_obj = self.platform.load_cluster_by_prop(cluster_props, is_inferred=True)
-        return inferred_cpu_cluster_obj
+        return self.platform.load_cluster_by_prop(cluster_props, is_inferred=True)

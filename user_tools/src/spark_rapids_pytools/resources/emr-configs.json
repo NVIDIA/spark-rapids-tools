@@ -305,7 +305,7 @@
             "Name": "CORE",
             "Market": "ON_DEMAND",
             "InstanceGroupType": "CORE",
-            "InstanceType": "m5d.large",
+            "InstanceType": "m5d.8xlarge",
             "RequestedInstanceCount": 1
           },
           {
@@ -339,8 +339,7 @@
         {"name": "m5d.4xlarge", "vCPUs": 16},
         {"name": "m5d.8xlarge", "vCPUs": 32},
         {"name": "m5d.12xlarge", "vCPUs": 48},
-        {"name": "m5d.16xlarge", "vCPUs": 64},
-        {"name": "m5d.24xlarge", "vCPUs": 96}
+        {"name": "m5d.16xlarge", "vCPUs": 64}
       ]
     }
   },

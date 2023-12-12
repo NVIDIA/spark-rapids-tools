@@ -277,7 +277,7 @@
           "instanceNames": [
             "test-node"
           ],
-          "machineTypeUri": "n1-standard-16",
+          "machineTypeUri": "n1-standard-32",
           "numInstances": 1
         }
       },
@@ -294,8 +294,7 @@
         {"name": "n1-standard-8", "vCPUs": 8},
         {"name": "n1-standard-16", "vCPUs": 16},
         {"name": "n1-standard-32", "vCPUs": 32},
-        {"name": "n1-standard-64", "vCPUs": 64},
-        {"name": "n1-standard-96", "vCPUs": 96}
+        {"name": "n1-standard-64", "vCPUs": 64}
       ]
     }
   },

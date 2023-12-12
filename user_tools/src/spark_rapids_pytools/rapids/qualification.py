@@ -194,11 +194,11 @@ class Qualification(RapidsJarTool):
             self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
         else:
             # If cpu_cluster_arg is not provided, infer CPU cluster from event logs
+            self.logger.info('Inferring CPU cluster properties from event logs. This could take a while.')
             cluster_inference = ClusterInference(platform=self.ctxt.platform)
             eventlog_arg = self.wrapper_options.get('eventlogs')
             cpu_cluster_obj = cluster_inference.infer_cpu_cluster(eventlog_arg)
             if cpu_cluster_obj is not None:
-                self.logger.info('Infer CPU cluster properties from event logs')
                 self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
             else:
                 self.logger.info('Cannot infer CPU cluster from event logs')

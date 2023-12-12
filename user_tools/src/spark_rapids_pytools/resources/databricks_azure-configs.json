@@ -347,20 +347,20 @@
         }
       ],
       "cluster_name": "default-cluster-prop",
-      "driver_node_type_id": "Standard_DS3_v2",
+      "driver_node_type_id": "Standard_E8ds_v4",
       "node_type_id": "Standard_DS3_v2",
       "state": "TERMINATED",
       "num_workers": 1
     },
     "defaultCpuInstances": {
-      "driver": "Standard_DS3_v2",
+      "driver": "Standard_E8ds_v4",
       "executor": [
-        {"name": "Standard_DS3_v2", "vCPUs": 4},
-        {"name": "Standard_DS4_v2", "vCPUs": 8},
-        {"name": "Standard_DS5_v2", "vCPUs": 16},
-        {"name": "Standard_D32_v3", "vCPUs": 32},
-        {"name": "Standard_D64_v3", "vCPUs": 64},
-        {"name": "Standard_D96a_v4", "vCPUs": 96}
+        {"name": "Standard_E2ds_v4", "vCPUs": 2},
+        {"name": "Standard_E4ds_v4", "vCPUs": 4},
+        {"name": "Standard_E8ds_v4", "vCPUs": 8},
+        {"name": "Standard_E16ds_v4", "vCPUs": 16},
+        {"name": "Standard_E32ds_v4", "vCPUs": 32},
+        {"name": "Standard_E64ds_v4", "vCPUs": 64}
       ]
     }
   },
