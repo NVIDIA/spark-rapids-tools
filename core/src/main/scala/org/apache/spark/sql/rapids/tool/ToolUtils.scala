@@ -354,3 +354,8 @@ object SupportedMLFuncsName {
 }
 
 case class GpuEventLogException(message: String) extends Exception(message)
+
+object GpuTypes {
+  val A100 = "A100"
+  val T4 = "T4"
+}
