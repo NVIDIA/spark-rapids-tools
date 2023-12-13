@@ -1160,11 +1160,11 @@ class QualificationSuite extends BaseTestSuite {
 
           val expLinesSize =
             if (ToolUtils.isSpark340OrLater()) {
-              6
+              8
             } else if (!ToolUtils.isSpark320OrLater()) {
-              5
+              6
             } else {
-              5
+              7
             }
           assert(lines.size == expLinesSize)
           assert(lines.head.contains("App ID,Unsupported Type,"))
@@ -1172,7 +1172,7 @@ class QualificationSuite extends BaseTestSuite {
 
           val stageDurationLines = unsupportedStageDuration.getLines.toSeq
           assert(stageDurationLines.head.contains("" +
-            "Stage Wall Clock Duration,App Duration,Recommendation"))
+            "Stage Duration,App Duration,Recommendation"))
           assert(stageDurationLines(1).contains("Not Recommended"))
         } finally {
           inputSource.close()
