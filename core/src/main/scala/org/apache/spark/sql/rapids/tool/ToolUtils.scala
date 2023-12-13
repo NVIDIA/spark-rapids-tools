@@ -335,7 +335,7 @@ object IgnoreExecs {
   private val ExecuteCreateDataSourceTableAsSelectCommand = "Execute " +
     "CreateDataSourceTableAsSelectCommand"
   private val SetCatalogAndNamespace = "SetCatalogAndNamespace"
-  private val SetCommand = "Set Command"
+  private val ExecuteSetCommand = "Execute SetCommand"
 
 
   val True = "true"
@@ -345,7 +345,7 @@ object IgnoreExecs {
     ExecuteCreateViewCommand, ExistingRDD, LocalTableScan, ExecuteCreateTableCommand,
     ExecuteDropTableCommand, ExecuteCreateDatabaseCommand, ExecuteDropDatabaseCommand,
     ExecuteCreateTableAsSelectCommand, ExecuteCreateDataSourceTableAsSelectCommand,
-    SetCatalogAndNamespace)
+    SetCatalogAndNamespace, ExecuteSetCommand)
 }
 
 object MlOps {
