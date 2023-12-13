@@ -592,9 +592,7 @@ class QualificationAppInfo(
           e.children.map(x => x.filterNot(_.isSupported))
         }.flatten
         topLevelExecs ++ childrenExecs
-      }.collect {
-        case x if !IgnoreExecs.getAllIgnoreExecs.contains(x.exec) => x.exec
-      }.toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
+      }.map(_.exec).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
 
       // Get all the unsupported Expressions from the plan
       val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(

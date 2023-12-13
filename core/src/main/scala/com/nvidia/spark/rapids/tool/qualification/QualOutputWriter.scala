@@ -386,7 +386,7 @@ object QualOutputWriter {
   val SQL_DUR_STR = "SQL DF Duration"
   val TASK_DUR_STR = "SQL Dataframe Task Duration"
   val STAGE_DUR_STR = "Stage Task Duration"
-  val STAGE_WALLCLOCK_DUR_STR = "Stage Wall Clock Duration"
+  val STAGE_WALLCLOCK_DUR_STR = "Stage Duration"
   val POT_PROBLEM_STR = "Potential Problems"
   val EXEC_CPU_PERCENT_STR = "Executor CPU Time Percent"
   val APP_DUR_ESTIMATED_STR = "App Duration Estimated"
@@ -426,6 +426,7 @@ object QualOutputWriter {
   val UNSUPPORTED_TYPE = "Unsupported Type"
   val DETAILS = "Details"
   val NOTES = "Notes"
+  val IGNORE_OPERATOR = "Ignore Operator"
   val RUN_NAME = "RunName"
   val ESTIMATED_FREQUENCY = "Estimated Job Frequency (monthly)"
   val ML_FUNCTIONS = "ML Functions"
@@ -566,7 +567,8 @@ object QualOutputWriter {
       APP_ID_STR -> QualOutputWriter.getAppIdSize(appInfos),
       UNSUPPORTED_TYPE -> UNSUPPORTED_TYPE.size,
       DETAILS -> DETAILS.size,
-      NOTES -> NOTES.size
+      NOTES -> NOTES.size,
+      IGNORE_OPERATOR -> IGNORE_OPERATOR.size
     )
     detailedHeaderAndFields
   }
@@ -579,7 +581,8 @@ object QualOutputWriter {
       STAGE_ID_STR -> STAGE_ID_STR.size,
       STAGE_WALLCLOCK_DUR_STR -> STAGE_WALLCLOCK_DUR_STR.size,
       APP_DUR_STR -> APP_DUR_STR.size,
-      SPEEDUP_BUCKET_STR -> SPEEDUP_BUCKET_STR_SIZE
+      SPEEDUP_BUCKET_STR -> SPEEDUP_BUCKET_STR_SIZE,
+      IGNORE_OPERATOR -> IGNORE_OPERATOR.size
     )
     detailedHeaderAndFields
   }
@@ -939,25 +942,32 @@ object QualOutputWriter {
     sumInfo.stageInfo.collect {
       case info if info.unsupportedExecs.nonEmpty =>
         val stageAppDuration = info.stageWallclockDuration
-        val filteredUnsupportedExecs = info.unsupportedExecs.filterNot(
-          x => IgnoreExecs.getAllIgnoreExecs.contains(x))
-        val unsupportedExecsStr = filteredUnsupportedExecs.mkString(";")
-        if (unsupportedExecsStr.nonEmpty) {
-          val data = ListBuffer[(String, Int)](
-            reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-            reformatCSVFunc(unsupportedExecsStr) -> headersAndSizes(UNSUPPORTED_TYPE),
-            info.stageId.toString -> headersAndSizes(STAGE_ID_STR),
-            stageAppDuration.toString -> headersAndSizes(STAGE_WALLCLOCK_DUR_STR),
-            appDuration.toString -> headersAndSizes(APP_DUR_STR),
-            recommendation -> headersAndSizes(SPEEDUP_BUCKET_STR)
-          )
-          constructOutputRow(data, delimiter, prettyPrint)
-        } else {
+        val allUnsupportedExecs = info.unsupportedExecs
+        if (allUnsupportedExecs.nonEmpty) {
+          allUnsupportedExecs.map { unsupportedExecsStr =>
+            val ignoreUnsupportedExec = if (
+              IgnoreExecs.getAllIgnoreExecs.contains(unsupportedExecsStr)) {
+              IgnoreExecs.True
+            } else {
+              IgnoreExecs.False
+            }
+            val data = ListBuffer[(String, Int)](
+              reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
+              reformatCSVFunc(unsupportedExecsStr) -> headersAndSizes(UNSUPPORTED_TYPE),
+              info.stageId.toString -> headersAndSizes(STAGE_ID_STR),
+              stageAppDuration.toString -> headersAndSizes(STAGE_WALLCLOCK_DUR_STR),
+              appDuration.toString -> headersAndSizes(APP_DUR_STR),
+              recommendation -> headersAndSizes(SPEEDUP_BUCKET_STR),
+              ignoreUnsupportedExec -> headersAndSizes(IGNORE_OPERATOR)
+            )
+            constructOutputRow(data, delimiter, prettyPrint)
+          }.mkString
+        }
+        else {
           ""
         }
     }
   }
-
 
   def constructUnsupportedOperatorsInfo(
       sumInfo: QualificationSummaryInfo,
@@ -976,12 +986,14 @@ object QualOutputWriter {
     val dataSetExecs = allExecs.collect { case x if x.dataSet => x.exec }
     val udfExecs = allExecs.collect { case x if x.udf => x.exec }
 
-    def createUnsupportedRow(exec: String, execType: String, notes: String): String = {
+    def createUnsupportedRow(exec: String, execType: String, notes: String,
+        ignoreOperator: String = IgnoreExecs.False): String = {
       val data = ListBuffer(
         appId -> headersAndSizes(APP_ID_STR),
         reformatCSVFunc(execType) -> headersAndSizes(UNSUPPORTED_TYPE),
         reformatCSVFunc(exec) -> headersAndSizes(DETAILS),
-        reformatCSVFunc(notes) -> headersAndSizes(NOTES)
+        reformatCSVFunc(notes) -> headersAndSizes(NOTES),
+        reformatCSVFunc(ignoreOperator) -> headersAndSizes(IGNORE_OPERATOR)
       )
       constructOutputRow(data, delimiter, prettyPrint)
     }
@@ -1006,7 +1018,12 @@ object QualOutputWriter {
     val actualunsupportedExecs = unsupportedExecsFiltered.filterNot(x => dataSetExecs.contains(x)
         || udfExecs.contains(x) || unsupportedExecExprsMap.contains(x))
     val unsupportedExecRows = actualunsupportedExecs.map { exec =>
-      createUnsupportedRow(exec, "Exec", "")
+      // If the exec is in the ignore list, then set the ignore operator to true.
+      if (IgnoreExecs.getAllIgnoreExecs.contains(exec)) {
+        createUnsupportedRow(exec, "Exec", "", IgnoreExecs.True)
+      } else {
+        createUnsupportedRow(exec, "Exec", "", IgnoreExecs.False)
+      }
     }
     unsupportedOperatorsOutputRows ++= unsupportedExecRows
 
