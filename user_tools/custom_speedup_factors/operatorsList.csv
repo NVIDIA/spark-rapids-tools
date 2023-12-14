@@ -98,6 +98,7 @@ Expm1
 First
 Flatten
 Floor
+FormatNumber
 FromUTCTimestamp
 FromUnixTime
 GetArrayItem
@@ -168,6 +169,7 @@ Not
 NthValue
 OctetLength
 Or
+Percentile
 PercentRank
 PivotFirst
 Pmod
@@ -207,6 +209,7 @@ SortOrder
 SparkPartitionID
 SpecifiedWindowFrame
 Sqrt
+Stack
 StartsWith
 StddevPop
 StddevSamp
@@ -222,6 +225,7 @@ StringTranslate
 StringTrim
 StringTrimLeft
 StringTrimRight
+StructsToJson
 Substring
 SubstringIndex
 Subtract
