@@ -945,6 +945,9 @@ object QualOutputWriter {
         val allUnsupportedExecs = info.unsupportedExecs
         if (allUnsupportedExecs.nonEmpty) {
           allUnsupportedExecs.map { unsupportedExecsStr =>
+            // Ignore operator is a boolean value which indicates if the operator should be
+            // considered for GPU acceleration or not. If the value is true, the operator will
+            // be ignored.
             val ignoreUnsupportedExec = if (
               IgnoreExecs.getAllIgnoreExecs.contains(unsupportedExecsStr)) {
               IgnoreExecs.True
