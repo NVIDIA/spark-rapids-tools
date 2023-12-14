@@ -88,9 +88,9 @@ class DataprocPlatform(PlatformBase):
     def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
         cluster_conf = default_config
         cluster_conf['config']['masterConfig'] = {
-          'instanceNames': [f'test-node-d{i}' for i in range(cluster_info['num_driver_nodes'])],
+          'instanceNames': 'test-node-d',
           'machineTypeUri': cluster_info['driver_instance'],
-          'numInstances': cluster_info['num_driver_nodes']
+          'numInstances': 1  # single driver node
         }
         cluster_conf['config']['workerConfig'] = {
           'instanceNames': [f'test-node-e{i}' for i in range(cluster_info['num_executor_nodes'])],

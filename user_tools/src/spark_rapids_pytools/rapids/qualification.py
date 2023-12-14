@@ -23,7 +23,7 @@ import pandas as pd
 from tabulate import tabulate
 
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType
-from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo
+from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo, SparkNodeType
 from spark_rapids_pytools.common.cluster_inference import ClusterInference
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
@@ -199,6 +199,11 @@ class Qualification(RapidsJarTool):
             eventlog_arg = self.wrapper_options.get('eventlogs')
             cpu_cluster_obj = cluster_inference.infer_cpu_cluster(eventlog_arg)
             if cpu_cluster_obj is not None:
+                driver_instance = cpu_cluster_obj.get_master_node().instance_type
+                executor_instance = cpu_cluster_obj.get_worker_node(0).instance_type
+                num_executor_nodes = cpu_cluster_obj.get_nodes_cnt(SparkNodeType.WORKER)
+                self.logger.info('Inferred Cluster => Driver: %s, Executor: %s X %s', driver_instance,
+                                 num_executor_nodes, executor_instance)
                 self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
             else:
                 self.logger.info('Cannot infer CPU cluster from event logs')

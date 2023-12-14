@@ -81,7 +81,7 @@ class EMRPlatform(PlatformBase):
                 group['RequestedInstanceCount'] = cluster_info['num_executor_nodes']
             elif group.get('Name') == 'MASTER':
                 group['InstanceType'] = cluster_info['driver_instance']
-                group['RequestedInstanceCount'] = cluster_info['num_driver_nodes']
+                group['RequestedInstanceCount'] = 1  # single driver node
         return cluster_conf
 
     def migrate_cluster_to_gpu(self, orig_cluster):

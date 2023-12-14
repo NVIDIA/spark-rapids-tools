@@ -21,7 +21,7 @@ from logging import Logger
 
 from spark_rapids_pytools.cloud_api.databricks_aws import DBAWSPlatform
 from spark_rapids_pytools.cloud_api.databricks_azure import DBAzurePlatform
-from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging
 
@@ -56,7 +56,6 @@ class ClusterInference:
         """
         Process event logs and extract information about drivers and executors.
         """
-        num_driver_nodes = 0
         hosts = set()
         num_cores = None
         driver_instance = None
@@ -74,9 +73,7 @@ class ClusterInference:
             # Check for BlockManager added event to count drivers and collect unique hosts
             elif event_type == 'SparkListenerBlockManagerAdded':
                 executor_id = event_prop.get_value('Block Manager ID', 'Executor ID')
-                if executor_id == 'driver':
-                    num_driver_nodes += 1
-                else:
+                if executor_id != 'driver':
                     # Add host to the set hosts
                     host = event_prop.get_value('Block Manager ID', 'Host')
                     hosts.add(host)
@@ -96,13 +93,12 @@ class ClusterInference:
                 return None
             executor_instance = matching_instance
         return {
-            'num_driver_nodes': num_driver_nodes,
             'driver_instance': driver_instance,
             'num_executor_nodes': len(hosts),  # Number of unique hosts identify number of executor nodes
             'executor_instance': executor_instance
         }
 
-    def infer_cpu_cluster(self, eventlog_arg):
+    def infer_cpu_cluster(self, eventlog_arg) -> ClusterBase or None:
         """
         Infer CPU cluster configuration based on event logs and return the constructed cluster object.
         """
