@@ -70,13 +70,15 @@ class ClusterInference:
             # Check for executor added event to get the number of cores
             if num_cores is None and event_type == 'SparkListenerExecutorAdded':
                 num_cores = event_prop.get_value('Executor Info', 'Total Cores')
-            # Check for BlockManager added event to count drivers and collect unique hosts
-            elif event_type == 'SparkListenerBlockManagerAdded':
+            # Update hosts based on block manager events to collect unique hosts
+            if event_type in ['SparkListenerBlockManagerAdded', 'SparkListenerBlockManagerRemoved']:
                 executor_id = event_prop.get_value('Block Manager ID', 'Executor ID')
                 if executor_id != 'driver':
-                    # Add host to the set hosts
                     host = event_prop.get_value('Block Manager ID', 'Host')
-                    hosts.add(host)
+                    if event_type == 'SparkListenerBlockManagerAdded':
+                        hosts.add(host)
+                    elif event_type == 'SparkListenerBlockManagerRemoved':
+                        hosts.remove(host)
         # If driver instance is not set, use the default value from platform configurations
         if driver_instance is None:
             driver_instance = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
