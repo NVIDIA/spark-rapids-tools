@@ -332,12 +332,29 @@ object IgnoreExecs {
   // Collect Limit replacement can be slower on the GPU. Disabled by default.
   private val CollectLimit = "CollectLimit"
   private val ScanExistingRDD = "Scan ExistingRDD"
-  private val ExecuteCreateViewCommand = "Execute CreateViewCommand"
   private val ExistingRDD = "ExistingRDD"
+  // Some DDL's  and table commands which can be ignored
+  private val ExecuteCreateViewCommand = "Execute CreateViewCommand"
   private val LocalTableScan = "LocalTableScan"
+  private val ExecuteCreateDatabaseCommand = "Execute CreateDatabaseCommand"
+  private val ExecuteDropDatabaseCommand = "Execute DropDatabaseCommand"
+  private val ExecuteCreateTableAsSelectCommand = "Execute CreateTableAsSelectCommand"
+  private val ExecuteCreateTableCommand = "Execute CreateTableCommand"
+  private val ExecuteDropTableCommand = "Execute DropTableCommand"
+  private val ExecuteCreateDataSourceTableAsSelectCommand = "Execute " +
+    "CreateDataSourceTableAsSelectCommand"
+  private val SetCatalogAndNamespace = "SetCatalogAndNamespace"
+  private val ExecuteSetCommand = "Execute SetCommand"
+
+
+  val True = "true"
+  val False = "false"
 
   def getAllIgnoreExecs: Set[String] = Set(AdaptiveSparkPlan, CollectLimit, ScanExistingRDD,
-    ExecuteCreateViewCommand, ExistingRDD, LocalTableScan)
+    ExecuteCreateViewCommand, ExistingRDD, LocalTableScan, ExecuteCreateTableCommand,
+    ExecuteDropTableCommand, ExecuteCreateDatabaseCommand, ExecuteDropDatabaseCommand,
+    ExecuteCreateTableAsSelectCommand, ExecuteCreateDataSourceTableAsSelectCommand,
+    SetCatalogAndNamespace, ExecuteSetCommand)
 }
 
 object MlOps {
