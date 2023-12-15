@@ -16,6 +16,8 @@
 
 package org.apache.spark.sql.rapids.tool.profiling
 
+import java.util.concurrent.atomic.AtomicLong
+
 import scala.collection.{mutable, Map}
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
@@ -28,7 +30,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.metric.SQLMetricInfo
-import org.apache.spark.sql.execution.ui.SparkPlanGraph
+import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster,
+  SparkPlanGraphEdge, SparkPlanGraphNode, SQLPlanMetric}
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 import org.apache.spark.ui.UIUtils
 
@@ -181,6 +184,122 @@ object SparkPlanInfoWithStage {
   }
 }
 
+object GpuSparkPlanGraph {
+
+  /**
+   * This code is mostly copied from org.apache.spark.sql.execution.ui.SparkPlanGraph
+   * with additions/changes to fit our needs.
+   *
+   * Build a SparkPlanGraph from the root of a SparkPlan tree.
+   */
+  def apply(planInfo: SparkPlanInfo): SparkPlanGraph = {
+    val nodeIdGenerator = new AtomicLong(0)
+    val nodes = mutable.ArrayBuffer[SparkPlanGraphNode]()
+    val edges = mutable.ArrayBuffer[SparkPlanGraphEdge]()
+    val exchanges = mutable.HashMap[SparkPlanInfo, SparkPlanGraphNode]()
+    buildSparkPlanGraphNode(planInfo, nodeIdGenerator, nodes, edges, null, null, exchanges)
+    new SparkPlanGraph(nodes.toSeq, edges.toSeq)
+  }
+
+  private def buildSparkPlanGraphNode(planInfo: SparkPlanInfo,
+      nodeIdGenerator: AtomicLong,
+      nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
+      edges: mutable.ArrayBuffer[SparkPlanGraphEdge],
+      parent: SparkPlanGraphNode,
+      subgraph: SparkPlanGraphCluster,
+      exchanges: mutable.HashMap[SparkPlanInfo, SparkPlanGraphNode]
+  ): Unit = {
+
+    planInfo.nodeName match {
+      case name if name.startsWith("WholeStageCodegen") =>
+        val metrics = planInfo.metrics.map { metric =>
+          SQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
+        }
+
+        val cluster = new SparkPlanGraphCluster(
+          nodeIdGenerator.getAndIncrement(),
+          planInfo.nodeName,
+          planInfo.simpleString,
+          mutable.ArrayBuffer[SparkPlanGraphNode](),
+          metrics)
+        nodes += cluster
+
+        buildSparkPlanGraphNode(
+          planInfo.children.head, nodeIdGenerator, nodes, edges, parent, cluster, exchanges)
+      case "InputAdapter" =>
+        buildSparkPlanGraphNode(
+          planInfo.children.head, nodeIdGenerator, nodes, edges, parent, null, exchanges)
+      case "BroadcastQueryStage" | "ShuffleQueryStage" =>
+        if (exchanges.contains(planInfo.children.head)) {
+          // Point to the re-used exchange
+          val node = exchanges(planInfo.children.head)
+          edges += SparkPlanGraphEdge(node.id, parent.id)
+        } else {
+          buildSparkPlanGraphNode(
+            planInfo.children.head, nodeIdGenerator, nodes, edges, parent, null, exchanges)
+        }
+      case "Subquery" if subgraph != null =>
+        // Subquery should not be included in WholeStageCodegen
+        buildSparkPlanGraphNode(planInfo, nodeIdGenerator, nodes, edges, parent, null, exchanges)
+      case "Subquery" if exchanges.contains(planInfo) =>
+        // Point to the re-used subquery
+        val node = exchanges(planInfo)
+        edges += SparkPlanGraphEdge(node.id, parent.id)
+      case "SubqueryBroadcast" if subgraph != null =>
+        // SubqueryBroadcast should not be included in WholeStageCodegen
+        buildSparkPlanGraphNode(planInfo, nodeIdGenerator, nodes, edges, parent, null, exchanges)
+      case "SubqueryBroadcast" if exchanges.contains(planInfo) =>
+        // Point to the re-used subquery
+        val node = exchanges(planInfo)
+        edges += SparkPlanGraphEdge(node.id, parent.id)
+      case "GpuSubquery" if subgraph != null =>
+        // GpuSubquery should not be included in WholeStageCodegen
+        buildSparkPlanGraphNode(planInfo, nodeIdGenerator, nodes, edges, parent, null, exchanges)
+      case "GpuSubquery" if exchanges.contains(planInfo) =>
+        // Point to the re-used subquery
+        val node = exchanges(planInfo)
+        edges += SparkPlanGraphEdge(node.id, parent.id)
+      case "GpuSubqueryBroadcast" if subgraph != null =>
+        // SubqueryBroadcast should not be included in WholeStageCodegen
+        buildSparkPlanGraphNode(planInfo, nodeIdGenerator, nodes, edges, parent, null, exchanges)
+      case "GpuSubqueryBroadcast" if exchanges.contains(planInfo) =>
+        // Point to the re-used subquery
+        val node = exchanges(planInfo)
+        edges += SparkPlanGraphEdge(node.id, parent.id)
+      case "ReusedSubquery" =>
+        // Re-used subquery might appear before the original subquery, so skip this node and let
+        // the previous `case` make sure the re-used and the original point to the same node.
+        buildSparkPlanGraphNode(
+          planInfo.children.head, nodeIdGenerator, nodes, edges, parent, subgraph, exchanges)
+      case "ReusedExchange" if exchanges.contains(planInfo.children.head) =>
+        // Point to the re-used exchange
+        val node = exchanges(planInfo.children.head)
+        edges += SparkPlanGraphEdge(node.id, parent.id)
+      case name =>
+        val metrics = planInfo.metrics.map { metric =>
+          SQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
+        }
+        val node = new SparkPlanGraphNode(
+          nodeIdGenerator.getAndIncrement(), planInfo.nodeName,
+          planInfo.simpleString, metrics)
+        if (subgraph == null) {
+          nodes += node
+        } else {
+          subgraph.nodes += node
+        }
+        if (name.contains("Exchange") || name.contains("Subquery")) {
+          exchanges += planInfo -> node
+        }
+
+        if (parent != null) {
+          edges += SparkPlanGraphEdge(node.id, parent.id)
+        }
+        planInfo.children.foreach(
+          buildSparkPlanGraphNode(_, nodeIdGenerator, nodes, edges, node, subgraph, exchanges))
+    }
+  }
+}
+
 /**
  * ApplicationInfo class saves all parsed events for future use.
  * Used only for Profiling.
@@ -242,7 +361,7 @@ class ApplicationInfo(
   // Connects Operators to Stages using AccumulatorIDs
   def connectOperatorToStage(): Unit = {
     for ((sqlId, planInfo) <- sqlPlans) {
-      val planGraph = SparkPlanGraph(planInfo)
+      val planGraph = GpuSparkPlanGraph(planInfo)
       // Maps stages to operators by checking for non-zero intersection
       // between nodeMetrics and stageAccumulateIDs
       val nodeIdToStage = planGraph.allNodes.map { node =>
@@ -260,7 +379,7 @@ class ApplicationInfo(
     connectOperatorToStage()
     for ((sqlID, planInfo) <- sqlPlans) {
       checkMetadataForReadSchema(sqlID, planInfo)
-      val planGraph = SparkPlanGraph(planInfo)
+      val planGraph = GpuSparkPlanGraph(planInfo)
       // SQLPlanMetric is a case Class of
       // (name: String,accumulatorId: Long,metricType: String)
       val allnodes = planGraph.allNodes
@@ -343,7 +462,7 @@ class ApplicationInfo(
           v.contains(s)
         }.keys.toSeq
         val nodeNames = sqlPlans.get(j.sqlID.get).map { planInfo =>
-          val nodes = SparkPlanGraph(planInfo).allNodes
+          val nodes = GpuSparkPlanGraph(planInfo).allNodes
           val validNodes = nodes.filter { n =>
             nodeIds.contains((j.sqlID.get, n.id))
           }
