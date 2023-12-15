@@ -39,7 +39,9 @@ class ExecInfo(
     val children: Option[Seq[ExecInfo]], // only one level deep
     val stages: Set[Int] = Set.empty,
     val shouldRemove: Boolean = false,
-    val unsupportedExprs: Array[String] = Array.empty) {
+    val unsupportedExprs: Array[String] = Array.empty,
+    val dataSet: Boolean = false,
+    val udf: Boolean = false) {
   private def childrenToString = {
     val str = children.map { c =>
       c.map("       " + _.toString).mkString("\n")
@@ -76,7 +78,8 @@ object SQLPlanParser extends Logging {
 
   val windowFunctionPattern = """(\w+)\(""".r
 
-  val ignoreExpressions = Array("any", "cast", "decimal", "decimaltype", "every", "some",
+  val ignoreExpressions = Array("any", "cast", "ansi_cast", "decimal", "decimaltype", "every",
+    "some", "merge_max", "merge_min", "merge_sum", "merge_count", "merge_avg", "merge_first",
     "list",
     // current_database does not cause any CPU fallbacks
     "current_database",
@@ -301,13 +304,12 @@ object SQLPlanParser extends Logging {
       }
       val stagesInNode = getStagesInSQLNode(node, app)
       val supported = execInfos.isSupported && !ds && !containsUDF
-
       // shouldRemove is set to true if the exec is a member of "execsToBeRemoved" or if the node
       // is a duplicate
       val removeFlag = execInfos.shouldRemove || isDupNode || execsToBeRemoved.contains(node.name)
       Seq(new ExecInfo(execInfos.sqlID, execInfos.exec, execInfos.expr, execInfos.speedupFactor,
         execInfos.duration, execInfos.nodeId, supported, execInfos.children,
-        stagesInNode, removeFlag, execInfos.unsupportedExprs))
+        stagesInNode, removeFlag, execInfos.unsupportedExprs, ds, containsUDF))
     }
   }
 

@@ -93,6 +93,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOperatorsCSVReport(allAppsSum, order)
+    qWriter.writeUnsupportedOperatorsDetailedStageCSVReport(allAppsSum, order)
     val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
     qWriter.writeStatusReport(appStatusResult, order)
     if (mlOpsEnabled) {

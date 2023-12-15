@@ -296,6 +296,7 @@ class QualificationAppInfo(
     val allSpeedupFactorAvg = SQLPlanParser.averageSpeedup(execInfos.map(_.speedupFactor))
     val allFlattenedExecs = flattenedExecs(execInfos)
     val numUnsupported = allFlattenedExecs.filterNot(_.isSupported)
+    val unsupportedExecs = numUnsupported.map(_.exec)
     // if we have unsupported try to guess at how much time.  For now divide
     // time by number of execs and give each one equal weight
     val eachExecTime = allStageTaskTime / allFlattenedExecs.size
@@ -339,8 +340,13 @@ class QualificationAppInfo(
         eachStageUnsupported
       }
 
+      // Get stage info for the given stageId.
+      val stageInfos = stageIdToInfo.filterKeys { case (id, _) => id == stageId }
+      val wallclockStageDuration = stageInfos.values.map(x => x.duration.getOrElse(0L)).sum
+
       StageQualSummaryInfo(stageId, allSpeedupFactorAvg, stageTaskTime,
-        finalEachStageUnsupported, numTransitions, transitionsTime, estimated)
+        finalEachStageUnsupported, numTransitions, transitionsTime, estimated,
+        wallclockStageDuration, unsupportedExecs)
     }.toSet
   }
 
@@ -459,7 +465,7 @@ class QualificationAppInfo(
           c.filterNot(_.shouldRemove)
         }
         new ExecInfo(e.sqlID, e.exec, e.expr, e.speedupFactor, e.duration,
-          e.nodeId, e.isSupported, filteredChildren, e.stages, e.shouldRemove)
+          e.nodeId, e.isSupported, filteredChildren, e.stages, e.shouldRemove, e.unsupportedExprs)
       }
       val filteredPlanInfos = execFilteredChildren.filterNot(_.shouldRemove)
       p.copy(execInfo = filteredPlanInfos)
@@ -586,10 +592,7 @@ class QualificationAppInfo(
           e.children.map(x => x.filterNot(_.isSupported))
         }.flatten
         topLevelExecs ++ childrenExecs
-      }.collect {
-        case x if !IgnoreExecs.getAllIgnoreExecs.contains(x.exec) => x.exec
-      }.toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
-
+      }.map(_.exec).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
 
       // Get all the unsupported Expressions from the plan
       val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(
@@ -639,6 +642,9 @@ class QualificationAppInfo(
         1
       }
 
+      val wallClockSqlDFToUse = QualificationAppInfo.wallClockSqlDataFrameToUse(
+        sparkSQLDFWallClockDuration, appDuration)
+
       val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
         sparkSQLDFWallClockDuration, appDuration, taskSpeedupFactor, appName, appId,
         sqlIdsWithFailures.nonEmpty, mlSpeedup, unSupportedExecs, unSupportedExprs,
@@ -649,8 +655,8 @@ class QualificationAppInfo(
         notSupportFormatAndTypesString, getAllReadFileFormats, writeFormat,
         allComplexTypes, nestedComplexTypes, longestSQLDuration, sqlDataframeTaskDuration,
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
-        taskSpeedupFactor, info.sparkUser, info.startTime, origPlanInfos,
-        perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
+        taskSpeedupFactor, info.sparkUser, info.startTime, wallClockSqlDFToUse,
+        origPlanInfos, perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
         mlTotalStageDuration, unsupportedExecExprsMap)
     }
@@ -864,6 +870,7 @@ case class QualificationSummaryInfo(
     taskSpeedupFactor: Double,
     user: String,
     startTime: Long,
+    sparkSqlDFWallClockDuration: Long,
     planInfo: Seq[PlanInfo],
     stageInfo: Seq[StageQualSummaryInfo],
     estimatedInfo: EstimatedAppInfo,
@@ -884,7 +891,9 @@ case class StageQualSummaryInfo(
     unsupportedTaskDur: Long,
     numTransitions: Int,
     transitionTime: Long,
-    estimated: Boolean = false)
+    estimated: Boolean = false,
+    stageWallclockDuration: Long = 0,
+    unsupportedExecs: Seq[String] = Seq.empty)
 
 object QualificationAppInfo extends Logging {
   // define recommendation constants
@@ -929,19 +938,19 @@ object QualificationAppInfo extends Logging {
     }
   }
 
+  def wallClockSqlDataFrameToUse(sqlDataFrameDuration: Long, appDuration: Long): Long = {
+    // If our app duration is shorter than our sql duration, estimate the sql duration down
+    // to app duration
+    math.min(sqlDataFrameDuration, appDuration)
+  }
+
   // Summarize and estimate based on wall clock times
   def calculateEstimatedInfoSummary(estimatedRatio: Double, sqlDataFrameDuration: Long,
       appDuration: Long, sqlSpeedupFactor: Double, appName: String, appId: String,
       hasFailures: Boolean, mlSpeedupFactor: Option[MLFuncsSpeedupAndDuration] = None,
       unsupportedExecs: String = "", unsupportedExprs: String = "",
       allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedAppInfo = {
-    val sqlDataFrameDurationToUse = if (sqlDataFrameDuration > appDuration) {
-      // our app duration is shorter then our sql duration, estimate the sql duration down
-      // to app duration
-      appDuration
-    } else {
-      sqlDataFrameDuration
-    }
+    val sqlDataFrameDurationToUse = wallClockSqlDataFrameToUse(sqlDataFrameDuration, appDuration)
 
     // get the average speedup and duration for ML funcs supported on GPU
     val (mlSpeedup, mlDuration) = if (mlSpeedupFactor.isDefined) {
