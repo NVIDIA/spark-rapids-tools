@@ -293,7 +293,7 @@ abstract class AppBase(
       val readSchema = ReadParser.formatSchemaStr(meta.getOrElse("ReadSchema", ""))
       val scanNode = allNodes.filter(node => {
         // Get ReadSchema of each Node and sanitize it for comparison
-        // The "NativeScan" name is from Velox engine
+        // The "NativeScan" name is from Gluten engine
         val trimmedNode = trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
       }).filter(x => x.name.startsWith("Scan") || x.name.startsWith("NativeScan")).head
