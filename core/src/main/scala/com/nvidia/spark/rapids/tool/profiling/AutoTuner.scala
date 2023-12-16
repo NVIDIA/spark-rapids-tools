@@ -815,6 +815,11 @@ class AutoTuner(
           s"'$lookup' should be increased since spilling occurred.")
       }
     }
+    // TODO
+    val aqeAutoShuffle = getPropertyValue("spark.databricks.adaptive.autoOptimizeShuffle.enabled")
+    if (!aqeAutoShuffle.isEmpty) {
+      appendRecommendation("spark.databricks.adaptive.autoOptimizeShuffle.enabled", "false")
+    }
     appendRecommendation("spark.sql.shuffle.partitions", s"$shufflePartitions")
   }
 
