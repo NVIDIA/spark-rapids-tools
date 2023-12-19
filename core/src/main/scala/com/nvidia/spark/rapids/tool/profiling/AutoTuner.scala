@@ -586,7 +586,7 @@ class AutoTuner(
     appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numExecutorCores)
     appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
       Math.max(20, numExecutorCores))
-    appendRecommendation("spark.rapids.sql.batchSizeBytes", 2147483647)
+    appendRecommendation("spark.rapids.sql.batchSizeBytes", BATCH_SIZE_BYTES)
 
     recommendAQEProperties()
   }
@@ -1033,6 +1033,8 @@ object AutoTuner extends Logging {
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
   private val DOC_URL: String = "https://nvidia.github.io/spark-rapids/docs/" +
     "additional-functionality/advanced_configs.html#advanced-configuration"
+  // Value of batchSizeBytes that performs best overall
+  private val BATCH_SIZE_BYTES = 2147483647
   private val AQE_INPUT_SIZE_BYTES_THRESHOLD = 35000
   private val AQE_SHUFFLE_READ_BYTES_THRESHOLD = 50000
   private val AQE_DEF_ADVISORY_PARTITION_SIZE = "32m"
