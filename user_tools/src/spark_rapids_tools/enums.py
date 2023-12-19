@@ -37,7 +37,9 @@ class EnumeratedType(str, Enum):
         :return: the uppercase string that represents the state object
         :rtype: str
         """
+        print("value =", value)
         value = cast(Enum, value)
+        print("value =", value)
         return str(value._value_).upper()  # pylint: disable=protected-access
 
     @classmethod

@@ -115,6 +115,8 @@ class GpuHWInfo:
     gpu_device: GpuDevice = GpuDevice.get_default_gpu()
 
     def get_gpu_device_name(self) -> str:
+        print("self.gpu_device =", self.gpu_device)
+        print("GpuDevice.get_default_gpu()=", GpuDevice.get_default_gpu())
         return GpuDevice.tostring(self.gpu_device)
 
 
