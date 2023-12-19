@@ -16,7 +16,7 @@
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on On-Prem cluster."""
 from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
-from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
 
@@ -36,8 +36,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                       target_platform: str = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
-                      jvm_heap_size: int = 24,
-                      verbose: bool = False,
+                      jvm_heap_size: int = None,
+                      verbose: bool = None,
                       cpu_discount: int = None,
                       gpu_discount: int = None,
                       global_discount: int = None,
@@ -80,6 +80,11 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 For more details on Qualification tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#qualification-tool-options
         """
+        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
+        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+        eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
+        filter_apps = Utils.get_value_or_pop(filter_apps, rapids_options, 'f')
+        local_folder = Utils.get_value_or_pop(local_folder, rapids_options, 'l')
         if verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
@@ -132,8 +137,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                   eventlogs: str = None,
                   local_folder: str = None,
                   tools_jar: str = None,
-                  jvm_heap_size: int = 24,
-                  verbose: bool = False,
+                  jvm_heap_size: int = None,
+                  verbose: bool = None,
                   **rapids_options) -> None:
         """
         The Profiling tool analyzes both CPU or GPU generated event logs and generates information
@@ -158,7 +163,12 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         For more details on Profiling tool options, please visit
         https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#profiling-tool-options
         """
-
+        verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
+        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+        eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
+        tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
+        worker_info = Utils.get_value_or_pop(worker_info, rapids_options, 'w')
+        local_folder = Utils.get_value_or_pop(local_folder, rapids_options, 'l')
         if verbose:
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()

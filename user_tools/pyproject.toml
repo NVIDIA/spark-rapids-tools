@@ -37,7 +37,7 @@ dependencies = [
     "pylint-pydantic==0.3.0",
     # used for common API to access remote filesystems like local/s3/gcs/hdfs
     # this will include numpy
-    "pyarrow==12.0.1",
+    "pyarrow==14.0.1",
     # used for ADLS filesystem implementation
     # Issue-568: use 12.17.0 as the new 12.18.0 causes an error in runtime
     "azure-storage-blob==12.17.0",
@@ -49,7 +49,7 @@ dynamic=["entry-points", "version"]
 
 [project.scripts]
 spark_rapids_user_tools = "spark_rapids_pytools.wrapper:main"
-ascli = "spark_rapids_tools.cmdli.tools_cli:main"
+spark_rapids = "spark_rapids_tools.cmdli.tools_cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -770,10 +770,6 @@ class Qualification(RapidsJarTool):
         if wrapper_out_content is not None:
             print(Utils.gen_multiline_str(wrapper_out_content))
 
-    def _init_rapids_arg_list(self) -> List[str]:
-        # TODO: Make sure we add this argument only for jar versions 23.02+
-        return ['--platform', self.ctxt.platform.get_platform_name().replace('_', '-')]
-
     def _generate_section_lines(self, sec_conf: dict) -> List[str]:
         # TODO: we may like to show the scripts even when the gpu-cluster is not defined
         #      this requires that we allow to generate the script without the gpu-cluster

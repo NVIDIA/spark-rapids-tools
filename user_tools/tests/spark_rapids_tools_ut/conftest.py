@@ -16,7 +16,7 @@
 
 import sys
 
-import pytest   # pylint: disable=import-error
+import pytest  # pylint: disable=import-error
 
 
 def get_test_resources_path():
@@ -46,9 +46,10 @@ csp_cpu_cluster_props = [(e_1, e_2) for (e_1, e_2) in all_cpu_cluster_props if e
 # all csps except onprem
 csps = ['dataproc', 'dataproc_gke', 'emr', 'databricks_aws', 'databricks_azure']
 all_csps = csps + ['onprem']
+autotuner_prop_path = 'worker_info.yaml'
 
 
-class SparkRapidsToolsUT:   # pylint: disable=too-few-public-methods
+class SparkRapidsToolsUT:  # pylint: disable=too-few-public-methods
 
     @pytest.fixture(autouse=True)
     def get_ut_data_dir(self):

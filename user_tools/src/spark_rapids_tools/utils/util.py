@@ -91,7 +91,7 @@ def to_snake_case(word: str) -> str:
 def dump_tool_usage(tool_name: Optional[str], raise_sys_exit: Optional[bool] = True):
     imported_module = __import__('spark_rapids_tools.cmdli', globals(), locals(), ['ToolsCLI'])
     wrapper_clzz = getattr(imported_module, 'ToolsCLI')
-    help_name = 'ascli'
+    help_name = 'spark_rapids'
     usage_cmd = f'{tool_name} -- --help'
     try:
         fire.Fire(wrapper_clzz(), name=help_name, command=usage_cmd)

@@ -77,10 +77,10 @@ object ProfileMain extends Logging {
     }
 
     val profiler = new Profiler(hadoopConf, appArgs, enablePB)
-    profiler.profile(eventLogFsFiltered)
-    if (driverLog.nonEmpty){
-      profiler.profileDriver(driverLog)
+    if (driverLog.nonEmpty) {
+      profiler.profileDriver(driverLog, eventLogFsFiltered.isEmpty)
     }
+    profiler.profile(eventLogFsFiltered)
     (0, filteredLogs.size)
   }
 

@@ -15,6 +15,7 @@
  */
 package com.nvidia.spark.rapids.tool.qualification
 
+import com.nvidia.spark.rapids.tool.PlatformNames
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import org.rogach.scallop.exceptions.ScallopException
 
@@ -155,10 +156,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val platform: ScallopOption[String] =
     opt[String](required = false,
       descr = "Cluster platform where Spark CPU workloads were executed. Options include " +
-        "onprem, dataproc-t4, dataproc-l4, dataproc-serverless-l4, dataproc-gke-t4, " +
-        "dataproc-gke-l4, emr-t4, emr-a10, databricks-aws, and databricks-azure. Default " +
-        "is onprem.",
-      default = Some("onprem"))
+        s"${PlatformNames.getAllNames.mkString(", ")}. " +
+        s"Default is ${PlatformNames.DEFAULT}.",
+      default = Some(PlatformNames.DEFAULT))
   val speedupFactorFile: ScallopOption[String] =
     opt[String](required = false,
       descr = "Custom speedup factor file used to get estimated GPU speedup that is specific " +

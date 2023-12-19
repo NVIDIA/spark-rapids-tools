@@ -16,14 +16,14 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import java.io.File
+import java.io.{File, PrintWriter}
 import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
 import com.nvidia.spark.rapids.BaseTestSuite
-import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, StatusReportCounts, ToolTestUtils}
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.ml.feature.PCA
@@ -458,6 +458,67 @@ class QualificationSuite extends BaseTestSuite {
     // Status counts: 1 SUCCESS, 0 FAILURE, 1 UNKNOWN
     val expectedStatus = Some(StatusReportCounts(1, 0, 1))
     runQualificationTest(logFiles, "nds_q86_test_expectation.csv", expectedStatus = expectedStatus)
+  }
+
+  test("incomplete json file does not cause entire app to fail") {
+    // The purpose of this test is to make sure that the app is not skipped when the JSON parser
+    // encounters an unexpected EOF.
+    // There are two cases to evaluate:
+    // 1- An eventlog that has an end-to-end application but for some reason the EOF is incorrect
+    // 2- An eventlog of an unfinished app (missing SparkListenerApplicationEnd)
+
+    TrampolineUtil.withTempDir { eventLogDir =>
+      // generate the original eventlog
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+        "WholeStageFilterProject") { spark =>
+        import spark.implicits._
+        val df = spark.sparkContext.makeRDD(1 to 100, 3).toDF
+        val df2 = spark.sparkContext.makeRDD(1 to 100, 3).toDF
+        df.select($"value" as "a")
+          .join(df2.select($"value" as "b"), $"a" === $"b")
+          .filter("(((b < 100) AND (a > 50)) OR (a = 0))")
+          .sort($"b")
+      }
+      // create the following files:
+      // 1- inprogress eventlog that does not contain "SparkListenerApplicationEnd" (unfinished)
+      // 2- inprogress eventlog with a terminated app (incomplete)
+      val unfinishedLog = new File(s"$eventLogDir/unfinished.inprogress")
+      val incompleteLog = new File(s"$eventLogDir/eventlog.inprogress")
+      val pwList = Array(new PrintWriter(unfinishedLog), new PrintWriter(incompleteLog))
+      val bufferedSource = Source.fromFile(eventLog)
+      try {
+        val allEventLines = bufferedSource.getLines.toList
+        val selectedLines: List[String] = allEventLines.dropRight(1)
+        selectedLines.foreach { line =>
+          pwList.foreach(pw => pw.println(line))
+        }
+        // add the "SparkListenerApplicationEnd" to the incompleteLog
+        pwList(1).println(allEventLines.last)
+        pwList.foreach( pw =>
+          pw.print("{\"Event\":\"SparkListenerEnvironmentUpdate\"," +
+          "\"JVM Information\":{\"Java Home:")
+        )
+      } finally {
+        bufferedSource.close()
+        pwList.foreach(pw => pw.close())
+      }
+      // All the eventlogs should be parsed successfully
+      // Status counts: 3 SUCCESS, 0 FAILURE, 0 UNKNOWN
+      val logFiles = Array(eventLog, incompleteLog.getAbsolutePath, unfinishedLog.getAbsolutePath)
+      // test Qualification
+      val outpath = new File(s"$eventLogDir/output_folder")
+      val allArgs = Array(
+        "--output-directory",
+        outpath.getAbsolutePath())
+
+      val appArgs = new QualificationArgs(allArgs ++ logFiles)
+      val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+      assert(exit == 0)
+      assert(appSum.size == 3)
+      // test Profiler
+      val apps = ToolTestUtils.processProfileApps(logFiles, sparkSession)
+      assert(apps.size == 3)
+    }
   }
 
   test("spark2 eventlog") {
@@ -1150,7 +1211,10 @@ class QualificationSuite extends BaseTestSuite {
 
         val filename = s"$outpath/rapids_4_spark_qualification_output/" +
           s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
+        val stageDurationFile = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output_unsupportedOperatorsStageDuration.csv"
         val inputSource = Source.fromFile(filename)
+        val unsupportedStageDuration = Source.fromFile(stageDurationFile)
         try {
           val lines = inputSource.getLines.toSeq
           // 1 for header, 1 for values
@@ -1166,6 +1230,11 @@ class QualificationSuite extends BaseTestSuite {
           assert(lines.size == expLinesSize)
           assert(lines.head.contains("App ID,Unsupported Type,"))
           assert(lines(1).contains("\"Read\",\"JSON\",\"Types not supported - bigint:int\""))
+
+          val stageDurationLines = unsupportedStageDuration.getLines.toSeq
+          assert(stageDurationLines.head.contains("" +
+            "Stage Duration,App Duration,Recommendation"))
+          assert(stageDurationLines(1).contains("Not Recommended"))
         } finally {
           inputSource.close()
         }
@@ -1337,292 +1406,29 @@ class QualificationSuite extends BaseTestSuite {
         spark.sql("SELECT id, hour(current_timestamp()), second(to_timestamp(timestamp)) FROM t1")
       }
 
-      // run the qualification tool for onprem
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "onprem",
-          eventLog))
+      PlatformNames.getAllNames.foreach { platform =>
+        // run the qualification tool for each platform
+        TrampolineUtil.withTempDir { outPath =>
+          val appArgs = new QualificationArgs(Array(
+            "--output-directory",
+            outPath.getAbsolutePath,
+            "--platform",
+            platform,
+            eventLog))
 
-        val (exit, sumInfo) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-  
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
+          val (exit, _) = QualificationMain.mainInternal(appArgs)
+          assert(exit == 0)
 
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
-      }
+          // the code above that runs the Spark query stops the Spark Session,
+          // so create a new one to read in the csv file
+          createSparkSession()
 
-      // run the qualification tool for emr. It should default to emr-t4.
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "emr",
-          eventLog))
-
-        val (exit, sumInfo) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-  
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
-      }
-
-      // run the qualification tool for emr-t4
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "emr-t4",
-          eventLog))
-
-        val (exit, sumInfo) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
-      }
-
-      // run the qualification tool for emr-a10
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "emr-a10",
-          eventLog))
-
-        val (exit, sumInfo) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
-      }
-
-      // run the qualification tool for dataproc. It should default to dataproc-t4
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "dataproc",
-          eventLog))
-
-        val (exit, sumInfo) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
-      }
-
-      // run the qualification tool for dataproc-t4
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "dataproc-t4",
-          eventLog))
-
-        val (exit, sumInfo) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-  
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
-      }
-
-      // run the qualification tool for dataproc-l4
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "dataproc-l4",
-          eventLog))
-
-        val (exit, sumInfo) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
-      }
-
-      // run the qualification tool for dataproc-serverless-l4
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "dataproc-serverless-l4",
-          eventLog))
-
-        val (exit, sumInfo) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
-      }
-
-      // run the qualification tool for dataproc-gke-t4
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "dataproc-gke-t4",
-          eventLog))
-
-        val (exit, _) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
-      }
-
-      // run the qualification tool for dataproc-gke-l4
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "dataproc-gke-l4",
-          eventLog))
-
-        val (exit, _) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
-      }
-
-      // run the qualification tool for databricks-aws
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "databricks-aws",
-          eventLog))
-
-        val (exit, sumInfo) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
-      }
-
-      // run the qualification tool for databricks-azure
-      TrampolineUtil.withTempDir { outpath =>
-        val appArgs = new QualificationArgs(Array(
-          "--output-directory",
-          outpath.getAbsolutePath,
-          "--platform",
-          "databricks-azure",
-          eventLog))
-
-        val (exit, sumInfo) =
-          QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-
-        // the code above that runs the Spark query stops the Sparksession
-        // so create a new one to read in the csv file
-        createSparkSession()
-
-        // validate that the SQL description in the csv file escapes commas properly
-        val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output.csv"
-        val outputActual = readExpectedFile(new File(outputResults))
-        assert(outputActual.collect().size == 1)
+          // validate that the SQL description in the csv file escapes commas properly
+          val outputResults = s"$outPath/rapids_4_spark_qualification_output/" +
+            s"rapids_4_spark_qualification_output.csv"
+          val outputActual = readExpectedFile(new File(outputResults))
+          assert(outputActual.collect().length == 1)
+        }
       }
     }
   }
