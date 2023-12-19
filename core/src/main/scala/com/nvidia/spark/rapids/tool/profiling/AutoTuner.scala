@@ -670,8 +670,6 @@ class AutoTuner(
     }
     val advisoryPartitionSizeProperty =
       getPropertyValue("spark.sql.adaptive.advisoryPartitionSizeInBytes")
-    val initialPartitionNumProperty =
-      getPropertyValue("spark.sql.adaptive.coalescePartitions.initialPartitionNum").map(_.toInt)
     if (appInfoProvider.getMeanInput < AQE_INPUT_SIZE_BYTES_THRESHOLD) {
       if(advisoryPartitionSizeProperty.isEmpty) {
         // The default is 64m, but 128m is slightly better for the GPU as the GPU has sub-linear
@@ -679,7 +677,9 @@ class AutoTuner(
         // problematic because this is the compressed shuffle size
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128m")
       }
-    } else if (appInfoProvider.getMeanShuffleRead > AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
+    }
+    if (appInfoProvider.getMeanInput > AQE_INPUT_SIZE_BYTES_THRESHOLD &&
+      appInfoProvider.getMeanShuffleRead > AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
       // AQE Recommendations for large input and large shuffle reads
       val advisoryPartitionSizeInBytes = clusterProps.gpu.name match {
         case GpuTypes.A100 => "64m"
@@ -690,12 +690,14 @@ class AutoTuner(
         "spark.sql.adaptive.advisoryPartitionSizeInBytes",
         advisoryPartitionSizeInBytes
       )
-      val initialPartitionNum = clusterProps.gpu.name match {
-        case GpuTypes.A100 => 400
-        case GpuTypes.T4 => 800
-        case _ => AQE_DEF_INITIAL_PARTITION_NUM
-      }
+      val initialPartitionNumProperty =
+        getPropertyValue("spark.sql.adaptive.coalescePartitions.initialPartitionNum").map(_.toInt)
       if (initialPartitionNumProperty.getOrElse(0) <= AQE_MIN_INITIAL_PARTITION_NUM) {
+        val initialPartitionNum = clusterProps.gpu.name match {
+          case GpuTypes.A100 => 400
+          case GpuTypes.T4 => 800
+          case _ => AQE_DEF_INITIAL_PARTITION_NUM
+        }
         appendRecommendation(
           "spark.sql.adaptive.coalescePartitions.initialPartitionNum",
           initialPartitionNum

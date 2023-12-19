@@ -1579,7 +1579,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     assert(expectedResults == autoTunerOutput)
   }
 
-  test("AQE configuration autoBroadcastJoinThreshold should not be set >= 100mb") {
+  test("AQE configuration autoBroadcastJoinThreshold should not be GTE 100mb") {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
@@ -1704,7 +1704,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
   )
 
   forAll(testCases) { (inputSize, shuffleRead, gpuDevice, expectedLines) =>
-    test(s"AutoTuner test for AQE partition configs - input size: $inputSize," +
+    test(s"AQE partition configs - input size: $inputSize," +
       s" shuffle read: $shuffleRead, gpu device: $gpuDevice") {
       testPartitionConfigurations(inputSize, shuffleRead, gpuDevice, expectedLines)
     }
