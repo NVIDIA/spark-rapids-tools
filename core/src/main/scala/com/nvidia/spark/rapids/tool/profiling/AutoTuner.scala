@@ -717,7 +717,7 @@ class AutoTuner(
         convertToMB(AQE_AUTOBROADCAST_JOIN_THRESHOLD)) {
       appendComment("Setting 'spark.sql.adaptive.autoBroadcastJoinThreshold' > " +
         s"$AQE_AUTOBROADCAST_JOIN_THRESHOLD could lead to performance\n" +
-        "regression. Should be set to a lower number.")
+        "  regression. Should be set to a lower number.")
     }
   }
 
