@@ -1,6 +1,34 @@
 
 <br/>
 
+## Release [v23.12.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.12.0)
+Generated on 2023-12-20
+### User Tools
+
+- Fix user qualification tool runtime error in `get_platform_name` for onprem platform ([#684](https://github.com/NVIDIA/spark-rapids-tools/pull/684))
+- [FEA] User tool should pass `--platform` option/argument to Profiling tool ([#679](https://github.com/NVIDIA/spark-rapids-tools/pull/679))
+- Fix incorrect processing of short flags for user tools cli ([#677](https://github.com/NVIDIA/spark-rapids-tools/pull/677))
+- Updating new CLI name from ascli to spark_rapids ([#673](https://github.com/NVIDIA/spark-rapids-tools/pull/673))
+- Bump pyarrow version ([#664](https://github.com/NVIDIA/spark-rapids-tools/pull/664))
+- Improve new CLI testing ensuring complete coverage of arguments cases ([#652](https://github.com/NVIDIA/spark-rapids-tools/pull/652))
+
+### Core
+
+- Qualification tool: Add more information for unsupported operators  ([#680](https://github.com/NVIDIA/spark-rapids-tools/pull/680))
+- Sync Execs and Expressions from spark-rapids resources ([#691](https://github.com/NVIDIA/spark-rapids-tools/pull/691))
+- Support parsing of inprogress eventlogs ([#686](https://github.com/NVIDIA/spark-rapids-tools/pull/686))
+- Enable features via config that are off by default in the profiler AutoTuner ([#668](https://github.com/NVIDIA/spark-rapids-tools/pull/668))
+- Fix platform names as string constants and reduce redundancy in unit tests ([#667](https://github.com/NVIDIA/spark-rapids-tools/pull/667))
+- Unified platform handling and fetching of operator score files ([#661](https://github.com/NVIDIA/spark-rapids-tools/pull/661))
+- Qualification tool: Ignore some of the unsupported Execs from output ([#665](https://github.com/NVIDIA/spark-rapids-tools/pull/665))
+
+### Miscellaneous
+
+- add markdown link checker ([#672](https://github.com/NVIDIA/spark-rapids-tools/pull/672))
+
+
+<br/>
+
 ## Release [v23.10.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.10.1)
 Generated on 2023-11-16
 ### User Tools
