@@ -1,6 +1,11 @@
 
 <br/>
 
+## Release [v23.12.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.12.1)
+Generated on 2023-12-23
+- no changes
+<br/>
+
 ## Release [v23.12.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.12.0)
 Generated on 2023-12-20
 ### User Tools
