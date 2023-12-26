@@ -133,8 +133,8 @@ object PlatformFactory extends Logging {
    *
    * @param platformKey The key representing the desired platform.
    * @return An instance of the specified platform.
-   * @throws IllegalArgumentException if the specified platform key is not supported.
    */
+  @throws[IllegalArgumentException]
   @tailrec
   def createInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
     platformKey match {

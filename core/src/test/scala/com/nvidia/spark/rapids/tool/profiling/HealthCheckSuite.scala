@@ -42,7 +42,7 @@ class HealthCheckSuite extends FunSuite {
   private val logDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
 
   test("test task-stage-job-failures") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/tasks_executors_fail_compressed_eventlog.zstd"))
     var index: Int = 1
@@ -90,7 +90,7 @@ class HealthCheckSuite extends FunSuite {
   }
 
   test("test blockManager_executors_failures") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/tasks_executors_fail_compressed_eventlog.zstd"))
     var index: Int = 1
@@ -123,7 +123,7 @@ class HealthCheckSuite extends FunSuite {
   }
 
   test("test unSupportedSQLPlan") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/dataset_eventlog"))
     var index: Int = 1

@@ -109,7 +109,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test rapids jar") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/rapids_join_eventlog.zstd"))
     var index: Int = 1
@@ -175,7 +175,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test printSQLPlanMetrics") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/rapids_join_eventlog.zstd"))
     var index: Int = 1
@@ -203,7 +203,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
 
   test("test printSQLPlans") {
     TrampolineUtil.withTempDir { tempOutputDir =>
-      var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+      val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
       val appArgs = new ProfileArgs(Array(s"$logDir/rapids_join_eventlog.zstd"))
       var index: Int = 1
       val eventlogPaths = appArgs.eventlog()
@@ -222,8 +222,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test read GPU datasourcev1") {
-    TrampolineUtil.withTempDir { tempOutputDir =>
-      var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    TrampolineUtil.withTempDir { _ =>
+      val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
       val appArgs = new ProfileArgs(Array(s"$logDir/eventlog-gpu-dsv1.zstd"))
       var index: Int = 1
       val eventlogPaths = appArgs.eventlog()
@@ -260,8 +260,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test read GPU datasourcev2") {
-    TrampolineUtil.withTempDir { tempOutputDir =>
-      var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    TrampolineUtil.withTempDir { _ =>
+      val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
       val appArgs = new ProfileArgs(Array(s"$logDir/eventlog-gpu-dsv2.zstd"))
       var index: Int = 1
       val eventlogPaths = appArgs.eventlog()
@@ -294,8 +294,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test read datasourcev1") {
-    TrampolineUtil.withTempDir { tempOutputDir =>
-      var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    TrampolineUtil.withTempDir { _ =>
+      val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
       val appArgs = new ProfileArgs(Array(s"$logDir/eventlog_dsv1.zstd"))
       var index: Int = 1
       val eventlogPaths = appArgs.eventlog()
@@ -328,8 +328,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test read datasourcev2") {
-    TrampolineUtil.withTempDir { tempOutputDir =>
-      var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    TrampolineUtil.withTempDir { _ =>
+      val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
       val appArgs = new ProfileArgs(Array(s"$logDir/eventlog_dsv2.zstd"))
       var index: Int = 1
       val eventlogPaths = appArgs.eventlog()
@@ -365,8 +365,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test IOMetrics") {
-    TrampolineUtil.withTempDir { tempOutputDir =>
-      var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    TrampolineUtil.withTempDir { _ =>
+      val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
       val appArgs = new ProfileArgs(Array(s"$logDir/eventlog-gpu-dsv1.zstd"))
       var index: Int = 1
       val eventlogPaths = appArgs.eventlog()
@@ -393,8 +393,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test jdbc read") {
-    TrampolineUtil.withTempDir { tempOutputDir =>
-      var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    TrampolineUtil.withTempDir { _ =>
+      val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
       val appArgs = new ProfileArgs(Array(s"$qualLogDir/jdbc_eventlog.zstd"))
       var index: Int = 1
       val eventlogPaths = appArgs.eventlog()
@@ -419,7 +419,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test printJobInfo") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/rp_sql_eventlog.zstd"))
     var index: Int = 1
@@ -450,7 +450,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test sqlToStages") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/rp_sql_eventlog.zstd"))
     var index: Int = 1
@@ -474,7 +474,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test wholeStage mapping") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/rp_sql_eventlog.zstd"))
     var index: Int = 1
@@ -505,7 +505,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
 
 
   test("test multiple resource profile in single app") {
-    var apps :ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps :ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs = new ProfileArgs(Array(s"$logDir/rp_nosql_eventlog"))
     var index: Int = 1
     val eventlogPaths = appArgs.eventlog()
@@ -533,7 +533,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test spark2 and spark3 event logs") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs = new ProfileArgs(Array(s"$logDir/tasks_executors_fail_compressed_eventlog.zstd",
       s"$logDir/spark2-eventlog.zstd"))
     var index: Int = 1
@@ -693,7 +693,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
     assert(apps.size == 1)
     val collect = new CollectInformation(apps)
-    for (app <- apps) {
+    for (_ <- apps) {
       val rapidsProps = collect.getProperties(rapidsOnly = true)
       val rows = rapidsProps.map(_.rows.head)
       assert(rows.length == 5) // 5 properties captured.
@@ -711,7 +711,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test executor info local mode") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/spark2-eventlog.zstd"))
     var index: Int = 1
@@ -731,7 +731,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test executor info cluster mode") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/tasks_executors_fail_compressed_eventlog.zstd"))
     var index: Int = 1
@@ -866,7 +866,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
 
   test("test collectionAccumulator") {
     TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, appId) = ToolTestUtils.generateEventLog(eventLogDir, "collectaccum") { spark =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "collectaccum") { spark =>
         val a = spark.sparkContext.collectionAccumulator[Long]("testCollect")
         val rdd = spark.sparkContext.parallelize(Array(1, 2, 3, 4))
         // run something to add it to collectionAccumulator
@@ -881,7 +881,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
           collectFileDir.getAbsolutePath,
           eventLog))
 
-        var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+        val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
         var index: Int = 1
         val eventlogPaths = appArgs.eventlog()
         for (path <- eventlogPaths) {

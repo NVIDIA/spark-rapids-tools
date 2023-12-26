@@ -57,13 +57,11 @@ object DataWritingCommandExecParser {
   val saveIntoDataSrcCMD = "SaveIntoDataSourceCommand"
   val insertIntoHadoopCMD = "InsertIntoHadoopFsRelationCommand"
 
-  // List of writeExecs that represent a physical command.
+  // Note: List of writeExecs that represent a physical command.
   // hardcode because InsertIntoHadoopFsRelationCommand uses this same exec
   // and InsertIntoHadoopFsRelationCommand doesn't have an entry in the
-  // supported execs file
-  private val physicalWriteCommands = Set(
-    defaultPhysicalCMD
-  )
+  // supported execs file Set(defaultPhysicalCMD)
+
 
   // A set of the logical commands that will be mapped to the physical write command
   // which has an entry in the speedupSheet
@@ -76,13 +74,9 @@ object DataWritingCommandExecParser {
     saveIntoDataSrcCMD
   )
 
-  // Defines a list of the execs that include formatted data.
+  // Note: Defines a list of the execs that include formatted data.
   // This will be used to extract the format and then check whether the
-  // format is supported or not.
-  private val formattedWriteCommands = Set(
-    dataWriteCMD,
-    insertIntoHadoopCMD
-  )
+  // format is supported or not. Set(dataWriteCMD, insertIntoHadoopCMD)
 
   // For now, we map the SaveIntoDataSourceCommand to defaultPhysicalCMD because we do not
   // have speedup entry for the deltaLake write operation

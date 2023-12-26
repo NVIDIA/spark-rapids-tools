@@ -102,7 +102,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         // combine them into single tables in the output.
         val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/combined",
           Profiler.COMBINED_LOG_FILE_NAME_PREFIX, numOutputRows, outputCSV = outputCSV)
-        val sums = createAppsAndSummarize(eventLogInfos, false, profileOutputWriter)
+        val sums = createAppsAndSummarize(eventLogInfos, profileOutputWriter)
         writeSafelyToOutput(profileOutputWriter, sums, outputCombined)
         profileOutputWriter.close()
       }
@@ -159,7 +159,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   }
 
   private def createApps(allPaths: Seq[EventLogInfo]): Seq[ApplicationInfo] = {
-    var errorCodes = ArrayBuffer[Int]()
     val allApps = new ConcurrentLinkedQueue[ApplicationInfo]()
 
     class ProfileThread(path: EventLogInfo, index: Int) extends Runnable {
@@ -201,9 +200,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   }
 
   private def createAppsAndSummarize(allPaths: Seq[EventLogInfo],
-      printPlans: Boolean,
       profileOutputWriter: ProfileOutputWriter): Seq[ApplicationSummaryInfo] = {
-    var errorCodes = ArrayBuffer[Int]()
     val allApps = new ConcurrentLinkedQueue[ApplicationSummaryInfo]()
 
     class ProfileThread(path: EventLogInfo, index: Int) extends Runnable {
@@ -253,7 +250,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
   private def createAppAndProcess(
       allPaths: Seq[EventLogInfo],
-      startIndex: Int = 1): Unit = {
+      startIndex: Int): Unit = {
     class ProfileProcessThread(path: EventLogInfo, index: Int) extends Runnable {
       def run: Unit = {
         try {
@@ -309,7 +306,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       logInfo(s"Took ${endTime - startTime}ms to process ${path.eventLog.toString}")
       Some(app)
     } catch {
-      case json: com.fasterxml.jackson.core.JsonParseException =>
+      case _: com.fasterxml.jackson.core.JsonParseException =>
         logWarning(s"Error parsing JSON: $path")
         None
       case il: IllegalArgumentException =>
