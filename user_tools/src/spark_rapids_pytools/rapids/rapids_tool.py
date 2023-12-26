@@ -393,7 +393,7 @@ class RapidsJarTool(RapidsTool):
         jar_file_name = FSUtil.get_resource_name(jar_path)
         version_match = re.search(r'\d{2}\.\d{2}\.\d+', jar_file_name)
         jar_version = version_match.group() if version_match else 'Unknown'
-        self.logger.info('Using Spark RAPIDS accelerator jar version %s', jar_version)
+        self.logger.info('Using Spark RAPIDS Accelerator Tools jar version %s', jar_version)
         #  add jar file name to the tool args
         self.ctxt.add_rapids_args('jarFileName', jar_file_name)
         self.ctxt.add_rapids_args('jarFilePath', jar_path)
