@@ -26,11 +26,12 @@ import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, PlatformFactory}
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
+import org.apache.spark.sql.rapids.tool.util.RuntimeReporter
 
-class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean) extends Logging {
+class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean)
+  extends RuntimeReporter {
 
   private val nThreads = appArgs.numThreads.getOrElse(
     Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
@@ -41,8 +42,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     .setDaemon(true).setNameFormat("profileTool" + "-%d").build()
   private val threadPool = Executors.newFixedThreadPool(nThreads, threadFactory)
     .asInstanceOf[ThreadPoolExecutor]
-  private val outputDir = appArgs.outputDirectory().stripSuffix("/") +
-    s"/${Profiler.SUBDIR}"
   private val numOutputRows = appArgs.numOutputRows.getOrElse(1000)
 
   private val outputCSV: Boolean = appArgs.csv()
@@ -50,6 +49,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private var progressBar: Option[ConsoleProgressBar] = None
+
+  override val outputDir = appArgs.outputDirectory().stripSuffix("/") +
+    s"/${Profiler.SUBDIR}"
 
   logInfo(s"Threadpool size is $nThreads")
 
@@ -60,6 +62,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
    * what else we can do in parallel.
    */
   def profile(eventLogInfos: Seq[EventLogInfo]): Unit = {
+    generateRuntimeReport()
     if (enablePB && eventLogInfos.nonEmpty) { // total count to start the PB cannot be 0
       progressBar = Some(new ConsoleProgressBar("Profile Tool", eventLogInfos.length))
     }

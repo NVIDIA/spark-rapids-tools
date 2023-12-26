@@ -16,6 +16,11 @@
 
 package org.apache.spark.sql.rapids.tool.util
 
+import java.io.FileNotFoundException
+import java.util.Properties
+
+import scala.io.Source
+
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -26,6 +31,9 @@ import org.apache.spark.sql.SparkSession
  */
 object RapidsToolsConfUtil extends Logging {
   private val RAPIDS_TOOLS_HADOOP_CONF_PREFIX = s"${RAPIDS_TOOLS_SYS_PROP_PREFIX}hadoop."
+  // Directory name inside resources that hosts all the configurations in plain properties format
+  private val CONFIG_DIR = "/configs"
+  private val BUILD_PROPS_FILE_NAME = "build.properties"
 
   /**
    * Creates a sparkConfiguration object with system properties applied on-top.
@@ -71,5 +79,28 @@ object RapidsToolsConfUtil extends Logging {
       val k = key.substring(RAPIDS_TOOLS_HADOOP_CONF_PREFIX.length)
       destMap.set(k, value)
     }
+  }
+
+  /**
+   * Reads a properties file from resources/configs.
+   * If the file cannot be loaded, an error message will show in the log.
+   * Note that this should not happen because it is an internal functionality.
+   * @param fileName the name of the file in teh directory
+   * @return a Java properties object
+   */
+  private def loadPropFile(fileName: String): Properties = {
+    val props: Properties = new SortedJProperties
+    val propsFilePath = s"$CONFIG_DIR/$fileName"
+    getClass.getResourceAsStream(propsFilePath) match {
+      case null => // return empty properties if the file cannot be loaded
+        logError("Cannot load properties from file", new FileNotFoundException(fileName))
+      case stream =>
+        props.load(Source.fromInputStream(stream).bufferedReader())
+    }
+    props
+  }
+
+  def loadBuildProperties: Properties = {
+    loadPropFile(BUILD_PROPS_FILE_NAME)
   }
 }
