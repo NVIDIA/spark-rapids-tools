@@ -25,11 +25,10 @@ from typing import Optional
 
 import fire
 
-from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import Utils
-
+from spark_rapids_tools import CspEnv
+from spark_rapids_tools.utils import Utilities
 
 # Defines the constants and static configurations
 prepackage_conf = {
@@ -87,8 +86,7 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
             self.dest_dir = FSUtil.get_abs_path(self.dest_dir)
 
     def _get_spark_rapids_jar_url(self) -> str:
-        jar_version = Utils.get_latest_available_jar_version(self._mvn_base_url,  # pylint: disable=no-member
-                                                             Utils.get_base_release())
+        jar_version = Utilities.get_latest_mvn_jar_from_metadata(self._mvn_base_url)  # pylint: disable=no-member
         return (f'{self._mvn_base_url}/'  # pylint: disable=no-member
                 f'{jar_version}/rapids-4-spark-tools_2.12-{jar_version}.jar')
 
