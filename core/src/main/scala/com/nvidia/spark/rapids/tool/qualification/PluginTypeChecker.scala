@@ -37,9 +37,6 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
                         speedupFactorFile: Option[String] = None) extends Logging {
 
   private val NS = "NS"
-  private val PS = "PS"
-  private val PSPART = "PS*"
-  private val SPART = "S*"
   // configured off
   private val CO = "CO"
   private val NA = "NA"
@@ -231,7 +228,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
       case "float" => Seq("real")
       case "decimal" => Seq("dec", "numeric")
       case "calendar" => Seq("interval")
-      case other => Seq.empty[String]
+      case _ => Seq.empty[String]
     }
   }
 

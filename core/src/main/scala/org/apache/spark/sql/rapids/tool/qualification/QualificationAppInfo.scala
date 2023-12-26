@@ -16,8 +16,6 @@
 
 package org.apache.spark.sql.rapids.tool.qualification
 
-import java.util.concurrent.TimeUnit
-
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
@@ -31,7 +29,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraph
-import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, IgnoreExecs, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
 
 class QualificationAppInfo(
     eventLogInfo: Option[EventLogInfo],
@@ -106,7 +104,7 @@ class QualificationAppInfo(
     if (startTime > 0) {
       val estimatedResult =
         this.appEndTime match {
-          case Some(t) => this.appEndTime
+          case Some(_) => this.appEndTime
           case None =>
             if (lastSQLEndTime.isEmpty && lastJobEndTime.isEmpty) {
               None
@@ -312,7 +310,7 @@ class QualificationAppInfo(
       }
       val transitionsTime = numTransitions match {
         case 0 => 0L // no transitions
-        case gpuCpuTransitions =>
+        case _ =>
           // Duration to transfer data from GPU to CPU and vice versa.
           // Assuming it's a PCI-E Gen3, but also assuming that some of the result could be
           // spilled to disk.
@@ -323,13 +321,11 @@ class QualificationAppInfo(
           }
           if (totalBytesRead > 0) {
             val transitionTime = (totalBytesRead /
-              QualificationAppInfo.CPU_GPU_TRANSFER_RATE.toDouble) * gpuCpuTransitions
+              QualificationAppInfo.CPU_GPU_TRANSFER_RATE.toDouble) * numTransitions
             (transitionTime * 1000).toLong // convert to milliseconds
           } else {
             0L
           }
-
-        case _ => 0L
       }
       val finalEachStageUnsupported = if (transitionsTime != 0) {
         // Add 50% penalty for unsupported duration if there are transitions. This number

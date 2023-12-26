@@ -46,7 +46,6 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
   test("invalid file") {
     val checker = new PluginTypeChecker
     TrampolineUtil.withTempDir { outpath =>
-      val testSchema = "loan_id:boolean,monthly_reporting_period:string,servicer:string"
       val header = "Format,Direction,BOOLEAN\n"
       // text longer then header should throw
       val supText = (header + "parquet,read,NS,NS\n").getBytes(StandardCharsets.UTF_8)

@@ -401,7 +401,7 @@ class QualificationSuite extends BaseTestSuite {
         "--report-read-schema")
 
       val appArgs = new QualificationArgs(allArgs ++ logFiles)
-      val (exit, sum) = QualificationMain.mainInternal(appArgs)
+      val (exit, sum@_) = QualificationMain.mainInternal(appArgs)
       assert(exit == 0)
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
@@ -738,7 +738,6 @@ class QualificationSuite extends BaseTestSuite {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val tmpParquet = s"$outpath/mlOpsParquet"
-        val sparkVersion = ToolUtils.sparkRuntimeVersion
         createDecFile(sparkSession, tmpParquet)
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "dot") { spark =>
           val data = Array(
@@ -747,7 +746,7 @@ class QualificationSuite extends BaseTestSuite {
             Vectors.dense(4.0, 0.0, 0.0, 6.0, 7.0)
           )
           val df = spark.createDataFrame(data.map(Tuple1.apply)).toDF("features")
-          val pca = new PCA()
+          new PCA()
             .setInputCol("features")
             .setOutputCol("pcaFeatures")
             .setK(3)
@@ -1042,7 +1041,6 @@ class QualificationSuite extends BaseTestSuite {
       assert(detailedOut.nonEmpty)
       assert(detailedOut.startsWith("|") && detailedOut.endsWith("|\n"))
       val stdOut = sumOut.split("\n")
-      val stdOutHeader = stdOut(0).split("\\|")
       val stdOutValues = stdOut(1).split("\\|")
       // index of unsupportedExecs
       val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3)
@@ -1064,7 +1062,7 @@ class QualificationSuite extends BaseTestSuite {
           outpath.getAbsolutePath,
           eventLog))
 
-        val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+        val (exit, sumInfo@_) = QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
 
         // the code above that runs the Spark query stops the Sparksession
@@ -1119,7 +1117,7 @@ class QualificationSuite extends BaseTestSuite {
           outpath.getAbsolutePath,
           eventLog))
 
-        val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+        val (exit, sumInfo@_) = QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
 
         // the code above that runs the Spark query stops the Sparksession
@@ -1206,7 +1204,7 @@ class QualificationSuite extends BaseTestSuite {
           "--output-directory",
           outpath.getAbsolutePath())
         val appArgs = new QualificationArgs(allArgs ++ Array(eventLog))
-        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+        val (exit, appSum@_) = QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
 
         val filename = s"$outpath/rapids_4_spark_qualification_output/" +
@@ -1333,7 +1331,7 @@ class QualificationSuite extends BaseTestSuite {
           outpath.getAbsolutePath,
           eventLog))
 
-        val (exit, sumInfo) =
+        val (exit, sumInfo@_) =
           QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
   
@@ -1459,7 +1457,7 @@ class QualificationSuite extends BaseTestSuite {
             outpath.getAbsolutePath,
             eventLog))
 
-          val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+          val (exit, sumInfo@_) = QualificationMain.mainInternal(appArgs)
           assert(exit == 0)
 
           // the code above that runs the Spark query stops the Sparksession

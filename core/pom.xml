@@ -446,6 +446,8 @@
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
+        <maven.scaladoc.skip>false</maven.scaladoc.skip>
+        <maven.scalastyle.skip>false</maven.scalastyle.skip>
         <project.build.sourceEncoding>${platform-encoding}</project.build.sourceEncoding>
         <project.reporting.sourceEncoding>${platform-encoding}</project.reporting.sourceEncoding>
         <project.reporting.outputEncoding>${platform-encoding}</project.reporting.outputEncoding>
@@ -702,8 +704,10 @@
                         <arg>-feature</arg>
                         <arg>-explaintypes</arg>
                         <arg>-Yno-adapted-args</arg>
-                        <arg>-Ywarn-unused:imports</arg>
+                        <arg>-Ywarn-unused:imports,locals,patvars,privates</arg>
                         <arg>-Xlint:missing-interpolator</arg>
+                        <arg>-Xfatal-warnings</arg>
+                        <arg>-Wconf:cat=lint-adapted-args:e</arg>
                     </args>
                     <jvmArgs>
                         <jvmArg>-Xms1024m</jvmArg>

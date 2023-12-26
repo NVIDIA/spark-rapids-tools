@@ -99,7 +99,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
       }
     }
     val allJobStageRows = apps.flatMap { app =>
-      app.jobIdToInfo.flatMap { case (id, jc) =>
+      app.jobIdToInfo.flatMap { case (_, jc) =>
         val stageIdsInJob = jc.stageIds
         val stagesInJob = app.stageIdToInfo.filterKeys { case (sid, _) =>
           stageIdsInJob.contains(sid)
@@ -107,7 +107,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
         if (stagesInJob.isEmpty) {
           None
         } else {
-          stagesInJob.map { case ((id, said), sc) =>
+          stagesInJob.map { case ((id, _), sc) =>
             val tasksInStage = app.taskEnd.filter { tc =>
               tc.stageId == id
             }
@@ -153,7 +153,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     }
     // stages that are missing from a job, perhaps dropped events
     val stagesWithoutJobs = apps.flatMap { app =>
-      val allStageinJobs = app.jobIdToInfo.flatMap { case (id, jc) =>
+      val allStageinJobs = app.jobIdToInfo.flatMap { case (_, jc) =>
         val stageIdsInJob = jc.stageIds
         app.stageIdToInfo.filterKeys { case (sid, _) =>
           stageIdsInJob.contains(sid)
@@ -224,7 +224,6 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     } else {
       Seq.empty
     }
-
   }
 
   // SQL Level TaskMetrics Aggregation(Only when SQL exists)
@@ -232,7 +231,6 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     val allRows = apps.flatMap { app =>
       app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
         val jcs = app.jobIdToInfo.filter { case (_, jc) =>
-          val jcid = jc.sqlID.getOrElse(-1)
           jc.sqlID.getOrElse(-1) == sqlId
         }
         if (jcs.isEmpty) {
@@ -429,10 +427,6 @@ class Analysis(apps: Seq[ApplicationInfo]) {
               (tc.sr_totalBytesRead > 100 * 1024 * 1024)
           case None => false
         }
-      }
-
-      val groupedTasks = tasksWithSkew.groupBy { tc =>
-        (tc.stageId, tc.stageAttemptId)
       }
 
       tasksWithSkew.map { tc =>
