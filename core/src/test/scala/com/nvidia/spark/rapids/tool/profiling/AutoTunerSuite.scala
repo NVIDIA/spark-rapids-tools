@@ -74,13 +74,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   private def buildWorkerInfoAsString(
-                                       customProps: Option[mutable.Map[String, String]] = None,
-                                       numCores: Option[Int] = Some(32),
-                                       systemMemory: Option[String] = Some("122880MiB"),
-                                       numWorkers: Option[Int] = Some(4),
-                                       gpuCount: Option[Int] = Some(2),
-                                       gpuMemory: Option[String] = Some("15109MiB"),
-                                       gpuDevice: Option[String] = Some("T4")): String = {
+      customProps: Option[mutable.Map[String, String]] = None,
+      numCores: Option[Int] = Some(32),
+      systemMemory: Option[String] = Some("122880MiB"),
+      numWorkers: Option[Int] = Some(4),
+      gpuCount: Option[Int] = Some(2),
+      gpuMemory: Option[String] = Some("15109MiB"),
+      gpuDevice: Option[String] = Some("T4")): String = {
     val gpuWorkerProps = new GpuWorkerProps(
       gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
     val cpuSystem = new SystemClusterProps(
@@ -117,13 +117,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   private def getMockInfoProvider(maxInput: Double,
-                                  spilledMetrics: Seq[Long],
-                                  jvmGCFractions: Seq[Double],
-                                  propsFromLog: mutable.Map[String, String],
-                                  sparkVersion: Option[String],
-                                  rapidsJars: Seq[String] = Seq(),
-                                  distinctLocationPct: Double = 0.0,
-                                  redundantReadSize: Long = 0): AppSummaryInfoBaseProvider = {
+      spilledMetrics: Seq[Long],
+      jvmGCFractions: Seq[Double],
+      propsFromLog: mutable.Map[String, String],
+      sparkVersion: Option[String],
+      rapidsJars: Seq[String] = Seq(),
+      distinctLocationPct: Double = 0.0,
+      redundantReadSize: Long = 0): AppSummaryInfoBaseProvider = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
       sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize)
   }
@@ -1090,19 +1090,19 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     // 1. The Autotuner should warn the users that they have multiple jars defined in the classPath
     // 2. Compare the output
     val expectedResults =
-    s"""|
+      s"""|
           |Spark Properties:
-        |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
-        |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
-        |--conf spark.sql.shuffle.partitions=200
-        |
-        |Comments:
-        |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
-        |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
-        |- 'spark.sql.shuffle.partitions' was not set.
-        |- ${AutoTuner.classPathComments("rapids.jars.multiple")} [23.06.0, 23.02.1]
-        |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
-        |""".stripMargin
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
+          |--conf spark.sql.shuffle.partitions=200
+          |
+          |Comments:
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
+          |- 'spark.sql.shuffle.partitions' was not set.
+          |- ${AutoTuner.classPathComments("rapids.jars.multiple")} [23.06.0, 23.02.1]
+          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
     val rapidsJarsArr = Seq("rapids-4-spark_2.12-23.06.0-SNAPSHOT.jar",
       "rapids-4-spark_2.12-23.02.1.jar")
     val autoTunerOutput = generateRecommendationsForRapidsJars(rapidsJarsArr)
