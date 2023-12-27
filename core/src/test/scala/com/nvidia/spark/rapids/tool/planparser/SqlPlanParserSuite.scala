@@ -59,7 +59,6 @@ class SQLPlanParserSuite extends BaseTestSuite {
       assert(t.forall(_.children.isEmpty), s"$extraText $t")
       if (expectedDur.nonEmpty) {
         val durations = t.map(_.duration)
-        val foo = durations.diff(expectedDur)
         assert(durations.diff(expectedDur).isEmpty,
           s"$extraText durations differ expected ${expectedDur.mkString(",")} " +
             s"but got ${durations.mkString(",")}")
@@ -233,13 +232,11 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
           pluginTypeChecker, app)
         val allExecInfo = planInfo.execInfo
-        val expectedAllExecInfoSize = if (ToolUtils.isSpark320OrLater()) {
-          // AdaptiveSparkPlan, WholeStageCodegen, AQEShuffleRead, Exchange, WholeStageCodegen
-          5
-        } else {
-          // WholeStageCodegen, Exchange, WholeStageCodegen
-          3
-        }
+        // Note that:
+        // Spark320+ will generate the following execs:
+        //   AdaptiveSparkPlan, WholeStageCodegen, AQEShuffleRead, Exchange, WholeStageCodegen
+        // Other Sparks:
+        //   WholeStageCodegen, Exchange, WholeStageCodegen
         val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
         assert(wholeStages.size == 2)
         // Expanding the children of WholeStageCodegen

@@ -185,7 +185,7 @@ object EventLogPathProcessor extends Logging {
         }.toMap
       }
     } catch {
-      case fe: FileNotFoundException =>
+      case _: FileNotFoundException =>
         logWarning(s"$pathString not found, skipping!")
         Map.empty[EventLogInfo, Long]
       case e: Exception =>

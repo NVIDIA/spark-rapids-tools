@@ -147,8 +147,6 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
         val rp = app.resourceProfIdToInfo.get(rpId)
         val execMem = rp.map(_.executorResources.get(ResourceProfile.MEMORY)
           .map(_.amount).getOrElse(0L))
-        val execCores = rp.map(_.executorResources.get(ResourceProfile.CORES)
-          .map(_.amount).getOrElse(0L))
         val execGpus = rp.map(_.executorResources.get("gpu")
           .map(_.amount).getOrElse(0L))
         val taskCpus = rp.map(_.taskResources.get(ResourceProfile.CPUS)
@@ -177,7 +175,7 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
   // get job related information
   def getJobInfo: Seq[JobInfoProfileResult] = {
     val allRows = apps.flatMap { app =>
-      app.jobIdToInfo.map { case (jobId, j) =>
+      app.jobIdToInfo.map { case (_, j) =>
         JobInfoProfileResult(app.index, j.jobID, j.stageIds, j.sqlID, j.startTime, j.endTime)
       }
     }
@@ -270,7 +268,6 @@ object CollectInformation extends Logging {
       app.allSQLMetrics.map { metric =>
         val sqlId = metric.sqlID
         val jobsForSql = app.jobIdToInfo.filter { case (_, jc) =>
-          val jcid = jc.sqlID.getOrElse(-1)
           jc.sqlID.getOrElse(-1) == sqlId
         }
         val stageIdsForSQL = jobsForSql.flatMap(_._2.stageIds).toSeq

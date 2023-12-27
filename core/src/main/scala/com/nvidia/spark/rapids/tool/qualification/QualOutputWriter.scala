@@ -520,8 +520,8 @@ object QualOutputWriter {
 
   private def constructOutputRow(
       strAndSizes: Buffer[(String, Int)],
-      delimiter: String = TEXT_DELIMITER,
-      prettyPrint: Boolean = false): String = {
+      delimiter: String,
+      prettyPrint: Boolean): String = {
     val entireHeader = new StringBuffer
     if (prettyPrint) {
       entireHeader.append(delimiter)
@@ -866,7 +866,7 @@ object QualOutputWriter {
   private def constructExecInfoBuffer(
       info: ExecInfo,
       appId: String,
-      delimiter: String = TEXT_DELIMITER,
+      delimiter: String,
       prettyPrint: Boolean,
       headersAndSizes: LinkedHashMap[String, Int],
       reformatCSV: Boolean = true): String = {
@@ -1125,7 +1125,7 @@ object QualOutputWriter {
   private def constructDetailedAppInfoCSVRow(
       appInfo: FormattedQualificationSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
-      reportReadSchema: Boolean = false,
+      reportReadSchema: Boolean,
       reformatCSV: Boolean = true): ListBuffer[(String, Int)] = {
     val reformatCSVFunc : String => String =
       if (reformatCSV) str => StringUtils.reformatCSVString(str) else str => stringIfempty(str)
@@ -1198,7 +1198,7 @@ object QualOutputWriter {
   private def constructStatusReportInfo(
       statusInfo: StatusSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
-      delimiter: String = TEXT_DELIMITER,
+      delimiter: String,
       prettyPrint: Boolean,
       reformatCSV: Boolean = true): Seq[String] = {
     val reformatCSVFunc: String => String =
