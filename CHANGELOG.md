@@ -1,6 +1,19 @@
 
 <br/>
 
+## Release [v23.12.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.12.2)
+Generated on 2023-12-27
+### User Tools
+
+- Polling maven-metadata.xml to pull the latest tools jar ([#703](https://github.com/NVIDIA/spark-rapids-tools/pull/703))
+
+### Core
+
+- Update pom to fail on warnings ([#701](https://github.com/NVIDIA/spark-rapids-tools/pull/701))
+
+
+<br/>
+
 ## Release [v23.12.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.12.1)
 Generated on 2023-12-23
 - no changes
