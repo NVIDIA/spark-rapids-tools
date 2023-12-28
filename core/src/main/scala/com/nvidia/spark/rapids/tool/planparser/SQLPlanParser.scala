@@ -418,25 +418,11 @@ object SQLPlanParser extends Logging {
   }
 
   def parseProjectExpressions(exprStr: String): Array[String] = {
-//    val parsedExpressions = ArrayBuffer[String]()
     // Project [cast(value#136 as string) AS value#144, CEIL(value#136) AS CEIL(value)#143L]
     // This is to split the string such that only function names are extracted. The pattern is
     // such that function name is succeeded by `(`. We use regex to extract all the function names
     // below:
-    // paranRemoved = Array(cast(value#136 as string), CEIL(value#136))
-//    val pattern: Regex = "([a-zA-Z0-9_]+)\\(".r
-//    val functionNamePattern: Regex = """(\w+)""".r
-
-//    val paranRemoved = pattern.findAllMatchIn(exprStr).toArray.map(_.group(1))
     getAllFunctionNames(functionPrefixPattern, exprStr).toArray
-//    paranRemoved.foreach { case expr =>
-//      val functionName = getFunctionName(functionNamePattern, expr)
-//      functionName match {
-//        case Some(func) => parsedExpressions += func
-//        case _ => // NO OP
-//      }
-//    }
-//    parsedExpressions.distinct.toArray
   }
 
   // This parser is used for SortAggregateExec, HashAggregateExec and ObjectHashAggregateExec
