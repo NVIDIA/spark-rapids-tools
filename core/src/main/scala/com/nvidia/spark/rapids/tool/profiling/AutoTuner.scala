@@ -25,7 +25,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory, PlatformNames}
+import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
@@ -604,10 +604,9 @@ class AutoTuner(
 
   def getShuffleManagerClassName() : String = {
     val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.filterNot("().".toSet)
-    val finalShuffleVersion : String = if (platform.getName == PlatformNames.DATABRICKS_AWS
-      || platform.getName == PlatformNames.DATABRICKS_AZURE) {
-      val dbVersion = appInfoProvider.getProperty(
-        "spark.databricks.clusterUsageTags.sparkVersion").getOrElse("")
+    val dbVersion = appInfoProvider.getProperty(
+      "spark.databricks.clusterUsageTags.sparkVersion").getOrElse("")
+    val finalShuffleVersion : String = if (dbVersion.nonEmpty) {
       dbVersion match {
         case ver if ver.contains("10.4") => "321db"
         case ver if ver.contains("11.3") => "330db"

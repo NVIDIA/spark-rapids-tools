@@ -1509,18 +1509,29 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   test("test shuffle manager version for databricks") {
-    val customProps = mutable.LinkedHashMap(
-      "spark.databricks.clusterUsageTags.sparkVersion" -> "11.3.x-gpu-ml-scala2.12")
-    val databricksWorkerInfo = buildWorkerInfoAsString(Some(customProps))
+    val databricksWorkerInfo = buildWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
         "spark.databricks.clusterUsageTags.sparkVersion" -> "11.3.x-gpu-ml-scala2.12"),
       Some("3.3.0"), Seq())
+    // Do not set the platform as DB to see if it can work correctly irrespective
     val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
-      infoProvider, PlatformFactory.createInstance(PlatformNames.DATABRICKS_AZURE))
+      infoProvider, PlatformFactory.createInstance())
     val smVersion = autoTuner.getShuffleManagerClassName()
     // Assert shuffle manager string for DB 11.3 tag
     assert(smVersion == "com.nvidia.spark.rapids.spark330db.RapidsShuffleManager")
+  }
+
+  test("test shuffle manager version for non-databricks") {
+    val databricksWorkerInfo = buildWorkerInfoAsString(None)
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      mutable.Map("spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
+      Some("3.3.0"), Seq())
+    val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
+      infoProvider, PlatformFactory.createInstance())
+    val smVersion = autoTuner.getShuffleManagerClassName()
+    assert(smVersion == "com.nvidia.spark.rapids.spark330.RapidsShuffleManager")
   }
 }
