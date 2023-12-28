@@ -50,6 +50,7 @@ class GpuDevice(EnumeratedType):
     P4 = 'P4'
     L4 = 'l4'
     A10 = 'a10'
+    A10G = 'a10g'
 
     @classmethod
     def get_default_gpu(cls):
@@ -64,7 +65,8 @@ class GpuDevice(EnumeratedType):
             self.K80: [12288],
             self.V100: [16384],
             self.P100: [16384],
-            self.A10: [24576]
+            self.A10: [24576],
+            self.A10G: [24576]
         }
         return memory_hash.get(self)
 
@@ -115,8 +117,6 @@ class GpuHWInfo:
     gpu_device: GpuDevice = GpuDevice.get_default_gpu()
 
     def get_gpu_device_name(self) -> str:
-        print("self.gpu_device =", self.gpu_device)
-        print("GpuDevice.get_default_gpu()=", GpuDevice.get_default_gpu())
         return GpuDevice.tostring(self.gpu_device)
 
 
