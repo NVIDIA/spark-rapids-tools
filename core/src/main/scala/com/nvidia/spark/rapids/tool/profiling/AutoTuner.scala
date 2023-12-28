@@ -612,7 +612,9 @@ class AutoTuner(
         case ver if ver.contains("11.3") => "330db"
         case _ => "332db"
       }
-    } else shuffleManagerVersion
+    } else {
+      shuffleManagerVersion
+    }
     "com.nvidia.spark.rapids.spark" + finalShuffleVersion + ".RapidsShuffleManager"
   }
 
