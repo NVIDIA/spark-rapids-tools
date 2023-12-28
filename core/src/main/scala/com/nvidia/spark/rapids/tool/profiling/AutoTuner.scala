@@ -591,9 +591,8 @@ class AutoTuner(
   }
 
   def calculateJobLevelRecommendations(): Unit = {
-    val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.filterNot("().".toSet)
-    appendRecommendation("spark.shuffle.manager",
-      "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
+    val smClassName = getShuffleManagerClassName
+    appendRecommendation("spark.shuffle.manager", smClassName)
     appendComment(classPathComments("rapids.shuffle.jars"))
 
     recommendFileCache()
@@ -601,6 +600,22 @@ class AutoTuner(
     recommendShufflePartitions()
     recommendGCProperty()
     recommendClassPathEntries()
+  }
+
+  def getShuffleManagerClassName() : String = {
+    val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.filterNot("().".toSet)
+    val dbVersion = appInfoProvider.getProperty(
+      "spark.databricks.clusterUsageTags.sparkVersion").getOrElse("")
+    val finalShuffleVersion : String = if (dbVersion.nonEmpty) {
+      dbVersion match {
+        case ver if ver.contains("10.4") => "321db"
+        case ver if ver.contains("11.3") => "330db"
+        case _ => "332db"
+      }
+    } else {
+      shuffleManagerVersion
+    }
+    "com.nvidia.spark.rapids.spark" + finalShuffleVersion + ".RapidsShuffleManager"
   }
 
   /**
