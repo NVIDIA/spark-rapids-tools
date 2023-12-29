@@ -17,18 +17,24 @@
 import os
 import pathlib
 import re
+import ssl
 import sys
+import urllib
+import xml.etree.ElementTree as elem_tree
 from functools import reduce
 from operator import getitem
 from typing import Any, Optional
 
+import certifi
 import fire
+from packaging.version import Version
 from pydantic import ValidationError, AnyHttpUrl, TypeAdapter
 
 import spark_rapids_pytools
-from spark_rapids_tools.exceptions import CspPathAttributeError
-from spark_rapids_pytools.common.utilities import Utils
+from spark_rapids_pytools import get_version
 from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import Utils
+from spark_rapids_tools.exceptions import CspPathAttributeError
 
 
 def get_elem_from_dict(data, keys):
@@ -160,3 +166,62 @@ def init_environment(short_name: str):
     print(Utils.gen_report_sec_header('Application Logs'))
     print(f'Location: {log_file}')
     print('In case of any errors, please share the log file with the Spark RAPIDS team.\n')
+
+
+class Utilities:
+    """Utility class used to enclose common helpers and utilities."""
+
+    @classmethod
+    def get_latest_mvn_jar_from_metadata(cls, url_base: str,
+                                         loaded_version: str = None) -> str:
+        """
+        Given the defined version in the python tools build, we want to be able to get the highest
+        version number of the jar available for download from the mvn repo.
+        The returned version is guaranteed to be LEQ to the defined version. For example, it is not
+        allowed to use jar version higher than the python tool itself.
+
+        The implementation relies on parsing the "$MVN_REPO/maven-metadata.xml" which guarantees
+        that any delays in updating the directory list won't block the python module
+        from pulling the latest jar.
+
+        :param url_base: the base url from which the jar file is downloaded. It can be mvn repo.
+        :param loaded_version: the version from the python tools in string format
+        :return: the string value of the jar that should be downloaded.
+        """
+
+        if loaded_version is None:
+            loaded_version = cls.get_base_release()
+        context = ssl.create_default_context(cafile=certifi.where())
+        defined_version = Version(loaded_version)
+        jar_version = Version(loaded_version)
+        xml_path = f'{url_base}/maven-metadata.xml'
+        with urllib.request.urlopen(xml_path, context=context) as resp:
+            xml_content = resp.read()
+            xml_root = elem_tree.fromstring(xml_content)
+            for version_elem in xml_root.iter('version'):
+                curr_version = Version(version_elem.text)
+                if curr_version <= defined_version:
+                    jar_version = curr_version
+        # get formatted string
+        return cls.reformat_release_version(jar_version)
+
+    @classmethod
+    def reformat_release_version(cls, defined_version: Version) -> str:
+        # get the release from version
+        version_tuple = defined_version.release
+        version_comp = list(version_tuple)
+        # release format is under url YY.MM.MICRO where MM is 02, 04, 06, 08, 10, and 12
+        res = f'{version_comp[0]}.{version_comp[1]:02}.{version_comp[2]}'
+        return res
+
+    @classmethod
+    def get_base_release(cls) -> str:
+        """
+        For now the tools_jar is always with major.minor.0.
+        this method makes sure that even if the package version is incremented, we will still
+        get the correct url.
+        :return: a string containing the release number 22.12.0, 23.02.0, amd 23.04.0..etc
+        """
+        defined_version = Version(get_version(main=None))
+        # get the release from version
+        return cls.reformat_release_version(defined_version)

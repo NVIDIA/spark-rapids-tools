@@ -80,10 +80,14 @@ object ToolUtils extends Logging {
             val targetEx = i.getTargetException
             if (targetEx != null) {
               targetEx match {
-                case j: com.fasterxml.jackson.core.JsonParseException =>
+                case j: com.fasterxml.jackson.core.io.JsonEOFException =>
+                  // Spark3.41+ embeds JsonEOFException in the InvocationTargetException
+                  // We need to show a warning message instead of failing the entire app.
+                  logWarning(s"Incomplete eventlog, ${j.getMessage}")
+                case k: com.fasterxml.jackson.core.JsonParseException =>
                   // this is a parser error thrown by spark-3.4+ which indicates the log is
                   // malformed
-                  throw j
+                  throw k
                 case z: ClassNotFoundException if z.getMessage != null =>
                   logWarning(s"ClassNotFoundException while parsing an event: ${z.getMessage}")
                 case t: Throwable =>
@@ -94,10 +98,15 @@ object ToolUtils extends Logging {
               // Normally it should not happen that invocation target is null.
               logError(s"Unknown exception while parsing an event", i)
             }
-          case j: com.fasterxml.jackson.core.JsonParseException =>
+          case j: com.fasterxml.jackson.core.io.JsonEOFException =>
+            // Note that JsonEOFException is child of JsonParseException
+            // In case the eventlog is incomplete (i.e., inprogress), we show a warning message
+            // because we do not want to cause the entire app to fail.
+            logWarning(s"Incomplete eventlog, ${j.getMessage}")
+          case k: com.fasterxml.jackson.core.JsonParseException =>
             // this is a parser error thrown by version prior to spark-3.4+ which indicates the
             // log is malformed
-            throw j
+            throw k
         }
         None
     }
@@ -323,12 +332,29 @@ object IgnoreExecs {
   // Collect Limit replacement can be slower on the GPU. Disabled by default.
   private val CollectLimit = "CollectLimit"
   private val ScanExistingRDD = "Scan ExistingRDD"
-  private val ExecuteCreateViewCommand = "Execute CreateViewCommand"
   private val ExistingRDD = "ExistingRDD"
+  // Some DDL's  and table commands which can be ignored
+  private val ExecuteCreateViewCommand = "Execute CreateViewCommand"
   private val LocalTableScan = "LocalTableScan"
+  private val ExecuteCreateDatabaseCommand = "Execute CreateDatabaseCommand"
+  private val ExecuteDropDatabaseCommand = "Execute DropDatabaseCommand"
+  private val ExecuteCreateTableAsSelectCommand = "Execute CreateTableAsSelectCommand"
+  private val ExecuteCreateTableCommand = "Execute CreateTableCommand"
+  private val ExecuteDropTableCommand = "Execute DropTableCommand"
+  private val ExecuteCreateDataSourceTableAsSelectCommand = "Execute " +
+    "CreateDataSourceTableAsSelectCommand"
+  private val SetCatalogAndNamespace = "SetCatalogAndNamespace"
+  private val ExecuteSetCommand = "Execute SetCommand"
+
+
+  val True = "true"
+  val False = "false"
 
   def getAllIgnoreExecs: Set[String] = Set(AdaptiveSparkPlan, CollectLimit, ScanExistingRDD,
-    ExecuteCreateViewCommand, ExistingRDD, LocalTableScan)
+    ExecuteCreateViewCommand, ExistingRDD, LocalTableScan, ExecuteCreateTableCommand,
+    ExecuteDropTableCommand, ExecuteCreateDatabaseCommand, ExecuteDropDatabaseCommand,
+    ExecuteCreateTableAsSelectCommand, ExecuteCreateDataSourceTableAsSelectCommand,
+    SetCatalogAndNamespace, ExecuteSetCommand)
 }
 
 object MlOps {

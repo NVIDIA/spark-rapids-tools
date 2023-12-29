@@ -155,7 +155,8 @@ class RunningQualificationApp(
     val sqlInfo = aggregatePerSQLStats(sqlID)
     val csvResult =
       constructPerSqlResult(sqlInfo, QualOutputWriter.CSV_DELIMITER, false, escapeCSV = true)
-    val textResult = constructPerSqlResult(sqlInfo, QualOutputWriter.TEXT_DELIMITER, true)
+    val textResult = constructPerSqlResult(sqlInfo, QualOutputWriter.TEXT_DELIMITER,
+      prettyPrint = true)
     (csvResult, textResult)
   }
 
@@ -176,8 +177,8 @@ class RunningQualificationApp(
 
   private def constructPerSqlResult(
       sqlInfo: Option[EstimatedPerSQLSummaryInfo],
-      delimiter: String = "|",
-      prettyPrint: Boolean = true,
+      delimiter: String,
+      prettyPrint: Boolean,
       sqlDescLength: Int = SQL_DESC_LENGTH,
       escapeCSV: Boolean = false): String = {
     sqlInfo match {

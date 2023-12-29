@@ -16,16 +16,17 @@
 
 import os
 import tarfile
-from glob import glob
 from dataclasses import dataclass, field
+from glob import glob
 from logging import Logger
 from typing import Type, Any, ClassVar, List
 
-from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
+from spark_rapids_tools import CspEnv
+from spark_rapids_tools.utils import Utilities
 
 
 @dataclass
@@ -177,7 +178,7 @@ class ToolContext(YAMLPropertiesContainer):
                 raise FileNotFoundError('In Fat Mode. No matching JAR files found.')
             return matching_files[0]
         mvn_base_url = self.get_value('sparkRapids', 'mvnUrl')
-        jar_version = Utils.get_latest_available_jar_version(mvn_base_url, Utils.get_base_release())
+        jar_version = Utilities.get_latest_mvn_jar_from_metadata(mvn_base_url)
         rapids_url = self.get_value('sparkRapids', 'repoUrl').format(mvn_base_url, jar_version, jar_version)
         return rapids_url
 

@@ -34,8 +34,8 @@ object EventUtils extends Logging {
    *
    * @param data value stored in the (value/update) of the AccumulableInfo
    * @return valid parsed long of the content or the duration
-   * @throws java.lang.NullPointerException if the argument is `null`
    */
+  @throws[NullPointerException]
   def parseAccumFieldToLong(data: Any): Option[Long] = {
     val strData = data.toString
     try {
