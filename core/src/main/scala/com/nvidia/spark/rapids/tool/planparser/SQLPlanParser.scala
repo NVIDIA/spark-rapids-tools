@@ -388,7 +388,7 @@ object SQLPlanParser extends Logging {
     // So we want to be able to define that parse_url(*,QUERY,*) is not supported.
 
     // The following regex uses forward references to find matches for parse_url(*)
-    // we need to use forward references because otherwise multiple occurrences will be be matched
+    // we need to use forward references because otherwise multiple occurrences will be matched
     // only once.
     // https://stackoverflow.com/questions/47162098/is-it-possible-to-match-nested-brackets-with-a-
     // regex-without-using-recursion-or/47162099#47162099
@@ -400,7 +400,7 @@ object SQLPlanParser extends Logging {
     var newExpr = expr
     parseURLPattern.findAllMatchIn(expr).foreach { parse_call =>
       // iterate on all matches replacing parse_url by parse_url_query
-      // note that we do replaceFirst because we want to  map 1-to-1 and the order does
+      // note that we do replaceFirst because we want to map 1-to-1 and the order does
       // not matter here.
       if (parse_call.matched.matches("parse_url\\(.*,\\s*(?i)query\\s*,.*\\)")) {
         newExpr = newExpr.replaceFirst("parse_url\\(", "parse_url_query(")
