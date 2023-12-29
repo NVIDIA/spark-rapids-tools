@@ -18,11 +18,12 @@ package org.apache.spark.sql.rapids.tool.util
 
 import java.io.IOException
 
-import org.jsoup.Jsoup
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.control.NonFatal
 import scala.xml.XML
+
+import org.jsoup.Jsoup
 
 import org.apache.spark.internal.Logging
 
