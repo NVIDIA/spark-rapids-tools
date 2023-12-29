@@ -257,7 +257,7 @@ object SQLPlanParser extends Logging {
             ShuffledHashJoinExecParser(node, checker, sqlID, app).parse
           case "Sort" =>
             SortExecParser(node, checker, sqlID).parse
-          case s if (s.startsWith("Scan")) =>
+          case s if ReadParser.isScanNode(s) =>
             FileSourceScanExecParser(node, checker, sqlID, app).parse
           case "SortAggregate" =>
             SortAggregateExecParser(node, checker, sqlID).parse

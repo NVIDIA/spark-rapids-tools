@@ -37,12 +37,15 @@ case class FileSourceScanExecParser(
     val nodeName = node.name.trim
     val accumId = node.metrics.find(_.name == "scan time").map(_.accumulatorId)
     val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
-
-    val readInfo = ReadParser.parseReadNode(node)
+    val (execName, readInfo) = if (HiveParseHelper.isHiveTableScanNode(node)) {
+      (HiveParseHelper.SCAN_HIVE_EXEC_NAME, HiveParseHelper.parseReadNode(node))
+    } else {
+      (fullExecName, ReadParser.parseReadNode(node))
+    }
+    val speedupFactor = checker.getSpeedupFactor(execName)
     // don't use the isExecSupported because we have finer grain.
     val score = ReadParser.calculateReadScoreRatio(readInfo, checker)
-    val speedupFactor = checker.getSpeedupFactor(fullExecName)
-    val overallSpeedup = Math.max((speedupFactor * score), 1.0)
+    val overallSpeedup = Math.max(speedupFactor * score, 1.0)
 
     // TODO - add in parsing expressions - average speedup across?
     new ExecInfo(sqlID, nodeName, "", overallSpeedup, maxDuration, node.id, score > 0, None)

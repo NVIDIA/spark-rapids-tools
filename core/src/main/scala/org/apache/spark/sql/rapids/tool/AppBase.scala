@@ -295,7 +295,7 @@ abstract class AppBase(
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
-      }).filter(x => x.name.startsWith("Scan")).head
+      }).filter(ReadParser.isScanNode(_)).head
 
       dataSourceInfo += DataSourceCase(sqlID,
         scanNode.id,

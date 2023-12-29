@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.planparser
 import scala.collection.mutable.HashMap
 
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
+import scala.Seq
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
@@ -26,6 +27,15 @@ import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 case class ReadMetaData(schema: String, location: String, filters: String, format: String)
 
 object ReadParser extends Logging {
+  // It was found that some eventlogs could have "NativeScan" instead of "Scan"
+  val SCAN_NODE_PREFIXES = Seq("Scan", "NativeScan")
+
+  def isScanNode(nodeName: String): Boolean = {
+    SCAN_NODE_PREFIXES.exists(nodeName.startsWith(_))
+  }
+  def isScanNode(node: SparkPlanGraphNode): Boolean = {
+    isScanNode(node.name)
+  }
 
   // strip off the struct<> part that Spark adds to the ReadSchema
   def formatSchemaStr(schema: String): String = {
@@ -48,60 +58,65 @@ object ReadParser extends Logging {
   }
 
   def parseReadNode(node: SparkPlanGraphNode): ReadMetaData = {
-    val schemaTag = "ReadSchema: "
-    val schema = if (node.desc.contains(schemaTag)) {
-      formatSchemaStr(getFieldWithoutTag(node.desc, schemaTag))
+    if (HiveParseHelper.isHiveTableScanNode(node)) {
+      HiveParseHelper.parseReadNode(node)
     } else {
-      ""
-    }
-    val locationTag = "Location: "
-    val location = if (node.desc.contains(locationTag)) {
-      val stringWithBrackets = getFieldWithoutTag(node.desc, locationTag)
-      // Remove prepended InMemoryFileIndex[  or  PreparedDeltaFileIndex[
-      // and return only location
-      // Ex: InMemoryFileIndex[hdfs://bdbl-rpm-1106-57451/numbers.parquet,
-      // PreparedDeltaFileIndex[file:/tmp/deltatable/delta-table1]
-      if (stringWithBrackets.contains("[")) {
-        stringWithBrackets.split("\\[", 2).last.replace("]", "")
+      val schemaTag = "ReadSchema: "
+      val schema = if (node.desc.contains(schemaTag)) {
+        formatSchemaStr(getFieldWithoutTag(node.desc, schemaTag))
       } else {
-        stringWithBrackets
+        ""
       }
-    } else if (node.name.contains("JDBCRelation")) {
-      // see if we can report table or query
-      val JDBCPattern = raw".*JDBCRelation\((.*)\).*".r
-      node.name match {
-        case JDBCPattern(tableName) => tableName
-        case _ => "unknown"
-      }
-    } else {
-      "unknown"
-    }
-    val pushedFilterTag = "PushedFilters: "
-    val pushedFilters = if (node.desc.contains(pushedFilterTag)) {
-      val stringWithBrackets = getFieldWithoutTag(node.desc, pushedFilterTag)
-      // Remove prepended [ from the string if exists
-      if (stringWithBrackets.contains("[")) {
-        stringWithBrackets.split("\\[", 2).last.replace("]", "")
+      val locationTag = "Location: "
+      val location = if (node.desc.contains(locationTag)) {
+        val stringWithBrackets = getFieldWithoutTag(node.desc, locationTag)
+        // Remove prepended InMemoryFileIndex[  or  PreparedDeltaFileIndex[
+        // and return only location
+        // Ex: InMemoryFileIndex[hdfs://bdbl-rpm-1106-57451/numbers.parquet,
+        // PreparedDeltaFileIndex[file:/tmp/deltatable/delta-table1]
+        if (stringWithBrackets.contains("[")) {
+          stringWithBrackets.split("\\[", 2).last.replace("]", "")
+        } else {
+          stringWithBrackets
+        }
+      } else if (node.name.contains("JDBCRelation")) {
+        // see if we can report table or query
+        val JDBCPattern = raw".*JDBCRelation\((.*)\).*".r
+        node.name match {
+          case JDBCPattern(tableName) => tableName
+          case _ => "unknown"
+        }
       } else {
-        stringWithBrackets
+        "unknown"
       }
-    } else {
-      "unknown"
-    }
-    val formatTag = "Format: "
-    val fileFormat = if (node.desc.contains(formatTag)) {
-      val format = getFieldWithoutTag(node.desc, formatTag)
-      if (node.name.startsWith("Gpu")) {
-        s"${format}(GPU)"
+      val pushedFilterTag = "PushedFilters: "
+      val pushedFilters = if (node.desc.contains(pushedFilterTag)) {
+        val stringWithBrackets = getFieldWithoutTag(node.desc, pushedFilterTag)
+        // Remove prepended [ from the string if exists
+        if (stringWithBrackets.contains("[")) {
+          stringWithBrackets.split("\\[", 2).last.replace("]", "")
+        } else {
+          stringWithBrackets
+        }
       } else {
-        format
+        "unknown"
       }
-    } else if (node.name.contains("JDBCRelation")) {
-      "JDBC"
-    } else {
-      "unknown"
+      val formatTag = "Format: "
+      val fileFormat = if (node.desc.contains(formatTag)) {
+        val format = getFieldWithoutTag(node.desc, formatTag)
+        if (node.name.startsWith("Gpu")) {
+          s"${format}(GPU)"
+        } else {
+          format
+        }
+      } else if (node.name.contains("JDBCRelation")) {
+        "JDBC"
+      } else {
+        "unknown"
+      }
+      ReadMetaData(schema, location, pushedFilters, fileFormat)
     }
-    ReadMetaData(schema, location, pushedFilters, fileFormat)
+
   }
 
   // For the read score we look at the read format and datatypes for each
