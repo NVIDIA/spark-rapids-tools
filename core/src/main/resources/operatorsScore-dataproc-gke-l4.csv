@@ -98,6 +98,7 @@ Expm1,3.74
 First,3.74
 Flatten,3.74
 Floor,3.74
+FormatNumber,3.74
 FromUTCTimestamp,3.74
 FromUnixTime,3.74
 GetArrayItem,3.74
@@ -168,6 +169,7 @@ Not,3.74
 NthValue,3.74
 OctetLength,3.74
 Or,3.74
+Percentile,3.74
 PercentRank,3.74
 PivotFirst,3.74
 Pmod,3.74
@@ -207,6 +209,7 @@ SortOrder,3.74
 SparkPartitionID,3.74
 SpecifiedWindowFrame,3.74
 Sqrt,3.74
+Stack,3.74
 StartsWith,3.74
 StddevPop,3.74
 StddevSamp,3.74
@@ -222,6 +225,7 @@ StringTranslate,3.74
 StringTrim,3.74
 StringTrimLeft,3.74
 StringTrimRight,3.74
+StructsToJson,3.74
 Substring,3.74
 SubstringIndex,3.74
 Subtract,3.74

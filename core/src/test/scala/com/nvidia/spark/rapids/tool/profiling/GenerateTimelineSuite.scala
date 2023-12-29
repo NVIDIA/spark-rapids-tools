@@ -41,7 +41,7 @@ class GenerateTimelineSuite extends FunSuite with BeforeAndAfterAll with Logging
       }
 
       // create new session for tool to use
-      val spark2 = SparkSession
+      val _ = SparkSession
         .builder()
         .master("local[*]")
         .appName("Rapids Spark Profiling Tool Unit Tests")

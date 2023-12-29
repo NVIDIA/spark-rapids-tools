@@ -31,7 +31,7 @@ class CompareSuite extends FunSuite {
   private val logDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
 
   test("test spark2 and spark3 event logs compare") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs = new ProfileArgs(Array(s"$logDir/tasks_executors_fail_compressed_eventlog.zstd",
       s"$logDir/spark2-eventlog.zstd"))
     var index: Int = 1
@@ -54,7 +54,7 @@ class CompareSuite extends FunSuite {
   }
 
   test("test 2 app runs event logs compare") {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs = new ProfileArgs(Array(s"$logDir/rapids_join_eventlog2.zstd",
       s"$logDir/rapids_join_eventlog.zstd"))
     var index: Int = 1

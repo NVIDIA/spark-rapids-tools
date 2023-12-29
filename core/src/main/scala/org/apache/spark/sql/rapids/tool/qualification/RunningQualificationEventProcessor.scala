@@ -241,7 +241,7 @@ class RunningQualificationEventProcessor(sparkConf: SparkConf) extends SparkList
     listener.onOtherEvent(event)
     event match {
       case e: SparkListenerSQLExecutionStart =>
-        logDebug("Starting new SQL query")
+        logDebug(s"Starting new SQL query: ${e.executionId}")
       case e: SparkListenerSQLExecutionEnd =>
         writeSQLDetails(e.executionId)
       case _ =>

@@ -15,7 +15,7 @@
 """init file of the utils package for the Accelerated Spark tools"""
 
 from .util import (
-    get_elem_from_dict, get_elem_non_safe, is_http_file
+    get_elem_from_dict, get_elem_non_safe, is_http_file, Utilities
 )
 
 from .propmanager import (
@@ -28,5 +28,6 @@ __all__ = [
     'get_elem_non_safe',
     'AbstractPropContainer',
     'PropValidatorSchema',
-    'is_http_file'
+    'is_http_file',
+    'Utilities'
 ]

@@ -330,7 +330,7 @@ class ApplicationInfo(
   }
 
   def aggregateSQLStageInfo: Seq[SQLStageInfoProfileResult] = {
-    val jobsWithSQL = jobIdToInfo.filter { case (id, j) =>
+    val jobsWithSQL = jobIdToInfo.filter { case (_, j) =>
       j.sqlID.nonEmpty
     }
     val sqlToStages = jobsWithSQL.flatMap { case (jobId, j) =>
@@ -360,7 +360,7 @@ class ApplicationInfo(
       val res = this.appInfo
 
       val estimatedResult = this.appEndTime match {
-        case Some(t) => this.appEndTime
+        case Some(_) => this.appEndTime
         case None =>
           val jobEndTimes = jobIdToInfo.map { case (_, jc) => jc.endTime }.filter(_.isDefined)
           val sqlEndTimes = sqlIdToInfo.map { case (_, sc) => sc.endTime }.filter(_.isDefined)
