@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
       app: QualificationAppInfo,
       event: SparkListenerEnvironmentUpdate): Unit = {
     logDebug("Processing event: " + event.getClass)
+    app.handleEnvUpdateForCachedProps(event)
     val sparkProperties = event.environmentDetails("Spark Properties").toMap
     if (ToolUtils.isPluginEnabled(sparkProperties)) {
       throw GpuEventLogException(s"Cannot parse event logs from GPU run")

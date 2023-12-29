@@ -46,6 +46,7 @@ class FilterAppInfo(
   def doSparkListenerEnvironmentUpdate(event: SparkListenerEnvironmentUpdate): Unit = {
     logDebug("Processing event: " + event.getClass)
     val envSparkProperties = event.environmentDetails("Spark Properties").toMap
+    handleEnvUpdateForCachedProps(event)
     sparkProperties = Some(EnvironmentInfo(envSparkProperties))
   }
 
