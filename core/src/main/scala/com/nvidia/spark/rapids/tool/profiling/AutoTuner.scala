@@ -830,6 +830,12 @@ class AutoTuner(
           s"'$lookup' should be increased since spilling occurred.")
       }
     }
+    // If the user has enabled AQE auto shuffle, the auto-tuner should recommend to disable this
+    // feature before recommending shuffle partitions.
+    val aqeAutoShuffle = getPropertyValue("spark.databricks.adaptive.autoOptimizeShuffle.enabled")
+    if (!aqeAutoShuffle.isEmpty) {
+      appendRecommendation("spark.databricks.adaptive.autoOptimizeShuffle.enabled", "false")
+    }
     appendRecommendation("spark.sql.shuffle.partitions", s"$shufflePartitions")
   }
 
