@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -388,11 +388,12 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     val allRows = apps.flatMap { app =>
       app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
         SQLDurationExecutorTimeProfileResult(app.index, app.appId, sqlId, sqlCase.duration,
-          sqlCase.hasDatasetOrRDD, app.appInfo.duration, sqlCase.problematic,
+          sqlCase.hasDatasetOrRDD,
+          Option(app.appInfo).flatMap(_.duration).orElse(Option(0L)),
+          sqlCase.problematic,
           sqlCase.sqlCpuTimePercent)
       }
     }
-
     if (allRows.size > 0) {
       val sortedRows = allRows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
