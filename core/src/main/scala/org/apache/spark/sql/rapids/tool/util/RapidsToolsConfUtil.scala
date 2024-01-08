@@ -85,7 +85,7 @@ object RapidsToolsConfUtil extends Logging {
    * Reads a properties file from resources/configs.
    * If the file cannot be loaded, an error message will show in the log.
    * Note that this should not happen because it is an internal functionality.
-   * @param fileName the name of the file in teh directory
+   * @param fileName the name of the file in the directory
    * @return a Java properties object
    */
   private def loadPropFile(fileName: String): Properties = {
