@@ -17,30 +17,23 @@
 import datetime
 import logging.config
 import os
-import re
 import secrets
-import ssl
 import string
 import subprocess
 import sys
 import threading
 import time
-import urllib
-from shutil import make_archive, which
 from dataclasses import dataclass, field
 from logging import Logger
+from shutil import make_archive, which
 from typing import Callable, Any
 
-import certifi
 import chevron
-from bs4 import BeautifulSoup
 from packaging.version import Version
 from progress.spinner import PixelSpinner
 from pygments import highlight
 from pygments.formatters import get_formatter_by_name
 from pygments.lexers import get_lexer_by_name
-
-from spark_rapids_pytools import get_version
 
 
 class Utils:
@@ -85,50 +78,6 @@ class Utils:
         # release format is under url YY.MM.MICRO where MM is 02, 04, 06, 08, 10, and 12
         res = f'{version_comp[0]}.{version_comp[1]:02}.{version_comp[2]}'
         return res
-
-    @classmethod
-    def get_latest_available_jar_version(cls, url_base: str, loaded_version: str) -> str:
-        """
-        Given the defined version in the python tools build, we want to be able to get the highest
-        version number of the jar available for download from the mvn repo.
-        The returned version is guaranteed to be LEQ to the defined version. For example, it is not
-        allowed to use jar version higher than the python tool itself.
-        :param url_base: the base url from which the jar file is downloaded. It can be mvn repo.
-        :param loaded_version: the version from the python tools in string format
-        :return: the string value of the jar that should be downloaded.
-        """
-        context = ssl.create_default_context(cafile=certifi.where())
-        defined_version = Version(loaded_version)
-        jar_version = Version(loaded_version)
-        version_regex = r'\d{2}\.\d{2}\.\d+'
-        version_pattern = re.compile(version_regex)
-        with urllib.request.urlopen(url_base, context=context) as resp:
-            html_content = resp.read()
-            # Parse the HTML content using BeautifulSoup
-            soup = BeautifulSoup(html_content, 'html.parser')
-            # Find all the links with title in the format of "xx.xx.xx"
-            links = soup.find_all('a', {'title': version_pattern})
-            # Get the link with the highest value
-            for link in links:
-                curr_title = re.search(version_regex, link.get('title'))
-                if curr_title:
-                    curr_version = Version(curr_title.group())
-                    if curr_version <= defined_version:
-                        jar_version = curr_version
-        # get formatted string
-        return cls.reformat_release_version(jar_version)
-
-    @classmethod
-    def get_base_release(cls) -> str:
-        """
-        For now the tools_jar is always with major.minor.0.
-        this method makes sure that even if the package version is incremented, we will still
-        get the correct url.
-        :return: a string containing the release number 22.12.0, 23.02.0, amd 23.04.0..etc
-        """
-        defined_version = Version(get_version(main=None))
-        # get the release from version
-        return cls.reformat_release_version(defined_version)
 
     @classmethod
     def is_system_tool(cls, tool_name: str) -> bool:

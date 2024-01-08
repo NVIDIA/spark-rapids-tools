@@ -88,7 +88,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val systemProperties = customProps match {
       case None => mutable.Map[String, String]()
       case Some(newProps) => newProps
-      }
+    }
     val convertedMap = new util.LinkedHashMap[String, String](systemProperties.asJava)
     val clusterProps = new ClusterProperties(cpuSystem, gpuWorkerProps, convertedMap)
     // set the options to convert the object into formatted yaml content
@@ -654,7 +654,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     assert(expectedResults == autoTunerOutput)
   }
 
-  test("test AutoTuner with empty sparkProperties" ) {
+  test("test AutoTuner with empty sparkProperties") {
     val dataprocWorkerInfo = buildWorkerInfoAsString(None)
     val expectedResults =
       s"""|
@@ -1455,7 +1455,6 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     assert(expectedResults == autoTunerOutput)
   }
 
-
   test("Recommendations generated for empty unsupported operators from driver logs only") {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
@@ -1506,5 +1505,90 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
+  }
+
+  test("Handle adaptive auto shuffle configuration setting properly") {
+    val customProps = mutable.LinkedHashMap(
+      "spark.databricks.adaptive.autoOptimizeShuffle.enabled" -> "true")
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.instances" -> "1",
+        "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1",
+        "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
+        "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
+        "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager",
+        "spark.sql.shuffle.partitions" -> "1000",
+        "spark.sql.files.maxPartitionBytes" -> "1g",
+        "spark.task.resource.gpu.amount" -> "0.25",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "1")
+    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+    val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
+      Some(defaultSparkVersion))
+    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.databricks.adaptive.autoOptimizeShuffle.enabled=false
+          |--conf spark.executor.cores=8
+          |--conf spark.executor.instances=20
+          |--conf spark.executor.memory=16384m
+          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.files.maxPartitionBytes=3669m
+          |--conf spark.task.resource.gpu.amount=0.125
+          |
+          |Comments:
+          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
+          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
+          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    assert(expectedResults == autoTunerOutput)
+  }
+
+  test("test shuffle manager version for databricks") {
+    val databricksWorkerInfo = buildWorkerInfoAsString(None)
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      mutable.Map("spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
+        "spark.databricks.clusterUsageTags.sparkVersion" -> "11.3.x-gpu-ml-scala2.12"),
+      Some("3.3.0"), Seq())
+    // Do not set the platform as DB to see if it can work correctly irrespective
+    val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
+      infoProvider, PlatformFactory.createInstance())
+    val smVersion = autoTuner.getShuffleManagerClassName()
+    // Assert shuffle manager string for DB 11.3 tag
+    assert(smVersion == "com.nvidia.spark.rapids.spark330db.RapidsShuffleManager")
+  }
+
+  test("test shuffle manager version for non-databricks") {
+    val databricksWorkerInfo = buildWorkerInfoAsString(None)
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      mutable.Map("spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
+      Some("3.3.0"), Seq())
+    val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
+      infoProvider, PlatformFactory.createInstance())
+    val smVersion = autoTuner.getShuffleManagerClassName()
+    assert(smVersion == "com.nvidia.spark.rapids.spark330.RapidsShuffleManager")
   }
 }

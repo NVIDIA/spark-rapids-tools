@@ -176,6 +176,7 @@ Not,4.16
 NthValue,4.16
 OctetLength,4.16
 Or,4.16
+ParseUrl,4.16
 Percentile,4.16
 PercentRank,4.16
 PivotFirst,4.16

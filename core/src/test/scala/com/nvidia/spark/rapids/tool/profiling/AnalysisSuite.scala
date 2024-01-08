@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -137,5 +137,18 @@ class AnalysisSuite extends FunSuite {
     val sqlDurAndCpu = analysis.sqlMetricsAggregationDurationAndCpuTime()
     val containsDs = sqlDurAndCpu.filter(_.containsDataset === true)
     assert(containsDs.size == 1)
+  }
+
+  test("test duration for null appInfo") {
+    val qualLogDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
+    val logs = Array(s"$qualLogDir/dataset_eventlog")
+
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    apps.foreach { app =>
+      app.appInfo = null
+    }
+    val analysis = new Analysis(apps)
+    val metrics = analysis.sqlMetricsAggregationDurationAndCpuTime()
+    metrics.foreach(m => assert(m.appDuration.get == 0L))
   }
 }
