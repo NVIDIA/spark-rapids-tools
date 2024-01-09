@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        java-version: [8, 11]
         spark-version: ['311', '320', '333', '341']
     steps:
     - uses: actions/checkout@v3
@@ -32,7 +33,7 @@ jobs:
       uses: actions/setup-java@v3
       with:
         distribution: adopt
-        java-version: 8
+        java-version: ${{ matrix.java-version }}
 
     - name: Run mvn verify with Spark ${{ matrix.spark-version }}
       run: cd core && mvn -Dbuildver=${{ matrix.spark-version }} verify

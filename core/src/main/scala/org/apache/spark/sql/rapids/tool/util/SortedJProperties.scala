@@ -55,7 +55,9 @@ class SortedJProperties extends Properties {
       override def keys: Enumeration[AnyRef] =
         Collections.enumeration(new TreeSet[AnyRef](super.keySet))
     }
-    sortedProps.putAll(this)
+    this.entrySet().forEach { e =>
+      sortedProps.put(e.getKey, e.getValue)
+    }
     sortedProps.store(out, comments)
   }
 }
