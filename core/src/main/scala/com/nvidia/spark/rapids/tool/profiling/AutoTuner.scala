@@ -79,15 +79,18 @@ class GpuWorkerProps(
   }
 
   /**
-   * If the GPU memory is missing, it will sets a default valued based on the GPU device and the
-   * static HashMap [[AutoTuner.DEF_WORKER_GPU_MEMORY_MB]].
+   * If the GPU memory is missing, it will sets a default valued based on the GPU device type.
    * If it is still missing, it sets a default to 15109m.
    *
    * @return true if the value has been updated.
    */
   def setDefaultGpuMemIfMissing(): Boolean = {
     if (memory == null || memory.isEmpty || memory.startsWith("0")) {
-      memory = AutoTuner.DEF_WORKER_GPU_MEMORY_MB.getOrElse(getName, "15109m")
+      memory = try {
+        GpuTypes.getGpuMem(getName)
+      } catch {
+        case _: IllegalArgumentException => "15109m"
+      }
       true
     } else {
       false
@@ -1041,11 +1044,14 @@ object AutoTuner extends Logging {
   // GPU count defaults to 1 if it is missing.
   val DEF_WORKER_GPU_COUNT = 1
   // GPU default device is T4
-  val DEF_WORKER_GPU_NAME = "T4"
+  val DEF_WORKER_GPU_NAME = GpuTypes.T4
   // T4 default memory is 16G
   // A100 set default to 40GB
   val DEF_WORKER_GPU_MEMORY_MB: Map[String, String] = Map(
-    GpuTypes.T4-> "15109m", GpuTypes.A100 -> "40960m")
+    GpuTypes.T4 -> "15109m", GpuTypes.A100 -> "40960m", GpuTypes.V100 -> "16384m",
+    GpuTypes.K80 -> "12288m", GpuTypes.P100 -> "16384m", GpuTypes.P100 -> "16384m",
+    GpuTypes.P4 -> "8192m", GpuTypes.L4 -> "24576m", GpuTypes.A10 -> "24576m",
+    GpuTypes.A10G -> "24576m")
   // Default Number of Workers 1
   val DEF_NUM_WORKERS = 1
   // Default distinct read location thresholds is 50%
