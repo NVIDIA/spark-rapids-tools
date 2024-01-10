@@ -52,6 +52,8 @@ trait AppInfoPropertyGetter {
 trait AppInfoSqlTaskAggMetricsVisitor {
   def getJvmGCFractions: Seq[Double]
   def getSpilledMetrics: Seq[Long]
+  def getSpillMetricsForStage(stage: String): Seq[(Long, Long)]
+  def getDataSkewStages: Seq[Long]
 }
 
 trait AppInfoSQLMaxTaskInputSizes {
@@ -81,6 +83,8 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getRapidsJars: Seq[String] = Seq()
   override def getDistinctLocationPct: Double = 0.0
   override def getRedundantReadSize: Long = 0
+  override def getSpillMetricsForStage(stage: String): Seq[(Long, Long)] = Seq()
+  override def getDataSkewStages: Seq[Long] = Seq()
 }
 
 /**
@@ -134,6 +138,27 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
     app.sqlTaskAggMetrics.map { task =>
       task.diskBytesSpilledSum + task.memoryBytesSpilledSum
     }
+  }
+
+  override def getSpillMetricsForStage(stage: String): Seq[(Long, Long)] = {
+    // Get ids for input specified stage
+    val stageIds = app.sqlStageInfo.collect ({
+      case row if (row.nodeNames.exists(name => name.toLowerCase.contains(stage))) =>
+        row.stageId.toString()
+    })
+
+    // Select those in the specified stage and retrieve their spilled metrics
+    app.jsMetAgg.collect({
+      case row if (row.id.contains("stage") && stageIds.contains(row.id.split("_")(1))) =>
+        (row.id.split("_")(1).toLong, row.diskBytesSpilledSum + row.memoryBytesSpilledSum)
+    })
+  }
+
+  override def getDataSkewStages: Seq[Long] = {
+    // Get stage ids with data skew (logic is borrowed from Profiler output)
+    app.skewInfo.collect({
+      case row if (row.taskShuffleReadMB > 3 * row.avgShuffleReadMB) => row.stageId
+    })
   }
 
   override def getMaxInput: Double = {

@@ -822,7 +822,17 @@ class AutoTuner(
       getPropertyValue(lookup).getOrElse(DEF_SHUFFLE_PARTITIONS).toInt
     // TODO: Need to look at other metrics for GPU spills (DEBUG mode), and batch sizes metric
     if (isCalculationEnabled(lookup)) {
-      val totalSpilledMetrics = appInfoProvider.getSpilledMetrics.sum
+      val getShuffleStagesWithSpill = appInfoProvider.getSpillMetricsForStage("shuffle").filter({
+        case (_, spilled) => spilled > 0
+      })
+      val totalSpilledMetrics = getShuffleStagesWithSpill.unzip._2.sum
+
+      val getDataSkewStages = appInfoProvider.getDataSkewStages
+      if (!getDataSkewStages.isEmpty) {
+        appendOptionalComment(lookup, "There is data skew (when task's Shuffle Read Size > 3 * " +
+          "Avg Stage-level size) in shuffle stages.")
+      }
+
       if (totalSpilledMetrics > 0) {
         shufflePartitions *= DEF_SHUFFLE_PARTITION_MULTIPLIER
         // Could be memory instead of partitions
