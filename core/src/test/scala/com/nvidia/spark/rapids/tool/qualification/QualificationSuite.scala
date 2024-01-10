@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import java.io.File
+import java.io.{File, PrintWriter}
 import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
@@ -401,7 +401,7 @@ class QualificationSuite extends BaseTestSuite {
         "--report-read-schema")
 
       val appArgs = new QualificationArgs(allArgs ++ logFiles)
-      val (exit, sum) = QualificationMain.mainInternal(appArgs)
+      val (exit, sum@_) = QualificationMain.mainInternal(appArgs)
       assert(exit == 0)
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
@@ -458,6 +458,67 @@ class QualificationSuite extends BaseTestSuite {
     // Status counts: 1 SUCCESS, 0 FAILURE, 1 UNKNOWN
     val expectedStatus = Some(StatusReportCounts(1, 0, 1))
     runQualificationTest(logFiles, "nds_q86_test_expectation.csv", expectedStatus = expectedStatus)
+  }
+
+  test("incomplete json file does not cause entire app to fail") {
+    // The purpose of this test is to make sure that the app is not skipped when the JSON parser
+    // encounters an unexpected EOF.
+    // There are two cases to evaluate:
+    // 1- An eventlog that has an end-to-end application but for some reason the EOF is incorrect
+    // 2- An eventlog of an unfinished app (missing SparkListenerApplicationEnd)
+
+    TrampolineUtil.withTempDir { eventLogDir =>
+      // generate the original eventlog
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+        "WholeStageFilterProject") { spark =>
+        import spark.implicits._
+        val df = spark.sparkContext.makeRDD(1 to 100, 3).toDF
+        val df2 = spark.sparkContext.makeRDD(1 to 100, 3).toDF
+        df.select($"value" as "a")
+          .join(df2.select($"value" as "b"), $"a" === $"b")
+          .filter("(((b < 100) AND (a > 50)) OR (a = 0))")
+          .sort($"b")
+      }
+      // create the following files:
+      // 1- inprogress eventlog that does not contain "SparkListenerApplicationEnd" (unfinished)
+      // 2- inprogress eventlog with a terminated app (incomplete)
+      val unfinishedLog = new File(s"$eventLogDir/unfinished.inprogress")
+      val incompleteLog = new File(s"$eventLogDir/eventlog.inprogress")
+      val pwList = Array(new PrintWriter(unfinishedLog), new PrintWriter(incompleteLog))
+      val bufferedSource = Source.fromFile(eventLog)
+      try {
+        val allEventLines = bufferedSource.getLines.toList
+        val selectedLines: List[String] = allEventLines.dropRight(1)
+        selectedLines.foreach { line =>
+          pwList.foreach(pw => pw.println(line))
+        }
+        // add the "SparkListenerApplicationEnd" to the incompleteLog
+        pwList(1).println(allEventLines.last)
+        pwList.foreach( pw =>
+          pw.print("{\"Event\":\"SparkListenerEnvironmentUpdate\"," +
+          "\"JVM Information\":{\"Java Home:")
+        )
+      } finally {
+        bufferedSource.close()
+        pwList.foreach(pw => pw.close())
+      }
+      // All the eventlogs should be parsed successfully
+      // Status counts: 3 SUCCESS, 0 FAILURE, 0 UNKNOWN
+      val logFiles = Array(eventLog, incompleteLog.getAbsolutePath, unfinishedLog.getAbsolutePath)
+      // test Qualification
+      val outpath = new File(s"$eventLogDir/output_folder")
+      val allArgs = Array(
+        "--output-directory",
+        outpath.getAbsolutePath())
+
+      val appArgs = new QualificationArgs(allArgs ++ logFiles)
+      val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+      assert(exit == 0)
+      assert(appSum.size == 3)
+      // test Profiler
+      val apps = ToolTestUtils.processProfileApps(logFiles, sparkSession)
+      assert(apps.size == 3)
+    }
   }
 
   test("spark2 eventlog") {
@@ -677,7 +738,6 @@ class QualificationSuite extends BaseTestSuite {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val tmpParquet = s"$outpath/mlOpsParquet"
-        val sparkVersion = ToolUtils.sparkRuntimeVersion
         createDecFile(sparkSession, tmpParquet)
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "dot") { spark =>
           val data = Array(
@@ -686,7 +746,7 @@ class QualificationSuite extends BaseTestSuite {
             Vectors.dense(4.0, 0.0, 0.0, 6.0, 7.0)
           )
           val df = spark.createDataFrame(data.map(Tuple1.apply)).toDF("features")
-          val pca = new PCA()
+          new PCA()
             .setInputCol("features")
             .setOutputCol("pcaFeatures")
             .setK(3)
@@ -981,7 +1041,6 @@ class QualificationSuite extends BaseTestSuite {
       assert(detailedOut.nonEmpty)
       assert(detailedOut.startsWith("|") && detailedOut.endsWith("|\n"))
       val stdOut = sumOut.split("\n")
-      val stdOutHeader = stdOut(0).split("\\|")
       val stdOutValues = stdOut(1).split("\\|")
       // index of unsupportedExecs
       val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3)
@@ -1003,7 +1062,7 @@ class QualificationSuite extends BaseTestSuite {
           outpath.getAbsolutePath,
           eventLog))
 
-        val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+        val (exit, sumInfo@_) = QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
 
         // the code above that runs the Spark query stops the Sparksession
@@ -1058,7 +1117,7 @@ class QualificationSuite extends BaseTestSuite {
           outpath.getAbsolutePath,
           eventLog))
 
-        val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+        val (exit, sumInfo@_) = QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
 
         // the code above that runs the Spark query stops the Sparksession
@@ -1145,27 +1204,35 @@ class QualificationSuite extends BaseTestSuite {
           "--output-directory",
           outpath.getAbsolutePath())
         val appArgs = new QualificationArgs(allArgs ++ Array(eventLog))
-        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+        val (exit, appSum@_) = QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
 
         val filename = s"$outpath/rapids_4_spark_qualification_output/" +
           s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
+        val stageDurationFile = s"$outpath/rapids_4_spark_qualification_output/" +
+          s"rapids_4_spark_qualification_output_unsupportedOperatorsStageDuration.csv"
         val inputSource = Source.fromFile(filename)
+        val unsupportedStageDuration = Source.fromFile(stageDurationFile)
         try {
           val lines = inputSource.getLines.toSeq
           // 1 for header, 1 for values
 
           val expLinesSize =
             if (ToolUtils.isSpark340OrLater()) {
-              6
+              8
             } else if (!ToolUtils.isSpark320OrLater()) {
-              5
+              6
             } else {
-              5
+              7
             }
           assert(lines.size == expLinesSize)
           assert(lines.head.contains("App ID,Unsupported Type,"))
           assert(lines(1).contains("\"Read\",\"JSON\",\"Types not supported - bigint:int\""))
+
+          val stageDurationLines = unsupportedStageDuration.getLines.toSeq
+          assert(stageDurationLines.head.contains("" +
+            "Stage Duration,App Duration,Recommendation"))
+          assert(stageDurationLines(1).contains("Not Recommended"))
         } finally {
           inputSource.close()
         }
@@ -1264,7 +1331,7 @@ class QualificationSuite extends BaseTestSuite {
           outpath.getAbsolutePath,
           eventLog))
 
-        val (exit, sumInfo) =
+        val (exit, sumInfo@_) =
           QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
   
@@ -1390,7 +1457,7 @@ class QualificationSuite extends BaseTestSuite {
             outpath.getAbsolutePath,
             eventLog))
 
-          val (exit, sumInfo) = QualificationMain.mainInternal(appArgs)
+          val (exit, sumInfo@_) = QualificationMain.mainInternal(appArgs)
           assert(exit == 0)
 
           // the code above that runs the Spark query stops the Sparksession

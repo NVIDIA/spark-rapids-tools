@@ -311,7 +311,7 @@ object AppFilterImpl {
     val timeInt = try {
       timeStr.toInt
     } catch {
-      case ne: NumberFormatException =>
+      case _: NumberFormatException =>
         throw new IllegalArgumentException(s"Invalid time period $appStartStr specified, " +
           "time must be greater than 0 and valid periods are min(minute),h(hours)" +
           ",d(days),w(weeks),m(months).")

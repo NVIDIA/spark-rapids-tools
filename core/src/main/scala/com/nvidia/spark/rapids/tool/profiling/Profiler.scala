@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,11 +26,12 @@ import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, PlatformFactory}
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
+import org.apache.spark.sql.rapids.tool.util.RuntimeReporter
 
-class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean) extends Logging {
+class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean)
+  extends RuntimeReporter {
 
   private val nThreads = appArgs.numThreads.getOrElse(
     Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
@@ -41,8 +42,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     .setDaemon(true).setNameFormat("profileTool" + "-%d").build()
   private val threadPool = Executors.newFixedThreadPool(nThreads, threadFactory)
     .asInstanceOf[ThreadPoolExecutor]
-  private val outputDir = appArgs.outputDirectory().stripSuffix("/") +
-    s"/${Profiler.SUBDIR}"
   private val numOutputRows = appArgs.numOutputRows.getOrElse(1000)
 
   private val outputCSV: Boolean = appArgs.csv()
@@ -50,6 +49,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private var progressBar: Option[ConsoleProgressBar] = None
+
+  override val outputDir = appArgs.outputDirectory().stripSuffix("/") +
+    s"/${Profiler.SUBDIR}"
 
   logInfo(s"Threadpool size is $nThreads")
 
@@ -60,6 +62,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
    * what else we can do in parallel.
    */
   def profile(eventLogInfos: Seq[EventLogInfo]): Unit = {
+    generateRuntimeReport()
     if (enablePB && eventLogInfos.nonEmpty) { // total count to start the PB cannot be 0
       progressBar = Some(new ConsoleProgressBar("Profile Tool", eventLogInfos.length))
     }
@@ -102,7 +105,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         // combine them into single tables in the output.
         val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/combined",
           Profiler.COMBINED_LOG_FILE_NAME_PREFIX, numOutputRows, outputCSV = outputCSV)
-        val sums = createAppsAndSummarize(eventLogInfos, false, profileOutputWriter)
+        val sums = createAppsAndSummarize(eventLogInfos, profileOutputWriter)
         writeSafelyToOutput(profileOutputWriter, sums, outputCombined)
         profileOutputWriter.close()
       }
@@ -159,7 +162,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   }
 
   private def createApps(allPaths: Seq[EventLogInfo]): Seq[ApplicationInfo] = {
-    var errorCodes = ArrayBuffer[Int]()
     val allApps = new ConcurrentLinkedQueue[ApplicationInfo]()
 
     class ProfileThread(path: EventLogInfo, index: Int) extends Runnable {
@@ -201,9 +203,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   }
 
   private def createAppsAndSummarize(allPaths: Seq[EventLogInfo],
-      printPlans: Boolean,
       profileOutputWriter: ProfileOutputWriter): Seq[ApplicationSummaryInfo] = {
-    var errorCodes = ArrayBuffer[Int]()
     val allApps = new ConcurrentLinkedQueue[ApplicationSummaryInfo]()
 
     class ProfileThread(path: EventLogInfo, index: Int) extends Runnable {
@@ -253,7 +253,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
   private def createAppAndProcess(
       allPaths: Seq[EventLogInfo],
-      startIndex: Int = 1): Unit = {
+      startIndex: Int): Unit = {
     class ProfileProcessThread(path: EventLogInfo, index: Int) extends Runnable {
       def run: Unit = {
         try {
@@ -309,7 +309,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       logInfo(s"Took ${endTime - startTime}ms to process ${path.eventLog.toString}")
       Some(app)
     } catch {
-      case json: com.fasterxml.jackson.core.JsonParseException =>
+      case _: com.fasterxml.jackson.core.JsonParseException =>
         logWarning(s"Error parsing JSON: $path")
         None
       case il: IllegalArgumentException =>

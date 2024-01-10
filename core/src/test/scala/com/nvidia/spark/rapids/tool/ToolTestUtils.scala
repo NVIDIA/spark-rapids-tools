@@ -137,7 +137,7 @@ object ToolTestUtils extends Logging {
 
   def processProfileApps(logs: Array[String],
       sparkSession: SparkSession): ArrayBuffer[ApplicationInfo] = {
-    var apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs = new ProfileArgs(logs)
     var index: Int = 1
     for (path <- appArgs.eventlog()) {

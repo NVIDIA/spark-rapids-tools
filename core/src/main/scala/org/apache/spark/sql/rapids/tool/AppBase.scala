@@ -203,9 +203,9 @@ abstract class AppBase(
         val fs = eventLogPath.getFileSystem(hconf)
         var totalNumEvents = 0
         val readerOpt = eventLog match {
-          case dblog: DatabricksEventLog =>
+          case _: DatabricksEventLog =>
             Some(new DatabricksRollingEventLogFilesFileReader(fs, eventLogPath))
-          case apachelog => EventLogFileReader(fs, eventLogPath)
+          case _ => EventLogFileReader(fs, eventLogPath)
         }
 
         if (readerOpt.isDefined) {
