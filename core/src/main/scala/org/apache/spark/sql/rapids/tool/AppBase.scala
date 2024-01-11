@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,27 +19,49 @@ package org.apache.spark.sql.rapids.tool
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.io.{Codec, Source}
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
-import com.nvidia.spark.rapids.tool.planparser.ReadParser
+import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
+import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.qualification.MLFunctions
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.util.Utils
 
+// Handles updating and caching Spark Properties for a Spark application.
+// Properties stored in this container can be accessed to make decision about
+// certain analysis that depends on the context of the Spark properties.
+// TODO: we need to migrate SparkProperties, GpuMode to this trait.
+trait CacheableProps {
+  // A flag whether hive is enabled or not. Note that we assume that the
+  // property is global to the entire application once it is set. a.k.a, it cannot be disabled
+  // once it is was set to true.
+  var hiveEnabled = false
+  def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
+    val sparkProperties = event.environmentDetails("Spark Properties").toMap
+    hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
+  }
+
+  def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
+    // TODO: we need to improve this in order to support per-job-level
+    hiveEnabled ||= HiveParseHelper.isHiveEnabled(event.properties.asScala)
+  }
+}
+
 abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
-    val hadoopConf: Option[Configuration]) extends Logging {
+    val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
 
   var sparkVersion: String = ""
   var appEndTime: Option[Long] = None
@@ -272,6 +294,16 @@ abstract class AppBase(
     }
   }
 
+  // Finds all the nodes that scan a hive table
+  def getPlanInfoWithHiveScan(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
+    val childRes = planInfo.children.flatMap(getPlanInfoWithHiveScan(_))
+    if (isHiveTableScanNode(planInfo.nodeName)) {
+      childRes :+ planInfo
+    } else {
+      childRes
+    }
+  }
+
   private def trimSchema(str: String): String = {
     val index = str.lastIndexOf(",")
     if (index != -1 && str.contains("...")) {
@@ -295,7 +327,7 @@ abstract class AppBase(
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
-      }).filter(x => x.name.startsWith("Scan")).head
+      }).filter(ReadParser.isScanNode(_)).head
 
       dataSourceInfo += DataSourceCase(sqlID,
         scanNode.id,
@@ -305,15 +337,29 @@ abstract class AppBase(
         readSchema
       )
     }
+    // "scan hive" has no "ReadSchema" defined. So, we need to look explicitly for nodes
+    // that are scan hive and add them one by one to the dataSource
+    if (hiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
+      val allPlanWithHiveScan = getPlanInfoWithHiveScan(planInfo)
+      allPlanWithHiveScan.foreach { hiveReadPlan =>
+        val sqlGraph = SparkPlanGraph(hiveReadPlan)
+        val hiveScanNode = sqlGraph.allNodes.head
+        val scanHiveMeta = HiveParseHelper.parseReadNode(hiveScanNode)
+        dataSourceInfo += DataSourceCase(sqlID,
+          hiveScanNode.id,
+          scanHiveMeta.format,
+          scanHiveMeta.location,
+          scanHiveMeta.filters,
+          scanHiveMeta.schema
+        )
+      }
+    }
   }
 
   // This will find scans for DataSource V2, if the schema is very large it
   // will likely be incomplete and have ... at the end.
   protected def checkGraphNodeForReads(sqlID: Long, node: SparkPlanGraphNode): Unit = {
-    if (node.name.equals("BatchScan") ||
-        node.name.contains("GpuScan") ||
-        node.name.contains("GpuBatchScan") ||
-        node.name.contains("JDBCRelation")) {
+    if (ReadParser.isDataSourceV2Node(node)) {
       val res = ReadParser.parseReadNode(node)
 
       dataSourceInfo += DataSourceCase(sqlID,

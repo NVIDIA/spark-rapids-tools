@@ -33,7 +33,7 @@ import org.yaml.snakeyaml.constructor.{Constructor, ConstructorException}
 import org.yaml.snakeyaml.representer.Representer
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.ToolUtils
+import org.apache.spark.sql.rapids.tool.{GpuTypes, ToolUtils}
 import org.apache.spark.sql.rapids.tool.util.WebCrawlerUtil
 
 /**
@@ -79,15 +79,18 @@ class GpuWorkerProps(
   }
 
   /**
-   * If the GPU memory is missing, it will sets a default valued based on the GPU device and the
-   * static HashMap [[AutoTuner.DEF_WORKER_GPU_MEMORY_MB]].
+   * If the GPU memory is missing, it will sets a default valued based on the GPU device type.
    * If it is still missing, it sets a default to 15109m.
    *
    * @return true if the value has been updated.
    */
   def setDefaultGpuMemIfMissing(): Boolean = {
     if (memory == null || memory.isEmpty || memory.startsWith("0")) {
-      memory = AutoTuner.DEF_WORKER_GPU_MEMORY_MB.getOrElse(getName, "15109m")
+      memory = try {
+        GpuTypes.getGpuMem(getName)
+      } catch {
+        case _: IllegalArgumentException => "15109m"
+      }
       true
     } else {
       false
@@ -586,14 +589,14 @@ class AutoTuner(
     appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numExecutorCores)
     appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
       Math.max(20, numExecutorCores))
+    appendRecommendation("spark.rapids.sql.batchSizeBytes", BATCH_SIZE_BYTES)
 
     recommendAQEProperties()
   }
 
   def calculateJobLevelRecommendations(): Unit = {
-    val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.filterNot("().".toSet)
-    appendRecommendation("spark.shuffle.manager",
-      "com.nvidia.spark.rapids.spark" + shuffleManagerVersion + ".RapidsShuffleManager")
+    val smClassName = getShuffleManagerClassName
+    appendRecommendation("spark.shuffle.manager", smClassName)
     appendComment(classPathComments("rapids.shuffle.jars"))
 
     recommendFileCache()
@@ -601,6 +604,22 @@ class AutoTuner(
     recommendShufflePartitions()
     recommendGCProperty()
     recommendClassPathEntries()
+  }
+
+  def getShuffleManagerClassName() : String = {
+    val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.filterNot("().".toSet)
+    val dbVersion = appInfoProvider.getProperty(
+      "spark.databricks.clusterUsageTags.sparkVersion").getOrElse("")
+    val finalShuffleVersion : String = if (dbVersion.nonEmpty) {
+      dbVersion match {
+        case ver if ver.contains("10.4") => "321db"
+        case ver if ver.contains("11.3") => "330db"
+        case _ => "332db"
+      }
+    } else {
+      shuffleManagerVersion
+    }
+    "com.nvidia.spark.rapids.spark" + finalShuffleVersion + ".RapidsShuffleManager"
   }
 
   /**
@@ -641,7 +660,7 @@ class AutoTuner(
 
   private def recommendAQEProperties(): Unit = {
     val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled")
-            .getOrElse("false").toLowerCase
+      .getOrElse("false").toLowerCase
     if (aqeEnabled == "false") {
       appendComment(commentsForMissingProps("spark.sql.adaptive.enabled"))
     }
@@ -667,11 +686,56 @@ class AutoTuner(
         }
       case None =>
     }
-    if (getPropertyValue("spark.sql.adaptive.advisoryPartitionSizeInBytes").isEmpty) {
-      // The default is 64m, but 128m is slightly better for the GPU as the GPU has sub-linear
-      // scaling until it is full and 128m makes the GPU more full, but too large can be slightly
-      // problematic because this is the compressed shuffle size
-      appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128m")
+    val advisoryPartitionSizeProperty =
+      getPropertyValue("spark.sql.adaptive.advisoryPartitionSizeInBytes")
+    if (appInfoProvider.getMeanInput < AQE_INPUT_SIZE_BYTES_THRESHOLD) {
+      if(advisoryPartitionSizeProperty.isEmpty) {
+        // The default is 64m, but 128m is slightly better for the GPU as the GPU has sub-linear
+        // scaling until it is full and 128m makes the GPU more full, but too large can be slightly
+        // problematic because this is the compressed shuffle size
+        appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128m")
+      }
+    }
+    if (appInfoProvider.getMeanInput > AQE_INPUT_SIZE_BYTES_THRESHOLD &&
+      appInfoProvider.getMeanShuffleRead > AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
+      // AQE Recommendations for large input and large shuffle reads
+      val advisoryPartitionSizeInBytes = clusterProps.gpu.name match {
+        case GpuTypes.A100 => "64m"
+        case GpuTypes.T4 => "32m"
+        case _ => AQE_DEF_ADVISORY_PARTITION_SIZE
+      }
+      appendRecommendation(
+        "spark.sql.adaptive.advisoryPartitionSizeInBytes",
+        advisoryPartitionSizeInBytes
+      )
+      val initialPartitionNumProperty =
+        getPropertyValue("spark.sql.adaptive.coalescePartitions.initialPartitionNum").map(_.toInt)
+      if (initialPartitionNumProperty.getOrElse(0) <= AQE_MIN_INITIAL_PARTITION_NUM) {
+        val initialPartitionNum = clusterProps.gpu.name match {
+          case GpuTypes.A100 => 400
+          case GpuTypes.T4 => 800
+          case _ => AQE_DEF_INITIAL_PARTITION_NUM
+        }
+        appendRecommendation(
+          "spark.sql.adaptive.coalescePartitions.initialPartitionNum",
+          initialPartitionNum
+        )
+      }
+      // We need to set this to false, else Spark ignores the target size specified by
+      // spark.sql.adaptive.advisoryPartitionSizeInBytes.
+      // Reference: https://spark.apache.org/docs/latest/sql-performance-tuning.html
+      appendRecommendation("spark.sql.adaptive.coalescePartitions.parallelismFirst", "false")
+    }
+
+    val autoBroadcastJoinThresholdProperty =
+      getPropertyValue("spark.sql.adaptive.autoBroadcastJoinThreshold").map(convertToMB)
+    if (autoBroadcastJoinThresholdProperty.isEmpty) {
+      appendComment("'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.")
+    } else if (autoBroadcastJoinThresholdProperty.get >
+        convertToMB(AQE_AUTOBROADCAST_JOIN_THRESHOLD)) {
+      appendComment("Setting 'spark.sql.adaptive.autoBroadcastJoinThreshold' > " +
+        s"$AQE_AUTOBROADCAST_JOIN_THRESHOLD could lead to performance\n" +
+        "  regression. Should be set to a lower number.")
     }
   }
 
@@ -814,6 +878,12 @@ class AutoTuner(
         appendOptionalComment(lookup,
           s"'$lookup' should be increased since spilling occurred.")
       }
+    }
+    // If the user has enabled AQE auto shuffle, the auto-tuner should recommend to disable this
+    // feature before recommending shuffle partitions.
+    val aqeAutoShuffle = getPropertyValue("spark.databricks.adaptive.autoOptimizeShuffle.enabled")
+    if (!aqeAutoShuffle.isEmpty) {
+      appendRecommendation("spark.databricks.adaptive.autoOptimizeShuffle.enabled", "false")
     }
     appendRecommendation("spark.sql.shuffle.partitions", s"$shufflePartitions")
   }
@@ -974,10 +1044,14 @@ object AutoTuner extends Logging {
   // GPU count defaults to 1 if it is missing.
   val DEF_WORKER_GPU_COUNT = 1
   // GPU default device is T4
-  val DEF_WORKER_GPU_NAME = "T4"
+  val DEF_WORKER_GPU_NAME = GpuTypes.T4
   // T4 default memory is 16G
   // A100 set default to 40GB
-  val DEF_WORKER_GPU_MEMORY_MB: Map[String, String] = Map("T4"-> "15109m", "A100" -> "40960m")
+  val DEF_WORKER_GPU_MEMORY_MB: Map[String, String] = Map(
+    GpuTypes.T4 -> "15109m", GpuTypes.A100 -> "40960m", GpuTypes.V100 -> "16384m",
+    GpuTypes.K80 -> "12288m", GpuTypes.P100 -> "16384m", GpuTypes.P100 -> "16384m",
+    GpuTypes.P4 -> "8192m", GpuTypes.L4 -> "24576m", GpuTypes.A10 -> "24576m",
+    GpuTypes.A10G -> "24576m")
   // Default Number of Workers 1
   val DEF_NUM_WORKERS = 1
   // Default distinct read location thresholds is 50%
@@ -988,6 +1062,14 @@ object AutoTuner extends Logging {
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
   private val DOC_URL: String = "https://nvidia.github.io/spark-rapids/docs/" +
     "additional-functionality/advanced_configs.html#advanced-configuration"
+  // Value of batchSizeBytes that performs best overall
+  private val BATCH_SIZE_BYTES = 2147483647
+  private val AQE_INPUT_SIZE_BYTES_THRESHOLD = 35000
+  private val AQE_SHUFFLE_READ_BYTES_THRESHOLD = 50000
+  private val AQE_DEF_ADVISORY_PARTITION_SIZE = "32m"
+  private val AQE_DEF_INITIAL_PARTITION_NUM = 800
+  private val AQE_MIN_INITIAL_PARTITION_NUM = 200
+  private val AQE_AUTOBROADCAST_JOIN_THRESHOLD = "100m"
 
   val commentsForMissingProps: Map[String, String] = Map(
     "spark.executor.memory" ->

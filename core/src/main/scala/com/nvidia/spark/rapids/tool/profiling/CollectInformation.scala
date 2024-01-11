@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,13 +34,13 @@ case class StageMetrics(numTasks: Int, duration: String)
 class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 
   def getAppInfo: Seq[AppInfoProfileResults] = {
-    val allRows = apps.map { app =>
-      val a = app.appInfo
+    val allRows = apps.collect {
+      case app if app.appInfo != null => val a = app.appInfo
       AppInfoProfileResults(app.index, a.appName, a.appId,
         a.sparkUser,  a.startTime, a.endTime, a.duration,
         a.durationStr, a.sparkVersion, a.pluginEnabled)
     }
-    if (allRows.size > 0) {
+    if (allRows.nonEmpty) {
       allRows.sortBy(cols => (cols.appIndex))
     } else {
       Seq.empty
@@ -48,11 +48,11 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
   }
 
   def getAppLogPath: Seq[AppLogPathProfileResults] = {
-    val allRows = apps.map { app =>
-      val a = app.appInfo
+    val allRows = apps.collect {
+      case app if app.appInfo != null => val a = app.appInfo
       AppLogPathProfileResults(app.index, a.appName, a.appId, app.eventLogPath)
     }
-    if (allRows.size > 0) {
+    if (allRows.nonEmpty) {
       allRows.sortBy(cols => (cols.appIndex))
     } else {
       Seq.empty

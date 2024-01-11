@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.nvidia.spark.rapids.tool
 
 import java.io.FileOutputStream
+import java.util.Properties
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataOutputStream, Path}
@@ -62,6 +63,10 @@ class ToolTextFileWriter(
 
   def write(stringToWrite: String): Unit = {
     outFile.foreach(_.writeBytes(stringToWrite))
+  }
+
+  def writeProperties(props: Properties, comment: String): Unit = {
+    outFile.foreach(props.store(_, comment))
   }
 
   def flush(): Unit = {
