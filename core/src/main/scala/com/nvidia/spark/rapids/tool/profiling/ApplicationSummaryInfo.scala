@@ -54,8 +54,10 @@ trait AppInfoSqlTaskAggMetricsVisitor {
   def getSpilledMetrics: Seq[Long]
 }
 
-trait AppInfoSQLMaxTaskInputSizes {
+trait AppInfoSQLTaskInputSizes {
   def getMaxInput: Double
+  def getMeanInput: Double
+  def getMeanShuffleRead: Double
 }
 
 trait AppInfoReadMetrics {
@@ -69,13 +71,15 @@ trait AppInfoReadMetrics {
  */
 class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   with AppInfoSqlTaskAggMetricsVisitor
-  with AppInfoSQLMaxTaskInputSizes
+  with AppInfoSQLTaskInputSizes
   with AppInfoReadMetrics {
   override def getSparkProperty(propKey: String): Option[String] = None
   override def getRapidsProperty(propKey: String): Option[String] = None
   override def getProperty(propKey: String): Option[String] = None
   override def getSparkVersion: Option[String] = None
   override def getMaxInput: Double = 0.0
+  override def getMeanInput: Double = 0.0
+  override def getMeanShuffleRead: Double = 0.0
   override def getJvmGCFractions: Seq[Double] = Seq()
   override def getSpilledMetrics: Seq[Long] = Seq()
   override def getRapidsJars: Seq[String] = Seq()
@@ -160,5 +164,21 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
       .mapValues(_.map(_.data_size).sum)
       .values
       .sum
+  }
+
+  override def getMeanInput: Double = {
+    if (app.ioMetrics.nonEmpty) {
+      app.ioMetrics.map(_.inputBytesReadSum).sum * 1.0 / app.ioMetrics.size
+    } else {
+      0.0
+    }
+  }
+
+  override def getMeanShuffleRead: Double = {
+    if (app.ioMetrics.nonEmpty) {
+      app.ioMetrics.map(_.srTotalBytesReadSum).sum * 1.0 / app.ioMetrics.size
+    } else {
+      0.0
+    }
   }
 }
