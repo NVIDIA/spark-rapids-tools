@@ -525,7 +525,7 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <!-- add hive to test against detective hive Ops -->
+            <!-- add hive jars to test hive Ops -->
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-hive_${scala.binary.version}</artifactId>
             <version>${spark.version}</version>

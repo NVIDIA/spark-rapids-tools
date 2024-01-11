@@ -43,8 +43,8 @@ import org.apache.spark.util.Utils
 // Properties stored in this container can be accessed to make decision about
 // certain analysis that depends on the context of the Spark properties.
 // TODO: we need to migrate SparkProperties, GpuMode to this trait.
-trait CashableProps {
-  // A flag wether hive is enabled or not. Note that we assume that the
+trait CacheableProps {
+  // A flag whether hive is enabled or not. Note that we assume that the
   // property is global to the entire application once it is set. a.k.a, it cannot be disabled
   // once it is was set to true.
   var hiveEnabled = false
@@ -61,7 +61,7 @@ trait CashableProps {
 
 abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
-    val hadoopConf: Option[Configuration]) extends Logging with CashableProps {
+    val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
 
   var sparkVersion: String = ""
   var appEndTime: Option[Long] = None
@@ -337,7 +337,7 @@ abstract class AppBase(
         readSchema
       )
     }
-    // scan hive has no "ReaSchema" defined. So, we need to look explicitly for nodes
+    // "scan hive" has no "ReadSchema" defined. So, we need to look explicitly for nodes
     // that are scan hive and add them one by one to the dataSource
     if (hiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
       val allPlanWithHiveScan = getPlanInfoWithHiveScan(planInfo)
