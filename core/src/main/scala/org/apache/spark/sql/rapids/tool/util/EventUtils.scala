@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,5 +80,12 @@ object EventUtils extends Logging {
         stageId, attemptId,
         taskId, accuInfo.id, accuInfo.name, value, update, accuInfo.internal))
     }
+  }
+
+  // A utility function used to read Spark properties and compare it to a given target.
+  // Note that it takes a default argument as well in case the property is not available.
+  def isPropertyMatch(properties: collection.Map[String, String], propKey: String,
+      defValue: String, targetValue: String): Boolean = {
+    properties.getOrElse(propKey, defValue).equals(targetValue)
   }
 }

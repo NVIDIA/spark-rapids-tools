@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -257,7 +257,7 @@ object SQLPlanParser extends Logging {
             ShuffledHashJoinExecParser(node, checker, sqlID, app).parse
           case "Sort" =>
             SortExecParser(node, checker, sqlID).parse
-          case s if (s.startsWith("Scan")) =>
+          case s if ReadParser.isScanNode(s) =>
             FileSourceScanExecParser(node, checker, sqlID, app).parse
           case "SortAggregate" =>
             SortAggregateExecParser(node, checker, sqlID).parse
