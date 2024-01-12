@@ -1,6 +1,26 @@
 
 <br/>
 
+## Release [v23.12.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.12.3)
+Generated on 2024-01-12
+### Core
+
+- Add support of HiveTableScan and InsertIntoHive text-format ([#723](https://github.com/NVIDIA/spark-rapids-tools/pull/723))
+- Fix compilation error with JDK11 ([#720](https://github.com/NVIDIA/spark-rapids-tools/pull/720))
+- Generate an output file with runtime and build information ([#705](https://github.com/NVIDIA/spark-rapids-tools/pull/705))
+- AutoTuner should poll maven-meta to retrieve the latest jar version  ([#711](https://github.com/NVIDIA/spark-rapids-tools/pull/711))
+-  Profiling tool : Profiling tool throws NPE when appInfo is null and unchecked ([#640](https://github.com/NVIDIA/spark-rapids-tools/pull/640))
+- Add support to parse_url host and protocol ([#708](https://github.com/NVIDIA/spark-rapids-tools/pull/708))
+- [FEA] Profiling tool auto-tuner should consider `spark.databricks.adaptive.autoOptimizeShuffle.enabled` ([#710](https://github.com/NVIDIA/spark-rapids-tools/pull/710))
+- [FEA] Profiler autotuner should only specify standard Spark versions for shuffle manager setting ([#662](https://github.com/NVIDIA/spark-rapids-tools/pull/662))
+
+### Miscellaneous
+
+- [FEA] Enable AQE related recommendations in Profiler Auto-tuner ([#688](https://github.com/NVIDIA/spark-rapids-tools/pull/688))
+
+
+<br/>
+
 ## Release [v23.12.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.12.2)
 Generated on 2023-12-27
 ### User Tools
