@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -674,8 +674,7 @@ class AutoTuner(
       case Some(version) =>
         if (ToolUtils.isSpark320OrLater(version)) {
           // AQE configs changed in 3.2.0
-          if (getPropertyValue(
-            "spark.sql.adaptive.coalescePartitions.minPartitionSize").isEmpty) {
+          if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionSize").isEmpty) {
             // the default is 1m, but 4m is slightly better for the GPU as we have a higher
             // per task overhead
             appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionSize", "4m")
@@ -1000,9 +999,7 @@ class AutoTuner(
       skipList.foreach(skipSeq => skipSeq.foreach(_ => skippedRecommendations.add(_)))
       skippedRecommendations ++= platform.recommendationsToExclude
       initRecommendations()
-
       calculateJobLevelRecommendations()
-
       if (processPropsAndCheck) {
         calculateClusterLevelRecommendations()
       } else {
@@ -1055,7 +1052,6 @@ object AutoTuner extends Logging {
   val DEF_WORKER_GPU_COUNT = 1
   // GPU default device is T4
   val DEF_WORKER_GPU_NAME = GpuTypes.T4
-
   // Default Number of Workers 1
   val DEF_NUM_WORKERS = 1
   // Default distinct read location thresholds is 50%
