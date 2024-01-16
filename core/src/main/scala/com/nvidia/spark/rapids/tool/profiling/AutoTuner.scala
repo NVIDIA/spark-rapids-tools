@@ -334,7 +334,8 @@ class AutoTuner(
     val clusterProps: ClusterProperties,
     val appInfoProvider: AppSummaryInfoBaseProvider,
     val platform: Platform,
-    unsupportedOperators: Seq[DriverLogUnsupportedOperators])  extends Logging {
+    val driverInfoProvider: DriverLogInfoProvider)
+  extends Logging {
 
   import AutoTuner._
 
@@ -354,7 +355,7 @@ class AutoTuner(
   }
 
   def getPropertyValue(key: String): Option[String] = {
-    val fromProfile = Option(appInfoProvider).flatMap(_.getProperty(key))
+    val fromProfile = appInfoProvider.getProperty(key)
     // If the value is not found above, fallback to cluster properties
     fromProfile.orElse(Option(clusterProps.softwareProperties.get(key)))
   }
@@ -595,8 +596,11 @@ class AutoTuner(
   }
 
   def calculateJobLevelRecommendations(): Unit = {
-    val smClassName = getShuffleManagerClassName
-    appendRecommendation("spark.shuffle.manager", smClassName)
+   getShuffleManagerClassName match  {
+      case Some(smClassName) => appendRecommendation("spark.shuffle.manager", smClassName)
+      case None => appendComment("Could not define the Spark Version")
+    }
+
     appendComment(classPathComments("rapids.shuffle.jars"))
 
     recommendFileCache()
@@ -606,20 +610,22 @@ class AutoTuner(
     recommendClassPathEntries()
   }
 
-  def getShuffleManagerClassName() : String = {
-    val shuffleManagerVersion = appInfoProvider.getSparkVersion.get.filterNot("().".toSet)
-    val dbVersion = appInfoProvider.getProperty(
-      "spark.databricks.clusterUsageTags.sparkVersion").getOrElse("")
-    val finalShuffleVersion : String = if (dbVersion.nonEmpty) {
-      dbVersion match {
-        case ver if ver.contains("10.4") => "321db"
-        case ver if ver.contains("11.3") => "330db"
-        case _ => "332db"
+  def getShuffleManagerClassName() : Option[String] = {
+    appInfoProvider.getSparkVersion.map { sparkVersion =>
+      val shuffleManagerVersion = sparkVersion.filterNot("().".toSet)
+      val dbVersion = getPropertyValue(
+        "spark.databricks.clusterUsageTags.sparkVersion").getOrElse("")
+      val finalShuffleVersion : String = if (dbVersion.nonEmpty) {
+        dbVersion match {
+          case ver if ver.contains("10.4") => "321db"
+          case ver if ver.contains("11.3") => "330db"
+          case _ => "332db"
+        }
+      } else {
+        shuffleManagerVersion
       }
-    } else {
-      shuffleManagerVersion
+      "com.nvidia.spark.rapids.spark" + finalShuffleVersion + ".RapidsShuffleManager"
     }
-    "com.nvidia.spark.rapids.spark" + finalShuffleVersion + ".RapidsShuffleManager"
   }
 
   /**
@@ -668,7 +674,8 @@ class AutoTuner(
       case Some(version) =>
         if (ToolUtils.isSpark320OrLater(version)) {
           // AQE configs changed in 3.2.0
-          if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionSize").isEmpty) {
+          if (getPropertyValue(
+            "spark.sql.adaptive.coalescePartitions.minPartitionSize").isEmpty) {
             // the default is 1m, but 4m is slightly better for the GPU as we have a higher
             // per task overhead
             appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionSize", "4m")
@@ -686,13 +693,14 @@ class AutoTuner(
         }
       case None =>
     }
+
     val advisoryPartitionSizeProperty =
       getPropertyValue("spark.sql.adaptive.advisoryPartitionSizeInBytes")
     if (appInfoProvider.getMeanInput < AQE_INPUT_SIZE_BYTES_THRESHOLD) {
       if(advisoryPartitionSizeProperty.isEmpty) {
         // The default is 64m, but 128m is slightly better for the GPU as the GPU has sub-linear
-        // scaling until it is full and 128m makes the GPU more full, but too large can be slightly
-        // problematic because this is the compressed shuffle size
+        // scaling until it is full and 128m makes the GPU more full, but too large can be
+        // slightly problematic because this is the compressed shuffle size
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128m")
       }
     }
@@ -835,7 +843,7 @@ class AutoTuner(
    */
   private def recommendFileCache() {
     if (appInfoProvider.getDistinctLocationPct < DEF_DISTINCT_READ_THRESHOLD
-          && appInfoProvider.getRedundantReadSize > DEF_READ_SIZE_THRESHOLD) {
+        && appInfoProvider.getRedundantReadSize > DEF_READ_SIZE_THRESHOLD) {
       appendRecommendation("spark.rapids.filecache.enabled", "true")
       appendComment("Enable file cache only if Spark local disks bandwidth is > 1 GB/s")
     }
@@ -893,12 +901,31 @@ class AutoTuner(
    */
   private def recommendFromDriverLogs(): Unit = {
     // Iterate through unsupported operators' reasons and check for matching properties
-    unsupportedOperators.map(_.reason).foreach { operatorReason =>
+    driverInfoProvider.getUnsupportedOperators.map(_.reason).foreach { operatorReason =>
       recommendationsFromDriverLogs.collect {
         case (config, recommendedValue) if operatorReason.contains(config) =>
           appendRecommendation(config, recommendedValue)
           appendComment(commentForExperimentalConfig(config))
       }
+    }
+  }
+
+  private def recommendPluginProps(): Unit = {
+    val isPluginLoaded = getPropertyValue("spark.plugins") match {
+      case Some(f) => f.contains("com.nvidia.spark.SQLPlugin")
+      case None => false
+    }
+    val rapidsEnabled = getPropertyValue("spark.rapids.sql.enabled") match {
+      case Some(f) => f.toBoolean
+      case None => true
+    }
+    if (!rapidsEnabled) {
+      appendRecommendation("spark.rapids.sql.enabled", "true")
+    }
+    if (!isPluginLoaded) {
+      appendComment("RAPIDS Accelerator for Apache Spark jar is missing in \"spark.plugins\". " +
+        "Please refer to " +
+        "https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html")
     }
   }
 
@@ -958,41 +985,24 @@ class AutoTuner(
    *                             updated settings.
    * @return pair of recommendations and comments. Both sequence can be empty.
    */
-
   def getRecommendedProperties(
       skipList: Option[Seq[String]] = Some(Seq()),
       limitedLogicList: Option[Seq[String]] = Some(Seq("spark.sql.shuffle.partitions")),
       showOnlyUpdatedProps: Boolean = true):
       (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
-      val isPluginLoaded = getPropertyValue("spark.plugins") match {
-        case Some(f) => f.contains("com.nvidia.spark.SQLPlugin")
-        case None => false
-      }
-      val rapidsEnabled = getPropertyValue("spark.rapids.sql.enabled") match {
-        case Some(f) => f.toBoolean
-        case None => true
-      }
-    if (!isPluginLoaded || !rapidsEnabled) {
-      appendComment("AutoTuner recommendations only support eventlogs generated by " +
-          "Spark applications utilizing RAPIDS Accelerator for Apache Spark")
-      if (!isPluginLoaded) {
-        appendComment("RAPIDS Accelerator for Apache Spark jar is missing in \"spark.plugins\". " +
-            "Please refer to " +
-            "https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html")
-      }
-      if (!rapidsEnabled) {
-        appendComment("Please enable Spark RAPIDS Accelerator for Apache Spark by setting " +
-            "spark.rapids.sql.enabled=true")
-      }
-    } else {
+    if (appInfoProvider.isAppInfoAvailable) {
+      // Makes recommendations based on information extracted from the AppInfoProvider
       filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
+      recommendPluginProps
       limitedLogicList.foreach { limitedSeq =>
         limitedSeq.foreach(_ => limitedLogicRecommendations.add(_))
       }
       skipList.foreach(skipSeq => skipSeq.foreach(_ => skippedRecommendations.add(_)))
       skippedRecommendations ++= platform.recommendationsToExclude
       initRecommendations()
+
       calculateJobLevelRecommendations()
+
       if (processPropsAndCheck) {
         calculateClusterLevelRecommendations()
       } else {
@@ -1004,9 +1014,9 @@ class AutoTuner(
         case (property, value) => appendRecommendation(property, value)
       }
     }
-    if (unsupportedOperators.nonEmpty) {
-      recommendFromDriverLogs()
-    }
+
+    recommendFromDriverLogs()
+
     (toRecommendationsProfileResult, toCommentProfileResult)
   }
 }
@@ -1045,13 +1055,7 @@ object AutoTuner extends Logging {
   val DEF_WORKER_GPU_COUNT = 1
   // GPU default device is T4
   val DEF_WORKER_GPU_NAME = GpuTypes.T4
-  // T4 default memory is 16G
-  // A100 set default to 40GB
-  val DEF_WORKER_GPU_MEMORY_MB: Map[String, String] = Map(
-    GpuTypes.T4 -> "15109m", GpuTypes.A100 -> "40960m", GpuTypes.V100 -> "16384m",
-    GpuTypes.K80 -> "12288m", GpuTypes.P100 -> "16384m", GpuTypes.P100 -> "16384m",
-    GpuTypes.P4 -> "8192m", GpuTypes.L4 -> "24576m", GpuTypes.A10 -> "24576m",
-    GpuTypes.A10G -> "24576m")
+
   // Default Number of Workers 1
   val DEF_NUM_WORKERS = 1
   // Default distinct read location thresholds is 50%
@@ -1082,6 +1086,8 @@ object AutoTuner extends Logging {
       s"'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).",
     "spark.rapids.memory.pinnedPool.size" ->
       s"'spark.rapids.memory.pinnedPool.size' should be set to ${DEF_PINNED_MEMORY_MB}m.",
+    "spark.rapids.sql.enabled" ->
+      "'spark.rapids.sql.enabled' should be true to enable SQL operations on the GPU.",
     "spark.sql.adaptive.enabled" ->
       "'spark.sql.adaptive.enabled' should be enabled for better performance."
   )
@@ -1135,9 +1141,9 @@ object AutoTuner extends Logging {
       ex: Exception,
       appInfo: AppSummaryInfoBaseProvider,
       platform: Platform,
-      unsupportedOperators: Seq[DriverLogUnsupportedOperators]): AutoTuner = {
+      driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
-    val tuning = new AutoTuner(new ClusterProperties(), appInfo, platform, unsupportedOperators)
+    val tuning = new AutoTuner(new ClusterProperties(), appInfo, platform, driverInfoProvider)
     val msg = ex match {
       case cEx: ConstructorException => cEx.getContext
       case _ => if (ex.getCause != null) ex.getCause.toString else ex.toString
@@ -1182,20 +1188,24 @@ object AutoTuner extends Logging {
    * @param clusterProps the cluster properties as string.
    * @param singleAppProvider the wrapper implementation that accesses the properties of the profile
    *                          results.
+   * @param platform represents the environment created as a target for recommendations.
+   * @param driverInfoProvider wrapper implementation that accesses the information from driver log.
    * @return a new AutoTuner object.
    */
   def buildAutoTunerFromProps(
       clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
       platform: Platform = PlatformFactory.createInstance(),
-      unsupportedOperators: Seq[DriverLogUnsupportedOperators] = Seq.empty): AutoTuner = {
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
+  ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
+
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
-        unsupportedOperators)
+        driverInfoProvider)
     } catch {
       case e: Exception =>
-        handleException(e, singleAppProvider, platform, unsupportedOperators)
+        handleException(e, singleAppProvider, platform, driverInfoProvider)
     }
   }
 
@@ -1203,14 +1213,15 @@ object AutoTuner extends Logging {
       filePath: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
       platform: Platform = PlatformFactory.createInstance(),
-      unsupportedOperators: Seq[DriverLogUnsupportedOperators] = Seq.empty): AutoTuner = {
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
+  ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(filePath)
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
-        unsupportedOperators)
+        driverInfoProvider)
     } catch {
       case e: Exception =>
-        handleException(e, singleAppProvider, platform, unsupportedOperators)
+        handleException(e, singleAppProvider, platform, driverInfoProvider)
     }
   }
 

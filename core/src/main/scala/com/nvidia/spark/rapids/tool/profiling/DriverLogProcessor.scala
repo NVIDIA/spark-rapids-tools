@@ -20,9 +20,27 @@ import scala.io.Source
 
 import org.apache.spark.internal.Logging
 
-class DriverLogProcessor(driverlogPath: String) extends Logging {
-  def processDriverLog(): Seq[DriverLogUnsupportedOperators] = {
-    val source = Source.fromFile(driverlogPath)
+trait DriverLogInfoProvider {
+  def getUnsupportedOperators: Seq[DriverLogUnsupportedOperators] = Seq.empty
+}
+
+/**
+ * A base class definition that provides an empty implementation of the driver log information
+ * [[ApplicationSummaryInfo]].
+ */
+class BaseDriverLogInfoProvider(driverlogPath: Option[String] = None)
+  extends DriverLogInfoProvider {
+  def isLogPathAvailable = driverlogPath.isDefined
+}
+
+class DriverLogProcessor(logPath: String)
+  extends BaseDriverLogInfoProvider(Some(logPath))
+  with Logging {
+
+  lazy val unsupportedOps = processDriverLog()
+  override def getUnsupportedOperators = unsupportedOps
+  private def processDriverLog(): Seq[DriverLogUnsupportedOperators] = {
+    val source = Source.fromFile(logPath)
     // Create a map to store the counts for each operator and reason
     var countsMap = Map[(String, String), Int]().withDefaultValue(0)
     try {
@@ -39,10 +57,15 @@ class DriverLogProcessor(driverlogPath: String) extends Logging {
       }
     } catch {
       case e: Exception =>
-        logError(s"Unexpected exception processing driver log: $driverlogPath", e)
+        logError(s"Unexpected exception processing driver log: $logPath", e)
     } finally {
       source.close()
     }
     countsMap.map(x => DriverLogUnsupportedOperators(x._1._1, x._2, x._1._2)).toSeq
   }
+}
+
+
+object BaseDriverLogInfoProvider {
+  def noneDriverLog: BaseDriverLogInfoProvider = new BaseDriverLogInfoProvider()
 }
