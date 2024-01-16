@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
+import java.io.IOException
+
 import com.nvidia.spark.rapids.tool.EventLogPathProcessor
 
 import org.apache.spark.internal.Logging
@@ -78,7 +80,15 @@ object ProfileMain extends Logging {
 
     val profiler = new Profiler(hadoopConf, appArgs, enablePB)
     if (driverLog.nonEmpty) {
-      profiler.profileDriver(driverLog, eventLogFsFiltered.isEmpty)
+      val dLogPath = new org.apache.hadoop.fs.Path(driverLog)
+      try {
+        val fs = dLogPath.getFileSystem(hadoopConf)
+        profiler.profileDriver(driverLog, eventLogFsFiltered.isEmpty, fs)
+      } catch {
+        case e : IOException  =>
+          logError(s"Unexpected exception processing driver log: $driverLog," +
+            s" check the provided path", e)
+      }
     }
     profiler.profile(eventLogFsFiltered)
     (0, filteredLogs.size)

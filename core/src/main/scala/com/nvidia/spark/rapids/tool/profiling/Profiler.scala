@@ -25,6 +25,7 @@ import scala.util.control.NonFatal
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, PlatformFactory}
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.FileSystem
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -124,12 +125,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     progressBar.foreach(_.finishAll())
   }
 
-  def profileDriver(driverLogInfos: String, eventLogsEmpty: Boolean): Unit = {
+  def profileDriver(driverLogInfos: String, eventLogsEmpty: Boolean, fs : FileSystem): Unit = {
     val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/driver",
       Profiler.DRIVER_LOG_NAME, numOutputRows, true)
     try {
       val driverLogProcessor = new DriverLogProcessor(driverLogInfos)
-      val unsupportedDriverOperators = driverLogProcessor.processDriverLog()
+      val unsupportedDriverOperators = driverLogProcessor.processDriverLog(fs)
       profileOutputWriter.write(s"Unsupported operators in driver log",
         unsupportedDriverOperators)
       if (eventLogsEmpty && useAutoTuner) {
