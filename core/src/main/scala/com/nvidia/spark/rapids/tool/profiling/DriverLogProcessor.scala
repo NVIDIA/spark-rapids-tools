@@ -16,21 +16,26 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import scala.io.Source
+import java.io.{BufferedReader, InputStreamReader}
+
+import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
 
 import org.apache.spark.internal.Logging
 
 class DriverLogProcessor(driverlogPath: String) extends Logging {
-  def processDriverLog(): Seq[DriverLogUnsupportedOperators] = {
-    val source = Source.fromFile(driverlogPath)
+  def processDriverLog(fs : FileSystem): Seq[DriverLogUnsupportedOperators] = {
+    var source : FSDataInputStream = null
     // Create a map to store the counts for each operator and reason
     var countsMap = Map[(String, String), Int]().withDefaultValue(0)
     try {
+      source = fs.open(new Path(driverlogPath))
+      val reader = new BufferedReader(new InputStreamReader(source))
       // Process each line in the file
-      for (line <- source.getLines()) {
+      val lines = reader.lines()
+      lines.forEach { line =>
         // condition to check if the line contains unsupported operators
-        if (line.contains("cannot run on GPU") &&
-          !line.contains("not all expressions can be replaced")) {
+        if (line.mkString.contains("cannot run on GPU") &&
+          !line.mkString.contains("not all expressions can be replaced")) {
           val operatorName = line.split("<")(1).split(">")(0)
           val reason = line.split("because")(1).trim()
           val key = (operatorName, reason)
@@ -41,7 +46,9 @@ class DriverLogProcessor(driverlogPath: String) extends Logging {
       case e: Exception =>
         logError(s"Unexpected exception processing driver log: $driverlogPath", e)
     } finally {
-      source.close()
+      if (source != null) {
+        source.close()
+      }
     }
     countsMap.map(x => DriverLogUnsupportedOperators(x._1._1, x._2, x._1._2)).toSeq
   }
