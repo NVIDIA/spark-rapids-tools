@@ -687,7 +687,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("WindowExec and expressions within WIndowExec") {
+  test("WindowExec and expressions within WindowExec") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "sqlmetric") { spark =>
         import spark.implicits._
@@ -1043,6 +1043,37 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val allChildren = wholeStages.flatMap(_.children).flatten
         val projects = allChildren.filter(_.exec == "Project")
         assertSizeAndSupported(1, projects)
+      }
+    }
+  }
+
+  test("ParseUrl is supported except that for parse_url_query") {
+    // parse_url(*,QUERY,*) should cause the project to be unsupported
+    // the expression will appear in the unsupportedExpression summary
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ParseURL") { spark =>
+          import spark.implicits._
+          val df1 = Seq("https://spark.apache.org/downloads.html?query=50",
+            "https://docs.nvidia.com/spark-rapids/user-guide/23.12/spark-profiling-tool.html"
+          ).toDF("url_col")
+          // write df1 to parquet to transform LocalTableScan to ProjectExec
+          df1.write.parquet(s"$parquetoutputLoc/testparse")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testparse")
+          df2.selectExpr("*", "parse_url(`url_col`, 'HOST') as HOST",
+            "parse_url(`url_col`,'QUERY') as QUERY")
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val projects = allExecInfo.filter(_.exec.contains("Project"))
+        assertSizeAndNotSupported(1, projects)
       }
     }
   }

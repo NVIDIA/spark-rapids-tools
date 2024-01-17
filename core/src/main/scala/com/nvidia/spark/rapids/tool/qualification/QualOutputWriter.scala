@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.qualification
 import scala.collection.mutable.{ArrayBuffer, Buffer, LinkedHashMap, ListBuffer}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
-import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo}
+import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, HiveParseHelper, PlanInfo}
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.{CLUSTER_ID, CLUSTER_ID_STR_SIZE, JOB_ID, JOB_ID_STR_SIZE, RUN_NAME, RUN_NAME_STR_SIZE, TEXT_DELIMITER}
 import org.apache.hadoop.conf.Configuration
@@ -1015,11 +1015,17 @@ object QualOutputWriter {
 
     // Unsupported Execs and Execs that are not supported due to unsupported expressions, or if
     // the operation is from a dataset, or if the operation contains a UDF.
+    // Note that we remove "scan hive" and "insertIntoHive" execs because it is already reported by
+    //      the readFormatTypes and writeFormatTypes. Otherwise, we end up reporting the same exec
+    //      twice.
     val unsupportedExecExprsMap = sumInfo.unsupportedExecstoExprsMap
     val unsupportedExecsSet = sumInfo.unSupportedExecs.split(";").toSet
     val unsupportedExecsFiltered = unsupportedExecsSet.filterNot(unsupportedExecExprsMap.contains)
     val actualunsupportedExecs = unsupportedExecsFiltered.filterNot(x => dataSetExecs.contains(x)
-        || udfExecs.contains(x) || unsupportedExecExprsMap.contains(x))
+        || udfExecs.contains(x) || unsupportedExecExprsMap.contains(x)
+        || HiveParseHelper.isHiveTableScanNode(x)
+        || HiveParseHelper.isHiveTableInsertNode(x)
+    )
     val unsupportedExecRows = actualunsupportedExecs.map { exec =>
       // If the exec is in the ignore list, then set the ignore operator to true.
       if (IgnoreExecs.getAllIgnoreExecs.contains(exec)) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -304,6 +304,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       app: T,
       event: SparkListenerJobStart): Unit = {
     logDebug("Processing event: " + event.getClass)
+    app.handleJobStartForCachedProps(event)
     val sqlIDString = event.properties.getProperty("spark.sql.execution.id")
     val sqlID = ProfileUtils.stringToLong(sqlIDString)
     sqlID.foreach(app.jobIdToSqlID(event.jobId) = _)

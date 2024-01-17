@@ -19,9 +19,11 @@ package com.nvidia.spark.rapids.tool.util
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
+import scala.concurrent.duration._
+import scala.xml.XML
+
 import org.scalatest.FunSuite
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, not}
-import scala.concurrent.duration._
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.AccumulableInfo
@@ -120,10 +122,11 @@ class ToolUtilsSuite extends FunSuite with Logging {
       case None => fail("Could not find pull the latest release successfully")
     }
     // get all the links on the page
-    val allLinks = WebCrawlerUtil.getPageLinks(baseURL, None).mkString("\n")
-    val versionPattern = "(\\d{2}\\.\\d{2}\\.\\d+)/".r
+    val mavenMetaXml = XML.load(s"$baseURL/maven-metadata.xml")
+    val allVersions = (mavenMetaXml \\ "metadata" \ "versioning" \ "versions" \ "version").toList
     // get the latest release from the mvn url
-    val actualRelease = versionPattern.findAllMatchIn(allLinks).map(_.group(1)).toSeq.sorted.last
+    val actualRelease = allVersions.last.text
+    actualRelease.matches("\\d{2}\\.\\d{2}\\.\\d+") shouldBe true
     latestRelease shouldBe actualRelease
   }
 

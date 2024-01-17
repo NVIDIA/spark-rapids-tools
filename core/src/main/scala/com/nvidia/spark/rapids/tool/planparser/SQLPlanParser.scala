@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -257,7 +257,7 @@ object SQLPlanParser extends Logging {
             ShuffledHashJoinExecParser(node, checker, sqlID, app).parse
           case "Sort" =>
             SortExecParser(node, checker, sqlID).parse
-          case s if (s.startsWith("Scan")) =>
+          case s if ReadParser.isScanNode(s) =>
             FileSourceScanExecParser(node, checker, sqlID, app).parse
           case "SortAggregate" =>
             SortAggregateExecParser(node, checker, sqlID).parse
@@ -381,31 +381,48 @@ object SQLPlanParser extends Logging {
     funcName
   }
 
-  private def getAllFunctionNames(functionPattern: Regex, expr: String,
+  // This method aims at doing some common processing to an expression before
+  // we start parsing it. For example, some special handling is required for some functions.
+  private def processSpecialFunctions(expr: String): String = {
+    // For parse_url, we only support parse_url(*,Host,*); parse_url(*,Protocol,*)
+    // So we want to be able to define that parse_url(*,QUERY,*) is not supported.
+
+    // The following regex uses forward references to find matches for parse_url(*)
+    // we need to use forward references because otherwise multiple occurrences will be matched
+    // only once.
+    // https://stackoverflow.com/questions/47162098/is-it-possible-to-match-nested-brackets-with-a-
+    // regex-without-using-recursion-or/47162099#47162099
+    // example parse_url:
+    // Project [url_col#7, parse_url(url_col#7, HOST, false) AS HOST#9,
+    //          parse_url(url_col#7, QUERY, false) AS QUERY#10]
+    val parseURLPattern = ("parse_url(?=\\()(?:(?=.*?\\((?!.*?\\1)(.*\\)(?!.*\\2).*))(?=.*?\\)" +
+      "(?!.*?\\2)(.*)).)+?.*?(?=\\1)[^(]*(?=\\2$)").r
+    var newExpr = expr
+    parseURLPattern.findAllMatchIn(expr).foreach { parse_call =>
+      // iterate on all matches replacing parse_url by parse_url_query
+      // note that we do replaceFirst because we want to map 1-to-1 and the order does
+      // not matter here.
+      if (parse_call.matched.matches("parse_url\\(.*,\\s*(?i)query\\s*,.*\\)")) {
+        newExpr = newExpr.replaceFirst("parse_url\\(", "parse_url_query(")
+      }
+    }
+    newExpr
+  }
+
+  private def getAllFunctionNames(regPattern: Regex, expr: String,
       groupInd: Int = 1): Set[String] = {
     // Returns all matches in an expression. This can be used when the SQL expression is not
     // tokenized.
-    functionPattern.findAllMatchIn(expr).map(_.group(groupInd)).toSet.filterNot(ignoreExpression(_))
+    val newExpr = processSpecialFunctions(expr)
+    regPattern.findAllMatchIn(newExpr).map(_.group(groupInd)).toSet.filterNot(ignoreExpression(_))
   }
 
   def parseProjectExpressions(exprStr: String): Array[String] = {
-    val parsedExpressions = ArrayBuffer[String]()
     // Project [cast(value#136 as string) AS value#144, CEIL(value#136) AS CEIL(value)#143L]
     // This is to split the string such that only function names are extracted. The pattern is
     // such that function name is succeeded by `(`. We use regex to extract all the function names
     // below:
-    // paranRemoved = Array(cast(value#136 as string), CEIL(value#136))
-    val pattern: Regex = "([a-zA-Z0-9_]+)\\(".r
-    val functionNamePattern: Regex = """(\w+)""".r
-    val paranRemoved = pattern.findAllMatchIn(exprStr).toArray.map(_.group(1))
-    paranRemoved.foreach { case expr =>
-      val functionName = getFunctionName(functionNamePattern, expr)
-      functionName match {
-        case Some(func) => parsedExpressions += func
-        case _ => // NO OP
-      }
-    }
-    parsedExpressions.distinct.toArray
+    getAllFunctionNames(functionPrefixPattern, exprStr).toArray
   }
 
   // This parser is used for SortAggregateExec, HashAggregateExec and ObjectHashAggregateExec

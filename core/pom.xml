@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Copyright (c) 2021-2023, NVIDIA CORPORATION.
+  Copyright (c) 2021-2024, NVIDIA CORPORATION.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
     <artifactId>rapids-4-spark-tools_2.12</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
-    <version>23.12.3-SNAPSHOT</version>
+    <version>23.12.4-SNAPSHOT</version>
     <packaging>jar</packaging>
     <url>http://github.com/NVIDIA/spark-rapids-tools</url>
 
@@ -524,12 +524,20 @@
             <version>${delta.core.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <!-- add hive jars to test hive Ops -->
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-hive_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <resources>
             <resource>
-              <directory>${project.basedir}/src/main/resources</directory>
+                <directory>${project.basedir}/src/main/resources</directory>
+                <filtering>true</filtering>
             </resource>
             <resource>
                 <directory>${project.basedir}/..</directory>

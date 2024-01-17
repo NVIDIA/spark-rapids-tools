@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1475,6 +1475,70 @@ class QualificationSuite extends BaseTestSuite {
           val outputPerSqlActual = readPerSqlFile(new File(persqlResults), "\"")
           val rows = outputPerSqlActual.collect()
           assert(rows(1)(0).toString == jobName)
+        }
+      }
+    }
+  }
+
+  test("scan hive text-format is supported") {
+    // The unit test loads text file into Hive table. Then it runs SQL hive query that generates
+    // "Scan hive". If the Qualification fails to support the "Scan hive", then the format would
+    // appear in the unsupportedOperators.csv file or the "non-supported read format" column
+    TrampolineUtil.withTempDir { warehouseDir =>
+      // text file is pair-key-value "key: val_$key"
+      val textFilePath = ToolTestUtils.getTestResourcePath("key-value-pairs.txt")
+      // set the directory where the store is kept
+      TrampolineUtil.withTempDir { outpath =>
+        val derbyDir = s"${outpath.getAbsolutePath}/derby"
+        System.setProperty("derby.system.home", s"$derbyDir")
+        val sparkConfs = Map(
+          "spark.sql.warehouse.dir" -> warehouseDir.getAbsolutePath,
+          "spark.driver.extraJavaOptions" -> s"-Dderby.system.home='$derbyDir'")
+        val allArgs = Array(
+          "--report-read-schema", // enable report read schema
+          "--output-directory",
+          outpath.getAbsolutePath())
+
+        TrampolineUtil.withTempDir { eventLogDir =>
+          // set the name to "hiv3" on purpose to avoid any matches on "hive".
+          val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "scanHiv3App",
+            Some(sparkConfs), enableHive = true) { spark =>
+            // scalastyle:off line.size.limit
+            // the following set of queries will generate the following physical plan:
+            //   [{"nodeName":"Scan hive default.src","simpleString":"Scan hive default.src [key#6, value#7],
+            //    HiveTableRelation [`default`.`src`, org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe,
+            //    Data Cols: [key#6, value#7], Partition Cols: []]","children":[],"metadata":{},
+            //    "metrics":[{"name":"number of output rows","accumulatorId":12,"metricType":"sum"}]}]
+            // scalastyle:on line.size.limit
+            spark.sql("DROP TABLE IF EXISTS src")
+            spark.sql("CREATE TABLE IF NOT EXISTS src (key INT, value STRING) USING hive")
+            spark.sql(s"LOAD DATA LOCAL INPATH '$textFilePath' INTO TABLE src")
+            spark.sql("SELECT key, value FROM src WHERE key < 10 ORDER BY key")
+          }
+
+          val appArgs = new QualificationArgs(allArgs ++ Array(eventLog))
+          val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+
+          assert(exit == 0)
+          // Verify that results contain a single app
+          assert(appSum.nonEmpty)
+          // Verify that the texthive is listed in the readFileFormats column
+          // The "readSchema" column should be "hivetext[]:hivetext[]:hivetext[]:hivetext[]"
+          assert(appSum.head.readFileFormats.exists(_.contains("hivetext")))
+          // Verify that the texthive is not listed in the unsupported formats
+          // The "Unsupported Read File Formats and Types" column should be empty
+          assert(appSum.head.readFileFormatAndTypesNotSupported.isEmpty)
+          // Next, we check that the content of the unsupportedOps has no entry for "hive".
+          val unsupportedOpsCSV = s"$outpath/rapids_4_spark_qualification_output/" +
+            s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
+          val inputSource = Source.fromFile(unsupportedOpsCSV)
+          try {
+            val unsupportedRows = inputSource.getLines.toSeq
+            assert(unsupportedRows.head.contains("App ID,Unsupported Type,"))
+            assert(!unsupportedRows.exists(_.contains("hive")))
+          } finally {
+            inputSource.close()
+          }
         }
       }
     }
