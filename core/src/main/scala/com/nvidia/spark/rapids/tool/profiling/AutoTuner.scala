@@ -1047,17 +1047,11 @@ object AutoTuner extends Logging {
   val DEF_WORKER_GPU_NAME = GpuTypes.T4
   // T4 default memory is 16G
   // A100 set default to 40GB
-<<<<<<< HEAD
-  val DEF_WORKER_GPU_MEMORY_MB: Map[String, String] = Map("T4"-> "15109m", "A100" -> "40960m",
-    "L4" -> "24576m", "P4" -> "8192m", "K80" -> "12288m", "V100" -> "16384m", "P100" -> "16384m",
-    "A10" -> "24576m", "A10G" -> "24576m")
-=======
   val DEF_WORKER_GPU_MEMORY_MB: Map[String, String] = Map(
     GpuTypes.T4 -> "15109m", GpuTypes.A100 -> "40960m", GpuTypes.V100 -> "16384m",
     GpuTypes.K80 -> "12288m", GpuTypes.P100 -> "16384m", GpuTypes.P100 -> "16384m",
     GpuTypes.P4 -> "8192m", GpuTypes.L4 -> "24576m", GpuTypes.A10 -> "24576m",
     GpuTypes.A10G -> "24576m")
->>>>>>> dev
   // Default Number of Workers 1
   val DEF_NUM_WORKERS = 1
   // Default distinct read location thresholds is 50%
