@@ -132,13 +132,13 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       Profiler.DRIVER_LOG_NAME, numOutputRows, true)
     try {
       val driverLogProcessor = new DriverLogProcessor(driverLogInfos)
-      val unsupportedDriverOperators = driverLogProcessor.processDriverLog()
+      val unsupportedDriverOperators = driverLogProcessor.getUnsupportedOperators
       profileOutputWriter.write(s"Unsupported operators in driver log",
         unsupportedDriverOperators)
       if (eventLogsEmpty && useAutoTuner) {
         // Since event logs are empty, AutoTuner will not run while processing event logs.
         // We need to run it here explicitly.
-        val (properties, comments) = runAutoTuner(None, unsupportedDriverOperators)
+        val (properties, comments) = runAutoTuner(None, driverLogProcessor)
         profileOutputWriter.writeText("\n### A. Recommended Configuration ###\n")
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
       }
@@ -412,16 +412,17 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   /**
    * A wrapper method to run the AutoTuner.
    * @param appInfo     Summary of the application for tuning.
-   * @param unsupportedDriverOperators List of unsupported operators from driver log
+   * @param driverInfoProvider Entity that implements APIs needed to extract information from the
+   *                           driver log if any
    */
   private def runAutoTuner(appInfo: Option[ApplicationSummaryInfo],
-                           unsupportedDriverOperators: Seq[DriverLogUnsupportedOperators])
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog)
   : (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
-      val appInfoProvider = appInfo.map(new SingleAppSummaryInfoProvider(_)).orNull
+      val appInfoProvider = AppSummaryInfoBaseProvider.fromAppInfo(appInfo)
       val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
       val platform = appArgs.platform()
       val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(workerInfoPath, appInfoProvider,
-        PlatformFactory.createInstance(platform), unsupportedDriverOperators)
+        PlatformFactory.createInstance(platform), driverInfoProvider)
 
       // The autotuner allows skipping some properties,
       // e.g., getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
@@ -536,7 +537,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some("Unsupported SQL Ops"))
 
       if (useAutoTuner) {
-        val (properties, comments) = runAutoTuner(Some(app), Seq.empty)
+        val (properties, comments) = runAutoTuner(Some(app))
         profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
       }

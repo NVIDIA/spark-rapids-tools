@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,6 +73,7 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   with AppInfoSqlTaskAggMetricsVisitor
   with AppInfoSQLTaskInputSizes
   with AppInfoReadMetrics {
+  def isAppInfoAvailable = false
   override def getSparkProperty(propKey: String): Option[String] = None
   override def getRapidsProperty(propKey: String): Option[String] = None
   override def getProperty(propKey: String): Option[String] = None
@@ -98,6 +99,7 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   extends AppSummaryInfoBaseProvider {
 
   private lazy val distinctLocations = app.dsInfo.groupBy(_.location)
+  override def isAppInfoAvailable = Option(app).isDefined
 
   private def findPropertyInProfPropertyResults(
       key: String,
@@ -179,6 +181,15 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
       app.ioMetrics.map(_.srTotalBytesReadSum).sum * 1.0 / app.ioMetrics.size
     } else {
       0.0
+    }
+  }
+}
+
+object AppSummaryInfoBaseProvider {
+  def fromAppInfo(appInfoInst: Option[ApplicationSummaryInfo]): AppSummaryInfoBaseProvider = {
+    appInfoInst match {
+      case Some(appSummaryInfo) => new SingleAppSummaryInfoProvider(appSummaryInfo)
+      case _ => new AppSummaryInfoBaseProvider()
     }
   }
 }
