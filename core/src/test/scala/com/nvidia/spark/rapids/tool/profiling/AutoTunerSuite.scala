@@ -753,7 +753,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   test("AutoTuner detects non UTF-8 file-encoding") {
     // When system properties has an entry for file-encoding that is not supported by GPU for
-    // certain expressions. Then the AutoTuner should show generate a comment warning that the
+    // certain expressions. Then the AutoTuner should generate a comment warning that the
     // file-encoding is not one of the supported ones.
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",

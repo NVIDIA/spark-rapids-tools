@@ -67,8 +67,7 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
         val rapidsJars = app.classpathEntries.filterKeys(_ matches ToolUtils.RAPIDS_JAR_REGEX.regex)
         if (rapidsJars.nonEmpty) {
           val cols = rapidsJars.keys.toSeq
-          val rowsWithAppindex = cols.map(jar => RapidsJarProfileResult(app.index, jar))
-          rowsWithAppindex
+          cols.map(jar => RapidsJarProfileResult(app.index, jar))
         } else {
           // Look for the rapids-4-spark and cuDF jars in Spark Properties
           ToolUtils.extractRAPIDSJarsFromProps(app.sparkProperties).map {
