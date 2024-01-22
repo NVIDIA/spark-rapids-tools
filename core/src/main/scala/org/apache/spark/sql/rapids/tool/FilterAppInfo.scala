@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,6 @@ case class ApplicationStartInfo(
     startTime: Long,
     userName: String)
 
-case class EnvironmentInfo(configName: Map[String, String])
-
 class FilterAppInfo(
     eventLogInfo: EventLogInfo,
     hadoopConf: Configuration) extends AppBase(Some(eventLogInfo), Some(hadoopConf)) {
@@ -45,13 +43,10 @@ class FilterAppInfo(
 
   def doSparkListenerEnvironmentUpdate(event: SparkListenerEnvironmentUpdate): Unit = {
     logDebug("Processing event: " + event.getClass)
-    val envSparkProperties = event.environmentDetails("Spark Properties").toMap
     handleEnvUpdateForCachedProps(event)
-    sparkProperties = Some(EnvironmentInfo(envSparkProperties))
   }
 
   var appStartInfo: Option[ApplicationStartInfo] = None
-  var sparkProperties: Option[EnvironmentInfo] = None
   // We are currently processing 2 events. This is used as counter to send true when both the
   // event are processed so that we can stop processing further events.
   var eventsToProcess: Int = 2

@@ -24,7 +24,7 @@ import com.nvidia.spark.rapids.tool.profiling.{DriverAccumCase, JobInfoClass, Pr
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui._
-import org.apache.spark.sql.rapids.tool.util.EventUtils
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, StringUtils}
 
 abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener with Logging {
 
@@ -121,7 +121,8 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
   def doSparkListenerLogStart(
       app: T,
       event: SparkListenerLogStart): Unit  = {
-    app.sparkVersion = event.sparkVersion
+    logDebug("Processing event: " + event.getClass)
+    app.handleLogStartForCachedProps(event)
   }
 
   def doSparkListenerSQLExecutionStart(
@@ -188,9 +189,8 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       doSparkListenerSQLExecutionEnd(app, e)
     case e: SparkListenerDriverAccumUpdates =>
       doSparkListenerDriverAccumUpdates(app, e)
-    case SparkListenerLogStart(sparkVersion) =>
-      logInfo("on other event called")
-      app.sparkVersion = sparkVersion
+    case e: SparkListenerLogStart =>
+      doSparkListenerLogStart(app, e)
     case _ =>
       val wasResourceProfileAddedEvent = doSparkListenerResourceProfileAddedReflect(app, event)
       if (!wasResourceProfileAddedEvent) doOtherEvent(app, event)
@@ -223,7 +223,10 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerEnvironmentUpdate(
       app: T,
-      event: SparkListenerEnvironmentUpdate): Unit = {}
+      event: SparkListenerEnvironmentUpdate): Unit = {
+    logDebug("Processing event: " + event.getClass)
+    app.handleEnvUpdateForCachedProps(event)
+  }
 
   override def onEnvironmentUpdate(environmentUpdate: SparkListenerEnvironmentUpdate): Unit = {
     doSparkListenerEnvironmentUpdate(app, environmentUpdate)
@@ -306,7 +309,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     logDebug("Processing event: " + event.getClass)
     app.handleJobStartForCachedProps(event)
     val sqlIDString = event.properties.getProperty("spark.sql.execution.id")
-    val sqlID = ProfileUtils.stringToLong(sqlIDString)
+    val sqlID = StringUtils.stringToLong(sqlIDString)
     sqlID.foreach(app.jobIdToSqlID(event.jobId) = _)
   }
 

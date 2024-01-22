@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,19 @@ package org.apache.spark.sql.rapids.tool.util
 
 import scala.concurrent.duration.{DurationDouble, DurationLong}
 
+import org.apache.spark.internal.Logging
+
 /**
  * Utility containing the implementation of helpers used for parsing and/or formatting
  * strings.
  */
-object StringUtils {
+object StringUtils extends Logging {
   // Regular expression for duration-format 'H+:MM:SS.FFF'
   // Note: this is not time-of-day. Hours can be larger than 12.
   private val regExDurationFormat = "^(\\d+):([0-5]\\d):([0-5]\\d\\.\\d+)$"
-
+  private val regExMemorySize =
+    "^(?i)(\\d+(?:\\.\\d+)?)(b|k(?:ib|b)?|m(?:ib|b)?|g(?:ib|b)?|t(?:ib|b)?|p(?:ib|b)?)$".r
+  val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
   /**
    * Checks if the strData is of pattern 'HH:MM:SS.FFF' and return the time as long if applicable.
    * If the string is not in the expected format, the result is None.
@@ -50,5 +54,41 @@ object StringUtils {
 
   def reformatCSVString(str: String): String = {
     "\"" + str.replace("\"", "\"\"") + "\""
+  }
+
+  // Convert a null-able String to Option[Long]
+  def stringToLong(in: String): Option[Long] = try {
+    Some(in.toLong)
+  } catch {
+    case _: NumberFormatException => None
+  }
+
+  def isMemorySize(value: String): Boolean = {
+    value.matches(regExMemorySize.regex)
+  }
+
+  /**
+   * Converts size from human readable to bytes.
+   * Eg, "4m" -> 4194304.
+   */
+  def convertMemorySizeToBytes(value: String): Long = {
+    regExMemorySize.findFirstMatchIn(value.toLowerCase) match {
+      case None =>
+        // try to convert to long
+        stringToLong(value) match {
+          case Some(num) => num
+          case _ =>
+            logError(s"Could not convert memorySize input [$value] to Long")
+            0L
+        }
+      case Some(m) =>
+        val unitSize = m.group(2).substring(0, 1)
+        val sizeNum = m.group(1).toDouble
+        (sizeNum * Math.pow(1024, SUPPORTED_SIZE_UNITS.indexOf(unitSize))).toLong
+    }
+  }
+
+  def convertToMB(value: String): Long = {
+    convertMemorySizeToBytes(value) / (1024 * 1024)
   }
 }
