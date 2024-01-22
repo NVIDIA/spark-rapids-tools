@@ -112,7 +112,7 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   extends AppSummaryInfoBaseProvider {
 
   private lazy val distinctLocations = app.dsInfo.groupBy(_.location)
-  override def isAppInfoAvailable = Option(app).isDefined
+  override def isAppInfoAvailable: Boolean = Option(app).isDefined
 
   private def findPropertyInProfPropertyResults(
       key: String,

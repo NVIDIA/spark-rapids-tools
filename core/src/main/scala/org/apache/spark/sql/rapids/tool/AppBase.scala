@@ -59,7 +59,6 @@ trait CacheableProps {
   var systemProperties = Map[String, String]()
 
   def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
-
     sparkProperties ++= event.environmentDetails("Spark Properties").toMap
     classpathEntries ++= event.environmentDetails("Classpath Entries").toMap
 
@@ -70,7 +69,6 @@ trait CacheableProps {
     // No need to capture all the properties in memory. We only capture important ones.
     systemProperties ++= event.environmentDetails("System Properties").toMap.filterKeys(
       RETAINED_SYSTEM_PROPS.contains(_))
-
   }
 
   def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {

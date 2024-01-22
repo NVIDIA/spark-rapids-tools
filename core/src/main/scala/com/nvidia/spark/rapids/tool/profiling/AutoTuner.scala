@@ -753,11 +753,9 @@ class AutoTuner(
    */
   private def recommendSystemProperties(): Unit = {
     appInfoProvider.getSystemProperty("file.encoding").collect {
-      case encoding =>
-        if (!ToolUtils.isFileEncodingRecommended(encoding)) {
-          appendComment(s"file.encoding should be [${ToolUtils.SUPPORTED_ENCODINGS.mkString}]" +
-            s" because GPU only supports the charset when using some expressions.")
-        }
+      case encoding if !ToolUtils.isFileEncodingRecommended(encoding) =>
+        appendComment(s"file.encoding should be [${ToolUtils.SUPPORTED_ENCODINGS.mkString}]" +
+            " because GPU only supports the charset when using some expressions.")
     }
   }
 
