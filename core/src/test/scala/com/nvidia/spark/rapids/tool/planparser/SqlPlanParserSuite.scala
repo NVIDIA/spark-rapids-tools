@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, flatten, floor, hex, json_tuple, round, row_number, sum, translate, xxhash64}
+import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, flatten, floor, get_json_object, hex, json_tuple, round, row_number, sum, translate, xxhash64}
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
@@ -844,6 +844,35 @@ class SQLPlanParserSuite extends BaseTestSuite {
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val generateExprs = execInfo.filter(_.exec == "Generate")
       assertSizeAndSupported(1, generateExprs)
+    }
+  }
+
+  test("get_json_object is supported in Project") {
+    // get_json_object is disabled by default in the RAPIDS plugin
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "Expressions in Generate") { spark =>
+          import spark.implicits._
+          val jsonString =
+            """{"Zipcode":123,"ZipCodeType":"STANDARD",
+              |"City":"ABCDE","State":"YZ"}""".stripMargin
+          val data = Seq((1, jsonString))
+          val df1 = data.toDF("id", "jValues")
+          df1.write.parquet(s"$parquetoutputLoc/parquetfile")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/parquetfile")
+          df2.select(col("id"), get_json_object(col("jValues"), "$.ZipCodeType").as("ZipCodeType"))
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val projectExprs = execInfo.filter(_.exec == "Project")
+        assertSizeAndNotSupported(1, projectExprs)
+      }
     }
   }
 
