@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
 
 package org.apache.spark.sql.rapids.tool
 
-import java.lang.reflect.InvocationTargetException
-
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
@@ -31,6 +29,17 @@ import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.sql.DataFrame
 
 object ToolUtils extends Logging {
+  // List of recommended file-encodings on the GPUs.
+  val SUPPORTED_ENCODINGS = Seq("UTF-8")
+  // the prefix of keys defined by the RAPIDS plugin
+  val PROPS_RAPIDS_KEY_PREFIX = "spark.rapids"
+  // List of keys from sparkProperties that may point to RAPIDS jars.
+  // Note that we ignore "spark.yarn.secondary.jars" for now as it does not include a full path.
+  val POSSIBLE_JARS_PROPERTIES = Set("spark.driver.extraClassPath",
+    "spark.executor.extraClassPath",
+    "spark.yarn.dist.jars",
+    "spark.repl.local.jars")
+  val RAPIDS_JAR_REGEX = "(.*rapids-4-spark.*jar)|(.*cudf.*jar)".r
 
   // Add more entries to this lookup table as necessary.
   // There is no need to list all supported versions.
@@ -45,71 +54,6 @@ object ToolUtils extends Logging {
   // extend the support runtime for different platforms such as Databricks.
   lazy val sparkRuntimeVersion = {
     org.apache.spark.SPARK_VERSION
-  }
-
-  lazy val getEventFromJsonMethod:
-    (String) => Option[org.apache.spark.scheduler.SparkListenerEvent] = {
-    // Spark 3.4 and Databricks changed the signature on sparkEventFromJson
-    // Note that it is preferred we use reflection rather than checking Spark-runtime
-    // because some vendors may back-port features.
-    val c = Class.forName("org.apache.spark.util.JsonProtocol")
-    val m = Try {
-      // versions prior to spark3.4
-      c.getDeclaredMethod("sparkEventFromJson", classOf[org.json4s.JValue])
-    } match {
-      case Success(a) =>
-        (line: String) =>
-          a.invoke(null, parse(line)).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
-      case Failure(_) =>
-        // Spark3.4+ and databricks
-        val b = c.getDeclaredMethod("sparkEventFromJson", classOf[String])
-        (line: String) =>
-          b.invoke(null, line).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
-    }
-    // At this point, the method is already defined.
-    // Note that the Exception handling is moved within the method to make it easier
-    // to isolate the exception reason.
-    (line: String) => Try {
-      m.apply(line)
-    } match {
-      case Success(i) => Some(i)
-      case Failure(e) =>
-
-        e match {
-          case i: InvocationTargetException =>
-            val targetEx = i.getTargetException
-            if (targetEx != null) {
-              targetEx match {
-                case j: com.fasterxml.jackson.core.io.JsonEOFException =>
-                  // Spark3.41+ embeds JsonEOFException in the InvocationTargetException
-                  // We need to show a warning message instead of failing the entire app.
-                  logWarning(s"Incomplete eventlog, ${j.getMessage}")
-                case k: com.fasterxml.jackson.core.JsonParseException =>
-                  // this is a parser error thrown by spark-3.4+ which indicates the log is
-                  // malformed
-                  throw k
-                case z: ClassNotFoundException if z.getMessage != null =>
-                  logWarning(s"ClassNotFoundException while parsing an event: ${z.getMessage}")
-                case t: Throwable =>
-                  // We do not want to swallow unknown exceptions so that we can handle later
-                  logError(s"Unknown exception while parsing an event", t)
-              }
-            } else {
-              // Normally it should not happen that invocation target is null.
-              logError(s"Unknown exception while parsing an event", i)
-            }
-          case j: com.fasterxml.jackson.core.io.JsonEOFException =>
-            // Note that JsonEOFException is child of JsonParseException
-            // In case the eventlog is incomplete (i.e., inprogress), we show a warning message
-            // because we do not want to cause the entire app to fail.
-            logWarning(s"Incomplete eventlog, ${j.getMessage}")
-          case k: com.fasterxml.jackson.core.JsonParseException =>
-            // this is a parser error thrown by version prior to spark-3.4+ which indicates the
-            // log is malformed
-            throw k
-        }
-        None
-    }
   }
 
   def compareVersions(verA: String, verB: String): Int = {
@@ -281,6 +225,39 @@ object ToolUtils extends Logging {
   def formatPotentialProblems(
       values: Seq[String], fileDelimiter: String = QualOutputWriter.CSV_DELIMITER): String = {
     renderTextField(values, ":", fileDelimiter)
+  }
+
+  /**
+   * Given a spark property key, this predicates checks if it is related to RAPIDS configurations.
+   * Note that, "related RAPIDS properties" do not always have 'spark.rapids' prefix.
+   *
+   * @param sparkPropKey the spark property key
+   * @return True if it is directly related to RAPIDS
+   */
+  def isRapidsPropKey(pKey: String): Boolean = {
+    pKey.startsWith(PROPS_RAPIDS_KEY_PREFIX) || pKey.startsWith("spark.executorEnv.UCX") ||
+      pKey.startsWith("spark.shuffle.manager") || pKey.equals("spark.shuffle.service.enabled")
+  }
+
+  /**
+   * Checks if the given value is supported for all Ops or not.
+   * @param fileEncoding the value being read from the Application configs
+   * @return True if file encoding is supported
+   */
+  def isFileEncodingRecommended(fileEncoding: String): Boolean = {
+    fileEncoding.matches("(?i)utf-?8")
+  }
+
+  /**
+   * Collects the paths that points to RAPIDS jars in a map of properties.
+   * @param properties the map of properties to holding the app configuration.
+   * @return set of unique file paths that matches RAPIDS jars patterns.
+   */
+  def extractRAPIDSJarsFromProps(properties: collection.Map[String, String]): Set[String] = {
+    properties.filterKeys(POSSIBLE_JARS_PROPERTIES.contains(_)).collect {
+      case (_, pVal) if pVal.matches(RAPIDS_JAR_REGEX.regex) =>
+        pVal.split(",").filter(_.matches(RAPIDS_JAR_REGEX.regex))
+    }.flatten.toSet
   }
 }
 

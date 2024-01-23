@@ -26,36 +26,62 @@ import scala.io.{Codec, Source}
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart, StageInfo}
+import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart, SparkListenerLogStart, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.qualification.MLFunctions
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil}
 import org.apache.spark.util.Utils
 
 // Handles updating and caching Spark Properties for a Spark application.
-// Properties stored in this container can be accessed to make decision about
-// certain analysis that depends on the context of the Spark properties.
-// TODO: we need to migrate SparkProperties, GpuMode to this trait.
+// Properties stored in this container can be accessed to make decision about certain analysis
+// that depends on the context of the Spark properties.
 trait CacheableProps {
+  private val RETAINED_SYSTEM_PROPS = Set(
+    "file.encoding", "java.version", "os.arch", "os.name",
+    "os.version", "user.timezone")
+  // caches the spark-version from the eventlogs
+  var sparkVersion: String = ""
+  var gpuMode = false
   // A flag whether hive is enabled or not. Note that we assume that the
   // property is global to the entire application once it is set. a.k.a, it cannot be disabled
   // once it is was set to true.
   var hiveEnabled = false
+  var sparkProperties = Map[String, String]()
+  var classpathEntries = Map[String, String]()
+  // set the fileEncoding to UTF-8 by default
+  var systemProperties = Map[String, String]()
+
   def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
-    val sparkProperties = event.environmentDetails("Spark Properties").toMap
+    sparkProperties ++= event.environmentDetails("Spark Properties").toMap
+    classpathEntries ++= event.environmentDetails("Classpath Entries").toMap
+
+    gpuMode ||=  ProfileUtils.isPluginEnabled(sparkProperties)
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
+
+    // Update the properties if system environments are set.
+    // No need to capture all the properties in memory. We only capture important ones.
+    systemProperties ++= event.environmentDetails("System Properties").toMap.filterKeys(
+      RETAINED_SYSTEM_PROPS.contains(_))
   }
 
   def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
     // TODO: we need to improve this in order to support per-job-level
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(event.properties.asScala)
+  }
+
+  def handleLogStartForCachedProps(event: SparkListenerLogStart): Unit = {
+    sparkVersion = event.sparkVersion
+  }
+
+  def isGPUModeEnabledForJob(event: SparkListenerJobStart): Boolean = {
+    gpuMode || ProfileUtils.isPluginEnabled(event.properties.asScala)
   }
 }
 
@@ -63,7 +89,6 @@ abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
     val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
 
-  var sparkVersion: String = ""
   var appEndTime: Option[Long] = None
   // The data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
@@ -91,8 +116,6 @@ abstract class AppBase(
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
   var mlEventLogType = ""
   var pysparkLogFlag = false
-
-  var gpuMode = false
 
   def getOrCreateStage(info: StageInfo): StageInfoClass = {
     val stage = stageIdToInfo.getOrElseUpdate((info.stageId, info.attemptNumber()),
@@ -240,7 +263,7 @@ abstract class AppBase(
               // Do NOT use a while loop as it is much much slower.
               lines.find { line =>
                 totalNumEvents += 1
-                ToolUtils.getEventFromJsonMethod(line) match {
+                EventUtils.getEventFromJsonMethod(line) match {
                   case Some(e) => processEvent(e)
                   case None => false
                 }

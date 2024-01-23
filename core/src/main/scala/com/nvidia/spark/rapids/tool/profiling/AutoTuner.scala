@@ -34,7 +34,7 @@ import org.yaml.snakeyaml.representer.Representer
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{GpuTypes, ToolUtils}
-import org.apache.spark.sql.rapids.tool.util.WebCrawlerUtil
+import org.apache.spark.sql.rapids.tool.util.{StringUtils, WebCrawlerUtil}
 
 /**
  * A wrapper class that stores all the GPU properties.
@@ -222,9 +222,9 @@ class RecommendationEntry(val name: String,
     propValue match {
       case None => None
       case Some(value) =>
-        if (AutoTuner.containsMemoryUnits(value)) {
+        if (StringUtils.isMemorySize(value)) {
           // if it is memory return the bytes unit
-          Some(s"${AutoTuner.convertFromHumanReadableSize(value)}")
+          Some(s"${StringUtils.convertMemorySizeToBytes(value)}")
         } else {
           propValue
         }
@@ -466,7 +466,7 @@ class AutoTuner(
    */
   def calcGpuConcTasks(): Long = {
     Math.min(MAX_CONC_GPU_TASKS,
-      convertToMB(clusterProps.gpu.memory) / DEF_GPU_MEM_PER_TASK_MB)
+      StringUtils.convertToMB(clusterProps.gpu.memory) / DEF_GPU_MEM_PER_TASK_MB)
   }
 
   /**
@@ -477,7 +477,7 @@ class AutoTuner(
   private def calcAvailableMemPerExec(): Double = {
     // account for system overhead
     val usableWorkerMem =
-      Math.max(0, convertToMB(clusterProps.system.memory) - DEF_SYSTEM_RESERVE_MB)
+      Math.max(0, StringUtils.convertToMB(clusterProps.system.memory) - DEF_SYSTEM_RESERVE_MB)
     // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
     (1.0 * usableWorkerMem) / clusterProps.gpu.getCount
   }
@@ -608,6 +608,7 @@ class AutoTuner(
     recommendShufflePartitions()
     recommendGCProperty()
     recommendClassPathEntries()
+    recommendSystemProperties()
   }
 
   def getShuffleManagerClassName() : Option[String] = {
@@ -735,11 +736,11 @@ class AutoTuner(
     }
 
     val autoBroadcastJoinThresholdProperty =
-      getPropertyValue("spark.sql.adaptive.autoBroadcastJoinThreshold").map(convertToMB)
+      getPropertyValue("spark.sql.adaptive.autoBroadcastJoinThreshold").map(StringUtils.convertToMB)
     if (autoBroadcastJoinThresholdProperty.isEmpty) {
       appendComment("'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.")
     } else if (autoBroadcastJoinThresholdProperty.get >
-        convertToMB(AQE_AUTOBROADCAST_JOIN_THRESHOLD)) {
+        StringUtils.convertToMB(AQE_AUTOBROADCAST_JOIN_THRESHOLD)) {
       appendComment("Setting 'spark.sql.adaptive.autoBroadcastJoinThreshold' > " +
         s"$AQE_AUTOBROADCAST_JOIN_THRESHOLD could lead to performance\n" +
         "  regression. Should be set to a lower number.")
@@ -747,10 +748,22 @@ class AutoTuner(
   }
 
   /**
+   * Checks the system properties and give feedback to the user.
+   * For example file.encoding=UTF-8 is required for some ops like GpuRegEX.
+   */
+  private def recommendSystemProperties(): Unit = {
+    appInfoProvider.getSystemProperty("file.encoding").collect {
+      case encoding if !ToolUtils.isFileEncodingRecommended(encoding) =>
+        appendComment(s"file.encoding should be [${ToolUtils.SUPPORTED_ENCODINGS.mkString}]" +
+            " because GPU only supports the charset when using some expressions.")
+    }
+  }
+
+  /**
    * Check the class path entries with the following rules:
    * 1- If ".*rapids-4-spark.*jar" is missing then add a comment that the latest jar should be
    *    included in the classpath unless it is part of the spark
-   * 2- If there are more than 1 entry for ".*rapids-4-spark.*jar", then add a comment that the
+   * 2- If there are more than 1 entry for ".*rapids-4-spark.*jar", then add a comment that
    *    there should be only 1 jar in the class path.
    * 3- If there are cudf jars, ignore that for now.
    * 4- If there is a new release recommend that to the user
@@ -811,7 +824,7 @@ class AutoTuner(
   private def calculateMaxPartitionBytes(maxPartitionBytes: String): String = {
     // AutoTuner only supports a single app right now, so we get whatever value is here
     val inputBytesMax = appInfoProvider.getMaxInput / 1024 / 1024
-    val maxPartitionBytesNum = convertToMB(maxPartitionBytes)
+    val maxPartitionBytesNum = StringUtils.convertToMB(maxPartitionBytes)
     if (inputBytesMax == 0.0) {
       maxPartitionBytesNum.toString
     } else {
@@ -860,7 +873,7 @@ class AutoTuner(
       if (isCalculationEnabled("spark.sql.files.maxPartitionBytes")) {
         calculateMaxPartitionBytes(maxPartitionProp)
       } else {
-        s"${convertToMB(maxPartitionProp)}"
+        s"${StringUtils.convertToMB(maxPartitionProp)}"
       }
     appendRecommendationForMemoryMB("spark.sql.files.maxPartitionBytes", recommended)
   }
@@ -1218,59 +1231,6 @@ object AutoTuner extends Logging {
     } catch {
       case e: Exception =>
         handleException(e, singleAppProvider, platform, driverInfoProvider)
-    }
-  }
-
-  /**
-   * Converts size from human readable to bytes.
-   * Eg, "4m" -> 4194304.
-   */
-  def convertFromHumanReadableSize(size: String): Long = {
-    val sizesArr = size.toLowerCase.split("(?=[a-z])")
-    val sizeNum = sizesArr(0).toDouble
-    if (sizesArr.length > 1) {
-      val sizeUnit = sizesArr(1)
-      assert(SUPPORTED_SIZE_UNITS.contains(sizeUnit), s"$size is not a valid human readable size")
-      (sizeNum * Math.pow(1024, SUPPORTED_SIZE_UNITS.indexOf(sizeUnit))).toLong
-    } else {
-      sizeNum.toLong
-    }
-  }
-
-  def containsMemoryUnits(size: String): Boolean = {
-    val sizesArr = size.toLowerCase.split("(?=[a-z])")
-    if (sizesArr.length > 1) {
-      SUPPORTED_SIZE_UNITS.contains(sizesArr(1))
-    } else {
-      false
-    }
-  }
-
-  def convertToMB(size: String): Long = {
-    convertFromHumanReadableSize(size) / (1024 * 1024)
-  }
-
-  /**
-   * Converts size from bytes to human readable.
-   * Eg, 4194304 -> "4m", 633554 -> "618.70k".
-   */
-  def convertToHumanReadableSize(size: Long): String = {
-    if (size < 0L) {
-      return "0b"
-    }
-
-    val unitIndex = (Math.log10(size) / Math.log10(1024)).toInt
-    assert(unitIndex < SUPPORTED_SIZE_UNITS.size,
-      s"$size is too large to convert to human readable size")
-
-    val sizeNum = size * 1.0/Math.pow(1024, unitIndex)
-    val sizeUnit = SUPPORTED_SIZE_UNITS(unitIndex)
-
-    // If sizeNum is an integer omit fraction part
-    if ((sizeNum % 1) == 0) {
-      f"${sizeNum.toLong}$sizeUnit"
-    } else {
-      f"$sizeNum%.2f$sizeUnit"
     }
   }
 

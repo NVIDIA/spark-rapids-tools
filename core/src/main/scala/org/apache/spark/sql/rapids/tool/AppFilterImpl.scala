@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -142,19 +142,15 @@ class AppFilterImpl(
       val validConfigsMap = keyValueConfigs.map(a => a(0) -> a(1)).toMap
 
       val configFilteredResult = userNameLogicFiltered.filter { appFilterReturnParameters =>
-        appFilterReturnParameters.appInfo.sparkProperties.exists { sparkProp =>
-          if (keyValueConfigs.nonEmpty || keysOnlyConfigs.nonEmpty) {
-            val allConfigs = sparkProp.configName // all configs from eventlog
-            val allConfigKeys = sparkProp.configName.keys.toList // for keys only confs
-            // Intersection of configs provided in the filter args with event log configs.
-            val commonConfigsKeys = validConfigsMap.keySet.intersect(allConfigs.keySet)
-
-            commonConfigsKeys.filter { key =>
-              allConfigs(key) == validConfigsMap(key)
-            }.nonEmpty || keysOnlyConfigs.intersect(allConfigKeys).nonEmpty
-          } else {
-            false
-          }
+        if (keyValueConfigs.nonEmpty || keysOnlyConfigs.nonEmpty) {
+          val appSparkProps = appFilterReturnParameters.appInfo.sparkProperties
+          val commonConfigsKeys = validConfigsMap.keySet.intersect(appSparkProps.keySet)
+          val allConfigKeys = appSparkProps.keys.toList // for keys only confs
+          commonConfigsKeys.filter { key =>
+            appSparkProps(key) == validConfigsMap(key)
+          }.nonEmpty || keysOnlyConfigs.intersect(allConfigKeys).nonEmpty
+        } else {
+          false
         }
       }
       configFilteredResult

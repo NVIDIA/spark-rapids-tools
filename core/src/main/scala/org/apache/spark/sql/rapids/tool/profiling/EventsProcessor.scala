@@ -29,7 +29,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui.{SparkListenerSQLAdaptiveExecutionUpdate, SparkListenerSQLAdaptiveSQLMetricUpdates, SparkListenerSQLExecutionStart}
 import org.apache.spark.sql.rapids.tool.EventProcessorBase
-import org.apache.spark.sql.rapids.tool.util.EventUtils
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, StringUtils}
 
 /**
  * This class is to process all events and do validation in the end.
@@ -43,7 +43,7 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     logDebug("Processing event: " + event.getClass)
     super.doSparkListenerJobStart(app, event)
     val sqlIDString = event.properties.getProperty("spark.sql.execution.id")
-    val sqlID = ProfileUtils.stringToLong(sqlIDString)
+    val sqlID = StringUtils.stringToLong(sqlIDString)
     // add jobInfoClass
     val thisJob = new JobInfoClass(
       event.jobId,
@@ -55,7 +55,7 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
       None,
       None,
       None,
-      ProfileUtils.isPluginEnabled(event.properties.asScala) || app.gpuMode
+      app.isGPUModeEnabledForJob(event)
     )
     app.jobIdToInfo.put(event.jobId, thisJob)
   }
@@ -82,11 +82,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     } else {
       false
     }
-  }
-
-  override def doSparkListenerLogStart(app: ApplicationInfo, event: SparkListenerLogStart): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    app.sparkVersion = event.sparkVersion
   }
 
   override def doSparkListenerResourceProfileAdded(
@@ -139,17 +134,9 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
       app: ApplicationInfo,
       event: SparkListenerEnvironmentUpdate): Unit = {
     logDebug("Processing event: " + event.getClass)
-    app.handleEnvUpdateForCachedProps(event)
-    app.sparkProperties = event.environmentDetails("Spark Properties").toMap
-    app.classpathEntries = event.environmentDetails("Classpath Entries").toMap
+    super.doSparkListenerEnvironmentUpdate(app, event)
 
-    //Decide if this application is on GPU Mode
-    if (ProfileUtils.isPluginEnabled(collection.mutable.Map() ++= app.sparkProperties)) {
-      app.gpuMode = true
-      logDebug("App's GPU Mode = TRUE")
-    } else {
-      logDebug("App's GPU Mode = FALSE")
-    }
+    logDebug(s"App's GPU Mode = ${app.gpuMode}")
   }
 
   override def doSparkListenerApplicationStart(

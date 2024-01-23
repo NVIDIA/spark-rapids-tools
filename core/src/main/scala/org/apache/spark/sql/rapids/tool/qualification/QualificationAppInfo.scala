@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_F
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraph
 import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
@@ -97,6 +97,35 @@ class QualificationAppInfo(
     sqlIDToTaskEndSum.remove(sqlID)
     sqlIDtoFailures.remove(sqlID)
     super.cleanupSQL(sqlID)
+  }
+
+  override def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
+    super.handleEnvUpdateForCachedProps(event)
+    if (gpuMode) {
+      throw GpuEventLogException(s"Cannot parse event logs from GPU run")
+    }
+    clusterTags = sparkProperties.getOrElse("spark.databricks.clusterUsageTags.clusterAllTags", "")
+    clusterTagClusterId =
+      sparkProperties.getOrElse("spark.databricks.clusterUsageTags.clusterId", "")
+    clusterTagClusterName =
+      sparkProperties.getOrElse("spark.databricks.clusterUsageTags.clusterName", "")
+  }
+
+  override def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
+    super.handleJobStartForCachedProps(event)
+    // If the confs are set after SparkSession initialization, it is captured in this event.
+    if (clusterTags.isEmpty) {
+      clusterTags = event.properties.getProperty(
+        "spark.databricks.clusterUsageTags.clusterAllTags", "")
+    }
+    if (clusterTagClusterId.isEmpty) {
+      clusterTagClusterId = event.properties.getProperty(
+        "spark.databricks.clusterUsageTags.clusterId", "")
+    }
+    if (clusterTagClusterName.isEmpty) {
+      clusterTagClusterName =event.properties.getProperty(
+        "spark.databricks.clusterUsageTags.clusterName", "")
+    }
   }
 
   // time in ms

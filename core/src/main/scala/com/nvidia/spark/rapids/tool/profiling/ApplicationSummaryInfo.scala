@@ -16,34 +16,38 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
+import org.apache.spark.sql.rapids.tool.ToolUtils
+
 case class ApplicationSummaryInfo(
-    val appInfo: Seq[AppInfoProfileResults],
-    val dsInfo: Seq[DataSourceProfileResult],
-    val execInfo: Seq[ExecutorInfoProfileResult],
-    val jobInfo: Seq[JobInfoProfileResult],
-    val rapidsProps: Seq[RapidsPropertyProfileResult],
-    val rapidsJar: Seq[RapidsJarProfileResult],
-    val sqlMetrics: Seq[SQLAccumProfileResults],
-    val jsMetAgg: Seq[JobStageAggTaskMetricsProfileResult],
-    val sqlTaskAggMetrics: Seq[SQLTaskAggMetricsProfileResult],
-    val durAndCpuMet: Seq[SQLDurationExecutorTimeProfileResult],
-    val skewInfo: Seq[ShuffleSkewProfileResult],
-    val failedTasks: Seq[FailedTaskProfileResults],
-    val failedStages: Seq[FailedStagesProfileResults],
-    val failedJobs: Seq[FailedJobsProfileResults],
-    val removedBMs: Seq[BlockManagerRemovedProfileResult],
-    val removedExecutors: Seq[ExecutorsRemovedProfileResult],
-    val unsupportedOps: Seq[UnsupportedOpsProfileResult],
-    val sparkProps: Seq[RapidsPropertyProfileResult],
-    val sqlStageInfo: Seq[SQLStageInfoProfileResult],
-    val wholeStage: Seq[WholeStageCodeGenResults],
-    val maxTaskInputBytesRead: Seq[SQLMaxTaskInputSizes],
-    val appLogPath: Seq[AppLogPathProfileResults],
-    val ioMetrics: Seq[IOAnalysisProfileResult])
+    appInfo: Seq[AppInfoProfileResults],
+    dsInfo: Seq[DataSourceProfileResult],
+    execInfo: Seq[ExecutorInfoProfileResult],
+    jobInfo: Seq[JobInfoProfileResult],
+    rapidsProps: Seq[RapidsPropertyProfileResult],
+    rapidsJar: Seq[RapidsJarProfileResult],
+    sqlMetrics: Seq[SQLAccumProfileResults],
+    jsMetAgg: Seq[JobStageAggTaskMetricsProfileResult],
+    sqlTaskAggMetrics: Seq[SQLTaskAggMetricsProfileResult],
+    durAndCpuMet: Seq[SQLDurationExecutorTimeProfileResult],
+    skewInfo: Seq[ShuffleSkewProfileResult],
+    failedTasks: Seq[FailedTaskProfileResults],
+    failedStages: Seq[FailedStagesProfileResults],
+    failedJobs: Seq[FailedJobsProfileResults],
+    removedBMs: Seq[BlockManagerRemovedProfileResult],
+    removedExecutors: Seq[ExecutorsRemovedProfileResult],
+    unsupportedOps: Seq[UnsupportedOpsProfileResult],
+    sparkProps: Seq[RapidsPropertyProfileResult],
+    sqlStageInfo: Seq[SQLStageInfoProfileResult],
+    wholeStage: Seq[WholeStageCodeGenResults],
+    maxTaskInputBytesRead: Seq[SQLMaxTaskInputSizes],
+    appLogPath: Seq[AppLogPathProfileResults],
+    ioMetrics: Seq[IOAnalysisProfileResult],
+    sysProps: Seq[RapidsPropertyProfileResult])
 
 trait AppInfoPropertyGetter {
   def getSparkProperty(propKey: String): Option[String]
   def getRapidsProperty(propKey: String): Option[String]
+  def getSystemProperty(propKey: String): Option[String]
   def getProperty(propKey: String): Option[String]
   def getSparkVersion: Option[String]
   def getRapidsJars: Seq[String]
@@ -76,7 +80,16 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   def isAppInfoAvailable = false
   override def getSparkProperty(propKey: String): Option[String] = None
   override def getRapidsProperty(propKey: String): Option[String] = None
-  override def getProperty(propKey: String): Option[String] = None
+  override def getSystemProperty(propKey: String): Option[String] = None
+  override def getProperty(propKey: String): Option[String] = {
+    if (propKey.startsWith(ToolUtils.PROPS_RAPIDS_KEY_PREFIX)) {
+      getRapidsProperty(propKey)
+    } else if (propKey.startsWith("spark")){
+      getSparkProperty(propKey)
+    } else {
+      getSystemProperty(propKey)
+    }
+  }
   override def getSparkVersion: Option[String] = None
   override def getMaxInput: Double = 0.0
   override def getMeanInput: Double = 0.0
@@ -99,7 +112,7 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   extends AppSummaryInfoBaseProvider {
 
   private lazy val distinctLocations = app.dsInfo.groupBy(_.location)
-  override def isAppInfoAvailable = Option(app).isDefined
+  override def isAppInfoAvailable: Boolean = Option(app).isDefined
 
   private def findPropertyInProfPropertyResults(
       key: String,
@@ -118,12 +131,8 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
     findPropertyInProfPropertyResults(propKey, app.rapidsProps)
   }
 
-  override def getProperty(propKey: String): Option[String] = {
-    if (propKey.startsWith("spark.rapids")) {
-      getRapidsProperty(propKey)
-    } else {
-      getSparkProperty(propKey)
-    }
+  override def getSystemProperty(propKey: String): Option[String] = {
+    findPropertyInProfPropertyResults(propKey, app.sysProps)
   }
 
   override def getSparkVersion: Option[String] = {

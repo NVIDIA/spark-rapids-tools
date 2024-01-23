@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -198,10 +198,6 @@ class ApplicationInfo(
 
   var blockManagersRemoved: ArrayBuffer[BlockManagerRemovedCase] =
      ArrayBuffer[BlockManagerRemovedCase]()
-
-  // From SparkListenerEnvironmentUpdate
-  var sparkProperties = Map.empty[String, String]
-  var classpathEntries = Map.empty[String, String]
 
   var appInfo: ApplicationCase = null
   var appId: String = ""
