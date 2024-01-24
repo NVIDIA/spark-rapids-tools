@@ -25,7 +25,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, PlatformFactory}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
@@ -349,6 +349,8 @@ class AutoTuner(
   private val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
+  // selected gpu device based on cluster properties and platform
+  private var gpuDevice: GpuDevice = _
 
   private def isCalculationEnabled(prop: String) : Boolean = {
     !limitedLogicRecommendations.contains(prop)
@@ -465,8 +467,7 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   def calcGpuConcTasks(): Long = {
-    Math.min(MAX_CONC_GPU_TASKS,
-      StringUtils.convertToMB(clusterProps.gpu.memory) / DEF_GPU_MEM_PER_TASK_MB)
+    Math.min(MAX_CONC_GPU_TASKS, gpuDevice.getGpuConcTasks)
   }
 
   /**
@@ -707,27 +708,16 @@ class AutoTuner(
     if (appInfoProvider.getMeanInput > AQE_INPUT_SIZE_BYTES_THRESHOLD &&
       appInfoProvider.getMeanShuffleRead > AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
       // AQE Recommendations for large input and large shuffle reads
-      val advisoryPartitionSizeInBytes = clusterProps.gpu.name match {
-        case GpuTypes.A100 => "64m"
-        case GpuTypes.T4 => "32m"
-        case _ => AQE_DEF_ADVISORY_PARTITION_SIZE
+      gpuDevice.getAdvisoryPartitionSizeInBytes.foreach { size =>
+        appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
       }
-      appendRecommendation(
-        "spark.sql.adaptive.advisoryPartitionSizeInBytes",
-        advisoryPartitionSizeInBytes
-      )
       val initialPartitionNumProperty =
         getPropertyValue("spark.sql.adaptive.coalescePartitions.initialPartitionNum").map(_.toInt)
       if (initialPartitionNumProperty.getOrElse(0) <= AQE_MIN_INITIAL_PARTITION_NUM) {
-        val initialPartitionNum = clusterProps.gpu.name match {
-          case GpuTypes.A100 => 400
-          case GpuTypes.T4 => 800
-          case _ => AQE_DEF_INITIAL_PARTITION_NUM
+        gpuDevice.getInitialPartitionNum.foreach { initialPartitionNum =>
+          appendRecommendation(
+            "spark.sql.adaptive.coalescePartitions.initialPartitionNum", initialPartitionNum)
         }
-        appendRecommendation(
-          "spark.sql.adaptive.coalescePartitions.initialPartitionNum",
-          initialPartitionNum
-        )
       }
       // We need to set this to false, else Spark ignores the target size specified by
       // spark.sql.adaptive.advisoryPartitionSizeInBytes.
@@ -1014,6 +1004,7 @@ class AutoTuner(
       initRecommendations()
       calculateJobLevelRecommendations()
       if (processPropsAndCheck) {
+        gpuDevice = GpuDevice.from(clusterProps, platform)
         calculateClusterLevelRecommendations()
       } else {
         // add all default comments
@@ -1032,10 +1023,6 @@ class AutoTuner(
 }
 
 object AutoTuner extends Logging {
-  // Amount of GPU memory to use per concurrent task in megabytes.
-  // Using a bit less than 8GB here since Dataproc clusters advertise T4s as only having
-  // around 14.75 GB and we want to run with 2 concurrent by default on T4s.
-  val DEF_GPU_MEM_PER_TASK_MB = 7500L
   // Maximum number of concurrent tasks to run on the GPU
   val MAX_CONC_GPU_TASKS = 4L
   // Amount of CPU memory to reserve for system overhead (kernel, buffers, etc.) in megabytes
@@ -1079,8 +1066,6 @@ object AutoTuner extends Logging {
   private val BATCH_SIZE_BYTES = 2147483647
   private val AQE_INPUT_SIZE_BYTES_THRESHOLD = 35000
   private val AQE_SHUFFLE_READ_BYTES_THRESHOLD = 50000
-  private val AQE_DEF_ADVISORY_PARTITION_SIZE = "32m"
-  private val AQE_DEF_INITIAL_PARTITION_NUM = 800
   private val AQE_MIN_INITIAL_PARTITION_NUM = 200
   private val AQE_AUTOBROADCAST_JOIN_THRESHOLD = "100m"
 
@@ -1092,7 +1077,7 @@ object AutoTuner extends Logging {
     "spark.task.resource.gpu.amount" ->
       "'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).",
     "spark.rapids.sql.concurrentGpuTasks" ->
-      s"'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).",
+      s"'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).",
     "spark.rapids.memory.pinnedPool.size" ->
       s"'spark.rapids.memory.pinnedPool.size' should be set to ${DEF_PINNED_MEMORY_MB}m.",
     "spark.rapids.sql.enabled" ->

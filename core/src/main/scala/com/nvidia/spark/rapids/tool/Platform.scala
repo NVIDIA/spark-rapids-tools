@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool
 import scala.annotation.tailrec
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.GpuTypes
 
 /**
  *  Utility object containing constants for various platform names.
@@ -100,6 +101,18 @@ class Platform(platformName: String) {
 
   def getOperatorScoreFile: String = {
     s"operatorsScore-$platformName.csv"
+  }
+
+  /**
+   * Retrieves the GPU type based on the platform name.
+   */
+  def getGpuType: Option[String] = platformName match {
+    case PlatformNames.DATAPROC | PlatformNames.DATAPROC_T4 => Some(GpuTypes.T4)
+    case PlatformNames.DATAPROC_L4 | PlatformNames.DATAPROC_SL_L4 |
+         PlatformNames.DATAPROC_GKE_L4 | PlatformNames.DATAPROC_GKE_T4 => Some(GpuTypes.L4)
+    case PlatformNames.EMR | PlatformNames.EMR_T4 => Some(GpuTypes.T4)
+    case PlatformNames.EMR_A10 => Some(GpuTypes.A10)
+    case _ => None
   }
 }
 
