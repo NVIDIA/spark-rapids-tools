@@ -23,6 +23,7 @@ import scala.collection.JavaConverters._
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.EventLogInfo
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
+import com.nvidia.spark.rapids.tool.tuning.TunerContext
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.rapids.tool.qualification._
@@ -34,7 +35,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     pluginTypeChecker: PluginTypeChecker, reportReadSchema: Boolean,
     printStdout: Boolean, uiEnabled: Boolean, enablePB: Boolean,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean,
-    penalizeTransitions: Boolean) extends RuntimeReporter {
+    penalizeTransitions: Boolean,
+    tunerContext: Option[TunerContext]) extends RuntimeReporter {
 
   private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
 
@@ -181,6 +183,19 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         case Right(app: QualificationAppInfo) =>
           // Case with successful creation of QualificationAppInfo
           val qualSumInfo = app.aggregateStats()
+          tunerContext.collect {
+            // Run the autotuner if it is enabled.
+            // Note that we call the autotuner anyway without checking the aggregate results
+            // because the Autotuner can still make some recommendations based on the information
+            // enclosed by the QualificationInfo object
+            case tuner =>
+              // autoTuner is enabled for Qualification
+              tuner.tuneApplication(app, qualSumInfo).collect {
+                case res =>
+                  logInfo(s"RecommendedProps ${app.appId} = ${res.recommendations.mkString("\n")}")
+                  logInfo(s"Comments ${app.appId} = ${res.comments.mkString("\n")}")
+              }
+          }
           if (qualSumInfo.isDefined) {
             allApps.add(qualSumInfo.get)
             progressBar.foreach(_.reportSuccessfulProcess())
