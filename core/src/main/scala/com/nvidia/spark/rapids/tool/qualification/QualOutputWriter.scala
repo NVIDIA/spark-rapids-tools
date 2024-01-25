@@ -936,7 +936,7 @@ object QualOutputWriter {
     val reformatCSVFunc: String => String =
       if (reformatCSV) str => StringUtils.reformatCSVString(str) else str => stringIfempty(str)
     val appId = sumInfo.appId
-    val appDuration = sumInfo.sparkSqlDFWallClockDuration
+    val appDuration = sumInfo.estimatedInfo.appDur
     val recommendation = sumInfo.estimatedInfo.recommendation
 
     sumInfo.stageInfo.collect {
