@@ -16,7 +16,10 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
+import com.nvidia.spark.rapids.tool.tuning.QualAppSummaryInfoProvider
+
 import org.apache.spark.sql.rapids.tool.ToolUtils
+import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
 
 case class ApplicationSummaryInfo(
     appInfo: Seq[AppInfoProfileResults],
@@ -200,5 +203,17 @@ object AppSummaryInfoBaseProvider {
       case Some(appSummaryInfo) => new SingleAppSummaryInfoProvider(appSummaryInfo)
       case _ => new AppSummaryInfoBaseProvider()
     }
+  }
+
+  /**
+   * Constructs an application information provider based on the results of Qualification
+   * tool.
+   * @param appInfo
+   * @param appAggStats optional aggregate of application stats
+   * @return object that can be used by the AutoTuner to calculate the recommendations
+   */
+  def fromQualAppInfo(appInfo: QualificationAppInfo,
+      appAggStats: Option[QualificationSummaryInfo] = None): AppSummaryInfoBaseProvider = {
+    new QualAppSummaryInfoProvider(appInfo, appAggStats)
   }
 }
