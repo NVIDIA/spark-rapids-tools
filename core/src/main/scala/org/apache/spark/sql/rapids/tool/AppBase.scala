@@ -278,15 +278,6 @@ abstract class AppBase(
     }
   }
 
-  def isDataSetOrRDDPlan(desc: String): Boolean = {
-    desc match {
-      case l if l.matches(".*\\$Lambda\\$.*") => true
-      case a if a.endsWith(".apply") => true
-      case r if r.matches(".*SerializeFromObject.*") => true
-      case _ => false
-    }
-  }
-
   private val UDFRegex = ".*UDF.*"
 
   private val potentialIssuesRegexMap = Map(

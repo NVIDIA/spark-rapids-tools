@@ -38,7 +38,8 @@ case class DataWritingCommandExecParser(
     val speedupFactor = checker.getSpeedupFactor(wStub.mappedExec)
     val finalSpeedup = if (writeSupported) speedupFactor else 1
     // TODO - add in parsing expressions - average speedup across?
-    new ExecInfo(sqlID, s"${node.name.trim} ${wStub.dataFormat.toLowerCase.trim}", "",
+    ExecInfo(node, sqlID, s"${node.name.trim} ${wStub.dataFormat.toLowerCase.trim}",
+      s"Format: ${wStub.dataFormat.toLowerCase.trim}",
       finalSpeedup, duration, node.id, writeSupported, None)
   }
 }
