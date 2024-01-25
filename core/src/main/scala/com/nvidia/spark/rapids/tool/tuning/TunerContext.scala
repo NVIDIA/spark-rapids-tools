@@ -33,17 +33,17 @@ case class TuningResult(
 
 /**
  * Container which holds metadata and arguments specific to the execution of the AutoTuner.
- * TODO: we need to use the same class in constructing the AutTuner in the Profiling tools.
+ * TODO: we need to use the same class in constructing the AutoTuner in the Profiling tools.
  * @param platform object representing the host platform on which the application was executed.
  * @param workerInfoPath the path of the GPU workers
  * @param outputRootDir the output directory to dump the recommendation/comments.
  * @param hadoopConf optional configuration to access the remote storage.
  */
-class TunerContext (
-    val platform: Platform,
-    val workerInfoPath: String,
-    val outputRootDir: String,
-    val hadoopConf: Option[Configuration]) extends Logging {
+case class TunerContext (
+    platform: Platform,
+    workerInfoPath: String,
+    outputRootDir: String,
+    hadoopConf: Configuration) extends Logging {
 
   def getOutputPath: String = {
     s"$outputRootDir/rapids_4_spark_qualification_output/tuning"
@@ -73,7 +73,7 @@ object TunerContext extends Logging {
       hadoopConf: Option[Configuration] = None): Option[TunerContext] = {
     Try {
       val hConf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf())
-      new TunerContext(platform, workerInfoPath, outputRootDir,Some(hConf))
+      TunerContext(platform, workerInfoPath, outputRootDir, hConf)
     } match {
       case Success(c) => Some(c)
       case Failure(e) =>

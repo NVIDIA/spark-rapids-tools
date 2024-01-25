@@ -34,9 +34,9 @@ class QualificationAutoTuner(val appInfoProvider: QualAppSummaryInfoProvider,
     val tunerContext: TunerContext) {
 
   private def writeTuningReport(tuningResult: TuningResult,
-      outputDir: String, hadoopConf: Option[Configuration]): Unit = {
+      outputDir: String, hadoopConf: Configuration): Unit = {
     val textFileWriter = new ToolTextFileWriter(outputDir,
-      s"${tuningResult.appID}.log", s"Tuning Qual app - ${tuningResult.appID}", hadoopConf)
+      s"${tuningResult.appID}.log", s"Tuning Qual app - ${tuningResult.appID}", Option(hadoopConf))
     try {
       textFileWriter.write(s"### Recommended Configuration for App: ${tuningResult.appID} ###\n")
       textFileWriter.write(Profiler.getAutoTunerResultsAsString(
