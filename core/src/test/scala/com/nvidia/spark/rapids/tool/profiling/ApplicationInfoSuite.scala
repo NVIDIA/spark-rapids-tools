@@ -895,4 +895,14 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       }
     }
   }
+
+  test("test gpu reused subquery") {
+    val apps = ToolTestUtils.processProfileApps(Array(s"$logDir/nds_q66_gpu.zstd"), sparkSession)
+    val collect = new CollectInformation(apps)
+    val sqlToStageInfo = collect.getSQLToStage
+    val countScanParquet = sqlToStageInfo.flatMap(_.nodeNames).count(_.contains("GpuScan parquet"))
+    // There are 12 `GpuScan parquet` raw nodes, but 4 are inside `ReusedExchange`, 1 is inside
+    // `ReusedSubquery`, so we expect 7.
+    assert(countScanParquet == 7)
+  }
 }

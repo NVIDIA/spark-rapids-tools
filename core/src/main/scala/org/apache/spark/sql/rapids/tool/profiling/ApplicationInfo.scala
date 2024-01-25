@@ -28,8 +28,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.metric.SQLMetricInfo
-import org.apache.spark.sql.execution.ui.SparkPlanGraph
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 import org.apache.spark.ui.UIUtils
 
 
@@ -238,7 +238,7 @@ class ApplicationInfo(
   // Connects Operators to Stages using AccumulatorIDs
   def connectOperatorToStage(): Unit = {
     for ((sqlId, planInfo) <- sqlPlans) {
-      val planGraph = SparkPlanGraph(planInfo)
+      val planGraph = ToolsPlanGraph(planInfo)
       // Maps stages to operators by checking for non-zero intersection
       // between nodeMetrics and stageAccumulateIDs
       val nodeIdToStage = planGraph.allNodes.map { node =>
@@ -256,7 +256,7 @@ class ApplicationInfo(
     connectOperatorToStage()
     for ((sqlID, planInfo) <- sqlPlans) {
       checkMetadataForReadSchema(sqlID, planInfo)
-      val planGraph = SparkPlanGraph(planInfo)
+      val planGraph = ToolsPlanGraph(planInfo)
       // SQLPlanMetric is a case Class of
       // (name: String,accumulatorId: Long,metricType: String)
       val allnodes = planGraph.allNodes
@@ -339,7 +339,7 @@ class ApplicationInfo(
           v.contains(s)
         }.keys.toSeq
         val nodeNames = sqlPlans.get(j.sqlID.get).map { planInfo =>
-          val nodes = SparkPlanGraph(planInfo).allNodes
+          val nodes = ToolsPlanGraph(planInfo).allNodes
           val validNodes = nodes.filter { n =>
             nodeIds.contains((j.sqlID.get, n.id))
           }

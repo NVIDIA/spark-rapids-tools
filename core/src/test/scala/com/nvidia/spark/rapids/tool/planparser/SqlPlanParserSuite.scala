@@ -847,7 +847,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("get_json_object is supported in Project") {
+  test("get_json_object is unsupported in Project") {
     // get_json_object is disabled by default in the RAPIDS plugin
     TrampolineUtil.withTempDir { parquetoutputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
