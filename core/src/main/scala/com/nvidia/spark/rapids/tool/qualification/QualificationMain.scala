@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, Platform}
+import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
@@ -66,7 +66,7 @@ object QualificationMain extends Logging {
 
     val pluginTypeChecker = try {
       new PluginTypeChecker(
-        Platform.createInstance(platform),
+        PlatformFactory.createInstance(platform),
         appArgs.speedupFactorFile.toOption)
     } catch {
       case ie: IllegalStateException =>

@@ -178,7 +178,7 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
 
   test("supported operator score from custom speedup factor file") {
     // Using databricks azure speedup factor as custom file
-    val platform = Platform.createInstance(PlatformNames.DATABRICKS_AZURE)
+    val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AZURE)
     val speedupFactorFile = ToolTestUtils.getTestResourcePath(platform.getOperatorScoreFile)
     val checker = new PluginTypeChecker(speedupFactorFile=Some(speedupFactorFile))
     assert(checker.getSpeedupFactor("SortExec") == 13.11)

@@ -150,7 +150,7 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
  * This factory supports various platforms and provides methods for creating
  * corresponding platform instances.
  */
-object Platform extends Logging {
+object PlatformFactory extends Logging {
   /**
    * Extracts platform and GPU names from the provided platform key.
    * Assumption: If the last part contains a number, we assume it is GPU name
@@ -175,7 +175,7 @@ object Platform extends Logging {
 
   @throws[IllegalArgumentException]
   @tailrec
-  private def getPlatformInstance(platformName: String,
+  private def createPlatformInstance(platformName: String,
       gpuDevice: Option[GpuDevice]): Platform = platformName match {
     case PlatformNames.DATABRICKS_AWS => new DatabricksAwsPlatform(gpuDevice)
     case PlatformNames.DATABRICKS_AZURE => new DatabricksAzurePlatform(gpuDevice)
@@ -186,7 +186,7 @@ object Platform extends Logging {
     case PlatformNames.ONPREM => new OnPremPlatform(gpuDevice)
     case p if p.isEmpty =>
       logInfo(s"Platform is not specified. Using ${PlatformNames.DEFAULT} as default.")
-      getPlatformInstance(PlatformNames.DEFAULT, gpuDevice)
+      createPlatformInstance(PlatformNames.DEFAULT, gpuDevice)
     case _ =>
       throw new IllegalArgumentException(s"Unsupported platform: $platformName. " +
         s"Options include ${PlatformNames.getAllNames.mkString(", ")}.")
@@ -200,6 +200,6 @@ object Platform extends Logging {
   def createInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
     val (platformName, gpuName) = extractPlatformGpuName(platformKey)
     val gpuDevice = gpuName.map(GpuDevice.createInstance)
-    getPlatformInstance(platformName, gpuDevice)
+    createPlatformInstance(platformName, gpuDevice)
   }
 }
