@@ -33,7 +33,7 @@ import org.apache.spark.internal.Logging
  * by the plugin which lists the formats and types supported.
  * The class also supports a custom speedup factor file as input.
  */
-class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
+class PluginTypeChecker(platform: Platform = PlatformFactory.getInstance(),
                         speedupFactorFile: Option[String] = None) extends Logging {
 
   private val NS = "NS"

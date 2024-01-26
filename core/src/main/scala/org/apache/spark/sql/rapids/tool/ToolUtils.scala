@@ -357,30 +357,3 @@ object SupportedMLFuncsName {
 }
 
 case class GpuEventLogException(message: String) extends Exception(message)
-
-object GpuTypes {
-  val A100 = "A100"
-  val T4 = "T4"
-  val V100 = "V100"
-  val K80 = "K80"
-  val P100 = "P100"
-  val P4 = "P4"
-  val L4 = "L4"
-  val A10 = "A10"
-  val A10G = "A10G"
-
-  def getGpuMem(gpu: String): String = {
-    gpu match {
-      case A100 => "40960m" // A100 set default to 40GB
-      case T4 => "15109m" // T4 default memory is 16G
-      case V100 => "16384m"
-      case K80 => "12288m"
-      case P100 => "16384m"
-      case P4 => "8192m"
-      case L4 => "24576m"
-      case A10 => "24576m"
-      case A10G => "24576m"
-      case _ => throw new IllegalArgumentException(s"Invalid input gpu type: $gpu")
-    }
-  }
-}

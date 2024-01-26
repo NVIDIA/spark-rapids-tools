@@ -33,7 +33,7 @@ import org.yaml.snakeyaml.constructor.{Constructor, ConstructorException}
 import org.yaml.snakeyaml.representer.Representer
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.{GpuTypes, ToolUtils}
+import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.util.{StringUtils, WebCrawlerUtil}
 
 /**
@@ -71,7 +71,7 @@ class GpuWorkerProps(
   }
   def setDefaultGpuNameIfMissing(): Boolean = {
     if (name == null || name.isEmpty || name == "None") {
-      name = AutoTuner.DEF_WORKER_GPU_NAME
+      name = GpuDevice.getDefault.toString
       true
     } else {
       false
@@ -87,7 +87,7 @@ class GpuWorkerProps(
   def setDefaultGpuMemIfMissing(): Boolean = {
     if (memory == null || memory.isEmpty || memory.startsWith("0")) {
       memory = try {
-        GpuTypes.getGpuMem(getName)
+        GpuDevice.getInstance(getName).getMemory
       } catch {
         case _: IllegalArgumentException => "15109m"
       }
@@ -322,7 +322,7 @@ class RecommendationEntry(val name: String,
  *      - 'spark.executor.memory' should be set to at least 2GB/core.
  *      - 'spark.executor.instances' should be set to (gpuCount * numWorkers).
  *      - 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
- *      - 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
+ *      - 'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).
  *      - 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
  *      - 'spark.sql.adaptive.enabled' should be enabled for better performance.
  *
@@ -1004,7 +1004,9 @@ class AutoTuner(
       initRecommendations()
       calculateJobLevelRecommendations()
       if (processPropsAndCheck) {
-        gpuDevice = GpuDevice.from(clusterProps, platform)
+        // create GPU device instance from the platform, or from cluster properties
+        gpuDevice = platform.getGpuDevice.getOrElse(
+          GpuDevice.getInstance(clusterProps.gpu.getName))
         calculateClusterLevelRecommendations()
       } else {
         // add all default comments
@@ -1050,8 +1052,6 @@ object AutoTuner extends Logging {
   val DEF_SHUFFLE_PARTITION_MULTIPLIER: Int = 2
   // GPU count defaults to 1 if it is missing.
   val DEF_WORKER_GPU_COUNT = 1
-  // GPU default device is T4
-  val DEF_WORKER_GPU_NAME = GpuTypes.T4
   // Default Number of Workers 1
   val DEF_NUM_WORKERS = 1
   // Default distinct read location thresholds is 50%
@@ -1137,7 +1137,8 @@ object AutoTuner extends Logging {
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
-    val tuning = new AutoTuner(new ClusterProperties(), appInfo, platform, driverInfoProvider)
+    val tuning = new AutoTuner(new ClusterProperties(), appInfo, platform,
+      driverInfoProvider)
     val msg = ex match {
       case cEx: ConstructorException => cEx.getContext
       case _ => if (ex.getCause != null) ex.getCause.toString else ex.toString
@@ -1182,21 +1183,22 @@ object AutoTuner extends Logging {
    * @param clusterProps the cluster properties as string.
    * @param singleAppProvider the wrapper implementation that accesses the properties of the profile
    *                          results.
-   * @param platform represents the environment created as a target for recommendations.
+   * @param platformGpuInfo represents the environment created as a target for recommendations and
+   *                        gpu device
    * @param driverInfoProvider wrapper implementation that accesses the information from driver log.
    * @return a new AutoTuner object.
    */
   def buildAutoTunerFromProps(
       clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.createInstance(),
+      platform: Platform = PlatformFactory.getInstance(),
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
 
-      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
-        driverInfoProvider)
+      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider,
+        platform, driverInfoProvider)
     } catch {
       case e: Exception =>
         handleException(e, singleAppProvider, platform, driverInfoProvider)
@@ -1206,13 +1208,13 @@ object AutoTuner extends Logging {
   def buildAutoTuner(
       filePath: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.createInstance(),
+      platform: Platform = PlatformFactory.getInstance(),
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(filePath)
-      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
-        driverInfoProvider)
+      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider,
+        platform, driverInfoProvider)
     } catch {
       case e: Exception =>
         handleException(e, singleAppProvider, platform, driverInfoProvider)

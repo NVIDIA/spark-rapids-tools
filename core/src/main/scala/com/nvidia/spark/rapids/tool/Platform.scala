@@ -18,7 +18,6 @@ package com.nvidia.spark.rapids.tool
 import scala.annotation.tailrec
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.GpuTypes
 
 /**
  *  Utility object containing constants for various platform names.
@@ -27,14 +26,9 @@ object PlatformNames {
   val DATABRICKS_AWS = "databricks-aws"
   val DATABRICKS_AZURE = "databricks-azure"
   val DATAPROC = "dataproc"
-  val DATAPROC_GKE_L4 = "dataproc-gke-l4"
-  val DATAPROC_GKE_T4 = "dataproc-gke-t4"
-  val DATAPROC_L4 = "dataproc-l4"
-  val DATAPROC_SL_L4 = "dataproc-serverless-l4"
-  val DATAPROC_T4 = "dataproc-t4"
+  val DATAPROC_GKE = "dataproc-gke"
+  val DATAPROC_SL = "dataproc-serverless"
   val EMR = "emr"
-  val EMR_A10 = "emr-a10"
-  val EMR_T4 = "emr-t4"
   val ONPREM = "onprem"
   val DEFAULT: String = ONPREM
 
@@ -42,17 +36,19 @@ object PlatformNames {
    * Return a list of all platform names.
    */
   def getAllNames: List[String] = List(
-    DATABRICKS_AWS, DATABRICKS_AZURE, DATAPROC, DATAPROC_GKE_L4, DATAPROC_GKE_T4,
-    DATAPROC_L4, DATAPROC_SL_L4, DATAPROC_T4, EMR, EMR_A10, EMR_T4, ONPREM
+    DATABRICKS_AWS, DATABRICKS_AZURE, DATAPROC,
+    s"${DATAPROC_GKE}-${GpuTypes.L4}", s"${DATAPROC_GKE}-${GpuTypes.T4}",
+    s"${DATAPROC}-${GpuTypes.L4}", s"${DATAPROC}-${GpuTypes.T4}", s"${DATAPROC_SL}-${GpuTypes.L4}",
+    EMR, s"${EMR}-${GpuTypes.A10}", s"${EMR}-${GpuTypes.T4}", ONPREM
   )
 }
 
 /**
  * Represents a platform and its associated recommendations.
  *
- * @param platformName Name of the platform. See [[PlatformNames]] for supported platform names.
+ * @param gpuDevice GPU Device present in the platform
  */
-class Platform(platformName: String) {
+abstract class Platform(gpuDevice: Option[GpuDevice]) {
   /**
    * Recommendations to be excluded from the list of recommendations.
    * These have the highest priority.
@@ -97,26 +93,20 @@ class Platform(platformName: String) {
     recommendationsToExclude.forall(excluded => !comment.contains(excluded))
   }
 
-  def getName: String = platformName
-
   def getOperatorScoreFile: String = {
-    s"operatorsScore-$platformName.csv"
+    s"operatorsScore-$toString.csv"
   }
 
-  /**
-   * Retrieves the GPU type based on the platform name.
-   */
-  def getGpuType: Option[String] = platformName match {
-    case PlatformNames.DATAPROC | PlatformNames.DATAPROC_T4 => Some(GpuTypes.T4)
-    case PlatformNames.DATAPROC_L4 | PlatformNames.DATAPROC_SL_L4 |
-         PlatformNames.DATAPROC_GKE_L4 | PlatformNames.DATAPROC_GKE_T4 => Some(GpuTypes.L4)
-    case PlatformNames.EMR | PlatformNames.EMR_T4 => Some(GpuTypes.T4)
-    case PlatformNames.EMR_A10 => Some(GpuTypes.A10)
-    case _ => None
+  val platformName: String
+  final def getGpuDevice: Option[GpuDevice] = gpuDevice
+
+  override def toString: String = {
+    val gpuStr = gpuDevice.fold("")(gpu => s"-$gpu")
+    s"$platformName$gpuStr"
   }
 }
 
-class DatabricksPlatform(platformType: String) extends Platform(platformType) {
+abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val recommendationsToExclude: Seq[String] = Seq(
     "spark.executor.cores",
     "spark.executor.instances",
@@ -128,11 +118,33 @@ class DatabricksPlatform(platformType: String) extends Platform(platformType) {
   )
 }
 
-class DataprocPlatform(platformType: String) extends Platform(platformType)
+class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPlatform(gpuDevice) {
+  override val platformName: String =  PlatformNames.DATABRICKS_AWS
+}
 
-class EmrPlatform(platformType: String) extends Platform(platformType)
+class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPlatform(gpuDevice) {
+  override val platformName: String =  PlatformNames.DATABRICKS_AZURE
+}
 
-class OnPremPlatform extends Platform(PlatformNames.ONPREM)
+class DataprocPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
+  override val platformName: String =  PlatformNames.DATAPROC
+}
+
+class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
+  override val platformName: String =  PlatformNames.DATAPROC_SL
+}
+
+class DataprocGkePlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
+  override val platformName: String =  PlatformNames.DATAPROC_GKE
+}
+
+class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
+  override val platformName: String =  PlatformNames.EMR
+}
+
+class OnPremPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
+  override val platformName: String =  PlatformNames.ONPREM
+}
 
 /**
  * Factory for creating instances of different platforms.
@@ -141,35 +153,61 @@ class OnPremPlatform extends Platform(PlatformNames.ONPREM)
  */
 object PlatformFactory extends Logging {
   /**
-   * Creates an instance of a platform based on the specified platform key.
-   * If platform key is not defined, returns an instance of onprem platform.
+   * Extracts platform and GPU names from the provided platform key.
+   * Assumption: If the last part contains a number, we assume it is GPU name
    *
-   * @param platformKey The key representing the desired platform.
-   * @return An instance of the specified platform.
+   * E.g.,
+   * - 'emr-t4': Platform: dataproc, GPU: t4
+   * - 'dataproc-gke-l4': Platform dataproc-gke, GPU: l4
+   * - 'databricks-aws': Platform databricks-aws, GPU: None
    */
+  private def getPlatformGpuName(platformKey: String): (String, Option[String]) = {
+    val parts = platformKey.split('-')
+    val numberPattern = ".*\\d.*".r
+    // If the last part contains a number, we assume it is GPU name
+    if (numberPattern.findFirstIn(parts.last).isDefined) {
+      (parts.init.toList.mkString("-"), Some(parts.last))
+    } else {
+      // If no GPU information is present, return the entire platform key as the
+      // platform name and None for GPU
+      (parts.toList.mkString("-"), None)
+    }
+  }
+
   @throws[IllegalArgumentException]
   @tailrec
-  def createInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
-    platformKey match {
-      case PlatformNames.DATABRICKS_AWS | PlatformNames.DATABRICKS_AZURE =>
-        new DatabricksPlatform(platformKey)
-      case PlatformNames.DATAPROC | PlatformNames.DATAPROC_T4 =>
-        // if no GPU specified, then default to dataproc-t4 for backward compatibility
-        new DataprocPlatform(PlatformNames.DATAPROC_T4)
-      case PlatformNames.DATAPROC_L4 | PlatformNames.DATAPROC_SL_L4 |
-           PlatformNames.DATAPROC_GKE_L4 | PlatformNames.DATAPROC_GKE_T4 =>
-        new DataprocPlatform(platformKey)
-      case PlatformNames.EMR | PlatformNames.EMR_T4 =>
-        // if no GPU specified, then default to emr-t4 for backward compatibility
-        new EmrPlatform(PlatformNames.EMR_T4)
-      case PlatformNames.EMR_A10 => new EmrPlatform(PlatformNames.EMR_A10)
-      case PlatformNames.ONPREM => new OnPremPlatform
-      case p if p.isEmpty =>
-        logInfo(s"Platform is not specified. Using ${PlatformNames.DEFAULT} " +
-          "as default.")
-        PlatformFactory.createInstance(PlatformNames.DEFAULT)
-      case _ => throw new IllegalArgumentException(s"Unsupported platform: $platformKey. " +
+  private def getPlatformInstance(platformName: String,
+      gpuDevice: Option[GpuDevice]): Platform = platformName match {
+    case PlatformNames.DATABRICKS_AWS =>
+      new DatabricksAwsPlatform(gpuDevice)
+    case PlatformNames.DATABRICKS_AZURE =>
+      new DatabricksAzurePlatform(gpuDevice)
+    case PlatformNames.DATAPROC =>
+      new DataprocPlatform(gpuDevice)
+    case PlatformNames.DATAPROC_GKE =>
+      new DataprocGkePlatform(gpuDevice)
+    case PlatformNames.DATAPROC_SL =>
+      new DataprocServerlessPlatform(gpuDevice)
+    case PlatformNames.EMR =>
+      new EmrPlatform(gpuDevice)
+    case PlatformNames.ONPREM =>
+      new OnPremPlatform(gpuDevice)
+    case p if p.isEmpty =>
+      logInfo(s"Platform is not specified. Using ${PlatformNames.DEFAULT} as default.")
+      getPlatformInstance(PlatformNames.DEFAULT, gpuDevice)
+    case _ =>
+      throw new IllegalArgumentException(s"Unsupported platform: $platformName. " +
         s"Options include ${PlatformNames.getAllNames.mkString(", ")}.")
-    }
+  }
+
+  /**
+   * Creates an instance of `PlatformGpuInfo` based on the specified platform key.
+   *
+   * @param platformKey The key identifying the platform. Defaults to `PlatformNames.DEFAULT`.
+   */
+  def getInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
+    val (platformName, gpuName) = getPlatformGpuName(platformKey)
+    val gpuDevice = gpuName.map(GpuDevice.getInstance)
+    PlatformFactory.getPlatformInstance(platformName, gpuDevice)
   }
 }

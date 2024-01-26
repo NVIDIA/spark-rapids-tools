@@ -17,17 +17,14 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import java.util
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-
-import com.nvidia.spark.rapids.tool.{PlatformFactory, PlatformNames}
+import com.nvidia.spark.rapids.tool.{A100Gpu, GpuDevice, GpuTypes, PlatformFactory, PlatformNames, T4Gpu}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.scalatest.Matchers.convertToAnyShouldWrapper
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
-
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.util.WebCrawlerUtil
 
@@ -93,8 +90,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       systemMemory: Option[String] = Some("122880MiB"),
       numWorkers: Option[Int] = Some(4),
       gpuCount: Option[Int] = Some(2),
-      gpuMemory: Option[String] = Some("15109MiB"),
-      gpuDevice: Option[String] = Some("T4")): String = {
+      gpuMemory: Option[String] = Some(T4Gpu.getMemory),
+      gpuDevice: Option[String] = Some(T4Gpu.toString)): String = {
     val gpuWorkerProps = new GpuWorkerProps(
       gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
     val cpuSystem = new SystemClusterProps(
@@ -221,7 +218,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.executor.instances' should be set to (gpuCount * numWorkers).
           |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
-          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
+          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).
           |- 'spark.rapids.sql.enabled' should be true to enable SQL operations on the GPU.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
@@ -259,7 +256,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.executor.instances' should be set to (gpuCount * numWorkers).
           |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
-          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
+          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).
           |- 'spark.rapids.sql.enabled' should be true to enable SQL operations on the GPU.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
@@ -298,7 +295,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.executor.instances' should be set to (gpuCount * numWorkers).
           |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
-          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
+          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).
           |- 'spark.rapids.sql.enabled' should be true to enable SQL operations on the GPU.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
@@ -337,7 +334,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.executor.instances' should be set to (gpuCount * numWorkers).
           |- 'spark.executor.memory' should be set to at least 2GB/core.
           |- 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
-          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
+          |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).
           |- 'spark.rapids.sql.enabled' should be true to enable SQL operations on the GPU.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
@@ -572,7 +569,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- GPU device is missing. Setting default to T4.
+          |- GPU device is missing. Setting default to $T4Gpu.
           |- GPU memory is missing. Setting default to 15109m.
           |- ${AutoTuner.classPathComments("rapids.jars.missing")}
           |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
@@ -598,27 +595,9 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(2), Some("0MiB"), Some("GPU-X"))
     val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
-    val (properties, comments) = autoTuner.getRecommendedProperties()
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    val expectedResults =
-      s"""|
-          |Spark Properties:
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
-          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
-          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
-          |--conf spark.sql.shuffle.partitions=200
-          |
-          |Comments:
-          |- 'spark.rapids.sql.batchSizeBytes' was not set.
-          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
-          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
-          |- GPU memory is missing. Setting default to 15109m.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
-          |""".stripMargin
-    assert(expectedResults == autoTunerOutput)
+    assertThrows[IllegalArgumentException] {
+      autoTuner.getRecommendedProperties()
+    }
   }
 
   test("test T4 dataproc cluster with dynamicAllocation enabled") {
@@ -782,7 +761,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -849,7 +828,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -907,7 +886,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.rapids.memory.pinnedPool.size" -> "5g",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -975,7 +954,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -1049,7 +1028,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo,
       getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.01, 0.0), logEventsProps,
         Some(defaultSparkVersion)))
@@ -1115,7 +1094,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(defaultSparkVersion))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -1176,7 +1155,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(defaultSparkVersion))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -1347,7 +1326,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(defaultSparkVersion), Seq(), 40.0, 200000000000L)
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -1410,7 +1389,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(defaultSparkVersion), Seq(), 40.0, 2000000L)
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -1448,7 +1427,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   test("test recommendations for databricks-aws platform argument") {
     val databricksWorkerInfo = buildWorkerInfoAsString()
-    val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS)
+    val platform = PlatformFactory.getInstance(PlatformNames.DATABRICKS_AWS)
     val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
       getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -1491,7 +1470,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -1543,7 +1522,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val workerInfo = buildWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
       AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.createInstance(), driverInfoProvider)
+      PlatformFactory.getInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1577,7 +1556,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val driverInfoProvider = DriverInfoProviderMockTest(unsupportedDriverOperators)
     val workerInfo = buildWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
-      getGpuAppMockInfoProvider, PlatformFactory.createInstance(), driverInfoProvider)
+      getGpuAppMockInfoProvider, PlatformFactory.getInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1633,7 +1612,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val workerInfo = buildWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
       AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.createInstance())
+      PlatformFactory.getInstance())
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1660,7 +1639,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val workerInfo = buildWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
       AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.createInstance(), driverInfoProvider)
+      PlatformFactory.getInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1696,7 +1675,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.sql.adaptive.enabled" -> "true",
         "spark.sql.adaptive.autoBroadcastJoinThreshold" -> "500mb")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -1741,7 +1720,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
   private def testPartitionConfigurations(
       inputSize: Double,
       shuffleRead: Double,
-      gpuDevice: String,
+      gpuDevice: GpuDevice,
       expectedLines: Seq[String]): Unit = {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
@@ -1764,7 +1743,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some(gpuDevice))
+      Some("212992MiB"), Some(5), Some(4), Some(gpuDevice.getMemory), Some(gpuDevice.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion), meanInput = inputSize, meanShuffleRead = shuffleRead)
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -1774,21 +1753,21 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       s"Expected lines not found in AutoTuner output")
   }
 
-  val testCases: TableFor4[Int, Int, String, Seq[String]] = Table(
+  val testCases: TableFor4[Int, Int, GpuDevice, Seq[String]] = Table(
     ("inputSize", "shuffleRead", "gpuDevice", "expectedLines"),
     // small input, small shuffle read
-    (1000, 1000, "T4", Seq(
+    (1000, 1000, T4Gpu, Seq(
       "--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m")),
     // large input, small shuffle read
-    (40000, 1000, "T4", Seq()),
+    (40000, 1000, T4Gpu, Seq()),
     // large input, large shuffle read
-    (40000, 80000, "T4", Seq(
+    (40000, 80000, T4Gpu, Seq(
       "--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=32m",
       "--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=800",
       "--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false"
     )),
     // large input, large shuffle read, faster GPU
-    (40000, 80000, "A100", Seq(
+    (40000, 80000, A100Gpu, Seq(
       "--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=64m",
       "--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=400",
       "--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false"
@@ -1826,7 +1805,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some("15109MiB"), Some("Tesla T4"))
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(defaultSparkVersion))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
@@ -1872,7 +1851,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       Some("3.3.0"), Seq())
     // Do not set the platform as DB to see if it can work correctly irrespective
     val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
-      infoProvider, PlatformFactory.createInstance())
+      infoProvider, PlatformFactory.getInstance())
     val smVersion = autoTuner.getShuffleManagerClassName()
     // Assert shuffle manager string for DB 11.3 tag
     assert(smVersion.get == "com.nvidia.spark.rapids.spark330db.RapidsShuffleManager")
@@ -1885,7 +1864,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some("3.3.0"), Seq())
     val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
-      infoProvider, PlatformFactory.createInstance())
+      infoProvider, PlatformFactory.getInstance())
     val smVersion = autoTuner.getShuffleManagerClassName()
     assert(smVersion.get == "com.nvidia.spark.rapids.spark330.RapidsShuffleManager")
   }

@@ -15,11 +15,20 @@
  */
 package com.nvidia.spark.rapids.tool
 
-import com.nvidia.spark.rapids.tool.profiling.ClusterProperties
-
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.GpuTypes
 import org.apache.spark.sql.rapids.tool.util.StringUtils
+
+object GpuTypes {
+  val A100 = "a100"
+  val T4 = "t4"
+  val V100 = "v100"
+  val K80 = "k80"
+  val P100 = "p100"
+  val P4 = "p4"
+  val L4 = "l4"
+  val A10 = "a10"
+  val A10G = "a10G"
+}
 
 /**
  * Abstract class representing a GPU device
@@ -34,20 +43,54 @@ abstract class GpuDevice {
 }
 
 case object A100Gpu extends GpuDevice {
-  override def getMemory: String = GpuTypes.getGpuMem(GpuTypes.A100)
+  override def getMemory: String = "40960m"
   override def getAdvisoryPartitionSizeInBytes: Option[String] = Some("64m")
   override def getInitialPartitionNum: Option[Int] = Some(400)
-  override def toString = "Nvidia A100"
+  override def toString: String = GpuTypes.A100
 }
 
 case object T4Gpu extends GpuDevice {
-  override def getMemory: String = GpuTypes.getGpuMem(GpuTypes.T4)
-  override def toString = "Nvidia T4"
+  override def getMemory: String = "15109m"
+
+  override def getAdvisoryPartitionSizeInBytes: Option[String] = Some("32m")
+
+  override def getInitialPartitionNum: Option[Int] = Some(800)
+  override def toString: String = GpuTypes.T4
 }
 
 case object L4Gpu extends GpuDevice {
-  override def getMemory: String = GpuTypes.getGpuMem(GpuTypes.L4)
-  override def toString = "Nvidia L4"
+  override def getMemory: String = "24576m"
+  override def toString: String = GpuTypes.L4
+}
+
+case object V100Gpu extends GpuDevice {
+  override def getMemory: String = "16384m"
+  override def toString: String = GpuTypes.V100
+}
+
+case object K80Gpu extends GpuDevice {
+  override def getMemory: String = "12288m"
+  override def toString: String = GpuTypes.K80
+}
+
+case object P100Gpu extends GpuDevice {
+  override def getMemory: String = "16384m"
+  override def toString: String = GpuTypes.P100
+}
+
+case object P4Gpu extends GpuDevice {
+  override def getMemory: String = "8192m"
+  override def toString: String = GpuTypes.P4
+}
+
+case object A10Gpu extends GpuDevice {
+  override def getMemory: String = "24576m"
+  override def toString: String = GpuTypes.A10
+}
+
+case object A10GGpu extends GpuDevice {
+  override def getMemory: String = "24576m"
+  override def toString: String = GpuTypes.A10G
 }
 
 object GpuDevice extends Logging {
@@ -56,23 +99,18 @@ object GpuDevice extends Logging {
   // to run with 2 concurrent by default on T4s.
   private val DEF_GPU_MEM_PER_TASK_MB = 7500L
 
-  /**
-   * Creates a specific GPU device based on cluster properties and platform.
-   *
-   * @param clusterProps Cluster properties containing GPU information.
-   * @param platform Platform providing GPU type fallback.
-   * @return Instance of the appropriate GpuDevice subclass.
-   */
-  def from(clusterProps: ClusterProperties, platform: Platform): GpuDevice = {
-    val propsGpuType = clusterProps.getGpu.getName
-    val selectedGpuType = platform.getGpuType.getOrElse(propsGpuType)
-    selectedGpuType match {
-      case GpuTypes.T4   => T4Gpu
-      case GpuTypes.L4   => L4Gpu
-      case GpuTypes.A100 => A100Gpu
-      case gpuType =>
-        logWarning(s"Unrecognized GPU type: $gpuType. Using ${GpuTypes.T4} as GPU type.")
-        T4Gpu
-    }
+  val getDefault: GpuDevice = T4Gpu
+
+  def getInstance(gpuName: String): GpuDevice = gpuName match {
+    case GpuTypes.A100 => A100Gpu
+    case GpuTypes.T4 => T4Gpu
+    case GpuTypes.L4 => L4Gpu
+    case GpuTypes.V100 => V100Gpu
+    case GpuTypes.K80 => K80Gpu
+    case GpuTypes.P100 => P100Gpu
+    case GpuTypes.P4 => P4Gpu
+    case GpuTypes.A10 => A10Gpu
+    case GpuTypes.A10G => A10GGpu
+    case _ => throw new IllegalArgumentException(s"Unsupported GPU type: $gpuName")
   }
 }

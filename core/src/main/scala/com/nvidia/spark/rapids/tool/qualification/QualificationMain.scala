@@ -66,7 +66,7 @@ object QualificationMain extends Logging {
 
     val pluginTypeChecker = try {
       new PluginTypeChecker(
-        PlatformFactory.createInstance(platform),
+        PlatformFactory.getInstance(platform),
         appArgs.speedupFactorFile.toOption)
     } catch {
       case ie: IllegalStateException =>

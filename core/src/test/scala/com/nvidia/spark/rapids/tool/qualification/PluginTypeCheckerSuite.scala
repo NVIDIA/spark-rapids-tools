@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.qualification
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 
-import com.nvidia.spark.rapids.tool.{PlatformFactory, PlatformNames, ToolTestUtils}
+import com.nvidia.spark.rapids.tool._
 import com.nvidia.spark.rapids.tool.planparser.DataWritingCommandExecParser
 import org.scalatest.FunSuite
 
@@ -152,22 +152,23 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     assert(result(2) == "ORC")
   }
 
-  val platformSpeedupEntries: Seq[(String, Map[String, Double])] = Seq(
-    (PlatformNames.ONPREM, Map("UnionExec" -> 3.0, "Ceil" -> 4.0)),
-    (PlatformNames.DATAPROC_T4, Map("UnionExec" -> 4.88, "Ceil" -> 4.88)),
-    (PlatformNames.EMR_T4, Map("UnionExec" -> 2.07, "Ceil" -> 2.07)),
-    (PlatformNames.DATABRICKS_AWS, Map("UnionExec" -> 2.45, "Ceil" -> 2.45)),
-    (PlatformNames.DATABRICKS_AZURE, Map("UnionExec" -> 2.73, "Ceil" -> 2.73)),
-    (PlatformNames.DATAPROC_SL_L4, Map("WindowExec" -> 4.25, "Ceil" -> 4.25)),
-    (PlatformNames.DATAPROC_L4, Map("UnionExec" -> 4.16, "Ceil" -> 4.16)),
-    (PlatformNames.DATAPROC_GKE_T4, Map("WindowExec" -> 3.65, "Ceil" -> 3.65)),
-    (PlatformNames.DATAPROC_GKE_L4, Map("WindowExec" -> 3.74, "Ceil" -> 3.74)),
-    (PlatformNames.EMR_A10, Map("UnionExec" -> 2.59, "Ceil" -> 2.59))
+  val platformSpeedupEntries: Seq[(Platform, Map[String, Double])] = Seq(
+    (new OnPremPlatform(Some(A100Gpu)), Map("UnionExec" -> 3.0, "Ceil" -> 4.0)),
+    (new DataprocPlatform(Some(T4Gpu)), Map("UnionExec" -> 4.88, "Ceil" -> 4.88)),
+    (new EmrPlatform(Some(T4Gpu)), Map("UnionExec" -> 2.07, "Ceil" -> 2.07)),
+    (new DatabricksAwsPlatform(Some(T4Gpu)), Map("UnionExec" -> 2.45, "Ceil" -> 2.45)),
+    (new DatabricksAzurePlatform(Some(T4Gpu)),
+      Map("UnionExec" -> 2.73, "Ceil" -> 2.73)),
+    (new DataprocServerlessPlatform(Some(L4Gpu)),
+      Map("WindowExec" -> 4.25, "Ceil" -> 4.25)),
+    (new DataprocPlatform(Some(L4Gpu)), Map("UnionExec" -> 4.16, "Ceil" -> 4.16)),
+    (new DataprocGkePlatform(Some(T4Gpu)), Map("WindowExec" -> 3.65, "Ceil" -> 3.65)),
+    (new DataprocGkePlatform(Some(L4Gpu)), Map("WindowExec" -> 3.74, "Ceil" -> 3.74)),
+    (new EmrPlatform(Some(A10Gpu)), Map("UnionExec" -> 2.59, "Ceil" -> 2.59))
   )
 
-  platformSpeedupEntries.foreach { case (platformName, speedupMap) =>
-    test(s"supported operator score from $platformName") {
-      val platform = PlatformFactory.createInstance(platformName)
+  platformSpeedupEntries.foreach { case (platform, speedupMap) =>
+    test(s"supported operator score from $platform") {
       val checker = new PluginTypeChecker(platform)
       speedupMap.foreach { case (operator, speedup) =>
         assert(checker.getSpeedupFactor(operator) == speedup)
@@ -177,7 +178,7 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
 
   test("supported operator score from custom speedup factor file") {
     // Using databricks azure speedup factor as custom file
-    val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AZURE)
+    val platform = PlatformFactory.getInstance(PlatformNames.DATABRICKS_AZURE)
     val speedupFactorFile = ToolTestUtils.getTestResourcePath(platform.getOperatorScoreFile)
     val checker = new PluginTypeChecker(speedupFactorFile=Some(speedupFactorFile))
     assert(checker.getSpeedupFactor("SortExec") == 13.11)
