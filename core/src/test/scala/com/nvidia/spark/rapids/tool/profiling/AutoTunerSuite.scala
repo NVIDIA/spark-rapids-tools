@@ -581,7 +581,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   test("Load cluster properties with unknown GPU device") {
-    // with unknown gpu device, the memory won't be set correctly, then it should default to 16G
+    // with unknown gpu device, this test should throw exception
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",

@@ -1137,8 +1137,7 @@ object AutoTuner extends Logging {
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
-    val tuning = new AutoTuner(new ClusterProperties(), appInfo, platform,
-      driverInfoProvider)
+    val tuning = new AutoTuner(new ClusterProperties(), appInfo, platform, driverInfoProvider)
     val msg = ex match {
       case cEx: ConstructorException => cEx.getContext
       case _ => if (ex.getCause != null) ex.getCause.toString else ex.toString
@@ -1183,7 +1182,7 @@ object AutoTuner extends Logging {
    * @param clusterProps the cluster properties as string.
    * @param singleAppProvider the wrapper implementation that accesses the properties of the profile
    *                          results.
-   * @param platform represents the environment created as a target for recommendations
+   * @param platform represents the environment created as a target for recommendations.
    * @param driverInfoProvider wrapper implementation that accesses the information from driver log.
    * @return a new AutoTuner object.
    */
@@ -1196,8 +1195,8 @@ object AutoTuner extends Logging {
     try {
       val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
 
-      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider,
-        platform, driverInfoProvider)
+      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
+        driverInfoProvider)
     } catch {
       case e: Exception =>
         handleException(e, singleAppProvider, platform, driverInfoProvider)
@@ -1212,8 +1211,8 @@ object AutoTuner extends Logging {
   ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(filePath)
-      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider,
-        platform, driverInfoProvider)
+      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
+        driverInfoProvider)
     } catch {
       case e: Exception =>
         handleException(e, singleAppProvider, platform, driverInfoProvider)
