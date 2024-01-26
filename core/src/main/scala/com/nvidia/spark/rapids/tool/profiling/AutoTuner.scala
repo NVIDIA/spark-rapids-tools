@@ -25,7 +25,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, Platform}
+import com.nvidia.spark.rapids.tool.{GpuDevice, Platform}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
@@ -71,7 +71,7 @@ class GpuWorkerProps(
   }
   def setDefaultGpuNameIfMissing(): Boolean = {
     if (name == null || name.isEmpty || name == "None") {
-      name = GpuDevice.getDefault.toString
+      name = GpuDevice.DEFAULT.toString
       true
     } else {
       false
@@ -1205,10 +1205,10 @@ object AutoTuner extends Logging {
   }
 
   def buildAutoTuner(
-                      filePath: String,
-                      singleAppProvider: AppSummaryInfoBaseProvider,
-                      platform: Platform = Platform.createInstance(),
-                      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
+      filePath: String,
+      singleAppProvider: AppSummaryInfoBaseProvider,
+      platform: Platform = Platform.createInstance(),
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(filePath)

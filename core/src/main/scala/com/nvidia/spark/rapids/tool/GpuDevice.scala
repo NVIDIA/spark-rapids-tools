@@ -99,7 +99,7 @@ object GpuDevice extends Logging {
   // to run with 2 concurrent by default on T4s.
   private val DEF_GPU_MEM_PER_TASK_MB = 7500L
 
-  val getDefault: GpuDevice = T4Gpu
+  val DEFAULT: GpuDevice = T4Gpu
 
   def createInstance(gpuName: String): GpuDevice = gpuName match {
     case GpuTypes.A100 => A100Gpu

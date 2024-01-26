@@ -33,22 +33,24 @@ object PlatformNames {
   val DEFAULT: String = ONPREM
 
   /**
-   * Return a list of all platform names.
+   * Return a list of all supported platform names.
    */
   def getAllNames: List[String] = List(
-    DATABRICKS_AWS, DATABRICKS_AZURE, DATAPROC,
-    s"${DATAPROC_GKE}-${GpuTypes.L4}", s"${DATAPROC_GKE}-${GpuTypes.T4}",
-    s"${DATAPROC}-${GpuTypes.L4}", s"${DATAPROC}-${GpuTypes.T4}", s"${DATAPROC_SL}-${GpuTypes.L4}",
-    EMR, s"${EMR}-${GpuTypes.A10}", s"${EMR}-${GpuTypes.T4}", ONPREM
+    DATABRICKS_AWS, DATABRICKS_AZURE, DATAPROC, EMR, ONPREM,
+    s"$DATAPROC-$L4Gpu", s"$DATAPROC-$T4Gpu",
+    s"$DATAPROC_GKE-$L4Gpu", s"$DATAPROC_GKE-${GpuTypes.T4}",
+    s"$DATAPROC_SL-${GpuTypes.L4}", s"$EMR-${GpuTypes.A10}", s"$EMR-${GpuTypes.T4}"
   )
 }
 
 /**
  * Represents a platform and its associated recommendations.
  *
- * @param gpuDevice GPU Device present in the platform
+ * @param gpuDevice Gpu Device present in the platform
  */
 abstract class Platform(gpuDevice: Option[GpuDevice]) {
+  val platformName: String
+  final def getGpuDevice: Option[GpuDevice] = gpuDevice
   /**
    * Recommendations to be excluded from the list of recommendations.
    * These have the highest priority.
@@ -96,9 +98,6 @@ abstract class Platform(gpuDevice: Option[GpuDevice]) {
   def getOperatorScoreFile: String = {
     s"operatorsScore-$toString.csv"
   }
-
-  val platformName: String
-  final def getGpuDevice: Option[GpuDevice] = gpuDevice
 
   override def toString: String = {
     val gpuStr = gpuDevice.fold("")(gpu => s"-$gpu")
@@ -161,7 +160,7 @@ object Platform extends Logging {
    * - 'dataproc-gke-l4': Platform dataproc-gke, GPU: l4
    * - 'databricks-aws': Platform databricks-aws, GPU: None
    */
-  private def getPlatformGpuName(platformKey: String): (String, Option[String]) = {
+  private def extractPlatformGpuName(platformKey: String): (String, Option[String]) = {
     val parts = platformKey.split('-')
     val numberPattern = ".*\\d.*".r
     // If the last part contains a number, we assume it is GPU name
@@ -199,7 +198,7 @@ object Platform extends Logging {
    * @param platformKey The key identifying the platform. Defaults to `PlatformNames.DEFAULT`.
    */
   def createInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
-    val (platformName, gpuName) = getPlatformGpuName(platformKey)
+    val (platformName, gpuName) = extractPlatformGpuName(platformKey)
     val gpuDevice = gpuName.map(GpuDevice.createInstance)
     getPlatformInstance(platformName, gpuDevice)
   }

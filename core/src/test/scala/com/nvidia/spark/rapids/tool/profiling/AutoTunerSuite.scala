@@ -17,14 +17,17 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import java.util
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import com.nvidia.spark.rapids.tool.{A100Gpu, GpuDevice, GpuTypes, Platform, PlatformNames, T4Gpu}
+
+import com.nvidia.spark.rapids.tool.{A100Gpu, GpuDevice, Platform, PlatformNames, T4Gpu}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.scalatest.Matchers.convertToAnyShouldWrapper
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.util.WebCrawlerUtil
 

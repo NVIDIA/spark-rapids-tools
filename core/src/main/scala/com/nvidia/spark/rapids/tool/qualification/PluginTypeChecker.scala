@@ -20,7 +20,7 @@ import scala.collection.mutable.{ArrayBuffer,HashMap}
 import scala.io.{BufferedSource, Source}
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.tool.{Platform, Platform}
+import com.nvidia.spark.rapids.tool.Platform
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
