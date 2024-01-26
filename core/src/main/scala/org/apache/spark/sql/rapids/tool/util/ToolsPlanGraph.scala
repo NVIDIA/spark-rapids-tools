@@ -23,6 +23,13 @@ import scala.collection.mutable
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphEdge, SparkPlanGraphNode, SQLPlanMetric}
 
+/**
+ * This code is mostly copied from org.apache.spark.sql.execution.ui.SparkPlanGraph
+ * with changes to handle GPU nodes. Without this special handle, the default SparkPlanGraph
+ * would not be able to recognize reused/exchange nodes leading to duplicating nodes.
+ *
+ * Build a SparkPlanGraph from the root of a SparkPlan tree.
+ */
 object ToolsPlanGraph {
   /**
    * Build a SparkPlanGraph from the root of a SparkPlan tree.
