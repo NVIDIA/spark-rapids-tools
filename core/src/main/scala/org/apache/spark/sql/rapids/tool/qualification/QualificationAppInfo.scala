@@ -547,9 +547,10 @@ class QualificationAppInfo(
       val (allComplexTypes, nestedComplexTypes) = reportComplexTypes
       val problems = getAllPotentialProblems(getPotentialProblemsForDf, nestedComplexTypes)
 
-      val origPlanInfos = sqlPlans.map { case (id, plan) =>
-        val sqlDesc = sqlIdToInfo(id).description
-        SQLPlanParser.parseSQLPlan(appId, plan, id, sqlDesc, pluginTypeChecker, this)
+      val origPlanInfos = sqlPlans.collect {
+        case (id, plan) if sqlIdToInfo.contains(id) =>
+          val sqlDesc = sqlIdToInfo(id).description
+          SQLPlanParser.parseSQLPlan(appId, plan, id, sqlDesc, pluginTypeChecker, this)
       }.toSeq
 
       // filter out any execs that should be removed
