@@ -23,7 +23,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
-import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, Platform}
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -421,7 +421,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   : (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
       val appInfoProvider = AppSummaryInfoBaseProvider.fromAppInfo(appInfo)
       val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
-      val platform = PlatformFactory.getInstance(appArgs.platform())
+      val platform = Platform.createInstance(appArgs.platform())
       val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(workerInfoPath, appInfoProvider,
         platform, driverInfoProvider)
 

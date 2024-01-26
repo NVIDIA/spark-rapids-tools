@@ -25,7 +25,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, Platform}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
@@ -87,7 +87,7 @@ class GpuWorkerProps(
   def setDefaultGpuMemIfMissing(): Boolean = {
     if (memory == null || memory.isEmpty || memory.startsWith("0")) {
       memory = try {
-        GpuDevice.getInstance(getName).getMemory
+        GpuDevice.createInstance(getName).getMemory
       } catch {
         case _: IllegalArgumentException => "15109m"
       }
@@ -1006,7 +1006,7 @@ class AutoTuner(
       if (processPropsAndCheck) {
         // create GPU device instance from the platform, or from cluster properties
         gpuDevice = platform.getGpuDevice.getOrElse(
-          GpuDevice.getInstance(clusterProps.gpu.getName))
+          GpuDevice.createInstance(clusterProps.gpu.getName))
         calculateClusterLevelRecommendations()
       } else {
         // add all default comments
@@ -1183,15 +1183,14 @@ object AutoTuner extends Logging {
    * @param clusterProps the cluster properties as string.
    * @param singleAppProvider the wrapper implementation that accesses the properties of the profile
    *                          results.
-   * @param platformGpuInfo represents the environment created as a target for recommendations and
-   *                        gpu device
+   * @param platform represents the environment created as a target for recommendations
    * @param driverInfoProvider wrapper implementation that accesses the information from driver log.
    * @return a new AutoTuner object.
    */
   def buildAutoTunerFromProps(
       clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.getInstance(),
+      platform: Platform = Platform.createInstance(),
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
@@ -1206,10 +1205,10 @@ object AutoTuner extends Logging {
   }
 
   def buildAutoTuner(
-      filePath: String,
-      singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.getInstance(),
-      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
+                      filePath: String,
+                      singleAppProvider: AppSummaryInfoBaseProvider,
+                      platform: Platform = Platform.createInstance(),
+                      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(filePath)

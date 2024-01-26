@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.util
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import com.nvidia.spark.rapids.tool.{A100Gpu, GpuDevice, GpuTypes, PlatformFactory, PlatformNames, T4Gpu}
+import com.nvidia.spark.rapids.tool.{A100Gpu, GpuDevice, GpuTypes, Platform, PlatformNames, T4Gpu}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.scalatest.Matchers.convertToAnyShouldWrapper
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -1427,7 +1427,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   test("test recommendations for databricks-aws platform argument") {
     val databricksWorkerInfo = buildWorkerInfoAsString()
-    val platform = PlatformFactory.getInstance(PlatformNames.DATABRICKS_AWS)
+    val platform = Platform.createInstance(PlatformNames.DATABRICKS_AWS)
     val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
       getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -1522,7 +1522,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val workerInfo = buildWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
       AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.getInstance(), driverInfoProvider)
+      Platform.createInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1556,7 +1556,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val driverInfoProvider = DriverInfoProviderMockTest(unsupportedDriverOperators)
     val workerInfo = buildWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
-      getGpuAppMockInfoProvider, PlatformFactory.getInstance(), driverInfoProvider)
+      getGpuAppMockInfoProvider, Platform.createInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1612,7 +1612,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val workerInfo = buildWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
       AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.getInstance())
+      Platform.createInstance())
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1639,7 +1639,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val workerInfo = buildWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
       AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.getInstance(), driverInfoProvider)
+      Platform.createInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1851,7 +1851,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       Some("3.3.0"), Seq())
     // Do not set the platform as DB to see if it can work correctly irrespective
     val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
-      infoProvider, PlatformFactory.getInstance())
+      infoProvider, Platform.createInstance())
     val smVersion = autoTuner.getShuffleManagerClassName()
     // Assert shuffle manager string for DB 11.3 tag
     assert(smVersion.get == "com.nvidia.spark.rapids.spark330db.RapidsShuffleManager")
@@ -1864,7 +1864,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some("3.3.0"), Seq())
     val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
-      infoProvider, PlatformFactory.getInstance())
+      infoProvider, Platform.createInstance())
     val smVersion = autoTuner.getShuffleManagerClassName()
     assert(smVersion.get == "com.nvidia.spark.rapids.spark330.RapidsShuffleManager")
   }

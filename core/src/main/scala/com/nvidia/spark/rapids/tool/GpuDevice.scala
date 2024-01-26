@@ -101,7 +101,7 @@ object GpuDevice extends Logging {
 
   val getDefault: GpuDevice = T4Gpu
 
-  def getInstance(gpuName: String): GpuDevice = gpuName match {
+  def createInstance(gpuName: String): GpuDevice = gpuName match {
     case GpuTypes.A100 => A100Gpu
     case GpuTypes.T4 => T4Gpu
     case GpuTypes.L4 => L4Gpu

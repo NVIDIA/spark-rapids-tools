@@ -151,7 +151,7 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
  * This factory supports various platforms and provides methods for creating
  * corresponding platform instances.
  */
-object PlatformFactory extends Logging {
+object Platform extends Logging {
   /**
    * Extracts platform and GPU names from the provided platform key.
    * Assumption: If the last part contains a number, we assume it is GPU name
@@ -178,20 +178,13 @@ object PlatformFactory extends Logging {
   @tailrec
   private def getPlatformInstance(platformName: String,
       gpuDevice: Option[GpuDevice]): Platform = platformName match {
-    case PlatformNames.DATABRICKS_AWS =>
-      new DatabricksAwsPlatform(gpuDevice)
-    case PlatformNames.DATABRICKS_AZURE =>
-      new DatabricksAzurePlatform(gpuDevice)
-    case PlatformNames.DATAPROC =>
-      new DataprocPlatform(gpuDevice)
-    case PlatformNames.DATAPROC_GKE =>
-      new DataprocGkePlatform(gpuDevice)
-    case PlatformNames.DATAPROC_SL =>
-      new DataprocServerlessPlatform(gpuDevice)
-    case PlatformNames.EMR =>
-      new EmrPlatform(gpuDevice)
-    case PlatformNames.ONPREM =>
-      new OnPremPlatform(gpuDevice)
+    case PlatformNames.DATABRICKS_AWS => new DatabricksAwsPlatform(gpuDevice)
+    case PlatformNames.DATABRICKS_AZURE => new DatabricksAzurePlatform(gpuDevice)
+    case PlatformNames.DATAPROC => new DataprocPlatform(gpuDevice)
+    case PlatformNames.DATAPROC_GKE => new DataprocGkePlatform(gpuDevice)
+    case PlatformNames.DATAPROC_SL => new DataprocServerlessPlatform(gpuDevice)
+    case PlatformNames.EMR => new EmrPlatform(gpuDevice)
+    case PlatformNames.ONPREM => new OnPremPlatform(gpuDevice)
     case p if p.isEmpty =>
       logInfo(s"Platform is not specified. Using ${PlatformNames.DEFAULT} as default.")
       getPlatformInstance(PlatformNames.DEFAULT, gpuDevice)
@@ -201,13 +194,13 @@ object PlatformFactory extends Logging {
   }
 
   /**
-   * Creates an instance of `PlatformGpuInfo` based on the specified platform key.
+   * Creates an instance of `Platform` based on the specified platform key.
    *
    * @param platformKey The key identifying the platform. Defaults to `PlatformNames.DEFAULT`.
    */
-  def getInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
+  def createInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
     val (platformName, gpuName) = getPlatformGpuName(platformKey)
-    val gpuDevice = gpuName.map(GpuDevice.getInstance)
-    PlatformFactory.getPlatformInstance(platformName, gpuDevice)
+    val gpuDevice = gpuName.map(GpuDevice.createInstance)
+    getPlatformInstance(platformName, gpuDevice)
   }
 }
