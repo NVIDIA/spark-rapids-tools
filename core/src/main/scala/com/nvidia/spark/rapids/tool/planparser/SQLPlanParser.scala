@@ -27,6 +27,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, JoinType, ToolUtils}
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 class ExecInfo(
     val sqlID: Long,
@@ -143,7 +144,7 @@ object SQLPlanParser extends Logging {
       sqlDesc: String,
       checker: PluginTypeChecker,
       app: AppBase): PlanInfo = {
-    val planGraph = SparkPlanGraph(planInfo)
+    val planGraph = ToolsPlanGraph(planInfo)
     // Find all the node graphs that should be excluded and send it to the parsePlanNode
     val excludedNodes = buildSkippedReusedNodesForPlan(planGraph)
     // we want the sub-graph nodes to be inside of the wholeStageCodeGen so use nodes
