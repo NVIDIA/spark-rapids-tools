@@ -350,17 +350,17 @@ class SQLPlanParserSuite extends BaseTestSuite {
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-        val text = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD text"))
-        val json = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD json"))
-        val orc = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD orc"))
-        val parquet =
-          allExecInfo.filter(_.exec.contains(s"$dataWriteCMD parquet"))
-        val csv = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD csv"))
+        val writeExecs = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD"))
+        val text = writeExecs.filter(_.expr.contains("text"))
+        val json = writeExecs.filter(_.expr.contains("json"))
+        val orc = writeExecs.filter(_.expr.contains("orc"))
+        val parquet = writeExecs.filter(_.expr.contains("parquet"))
+        val csv = writeExecs.filter(_.expr.contains("csv"))
         for (t <- Seq(json, csv, text)) {
-          assertSizeAndNotSupported(1, t.toSeq)
+          assertSizeAndNotSupported(1, t)
         }
         for (t <- Seq(orc, parquet)) {
-          assertSizeAndSupported(1, t.toSeq)
+          assertSizeAndSupported(1, t)
         }
       }
     }

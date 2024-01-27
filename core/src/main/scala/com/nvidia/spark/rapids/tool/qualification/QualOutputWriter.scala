@@ -24,7 +24,7 @@ import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.{CLUSTER_ID, CLUSTER_ID_STR_SIZE, JOB_ID, JOB_ID_STR_SIZE, RUN_NAME, RUN_NAME_STR_SIZE, TEXT_DELIMITER}
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.sql.rapids.tool.{IgnoreExecs, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{ExecHelper, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{EstimatedPerSQLSummaryInfo, EstimatedSummaryInfo, QualificationAppInfo, QualificationSummaryInfo, StatusSummaryInfo}
 import org.apache.spark.sql.rapids.tool.util._
 
@@ -410,6 +410,7 @@ object QualOutputWriter {
   val EXEC_IS_SUPPORTED = "Exec Is Supported"
   val EXEC_STAGES = "Exec Stages"
   val EXEC_SHOULD_REMOVE = "Exec Should Remove"
+  val EXEC_SHOULD_IGNORE = "Exec Should Ignore"
   val EXEC_CHILDREN = "Exec Children"
   val EXEC_CHILDREN_NODE_IDS = "Exec Children Node Ids"
   val GPU_OPPORTUNITY_STR = "GPU Opportunity"
@@ -792,7 +793,8 @@ object QualOutputWriter {
       EXEC_CHILDREN -> getMaxSizeForHeader(getChildrenSize(execInfos), EXEC_CHILDREN),
       EXEC_CHILDREN_NODE_IDS -> getMaxSizeForHeader(getChildrenNodeIdsSize(execInfos),
         EXEC_CHILDREN_NODE_IDS),
-      EXEC_SHOULD_REMOVE -> EXEC_SHOULD_REMOVE.size
+      EXEC_SHOULD_REMOVE -> EXEC_SHOULD_REMOVE.size,
+      EXEC_SHOULD_IGNORE -> EXEC_SHOULD_IGNORE.size
     )
     detailedHeadersAndFields
   }
@@ -886,7 +888,8 @@ object QualOutputWriter {
         headersAndSizes(EXEC_CHILDREN),
       reformatCSVFunc(info.children.getOrElse(Seq.empty).map(_.nodeId).mkString(":")) ->
         headersAndSizes(EXEC_CHILDREN_NODE_IDS),
-      info.shouldRemove.toString -> headersAndSizes(EXEC_SHOULD_REMOVE))
+      info.shouldRemove.toString -> headersAndSizes(EXEC_SHOULD_REMOVE),
+      info.shouldIgnore.toString -> headersAndSizes(EXEC_SHOULD_IGNORE))
     constructOutputRow(data, delimiter, prettyPrint)
   }
 
@@ -948,12 +951,9 @@ object QualOutputWriter {
             // Ignore operator is a boolean value which indicates if the operator should be
             // considered for GPU acceleration or not. If the value is true, the operator will
             // be ignored.
-            val ignoreUnsupportedExec = if (
-              IgnoreExecs.getAllIgnoreExecs.contains(unsupportedExecsStr)) {
-              IgnoreExecs.True
-            } else {
-              IgnoreExecs.False
-            }
+            val ignoreUnsupportedExec =
+              ExecHelper.getAllIgnoreExecs.contains(unsupportedExecsStr).toString
+
             val data = ListBuffer[(String, Int)](
               reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
               reformatCSVFunc(unsupportedExecsStr) -> headersAndSizes(UNSUPPORTED_TYPE),
@@ -990,7 +990,7 @@ object QualOutputWriter {
     val udfExecs = allExecs.collect { case x if x.udf => x.exec }
 
     def createUnsupportedRow(exec: String, execType: String, notes: String,
-        ignoreOperator: String = IgnoreExecs.False): String = {
+        ignoreOperator: String = false.toString): String = {
       val data = ListBuffer(
         appId -> headersAndSizes(APP_ID_STR),
         reformatCSVFunc(execType) -> headersAndSizes(UNSUPPORTED_TYPE),
@@ -1028,11 +1028,7 @@ object QualOutputWriter {
     )
     val unsupportedExecRows = actualunsupportedExecs.map { exec =>
       // If the exec is in the ignore list, then set the ignore operator to true.
-      if (IgnoreExecs.getAllIgnoreExecs.contains(exec)) {
-        createUnsupportedRow(exec, "Exec", "", IgnoreExecs.True)
-      } else {
-        createUnsupportedRow(exec, "Exec", "", IgnoreExecs.False)
-      }
+      createUnsupportedRow(exec, "Exec", "", ExecHelper.getAllIgnoreExecs.contains(exec).toString)
     }
     unsupportedOperatorsOutputRows ++= unsupportedExecRows
 

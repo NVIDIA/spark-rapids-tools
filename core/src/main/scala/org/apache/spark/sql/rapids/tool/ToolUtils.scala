@@ -27,6 +27,7 @@ import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 
 object ToolUtils extends Logging {
   // List of recommended file-encodings on the GPUs.
@@ -303,13 +304,65 @@ object SQLMetricsStats {
   }
 }
 
-object IgnoreExecs {
+object ExecHelper {
+  // regular expression to search for RDDs in node descriptions
+  private val dataSetRDDRegExDescLookup = Set(
+    ".*\\$Lambda\\$.*".r,
+    ".*\\.apply$".r
+  )
+  // regular expression to search for RDDs in node names
+  private val dataSetOrRDDRegExLookup = Set(
+    "ExistingRDD$".r,
+    "^Scan ExistingRDD.*".r,
+    "SerializeFromObject$".r,
+    "DeserializeToObject$".r,
+    "MapPartitions$".r,
+    "MapElements$".r,
+    "AppendColumns$".r,
+    "AppendColumnsWithObject$".r,
+    "MapGroups$".r,
+    "FlatMapGroupsInR$".r,
+    "FlatMapGroupsInRWithArrow$".r,
+    "CoGroup$".r
+  )
+  private val UDFRegExLookup = Set(
+    ".*UDF.*".r
+  )
+
+  // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
+  private val skipUDFCheckExecs = Seq("ArrowEvalPython", "AggregateInPandas",
+    "FlatMapGroupsInPandas", "MapInPandas", "WindowInPandas")
+
+  // Set containing execs that should be labeled as "shouldRemove"
+  private val execsToBeRemoved = Set(
+    "GenerateBloomFilter",   // Exclusive on AWS. Ignore it as metrics cannot be evaluated.
+    "ReusedExchange",        // reusedExchange should not be added to speedups
+    "ColumnarToRow"          // for now, assume everything is columnar
+  )
+
+  def isDatasetOrRDDPlan(nodeName: String, nodeDesc: String): Boolean = {
+    dataSetRDDRegExDescLookup.exists(regEx => nodeDesc.matches(regEx.regex)) ||
+      dataSetOrRDDRegExLookup.exists(regEx => nodeName.trim.matches(regEx.regex))
+  }
+
+  def isUDF(node: SparkPlanGraphNode): Boolean = {
+    if (skipUDFCheckExecs.exists(node.name.contains(_))) {
+      false
+    } else {
+      UDFRegExLookup.exists(regEx => node.desc.matches(regEx.regex))
+    }
+  }
+
+  def shouldBeRemoved(nodeName: String): Boolean = {
+    execsToBeRemoved.contains(nodeName)
+  }
+
+  ///////////////////////////////////////////
+  // start definitions of execs to be ignored
   // AdaptiveSparkPlan is not a real exec. It is a wrapper for the whole plan.
   private val AdaptiveSparkPlan = "AdaptiveSparkPlan"
   // Collect Limit replacement can be slower on the GPU. Disabled by default.
   private val CollectLimit = "CollectLimit"
-  private val ScanExistingRDD = "Scan ExistingRDD"
-  private val ExistingRDD = "ExistingRDD"
   // Some DDL's  and table commands which can be ignored
   private val ExecuteCreateViewCommand = "Execute CreateViewCommand"
   private val LocalTableScan = "LocalTableScan"
@@ -322,16 +375,55 @@ object IgnoreExecs {
     "CreateDataSourceTableAsSelectCommand"
   private val SetCatalogAndNamespace = "SetCatalogAndNamespace"
   private val ExecuteSetCommand = "Execute SetCommand"
+  private val ResultQueryStage = "ResultQueryStage"
+  private val ExecAddJarsCommand = "Execute AddJarsCommand"
+  private val ExecInsertIntoHadoopFSRelationCommand = "Execute InsertIntoHadoopFsRelationCommand"
+  private val ScanJDBCRelation = "Scan JDBCRelation"
+  private val ScanOneRowRelation = "Scan OneRowRelation"
+  private val CommandResult = "CommandResult"
+  private val ExecuteAlterTableRecoverPartitionsCommand =
+    "Execute AlterTableRecoverPartitionsCommand"
+  private val ExecuteCreateFunctionCommand = "Execute CreateFunctionCommand"
+  private val CreateHiveTableAsSelectCommand = "Execute CreateFunctionCommand"
+  private val ExecuteDeleteCommand = "Execute DeleteCommand"
+  private val ExecuteDescribeTableCommand = "Execute DescribeTableCommand"
+  private val ExecuteRefreshTable = "Execute RefreshTable"
+  private val ExecuteRepairTableCommand = "Execute RepairTableCommand"
+  private val ExecuteShowPartitionsCommand = "Execute ShowPartitionsCommand"
+  // DeltaLakeOperations
+  private val ExecUpdateCommandEdge = "Execute UpdateCommandEdge"
+  private val ExecDeleteCommandEdge = "Execute DeleteCommandEdge"
+  private val ExecDescribeDeltaHistoryCommand = "Execute DescribeDeltaHistoryCommand"
+  private val ExecShowPartitionsDeltaCommand = "Execute ShowPartitionsDeltaCommand"
 
-
-  val True = "true"
-  val False = "false"
-
-  def getAllIgnoreExecs: Set[String] = Set(AdaptiveSparkPlan, CollectLimit, ScanExistingRDD,
-    ExecuteCreateViewCommand, ExistingRDD, LocalTableScan, ExecuteCreateTableCommand,
+  def getAllIgnoreExecs: Set[String] = Set(AdaptiveSparkPlan, CollectLimit,
+    ExecuteCreateViewCommand, LocalTableScan, ExecuteCreateTableCommand,
     ExecuteDropTableCommand, ExecuteCreateDatabaseCommand, ExecuteDropDatabaseCommand,
     ExecuteCreateTableAsSelectCommand, ExecuteCreateDataSourceTableAsSelectCommand,
-    SetCatalogAndNamespace, ExecuteSetCommand)
+    SetCatalogAndNamespace, ExecuteSetCommand,
+    ResultQueryStage,
+    ExecAddJarsCommand,
+    ExecInsertIntoHadoopFSRelationCommand,
+    ScanJDBCRelation,
+    ScanOneRowRelation,
+    CommandResult,
+    ExecUpdateCommandEdge,
+    ExecDeleteCommandEdge,
+    ExecDescribeDeltaHistoryCommand,
+    ExecShowPartitionsDeltaCommand,
+    ExecuteAlterTableRecoverPartitionsCommand,
+    ExecuteCreateFunctionCommand,
+    CreateHiveTableAsSelectCommand,
+    ExecuteDeleteCommand,
+    ExecuteDescribeTableCommand,
+    ExecuteRefreshTable,
+    ExecuteRepairTableCommand,
+    ExecuteShowPartitionsCommand
+  )
+
+  def shouldIgnore(execName: String): Boolean = {
+    getAllIgnoreExecs.contains(execName)
+  }
 }
 
 object MlOps {

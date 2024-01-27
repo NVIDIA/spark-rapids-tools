@@ -28,7 +28,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.metric.SQLMetricInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, ExecHelper, ToolUtils}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 import org.apache.spark.ui.UIUtils
 
@@ -270,7 +270,7 @@ class ApplicationInfo(
       }
       for (node <- allnodes) {
         checkGraphNodeForReads(sqlID, node)
-        if (isDataSetOrRDDPlan(node.desc)) {
+        if (ExecHelper.isDatasetOrRDDPlan(node.name, node.desc)) {
           sqlIdToInfo.get(sqlID).foreach { sql =>
             sqlIDToDataSetOrRDDCase += sqlID
             sql.hasDatasetOrRDD = true
