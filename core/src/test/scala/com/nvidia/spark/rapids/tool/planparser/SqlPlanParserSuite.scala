@@ -29,8 +29,9 @@ import org.scalatest.Matchers.convertToAnyShouldWrapper
 import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.TrampolineUtil
+import org.apache.spark.sql.execution.ui.{SparkPlanGraphNode, SQLPlanMetric}
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, flatten, floor, get_json_object, hex, json_tuple, round, row_number, sum, translate, xxhash64}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
@@ -933,6 +934,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "ProjectExprsSupported") { spark =>
           import spark.implicits._
+
           import org.apache.spark.sql.types.StringType
           val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
           df1.write.parquet(s"$parquetoutputLoc/testtext")
@@ -1272,6 +1274,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "projectPromotePrecision") { spark =>
           import spark.implicits._
+
           import org.apache.spark.sql.types.DecimalType
           val df = Seq(("12347.21", "1234154"), ("92233.08", "1")).toDF
             .withColumn("dec1", col("_1").cast(DecimalType(7, 2)))
@@ -1357,5 +1360,18 @@ class SQLPlanParserSuite extends BaseTestSuite {
     val expected = Array("IF")
     val expressions = SQLPlanParser.parseExpandExpressions(exprString)
     expressions should ===(expected)
+  }
+
+  test("SortMergeJoin with arguments should be marked as supported: issue-751") {
+    val node = new SparkPlanGraphNode(
+      1,
+      "SortMergeJoin(skew=true)",
+      "SortMergeJoin(skew=true) [trim(addr_loc_src_addr_key_id#7407, None)], " +
+        "[trim(src_addr_key_id#7415, None)], LeftOuter", Seq[SQLPlanMetric]())
+    SortMergeJoinExecParser.accepts(node.name) shouldBe true
+    val pluginTypeChecker = new PluginTypeChecker()
+    val execInfo = SortMergeJoinExecParser(node, pluginTypeChecker, 2).parse
+    execInfo.isSupported shouldBe true
+    execInfo.exec shouldEqual "SortMergeJoin"
   }
 }
