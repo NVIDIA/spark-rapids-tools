@@ -934,7 +934,6 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "ProjectExprsSupported") { spark =>
           import spark.implicits._
-
           import org.apache.spark.sql.types.StringType
           val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
           df1.write.parquet(s"$parquetoutputLoc/testtext")
@@ -1274,7 +1273,6 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "projectPromotePrecision") { spark =>
           import spark.implicits._
-
           import org.apache.spark.sql.types.DecimalType
           val df = Seq(("12347.21", "1234154"), ("92233.08", "1")).toDF
             .withColumn("dec1", col("_1").cast(DecimalType(7, 2)))
@@ -1366,8 +1364,8 @@ class SQLPlanParserSuite extends BaseTestSuite {
     val node = new SparkPlanGraphNode(
       1,
       "SortMergeJoin(skew=true)",
-      "SortMergeJoin(skew=true) [trim(addr_loc_src_addr_key_id#7407, None)], " +
-        "[trim(src_addr_key_id#7415, None)], LeftOuter", Seq[SQLPlanMetric]())
+      "SortMergeJoin(skew=true) [trim(field_00#7407, None)], " +
+        "[trim(field_01#7415, None)], LeftOuter", Seq[SQLPlanMetric]())
     SortMergeJoinExecParser.accepts(node.name) shouldBe true
     val pluginTypeChecker = new PluginTypeChecker()
     val execInfo = SortMergeJoinExecParser(node, pluginTypeChecker, 2).parse
