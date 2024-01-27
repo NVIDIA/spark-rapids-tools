@@ -403,7 +403,6 @@ object ExecHelper {
     SetCatalogAndNamespace, ExecuteSetCommand,
     ResultQueryStage,
     ExecAddJarsCommand,
-    ExecAddJarsCommand,
     ExecInsertIntoHadoopFSRelationCommand,
     ScanJDBCRelation,
     ScanOneRowRelation,
