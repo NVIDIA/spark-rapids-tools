@@ -29,6 +29,7 @@ import org.scalatest.Matchers.convertToAnyShouldWrapper
 import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.TrampolineUtil
+import org.apache.spark.sql.execution.ui.{SparkPlanGraphNode, SQLPlanMetric}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{ceil, col, collect_list, count, explode, flatten, floor, get_json_object, hex, json_tuple, round, row_number, sum, translate, xxhash64}
 import org.apache.spark.sql.rapids.tool.ToolUtils
@@ -1208,11 +1209,11 @@ class SQLPlanParserSuite extends BaseTestSuite {
     // It is ignored for Spark-340+ because delta releases are not available.
     TrampolineUtil.withTempDir { outputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
-        val dataWriteCMD = DataWritingCommandExecParser.saveIntoDataSrcCMD
+        val dataWriteCMD = DeltaLakeHelper.saveIntoDataSrcCMD
         val deltaConfs = Map(
           "spark.sql.extensions" -> "io.delta.sql.DeltaSparkSessionExtension",
-          ("spark.sql.catalog.spark_catalog" ->
-            "org.apache.spark.sql.delta.catalog.DeltaCatalog"))
+          "spark.sql.catalog.spark_catalog" ->
+            "org.apache.spark.sql.delta.catalog.DeltaCatalog")
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "DeltaLakeWrites", Some(deltaConfs)) { spark =>
           import spark.implicits._
@@ -1357,5 +1358,147 @@ class SQLPlanParserSuite extends BaseTestSuite {
     val expected = Array("IF")
     val expressions = SQLPlanParser.parseExpandExpressions(exprString)
     expressions should ===(expected)
+  }
+
+  private def testDeltaLakeOperator(
+      nodeName: String,
+      nodeDescr: String)(f: ExecInfo => Unit) : Unit = {
+    val node = new SparkPlanGraphNode(1, nodeName, nodeDescr, Seq[SQLPlanMetric]())
+    DataWritingCommandExecParser.isWritingCmdExec(node.name) shouldBe true
+    val execInfo = DataWritingCommandExecParser.parseNode(node, new PluginTypeChecker(), 2)
+    f(execInfo)
+  }
+
+  test("DeltaLake Op AppendDataExecV1 and OverwriteByExpressionExecV1") {
+    // test AppendDataExecV1 with supported dataFormat
+    val nodeName = "AppendDataExecV1"
+    // scalastyle:off line.size.limit
+    val nodeDesc =
+      s"""|AppendDataExecV1 [num_affected_rows#18560L, num_inserted_rows#18561L], DeltaTableV2(org.apache.spark.sql.SparkSession@5aa5327e,abfss://abfs_path,Some(CatalogTable(
+          |Catalog: spark_catalog
+          |Database: database
+          |Table: tableName
+          |Owner: root
+          |Created Time: Wed Sep 15 16:47:47 UTC 2021
+          |Last Access: UNKNOWN
+          |Created By: Spark 3.1.1
+          |Type: EXTERNAL
+          |Provider: delta
+          |Table Properties: [bucketing_version=2, delta.lastCommitTimestamp=1631724453000, delta.lastUpdateVersion=0, delta.minReaderVersion=1, delta.minWriterVersion=2]
+          |Location: abfss://abfs_path
+          |Serde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe
+          |InputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat
+          |OutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat
+          |Partition Provider: Catalog
+          |Schema: root
+          | |-- field_00: string (nullable = true)
+          | |-- field_01: string (nullable = true)
+          | |-- field_02: string (nullable = true)
+          | |-- field_03: string (nullable = true)
+          | |-- field_04: string (nullable = true)
+          | |-- field_05: string (nullable = true)
+          | |-- field_06: string (nullable = true)
+          | |-- field_07: string (nullable = true)
+          | |-- field_08: string (nullable = true)
+          |)),Some(spark_catalog.adl.tableName),None,Map()), Project [from_unixtime(unix_timestamp(current_timestamp(), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC), false), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC)) AS field_00#15200, 20240112 AS field_01#15201, load_func00 AS field_02#15202, completed AS field_03#15203, from_unixtime(unix_timestamp(current_timestamp(), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC), false), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC)) AS field_04#15204, from_unixtime(unix_timestamp(current_timestamp(), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC), false), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC)) AS field_05#15205, ddsdmsp AS field_06#15206, rename_01 AS field_07#15207, from_unixtime(unix_timestamp(current_timestamp(), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC), false), yyyyMMdd, Some(Etc/UTC)) AS field_08#15208], org.apache.spark.sql.execution.datasources.v2.DataSourceV2Strategy$$$$Lambda$$12118/1719387317@5a111bfa, com.databricks.sql.transaction.tahoe.catalog.WriteIntoDeltaBuilder$$$$anon$$1@24257336
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    testDeltaLakeOperator(nodeName, nodeDesc) { execInfo =>
+      execInfo.exec shouldEqual nodeName
+      execInfo.isSupported shouldBe true
+      execInfo.exec shouldEqual "AppendDataExecV1"
+      execInfo.expr shouldEqual s"Format: Delta"
+      execInfo.udf shouldBe false
+      execInfo.shouldIgnore shouldBe false
+    }
+
+    // test OverwriteByExpressionExecV1 with supported dataFormat
+    // scalastyle:off line.size.limit
+    val overwriteNodeName = "OverwriteByExpressionExecV1"
+    val overwriteNodeDesc =
+      s"""|OverwriteByExpressionExecV1 [num_affected_rows#25429L, num_inserted_rows#25430L], DeltaTableV2(org.apache.spark.sql.SparkSession@5aa5327e,abfss:abfs_path,Some(CatalogTable(
+          |Catalog: sparkCatalog
+          |Database: dataBaseName
+          |Table: tableName
+          |Owner: root
+          |Created Time: Fri Jun 24 03:44:47 UTC 2022
+          |Last Access: UNKNOWN
+          |Created By: Spark 3.1.2
+          |Type: EXTERNAL
+          |Provider: delta
+          |Table Properties: [bucketing_version=2, delta.lastCommitTimestamp=1656042273000, delta.lastUpdateVersion=0, delta.minReaderVersion=1, delta.minWriterVersion=2]
+          |Location: abfss://abfs_path
+          |Serde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe
+          |InputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat
+          |OutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat
+          |Partition Provider: Catalog
+          |Schema: root
+          | |-- field_00: timestamp (nullable = true)
+          | |-- field_01: string (nullable = true)
+          | |-- field_02: string (nullable = true)
+          | |-- field_03: string (nullable = true)
+          | |-- field_04: string (nullable = true)
+          | |-- field_05: string (nullable = true)
+          | |-- field_06: string (nullable = true)
+          | |-- field_07: string (nullable = true)
+          | |-- field_08: string (nullable = true)
+          | |-- field_09: string (nullable = true)
+          | |-- field_10: string (nullable = true)
+          | |-- field_11: string (nullable = true)
+          | |-- field_12: string (nullable = true)
+          | |-- field_13: string (nullable = true)
+          | |-- field_14: string (nullable = true)
+          | |-- field_15: string (nullable = true)
+          | |-- field_16: string (nullable = true)
+          | |-- field_17: string (nullable = true)
+          | |-- field_18: string (nullable = true)
+          | |-- field_19: string (nullable = true)
+          | |-- field_20: string (nullable = true)
+          | |-- field_21: string (nullable = true)
+          | |-- field_22: string (nullable = true)
+          | |-- field_23: string (nullable = true)
+          |)),Some(sparkCatalog.dataBaseName.tableName),None,Map()), Project [current_timestamp() AS field_00#24837, rename01 AS field_01#24838, field_02#25049, field_03#25050, field_04#25051, field_05#25052, field_06#25053, field_07#25054, field_08#25055, field_09#25056, field_10#25057, field_11#25058, field_12#25059, field_13#25060, field_14#25061, field_15#25062, field_16#25063, field_17#25064, field_18#25065, field_19#25066, intrn_type#25067, field_21#25068, field_22#25069, field_23#25070, ... 80 more fields], org.apache.spark.sql.execution.datasources.v2.DataSourceV2Strategy$$$$Lambda$$11293/1556987120@3cae5e3a, com.databricks.sql.transaction.tahoe.catalog.WriteIntoDeltaBuilder$$$$anon$$1@6d82eaa
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    testDeltaLakeOperator(overwriteNodeName, overwriteNodeDesc) { execInfo =>
+      execInfo.exec shouldEqual overwriteNodeName
+      execInfo.isSupported shouldBe true
+      execInfo.exec shouldEqual "OverwriteByExpressionExecV1"
+      execInfo.expr shouldEqual s"Format: Delta"
+      execInfo.udf shouldBe false
+      execInfo.shouldIgnore shouldBe false
+    }
+
+    // test that missing pattern won't cause failures to the parser
+    val nodeNameForMissingPattern = "AppendDataExecV1"
+    // scalastyle:off line.size.limit
+    val nodeDescrForMissingPattern =
+      s"""|AppendDataExecV1 [num_affected_rows#18560L, num_inserted_rows#18561L], DeltaTableV2(org.apache.spark.sql.SparkSession@5aa5327e,abfss://abfs_path,Some(CatalogTable(
+          |)),Some(spark_catalog.adl.tableName),None,Map()), Project [from_unixtime(unix_timestamp(current_timestamp(), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC), false), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC)) AS field_00#15200, 20240112 AS field_01#15201, load_func00 AS field_02#15202, completed AS field_03#15203, from_unixtime(unix_timestamp(current_timestamp(), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC), false), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC)) AS field_04#15204, from_unixtime(unix_timestamp(current_timestamp(), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC), false), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC)) AS field_05#15205, ddsdmsp AS field_06#15206, rename_01 AS field_07#15207, from_unixtime(unix_timestamp(current_timestamp(), yyyy-MM-dd HH:mm:ss, Some(Etc/UTC), false), yyyyMMdd, Some(Etc/UTC)) AS field_08#15208], org.apache.spark.sql.execution.datasources.v2.DataSourceV2Strategy$$$$Lambda$$12118/1719387317@5a111bfa, com.databricks.sql.transaction.tahoe.catalog.WriteIntoDeltaBuilder$$$$anon$$1@24257336
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    testDeltaLakeOperator(nodeNameForMissingPattern, nodeDescrForMissingPattern) { execInfo =>
+      execInfo.exec shouldEqual nodeNameForMissingPattern
+      execInfo.isSupported shouldBe true
+      execInfo.exec shouldEqual "AppendDataExecV1"
+      execInfo.expr shouldEqual s"Format: Delta"
+      execInfo.udf shouldBe false
+      execInfo.shouldIgnore shouldBe false
+    }
+
+    // test the case when the operator is not delta lake
+    val nodeNameForNonDelta = "AppendDataExecV1"
+    // scalastyle:off line.size.limit
+    val nodeDescForNonDelta =
+      s"""|AppendDataExecV1 [num_affected_rows#18560L, num_inserted_rows#18561L]
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    testDeltaLakeOperator(nodeNameForNonDelta, nodeDescForNonDelta) { execInfo =>
+      execInfo.exec shouldEqual s"$nodeName unknown"
+      execInfo.isSupported shouldBe false
+      execInfo.expr shouldEqual s"Format: unknown"
+      execInfo.udf shouldBe false
+      execInfo.shouldIgnore shouldBe false
+    }
   }
 }

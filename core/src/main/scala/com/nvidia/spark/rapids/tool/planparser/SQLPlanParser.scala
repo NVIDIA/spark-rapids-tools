@@ -74,6 +74,47 @@ case class ExecInfo(
 }
 
 object ExecInfo {
+  // Used to create an execInfo without recalculating the dataSet or Udf.
+  // This is helpful when we know that node description can
+  def createExecNoNode(sqlID: Long,
+      exec: String,
+      expr: String,
+      speedupFactor: Double,
+      duration: Option[Long],
+      nodeId: Long,
+      isSupported: Boolean,
+      children: Option[Seq[ExecInfo]], // only one level deep
+      stages: Set[Int] = Set.empty,
+      shouldRemove: Boolean = false,
+      unsupportedExprs: Array[String] = Array.empty,
+      dataSet: Boolean = false,
+      udf: Boolean = false): ExecInfo = {
+    // Set the ignoreFlag
+    // 1- we ignore any exec with UDF
+    // 2- we ignore any exec with dataset
+    // 3- Finally we ignore any exec matching the lookup table
+    val shouldIgnore = udf || dataSet || ExecHelper.shouldIgnore(exec)
+    val removeFlag = shouldRemove || ExecHelper.shouldBeRemoved(exec)
+    // Set the supported Flag
+    val supportedFlag = isSupported && !udf && !dataSet
+    ExecInfo(
+      sqlID,
+      exec,
+      expr,
+      speedupFactor,
+      duration,
+      nodeId,
+      supportedFlag,
+      children,
+      stages,
+      removeFlag,
+      unsupportedExprs,
+      dataSet,
+      udf,
+      shouldIgnore
+    )
+  }
+
   def apply(
       node: SparkPlanGraphNode,
       sqlID: Long,
@@ -97,29 +138,20 @@ object ExecInfo {
     val containsUDF = udf || ExecHelper.isUDF(node)
     // check is the node has a dataset operations and if so change to not supported
     val ds = dataSet || ExecHelper.isDatasetOrRDDPlan(nodeName, node.desc)
-    // Set the supported Flag
-    val supportedFlag = isSupported && !containsUDF && !ds
-    // Set the ignoreFlag
-    // 1- we ignore any exec with UDF
-    // 2- we ignore any exec with dataset
-    // 3- Finally we ignore any exec matching the lookup table
-    val shouldIgnore = containsUDF || ds || ExecHelper.shouldIgnore(exec)
-    val removeFlag = shouldRemove || ExecHelper.shouldBeRemoved(nodeName)
-    ExecInfo(
+    createExecNoNode(
       sqlID,
       exec,
       expr,
       speedupFactor,
       duration,
       nodeId,
-      supportedFlag,
+      isSupported,
       children,
       stages,
-      removeFlag,
+      shouldRemove,
       unsupportedExprs,
-      dataSet,
-      udf,
-      shouldIgnore
+      ds,
+      containsUDF
     )
   }
 }
@@ -295,7 +327,7 @@ object SQLPlanParser extends Logging {
           case "InMemoryTableScan" =>
             InMemoryTableScanExecParser(node, checker, sqlID).parse
           case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
-            DataWritingCommandExecParser(node, checker, sqlID).parse
+            DataWritingCommandExecParser.parseNode(node, checker, sqlID)
           case "MapInPandas" =>
             MapInPandasExecParser(node, checker, sqlID).parse
           case "ObjectHashAggregate" =>
