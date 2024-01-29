@@ -346,7 +346,7 @@ object SQLPlanParser extends Logging {
             FileSourceScanExecParser(node, checker, sqlID, app).parse
           case "SortAggregate" =>
             SortAggregateExecParser(node, checker, sqlID).parse
-          case "SortMergeJoin" =>
+          case smj if SortMergeJoinExecParser.accepts(smj) =>
             SortMergeJoinExecParser(node, checker, sqlID).parse
           case "SubqueryBroadcast" =>
             SubqueryBroadcastExecParser(node, checker, sqlID, app).parse
