@@ -322,6 +322,14 @@ class QualificationAppInfo(
     }.sum
     val allSpeedupFactorAvg = SQLPlanParser.averageSpeedup(execInfos.map(_.speedupFactor))
     val allFlattenedExecs = flattenedExecs(execInfos)
+    // Add penalty if there are UDF's. The time taken in stage with UDF's is usually more than on
+    // GPU due to fallback. So, we are adding a penalty to the speedup factor if there are UDF's.
+    val udfs = allFlattenedExecs.filter(x => x.udf == true)
+    val stageFinalSpeedupFactor = if (udfs.nonEmpty) {
+      allSpeedupFactorAvg / 2.0
+    } else {
+      allSpeedupFactorAvg
+    }
     val numUnsupported = allFlattenedExecs.filterNot(_.isSupported)
     val unsupportedExecs = numUnsupported.map(_.exec)
     // if we have unsupported try to guess at how much time.  For now divide
@@ -369,7 +377,7 @@ class QualificationAppInfo(
       val stageInfos = stageIdToInfo.filterKeys { case (id, _) => id == stageId }
       val wallclockStageDuration = stageInfos.values.map(x => x.duration.getOrElse(0L)).sum
 
-      StageQualSummaryInfo(stageId, allSpeedupFactorAvg, stageTaskTime,
+      StageQualSummaryInfo(stageId, stageFinalSpeedupFactor, stageTaskTime,
         finalEachStageUnsupported, numTransitions, transitionsTime, estimated,
         wallclockStageDuration, unsupportedExecs)
     }.toSet
@@ -381,10 +389,10 @@ class QualificationAppInfo(
       // Example: Exchange;WholeStageCodegen (14);Exchange;WholeStageCodegen (13);Exchange
       // will be flattened to Exchange;Sort;Exchange;Sort;SortMergeJoin;SortMergeJoin;Exchange;
       val allExecs = execs.map(x => if (x.exec.startsWith("WholeStage")) {
-        x.children.getOrElse(Seq.empty)
+        x.children.getOrElse(Seq.empty).reverse
       } else {
         Seq(x)
-      }).flatten.reverse
+      }).flatten
 
       // If it's a shuffle stage, then we need to keep the first and last Exchange and remove
       // all the intermediate Exchanges as input size is captured in Exchange node.

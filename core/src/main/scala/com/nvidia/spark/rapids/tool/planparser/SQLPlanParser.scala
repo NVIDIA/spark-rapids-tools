@@ -585,20 +585,11 @@ object SQLPlanParser extends Logging {
   }
 
   def parseGenerateExpressions(exprStr: String): Array[String] = {
-    val parsedExpressions = ArrayBuffer[String]()
-    // Only one generator is allowed per select clause. So we need to parse first expression in
-    // the GenerateExec and check if it is supported.
+    // Get the function names from the GenerateExec. The GenerateExec has the following format:
     // 1. Generate explode(arrays#1306), [id#1304], true, [col#1426]
     // 2. Generate json_tuple(values#1305, Zipcode, ZipCodeType, City), [id#1304],
     // false, [c0#1407, c1#1408, c2#1409]
-    if (exprStr.nonEmpty) {
-      val functionName = getFunctionName(functionPattern, exprStr)
-      functionName match {
-        case Some(func) => parsedExpressions += func
-        case _ => // NO OP
-      }
-    }
-    parsedExpressions.distinct.toArray
+    getAllFunctionNames(functionPrefixPattern, exprStr).toArray
   }
 
    // This parser is used for BroadcastHashJoin, ShuffledHashJoin and SortMergeJoin
