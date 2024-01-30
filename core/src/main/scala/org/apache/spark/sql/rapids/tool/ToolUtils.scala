@@ -346,9 +346,7 @@ object ExecHelper {
   }
 
   def isUDF(node: SparkPlanGraphNode): Boolean = {
-    // Skip Scan Execs as they contain dataFilters info which may contain UDFs.
-    // Those UDF's are part of FilterExecs. There won't be any UDFs in ScanExecs itself.
-    if (skipUDFCheckExecs.exists(node.name.contains(_)) || node.name.startsWith("Scan")) {
+    if (skipUDFCheckExecs.exists(node.name.contains(_))) {
       false
     } else {
       UDFRegExLookup.exists(regEx => node.desc.matches(regEx.regex))
