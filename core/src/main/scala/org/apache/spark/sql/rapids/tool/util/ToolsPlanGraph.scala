@@ -30,11 +30,13 @@ import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster,
 case class DBReflectionContainer() {
   private val mirror = runtimeMirror(getClass.getClassLoader)
   // Get the node class symbol
-  private val nodeClassSymbol = mirror.staticClass("org.apache.spark.sql.execution.ui.SparkPlanGraphNode")
+  private val nodeClassSymbol =
+    mirror.staticClass("org.apache.spark.sql.execution.ui.SparkPlanGraphNode")
   // Get the node constructor method symbol
   private val nodeConstr = nodeClassSymbol.primaryConstructor.asMethod
   // Get the SQL class symbol
-  private val metricClassSymbol = mirror.staticClass("org.apache.spark.sql.execution.ui.SQLPlanMetric")
+  private val metricClassSymbol =
+    mirror.staticClass("org.apache.spark.sql.execution.ui.SQLPlanMetric")
   // Get the metric constructor method symbol
   private val metricConstr = metricClassSymbol.primaryConstructor.asMethod
 
