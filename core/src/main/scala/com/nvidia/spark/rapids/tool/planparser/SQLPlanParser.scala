@@ -75,7 +75,8 @@ case class ExecInfo(
 
 object ExecInfo {
   // Used to create an execInfo without recalculating the dataSet or Udf.
-  // This is helpful when we know that node description can
+  // This is helpful when we know that node description may contain some patterns that can be
+  // mistakenly identified as UDFs 
   def createExecNoNode(sqlID: Long,
       exec: String,
       expr: String,
