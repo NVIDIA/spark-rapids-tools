@@ -27,6 +27,12 @@ case class HiveScanSerdeClasses(className: String, format: String) extends Loggi
     // Schema, pushedFilters empty for now as we cannot extract them yet from eventlogs
     ReadMetaData("", "HiveTableRelation", "unknown", format)
   }
+  def accepts(str: String): Boolean = {
+    str.equals(className)
+  }
+  def accepts(node: SparkPlanGraphNode): Boolean = {
+    node.desc.contains(className)
+  }
 }
 
 // Utilities used to handle Hive Ops.
@@ -59,6 +65,10 @@ object HiveParseHelper extends Logging {
 
   def isHiveTableScanNode(node: SparkPlanGraphNode): Boolean = {
     isHiveTableScanNode(node.name)
+  }
+
+  def getHiveFormatFromSimpleStr(str: String): String = {
+    LOADED_SERDE_CLASSES.find(_.accepts(str)).map(_.format).getOrElse("unknown")
   }
 
   // Given a "scan hive" NodeGraph, construct the MetaData based on the SerDe class.
