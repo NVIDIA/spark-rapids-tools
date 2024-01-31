@@ -29,6 +29,23 @@ import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster,
 import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, ExecHelper, JoinType, ToolUtils}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
+object OpActions extends Enumeration {
+  type OpAction = Value
+  val IgnoreNoPerf, IgnorePerf, Triage = Value
+}
+
+object OpTypes extends Enumeration {
+  type OpType = Value
+  val ReadExec, WriteExec, Exec, Expr, UDF, DataSet = Value
+}
+
+case class UnsupportedExecSummary(
+    exec: String, opType: OpTypes.OpType, opAction: OpActions.OpAction) {
+  override def toString(): String = {
+    s"$exec | ${opType.toString} | ${opAction.toString}"
+  }
+}
+
 case class ExecInfo(
     sqlID: Long,
     exec: String,
@@ -36,6 +53,7 @@ case class ExecInfo(
     speedupFactor: Double,
     duration: Option[Long],
     nodeId: Long,
+    opType: OpTypes.OpType,
     isSupported: Boolean,
     children: Option[Seq[ExecInfo]], // only one level deep
     var stages: Set[Int],
@@ -61,7 +79,7 @@ case class ExecInfo(
       s"duration: $duration, nodeId: $nodeId, " +
       s"isSupported: $isSupported, children: " +
       s"${childrenToString}, stages: ${stages.mkString(",")}, " +
-      s"shouldRemove: $shouldRemove"
+      s"shouldRemove: $shouldRemove, shouldIgnore: $shouldIgnore"
   }
 
   def setStages(stageIDs: Set[Int]): Unit = {
@@ -71,6 +89,22 @@ case class ExecInfo(
   def setShouldRemove(value: Boolean): Unit = {
     shouldRemove ||= value
   }
+
+  def getOpAction: OpActions.OpAction = {
+    if (shouldIgnore) {
+      OpActions.IgnorePerf
+    } else if (shouldRemove) {
+      OpActions.IgnoreNoPerf
+    } else {
+      OpActions.Triage
+    }
+  }
+
+  def getUnsupportedExecSummaryRecord: UnsupportedExecSummary = {
+    UnsupportedExecSummary(exec, opType, getOpAction)
+  }
+
+
 }
 
 object ExecInfo {
@@ -83,6 +117,7 @@ object ExecInfo {
       speedupFactor: Double,
       duration: Option[Long],
       nodeId: Long,
+      opType: OpTypes.OpType,
       isSupported: Boolean,
       children: Option[Seq[ExecInfo]], // only one level deep
       stages: Set[Int] = Set.empty,
@@ -96,6 +131,13 @@ object ExecInfo {
     // 3- Finally we ignore any exec matching the lookup table
     val shouldIgnore = udf || dataSet || ExecHelper.shouldIgnore(exec)
     val removeFlag = shouldRemove || ExecHelper.shouldBeRemoved(exec)
+    val finalOpType = if (udf) {
+      OpTypes.UDF
+    } else if (dataSet) {
+      OpTypes.DataSet
+    } else {
+      opType
+    }
     // Set the supported Flag
     val supportedFlag = isSupported && !udf && !dataSet
     ExecInfo(
@@ -105,6 +147,7 @@ object ExecInfo {
       speedupFactor,
       duration,
       nodeId,
+      finalOpType,
       supportedFlag,
       children,
       stages,
@@ -130,7 +173,8 @@ object ExecInfo {
       shouldRemove: Boolean = false,
       unsupportedExprs: Array[String] = Array.empty,
       dataSet: Boolean = false,
-      udf: Boolean = false): ExecInfo = {
+      udf: Boolean = false,
+      opType: OpTypes.OpType = OpTypes.Exec): ExecInfo = {
     // Some execs need to be trimmed such as "Scan"
     // Example: Scan parquet . ->  Scan parquet.
     // scan nodes needs trimming
@@ -146,6 +190,7 @@ object ExecInfo {
       speedupFactor,
       duration,
       nodeId,
+      opType,
       isSupported,
       children,
       stages,

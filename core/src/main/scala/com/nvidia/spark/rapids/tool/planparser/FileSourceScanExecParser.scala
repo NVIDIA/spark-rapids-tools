@@ -51,6 +51,6 @@ case class FileSourceScanExecParser(
 
     // TODO - add in parsing expressions - average speedup across?
     ExecInfo.createExecNoNode(sqlID, nodeName, "", overallSpeedup, maxDuration,
-      node.id, score > 0, None)
+      node.id, OpTypes.ReadExec, score > 0, None)
   }
 }

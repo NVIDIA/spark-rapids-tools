@@ -40,7 +40,7 @@ case class DataWritingCommandExecParser(
     // TODO - add in parsing expressions - average speedup across?
     ExecInfo(node, sqlID, s"${node.name.trim} ${wStub.dataFormat.toLowerCase.trim}",
       s"Format: ${wStub.dataFormat.toLowerCase.trim}",
-      finalSpeedup, duration, node.id, writeSupported, None)
+      finalSpeedup, duration, node.id, writeSupported, None, opType = OpTypes.WriteExec)
   }
 }
 

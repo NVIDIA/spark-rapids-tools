@@ -186,6 +186,28 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
+  def writeUnsupportedOpsPerStageSummaryCSVReport(
+      sums: Seq[QualificationSummaryInfo]): Unit = {
+    // function to get all the unsupported execs for a given stageID
+    def getUnsupportedExecsPerStage(
+        sumInfo: QualificationSummaryInfo, stageID: Int): Seq[ExecInfo] = {
+      sumInfo.planInfo.collect {
+        case pInfo =>
+          pInfo.execInfo.filter(exec => !exec.isSupported && exec.stages.contains(stageID))
+      }.flatten
+    }
+
+    // loop on all stages and for each stage call getUnsupportedExecsPerStage
+    sums.foreach { appInfo =>
+      appInfo.stageInfo.foreach { sInfo =>
+        getUnsupportedExecsPerStage(appInfo, sInfo.stageId).foreach { execInfo =>
+          println(s"${appInfo.appId} | ${sInfo.stageId} | " +
+            s"${execInfo.getUnsupportedExecSummaryRecord.toString()}")
+        }
+      }
+    }
+  }
+
   def writePerSqlCSVReport(sums: Seq[QualificationSummaryInfo], maxSQLDescLength: Int): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_persql.csv",

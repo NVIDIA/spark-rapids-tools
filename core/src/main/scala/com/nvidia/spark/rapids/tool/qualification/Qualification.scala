@@ -98,6 +98,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOperatorsCSVReport(allAppsSum, order)
+    qWriter.writeUnsupportedOpsPerStageSummaryCSVReport(allAppsSum)
     qWriter.writeUnsupportedOperatorsDetailedStageCSVReport(allAppsSum, order)
     val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
     qWriter.writeStatusReport(appStatusResult, order)

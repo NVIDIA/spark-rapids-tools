@@ -46,7 +46,7 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
     // TODO get the schema to check if it is supported
     // val schema = DeltaLakeHelper.getSchema(node.desc)
     ExecInfo.createExecNoNode(sqlID, nodeName,
-      s"Format: $dataFormat", speedupFactor, None, node.id,
+      s"Format: $dataFormat", speedupFactor, None, node.id, OpTypes.WriteExec,
       isSupported = writeSupported, children = None)
   }
 }
