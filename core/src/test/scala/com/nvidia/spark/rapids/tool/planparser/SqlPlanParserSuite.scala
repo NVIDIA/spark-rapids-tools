@@ -29,13 +29,12 @@ import org.scalatest.Matchers.convertToAnyShouldWrapper
 import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.TrampolineUtil
-import org.apache.spark.sql.execution.ui.{SparkPlanGraphNode, SQLPlanMetric}
+import org.apache.spark.sql.execution.ui.SQLPlanMetric
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
-
+import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, ToolsPlanGraph}
 
 class SQLPlanParserSuite extends BaseTestSuite {
 
@@ -934,6 +933,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "ProjectExprsSupported") { spark =>
           import spark.implicits._
+
           import org.apache.spark.sql.types.StringType
           val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
           df1.write.parquet(s"$parquetoutputLoc/testtext")
@@ -1273,6 +1273,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "projectPromotePrecision") { spark =>
           import spark.implicits._
+
           import org.apache.spark.sql.types.DecimalType
           val df = Seq(("12347.21", "1234154"), ("92233.08", "1")).toDF
             .withColumn("dec1", col("_1").cast(DecimalType(7, 2)))
@@ -1361,7 +1362,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
   }
 
   test("SortMergeJoin with arguments should be marked as supported: issue-751") {
-    val node = new SparkPlanGraphNode(
+    val node = ToolsPlanGraph.constructGraphNode(
       1,
       "SortMergeJoin(skew=true)",
       "SortMergeJoin(skew=true) [trim(field_00#7407, None)], " +
@@ -1376,7 +1377,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
   private def testDeltaLakeOperator(
       nodeName: String,
       nodeDescr: String)(f: ExecInfo => Unit) : Unit = {
-    val node = new SparkPlanGraphNode(1, nodeName, nodeDescr, Seq[SQLPlanMetric]())
+    val node = ToolsPlanGraph.constructGraphNode(1, nodeName, nodeDescr, Seq[SQLPlanMetric]())
     DataWritingCommandExecParser.isWritingCmdExec(node.name) shouldBe true
     val execInfo = DataWritingCommandExecParser.parseNode(node, new PluginTypeChecker(), 2)
     f(execInfo)
