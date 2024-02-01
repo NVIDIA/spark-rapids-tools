@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ class Platform(platformName: String) {
    * Recommendations to be excluded from the list of recommendations.
    * These have the highest priority.
    */
-  val recommendationsToExclude: Seq[String] = Seq.empty
+  val recommendationsToExclude: Set[String] = Set.empty
   /**
    * Recommendations to be included in the final list of recommendations.
    * These properties should be specific to the platform and not general Spark properties.
@@ -104,7 +104,7 @@ class Platform(platformName: String) {
 }
 
 class DatabricksPlatform(platformType: String) extends Platform(platformType) {
-  override val recommendationsToExclude: Seq[String] = Seq(
+  override val recommendationsToExclude: Set[String] = Set(
     "spark.executor.cores",
     "spark.executor.instances",
     "spark.executor.memory",

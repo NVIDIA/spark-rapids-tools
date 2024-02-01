@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -184,6 +184,9 @@ class ToolContext(YAMLPropertiesContainer):
 
     def get_tool_main_class(self) -> str:
         return self.get_value('sparkRapids', 'mainClass')
+
+    def get_rapids_auto_tuner_enabled(self) -> bool:
+        return self.get_value('sparkRapids', 'autoTunerEnabled')
 
     def get_rapids_output_folder(self) -> str:
         root_dir = self.get_local('outputFolder')

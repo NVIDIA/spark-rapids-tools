@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,8 +26,9 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List
 
+import yaml
+
 import spark_rapids_pytools
-from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
@@ -35,6 +36,7 @@ from spark_rapids_pytools.common.sys_storage import FSUtil, FileVerifier
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils, ToolsSpinner
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
+from spark_rapids_tools import CspEnv
 
 
 @dataclass
@@ -326,6 +328,8 @@ class RapidsTool(object):
             return rep_lines
         return None
 
+    # TODO: This code does not match the AutoTuner.scala output anymore.
+    #       We need to consider removing this method or updating it to match the new output.
     def _calculate_spark_settings(self, worker_info: NodeHWInfo) -> dict:
         """
         Calculate the cluster properties that we need to append to the /etc/defaults of the spark
@@ -580,6 +584,46 @@ class RapidsJarTool(RapidsTool):
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
         pass
+
+    def _generate_autotuner_file_for_cluster(self, file_path: str, cluster_ob: ClusterBase):
+        """
+        Given file path and the cluster object, it will generate the formatted input file in yaml
+        that can be used by the autotuner to run the profiling tool.
+        :param file_path: local path whether the file should be stored
+        :param cluster_ob: the object representing the cluster proxy.
+        :return:
+        """
+        self.logger.info('Generating input file for Auto-tuner')
+        worker_hw_info = cluster_ob.get_worker_hw_info()
+        worker_info = {
+            'system': {
+                'numCores': worker_hw_info.sys_info.num_cpus,
+                'memory': f'{worker_hw_info.sys_info.cpu_mem}MiB',
+                'numWorkers': cluster_ob.get_workers_count()
+            },
+            'gpu': {
+                # the scala code expects a unit
+                'memory': f'{worker_hw_info.gpu_info.gpu_mem}MiB',
+                'count': worker_hw_info.gpu_info.num_gpus,
+                'name': worker_hw_info.gpu_info.get_gpu_device_name()
+            },
+            'softwareProperties': cluster_ob.get_all_spark_properties()
+        }
+        # add the spark properties that we need to set
+        with open(file_path, 'w', encoding='utf-8') as worker_info_file:
+            self.logger.debug('Opening file %s to write worker info', file_path)
+            yaml.dump(worker_info, worker_info_file, sort_keys=False)
+
+    def _generate_autotuner_input_from_cluster(self, cluster_obj: ClusterBase):
+        input_file_name = 'worker_info.yaml'
+        self.ctxt.set_ctxt('autoTunerFileName', input_file_name)
+        autotuner_input_path = FSUtil.build_path(self.ctxt.get_local_work_dir(), 'worker_info.yaml')
+        self._generate_autotuner_file_for_cluster(file_path=autotuner_input_path,
+                                                  cluster_ob=cluster_obj)
+        self.logger.info('Generated autotuner worker info: %s', autotuner_input_path)
+        self.ctxt.set_ctxt('autoTunerFilePath', autotuner_input_path)
+        self.logger.info('WorkerInfo successfully processed into workDir [%s]',
+                         autotuner_input_path)
 
     def _copy_dependencies_to_remote(self):
         self.logger.info('Skipping preparing remote dependency folder')
