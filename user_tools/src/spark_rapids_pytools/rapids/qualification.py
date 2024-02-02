@@ -199,8 +199,7 @@ class Qualification(RapidsJarTool):
                 sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
-            except Exception as e:  # pylint: disable=broad-except
-                self.logger.error('Error while processing worker node hardware info: %s', e)
+            except Exception:  # pylint: disable=broad-except
                 return
 
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
