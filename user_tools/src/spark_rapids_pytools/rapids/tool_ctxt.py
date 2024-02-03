@@ -186,7 +186,7 @@ class ToolContext(YAMLPropertiesContainer):
         return self.get_value('sparkRapids', 'mainClass')
 
     def get_rapids_auto_tuner_enabled(self) -> bool:
-        return self.get_value('sparkRapids', 'autoTunerEnabled')
+        return self.get_value('sparkRapids', 'enableAutoTuner')
 
     def get_rapids_output_folder(self) -> str:
         root_dir = self.get_local('outputFolder')
