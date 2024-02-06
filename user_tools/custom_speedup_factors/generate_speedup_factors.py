@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,13 @@ import argparse
 import os
 
 import pandas as pd
+
+
+def list_directories(root_name):
+    for root, dirs, files in os.walk(root_name):
+        return dirs
+    return []
+
 
 parser = argparse.ArgumentParser(description="Speedup Factor Analysis")
 parser.add_argument("--cpu", type=str, help="Directory of CPU profiler logs", required=True)
@@ -45,7 +52,7 @@ if args.chdir:
     os.chdir(os.path.dirname(__file__))
 
 # CPU log parsing
-for app in os.listdir(cpu_dir):
+for app in list_directories(cpu_dir):
 
     # - figure out query from application_info.csv
     app_info = pd.read_csv(cpu_dir + "/" + app + "/application_information.csv")
@@ -98,7 +105,7 @@ for app in os.listdir(cpu_dir):
                 cpu_stage_log[app_name][op_key] = duration
 
 # GPU log parsing
-for app in os.listdir(gpu_dir):
+for app in list_directories(gpu_dir):
 
     # - figure out query from application_info.csv
     app_info = pd.read_csv(gpu_dir + "/" + app + "/application_information.csv")
