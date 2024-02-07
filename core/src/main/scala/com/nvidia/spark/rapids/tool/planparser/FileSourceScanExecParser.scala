@@ -50,6 +50,7 @@ case class FileSourceScanExecParser(
     val overallSpeedup = Math.max(speedupFactor * score, 1.0)
 
     // TODO - add in parsing expressions - average speedup across?
-    new ExecInfo(sqlID, nodeName, "", overallSpeedup, maxDuration, node.id, score > 0, None)
+    ExecInfo.createExecNoNode(sqlID, nodeName, "", overallSpeedup, maxDuration,
+      node.id, score > 0, None)
   }
 }

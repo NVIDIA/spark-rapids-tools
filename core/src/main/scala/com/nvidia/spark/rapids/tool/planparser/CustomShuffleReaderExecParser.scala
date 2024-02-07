@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,6 @@ case class CustomShuffleReaderExecParser(
     } else {
       (1.0, false)
     }
-    new ExecInfo(sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None)
+    ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None)
   }
 }

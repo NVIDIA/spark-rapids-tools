@@ -34,9 +34,9 @@ import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart, SparkListenerLogStart, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
+import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.qualification.MLFunctions
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
 import org.apache.spark.util.Utils
 
 // Handles updating and caching Spark Properties for a Spark application.
@@ -278,15 +278,6 @@ abstract class AppBase(
     }
   }
 
-  def isDataSetOrRDDPlan(desc: String): Boolean = {
-    desc match {
-      case l if l.matches(".*\\$Lambda\\$.*") => true
-      case a if a.endsWith(".apply") => true
-      case r if r.matches(".*SerializeFromObject.*") => true
-      case _ => false
-    }
-  }
-
   private val UDFRegex = ".*UDF.*"
 
   private val potentialIssuesRegexMap = Map(
@@ -340,7 +331,7 @@ abstract class AppBase(
   protected def checkMetadataForReadSchema(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
     // check if planInfo has ReadSchema
     val allMetaWithSchema = getPlanMetaWithSchema(planInfo)
-    val planGraph = SparkPlanGraph(planInfo)
+    val planGraph = ToolsPlanGraph(planInfo)
     val allNodes = planGraph.allNodes
 
     allMetaWithSchema.foreach { plan =>
@@ -365,7 +356,7 @@ abstract class AppBase(
     if (hiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
       val allPlanWithHiveScan = getPlanInfoWithHiveScan(planInfo)
       allPlanWithHiveScan.foreach { hiveReadPlan =>
-        val sqlGraph = SparkPlanGraph(hiveReadPlan)
+        val sqlGraph = ToolsPlanGraph(hiveReadPlan)
         val hiveScanNode = sqlGraph.allNodes.head
         val scanHiveMeta = HiveParseHelper.parseReadNode(hiveScanNode)
         dataSourceInfo += DataSourceCase(sqlID,

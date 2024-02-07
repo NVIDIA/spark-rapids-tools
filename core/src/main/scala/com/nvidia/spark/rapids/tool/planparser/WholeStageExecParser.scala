@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ case class WholeStageExecParser(
     // can't rely on the wholeStagecodeGen having a stage if children do so aggregate them together
     // for now
     val allStagesIncludingChildren = childNodes.flatMap(_.stages).toSet ++ stagesInNode.toSet
-    val execInfo = new ExecInfo(sqlID, node.name, node.name, avSpeedupFactor, maxDuration,
+    val execInfo = ExecInfo(node, sqlID, node.name, node.name, avSpeedupFactor, maxDuration,
       node.id, anySupported, Some(childNodes), allStagesIncludingChildren,
       shouldRemove = isDupNode, unsupportedExprs = unSupportedExprsArray)
     Seq(execInfo)

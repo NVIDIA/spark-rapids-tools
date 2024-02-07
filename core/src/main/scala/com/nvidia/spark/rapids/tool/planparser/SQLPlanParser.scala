@@ -26,22 +26,25 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
-import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, JoinType, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, ExecHelper, JoinType, ToolUtils}
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
-class ExecInfo(
-    val sqlID: Long,
-    val exec: String,
-    val expr: String,
-    val speedupFactor: Double,
-    val duration: Option[Long],
-    val nodeId: Long,
-    val isSupported: Boolean,
-    val children: Option[Seq[ExecInfo]], // only one level deep
-    val stages: Set[Int] = Set.empty,
-    val shouldRemove: Boolean = false,
-    val unsupportedExprs: Array[String] = Array.empty,
-    val dataSet: Boolean = false,
-    val udf: Boolean = false) {
+case class ExecInfo(
+    sqlID: Long,
+    exec: String,
+    expr: String,
+    speedupFactor: Double,
+    duration: Option[Long],
+    nodeId: Long,
+    isSupported: Boolean,
+    children: Option[Seq[ExecInfo]], // only one level deep
+    var stages: Set[Int],
+    var shouldRemove: Boolean,
+    unsupportedExprs: Array[String],
+    dataSet: Boolean,
+    udf: Boolean,
+    shouldIgnore: Boolean) {
+
   private def childrenToString = {
     val str = children.map { c =>
       c.map("       " + _.toString).mkString("\n")
@@ -52,12 +55,105 @@ class ExecInfo(
       str
     }
   }
+
   override def toString: String = {
     s"exec: $exec, expr: $expr, sqlID: $sqlID , speedupFactor: $speedupFactor, " +
       s"duration: $duration, nodeId: $nodeId, " +
       s"isSupported: $isSupported, children: " +
       s"${childrenToString}, stages: ${stages.mkString(",")}, " +
       s"shouldRemove: $shouldRemove"
+  }
+
+  def setStages(stageIDs: Set[Int]): Unit = {
+    stages = stageIDs
+  }
+
+  def setShouldRemove(value: Boolean): Unit = {
+    shouldRemove ||= value
+  }
+}
+
+object ExecInfo {
+  // Used to create an execInfo without recalculating the dataSet or Udf.
+  // This is helpful when we know that node description may contain some patterns that can be
+  // mistakenly identified as UDFs 
+  def createExecNoNode(sqlID: Long,
+      exec: String,
+      expr: String,
+      speedupFactor: Double,
+      duration: Option[Long],
+      nodeId: Long,
+      isSupported: Boolean,
+      children: Option[Seq[ExecInfo]], // only one level deep
+      stages: Set[Int] = Set.empty,
+      shouldRemove: Boolean = false,
+      unsupportedExprs: Array[String] = Array.empty,
+      dataSet: Boolean = false,
+      udf: Boolean = false): ExecInfo = {
+    // Set the ignoreFlag
+    // 1- we ignore any exec with UDF
+    // 2- we ignore any exec with dataset
+    // 3- Finally we ignore any exec matching the lookup table
+    val shouldIgnore = udf || dataSet || ExecHelper.shouldIgnore(exec)
+    val removeFlag = shouldRemove || ExecHelper.shouldBeRemoved(exec)
+    // Set the supported Flag
+    val supportedFlag = isSupported && !udf && !dataSet
+    ExecInfo(
+      sqlID,
+      exec,
+      expr,
+      speedupFactor,
+      duration,
+      nodeId,
+      supportedFlag,
+      children,
+      stages,
+      removeFlag,
+      unsupportedExprs,
+      dataSet,
+      udf,
+      shouldIgnore
+    )
+  }
+
+  def apply(
+      node: SparkPlanGraphNode,
+      sqlID: Long,
+      exec: String,
+      expr: String,
+      speedupFactor: Double,
+      duration: Option[Long],
+      nodeId: Long,
+      isSupported: Boolean,
+      children: Option[Seq[ExecInfo]], // only one level deep
+      stages: Set[Int] = Set.empty,
+      shouldRemove: Boolean = false,
+      unsupportedExprs: Array[String] = Array.empty,
+      dataSet: Boolean = false,
+      udf: Boolean = false): ExecInfo = {
+    // Some execs need to be trimmed such as "Scan"
+    // Example: Scan parquet . ->  Scan parquet.
+    // scan nodes needs trimming
+    val nodeName = node.name.trim
+    // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
+    val containsUDF = udf || ExecHelper.isUDF(node)
+    // check is the node has a dataset operations and if so change to not supported
+    val ds = dataSet || ExecHelper.isDatasetOrRDDPlan(nodeName, node.desc)
+    createExecNoNode(
+      sqlID,
+      exec,
+      expr,
+      speedupFactor,
+      duration,
+      nodeId,
+      isSupported,
+      children,
+      stages,
+      shouldRemove,
+      unsupportedExprs,
+      ds,
+      containsUDF
+    )
   }
 }
 
@@ -81,10 +177,10 @@ object SQLPlanParser extends Logging {
   val ignoreExpressions = Array("any", "cast", "ansi_cast", "decimal", "decimaltype", "every",
     "some", "merge_max", "merge_min", "merge_sum", "merge_count", "merge_avg", "merge_first",
     "list",
-    // current_database does not cause any CPU fallbacks
-    "current_database",
+    // some ops turn into literals and they should not cause any fallbacks
+    "current_database", "current_user", "current_timestamp",
     // ArrayBuffer is a Scala function and may appear in some of the JavaRDDs/UDAFs)
-    "arraybuffer")
+    "arraybuffer", "arraytype")
 
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
@@ -143,7 +239,7 @@ object SQLPlanParser extends Logging {
       sqlDesc: String,
       checker: PluginTypeChecker,
       app: AppBase): PlanInfo = {
-    val planGraph = SparkPlanGraph(planInfo)
+    val planGraph = ToolsPlanGraph(planInfo)
     // Find all the node graphs that should be excluded and send it to the parsePlanNode
     val excludedNodes = buildSkippedReusedNodesForPlan(planGraph)
     // we want the sub-graph nodes to be inside of the wholeStageCodeGen so use nodes
@@ -161,20 +257,10 @@ object SQLPlanParser extends Logging {
     }.flatten.toSet
   }
 
-  private val skipUDFCheckExecs = Seq("ArrowEvalPython", "AggregateInPandas",
-    "FlatMapGroupsInPandas", "MapInPandas", "WindowInPandas")
-
   // Set containing execs that refers to other expressions. We need this to be a list to allow
   // appending more execs in teh future as necessary.
   // Note that Spark graph may create duplicate nodes when any of the following execs exists.
   private val reuseExecs = Set("ReusedExchange")
-
-  // Set containing execs that should be labeled as "shouldRemove"
-  private val execsToBeRemoved = Set(
-    "GenerateBloomFilter",   // Exclusive on AWS. Ignore it as metrics cannot be evaluated.
-    "ReusedExchange",        // reusedExchange should not be added to speedups
-    "ColumnarToRow"          // for now, assume everything is columnar
-  )
 
   def parsePlanNode(
       node: SparkPlanGraphNode,
@@ -216,10 +302,10 @@ object SQLPlanParser extends Logging {
             CoalesceExecParser(node, checker, sqlID).parse
           case "CollectLimit" =>
             CollectLimitExecParser(node, checker, sqlID).parse
-          case c if (c.contains("CreateDataSourceTableAsSelectCommand")) =>
+          case c if c.contains("CreateDataSourceTableAsSelectCommand") =>
             // create data source table doesn't show the format so we can't determine
             // if we support it
-            new ExecInfo(sqlID, node.name, expr = "", 1, duration = None, node.id,
+            ExecInfo(node, sqlID, node.name, expr = "", 1, duration = None, node.id,
               isSupported = false, None)
           case "CustomShuffleReader" | "AQEShuffleRead" =>
             CustomShuffleReaderExecParser(node, checker, sqlID).parse
@@ -242,7 +328,7 @@ object SQLPlanParser extends Logging {
           case "InMemoryTableScan" =>
             InMemoryTableScanExecParser(node, checker, sqlID).parse
           case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
-            DataWritingCommandExecParser(node, checker, sqlID).parse
+            DataWritingCommandExecParser.parseNode(node, checker, sqlID)
           case "MapInPandas" =>
             MapInPandasExecParser(node, checker, sqlID).parse
           case "ObjectHashAggregate" =>
@@ -261,7 +347,7 @@ object SQLPlanParser extends Logging {
             FileSourceScanExecParser(node, checker, sqlID, app).parse
           case "SortAggregate" =>
             SortAggregateExecParser(node, checker, sqlID).parse
-          case "SortMergeJoin" =>
+          case smj if SortMergeJoinExecParser.accepts(smj) =>
             SortMergeJoinExecParser(node, checker, sqlID).parse
           case "SubqueryBroadcast" =>
             SubqueryBroadcastExecParser(node, checker, sqlID, app).parse
@@ -277,7 +363,7 @@ object SQLPlanParser extends Logging {
             // Execs that are members of reuseExecs (i.e., ReusedExchange) should be marked as
             // supported but with shouldRemove flag set to True.
             // Setting the "shouldRemove" is handled at the end of the function.
-            new ExecInfo(sqlID, node.name, expr = "", 1, duration = None, node.id,
+            ExecInfo(node, sqlID, node.name, expr = "", 1, duration = None, node.id,
               isSupported = reuseExecs.contains(node.name), None)
         }
       } catch {
@@ -291,25 +377,15 @@ object SQLPlanParser extends Logging {
         case NonFatal(e) =>
           logWarning(s"Unexpected error parsing plan node ${node.name}. " +
           s" sqlID = ${sqlID}", e)
-          new ExecInfo(sqlID, node.name, expr = "", 1, duration = None, node.id,
+          ExecInfo(node, sqlID, node.name, expr = "", 1, duration = None, node.id,
             isSupported = false, None)
       }
-      // check is the node has a dataset operations and if so change to not supported
-      val ds = app.isDataSetOrRDDPlan(node.desc)
-      // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
-      val containsUDF = if (skipUDFCheckExecs.contains(node.name)) {
-        false
-      } else {
-        app.containsUDF(node.desc)
-      }
       val stagesInNode = getStagesInSQLNode(node, app)
-      val supported = execInfos.isSupported && !ds && !containsUDF
+      execInfos.setStages(stagesInNode)
       // shouldRemove is set to true if the exec is a member of "execsToBeRemoved" or if the node
       // is a duplicate
-      val removeFlag = execInfos.shouldRemove || isDupNode || execsToBeRemoved.contains(node.name)
-      Seq(new ExecInfo(execInfos.sqlID, execInfos.exec, execInfos.expr, execInfos.speedupFactor,
-        execInfos.duration, execInfos.nodeId, supported, execInfos.children,
-        stagesInNode, removeFlag, execInfos.unsupportedExprs, ds, containsUDF))
+      execInfos.setShouldRemove(isDupNode)
+      Seq(execInfos)
     }
   }
 
@@ -542,20 +618,11 @@ object SQLPlanParser extends Logging {
   }
 
   def parseGenerateExpressions(exprStr: String): Array[String] = {
-    val parsedExpressions = ArrayBuffer[String]()
-    // Only one generator is allowed per select clause. So we need to parse first expression in
-    // the GenerateExec and check if it is supported.
+    // Get the function names from the GenerateExec. The GenerateExec has the following format:
     // 1. Generate explode(arrays#1306), [id#1304], true, [col#1426]
     // 2. Generate json_tuple(values#1305, Zipcode, ZipCodeType, City), [id#1304],
     // false, [c0#1407, c1#1408, c2#1409]
-    if (exprStr.nonEmpty) {
-      val functionName = getFunctionName(functionPattern, exprStr)
-      functionName match {
-        case Some(func) => parsedExpressions += func
-        case _ => // NO OP
-      }
-    }
-    parsedExpressions.distinct.toArray
+    getAllFunctionNames(functionPrefixPattern, exprStr).toArray
   }
 
    // This parser is used for BroadcastHashJoin, ShuffledHashJoin and SortMergeJoin
