@@ -25,7 +25,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, PlatformFactory, T4Gpu}
+import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, PlatformFactory}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
@@ -89,7 +89,7 @@ class GpuWorkerProps(
       memory = try {
         GpuDevice.createInstance(getName).getMemory
       } catch {
-        case _: IllegalArgumentException => T4Gpu.getMemory
+        case _: IllegalArgumentException => GpuDevice.DEFAULT.getMemory
       }
       true
     } else {

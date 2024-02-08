@@ -93,8 +93,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       systemMemory: Option[String] = Some("122880MiB"),
       numWorkers: Option[Int] = Some(4),
       gpuCount: Option[Int] = Some(2),
-      gpuMemory: Option[String] = Some(T4Gpu.getMemory),
-      gpuDevice: Option[String] = Some(T4Gpu.toString)): String = {
+      gpuMemory: Option[String] = Some(GpuDevice.DEFAULT.getMemory),
+      gpuDevice: Option[String] = Some(GpuDevice.DEFAULT.toString)): String = {
     val gpuWorkerProps = new GpuWorkerProps(
       gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
     val cpuSystem = new SystemClusterProps(
