@@ -16,10 +16,12 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
+import java.util.concurrent.atomic.AtomicLong
+
 import scala.collection.mutable.{ArrayBuffer, Buffer, LinkedHashMap, ListBuffer}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
-import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, HiveParseHelper, PlanInfo}
+import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, HiveParseHelper, PlanInfo, UnsupportedExecSummary}
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.{CLUSTER_ID, CLUSTER_ID_STR_SIZE, JOB_ID, JOB_ID_STR_SIZE, RUN_NAME, RUN_NAME_STR_SIZE, TEXT_DELIMITER}
 import org.apache.hadoop.conf.Configuration
@@ -188,23 +190,21 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
 
   def writeUnsupportedOpsPerStageSummaryCSVReport(
       sums: Seq[QualificationSummaryInfo]): Unit = {
-    // function to get all the unsupported execs for a given stageID
-    def getUnsupportedExecsPerStage(
-        sumInfo: QualificationSummaryInfo, stageID: Int): Seq[ExecInfo] = {
-      sumInfo.planInfo.collect {
-        case pInfo =>
-          pInfo.execInfo.filter(exec => !exec.isSupported && exec.stages.contains(stageID))
-      }.flatten
-    }
-
-    // loop on all stages and for each stage call getUnsupportedExecsPerStage
-    sums.foreach { appInfo =>
-      appInfo.stageInfo.foreach { sInfo =>
-        getUnsupportedExecsPerStage(appInfo, sInfo.stageId).foreach { execInfo =>
-          println(s"${appInfo.appId} | ${sInfo.stageId} | " +
-            s"${execInfo.getUnsupportedExecSummaryRecord.toString()}")
-        }
+    val csvFileWriter = new ToolTextFileWriter(outputDir,
+      s"${QualOutputWriter.LOGFILE_NAME}_unsupportedOperatorsDetailedStageDuration.csv",
+      "Unsupported Operators DetailedStageDuration CSV Report", hadoopConf)
+    try {
+      val headersAndSizes =
+        QualOutputWriter.getUnsupportedOperatorsDetailedStageDurationsHeaderStringsAndSizes(sums)
+      csvFileWriter.write(QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
+        QualOutputWriter.CSV_DELIMITER, false))
+      sums.foreach { sum =>
+        QualOutputWriter.constructUnsupportedDetailedStagesDurationInfo(csvFileWriter,
+          sum, headersAndSizes,
+          QualOutputWriter.CSV_DELIMITER, false)
       }
+    } finally {
+      csvFileWriter.close()
     }
   }
 
@@ -443,12 +443,15 @@ object QualOutputWriter {
   val NUM_TRANSITIONS = "Number of transitions from or to GPU"
   val UNSUPPORTED_EXECS = "Unsupported Execs"
   val UNSUPPORTED_EXPRS = "Unsupported Expressions"
+  val UNSUPPORTED_OPERATOR = "Unsupported Operator"
   val CLUSTER_TAGS = "Cluster Tags"
   val CLUSTER_ID = "ClusterId"
   val JOB_ID = "JobId"
   val UNSUPPORTED_TYPE = "Unsupported Type"
+  val EXEC_ID = "ExecId"
   val DETAILS = "Details"
   val NOTES = "Notes"
+  val ACTION = "Action"
   val IGNORE_OPERATOR = "Ignore Operator"
   val RUN_NAME = "RunName"
   val ESTIMATED_FREQUENCY = "Estimated Job Frequency (monthly)"
@@ -606,6 +609,22 @@ object QualOutputWriter {
       APP_DUR_STR -> APP_DUR_STR.size,
       SPEEDUP_BUCKET_STR -> SPEEDUP_BUCKET_STR_SIZE,
       IGNORE_OPERATOR -> IGNORE_OPERATOR.size
+    )
+    detailedHeaderAndFields
+  }
+
+  def getUnsupportedOperatorsDetailedStageDurationsHeaderStringsAndSizes(
+      appInfos: Seq[QualificationSummaryInfo]): LinkedHashMap[String, Int] = {
+    val detailedHeaderAndFields = LinkedHashMap[String, Int](
+      APP_ID_STR -> QualOutputWriter.getAppIdSize(appInfos),
+      UNSUPPORTED_TYPE -> UNSUPPORTED_TYPE.size,
+      UNSUPPORTED_OPERATOR -> UNSUPPORTED_OPERATOR.size,
+      DETAILS -> DETAILS.size,
+      EXEC_ID -> EXEC_ID.size,
+      STAGE_ID_STR -> STAGE_ID_STR.size,
+      STAGE_WALLCLOCK_DUR_STR -> STAGE_WALLCLOCK_DUR_STR.size,
+      APP_DUR_STR -> APP_DUR_STR.size,
+      ACTION -> ACTION.size
     )
     detailedHeaderAndFields
   }
@@ -861,6 +880,18 @@ object QualOutputWriter {
     }
   }
 
+  def flattenedExecs(execs: Seq[ExecInfo]): Seq[ExecInfo] = {
+    // need to remove the WholeStageCodegen wrappers since they aren't actual
+    // execs that we want to get timings of
+    execs.flatMap { e =>
+      if (e.exec.contains("WholeStageCodegen")) {
+        e.children.getOrElse(Seq.empty)
+      } else {
+        e.children.getOrElse(Seq.empty) :+ e
+      }
+    }
+  }
+
   def getDetailedMlFuncsHeaderStringsAndSizes(
       appInfos: Seq[QualificationSummaryInfo]): LinkedHashMap[String, Int] = {
     val detailedHeadersAndFields = LinkedHashMap[String, Int](
@@ -969,7 +1000,7 @@ object QualOutputWriter {
         val stageAppDuration = info.stageWallclockDuration
         val allUnsupportedExecs = info.unsupportedExecs
         if (allUnsupportedExecs.nonEmpty) {
-          allUnsupportedExecs.map { unsupportedExecsStr =>
+          allUnsupportedExecs.map(_.exec).map { unsupportedExecsStr =>
             // Ignore operator is a boolean value which indicates if the operator should be
             // considered for GPU acceleration or not. If the value is true, the operator will
             // be ignored.
@@ -991,6 +1022,62 @@ object QualOutputWriter {
         else {
           ""
         }
+    }
+  }
+
+  private def getUnsupportedExecsPerStage(
+      sumInfo: QualificationSummaryInfo,
+      stageID: Int): Set[ExecInfo] = {
+    sumInfo.planInfo.map(_.execInfo).collect {
+      case execInfos =>
+        val stages = execInfos.map(_.stages).flatten
+        val allExecs = flattenedExecs(execInfos)
+        allExecs.filter(exec => !exec.isSupported && stages.contains(stageID))
+    }.flatten.toSet
+  }
+
+  def constructUnsupportedDetailedStagesDurationInfo(
+      csvWriter: ToolTextFileWriter,
+      sumInfo: QualificationSummaryInfo,
+      headersAndSizes: LinkedHashMap[String, Int],
+      delimiter: String = TEXT_DELIMITER,
+      prettyPrint: Boolean,
+      reformatCSV: Boolean = true): Unit = {
+
+    val reformatCSVFunc: String => String =
+      if (reformatCSV) str => StringUtils.reformatCSVString(str) else str => stringIfempty(str)
+    val appId = sumInfo.appId
+    val appDuration = sumInfo.estimatedInfo.appDur
+
+    def constructDetailedUnsupportedRow(execId: Long, unSupExecInfo: UnsupportedExecSummary,
+        stageId: Int, stageAppDuration: Long): String = {
+      val data = ListBuffer[(String, Int)](
+        reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
+        reformatCSVFunc(unSupExecInfo.finalOpType) -> headersAndSizes(UNSUPPORTED_TYPE),
+        reformatCSVFunc(unSupExecInfo.unsupportedOperator) -> headersAndSizes(UNSUPPORTED_OPERATOR),
+        reformatCSVFunc(unSupExecInfo.details.toString) -> headersAndSizes(DETAILS),
+        reformatCSVFunc(execId.toString) -> headersAndSizes(EXEC_ID),
+        stageId.toString -> headersAndSizes(STAGE_ID_STR),
+        stageAppDuration.toString -> headersAndSizes(STAGE_WALLCLOCK_DUR_STR),
+        appDuration.toString -> headersAndSizes(APP_DUR_STR),
+        reformatCSVFunc(unSupExecInfo.opAction.toString) -> headersAndSizes(ACTION)
+      )
+      constructOutputRow(data, delimiter, prettyPrint)
+    }
+
+    val execIdGenerator = new AtomicLong(0)
+    sumInfo.origPlanStageInfo.map { sInfo =>
+      getUnsupportedExecsPerStage(sumInfo, sInfo.stageId).map { execInfo =>
+        val execId = execIdGenerator.getAndIncrement()
+        val results = execInfo.getUnsupportedExecSummaryRecord(execInfo.unsupportedExprs)
+
+        val unsupportedRows = results.map { unsupportedExecSummary =>
+          constructDetailedUnsupportedRow(execId, unsupportedExecSummary,
+            sInfo.stageId, sInfo.stageWallclockDuration)
+        }.mkString
+
+        csvWriter.write(unsupportedRows)
+      }
     }
   }
 

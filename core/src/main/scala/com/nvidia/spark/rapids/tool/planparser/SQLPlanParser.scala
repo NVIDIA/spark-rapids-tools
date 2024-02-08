@@ -40,9 +40,33 @@ object OpTypes extends Enumeration {
 }
 
 case class UnsupportedExecSummary(
-    exec: String, opType: OpTypes.OpType, opAction: OpActions.OpAction) {
-  override def toString(): String = {
-    s"$exec | ${opType.toString} | ${opAction.toString}"
+    exec: String, opType: OpTypes.OpType,
+    opAction: OpActions.OpAction, expr: String = "", isExpression: Boolean = false) {
+
+  val finalOpType = if (opType.equals(OpTypes.UDF) || opType.equals(OpTypes.DataSet)) {
+    s"${OpTypes.Exec.toString}"
+  } else if (expr.nonEmpty && isExpression) {
+    s"${OpTypes.Expr.toString}"
+  } else {
+    s"${opType.toString}"
+  }
+
+  val unsupportedOperator = if (finalOpType.equals(OpTypes.Expr.toString)) {
+    s"$expr"
+  } else {
+    s"$exec"
+  }
+
+  val unsupportedReason = s"Cannot run on GPU because it contains "
+
+  val details = if (opType.equals(OpTypes.UDF)) {
+    s" $unsupportedReason UDF"
+  } else if (opType.equals(OpTypes.DataSet)) {
+    s"$unsupportedReason Dataset"
+  } else if (expr.nonEmpty && finalOpType.equals(OpTypes.Exec.toString) && !isExpression) {
+    s"$unsupportedReason unsupported expression $expr"
+  } else {
+    ""
   }
 }
 
@@ -100,11 +124,19 @@ case class ExecInfo(
     }
   }
 
-  def getUnsupportedExecSummaryRecord: UnsupportedExecSummary = {
-    UnsupportedExecSummary(exec, opType, getOpAction)
+  def getUnsupportedExecSummaryRecord(
+      exprs: Array[String] = Array[String]()): Seq[UnsupportedExecSummary] = {
+    if (exprs.nonEmpty) {
+      exprs.flatMap { expr =>
+        List(
+          UnsupportedExecSummary(exec, opType, getOpAction, expr, true),
+          UnsupportedExecSummary(exec, opType, getOpAction, expr)
+        )
+      }
+    } else {
+      Seq(UnsupportedExecSummary(exec, opType, getOpAction))
+    }
   }
-
-
 }
 
 object ExecInfo {
