@@ -64,24 +64,29 @@ object DeltaLakeHelper {
   // [fieldName, type]
   private val schemaRegex =
     "\\s+\\|--\\s+([a-zA-Z]+(?:_[a-zA-Z]+)*):\\s+([a-zA-Z]+(?:_[a-zA-Z]+)*)\\s+\\(".r
+  val saveIntoDataSrcCMD = "SaveIntoDataSourceCommand"
+  private val atomicReplaceTableExec = "AtomicReplaceTableAsSelect"
   private val appendDataExecV1 = "AppendDataExecV1"
   private val overwriteByExprExecV1 = "OverwriteByExpressionExecV1"
-  val saveIntoDataSrcCMD = "SaveIntoDataSourceCommand"
+  private val mergeIntoCommandEdgeExec = "MergeIntoCommandEdge"
   // Note that the SaveIntoDataSourceCommand node name appears as
   // "Execute SaveIntoDataSourceCommand"
+  // Same for Execute MergeIntoCommandEdge
   private val exclusiveDeltaExecs = Set(
-    saveIntoDataSrcCMD
+    saveIntoDataSrcCMD,
+    mergeIntoCommandEdgeExec
   )
   // define the list of writeExecs that also exist in Spark
   private val deltaExecsFromSpark = Set(
     appendDataExecV1,
-    overwriteByExprExecV1
+    overwriteByExprExecV1,
+    atomicReplaceTableExec
   )
 
   // keywords used to verify that the operator provider is DeltaLake
   private val nodeDescKeywords = Set(
     "DeltaTableV2",
-    "WriteIntoDeltaBuilder"
+    "WriteIntoDeltaBuilder",
   )
 
   def accepts(nodeName: String): Boolean = {

@@ -617,11 +617,11 @@ object QualOutputWriter {
       appInfos: Seq[QualificationSummaryInfo]): LinkedHashMap[String, Int] = {
     val detailedHeaderAndFields = LinkedHashMap[String, Int](
       APP_ID_STR -> QualOutputWriter.getAppIdSize(appInfos),
+      STAGE_ID_STR -> STAGE_ID_STR.size,
+      EXEC_ID -> EXEC_ID.size,
       UNSUPPORTED_TYPE -> UNSUPPORTED_TYPE.size,
       UNSUPPORTED_OPERATOR -> UNSUPPORTED_OPERATOR.size,
       DETAILS -> DETAILS.size,
-      EXEC_ID -> EXEC_ID.size,
-      STAGE_ID_STR -> STAGE_ID_STR.size,
       STAGE_WALLCLOCK_DUR_STR -> STAGE_WALLCLOCK_DUR_STR.size,
       APP_DUR_STR -> APP_DUR_STR.size,
       ACTION -> ACTION.size
@@ -1049,15 +1049,15 @@ object QualOutputWriter {
     val appId = sumInfo.appId
     val appDuration = sumInfo.estimatedInfo.appDur
 
-    def constructDetailedUnsupportedRow(execId: Long, unSupExecInfo: UnsupportedExecSummary,
+    def constructDetailedUnsupportedRow(unSupExecInfo: UnsupportedExecSummary,
         stageId: Int, stageAppDuration: Long): String = {
       val data = ListBuffer[(String, Int)](
         reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
+        stageId.toString -> headersAndSizes(STAGE_ID_STR),
+        reformatCSVFunc(unSupExecInfo.execId.toString) -> headersAndSizes(EXEC_ID),
         reformatCSVFunc(unSupExecInfo.finalOpType) -> headersAndSizes(UNSUPPORTED_TYPE),
         reformatCSVFunc(unSupExecInfo.unsupportedOperator) -> headersAndSizes(UNSUPPORTED_OPERATOR),
-        reformatCSVFunc(unSupExecInfo.details.toString) -> headersAndSizes(DETAILS),
-        reformatCSVFunc(execId.toString) -> headersAndSizes(EXEC_ID),
-        stageId.toString -> headersAndSizes(STAGE_ID_STR),
+        reformatCSVFunc(unSupExecInfo.details) -> headersAndSizes(DETAILS),
         stageAppDuration.toString -> headersAndSizes(STAGE_WALLCLOCK_DUR_STR),
         appDuration.toString -> headersAndSizes(APP_DUR_STR),
         reformatCSVFunc(unSupExecInfo.opAction.toString) -> headersAndSizes(ACTION)
@@ -1068,11 +1068,9 @@ object QualOutputWriter {
     val execIdGenerator = new AtomicLong(0)
     sumInfo.origPlanStageInfo.map { sInfo =>
       getUnsupportedExecsPerStage(sumInfo, sInfo.stageId).map { execInfo =>
-        val execId = execIdGenerator.getAndIncrement()
-        val results = execInfo.getUnsupportedExecSummaryRecord(execInfo.unsupportedExprs)
-
+        val results = execInfo.getUnsupportedExecSummaryRecord(execIdGenerator.getAndIncrement())
         val unsupportedRows = results.map { unsupportedExecSummary =>
-          constructDetailedUnsupportedRow(execId, unsupportedExecSummary,
+          constructDetailedUnsupportedRow(unsupportedExecSummary,
             sInfo.stageId, sInfo.stageWallclockDuration)
         }.mkString
 
