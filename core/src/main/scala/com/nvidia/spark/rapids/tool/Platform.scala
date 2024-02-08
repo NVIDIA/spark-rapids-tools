@@ -97,18 +97,19 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   }
 
   def getOperatorScoreFile: String = {
-    s"operatorsScore-$toString.csv"
+    s"operatorsScore-$platformName-$getGpuOrDefault.csv"
   }
 
   final def getGpuOrDefault: GpuDevice = gpuDevice.getOrElse(defaultGpuDevice)
 
-  final def setGpuIfNotPresent(gpuDevice: GpuDevice): Unit = {
-    if (this.gpuDevice.isEmpty) {
-      this.gpuDevice = Some(gpuDevice)
-    }
+  final def setGpuDevice(gpuDevice: GpuDevice): Unit = {
+    this.gpuDevice = Some(gpuDevice)
   }
 
-  override def toString: String = s"$platformName-$getGpuOrDefault"
+  override def toString: String = {
+    val gpuStr = gpuDevice.fold("")(gpu => s"-$gpu")
+    s"$platformName$gpuStr"
+  }
 }
 
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
@@ -211,7 +212,7 @@ object PlatformFactory extends Logging {
    */
   def createInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
     val (platformName, gpuName) = extractPlatformGpuName(platformKey)
-    val gpuDevice = gpuName.map(GpuDevice.createInstance)
+    val gpuDevice = gpuName.flatMap(GpuDevice.createInstance)
     val platform = createPlatformInstance(platformName, gpuDevice)
     logInfo(s"Using platform: $platform")
     platform

@@ -582,7 +582,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   test("Load cluster properties with unknown GPU device") {
-    // with unknown gpu device, this test should throw exception
+    // with unknown gpu device, this test should default to A100
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
@@ -599,9 +599,29 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(2), Some("0MiB"), Some("GPU-X"))
     val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
-    assertThrows[IllegalArgumentException] {
-      autoTuner.getRecommendedProperties()
-    }
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.concurrentGpuTasks=4
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
+          |--conf spark.sql.shuffle.partitions=200
+          |
+          |Comments:
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
+          |- 'spark.sql.shuffle.partitions' was not set.
+          |- GPU device is missing. Setting default to $A100Gpu.
+          |- GPU memory is missing. Setting default to ${A100Gpu.getMemory}.
+          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
+          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    assert(expectedResults == autoTunerOutput)
   }
 
   test("test T4 dataproc cluster with dynamicAllocation enabled") {

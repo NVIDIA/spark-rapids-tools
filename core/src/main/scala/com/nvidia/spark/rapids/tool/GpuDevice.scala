@@ -101,16 +101,17 @@ object GpuDevice extends Logging {
 
   val DEFAULT: GpuDevice = T4Gpu
 
-  def createInstance(gpuName: String): GpuDevice = gpuName.toLowerCase match {
-    case GpuTypes.A100 => A100Gpu
-    case GpuTypes.T4 => T4Gpu
-    case GpuTypes.L4 => L4Gpu
-    case GpuTypes.V100 => V100Gpu
-    case GpuTypes.K80 => K80Gpu
-    case GpuTypes.P100 => P100Gpu
-    case GpuTypes.P4 => P4Gpu
-    case GpuTypes.A10 => A10Gpu
-    case GpuTypes.A10G => A10GGpu
-    case _ => throw new IllegalArgumentException(s"Unsupported GPU type: $gpuName")
-  }
+  lazy val deviceMap: Map[String, GpuDevice] = Map(
+    GpuTypes.A100-> A100Gpu,
+    GpuTypes.T4 -> T4Gpu,
+    GpuTypes.L4 -> L4Gpu,
+    GpuTypes.V100 -> V100Gpu,
+    GpuTypes.K80 -> K80Gpu,
+    GpuTypes.P100 -> P100Gpu,
+    GpuTypes.P4 -> P4Gpu,
+    GpuTypes.A10 -> A10Gpu,
+    GpuTypes.A10G -> A10GGpu
+  )
+
+  def createInstance(gpuName: String): Option[GpuDevice] = deviceMap.get(gpuName)
 }

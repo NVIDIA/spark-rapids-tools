@@ -70,7 +70,7 @@ class GpuWorkerProps(
     }
   }
   def setDefaultGpuNameIfMissing(platform: Platform): Boolean = {
-    if (name == null || name.isEmpty || name == "None") {
+    if (!GpuDevice.deviceMap.contains(name)) {
       name = platform.defaultGpuDevice.toString
       true
     } else {
@@ -87,7 +87,7 @@ class GpuWorkerProps(
   def setDefaultGpuMemIfMissing(): Boolean = {
     if (memory == null || memory.isEmpty || memory.startsWith("0")) {
       memory = try {
-        GpuDevice.createInstance(getName).getMemory
+        GpuDevice.createInstance(getName).getOrElse(GpuDevice.DEFAULT).getMemory
       } catch {
         case _: IllegalArgumentException => GpuDevice.DEFAULT.getMemory
       }
@@ -1002,8 +1002,12 @@ class AutoTuner(
       initRecommendations()
       calculateJobLevelRecommendations()
       if (processPropsAndCheck) {
-        // update GPU device from cluster properties if not present in platform
-        platform.setGpuIfNotPresent(GpuDevice.createInstance(clusterProps.gpu.getName))
+        // update GPU device of platform based on cluster properties if it iss not already set.
+        // if the GPU device cannot be inferred from cluster properties, do not make any updates.
+        if(platform.gpuDevice.isEmpty) {
+          GpuDevice.createInstance(clusterProps.gpu.getName)
+            .foreach(platform.setGpuDevice)
+        }
         calculateClusterLevelRecommendations()
       } else {
         // add all default comments
