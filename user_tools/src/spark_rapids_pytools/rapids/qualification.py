@@ -817,7 +817,7 @@ class Qualification(RapidsJarTool):
             highlighted_code = TemplateGenerator.highlight_bash_code(script_content)
             return ['```bash', highlighted_code, '```', '']
         if sec_conf.get('sectionID') == 'gpuBootstrapRecommendedConfigs':
-            # This is disabled by default in teh config files
+            # This is disabled by default in the config files
             return self.__generate_recommended_configs_report()
         return super()._generate_section_content(sec_conf)
 
