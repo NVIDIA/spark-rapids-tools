@@ -25,7 +25,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, PlatformFactory, T4Gpu}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
@@ -69,9 +69,9 @@ class GpuWorkerProps(
       false
     }
   }
-  def setDefaultGpuNameIfMissing(): Boolean = {
+  def setDefaultGpuNameIfMissing(platform: Platform): Boolean = {
     if (name == null || name.isEmpty || name == "None") {
-      name = GpuDevice.DEFAULT.toString
+      name = platform.defaultGpuDevice.toString
       true
     } else {
       false
@@ -80,7 +80,7 @@ class GpuWorkerProps(
 
   /**
    * If the GPU memory is missing, it will sets a default valued based on the GPU device type.
-   * If it is still missing, it sets a default to 15109m.
+   * If it is still missing, it sets a default to 15109m (T4).
    *
    * @return true if the value has been updated.
    */
@@ -89,7 +89,7 @@ class GpuWorkerProps(
       memory = try {
         GpuDevice.createInstance(getName).getMemory
       } catch {
-        case _: IllegalArgumentException => "15109m"
+        case _: IllegalArgumentException => T4Gpu.getMemory
       }
       true
     } else {
@@ -102,12 +102,12 @@ class GpuWorkerProps(
    * @return a list containing information of what was missing and the default value that has been
    *         used to initialize the field.
    */
-  def setMissingFields(): Seq[String] = {
+  def setMissingFields(platform: Platform): Seq[String] = {
     val res = new ListBuffer[String]()
     if (setDefaultGpuCountIfMissing()) {
       res += s"GPU count is missing. Setting default to $getCount."
     }
-    if (setDefaultGpuNameIfMissing()) {
+    if (setDefaultGpuNameIfMissing(platform)) {
       res += s"GPU device is missing. Setting default to $getName."
     }
     if (setDefaultGpuMemIfMissing()) {
@@ -349,8 +349,6 @@ class AutoTuner(
   private val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
-  // selected gpu device based on cluster properties and platform
-  private var gpuDevice: GpuDevice = _
 
   private def isCalculationEnabled(prop: String) : Boolean = {
     !limitedLogicRecommendations.contains(prop)
@@ -467,7 +465,7 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   def calcGpuConcTasks(): Long = {
-    Math.min(MAX_CONC_GPU_TASKS, gpuDevice.getGpuConcTasks)
+    Math.min(MAX_CONC_GPU_TASKS, platform.getGpuOrDefault.getGpuConcTasks)
   }
 
   /**
@@ -650,7 +648,7 @@ class AutoTuner(
         clusterProps.system.setMissingFields().foreach(m => appendComment(m))
       }
       if (clusterProps.gpu.isMissingInfo) {
-        clusterProps.gpu.setMissingFields().foreach(m => appendComment(m))
+        clusterProps.gpu.setMissingFields(platform).foreach(m => appendComment(m))
       }
       true
     }
@@ -708,13 +706,13 @@ class AutoTuner(
     if (appInfoProvider.getMeanInput > AQE_INPUT_SIZE_BYTES_THRESHOLD &&
       appInfoProvider.getMeanShuffleRead > AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
       // AQE Recommendations for large input and large shuffle reads
-      gpuDevice.getAdvisoryPartitionSizeInBytes.foreach { size =>
+      platform.getGpuOrDefault.getAdvisoryPartitionSizeInBytes.foreach { size =>
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
       }
       val initialPartitionNumProperty =
         getPropertyValue("spark.sql.adaptive.coalescePartitions.initialPartitionNum").map(_.toInt)
       if (initialPartitionNumProperty.getOrElse(0) <= AQE_MIN_INITIAL_PARTITION_NUM) {
-        gpuDevice.getInitialPartitionNum.foreach { initialPartitionNum =>
+        platform.getGpuOrDefault.getInitialPartitionNum.foreach { initialPartitionNum =>
           appendRecommendation(
             "spark.sql.adaptive.coalescePartitions.initialPartitionNum", initialPartitionNum)
         }
@@ -1004,9 +1002,8 @@ class AutoTuner(
       initRecommendations()
       calculateJobLevelRecommendations()
       if (processPropsAndCheck) {
-        // create GPU device instance from the platform, or from cluster properties
-        gpuDevice = platform.getGpuDevice.getOrElse(
-          GpuDevice.createInstance(clusterProps.gpu.getName))
+        // update GPU device from cluster properties if not present in platform
+        platform.setGpuIfNotPresent(GpuDevice.createInstance(clusterProps.gpu.getName))
         calculateClusterLevelRecommendations()
       } else {
         // add all default comments

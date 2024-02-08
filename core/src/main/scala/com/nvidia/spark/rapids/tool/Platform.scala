@@ -38,8 +38,8 @@ object PlatformNames {
   def getAllNames: List[String] = List(
     DATABRICKS_AWS, DATABRICKS_AZURE, DATAPROC, EMR, ONPREM,
     s"$DATAPROC-$L4Gpu", s"$DATAPROC-$T4Gpu",
-    s"$DATAPROC_GKE-$L4Gpu", s"$DATAPROC_GKE-${GpuTypes.T4}",
-    s"$DATAPROC_SL-${GpuTypes.L4}", s"$EMR-${GpuTypes.A10}", s"$EMR-${GpuTypes.T4}"
+    s"$DATAPROC_GKE-$L4Gpu", s"$DATAPROC_GKE-$T4Gpu",
+    s"$DATAPROC_SL-$L4Gpu", s"$EMR-$A10Gpu", s"$EMR-$T4Gpu"
   )
 }
 
@@ -48,9 +48,10 @@ object PlatformNames {
  *
  * @param gpuDevice Gpu Device present in the platform
  */
-abstract class Platform(gpuDevice: Option[GpuDevice]) {
+abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   val platformName: String
-  final def getGpuDevice: Option[GpuDevice] = gpuDevice
+  val defaultGpuDevice: GpuDevice
+
   /**
    * Recommendations to be excluded from the list of recommendations.
    * These have the highest priority.
@@ -99,13 +100,20 @@ abstract class Platform(gpuDevice: Option[GpuDevice]) {
     s"operatorsScore-$toString.csv"
   }
 
-  override def toString: String = {
-    val gpuStr = gpuDevice.fold("")(gpu => s"-$gpu")
-    s"$platformName$gpuStr"
+  final def getGpuOrDefault: GpuDevice = gpuDevice.getOrElse(defaultGpuDevice)
+
+  final def setGpuIfNotPresent(gpuDevice: GpuDevice): Unit = {
+    if (this.gpuDevice.isEmpty) {
+      this.gpuDevice = Some(gpuDevice)
+    }
   }
+
+  override def toString: String = s"$platformName-$getGpuOrDefault"
 }
 
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
+  override val defaultGpuDevice: GpuDevice = T4Gpu
+
   override val recommendationsToExclude: Seq[String] = Seq(
     "spark.executor.cores",
     "spark.executor.instances",
@@ -127,10 +135,12 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPl
 
 class DataprocPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC
+  override val defaultGpuDevice: GpuDevice = T4Gpu
 }
 
 class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC_SL
+  override val defaultGpuDevice: GpuDevice = L4Gpu
 }
 
 class DataprocGkePlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
@@ -139,10 +149,12 @@ class DataprocGkePlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform
 
 class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.EMR
+  override val defaultGpuDevice: GpuDevice = T4Gpu
 }
 
 class OnPremPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.ONPREM
+  override val defaultGpuDevice: GpuDevice = A100Gpu
 }
 
 /**
@@ -156,7 +168,7 @@ object PlatformFactory extends Logging {
    * Assumption: If the last part contains a number, we assume it is GPU name
    *
    * E.g.,
-   * - 'emr-t4': Platform: dataproc, GPU: t4
+   * - 'emr-t4': Platform: emr, GPU: t4
    * - 'dataproc-gke-l4': Platform dataproc-gke, GPU: l4
    * - 'databricks-aws': Platform databricks-aws, GPU: None
    */
@@ -200,6 +212,8 @@ object PlatformFactory extends Logging {
   def createInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
     val (platformName, gpuName) = extractPlatformGpuName(platformKey)
     val gpuDevice = gpuName.map(GpuDevice.createInstance)
-    createPlatformInstance(platformName, gpuDevice)
+    val platform = createPlatformInstance(platformName, gpuDevice)
+    logInfo(s"Using platform: $platform")
+    platform
   }
 }

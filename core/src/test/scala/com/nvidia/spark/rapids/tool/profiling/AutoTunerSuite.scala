@@ -562,6 +562,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       s"""|
           |Spark Properties:
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.concurrentGpuTasks=4
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
           |--conf spark.sql.shuffle.partitions=200
@@ -572,8 +573,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- GPU device is missing. Setting default to $T4Gpu.
-          |- GPU memory is missing. Setting default to 15109m.
+          |- GPU device is missing. Setting default to $A100Gpu.
+          |- GPU memory is missing. Setting default to ${A100Gpu.getMemory}.
           |- ${AutoTuner.classPathComments("rapids.jars.missing")}
           |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
