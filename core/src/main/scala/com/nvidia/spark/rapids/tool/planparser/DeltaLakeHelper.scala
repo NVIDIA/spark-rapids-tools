@@ -108,7 +108,7 @@ object DeltaLakeHelper {
         // [replaceWhere=VAR_1 IN ('WHATEVER')], true,
         // org.apache.spark.sql.execution.datasources.
         // v2.DataSourceV2Strategy$$Lambda$XXXXX
-        node.desc.matches("(?i).*delta.*")
+        node.desc.matches("""(?i).*delta.*""")
       } else {
         false
       }
