@@ -50,8 +50,8 @@ object UnsupportedReasons extends Enumeration {
     unsupportedReason match {
       case IS_UDF => "Is UDF"
       case CONTAINS_UDF => "Contains UDF"
-      case IS_DATASET => "Is Dataset"
-      case CONTAINS_DATASET => "Contains Dataset"
+      case IS_DATASET => "Is Dataset or RDD"
+      case CONTAINS_DATASET => "Contains Dataset or RDD"
       case IS_UNSUPPORTED => "Unsupported"
       case CONTAINS_UNSUPPORTED_EXPR => "Contains unsupported expr"
       case UNSUPPORTED_IO_FORMAT => "Unsupported IO format"
@@ -60,6 +60,7 @@ object UnsupportedReasons extends Enumeration {
 }
 
 case class UnsupportedExecSummary(
+    sqlId: Long,
     execId: Long,
     execValue: String,
     opType: OpTypes.OpType,
@@ -159,7 +160,8 @@ case class ExecInfo(
   def getUnsupportedExecSummaryRecord(execId: Long): Seq[UnsupportedExecSummary] = {
     val unsupportedReason = getUnsupportedReason
     val res =
-      ArrayBuffer(UnsupportedExecSummary(execId, exec, opType, unsupportedReason, getOpAction))
+      ArrayBuffer(UnsupportedExecSummary(sqlID, execId, exec, opType,
+        unsupportedReason, getOpAction))
     // TODO: Should we iterate on exec children?
     // add the unsupported expressions to the results
     if (unsupportedExprs.nonEmpty) {
@@ -171,7 +173,8 @@ case class ExecInfo(
         case _ => UnsupportedReasons.IS_UNSUPPORTED
       }
       unsupportedExprs.foreach { expr =>
-        res += UnsupportedExecSummary(execId, expr, OpTypes.Expr, exprReason, getOpAction, true)
+        res += UnsupportedExecSummary(sqlID, execId, expr, OpTypes.Expr,
+          exprReason, getOpAction, true)
       }
     }
     res.toSeq
@@ -213,11 +216,13 @@ object ExecInfo {
     } else {
       opType
     }
+    // Remove "Execute " from the exec name if it is there
+    val execName = exec.replace("Execute ", "")
     // Set the supported Flag
     val supportedFlag = isSupported && !udf && !finalDataSet
     ExecInfo(
       sqlID,
-      exec,
+      execName,
       expr,
       speedupFactor,
       duration,
