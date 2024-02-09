@@ -38,6 +38,7 @@ import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.qualification.MLFunctions
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
 import org.apache.spark.util.Utils
+import org.apache.spark.util.Utils.REDACTION_REPLACEMENT_TEXT
 
 // Handles updating and caching Spark Properties for a Spark application.
 // Properties stored in this container can be accessed to make decision about certain analysis
@@ -46,6 +47,37 @@ trait CacheableProps {
   private val RETAINED_SYSTEM_PROPS = Set(
     "file.encoding", "java.version", "os.arch", "os.name",
     "os.version", "user.timezone")
+
+  // Patterns to be used to redact sensitive values from Spark Properties.
+  private val REDACTED_PROPERTIES = Set[String](
+    // S3
+    "spark.hadoop.fs.s3a.secret.key",
+    "spark.hadoop.fs.s3a.access.key",
+    "spark.hadoop.fs.s3a.session.token",
+    "spark.hadoop.fs.s3a.encryption.key",
+    "spark.hadoop.fs.s3a.bucket.nightly.access.key",
+    "spark.hadoop.fs.s3a.bucket.nightly.secret.key",
+    "spark.hadoop.fs.s3a.bucket.nightly.session.token",
+    // ABFS
+    "spark.hadoop.fs.azure.account.oauth2.client.secret",
+    "spark.hadoop.fs.azure.account.oauth2.client.id",
+    "spark.hadoop.fs.azure.account.oauth2.refresh.token",
+    "spark.hadoop.fs.azure.account.key\\..*",
+    "spark.hadoop.fs.azure.account.auth.type\\..*",
+    // GCS
+    "spark.hadoop.google.cloud.auth.service.account.json.keyfile",
+    "spark.hadoop.fs.gs.auth.client.id",
+    "spark.hadoop.fs.gs.encryption.key",
+    "spark.hadoop.fs.gs.auth.client.secret",
+    "spark.hadoop.fs.gs.auth.refresh.token",
+    "spark.hadoop.fs.gs.auth.impersonation.service.account.for.user\\..*",
+    "spark.hadoop.fs.gs.auth.impersonation.service.account.for.group\\..*",
+    "spark.hadoop.fs.gs.auth.impersonation.service.account",
+    "spark.hadoop.fs.gs.proxy.username",
+    // matches on any key that contains password in it.
+    "(?i).*password.*"
+  )
+
   // caches the spark-version from the eventlogs
   var sparkVersion: String = ""
   var gpuMode = false
@@ -58,8 +90,16 @@ trait CacheableProps {
   // set the fileEncoding to UTF-8 by default
   var systemProperties = Map[String, String]()
 
+  private def processPropKeys(srcMap: Map[String, String]): Map[String, String] = {
+    // Redact the sensitive values in the given map.
+    val redactedKeys = REDACTED_PROPERTIES.collect {
+      case rK if srcMap.keySet.exists(_.matches(rK)) => rK -> REDACTION_REPLACEMENT_TEXT
+    }
+    srcMap ++ redactedKeys
+  }
+
   def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
-    sparkProperties ++= event.environmentDetails("Spark Properties").toMap
+    sparkProperties ++= processPropKeys(event.environmentDetails("Spark Properties").toMap)
     classpathEntries ++= event.environmentDetails("Classpath Entries").toMap
 
     gpuMode ||=  ProfileUtils.isPluginEnabled(sparkProperties)

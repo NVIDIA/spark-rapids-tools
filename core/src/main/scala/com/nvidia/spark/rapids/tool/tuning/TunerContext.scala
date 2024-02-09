@@ -29,7 +29,8 @@ import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 case class TuningResult(
     appID: String,
     recommendations: Seq[RecommendedPropertyResult],
-    comments: Seq[RecommendedCommentResult])
+    comments: Seq[RecommendedCommentResult],
+    combinedProps: Option[Seq[RecommendedPropertyResult]] = None)
 
 /**
  * Container which holds metadata and arguments specific to the execution of the AutoTuner.
