@@ -43,8 +43,6 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
     }
     // execs like SaveIntoDataSourceCommand has prefix "Execute". So, we need to get rid of it.
     val nodeName = node.name.replace("Execute ", "")
-    // TODO get the schema to check if it is supported
-    // val schema = DeltaLakeHelper.getSchema(node.desc)
     ExecInfo.createExecNoNode(sqlID, nodeName,
       s"Format: $dataFormat", speedupFactor, None, node.id, OpTypes.WriteExec,
       isSupported = writeSupported, children = None)
@@ -74,20 +72,17 @@ object DeltaLakeHelper {
   // Same for Execute MergeIntoCommandEdge
   private val exclusiveDeltaExecs = Set(
     saveIntoDataSrcCMD,
-    mergeIntoCommandEdgeExec
-  )
+    mergeIntoCommandEdgeExec)
   // define the list of writeExecs that also exist in Spark
   private val deltaExecsFromSpark = Set(
     appendDataExecV1,
     overwriteByExprExecV1,
-    atomicReplaceTableExec
-  )
+    atomicReplaceTableExec)
 
   // keywords used to verify that the operator provider is DeltaLake
   private val nodeDescKeywords = Set(
     "DeltaTableV2",
-    "WriteIntoDeltaBuilder",
-  )
+    "WriteIntoDeltaBuilder")
 
   def accepts(nodeName: String): Boolean = {
     exclusiveDeltaExecs.exists(k => nodeName.contains(k)) || deltaExecsFromSpark.contains(nodeName)
