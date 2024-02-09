@@ -74,9 +74,9 @@ case class UnsupportedExecSummary(
     s"${opType.toString}"
   }
 
-  val unsupportedOperator = execValue
+  val unsupportedOperator: String = execValue
 
-  val details = UnsupportedReasons.reportUnsupportedReason(reason, execValue)
+  val details: String = UnsupportedReasons.reportUnsupportedReason(reason, execValue)
 
 }
 
@@ -112,7 +112,7 @@ case class ExecInfo(
     s"exec: $exec, expr: $expr, sqlID: $sqlID , speedupFactor: $speedupFactor, " +
       s"duration: $duration, nodeId: $nodeId, " +
       s"isSupported: $isSupported, children: " +
-      s"${childrenToString}, stages: ${stages.mkString(",")}, " +
+      s"$childrenToString, stages: ${stages.mkString(",")}, " +
       s"shouldRemove: $shouldRemove, shouldIgnore: $shouldIgnore"
   }
 
@@ -124,7 +124,7 @@ case class ExecInfo(
     shouldRemove ||= value
   }
 
-  def getOpAction: OpActions.OpAction = {
+  private def getOpAction: OpActions.OpAction = {
     if (shouldIgnore) {
       OpActions.IgnorePerf
     } else if (shouldRemove) {
@@ -134,7 +134,7 @@ case class ExecInfo(
     }
   }
 
-  def getUnsupportedReason(): UnsupportedReasons.UnsupportedReason = {
+  private def getUnsupportedReason: UnsupportedReasons.UnsupportedReason = {
     if (children.isDefined) {
       // TODO: Handle the children
     }
@@ -174,10 +174,10 @@ case class ExecInfo(
       }
       unsupportedExprs.foreach { expr =>
         res += UnsupportedExecSummary(sqlID, execId, expr, OpTypes.Expr,
-          exprReason, getOpAction, true)
+          exprReason, getOpAction, isExpression = true)
       }
     }
-    res.toSeq
+    res
   }
 }
 
@@ -203,7 +203,7 @@ object ExecInfo {
     // 1- we ignore any exec with UDF
     // 2- we ignore any exec with dataset
     // 3- Finally we ignore any exec matching the lookup table
-    // if the opType is RDD, then we automaticall enable the datasetFlag
+    // if the opType is RDD, then we automatically enable the datasetFlag
     val finalDataSet = dataSet || opType.equals(OpTypes.ReadRDD)
     val shouldIgnore = udf || finalDataSet || ExecHelper.shouldIgnore(exec)
     val removeFlag = shouldRemove || ExecHelper.shouldBeRemoved(exec)
@@ -216,13 +216,11 @@ object ExecInfo {
     } else {
       opType
     }
-    // Remove "Execute " from the exec name if it is there
-    val execName = exec.replace("Execute ", "")
     // Set the supported Flag
     val supportedFlag = isSupported && !udf && !finalDataSet
     ExecInfo(
       sqlID,
-      execName,
+      exec,
       expr,
       speedupFactor,
       duration,
@@ -700,7 +698,7 @@ object SQLPlanParser extends Logging {
     // any window function
     for ( i <- 0 to windowExprs.size - 1 ) {
       val windowFunc = windowFunctionPattern.findAllIn(windowExprs(i)).toList
-      val expr = windowFunc(windowFunc.size -1)
+      val expr = windowFunc.last
       val functionName = getFunctionName(windowFunctionPattern, expr)
       functionName match {
         case Some(func) => parsedExpressions += func
@@ -745,7 +743,7 @@ object SQLPlanParser extends Logging {
       val parenRemoved = orderString.get.toString.replaceAll("orderBy=", "").
         split("(?<=FIRST,)|(?<=LAST,)").map(_.trim).map(
         _.replaceAll("""^\[+""", "").replaceAll("""\]+$""", ""))
-      parenRemoved.foreach { case expr =>
+      parenRemoved.foreach { expr =>
         val functionName = getFunctionName(functionPattern, expr)
         functionName match {
           case Some(func) => parsedExpressions += func
@@ -785,7 +783,7 @@ object SQLPlanParser extends Logging {
        ""
      }
      // SortMergeJoin doesn't have buildSide, assign empty string in that case
-     val buildSide = if (joinParams.size > 1) {
+     val buildSide = if (joinParams.length > 1) {
        joinParams(1).trim
      } else {
        ""
@@ -881,7 +879,7 @@ object SQLPlanParser extends Logging {
     if (sortString.isDefined) {
       val paranRemoved = sortString.get.toString.split("(?<=FIRST,)|(?<=LAST,)").
           map(_.trim).map(_.replaceAll("""^\[+""", "").replaceAll("""\]+$""", ""))
-      paranRemoved.foreach { case expr =>
+      paranRemoved.foreach { expr =>
         val functionName = getFunctionName(functionPattern, expr)
         functionName match {
           case Some(func) => parsedExpressions += func
