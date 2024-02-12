@@ -24,7 +24,7 @@ import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, PlatformFactory}
 import java.util
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
@@ -33,7 +33,7 @@ import org.yaml.snakeyaml.constructor.{Constructor, ConstructorException}
 import org.yaml.snakeyaml.representer.Representer
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.{GpuTypes, ToolUtils}
+import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.util.{StringUtils, WebCrawlerUtil}
 
 /**
@@ -69,9 +69,9 @@ class GpuWorkerProps(
       false
     }
   }
-  def setDefaultGpuNameIfMissing(): Boolean = {
-    if (name == null || name.isEmpty || name == "None") {
-      name = AutoTuner.DEF_WORKER_GPU_NAME
+  def setDefaultGpuNameIfMissing(platform: Platform): Boolean = {
+    if (!GpuDevice.deviceMap.contains(name)) {
+      name = platform.defaultGpuDevice.toString
       true
     } else {
       false
@@ -80,16 +80,16 @@ class GpuWorkerProps(
 
   /**
    * If the GPU memory is missing, it will sets a default valued based on the GPU device type.
-   * If it is still missing, it sets a default to 15109m.
+   * If it is still missing, it sets a default to 15109m (T4).
    *
    * @return true if the value has been updated.
    */
   def setDefaultGpuMemIfMissing(): Boolean = {
     if (memory == null || memory.isEmpty || memory.startsWith("0")) {
       memory = try {
-        GpuTypes.getGpuMem(getName)
+        GpuDevice.createInstance(getName).getOrElse(GpuDevice.DEFAULT).getMemory
       } catch {
-        case _: IllegalArgumentException => "15109m"
+        case _: IllegalArgumentException => GpuDevice.DEFAULT.getMemory
       }
       true
     } else {
@@ -102,12 +102,12 @@ class GpuWorkerProps(
    * @return a list containing information of what was missing and the default value that has been
    *         used to initialize the field.
    */
-  def setMissingFields(): Seq[String] = {
+  def setMissingFields(platform: Platform): Seq[String] = {
     val res = new ListBuffer[String]()
     if (setDefaultGpuCountIfMissing()) {
       res += s"GPU count is missing. Setting default to $getCount."
     }
-    if (setDefaultGpuNameIfMissing()) {
+    if (setDefaultGpuNameIfMissing(platform)) {
       res += s"GPU device is missing. Setting default to $getName."
     }
     if (setDefaultGpuMemIfMissing()) {
@@ -322,7 +322,7 @@ class RecommendationEntry(val name: String,
  *      - 'spark.executor.memory' should be set to at least 2GB/core.
  *      - 'spark.executor.instances' should be set to (gpuCount * numWorkers).
  *      - 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
- *      - 'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).
+ *      - 'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).
  *      - 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
  *      - 'spark.sql.adaptive.enabled' should be enabled for better performance.
  *
@@ -470,8 +470,7 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   def calcGpuConcTasks(): Long = {
-    Math.min(MAX_CONC_GPU_TASKS,
-      StringUtils.convertToMB(clusterProps.gpu.memory) / DEF_GPU_MEM_PER_TASK_MB)
+    Math.min(MAX_CONC_GPU_TASKS, platform.getGpuOrDefault.getGpuConcTasks)
   }
 
   /**
@@ -654,7 +653,7 @@ class AutoTuner(
         clusterProps.system.setMissingFields().foreach(m => appendComment(m))
       }
       if (clusterProps.gpu.isMissingInfo) {
-        clusterProps.gpu.setMissingFields().foreach(m => appendComment(m))
+        clusterProps.gpu.setMissingFields(platform).foreach(m => appendComment(m))
       }
       true
     }
@@ -712,27 +711,16 @@ class AutoTuner(
     if (appInfoProvider.getMeanInput > AQE_INPUT_SIZE_BYTES_THRESHOLD &&
       appInfoProvider.getMeanShuffleRead > AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
       // AQE Recommendations for large input and large shuffle reads
-      val advisoryPartitionSizeInBytes = clusterProps.gpu.name match {
-        case GpuTypes.A100 => "64m"
-        case GpuTypes.T4 => "32m"
-        case _ => AQE_DEF_ADVISORY_PARTITION_SIZE
+      platform.getGpuOrDefault.getAdvisoryPartitionSizeInBytes.foreach { size =>
+        appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
       }
-      appendRecommendation(
-        "spark.sql.adaptive.advisoryPartitionSizeInBytes",
-        advisoryPartitionSizeInBytes
-      )
       val initialPartitionNumProperty =
         getPropertyValue("spark.sql.adaptive.coalescePartitions.initialPartitionNum").map(_.toInt)
       if (initialPartitionNumProperty.getOrElse(0) <= AQE_MIN_INITIAL_PARTITION_NUM) {
-        val initialPartitionNum = clusterProps.gpu.name match {
-          case GpuTypes.A100 => 400
-          case GpuTypes.T4 => 800
-          case _ => AQE_DEF_INITIAL_PARTITION_NUM
+        platform.getGpuOrDefault.getInitialPartitionNum.foreach { initialPartitionNum =>
+          appendRecommendation(
+            "spark.sql.adaptive.coalescePartitions.initialPartitionNum", initialPartitionNum)
         }
-        appendRecommendation(
-          "spark.sql.adaptive.coalescePartitions.initialPartitionNum",
-          initialPartitionNum
-        )
       }
       // We need to set this to false, else Spark ignores the target size specified by
       // spark.sql.adaptive.advisoryPartitionSizeInBytes.
@@ -1019,6 +1007,12 @@ class AutoTuner(
       initRecommendations()
       calculateJobLevelRecommendations()
       if (processPropsAndCheck) {
+        // update GPU device of platform based on cluster properties if it iss not already set.
+        // if the GPU device cannot be inferred from cluster properties, do not make any updates.
+        if(platform.gpuDevice.isEmpty) {
+          GpuDevice.createInstance(clusterProps.gpu.getName)
+            .foreach(platform.setGpuDevice)
+        }
         calculateClusterLevelRecommendations()
       } else {
         // add all default comments
@@ -1060,10 +1054,6 @@ class AutoTuner(
 }
 
 object AutoTuner extends Logging {
-  // Amount of GPU memory to use per concurrent task in megabytes.
-  // Using a bit less than 8GB here since Dataproc clusters advertise T4s as only having
-  // around 14.75 GB and we want to run with 2 concurrent by default on T4s.
-  val DEF_GPU_MEM_PER_TASK_MB = 7500L
   // Maximum number of concurrent tasks to run on the GPU
   val MAX_CONC_GPU_TASKS = 4L
   // Amount of CPU memory to reserve for system overhead (kernel, buffers, etc.) in megabytes
@@ -1091,8 +1081,6 @@ object AutoTuner extends Logging {
   val DEF_SHUFFLE_PARTITION_MULTIPLIER: Int = 2
   // GPU count defaults to 1 if it is missing.
   val DEF_WORKER_GPU_COUNT = 1
-  // GPU default device is T4
-  val DEF_WORKER_GPU_NAME = GpuTypes.T4
   // Default Number of Workers 1
   val DEF_NUM_WORKERS = 1
   // Default distinct read location thresholds is 50%
@@ -1107,8 +1095,6 @@ object AutoTuner extends Logging {
   private val BATCH_SIZE_BYTES = 2147483647
   private val AQE_INPUT_SIZE_BYTES_THRESHOLD = 35000
   private val AQE_SHUFFLE_READ_BYTES_THRESHOLD = 50000
-  private val AQE_DEF_ADVISORY_PARTITION_SIZE = "32m"
-  private val AQE_DEF_INITIAL_PARTITION_NUM = 800
   private val AQE_MIN_INITIAL_PARTITION_NUM = 200
   private val AQE_AUTOBROADCAST_JOIN_THRESHOLD = "100m"
   // Set of spark properties to be filtered out from the combined Spark properties.
@@ -1124,7 +1110,7 @@ object AutoTuner extends Logging {
     "spark.task.resource.gpu.amount" ->
       "'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).",
     "spark.rapids.sql.concurrentGpuTasks" ->
-      s"'spark.rapids.sql.concurrentGpuTasks' should be set to Max(4, (gpuMemory / 8G)).",
+      s"'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).",
     "spark.rapids.memory.pinnedPool.size" ->
       s"'spark.rapids.memory.pinnedPool.size' should be set to ${DEF_PINNED_MEMORY_MB}m.",
     "spark.rapids.sql.enabled" ->
