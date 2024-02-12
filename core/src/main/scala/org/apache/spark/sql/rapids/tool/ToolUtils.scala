@@ -304,7 +304,14 @@ object SQLMetricsStats {
   }
 }
 
-object ExecHelper {
+case class RDDCheckResult(
+    nodeNameRDD: Boolean,
+    nodeDescRDD: Boolean,
+    expr: Set[String] = Set.empty) {
+  def isRDD: Boolean = nodeNameRDD || nodeDescRDD
+}
+
+object RDDCheckHelper {
   // regular expression to search for RDDs in node descriptions
   private val dataSetRDDRegExDescLookup = Set(
     ".*\\$Lambda\\$.*".r,
@@ -325,6 +332,21 @@ object ExecHelper {
     "FlatMapGroupsInRWithArrow$".r,
     "CoGroup$".r
   )
+
+  def isDatasetOrRDDPlan(nodeName: String, nodeDesc: String): RDDCheckResult = {
+    val nodeNameRdd = dataSetOrRDDRegExLookup.exists(regEx => nodeName.trim.matches(regEx.regex))
+    // For optimization purpose, we do not want to to search for matches inside node description
+    // if it is not necessary.
+    val nodeDescRdd = !nodeNameRdd &&
+      dataSetRDDRegExDescLookup.exists(regEx => nodeDesc.matches(regEx.regex))
+    // TODO: catch the expressions that match the regular expression so we can pass it later to
+    //       the reporting
+    RDDCheckResult(nodeNameRdd, nodeDescRdd)
+  }
+}
+
+
+object ExecHelper {
   private val UDFRegExLookup = Set(
     ".*UDF.*".r
   )
@@ -335,15 +357,15 @@ object ExecHelper {
 
   // Set containing execs that should be labeled as "shouldRemove"
   private val execsToBeRemoved = Set(
-    "GenerateBloomFilter",   // Exclusive on AWS. Ignore it as metrics cannot be evaluated.
-    "ReusedExchange",        // reusedExchange should not be added to speedups
-    "ColumnarToRow"          // for now, assume everything is columnar
+    "GenerateBloomFilter",    // Exclusive on AWS. Ignore it as metrics cannot be evaluated.
+    "ReusedExchange",         // reusedExchange should not be added to speedups
+    "ColumnarToRow",          // for now, assume everything is columnar
+    // Our customer-integration team requested this to be added to the list of execs to be removed.
+    "ResultQueryStage",
+    // AdaptiveSparkPlan is not a real exec. It is a wrapper for the whole plan.
+    // Our customer-integration team requested this to be added to the list of execs to be removed.
+    "AdaptiveSparkPlan"       // according to request from our customer facing team
   )
-
-  def isDatasetOrRDDPlan(nodeName: String, nodeDesc: String): Boolean = {
-    dataSetRDDRegExDescLookup.exists(regEx => nodeDesc.matches(regEx.regex)) ||
-      dataSetOrRDDRegExLookup.exists(regEx => nodeName.trim.matches(regEx.regex))
-  }
 
   def isUDF(node: SparkPlanGraphNode): Boolean = {
     if (skipUDFCheckExecs.exists(node.name.contains(_))) {
@@ -359,8 +381,6 @@ object ExecHelper {
 
   ///////////////////////////////////////////
   // start definitions of execs to be ignored
-  // AdaptiveSparkPlan is not a real exec. It is a wrapper for the whole plan.
-  private val AdaptiveSparkPlan = "AdaptiveSparkPlan"
   // Collect Limit replacement can be slower on the GPU. Disabled by default.
   private val CollectLimit = "CollectLimit"
   // Some DDL's  and table commands which can be ignored
@@ -396,7 +416,7 @@ object ExecHelper {
   private val ExecDescribeDeltaHistoryCommand = "Execute DescribeDeltaHistoryCommand"
   private val ExecShowPartitionsDeltaCommand = "Execute ShowPartitionsDeltaCommand"
 
-  def getAllIgnoreExecs: Set[String] = Set(AdaptiveSparkPlan, CollectLimit,
+  def getAllIgnoreExecs: Set[String] = Set(CollectLimit,
     ExecuteCreateViewCommand, LocalTableScan, ExecuteCreateTableCommand,
     ExecuteDropTableCommand, ExecuteCreateDatabaseCommand, ExecuteDropDatabaseCommand,
     ExecuteCreateTableAsSelectCommand, ExecuteCreateDataSourceTableAsSelectCommand,

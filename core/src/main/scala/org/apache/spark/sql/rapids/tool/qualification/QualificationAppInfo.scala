@@ -331,7 +331,7 @@ class QualificationAppInfo(
       allSpeedupFactorAvg
     }
     val numUnsupported = allFlattenedExecs.filterNot(_.isSupported)
-    val unsupportedExecs = numUnsupported.map(_.exec)
+    val unsupportedExecs = numUnsupported
     // if we have unsupported try to guess at how much time.  For now divide
     // time by number of execs and give each one equal weight
     val eachExecTime = allStageTaskTime / allFlattenedExecs.size
@@ -560,6 +560,8 @@ class QualificationAppInfo(
           SQLPlanParser.parseSQLPlan(appId, plan, id, sqlDesc, pluginTypeChecker, this)
       }.toSeq
 
+      // get summary of each SQL Query for original plan
+      val origPlanInfosSummary = summarizeSQLStageInfo(origPlanInfos)
       // filter out any execs that should be removed
       val planInfos = removeExecsShouldRemove(origPlanInfos)
       // get a summary of each SQL Query
@@ -689,7 +691,8 @@ class QualificationAppInfo(
         allComplexTypes, nestedComplexTypes, longestSQLDuration, sqlDataframeTaskDuration,
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
         taskSpeedupFactor, info.sparkUser, info.startTime, wallClockSqlDFToUse,
-        origPlanInfos, perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
+        origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
+        perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
         mlTotalStageDuration, unsupportedExecExprsMap)
     }
@@ -905,6 +908,7 @@ case class QualificationSummaryInfo(
     startTime: Long,
     sparkSqlDFWallClockDuration: Long,
     planInfo: Seq[PlanInfo],
+    origPlanStageInfo: Seq[StageQualSummaryInfo],
     stageInfo: Seq[StageQualSummaryInfo],
     estimatedInfo: EstimatedAppInfo,
     perSQLEstimatedInfo: Option[Seq[EstimatedPerSQLSummaryInfo]],
@@ -926,7 +930,7 @@ case class StageQualSummaryInfo(
     transitionTime: Long,
     estimated: Boolean = false,
     stageWallclockDuration: Long = 0,
-    unsupportedExecs: Seq[String] = Seq.empty)
+    unsupportedExecs: Seq[ExecInfo] = Seq.empty)
 
 object QualificationAppInfo extends Logging {
   // define recommendation constants

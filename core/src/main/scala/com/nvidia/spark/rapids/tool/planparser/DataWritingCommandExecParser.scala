@@ -38,9 +38,10 @@ case class DataWritingCommandExecParser(
     val speedupFactor = checker.getSpeedupFactor(wStub.mappedExec)
     val finalSpeedup = if (writeSupported) speedupFactor else 1
     // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, s"${node.name.trim} ${wStub.dataFormat.toLowerCase.trim}",
+    // We do not want to parse the node description to avoid mistakenly marking the node as RDD/UDF
+    ExecInfo.createExecNoNode(sqlID, s"${node.name.trim} ${wStub.dataFormat.toLowerCase.trim}",
       s"Format: ${wStub.dataFormat.toLowerCase.trim}",
-      finalSpeedup, duration, node.id, writeSupported, None)
+      finalSpeedup, duration, node.id, opType = OpTypes.WriteExec, writeSupported,  None)
   }
 }
 
@@ -58,6 +59,7 @@ object DataWritingCommandExecParser {
   val insertIntoHadoopCMD = "InsertIntoHadoopFsRelationCommand"
   val appendDataExecV1 = "AppendDataExecV1"
   val overwriteByExprExecV1 = "OverwriteByExpressionExecV1"
+  val atomicReplaceTableExec = "AtomicReplaceTableAsSelect"
   // Note: List of writeExecs that represent a physical command.
   // hardcode because InsertIntoHadoopFsRelationCommand uses this same exec
   // and InsertIntoHadoopFsRelationCommand doesn't have an entry in the
@@ -77,7 +79,8 @@ object DataWritingCommandExecParser {
     insertIntoHadoopCMD,
     HiveParseHelper.INSERT_INTO_HIVE_LABEL,
     appendDataExecV1,
-    overwriteByExprExecV1
+    overwriteByExprExecV1,
+    atomicReplaceTableExec
   )
 
   // Note: Defines a list of the execs that include formatted data.
@@ -90,7 +93,8 @@ object DataWritingCommandExecParser {
     insertIntoHadoopCMD -> defaultPhysicalCMD,
     HiveParseHelper.INSERT_INTO_HIVE_LABEL-> defaultPhysicalCMD,
     appendDataExecV1 -> defaultPhysicalCMD,
-    overwriteByExprExecV1 -> defaultPhysicalCMD
+    overwriteByExprExecV1 -> defaultPhysicalCMD,
+    atomicReplaceTableExec -> defaultPhysicalCMD
   )
 
   // Map to hold the relation between writeExecCmd and the format.
@@ -99,7 +103,9 @@ object DataWritingCommandExecParser {
     // if appendDataExecV1 is not deltaLakeProvider, then we want to mark it as unsupported
     appendDataExecV1 -> "unknown",
     // if overwriteByExprExecV1 is not deltaLakeProvider, then we want to mark it as unsupported
-    overwriteByExprExecV1 -> "unknown"
+    overwriteByExprExecV1 -> "unknown",
+    // if atomicReplaceTableExec is not deltaLakeProvider, then we want to mark it as unsupported
+    atomicReplaceTableExec -> "unknown"
   )
 
   // Checks whether a node is a write CMD Exec

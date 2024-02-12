@@ -43,10 +43,8 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
     }
     // execs like SaveIntoDataSourceCommand has prefix "Execute". So, we need to get rid of it.
     val nodeName = node.name.replace("Execute ", "")
-    // TODO get the schema to check if it is supported
-    // val schema = DeltaLakeHelper.getSchema(node.desc)
     ExecInfo.createExecNoNode(sqlID, nodeName,
-      s"Format: $dataFormat", speedupFactor, None, node.id,
+      s"Format: $dataFormat", speedupFactor, None, node.id, OpTypes.WriteExec,
       isSupported = writeSupported, children = None)
   }
 }
@@ -64,25 +62,27 @@ object DeltaLakeHelper {
   // [fieldName, type]
   private val schemaRegex =
     "\\s+\\|--\\s+([a-zA-Z]+(?:_[a-zA-Z]+)*):\\s+([a-zA-Z]+(?:_[a-zA-Z]+)*)\\s+\\(".r
+  val saveIntoDataSrcCMD = "SaveIntoDataSourceCommand"
+  private val atomicReplaceTableExec = "AtomicReplaceTableAsSelect"
   private val appendDataExecV1 = "AppendDataExecV1"
   private val overwriteByExprExecV1 = "OverwriteByExpressionExecV1"
-  val saveIntoDataSrcCMD = "SaveIntoDataSourceCommand"
+  private val mergeIntoCommandEdgeExec = "MergeIntoCommandEdge"
   // Note that the SaveIntoDataSourceCommand node name appears as
   // "Execute SaveIntoDataSourceCommand"
+  // Same for Execute MergeIntoCommandEdge
   private val exclusiveDeltaExecs = Set(
-    saveIntoDataSrcCMD
-  )
+    saveIntoDataSrcCMD,
+    mergeIntoCommandEdgeExec)
   // define the list of writeExecs that also exist in Spark
   private val deltaExecsFromSpark = Set(
     appendDataExecV1,
-    overwriteByExprExecV1
-  )
+    overwriteByExprExecV1,
+    atomicReplaceTableExec)
 
   // keywords used to verify that the operator provider is DeltaLake
   private val nodeDescKeywords = Set(
     "DeltaTableV2",
-    "WriteIntoDeltaBuilder"
-  )
+    "WriteIntoDeltaBuilder")
 
   def accepts(nodeName: String): Boolean = {
     exclusiveDeltaExecs.exists(k => nodeName.contains(k)) || deltaExecsFromSpark.contains(nodeName)
@@ -91,8 +91,24 @@ object DeltaLakeHelper {
   def acceptsWriteOp(node: SparkPlanGraphNode): Boolean = {
     if (exclusiveDeltaExecs.exists(k => node.name.contains(k))) {
       true
+    } else if (deltaExecsFromSpark.contains(node.name)) {
+      if (node.name.contains(appendDataExecV1) || node.name.contains(overwriteByExprExecV1)) {
+        nodeDescKeywords.forall(s => node.desc.contains(s))
+      } else if (node.name.contains(atomicReplaceTableExec)) {
+        // AtomicReplaceTableAsSelectExec has a different format
+        // AtomicReplaceTableAsSelect [num_affected_rows#ID_0L, num_inserted_rows#ID_1L],
+        // com.databricks.sql.managedcatalog.UnityCatalogV2Proxy@XXXXX,
+        // DB.VAR_2, Union false, false,
+        // TableSpec(Map(),Some(delta),Map(),None,None,None,false,Set(),None,None,None),
+        // [replaceWhere=VAR_1 IN ('WHATEVER')], true,
+        // org.apache.spark.sql.execution.datasources.
+        // v2.DataSourceV2Strategy$$Lambda$XXXXX
+        node.desc.matches("""(?i).*delta.*""")
+      } else {
+        false
+      }
     } else {
-      deltaExecsFromSpark.contains(node.name) && nodeDescKeywords.forall(s => node.desc.contains(s))
+      false
     }
   }
 
