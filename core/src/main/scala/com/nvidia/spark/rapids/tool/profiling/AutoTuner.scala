@@ -17,15 +17,15 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import java.io.{BufferedReader, InputStreamReader}
-import java.util
 
 import scala.beans.BeanProperty
+import scala.collection.{mutable, Seq}
 import scala.collection.JavaConverters.mapAsScalaMapConverter
-import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, PlatformFactory}
+import java.util
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
@@ -358,6 +358,11 @@ class AutoTuner(
     val fromProfile = appInfoProvider.getProperty(key)
     // If the value is not found above, fallback to cluster properties
     fromProfile.orElse(Option(clusterProps.softwareProperties.get(key)))
+  }
+
+  def getAllProperties: collection.Map[String, String] = {
+    // the app properties override the cluster properties
+    clusterProps.getSoftwareProperties.asScala ++ appInfoProvider.getAllProperties
   }
 
   def initRecommendations(): Unit = {
@@ -1023,6 +1028,29 @@ class AutoTuner(
 
     (toRecommendationsProfileResult, toCommentProfileResult)
   }
+
+  // Process the properties keys. This is needed in case there are some properties that should not
+  // be listed in the final combined results. For example:
+  // - The UUID of the app is not part of the submitted spark configurations
+  // - make sure that we exclude the skipped list
+  private def processPropKeys(
+      srcMap: collection.Map[String, String]): collection.Map[String, String] = {
+    (srcMap -- skippedRecommendations) -- filteredPropKeys
+  }
+
+  // Combines the original Spark properties with the recommended ones.
+  def combineSparkProperties(
+      recommendedSet: Seq[RecommendedPropertyResult]): Seq[RecommendedPropertyResult] = {
+    // get the original properties after filtering the and removing unnecessary keys
+    val originalPropsFiltered = processPropKeys(getAllProperties)
+    // Combine the original properties with the recommended properties.
+    // The recommendations should always override the original ones
+    val combinedProps = (originalPropsFiltered
+      ++ recommendedSet.map(r => r.property -> r.value).toMap).toSeq.sortBy(_._1)
+    combinedProps.collect {
+      case (pK, pV) => RecommendedPropertyResult(pK, pV)
+    }
+  }
 }
 
 object AutoTuner extends Logging {
@@ -1069,6 +1097,10 @@ object AutoTuner extends Logging {
   private val AQE_SHUFFLE_READ_BYTES_THRESHOLD = 50000
   private val AQE_MIN_INITIAL_PARTITION_NUM = 200
   private val AQE_AUTOBROADCAST_JOIN_THRESHOLD = "100m"
+  // Set of spark properties to be filtered out from the combined Spark properties.
+  private val filteredPropKeys: Set[String] = Set(
+    "spark.app.id"
+  )
 
   val commentsForMissingProps: Map[String, String] = Map(
     "spark.executor.memory" ->

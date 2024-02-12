@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
    * Recommendations to be excluded from the list of recommendations.
    * These have the highest priority.
    */
-  val recommendationsToExclude: Seq[String] = Seq.empty
+  val recommendationsToExclude: Set[String] = Set.empty
   /**
    * Recommendations to be included in the final list of recommendations.
    * These properties should be specific to the platform and not general Spark properties.
@@ -115,7 +115,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val defaultGpuDevice: GpuDevice = T4Gpu
 
-  override val recommendationsToExclude: Seq[String] = Seq(
+  override val recommendationsToExclude: Set[String] = Set(
     "spark.executor.cores",
     "spark.executor.instances",
     "spark.executor.memory",

@@ -26,8 +26,59 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
-import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, ExecHelper, JoinType, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, ExecHelper, JoinType, RDDCheckHelper, ToolUtils}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
+
+object OpActions extends Enumeration {
+  type OpAction = Value
+  val IgnoreNoPerf, IgnorePerf, Triage = Value
+}
+
+object OpTypes extends Enumeration {
+  type OpType = Value
+  val ReadExec, ReadRDD, WriteExec, Exec, Expr, UDF, DataSet = Value
+}
+
+object UnsupportedReasons extends Enumeration {
+  type UnsupportedReason = Value
+  val IS_UDF, CONTAINS_UDF,
+      IS_DATASET, CONTAINS_DATASET,
+      IS_UNSUPPORTED, CONTAINS_UNSUPPORTED_EXPR,
+      UNSUPPORTED_IO_FORMAT = Value
+
+  def reportUnsupportedReason(unsupportedReason: UnsupportedReason, execValue: String): String = {
+    unsupportedReason match {
+      case IS_UDF => "Is UDF"
+      case CONTAINS_UDF => "Contains UDF"
+      case IS_DATASET => "Is Dataset or RDD"
+      case CONTAINS_DATASET => "Contains Dataset or RDD"
+      case IS_UNSUPPORTED => "Unsupported"
+      case CONTAINS_UNSUPPORTED_EXPR => "Contains unsupported expr"
+      case UNSUPPORTED_IO_FORMAT => "Unsupported IO format"
+    }
+  }
+}
+
+case class UnsupportedExecSummary(
+    sqlId: Long,
+    execId: Long,
+    execValue: String,
+    opType: OpTypes.OpType,
+    reason: UnsupportedReasons.UnsupportedReason,
+    opAction: OpActions.OpAction,
+    isExpression: Boolean = false) {
+
+  val finalOpType: String = if (opType.equals(OpTypes.UDF) || opType.equals(OpTypes.DataSet)) {
+    s"${OpTypes.Exec.toString}"
+  } else {
+    s"${opType.toString}"
+  }
+
+  val unsupportedOperator: String = execValue
+
+  val details: String = UnsupportedReasons.reportUnsupportedReason(reason, execValue)
+
+}
 
 case class ExecInfo(
     sqlID: Long,
@@ -36,6 +87,7 @@ case class ExecInfo(
     speedupFactor: Double,
     duration: Option[Long],
     nodeId: Long,
+    opType: OpTypes.OpType,
     isSupported: Boolean,
     children: Option[Seq[ExecInfo]], // only one level deep
     var stages: Set[Int],
@@ -60,8 +112,8 @@ case class ExecInfo(
     s"exec: $exec, expr: $expr, sqlID: $sqlID , speedupFactor: $speedupFactor, " +
       s"duration: $duration, nodeId: $nodeId, " +
       s"isSupported: $isSupported, children: " +
-      s"${childrenToString}, stages: ${stages.mkString(",")}, " +
-      s"shouldRemove: $shouldRemove"
+      s"$childrenToString, stages: ${stages.mkString(",")}, " +
+      s"shouldRemove: $shouldRemove, shouldIgnore: $shouldIgnore"
   }
 
   def setStages(stageIDs: Set[Int]): Unit = {
@@ -70,6 +122,62 @@ case class ExecInfo(
 
   def setShouldRemove(value: Boolean): Unit = {
     shouldRemove ||= value
+  }
+
+  private def getOpAction: OpActions.OpAction = {
+    if (shouldIgnore) {
+      OpActions.IgnorePerf
+    } else if (shouldRemove) {
+      OpActions.IgnoreNoPerf
+    } else {
+      OpActions.Triage
+    }
+  }
+
+  private def getUnsupportedReason: UnsupportedReasons.UnsupportedReason = {
+    if (children.isDefined) {
+      // TODO: Handle the children
+    }
+
+    if (udf) {
+      UnsupportedReasons.CONTAINS_UDF
+    } else if (dataSet) {
+      if (unsupportedExprs.isEmpty) { // case when the node itself is a DataSet or RDD
+        UnsupportedReasons.IS_DATASET
+      } else {
+        UnsupportedReasons.CONTAINS_DATASET
+      }
+    } else if (unsupportedExprs.nonEmpty) {
+      UnsupportedReasons.CONTAINS_UNSUPPORTED_EXPR
+    } else {
+      opType match {
+        case OpTypes.ReadExec | OpTypes.WriteExec => UnsupportedReasons.UNSUPPORTED_IO_FORMAT
+        case _ => UnsupportedReasons.IS_UNSUPPORTED
+      }
+    }
+  }
+
+  def getUnsupportedExecSummaryRecord(execId: Long): Seq[UnsupportedExecSummary] = {
+    val unsupportedReason = getUnsupportedReason
+    val res =
+      ArrayBuffer(UnsupportedExecSummary(sqlID, execId, exec, opType,
+        unsupportedReason, getOpAction))
+    // TODO: Should we iterate on exec children?
+    // add the unsupported expressions to the results
+    if (unsupportedExprs.nonEmpty) {
+      // unsupported expression will depend on what we learned from the exec itself
+      val exprReason = unsupportedReason match {
+        case UnsupportedReasons.CONTAINS_UDF => UnsupportedReasons.IS_UDF
+        case UnsupportedReasons.CONTAINS_DATASET => UnsupportedReasons.IS_DATASET
+        case UnsupportedReasons.UNSUPPORTED_IO_FORMAT => UnsupportedReasons.UNSUPPORTED_IO_FORMAT
+        case _ => UnsupportedReasons.IS_UNSUPPORTED
+      }
+      unsupportedExprs.foreach { expr =>
+        res += UnsupportedExecSummary(sqlID, execId, expr, OpTypes.Expr,
+          exprReason, getOpAction, isExpression = true)
+      }
+    }
+    res
   }
 }
 
@@ -83,6 +191,7 @@ object ExecInfo {
       speedupFactor: Double,
       duration: Option[Long],
       nodeId: Long,
+      opType: OpTypes.OpType,
       isSupported: Boolean,
       children: Option[Seq[ExecInfo]], // only one level deep
       stages: Set[Int] = Set.empty,
@@ -94,10 +203,21 @@ object ExecInfo {
     // 1- we ignore any exec with UDF
     // 2- we ignore any exec with dataset
     // 3- Finally we ignore any exec matching the lookup table
-    val shouldIgnore = udf || dataSet || ExecHelper.shouldIgnore(exec)
+    // if the opType is RDD, then we automatically enable the datasetFlag
+    val finalDataSet = dataSet || opType.equals(OpTypes.ReadRDD)
+    val shouldIgnore = udf || finalDataSet || ExecHelper.shouldIgnore(exec)
     val removeFlag = shouldRemove || ExecHelper.shouldBeRemoved(exec)
+    val finalOpType = if (udf) {
+      OpTypes.UDF
+    } else if (dataSet) {
+      // we still want the ReadRDD to stand out from other RDDs. So, we use the original
+      // dataSetFlag
+      OpTypes.DataSet
+    } else {
+      opType
+    }
     // Set the supported Flag
-    val supportedFlag = isSupported && !udf && !dataSet
+    val supportedFlag = isSupported && !udf && !finalDataSet
     ExecInfo(
       sqlID,
       exec,
@@ -105,12 +225,13 @@ object ExecInfo {
       speedupFactor,
       duration,
       nodeId,
+      finalOpType,
       supportedFlag,
       children,
       stages,
       removeFlag,
       unsupportedExprs,
-      dataSet,
+      finalDataSet,
       udf,
       shouldIgnore
     )
@@ -130,7 +251,8 @@ object ExecInfo {
       shouldRemove: Boolean = false,
       unsupportedExprs: Array[String] = Array.empty,
       dataSet: Boolean = false,
-      udf: Boolean = false): ExecInfo = {
+      udf: Boolean = false,
+      opType: OpTypes.OpType = OpTypes.Exec): ExecInfo = {
     // Some execs need to be trimmed such as "Scan"
     // Example: Scan parquet . ->  Scan parquet.
     // scan nodes needs trimming
@@ -138,7 +260,16 @@ object ExecInfo {
     // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
     val containsUDF = udf || ExecHelper.isUDF(node)
     // check is the node has a dataset operations and if so change to not supported
-    val ds = dataSet || ExecHelper.isDatasetOrRDDPlan(nodeName, node.desc)
+    val rddCheckRes = RDDCheckHelper.isDatasetOrRDDPlan(nodeName, node.desc)
+    val ds = dataSet || rddCheckRes.isRDD
+
+    // if the expression is RDD because of the node name, then we do not want to add the
+    // unsupportedExpressions because it becomes bogus.
+    val finalUnsupportedExpr = if (rddCheckRes.nodeDescRDD) {
+      Array.empty[String]
+    } else {
+      unsupportedExprs
+    }
     createExecNoNode(
       sqlID,
       exec,
@@ -146,11 +277,12 @@ object ExecInfo {
       speedupFactor,
       duration,
       nodeId,
+      opType,
       isSupported,
       children,
       stages,
       shouldRemove,
-      unsupportedExprs,
+      finalUnsupportedExpr,
       ds,
       containsUDF
     )
@@ -174,13 +306,18 @@ object SQLPlanParser extends Logging {
 
   val windowFunctionPattern = """(\w+)\(""".r
 
-  val ignoreExpressions = Array("any", "cast", "ansi_cast", "decimal", "decimaltype", "every",
+  val ignoreExpressions = Set("any", "cast", "ansi_cast", "decimal", "decimaltype", "every",
     "some", "merge_max", "merge_min", "merge_sum", "merge_count", "merge_avg", "merge_first",
     "list",
     // some ops turn into literals and they should not cause any fallbacks
     "current_database", "current_user", "current_timestamp",
     // ArrayBuffer is a Scala function and may appear in some of the JavaRDDs/UDAFs)
-    "arraybuffer", "arraytype")
+    "arraybuffer", "arraytype",
+    // TODO: we may need later to consider that structs indicate unsupported data types,
+    //  but for now we just ignore it to avoid false positives.
+    //  StructType and StructField showup from expressions like ("from_json").
+    //  We do not want them to appear as independent expressions.
+    "structfield", "structtype")
 
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
@@ -561,7 +698,7 @@ object SQLPlanParser extends Logging {
     // any window function
     for ( i <- 0 to windowExprs.size - 1 ) {
       val windowFunc = windowFunctionPattern.findAllIn(windowExprs(i)).toList
-      val expr = windowFunc(windowFunc.size -1)
+      val expr = windowFunc.last
       val functionName = getFunctionName(windowFunctionPattern, expr)
       functionName match {
         case Some(func) => parsedExpressions += func
@@ -606,7 +743,7 @@ object SQLPlanParser extends Logging {
       val parenRemoved = orderString.get.toString.replaceAll("orderBy=", "").
         split("(?<=FIRST,)|(?<=LAST,)").map(_.trim).map(
         _.replaceAll("""^\[+""", "").replaceAll("""\]+$""", ""))
-      parenRemoved.foreach { case expr =>
+      parenRemoved.foreach { expr =>
         val functionName = getFunctionName(functionPattern, expr)
         functionName match {
           case Some(func) => parsedExpressions += func
@@ -646,7 +783,7 @@ object SQLPlanParser extends Logging {
        ""
      }
      // SortMergeJoin doesn't have buildSide, assign empty string in that case
-     val buildSide = if (joinParams.size > 1) {
+     val buildSide = if (joinParams.length > 1) {
        joinParams(1).trim
      } else {
        ""
@@ -742,7 +879,7 @@ object SQLPlanParser extends Logging {
     if (sortString.isDefined) {
       val paranRemoved = sortString.get.toString.split("(?<=FIRST,)|(?<=LAST,)").
           map(_.trim).map(_.replaceAll("""^\[+""", "").replaceAll("""\]+$""", ""))
-      paranRemoved.foreach { case expr =>
+      paranRemoved.foreach { expr =>
         val functionName = getFunctionName(functionPattern, expr)
         functionName match {
           case Some(func) => parsedExpressions += func

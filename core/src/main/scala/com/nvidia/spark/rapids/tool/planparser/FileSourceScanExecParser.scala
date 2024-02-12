@@ -20,7 +20,7 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper}
 
 case class FileSourceScanExecParser(
     node: SparkPlanGraphNode,
@@ -35,22 +35,36 @@ case class FileSourceScanExecParser(
     // Remove trailing spaces from node name
     // Example: Scan parquet . ->  Scan parquet.
     val nodeName = node.name.trim
-    val accumId = node.metrics.find(_.name == "scan time").map(_.accumulatorId)
-    val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
-    val (execName, readInfo) = if (HiveParseHelper.isHiveTableScanNode(node)) {
-      // Use the hive parser
-      (HiveParseHelper.SCAN_HIVE_EXEC_NAME, HiveParseHelper.parseReadNode(node))
+    val rddCheckRes = RDDCheckHelper.isDatasetOrRDDPlan(nodeName, node.desc)
+    if (rddCheckRes.nodeNameRDD) {
+      // This is a scanRDD. we do not need to parse it as a normal node.
+      // cleanup the node name if possible:
+      val newNodeName = if (nodeName.contains("ExistingRDD")) {
+        val nodeNameLength = nodeName.indexOf("ExistingRDD") + "ExistingRDD".length
+        nodeName.substring(0, nodeNameLength)
+      } else {
+        nodeName
+      }
+      ExecInfo.createExecNoNode(sqlID, newNodeName, "", 1.0, duration = None,
+        node.id, OpTypes.ReadRDD, false, None)
     } else {
-      // Use the default parser
-      (fullExecName, ReadParser.parseReadNode(node))
-    }
-    val speedupFactor = checker.getSpeedupFactor(execName)
-    // don't use the isExecSupported because we have finer grain.
-    val score = ReadParser.calculateReadScoreRatio(readInfo, checker)
-    val overallSpeedup = Math.max(speedupFactor * score, 1.0)
+      val accumId = node.metrics.find(_.name == "scan time").map(_.accumulatorId)
+      val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
+      val (execName, readInfo) = if (HiveParseHelper.isHiveTableScanNode(node)) {
+        // Use the hive parser
+        (HiveParseHelper.SCAN_HIVE_EXEC_NAME, HiveParseHelper.parseReadNode(node))
+      } else {
+        // Use the default parser
+        (fullExecName, ReadParser.parseReadNode(node))
+      }
+      val speedupFactor = checker.getSpeedupFactor(execName)
+      // don't use the isExecSupported because we have finer grain.
+      val score = ReadParser.calculateReadScoreRatio(readInfo, checker)
+      val overallSpeedup = Math.max(speedupFactor * score, 1.0)
 
-    // TODO - add in parsing expressions - average speedup across?
-    ExecInfo.createExecNoNode(sqlID, nodeName, "", overallSpeedup, maxDuration,
-      node.id, score > 0, None)
+      // TODO - add in parsing expressions - average speedup across?
+      ExecInfo.createExecNoNode(sqlID, nodeName, "", overallSpeedup, maxDuration,
+        node.id, OpTypes.ReadExec, score > 0, None)
+    }
   }
 }

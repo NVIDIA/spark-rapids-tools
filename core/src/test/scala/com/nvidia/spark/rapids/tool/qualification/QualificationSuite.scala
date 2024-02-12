@@ -1188,58 +1188,6 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  test("test csv output for unsupported operators") {
-    TrampolineUtil.withTempDir { outpath =>
-      val tmpJson = s"$outpath/jsonfile"
-      TrampolineUtil.withTempDir { jsonOutputFile =>
-        val (eventLog, _) = ToolTestUtils.generateEventLog(jsonOutputFile, "jsonFile") { spark =>
-          import spark.implicits._
-          val testData = Seq((1, 2), (3, 4)).toDF("a", "b")
-          testData.write.json(tmpJson)
-          val df = spark.read.json(tmpJson)
-          val res = df.join(df.select($"a" as "a2"), $"a" === $"a2")
-          res
-        }
-        val allArgs = Array(
-          "--output-directory",
-          outpath.getAbsolutePath())
-        val appArgs = new QualificationArgs(allArgs ++ Array(eventLog))
-        val (exit, appSum@_) = QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-
-        val filename = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
-        val stageDurationFile = s"$outpath/rapids_4_spark_qualification_output/" +
-          s"rapids_4_spark_qualification_output_unsupportedOperatorsStageDuration.csv"
-        val inputSource = Source.fromFile(filename)
-        val unsupportedStageDuration = Source.fromFile(stageDurationFile)
-        try {
-          val lines = inputSource.getLines.toSeq
-          // 1 for header, 1 for values
-
-          val expLinesSize =
-            if (ToolUtils.isSpark340OrLater()) {
-              8
-            } else if (!ToolUtils.isSpark320OrLater()) {
-              6
-            } else {
-              7
-            }
-          assert(lines.size == expLinesSize)
-          assert(lines.head.contains("App ID,Unsupported Type,"))
-          assert(lines(1).contains("\"Read\",\"JSON\",\"Types not supported - bigint:int\""))
-
-          val stageDurationLines = unsupportedStageDuration.getLines.toSeq
-          assert(stageDurationLines.head.contains("" +
-            "Stage Duration,App Duration,Recommendation"))
-          assert(stageDurationLines(1).contains("Not Recommended"))
-        } finally {
-          inputSource.close()
-        }
-      }
-    }
-  }
-
   test("running qualification app files with per sql") {
     TrampolineUtil.withTempPath { outParquetFile =>
       TrampolineUtil.withTempPath { outJsonFile =>
@@ -1534,7 +1482,8 @@ class QualificationSuite extends BaseTestSuite {
           val inputSource = Source.fromFile(unsupportedOpsCSV)
           try {
             val unsupportedRows = inputSource.getLines.toSeq
-            assert(unsupportedRows.head.contains("App ID,Unsupported Type,"))
+            assert(unsupportedRows.head.contains(
+              "App ID,SQL ID,Stage ID,ExecId,Unsupported Type,Unsupported Operator"))
             assert(!unsupportedRows.exists(_.contains("hive")))
           } finally {
             inputSource.close()

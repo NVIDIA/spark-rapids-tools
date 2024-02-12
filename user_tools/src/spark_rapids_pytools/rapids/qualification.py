@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,12 +22,12 @@ from typing import Any, List, Callable
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType
 from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
+from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType
 
 
 @dataclass
@@ -212,12 +212,16 @@ class Qualification(RapidsJarTool):
                 # Convert the CPU instances to support gpu. Otherwise, gpuCluster is not set
                 self.logger.info('Creating GPU cluster by converting the CPU cluster instances to GPU supported types')
                 gpu_cluster_obj = self.ctxt.platform.migrate_cluster_to_gpu(orig_cluster)
+
         self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster_obj)
 
         _process_gpu_cluster_worker_node()
-        worker_node_hw_info = gpu_cluster_obj.get_worker_hw_info()
-        if gpu_cluster_obj:
-            self.ctxt.set_ctxt('recommendedConfigs', self._calculate_spark_settings(worker_node_hw_info))
+        if gpu_cluster_obj and self.ctxt.get_rapids_auto_tuner_enabled():
+            # Generate Autotuner input file for the Qualification
+            # Note that we do not call the `_calculate_spark_settings(worker_node_hw_info)` method here
+            # because the Qualification tool does not need to calculate the recommended Spark settings
+            # as it will be part of the generated Autotuner output file.
+            self._generate_autotuner_input_from_cluster(gpu_cluster_obj)
 
         return gpu_cluster_obj is not None
 
@@ -330,6 +334,15 @@ class Qualification(RapidsJarTool):
         else:
             self.ctxt.set_ctxt('cpu_discount', cpu_discount)
             self.ctxt.set_ctxt('gpu_discount', gpu_discount)
+
+    def _create_autotuner_rapids_args(self) -> list:
+        # Add the autotuner argument, also add worker-info if the autotunerPath exists
+        if self.ctxt.get_rapids_auto_tuner_enabled():
+            autotuner_path = self.ctxt.get_ctxt('autoTunerFilePath')
+            if autotuner_path is None:
+                return ['--auto-tuner']
+            return ['--auto-tuner', '--worker-info', autotuner_path]
+        return []
 
     def _process_custom_args(self):
         """
@@ -457,6 +470,8 @@ class Qualification(RapidsJarTool):
         return report_content
 
     def __generate_recommended_configs_report(self) -> list:
+        # This method will generate the report for the recommended configurations.
+        # The configurations disable that section by default.
         report_content = []
         if self.ctxt.get_ctxt('recommendedConfigs'):
             conversion_items = []
@@ -802,8 +817,12 @@ class Qualification(RapidsJarTool):
             highlighted_code = TemplateGenerator.highlight_bash_code(script_content)
             return ['```bash', highlighted_code, '```', '']
         if sec_conf.get('sectionID') == 'gpuBootstrapRecommendedConfigs':
+            # This is disabled by default in the config files
             return self.__generate_recommended_configs_report()
         return super()._generate_section_content(sec_conf)
+
+    def _init_rapids_arg_list(self) -> List[str]:
+        return super()._init_rapids_arg_list() + self._create_autotuner_rapids_args()
 
 
 @dataclass

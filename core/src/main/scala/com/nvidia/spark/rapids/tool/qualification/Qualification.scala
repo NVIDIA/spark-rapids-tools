@@ -97,8 +97,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     }
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
-    qWriter.writeUnsupportedOperatorsCSVReport(allAppsSum, order)
-    qWriter.writeUnsupportedOperatorsDetailedStageCSVReport(allAppsSum, order)
+    qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
     val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
     qWriter.writeStatusReport(appStatusResult, order)
     if (mlOpsEnabled) {
@@ -183,18 +182,12 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         case Right(app: QualificationAppInfo) =>
           // Case with successful creation of QualificationAppInfo
           val qualSumInfo = app.aggregateStats()
-          tunerContext.collect {
+          tunerContext.foreach { tuner =>
             // Run the autotuner if it is enabled.
             // Note that we call the autotuner anyway without checking the aggregate results
             // because the Autotuner can still make some recommendations based on the information
             // enclosed by the QualificationInfo object
-            case tuner =>
-              // autoTuner is enabled for Qualification
-              tuner.tuneApplication(app, qualSumInfo).collect {
-                case res =>
-                  logInfo(s"RecommendedProps ${app.appId} = ${res.recommendations.mkString("\n")}")
-                  logInfo(s"Comments ${app.appId} = ${res.comments.mkString("\n")}")
-              }
+            tuner.tuneApplication(app, qualSumInfo)
           }
           if (qualSumInfo.isDefined) {
             allApps.add(qualSumInfo.get)

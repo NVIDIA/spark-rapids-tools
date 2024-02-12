@@ -35,6 +35,10 @@ class QualAppSummaryInfoProvider(
     props.get(key)
   }
 
+  override def getAllProperties: Map[String, String] = {
+    appInfo.sparkProperties
+  }
+
   override def getSparkProperty(propKey: String): Option[String] = {
     findPropertyInternal(propKey, appInfo.sparkProperties)
   }

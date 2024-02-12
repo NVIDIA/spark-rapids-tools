@@ -43,6 +43,7 @@ sparkRapids:
   repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
   mainClass: 'com.nvidia.spark.rapids.tool.qualification.QualificationMain'
   outputDocURL: 'https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#understanding-the-qualification-tool-output'
+  enableAutoTuner: true
   gpu:
     device: 't4'
     workersPerNode: 2

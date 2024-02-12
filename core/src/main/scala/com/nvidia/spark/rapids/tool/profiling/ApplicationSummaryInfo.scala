@@ -48,6 +48,8 @@ case class ApplicationSummaryInfo(
     sysProps: Seq[RapidsPropertyProfileResult])
 
 trait AppInfoPropertyGetter {
+  // returns all the properties (i.e., spark)
+  def getAllProperties: Map[String, String]
   def getSparkProperty(propKey: String): Option[String]
   def getRapidsProperty(propKey: String): Option[String]
   def getSystemProperty(propKey: String): Option[String]
@@ -81,6 +83,7 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   with AppInfoSQLTaskInputSizes
   with AppInfoReadMetrics {
   def isAppInfoAvailable = false
+  override def getAllProperties: Map[String, String] = Map[String, String]()
   override def getSparkProperty(propKey: String): Option[String] = None
   override def getRapidsProperty(propKey: String): Option[String] = None
   override def getSystemProperty(propKey: String): Option[String] = None
@@ -124,6 +127,13 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
       case entry: RapidsPropertyProfileResult
         if entry.key == key && entry.rows(1) != "null" => entry.rows(1)
     }
+  }
+
+  override def getAllProperties: Map[String, String] = {
+    app.sparkProps.collect {
+      case entry: RapidsPropertyProfileResult if entry.rows(1) != null =>
+        entry
+    }.map(r => r.key -> r.rows(1)).toMap
   }
 
   override def getSparkProperty(propKey: String): Option[String] = {

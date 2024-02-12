@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,15 +15,12 @@
 """Implementation class representing wrapper around the RAPIDS acceleration Profiling tool."""
 
 import re
-from copy import deepcopy
 from dataclasses import dataclass
 from itertools import chain
 from typing import List
 
-import yaml
 from tabulate import tabulate
 
-from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
@@ -79,51 +76,9 @@ class Profiling(RapidsJarTool):
         # If we are here, we know that the workerInfoPath was not set as well.
         return False
 
-    def _generate_autotuner_file_for_cluster(self, file_path: str, cluster_ob: ClusterBase):
-        """
-        Given file path and the cluster object, it will generate the formatted input file in yaml
-        that can be used by the autotuner to run the profiling tool.
-        :param file_path: local path whether the file should be stored
-        :param cluster_ob: the object representing the cluster proxy.
-        :return:
-        """
-        self.logger.info('Generating input file for Auto-tuner')
-        worker_hw_info = cluster_ob.get_worker_hw_info()
-        worker_info = {
-            'system': {
-                'numCores': worker_hw_info.sys_info.num_cpus,
-                'memory': f'{worker_hw_info.sys_info.cpu_mem}MiB',
-                'numWorkers': cluster_ob.get_workers_count()
-            },
-            'gpu': {
-                # the scala code expects a unit
-                'memory': f'{worker_hw_info.gpu_info.gpu_mem}MiB',
-                'count': worker_hw_info.gpu_info.num_gpus,
-                'name': worker_hw_info.gpu_info.get_gpu_device_name()
-            },
-            'softwareProperties': cluster_ob.get_all_spark_properties()
-        }
-        worker_info_redacted = deepcopy(worker_info)
-        if worker_info_redacted['softwareProperties']:
-            for key in worker_info_redacted['softwareProperties']:
-                if 's3a.secret.key' in key:
-                    worker_info_redacted['softwareProperties'][key] = 'MY_S3A_SECRET_KEY'
-                elif 's3a.access.key' in key:
-                    worker_info_redacted['softwareProperties'][key] = 'MY_S3A_ACCESS_KEY'
-        self.logger.debug('Auto-tuner worker info: %s', worker_info_redacted)
-        with open(file_path, 'w', encoding='utf-8') as worker_info_file:
-            self.logger.debug('Opening file %s to write worker info', file_path)
-            yaml.dump(worker_info, worker_info_file, sort_keys=False)
-
     def _generate_autotuner_input(self):
         gpu_cluster_obj = self.ctxt.get_ctxt('gpuClusterProxy')
-        input_file_name = 'worker_info.yaml'
-        self.ctxt.set_ctxt('autoTunerFileName', input_file_name)
-        autotuner_input_path = FSUtil.build_path(self.ctxt.get_local_work_dir(), 'worker_info.yaml')
-        self._generate_autotuner_file_for_cluster(file_path=autotuner_input_path,
-                                                  cluster_ob=gpu_cluster_obj)
-        self.logger.info('Generated autotuner worker info: %s', autotuner_input_path)
-        self.ctxt.set_ctxt('autoTunerFilePath', autotuner_input_path)
+        self._generate_autotuner_input_from_cluster(gpu_cluster_obj)
 
     def _create_autotuner_rapids_args(self) -> list:
         # Add the autotuner argument, also add worker-info if the autotunerPath exists
