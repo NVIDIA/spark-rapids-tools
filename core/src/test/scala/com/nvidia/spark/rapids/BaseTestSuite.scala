@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,6 +71,11 @@ class BaseTestSuite extends FunSuite with BeforeAndAfterEach with Logging {
   protected def ignoreExprForSparkGTE340(): (Boolean, String) = {
     (!ToolUtils.isSpark340OrLater(),
       "Spark340+ does not support the expression")
+  }
+
+  protected def execsSupportedSparkGTE340(): (Boolean, String) = {
+    (ToolUtils.isSpark340OrLater(),
+      "Spark340+ supports the Exec/Expression")
   }
 
   def runConditionalTest(testName: String, assumeCondition: () => (Boolean, String))
