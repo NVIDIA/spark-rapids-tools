@@ -260,6 +260,7 @@ WindowExpression,2.73
 WindowSpecDefinition,2.73
 XxHash64,2.73
 Year,2.73
+WriteFilesExec,2.73
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2
 FlatMapGroupsInPandasExec,1.2
