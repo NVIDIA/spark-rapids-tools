@@ -129,6 +129,9 @@ abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
     val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
 
+  // Store map of executorId to executor info
+  val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
+
   var appEndTime: Option[Long] = None
   // The data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
@@ -156,6 +159,20 @@ abstract class AppBase(
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
   var mlEventLogType = ""
   var pysparkLogFlag = false
+
+  def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
+    executorIdToInfo.getOrElseUpdate(executorId, {
+      new ExecutorInfoClass(executorId, addTime)
+    })
+  }
+
+  def getClusterInfo: ClusterInfo = {
+    val numHosts = executorIdToInfo.values.map(_.host).toSet.size
+    val numCores = executorIdToInfo.head._2.totalCores
+    val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
+    val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
+    ClusterInfo(numCores, numHosts, executorInstance, driverInstance)
+  }
 
   def getOrCreateStage(info: StageInfo): StageInfoClass = {
     val stage = stageIdToInfo.getOrElseUpdate((info.stageId, info.attemptNumber()),

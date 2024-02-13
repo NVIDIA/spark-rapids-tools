@@ -96,6 +96,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       qWriter.writePerSqlCSVReport(allAppsSum, maxSQLDescLength)
     }
     qWriter.writeExecReport(allAppsSum, order)
+    qWriter.writeClusterReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
     val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)

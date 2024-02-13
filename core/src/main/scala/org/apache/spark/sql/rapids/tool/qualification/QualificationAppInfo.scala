@@ -28,7 +28,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, ClusterInfo, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 class QualificationAppInfo(
@@ -694,7 +694,8 @@ class QualificationAppInfo(
         origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
-        mlTotalStageDuration, unsupportedExecExprsMap)
+        mlTotalStageDuration, unsupportedExecExprsMap,
+        getClusterInfo, eventLogInfo.map(_.eventLog.toString))
     }
   }
 
@@ -919,6 +920,8 @@ case class QualificationSummaryInfo(
     mlFunctions: Option[Seq[MLFunctions]],
     mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]],
     unsupportedExecstoExprsMap: Map[String, String],
+    clusterInfo: ClusterInfo,
+    eventLogPath: Option[String],
     estimatedFrequency: Option[Long] = None)
 
 case class StageQualSummaryInfo(
