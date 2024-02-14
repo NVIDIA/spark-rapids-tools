@@ -35,8 +35,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     pluginTypeChecker: PluginTypeChecker, reportReadSchema: Boolean,
     printStdout: Boolean, uiEnabled: Boolean, enablePB: Boolean,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean,
-    penalizeTransitions: Boolean,
-    tunerContext: Option[TunerContext]) extends RuntimeReporter {
+    penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
+    clusterReport: Boolean) extends RuntimeReporter {
 
   private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
 
@@ -96,7 +96,6 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       qWriter.writePerSqlCSVReport(allAppsSum, maxSQLDescLength)
     }
     qWriter.writeExecReport(allAppsSum, order)
-    qWriter.writeClusterReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
     val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
@@ -111,6 +110,9 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     }
     if (uiEnabled) {
       QualificationReportGenerator.generateDashBoard(outputDir, allAppsSum)
+    }
+    if (clusterReport) {
+      qWriter.writeClusterReport(allAppsSum)
     }
 
     sortedDescDetailed
@@ -174,7 +176,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     try {
       val startTime = System.currentTimeMillis()
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
-        reportSqlLevel, mlOpsEnabled, penalizeTransitions)
+        reportSqlLevel, mlOpsEnabled, penalizeTransitions, clusterReport)
       val qualAppResult = appResult match {
         case Left(errorMessage: String) =>
           // Case when an error occurred during QualificationAppInfo creation

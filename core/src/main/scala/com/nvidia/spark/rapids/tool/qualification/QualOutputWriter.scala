@@ -275,7 +275,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
-  def writeClusterReport(sums: Seq[QualificationSummaryInfo], order: String): Unit = {
+  def writeClusterReport(sums: Seq[QualificationSummaryInfo]): Unit = {
     // Create a map of appId -> cluster information
     val clusterInfoResult = sums.map { sumInfo =>
       sumInfo.appId -> ClusterInfoResult(sumInfo.appName, sumInfo.appId,
@@ -284,7 +284,6 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     val jsonFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json",
       "Cluster Information", hadoopConf)
-
     try{
       jsonFileWriter.write(Serialization.writePretty(clusterInfoResult))
     } finally {

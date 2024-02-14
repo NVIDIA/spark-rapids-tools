@@ -1526,17 +1526,35 @@ class QualificationSuite extends BaseTestSuite {
       val (exitCode, result) = QualificationMain.mainInternal(appArgs)
       assert(exitCode == 0 && result.size == logFiles.length)
 
-      // Validate that the SQL description in the CSV file properly escapes commas
+      // Read output JSON and create a map of event log -> cluster info
       val outputResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
-
-      // Read output JSON and create a map of event log -> cluster info
       val actualClusterInfoMap = readJson(outputResultFile).map {
         case (_, clusterInfoResult) =>
           val eventLogName = clusterInfoResult.eventLogPath.getOrElse("").split("/").last
           eventLogName -> clusterInfoResult.clusterInfo
       }
       assert(actualClusterInfoMap == expectedClusterInfoMap)
+    }
+  }
+
+  test("validate cluster information generation is disabled") {
+    // Execute the qualification tool
+    TrampolineUtil.withTempDir { outPath =>
+      val allArgs = Array(
+        "--output-directory",
+        outPath.getAbsolutePath,
+        "--no-cluster-report",
+        s"$logDir/cluster_information/eventlog_8cores_2exec")
+
+      val appArgs = new QualificationArgs(allArgs)
+      val (exitCode, result) = QualificationMain.mainInternal(appArgs)
+      assert(exitCode == 0 && result.size == 1)
+
+      // Assert that JSON file does not exists
+      val outputResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
+        s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
+      assert(!new File(outputResultFile).exists())
     }
   }
 }

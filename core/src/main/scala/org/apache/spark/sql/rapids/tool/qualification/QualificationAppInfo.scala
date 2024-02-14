@@ -38,7 +38,8 @@ class QualificationAppInfo(
     reportSqlLevel: Boolean,
     perSqlOnly: Boolean = false,
     mlOpsEnabled: Boolean = false,
-    penalizeTransitions: Boolean = true)
+    penalizeTransitions: Boolean = true,
+    clusterReport: Boolean = true)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
   var appId: String = ""
@@ -685,6 +686,13 @@ class QualificationAppInfo(
         sqlIdsWithFailures.nonEmpty, mlSpeedup, unSupportedExecs, unSupportedExprs,
         allClusterTagsMap)
 
+      val clusterInfo = if (clusterReport) {
+        logDebug("Cluster information generation is disabled. Skipping !!")
+        getClusterInfo
+      } else {
+        None
+      }
+
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
         notSupportFormatAndTypesString, getAllReadFileFormats, writeFormat,
@@ -695,7 +703,7 @@ class QualificationAppInfo(
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
         mlTotalStageDuration, unsupportedExecExprsMap,
-        getClusterInfo, eventLogInfo.map(_.eventLog.toString))
+        clusterInfo, eventLogInfo.map(_.eventLog.toString))
     }
   }
 
@@ -1041,10 +1049,11 @@ object QualificationAppInfo extends Logging {
       pluginTypeChecker: PluginTypeChecker,
       reportSqlLevel: Boolean,
       mlOpsEnabled: Boolean,
-      penalizeTransitions: Boolean): Either[String, QualificationAppInfo] = {
+      penalizeTransitions: Boolean,
+      clusterReport: Boolean): Either[String, QualificationAppInfo] = {
     try {
         val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
-          reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
+          reportSqlLevel, false, mlOpsEnabled, penalizeTransitions, clusterReport)
         logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
         Right(app)
       } catch {
