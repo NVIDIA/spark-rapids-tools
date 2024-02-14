@@ -166,12 +166,25 @@ abstract class AppBase(
     })
   }
 
-  def getClusterInfo: ClusterInfo = {
-    val numHosts = executorIdToInfo.values.map(_.host).toSet.size
-    val numCores = executorIdToInfo.head._2.totalCores
+  /**
+   * Retrieves cluster information based on executor nodes.
+   * If executor nodes exist, calculates the number of hosts and total cores,
+   * and extracts executor and driver instance types (databricks only)
+   *
+   * @return
+   */
+  def getClusterInfo: Option[ClusterInfo] = {
+    // Extracts instance types from properties (databricks only)
     val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
     val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
-    ClusterInfo(numCores, numHosts, executorInstance, driverInstance)
+
+    val executorOnlyInfo = executorIdToInfo.filterKeys(_ != "driver")
+    if (executorOnlyInfo.nonEmpty) {
+      // #executor nodes = #unique hosts
+      val numExecutorNodes = executorOnlyInfo.values.map(_.host).toSet.size
+      val numCores = executorOnlyInfo.head._2.totalCores
+      Some(ClusterInfo(numCores, numExecutorNodes, executorInstance, driverInstance))
+    } else None
   }
 
   def getOrCreateStage(info: StageInfo): StageInfoClass = {

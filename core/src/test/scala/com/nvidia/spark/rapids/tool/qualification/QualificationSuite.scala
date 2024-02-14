@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit.NANOSECONDS
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, StatusReportCounts, ToolTestUtils}
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -31,7 +33,7 @@ import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, udf}
-import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterInfo, ClusterInfoResult, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo, RunningQualificationEventProcessor}
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types._
@@ -1490,6 +1492,51 @@ class QualificationSuite extends BaseTestSuite {
           }
         }
       }
+    }
+  }
+
+  test("validate cluster information JSON") {
+    // Expected map from event log -> cluster info
+    val expectedClusterInfoMap = Map(
+      "eventlog_8cores_2exec" -> Some(ClusterInfo(8, 2, None, None)),
+      "eventlog_12cores_3exec_same_host" -> Some(ClusterInfo(12, 3, None, None)),
+      "eventlog_12cores_3exec_db" ->
+        Some(ClusterInfo(12, 3, Some("m6gd.2xlarge"), Some("m6gd.2xlarge"))),
+      "eventlog_missing_exec_info" -> None
+    )
+
+    // Read JSON as {'app-id-1':{..}, 'app-id-2': {..}, 'app-id-3': {..}}
+    def readJson(path: String): Map[String, ClusterInfoResult] = {
+      import scala.collection.JavaConverters._
+      val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
+      val mapType = mapper.getTypeFactory
+        .constructMapType(classOf[java.util.Map[_, _]], classOf[String], classOf[ClusterInfoResult])
+      val javaMap: java.util.Map[String, ClusterInfoResult] =
+        mapper.readValue(new File(path), mapType)
+      javaMap.asScala.toMap
+    }
+
+    // Execute the qualification tool
+    TrampolineUtil.withTempDir { outPath =>
+      val allArgs = Array("--output-directory", outPath.getAbsolutePath)
+
+      val logFiles = expectedClusterInfoMap.keys
+        .map(logFile => s"$logDir/cluster_information/$logFile").toArray
+      val appArgs = new QualificationArgs(allArgs ++ logFiles)
+      val (exitCode, result) = QualificationMain.mainInternal(appArgs)
+      assert(exitCode == 0 && result.size == logFiles.length)
+
+      // Validate that the SQL description in the CSV file properly escapes commas
+      val outputResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
+        s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
+
+      // Read output JSON and create a map of event log -> cluster info
+      val actualClusterInfoMap = readJson(outputResultFile).map {
+        case (_, clusterInfoResult) =>
+          val eventLogName = clusterInfoResult.eventLogPath.getOrElse("").split("/").last
+          eventLogName -> clusterInfoResult.clusterInfo
+      }
+      assert(actualClusterInfoMap == expectedClusterInfoMap)
     }
   }
 }

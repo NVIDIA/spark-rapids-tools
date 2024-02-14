@@ -920,7 +920,7 @@ case class QualificationSummaryInfo(
     mlFunctions: Option[Seq[MLFunctions]],
     mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]],
     unsupportedExecstoExprsMap: Map[String, String],
-    clusterInfo: ClusterInfo,
+    clusterInfo: Option[ClusterInfo],
     eventLogPath: Option[String],
     estimatedFrequency: Option[Long] = None)
 
