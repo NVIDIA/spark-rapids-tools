@@ -496,6 +496,8 @@ object SQLPlanParser extends Logging {
             WindowExecParser(node, checker, sqlID).parse
           case "WindowInPandas" =>
             WindowInPandasExecParser(node, checker, sqlID).parse
+          case wfe if WriteFilesExecParser.accepts(wfe) =>
+            WriteFilesExecParser(node, checker, sqlID).parse
           case _ =>
             // Execs that are members of reuseExecs (i.e., ReusedExchange) should be marked as
             // supported but with shouldRemove flag set to True.

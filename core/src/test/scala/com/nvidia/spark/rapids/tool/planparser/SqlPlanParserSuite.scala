@@ -367,6 +367,50 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
+  runConditionalTest("WriteFilesExec is marked as Supported",
+    execsSupportedSparkGTE340) {
+    val dataWriteCMD = DataWritingCommandExecParser.insertIntoHadoopCMD
+    TrampolineUtil.withTempDir { outputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, dataWriteCMD) { spark =>
+          import spark.implicits._
+          val df = spark.sparkContext.makeRDD(1 to 10000, 6).toDF
+          val dfWithStrings = df.select(col("value").cast("string"))
+          dfWithStrings.write.text(s"$outputLoc/testtext")
+          df.write.parquet(s"$outputLoc/testparquet")
+          df.write.orc(s"$outputLoc/testorc")
+          df.write.json(s"$outputLoc/testjson")
+          df.write.csv(s"$outputLoc/testcsv")
+          df
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 6)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val writeExecs = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD"))
+        val text = writeExecs.filter(_.expr.contains("text"))
+        val json = writeExecs.filter(_.expr.contains("json"))
+        val orc = writeExecs.filter(_.expr.contains("orc"))
+        val parquet = writeExecs.filter(_.expr.contains("parquet"))
+        val csv = writeExecs.filter(_.expr.contains("csv"))
+        for (t <- Seq(json, csv, text)) {
+          assertSizeAndNotSupported(1, t)
+        }
+        for (t <- Seq(orc, parquet)) {
+          assertSizeAndSupported(1, t)
+        }
+        // For Spark.3.4.0+, the new operator WriteFilesExec is added.
+        // Q tool handles this operator as supported regardless of the type of the exec operation.
+        val writeFileExecs = allExecInfo.filter(_.exec.contains(WriteFilesExecParser.execName))
+        // we have 5 write operations, so we should have 5 WriteFilesExec.
+        assertSizeAndSupported(5, writeFileExecs)
+      }
+    }
+  }
+
   test("CreateDataSourceTableAsSelectCommand") {
     // using event log to not deal with enabling hive support
     val eventLog = s"$qualLogDir/createdatasourcetable_eventlog.zstd"
