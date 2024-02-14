@@ -687,9 +687,9 @@ class QualificationAppInfo(
         allClusterTagsMap)
 
       val clusterInfo = if (clusterReport) {
-        logDebug("Cluster information generation is disabled. Skipping !!")
         getClusterInfo
       } else {
+        logDebug("Cluster information generation is disabled. Skipping !!")
         None
       }
 
