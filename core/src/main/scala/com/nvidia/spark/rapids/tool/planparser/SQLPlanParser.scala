@@ -309,7 +309,7 @@ object SQLPlanParser extends Logging {
   val aggregatePrefixes = Set(
     "finalmerge_", // DB specific prefix for final merge agg functions
     "partial_",    // used for partials
-    "merge_",      // Used for partial merge
+    "merge_"       // Used for partial merge
   )
 
   val ignoreExpressions = Set("any", "cast", "ansi_cast", "decimal", "decimaltype", "every",
