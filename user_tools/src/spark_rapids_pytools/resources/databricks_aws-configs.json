@@ -292,6 +292,28 @@
       }
     }
   },
+  "clusterInference": {
+    "defaultClusterConfig": {
+      "cluster_id": "1234-5678-test",
+      "cluster_name": "default-cluster-prop",
+      "driver_node_type_id": "m6gd.xlarge",
+      "node_type_id": "m6gd.2xlarge",
+      "num_workers": 1,
+      "state": "TERMINATED"
+    },
+    "defaultCpuInstances": {
+      "driver": "m6gd.xlarge",
+      "executor": [
+        {"name": "m6gd.large", "vCPUs": 2},
+        {"name": "m6gd.xlarge", "vCPUs": 4},
+        {"name": "m6gd.2xlarge", "vCPUs": 8},
+        {"name": "m6gd.4xlarge", "vCPUs": 16},
+        {"name": "m6gd.8xlarge", "vCPUs": 32},
+        {"name": "m6gd.12xlarge", "vCPUs": 48},
+        {"name": "m6gd.16xlarge", "vCPUs": 64}
+      ]
+    }
+  },
   "clusterSpecs": {
     "minWorkerNodes": 2
   }

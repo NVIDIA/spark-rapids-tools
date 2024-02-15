@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@ class EMRPlatform(PlatformBase):
 
     def __post_init__(self):
         self.type_id = CspEnv.EMR
+        self.cluster_inference_supported = True
         super().__post_init__()
 
     def _construct_cli_object(self) -> CMDDriverBase:
@@ -69,10 +70,19 @@ class EMRPlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = S3StorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self,
-                                      cluster: str,
-                                      props: str = None):
-        return EMRCluster(self).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+        return EMRCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
+
+    def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
+        cluster_conf = default_config
+        for group in cluster_conf['Cluster']['InstanceGroups']:
+            if group.get('Name') == 'CORE':
+                group['InstanceType'] = cluster_info['executor_instance']
+                group['RequestedInstanceCount'] = cluster_info['num_executor_nodes']
+            elif group.get('Name') == 'MASTER':
+                group['InstanceType'] = cluster_info['driver_instance']
+                group['RequestedInstanceCount'] = 1  # single driver node
+        return cluster_conf
 
     def migrate_cluster_to_gpu(self, orig_cluster):
         """
@@ -316,9 +326,16 @@ class EMRCluster(ClusterBase):
         else:
             group_id = group_arg
             group_obj = None
-        query_args = {'instance-group-id': group_id}
-        raw_instance_list = self.cli.exec_platform_list_cluster_instances(self, query_args=query_args)
-        instances_list = json.loads(raw_instance_list).get('Instances')
+        if self.is_inferred:
+            # If cluster settings are inferred, create a list of instances with default configuration
+            default_node_config = self.platform.configs.get_value('clusterInference', 'defaultNodeConfig')
+            default_node_config['InstanceGroupId'] = group_id
+            default_node_config['InstanceType'] = group_obj.instance_type
+            instances_list = [default_node_config for _ in range(group_obj.count)]
+        else:
+            query_args = {'instance-group-id': group_id}
+            raw_instance_list = self.cli.exec_platform_list_cluster_instances(self, query_args=query_args)
+            instances_list = json.loads(raw_instance_list).get('Instances')
         ec2_instances = []
         for raw_inst in instances_list:
             parsed_state = raw_inst['Status']['State']

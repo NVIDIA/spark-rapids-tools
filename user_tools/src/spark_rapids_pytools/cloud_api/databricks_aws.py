@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ class DBAWSPlatform(EMRPlatform):
 
     def __post_init__(self):
         self.type_id = CspEnv.DATABRICKS_AWS
+        self.cluster_inference_supported = True
         super(EMRPlatform, self).__post_init__()
 
     def _construct_cli_object(self) -> CMDDriverBase:
@@ -51,8 +52,15 @@ class DBAWSPlatform(EMRPlatform):
     def _install_storage_driver(self):
         self.storage = S3StorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None):
-        return DatabricksCluster(self).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+        return DatabricksCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
+
+    def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
+        cluster_conf = default_config
+        cluster_conf['driver_node_type_id'] = cluster_info['driver_instance']
+        cluster_conf['node_type_id'] = cluster_info['executor_instance']
+        cluster_conf['num_workers'] = cluster_info['num_executor_nodes']
+        return cluster_conf
 
     def set_offline_cluster(self, cluster_args: dict = None):
         pass

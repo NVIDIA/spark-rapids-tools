@@ -15,6 +15,7 @@
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
 import textwrap
+import json
 from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
@@ -22,7 +23,9 @@ from typing import Any, List, Callable
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo
+from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo, SparkNodeType
+from spark_rapids_pytools.common.cluster_inference import ClusterInference
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -203,19 +206,23 @@ class Qualification(RapidsJarTool):
                 return
 
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
+        cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
         if gpu_cluster_arg:
             gpu_cluster_obj = self._create_migration_cluster('GPU', gpu_cluster_arg)
         else:
-            orig_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
             gpu_cluster_obj = None
-            if orig_cluster:
+            if cpu_cluster:
                 # Convert the CPU instances to support gpu. Otherwise, gpuCluster is not set
                 self.logger.info('Creating GPU cluster by converting the CPU cluster instances to GPU supported types')
-                gpu_cluster_obj = self.ctxt.platform.migrate_cluster_to_gpu(orig_cluster)
+                gpu_cluster_obj = self.ctxt.platform.migrate_cluster_to_gpu(cpu_cluster)
 
         self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster_obj)
 
         _process_gpu_cluster_worker_node()
+        if cpu_cluster.is_inferred:
+            # If the CPU cluster is inferred, we skip the auto-tuner as it is called after the Qualification tool.
+            return gpu_cluster_obj is not None
+
         if gpu_cluster_obj and self.ctxt.get_rapids_auto_tuner_enabled():
             # Generate Autotuner input file for the Qualification
             # Note that we do not call the `_calculate_spark_settings(worker_node_hw_info)` method here
@@ -343,6 +350,12 @@ class Qualification(RapidsJarTool):
                 return ['--auto-tuner']
             return ['--auto-tuner', '--worker-info', autotuner_path]
         return []
+
+    def _create_cluster_report_args(self) -> list:
+        # Add the cluster-report argument if the cluster is not defined else disable it
+        if self.ctxt.get_ctxt('cpuClusterProxy') is None:
+            return ['--cluster-report']
+        return ['--no-cluster-report']
 
     def _process_custom_args(self):
         """
@@ -770,6 +783,9 @@ class Qualification(RapidsJarTool):
                                                 self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'fileName'))
         self.ctxt.logger.debug('Rapids CSV summary file is located as: %s', rapids_summary_file)
         df = pd.read_csv(rapids_summary_file)
+        cluster_info_file = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'fileName')
+        cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
+        self._process_cluster_info_and_update_savings(cluster_info_file)
         csv_file_name = self.ctxt.get_value('local', 'output', 'fileName')
         csv_summary_file = FSUtil.build_path(self.ctxt.get_output_folder(), csv_file_name)
         report_gen = self.__build_global_report_summary(df, csv_summary_file)
@@ -822,7 +838,53 @@ class Qualification(RapidsJarTool):
         return super()._generate_section_content(sec_conf)
 
     def _init_rapids_arg_list(self) -> List[str]:
-        return super()._init_rapids_arg_list() + self._create_autotuner_rapids_args()
+        return super()._init_rapids_arg_list() + self._create_autotuner_rapids_args() + \
+            self._create_cluster_report_args()
+
+    def _process_cluster_info_and_update_savings(self, cluster_info_file):
+        """
+        Process the cluster information from the cluster info file and update savings if CPU cluster
+        can be inferred and corresponding GPU cluster can be defined.
+
+        :param cluster_info_file: File containing the cluster information.
+        """
+        if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
+            return
+
+        # Read cluster information from cluster info file
+        try:
+            with open(cluster_info_file, 'r') as cluster_info_fp:
+                cluster_info_dict = json.load(cluster_info_fp)
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.logger.error('Failed to read cluster information from file: %s', cluster_info_file)
+
+        if len(cluster_info_dict) != 1:
+            self.logger.info('Cannot infer CPU cluster from event logs. Only single cluster is supported.')
+            return
+
+        # Infer the CPU cluster from the cluster information
+        cluster_info = JSONPropertiesContainer(cluster_info_dict[0]['clusterInfo'], False)
+        cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(cluster_info)
+        if cpu_cluster_obj is None:
+            return
+
+        # Log the inferred cluster information and set the context
+        self._log_inferred_cluster_info(cpu_cluster_obj)
+        self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
+
+        # Process gpu cluster arguments and update savings calculations flag
+        offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
+        enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
+        self._set_savings_calculations_flag(enable_savings_flag)
+
+    def _log_inferred_cluster_info(self, cpu_cluster_obj):
+        master_node = cpu_cluster_obj.get_master_node()
+        executor_node = cpu_cluster_obj.get_worker_node(0)
+        num_executors = cpu_cluster_obj.get_nodes_cnt(SparkNodeType.WORKER)
+        self.logger.info('Inferred Cluster => Driver: %s, Executor: %s X %s',
+                         master_node.instance_type,
+                         num_executors,
+                         executor_node.instance_type)
 
 
 @dataclass

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ class DataprocPlatform(PlatformBase):
 
     def __post_init__(self):
         self.type_id = CspEnv.DATAPROC
+        self.cluster_inference_supported = True
         super().__post_init__()
 
     def _set_remaining_configuration_list(self) -> None:
@@ -81,8 +82,22 @@ class DataprocPlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = GStorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None):
-        return DataprocCluster(self).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+        return DataprocCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
+
+    def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
+        cluster_conf = default_config
+        cluster_conf['config']['masterConfig'] = {
+          'instanceNames': 'test-node-d',
+          'machineTypeUri': cluster_info['driver_instance'],
+          'numInstances': 1  # single driver node
+        }
+        cluster_conf['config']['workerConfig'] = {
+          'instanceNames': [f'test-node-e{i}' for i in range(cluster_info['num_executor_nodes'])],
+          'machineTypeUri': cluster_info['executor_instance'],
+          'numInstances': cluster_info['num_executor_nodes']
+        }
+        return cluster_conf
 
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
