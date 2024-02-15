@@ -1496,32 +1496,30 @@ class QualificationSuite extends BaseTestSuite {
   }
 
   test("validate cluster information JSON") {
-    // Expected map from event log -> cluster info
-    val expectedClusterInfoMap = Map(
-      "eventlog_8cores_2exec" -> Some(ClusterInfo(8, 2, None, None)),
-      "eventlog_12cores_3exec_same_host" -> Some(ClusterInfo(12, 3, None, None)),
-      "eventlog_12cores_3exec_db" ->
-        Some(ClusterInfo(12, 3, Some("m6gd.2xlarge"), Some("m6gd.2xlarge"))),
-      "eventlog_missing_exec_info" -> None
+    // Expected result set as (event log, cluster info).
+    // Using set because Qualification tool can return results in any order.
+    val expectedClusterInfoMap = Set(
+      ("eventlog_8cores_2exec",
+        Some(ClusterInfo(8, 2, None, None))),
+      ("eventlog_12cores_3exec_same_host",
+        Some(ClusterInfo(12, 3, None, None))),
+      ("eventlog_12cores_3exec_db",
+        Some(ClusterInfo(12, 3, Some("m6gd.2xlarge"), Some("m6gd.2xlarge")))),
+      ("eventlog_missing_exec_info", None)
     )
 
-    // Read JSON as {'app-id-1':{..}, 'app-id-2': {..}, 'app-id-3': {..}}
-    def readJson(path: String): Map[String, ClusterInfoResult] = {
-      import scala.collection.JavaConverters._
+    // Read JSON as [{'appId': 'app-id-1', ..}, {'appId': 'app-id-2', ..}]
+    def readJson(path: String): Set[ClusterInfoResult] = {
       val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
-      val mapType = mapper.getTypeFactory
-        .constructMapType(classOf[java.util.Map[_, _]], classOf[String], classOf[ClusterInfoResult])
-      val javaMap: java.util.Map[String, ClusterInfoResult] =
-        mapper.readValue(new File(path), mapType)
-      javaMap.asScala.toMap
+      mapper.readValue(new File(path), classOf[Array[ClusterInfoResult]]).toSet
     }
 
     // Execute the qualification tool
     TrampolineUtil.withTempDir { outPath =>
       val allArgs = Array("--output-directory", outPath.getAbsolutePath)
 
-      val logFiles = expectedClusterInfoMap.keys
-        .map(logFile => s"$logDir/cluster_information/$logFile").toArray
+      val logFiles = expectedClusterInfoMap
+        .map(entry => s"$logDir/cluster_information/${entry._1}").toArray
       val appArgs = new QualificationArgs(allArgs ++ logFiles)
       val (exitCode, result) = QualificationMain.mainInternal(appArgs)
       assert(exitCode == 0 && result.size == logFiles.length)
@@ -1529,12 +1527,8 @@ class QualificationSuite extends BaseTestSuite {
       // Read output JSON and create a map of event log -> cluster info
       val outputResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
-      val actualClusterInfoMap = readJson(outputResultFile).map {
-        case (_, clusterInfoResult) =>
-          val eventLogName = clusterInfoResult.eventLogPath.getOrElse("").split("/").last
-          eventLogName -> clusterInfoResult.clusterInfo
-      }
-      assert(actualClusterInfoMap == expectedClusterInfoMap)
+      val actualClusterInfoMap = readJson(outputResultFile).map(_.clusterInfo)
+      assert(actualClusterInfoMap == expectedClusterInfoMap.map(_._2))
     }
   }
 
