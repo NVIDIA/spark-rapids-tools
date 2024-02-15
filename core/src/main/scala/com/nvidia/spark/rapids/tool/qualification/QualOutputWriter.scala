@@ -974,9 +974,8 @@ object QualOutputWriter {
       sumInfo: QualificationSummaryInfo): Set[ExecInfo] = {
     sumInfo.planInfo.map(_.execInfo).collect {
       case execInfos =>
-        // No need to flatten the execs because by definition wholeCodeGen execs should not be part
-        // of that list
-        execInfos.filter(exec => exec.stages.isEmpty && !exec.isSupported)
+        val allExecs = flattenedExecs(execInfos)
+        allExecs.filter(exec => exec.stages.isEmpty && !exec.isSupported)
     }.flatten.toSet
   }
 
