@@ -266,6 +266,7 @@ WindowSpecDefinition,4
 XxHash64,4
 Year,4
 WriteFilesExec,4
+Empty2Null,4
 KMeans-pyspark,8.86
 KMeans-scala,1
 PCA-pyspark,2.24

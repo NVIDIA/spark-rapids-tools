@@ -253,6 +253,7 @@ WindowExpression,3.74
 WindowSpecDefinition,3.74
 XxHash64,3.74
 Year,3.74
+Empty2Null,3.74
 WriteFilesExec,3.74
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2
