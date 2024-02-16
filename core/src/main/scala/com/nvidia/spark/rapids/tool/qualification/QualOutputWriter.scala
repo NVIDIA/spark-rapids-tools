@@ -278,7 +278,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
   def writeClusterReport(sums: Seq[QualificationSummaryInfo]): Unit = {
     // Create a map of appId -> cluster information
     val clusterInfoResult = sums.map { sumInfo =>
-      ClusterInfoResult(sumInfo.appName, sumInfo.appId,sumInfo.eventLogPath, sumInfo.clusterInfo)
+      ClusterInfoResult(sumInfo.appName, sumInfo.appId, sumInfo.eventLogPath, sumInfo.clusterInfo)
     }
     val jsonFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json",

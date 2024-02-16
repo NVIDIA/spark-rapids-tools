@@ -184,7 +184,9 @@ abstract class AppBase(
       val numExecutorNodes = executorOnlyInfo.values.map(_.host).toSet.size
       val numCores = executorOnlyInfo.head._2.totalCores
       Some(ClusterInfo(numCores, numExecutorNodes, executorInstance, driverInstance))
-    } else None
+    } else {
+      None
+    }
   }
 
   def getOrCreateStage(info: StageInfo): StageInfoClass = {
