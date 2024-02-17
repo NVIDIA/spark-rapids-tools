@@ -38,7 +38,7 @@ case class WholeStageExecParser(
     // Perhaps take the max of those in Stage?
     val accumId = node.metrics.find(_.name == "duration").map(_.accumulatorId)
     val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
-    val stagesInNode = SQLPlanParser.getStagesInSQLNode(node, app)
+    val stagesInNode = SQLPlanParser.getStagesInSQLNode(node, app, Some(sqlID))
     // We could skip the entire wholeStage if it is duplicate; but we will lose the information of
     // the children nodes.
     val isDupNode = reusedNodeIds.contains(node.id)

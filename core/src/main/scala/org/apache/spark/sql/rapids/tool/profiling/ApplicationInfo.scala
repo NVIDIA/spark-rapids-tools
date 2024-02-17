@@ -242,7 +242,7 @@ class ApplicationInfo(
       // Maps stages to operators by checking for non-zero intersection
       // between nodeMetrics and stageAccumulateIDs
       val nodeIdToStage = planGraph.allNodes.map { node =>
-        val mappedStages = SQLPlanParser.getStagesInSQLNode(node, this)
+        val mappedStages = SQLPlanParser.getStagesInSQLNode(node, this, None)
         ((sqlId, node.id), mappedStages)
       }.toMap
       sqlPlanNodeIdToStageIds ++= nodeIdToStage

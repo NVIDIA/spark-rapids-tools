@@ -387,12 +387,38 @@ object SQLPlanParser extends Logging {
     PlanInfo(appID, sqlID, sqlDesc, execInfos)
   }
 
-  def getStagesInSQLNode(node: SparkPlanGraphNode, app: AppBase): Set[Int] = {
+  def getStagesInSQLNode(node: SparkPlanGraphNode, app: AppBase, sqlID: Option[Long]): Set[Int] = {
+    // Get the distinct stages that are part of the SQL node. For qualification tool, we get the
+    // accumulators from the node and then get the stages from the accumulators. We then filter
+    // the stages to only include those that are part of the SQL node. We do this by getting the
+    // SQL jobs and then getting the stages that are part of the job. We then filter the stages to
+    // only include those that are part of the SQL node.
+
     val nodeAccums = node.metrics.map(_.accumulatorId)
-    nodeAccums.flatMap { nodeAccumId =>
-      app.accumulatorToStages.get(nodeAccumId)
+    val stagesInNodeAccums = nodeAccums.flatMap { accumId =>
+      app.accumulatorToStages.get(accumId)
     }.flatten.toSet
+
+    val jobsWithSQL = app.jobIdToInfo.filter { case (_, jobInfo) =>
+      if (sqlID.nonEmpty) {
+        jobInfo.sqlID.nonEmpty && jobInfo.sqlID.get == sqlID.get
+      } else {
+        // For profiling tool we do not pass the SQL ID and we want to include all the jobs.
+        jobInfo.sqlID.nonEmpty
+      }
+    }
+    val jobStages = jobsWithSQL.flatMap { case (_, jobInfo) =>
+      val stages = jobInfo.stageIds
+      val stagesInJob = app.stageIdToInfo.filterKeys { case (sid, _) =>
+        stages.contains(sid)
+      }
+      stagesInJob.map { case ((stageId, _), _) =>
+        stageId
+      }
+    }
+    stagesInNodeAccums.flatMap(stId => jobStages.filter(_ == stId))
   }
+
 
   // Set containing execs that refers to other expressions. We need this to be a list to allow
   // appending more execs in teh future as necessary.
@@ -517,7 +543,7 @@ object SQLPlanParser extends Logging {
           ExecInfo(node, sqlID, node.name, expr = "", 1, duration = None, node.id,
             isSupported = false, None)
       }
-      val stagesInNode = getStagesInSQLNode(node, app)
+      val stagesInNode = getStagesInSQLNode(node, app, Some(sqlID))
       execInfos.setStages(stagesInNode)
       // shouldRemove is set to true if the exec is a member of "execsToBeRemoved" or if the node
       // is a duplicate
