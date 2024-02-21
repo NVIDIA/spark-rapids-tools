@@ -1513,7 +1513,8 @@ class QualificationSuite extends BaseTestSuite {
       // Event log with driver only block manager event
       "eventlog_driver_only" -> None,
       // Event log with missing executor added event
-      "eventlog_missing_exec_added_event" -> None
+      "eventlog_3nodes_12cores_exec_removed" ->
+        Some(ClusterInfo(12, 2, None, None))
     )
 
     // Read JSON as [{'appId': 'app-id-1', ..}, {'appId': 'app-id-2', ..}]

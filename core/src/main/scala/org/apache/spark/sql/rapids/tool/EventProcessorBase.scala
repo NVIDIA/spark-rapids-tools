@@ -232,7 +232,16 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerBlockManagerRemoved(
       app: T,
-      event: SparkListenerBlockManagerRemoved): Unit = {}
+      event: SparkListenerBlockManagerRemoved): Unit = {
+    logDebug("Processing event: " + event.getClass)
+    val thisBlockManagerRemoved = BlockManagerRemovedCase(
+      event.blockManagerId.executorId,
+      event.blockManagerId.host,
+      event.blockManagerId.port,
+      event.time
+    )
+    app.blockManagersRemoved += thisBlockManagerRemoved
+  }
 
   override def onBlockManagerRemoved(
       blockManagerRemoved: SparkListenerBlockManagerRemoved): Unit = {

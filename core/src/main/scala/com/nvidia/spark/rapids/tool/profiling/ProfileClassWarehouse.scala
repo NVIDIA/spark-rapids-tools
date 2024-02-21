@@ -200,9 +200,6 @@ case class ResourceProfileInfoCase(
     val executorResources: Map[String, ExecutorResourceRequest],
     val taskResources: Map[String, TaskResourceRequest])
 
-case class BlockManagerRemovedCase(
-    executorId: String, host: String, port: Int, time: Long)
-
 case class BlockManagerRemovedProfileResult(appIndex: Int,
     executorId: String, time: Long) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "executorId", "time")

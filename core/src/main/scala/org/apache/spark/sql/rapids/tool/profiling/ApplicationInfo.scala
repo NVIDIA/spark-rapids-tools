@@ -194,9 +194,6 @@ class ApplicationInfo(
   // resourceprofile id to resource profile info
   val resourceProfIdToInfo = new HashMap[Int, ResourceProfileInfoCase]()
 
-  var blockManagersRemoved: ArrayBuffer[BlockManagerRemovedCase] =
-     ArrayBuffer[BlockManagerRemovedCase]()
-
   var appInfo: ApplicationCase = null
   var appId: String = ""
   val eventLogPath: String = eLogInfo.eventLog.toString

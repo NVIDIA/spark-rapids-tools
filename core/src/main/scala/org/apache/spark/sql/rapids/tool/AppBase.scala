@@ -131,6 +131,8 @@ abstract class AppBase(
 
   // Store map of executorId to executor info
   val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
+  var blockManagersRemoved: ArrayBuffer[BlockManagerRemovedCase] =
+    ArrayBuffer[BlockManagerRemovedCase]()
 
   var appEndTime: Option[Long] = None
   // The data source information
@@ -177,23 +179,21 @@ abstract class AppBase(
     // Extracts instance types from properties (databricks only)
     val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
     val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
-    val execInfos = executorIdToInfo.values.map(execInfo => (execInfo.host, execInfo.totalCores))
-    if (execInfos.isEmpty) {
-      None
-    } else if (execInfos.exists(_._1 == null)) {
-      // This case may occur if an executor was added to the map by
-      // `doSparkListenerBlockManagerAdded`, but `doSparkListenerExecutorAdded` did not occur,
-      // resulting in a null hosts field.
-      logWarning("Skipping cluster detection. Cannot detect executor hosts. " +
-        "Event log may be incomplete.")
+    val validExecInfos = executorIdToInfo.values.collect {
+      case execInfo if execInfo.host != null => (execInfo.host, execInfo.totalCores)
+    }
+    if (validExecInfos.isEmpty) {
       None
     } else {
-      val (executorHosts, coresPerExecutor) = execInfos.unzip
+      val (executorHosts, coresPerExecutor) = validExecInfos.unzip
       if (coresPerExecutor.toSet.size != 1) {
         logWarning("Cluster with variable executor cores detected. Using maximum value.")
       }
-      Some(ClusterInfo(coresPerExecutor.max, executorHosts.toSet.size,
-        executorInstance, driverInstance))
+      // Remove hosts listed in 'blockManagersRemoved' from the 'executorHosts'
+      // list to determine the actual number of hosts
+      val removedHosts = blockManagersRemoved.map(_.host).toSet
+      val numExecutorNodes = (executorHosts.toSet -- removedHosts).size
+      Some(ClusterInfo(coresPerExecutor.max, numExecutorNodes, executorInstance, driverInstance))
     }
   }
 

@@ -95,19 +95,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     app.resourceProfIdToInfo(event.resourceProfile.id) = rp
   }
 
-  override def doSparkListenerBlockManagerRemoved(
-      app: ApplicationInfo,
-      event: SparkListenerBlockManagerRemoved): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val thisBlockManagerRemoved = BlockManagerRemovedCase(
-      event.blockManagerId.executorId,
-      event.blockManagerId.host,
-      event.blockManagerId.port,
-      event.time
-    )
-    app.blockManagersRemoved += thisBlockManagerRemoved
-  }
-
   override def doSparkListenerEnvironmentUpdate(
       app: ApplicationInfo,
       event: SparkListenerEnvironmentUpdate): Unit = {
