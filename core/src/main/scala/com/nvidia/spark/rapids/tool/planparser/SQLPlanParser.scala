@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,22 +26,77 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
-import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, JoinType, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, ExecHelper, JoinType, RDDCheckHelper, ToolUtils}
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
-class ExecInfo(
-    val sqlID: Long,
-    val exec: String,
-    val expr: String,
-    val speedupFactor: Double,
-    val duration: Option[Long],
-    val nodeId: Long,
-    val isSupported: Boolean,
-    val children: Option[Seq[ExecInfo]], // only one level deep
-    val stages: Set[Int] = Set.empty,
-    val shouldRemove: Boolean = false,
-    val unsupportedExprs: Array[String] = Array.empty,
-    val dataSet: Boolean = false,
-    val udf: Boolean = false) {
+object OpActions extends Enumeration {
+  type OpAction = Value
+  val IgnoreNoPerf, IgnorePerf, Triage = Value
+}
+
+object OpTypes extends Enumeration {
+  type OpType = Value
+  val ReadExec, ReadRDD, WriteExec, Exec, Expr, UDF, DataSet = Value
+}
+
+object UnsupportedReasons extends Enumeration {
+  type UnsupportedReason = Value
+  val IS_UDF, CONTAINS_UDF,
+      IS_DATASET, CONTAINS_DATASET,
+      IS_UNSUPPORTED, CONTAINS_UNSUPPORTED_EXPR,
+      UNSUPPORTED_IO_FORMAT = Value
+
+  def reportUnsupportedReason(unsupportedReason: UnsupportedReason, execValue: String): String = {
+    unsupportedReason match {
+      case IS_UDF => "Is UDF"
+      case CONTAINS_UDF => "Contains UDF"
+      case IS_DATASET => "Is Dataset or RDD"
+      case CONTAINS_DATASET => "Contains Dataset or RDD"
+      case IS_UNSUPPORTED => "Unsupported"
+      case CONTAINS_UNSUPPORTED_EXPR => "Contains unsupported expr"
+      case UNSUPPORTED_IO_FORMAT => "Unsupported IO format"
+    }
+  }
+}
+
+case class UnsupportedExecSummary(
+    sqlId: Long,
+    execId: Long,
+    execValue: String,
+    opType: OpTypes.OpType,
+    reason: UnsupportedReasons.UnsupportedReason,
+    opAction: OpActions.OpAction,
+    isExpression: Boolean = false) {
+
+  val finalOpType: String = if (opType.equals(OpTypes.UDF) || opType.equals(OpTypes.DataSet)) {
+    s"${OpTypes.Exec.toString}"
+  } else {
+    s"${opType.toString}"
+  }
+
+  val unsupportedOperator: String = execValue
+
+  val details: String = UnsupportedReasons.reportUnsupportedReason(reason, execValue)
+
+}
+
+case class ExecInfo(
+    sqlID: Long,
+    exec: String,
+    expr: String,
+    speedupFactor: Double,
+    duration: Option[Long],
+    nodeId: Long,
+    opType: OpTypes.OpType,
+    isSupported: Boolean,
+    children: Option[Seq[ExecInfo]], // only one level deep
+    var stages: Set[Int],
+    var shouldRemove: Boolean,
+    unsupportedExprs: Array[String],
+    dataSet: Boolean,
+    udf: Boolean,
+    shouldIgnore: Boolean) {
+
   private def childrenToString = {
     val str = children.map { c =>
       c.map("       " + _.toString).mkString("\n")
@@ -52,12 +107,185 @@ class ExecInfo(
       str
     }
   }
+
   override def toString: String = {
     s"exec: $exec, expr: $expr, sqlID: $sqlID , speedupFactor: $speedupFactor, " +
       s"duration: $duration, nodeId: $nodeId, " +
       s"isSupported: $isSupported, children: " +
-      s"${childrenToString}, stages: ${stages.mkString(",")}, " +
-      s"shouldRemove: $shouldRemove"
+      s"$childrenToString, stages: ${stages.mkString(",")}, " +
+      s"shouldRemove: $shouldRemove, shouldIgnore: $shouldIgnore"
+  }
+
+  def setStages(stageIDs: Set[Int]): Unit = {
+    stages = stageIDs
+  }
+
+  def setShouldRemove(value: Boolean): Unit = {
+    shouldRemove ||= value
+  }
+
+  private def getOpAction: OpActions.OpAction = {
+    if (shouldIgnore) {
+      OpActions.IgnorePerf
+    } else if (shouldRemove) {
+      OpActions.IgnoreNoPerf
+    } else {
+      OpActions.Triage
+    }
+  }
+
+  private def getUnsupportedReason: UnsupportedReasons.UnsupportedReason = {
+    if (children.isDefined) {
+      // TODO: Handle the children
+    }
+
+    if (udf) {
+      UnsupportedReasons.CONTAINS_UDF
+    } else if (dataSet) {
+      if (unsupportedExprs.isEmpty) { // case when the node itself is a DataSet or RDD
+        UnsupportedReasons.IS_DATASET
+      } else {
+        UnsupportedReasons.CONTAINS_DATASET
+      }
+    } else if (unsupportedExprs.nonEmpty) {
+      UnsupportedReasons.CONTAINS_UNSUPPORTED_EXPR
+    } else {
+      opType match {
+        case OpTypes.ReadExec | OpTypes.WriteExec => UnsupportedReasons.UNSUPPORTED_IO_FORMAT
+        case _ => UnsupportedReasons.IS_UNSUPPORTED
+      }
+    }
+  }
+
+  def getUnsupportedExecSummaryRecord(execId: Long): Seq[UnsupportedExecSummary] = {
+    val unsupportedReason = getUnsupportedReason
+    val res =
+      ArrayBuffer(UnsupportedExecSummary(sqlID, execId, exec, opType,
+        unsupportedReason, getOpAction))
+    // TODO: Should we iterate on exec children?
+    // add the unsupported expressions to the results
+    if (unsupportedExprs.nonEmpty) {
+      // unsupported expression will depend on what we learned from the exec itself
+      val exprReason = unsupportedReason match {
+        case UnsupportedReasons.CONTAINS_UDF => UnsupportedReasons.IS_UDF
+        case UnsupportedReasons.CONTAINS_DATASET => UnsupportedReasons.IS_DATASET
+        case UnsupportedReasons.UNSUPPORTED_IO_FORMAT => UnsupportedReasons.UNSUPPORTED_IO_FORMAT
+        case _ => UnsupportedReasons.IS_UNSUPPORTED
+      }
+      unsupportedExprs.foreach { expr =>
+        res += UnsupportedExecSummary(sqlID, execId, expr, OpTypes.Expr,
+          exprReason, getOpAction, isExpression = true)
+      }
+    }
+    res
+  }
+}
+
+object ExecInfo {
+  // Used to create an execInfo without recalculating the dataSet or Udf.
+  // This is helpful when we know that node description may contain some patterns that can be
+  // mistakenly identified as UDFs 
+  def createExecNoNode(sqlID: Long,
+      exec: String,
+      expr: String,
+      speedupFactor: Double,
+      duration: Option[Long],
+      nodeId: Long,
+      opType: OpTypes.OpType,
+      isSupported: Boolean,
+      children: Option[Seq[ExecInfo]], // only one level deep
+      stages: Set[Int] = Set.empty,
+      shouldRemove: Boolean = false,
+      unsupportedExprs: Array[String] = Array.empty,
+      dataSet: Boolean = false,
+      udf: Boolean = false): ExecInfo = {
+    // Set the ignoreFlag
+    // 1- we ignore any exec with UDF
+    // 2- we ignore any exec with dataset
+    // 3- Finally we ignore any exec matching the lookup table
+    // if the opType is RDD, then we automatically enable the datasetFlag
+    val finalDataSet = dataSet || opType.equals(OpTypes.ReadRDD)
+    val shouldIgnore = udf || finalDataSet || ExecHelper.shouldIgnore(exec)
+    val removeFlag = shouldRemove || ExecHelper.shouldBeRemoved(exec)
+    val finalOpType = if (udf) {
+      OpTypes.UDF
+    } else if (dataSet) {
+      // we still want the ReadRDD to stand out from other RDDs. So, we use the original
+      // dataSetFlag
+      OpTypes.DataSet
+    } else {
+      opType
+    }
+    // Set the supported Flag
+    val supportedFlag = isSupported && !udf && !finalDataSet
+    ExecInfo(
+      sqlID,
+      exec,
+      expr,
+      speedupFactor,
+      duration,
+      nodeId,
+      finalOpType,
+      supportedFlag,
+      children,
+      stages,
+      removeFlag,
+      unsupportedExprs,
+      finalDataSet,
+      udf,
+      shouldIgnore
+    )
+  }
+
+  def apply(
+      node: SparkPlanGraphNode,
+      sqlID: Long,
+      exec: String,
+      expr: String,
+      speedupFactor: Double,
+      duration: Option[Long],
+      nodeId: Long,
+      isSupported: Boolean,
+      children: Option[Seq[ExecInfo]], // only one level deep
+      stages: Set[Int] = Set.empty,
+      shouldRemove: Boolean = false,
+      unsupportedExprs: Array[String] = Array.empty,
+      dataSet: Boolean = false,
+      udf: Boolean = false,
+      opType: OpTypes.OpType = OpTypes.Exec): ExecInfo = {
+    // Some execs need to be trimmed such as "Scan"
+    // Example: Scan parquet . ->  Scan parquet.
+    // scan nodes needs trimming
+    val nodeName = node.name.trim
+    // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
+    val containsUDF = udf || ExecHelper.isUDF(node)
+    // check is the node has a dataset operations and if so change to not supported
+    val rddCheckRes = RDDCheckHelper.isDatasetOrRDDPlan(nodeName, node.desc)
+    val ds = dataSet || rddCheckRes.isRDD
+
+    // if the expression is RDD because of the node name, then we do not want to add the
+    // unsupportedExpressions because it becomes bogus.
+    val finalUnsupportedExpr = if (rddCheckRes.nodeDescRDD) {
+      Array.empty[String]
+    } else {
+      unsupportedExprs
+    }
+    createExecNoNode(
+      sqlID,
+      exec,
+      expr,
+      speedupFactor,
+      duration,
+      nodeId,
+      opType,
+      isSupported,
+      children,
+      stages,
+      shouldRemove,
+      finalUnsupportedExpr,
+      ds,
+      containsUDF
+    )
   }
 }
 
@@ -78,13 +306,24 @@ object SQLPlanParser extends Logging {
 
   val windowFunctionPattern = """(\w+)\(""".r
 
-  val ignoreExpressions = Array("any", "cast", "ansi_cast", "decimal", "decimaltype", "every",
-    "some", "merge_max", "merge_min", "merge_sum", "merge_count", "merge_avg", "merge_first",
+  val aggregatePrefixes = Set(
+    "finalmerge_", // DB specific prefix for final merge agg functions
+    "partial_",    // used for partials
+    "merge_"       // Used for partial merge
+  )
+
+  val ignoreExpressions = Set("any", "cast", "ansi_cast", "decimal", "decimaltype", "every",
+    "some",
     "list",
-    // current_database does not cause any CPU fallbacks
-    "current_database",
+    // some ops turn into literals and they should not cause any fallbacks
+    "current_database", "current_user", "current_timestamp",
     // ArrayBuffer is a Scala function and may appear in some of the JavaRDDs/UDAFs)
-    "arraybuffer")
+    "arraybuffer", "arraytype",
+    // TODO: we may need later to consider that structs indicate unsupported data types,
+    //  but for now we just ignore it to avoid false positives.
+    //  StructType and StructField showup from expressions like ("from_json").
+    //  We do not want them to appear as independent expressions.
+    "structfield", "structtype")
 
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
@@ -143,7 +382,7 @@ object SQLPlanParser extends Logging {
       sqlDesc: String,
       checker: PluginTypeChecker,
       app: AppBase): PlanInfo = {
-    val planGraph = SparkPlanGraph(planInfo)
+    val planGraph = ToolsPlanGraph(planInfo)
     // Find all the node graphs that should be excluded and send it to the parsePlanNode
     val excludedNodes = buildSkippedReusedNodesForPlan(planGraph)
     // we want the sub-graph nodes to be inside of the wholeStageCodeGen so use nodes
@@ -161,20 +400,10 @@ object SQLPlanParser extends Logging {
     }.flatten.toSet
   }
 
-  private val skipUDFCheckExecs = Seq("ArrowEvalPython", "AggregateInPandas",
-    "FlatMapGroupsInPandas", "MapInPandas", "WindowInPandas")
-
   // Set containing execs that refers to other expressions. We need this to be a list to allow
   // appending more execs in teh future as necessary.
   // Note that Spark graph may create duplicate nodes when any of the following execs exists.
   private val reuseExecs = Set("ReusedExchange")
-
-  // Set containing execs that should be labeled as "shouldRemove"
-  private val execsToBeRemoved = Set(
-    "GenerateBloomFilter",   // Exclusive on AWS. Ignore it as metrics cannot be evaluated.
-    "ReusedExchange",        // reusedExchange should not be added to speedups
-    "ColumnarToRow"          // for now, assume everything is columnar
-  )
 
   def parsePlanNode(
       node: SparkPlanGraphNode,
@@ -216,10 +445,10 @@ object SQLPlanParser extends Logging {
             CoalesceExecParser(node, checker, sqlID).parse
           case "CollectLimit" =>
             CollectLimitExecParser(node, checker, sqlID).parse
-          case c if (c.contains("CreateDataSourceTableAsSelectCommand")) =>
+          case c if c.contains("CreateDataSourceTableAsSelectCommand") =>
             // create data source table doesn't show the format so we can't determine
             // if we support it
-            new ExecInfo(sqlID, node.name, expr = "", 1, duration = None, node.id,
+            ExecInfo(node, sqlID, node.name, expr = "", 1, duration = None, node.id,
               isSupported = false, None)
           case "CustomShuffleReader" | "AQEShuffleRead" =>
             CustomShuffleReaderExecParser(node, checker, sqlID).parse
@@ -242,7 +471,7 @@ object SQLPlanParser extends Logging {
           case "InMemoryTableScan" =>
             InMemoryTableScanExecParser(node, checker, sqlID).parse
           case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
-            DataWritingCommandExecParser(node, checker, sqlID).parse
+            DataWritingCommandExecParser.parseNode(node, checker, sqlID)
           case "MapInPandas" =>
             MapInPandasExecParser(node, checker, sqlID).parse
           case "ObjectHashAggregate" =>
@@ -257,11 +486,11 @@ object SQLPlanParser extends Logging {
             ShuffledHashJoinExecParser(node, checker, sqlID, app).parse
           case "Sort" =>
             SortExecParser(node, checker, sqlID).parse
-          case s if (s.startsWith("Scan")) =>
+          case s if ReadParser.isScanNode(s) =>
             FileSourceScanExecParser(node, checker, sqlID, app).parse
           case "SortAggregate" =>
             SortAggregateExecParser(node, checker, sqlID).parse
-          case "SortMergeJoin" =>
+          case smj if SortMergeJoinExecParser.accepts(smj) =>
             SortMergeJoinExecParser(node, checker, sqlID).parse
           case "SubqueryBroadcast" =>
             SubqueryBroadcastExecParser(node, checker, sqlID, app).parse
@@ -273,11 +502,13 @@ object SQLPlanParser extends Logging {
             WindowExecParser(node, checker, sqlID).parse
           case "WindowInPandas" =>
             WindowInPandasExecParser(node, checker, sqlID).parse
+          case wfe if WriteFilesExecParser.accepts(wfe) =>
+            WriteFilesExecParser(node, checker, sqlID).parse
           case _ =>
             // Execs that are members of reuseExecs (i.e., ReusedExchange) should be marked as
             // supported but with shouldRemove flag set to True.
             // Setting the "shouldRemove" is handled at the end of the function.
-            new ExecInfo(sqlID, node.name, expr = "", 1, duration = None, node.id,
+            ExecInfo(node, sqlID, node.name, expr = "", 1, duration = None, node.id,
               isSupported = reuseExecs.contains(node.name), None)
         }
       } catch {
@@ -291,25 +522,15 @@ object SQLPlanParser extends Logging {
         case NonFatal(e) =>
           logWarning(s"Unexpected error parsing plan node ${node.name}. " +
           s" sqlID = ${sqlID}", e)
-          new ExecInfo(sqlID, node.name, expr = "", 1, duration = None, node.id,
+          ExecInfo(node, sqlID, node.name, expr = "", 1, duration = None, node.id,
             isSupported = false, None)
       }
-      // check is the node has a dataset operations and if so change to not supported
-      val ds = app.isDataSetOrRDDPlan(node.desc)
-      // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
-      val containsUDF = if (skipUDFCheckExecs.contains(node.name)) {
-        false
-      } else {
-        app.containsUDF(node.desc)
-      }
       val stagesInNode = getStagesInSQLNode(node, app)
-      val supported = execInfos.isSupported && !ds && !containsUDF
+      execInfos.setStages(stagesInNode)
       // shouldRemove is set to true if the exec is a member of "execsToBeRemoved" or if the node
       // is a duplicate
-      val removeFlag = execInfos.shouldRemove || isDupNode || execsToBeRemoved.contains(node.name)
-      Seq(new ExecInfo(execInfos.sqlID, execInfos.exec, execInfos.expr, execInfos.speedupFactor,
-        execInfos.duration, execInfos.nodeId, supported, execInfos.children,
-        stagesInNode, removeFlag, execInfos.unsupportedExprs, ds, containsUDF))
+      execInfos.setShouldRemove(isDupNode)
+      Seq(execInfos)
     }
   }
 
@@ -381,31 +602,67 @@ object SQLPlanParser extends Logging {
     funcName
   }
 
-  private def getAllFunctionNames(functionPattern: Regex, expr: String,
-      groupInd: Int = 1): Set[String] = {
+  // This method aims at doing some common processing to an expression before
+  // we start parsing it. For example, some special handling is required for some functions.
+  private def processSpecialFunctions(expr: String): String = {
+    // For parse_url, we only support parse_url(*,Host,*); parse_url(*,Protocol,*)
+    // So we want to be able to define that parse_url(*,QUERY,*) is not supported.
+
+    // The following regex uses forward references to find matches for parse_url(*)
+    // we need to use forward references because otherwise multiple occurrences will be matched
+    // only once.
+    // https://stackoverflow.com/questions/47162098/is-it-possible-to-match-nested-brackets-with-a-
+    // regex-without-using-recursion-or/47162099#47162099
+    // example parse_url:
+    // Project [url_col#7, parse_url(url_col#7, HOST, false) AS HOST#9,
+    //          parse_url(url_col#7, QUERY, false) AS QUERY#10]
+    val parseURLPattern = ("parse_url(?=\\()(?:(?=.*?\\((?!.*?\\1)(.*\\)(?!.*\\2).*))(?=.*?\\)" +
+      "(?!.*?\\2)(.*)).)+?.*?(?=\\1)[^(]*(?=\\2$)").r
+    var newExpr = expr
+    parseURLPattern.findAllMatchIn(expr).foreach { parse_call =>
+      // iterate on all matches replacing parse_url by parse_url_query
+      // note that we do replaceFirst because we want to map 1-to-1 and the order does
+      // not matter here.
+      if (parse_call.matched.matches("parse_url\\(.*,\\s*(?i)query\\s*,.*\\)")) {
+        newExpr = newExpr.replaceFirst("parse_url\\(", "parse_url_query(")
+      }
+    }
+    newExpr
+  }
+
+  private def getAllFunctionNames(regPattern: Regex, expr: String,
+      groupInd: Int = 1, isAggr: Boolean = true): Set[String] = {
     // Returns all matches in an expression. This can be used when the SQL expression is not
     // tokenized.
-    functionPattern.findAllMatchIn(expr).map(_.group(groupInd)).toSet.filterNot(ignoreExpression(_))
+    val newExpr = processSpecialFunctions(expr)
+
+    // first get all the functionNames
+    val exprss =
+      regPattern.findAllMatchIn(newExpr).map(_.group(groupInd)).toSet
+
+    // For aggregate expressions we want to process the results to remove the prefix
+    // DB: remove the "^partial_" and "^finalmerge_" prefixes
+    // TODO:
+    //    for performance sake, we can turn off the aggregate processing by enabling it only
+    //    when needed. However, for now, we always do this processing until we are confident we know
+    //    the correct place to turn on/off that flag.we can use the argument isAgg only when needed
+    val results = if (isAggr) {
+      exprss.collect {
+        case func =>
+          aggregatePrefixes.find(func.startsWith(_)).map(func.replaceFirst(_, "")).getOrElse(func)
+      }
+    } else {
+      exprss
+    }
+    results.filterNot(ignoreExpression(_))
   }
 
   def parseProjectExpressions(exprStr: String): Array[String] = {
-    val parsedExpressions = ArrayBuffer[String]()
     // Project [cast(value#136 as string) AS value#144, CEIL(value#136) AS CEIL(value)#143L]
     // This is to split the string such that only function names are extracted. The pattern is
     // such that function name is succeeded by `(`. We use regex to extract all the function names
     // below:
-    // paranRemoved = Array(cast(value#136 as string), CEIL(value#136))
-    val pattern: Regex = "([a-zA-Z0-9_]+)\\(".r
-    val functionNamePattern: Regex = """(\w+)""".r
-    val paranRemoved = pattern.findAllMatchIn(exprStr).toArray.map(_.group(1))
-    paranRemoved.foreach { case expr =>
-      val functionName = getFunctionName(functionNamePattern, expr)
-      functionName match {
-        case Some(func) => parsedExpressions += func
-        case _ => // NO OP
-      }
-    }
-    parsedExpressions.distinct.toArray
+    getAllFunctionNames(functionPrefixPattern, exprStr).toArray
   }
 
   // This parser is used for SortAggregateExec, HashAggregateExec and ObjectHashAggregateExec
@@ -433,10 +690,8 @@ object SQLPlanParser extends Logging {
         val group_value = m.group(group_ind)
         if (patternMap.getOrElse(group_value, false)) {
           val clauseExpr = m.group(group_ind + 1)
-          // Here "partial_"  and "merge_" is removed and only function name is preserved.
-          val processedExpr = clauseExpr.replaceAll("partial_", "").replaceAll("merge_", "")
           // No need to split the expr any further because we are only interested in function names
-          val used_functions = getAllFunctionNames(functionPrefixPattern, processedExpr)
+          val used_functions = getAllFunctionNames(functionPrefixPattern, clauseExpr)
           parsedExpressions ++= used_functions
         }
       }
@@ -468,7 +723,7 @@ object SQLPlanParser extends Logging {
     // any window function
     for ( i <- 0 to windowExprs.size - 1 ) {
       val windowFunc = windowFunctionPattern.findAllIn(windowExprs(i)).toList
-      val expr = windowFunc(windowFunc.size -1)
+      val expr = windowFunc.last
       val functionName = getFunctionName(windowFunctionPattern, expr)
       functionName match {
         case Some(func) => parsedExpressions += func
@@ -513,7 +768,7 @@ object SQLPlanParser extends Logging {
       val parenRemoved = orderString.get.toString.replaceAll("orderBy=", "").
         split("(?<=FIRST,)|(?<=LAST,)").map(_.trim).map(
         _.replaceAll("""^\[+""", "").replaceAll("""\]+$""", ""))
-      parenRemoved.foreach { case expr =>
+      parenRemoved.foreach { expr =>
         val functionName = getFunctionName(functionPattern, expr)
         functionName match {
           case Some(func) => parsedExpressions += func
@@ -525,20 +780,11 @@ object SQLPlanParser extends Logging {
   }
 
   def parseGenerateExpressions(exprStr: String): Array[String] = {
-    val parsedExpressions = ArrayBuffer[String]()
-    // Only one generator is allowed per select clause. So we need to parse first expression in
-    // the GenerateExec and check if it is supported.
+    // Get the function names from the GenerateExec. The GenerateExec has the following format:
     // 1. Generate explode(arrays#1306), [id#1304], true, [col#1426]
     // 2. Generate json_tuple(values#1305, Zipcode, ZipCodeType, City), [id#1304],
     // false, [c0#1407, c1#1408, c2#1409]
-    if (exprStr.nonEmpty) {
-      val functionName = getFunctionName(functionPattern, exprStr)
-      functionName match {
-        case Some(func) => parsedExpressions += func
-        case _ => // NO OP
-      }
-    }
-    parsedExpressions.distinct.toArray
+    getAllFunctionNames(functionPrefixPattern, exprStr).toArray
   }
 
    // This parser is used for BroadcastHashJoin, ShuffledHashJoin and SortMergeJoin
@@ -562,7 +808,7 @@ object SQLPlanParser extends Logging {
        ""
      }
      // SortMergeJoin doesn't have buildSide, assign empty string in that case
-     val buildSide = if (joinParams.size > 1) {
+     val buildSide = if (joinParams.length > 1) {
        joinParams(1).trim
      } else {
        ""
@@ -658,7 +904,7 @@ object SQLPlanParser extends Logging {
     if (sortString.isDefined) {
       val paranRemoved = sortString.get.toString.split("(?<=FIRST,)|(?<=LAST,)").
           map(_.trim).map(_.replaceAll("""^\[+""", "").replaceAll("""\]+$""", ""))
-      paranRemoved.foreach { case expr =>
+      paranRemoved.foreach { expr =>
         val functionName = getFunctionName(functionPattern, expr)
         functionName match {
           case Some(func) => parsedExpressions += func

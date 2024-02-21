@@ -18,9 +18,12 @@ package org.apache.spark.sql.rapids.tool.util
 
 import java.io.IOException
 
-import org.jsoup.Jsoup
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.util.control.NonFatal
+import scala.xml.XML
+
+import org.jsoup.Jsoup
 
 import org.apache.spark.internal.Logging
 
@@ -36,6 +39,7 @@ object WebCrawlerUtil extends Logging {
     "rapids.plugin" -> "rapids-4-spark_2.12",
     "rapids.tools" -> "rapids-4-spark-tools_2.12"
   )
+  private val MAVEN_META_FILE = "maven-metadata.xml"
   // regular expression used to extract the version number from
   // the mvn repository url
   private val ARTIFACT_VERSION_REGEX = "\\d{2}\\.\\d{2}\\.\\d+/"
@@ -44,6 +48,11 @@ object WebCrawlerUtil extends Logging {
   def getMVNArtifactURL(artifactID: String) : String = {
     val artifactUrlPart = NV_ARTIFACTS_LOOKUP.getOrElse(artifactID, artifactID)
     s"$NV_MVN_BASE_URL/$artifactUrlPart"
+  }
+
+  def getMVNMetaURL(artifactID: String) : String = {
+    val artifactUrlPart = getMVNArtifactURL(artifactID)
+    s"$artifactUrlPart/$MAVEN_META_FILE"
   }
 
   /**
@@ -99,10 +108,15 @@ object WebCrawlerUtil extends Logging {
 
   // given an artifactID, will return the latest version if any
   def getLatestMvnReleaseForNVPackage(artifactID: String): Option[String] = {
-    val allVersions = getMvnReleasesForNVPackage(artifactID)
-    allVersions match {
-      case Seq() => None
-      case s: Seq[String] => Some(s.last)
+    // Reads maven-metadata.xml file to extract the latest version
+    val mvnMetaFile = getMVNMetaURL(artifactID)
+    try {
+      val xml = XML.load(mvnMetaFile)
+      Some((xml \\ "metadata" \ "versioning" \ "latest").text)
+    } catch {
+      case NonFatal(e) =>
+        logWarning(s"Exception loading maven-metadata.xml: ${mvnMetaFile}", e)
+      None
     }
   }
 
@@ -124,8 +138,4 @@ object WebCrawlerUtil extends Logging {
   def getLatestToolsRelease: Option[String] = {
     getLatestMvnReleaseForNVPackage(NV_ARTIFACTS_LOOKUP("rapids.tools"))
   }
-
-
-
-
 }

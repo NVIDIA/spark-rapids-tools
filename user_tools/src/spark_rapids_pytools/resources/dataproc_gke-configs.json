@@ -1,0 +1,265 @@
+{
+  "dependencies": {
+    "deployMode": {
+      "LOCAL": [
+        {
+          "name": "Apache Spark",
+          "uri": "https://archive.apache.org/dist/spark/spark-3.3.3/spark-3.3.3-bin-hadoop3.tgz",
+          "type": "archive",
+          "relativePath": "jars/*",
+          "sha512": "ebf79c7861f3120d5ed9465fdd8d5302a734ff30713a0454b714bbded7ab9f218b3108dc46a5de4cc2102c86e7be53908f84d2c7a19e59bc75880766eeefeef9",
+          "size": 299426263
+        },
+        {
+          "name": "GCS Connector Hadoop3",
+          "uri": "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.17/gcs-connector-hadoop3-2.2.17-shaded.jar",
+          "type": "jar",
+          "md5": "41aea3add826dfbf3384a2c638148709",
+          "sha1": "06438f562692ff8fae5e8555eba2b9f95cb74f66",
+          "size": 38413466
+        }
+      ]
+    }
+  },
+  "environment": {
+    "//description": "Define the metadata related to the system, prerequisites, and configurations",
+    "envParams": ["credentialFile", "deployMode"],
+    "//initialConfigList": "represents the list of the configurations that need to be loaded first",
+    "initialConfigList": ["credentialFile"],
+    "//loadedConfigProps": "list of properties read by the configParser",
+    "loadedConfigProps": ["region", "zone", "project"],
+    "cliConfig": {
+      "envVariables": [
+        {
+          "envVariableKey": "GOOGLE_APPLICATION_CREDENTIALS",
+          "confProperty": "credentialFile",
+          "defaultValue": "~/.config/gcloud/application_default_credentials.json"
+        },
+        {
+          "envVariableKey": "CLOUDSDK_DATAPROC_REGION",
+          "confProperty": "region"
+        },
+        {
+          "envVariableKey": "CLOUDSDK_COMPUTE_REGION",
+          "confProperty": "region"
+        },
+        {
+          "envVariableKey": "CLOUDSDK_COMPUTE_ZONE",
+          "confProperty": "zone"
+        },
+        {
+          "envVariableKey": "CLOUDSDK_CORE_PROJECT",
+          "confProperty": "project"
+        }
+      ],
+      "confProperties": {
+        "//lookupList_description": "Define the list of properties needed for the run to be successful",
+        "propertiesMap": [
+          {
+            "confProperty": "region",
+            "section": "dataproc",
+            "propKey": "region"
+          },
+          {
+            "confProperty": "region",
+            "section": "compute",
+            "propKey": "region"
+          },
+          {
+            "confProperty": "zone",
+            "section": "compute",
+            "propKey": "zone"
+          },
+          {
+            "confProperty": "project",
+            "section": "core",
+            "propKey": "project"
+          }
+        ],
+        "credentialsMap": []
+      }
+    },
+    "cmdRunnerProperties": {
+      "systemPrerequisites": ["gcloud", "gsutil"],
+      "//description": "define the properties passed to the CMD runner to be set as env-vars",
+      "inheritedProps": ["region", "zone", "project", "credentialFile"],
+      "cliPiggyBackEnvVars": {
+        "//description": "Holds information about the variables that will be attached to the command runner",
+        "definedVars": []
+      },
+      "cliPiggyBackArgs": {
+        "//description": "Holds information about list of arguments that's appended to some SDK commands",
+        "definedArgs": [
+          {
+            "argLabel": "dataprocOutFormat",
+            "//sdkCommand_description": "The sdk command that's related to that argument",
+            "sdkCommand": "gcloud",
+            "argKey": "format",
+            "argValue": "json"
+          }
+        ]
+      },
+      "rapidsJobs": {
+        "LOCAL": {
+          "definedVars": [
+            {
+              "varLabel": "googleAppCredentials",
+              "confProperty": "credentialFile",
+              "varKey": "GOOGLE_APPLICATION_CREDENTIALS"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "pricing": {
+    "catalog": {
+      "onlineResources": [
+        {
+          "resourceKey": "gcloud-catalog",
+          "onlineURL": "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json",
+          "//localFile": "the name of the file after downloading",
+          "localFile": "gcloud-catalog.json",
+          "backupArchive": {
+            "//description-1": "In case the file is stuck, we use this archive as a backup.",
+            "//description-2": "It is stored in the resources",
+            "archiveName": "gcloud-catalog.tgz"
+          }
+        }
+      ],
+      "components": {
+        "ssd": {
+          "unitSizeFactor": 0.513698630136986
+        }
+      }
+    }
+  },
+  "gpuConfigs": {
+    "user-tools": {
+      "gpuPerMachine": {
+        "criteria": {
+          "numCores": [
+            {
+              "title": "smallSize",
+              "lowerBound": 1,
+              "upperBound": 16,
+              "gpuCount": 1
+            },
+            {
+              "title": "largeSize",
+              "lowerBound": 16,
+              "upperBound": 1024,
+              "gpuCount": 2
+            }
+          ]
+        }
+      },
+      "supportedGpuInstances": {
+        "n1-standard": {
+          "//description": "N1 standard machine types have 3.75 GB of system memory per vCPU",
+          "software": {},
+          "SysInfo": {},
+          "GpuHWInfo": {},
+          "seriesInfo": {
+            "//description": "describe the sys info based on",
+            "name": "n1-standard-(\\d+)",
+            "vCPUs": [1, 2, 4, 8, 16, 32, 64, 96],
+            "memPerCPU": 3840
+          }
+        },
+        "n1-highmem": {
+          "//description": "N1 high-memory machine types have 6.5 GB of system memory per vCPU.",
+          "software": {},
+          "SysInfo": {},
+          "GpuHWInfo": {},
+          "seriesInfo": {
+            "//description": "describe the sys info based on",
+            "name": "n1-highmem-(\\d+)",
+            "vCPUs": [2, 4, 8, 16, 32, 64, 96],
+            "memPerCPU": 6656
+          }
+        },
+        "n1-highcpu": {
+          "//description": "N1 high-cpu machine types have 0.9 GB of system memory per vCPU",
+          "software": {},
+          "SysInfo": {},
+          "GpuHWInfo": {},
+          "seriesInfo": {
+            "//description": "describe the sys info based on",
+            "name": "n1-highcpu-(\\d+)",
+            "vCPUs": [2, 4, 8, 16, 32, 64, 96],
+            "memPerCPU": 921.6
+          }
+        }
+      }
+    }
+  },
+  "wrapperReporting": {
+    "qualification": {
+      "sections": [
+        {
+          "sectionID": "initializationScript",
+          "requiresBoolFlag": "enableSavingsCalculations",
+          "sectionName": "Initialization Scripts",
+          "content": {
+            "header": [
+              "To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the",
+              "  following to your cluster creation script:"
+            ],
+            "lines": [
+              "    --initialization-actions=gs://goog-dataproc-initialization-actions-{}/spark-rapids/spark-rapids.sh \\",
+              "    --worker-accelerator type=nvidia-tesla-{},count={}"
+            ]
+          }
+        },
+        {
+          "sectionID": "gpuClusterCreationScript",
+          "requiresBoolFlag": "enableSavingsCalculations",
+          "content": {
+            "header": [
+              "",
+              "To create a GPU cluster, run the following script:",
+              ""
+            ]
+          }
+        },
+        {
+          "sectionID": "gpuBootstrapRecommendedConfigs",
+          "requiresBoolFlag": "enableSavingsCalculations",
+          "sectionName": "Recommended Spark configurations for running on GPUs",
+          "content": {
+            "header": [
+              "",
+              "For the new GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark,",
+              "  it is recommended to set the following Spark configurations:",
+              ""
+            ]
+          }
+        },
+        {
+          "sectionID": "runUserToolsBootstrap",
+          "requiresBoolFlag": "DISABLED",
+          "sectionName": "Regenerating recommended configurations for an existing GPU-Cluster",
+          "content": {
+            "header": [
+              "",
+              "To generate the recommended configurations on an existing GPU-Cluster,",
+              "  re-run the Bootstrap tool to provide optimized RAPIDS Accelerator",
+              "  for Apache Spark configs based on GPU cluster shape.",
+              "  Notes:",
+              "    - Overriding the Apache Spark default configurations on the cluster",
+              "      requires SSH access.",
+              "    - If SSH access is unavailable, you can still dump the recommended",
+              "      configurations by enabling the `dry_run` flag.",
+              ""
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "clusterSpecs": {
+    "minWorkerNodes": 2,
+    "gpuScaleFactor": 0.80
+  }
+}

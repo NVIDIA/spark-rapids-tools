@@ -168,6 +168,7 @@ NormalizeNaNAndZero,3.74
 Not,3.74
 NthValue,3.74
 OctetLength,3.74
+ParseUrl,3.74
 Or,3.74
 Percentile,3.74
 PercentRank,3.74
@@ -252,6 +253,8 @@ WindowExpression,3.74
 WindowSpecDefinition,3.74
 XxHash64,3.74
 Year,3.74
+Empty2Null,3.74
+WriteFilesExec,3.74
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2
 FlatMapGroupsInPandasExec,1.2

@@ -181,6 +181,7 @@ Not,4
 NthValue,4
 OctetLength,4
 Or,4
+ParseUrl,4
 Percentile,4
 PercentRank,4
 PivotFirst,4
@@ -264,6 +265,8 @@ WindowExpression,4
 WindowSpecDefinition,4
 XxHash64,4
 Year,4
+WriteFilesExec,4
+Empty2Null,4
 KMeans-pyspark,8.86
 KMeans-scala,1
 PCA-pyspark,2.24

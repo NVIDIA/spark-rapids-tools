@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package com.nvidia.spark.rapids.tool.qualification
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
+import com.nvidia.spark.rapids.tool.tuning.TunerContext
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
@@ -58,15 +59,21 @@ object QualificationMain extends Logging {
     val order = appArgs.order.getOrElse("desc")
     val uiEnabled = appArgs.htmlReport.getOrElse(false)
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
-    val platform = appArgs.platform()
     val mlOpsEnabled = appArgs.mlFunctions.getOrElse(false)
     val penalizeTransitions = appArgs.penalizeTransitions.getOrElse(true)
 
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf
+    val platform = try {
+      PlatformFactory.createInstance(appArgs.platform())
+    } catch {
+      case ie: IllegalStateException =>
+        logError("Error creating the platform", ie)
+        return (1, Seq[QualificationSummaryInfo]())
+    }
 
     val pluginTypeChecker = try {
       new PluginTypeChecker(
-        PlatformFactory.createInstance(platform),
+        platform,
         appArgs.speedupFactorFile.toOption)
     } catch {
       case ie: IllegalStateException =>
@@ -93,10 +100,16 @@ object QualificationMain extends Logging {
       logWarning("No event logs to process after checking paths, exiting!")
       return (0, Seq[QualificationSummaryInfo]())
     }
-
+    // create the AutoTuner context object
+    val tunerContext = if (appArgs.autoTuner()) {
+      TunerContext(platform, appArgs.workerInfo(), outputDirectory, Option(hadoopConf))
+    } else {
+      None
+    }
     val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf, timeout,
       nThreads, order, pluginTypeChecker, reportReadSchema, printStdout, uiEnabled,
-      enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled, penalizeTransitions)
+      enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled, penalizeTransitions,
+      tunerContext)
     val res = qual.qualifyApps(filteredLogs)
     (0, res)
   }

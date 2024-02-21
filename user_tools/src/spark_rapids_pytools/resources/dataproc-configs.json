@@ -225,7 +225,7 @@
         },
         {
           "sectionID": "gpuBootstrapRecommendedConfigs",
-          "requiresBoolFlag": "enableSavingsCalculations",
+          "requiresBoolFlag": "DISABLED",
           "sectionName": "Recommended Spark configurations for running on GPUs",
           "content": {
             "header": [

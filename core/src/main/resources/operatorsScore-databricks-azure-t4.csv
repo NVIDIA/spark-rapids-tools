@@ -176,6 +176,7 @@ Not,2.73
 NthValue,2.73
 OctetLength,2.73
 Or,2.73
+ParseUrl,2.73
 Percentile,2.73
 PercentRank,2.73
 PivotFirst,2.73
@@ -259,6 +260,8 @@ WindowExpression,2.73
 WindowSpecDefinition,2.73
 XxHash64,2.73
 Year,2.73
+Empty2Null,2.73
+WriteFilesExec,2.73
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2
 FlatMapGroupsInPandasExec,1.2

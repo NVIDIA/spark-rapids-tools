@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.nvidia.spark.rapids.tool.qualification
 
 import com.nvidia.spark.rapids.tool.PlatformNames
+import com.nvidia.spark.rapids.tool.profiling.AutoTuner
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import org.rogach.scallop.exceptions.ScallopException
 
@@ -164,6 +165,16 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Custom speedup factor file used to get estimated GPU speedup that is specific " +
         "to the user's environment. If the file is not provided, it defaults to use the " +
         "speedup files included in the jar.")
+  val autoTuner: ScallopOption[Boolean] =
+    opt[Boolean](required = false,
+      descr = "Toggle AutoTuner module.",
+      default = Some(false))
+  val workerInfo: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "File path containing the system information of a worker node. It is assumed " +
+        "that all workers are homogenous. It requires the AutoTuner to be enabled. Default is " +
+        "./worker_info.yaml",
+      default = Some(AutoTuner.DEFAULT_WORKER_INFO_PATH))
 
   validate(order) {
     case o if (QualificationArgs.isOrderAsc(o) || QualificationArgs.isOrderDesc(o)) => Right(Unit)

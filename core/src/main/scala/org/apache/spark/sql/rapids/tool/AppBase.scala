@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,29 +19,116 @@ package org.apache.spark.sql.rapids.tool
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.io.{Codec, Source}
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
-import com.nvidia.spark.rapids.tool.planparser.ReadParser
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
+import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart, SparkListenerLogStart, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
+import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.qualification.MLFunctions
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
 import org.apache.spark.util.Utils
+import org.apache.spark.util.Utils.REDACTION_REPLACEMENT_TEXT
+
+// Handles updating and caching Spark Properties for a Spark application.
+// Properties stored in this container can be accessed to make decision about certain analysis
+// that depends on the context of the Spark properties.
+trait CacheableProps {
+  private val RETAINED_SYSTEM_PROPS = Set(
+    "file.encoding", "java.version", "os.arch", "os.name",
+    "os.version", "user.timezone")
+
+  // Patterns to be used to redact sensitive values from Spark Properties.
+  private val REDACTED_PROPERTIES = Set[String](
+    // S3
+    "spark.hadoop.fs.s3a.secret.key",
+    "spark.hadoop.fs.s3a.access.key",
+    "spark.hadoop.fs.s3a.session.token",
+    "spark.hadoop.fs.s3a.encryption.key",
+    "spark.hadoop.fs.s3a.bucket.nightly.access.key",
+    "spark.hadoop.fs.s3a.bucket.nightly.secret.key",
+    "spark.hadoop.fs.s3a.bucket.nightly.session.token",
+    // ABFS
+    "spark.hadoop.fs.azure.account.oauth2.client.secret",
+    "spark.hadoop.fs.azure.account.oauth2.client.id",
+    "spark.hadoop.fs.azure.account.oauth2.refresh.token",
+    "spark.hadoop.fs.azure.account.key\\..*",
+    "spark.hadoop.fs.azure.account.auth.type\\..*",
+    // GCS
+    "spark.hadoop.google.cloud.auth.service.account.json.keyfile",
+    "spark.hadoop.fs.gs.auth.client.id",
+    "spark.hadoop.fs.gs.encryption.key",
+    "spark.hadoop.fs.gs.auth.client.secret",
+    "spark.hadoop.fs.gs.auth.refresh.token",
+    "spark.hadoop.fs.gs.auth.impersonation.service.account.for.user\\..*",
+    "spark.hadoop.fs.gs.auth.impersonation.service.account.for.group\\..*",
+    "spark.hadoop.fs.gs.auth.impersonation.service.account",
+    "spark.hadoop.fs.gs.proxy.username",
+    // matches on any key that contains password in it.
+    "(?i).*password.*"
+  )
+
+  // caches the spark-version from the eventlogs
+  var sparkVersion: String = ""
+  var gpuMode = false
+  // A flag whether hive is enabled or not. Note that we assume that the
+  // property is global to the entire application once it is set. a.k.a, it cannot be disabled
+  // once it is was set to true.
+  var hiveEnabled = false
+  var sparkProperties = Map[String, String]()
+  var classpathEntries = Map[String, String]()
+  // set the fileEncoding to UTF-8 by default
+  var systemProperties = Map[String, String]()
+
+  private def processPropKeys(srcMap: Map[String, String]): Map[String, String] = {
+    // Redact the sensitive values in the given map.
+    val redactedKeys = REDACTED_PROPERTIES.collect {
+      case rK if srcMap.keySet.exists(_.matches(rK)) => rK -> REDACTION_REPLACEMENT_TEXT
+    }
+    srcMap ++ redactedKeys
+  }
+
+  def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
+    sparkProperties ++= processPropKeys(event.environmentDetails("Spark Properties").toMap)
+    classpathEntries ++= event.environmentDetails("Classpath Entries").toMap
+
+    gpuMode ||=  ProfileUtils.isPluginEnabled(sparkProperties)
+    hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
+
+    // Update the properties if system environments are set.
+    // No need to capture all the properties in memory. We only capture important ones.
+    systemProperties ++= event.environmentDetails("System Properties").toMap.filterKeys(
+      RETAINED_SYSTEM_PROPS.contains(_))
+  }
+
+  def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
+    // TODO: we need to improve this in order to support per-job-level
+    hiveEnabled ||= HiveParseHelper.isHiveEnabled(event.properties.asScala)
+  }
+
+  def handleLogStartForCachedProps(event: SparkListenerLogStart): Unit = {
+    sparkVersion = event.sparkVersion
+  }
+
+  def isGPUModeEnabledForJob(event: SparkListenerJobStart): Boolean = {
+    gpuMode || ProfileUtils.isPluginEnabled(event.properties.asScala)
+  }
+}
 
 abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
-    val hadoopConf: Option[Configuration]) extends Logging {
+    val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
 
-  var sparkVersion: String = ""
   var appEndTime: Option[Long] = None
   // The data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
@@ -69,8 +156,6 @@ abstract class AppBase(
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
   var mlEventLogType = ""
   var pysparkLogFlag = false
-
-  var gpuMode = false
 
   def getOrCreateStage(info: StageInfo): StageInfoClass = {
     val stage = stageIdToInfo.getOrElseUpdate((info.stageId, info.attemptNumber()),
@@ -218,7 +303,7 @@ abstract class AppBase(
               // Do NOT use a while loop as it is much much slower.
               lines.find { line =>
                 totalNumEvents += 1
-                ToolUtils.getEventFromJsonMethod(line) match {
+                EventUtils.getEventFromJsonMethod(line) match {
                   case Some(e) => processEvent(e)
                   case None => false
                 }
@@ -230,15 +315,6 @@ abstract class AppBase(
         }
         logInfo(s"Total number of events parsed: $totalNumEvents for ${eventLogPath.toString}")
       case None => logInfo("Streaming events to application")
-    }
-  }
-
-  def isDataSetOrRDDPlan(desc: String): Boolean = {
-    desc match {
-      case l if l.matches(".*\\$Lambda\\$.*") => true
-      case a if a.endsWith(".apply") => true
-      case r if r.matches(".*SerializeFromObject.*") => true
-      case _ => false
     }
   }
 
@@ -272,6 +348,16 @@ abstract class AppBase(
     }
   }
 
+  // Finds all the nodes that scan a hive table
+  def getPlanInfoWithHiveScan(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
+    val childRes = planInfo.children.flatMap(getPlanInfoWithHiveScan(_))
+    if (isHiveTableScanNode(planInfo.nodeName)) {
+      childRes :+ planInfo
+    } else {
+      childRes
+    }
+  }
+
   private def trimSchema(str: String): String = {
     val index = str.lastIndexOf(",")
     if (index != -1 && str.contains("...")) {
@@ -285,7 +371,7 @@ abstract class AppBase(
   protected def checkMetadataForReadSchema(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
     // check if planInfo has ReadSchema
     val allMetaWithSchema = getPlanMetaWithSchema(planInfo)
-    val planGraph = SparkPlanGraph(planInfo)
+    val planGraph = ToolsPlanGraph(planInfo)
     val allNodes = planGraph.allNodes
 
     allMetaWithSchema.foreach { plan =>
@@ -295,7 +381,7 @@ abstract class AppBase(
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
-      }).filter(x => x.name.startsWith("Scan")).head
+      }).filter(ReadParser.isScanNode(_)).head
 
       dataSourceInfo += DataSourceCase(sqlID,
         scanNode.id,
@@ -305,15 +391,29 @@ abstract class AppBase(
         readSchema
       )
     }
+    // "scan hive" has no "ReadSchema" defined. So, we need to look explicitly for nodes
+    // that are scan hive and add them one by one to the dataSource
+    if (hiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
+      val allPlanWithHiveScan = getPlanInfoWithHiveScan(planInfo)
+      allPlanWithHiveScan.foreach { hiveReadPlan =>
+        val sqlGraph = ToolsPlanGraph(hiveReadPlan)
+        val hiveScanNode = sqlGraph.allNodes.head
+        val scanHiveMeta = HiveParseHelper.parseReadNode(hiveScanNode)
+        dataSourceInfo += DataSourceCase(sqlID,
+          hiveScanNode.id,
+          scanHiveMeta.format,
+          scanHiveMeta.location,
+          scanHiveMeta.filters,
+          scanHiveMeta.schema
+        )
+      }
+    }
   }
 
   // This will find scans for DataSource V2, if the schema is very large it
   // will likely be incomplete and have ... at the end.
   protected def checkGraphNodeForReads(sqlID: Long, node: SparkPlanGraphNode): Unit = {
-    if (node.name.equals("BatchScan") ||
-        node.name.contains("GpuScan") ||
-        node.name.contains("GpuBatchScan") ||
-        node.name.contains("JDBCRelation")) {
+    if (ReadParser.isDataSourceV2Node(node)) {
       val res = ReadParser.parseReadNode(node)
 
       dataSourceInfo += DataSourceCase(sqlID,

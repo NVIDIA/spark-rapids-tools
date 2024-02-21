@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,10 +26,10 @@ import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_F
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.execution.ui.SparkPlanGraph
 import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 class QualificationAppInfo(
     eventLogInfo: Option[EventLogInfo],
@@ -97,6 +97,35 @@ class QualificationAppInfo(
     sqlIDToTaskEndSum.remove(sqlID)
     sqlIDtoFailures.remove(sqlID)
     super.cleanupSQL(sqlID)
+  }
+
+  override def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
+    super.handleEnvUpdateForCachedProps(event)
+    if (gpuMode) {
+      throw GpuEventLogException(s"Cannot parse event logs from GPU run")
+    }
+    clusterTags = sparkProperties.getOrElse("spark.databricks.clusterUsageTags.clusterAllTags", "")
+    clusterTagClusterId =
+      sparkProperties.getOrElse("spark.databricks.clusterUsageTags.clusterId", "")
+    clusterTagClusterName =
+      sparkProperties.getOrElse("spark.databricks.clusterUsageTags.clusterName", "")
+  }
+
+  override def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
+    super.handleJobStartForCachedProps(event)
+    // If the confs are set after SparkSession initialization, it is captured in this event.
+    if (clusterTags.isEmpty) {
+      clusterTags = event.properties.getProperty(
+        "spark.databricks.clusterUsageTags.clusterAllTags", "")
+    }
+    if (clusterTagClusterId.isEmpty) {
+      clusterTagClusterId = event.properties.getProperty(
+        "spark.databricks.clusterUsageTags.clusterId", "")
+    }
+    if (clusterTagClusterName.isEmpty) {
+      clusterTagClusterName =event.properties.getProperty(
+        "spark.databricks.clusterUsageTags.clusterName", "")
+    }
   }
 
   // time in ms
@@ -293,8 +322,16 @@ class QualificationAppInfo(
     }.sum
     val allSpeedupFactorAvg = SQLPlanParser.averageSpeedup(execInfos.map(_.speedupFactor))
     val allFlattenedExecs = flattenedExecs(execInfos)
+    // Add penalty if there are UDF's. The time taken in stage with UDF's is usually more than on
+    // GPU due to fallback. So, we are adding a penalty to the speedup factor if there are UDF's.
+    val udfs = allFlattenedExecs.filter(x => x.udf == true)
+    val stageFinalSpeedupFactor = if (udfs.nonEmpty) {
+      allSpeedupFactorAvg / 2.0
+    } else {
+      allSpeedupFactorAvg
+    }
     val numUnsupported = allFlattenedExecs.filterNot(_.isSupported)
-    val unsupportedExecs = numUnsupported.map(_.exec)
+    val unsupportedExecs = numUnsupported
     // if we have unsupported try to guess at how much time.  For now divide
     // time by number of execs and give each one equal weight
     val eachExecTime = allStageTaskTime / allFlattenedExecs.size
@@ -340,7 +377,7 @@ class QualificationAppInfo(
       val stageInfos = stageIdToInfo.filterKeys { case (id, _) => id == stageId }
       val wallclockStageDuration = stageInfos.values.map(x => x.duration.getOrElse(0L)).sum
 
-      StageQualSummaryInfo(stageId, allSpeedupFactorAvg, stageTaskTime,
+      StageQualSummaryInfo(stageId, stageFinalSpeedupFactor, stageTaskTime,
         finalEachStageUnsupported, numTransitions, transitionsTime, estimated,
         wallclockStageDuration, unsupportedExecs)
     }.toSet
@@ -352,10 +389,10 @@ class QualificationAppInfo(
       // Example: Exchange;WholeStageCodegen (14);Exchange;WholeStageCodegen (13);Exchange
       // will be flattened to Exchange;Sort;Exchange;Sort;SortMergeJoin;SortMergeJoin;Exchange;
       val allExecs = execs.map(x => if (x.exec.startsWith("WholeStage")) {
-        x.children.getOrElse(Seq.empty)
+        x.children.getOrElse(Seq.empty).reverse
       } else {
         Seq(x)
-      }).flatten.reverse
+      }).flatten
 
       // If it's a shuffle stage, then we need to keep the first and last Exchange and remove
       // all the intermediate Exchanges as input size is captured in Exchange node.
@@ -460,8 +497,7 @@ class QualificationAppInfo(
         val filteredChildren = e.children.map { c =>
           c.filterNot(_.shouldRemove)
         }
-        new ExecInfo(e.sqlID, e.exec, e.expr, e.speedupFactor, e.duration,
-          e.nodeId, e.isSupported, filteredChildren, e.stages, e.shouldRemove, e.unsupportedExprs)
+        e.copy(children = filteredChildren)
       }
       val filteredPlanInfos = execFilteredChildren.filterNot(_.shouldRemove)
       p.copy(execInfo = filteredPlanInfos)
@@ -518,11 +554,14 @@ class QualificationAppInfo(
       val (allComplexTypes, nestedComplexTypes) = reportComplexTypes
       val problems = getAllPotentialProblems(getPotentialProblemsForDf, nestedComplexTypes)
 
-      val origPlanInfos = sqlPlans.map { case (id, plan) =>
-        val sqlDesc = sqlIdToInfo(id).description
-        SQLPlanParser.parseSQLPlan(appId, plan, id, sqlDesc, pluginTypeChecker, this)
+      val origPlanInfos = sqlPlans.collect {
+        case (id, plan) if sqlIdToInfo.contains(id) =>
+          val sqlDesc = sqlIdToInfo(id).description
+          SQLPlanParser.parseSQLPlan(appId, plan, id, sqlDesc, pluginTypeChecker, this)
       }.toSeq
 
+      // get summary of each SQL Query for original plan
+      val origPlanInfosSummary = summarizeSQLStageInfo(origPlanInfos)
       // filter out any execs that should be removed
       val planInfos = removeExecsShouldRemove(origPlanInfos)
       // get a summary of each SQL Query
@@ -652,7 +691,8 @@ class QualificationAppInfo(
         allComplexTypes, nestedComplexTypes, longestSQLDuration, sqlDataframeTaskDuration,
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
         taskSpeedupFactor, info.sparkUser, info.startTime, wallClockSqlDFToUse,
-        origPlanInfos, perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
+        origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
+        perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
         mlTotalStageDuration, unsupportedExecExprsMap)
     }
@@ -736,7 +776,7 @@ class QualificationAppInfo(
 
   private[qualification] def processSQLPlan(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
     checkMetadataForReadSchema(sqlID, planInfo)
-    val planGraph = SparkPlanGraph(planInfo)
+    val planGraph = ToolsPlanGraph(planInfo)
     val allnodes = planGraph.allNodes
     for (node <- allnodes) {
       checkGraphNodeForReads(sqlID, node)
@@ -868,6 +908,7 @@ case class QualificationSummaryInfo(
     startTime: Long,
     sparkSqlDFWallClockDuration: Long,
     planInfo: Seq[PlanInfo],
+    origPlanStageInfo: Seq[StageQualSummaryInfo],
     stageInfo: Seq[StageQualSummaryInfo],
     estimatedInfo: EstimatedAppInfo,
     perSQLEstimatedInfo: Option[Seq[EstimatedPerSQLSummaryInfo]],
@@ -889,7 +930,7 @@ case class StageQualSummaryInfo(
     transitionTime: Long,
     estimated: Boolean = false,
     stageWallclockDuration: Long = 0,
-    unsupportedExecs: Seq[String] = Seq.empty)
+    unsupportedExecs: Seq[ExecInfo] = Seq.empty)
 
 object QualificationAppInfo extends Logging {
   // define recommendation constants

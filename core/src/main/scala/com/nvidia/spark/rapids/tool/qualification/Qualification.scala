@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,19 +23,20 @@ import scala.collection.JavaConverters._
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.EventLogInfo
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
+import com.nvidia.spark.rapids.tool.tuning.TunerContext
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.{ConsoleProgressBar, QualificationReportGenerator}
 import org.apache.spark.sql.rapids.tool.util._
 
-class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
+class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     timeout: Option[Long], nThreads: Int, order: String,
     pluginTypeChecker: PluginTypeChecker, reportReadSchema: Boolean,
     printStdout: Boolean, uiEnabled: Boolean, enablePB: Boolean,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean,
-    penalizeTransitions: Boolean) extends Logging {
+    penalizeTransitions: Boolean,
+    tunerContext: Option[TunerContext]) extends RuntimeReporter {
 
   private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
 
@@ -52,6 +53,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
   // Store application status reports indexed by event log path.
   private val appStatusReporter = new ConcurrentHashMap[String, QualAppResult]
 
+  override val outputDir = s"$outputPath/rapids_4_spark_qualification_output"
   private class QualifyThread(path: EventLogInfo) extends Runnable {
     def run: Unit = qualifyApp(path, hadoopConf)
   }
@@ -60,6 +62,9 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     if (enablePB && allPaths.nonEmpty) { // total count to start the PB cannot be 0
       progressBar = Some(new ConsoleProgressBar("Qual Tool", allPaths.length))
     }
+    // generate metadata
+    generateRuntimeReport()
+
     allPaths.foreach { path =>
       try {
         threadPool.submit(new QualifyThread(path))
@@ -78,7 +83,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     progressBar.foreach(_.finishAll())
     val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
 
-    val qWriter = new QualOutputWriter(getReportOutputPath, reportReadSchema, printStdout,
+    val qWriter = new QualOutputWriter(outputDir, reportReadSchema, printStdout,
       order)
     // sort order and limit only applies to the report summary text file,
     // the csv file we write the entire data in descending order
@@ -92,8 +97,7 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
     }
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
-    qWriter.writeUnsupportedOperatorsCSVReport(allAppsSum, order)
-    qWriter.writeUnsupportedOperatorsDetailedStageCSVReport(allAppsSum, order)
+    qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
     val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
     qWriter.writeStatusReport(appStatusResult, order)
     if (mlOpsEnabled) {
@@ -105,8 +109,9 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
       }
     }
     if (uiEnabled) {
-      QualificationReportGenerator.generateDashBoard(getReportOutputPath, allAppsSum)
+      QualificationReportGenerator.generateDashBoard(outputDir, allAppsSum)
     }
+
     sortedDescDetailed
   }
 
@@ -177,6 +182,13 @@ class Qualification(outputDir: String, numRows: Int, hadoopConf: Configuration,
         case Right(app: QualificationAppInfo) =>
           // Case with successful creation of QualificationAppInfo
           val qualSumInfo = app.aggregateStats()
+          tunerContext.foreach { tuner =>
+            // Run the autotuner if it is enabled.
+            // Note that we call the autotuner anyway without checking the aggregate results
+            // because the Autotuner can still make some recommendations based on the information
+            // enclosed by the QualificationInfo object
+            tuner.tuneApplication(app, qualSumInfo)
+          }
           if (qualSumInfo.isDefined) {
             allApps.add(qualSumInfo.get)
             progressBar.foreach(_.reportSuccessfulProcess())

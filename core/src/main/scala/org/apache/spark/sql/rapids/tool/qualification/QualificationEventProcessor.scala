@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,28 +25,13 @@ import com.nvidia.spark.rapids.tool.profiling._
 
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui._
-import org.apache.spark.sql.rapids.tool.{EventProcessorBase, GpuEventLogException, ToolUtils}
+import org.apache.spark.sql.rapids.tool.EventProcessorBase
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean)
   extends EventProcessorBase[QualificationAppInfo](app) {
 
   type T = QualificationAppInfo
-
-  override def doSparkListenerEnvironmentUpdate(
-      app: QualificationAppInfo,
-      event: SparkListenerEnvironmentUpdate): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val sparkProperties = event.environmentDetails("Spark Properties").toMap
-    if (ToolUtils.isPluginEnabled(sparkProperties)) {
-      throw GpuEventLogException(s"Cannot parse event logs from GPU run")
-    }
-    app.clusterTags = sparkProperties.getOrElse(
-      "spark.databricks.clusterUsageTags.clusterAllTags", "")
-    app.clusterTagClusterId = sparkProperties.getOrElse(
-      "spark.databricks.clusterUsageTags.clusterId", "")
-    app.clusterTagClusterName = sparkProperties.getOrElse(
-      "spark.databricks.clusterUsageTags.clusterName", "")
-  }
 
   override def doSparkListenerApplicationStart(
       app: QualificationAppInfo,
@@ -132,12 +117,12 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
     logDebug("Processing event: " + event.getClass)
     super.doSparkListenerJobStart(app, event)
     val sqlIDString = event.properties.getProperty("spark.sql.execution.id")
-    ProfileUtils.stringToLong(sqlIDString).foreach { sqlID =>
+    StringUtils.stringToLong(sqlIDString).foreach { sqlID =>
       event.stageIds.foreach { stageId =>
         app.stageIdToSqlID.getOrElseUpdate(stageId, sqlID)
       }
     }
-    val sqlID = ProfileUtils.stringToLong(sqlIDString)
+    val sqlID = StringUtils.stringToLong(sqlIDString)
     // don't store if we are only processing per sql queries and the job isn't
     // related to a SQL query
     if ((perSqlOnly && sqlID.isDefined) || !perSqlOnly) {
@@ -151,22 +136,9 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
         None,
         None,
         None,
-        ProfileUtils.isPluginEnabled(event.properties.asScala) || app.gpuMode
+        app.isGPUModeEnabledForJob(event)
       )
       app.jobIdToInfo.put(event.jobId, thisJob)
-    }
-    // If the confs are set after SparkSession initialization, it is captured in this event.
-    if (app.clusterTags.isEmpty) {
-      app.clusterTags = event.properties.getProperty(
-        "spark.databricks.clusterUsageTags.clusterAllTags", "")
-    }
-    if (app.clusterTagClusterId.isEmpty) {
-      app.clusterTagClusterId = event.properties.getProperty(
-        "spark.databricks.clusterUsageTags.clusterId", "")
-    }
-    if (app.clusterTagClusterName.isEmpty) {
-      app.clusterTagClusterName = event.properties.getProperty(
-        "spark.databricks.clusterUsageTags.clusterName", "")
     }
   }
 
