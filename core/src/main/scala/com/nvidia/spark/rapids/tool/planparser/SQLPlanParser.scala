@@ -125,11 +125,13 @@ case class ExecInfo(
   }
 
   private def getOpAction: OpActions.OpAction = {
-    if (shouldIgnore) {
-      OpActions.IgnorePerf
-    } else if (shouldRemove) {
+    // shouldRemove is checked first because sometimes an exec could have both flag set to true,
+    // but then we care about having the "NoPerf" part
+    if (shouldRemove) {
       OpActions.IgnoreNoPerf
-    } else {
+    } else if (shouldIgnore) {
+      OpActions.IgnorePerf
+    } else  {
       OpActions.Triage
     }
   }
