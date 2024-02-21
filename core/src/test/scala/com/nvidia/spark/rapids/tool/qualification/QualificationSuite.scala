@@ -33,7 +33,7 @@ import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, udf}
-import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterInfo, ClusterInfoResult, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterInfo, ClusterSummary, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo, RunningQualificationEventProcessor}
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types._
@@ -1496,39 +1496,50 @@ class QualificationSuite extends BaseTestSuite {
   }
 
   test("validate cluster information JSON") {
-    // Expected result set as (event log, cluster info).
-    // Using set because Qualification tool can return results in any order.
-    val expectedClusterInfoMap = Set(
-      ("eventlog_8cores_2exec",
-        Some(ClusterInfo(8, 2, None, None))),
-      ("eventlog_12cores_3exec_same_host",
-        Some(ClusterInfo(12, 3, None, None))),
-      ("eventlog_12cores_3exec_db",
-        Some(ClusterInfo(12, 3, Some("m6gd.2xlarge"), Some("m6gd.2xlarge")))),
-      ("eventlog_missing_exec_info", None)
+    // Expected result set as a map of event log -> cluster info.
+    val expectedClusterInfoMap = Map(
+      // 2 executor nodes with 8 cores.
+      "eventlog_2nodes_8cores" ->
+        Some(ClusterInfo(8, 2, None, None)),
+      // 3 executor nodes with 12 cores in databricks aws platform.
+      "eventlog_3nodes_12cores_db" ->
+        Some(ClusterInfo(12, 3, Some("m6gd.2xlarge"), Some("m6gd.2xlarge"))),
+      // 3 executor nodes with 12 cores having 2 out of 4 executors on same host.
+      "eventlog_3nodes_12cores_same_host" ->
+        Some(ClusterInfo(12, 3, None, None)),
+      // 3 executor nodes with 8, 12 and 8 cores.
+      "eventlog_3nodes_12cores_variable_cores" ->
+        Some(ClusterInfo(12, 3, None, None)),
+      // Event log with driver only block manager event
+      "eventlog_driver_only" -> None,
+      // Event log with missing executor added event
+      "eventlog_missing_exec_added_event" -> None
     )
 
     // Read JSON as [{'appId': 'app-id-1', ..}, {'appId': 'app-id-2', ..}]
-    def readJson(path: String): Set[ClusterInfoResult] = {
+    def readJson(path: String): Array[ClusterSummary] = {
       val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
-      mapper.readValue(new File(path), classOf[Array[ClusterInfoResult]]).toSet
+      mapper.readValue(new File(path), classOf[Array[ClusterSummary]])
     }
 
     // Execute the qualification tool
     TrampolineUtil.withTempDir { outPath =>
       val allArgs = Array("--output-directory", outPath.getAbsolutePath)
-
       val logFiles = expectedClusterInfoMap
         .map(entry => s"$logDir/cluster_information/${entry._1}").toArray
       val appArgs = new QualificationArgs(allArgs ++ logFiles)
       val (exitCode, result) = QualificationMain.mainInternal(appArgs)
       assert(exitCode == 0 && result.size == logFiles.length)
 
-      // Read output JSON and create a map of event log -> cluster info
+      // Read output JSON and create a set of (event log, cluster info)
       val outputResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
-      val actualClusterInfoMap = readJson(outputResultFile).map(_.clusterInfo)
-      assert(actualClusterInfoMap == expectedClusterInfoMap.map(_._2))
+      val actualClusterInfoMap = readJson(outputResultFile).map { clusterSummary =>
+        // extract file name from path
+        val eventLogFile = clusterSummary.eventLogPath.map(new File(_).getName).getOrElse("")
+        eventLogFile -> clusterSummary.clusterInfo
+      }.toMap
+      assert(actualClusterInfoMap == expectedClusterInfoMap)
     }
   }
 
@@ -1539,7 +1550,7 @@ class QualificationSuite extends BaseTestSuite {
         "--output-directory",
         outPath.getAbsolutePath,
         "--no-cluster-report",
-        s"$logDir/cluster_information/eventlog_8cores_2exec")
+        s"$logDir/cluster_information/eventlog_2nodes_8cores")
 
       val appArgs = new QualificationArgs(allArgs)
       val (exitCode, result) = QualificationMain.mainInternal(appArgs)

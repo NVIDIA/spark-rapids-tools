@@ -143,16 +143,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     app.appEndTime = Some(event.time)
   }
 
-  override def doSparkListenerExecutorRemoved(
-      app: ApplicationInfo,
-      event: SparkListenerExecutorRemoved): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val exec = app.getOrCreateExecutor(event.executorId, event.time)
-    exec.isActive = false
-    exec.removeTime = event.time
-    exec.removeReason = event.reason
-  }
-
   override def doSparkListenerTaskStart(
       app: ApplicationInfo,
       event: SparkListenerTaskStart): Unit = {

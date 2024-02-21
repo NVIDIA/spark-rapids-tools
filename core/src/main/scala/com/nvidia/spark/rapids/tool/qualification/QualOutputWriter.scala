@@ -28,7 +28,7 @@ import org.apache.hadoop.conf.Configuration
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization
 
-import org.apache.spark.sql.rapids.tool.{ClusterInfoResult, ExecHelper, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{ExecHelper, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{EstimatedPerSQLSummaryInfo, EstimatedSummaryInfo, QualificationAppInfo, QualificationSummaryInfo, StatusSummaryInfo}
 import org.apache.spark.sql.rapids.tool.util._
 
@@ -276,15 +276,11 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
   }
 
   def writeClusterReport(sums: Seq[QualificationSummaryInfo]): Unit = {
-    // Create a map of appId -> cluster information
-    val clusterInfoResult = sums.map { sumInfo =>
-      ClusterInfoResult(sumInfo.appName, sumInfo.appId, sumInfo.eventLogPath, sumInfo.clusterInfo)
-    }
     val jsonFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json",
       "Cluster Information", hadoopConf)
-    try{
-      jsonFileWriter.write(Serialization.writePretty(clusterInfoResult))
+    try {
+      jsonFileWriter.write(Serialization.writePretty(sums.map(_.clusterSummary)))
     } finally {
       jsonFileWriter.close()
     }
