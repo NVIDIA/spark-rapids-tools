@@ -173,12 +173,15 @@ abstract class AppBase(
    * If executor nodes exist, calculates the number of hosts and total cores,
    * and extracts executor and driver instance types (databricks only)
    *
-   * @return
+   * @return Cluster information including cores, number of nodes, and instance types.
    */
   def getClusterInfo: Option[ClusterInfo] = {
-    // Extracts instance types from properties (databricks only)
-    val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
-    val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
+    // TODO: Handle dynamic allocation when determining the number of nodes.
+    sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
+      if (value.toBoolean) {
+        logWarning("Dynamic allocation is not supported. Cluster information may be inaccurate.")
+      }
+    }
     val activeExecInfo = executorIdToInfo.values.collect {
       case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
     }
@@ -187,6 +190,9 @@ abstract class AppBase(
       if (coresPerExecutor.toSet.size != 1) {
         logWarning("Cluster with variable executor cores detected. Using maximum value.")
       }
+      // Extracts instance types from properties (databricks only)
+      val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
+      val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
       Some(ClusterInfo(coresPerExecutor.max, activeHosts.toSet.size,
         executorInstance, driverInstance))
     } else {
