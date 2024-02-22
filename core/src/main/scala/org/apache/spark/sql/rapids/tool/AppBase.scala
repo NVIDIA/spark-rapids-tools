@@ -131,8 +131,6 @@ abstract class AppBase(
 
   // Store map of executorId to executor info
   val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
-  var blockManagersRemoved: ArrayBuffer[BlockManagerRemovedCase] =
-    ArrayBuffer[BlockManagerRemovedCase]()
 
   var appEndTime: Option[Long] = None
   // The data source information

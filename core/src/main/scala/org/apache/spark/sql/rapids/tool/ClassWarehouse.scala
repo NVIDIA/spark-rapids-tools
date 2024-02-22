@@ -41,9 +41,6 @@ class ExecutorInfoClass(val executorId: String, _addTime: Long) {
     var resourceProfileId = ResourceProfile.DEFAULT_RESOURCE_PROFILE_ID
 }
 
-case class BlockManagerRemovedCase(
-    executorId: String, host: String, port: Int, time: Long)
-
 case class ClusterInfo(
     coresPerExecutor: Int,
     numExecutorNodes: Int,
