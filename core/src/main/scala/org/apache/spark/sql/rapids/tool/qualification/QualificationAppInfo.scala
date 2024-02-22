@@ -41,7 +41,6 @@ class QualificationAppInfo(
     penalizeTransitions: Boolean = true)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
-  var appId: String = ""
   var lastJobEndTime: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None
   val writeDataFormat: ArrayBuffer[String] = ArrayBuffer[String]()

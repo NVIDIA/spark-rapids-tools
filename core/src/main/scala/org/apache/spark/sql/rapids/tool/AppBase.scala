@@ -129,6 +129,8 @@ abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
     val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
 
+  var appId: String = ""
+
   // Store map of executorId to executor info
   val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
 
@@ -177,7 +179,8 @@ abstract class AppBase(
     // TODO: Handle dynamic allocation when determining the number of nodes.
     sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
       if (value.toBoolean) {
-        logWarning("Dynamic allocation is not supported. Cluster information may be inaccurate.")
+        logWarning(s"Application $appId: Dynamic allocation is not supported. " +
+          s"Cluster information may be inaccurate.")
       }
     }
     val activeExecInfo = executorIdToInfo.values.collect {
@@ -186,7 +189,8 @@ abstract class AppBase(
     if (activeExecInfo.nonEmpty) {
       val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
       if (coresPerExecutor.toSet.size != 1) {
-        logWarning("Cluster with variable executor cores detected. Using maximum value.")
+        logWarning(s"Application $appId: Cluster with variable executor cores detected. " +
+          s"Using maximum value.")
       }
       // Extracts instance types from properties (databricks only)
       val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")

@@ -198,7 +198,6 @@ class ApplicationInfo(
      ArrayBuffer[BlockManagerRemovedCase]()
 
   var appInfo: ApplicationCase = null
-  var appId: String = ""
   val eventLogPath: String = eLogInfo.eventLog.toString
   
   // physicalPlanDescription stores HashMap (sqlID <-> physicalPlanDescription)
