@@ -35,8 +35,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     pluginTypeChecker: PluginTypeChecker, reportReadSchema: Boolean,
     printStdout: Boolean, uiEnabled: Boolean, enablePB: Boolean,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean,
-    penalizeTransitions: Boolean,
-    tunerContext: Option[TunerContext]) extends RuntimeReporter {
+    penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
+    clusterReport: Boolean) extends RuntimeReporter {
 
   private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
 
@@ -82,36 +82,10 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     }
     progressBar.foreach(_.finishAll())
     val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
-
-    val qWriter = new QualOutputWriter(outputDir, reportReadSchema, printStdout,
-      order)
     // sort order and limit only applies to the report summary text file,
     // the csv file we write the entire data in descending order
     val sortedDescDetailed = sortDescForDetailedReport(allAppsSum)
-    qWriter.writeTextReport(allAppsSum,
-      sortForExecutiveSummary(sortedDescDetailed, order), numRows)
-    qWriter.writeDetailedCSVReport(sortedDescDetailed)
-    if (reportSqlLevel) {
-      qWriter.writePerSqlTextReport(allAppsSum, numRows, maxSQLDescLength)
-      qWriter.writePerSqlCSVReport(allAppsSum, maxSQLDescLength)
-    }
-    qWriter.writeExecReport(allAppsSum, order)
-    qWriter.writeStageReport(allAppsSum, order)
-    qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
-    val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
-    qWriter.writeStatusReport(appStatusResult, order)
-    if (mlOpsEnabled) {
-      if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
-        qWriter.writeMlFuncsReports(allAppsSum, order)
-        qWriter.writeMlFuncsTotalDurationReports(allAppsSum)
-      } else {
-        logWarning(s"Eventlogs doesn't contain any ML functions")
-      }
-    }
-    if (uiEnabled) {
-      QualificationReportGenerator.generateDashBoard(outputDir, allAppsSum)
-    }
-
+    generateQualificationReport(allAppsSum, sortedDescDetailed)
     sortedDescDetailed
   }
 
@@ -243,6 +217,42 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         StatusSummaryInfo(path, "UNKNOWN", appId, message)
       case qualAppResult: QualAppResult =>
         throw new UnsupportedOperationException(s"Invalid status for $qualAppResult")
+    }
+  }
+
+  /**
+   * Generates a qualification report based on the provided summary information.
+   */
+  private def generateQualificationReport(allAppsSum: Seq[QualificationSummaryInfo],
+      sortedDescDetailed: Seq[QualificationSummaryInfo]): Unit = {
+    val qWriter = new QualOutputWriter(outputDir, reportReadSchema, printStdout,
+      order)
+
+    qWriter.writeTextReport(allAppsSum,
+      sortForExecutiveSummary(sortedDescDetailed, order), numRows)
+    qWriter.writeDetailedCSVReport(sortedDescDetailed)
+    if (reportSqlLevel) {
+      qWriter.writePerSqlTextReport(allAppsSum, numRows, maxSQLDescLength)
+      qWriter.writePerSqlCSVReport(allAppsSum, maxSQLDescLength)
+    }
+    qWriter.writeExecReport(allAppsSum, order)
+    qWriter.writeStageReport(allAppsSum, order)
+    qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
+    val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
+    qWriter.writeStatusReport(appStatusResult, order)
+    if (mlOpsEnabled) {
+      if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
+        qWriter.writeMlFuncsReports(allAppsSum, order)
+        qWriter.writeMlFuncsTotalDurationReports(allAppsSum)
+      } else {
+        logWarning(s"Eventlogs doesn't contain any ML functions")
+      }
+    }
+    if (uiEnabled) {
+      QualificationReportGenerator.generateDashBoard(outputDir, allAppsSum)
+    }
+    if (clusterReport) {
+      qWriter.writeClusterReport(allAppsSum)
     }
   }
 }

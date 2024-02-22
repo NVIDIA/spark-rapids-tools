@@ -95,28 +95,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     app.resourceProfIdToInfo(event.resourceProfile.id) = rp
   }
 
-  override def doSparkListenerBlockManagerAdded(
-      app: ApplicationInfo,
-      event: SparkListenerBlockManagerAdded): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val execExists = app.executorIdToInfo.get(event.blockManagerId.executorId)
-    if (event.blockManagerId.executorId == "driver" && !execExists.isDefined) {
-      // means its not in local mode, skip counting as executor
-    } else {
-      // note that one block manager is for driver as well
-      val exec = app.getOrCreateExecutor(event.blockManagerId.executorId, event.time)
-      exec.hostPort = event.blockManagerId.hostPort
-      event.maxOnHeapMem.foreach { mem =>
-        exec.totalOnHeap = mem
-      }
-      event.maxOffHeapMem.foreach { offHeap =>
-        exec.totalOffHeap = offHeap
-      }
-      exec.isActive = true
-      exec.maxMemory = event.maxMem
-    }
-  }
-
   override def doSparkListenerBlockManagerRemoved(
       app: ApplicationInfo,
       event: SparkListenerBlockManagerRemoved): Unit = {
@@ -163,29 +141,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
       event: SparkListenerApplicationEnd): Unit = {
     logDebug("Processing event: " + event.getClass)
     app.appEndTime = Some(event.time)
-  }
-
-  override def doSparkListenerExecutorAdded(
-      app: ApplicationInfo,
-      event: SparkListenerExecutorAdded): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val exec = app.getOrCreateExecutor(event.executorId, event.time)
-    exec.host = event.executorInfo.executorHost
-    exec.isActive = true
-    exec.totalCores = event.executorInfo.totalCores
-    val rpId = event.executorInfo.resourceProfileId
-    exec.resources = event.executorInfo.resourcesInfo
-    exec.resourceProfileId = rpId
-  }
-
-  override def doSparkListenerExecutorRemoved(
-      app: ApplicationInfo,
-      event: SparkListenerExecutorRemoved): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val exec = app.getOrCreateExecutor(event.executorId, event.time)
-    exec.isActive = false
-    exec.removeTime = event.time
-    exec.removeReason = event.reason
   }
 
   override def doSparkListenerTaskStart(
