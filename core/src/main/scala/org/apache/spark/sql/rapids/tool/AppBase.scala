@@ -179,21 +179,18 @@ abstract class AppBase(
     // Extracts instance types from properties (databricks only)
     val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
     val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
-    val validExecInfos = executorIdToInfo.values.collect {
-      case execInfo if execInfo.host != null => (execInfo.host, execInfo.totalCores)
+    val activeExecInfo = executorIdToInfo.values.collect {
+      case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
     }
-    if (validExecInfos.isEmpty) {
-      None
-    } else {
-      val (executorHosts, coresPerExecutor) = validExecInfos.unzip
+    if (activeExecInfo.nonEmpty) {
+      val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
       if (coresPerExecutor.toSet.size != 1) {
         logWarning("Cluster with variable executor cores detected. Using maximum value.")
       }
-      // Remove hosts listed in 'blockManagersRemoved' from the 'executorHosts'
-      // list to determine the actual number of hosts
-      val removedHosts = blockManagersRemoved.map(_.host).toSet
-      val numExecutorNodes = (executorHosts.toSet -- removedHosts).size
-      Some(ClusterInfo(coresPerExecutor.max, numExecutorNodes, executorInstance, driverInstance))
+      Some(ClusterInfo(coresPerExecutor.max, activeHosts.toSet.size,
+        executorInstance, driverInstance))
+    } else {
+      None
     }
   }
 
