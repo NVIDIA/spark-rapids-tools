@@ -1510,9 +1510,9 @@ class QualificationSuite extends BaseTestSuite {
       // 3 executor nodes with 8, 12 and 8 cores.
       "eventlog_3nodes_12cores_variable_cores" ->
         Some(ClusterInfo(12, 3, None, None)),
-      // Event log with driver only block manager event
+      // Event log with driver only
       "eventlog_driver_only" -> None,
-      // Event log with missing executor added event
+      // Event log with executor removed
       "eventlog_3nodes_12cores_exec_removed" ->
         Some(ClusterInfo(12, 2, None, None))
     )
