@@ -38,8 +38,7 @@ class QualificationAppInfo(
     reportSqlLevel: Boolean,
     perSqlOnly: Boolean = false,
     mlOpsEnabled: Boolean = false,
-    penalizeTransitions: Boolean = true,
-    clusterReport: Boolean = true)
+    penalizeTransitions: Boolean = true)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
   var appId: String = ""
@@ -1043,11 +1042,10 @@ object QualificationAppInfo extends Logging {
       pluginTypeChecker: PluginTypeChecker,
       reportSqlLevel: Boolean,
       mlOpsEnabled: Boolean,
-      penalizeTransitions: Boolean,
-      clusterReport: Boolean): Either[String, QualificationAppInfo] = {
+      penalizeTransitions: Boolean): Either[String, QualificationAppInfo] = {
     try {
         val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
-          reportSqlLevel, false, mlOpsEnabled, penalizeTransitions, clusterReport)
+          reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
         logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
         Right(app)
       } catch {

@@ -147,7 +147,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     try {
       val startTime = System.currentTimeMillis()
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
-        reportSqlLevel, mlOpsEnabled, penalizeTransitions, clusterReport)
+        reportSqlLevel, mlOpsEnabled, penalizeTransitions)
       val qualAppResult = appResult match {
         case Left(errorMessage: String) =>
           // Case when an error occurred during QualificationAppInfo creation
