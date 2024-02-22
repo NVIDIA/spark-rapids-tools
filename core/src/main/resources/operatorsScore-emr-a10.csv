@@ -262,6 +262,8 @@ XxHash64,2.59
 Year,2.59
 Empty2Null,2.59
 WriteFilesExec,2.59
+Ascii,2.59
+ToUTCTimestamp,2.59
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2
 FlatMapGroupsInPandasExec,1.2
