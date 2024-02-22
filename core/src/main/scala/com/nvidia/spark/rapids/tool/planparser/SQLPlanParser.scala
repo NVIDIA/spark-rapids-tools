@@ -496,6 +496,8 @@ object SQLPlanParser extends Logging {
             SortMergeJoinExecParser(node, checker, sqlID).parse
           case "SubqueryBroadcast" =>
             SubqueryBroadcastExecParser(node, checker, sqlID, app).parse
+          case sqe if SubqueryExecParser.accepts(sqe) =>
+            SubqueryExecParser.parseNode(node, checker, sqlID, app)
           case "TakeOrderedAndProject" =>
             TakeOrderedAndProjectExecParser(node, checker, sqlID).parse
           case "Union" =>
