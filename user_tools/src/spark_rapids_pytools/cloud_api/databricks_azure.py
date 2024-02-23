@@ -57,10 +57,10 @@ class DBAzurePlatform(PlatformBase):
 
     def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
         cluster_conf = default_config
-        cluster_conf['executors'] = [{'node_id': '1234567890'} for _ in range(cluster_info['num_executor_nodes'])]
-        cluster_conf['driver_node_type_id'] = cluster_info['driver_instance']
-        cluster_conf['node_type_id'] = cluster_info['executor_instance']
-        cluster_conf['num_workers'] = cluster_info['num_executor_nodes']
+        cluster_conf['executors'] = [{'node_id': '1234567890'} for _ in range(cluster_info['numExecutorNodes'])]
+        cluster_conf['driver_node_type_id'] = cluster_info['driverInstance']
+        cluster_conf['node_type_id'] = cluster_info['executorInstance']
+        cluster_conf['num_workers'] = cluster_info['numExecutorNodes']
         return cluster_conf
 
     def set_offline_cluster(self, cluster_args: dict = None):

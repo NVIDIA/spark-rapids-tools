@@ -58,9 +58,9 @@ class ClusterInference:
                 return None
             executor_instance = matching_instance
         return {
-            'driver_instance': driver_instance,
-            'num_executor_nodes': num_executor_nodes,
-            'executor_instance': executor_instance
+            'driverInstance': driver_instance,
+            'numExecutorNodes': num_executor_nodes,
+            'executorInstance': executor_instance
         }
 
     def infer_cpu_cluster(self, cluster_info_json: JSONPropertiesContainer) -> Optional[ClusterBase]:

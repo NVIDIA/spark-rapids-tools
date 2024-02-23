@@ -77,10 +77,10 @@ class EMRPlatform(PlatformBase):
         cluster_conf = default_config
         for group in cluster_conf['Cluster']['InstanceGroups']:
             if group.get('Name') == 'CORE':
-                group['InstanceType'] = cluster_info['executor_instance']
-                group['RequestedInstanceCount'] = cluster_info['num_executor_nodes']
+                group['InstanceType'] = cluster_info['executorInstance']
+                group['RequestedInstanceCount'] = cluster_info['numExecutorNodes']
             elif group.get('Name') == 'MASTER':
-                group['InstanceType'] = cluster_info['driver_instance']
+                group['InstanceType'] = cluster_info['driverInstance']
                 group['RequestedInstanceCount'] = 1  # single driver node
         return cluster_conf
 
