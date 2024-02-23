@@ -53,8 +53,8 @@ class ClusterInference:
                 None
             )
             if matching_instance is None:
-                self.logger.info(
-                    f'Unable to infer CPU cluster. No matching executor instance found for vCPUs = {cores_per_executor}')
+                self.logger.info('Unable to infer CPU cluster. No matching executor instance found for vCPUs = %s',
+                                 cores_per_executor)
                 return None
             executor_instance = matching_instance
         return {

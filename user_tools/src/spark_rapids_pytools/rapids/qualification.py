@@ -853,7 +853,7 @@ class Qualification(RapidsJarTool):
 
         # Read cluster information from cluster info file
         try:
-            with open(cluster_info_file, 'r') as cluster_info_fp:
+            with open(cluster_info_file, 'r', encoding='utf-8') as cluster_info_fp:
                 cluster_info_dict = json.load(cluster_info_fp)
         except (FileNotFoundError, json.JSONDecodeError):
             self.logger.error('Failed to read cluster information from file: %s', cluster_info_file)
