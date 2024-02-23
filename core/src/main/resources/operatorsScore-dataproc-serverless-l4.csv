@@ -253,6 +253,10 @@ WindowExpression,4.25
 WindowSpecDefinition,4.25
 XxHash64,4.25
 Year,4.25
+Empty2Null,4.25
+WriteFilesExec,4.25
+Ascii,4.25
+ToUTCTimestamp,4.25
 AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2
 FlatMapGroupsInPandasExec,1.2

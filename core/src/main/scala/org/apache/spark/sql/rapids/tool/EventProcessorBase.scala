@@ -24,7 +24,7 @@ import com.nvidia.spark.rapids.tool.profiling.{DriverAccumCase, JobInfoClass, Pr
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui._
-import org.apache.spark.sql.rapids.tool.util.EventUtils
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, StringUtils}
 
 abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener with Logging {
 
@@ -121,7 +121,8 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
   def doSparkListenerLogStart(
       app: T,
       event: SparkListenerLogStart): Unit  = {
-    app.sparkVersion = event.sparkVersion
+    logDebug("Processing event: " + event.getClass)
+    app.handleLogStartForCachedProps(event)
   }
 
   def doSparkListenerSQLExecutionStart(
@@ -188,9 +189,8 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       doSparkListenerSQLExecutionEnd(app, e)
     case e: SparkListenerDriverAccumUpdates =>
       doSparkListenerDriverAccumUpdates(app, e)
-    case SparkListenerLogStart(sparkVersion) =>
-      logInfo("on other event called")
-      app.sparkVersion = sparkVersion
+    case e: SparkListenerLogStart =>
+      doSparkListenerLogStart(app, e)
     case _ =>
       val wasResourceProfileAddedEvent = doSparkListenerResourceProfileAddedReflect(app, event)
       if (!wasResourceProfileAddedEvent) doOtherEvent(app, event)
@@ -206,7 +206,25 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerBlockManagerAdded(
       app: T,
-      event: SparkListenerBlockManagerAdded): Unit = {}
+      event: SparkListenerBlockManagerAdded): Unit = {
+    logDebug("Processing event: " + event.getClass)
+    val execExists = app.executorIdToInfo.get(event.blockManagerId.executorId)
+    if (event.blockManagerId.executorId == "driver" && execExists.isEmpty) {
+      // means its not in local mode, skip counting as executor
+    } else {
+      // note that one block manager is for driver as well
+      val exec = app.getOrCreateExecutor(event.blockManagerId.executorId, event.time)
+      exec.hostPort = event.blockManagerId.hostPort
+      event.maxOnHeapMem.foreach { mem =>
+        exec.totalOnHeap = mem
+      }
+      event.maxOffHeapMem.foreach { offHeap =>
+        exec.totalOffHeap = offHeap
+      }
+      exec.isActive = true
+      exec.maxMemory = event.maxMem
+    }
+  }
 
   override def onBlockManagerAdded(blockManagerAdded: SparkListenerBlockManagerAdded): Unit = {
     doSparkListenerBlockManagerAdded(app, blockManagerAdded)
@@ -223,7 +241,10 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerEnvironmentUpdate(
       app: T,
-      event: SparkListenerEnvironmentUpdate): Unit = {}
+      event: SparkListenerEnvironmentUpdate): Unit = {
+    logDebug("Processing event: " + event.getClass)
+    app.handleEnvUpdateForCachedProps(event)
+  }
 
   override def onEnvironmentUpdate(environmentUpdate: SparkListenerEnvironmentUpdate): Unit = {
     doSparkListenerEnvironmentUpdate(app, environmentUpdate)
@@ -250,7 +271,16 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerExecutorAdded(
       app: T,
-      event: SparkListenerExecutorAdded): Unit = {}
+      event: SparkListenerExecutorAdded): Unit = {
+    logDebug("Processing event: " + event.getClass)
+    val exec = app.getOrCreateExecutor(event.executorId, event.time)
+    exec.host = event.executorInfo.executorHost
+    exec.isActive = true
+    exec.totalCores = event.executorInfo.totalCores
+    val rpId = event.executorInfo.resourceProfileId
+    exec.resources = event.executorInfo.resourcesInfo
+    exec.resourceProfileId = rpId
+  }
 
   override def onExecutorAdded(executorAdded: SparkListenerExecutorAdded): Unit = {
     doSparkListenerExecutorAdded(app, executorAdded)
@@ -258,7 +288,13 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerExecutorRemoved(
       app: T,
-      event: SparkListenerExecutorRemoved): Unit = {}
+      event: SparkListenerExecutorRemoved): Unit = {
+    logDebug("Processing event: " + event.getClass)
+    val exec = app.getOrCreateExecutor(event.executorId, event.time)
+    exec.isActive = false
+    exec.removeTime = event.time
+    exec.removeReason = event.reason
+  }
 
   override def onExecutorRemoved(executorRemoved: SparkListenerExecutorRemoved): Unit = {
     doSparkListenerExecutorRemoved(app, executorRemoved)
@@ -306,7 +342,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     logDebug("Processing event: " + event.getClass)
     app.handleJobStartForCachedProps(event)
     val sqlIDString = event.properties.getProperty("spark.sql.execution.id")
-    val sqlID = ProfileUtils.stringToLong(sqlIDString)
+    val sqlID = StringUtils.stringToLong(sqlIDString)
     sqlID.foreach(app.jobIdToSqlID(event.jobId) = _)
   }
 

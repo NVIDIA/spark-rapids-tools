@@ -132,13 +132,13 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       Profiler.DRIVER_LOG_NAME, numOutputRows, true)
     try {
       val driverLogProcessor = new DriverLogProcessor(driverLogInfos)
-      val unsupportedDriverOperators = driverLogProcessor.processDriverLog()
+      val unsupportedDriverOperators = driverLogProcessor.getUnsupportedOperators
       profileOutputWriter.write(s"Unsupported operators in driver log",
         unsupportedDriverOperators)
       if (eventLogsEmpty && useAutoTuner) {
         // Since event logs are empty, AutoTuner will not run while processing event logs.
         // We need to run it here explicitly.
-        val (properties, comments) = runAutoTuner(None, unsupportedDriverOperators)
+        val (properties, comments) = runAutoTuner(None, driverLogProcessor)
         profileOutputWriter.writeText("\n### A. Recommended Configuration ###\n")
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
       }
@@ -338,8 +338,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val execInfo = collect.getExecutorInfo
     val jobInfo = collect.getJobInfo
     val sqlStageInfo = collect.getSQLToStage
-    val rapidsProps = collect.getProperties(rapidsOnly = true)
-    val sparkProps = collect.getProperties(rapidsOnly = false)
+    val rapidsProps = collect.getRapidsProperties
+    val sparkProps = collect.getSparkProperties
+    val systemProps = collect.getSystemProperties
     val rapidsJar = collect.getRapidsJARInfo
     val sqlMetrics = collect.getSQLPlanMetrics
     val wholeStage = collect.getWholeStageCodeGenMapping
@@ -406,22 +407,23 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       rapidsJar, sqlMetrics, jsMetAgg, sqlTaskAggMetrics, durAndCpuMet, skewInfo,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, sqlStageInfo, wholeStage, maxTaskInputInfo,
-      appLogPath, ioAnalysisMetrics), compareRes)
+      appLogPath, ioAnalysisMetrics, systemProps), compareRes)
   }
 
   /**
    * A wrapper method to run the AutoTuner.
    * @param appInfo     Summary of the application for tuning.
-   * @param unsupportedDriverOperators List of unsupported operators from driver log
+   * @param driverInfoProvider Entity that implements APIs needed to extract information from the
+   *                           driver log if any
    */
   private def runAutoTuner(appInfo: Option[ApplicationSummaryInfo],
-                           unsupportedDriverOperators: Seq[DriverLogUnsupportedOperators])
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog)
   : (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
-      val appInfoProvider = appInfo.map(new SingleAppSummaryInfoProvider(_)).orNull
+      val appInfoProvider = AppSummaryInfoBaseProvider.fromAppInfo(appInfo)
       val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
       val platform = appArgs.platform()
       val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(workerInfoPath, appInfoProvider,
-        PlatformFactory.createInstance(platform), unsupportedDriverOperators)
+        PlatformFactory.createInstance(platform), driverInfoProvider)
 
       // The autotuner allows skipping some properties,
       // e.g., getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
@@ -436,16 +438,19 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val sums = if (outputCombined) {
       // the properties table here has the column names as the app indexes so we have to
       // handle special
-      def combineProps(rapidsOnly: Boolean,
+
+      def combineProps(propSource: String,
           sums: Seq[ApplicationSummaryInfo]): Seq[RapidsPropertyProfileResult] = {
         var numApps = 0
         val props = HashMap[String, ArrayBuffer[String]]()
         val outputHeaders = ArrayBuffer("propertyName")
         sums.foreach { app =>
-          val inputProps = if (rapidsOnly) {
+          val inputProps = if (propSource.equals("rapids")) {
             app.rapidsProps
-          } else {
+          } else if (propSource.equals("spark")) {
             app.sparkProps
+          } else { // this is for system properties
+            app.sysProps
           }
           if (inputProps.nonEmpty) {
             numApps += 1
@@ -466,7 +471,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         appsSum.flatMap(_.dsInfo).sortBy(_.appIndex),
         appsSum.flatMap(_.execInfo).sortBy(_.appIndex),
         appsSum.flatMap(_.jobInfo).sortBy(_.appIndex),
-        combineProps(rapidsOnly=true, appsSum).sortBy(_.key),
+        combineProps("rapids", appsSum).sortBy(_.key),
         appsSum.flatMap(_.rapidsJar).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.jsMetAgg).sortBy(_.appIndex),
@@ -479,12 +484,13 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         appsSum.flatMap(_.removedBMs).sortBy(_.appIndex),
         appsSum.flatMap(_.removedExecutors).sortBy(_.appIndex),
         appsSum.flatMap(_.unsupportedOps).sortBy(_.appIndex),
-        combineProps(rapidsOnly=false, appsSum).sortBy(_.key),
+        combineProps("spark", appsSum).sortBy(_.key),
         appsSum.flatMap(_.sqlStageInfo).sortBy(_.duration)(Ordering[Option[Long]].reverse),
         appsSum.flatMap(_.wholeStage).sortBy(_.appIndex),
         appsSum.flatMap(_.maxTaskInputBytesRead).sortBy(_.appIndex),
         appsSum.flatMap(_.appLogPath).sortBy(_.appIndex),
-        appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex)
+        appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex),
+        combineProps("system", appsSum).sortBy(_.key)
       )
       Seq(reduced)
     } else {
@@ -502,6 +508,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some("Spark Rapids parameters"))
       profileOutputWriter.write("Spark Properties", app.sparkProps,
         Some("Spark Properties"))
+      profileOutputWriter.write("System Properties", app.sysProps,
+        Some("System Properties"))
       profileOutputWriter.write("Rapids Accelerator Jar and cuDF Jar", app.rapidsJar,
         Some("Rapids 4 Spark Jars"))
       profileOutputWriter.write("SQL Plan Metrics for Application", app.sqlMetrics,
@@ -536,7 +544,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some("Unsupported SQL Ops"))
 
       if (useAutoTuner) {
-        val (properties, comments) = runAutoTuner(Some(app), Seq.empty)
+        val (properties, comments) = runAutoTuner(Some(app))
         profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
       }

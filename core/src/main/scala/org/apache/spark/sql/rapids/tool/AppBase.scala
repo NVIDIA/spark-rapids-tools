@@ -26,36 +26,102 @@ import scala.io.{Codec, Source}
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart, StageInfo}
+import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart, SparkListenerLogStart, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
+import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.qualification.MLFunctions
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
 import org.apache.spark.util.Utils
+import org.apache.spark.util.Utils.REDACTION_REPLACEMENT_TEXT
 
 // Handles updating and caching Spark Properties for a Spark application.
-// Properties stored in this container can be accessed to make decision about
-// certain analysis that depends on the context of the Spark properties.
-// TODO: we need to migrate SparkProperties, GpuMode to this trait.
+// Properties stored in this container can be accessed to make decision about certain analysis
+// that depends on the context of the Spark properties.
 trait CacheableProps {
+  private val RETAINED_SYSTEM_PROPS = Set(
+    "file.encoding", "java.version", "os.arch", "os.name",
+    "os.version", "user.timezone")
+
+  // Patterns to be used to redact sensitive values from Spark Properties.
+  private val REDACTED_PROPERTIES = Set[String](
+    // S3
+    "spark.hadoop.fs.s3a.secret.key",
+    "spark.hadoop.fs.s3a.access.key",
+    "spark.hadoop.fs.s3a.session.token",
+    "spark.hadoop.fs.s3a.encryption.key",
+    "spark.hadoop.fs.s3a.bucket.nightly.access.key",
+    "spark.hadoop.fs.s3a.bucket.nightly.secret.key",
+    "spark.hadoop.fs.s3a.bucket.nightly.session.token",
+    // ABFS
+    "spark.hadoop.fs.azure.account.oauth2.client.secret",
+    "spark.hadoop.fs.azure.account.oauth2.client.id",
+    "spark.hadoop.fs.azure.account.oauth2.refresh.token",
+    "spark.hadoop.fs.azure.account.key\\..*",
+    "spark.hadoop.fs.azure.account.auth.type\\..*",
+    // GCS
+    "spark.hadoop.google.cloud.auth.service.account.json.keyfile",
+    "spark.hadoop.fs.gs.auth.client.id",
+    "spark.hadoop.fs.gs.encryption.key",
+    "spark.hadoop.fs.gs.auth.client.secret",
+    "spark.hadoop.fs.gs.auth.refresh.token",
+    "spark.hadoop.fs.gs.auth.impersonation.service.account.for.user\\..*",
+    "spark.hadoop.fs.gs.auth.impersonation.service.account.for.group\\..*",
+    "spark.hadoop.fs.gs.auth.impersonation.service.account",
+    "spark.hadoop.fs.gs.proxy.username",
+    // matches on any key that contains password in it.
+    "(?i).*password.*"
+  )
+
+  // caches the spark-version from the eventlogs
+  var sparkVersion: String = ""
+  var gpuMode = false
   // A flag whether hive is enabled or not. Note that we assume that the
   // property is global to the entire application once it is set. a.k.a, it cannot be disabled
   // once it is was set to true.
   var hiveEnabled = false
+  var sparkProperties = Map[String, String]()
+  var classpathEntries = Map[String, String]()
+  // set the fileEncoding to UTF-8 by default
+  var systemProperties = Map[String, String]()
+
+  private def processPropKeys(srcMap: Map[String, String]): Map[String, String] = {
+    // Redact the sensitive values in the given map.
+    val redactedKeys = REDACTED_PROPERTIES.collect {
+      case rK if srcMap.keySet.exists(_.matches(rK)) => rK -> REDACTION_REPLACEMENT_TEXT
+    }
+    srcMap ++ redactedKeys
+  }
+
   def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
-    val sparkProperties = event.environmentDetails("Spark Properties").toMap
+    sparkProperties ++= processPropKeys(event.environmentDetails("Spark Properties").toMap)
+    classpathEntries ++= event.environmentDetails("Classpath Entries").toMap
+
+    gpuMode ||=  ProfileUtils.isPluginEnabled(sparkProperties)
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
+
+    // Update the properties if system environments are set.
+    // No need to capture all the properties in memory. We only capture important ones.
+    systemProperties ++= event.environmentDetails("System Properties").toMap.filterKeys(
+      RETAINED_SYSTEM_PROPS.contains(_))
   }
 
   def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
     // TODO: we need to improve this in order to support per-job-level
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(event.properties.asScala)
+  }
+
+  def handleLogStartForCachedProps(event: SparkListenerLogStart): Unit = {
+    sparkVersion = event.sparkVersion
+  }
+
+  def isGPUModeEnabledForJob(event: SparkListenerJobStart): Boolean = {
+    gpuMode || ProfileUtils.isPluginEnabled(event.properties.asScala)
   }
 }
 
@@ -63,7 +129,11 @@ abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
     val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
 
-  var sparkVersion: String = ""
+  var appId: String = ""
+
+  // Store map of executorId to executor info
+  val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
+
   var appEndTime: Option[Long] = None
   // The data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
@@ -92,7 +162,45 @@ abstract class AppBase(
   var mlEventLogType = ""
   var pysparkLogFlag = false
 
-  var gpuMode = false
+  def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
+    executorIdToInfo.getOrElseUpdate(executorId, {
+      new ExecutorInfoClass(executorId, addTime)
+    })
+  }
+
+  /**
+   * Retrieves cluster information based on executor nodes.
+   * If executor nodes exist, calculates the number of hosts and total cores,
+   * and extracts executor and driver instance types (databricks only)
+   *
+   * @return Cluster information including cores, number of nodes, and instance types.
+   */
+  def getClusterInfo: Option[ClusterInfo] = {
+    // TODO: Handle dynamic allocation when determining the number of nodes.
+    sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
+      if (value.toBoolean) {
+        logWarning(s"Application $appId: Dynamic allocation is not supported. " +
+          s"Cluster information may be inaccurate.")
+      }
+    }
+    val activeExecInfo = executorIdToInfo.values.collect {
+      case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
+    }
+    if (activeExecInfo.nonEmpty) {
+      val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
+      if (coresPerExecutor.toSet.size != 1) {
+        logWarning(s"Application $appId: Cluster with variable executor cores detected. " +
+          s"Using maximum value.")
+      }
+      // Extracts instance types from properties (databricks only)
+      val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
+      val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
+      Some(ClusterInfo(coresPerExecutor.max, activeHosts.toSet.size,
+        executorInstance, driverInstance))
+    } else {
+      None
+    }
+  }
 
   def getOrCreateStage(info: StageInfo): StageInfoClass = {
     val stage = stageIdToInfo.getOrElseUpdate((info.stageId, info.attemptNumber()),
@@ -240,7 +348,7 @@ abstract class AppBase(
               // Do NOT use a while loop as it is much much slower.
               lines.find { line =>
                 totalNumEvents += 1
-                ToolUtils.getEventFromJsonMethod(line) match {
+                EventUtils.getEventFromJsonMethod(line) match {
                   case Some(e) => processEvent(e)
                   case None => false
                 }
@@ -252,15 +360,6 @@ abstract class AppBase(
         }
         logInfo(s"Total number of events parsed: $totalNumEvents for ${eventLogPath.toString}")
       case None => logInfo("Streaming events to application")
-    }
-  }
-
-  def isDataSetOrRDDPlan(desc: String): Boolean = {
-    desc match {
-      case l if l.matches(".*\\$Lambda\\$.*") => true
-      case a if a.endsWith(".apply") => true
-      case r if r.matches(".*SerializeFromObject.*") => true
-      case _ => false
     }
   }
 
@@ -317,7 +416,7 @@ abstract class AppBase(
   protected def checkMetadataForReadSchema(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
     // check if planInfo has ReadSchema
     val allMetaWithSchema = getPlanMetaWithSchema(planInfo)
-    val planGraph = SparkPlanGraph(planInfo)
+    val planGraph = ToolsPlanGraph(planInfo)
     val allNodes = planGraph.allNodes
 
     allMetaWithSchema.foreach { plan =>
@@ -342,7 +441,7 @@ abstract class AppBase(
     if (hiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
       val allPlanWithHiveScan = getPlanInfoWithHiveScan(planInfo)
       allPlanWithHiveScan.foreach { hiveReadPlan =>
-        val sqlGraph = SparkPlanGraph(hiveReadPlan)
+        val sqlGraph = ToolsPlanGraph(hiveReadPlan)
         val hiveScanNode = sqlGraph.allNodes.head
         val scanHiveMeta = HiveParseHelper.parseReadNode(hiveScanNode)
         dataSourceInfo += DataSourceCase(sqlID,

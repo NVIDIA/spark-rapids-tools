@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,22 +24,34 @@ case class SortMergeJoinExecParser(
     node: SparkPlanGraphNode,
     checker: PluginTypeChecker,
     sqlID: Long) extends ExecParser {
+  private val opName = "SortMergeJoin"
 
-  val fullExecName = node.name + "Exec"
+  val fullExecName = opName + "Exec"
 
   override def parse: ExecInfo = {
     // SortMergeJoin doesn't have duration
     val duration = None
-    val exprString = node.desc.replaceFirst("SortMergeJoin ", "")
+    // parse the description after getting rid of the prefix that can include an argument
+    val trimPosition = node.desc.indexOf(" ")
+    val exprString = node.desc.substring(trimPosition + 1)
     val (expressions, supportedJoinType) = SQLPlanParser.parseEquijoinsExpressions(exprString)
     val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
-    val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
-      notSupportedExprs.isEmpty && supportedJoinType) {
+    val (speedupFactor, isSupported) = if (supportedJoinType &&
+      checker.isExecSupported(fullExecName) && notSupportedExprs.isEmpty) {
       (checker.getSpeedupFactor(fullExecName), true)
     } else {
       (1.0, false)
     }
     // TODO - add in parsing expressions - average speedup across?
-    new ExecInfo(sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None)
+    ExecInfo(node, sqlID, opName, "", speedupFactor, duration, node.id, isSupported, None)
   }
+}
+
+object SortMergeJoinExecParser {
+  private val execNameRegEx = "(SortMergeJoin)(?:\\(.+\\))?".r
+
+  def accepts(nodeName: String): Boolean = {
+    nodeName.matches(execNameRegEx.regex)
+  }
+
 }

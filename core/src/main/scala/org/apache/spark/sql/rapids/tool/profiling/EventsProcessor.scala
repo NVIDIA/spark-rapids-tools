@@ -29,7 +29,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui.{SparkListenerSQLAdaptiveExecutionUpdate, SparkListenerSQLAdaptiveSQLMetricUpdates, SparkListenerSQLExecutionStart}
 import org.apache.spark.sql.rapids.tool.EventProcessorBase
-import org.apache.spark.sql.rapids.tool.util.EventUtils
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, StringUtils}
 
 /**
  * This class is to process all events and do validation in the end.
@@ -43,7 +43,7 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     logDebug("Processing event: " + event.getClass)
     super.doSparkListenerJobStart(app, event)
     val sqlIDString = event.properties.getProperty("spark.sql.execution.id")
-    val sqlID = ProfileUtils.stringToLong(sqlIDString)
+    val sqlID = StringUtils.stringToLong(sqlIDString)
     // add jobInfoClass
     val thisJob = new JobInfoClass(
       event.jobId,
@@ -55,7 +55,7 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
       None,
       None,
       None,
-      ProfileUtils.isPluginEnabled(event.properties.asScala) || app.gpuMode
+      app.isGPUModeEnabledForJob(event)
     )
     app.jobIdToInfo.put(event.jobId, thisJob)
   }
@@ -84,11 +84,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     }
   }
 
-  override def doSparkListenerLogStart(app: ApplicationInfo, event: SparkListenerLogStart): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    app.sparkVersion = event.sparkVersion
-  }
-
   override def doSparkListenerResourceProfileAdded(
       app: ApplicationInfo,
       event: SparkListenerResourceProfileAdded): Unit = {
@@ -98,28 +93,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     val rp = ResourceProfileInfoCase(event.resourceProfile.id,
       event.resourceProfile.executorResources, event.resourceProfile.taskResources)
     app.resourceProfIdToInfo(event.resourceProfile.id) = rp
-  }
-
-  override def doSparkListenerBlockManagerAdded(
-      app: ApplicationInfo,
-      event: SparkListenerBlockManagerAdded): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val execExists = app.executorIdToInfo.get(event.blockManagerId.executorId)
-    if (event.blockManagerId.executorId == "driver" && !execExists.isDefined) {
-      // means its not in local mode, skip counting as executor
-    } else {
-      // note that one block manager is for driver as well
-      val exec = app.getOrCreateExecutor(event.blockManagerId.executorId, event.time)
-      exec.hostPort = event.blockManagerId.hostPort
-      event.maxOnHeapMem.foreach { mem =>
-        exec.totalOnHeap = mem
-      }
-      event.maxOffHeapMem.foreach { offHeap =>
-        exec.totalOffHeap = offHeap
-      }
-      exec.isActive = true
-      exec.maxMemory = event.maxMem
-    }
   }
 
   override def doSparkListenerBlockManagerRemoved(
@@ -139,17 +112,9 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
       app: ApplicationInfo,
       event: SparkListenerEnvironmentUpdate): Unit = {
     logDebug("Processing event: " + event.getClass)
-    app.handleEnvUpdateForCachedProps(event)
-    app.sparkProperties = event.environmentDetails("Spark Properties").toMap
-    app.classpathEntries = event.environmentDetails("Classpath Entries").toMap
+    super.doSparkListenerEnvironmentUpdate(app, event)
 
-    //Decide if this application is on GPU Mode
-    if (ProfileUtils.isPluginEnabled(collection.mutable.Map() ++= app.sparkProperties)) {
-      app.gpuMode = true
-      logDebug("App's GPU Mode = TRUE")
-    } else {
-      logDebug("App's GPU Mode = FALSE")
-    }
+    logDebug(s"App's GPU Mode = ${app.gpuMode}")
   }
 
   override def doSparkListenerApplicationStart(
@@ -176,29 +141,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
       event: SparkListenerApplicationEnd): Unit = {
     logDebug("Processing event: " + event.getClass)
     app.appEndTime = Some(event.time)
-  }
-
-  override def doSparkListenerExecutorAdded(
-      app: ApplicationInfo,
-      event: SparkListenerExecutorAdded): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val exec = app.getOrCreateExecutor(event.executorId, event.time)
-    exec.host = event.executorInfo.executorHost
-    exec.isActive = true
-    exec.totalCores = event.executorInfo.totalCores
-    val rpId = event.executorInfo.resourceProfileId
-    exec.resources = event.executorInfo.resourcesInfo
-    exec.resourceProfileId = rpId
-  }
-
-  override def doSparkListenerExecutorRemoved(
-      app: ApplicationInfo,
-      event: SparkListenerExecutorRemoved): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val exec = app.getOrCreateExecutor(event.executorId, event.time)
-    exec.isActive = false
-    exec.removeTime = event.time
-    exec.removeReason = event.reason
   }
 
   override def doSparkListenerTaskStart(

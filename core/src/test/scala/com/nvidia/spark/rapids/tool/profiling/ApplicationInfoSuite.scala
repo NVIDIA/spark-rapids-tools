@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -694,7 +694,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(apps.size == 1)
     val collect = new CollectInformation(apps)
     for (_ <- apps) {
-      val rapidsProps = collect.getProperties(rapidsOnly = true)
+      val rapidsProps = collect.getRapidsProperties
       val rows = rapidsProps.map(_.rows.head)
       assert(rows.length == 5) // 5 properties captured.
       // verify  ucx parameters are captured.
@@ -703,7 +703,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       //verify gds parameters are captured.
       assert(rows.contains("spark.rapids.memory.gpu.direct.storage.spill.alignedIO"))
 
-      val sparkProps = collect.getProperties(rapidsOnly = false)
+      val sparkProps = collect.getSparkProperties
       val sparkPropsRows = sparkProps.map(_.rows.head)
       assert(sparkPropsRows.contains("spark.eventLog.dir"))
       assert(sparkPropsRows.contains("spark.plugins"))
@@ -766,7 +766,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
         f.endsWith(".csv")
       })
-      assert(dotDirs.length === 17)
+      assert(dotDirs.length === 18)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -793,7 +793,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
         f.endsWith(".csv")
       })
-      assert(dotDirs.length === 13)
+      assert(dotDirs.length === 14)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -823,7 +823,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
         f.endsWith(".csv")
       })
-      assert(dotDirs.length === 17)
+      assert(dotDirs.length === 18)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -853,7 +853,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
         f.endsWith(".csv")
       })
-      assert(dotDirs.length === 15)
+      assert(dotDirs.length === 16)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -894,5 +894,15 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         assert(apps.size == 1)
       }
     }
+  }
+
+  test("test gpu reused subquery") {
+    val apps = ToolTestUtils.processProfileApps(Array(s"$logDir/nds_q66_gpu.zstd"), sparkSession)
+    val collect = new CollectInformation(apps)
+    val sqlToStageInfo = collect.getSQLToStage
+    val countScanParquet = sqlToStageInfo.flatMap(_.nodeNames).count(_.contains("GpuScan parquet"))
+    // There are 12 `GpuScan parquet` raw nodes, but 4 are inside `ReusedExchange`, 1 is inside
+    // `ReusedSubquery`, so we expect 7.
+    assert(countScanParquet == 7)
   }
 }

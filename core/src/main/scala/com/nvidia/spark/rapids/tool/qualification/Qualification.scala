@@ -23,6 +23,7 @@ import scala.collection.JavaConverters._
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.EventLogInfo
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
+import com.nvidia.spark.rapids.tool.tuning.TunerContext
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.rapids.tool.qualification._
@@ -34,7 +35,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     pluginTypeChecker: PluginTypeChecker, reportReadSchema: Boolean,
     printStdout: Boolean, uiEnabled: Boolean, enablePB: Boolean,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean,
-    penalizeTransitions: Boolean) extends RuntimeReporter {
+    penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
+    clusterReport: Boolean) extends RuntimeReporter {
 
   private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
 
@@ -80,37 +82,10 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     }
     progressBar.foreach(_.finishAll())
     val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
-
-    val qWriter = new QualOutputWriter(outputDir, reportReadSchema, printStdout,
-      order)
     // sort order and limit only applies to the report summary text file,
     // the csv file we write the entire data in descending order
     val sortedDescDetailed = sortDescForDetailedReport(allAppsSum)
-    qWriter.writeTextReport(allAppsSum,
-      sortForExecutiveSummary(sortedDescDetailed, order), numRows)
-    qWriter.writeDetailedCSVReport(sortedDescDetailed)
-    if (reportSqlLevel) {
-      qWriter.writePerSqlTextReport(allAppsSum, numRows, maxSQLDescLength)
-      qWriter.writePerSqlCSVReport(allAppsSum, maxSQLDescLength)
-    }
-    qWriter.writeExecReport(allAppsSum, order)
-    qWriter.writeStageReport(allAppsSum, order)
-    qWriter.writeUnsupportedOperatorsCSVReport(allAppsSum, order)
-    qWriter.writeUnsupportedOperatorsDetailedStageCSVReport(allAppsSum, order)
-    val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
-    qWriter.writeStatusReport(appStatusResult, order)
-    if (mlOpsEnabled) {
-      if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
-        qWriter.writeMlFuncsReports(allAppsSum, order)
-        qWriter.writeMlFuncsTotalDurationReports(allAppsSum)
-      } else {
-        logWarning(s"Eventlogs doesn't contain any ML functions")
-      }
-    }
-    if (uiEnabled) {
-      QualificationReportGenerator.generateDashBoard(outputDir, allAppsSum)
-    }
-
+    generateQualificationReport(allAppsSum, sortedDescDetailed)
     sortedDescDetailed
   }
 
@@ -181,6 +156,13 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         case Right(app: QualificationAppInfo) =>
           // Case with successful creation of QualificationAppInfo
           val qualSumInfo = app.aggregateStats()
+          tunerContext.foreach { tuner =>
+            // Run the autotuner if it is enabled.
+            // Note that we call the autotuner anyway without checking the aggregate results
+            // because the Autotuner can still make some recommendations based on the information
+            // enclosed by the QualificationInfo object
+            tuner.tuneApplication(app, qualSumInfo)
+          }
           if (qualSumInfo.isDefined) {
             allApps.add(qualSumInfo.get)
             progressBar.foreach(_.reportSuccessfulProcess())
@@ -235,6 +217,42 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         StatusSummaryInfo(path, "UNKNOWN", appId, message)
       case qualAppResult: QualAppResult =>
         throw new UnsupportedOperationException(s"Invalid status for $qualAppResult")
+    }
+  }
+
+  /**
+   * Generates a qualification report based on the provided summary information.
+   */
+  private def generateQualificationReport(allAppsSum: Seq[QualificationSummaryInfo],
+      sortedDescDetailed: Seq[QualificationSummaryInfo]): Unit = {
+    val qWriter = new QualOutputWriter(outputDir, reportReadSchema, printStdout,
+      order)
+
+    qWriter.writeTextReport(allAppsSum,
+      sortForExecutiveSummary(sortedDescDetailed, order), numRows)
+    qWriter.writeDetailedCSVReport(sortedDescDetailed)
+    if (reportSqlLevel) {
+      qWriter.writePerSqlTextReport(allAppsSum, numRows, maxSQLDescLength)
+      qWriter.writePerSqlCSVReport(allAppsSum, maxSQLDescLength)
+    }
+    qWriter.writeExecReport(allAppsSum, order)
+    qWriter.writeStageReport(allAppsSum, order)
+    qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
+    val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
+    qWriter.writeStatusReport(appStatusResult, order)
+    if (mlOpsEnabled) {
+      if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
+        qWriter.writeMlFuncsReports(allAppsSum, order)
+        qWriter.writeMlFuncsTotalDurationReports(allAppsSum)
+      } else {
+        logWarning(s"Eventlogs doesn't contain any ML functions")
+      }
+    }
+    if (uiEnabled) {
+      QualificationReportGenerator.generateDashBoard(outputDir, allAppsSum)
+    }
+    if (clusterReport) {
+      qWriter.writeClusterReport(allAppsSum)
     }
   }
 }

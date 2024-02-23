@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,13 +33,6 @@ object ProfileUtils {
         .getOrCreate()
   }
 
-  // Convert a null-able String to Option[Long]
-  def stringToLong(in: String): Option[Long] = try {
-    Some(in.toLong)
-  } catch {
-    case _: NumberFormatException => None
-  }
-
   // Convert Option[Long] to String
   def optionLongToString(in: Option[Long]): String = try {
     in.get.toString
@@ -48,7 +41,7 @@ object ProfileUtils {
   }
 
   // Check if the job/stage is GPU mode is on
-  def isPluginEnabled(properties: collection.mutable.Map[String, String]): Boolean = {
+  def isPluginEnabled(properties: collection.Map[String, String]): Boolean = {
     ToolUtils.isPluginEnabled(properties.toMap)
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.metric.SQLMetricInfo
-import org.apache.spark.sql.execution.ui.SparkPlanGraph
-import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, ToolUtils}
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 import org.apache.spark.ui.UIUtils
 
 
@@ -191,20 +191,13 @@ class ApplicationInfo(
     val index: Int)
   extends AppBase(Some(eLogInfo), Some(hadoopConf)) with Logging {
 
-  // executorId to executor info
-  val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
   // resourceprofile id to resource profile info
   val resourceProfIdToInfo = new HashMap[Int, ResourceProfileInfoCase]()
 
   var blockManagersRemoved: ArrayBuffer[BlockManagerRemovedCase] =
      ArrayBuffer[BlockManagerRemovedCase]()
 
-  // From SparkListenerEnvironmentUpdate
-  var sparkProperties = Map.empty[String, String]
-  var classpathEntries = Map.empty[String, String]
-
   var appInfo: ApplicationCase = null
-  var appId: String = ""
   val eventLogPath: String = eLogInfo.eventLog.toString
   
   // physicalPlanDescription stores HashMap (sqlID <-> physicalPlanDescription)
@@ -233,16 +226,10 @@ class ApplicationInfo(
     false
   }
 
-  def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
-    executorIdToInfo.getOrElseUpdate(executorId, {
-      new ExecutorInfoClass(executorId, addTime)
-    })
-  }
-
   // Connects Operators to Stages using AccumulatorIDs
   def connectOperatorToStage(): Unit = {
     for ((sqlId, planInfo) <- sqlPlans) {
-      val planGraph = SparkPlanGraph(planInfo)
+      val planGraph = ToolsPlanGraph(planInfo)
       // Maps stages to operators by checking for non-zero intersection
       // between nodeMetrics and stageAccumulateIDs
       val nodeIdToStage = planGraph.allNodes.map { node =>
@@ -260,7 +247,7 @@ class ApplicationInfo(
     connectOperatorToStage()
     for ((sqlID, planInfo) <- sqlPlans) {
       checkMetadataForReadSchema(sqlID, planInfo)
-      val planGraph = SparkPlanGraph(planInfo)
+      val planGraph = ToolsPlanGraph(planInfo)
       // SQLPlanMetric is a case Class of
       // (name: String,accumulatorId: Long,metricType: String)
       val allnodes = planGraph.allNodes
@@ -274,7 +261,7 @@ class ApplicationInfo(
       }
       for (node <- allnodes) {
         checkGraphNodeForReads(sqlID, node)
-        if (isDataSetOrRDDPlan(node.desc)) {
+        if (RDDCheckHelper.isDatasetOrRDDPlan(node.name, node.desc).isRDD) {
           sqlIdToInfo.get(sqlID).foreach { sql =>
             sqlIDToDataSetOrRDDCase += sqlID
             sql.hasDatasetOrRDD = true
@@ -343,7 +330,7 @@ class ApplicationInfo(
           v.contains(s)
         }.keys.toSeq
         val nodeNames = sqlPlans.get(j.sqlID.get).map { planInfo =>
-          val nodes = SparkPlanGraph(planInfo).allNodes
+          val nodes = ToolsPlanGraph(planInfo).allNodes
           val validNodes = nodes.filter { n =>
             nodeIds.contains((j.sqlID.get, n.id))
           }

@@ -48,3 +48,6 @@ target/
 
 # prepackage locations
 csp-resources*
+
+# precommit files
+*-E
