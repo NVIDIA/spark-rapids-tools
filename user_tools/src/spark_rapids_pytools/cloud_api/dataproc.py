@@ -154,7 +154,7 @@ class DataprocPlatform(PlatformBase):
                 gpu_scopes[prof_name] = NodeHWInfo(sys_info=sys_info_obj, gpu_info=gpu_info_obj)
         return gpu_scopes
 
-    def generate_cluster_configuration(self, render_args: dict) -> str | None:
+    def generate_cluster_configuration(self, render_args: dict):
         executor_names = ','.join([f'"test-node-e{i}"' for i in range(render_args['NUM_EXECUTOR_NODES'])])
         render_args['EXECUTOR_NAMES'] = f'[{executor_names}]'
         return super().generate_cluster_configuration(render_args)
