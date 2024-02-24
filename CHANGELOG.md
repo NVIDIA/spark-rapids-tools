@@ -1,6 +1,50 @@
 
 <br/>
 
+## Release [v24.02.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.02.0)
+Generated on 2024-02-24
+### User Tools
+
+- Fix missing config file for Dataproc GKE ([#778](https://github.com/NVIDIA/spark-rapids-tools/pull/778))
+- [FEA] Qualification user_tools runs AutoTuner by default ([#771](https://github.com/NVIDIA/spark-rapids-tools/pull/771))
+- [BUG] Fix databricks-aws user profiling tool error with `--gpu_cluster` argument ([#707](https://github.com/NVIDIA/spark-rapids-tools/pull/707))
+
+### Core
+
+- [FEA] Qualification tool should mark WriteIntoDeltaCommand as supported ([#801](https://github.com/NVIDIA/spark-rapids-tools/pull/801))
+- Qualification tool should mark SubqueryExec as IgnoreNoPerf ([#798](https://github.com/NVIDIA/spark-rapids-tools/pull/798))
+- Generate cluster information from event logs in Qualification tool ([#789](https://github.com/NVIDIA/spark-rapids-tools/pull/789))
+- Sync up supported ops for 24.02 plugin release ([#796](https://github.com/NVIDIA/spark-rapids-tools/pull/796))
+- Qualification should mark empty2null as supported ([#791](https://github.com/NVIDIA/spark-rapids-tools/pull/791))
+- Incorrect parsing of aggregates in DB queries ([#790](https://github.com/NVIDIA/spark-rapids-tools/pull/790))
+- Qualification should mark WriteFiles as supported ([#784](https://github.com/NVIDIA/spark-rapids-tools/pull/784))
+-  Introduce GpuDevice abstraction and refactor AutoTuner  ([#740](https://github.com/NVIDIA/spark-rapids-tools/pull/740))
+- Consolidate unsupportedOperators into a single view ([#766](https://github.com/NVIDIA/spark-rapids-tools/pull/766))
+- Speedup generator script fails after adding runtime_properties ([#776](https://github.com/NVIDIA/spark-rapids-tools/pull/776))
+- Tools fail on DB10.4 clusters with IllegalArgException ([#768](https://github.com/NVIDIA/spark-rapids-tools/pull/768))
+- Fix SparkPlanGraphCluster constructor for DB Platforms ([#765](https://github.com/NVIDIA/spark-rapids-tools/pull/765))
+- Amendment to PR-763 ([#764](https://github.com/NVIDIA/spark-rapids-tools/pull/764))
+- Fix SQLPLanMetric constructor for DB Platforms ([#763](https://github.com/NVIDIA/spark-rapids-tools/pull/763))
+- Fix node constructor for DB platforms ([#761](https://github.com/NVIDIA/spark-rapids-tools/pull/761))
+- Add penalty for stages with UDF's ([#757](https://github.com/NVIDIA/spark-rapids-tools/pull/757))
+- Add support to appendDataExecV1 and overwriteByExprExecV1 ([#756](https://github.com/NVIDIA/spark-rapids-tools/pull/756))
+- Qualification fails to detect sortMergeJoin with arguments ([#754](https://github.com/NVIDIA/spark-rapids-tools/pull/754))
+- Fix Qualification crash during aggregation of stats ([#753](https://github.com/NVIDIA/spark-rapids-tools/pull/753))
+- [FEA] Extend the list of operators to be ignored in Qualification ([#745](https://github.com/NVIDIA/spark-rapids-tools/pull/745))
+- Remove ReusedSubquery from SparkPlanGraph construction ([#741](https://github.com/NVIDIA/spark-rapids-tools/pull/741))
+- Update unsupported operator csv file's app duration column ([#748](https://github.com/NVIDIA/spark-rapids-tools/pull/748))
+- [FEA] Qualification tool triggers the AutoTuner module ([#739](https://github.com/NVIDIA/spark-rapids-tools/pull/739))
+- Disable support of GetJsonObject in Qualification tool ([#737](https://github.com/NVIDIA/spark-rapids-tools/pull/737))
+- [FEA] AutoTuner warns that non-utf8 may not support some GPU expressions ([#736](https://github.com/NVIDIA/spark-rapids-tools/pull/736))
+- [FEA] AutoTuner should not skip non-gpu eventlogs ([#728](https://github.com/NVIDIA/spark-rapids-tools/pull/728))
+
+### Miscellaneous
+
+- Add auto-copyright for precommits ([#732](https://github.com/NVIDIA/spark-rapids-tools/pull/732))
+
+
+<br/>
+
 ## Release [v23.12.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v23.12.3)
 Generated on 2024-01-12
 ### Core
