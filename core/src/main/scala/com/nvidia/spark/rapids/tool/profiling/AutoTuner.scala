@@ -884,23 +884,22 @@ class AutoTuner(
       getPropertyValue(lookup).getOrElse(DEF_SHUFFLE_PARTITIONS).toInt
     // TODO: Need to look at other metrics for GPU spills (DEBUG mode), and batch sizes metric
     if (isCalculationEnabled(lookup)) {
-      val shuffleStageSpilledMetrics = appInfoProvider.getSpillMetricsForStage("shuffle")
-
-      val dataSkewStages = appInfoProvider.getDataSkewStages
-      val dataSkewShuffleStages = shuffleStageSpilledMetrics.collect({
-        case (id, _) if dataSkewStages.contains(id) => id
-      })
-      if (!dataSkewShuffleStages.isEmpty) {
-        appendOptionalComment(lookup, "There is data skew (when task's Shuffle Read Size > 3 * " +
-          "Avg Stage-level size) in shuffle stages.")
-      }
-
-      val totalShuffleSpilledMetrics = shuffleStageSpilledMetrics.unzip._2.sum
-      if (totalShuffleSpilledMetrics > 0) {
+      val totalSpilledMetricsForShuffleStages =
+        appInfoProvider.getSpillMetricsForShuffleStages.unzip._2.sum
+      if (totalSpilledMetricsForShuffleStages > 0) {
         shufflePartitions *= DEF_SHUFFLE_PARTITION_MULTIPLIER
         // Could be memory instead of partitions
         appendOptionalComment(lookup,
           s"'$lookup' should be increased since spilling occurred.")
+      }
+
+      val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
+      val shuffleSkewStagesWithSpill = appInfoProvider.getSpillMetricsForShuffleStages.filter {
+        case (stageId, spilledMetrics) => spilledMetrics > 0 && shuffleSkewStages.contains(stageId)
+      }
+      if (!shuffleSkewStagesWithSpill.isEmpty) {
+        appendOptionalComment(lookup, "There is data skew (when task's Shuffle Read Size > 3 * " +
+          s"Avg Stage-level size) in shuffle stages. $lookup recommendation may be less effective.")
       }
     }
     // If the user has enabled AQE auto shuffle, the auto-tuner should recommend to disable this

@@ -61,8 +61,11 @@ trait AppInfoPropertyGetter {
 trait AppInfoSqlTaskAggMetricsVisitor {
   def getJvmGCFractions: Seq[Double]
   def getSpilledMetrics: Seq[Long]
-  def getSpillMetricsForStage(stage: String): Seq[(Long, Long)]
-  def getDataSkewStages: Seq[Long]
+}
+
+trait AppInfoJobStageAggMetricsVisitor {
+  def getSpillMetricsForShuffleStages: Seq[(Long, Long)] 
+  def getShuffleSkewStages: Seq[Long]
 }
 
 trait AppInfoSQLTaskInputSizes {
@@ -81,6 +84,7 @@ trait AppInfoReadMetrics {
  * [[ApplicationSummaryInfo]].
  */
 class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
+  with AppInfoJobStageAggMetricsVisitor
   with AppInfoSqlTaskAggMetricsVisitor
   with AppInfoSQLTaskInputSizes
   with AppInfoReadMetrics {
@@ -104,11 +108,11 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getMeanShuffleRead: Double = 0.0
   override def getJvmGCFractions: Seq[Double] = Seq()
   override def getSpilledMetrics: Seq[Long] = Seq()
+  override def getSpillMetricsForShuffleStages: Seq[(Long, Long)] = Seq()
+  override def getShuffleSkewStages: Seq[Long] = Seq()
   override def getRapidsJars: Seq[String] = Seq()
   override def getDistinctLocationPct: Double = 0.0
   override def getRedundantReadSize: Long = 0
-  override def getSpillMetricsForStage(stage: String): Seq[(Long, Long)] = Seq()
-  override def getDataSkewStages: Seq[Long] = Seq()
 }
 
 /**
@@ -168,25 +172,17 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
     }
   }
 
-  override def getSpillMetricsForStage(stage: String): Seq[(Long, Long)] = {
-    // Get ids for input specified stage
-    val stageIds = app.sqlStageInfo.collect ({
-      case row if (row.nodeNames.exists(name => name.toLowerCase.contains(stage))) =>
-        row.stageId.toString()
-    })
-
-    // Select those in the specified stage and retrieve their spilled metrics
-    app.jsMetAgg.collect({
-      case row if (row.id.contains("stage") && stageIds.contains(row.id.split("_")(1))) =>
+  // Returns spilled metrics per stage, in the format (stage_id, spilled_metrics)
+  override def getSpillMetricsForShuffleStages: Seq[(Long, Long)] = {
+    // Get stages with positive shuffle read/write
+    app.jsMetAgg.collect { case row if (row.id.contains("stage") &&
+      row.srTotalBytesReadSum + row.swBytesWrittenSum > 0) =>
         (row.id.split("_")(1).toLong, row.diskBytesSpilledSum + row.memoryBytesSpilledSum)
-    })
+    }
   }
 
-  override def getDataSkewStages: Seq[Long] = {
-    // Get stage ids with data skew (logic is borrowed from Profiler output)
-    app.skewInfo.collect({
-      case row if (row.taskShuffleReadMB > 3 * row.avgShuffleReadMB) => row.stageId
-    })
+  override def getShuffleSkewStages: Seq[Long] = {
+    app.skewInfo.map { row => row.stageId }
   }
 
   override def getMaxInput: Double = {
