@@ -259,32 +259,6 @@
     }
   },
   "clusterInference": {
-    "defaultClusterConfig": {
-      "clusterName": "default-cluster-prop",
-      "clusterUuid": "1234-5678-1234567",
-      "config": {
-        "gceClusterConfig": {
-          "zoneUri": "us-central1-a"
-        },
-        "masterConfig": {
-          "instanceNames": [
-            "test-node"
-          ],
-          "machineTypeUri": "n1-standard-16",
-          "numInstances": 1
-        },
-        "workerConfig": {
-          "instanceNames": [
-            "test-node"
-          ],
-          "machineTypeUri": "n1-standard-32",
-          "numInstances": 1
-        }
-      },
-      "status": {
-        "state": "STOPPED"
-      }
-    },
     "defaultCpuInstances": {
       "driver": "n1-standard-16",
       "executor": [

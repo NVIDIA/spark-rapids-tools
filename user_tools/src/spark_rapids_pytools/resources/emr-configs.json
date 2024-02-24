@@ -289,47 +289,6 @@
     }
   },
   "clusterInference": {
-    "defaultClusterConfig": {
-      "Cluster": {
-        "Id": "j-123456789",
-        "Name": "default-cluster-prop",
-        "Status": {
-          "State": "TERMINATED"
-        },
-        "Ec2InstanceAttributes": {
-          "Ec2AvailabilityZone": "us-west-2a"
-        },
-        "InstanceGroups": [
-          {
-            "Id": "ig-123456789012e",
-            "Name": "CORE",
-            "Market": "ON_DEMAND",
-            "InstanceGroupType": "CORE",
-            "InstanceType": "m5d.8xlarge",
-            "RequestedInstanceCount": 1
-          },
-          {
-            "Id": "ig-123456789012d",
-            "Name": "MASTER",
-            "Market": "ON_DEMAND",
-            "InstanceGroupType": "MASTER",
-            "InstanceType": "i3.2xlarge",
-            "RequestedInstanceCount": 1
-          }
-        ]
-      }
-    },
-    "defaultNodeConfig": {
-      "Id": "ci-123456789",
-      "Ec2InstanceId": "i-123456789",
-      "PublicDnsName": "ec2-12-34-567-890.us-west-2.compute.amazonaws.com",
-      "Status": {
-          "State": "TERMINATED"
-      },
-      "InstanceGroupId": "ig-123456789012d",
-      "Market": "ON_DEMAND",
-      "InstanceType": "m5d.large"
-    },
     "defaultCpuInstances": {
       "driver": "i3.2xlarge",
       "executor": [

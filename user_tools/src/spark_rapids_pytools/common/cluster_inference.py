@@ -34,7 +34,7 @@ class ClusterInference:
     platform: PlatformBase = field(default=None, init=True)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster_inference'), init=False)
 
-    def get_cluster_info(self, cluster_info_json: JSONPropertiesContainer) -> dict:
+    def get_cluster_template_args(self, cluster_info_json: JSONPropertiesContainer) -> Optional[dict]:
         """
         Extract information about drivers and executors from input json
         """
@@ -58,20 +58,22 @@ class ClusterInference:
                 return None
             executor_instance = matching_instance
         return {
-            'driverInstance': driver_instance,
-            'numExecutorNodes': num_executor_nodes,
-            'executorInstance': executor_instance
+            'DRIVER_INSTANCE': f'"{driver_instance}"',
+            'EXECUTOR_INSTANCE': f'"{executor_instance}"',
+            'NUM_EXECUTOR_NODES': num_executor_nodes
         }
 
-    def infer_cpu_cluster(self, cluster_info_json: JSONPropertiesContainer) -> Optional[ClusterBase]:
+    def infer_cpu_cluster(self, cluster_info: JSONPropertiesContainer) -> Optional[ClusterBase]:
         """
         Infer CPU cluster configuration based on json input and return the constructed cluster object.
         """
         # Extract cluster information from parsed logs
-        cluster_info = self.get_cluster_info(cluster_info_json)
-        if cluster_info is None:
+        cluster_template_args = self.get_cluster_template_args(cluster_info)
+        if cluster_template_args is None:
             return None
         # Construct cluster configuration using platform-specific logic
-        cluster_conf = self.platform.construct_cluster_config(cluster_info)
-        cluster_props = JSONPropertiesContainer(cluster_conf, file_load=False)
-        return self.platform.load_cluster_by_prop(cluster_props, is_inferred=True)
+        cluster_conf = self.platform.generate_cluster_configuration(cluster_template_args)
+        if cluster_conf is None:
+            return None
+        cluster_props_new = JSONPropertiesContainer(cluster_conf, file_load=False)
+        return self.platform.load_cluster_by_prop(cluster_props_new, is_inferred=True)

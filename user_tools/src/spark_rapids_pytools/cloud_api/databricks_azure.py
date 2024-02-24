@@ -55,14 +55,6 @@ class DBAzurePlatform(PlatformBase):
     def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
         return DatabricksAzureCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
-    def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
-        cluster_conf = default_config
-        cluster_conf['executors'] = [{'node_id': '1234567890'} for _ in range(cluster_info['numExecutorNodes'])]
-        cluster_conf['driver_node_type_id'] = cluster_info['driverInstance']
-        cluster_conf['node_type_id'] = cluster_info['executorInstance']
-        cluster_conf['num_workers'] = cluster_info['numExecutorNodes']
-        return cluster_conf
-
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
 
@@ -112,6 +104,10 @@ class DBAzurePlatform(PlatformBase):
             gpu_scopes[mc_prof] = NodeHWInfo(sys_info=hw_info_ob, gpu_info=gpu_info_obj)
         return gpu_scopes
 
+    def generate_cluster_configuration(self, render_args: dict) -> str | None:
+        executor_names = ','.join([f'{{"node_id": "12345678900{i}"}}' for i in range(render_args['NUM_EXECUTOR_NODES'])])
+        render_args['EXECUTOR_NAMES'] = f'[{executor_names}]'
+        return super().generate_cluster_configuration(render_args)
 
 @dataclass
 class DBAzureCMDDriver(CMDDriverBase):

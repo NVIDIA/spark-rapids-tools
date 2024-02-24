@@ -55,13 +55,6 @@ class DBAWSPlatform(EMRPlatform):
     def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
         return DatabricksCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
-    def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
-        cluster_conf = default_config
-        cluster_conf['driver_node_type_id'] = cluster_info['driverInstance']
-        cluster_conf['node_type_id'] = cluster_info['executorInstance']
-        cluster_conf['num_workers'] = cluster_info['numExecutorNodes']
-        return cluster_conf
-
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
 

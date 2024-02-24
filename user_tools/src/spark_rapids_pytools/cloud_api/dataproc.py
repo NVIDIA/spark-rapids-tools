@@ -85,20 +85,6 @@ class DataprocPlatform(PlatformBase):
     def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
         return DataprocCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
-    def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
-        cluster_conf = default_config
-        cluster_conf['config']['masterConfig'] = {
-          'instanceNames': 'test-node-d',
-          'machineTypeUri': cluster_info['driverInstance'],
-          'numInstances': 1  # single driver node
-        }
-        cluster_conf['config']['workerConfig'] = {
-          'instanceNames': [f'test-node-e{i}' for i in range(cluster_info['numExecutorNodes'])],
-          'machineTypeUri': cluster_info['executorInstance'],
-          'numInstances': cluster_info['numExecutorNodes']
-        }
-        return cluster_conf
-
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
 
@@ -167,6 +153,11 @@ class DataprocPlatform(PlatformBase):
                 gpu_info_obj = GpuHWInfo(num_gpus=gpu_cnt, gpu_mem=gpu_mem, gpu_device=gpu_device)
                 gpu_scopes[prof_name] = NodeHWInfo(sys_info=sys_info_obj, gpu_info=gpu_info_obj)
         return gpu_scopes
+
+    def generate_cluster_configuration(self, render_args: dict) -> str | None:
+        executor_names = ','.join([f'"test-node-e{i}"' for i in range(render_args['NUM_EXECUTOR_NODES'])])
+        render_args['EXECUTOR_NAMES'] = f'[{executor_names}]'
+        return super().generate_cluster_configuration(render_args)
 
 
 @dataclass

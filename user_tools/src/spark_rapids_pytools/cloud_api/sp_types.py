@@ -785,21 +785,6 @@ class PlatformBase:
                                       is_inferred: bool = False):
         raise NotImplementedError
 
-    def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
-        """
-        This method should be implemented by subclasses to define the logic for constructing
-        the cluster configuration based on the provided `cluster_info` and `default_config`.
-
-        :param cluster_info: Dictionary storing cluster information such as driver instance
-        :param default_config: Default cluster config obtained using `describe` cmd.
-        :return: Constructed cluster configuration
-        """
-        raise NotImplementedError
-
-    def construct_cluster_config(self, cluster_info: dict):
-        default_cluster = self.configs.get_value('clusterInference', 'defaultClusterConfig')
-        return self._construct_cluster_config(cluster_info, default_cluster)
-
     def set_offline_cluster(self, cluster_args: dict = None):
         raise NotImplementedError
 
@@ -870,6 +855,12 @@ class PlatformBase:
 
     def get_footer_message(self) -> str:
         return 'To support acceleration with T4 GPUs, switch the worker node instance types'
+
+    def generate_cluster_configuration(self, render_args: dict):
+        if not self.cluster_inference_supported:
+            return None
+        template_path = Utils.resource_path(f'templates/cluster_template/{self.type_id}.ms')
+        return TemplateGenerator.render_template_file(template_path, render_args)
 
 
 @dataclass
@@ -1137,6 +1128,10 @@ class ClusterBase(ClusterGetAccessor):
         render_args = self._set_render_args_bootstrap_template(overridden_args)
         return TemplateGenerator.render_template_file(template_path, render_args)
 
+    def generate_node_configuration(self, render_args: dict) -> str:
+        platform_name = CspEnv.pretty_print(self.platform.type_id)
+        template_path = Utils.resource_path(f'templates/cluster_template/{platform_name}_node.ms')
+        return TemplateGenerator.render_template_file(template_path, render_args)
 
 @dataclass
 class ClusterReshape(ClusterGetAccessor):

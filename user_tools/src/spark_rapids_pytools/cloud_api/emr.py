@@ -73,17 +73,6 @@ class EMRPlatform(PlatformBase):
     def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
         return EMRCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
-    def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
-        cluster_conf = default_config
-        for group in cluster_conf['Cluster']['InstanceGroups']:
-            if group.get('Name') == 'CORE':
-                group['InstanceType'] = cluster_info['executorInstance']
-                group['RequestedInstanceCount'] = cluster_info['numExecutorNodes']
-            elif group.get('Name') == 'MASTER':
-                group['InstanceType'] = cluster_info['driverInstance']
-                group['RequestedInstanceCount'] = 1  # single driver node
-        return cluster_conf
-
     def migrate_cluster_to_gpu(self, orig_cluster):
         """
         given a cluster, convert it to run NVIDIA Gpu based on mapping instance types
@@ -328,10 +317,12 @@ class EMRCluster(ClusterBase):
             group_obj = None
         if self.is_inferred:
             # If cluster settings are inferred, create a list of instances with default configuration
-            default_node_config = self.platform.configs.get_value('clusterInference', 'defaultNodeConfig')
-            default_node_config['InstanceGroupId'] = group_id
-            default_node_config['InstanceType'] = group_obj.instance_type
-            instances_list = [default_node_config for _ in range(group_obj.count)]
+            render_args = {
+                'INSTANCE_GROUP_ID': f'"{group_id}"',
+                'INSTANCE_TYPE': f'"{group_obj.instance_type}"'
+            }
+            node_config = json.loads(self.generate_node_configuration(render_args))
+            instances_list = [node_config for _ in range(group_obj.count)]
         else:
             query_args = {'instance-group-id': group_id}
             raw_instance_list = self.cli.exec_platform_list_cluster_instances(self, query_args=query_args)
