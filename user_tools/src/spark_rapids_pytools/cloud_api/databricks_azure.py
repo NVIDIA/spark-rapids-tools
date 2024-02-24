@@ -105,9 +105,13 @@ class DBAzurePlatform(PlatformBase):
         return gpu_scopes
 
     def generate_cluster_configuration(self, render_args: dict) -> str | None:
-        executor_names = ','.join([f'{{"node_id": "12345678900{i}"}}' for i in range(render_args['NUM_EXECUTOR_NODES'])])
+        executor_names = ','.join([
+            f'{{"node_id": "12345678900{i}"}}'
+            for i in range(render_args['NUM_EXECUTOR_NODES'])
+        ])
         render_args['EXECUTOR_NAMES'] = f'[{executor_names}]'
         return super().generate_cluster_configuration(render_args)
+
 
 @dataclass
 class DBAzureCMDDriver(CMDDriverBase):

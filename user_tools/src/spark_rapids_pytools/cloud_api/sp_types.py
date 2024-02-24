@@ -1133,6 +1133,7 @@ class ClusterBase(ClusterGetAccessor):
         template_path = Utils.resource_path(f'templates/cluster_template/{platform_name}_node.ms')
         return TemplateGenerator.render_template_file(template_path, render_args)
 
+
 @dataclass
 class ClusterReshape(ClusterGetAccessor):
     """
