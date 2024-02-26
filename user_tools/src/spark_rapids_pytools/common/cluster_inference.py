@@ -47,7 +47,7 @@ class ClusterInference:
         # If executor instance is not set, use the default value based on the number of cores
         executor_instance = cluster_info_json.get_value_silent('executorInstance')
         if executor_instance is None:
-            executor_instance = self.platform.Sget_matching_executor_instance(cores_per_executor)
+            executor_instance = self.platform.get_matching_executor_instance(cores_per_executor)
             if executor_instance is None:
                 self.logger.info('Unable to infer CPU cluster. No matching executor instance found for vCPUs = %s',
                                  cores_per_executor)
