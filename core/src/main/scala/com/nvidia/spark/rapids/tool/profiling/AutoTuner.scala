@@ -897,7 +897,7 @@ class AutoTuner(
       val shuffleSkewStagesWithSpill = appInfoProvider.getSpillMetricsForShuffleStages.filter {
         case (stageId, spilledMetrics) => spilledMetrics > 0 && shuffleSkewStages.contains(stageId)
       }
-      if (!shuffleSkewStagesWithSpill.isEmpty) {
+      if (shuffleSkewStagesWithSpill.nonEmpty) {
         appendOptionalComment(lookup, "There is data skew (when task's Shuffle Read Size > 3 * " +
           s"Avg Stage-level size) in shuffle stages. $lookup recommendation may be less effective.")
       }
