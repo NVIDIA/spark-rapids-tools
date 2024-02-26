@@ -1,7 +1,7 @@
 {
 	"Cluster": {
 	  "Id": "j-123456789",
-	  "Name": "default-cluster-prop",
+	  "Name": "default-cluster-name",
 	  "Status": {
 	    "State": "TERMINATED"
 	  },
@@ -23,7 +23,7 @@
 	      "Market": "ON_DEMAND",
 	      "InstanceGroupType": "MASTER",
 	      "InstanceType": {{{ DRIVER_INSTANCE }}},
-	      "RequestedInstanceCount": 1
+	      "RequestedInstanceCount": {{ NUM_DRIVER_NODES }}
 	    }
 	  ]
 	}

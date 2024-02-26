@@ -1,5 +1,5 @@
 {
-  "clusterName": "default-cluster-prop",
+  "clusterName": "default-cluster-name",
   "clusterUuid": "1234-5678-1234567",
   "config": {
     "gceClusterConfig": {
@@ -10,7 +10,7 @@
         "test-node-d"
       ],
       "machineTypeUri": {{{ DRIVER_INSTANCE }}},
-      "numInstances": 1
+      "numInstances": {{ NUM_DRIVER_NODES }}
     },
     "workerConfig": {
       "instanceNames": {{{ EXECUTOR_NAMES }}},

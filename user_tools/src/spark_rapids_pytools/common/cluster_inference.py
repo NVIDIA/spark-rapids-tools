@@ -38,15 +38,17 @@ class ClusterInference:
         """
         Extract information about drivers and executors from input json
         """
-        num_executor_nodes = cluster_info_json.get_value_silent('numExecutorNodes')
-        cores_per_executor = cluster_info_json.get_value_silent('coresPerExecutor')
+        # Currently we support only single driver node for all CSPs
+        num_driver_nodes = 1
         driver_instance = cluster_info_json.get_value_silent('driverInstance')
         # If driver instance is not set, use the default value from platform configurations
         if driver_instance is None:
             driver_instance = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
-        # If executor instance is not set, use the default value based on the number of cores
+        num_executor_nodes = cluster_info_json.get_value_silent('numExecutorNodes')
         executor_instance = cluster_info_json.get_value_silent('executorInstance')
         if executor_instance is None:
+            # If executor instance is not set, use the default value based on the number of cores
+            cores_per_executor = cluster_info_json.get_value_silent('coresPerExecutor')
             executor_instance = self.platform.get_matching_executor_instance(cores_per_executor)
             if executor_instance is None:
                 self.logger.info('Unable to infer CPU cluster. No matching executor instance found for vCPUs = %s',
@@ -54,6 +56,7 @@ class ClusterInference:
                 return None
         return {
             'DRIVER_INSTANCE': f'"{driver_instance}"',
+            'NUM_DRIVER_NODES': num_driver_nodes,
             'EXECUTOR_INSTANCE': f'"{executor_instance}"',
             'NUM_EXECUTOR_NODES': num_executor_nodes
         }

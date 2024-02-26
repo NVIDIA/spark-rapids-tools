@@ -4,7 +4,7 @@
     "node_id": "1234567890"
   },
   "executors": {{{ EXECUTOR_NAMES }}},
-  "cluster_name": "default-cluster-prop",
+  "cluster_name": "default-cluster-name",
   "driver_node_type_id": {{{ DRIVER_INSTANCE }}},
   "node_type_id": {{{ EXECUTOR_INSTANCE }}},
   "num_workers": {{ NUM_EXECUTOR_NODES }},
