@@ -856,6 +856,11 @@ class PlatformBase:
     def get_footer_message(self) -> str:
         return 'To support acceleration with T4 GPUs, switch the worker node instance types'
 
+    def get_matching_executor_instance(self, cores_per_executor):
+        default_instances = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
+        return next((instance['name'] for instance in default_instances if instance['vCPUs'] == cores_per_executor),
+                    None)
+
     def generate_cluster_configuration(self, render_args: dict):
         if not self.cluster_inference_supported:
             return None

@@ -154,6 +154,14 @@ class DataprocPlatform(PlatformBase):
                 gpu_scopes[prof_name] = NodeHWInfo(sys_info=sys_info_obj, gpu_info=gpu_info_obj)
         return gpu_scopes
 
+    def get_matching_executor_instance(self, cores_per_executor):
+        executors_from_config = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
+        # TODO: Currently only single series is supported. Change this to a loop when using multiple series.
+        series_name, unit_info = list(executors_from_config.items())[0]
+        if cores_per_executor in unit_info['vCPUs']:
+            return f'{series_name}-{cores_per_executor}'
+        return None
+
     def generate_cluster_configuration(self, render_args: dict):
         executor_names = ','.join([f'"test-node-e{i}"' for i in range(render_args['NUM_EXECUTOR_NODES'])])
         render_args['EXECUTOR_NAMES'] = f'[{executor_names}]'

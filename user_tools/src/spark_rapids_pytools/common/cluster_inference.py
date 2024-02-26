@@ -41,22 +41,17 @@ class ClusterInference:
         num_executor_nodes = cluster_info_json.get_value_silent('numExecutorNodes')
         cores_per_executor = cluster_info_json.get_value_silent('coresPerExecutor')
         driver_instance = cluster_info_json.get_value_silent('driverInstance')
-        executor_instance = cluster_info_json.get_value_silent('executorInstance')
         # If driver instance is not set, use the default value from platform configurations
         if driver_instance is None:
             driver_instance = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
         # If executor instance is not set, use the default value based on the number of cores
+        executor_instance = cluster_info_json.get_value_silent('executorInstance')
         if executor_instance is None:
-            default_instances = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
-            matching_instance = next(
-                (instance['name'] for instance in default_instances if instance['vCPUs'] == cores_per_executor),
-                None
-            )
-            if matching_instance is None:
+            executor_instance = self.platform.Sget_matching_executor_instance(cores_per_executor)
+            if executor_instance is None:
                 self.logger.info('Unable to infer CPU cluster. No matching executor instance found for vCPUs = %s',
                                  cores_per_executor)
                 return None
-            executor_instance = matching_instance
         return {
             'DRIVER_INSTANCE': f'"{driver_instance}"',
             'EXECUTOR_INSTANCE': f'"{executor_instance}"',
