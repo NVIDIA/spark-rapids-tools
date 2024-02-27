@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ class DBAzurePlatform(PlatformBase):
     """
     def __post_init__(self):
         self.type_id = CspEnv.DATABRICKS_AZURE
+        self.cluster_inference_supported = True
         super().__post_init__()
 
     def _construct_cli_object(self) -> CMDDriverBase:
@@ -51,8 +52,8 @@ class DBAzurePlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = AzureStorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None):
-        return DatabricksAzureCluster(self).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+        return DatabricksAzureCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
@@ -102,6 +103,14 @@ class DBAzurePlatform(PlatformBase):
             gpu_info_obj = GpuHWInfo(num_gpus=gpu_info_json['Count'], gpu_mem=gpu_info_json['MemoryInfo']['SizeInMiB'])
             gpu_scopes[mc_prof] = NodeHWInfo(sys_info=hw_info_ob, gpu_info=gpu_info_obj)
         return gpu_scopes
+
+    def generate_cluster_configuration(self, render_args: dict):
+        executor_names = ','.join([
+            f'{{"node_id": "12345678900{i}"}}'
+            for i in range(render_args['NUM_EXECUTOR_NODES'])
+        ])
+        render_args['EXECUTOR_NAMES'] = f'[{executor_names}]'
+        return super().generate_cluster_configuration(render_args)
 
 
 @dataclass

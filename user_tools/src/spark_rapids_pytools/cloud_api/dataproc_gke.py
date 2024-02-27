@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ class DataprocGkePlatform(DataprocPlatform):
     def __post_init__(self):
         super().__post_init__()
         self.type_id = CspEnv.DATAPROC_GKE
+        self.cluster_inference_supported = False
 
     @classmethod
     def get_spark_node_type_fromstring(cls, value: str):
@@ -54,8 +55,8 @@ class DataprocGkePlatform(DataprocPlatform):
     def _construct_cli_object(self) -> CMDDriverBase:
         return DataprocGkeCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None):
-        return DataprocGkeCluster(self).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+        return DataprocGkeCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
     def migrate_cluster_to_gpu(self, orig_cluster):
         """
