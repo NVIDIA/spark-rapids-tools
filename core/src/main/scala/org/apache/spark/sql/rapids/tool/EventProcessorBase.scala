@@ -17,6 +17,7 @@
 package org.apache.spark.sql.rapids.tool
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Try
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.profiling.{DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, TaskStageAccumCase}
@@ -129,8 +130,14 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       app: T,
       event: SparkListenerSQLExecutionStart): Unit = {
     logDebug("Processing event: " + event.getClass)
+    val rootExecutionIdOpt = Try {
+      val field = event.getClass.getDeclaredField("rootExecutionId")
+      field.setAccessible(true)
+      Option(field.get(event)).map(_.asInstanceOf[Option[Long]]).getOrElse(None)
+    }.toOption.flatten
     val sqlExecution = new SQLExecutionInfoClass(
       event.executionId,
+      rootExecutionIdOpt,
       event.description,
       event.details,
       event.time,

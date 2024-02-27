@@ -43,7 +43,9 @@ class QualificationAppInfo(
 
   var appId: String = ""
   var lastJobEndTime: Option[Long] = None
+  var lastJobEndTimeId: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None
+  var lastSQLEndTimeId: Option[Long] = None
   val writeDataFormat: ArrayBuffer[String] = ArrayBuffer[String]()
 
   var appInfo: Option[QualApplicationInfo] = None
@@ -572,9 +574,7 @@ class QualificationAppInfo(
       // Using the spark SQL reported duration, this could be a bit off from the
       // task times because it relies on the stage times and we might not have
       // a stage for every exec
-      val allSQLDurations = sqlIdToInfo.map { case (_, info) =>
-        info.duration.getOrElse(0L)
-      }
+      val allSQLDurations = getAllSQLDurations
 
       val appName = appInfo.map(_.appName).getOrElse("")
 
@@ -716,6 +716,37 @@ class QualificationAppInfo(
     QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
       sqlDataFrameDuration, sqlDataFrameDuration, taskSpeedupFactor, appName,
       appId, hasFailures)
+  }
+
+  def getAllSQLDurations: Seq[Long] = {
+    sqlIdToInfo.map { case (_, info) =>
+      info.rootExecutionID match {
+        // We return the duration if sqlId doesn't have a rootExecutionID or if the rootExecutionID
+        // is the same as the sqlId. In some cases, the child completes the execution before the
+        // parent, so we need to check if the child's duration is within the parent's duration.
+        // We add the child's duration to the parent's duration if it's not within the parent's
+        // duration.
+        case Some(rootExecutionID) if rootExecutionID == info.sqlID =>
+          info.duration.getOrElse(0L)
+        case Some(rootExecutionID) if rootExecutionID != info.sqlID =>
+          val rootExecutionInfo = sqlIdToInfo.get(rootExecutionID)
+          if (rootExecutionInfo.nonEmpty) {
+            val rootExecutionStartTime = rootExecutionInfo.get.startTime
+            val rootExecutionEndTime = rootExecutionInfo.get.endTime.getOrElse(0L)
+            val sqlStartTime = info.startTime
+            val sqlEndTime = info.endTime.getOrElse(0L)
+            if (sqlStartTime < rootExecutionStartTime || sqlEndTime > rootExecutionEndTime) {
+              info.duration.getOrElse(0L)
+            } else {
+              0L
+            }
+          } else {
+            0L
+          }
+        case _ =>
+          info.duration.getOrElse(0L)
+      }
+    }.toSeq
   }
 
   private def getMlFuntions: Option[Seq[MLFunctions]] = {

@@ -216,6 +216,19 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
+  test("test subexecutionId mapping to rootExecutionId") {
+    val eventlog = ToolTestUtils.getTestResourcePath("" +
+        "spark-events-qualification/db_subExecution_id.zstd")
+    val app = createAppFromEventlog(eventlog)
+    // In Spark 3.4.0+ and later, all the sub-executions will be grouped if they are part of the
+    // the same root execution.
+    if (ToolUtils.isSpark340OrLater()) {
+      assert(app.sqlIdToInfo.values.exists(_.rootExecutionID.isDefined))
+    } else {
+      assert(app.sqlIdToInfo.values.forall(_.rootExecutionID.isEmpty))
+    }
+  }
+
   test("Parse Execs within WholeStageCodeGen in Order") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
