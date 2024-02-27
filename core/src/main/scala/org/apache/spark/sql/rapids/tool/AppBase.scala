@@ -129,6 +129,11 @@ abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
     val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
 
+  var appId: String = ""
+
+  // Store map of executorId to executor info
+  val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
+
   var appEndTime: Option[Long] = None
   // The data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
@@ -156,6 +161,46 @@ abstract class AppBase(
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
   var mlEventLogType = ""
   var pysparkLogFlag = false
+
+  def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
+    executorIdToInfo.getOrElseUpdate(executorId, {
+      new ExecutorInfoClass(executorId, addTime)
+    })
+  }
+
+  /**
+   * Retrieves cluster information based on executor nodes.
+   * If executor nodes exist, calculates the number of hosts and total cores,
+   * and extracts executor and driver instance types (databricks only)
+   *
+   * @return Cluster information including cores, number of nodes, and instance types.
+   */
+  def getClusterInfo: Option[ClusterInfo] = {
+    // TODO: Handle dynamic allocation when determining the number of nodes.
+    sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
+      if (value.toBoolean) {
+        logWarning(s"Application $appId: Dynamic allocation is not supported. " +
+          s"Cluster information may be inaccurate.")
+      }
+    }
+    val activeExecInfo = executorIdToInfo.values.collect {
+      case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
+    }
+    if (activeExecInfo.nonEmpty) {
+      val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
+      if (coresPerExecutor.toSet.size != 1) {
+        logWarning(s"Application $appId: Cluster with variable executor cores detected. " +
+          s"Using maximum value.")
+      }
+      // Extracts instance types from properties (databricks only)
+      val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
+      val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
+      Some(ClusterInfo(coresPerExecutor.max, activeHosts.toSet.size,
+        executorInstance, driverInstance))
+    } else {
+      None
+    }
+  }
 
   def getOrCreateStage(info: StageInfo): StageInfoClass = {
     val stage = stageIdToInfo.getOrElseUpdate((info.stageId, info.attemptNumber()),

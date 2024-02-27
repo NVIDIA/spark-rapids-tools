@@ -28,7 +28,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 class QualificationAppInfo(
@@ -41,7 +41,6 @@ class QualificationAppInfo(
     penalizeTransitions: Boolean = true)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
-  var appId: String = ""
   var lastJobEndTime: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None
   val writeDataFormat: ArrayBuffer[String] = ArrayBuffer[String]()
@@ -685,6 +684,9 @@ class QualificationAppInfo(
         sqlIdsWithFailures.nonEmpty, mlSpeedup, unSupportedExecs, unSupportedExprs,
         allClusterTagsMap)
 
+      val clusterSummary = ClusterSummary(info.appName, appId,
+        eventLogInfo.map(_.eventLog.toString), getClusterInfo)
+
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
         notSupportFormatAndTypesString, getAllReadFileFormats, writeFormat,
@@ -694,7 +696,7 @@ class QualificationAppInfo(
         origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
-        mlTotalStageDuration, unsupportedExecExprsMap)
+        mlTotalStageDuration, unsupportedExecExprsMap, clusterSummary)
     }
   }
 
@@ -919,6 +921,7 @@ case class QualificationSummaryInfo(
     mlFunctions: Option[Seq[MLFunctions]],
     mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]],
     unsupportedExecstoExprsMap: Map[String, String],
+    clusterSummary: ClusterSummary,
     estimatedFrequency: Option[Long] = None)
 
 case class StageQualSummaryInfo(

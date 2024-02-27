@@ -25,6 +25,8 @@ import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo, UnsupportedE
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.{CLUSTER_ID, CLUSTER_ID_STR_SIZE, JOB_ID, JOB_ID_STR_SIZE, RUN_NAME, RUN_NAME_STR_SIZE, TEXT_DELIMITER}
 import org.apache.hadoop.conf.Configuration
+import org.json4s.DefaultFormats
+import org.json4s.jackson.Serialization
 
 import org.apache.spark.sql.rapids.tool.{ExecHelper, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{EstimatedPerSQLSummaryInfo, EstimatedSummaryInfo, QualificationAppInfo, QualificationSummaryInfo, StatusSummaryInfo}
@@ -43,6 +45,8 @@ import org.apache.spark.sql.rapids.tool.util._
 class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     printStdout: Boolean, prettyPrintOrder: String,
     hadoopConf: Option[Configuration] = None) {
+
+  implicit val formats: DefaultFormats.type = DefaultFormats
 
   def writeDetailedCSVReport(sums: Seq[QualificationSummaryInfo]): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
@@ -268,6 +272,17 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       }
     } finally {
       csvFileWriter.close()
+    }
+  }
+
+  def writeClusterReport(sums: Seq[QualificationSummaryInfo]): Unit = {
+    val jsonFileWriter = new ToolTextFileWriter(outputDir,
+      s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json",
+      "Cluster Information", hadoopConf)
+    try {
+      jsonFileWriter.write(Serialization.writePretty(sums.map(_.clusterSummary)))
+    } finally {
+      jsonFileWriter.close()
     }
   }
 

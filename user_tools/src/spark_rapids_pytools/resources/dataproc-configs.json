@@ -258,6 +258,14 @@
       ]
     }
   },
+  "clusterInference": {
+    "defaultCpuInstances": {
+      "driver": "n1-standard-16",
+      "executor": {
+        "n1-standard": {"vCPUs": [1, 2, 4, 8, 16, 32, 64, 96]}
+      }
+    }
+  },
   "clusterSpecs": {
     "minWorkerNodes": 2,
     "gpuScaleFactor": 0.80

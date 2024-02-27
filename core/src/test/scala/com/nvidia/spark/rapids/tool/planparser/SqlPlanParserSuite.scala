@@ -25,7 +25,7 @@ import scala.util.control.NonFatal
 import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.qualification._
-import org.scalatest.Matchers.convertToAnyShouldWrapper
+import org.scalatest.Matchers.{be, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.TrampolineUtil
@@ -325,6 +325,37 @@ class SQLPlanParserSuite extends BaseTestSuite {
     assertSizeAndSupported(1, csv.toSeq)
     for (t <- Seq(orc, parquet)) {
       assertSizeAndSupported(2, t.toSeq)
+    }
+  }
+
+  test("Subquery exec should be ignored without impact on performance") {
+    TrampolineUtil.withTempDir { outputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "subqueryTest") { spark =>
+          import spark.implicits._
+          val df = spark.sparkContext.makeRDD(1 to 10000, 6).toDF
+          df.createOrReplaceTempView("t1")
+          val df2WithSubquery =
+            spark.sql("select * from t1 where value < (select avg(value) from t1)")
+          df2WithSubquery
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        app.sqlPlans.size shouldBe 2
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val subqueryExecs = allExecInfo.filter(_.exec.contains(s"Subquery"))
+        val summaryRecs = subqueryExecs.flatten { sqExec =>
+          sqExec.isSupported  shouldNot be(true)
+          sqExec.getUnsupportedExecSummaryRecord(0)
+        }
+        summaryRecs.size shouldBe 1
+        val summaryRec = summaryRecs.head
+        summaryRec.opType shouldBe OpTypes.Exec
+        summaryRec.opAction shouldBe OpActions.IgnoreNoPerf
+      }
     }
   }
 
@@ -867,7 +898,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("json_tuple is supported in Generate") {
+  ignore("json_tuple is supported in Generate: disabled as the operator is disabled by default") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
         "Expressions in Generate") { spark =>

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ class DataprocPlatform(PlatformBase):
 
     def __post_init__(self):
         self.type_id = CspEnv.DATAPROC
+        self.cluster_inference_supported = True
         super().__post_init__()
 
     def _set_remaining_configuration_list(self) -> None:
@@ -81,8 +82,8 @@ class DataprocPlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = GStorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None):
-        return DataprocCluster(self).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+        return DataprocCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
@@ -152,6 +153,19 @@ class DataprocPlatform(PlatformBase):
                 gpu_info_obj = GpuHWInfo(num_gpus=gpu_cnt, gpu_mem=gpu_mem, gpu_device=gpu_device)
                 gpu_scopes[prof_name] = NodeHWInfo(sys_info=sys_info_obj, gpu_info=gpu_info_obj)
         return gpu_scopes
+
+    def get_matching_executor_instance(self, cores_per_executor):
+        executors_from_config = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
+        # TODO: Currently only single series is supported. Change this to a loop when using multiple series.
+        series_name, unit_info = list(executors_from_config.items())[0]
+        if cores_per_executor in unit_info['vCPUs']:
+            return f'{series_name}-{cores_per_executor}'
+        return None
+
+    def generate_cluster_configuration(self, render_args: dict):
+        executor_names = ','.join([f'"test-node-e{i}"' for i in range(render_args['NUM_EXECUTOR_NODES'])])
+        render_args['EXECUTOR_NAMES'] = f'[{executor_names}]'
+        return super().generate_cluster_configuration(render_args)
 
 
 @dataclass

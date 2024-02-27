@@ -19,6 +19,7 @@ package org.apache.spark.sql.rapids.tool
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
+import com.nvidia.spark.rapids.tool.planparser.SubqueryExecParser
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
 import org.apache.maven.artifact.versioning.ComparableVersion
@@ -357,14 +358,15 @@ object ExecHelper {
 
   // Set containing execs that should be labeled as "shouldRemove"
   private val execsToBeRemoved = Set(
-    "GenerateBloomFilter",    // Exclusive on AWS. Ignore it as metrics cannot be evaluated.
-    "ReusedExchange",         // reusedExchange should not be added to speedups
-    "ColumnarToRow",          // for now, assume everything is columnar
+    "GenerateBloomFilter",      // Exclusive on AWS. Ignore it as metrics cannot be evaluated.
+    "ReusedExchange",           // reusedExchange should not be added to speedups
+    "ColumnarToRow",            // for now, assume everything is columnar
     // Our customer-integration team requested this to be added to the list of execs to be removed.
     "ResultQueryStage",
     // AdaptiveSparkPlan is not a real exec. It is a wrapper for the whole plan.
     // Our customer-integration team requested this to be added to the list of execs to be removed.
-    "AdaptiveSparkPlan"       // according to request from our customer facing team
+    "AdaptiveSparkPlan",        // according to request from our customer facing team
+    SubqueryExecParser.execName // Subquery represents a simple collect
   )
 
   def isUDF(node: SparkPlanGraphNode): Boolean = {
@@ -383,7 +385,7 @@ object ExecHelper {
   // start definitions of execs to be ignored
   // Collect Limit replacement can be slower on the GPU. Disabled by default.
   private val CollectLimit = "CollectLimit"
-  // Some DDL's  and table commands which can be ignored
+  // Some DDL's and table commands which can be ignored
   private val ExecuteCreateViewCommand = "Execute CreateViewCommand"
   private val LocalTableScan = "LocalTableScan"
   private val ExecuteCreateDatabaseCommand = "Execute CreateDatabaseCommand"
@@ -438,7 +440,8 @@ object ExecHelper {
     ExecuteDescribeTableCommand,
     ExecuteRefreshTable,
     ExecuteRepairTableCommand,
-    ExecuteShowPartitionsCommand
+    ExecuteShowPartitionsCommand,
+    SubqueryExecParser.execName
   )
 
   def shouldIgnore(execName: String): Boolean = {

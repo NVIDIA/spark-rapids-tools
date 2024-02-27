@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,9 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import java.util.Date
-
 import scala.collection.Map
 
-import org.apache.spark.resource.{ExecutorResourceRequest, ResourceInformation, ResourceProfile, TaskResourceRequest}
+import org.apache.spark.resource.{ExecutorResourceRequest, TaskResourceRequest}
 import org.apache.spark.scheduler.StageInfo
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
@@ -37,27 +35,6 @@ trait ProfileResult {
 
 case class DriverInfo(val executorId: String, maxMemory: Long, totalOnHeap: Long,
     totalOffHeap: Long)
-
-class ExecutorInfoClass(val executorId: String, _addTime: Long) {
-  var hostPort: String = null
-  var host: String = null
-  var isActive = true
-  var totalCores = 0
-
-  val addTime = new Date(_addTime)
-  var removeTime: Long = 0L
-  var removeReason: String = null
-  var maxMemory = 0L
-
-  var resources = Map[String, ResourceInformation]()
-
-  // Memory metrics. They may not be recorded (e.g. old event logs) so if totalOnHeap is not
-  // initialized, the store will not contain this information.
-  var totalOnHeap = -1L
-  var totalOffHeap = 0L
-
-  var resourceProfileId = ResourceProfile.DEFAULT_RESOURCE_PROFILE_ID
-}
 
 case class ExecutorInfoProfileResult(appIndex: Int, resourceProfileId: Int,
     numExecutors: Int, executorCores: Int, maxMem: Long, maxOnHeapMem: Long,
