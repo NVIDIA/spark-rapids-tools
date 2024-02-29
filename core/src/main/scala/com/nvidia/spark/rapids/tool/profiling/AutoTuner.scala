@@ -882,11 +882,11 @@ class AutoTuner(
     val lookup = "spark.sql.shuffle.partitions"
     var shufflePartitions =
       getPropertyValue(lookup).getOrElse(DEF_SHUFFLE_PARTITIONS).toInt
+    val shuffleStagesWithPosSpilling = appInfoProvider.getShuffleStagesWithPosSpilling
     // TODO: Need to look at other metrics for GPU spills (DEBUG mode), and batch sizes metric
-    if (isCalculationEnabled(lookup)) {
-      val totalSpilledMetricsForShuffleStages =
-        appInfoProvider.getSpillMetricsForShuffleStages.unzip._2.sum
-      if (totalSpilledMetricsForShuffleStages > 0) {
+    // if (isCalculationEnabled(lookup)) {
+    if (true) {
+      if (shuffleStagesWithPosSpilling.nonEmpty) {
         shufflePartitions *= DEF_SHUFFLE_PARTITION_MULTIPLIER
         // Could be memory instead of partitions
         appendOptionalComment(lookup,
@@ -894,10 +894,7 @@ class AutoTuner(
       }
 
       val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
-      val shuffleSkewStagesWithSpill = appInfoProvider.getSpillMetricsForShuffleStages.filter {
-        case (stageId, spilledMetrics) => spilledMetrics > 0 && shuffleSkewStages.contains(stageId)
-      }
-      if (shuffleSkewStagesWithSpill.nonEmpty) {
+      if (shuffleSkewStages.exists(id => shuffleStagesWithPosSpilling.contains(id))) {
         appendOptionalComment(lookup, "There is data skew (when task's Shuffle Read Size > 3 * " +
           s"Avg Stage-level size) in shuffle stages. $lookup recommendation may be less effective.")
       }
