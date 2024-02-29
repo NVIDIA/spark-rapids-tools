@@ -20,7 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from typing import Type, Any, List, Callable, Union
+from typing import Type, Any, List, Callable, Optional, Union
 
 from spark_rapids_tools import EnumeratedType, CspEnv
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
@@ -105,9 +105,21 @@ class SparkNodeType(EnumeratedType):
 
 
 @dataclass
+class StorageInterface(EnumeratedType):
+    SCSI = 'scsi'
+    NVME = 'nvme'
+
+    @classmethod
+    def get_default(cls):
+        return StorageInterface.SCSI
+
+
+@dataclass
 class SysInfo:
     num_cpus: int = None
     cpu_mem: int = None
+    num_local_ssd: int = 0
+    storage_interface: StorageInterface = StorageInterface.get_default()
 
 
 @dataclass
@@ -594,6 +606,7 @@ class PlatformBase:
     """
     ctxt_args: dict
     type_id: CspEnv = field(default_factory=lambda: CspEnv.NONE, init=False)
+    gpu_device: GpuDevice = field(default=None, init=False)
     platform: str = field(default=None, init=False)
     cli: CMDDriverBase = field(default=None, init=False)
     storage: StorageDriver = field(default=None, init=False)
@@ -601,10 +614,6 @@ class PlatformBase:
     configs: JSONPropertiesContainer = field(default=None, init=False)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.csp'), init=False)
     cluster_inference_supported: bool = field(default=False, init=False)
-
-    @classmethod
-    def list_supported_gpus(cls):
-        return [GpuDevice.T4, GpuDevice.A100, GpuDevice.L4, GpuDevice.A10]
 
     def load_from_config_parser(self, conf_file, **prop_args) -> dict:
         res = None
@@ -735,6 +744,19 @@ class PlatformBase:
             if loaded_conf_dict:
                 self.ctxt.update(loaded_conf_dict)
 
+    @classmethod
+    def _get_default_gpu_device(cls) -> GpuDevice:
+        """
+        CSP subclasses should override this method to provide the appropriate default GPU device.
+        """
+        return GpuDevice.T4
+
+    def _set_gpu_device(self, gpu_device: Optional[GpuDevice]):
+        """
+        Sets the GPU device to the provided device if not None, otherwise sets it to the default GPU device.
+        """
+        self.gpu_device = gpu_device if gpu_device is not None else self._get_default_gpu_device()
+
     def _parse_arguments(self, ctxt_args: dict):
         # Get the possible parameters for that platform.
         # Arguments passed to the tool have more precedence than global env variables
@@ -750,6 +772,8 @@ class PlatformBase:
         self._set_remaining_configuration_list()
         # load the credential properties
         self._set_credential_properties()
+        # set the gpu device
+        self._set_gpu_device(ctxt_args.get('gpuDevice'))
 
     def _load_props_from_sdk_conf_file(self, **prop_args) -> dict:
         if prop_args.get('configFile'):
@@ -853,8 +877,12 @@ class PlatformBase:
         """
         return CspEnv.pretty_print(self.type_id)
 
+    def get_platform_name_with_gpu(self) -> str:
+        return f'{self.get_platform_name()}-{self.gpu_device}'
+
     def get_footer_message(self) -> str:
-        return 'To support acceleration with T4 GPUs, switch the worker node instance types'
+        return (f'To support acceleration with {GpuDevice.tostring(self.gpu_device)} GPUs, '
+                f'switch the worker node instance types')
 
     def get_matching_executor_instance(self, cores_per_executor):
         default_instances = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
@@ -1136,6 +1164,15 @@ class ClusterBase(ClusterGetAccessor):
     def generate_node_configuration(self, render_args: dict) -> str:
         platform_name = CspEnv.pretty_print(self.platform.type_id)
         template_path = Utils.resource_path(f'templates/cluster_template/{platform_name}_node.ms')
+        return TemplateGenerator.render_template_file(template_path, render_args)
+
+    def _set_render_args_init_template(self) -> dict:
+        raise NotImplementedError
+
+    def generate_init_script(self) -> str:
+        platform_name = CspEnv.pretty_print(self.platform.type_id)
+        template_path = Utils.resource_path(f'templates/{platform_name}-init_gpu_cluster_script.ms')
+        render_args = self._set_render_args_create_template()
         return TemplateGenerator.render_template_file(template_path, render_args)
 
 

@@ -158,38 +158,89 @@
         "n1-standard": {
           "//description": "N1 standard machine types have 3.75 GB of system memory per vCPU",
           "software": {},
-          "SysInfo": {},
-          "GpuHWInfo": {},
-          "seriesInfo": {
+          "SysInfo": {
+            "localSsd": 2,
+            "storageInterface": "scsi"
+          },
+          "GpuHWInfo": {
+            "name": "t4"
+          },
+          "seriesInfo": [{
             "//description": "describe the sys info based on",
             "name": "n1-standard-(\\d+)",
             "vCPUs": [1, 2, 4, 8, 16, 32, 64, 96],
             "memPerCPU": 3840
-          }
+          }]
         },
         "n1-highmem": {
           "//description": "N1 high-memory machine types have 6.5 GB of system memory per vCPU.",
           "software": {},
-          "SysInfo": {},
-          "GpuHWInfo": {},
-          "seriesInfo": {
+          "SysInfo": {
+            "localSsd": 2,
+            "storageInterface": "scsi"
+          },
+          "GpuHWInfo": {
+            "name": "t4"
+          },
+          "seriesInfo": [{
             "//description": "describe the sys info based on",
             "name": "n1-highmem-(\\d+)",
             "vCPUs": [2, 4, 8, 16, 32, 64, 96],
             "memPerCPU": 6656
-          }
+          }]
         },
         "n1-highcpu": {
           "//description": "N1 high-cpu machine types have 0.9 GB of system memory per vCPU",
           "software": {},
-          "SysInfo": {},
-          "GpuHWInfo": {},
-          "seriesInfo": {
+          "SysInfo": {
+            "localSsd": 2,
+            "storageInterface": "scsi"
+          },
+          "GpuHWInfo": {
+            "name": "t4"
+          },
+          "seriesInfo": [{
             "//description": "describe the sys info based on",
             "name": "n1-highcpu-(\\d+)",
             "vCPUs": [2, 4, 8, 16, 32, 64, 96],
             "memPerCPU": 921.6
-          }
+          }]
+        },
+        "g2-standard": {
+          "//description": "G2 standard machine types have 4 GB of system memory per vCPU",
+          "software": {},
+          "SysInfo": {
+            "storageInterface": "nvme"
+          },
+          "GpuHWInfo": {
+            "name": "l4"
+          },
+          "seriesInfo": [
+            {
+              "vCPUs": [4, 8, 12, 16, 32],
+              "memPerCPU": 4096,
+              "numGpu": 1,
+              "localSsd": 1
+            },
+            {
+              "vCPUs": [24],
+              "memPerCPU": 4096,
+              "numGpu": 2,
+              "localSsd": 2
+            },
+            {
+              "vCPUs": [48],
+              "memPerCPU": 4096,
+              "numGpu": 4,
+              "localSsd": 4
+            },
+            {
+              "vCPUs": [96],
+              "memPerCPU": 4096,
+              "numGpu": 8,
+              "localSsd": 8
+            }
+          ]
         }
       }
     }
@@ -205,10 +256,6 @@
             "header": [
               "To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the",
               "  following to your cluster creation script:"
-            ],
-            "lines": [
-              "    --initialization-actions=gs://goog-dataproc-initialization-actions-{}/spark-rapids/spark-rapids.sh \\",
-              "    --worker-accelerator type=nvidia-tesla-{},count={}"
             ]
           }
         },

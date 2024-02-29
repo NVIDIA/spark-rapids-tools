@@ -81,9 +81,6 @@ class OnPremPlatform(PlatformBase):
             self_id = self.type_id
         return CspEnv.pretty_print(self_id)
 
-    def get_footer_message(self) -> str:
-        return 'To support acceleration with T4 GPUs, please use these worker node instance types.'
-
     def create_saving_estimator(self,
                                 source_cluster: ClusterGetAccessor,
                                 reshaped_cluster: ClusterGetAccessor,
@@ -121,6 +118,7 @@ class OnPremPlatform(PlatformBase):
             # Use default if the configuration is not loaded. This should not happen anyway.
             return 2 if num_cpu >= 16 else 1
 
+        gpu_mem = self.gpu_device.get_gpu_mem()[0]
         gpus_from_configs = self.configs.get_value('gpuConfigs', 'dataproc', 'user-tools', 'supportedGpuInstances')
         gpu_count_criteria = self.configs.get_value('gpuConfigs', 'dataproc', 'user-tools',
                                                     'gpuPerMachine', 'criteria', 'numCores')
@@ -133,13 +131,14 @@ class OnPremPlatform(PlatformBase):
                 memory_mb = num_cpu * unit_info['memPerCPU']
                 sys_info_obj = SysInfo(num_cpus=num_cpu, cpu_mem=memory_mb)
                 # create gpu_info
-                gpu_cnt = calc_num_gpus(gpu_count_criteria, num_cpu)
-                # default memory
-                gpu_device = GpuDevice.get_default_gpu()
-                gpu_mem = gpu_device.get_gpu_mem()[0]
-                gpu_info_obj = GpuHWInfo(num_gpus=gpu_cnt, gpu_mem=gpu_mem, gpu_device=gpu_device)
+                num_gpus = calc_num_gpus(gpu_count_criteria, num_cpu)
+                gpu_info_obj = GpuHWInfo(num_gpus=num_gpus, gpu_mem=gpu_mem, gpu_device=self.gpu_device)
                 gpu_scopes[prof_name] = NodeHWInfo(sys_info=sys_info_obj, gpu_info=gpu_info_obj)
         return gpu_scopes
+
+    @classmethod
+    def _get_default_gpu_device(cls) -> GpuDevice:
+        return GpuDevice.A100
 
 
 @dataclass
@@ -286,6 +285,9 @@ class OnPremCluster(ClusterBase):
         pass
 
     def get_tmp_storage(self) -> str:
+        pass
+
+    def _set_render_args_init_template(self) -> dict:
         pass
 
 

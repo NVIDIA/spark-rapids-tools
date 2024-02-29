@@ -131,27 +131,37 @@ class DataprocPlatform(PlatformBase):
                     if c_conf.get('lowerBound') <= num_cores < c_conf.get('upperBound'):
                         return c_conf.get('gpuCount')
             # Use default if the configuration is not loaded. This should not happen anyway.
-            return 2 if num_cpu >= 16 else 1
+            return 2 if num_cores >= 16 else 1
 
+        gpu_mem = self.gpu_device.get_gpu_mem()[0]
         gpus_from_configs = self.configs.get_value('gpuConfigs', 'user-tools', 'supportedGpuInstances')
         gpu_count_criteria = self.configs.get_value('gpuConfigs',
                                                     'user-tools',
                                                     'gpuPerMachine', 'criteria', 'numCores')
         gpu_scopes = {}
-        for mc_prof, mc_info in gpus_from_configs.items():
-            unit_info = mc_info['seriesInfo']
-            for num_cpu in unit_info['vCPUs']:
-                prof_name = f'{mc_prof}-{num_cpu}'
-                # create the sys info
-                memory_mb = num_cpu * unit_info['memPerCPU']
-                sys_info_obj = SysInfo(num_cpus=num_cpu, cpu_mem=memory_mb)
-                # create gpu_info
-                gpu_cnt = calc_num_gpus(gpu_count_criteria, num_cpu)
-                # default memory
-                gpu_device = GpuDevice.get_default_gpu()
-                gpu_mem = gpu_device.get_gpu_mem()[0]
-                gpu_info_obj = GpuHWInfo(num_gpus=gpu_cnt, gpu_mem=gpu_mem, gpu_device=gpu_device)
-                gpu_scopes[prof_name] = NodeHWInfo(sys_info=sys_info_obj, gpu_info=gpu_info_obj)
+        # Iterate over each instance type and its information
+        for mc_prof, raw_mc_info in gpus_from_configs.items():
+            mc_info = JSONPropertiesContainer(raw_mc_info, file_load=False)
+            # Check if instance's GPU matches the platform's GPU
+            if mc_info.get_value('GpuHWInfo', 'name') == self.gpu_device:
+                # Get storage interface and local ssd (could be missing as part of 'SysInfo')
+                storage_interface = mc_info.get_value('SysInfo', 'storageInterface')
+                local_ssd = mc_info.get_value_silent('SysInfo', 'localSsd')
+                # Iterate over series for this instance type
+                for unit_info in mc_info.get_value('seriesInfo'):
+                    num_gpu = unit_info.get('numGpu')
+                    local_ssd = unit_info.get('localSsd', local_ssd)
+                    # Iterate over each vCPUs in the unit
+                    for num_cpu in unit_info.get('vCPUs'):
+                        instance_name = f'{mc_prof}-{num_cpu}'
+                        memory_mb = num_cpu * unit_info.get('memPerCPU')
+                        sys_info_obj = SysInfo(num_cpus=num_cpu, cpu_mem=memory_mb,
+                                               num_local_ssd=local_ssd, storage_interface=storage_interface)
+                        # Determine the number of GPUs or calculate based on criteria if not provided
+                        num_gpu = num_gpu or calc_num_gpus(gpu_count_criteria, num_cpu)
+                        gpu_info_obj = GpuHWInfo(num_gpus=num_gpu, gpu_mem=gpu_mem, gpu_device=self.gpu_device)
+                        # Store node information with instance name as key
+                        gpu_scopes[instance_name] = NodeHWInfo(sys_info=sys_info_obj, gpu_info=gpu_info_obj)
         return gpu_scopes
 
     def get_matching_executor_instance(self, cores_per_executor):
@@ -528,7 +538,26 @@ class DataprocCluster(ClusterBase):
             'MASTER_MACHINE': self.get_master_node().instance_type,
             'WORKERS_COUNT': self.get_workers_count(),
             'WORKERS_MACHINE': worker_node.instance_type,
-            'LOCAL_SSD': 2,
+            'LOCAL_SSD': worker_node.hw_info.sys_info.num_local_ssd,
+            'STORAGE_INTERFACE': worker_node.hw_info.sys_info.storage_interface.upper(),
+            'GPU_DEVICE': gpu_device_hash.get(gpu_device),
+            'GPU_PER_WORKER': gpu_per_machine
+        }
+
+    def _set_render_args_init_template(self) -> dict:
+        """
+        Create arguments for the cluster initialization template
+        """
+        worker_node = self.get_worker_node()
+        gpu_per_machine, gpu_device = self.get_gpu_per_worker()
+        # Map the gpu device to the equivalent accepted argument
+        gpu_device_hash = {
+            'T4': 'nvidia-tesla-t4',
+            'L4': 'nvidia-l4'
+        }
+        return {
+            'REGION': self.region,
+            'WORKERS_MACHINE': worker_node.instance_type,
             'GPU_DEVICE': gpu_device_hash.get(gpu_device),
             'GPU_PER_WORKER': gpu_per_machine
         }

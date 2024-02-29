@@ -801,7 +801,7 @@ class RapidsJarTool(RapidsTool):
 
     def _init_rapids_arg_list(self) -> List[str]:
         # TODO: Make sure we add this argument only for jar versions 23.02+
-        return ['--platform', self.ctxt.platform.get_platform_name().replace('_', '-')]
+        return ['--platform', self.ctxt.platform.get_platform_name_with_gpu().replace('_', '-')]
 
     @timeit('Building Job Arguments and Executing Job CMD')  # pylint: disable=too-many-function-args
     def _prepare_local_job_arguments(self):
