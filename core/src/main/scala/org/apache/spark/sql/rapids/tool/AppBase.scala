@@ -426,15 +426,20 @@ abstract class AppBase(
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
-      }).filter(ReadParser.isScanNode(_)).head
+      }).filter(ReadParser.isScanNode(_))
 
-      dataSourceInfo += DataSourceCase(sqlID,
-        scanNode.id,
-        meta.getOrElse("Format", "unknown"),
-        meta.getOrElse("Location", "unknown"),
-        meta.getOrElse("PushedFilters", "unknown"),
-        readSchema
-      )
+      // If the ReadSchema is empty or if it is PhotonScan, then we don't need to
+      // add it to the dataSourceInfo
+      // Processing Photon eventlogs issue: https://github.com/NVIDIA/spark-rapids-tools/issues/251
+      if (scanNode.nonEmpty) {
+        dataSourceInfo += DataSourceCase(sqlID,
+          scanNode.head.id,
+          meta.getOrElse("Format", "unknown"),
+          meta.getOrElse("Location", "unknown"),
+          meta.getOrElse("PushedFilters", "unknown"),
+          readSchema
+        )
+      }
     }
     // "scan hive" has no "ReadSchema" defined. So, we need to look explicitly for nodes
     // that are scan hive and add them one by one to the dataSource

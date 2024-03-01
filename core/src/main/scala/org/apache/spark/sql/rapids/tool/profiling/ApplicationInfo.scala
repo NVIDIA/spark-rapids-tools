@@ -335,7 +335,7 @@ class ApplicationInfo(
             nodeIds.contains((j.sqlID.get, n.id))
           }
           validNodes.map(n => s"${n.name}(${n.id.toString})")
-        }.getOrElse(null)
+        }.getOrElse(Seq.empty)
         SQLStageInfoProfileResult(index, j.sqlID.get, jobId, s, sa, info.duration, nodeNames)
       }
     }
