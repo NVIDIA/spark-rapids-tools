@@ -22,6 +22,7 @@ The tool currently only supports event logs stored on ABFS ([Azure Blob File Sys
   - Set up the authentication by following these [instructions](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli).
   - Configure the Azure CLI by following these [instructions](https://learn.microsoft.com/en-us/cli/azure/azure-cli-configuration).
     - `location` is used for retreving instance type description (default is `westus`).
+    - Use default `output` format of `json` for `core` section.
     - Verify that the configurations are stored in the file `$AZURE_CONFIG_DIR/config` where the default value of `AZURE_CONFIG_DIR` is `$HOME/.azure` on Linux or macOS.
 
 ### 3.RAPIDS tools
