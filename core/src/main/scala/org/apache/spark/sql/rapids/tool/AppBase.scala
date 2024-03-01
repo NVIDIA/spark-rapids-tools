@@ -428,8 +428,9 @@ abstract class AppBase(
         readSchema.contains(trimmedNode)
       }).filter(ReadParser.isScanNode(_))
 
-      // If the ReadSchema is empty or if the Scan is not supported, then we don't need to
+      // If the ReadSchema is empty or if it is PhotonScan, then we don't need to
       // add it to the dataSourceInfo
+      // Processing Photon eventlogs issue: https://github.com/NVIDIA/spark-rapids-tools/issues/251
       if (scanNode.nonEmpty) {
         dataSourceInfo += DataSourceCase(sqlID,
           scanNode.head.id,
