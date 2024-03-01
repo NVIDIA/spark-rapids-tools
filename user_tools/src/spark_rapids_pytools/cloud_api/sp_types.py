@@ -1172,7 +1172,7 @@ class ClusterBase(ClusterGetAccessor):
     def generate_init_script(self) -> str:
         platform_name = CspEnv.pretty_print(self.platform.type_id)
         template_path = Utils.resource_path(f'templates/{platform_name}-init_gpu_cluster_script.ms')
-        render_args = self._set_render_args_create_template()
+        render_args = self._set_render_args_init_template()
         return TemplateGenerator.render_template_file(template_path, render_args)
 
 
