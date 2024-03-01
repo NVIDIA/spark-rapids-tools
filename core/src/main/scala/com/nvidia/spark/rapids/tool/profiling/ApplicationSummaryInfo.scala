@@ -178,6 +178,7 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
     app.jsMetAgg.collect { case row if (row.id.contains("stage") &&
       row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&
       row.diskBytesSpilledSum + row.memoryBytesSpilledSum > 0) =>
+        System.out.print(s"(stage id, spilled) = (${row.id.split("_")(1)}, ${row.diskBytesSpilledSum + row.memoryBytesSpilledSum})\n")
         row.id.split("_")(1).toLong
     }
   }
