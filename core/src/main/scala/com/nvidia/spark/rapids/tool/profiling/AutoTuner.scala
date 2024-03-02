@@ -954,8 +954,10 @@ class AutoTuner(
    */
   private def addDefaultComments(): Unit = {
     commentsForMissingProps.foreach {
-      case (key, value) if !skippedRecommendations.contains(key) =>
-        appendComment(value)
+      case (key, value) =>
+        if (!skippedRecommendations.contains(key)) {
+          appendComment(value)
+        }
     }
   }
 
