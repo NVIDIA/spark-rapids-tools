@@ -521,14 +521,18 @@ class DataprocCluster(ClusterBase):
     def get_image_version(self) -> str:
         return self.props.get_value_silent('config', 'softwareConfig', 'imageVersion')
 
+    def _get_gpu_device_name(self, gpu_device: str) -> str:
+        """
+        Get the full name of the GPU device
+        """
+        return self.platform.configs.get_value('gpuConfigs', 'user-tools',
+                                               'supportedGpuInstances',
+                                               GpuDevice.fromstring(gpu_device),
+                                               'fullName')
+
     def _set_render_args_create_template(self) -> dict:
         worker_node = self.get_worker_node()
         gpu_per_machine, gpu_device = self.get_gpu_per_worker()
-        # map the gpu device to the equivalent accepted argument
-        gpu_device_hash = {
-            'T4': 'nvidia-tesla-t4',
-            'L4': 'nvidia-l4'
-        }
         return {
             'CLUSTER_NAME': self.get_name(),
             'REGION': self.region,
@@ -539,7 +543,7 @@ class DataprocCluster(ClusterBase):
             'WORKERS_MACHINE': worker_node.instance_type,
             'LOCAL_SSD': worker_node.hw_info.sys_info.num_local_ssd,
             'STORAGE_INTERFACE': worker_node.hw_info.sys_info.storage_interface.upper(),
-            'GPU_DEVICE': gpu_device_hash.get(gpu_device),
+            'GPU_DEVICE': self._get_gpu_device_name(gpu_device),
             'GPU_PER_WORKER': gpu_per_machine
         }
 
@@ -549,15 +553,10 @@ class DataprocCluster(ClusterBase):
         """
         worker_node = self.get_worker_node()
         gpu_per_machine, gpu_device = self.get_gpu_per_worker()
-        # Map the gpu device to the equivalent accepted argument
-        gpu_device_hash = {
-            'T4': 'nvidia-tesla-t4',
-            'L4': 'nvidia-l4'
-        }
         return {
             'REGION': self.region,
             'WORKERS_MACHINE': worker_node.instance_type,
-            'GPU_DEVICE': gpu_device_hash.get(gpu_device),
+            'GPU_DEVICE': self._get_gpu_device_name(gpu_device),
             'GPU_PER_WORKER': gpu_per_machine
         }
 

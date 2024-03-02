@@ -805,10 +805,12 @@ class Qualification(RapidsJarTool):
         # TODO: we may like to show the scripts even when the gpu-cluster is not defined
         #      this requires that we allow to generate the script without the gpu-cluster
         if sec_conf.get('sectionID') == 'initializationScript':
+            # TODO: We need to use reshaped cluster here instead of gpu cluster proxy.
             gpu_cluster = self.ctxt.get_ctxt('gpuClusterProxy')
             script_content = gpu_cluster.generate_init_script()
             return [script_content]
         if sec_conf.get('sectionID') == 'gpuClusterCreationScript':
+            # TODO: We need to use reshaped cluster here instead of gpu cluster proxy.
             gpu_cluster = self.ctxt.get_ctxt('gpuClusterProxy')
             script_content = gpu_cluster.generate_create_script()
             highlighted_code = TemplateGenerator.highlight_bash_code(script_content)
