@@ -802,25 +802,6 @@ class Qualification(RapidsJarTool):
             print(Utils.gen_multiline_str(wrapper_out_content))
 
     def _generate_section_lines(self, sec_conf: dict) -> List[str]:
-        # TODO: we may like to show the scripts even when the gpu-cluster is not defined
-        #      this requires that we allow to generate the script without the gpu-cluster
-        if sec_conf.get('sectionID') == 'initializationScript':
-            # format the initialization scripts
-            reshaped_gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
-            gpu_per_machine, gpu_device = reshaped_gpu_cluster.get_gpu_per_worker()
-            fill_map = {
-                0: self.ctxt.platform.cli.get_region(),
-                1: [gpu_device.lower(), gpu_per_machine]
-            }
-            res = []
-            for ind, l_str in enumerate(sec_conf['content'].get('lines')):
-                if ind in fill_map:
-                    rep_var = fill_map.get(ind)
-                    new_value = l_str.format(*rep_var) if isinstance(rep_var, list) else l_str.format(rep_var)
-                    res.append(new_value)
-                else:
-                    res.append(l_str)
-            return res
         if sec_conf.get('sectionID') == 'gpuClusterCreationScript':
             gpu_cluster = self.ctxt.get_ctxt('gpuClusterProxy')
             script_content = gpu_cluster.generate_create_script()
