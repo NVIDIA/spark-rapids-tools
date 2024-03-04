@@ -191,8 +191,6 @@ class ApplicationInfo(
     val index: Int)
   extends AppBase(Some(eLogInfo), Some(hadoopConf)) with Logging {
 
-  // executorId to executor info
-  val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
   // resourceprofile id to resource profile info
   val resourceProfIdToInfo = new HashMap[Int, ResourceProfileInfoCase]()
 
@@ -200,7 +198,6 @@ class ApplicationInfo(
      ArrayBuffer[BlockManagerRemovedCase]()
 
   var appInfo: ApplicationCase = null
-  var appId: String = ""
   val eventLogPath: String = eLogInfo.eventLog.toString
   
   // physicalPlanDescription stores HashMap (sqlID <-> physicalPlanDescription)
@@ -227,12 +224,6 @@ class ApplicationInfo(
   override def processEvent(event: SparkListenerEvent) = {
     eventProcessor.processAnyEvent(event)
     false
-  }
-
-  def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
-    executorIdToInfo.getOrElseUpdate(executorId, {
-      new ExecutorInfoClass(executorId, addTime)
-    })
   }
 
   // Connects Operators to Stages using AccumulatorIDs
@@ -344,7 +335,7 @@ class ApplicationInfo(
             nodeIds.contains((j.sqlID.get, n.id))
           }
           validNodes.map(n => s"${n.name}(${n.id.toString})")
-        }.getOrElse(null)
+        }.getOrElse(Seq.empty)
         SQLStageInfoProfileResult(index, j.sqlID.get, jobId, s, sa, info.duration, nodeNames)
       }
     }

@@ -600,6 +600,7 @@ class PlatformBase:
     ctxt: dict = field(default_factory=dict, init=False)
     configs: JSONPropertiesContainer = field(default=None, init=False)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.csp'), init=False)
+    cluster_inference_supported: bool = field(default=False, init=False)
 
     @classmethod
     def list_supported_gpus(cls):
@@ -780,17 +781,22 @@ class PlatformBase:
 
     def _construct_cluster_from_props(self,
                                       cluster: str,
-                                      props: str = None):
+                                      props: str = None,
+                                      is_inferred: bool = False):
         raise NotImplementedError
 
     def set_offline_cluster(self, cluster_args: dict = None):
         raise NotImplementedError
 
+    def load_cluster_by_prop(self, cluster_prop: JSONPropertiesContainer, is_inferred=False):
+        cluster = cluster_prop.get_value_silent('cluster_id')
+        return self._construct_cluster_from_props(cluster=cluster,
+                                                  props=json.dumps(cluster_prop.props),
+                                                  is_inferred=is_inferred)
+
     def load_cluster_by_prop_file(self, cluster_prop_path: str):
         prop_container = JSONPropertiesContainer(prop_arg=cluster_prop_path)
-        cluster = prop_container.get_value_silent('cluster_id')
-        return self._construct_cluster_from_props(cluster=cluster,
-                                                  props=json.dumps(prop_container.props))
+        return self.load_cluster_by_prop(prop_container)
 
     def connect_cluster_by_name(self, cluster: str):
         """
@@ -850,6 +856,17 @@ class PlatformBase:
     def get_footer_message(self) -> str:
         return 'To support acceleration with T4 GPUs, switch the worker node instance types'
 
+    def get_matching_executor_instance(self, cores_per_executor):
+        default_instances = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
+        return next((instance['name'] for instance in default_instances if instance['vCPUs'] == cores_per_executor),
+                    None)
+
+    def generate_cluster_configuration(self, render_args: dict):
+        if not self.cluster_inference_supported:
+            return None
+        template_path = Utils.resource_path(f'templates/cluster_template/{self.type_id}.ms')
+        return TemplateGenerator.render_template_file(template_path, render_args)
+
 
 @dataclass
 class ClusterBase(ClusterGetAccessor):
@@ -867,6 +884,7 @@ class ClusterBase(ClusterGetAccessor):
     nodes: dict = field(default_factory=dict, init=False)
     props: AbstractPropertiesContainer = field(default=None, init=False)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster'), init=False)
+    is_inferred: bool = field(default=False, init=True)
 
     @staticmethod
     def _verify_workers_exist(has_no_workers_cb: Callable[[], bool]):
@@ -1113,6 +1131,11 @@ class ClusterBase(ClusterGetAccessor):
         platform_name = CspEnv.pretty_print(self.platform.type_id)
         template_path = Utils.resource_path(f'templates/{platform_name}-run_bootstrap.ms')
         render_args = self._set_render_args_bootstrap_template(overridden_args)
+        return TemplateGenerator.render_template_file(template_path, render_args)
+
+    def generate_node_configuration(self, render_args: dict) -> str:
+        platform_name = CspEnv.pretty_print(self.platform.type_id)
+        template_path = Utils.resource_path(f'templates/cluster_template/{platform_name}_node.ms')
         return TemplateGenerator.render_template_file(template_path, render_args)
 
 

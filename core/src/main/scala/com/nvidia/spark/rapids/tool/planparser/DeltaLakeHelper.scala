@@ -67,12 +67,14 @@ object DeltaLakeHelper {
   private val appendDataExecV1 = "AppendDataExecV1"
   private val overwriteByExprExecV1 = "OverwriteByExpressionExecV1"
   private val mergeIntoCommandEdgeExec = "MergeIntoCommandEdge"
+  private val writeIntoDeltaCommandExec = "WriteIntoDeltaCommand"
   // Note that the SaveIntoDataSourceCommand node name appears as
   // "Execute SaveIntoDataSourceCommand"
   // Same for Execute MergeIntoCommandEdge
   private val exclusiveDeltaExecs = Set(
     saveIntoDataSrcCMD,
-    mergeIntoCommandEdgeExec)
+    mergeIntoCommandEdgeExec,
+    writeIntoDeltaCommandExec)
   // define the list of writeExecs that also exist in Spark
   private val deltaExecsFromSpark = Set(
     appendDataExecV1,

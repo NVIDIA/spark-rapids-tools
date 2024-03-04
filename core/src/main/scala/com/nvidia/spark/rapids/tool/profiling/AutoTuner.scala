@@ -954,8 +954,10 @@ class AutoTuner(
    */
   private def addDefaultComments(): Unit = {
     commentsForMissingProps.foreach {
-      case (key, value) if !skippedRecommendations.contains(key) =>
-        appendComment(value)
+      case (key, value) =>
+        if (!skippedRecommendations.contains(key)) {
+          appendComment(value)
+        }
     }
   }
 
@@ -999,10 +1001,8 @@ class AutoTuner(
       // Makes recommendations based on information extracted from the AppInfoProvider
       filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
       recommendPluginProps
-      limitedLogicList.foreach { limitedSeq =>
-        limitedSeq.foreach(_ => limitedLogicRecommendations.add(_))
-      }
-      skipList.foreach(skipSeq => skipSeq.foreach(_ => skippedRecommendations.add(_)))
+      limitedLogicList.foreach(limitedSeq => limitedLogicRecommendations ++= limitedSeq)
+      skipList.foreach(skipSeq => skippedRecommendations ++= skipSeq)
       skippedRecommendations ++= platform.recommendationsToExclude
       initRecommendations()
       calculateJobLevelRecommendations()

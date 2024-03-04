@@ -175,6 +175,12 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
         "that all workers are homogenous. It requires the AutoTuner to be enabled. Default is " +
         "./worker_info.yaml",
       default = Some(AutoTuner.DEFAULT_WORKER_INFO_PATH))
+  val clusterReport: ScallopOption[Boolean] =
+    toggle("cluster-report",
+      default = Some(true),
+      prefix = "no-",
+      descrYes = "Generate a cluster information file. Enabled by default.",
+      descrNo = "Do not generate the cluster information file.")
 
   validate(order) {
     case o if (QualificationArgs.isOrderAsc(o) || QualificationArgs.isOrderDesc(o)) => Right(Unit)
