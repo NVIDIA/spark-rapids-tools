@@ -43,9 +43,7 @@ class QualificationAppInfo(
 
   var appId: String = ""
   var lastJobEndTime: Option[Long] = None
-  var lastJobEndTimeId: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None
-  var lastSQLEndTimeId: Option[Long] = None
   val writeDataFormat: ArrayBuffer[String] = ArrayBuffer[String]()
 
   var appInfo: Option[QualApplicationInfo] = None
@@ -719,32 +717,29 @@ class QualificationAppInfo(
   }
 
   def getAllSQLDurations: Seq[Long] = {
-    sqlIdToInfo.map { case (_, info) =>
+    sqlIdToInfo.flatMap { case (_, info) =>
       info.rootExecutionID match {
         // We return the duration if sqlId doesn't have a rootExecutionID or if the rootExecutionID
         // is the same as the sqlId. In some cases, the child completes the execution before the
         // parent, so we need to check if the child's duration is within the parent's duration.
         // We add the child's duration to the parent's duration if it's not within the parent's
         // duration.
-        case Some(rootExecutionID) if rootExecutionID == info.sqlID =>
-          info.duration.getOrElse(0L)
         case Some(rootExecutionID) if rootExecutionID != info.sqlID =>
-          val rootExecutionInfo = sqlIdToInfo.get(rootExecutionID)
-          if (rootExecutionInfo.nonEmpty) {
-            val rootExecutionStartTime = rootExecutionInfo.get.startTime
-            val rootExecutionEndTime = rootExecutionInfo.get.endTime.getOrElse(0L)
+          sqlIdToInfo.get(rootExecutionID).flatMap { rootExecutionInfo =>
+            val rootExecutionStartTime = rootExecutionInfo.startTime
+            val rootExecutionEndTime = rootExecutionInfo.endTime.getOrElse(0L)
             val sqlStartTime = info.startTime
             val sqlEndTime = info.endTime.getOrElse(0L)
+            //  Below check will be true if the child is not completely inside the root.
+            //  Nevertheless we still account for its total duration and not the overlap.
             if (sqlStartTime < rootExecutionStartTime || sqlEndTime > rootExecutionEndTime) {
-              info.duration.getOrElse(0L)
+              Some(info.duration.getOrElse(0L))
             } else {
-              0L
+              Some(0L)
             }
-          } else {
-            0L
           }
         case _ =>
-          info.duration.getOrElse(0L)
+          Some(info.duration.getOrElse(0L))
       }
     }.toSeq
   }

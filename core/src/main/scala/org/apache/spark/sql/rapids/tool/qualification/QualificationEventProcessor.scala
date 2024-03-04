@@ -98,7 +98,6 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
     logDebug("Processing event: " + event.getClass)
     if (!perSqlOnly) {
       app.lastSQLEndTime = Some(event.time)
-      app.lastSQLEndTimeId = Some(event.executionId)
     }
     // only include duration if it contains no jobs that failed
     val failures = app.sqlIDtoFailures.get(event.executionId)
@@ -150,7 +149,6 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
     super.doSparkListenerJobEnd(app, event)
     if (!perSqlOnly) {
       app.lastJobEndTime = Some(event.time)
-      app.lastJobEndTimeId = Some(event.jobId)
     }
     if (event.jobResult != JobSucceeded) {
       app.jobIdToSqlID.get(event.jobId) match {

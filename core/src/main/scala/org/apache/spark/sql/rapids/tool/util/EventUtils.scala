@@ -26,6 +26,7 @@ import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.AccumulableInfo
+import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart
 
 /**
  * Utility containing the implementation of helpers used for parsing data from event.
@@ -91,6 +92,17 @@ object EventUtils extends Logging {
   def isPropertyMatch(properties: collection.Map[String, String], propKey: String,
       defValue: String, targetValue: String): Boolean = {
     properties.getOrElse(propKey, defValue).equals(targetValue)
+  }
+
+  def readRootIDFromSQLStartEvent(event: SparkListenerSQLExecutionStart) : Option[Long] = {
+    Try(Option(rootExecutionIdField.get(event)).map(_.asInstanceOf[Option[Long]]).
+        getOrElse(None)).toOption.flatten
+  }
+
+  private lazy val rootExecutionIdField = {
+    val field = classOf[SparkListenerSQLExecutionStart].getDeclaredField("rootExecutionId")
+    field.setAccessible(true)
+    field
   }
 
   lazy val getEventFromJsonMethod:
