@@ -251,22 +251,11 @@
     "qualification": {
       "sections": [
         {
-          "sectionID": "initializationScript",
+          "sectionID": "gpuClusterCreationScript",
           "requiresBoolFlag": "enableSavingsCalculations",
           "sectionName": "Initialization Scripts",
           "content": {
             "header": [
-              "To launch a GPU-accelerated cluster with RAPIDS Accelerator for Apache Spark, add the",
-              "  following to your cluster creation script:"
-            ]
-          }
-        },
-        {
-          "sectionID": "gpuClusterCreationScript",
-          "requiresBoolFlag": "enableSavingsCalculations",
-          "content": {
-            "header": [
-              "",
               "To create a GPU cluster, run the following script:",
               ""
             ]
