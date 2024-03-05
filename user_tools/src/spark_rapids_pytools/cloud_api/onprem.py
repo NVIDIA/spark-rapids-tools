@@ -287,9 +287,6 @@ class OnPremCluster(ClusterBase):
     def get_tmp_storage(self) -> str:
         pass
 
-    def _set_render_args_init_template(self) -> dict:
-        pass
-
 
 @dataclass
 class OnpremSavingsEstimator(SavingsEstimator):

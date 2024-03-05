@@ -1,3 +1,0 @@
-    --worker-machine-type {{ WORKERS_MACHINE }} \
-    --initialization-actions=gs://goog-dataproc-initialization-actions-{{ REGION }}/spark-rapids/spark-rapids.sh \
-    --worker-accelerator type={{ GPU_DEVICE }},count={{ GPU_PER_WORKER }}

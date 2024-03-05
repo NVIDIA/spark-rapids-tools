@@ -253,7 +253,7 @@
         {
           "sectionID": "gpuClusterCreationScript",
           "requiresBoolFlag": "enableSavingsCalculations",
-          "sectionName": "Initialization Scripts",
+          "sectionName": "Creating a GPU Cluster",
           "content": {
             "header": [
               "To create a GPU cluster, run the following script:",

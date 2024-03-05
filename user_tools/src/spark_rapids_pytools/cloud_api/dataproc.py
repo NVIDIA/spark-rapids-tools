@@ -547,19 +547,6 @@ class DataprocCluster(ClusterBase):
             'GPU_PER_WORKER': gpu_per_machine
         }
 
-    def _set_render_args_init_template(self) -> dict:
-        """
-        Create arguments for the cluster initialization template
-        """
-        worker_node = self.get_worker_node()
-        gpu_per_machine, gpu_device = self.get_gpu_per_worker()
-        return {
-            'REGION': self.region,
-            'WORKERS_MACHINE': worker_node.instance_type,
-            'GPU_DEVICE': self._get_gpu_device_name(gpu_device),
-            'GPU_PER_WORKER': gpu_per_machine
-        }
-
 
 @dataclass
 class DataprocSavingsEstimator(SavingsEstimator):
