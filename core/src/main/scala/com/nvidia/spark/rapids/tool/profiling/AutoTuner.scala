@@ -883,9 +883,9 @@ class AutoTuner(
     var shufflePartitions =
       getPropertyValue(lookup).getOrElse(DEF_SHUFFLE_PARTITIONS).toInt
     val shuffleStagesWithPosSpilling = appInfoProvider.getShuffleStagesWithPosSpilling
+
     // TODO: Need to look at other metrics for GPU spills (DEBUG mode), and batch sizes metric
-    // if (isCalculationEnabled(lookup)) {
-    if (true) {
+    if (isCalculationEnabled(lookup)) {
       if (shuffleStagesWithPosSpilling.nonEmpty) {
         shufflePartitions *= DEF_SHUFFLE_PARTITION_MULTIPLIER
         // Could be memory instead of partitions
@@ -895,8 +895,8 @@ class AutoTuner(
 
       val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
       if (shuffleSkewStages.exists(id => shuffleStagesWithPosSpilling.contains(id))) {
-        appendOptionalComment(lookup, "There is data skew (when task's Shuffle Read Size > 3 * " +
-          s"Avg Stage-level size) in shuffle stages. $lookup recommendation may be less effective.")
+        appendOptionalComment(lookup, "There is data skew (when task's Shuffle Read Size > 3 *\n" +
+          s"  Avg Stage-level size) in shuffle stages.")
       }
     }
     // If the user has enabled AQE auto shuffle, the auto-tuner should recommend to disable this
