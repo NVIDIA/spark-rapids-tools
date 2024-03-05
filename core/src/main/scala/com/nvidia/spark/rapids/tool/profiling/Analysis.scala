@@ -424,7 +424,6 @@ class Analysis(apps: Seq[ApplicationInfo]) {
         val avgShuffleDur = avgsStageInfos.get((tc.stageId, tc.stageAttemptId))
         avgShuffleDur match {
           case Some(avg) =>
-            // System.out.print(s"sr total = ${tc.sr_totalBytesRead}, avg sr = ${avg.avgShuffleReadBytes}")
             (tc.sr_totalBytesRead > 3 * avg.avgShuffleReadBytes) &&
               (tc.sr_totalBytesRead > 100 * 1024 * 1024)
           case None => false
