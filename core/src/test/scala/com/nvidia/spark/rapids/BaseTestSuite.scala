@@ -78,6 +78,11 @@ class BaseTestSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "Spark340+ supports the Exec/Expression")
   }
 
+  protected def subExecutionSupportedSparkGTE340(): (Boolean, String) = {
+    (ToolUtils.isSpark340OrLater(),
+      "Spark340+ supports the sub-execution grouping")
+  }
+
   def runConditionalTest(testName: String, assumeCondition: () => (Boolean, String))
     (fun: => Unit): Unit = {
     val (isAllowed, ignoreMessage) = assumeCondition()

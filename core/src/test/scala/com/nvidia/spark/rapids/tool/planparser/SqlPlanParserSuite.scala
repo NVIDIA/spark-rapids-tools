@@ -216,16 +216,31 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("test subexecutionId mapping to rootExecutionId") {
+  runConditionalTest("test subexecutionId mapping to rootExecutionId",
+    subExecutionSupportedSparkGTE340) {
     val eventlog = ToolTestUtils.getTestResourcePath("" +
         "spark-events-qualification/db_subExecution_id.zstd")
     val app = createAppFromEventlog(eventlog)
-    // In Spark 3.4.0+ and later, all the sub-executions will be grouped if they are part of the
-    // the same root execution.
-    if (ToolUtils.isSpark340OrLater()) {
-      assert(app.sqlIdToInfo.values.exists(_.rootExecutionID.isDefined))
-    } else {
-      assert(app.sqlIdToInfo.values.forall(_.rootExecutionID.isEmpty))
+    // Get sum of durations of all the sqlIds. It contains duplicate values
+     val totalSqlDuration = app.sqlIdToInfo.values.map(x=> x.duration.getOrElse(0L)).sum
+
+    // This is to group the sqlIds based on the rootExecutionId. So that we can verify the
+    // subExecutionId to rootExecutionId mapping.
+     val rootIdToSqlId = app.sqlIdToInfo.groupBy { case (_, info) =>
+      info.rootExecutionID
+    }
+    assert(rootIdToSqlId.get(Some(5L)).map(_.keys.toSeq.sorted) == Some(Seq(5,6,7,8,9,10)))
+
+    TrampolineUtil.withTempDir { outpath =>
+      val allArgs = Array(
+        "--output-directory",
+        outpath.getAbsolutePath())
+      val appArgs = new QualificationArgs(allArgs ++ Array(eventlog))
+      val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+      assert(exit == 0)
+      assert(appSum.size ==1)
+      // This is to make sure the durations of the sqlId's are not double counted.
+      assert(appSum.head.sparkSqlDFWallClockDuration < totalSqlDuration)
     }
   }
 
