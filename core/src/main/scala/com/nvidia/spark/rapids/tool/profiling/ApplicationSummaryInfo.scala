@@ -172,9 +172,8 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
     }
   }
 
-  // Returns shuffle stage Ids which have positive spilling metrics
+  // Return shuffle stage(Id)s which have positive spilling metrics
   override def getShuffleStagesWithPosSpilling: Seq[Long] = {
-    // Get stages with positive shuffle read/write
     app.jsMetAgg.collect { case row if (row.id.contains("stage") &&
       row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&
       row.diskBytesSpilledSum + row.memoryBytesSpilledSum > 0) =>
