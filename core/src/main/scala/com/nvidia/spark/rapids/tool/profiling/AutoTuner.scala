@@ -872,7 +872,7 @@ class AutoTuner(
   }
 
   /**
-   * Recommendations for "spark.sql.shuffle.partitions'.
+   * Recommendations for 'spark.sql.shuffle.partitions'.
    * Note that by default this only recommend the default value for now.
    * To enable calculating recommendation based on spills, override the argument
    * "limitedLogicList" passed to [[getRecommendedProperties]].
@@ -887,16 +887,18 @@ class AutoTuner(
     // TODO: Need to look at other metrics for GPU spills (DEBUG mode), and batch sizes metric
     if (isCalculationEnabled(lookup)) {
       if (shuffleStagesWithPosSpilling.nonEmpty) {
-        shufflePartitions *= DEF_SHUFFLE_PARTITION_MULTIPLIER
-        // Could be memory instead of partitions
-        appendOptionalComment(lookup,
-          s"'$lookup' should be increased since spilling occurred in shuffle stages.")
-      }
-
-      val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
-      if (shuffleSkewStages.exists(id => shuffleStagesWithPosSpilling.contains(id))) {
-        appendOptionalComment(lookup, "Shuffle skew exists (when task's Shuffle Read Size > 3 *\n" +
-          s"  Avg Stage-level size).")
+        val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
+        if (shuffleSkewStages.exists(id => shuffleStagesWithPosSpilling.contains(id))) {
+          appendOptionalComment(lookup,
+            "Shuffle skew exists (when task's Shuffle Read Size > 3 * Avg Stage-level size) in\n" +
+            s"  stages with spilling. Increasing shuffle partitions is not recommended in this\n" +
+            s"  case since keys will still hash to the same task.")
+        } else {
+           shufflePartitions *= DEF_SHUFFLE_PARTITION_MULTIPLIER
+          // Could be memory instead of partitions
+          appendOptionalComment(lookup,
+            s"'$lookup' should be increased since spilling occurred in shuffle stages.")
+        }
       }
     }
     // If the user has enabled AQE auto shuffle, the auto-tuner should recommend to disable this
