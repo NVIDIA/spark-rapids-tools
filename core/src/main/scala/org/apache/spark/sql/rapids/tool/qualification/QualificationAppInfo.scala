@@ -718,7 +718,7 @@ class QualificationAppInfo(
       appId, hasFailures)
   }
 
-  def getAllSQLDurations: Seq[Long] = {
+  private def getAllSQLDurations: Seq[Long] = {
     sqlIdToInfo.flatMap { case (_, info) =>
       info.rootExecutionID match {
         // We return the duration if sqlId doesn't have a rootExecutionID or if the rootExecutionID

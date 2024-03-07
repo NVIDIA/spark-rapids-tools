@@ -229,7 +229,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
      val rootIdToSqlId = app.sqlIdToInfo.groupBy { case (_, info) =>
       info.rootExecutionID
     }
-    assert(rootIdToSqlId(Some(5L)).keys.toSet == Set(5,6,7,8,9,10))
+    assert(rootIdToSqlId(Some(5L)).keySet == Set(5,6,7,8,9,10))
 
     TrampolineUtil.withTempDir { outpath =>
       val allArgs = Array(

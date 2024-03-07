@@ -94,9 +94,13 @@ object EventUtils extends Logging {
     properties.getOrElse(propKey, defValue).equals(targetValue)
   }
 
-  def readRootIDFromSQLStartEvent(event: SparkListenerSQLExecutionStart) : Option[Long] = {
-    Try(Option(rootExecutionIdField.get(event)).map(_.asInstanceOf[Option[Long]]).
-        getOrElse(None)).toOption.flatten
+
+  // Reads the root execution ID from a SparkListenerSQLExecutionStart event using reflection.
+  // Reflection is used here to maintain compatibility with different versions of Spark,
+  // as the rootExecutionId field is introduced in Spark 3.4. This allows the
+  // code to access the field dynamically at runtime, and maintaining backward compatibility.
+  def readRootIDFromSQLStartEvent(event: SparkListenerSQLExecutionStart): Option[Long] = {
+    Try(rootExecutionIdField.get(event).asInstanceOf[Option[Long]]).getOrElse(None)
   }
 
   private lazy val rootExecutionIdField = {
