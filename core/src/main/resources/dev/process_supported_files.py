@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,10 @@ Description:
     This Python script goes over all directories of different spark versions under the
     spark-rapids/tools/generated_files folder and contruct unions of the supported csv
     files (supportedDataSource.csv, supportedExecs.csv, and supportedExprs.csv).
+
+Dependencies:
+    - numpy >= 1.23.3
+    - pandas >= 2.0.3
 
 Usage:
     python process_supported_files.py path_to_generated_files_dir
@@ -94,14 +98,14 @@ file_name: CSV file to process.
 key_names: Tuple of two column names which uniquely identifies a row in the CSV file.
 """
 def unify_all_files(root_dir, file_name, key_names):
-    final_df = None 
+    final_df = pd.DataFrame()
 
     for dir_name in os.listdir(root_dir): # List entries in root_dir
         if os.path.isdir(os.path.join(root_dir, dir_name)):
             csv_file_path = os.path.join(root_dir, dir_name, file_name)
             cur_df = pd.read_csv(csv_file_path, keep_default_na=False)
 
-            if final_df is None:
+            if final_df.empty:
                 final_df = pd.DataFrame(columns=cur_df.columns.tolist())
             
             # expand final_df if cur_df has more columns
@@ -165,7 +169,6 @@ def main(args):
     exprsUnionDF = post_process_supported_exprs_csv(exprsUnionDF)
     exprsUnionDF.to_csv('unionSupportedExprs.csv', index=False)
 
-    print(genrated_files_dir)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
