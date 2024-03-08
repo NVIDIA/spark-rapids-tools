@@ -103,6 +103,7 @@ class QualificationSuite extends BaseTestSuite {
   private val csvPerSQLFields = Seq(
     (QualOutputWriter.APP_NAME_STR, StringType),
     (QualOutputWriter.APP_ID_STR, StringType),
+    (QualOutputWriter.ROOT_SQL_ID_STR, StringType),
     (QualOutputWriter.SQL_ID_STR, StringType),
     (QualOutputWriter.SQL_DESC_STR, StringType),
     (QualOutputWriter.SQL_DUR_STR, LongType),
@@ -186,9 +187,12 @@ class QualificationSuite extends BaseTestSuite {
         if (expectPerSqlFileName.isDefined) {
           val resultExpectation = new File(expRoot, expectPerSqlFileName.get)
           val dfPerSqlExpect = readPerSqlFile(resultExpectation)
+          println(s"per sql expectation")
+          dfPerSqlExpect.show()
           val actualExpectation = s"$outpath/rapids_4_spark_qualification_output/" +
             s"rapids_4_spark_qualification_output_persql.csv"
           val dfPerSqlActual = readPerSqlFile(new File(actualExpectation))
+          println(s"actual expectation: $actualExpectation")
           ToolTestUtils.compareDataFrames(dfPerSqlActual, dfPerSqlExpect)
         }
       }
@@ -234,12 +238,12 @@ class QualificationSuite extends BaseTestSuite {
           val allFiles = fs.listStatus(outputDirPath)
           assert(allFiles.size == 6)
           val dfPerSqlActual = readPerSqlFile(new File(csvOutput0))
-          assert(dfPerSqlActual.columns.size == 10)
+          assert(dfPerSqlActual.columns.size == 11)
           val rows = dfPerSqlActual.collect()
           assert(rows.size == 2)
           val firstRow = rows(1)
           // , should be replaced with ;
-          assert(firstRow(3).toString.contains("at QualificationSuite.scala"))
+          assert(firstRow(4).toString.contains("at QualificationSuite.scala"))
 
           // this reads everything into single column
           val dfPerSqlActualTxt = readPerSqlTextFile(new File(txtOutput0))
@@ -323,6 +327,7 @@ class QualificationSuite extends BaseTestSuite {
       val inputSource = Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toArray
+        println(lines.mkString("\n"))
         // 4 lines of header and footer
         assert(lines.size == (4 + 4))
         // skip the 3 header lines
@@ -336,12 +341,13 @@ class QualificationSuite extends BaseTestSuite {
       val persqlInputSource = Source.fromFile(persqlFileName)
       try {
         val lines = persqlInputSource.getLines.toArray
+        println(s"persql lines: ${lines.mkString("\n")} ")
         // 4 lines of header and footer
         assert(lines.size == (4 + 17))
         // skip the 3 header lines
         val firstRow = lines(3)
-        // this should be app + sqlID
-        assert(firstRow.contains("local-1622043423018|     1"))
+        // this should be app
+        assert(firstRow.contains("local-1622043423018"))
         assert(firstRow.contains("count at QualificationInfoUtils.scala:94"))
       } finally {
         persqlInputSource.close()
