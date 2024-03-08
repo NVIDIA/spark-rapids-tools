@@ -748,11 +748,10 @@ case class IOAnalysisProfileResult(
   }
 }
 
-case class SQLDurationExecutorTimeProfileResult(appIndex: Int, appId: String,
-    rootsqlID: Option[Long], sqlID: Long, duration: Option[Long], containsDataset: Boolean,
-    appDuration: Option[Long], potentialProbs: String,
-    executorCpuRatio: Double) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "App ID", "RootSqlID", "sqlID", "SQL Duration",
+case class SQLDurationExecutorTimeProfileResult(appIndex: Int, appId: String, sqlID: Long,
+    duration: Option[Long], containsDataset: Boolean, appDuration: Option[Long],
+    potentialProbs: String, executorCpuRatio: Double) extends ProfileResult {
+  override val outputHeaders = Seq("appIndex", "App ID", "sqlID", "SQL Duration",
     "Contains Dataset or RDD Op", "App Duration", "Potential Problems", "Executor CPU Time Percent")
   val durStr = duration match {
     case Some(dur) => dur.toString
@@ -774,14 +773,13 @@ case class SQLDurationExecutorTimeProfileResult(appIndex: Int, appId: String,
   }
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, rootsqlID.getOrElse("").toString, appId, sqlID.toString, durStr,
-      containsDataset.toString, appDurStr, potentialStr, execCpuTimePercent)
+    Seq(appIndex.toString, appId, sqlID.toString, durStr, containsDataset.toString,
+      appDurStr, potentialStr, execCpuTimePercent)
   }
-
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, StringUtils.reformatCSVString(appId), rootsqlID.getOrElse("").toString,
-      sqlID.toString, durStr, containsDataset.toString, appDurStr,
-      StringUtils.reformatCSVString(potentialStr), execCpuTimePercent)
+    Seq(appIndex.toString, StringUtils.reformatCSVString(appId), sqlID.toString, durStr,
+      containsDataset.toString, appDurStr, StringUtils.reformatCSVString(potentialStr),
+      execCpuTimePercent)
   }
 }
 

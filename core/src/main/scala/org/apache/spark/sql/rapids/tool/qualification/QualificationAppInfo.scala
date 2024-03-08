@@ -585,8 +585,7 @@ class QualificationAppInfo(
             val sqlStageSums = perSqlStageSummary.filter(_.sqlID == pInfo.sqlID)
             val estimatedInfo = getPerSQLWallClockSummary(sqlStageSums, wallClockDur,
               sqlIDtoFailures.get(pInfo.sqlID).nonEmpty, appName)
-            EstimatedPerSQLSummaryInfo(pInfo.sqlID, info.rootExecutionID, pInfo.sqlDesc,
-              estimatedInfo)
+            EstimatedPerSQLSummaryInfo(pInfo.sqlID, pInfo.sqlDesc, estimatedInfo)
           }
         })
       } else {
@@ -853,7 +852,6 @@ case class EstimatedSummaryInfo(
 // Estimate based on wall clock times for each SQL query
 case class EstimatedPerSQLSummaryInfo(
     sqlID: Long,
-    rootExecutionID: Option[Long],
     sqlDesc: String,
     info: EstimatedAppInfo)
 

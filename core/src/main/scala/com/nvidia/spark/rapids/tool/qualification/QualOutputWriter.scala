@@ -375,7 +375,6 @@ case class FormattedQualificationSummaryInfo(
 object QualOutputWriter {
   val NON_SQL_TASK_DURATION_STR = "NonSQL Task Duration"
   val SQL_ID_STR = "SQL ID"
-  val ROOT_SQL_ID_STR = "Root SQL ID"
   val SQL_DESC_STR = "SQL Description"
   val STAGE_ID_STR = "Stage ID"
   val APP_ID_STR = "App ID"
@@ -721,7 +720,6 @@ object QualOutputWriter {
     val detailedHeadersAndFields = LinkedHashMap[String, Int](
       APP_NAME_STR -> appMaxNameSize,
       APP_ID_STR -> appMaxIdSize,
-      ROOT_SQL_ID_STR -> ROOT_SQL_ID_STR.size,
       SQL_ID_STR -> SQL_ID_STR.size,
       SQL_DESC_STR -> sqlDescLength,
       SQL_DUR_STR -> SQL_DUR_STR_SIZE,
@@ -756,7 +754,6 @@ object QualOutputWriter {
     val data = ListBuffer[(String, Int)](
       reformatCSVFunc(sumInfo.info.appName) -> headersAndSizes(APP_NAME_STR),
       reformatCSVFunc(sumInfo.info.appId) -> appIdMaxSize,
-      sumInfo.rootExecutionID.getOrElse("").toString -> ROOT_SQL_ID_STR.size,
       sumInfo.sqlID.toString -> SQL_ID_STR.size,
       reformatCSVFunc(formatSQLDescription(sumInfo.sqlDesc, maxSQLDescLength, delimiter)) ->
         headersAndSizes(SQL_DESC_STR),
