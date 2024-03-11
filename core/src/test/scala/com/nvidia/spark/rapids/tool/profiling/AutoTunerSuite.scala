@@ -47,8 +47,8 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val redundantReadSize: Long,
     val meanInput: Double,
     val meanShuffleRead: Double,
-    val shuffleStagesWithPosSpilling: Seq[Long],
-    val shuffleSkewStages: Seq[Long]) extends AppSummaryInfoBaseProvider {
+    val shuffleStagesWithPosSpilling: Set[Long],
+    val shuffleSkewStages: Set[Long]) extends AppSummaryInfoBaseProvider {
   override def isAppInfoAvailable = true
   override def getMaxInput: Double = maxInput
   override def getMeanInput: Double = meanInput
@@ -62,8 +62,8 @@ class AppInfoProviderMockTest(val maxInput: Double,
   override def getRapidsJars: Seq[String] = rapidsJars
   override def getDistinctLocationPct: Double = distinctLocationPct
   override def getRedundantReadSize: Long = redundantReadSize
-  override def getShuffleStagesWithPosSpilling: Seq[Long] = shuffleStagesWithPosSpilling
-  override def getShuffleSkewStages: Seq[Long] = shuffleSkewStages
+  override def getShuffleStagesWithPosSpilling: Set[Long] = shuffleStagesWithPosSpilling
+  override def getShuffleSkewStages: Set[Long] = shuffleSkewStages
 }
 
 class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
@@ -144,8 +144,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       redundantReadSize: Long = 0,
       meanInput: Double = 0.0,
       meanShuffleRead: Double = 0.0,
-      shuffleStagesWithPosSpilling: Seq[Long] = Seq(),
-      shuffleSkewStages: Seq[Long] = Seq()): AppSummaryInfoBaseProvider = {
+      shuffleStagesWithPosSpilling: Set[Long] = Set(),
+      shuffleSkewStages: Set[Long] = Set()): AppSummaryInfoBaseProvider = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
       sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
       shuffleStagesWithPosSpilling, shuffleSkewStages)
@@ -1926,9 +1926,9 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(1000L, 1000L), Seq(0.4, 0.4),
-      logEventsProps, Some(defaultSparkVersion), shuffleStagesWithPosSpilling = Seq(1))
+      logEventsProps, Some(defaultSparkVersion), shuffleStagesWithPosSpilling = Set(1))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
-    val (properties, comments) = autoTuner.getRecommendedProperties(limitedLogicList = Some(Seq()))
+    val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
     val expectedResults =
@@ -1991,10 +1991,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(1000L, 1000L), Seq(0.4, 0.4),
-      logEventsProps, Some(defaultSparkVersion), shuffleStagesWithPosSpilling = Seq(1, 5),
-      shuffleSkewStages = Seq(1))
+      logEventsProps, Some(defaultSparkVersion), shuffleStagesWithPosSpilling = Set(1, 5),
+      shuffleSkewStages = Set(1))
     val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
-    val (properties, comments) = autoTuner.getRecommendedProperties(limitedLogicList = Some(Seq()))
+    val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
     val expectedResults =

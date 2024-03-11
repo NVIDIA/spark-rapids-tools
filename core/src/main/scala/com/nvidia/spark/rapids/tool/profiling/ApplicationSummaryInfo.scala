@@ -64,8 +64,8 @@ trait AppInfoSqlTaskAggMetricsVisitor {
 }
 
 trait AppInfoJobStageAggMetricsVisitor {
-  def getShuffleStagesWithPosSpilling: Seq[Long]
-  def getShuffleSkewStages: Seq[Long]
+  def getShuffleStagesWithPosSpilling: Set[Long]
+  def getShuffleSkewStages: Set[Long]
 }
 
 trait AppInfoSQLTaskInputSizes {
@@ -108,8 +108,8 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getMeanShuffleRead: Double = 0.0
   override def getJvmGCFractions: Seq[Double] = Seq()
   override def getSpilledMetrics: Seq[Long] = Seq()
-  override def getShuffleStagesWithPosSpilling: Seq[Long] = Seq()
-  override def getShuffleSkewStages: Seq[Long] = Seq()
+  override def getShuffleStagesWithPosSpilling: Set[Long] = Set()
+  override def getShuffleSkewStages: Set[Long] = Set()
   override def getRapidsJars: Seq[String] = Seq()
   override def getDistinctLocationPct: Double = 0.0
   override def getRedundantReadSize: Long = 0
@@ -173,16 +173,16 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   }
 
   // Return shuffle stage(Id)s which have positive spilling metrics
-  override def getShuffleStagesWithPosSpilling: Seq[Long] = {
+  override def getShuffleStagesWithPosSpilling: Set[Long] = {
     app.jsMetAgg.collect { case row if (row.id.contains("stage") &&
       row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&
       row.diskBytesSpilledSum + row.memoryBytesSpilledSum > 0) =>
         row.id.split("_")(1).toLong
-    }
+    }.toSet
   }
 
-  override def getShuffleSkewStages: Seq[Long] = {
-    app.skewInfo.map { row => row.stageId }
+  override def getShuffleSkewStages: Set[Long] = {
+    app.skewInfo.map { row => row.stageId }.toSet
   }
 
   override def getMaxInput: Double = {

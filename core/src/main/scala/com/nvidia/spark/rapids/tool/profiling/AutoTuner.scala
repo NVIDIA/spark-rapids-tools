@@ -872,11 +872,9 @@ class AutoTuner(
   }
 
   /**
-   * Recommendations for 'spark.sql.shuffle.partitions'.
-   * Note that by default this only recommend the default value for now.
-   * To enable calculating recommendation based on spills, override the argument
-   * "limitedLogicList" passed to [[getRecommendedProperties]].
-   *
+   * Recommendations for 'spark.sql.shuffle.partitions' based on spills and skew in shuffle stages.
+   * Note that the logic can be disabled by adding the property to [[limitedLogicRecommendations]]
+   * which is one of the arguments of [[getRecommendedProperties()]].
    */
   def recommendShufflePartitions(): Unit = {
     val lookup = "spark.sql.shuffle.partitions"
@@ -994,14 +992,13 @@ class AutoTuner(
    *                 Default is empty.
    * @param limitedLogicList a list of properties that will do simple recommendations based on
    *                         static default values.
-   *                         Default is set to "spark.sql.shuffle.partitions".
    * @param showOnlyUpdatedProps When enabled, the profiler recommendations should only include
    *                             updated settings.
    * @return pair of recommendations and comments. Both sequence can be empty.
    */
   def getRecommendedProperties(
       skipList: Option[Seq[String]] = Some(Seq()),
-      limitedLogicList: Option[Seq[String]] = Some(Seq("spark.sql.shuffle.partitions")),
+      limitedLogicList: Option[Seq[String]] = Some(Seq()),
       showOnlyUpdatedProps: Boolean = true):
       (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
     if (appInfoProvider.isAppInfoAvailable) {
