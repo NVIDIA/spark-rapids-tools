@@ -1,0 +1,28 @@
+{
+  "supportedDataSource.csv": [],
+  "supportedExecs.csv": [],
+  "supportedExprs.csv": [
+    {
+      "Expression": "PromotePrecision",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "SQL Func",
+          "value": "`promote_precision`"
+        }
+      ]
+    },
+    {
+      "Expression": "PromotePrecision",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "SQL Func",
+          "value": "`promote_precision`"
+        }
+      ]
+    }
+  ]
+}
