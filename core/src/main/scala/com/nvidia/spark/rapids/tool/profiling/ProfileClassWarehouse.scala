@@ -168,6 +168,7 @@ class StageInfoClass(val info: StageInfo) {
 // note that some things might not be set until after sqlMetricsAggregation called
 class SQLExecutionInfoClass(
     val sqlID: Long,
+    val rootExecutionID: Option[Long],
     val description: String,
     val details: String,
     val startTime: Long,

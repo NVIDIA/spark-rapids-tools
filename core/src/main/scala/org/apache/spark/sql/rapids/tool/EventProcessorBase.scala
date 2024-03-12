@@ -129,8 +129,10 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       app: T,
       event: SparkListenerSQLExecutionStart): Unit = {
     logDebug("Processing event: " + event.getClass)
+    val rootExecutionIdOpt = EventUtils.readRootIDFromSQLStartEvent(event)
     val sqlExecution = new SQLExecutionInfoClass(
       event.executionId,
+      rootExecutionIdOpt,
       event.description,
       event.details,
       event.time,

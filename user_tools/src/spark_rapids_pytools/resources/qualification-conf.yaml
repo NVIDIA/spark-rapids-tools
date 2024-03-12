@@ -33,6 +33,9 @@ toolOutput:
          Estimated GPU Duration: 'App Name'
       dropDuplicates:
          - App Name
+  json:
+    clusterInformation:
+      fileName: rapids_4_spark_qualification_output_cluster_information.json
   stdout:
     summaryReport:
       compactWidth: true

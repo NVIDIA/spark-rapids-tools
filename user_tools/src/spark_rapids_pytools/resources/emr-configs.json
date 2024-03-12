@@ -288,6 +288,20 @@
       ]
     }
   },
+  "clusterInference": {
+    "defaultCpuInstances": {
+      "driver": "i3.2xlarge",
+      "executor": [
+        {"name": "m5d.large", "vCPUs": 2},
+        {"name": "m5d.xlarge", "vCPUs": 4},
+        {"name": "m5d.2xlarge", "vCPUs": 8},
+        {"name": "m5d.4xlarge", "vCPUs": 16},
+        {"name": "m5d.8xlarge", "vCPUs": 32},
+        {"name": "m5d.12xlarge", "vCPUs": 48},
+        {"name": "m5d.16xlarge", "vCPUs": 64}
+      ]
+    }
+  },
   "clusterSpecs": {
     "minWorkerNodes": 2
   }

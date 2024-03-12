@@ -46,7 +46,9 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val distinctLocationPct: Double,
     val redundantReadSize: Long,
     val meanInput: Double,
-    val meanShuffleRead: Double) extends AppSummaryInfoBaseProvider {
+    val meanShuffleRead: Double,
+    val shuffleStagesWithPosSpilling: Set[Long],
+    val shuffleSkewStages: Set[Long]) extends AppSummaryInfoBaseProvider {
   override def isAppInfoAvailable = true
   override def getMaxInput: Double = maxInput
   override def getMeanInput: Double = meanInput
@@ -60,6 +62,8 @@ class AppInfoProviderMockTest(val maxInput: Double,
   override def getRapidsJars: Seq[String] = rapidsJars
   override def getDistinctLocationPct: Double = distinctLocationPct
   override def getRedundantReadSize: Long = redundantReadSize
+  override def getShuffleStagesWithPosSpilling: Set[Long] = shuffleStagesWithPosSpilling
+  override def getShuffleSkewStages: Set[Long] = shuffleSkewStages
 }
 
 class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
@@ -139,9 +143,12 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       distinctLocationPct: Double = 0.0,
       redundantReadSize: Long = 0,
       meanInput: Double = 0.0,
-      meanShuffleRead: Double = 0.0): AppSummaryInfoBaseProvider = {
+      meanShuffleRead: Double = 0.0,
+      shuffleStagesWithPosSpilling: Set[Long] = Set(),
+      shuffleSkewStages: Set[Long] = Set()): AppSummaryInfoBaseProvider = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
-      sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead)
+      sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
+      shuffleStagesWithPosSpilling, shuffleSkewStages)
   }
 
   test("verify 3.2.0+ auto conf setting") {
@@ -1891,5 +1898,138 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       infoProvider, PlatformFactory.createInstance())
     val smVersion = autoTuner.getShuffleManagerClassName()
     assert(smVersion.get == "com.nvidia.spark.rapids.spark330.RapidsShuffleManager")
+  }
+
+  test("Test spilling occurred in shuffle stages") {
+    val customProps = mutable.LinkedHashMap(
+      "spark.executor.cores" -> "8",
+      "spark.executor.memory" -> "47222m",
+      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.task.resource.gpu.amount" -> "0.0625")
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.instances" -> "1",
+        "spark.sql.files.maxPartitionBytes" -> "1g",
+        "spark.task.resource.gpu.amount" -> "0.0625",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "4",
+        "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
+        "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
+        "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1",
+        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager")
+    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
+    val infoProvider = getMockInfoProvider(3.7449728E7, Seq(1000L, 1000L), Seq(0.4, 0.4),
+      logEventsProps, Some(defaultSparkVersion), shuffleStagesWithPosSpilling = Set(1))
+    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.cores=8
+          |--conf spark.executor.instances=20
+          |--conf spark.executor.memory=16384m
+          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.files.maxPartitionBytes=3669m
+          |--conf spark.sql.shuffle.partitions=400
+          |--conf spark.task.resource.gpu.amount=0.125
+          |
+          |Comments:
+          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
+          |- 'spark.sql.shuffle.partitions' was not set.
+          |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
+          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
+          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    assert(expectedResults == autoTunerOutput)
+  }
+
+  test("Test spilling occurred in shuffle stages with shuffle skew") {
+    val customProps = mutable.LinkedHashMap(
+      "spark.executor.cores" -> "8",
+      "spark.executor.memory" -> "47222m",
+      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.task.resource.gpu.amount" -> "0.0625")
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.instances" -> "1",
+        "spark.sql.files.maxPartitionBytes" -> "1g",
+        "spark.task.resource.gpu.amount" -> "0.0625",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "4",
+        "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
+        "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
+        "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1",
+        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager")
+    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
+    val infoProvider = getMockInfoProvider(3.7449728E7, Seq(1000L, 1000L), Seq(0.4, 0.4),
+      logEventsProps, Some(defaultSparkVersion), shuffleStagesWithPosSpilling = Set(1, 5),
+      shuffleSkewStages = Set(1))
+    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.cores=8
+          |--conf spark.executor.instances=20
+          |--conf spark.executor.memory=16384m
+          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.files.maxPartitionBytes=3669m
+          |--conf spark.sql.shuffle.partitions=200
+          |--conf spark.task.resource.gpu.amount=0.125
+          |
+          |Comments:
+          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.shuffle.partitions' was not set.
+          |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
+          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
+          |- Shuffle skew exists (when task's Shuffle Read Size > 3 * Avg Stage-level size) in
+          |  stages with spilling. Increasing shuffle partitions is not recommended in this
+          |  case since keys will still hash to the same task.
+          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    assert(expectedResults == autoTunerOutput)
   }
 }
