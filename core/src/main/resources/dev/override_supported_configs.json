@@ -1,6 +1,4 @@
 {
-  "supportedDataSource.csv": [],
-  "supportedExecs.csv": [],
   "supportedExprs.csv": [
     {
       "Expression": "PromotePrecision",

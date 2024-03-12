@@ -18,28 +18,39 @@
 """
 Description:
     This Python script goes over all directories of different spark versions under the
-    spark-rapids/tools/generated_files folder and contruct unions of the supported csv
-    files (supportedDataSource.csv, supportedExecs.csv, and supportedExprs.csv).
+    spark-rapids/tools/generated_files folder, contructs unions of the supported CSV
+    files (supportedDataSource.csv, supportedExecs.csv, and supportedExprs.csv) and
+    writes the results to new CSV files.
 
 Dependencies:
     - numpy >= 1.23.3
     - pandas >= 2.0.3
 
 Usage:
-    python process_supported_files.py path_to_generated_files_dir
+    python process_supported_files.py generated_files_path [--configs configs_file] [--output output_directory]
 """
 
 
-import os
 import argparse
-import pandas as pd
-from enum import IntEnum
-import logging
 import json
+import logging
+import os
+from enum import IntEnum
+
+import pandas as pd
 
 
 class SupportLevel(IntEnum):
-    """IntEnum Class for support level types and easy comparison"""
+    """
+    IntEnum Class for support level types to facilitate easy comparison.
+
+    Enum members:
+    - NS: Not Supported.
+    - NA: Not Applicable.
+    - PS: Partially Supported.
+    - S: Supported.
+    - CO: ???.
+    """
     NS = 1
     NA = 2
     PS = 3
@@ -47,15 +58,20 @@ class SupportLevel(IntEnum):
     CO = 5
 
 
-def is_support_level(name):
-    """Check if input String is in SupportLevel class"""
-    return name in SupportLevel.__members__
+def is_support_level(elem):
+    """
+    Check if elem is a valid name of a SupportLevel member.
+    """
+    return elem in SupportLevel.__members__
 
 
 def is_greater(elem1, elem2):
-    """Compare two entries in the CSV file DFs:
-    1) If they are both SupportLevel types, compare using their interger values
-    2) If not, compare their length (assuming strings with greater length contain more info)
+    """
+    Compare two entries, which might be names of SupportLevel members or strings.
+
+    1) If they are both valid names of SupportLevel members,
+       compare using their integer values.
+    2) If not, compare their length (assuming strings with greater length contain more info).
     """
     if is_support_level(elem1) and is_support_level(elem2): 
         return SupportLevel[elem1] > SupportLevel[elem2]
@@ -64,8 +80,9 @@ def is_greater(elem1, elem2):
 
 
 def check_df_rows(row1, row2, keys):
-    """Given two Dataframe rows and a list of keys, check if the rows have the same values
-    for all keys.
+    """
+    Given two DataFrame rows (pandas Series) and a list of keys (column names),
+    check if the rows have the same values for all specified keys.
     """
     for key in keys:
         if row1[key] != row2[key]:
@@ -74,22 +91,23 @@ def check_df_rows(row1, row2, keys):
 
 
 def unify_all_files(root_dir, file_name, key_names):
-    """Searches for file_name in all spark-version folders and unifies the CSV files into a
-    single Dataframe. The rule for union is that:
+    """
+    Search for file_name in all spark-version folders and unify the CSV files into a
+    single Dataframe, using the following rules:
     1) If a data source/exec/expr exists in any spark version, include in the final output.
     2) For each value in a row, escalate the support level: CO > S > PS > NA > NS.
 
     Parameters:
-    root_dir: The directory that contains folders of CSV data for every spark version.
-            > root_dir
-                > 311
-                ...
-                > 350
-                > supportedExecs.csv
-                > supportedExprs.csv
-                ...
-    file_name: CSV file to process
-    key_names: Tuple of two column names which uniquely identifies a row in the CSV file
+    - root_dir: The directory containing folders of CSV data for every spark version.
+                > root_dir
+                    > 311
+                    ...
+                    > 350
+                        > supportedExecs.csv
+                        > supportedExprs.csv
+                        ...
+    - file_name: CSV file to process.
+    - key_names: List of column names which uniquely identifies a row in the CSV file.
     """
     final_df = pd.DataFrame()
 
@@ -134,18 +152,10 @@ def unify_all_files(root_dir, file_name, key_names):
     return final_df
 
 
-def post_process_supported_exprs_csv(df):
-    """Post process the union of supported_exprs.csv file due to a difference in
-    "PromotePrecision" data between plugin and tools repos.
-    """
-    for cur_idx, cur_row in df.iterrows():
-        if cur_row["Expression"] == "PromotePrecision":
-            df.at[cur_idx, "SQL Func"] = "`promote_precision`"
-    return df
-
-
 def check_override(entry, row_data, keys):
-    """ Check if the input json file entry corresponds to the df row_data using the input keys
+    """
+    Given a JSON entry and a DataFrame row (pandas Series) and a list of keys,
+    check if the entry and row have the same values for all specified keys.
     """
     for key in keys:
         if not entry[key] == row_data[key]:
@@ -153,55 +163,74 @@ def check_override(entry, row_data, keys):
     return True
 
 
-def override_supported_configs(json_data, file, df, keys):
-    """Override dataframe with input data and write to CSV file
-
-    Paramaters:
-    json_data: data in json format to explicitly override input df
-    file: path to output CSV file
-    df: pandas dataframe to be modified
-    keys: a list of column names which identifies a row in df
+def override_supported_configs(json_data, file_name, df, keys):
     """
-    file_name = file.split("/")[-1]
+    Override dataframe df with input json_data.
+
+    Parameters:
+    - json_data: Data in JSON format to explicitly override input DataFrame.
+    - file_name: Key within json_data containing override information.
+    - df: Pandas DataFrame to be modified.
+    - keys: A list of column names which identifies a row in df.
+
+    Returns:
+    - The modified DataFrame.
+
+    Example JSON input:
+    json_data = {
+        "supportedExprs.csv": [
+            {
+                "Expression": "PromotePrecision",
+                "Context": "project",
+                "Params": "input",
+                "override": [{"key": "SQL Func", "value": "`promote_precision`"}]
+            }
+        ]
+    }
+    """
     if file_name in json_data:
         for entry in json_data[file_name]:
             for idx, row_data in df.iterrows():
                 if check_override(entry, row_data, keys):
                     for config in entry["override"]:
                         df.at[idx, config["key"]] = config["value"]
-    
-    df.to_csv(file, index=False)
-    
+    return df
+
 
 def main(args):
-    """Main function of the script.
+    """
+    Main function of the script.
 
     Parameters:
     args: Namespace containing the command-line arguments
     """
-
     genrated_files_dir = args.path
-    override_supported_configs_file = args.configs
+    override_configs_file = args.configs
     output_dir = args.output
-
-    with open(override_supported_configs_file, 'r') as f:
-        override_configs = json.load(f)
 
     # generate the union of supported files as pandas dataframe
     data_source_union_df = unify_all_files(genrated_files_dir, "supportedDataSource.csv", ["Format", "Direction"])
     execs_union_df = unify_all_files(genrated_files_dir, "supportedExecs.csv", ["Exec", "Params"])
     exprs_union_df = unify_all_files(genrated_files_dir, "supportedExprs.csv", ["Expression", "Context", "Params"])
 
-    # post-process the union dataframes to override custom supported data and write final CSV files to output directory
-    override_supported_configs(override_configs, f"{output_dir}/supportedDataSource.csv", data_source_union_df, ["Format", "Direction"])
-    override_supported_configs(override_configs, f"{output_dir}/supportedExecs.csv", execs_union_df, ["Exec", "Params"])
-    override_supported_configs(override_configs, f"{output_dir}/supportedExprs.csv", exprs_union_df, ["Expression", "Context", "Params"])
+    # post-process the dataframes to override customed configs
+    if override_configs_file:
+        with open(override_configs_file, 'r') as f:
+                override_configs = json.load(f)
+        data_source_union_df = override_supported_configs(override_configs, "supportedDataSource.csv", data_source_union_df, ["Format", "Direction"])
+        execs_union_df = override_supported_configs(override_configs, "supportedExecs.csv", execs_union_df, ["Exec", "Params"])
+        exprs_union_df = override_supported_configs(override_configs, "supportedExprs.csv", exprs_union_df, ["Expression", "Context", "Params"])
+
+    # write the result dataframes to output CSV files
+    data_source_union_df.to_csv(f"{output_dir}/supportedDataSource.csv", index=False)
+    execs_union_df.to_csv(f"{output_dir}/supportedExecs.csv", index=False)
+    exprs_union_df.to_csv(f"{output_dir}/supportedExprs.csv", index=False)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=str, help="Path to genrated_files directory.")
-    parser.add_argument('--configs', type=str, help='Path to configs file for overriding current data.', default='override_supported_configs.json')
+    parser.add_argument('--configs', type=str, help='Path to configs file for overriding current data.')
     parser.add_argument('--output', type=str, help='Path to output directory.', default='.')
 
     args = parser.parse_args()
