@@ -573,9 +573,7 @@ class QualificationAppInfo(
       // Using the spark SQL reported duration, this could be a bit off from the
       // task times because it relies on the stage times and we might not have
       // a stage for every exec
-      val allSQLDurations = sqlIdToInfo.map { case (_, info) =>
-        info.duration.getOrElse(0L)
-      }
+      val allSQLDurations = getAllSQLDurations
 
       val appName = appInfo.map(_.appName).getOrElse("")
 
@@ -720,6 +718,34 @@ class QualificationAppInfo(
     QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
       sqlDataFrameDuration, sqlDataFrameDuration, taskSpeedupFactor, appName,
       appId, hasFailures)
+  }
+
+  private def getAllSQLDurations: Seq[Long] = {
+    sqlIdToInfo.flatMap { case (_, info) =>
+      info.rootExecutionID match {
+        // We return the duration if sqlId doesn't have a rootExecutionID or if the rootExecutionID
+        // is the same as the sqlId. In some cases, the child completes the execution before the
+        // parent, so we need to check if the child's duration is within the parent's duration.
+        // We add the child's duration to the parent's duration if it's not within the parent's
+        // duration.
+        case Some(rootExecutionID) if rootExecutionID != info.sqlID =>
+          sqlIdToInfo.get(rootExecutionID).flatMap { rootExecutionInfo =>
+            val rootExecutionStartTime = rootExecutionInfo.startTime
+            val rootExecutionEndTime = rootExecutionInfo.endTime.getOrElse(0L)
+            val sqlStartTime = info.startTime
+            val sqlEndTime = info.endTime.getOrElse(0L)
+            //  Below check will be true if the child is not completely inside the root.
+            //  Nevertheless we still account for its total duration and not the overlap.
+            if (sqlStartTime < rootExecutionStartTime || sqlEndTime > rootExecutionEndTime) {
+              Some(info.duration.getOrElse(0L))
+            } else {
+              Some(0L)
+            }
+          }
+        case _ =>
+          Some(info.duration.getOrElse(0L))
+      }
+    }.toSeq
   }
 
   private def getMlFuntions: Option[Seq[MLFunctions]] = {

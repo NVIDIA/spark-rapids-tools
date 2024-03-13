@@ -872,24 +872,31 @@ class AutoTuner(
   }
 
   /**
-   * Recommendations for "spark.sql.shuffle.partitions'.
-   * Note that by default this only recommend the default value for now.
-   * To enable calculating recommendation based on spills, override the argument
-   * "limitedLogicList" passed to [[getRecommendedProperties]].
-   *
+   * Recommendations for 'spark.sql.shuffle.partitions' based on spills and skew in shuffle stages.
+   * Note that the logic can be disabled by adding the property to [[limitedLogicRecommendations]]
+   * which is one of the arguments of [[getRecommendedProperties()]].
    */
   def recommendShufflePartitions(): Unit = {
     val lookup = "spark.sql.shuffle.partitions"
     var shufflePartitions =
       getPropertyValue(lookup).getOrElse(DEF_SHUFFLE_PARTITIONS).toInt
+    val shuffleStagesWithPosSpilling = appInfoProvider.getShuffleStagesWithPosSpilling
+
     // TODO: Need to look at other metrics for GPU spills (DEBUG mode), and batch sizes metric
     if (isCalculationEnabled(lookup)) {
-      val totalSpilledMetrics = appInfoProvider.getSpilledMetrics.sum
-      if (totalSpilledMetrics > 0) {
-        shufflePartitions *= DEF_SHUFFLE_PARTITION_MULTIPLIER
-        // Could be memory instead of partitions
-        appendOptionalComment(lookup,
-          s"'$lookup' should be increased since spilling occurred.")
+      if (shuffleStagesWithPosSpilling.nonEmpty) {
+        val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
+        if (shuffleSkewStages.exists(id => shuffleStagesWithPosSpilling.contains(id))) {
+          appendOptionalComment(lookup,
+            "Shuffle skew exists (when task's Shuffle Read Size > 3 * Avg Stage-level size) in\n" +
+            s"  stages with spilling. Increasing shuffle partitions is not recommended in this\n" +
+            s"  case since keys will still hash to the same task.")
+        } else {
+           shufflePartitions *= DEF_SHUFFLE_PARTITION_MULTIPLIER
+          // Could be memory instead of partitions
+          appendOptionalComment(lookup,
+            s"'$lookup' should be increased since spilling occurred in shuffle stages.")
+        }
       }
     }
     // If the user has enabled AQE auto shuffle, the auto-tuner should recommend to disable this
@@ -987,14 +994,13 @@ class AutoTuner(
    *                 Default is empty.
    * @param limitedLogicList a list of properties that will do simple recommendations based on
    *                         static default values.
-   *                         Default is set to "spark.sql.shuffle.partitions".
    * @param showOnlyUpdatedProps When enabled, the profiler recommendations should only include
    *                             updated settings.
    * @return pair of recommendations and comments. Both sequence can be empty.
    */
   def getRecommendedProperties(
       skipList: Option[Seq[String]] = Some(Seq()),
-      limitedLogicList: Option[Seq[String]] = Some(Seq("spark.sql.shuffle.partitions")),
+      limitedLogicList: Option[Seq[String]] = Some(Seq()),
       showOnlyUpdatedProps: Boolean = true):
       (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
     if (appInfoProvider.isAppInfoAvailable) {
