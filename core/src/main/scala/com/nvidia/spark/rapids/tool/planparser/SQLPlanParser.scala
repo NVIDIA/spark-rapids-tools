@@ -44,9 +44,10 @@ object UnsupportedReasons extends Enumeration {
   val IS_UDF, CONTAINS_UDF,
       IS_DATASET, CONTAINS_DATASET,
       IS_UNSUPPORTED, CONTAINS_UNSUPPORTED_EXPR,
-      UNSUPPORTED_IO_FORMAT = Value
+      UNSUPPORTED_IO_FORMAT, CUSTOM_REASON = Value
 
-  def reportUnsupportedReason(unsupportedReason: UnsupportedReason, execValue: String): String = {
+  def reportUnsupportedReason(unsupportedReason: UnsupportedReason,
+      execValue: String, customReason: String): String = {
     unsupportedReason match {
       case IS_UDF => "Is UDF"
       case CONTAINS_UDF => "Contains UDF"
@@ -55,6 +56,7 @@ object UnsupportedReasons extends Enumeration {
       case IS_UNSUPPORTED => "Unsupported"
       case CONTAINS_UNSUPPORTED_EXPR => "Contains unsupported expr"
       case UNSUPPORTED_IO_FORMAT => "Unsupported IO format"
+      case CUSTOM_REASON => customReason
     }
   }
 }
@@ -66,7 +68,8 @@ case class UnsupportedExecSummary(
     opType: OpTypes.OpType,
     reason: UnsupportedReasons.UnsupportedReason,
     opAction: OpActions.OpAction,
-    isExpression: Boolean = false) {
+    isExpression: Boolean = false,
+    customReason: String) {
 
   val finalOpType: String = if (opType.equals(OpTypes.UDF) || opType.equals(OpTypes.DataSet)) {
     s"${OpTypes.Exec.toString}"
@@ -76,7 +79,7 @@ case class UnsupportedExecSummary(
 
   val unsupportedOperator: String = execValue
 
-  val details: String = UnsupportedReasons.reportUnsupportedReason(reason, execValue)
+  val details: String = UnsupportedReasons.reportUnsupportedReason(reason, execValue, customReason)
 
 }
 
@@ -124,6 +127,16 @@ case class ExecInfo(
     shouldRemove ||= value
   }
 
+  // Helper function to get the reason for unsupported operations if exists
+  def getCustomReason(operator: String, unsSupportedOpsReasons: Map[String, String]): String =
+    unsSupportedOpsReasons.getOrElse(operator, "")
+
+  // Helper function to determine the unsupported reason
+  def determineUnsupportedReason(reason: String,
+      knownReason: UnsupportedReasons.Value): UnsupportedReasons.Value = {
+    if (reason.nonEmpty) UnsupportedReasons.CUSTOM_REASON else knownReason
+  }
+
   private def getOpAction: OpActions.OpAction = {
     // shouldRemove is checked first because sometimes an exec could have both flag set to true,
     // but then we care about having the "NoPerf" part
@@ -159,24 +172,34 @@ case class ExecInfo(
     }
   }
 
-  def getUnsupportedExecSummaryRecord(execId: Long): Seq[UnsupportedExecSummary] = {
-    val unsupportedReason = getUnsupportedReason
-    val res =
-      ArrayBuffer(UnsupportedExecSummary(sqlID, execId, exec, opType,
-        unsupportedReason, getOpAction))
+  def getUnsupportedExecSummaryRecord(
+      execId: Long,
+      unSupportedOpsReasons: Map[String, String] = Map.empty): Seq[UnsupportedExecSummary] = {
+
+    // Get the custom reason if it exists
+    val execCustomReason = getCustomReason(exec, unSupportedOpsReasons)
+    val execUnsupportedReason = determineUnsupportedReason(execCustomReason, getUnsupportedReason)
+
+    // Initialize the result with the exec summary
+    val res = ArrayBuffer(UnsupportedExecSummary(sqlID, execId, exec, opType,
+      execUnsupportedReason, getOpAction, isExpression = false, execCustomReason))
+
     // TODO: Should we iterate on exec children?
-    // add the unsupported expressions to the results
+    // add the unsupported expressions to the results, if there are any custom reasons add them
+    // to the result appropriately
     if (unsupportedExprs.nonEmpty) {
-      // unsupported expression will depend on what we learned from the exec itself
-      val exprReason = unsupportedReason match {
+      val exprKnownReason = execUnsupportedReason match {
         case UnsupportedReasons.CONTAINS_UDF => UnsupportedReasons.IS_UDF
         case UnsupportedReasons.CONTAINS_DATASET => UnsupportedReasons.IS_DATASET
         case UnsupportedReasons.UNSUPPORTED_IO_FORMAT => UnsupportedReasons.UNSUPPORTED_IO_FORMAT
         case _ => UnsupportedReasons.IS_UNSUPPORTED
       }
+
       unsupportedExprs.foreach { expr =>
+        val exprCustomReason = getCustomReason(expr, unSupportedOpsReasons)
+        val exprUnsupportedReason = determineUnsupportedReason(exprCustomReason, exprKnownReason)
         res += UnsupportedExecSummary(sqlID, execId, expr, OpTypes.Expr,
-          exprReason, getOpAction, isExpression = true)
+          exprUnsupportedReason, getOpAction, isExpression = true, exprCustomReason)
       }
     }
     res

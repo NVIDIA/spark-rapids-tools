@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
   // configured off
   private val CO = "CO"
   private val NA = "NA"
+  private val NONE = "None"
 
   private val DEFAULT_DS_FILE = "supportedDataSource.csv"
   private val SUPPORTED_EXECS_FILE = "supportedExecs.csv"
@@ -68,19 +69,20 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
 
   def setOperatorScore(filePath: String): Unit = {
     val source = Source.fromFile(filePath)
-    supportedOperatorsScore = readSupportedOperators(source).map(x => (x._1, x._2.toDouble))
+    supportedOperatorsScore = readOperators(source, "score", true,
+      processOperatorLine).map(x => (x._1, x._2.toDouble))
   }
 
   def setSupportedExecs(filePath: String): Unit = {
     val source = Source.fromFile(filePath)
     // We are reading only first 2 columns for now and other columns are ignored intentionally.
-    supportedExecs = readSupportedOperators(source)
+    supportedExecs = readOperators(source, "execs", true, processOperatorLine)
   }
 
   def setSupportedExprs(filePath: String): Unit = {
     val source = Source.fromFile(filePath)
     // We are reading only first 2 columns for now and other columns are ignored intentionally.
-    supportedExprs = readSupportedOperators(source)
+    supportedExprs = readOperators(source, "exprs", true, processOperatorLine)
   }
 
   def getSupportedExprs: Map[String, String] = supportedExprs
@@ -91,14 +93,16 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
         logInfo(s"Reading operators scores with platform: $platform")
         val file = platform.getOperatorScoreFile
         val source = Source.fromResource(file)
-        readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
+        readOperators(source, "score", true,
+          processOperatorLine).map(x => (x._1, x._2.toDouble))
       case Some(file) =>
         logInfo(s"Reading operators scores from custom speedup factor file: $file")
         try {
           val path = new Path(file)
           val fs = FileSystem.get(path.toUri, new Configuration())
           val source = new BufferedSource(fs.open(path))
-          readSupportedOperators(source, "score").map(x => (x._1, x._2.toDouble))
+          readOperators(source, "score", true,
+            processOperatorLine).map(x => (x._1, x._2.toDouble))
         } catch {
           case NonFatal(e) =>
             logError(s"Exception processing operators scores with file: $file", e)
@@ -109,15 +113,24 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
 
   private def readSupportedExecs: Map[String, String] = {
     val source = Source.fromResource(SUPPORTED_EXECS_FILE)
-    readSupportedOperators(source)
+    readOperators(source, "execs", true, processOperatorLine)
   }
 
   private def readSupportedExprs: Map[String, String] = {
     val source = Source.fromResource(SUPPORTED_EXPRS_FILE)
     // Some SQL function names have backquotes(`) around their names,
     // so we remove them before saving.
-    readSupportedOperators(source, "exprs").map(
+    readOperators(source, "exprs", true, processOperatorLine).map(
       x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ",""), x._2))
+  }
+
+  def readUnsupportedOpsByDefaultReasons: Map[String, String] = {
+    val execsSource = Source.fromResource(SUPPORTED_EXECS_FILE)
+    val unsupportedExecsBydefault = readOperators(execsSource, "execs", false, processOperatorLine)
+    val exprsSource = Source.fromResource(SUPPORTED_EXPRS_FILE)
+    val unsupportedExprsByDefault = readOperators(exprsSource, "exprs", false, processOperatorLine).
+        map(x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ",""), x._2))
+    unsupportedExecsBydefault ++ unsupportedExprsByDefault
   }
 
   private def readSupportedTypesForPlugin: (
@@ -126,53 +139,93 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
     readSupportedTypesForPlugin(source)
   }
 
-  // operatorType can be exprs, score or execs(default). Reads the columns in file depending
-  // on the operatorType passed to this function.
-  private def readSupportedOperators(source: BufferedSource,
-      operatorType: String = "execs"): Map[String, String] = {
-    val supportedOperators = HashMap.empty[String, String]
+  /**
+   * Reads operators from a source and processes them based on the provided logic.
+   *
+   * @param source The source from which to read the operators.
+   * @param operatorType The type of operators being read ("execs", "exprs" or "score").
+   * @param isSupported Flag to determine if we are reading supported or unsupported operators.
+   * @param processLine A function that takes a line, it's operator type and isSupported flag,
+   *                    and returns a sequence of key-value pairs to add to the result map.
+   * @return A Map containing the processed operators.
+   */
+  def readOperators(source: BufferedSource, operatorType: String, isSupported: Boolean,
+      processLine: (Array[String], String, Boolean) => Seq[(String, String)]
+  ): Map[String, String] = {
+    val operatorsMap = HashMap.empty[String, String]
     try {
       val fileContents = source.getLines().toSeq
       if (fileContents.size < 2) {
-        throw new IllegalStateException(s"${source.toString} file appears corrupt," +
-            " must have at least the header and one line")
+        throw new IllegalStateException(s"${source.toString} file appears corrupt, " +
+            s"must have at least the header and one line")
       }
-      // first line is header
-      val header = fileContents.head.split(",").map(_.toLowerCase)
-      // the rest of the rows are operators with additional info
+      val header = fileContents.head.split(",").map(_.trim.toLowerCase)
       fileContents.tail.foreach { line =>
-        val cols = line.split(",")
+        val cols = line.split(",").map(_.trim)
         if (header.size != cols.size) {
-          throw new IllegalStateException(s"${source.toString} file appears corrupt," +
-              s" header length doesn't match rows length. Row that doesn't match is " +
-              s"${cols.mkString(",")}")
+          throw new IllegalStateException(s"${source.toString} file appears corrupt, " +
+              s"header length doesn't match rows length. " +
+              s"Row that doesn't match is ${cols.mkString(",")}")
         }
-        // There are addidtional checks for Expressions. In physical plan, SQL function name is
-        // printed instead of expression name. We have to save both expression name and
-        // SQL function name(if there is one) so that we don't miss the expression while
-        // parsing the execs.
-        // Ex: Expression name = Substring, SQL function= `substr`; `substring`
-        // Ex: Expression name = Average, SQL function name = `avg`
-        if (operatorType.equals("exprs")) {
-          // save expression name
-          supportedOperators.put(cols(0), cols(1))
-          // Check if there is SQL function name for the above expression
-          if (cols(2).nonEmpty && cols(2) != None) {
-            // Split on `;` if there are multiple SQL names as shown in above example and
-            // save each SQL function name as a separate key.
-            val sqlFuncNames = cols(2).split(";")
-            for (i <- sqlFuncNames) {
-              supportedOperators.put(i, cols(1))
-            }
-          }
-        } else {
-          supportedOperators.put(cols(0), cols(1))
+        processLine(cols, operatorType, isSupported).foreach { case (key, value) =>
+          operatorsMap.put(key, value)
         }
       }
     } finally {
       source.close()
     }
-    supportedOperators.toMap
+    operatorsMap.toMap
+  }
+
+  // Custom logic for processing lines for supported or unsupported operators
+  // Here unsupported operators mean the ones that are not supported by default.
+  // In the notes section of the supported csv files, it specifies reason for why it is not
+  // supported by default. We use this information to propagate it unsupported operators
+  // csv file.
+  private def processOperatorLine(cols: Array[String], operatorType:String,
+      isSupported: Boolean): Seq[(String, String)] = {
+    operatorType match {
+      case "exprs" if isSupported =>
+        // Logic for supported expressions
+        val exprName = Seq((cols(0), cols(1)))
+        val sqlFuncNames = if (cols(2).nonEmpty && cols(2) != NONE ){
+          // There are addidtional checks for Expressions. In physical plan, SQL function name is
+          // printed instead of expression name. We have to save both expression name and
+          // SQL function name(if there is one) so that we don't miss the expression while
+          // parsing the execs.
+          // Ex: Expression name = Substring, SQL function= `substr`; `substring`
+          // Ex: Expression name = Average, SQL function name = `avg`
+          cols(2).split(";").map(_.trim).toSeq
+        } else {
+          Seq.empty
+        }
+        exprName ++ sqlFuncNames.map(name => (name, cols(1)))
+      case "exprs" =>
+        // Logic for unsupported expressions
+        if (cols(1) == "NS" && cols(3) != NONE) {
+          val exprName = Seq((cols(0), cols(3)))
+          val sqlFuncNames = if (cols(2).nonEmpty && cols(2) != NONE) {
+            cols(2).split(";").map(_.trim).toSeq
+          } else {
+            Seq.empty
+          }
+          exprName ++ sqlFuncNames.map(name => (name, cols(3)))
+        } else {
+          Seq.empty
+        }
+      case _ if isSupported =>
+        // Logic for supported execs
+        Seq((cols(0), cols(1)))
+      case _ =>
+        // Logic for unsupported execs
+        if (cols(1) == "NS" && cols(2) != NONE) {
+          //Exec names have Exec at the end, we need to remove it to match with the names
+          // saved in the csv file.
+          Seq((cols(0).dropRight(4), cols(2)))
+        } else {
+          Seq.empty
+        }
+    }
   }
 
   // file format should be like this:
