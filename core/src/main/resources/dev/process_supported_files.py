@@ -45,17 +45,17 @@ class SupportLevel(IntEnum):
     IntEnum Class for support level types to facilitate easy comparison.
 
     Enum members:
-    - NS: Not Supported.
     - NA: Not Applicable.
+    - NS: Not Supported.
+    - CO: Configured Off.
     - PS: Partially Supported.
     - S: Supported.
-    - CO: ???.
     """
-    NS = 1
-    NA = 2
-    PS = 3
-    S = 4
-    CO = 5
+    NA = 1
+    NS = 2
+    CO = 3
+    PS = 4
+    S = 5
 
 
 def is_support_level(elem):
