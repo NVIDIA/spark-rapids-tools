@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on Dataproc."""
 
 from spark_rapids_tools import CspEnv
-from spark_rapids_pytools.cloud_api.sp_types import DeployMode
+from spark_rapids_pytools.cloud_api.sp_types import DeployMode, GpuDevice
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.diagnostic import Diagnostic
@@ -27,9 +27,11 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
     """
     A wrapper that runs the RAPIDS Accelerator tools locally on the dev machine for Dataproc.
     """
+    def __init__(self, gpu_device: GpuDevice):
+        self.gpu_device = gpu_device
 
-    @staticmethod
-    def qualification(cpu_cluster: str = None,
+    def qualification(self,
+                      cpu_cluster: str = None,
                       eventlogs: str = None,
                       local_folder: str = None,
                       remote_folder: str = None,
@@ -116,6 +118,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'platformOpts': {
                 'credentialFile': credentials_file,
                 'deployMode': DeployMode.LOCAL,
+                'gpuDevice': self.gpu_device
             },
             'migrationClustersProps': {
                 'cpuCluster': cpu_cluster,
@@ -142,8 +145,8 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                                         rapids_options=rapids_options)
         tool_obj.launch()
 
-    @staticmethod
-    def profiling(gpu_cluster: str = None,
+    def profiling(self,
+                  gpu_cluster: str = None,
                   worker_info: str = None,
                   eventlogs: str = None,
                   local_folder: str = None,
@@ -206,6 +209,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'platformOpts': {
                 'credentialFile': credentials_file,
                 'deployMode': DeployMode.LOCAL,
+                'gpuDevice': self.gpu_device
             },
             'migrationClustersProps': {
                 'gpuCluster': gpu_cluster
@@ -226,8 +230,8 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                          wrapper_options=wrapper_prof_options,
                          rapids_options=rapids_options).launch()
 
-    @staticmethod
-    def bootstrap(cluster: str,
+    def bootstrap(self,
+                  cluster: str,
                   output_folder: str = None,
                   dry_run: bool = True,
                   verbose: bool = False) -> None:
@@ -246,7 +250,9 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
         wrapper_boot_options = {
-            'platformOpts': {},
+            'platformOpts': {
+                'gpuDevice': self.gpu_device
+            },
             'dryRun': dry_run
         }
         bootstrap_tool = Bootstrap(platform_type=CspEnv.DATAPROC,
@@ -255,8 +261,8 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                                    wrapper_options=wrapper_boot_options)
         bootstrap_tool.launch()
 
-    @staticmethod
-    def diagnostic(cluster: str,
+    def diagnostic(self,
+                   cluster: str,
                    output_folder: str = None,
                    thread_num: int = 3,
                    yes: bool = False,
@@ -279,7 +285,9 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             # when debug is set to true set it in the environment.
             ToolLogging.enable_debug_mode()
         wrapper_diag_options = {
-            'platformOpts': {},
+            'platformOpts': {
+                'gpuDevice': self.gpu_device
+            },
             'threadNum': thread_num,
             'yes': yes,
         }
@@ -294,8 +302,9 @@ class DataprocWrapper:  # pylint: disable=too-few-public-methods
     """
     A wrapper script to run RAPIDS Accelerator tools (Qualification, Profiling, and Bootstrap) on Gcloud Dataproc.
     """
-    def __init__(self):
-        self.qualification = CliDataprocLocalMode.qualification
-        self.profiling = CliDataprocLocalMode.profiling
-        self.bootstrap = CliDataprocLocalMode.bootstrap
-        self.diagnostic = CliDataprocLocalMode.diagnostic
+    def __init__(self, gpu_device: GpuDevice):
+        dataproc_obj = CliDataprocLocalMode(gpu_device=gpu_device)
+        self.qualification = dataproc_obj.qualification
+        self.profiling = dataproc_obj.profiling
+        self.bootstrap = dataproc_obj.bootstrap
+        self.diagnostic = dataproc_obj.diagnostic

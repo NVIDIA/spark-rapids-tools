@@ -803,6 +803,7 @@ class Qualification(RapidsJarTool):
 
     def _generate_section_lines(self, sec_conf: dict) -> List[str]:
         if sec_conf.get('sectionID') == 'gpuClusterCreationScript':
+            # TODO: We need to use reshaped cluster here instead of gpu cluster proxy.
             gpu_cluster = self.ctxt.get_ctxt('gpuClusterProxy')
             script_content = gpu_cluster.generate_create_script()
             highlighted_code = TemplateGenerator.highlight_bash_code(script_content)
