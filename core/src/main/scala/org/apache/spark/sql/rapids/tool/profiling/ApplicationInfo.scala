@@ -265,6 +265,7 @@ class ApplicationInfo(
       // get V1 dataSources for that SQLId
       val sqlDataSources = checkMetadataForReadSchema(sqlPIGEntry)
       for (node <- sqlPIGEntry.sparkPlanGraph.allNodes) {
+        var nodeIsDsOrRDD = false
         if (node.isInstanceOf[org.apache.spark.sql.execution.ui.SparkPlanGraphCluster]) {
           val ch = node.asInstanceOf[org.apache.spark.sql.execution.ui.SparkPlanGraphCluster].nodes
           ch.foreach { c =>
@@ -277,20 +278,29 @@ class ApplicationInfo(
         if (nodeV2Reads.isDefined) {
           sqlDataSources += nodeV2Reads.get
         }
-        sqlIsDsOrRDD = RDDCheckHelper.isDatasetOrRDDPlan(node.name, node.desc).isRDD
-        if (sqlIsDsOrRDD) {
-          sqlIdToInfo.get(sqlPIGEntry.sqlID).foreach { sql =>
-            sql.setDsOrRdd(sqlIsDsOrRDD)
-            sqlIDToDataSetOrRDDCase += sqlPIGEntry.sqlID
-          }
-          if (gpuMode) {
+        nodeIsDsOrRDD = RDDCheckHelper.isDatasetOrRDDPlan(node.name, node.desc).isRDD
+        if (nodeIsDsOrRDD) {
+          if (gpuMode) { // we want to report every node that is an RDD
             val thisPlan = UnsupportedSQLPlan(sqlPIGEntry.sqlID, node.id, node.name, node.desc,
               "Contains Dataset or RDD")
             unsupportedSQLplan += thisPlan
           }
+          // If one node is RDD, the Sql should be set too
+          if (!sqlIsDsOrRDD) { // We need to set the flag only once for the given sqlID
+            sqlIsDsOrRDD = true
+            sqlIdToInfo.get(sqlPIGEntry.sqlID).foreach { sql =>
+              sql.setDsOrRdd(sqlIsDsOrRDD)
+              sqlIDToDataSetOrRDDCase += sqlPIGEntry.sqlID
+              // Clear the potential problems since it is an RDD to free memory
+              potentialProblems.clear()
+            }
+          }
         }
-        // update potential problems
-        potentialProblems ++= findPotentialIssues(node.desc)
+        if (!sqlIsDsOrRDD) {
+          // Append current node's potential problems to the Sql problems only if the SQL is not an
+          // RDD. This is an optimization since the potentialProblems won't be used any more.
+          potentialProblems ++= findPotentialIssues(node.desc)
+        }
         // Then process SQL plan metric type
         for (metric <- node.metrics) {
           val stages =
@@ -324,20 +334,15 @@ class ApplicationInfo(
       // Check if readsSchema is complex for the given sql
       val sqlNestedComplexTypes =
         AppBase.parseReadSchemaForNestedTypes(sqlDataSources.map { ds => ds.schema })
-      val nonDSRDDProblems = if (sqlIsDsOrRDD) {
-        collection.mutable.Set[String]()
-      } else {
-        potentialProblems
-      }
       // Append problematic issues to the global variable for that SqlID
       if (sqlNestedComplexTypes._2.nonEmpty) {
-        nonDSRDDProblems += "NESTED COMPLEX TYPE"
+        potentialProblems += "NESTED COMPLEX TYPE"
       }
       // Finally, add the local potentialProblems to the global data structure if any.
-      sqlIDtoProblematic(sqlPIGEntry.sqlID) = nonDSRDDProblems.toSet
+      sqlIDtoProblematic(sqlPIGEntry.sqlID) = potentialProblems.toSet
       // Convert the problematic issues to a string and update the SQLInfo
       sqlIdToInfo.get(sqlPIGEntry.sqlID).foreach { sqlInfoClass =>
-        sqlInfoClass.problematic = ToolUtils.formatPotentialProblems(nonDSRDDProblems.toSeq)
+        sqlInfoClass.problematic = ToolUtils.formatPotentialProblems(potentialProblems.toSeq)
       }
     }
   }
