@@ -29,7 +29,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
 
   def getDurations(tcs: ArrayBuffer[TaskCase]): (Long, Long, Long, Double) = {
     val durations = tcs.map(_.duration)
-    if (durations.size > 0 ) {
+    if (durations.nonEmpty ) {
       (durations.sum, durations.max, durations.min,
         ToolUtils.calculateAverage(durations.sum, durations.size, 1))
     } else {
@@ -49,10 +49,9 @@ class Analysis(apps: Seq[ApplicationInfo]) {
   def jobAndStageMetricsAggregation(): Seq[JobStageAggTaskMetricsProfileResult] = {
     val allJobRows = apps.flatMap { app =>
       app.jobIdToInfo.map { case (id, jc) =>
-        val stageIdsInJob = jc.stageIds
         val stagesInJob = app.stageIdToInfo.filterKeys { case (sid, _) =>
-          stageIdsInJob.contains(sid)
-        }.keys.map(_._1).toSeq
+          jc.stageIds.contains(sid)
+        }.keys.map(_._1).toSet
         if (stagesInJob.isEmpty) {
           None
         } else {
@@ -60,11 +59,10 @@ class Analysis(apps: Seq[ApplicationInfo]) {
             stagesInJob.contains(tc.stageId)
           }
           // count duplicate task attempts
-          val numTaskAttempt = tasksInJob.size
           val (durSum, durMax, durMin, durAvg) = getDurations(tasksInJob)
           Some(JobStageAggTaskMetricsProfileResult(app.index,
             s"job_$id",
-            numTaskAttempt,
+            tasksInJob.size,
             jc.duration,
             tasksInJob.map(_.diskBytesSpilled).sum,
             durSum,
@@ -100,9 +98,8 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     }
     val allJobStageRows = apps.flatMap { app =>
       app.jobIdToInfo.flatMap { case (_, jc) =>
-        val stageIdsInJob = jc.stageIds
         val stagesInJob = app.stageIdToInfo.filterKeys { case (sid, _) =>
-          stageIdsInJob.contains(sid)
+          jc.stageIds.contains(sid)
         }
         if (stagesInJob.isEmpty) {
           None
@@ -111,12 +108,10 @@ class Analysis(apps: Seq[ApplicationInfo]) {
             val tasksInStage = app.taskEnd.filter { tc =>
               tc.stageId == id
             }
-            // count duplicate task attempts
-            val numAttempts = tasksInStage.size
             val (durSum, durMax, durMin, durAvg) = getDurations(tasksInStage)
             Some(JobStageAggTaskMetricsProfileResult(app.index,
               s"stage_$id",
-              numAttempts,
+              tasksInStage.size,
               sc.duration,
               tasksInStage.map(_.diskBytesSpilled).sum,
               durSum,
@@ -153,17 +148,16 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     }
     // stages that are missing from a job, perhaps dropped events
     val stagesWithoutJobs = apps.flatMap { app =>
-      val allStageinJobs = app.jobIdToInfo.flatMap { case (_, jc) =>
-        val stageIdsInJob = jc.stageIds
+      val allStageInJobs = app.jobIdToInfo.flatMap { case (_, jc) =>
         app.stageIdToInfo.filterKeys { case (sid, _) =>
-          stageIdsInJob.contains(sid)
+          jc.stageIds.contains(sid)
         }
       }
-      val missing = app.stageIdToInfo.keys.toSeq.diff(allStageinJobs.keys.toSeq)
+      val missing = app.stageIdToInfo.keys.toSet.diff(allStageInJobs.keys.toSet)
       if (missing.isEmpty) {
         Seq.empty
       } else {
-        missing.map { case ((id, saId)) =>
+        missing.map { case (id, saId) =>
           val scOpt = app.stageIdToInfo.get((id, saId))
           scOpt match {
             case None =>
@@ -214,11 +208,11 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     }
 
     val allRows = allJobRows ++ allJobStageRows ++ stagesWithoutJobs
-    val filteredRows = allRows.filter(_.isDefined).map(_.get)
-    if (filteredRows.size > 0) {
+    val filteredRows = allRows.flatMap(row => row)
+    if (filteredRows.nonEmpty) {
       val sortedRows = filteredRows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
-        (cols.appIndex, -(sortDur), cols.id)
+        (cols.appIndex, -sortDur, cols.id)
       }
       sortedRows
     } else {
@@ -231,12 +225,12 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     val allRows = apps.flatMap { app =>
       app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
         val jcs = app.jobIdToInfo.filter { case (_, jc) =>
-          jc.sqlID.getOrElse(-1) == sqlId
+          jc.sqlID.isDefined && jc.sqlID.get == sqlId
         }
         if (jcs.isEmpty) {
           None
         } else {
-          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSeq
+          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSet
           val tasksInSQL = app.taskEnd.filter { tc =>
             stageIdsForSQL.contains(tc.stageId)
           }
@@ -298,7 +292,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
         }
       }
     }
-    val allFiltered = allRows.filter(_.isDefined).map(_.get)
+    val allFiltered = allRows.flatMap(row => row)
     if (allFiltered.size > 0) {
       val sortedRows = allFiltered.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
@@ -314,12 +308,12 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     val allRows = apps.flatMap { app =>
       app.sqlIdToInfo.map { case (sqlId, _) =>
         val jcs = app.jobIdToInfo.filter { case (_, jc) =>
-          jc.sqlID.getOrElse(-1) == sqlId
+          jc.sqlID.isDefined && jc.sqlID.get == sqlId
         }
         if (jcs.isEmpty) {
           None
         } else {
-          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSeq
+          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSet
 
           val tasksInSQL = app.taskEnd.filter { tc =>
             stageIdsForSQL.contains(tc.stageId)
@@ -344,7 +338,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
         }
       }
     }
-    val allFiltered = allRows.filter(_.isDefined).map(_.get)
+    val allFiltered = allRows.flatMap(row => row)
     if (allFiltered.size > 0) {
       val sortedRows = allFiltered.sortBy { cols =>
         (cols.appIndex, cols.sqlId)
@@ -359,12 +353,12 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     apps.map { app =>
       val maxOfSqls = app.sqlIdToInfo.map { case (sqlId, _) =>
         val jcs = app.jobIdToInfo.filter { case (_, jc) =>
-          jc.sqlID.getOrElse(-1) == sqlId
+          jc.sqlID.isDefined && jc.sqlID.get == sqlId
         }
         if (jcs.isEmpty) {
           0L
         } else {
-          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSeq
+          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSet
           val tasksInSQL = app.taskEnd.filter { tc =>
             stageIdsForSQL.contains(tc.stageId)
           }
@@ -394,7 +388,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
           sqlCase.sqlCpuTimePercent)
       }
     }
-    if (allRows.size > 0) {
+    if (allRows.nonEmpty) {
       val sortedRows = allRows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
         (cols.appIndex, cols.sqlID, sortDur)
@@ -443,8 +437,8 @@ class Analysis(apps: Seq[ApplicationInfo]) {
       }
     }
 
-    val allNonEmptyRows = allRows.filter(_.isDefined).map(_.get)
-    if (allNonEmptyRows.size > 0) {
+    val allNonEmptyRows = allRows.flatMap(row => row)
+    if (allNonEmptyRows.nonEmpty) {
       val sortedRows = allNonEmptyRows.sortBy { cols =>
         (cols.appIndex, cols.stageId, cols.stageAttemptId, cols.taskId, cols.taskAttemptId)
       }
