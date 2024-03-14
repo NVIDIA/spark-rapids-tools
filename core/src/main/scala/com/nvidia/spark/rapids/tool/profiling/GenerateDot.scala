@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -144,7 +144,7 @@ case class QueryPlanWithMetrics(plan: SparkPlanInfoWithStage, metrics: Map[Long,
  * Each graph is defined with a set of nodes and a set of edges. Each node represents a node in the
  * SparkPlan tree, and each edge represents a parent-child relationship between two nodes.
  */
-case class SparkPlanGraph(
+case class SparkPlanGraphForDot(
     nodes: Seq[SparkPlanGraphNode],
     edges: Seq[SparkPlanGraphEdge],
     appId: String,
@@ -187,14 +187,14 @@ object SparkPlanGraph {
       appId: String,
       sqlId: String,
       physicalPlan: String,
-      stageIdToStageMetrics: Map[Int, StageMetrics]): SparkPlanGraph = {
+      stageIdToStageMetrics: Map[Int, StageMetrics]): SparkPlanGraphForDot = {
     val nodeIdGenerator = new AtomicLong(0)
     val nodes = mutable.ArrayBuffer[SparkPlanGraphNode]()
     val edges = mutable.ArrayBuffer[SparkPlanGraphEdge]()
     val exchanges = mutable.HashMap[SparkPlanInfoWithStage, SparkPlanGraphNode]()
     buildSparkPlanGraphNode(planInfo, nodeIdGenerator, nodes, edges, null, null, null, exchanges,
       stageIdToStageMetrics)
-    new SparkPlanGraph(nodes, edges, appId, sqlId, physicalPlan)
+    SparkPlanGraphForDot(nodes, edges, appId, sqlId, physicalPlan)
   }
 
   @tailrec

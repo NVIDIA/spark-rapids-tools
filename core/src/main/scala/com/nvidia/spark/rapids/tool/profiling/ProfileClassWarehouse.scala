@@ -176,7 +176,11 @@ class SQLExecutionInfoClass(
     var duration: Option[Long],
     var hasDatasetOrRDD: Boolean,
     var problematic: String = "",
-    var sqlCpuTimePercent: Double = -1)
+    var sqlCpuTimePercent: Double = -1) {
+  def setDsOrRdd(value: Boolean): Unit = {
+    hasDatasetOrRDD = value
+  }
+}
 
 case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
     nodeName: String, accumulatorId: Long, name: String, min: Long, median:Long,
