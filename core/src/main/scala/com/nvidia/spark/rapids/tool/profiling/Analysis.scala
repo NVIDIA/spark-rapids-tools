@@ -108,12 +108,10 @@ class Analysis(apps: Seq[ApplicationInfo]) {
             val tasksInStage = app.taskEnd.filter { tc =>
               tc.stageId == id
             }
-            // count duplicate task attempts
-            val numAttempts = tasksInStage.size
             val (durSum, durMax, durMin, durAvg) = getDurations(tasksInStage)
             Some(JobStageAggTaskMetricsProfileResult(app.index,
               s"stage_$id",
-              numAttempts,
+              tasksInStage.size,
               sc.duration,
               tasksInStage.map(_.diskBytesSpilled).sum,
               durSum,
@@ -210,7 +208,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     }
 
     val allRows = allJobRows ++ allJobStageRows ++ stagesWithoutJobs
-    val filteredRows = allRows.filter(_.isDefined).map(_.get)
+    val filteredRows = allRows.flatMap(row => row)
     if (filteredRows.nonEmpty) {
       val sortedRows = filteredRows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
@@ -294,7 +292,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
         }
       }
     }
-    val allFiltered = allRows.filter(_.isDefined).map(_.get)
+    val allFiltered = allRows.flatMap(row => row)
     if (allFiltered.size > 0) {
       val sortedRows = allFiltered.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
@@ -340,7 +338,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
         }
       }
     }
-    val allFiltered = allRows.filter(_.isDefined).map(_.get)
+    val allFiltered = allRows.flatMap(row => row)
     if (allFiltered.size > 0) {
       val sortedRows = allFiltered.sortBy { cols =>
         (cols.appIndex, cols.sqlId)
@@ -439,7 +437,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
       }
     }
 
-    val allNonEmptyRows = allRows.filter(_.isDefined).map(_.get)
+    val allNonEmptyRows = allRows.flatMap(row => row)
     if (allNonEmptyRows.nonEmpty) {
       val sortedRows = allNonEmptyRows.sortBy { cols =>
         (cols.appIndex, cols.stageId, cols.stageAttemptId, cols.taskId, cols.taskAttemptId)
