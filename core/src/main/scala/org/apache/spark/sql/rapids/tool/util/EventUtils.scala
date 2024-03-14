@@ -18,6 +18,7 @@ package org.apache.spark.sql.rapids.tool.util
 
 import java.lang.reflect.InvocationTargetException
 
+import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
@@ -32,6 +33,15 @@ import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart
  * Utility containing the implementation of helpers used for parsing data from event.
  */
 object EventUtils extends Logging {
+  // Set to keep track of missing classes
+  private val missingEventClasses = mutable.HashSet[String]()
+
+  private def reportMissingEventClass(className: String): Unit = {
+    if (!missingEventClasses.contains(className)) {
+      missingEventClasses.add(className)
+      logWarning(s"ClassNotFoundException while parsing an event: ${className}")
+    }
+  }
 
   /**
    * Used to parse (value/update) fields of the AccumulableInfo object. If the data is not
@@ -109,8 +119,7 @@ object EventUtils extends Logging {
     field
   }
 
-  lazy val getEventFromJsonMethod:
-    String => Option[org.apache.spark.scheduler.SparkListenerEvent] = {
+  private lazy val runtimeEventFromJsonMethod = {
     // Spark 3.4 and Databricks changed the signature on sparkEventFromJson
     // Note that it is preferred we use reflection rather than checking Spark-runtime
     // because some vendors may back-port features.
@@ -128,15 +137,19 @@ object EventUtils extends Logging {
         (line: String) =>
           b.invoke(null, line).asInstanceOf[org.apache.spark.scheduler.SparkListenerEvent]
     }
+    m
+  }
+
+  lazy val getEventFromJsonMethod:
+    String => Option[org.apache.spark.scheduler.SparkListenerEvent] = {
     // At this point, the method is already defined.
     // Note that the Exception handling is moved within the method to make it easier
     // to isolate the exception reason.
     (line: String) => Try {
-      m.apply(line)
+      runtimeEventFromJsonMethod.apply(line)
     } match {
       case Success(i) => Some(i)
       case Failure(e) =>
-
         e match {
           case i: InvocationTargetException =>
             val targetEx = i.getTargetException
@@ -151,7 +164,8 @@ object EventUtils extends Logging {
                   // malformed
                   throw k
                 case z: ClassNotFoundException if z.getMessage != null =>
-                  logWarning(s"ClassNotFoundException while parsing an event: ${z.getMessage}")
+                  // Avoid reporting missing classes more than once to reduce the noise in the logs
+                  reportMissingEventClass(z.getMessage)
                 case t: Throwable =>
                   // We do not want to swallow unknown exceptions so that we can handle later
                   logError(s"Unknown exception while parsing an event", t)

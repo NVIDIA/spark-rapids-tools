@@ -856,8 +856,8 @@ class AutoTuner(
 
   /**
    * Recommendation for 'spark.sql.files.maxPartitionBytes' based on input size for each task.
-   * Note that the logic can be disabled by adding the property to [[limitedLogicRecommendations]]
-   * which is one of the arguments of [[getRecommendedProperties()]].
+   * Note that the logic can be disabled by adding the property to "limitedLogicRecommendations"
+   * which is one of the arguments of [[getRecommendedProperties]].
    */
   private def recommendMaxPartitionBytes(): Unit = {
     val maxPartitionProp =
@@ -873,8 +873,8 @@ class AutoTuner(
 
   /**
    * Recommendations for 'spark.sql.shuffle.partitions' based on spills and skew in shuffle stages.
-   * Note that the logic can be disabled by adding the property to [[limitedLogicRecommendations]]
-   * which is one of the arguments of [[getRecommendedProperties()]].
+   * Note that the logic can be disabled by adding the property to "limitedLogicRecommendations"
+   * which is one of the arguments of [[getRecommendedProperties]].
    */
   def recommendShufflePartitions(): Unit = {
     val lookup = "spark.sql.shuffle.partitions"

@@ -306,7 +306,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       val app = new ApplicationInfo(hadoopConf, path, index)
       EventLogPathProcessor.logApplicationInfo(app)
       val endTime = System.currentTimeMillis()
-      logInfo(s"Took ${endTime - startTime}ms to process ${path.eventLog.toString}")
+      logInfo(s"Took ${endTime - startTime}ms to create App for ${path.eventLog.toString}")
       Some(app)
     } catch {
       case _: com.fasterxml.jackson.core.JsonParseException =>
@@ -327,9 +327,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
    * and returns the summary information. The summary information is much smaller than
    * the ApplicationInfo because it has processed and combined many of the raw events.
    */
-  private def processApps(apps: Seq[ApplicationInfo], printPlans: Boolean,
-      profileOutputWriter: ProfileOutputWriter): (ApplicationSummaryInfo,
-    Option[CompareSummaryInfo]) = {
+  private def processApps(
+      apps: Seq[ApplicationInfo],
+      printPlans: Boolean,
+      profileOutputWriter: ProfileOutputWriter)
+    : (ApplicationSummaryInfo, Option[CompareSummaryInfo]) = {
+    val startTime = System.currentTimeMillis()
 
     val collect = new CollectInformation(apps)
     val appInfo = collect.getAppInfo
@@ -403,7 +406,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           s"to $outputDir in $duration second(s)\n")
       }
     }
-    (ApplicationSummaryInfo(appInfo, dsInfo, execInfo, jobInfo, rapidsProps, 
+    val endTime = System.currentTimeMillis()
+    logInfo(s"Took ${endTime - startTime}ms to Process [${appInfo.head.appId}]")
+    (ApplicationSummaryInfo(appInfo, dsInfo, execInfo, jobInfo, rapidsProps,
       rapidsJar, sqlMetrics, jsMetAgg, sqlTaskAggMetrics, durAndCpuMet, skewInfo,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, sqlStageInfo, wholeStage, maxTaskInputInfo,

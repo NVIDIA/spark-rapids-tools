@@ -28,8 +28,8 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, GpuEventLogException, SupportedMLFuncsName, ToolUtils}
-import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
+import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, GpuEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+
 
 class QualificationAppInfo(
     eventLogInfo: Option[EventLogInfo],
@@ -803,10 +803,9 @@ class QualificationAppInfo(
   }
 
   private[qualification] def processSQLPlan(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
-    checkMetadataForReadSchema(sqlID, planInfo)
-    val planGraph = ToolsPlanGraph(planInfo)
-    val allnodes = planGraph.allNodes
-    for (node <- allnodes) {
+    val sqlPlanInfoGraphEntry = SqlPlanInfoGraphBuffer.createEntry(sqlID, planInfo)
+    checkMetadataForReadSchema(sqlPlanInfoGraphEntry)
+    for (node <- sqlPlanInfoGraphEntry.sparkPlanGraph.allNodes) {
       checkGraphNodeForReads(sqlID, node)
       val issues = findPotentialIssues(node.desc)
       if (issues.nonEmpty) {
