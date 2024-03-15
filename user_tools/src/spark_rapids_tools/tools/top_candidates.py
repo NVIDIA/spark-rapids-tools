@@ -33,8 +33,9 @@ class TopCandidates:
         """
         unsupported_ops_df = additional_info.get('unsupported_ops_df')
         unsupported_stage_duration_percentage = self.__calculate_unsupported_stages_duration(unsupported_ops_df)
-        # Merge results with all app DataFrame and select columns followed by sorting
-        return pd.merge(all_apps, unsupported_stage_duration_percentage)
+        # Merge results using left join as all applications might not have unsupported stage duration
+        # percentage since we use masking
+        return pd.merge(all_apps, unsupported_stage_duration_percentage, how='left')
 
     def __calculate_unsupported_stages_duration(self, unsupported_ops_df: pd.DataFrame) -> pd.DataFrame:
         """
