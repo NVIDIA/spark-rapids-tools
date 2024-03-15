@@ -25,20 +25,24 @@ class TopCandidates:
     """
     Encapsulates the logic to get top candidates from the Qualification report.
     """
-    all_apps_df: pd.DataFrame = field(default=None, init=True)
-    unsupported_ops_df: pd.DataFrame = field(default=None, init=True)
     props: dict = field(default=None, init=True)
 
-    def get_candidates(self) -> pd.DataFrame:
+    def prepare_apps(self, all_apps: pd.DataFrame, additional_info: dict) -> pd.DataFrame:
         """
-        Returns top candidates based on:
-        1. Calculates the percentage of total stage duration for unsupported operators for each application
-        2. Join the results with all candidates.
-        3. Filter the top candidates based on criteria.
+        Generic method to prepare applications before filtering
+        """
+        unsupported_ops_df = additional_info.get('unsupported_ops_df')
+        unsupported_stage_duration_percentage = self.__calculate_unsupported_stages_duration(unsupported_ops_df)
+        # Merge results with all app DataFrame and select columns followed by sorting
+        return pd.merge(all_apps, unsupported_stage_duration_percentage)
+
+    def __calculate_unsupported_stages_duration(self, unsupported_ops_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calculates the percentage of total stage duration for unsupported operators for each application
         """
         # Define mask to remove rows invalid entries
-        mask = self.__create_column_mask(self.props.get('mask'))
-        unsupported_ops_df = self.unsupported_ops_df.loc[mask, self.props.get('inputColumns')]
+        mask = self.__create_column_mask(unsupported_ops_df)
+        unsupported_ops_df = unsupported_ops_df.loc[mask, self.props.get('inputColumns')]
 
         # Calculate total duration of stages with unsupported operators
         grouping_cols = self.props.get('groupingColumns')
@@ -47,18 +51,11 @@ class TopCandidates:
             .groupby(grouping_cols.get('sum'))['Stage Duration'].sum().reset_index()
 
         # Calculate percentage of app duration
-        unsupported_stage_duration_percentage = unsupported_stage_duration \
+        return unsupported_stage_duration \
             .assign(unsupported_duration_perc=lambda df: (df['Stage Duration'] * 100) / df['App Duration']) \
             .rename(columns={'unsupported_duration_perc': 'Unsupported Stage Duration Percentage'})
 
-        # Merge results with all app DF and select columns followed by sort
-        all_candidates = pd.merge(self.all_apps_df, unsupported_stage_duration_percentage, how='inner',
-                                  on=self.props.get('joinColumns'))
-        top_candidates = all_candidates[all_candidates.apply(self.__filter_top_candidates, axis=1)]
-        return top_candidates[self.props.get('outputColumns')] \
-            .sort_values(by=self.props.get('sortingColumns'), ascending=False)
-
-    def __create_column_mask(self, raw_mask: dict) -> bool:
+    def __create_column_mask(self, unsupported_ops_df: pd.DataFrame) -> bool:
         """
         Creates a column mask based on the provided condition.
         Note: Current implementation is primitive and not a complete AST implementation.
@@ -72,15 +69,25 @@ class TopCandidates:
             mask = True and (colA != 30) and (colB == 0) and (colC == 'dummy')
         """
         mask = True
-        for condition in raw_mask:
+        for condition in self.props.get('mask'):
             column_name, value, operator = condition['columnName'], condition['value'], condition['operator']
             operator_fn = ConditionOperator.get_operator_fn(operator)
-            mask &= operator_fn(self.unsupported_ops_df[column_name], value)
+            mask &= operator_fn(unsupported_ops_df[column_name], value)
         return mask
 
-    def __filter_top_candidates(self, single_row: pd.Series) -> bool:
+    def filter_apps(self, all_apps: pd.DataFrame) -> pd.DataFrame:
         """
-        Used to create a filter for top candidates based on specified ranges.
+        Generic method to filter applications based on criteria
+        """
+        filtered_apps = all_apps[all_apps.apply(self.__filter_single_row, axis=1)]
+        # Select output columns and sort
+        output_columns = self.props.get('outputColumns')
+        sorting_columns = self.props.get('sortingColumns')
+        return filtered_apps[output_columns].sort_values(by=sorting_columns, ascending=False)
+
+    def __filter_single_row(self, single_row: pd.Series) -> bool:
+        """
+        Used to create a filter for based on specified ranges.
         Example:
         self.props['ranges'] = [
             {'columnName': 'colA', 'lowerBound': 18, 'upperBound': 30},

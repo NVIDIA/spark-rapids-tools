@@ -664,11 +664,14 @@ class Qualification(RapidsJarTool):
 
         apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
         if self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES:
-            # TODO: Dummy placeholder to fetch top candidates
-            top_candidates_obj = TopCandidates(all_apps, unsupported_ops_df,
-                                               self.ctxt.get_value('local', 'output', 'topCandidates'))
-            top_candidates_obj.get_candidates()
-        recommended_apps = self.__get_recommended_apps(apps_pruned_df)
+            # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
+            #  This should be refactored along with entire filter apps logic to use more object-oriented design.
+            top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
+            prepared_all_apps = top_candidates_obj.prepare_apps(apps_pruned_df,
+                                                                {'unsupported_ops_df': unsupported_ops_df})
+            top_candidates_obj.filter_apps(prepared_all_apps)
+        else:
+            recommended_apps = self.__get_recommended_apps(apps_pruned_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
         reshaped_notes = self.__generate_cluster_shape_report()
