@@ -331,7 +331,7 @@ abstract class AppBase(
         // at this point all paths should be valid event logs or event log dirs
         val hconf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf)
         val fs = eventLogPath.getFileSystem(hconf)
-        var totalNumEvents = 0
+        var totalNumEvents = 0L
         val readerOpt = eventLog match {
           case _: DatabricksEventLog =>
             Some(new DatabricksRollingEventLogFilesFileReader(fs, eventLogPath))
@@ -340,15 +340,14 @@ abstract class AppBase(
 
         if (readerOpt.isDefined) {
           val reader = readerOpt.get
-          val logFiles = reader.listEventLogFiles
-          logFiles.foreach { file =>
+          val runtimeGetFromJsonMethod = EventUtils.getEventFromJsonMethod
+          reader.listEventLogFiles.foreach { file =>
             Utils.tryWithResource(openEventLogInternal(file.getPath, fs)) { in =>
-              val lines = Source.fromInputStream(in)(Codec.UTF8).getLines().toIterator
-              // Using find as foreach with conditional to exit early if we are done.
-              // Do NOT use a while loop as it is much much slower.
-              lines.find { line =>
+              Source.fromInputStream(in)(Codec.UTF8).getLines().find { line =>
+                // Using find as foreach with conditional to exit early if we are done.
+                // Do NOT use a while loop as it is much much slower.
                 totalNumEvents += 1
-                EventUtils.getEventFromJsonMethod(line) match {
+                runtimeGetFromJsonMethod.apply(line) match {
                   case Some(e) => processEvent(e)
                   case None => false
                 }
@@ -413,11 +412,12 @@ abstract class AppBase(
   }
 
   // The ReadSchema metadata is only in the eventlog for DataSource V1 readers
-  protected def checkMetadataForReadSchema(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
+  protected def checkMetadataForReadSchema(
+      sqlPlanInfoGraph: SqlPlanInfoGraphEntry): ArrayBuffer[DataSourceCase] = {
     // check if planInfo has ReadSchema
-    val allMetaWithSchema = getPlanMetaWithSchema(planInfo)
-    val planGraph = ToolsPlanGraph(planInfo)
-    val allNodes = planGraph.allNodes
+    val allMetaWithSchema = getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
+    val allNodes = sqlPlanInfoGraph.sparkPlanGraph.allNodes
+    val results = ArrayBuffer[DataSourceCase]()
 
     allMetaWithSchema.foreach { plan =>
       val meta = plan.metadata
@@ -432,7 +432,8 @@ abstract class AppBase(
       // add it to the dataSourceInfo
       // Processing Photon eventlogs issue: https://github.com/NVIDIA/spark-rapids-tools/issues/251
       if (scanNode.nonEmpty) {
-        dataSourceInfo += DataSourceCase(sqlID,
+        results += DataSourceCase(
+          sqlPlanInfoGraph.sqlID,
           scanNode.head.id,
           meta.getOrElse("Format", "unknown"),
           meta.getOrElse("Location", "unknown"),
@@ -444,12 +445,13 @@ abstract class AppBase(
     // "scan hive" has no "ReadSchema" defined. So, we need to look explicitly for nodes
     // that are scan hive and add them one by one to the dataSource
     if (hiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
-      val allPlanWithHiveScan = getPlanInfoWithHiveScan(planInfo)
+      val allPlanWithHiveScan = getPlanInfoWithHiveScan(sqlPlanInfoGraph.planInfo)
       allPlanWithHiveScan.foreach { hiveReadPlan =>
         val sqlGraph = ToolsPlanGraph(hiveReadPlan)
         val hiveScanNode = sqlGraph.allNodes.head
         val scanHiveMeta = HiveParseHelper.parseReadNode(hiveScanNode)
-        dataSourceInfo += DataSourceCase(sqlID,
+        results += DataSourceCase(
+          sqlPlanInfoGraph.sqlID,
           hiveScanNode.id,
           scanHiveMeta.format,
           scanHiveMeta.location,
@@ -458,26 +460,32 @@ abstract class AppBase(
         )
       }
     }
+    dataSourceInfo ++= results
+    results
   }
 
   // This will find scans for DataSource V2, if the schema is very large it
   // will likely be incomplete and have ... at the end.
-  protected def checkGraphNodeForReads(sqlID: Long, node: SparkPlanGraphNode): Unit = {
+  protected def checkGraphNodeForReads(
+      sqlID: Long, node: SparkPlanGraphNode): Option[DataSourceCase] = {
     if (ReadParser.isDataSourceV2Node(node)) {
       val res = ReadParser.parseReadNode(node)
-
-      dataSourceInfo += DataSourceCase(sqlID,
+      val dsCase = DataSourceCase(
+        sqlID,
         node.id,
         res.format,
         res.location,
         res.filters,
-        res.schema
-      )
+        res.schema)
+      dataSourceInfo += dsCase
+      Some(dsCase)
+    } else {
+      None
     }
   }
 
   protected def reportComplexTypes: (Seq[String], Seq[String]) = {
-    if (dataSourceInfo.size != 0) {
+    if (dataSourceInfo.nonEmpty) {
       val schema = dataSourceInfo.map { ds => ds.schema }
       AppBase.parseReadSchemaForNestedTypes(schema)
     } else {

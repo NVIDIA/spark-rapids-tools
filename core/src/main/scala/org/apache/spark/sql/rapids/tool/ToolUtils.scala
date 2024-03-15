@@ -16,6 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
@@ -28,7 +29,9 @@ import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.execution.SparkPlanInfo
+import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 object ToolUtils extends Logging {
   // List of recommended file-encodings on the GPUs.
@@ -472,3 +475,29 @@ object SupportedMLFuncsName {
 }
 
 case class GpuEventLogException(message: String) extends Exception(message)
+
+// Class used a container to hold the information of the Tuple<sqlID, PlanInfo, SparkGraph>
+// to simplify arguments of methods and caching.
+case class SqlPlanInfoGraphEntry(
+    sqlID: Long,
+    planInfo: SparkPlanInfo,
+    sparkPlanGraph: SparkPlanGraph
+)
+
+// A class used to cache the SQLPlanInfoGraphs
+class SqlPlanInfoGraphBuffer {
+  val sqlPlanInfoGraphs = ArrayBuffer[SqlPlanInfoGraphEntry]()
+  def addSqlPlanInfoGraph(sqlID: Long, planInfo: SparkPlanInfo): SqlPlanInfoGraphEntry = {
+    val newEntry = SqlPlanInfoGraphBuffer.createEntry(sqlID, planInfo)
+    sqlPlanInfoGraphs += newEntry
+    newEntry
+  }
+}
+
+object SqlPlanInfoGraphBuffer {
+  def apply(): SqlPlanInfoGraphBuffer = new SqlPlanInfoGraphBuffer()
+  def createEntry(sqlID: Long, planInfo: SparkPlanInfo): SqlPlanInfoGraphEntry = {
+    val planGraph = ToolsPlanGraph(planInfo)
+    SqlPlanInfoGraphEntry(sqlID, planInfo, planGraph)
+  }
+}

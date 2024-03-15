@@ -236,7 +236,7 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
       CollectInformation.addNewProps(propsToKeep, props, numApps)
     }
     val allRows = props.map { case (k, v) => Seq(k) ++ v }.toSeq
-    if (allRows.size > 0) {
+    if (allRows.nonEmpty) {
       val resRows = allRows.map(r => RapidsPropertyProfileResult(r(0), outputHeaders, r))
       resRows.sortBy(cols => cols.key)
     } else {
@@ -259,7 +259,7 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     val allWholeStages = apps.flatMap { app =>
       app.wholeStage
     }
-    if (allWholeStages.size > 0) {
+    if (allWholeStages.nonEmpty) {
       allWholeStages.sortBy(cols => (cols.appIndex, cols.sqlID, cols.nodeID))
     } else {
       Seq.empty
@@ -269,7 +269,7 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
   // Print SQL Plan Metrics
   def getSQLPlanMetrics: Seq[SQLAccumProfileResults] = {
     val sqlAccums = CollectInformation.generateSQLAccums(apps)
-    if (sqlAccums.size > 0) {
+    if (sqlAccums.nonEmpty) {
       sqlAccums.sortBy(cols => (cols.appIndex, cols.sqlID, cols.nodeID,
         cols.nodeName, cols.accumulatorId, cols.metricType))
     } else {
@@ -286,11 +286,11 @@ object CollectInformation extends Logging {
   def generateSQLAccums(apps: Seq[ApplicationInfo]): Seq[SQLAccumProfileResults] = {
     val allRows = apps.flatMap { app =>
       app.allSQLMetrics.map { metric =>
-        val sqlId = metric.sqlID
         val jobsForSql = app.jobIdToInfo.filter { case (_, jc) =>
-          jc.sqlID.getOrElse(-1) == sqlId
+          // Avoid getOrElse to reduce memory allocations
+          jc.sqlID.isDefined && jc.sqlID.get == metric.sqlID
         }
-        val stageIdsForSQL = jobsForSql.flatMap(_._2.stageIds).toSeq
+        val stageIdsForSQL = jobsForSql.flatMap(_._2.stageIds).toSet
         val accumsOpt = app.taskStageAccumMap.get(metric.accumulatorId)
         val taskMax = accumsOpt match {
           case Some(accums) =>
@@ -326,7 +326,7 @@ object CollectInformation extends Logging {
         val driverMax = driverAccumsOpt match {
           case Some(accums) =>
             val filtered = accums.filter { a =>
-              a.sqlID == sqlId
+              a.sqlID == metric.sqlID
             }
             val accumValues = filtered.map(_.value).sortWith(_ < _)
             if (accumValues.isEmpty) {
