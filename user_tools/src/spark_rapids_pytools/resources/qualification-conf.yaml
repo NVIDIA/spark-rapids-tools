@@ -201,6 +201,7 @@ local:
         sum:
           - 'App ID'
           - 'App Duration'
+      resultColumnName: 'Unsupported Stage Duration Percentage'
       ranges:
           - columnName: 'Estimated GPU Speedup'
             lowerBound: 1.3

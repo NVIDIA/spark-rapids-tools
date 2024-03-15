@@ -670,8 +670,7 @@ class Qualification(RapidsJarTool):
             prepared_all_apps = top_candidates_obj.prepare_apps(apps_pruned_df,
                                                                 {'unsupported_ops_df': unsupported_ops_df})
             top_candidates_obj.filter_apps(prepared_all_apps)
-        else:
-            recommended_apps = self.__get_recommended_apps(apps_pruned_df)
+        recommended_apps = self.__get_recommended_apps(apps_pruned_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
         reshaped_notes = self.__generate_cluster_shape_report()

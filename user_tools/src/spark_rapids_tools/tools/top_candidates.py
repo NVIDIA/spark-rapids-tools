@@ -33,9 +33,13 @@ class TopCandidates:
         """
         unsupported_ops_df = additional_info.get('unsupported_ops_df')
         unsupported_stage_duration_percentage = self.__calculate_unsupported_stages_duration(unsupported_ops_df)
-        # Merge results using left join as all applications might not have unsupported stage duration
-        # percentage since we use masking
-        return pd.merge(all_apps, unsupported_stage_duration_percentage, how='left')
+        # Note: We might have lost some applications because of masking. Final result should include these
+        # applications with unsupported stage duration percentage as 100.0. Thus implying that
+        # these applications have all stages with unsupported operator and are unusable.
+        result_col_name = self.props.get('resultColumnName')
+        result_df = pd.merge(all_apps, unsupported_stage_duration_percentage, how='left')
+        result_df[result_col_name] = result_df[result_col_name].fillna(100)
+        return result_df
 
     def __calculate_unsupported_stages_duration(self, unsupported_ops_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -52,9 +56,10 @@ class TopCandidates:
             .groupby(grouping_cols.get('sum'))['Stage Duration'].sum().reset_index()
 
         # Calculate percentage of app duration
+        result_col_name = self.props.get('resultColumnName')
         return unsupported_stage_duration \
             .assign(unsupported_duration_perc=lambda df: (df['Stage Duration'] * 100) / df['App Duration']) \
-            .rename(columns={'unsupported_duration_perc': 'Unsupported Stage Duration Percentage'})
+            .rename(columns={'unsupported_duration_perc': result_col_name})
 
     def __create_column_mask(self, unsupported_ops_df: pd.DataFrame) -> bool:
         """
