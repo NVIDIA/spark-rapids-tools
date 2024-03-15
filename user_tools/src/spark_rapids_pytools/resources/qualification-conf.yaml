@@ -176,7 +176,7 @@ local:
           value: 'Expr'
         - operator: 'NOT_EQUAL'
           columnName: 'Stage ID'
-          value: '-1'
+          value: -1
       inputColumns:
         - 'App ID'
         - 'App Duration'

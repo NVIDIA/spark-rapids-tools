@@ -663,6 +663,11 @@ class Qualification(RapidsJarTool):
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
 
         apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
+        if self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES:
+            # TODO: Dummy placeholder to fetch top candidates
+            top_candidates_obj = TopCandidates(all_apps, unsupported_ops_df,
+                                               self.ctxt.get_value('local', 'output', 'topCandidates'))
+            top_candidates_obj.get_candidates()
         recommended_apps = self.__get_recommended_apps(apps_pruned_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
@@ -705,11 +710,6 @@ class Qualification(RapidsJarTool):
                 apps_reshaped_df = apps_reshaped_df.drop(columns=['Estimated Job Frequency (monthly)'])
                 self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
-        if self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES:
-            # TODO: Dummy placeholder to fetch top candidates
-            top_candidates_obj = TopCandidates(all_apps, unsupported_ops_df,
-                                               self.ctxt.get_value('local', 'output', 'topCandidates'))
-            top_candidates_obj.get_candidates()
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_pruned_df,
                                     recommended_apps=recommended_apps,
