@@ -15,6 +15,8 @@
 """Implementation class for Top Candidates logic."""
 
 from dataclasses import dataclass, field
+from typing import Optional
+
 import pandas as pd
 
 from spark_rapids_tools.enums import ConditionOperator
@@ -108,3 +110,25 @@ class TopCandidates:
             if not criteria.get('lowerBound') <= col_value <= criteria.get('upperBound'):
                 return False
         return True
+
+    def prepare_output(self, all_apps: pd.DataFrame) -> pd.DataFrame:
+        """
+        Generic method to transform applications for the output
+        """
+        output_props = self.props.get('output')
+
+        # Function to remap speedup values based on recommended ranges
+        def remap_column(col_value, recommended_ranges: dict) -> Optional[str]:
+            for s_range in recommended_ranges:
+                if s_range['lowerBound'] <= col_value < s_range['upperBound']:
+                    return s_range['title']
+            return None
+
+        # Iterate over each entry and apply remapping to respective columns
+        for remap_entry in output_props.get('remap', []):
+            column_name = remap_entry.get('columnName')
+            recommendation_ranges = remap_entry.get('recommendationRanges')
+            all_apps[column_name] = all_apps[column_name].apply(
+                lambda col_value: remap_column(col_value, recommendation_ranges)
+            )
+        return all_apps[output_props.get('columns', [])]
