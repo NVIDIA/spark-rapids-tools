@@ -1,6 +1,26 @@
 
 <br/>
 
+## Release [v24.02.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.02.1)
+Generated on 2024-03-15
+### User Tools
+
+-  Remove redundant initialization scripts from user tools output ([#830](https://github.com/NVIDIA/spark-rapids-tools/pull/830))
+- [DOC] Update Databricks Azure user tool setup instructions for output format ([#826](https://github.com/NVIDIA/spark-rapids-tools/pull/826))
+- Estimate cluster instances and generate cost savings  ([#803](https://github.com/NVIDIA/spark-rapids-tools/pull/803))
+
+### Core
+
+- Fix implementation of processSQLPlanMetrics in Profiler ([#853](https://github.com/NVIDIA/spark-rapids-tools/pull/853))
+- Deduplicate SQL duration wallclock time for databricks eventlog ([#810](https://github.com/NVIDIA/spark-rapids-tools/pull/810))
+- Consider additional factors in spark.sql.shuffle.partitions recommendation in Autotuner ([#722](https://github.com/NVIDIA/spark-rapids-tools/pull/722))
+- Fix case matching error In AutoTuner ([#828](https://github.com/NVIDIA/spark-rapids-tools/pull/828))
+- Fix ReadSchema in Qualification tool and NPE in Profiling tool ([#825](https://github.com/NVIDIA/spark-rapids-tools/pull/825))
+- AutoTuner does not process arguments skipList and limitedLogic ([#812](https://github.com/NVIDIA/spark-rapids-tools/pull/812))
+
+
+<br/>
+
 ## Release [v24.02.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.02.0)
 Generated on 2024-02-24
 ### User Tools
