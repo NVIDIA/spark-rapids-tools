@@ -56,6 +56,9 @@ class SupportLevel(IntEnum):
     CO = 3
     PS = 4
     S = 5
+    TOFF = 6
+    TNEW = 7
+    TON = 8
 
 
 def is_support_level(elem):
@@ -197,6 +200,43 @@ def override_supported_configs(json_data, file_name, df, keys):
     return df
 
 
+def compare_csv_file(union_df, tools_df, keys):
+    result = []
+    # added columns in union
+    for union_column_name in union_df.columns:
+        if not union_column_name in tools_df.columns:
+            result.append(f"Column \"{union_column_name}\" is added in plugin merged CSV")
+    # removed columns in union
+    for tools_column_name in tools_df.columns:
+        if not tools_column_name in union_df.columns:
+            result.append(f"Column \"{tools_column_name}\" is removed from plugin merged CSV")
+    # added rows in union
+    for _, union_row in union_df.iterrows():
+        exists_in_tools = False
+        for _, tools_row in tools_df.iterrrows():
+            if check_df_rows(union_row, tools_row, keys):
+                exists_in_tools = True
+                # check if row is changed
+                updated_message = ""
+                for tools_column in tools_df.columns:
+                    if (tools_column in union_row) and (not tools_row[tools_column] == union_row[tools_column]):
+                        result.append(f"From tools, Row is changed: {tools_row}\n   " +
+                                      f"In column \"{tools_column}\", {tools_row[tools_column]} -> {union_row[tools_column]}")
+        if not exists_in_tools:
+            result.append(f"Row is added from plugin merged CSV: {union_row}")
+    
+    # removed rows in union
+    for _, tools_row in tools_df.iterrows():
+        exists_in_union = False
+        for _, union_row in union_df.iterrows():
+            if check_df_rows(tools_row, union_row, keys):
+                exists_in_union = True
+        if not exists_in_union:
+            result.append[f"Row is removed from plugin merged CSV: {tools_row}"]
+    
+    return result
+
+
 def main(args):
     """
     Main function of the script.
@@ -226,12 +266,27 @@ def main(args):
     execs_union_df.to_csv(f"{output_dir}/supportedExecs.csv", index=False)
     exprs_union_df.to_csv(f"{output_dir}/supportedExprs.csv", index=False)
 
+    report_file = open('report.txt', 'w+')
+    tools_csv_dir = args.tools_csv
+    if not tools_csv_dir:
+        report_file.write("Report is not generated: no input tools CSV directory")
+        report_file.close()
+        return
+
+    tools_data_source_file = os.path.join(tools_csv_dir, "supportedDataSouce.csv")
+    if os.path.exists(tools_data_source_file):
+        tools_data_source_df = pd.read_csv(tools_data_source_file, keep_default_na=False)
+        # compare union from plugin with tools existing data source file
+        data_source_result = compare_csv_file(data_source_union_df, tools_data_source_df, ["Format", "Direction"])
+        print(data_source_result)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=str, help="Path to genrated_files directory.")
     parser.add_argument('--configs', type=str, help='Path to configs file for overriding current data.')
     parser.add_argument('--output', type=str, help='Path to output directory.', default='.')
+    parser.add_argument('--tools-csv', type=str, help='Path to directory which contains the original CSV files in the tools repo.')
 
     args = parser.parse_args()
     main(args)
