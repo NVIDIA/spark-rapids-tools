@@ -14,13 +14,13 @@
 
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on Dataproc."""
 
-from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.diagnostic import Diagnostic
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
+from spark_rapids_tools import CspEnv
 
 
 class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
@@ -39,6 +39,7 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                       filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS),
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
+                      estimation_model: str = None,
                       jvm_heap_size: int = None,
                       verbose: bool = None,
                       cpu_discount: int = None,
@@ -89,6 +90,10 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
                 "MATCH": keep GPU cluster same number of nodes as CPU cluster;
                 "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
                 "JOB": recommend optimal GPU cluster by cost per job
+        :param estimation_model: Model used to calculate the estimated GPU duration and cost savings.
+               It accepts one of the following:
+               "XGBOOST": an XGBoost model for GPU duration estimation
+               "SPEEDUPS": set by default. It uses a simple static estimated speedup per operator.
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes
         :param verbose: True or False to enable verbosity to the wrapper script
         :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
@@ -134,7 +139,8 @@ class CliDataprocLocalMode:  # pylint: disable=too-few-public-methods
             'gpuClusterRecommendation': gpu_cluster_recommendation,
             'cpuDiscount': cpu_discount,
             'gpuDiscount': gpu_discount,
-            'globalDiscount': global_discount
+            'globalDiscount': global_discount,
+            'estimationModel': estimation_model
         }
 
         tool_obj = QualificationAsLocal(platform_type=CspEnv.DATAPROC,

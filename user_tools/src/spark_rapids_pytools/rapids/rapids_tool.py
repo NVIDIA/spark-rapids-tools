@@ -637,9 +637,8 @@ class RapidsJarTool(RapidsTool):
         # 2- prepare the arguments
         #  2.a -check if the app_id is not none
         self._prepare_job_arguments()
-        #
-        # 3- create a submission job
-        # 4- execute
+        # 3- create a submit jobs
+        self._submit_jobs()
 
     def _get_main_cluster_obj(self):
         return self.ctxt.get_ctxt('cpuClusterProxy')
@@ -803,6 +802,15 @@ class RapidsJarTool(RapidsTool):
         # TODO: Make sure we add this argument only for jar versions 23.02+
         return ['--platform', self.ctxt.platform.get_platform_name().replace('_', '-')]
 
+    def _create_autotuner_rapids_args(self) -> list:
+        # Add the autotuner argument, also add worker-info if the autotunerPath exists
+        if self.ctxt.get_rapids_auto_tuner_enabled():
+            autotuner_path = self.ctxt.get_ctxt('autoTunerFilePath')
+            if autotuner_path is None:
+                return ['--auto-tuner']
+            return ['--auto-tuner', '--worker-info', autotuner_path]
+        return []
+
     @timeit('Building Job Arguments and Executing Job CMD')  # pylint: disable=too-many-function-args
     def _prepare_local_job_arguments(self):
         job_args = self.ctxt.get_ctxt('jobArgs')
@@ -830,11 +838,9 @@ class RapidsJarTool(RapidsTool):
             'sparkConfArgs': spark_conf_args,
             'platformArgs': platform_args
         }
-        job_properties = RapidsJobPropContainer(prop_arg=job_properties_json,
-                                                file_load=False)
-        job_obj = self.ctxt.platform.create_local_submission_job(job_prop=job_properties,
-                                                                 ctxt=self.ctxt)
-        job_obj.run_job()
+        rapids_job_container = RapidsJobPropContainer(prop_arg=job_properties_json,
+                                                      file_load=False)
+        self.ctxt.set_ctxt('rapidsJobContainers', [rapids_job_container])
 
     def _archive_results(self):
         self._archive_local_results()
@@ -845,3 +851,22 @@ class RapidsJarTool(RapidsTool):
             local_folder = self.ctxt.get_output_folder()
             # TODO make sure it worth issuing the command
             self.ctxt.platform.storage.upload_resource(local_folder, remote_work_dir)
+
+    def _submit_jobs(self):
+        # create submission jobs
+        rapids_job_containers = self.ctxt.get_ctxt('rapidsJobContainers')
+        futures_list = []
+        results = []
+        with ThreadPoolExecutor(max_workers=len(rapids_job_containers)) as executor:
+            for rapids_job in rapids_job_containers:
+                job_obj = self.ctxt.platform.create_local_submission_job(job_prop=rapids_job,
+                                                                         ctxt=self.ctxt)
+                futures = executor.submit(job_obj.run_job)
+                futures_list.append(futures)
+            try:
+                for future in concurrent.futures.as_completed(futures_list):
+                    result = future.result()
+                    results.append(result)
+            except Exception as ex:    # pylint: disable=broad-except
+                self.logger.error('Failed to download dependencies %s', ex)
+                raise ex

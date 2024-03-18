@@ -79,8 +79,6 @@ sparkRapids:
       - num-output-rows
       - num-threads
       - order
-      - p
-      - per-sql
       - r
       - report-read-schema
       - s

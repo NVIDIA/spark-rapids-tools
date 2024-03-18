@@ -158,3 +158,13 @@ class ConditionOperator(EnumeratedType):
             return operator_functions[ConditionOperator.fromstring(operator)]
         except (KeyError, ValueError) as e:
             raise ValueError(f'Operator function not defined for {operator}') from e
+
+
+class QualEstimationModel(EnumeratedType):
+    """Values used to define the speedup values of the applications"""
+    XGBOOST = 'xgboost'
+    SPEEDUPS = 'speedups'
+
+    @classmethod
+    def get_default(cls):
+        return cls.SPEEDUPS
