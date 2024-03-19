@@ -31,6 +31,7 @@ from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType
+from spark_rapids_tools.tools.top_candidates import TopCandidates
 
 
 @dataclass
@@ -655,12 +656,20 @@ class Qualification(RapidsJarTool):
 
     def __build_global_report_summary(self,
                                       all_apps: pd.DataFrame,
+                                      unsupported_ops_df: pd.DataFrame,
                                       csv_out: str) -> QualificationSummary:
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
 
         apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
+        if self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES:
+            # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
+            #  This should be refactored along with entire filter apps logic to use more object-oriented design.
+            top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
+            prepared_all_apps = top_candidates_obj.prepare_apps(apps_pruned_df,
+                                                                {'unsupported_ops_df': unsupported_ops_df})
+            top_candidates_obj.filter_apps(prepared_all_apps)
         recommended_apps = self.__get_recommended_apps(apps_pruned_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
@@ -703,7 +712,6 @@ class Qualification(RapidsJarTool):
                 apps_reshaped_df = apps_reshaped_df.drop(columns=['Estimated Job Frequency (monthly)'])
                 self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
-
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_pruned_df,
                                     recommended_apps=recommended_apps,
@@ -786,9 +794,13 @@ class Qualification(RapidsJarTool):
         cluster_info_file = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'fileName')
         cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
         self._process_cluster_info_and_update_savings(cluster_info_file)
+        unsupported_operator_report_file = self.ctxt.get_value('toolOutput', 'csv', 'unsupportedOperatorsReport',
+                                                               'fileName')
+        rapids_unsupported_operators_file = FSUtil.build_path(rapids_output_dir, unsupported_operator_report_file)
+        unsupported_ops_df = pd.read_csv(rapids_unsupported_operators_file)
         csv_file_name = self.ctxt.get_value('local', 'output', 'fileName')
         csv_summary_file = FSUtil.build_path(self.ctxt.get_output_folder(), csv_file_name)
-        report_gen = self.__build_global_report_summary(df, csv_summary_file)
+        report_gen = self.__build_global_report_summary(df, unsupported_ops_df, csv_summary_file)
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
                                                     wrapper_csv_file=csv_summary_file,
                                                     csp_report_provider=self._generate_platform_report_sections,

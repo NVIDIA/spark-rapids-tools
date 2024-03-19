@@ -5,6 +5,8 @@ toolOutput:
     summaryLog:
       fileName: rapids_4_spark_qualification_output.log
   csv:
+    unsupportedOperatorsReport:
+      fileName: rapids_4_spark_qualification_output_unsupportedOperators.csv
     summaryReport:
       fileName: rapids_4_spark_qualification_output.csv
       columns:
@@ -164,6 +166,49 @@ local:
           - '^(\.+).*'
           - '^(\$+).*'
           - '^.+(_\$folder\$)$'
+    topCandidates:
+      mask:
+        - operator: 'NOT_EQUAL'
+          columnName: 'Action'
+          value: 'IgnoreNoPerf'
+        - operator: 'NOT_EQUAL'
+          columnName: 'Unsupported Type'
+          value: 'Expr'
+        - operator: 'NOT_EQUAL'
+          columnName: 'Stage ID'
+          value: -1
+      inputColumns:
+        - 'App ID'
+        - 'App Duration'
+        - 'Stage ID'
+        - 'Stage Duration'
+      outputColumns:
+        - 'App ID'
+        - 'App Duration'
+        - 'Estimated GPU Speedup'
+        - 'Unsupported Stage Duration Percentage'
+      sortingColumns:
+        - 'Estimated GPU Speedup'
+        - 'Unsupported Stage Duration Percentage'
+      joinColumns:
+        - 'App ID'
+        - 'App Duration'
+      groupingColumns:
+        max:
+          - 'App ID'
+          - 'App Duration'
+          - 'Stage ID'
+        sum:
+          - 'App ID'
+          - 'App Duration'
+      resultColumnName: 'Unsupported Stage Duration Percentage'
+      ranges:
+          - columnName: 'Estimated GPU Speedup'
+            lowerBound: 1.3
+            upperBound: 1000000.0
+          - columnName: 'Unsupported Stage Duration Percentage'
+            lowerBound: 0.0
+            upperBound: 25.0
 platform:
   shortName: 'qual'
   outputDir: qual-tool-output
