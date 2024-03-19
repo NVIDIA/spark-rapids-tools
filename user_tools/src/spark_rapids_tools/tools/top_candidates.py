@@ -118,7 +118,7 @@ class TopCandidates:
         """
         output_props = self.props.get('output')
 
-        # Function to remap speedup values based on recommended ranges
+        # Function to remap column values based on recommended ranges
         def remap_column(col_value, recommended_ranges: dict) -> Optional[str]:
             for s_range in recommended_ranges:
                 if s_range['lowerBound'] <= col_value < s_range['upperBound']:
