@@ -674,7 +674,7 @@ class Qualification(RapidsJarTool):
             #  This should be refactored along with entire filter apps logic to use more object-oriented design.
             top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
             apps_pruned_df = top_candidates_obj.prepare_apps(apps_pruned_df,
-                                                                {'unsupported_ops_df': unsupported_ops_df})
+                                                             {'unsupported_ops_df': unsupported_ops_df})
             recommended_apps = top_candidates_obj.filter_apps(apps_pruned_df)
         else:
             recommended_apps = self.__get_recommended_apps(apps_pruned_df)
@@ -757,46 +757,46 @@ class Qualification(RapidsJarTool):
                 #  This should be refactored along with entire filter apps logic to use more object-oriented design.
                 top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
                 return top_candidates_obj.prepare_output(raw_df)
+
+            # filter by recommendations if enabled
+            if filter_recommendation_enabled:
+                df_row = self.__get_recommended_apps(raw_df, selected_cols)
             else:
-                # filter by recommendations if enabled
-                if filter_recommendation_enabled:
-                    df_row = self.__get_recommended_apps(raw_df, selected_cols)
-                else:
-                    df_row = raw_df.loc[:, selected_cols]
-                if df_row.empty:
-                    return df_row
-                # filter by savings if enabled
-                if filter_pos_enabled:
-                    saving_cost_col = self.ctxt.get_value('local', 'output', 'savingRecommendColumn')
-                    recommended_vals = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport',
-                                                           'recommendations', 'speedUp',
-                                                           'selectedRecommendations')
-                    cost_mask = df_row[saving_cost_col].isin(recommended_vals)
-                    df_row = df_row.loc[cost_mask, selected_cols]
-                    if df_row.empty:
-                        self.ctxt.set_ctxt('wrapperOutputContent',
-                                           'Found no qualified apps for cost savings.')
-                        return df_row
-                time_unit = '(ms)'
-                time_from_conf = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'timeUnits')
-                if time_from_conf == 's':
-                    time_unit = '(s)'
-                    # convert to seconds
-                    for column in df_row[[col for col in df_row.columns if 'Duration' in col]]:
-                        df_row[column] = df_row[column].div(1000).round(2)
-                # change the header to include time unit
-                df_row.columns = df_row.columns.str.replace('Duration',
-                                                            f'Duration{time_unit}', regex=False)
-                # squeeze the header titles if enabled
-                if self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'compactWidth'):
-                    col_w_conf = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'columnWidth')
-                    for column in df_row.columns:
-                        if len(column) > col_w_conf:
-                            new_column_name = textwrap.fill(column, col_w_conf, break_long_words=False)
-                            if new_column_name != column:
-                                df_row.columns = df_row.columns.str.replace(column,
-                                                                            new_column_name, regex=False)
+                df_row = raw_df.loc[:, selected_cols]
+            if df_row.empty:
                 return df_row
+            # filter by savings if enabled
+            if filter_pos_enabled:
+                saving_cost_col = self.ctxt.get_value('local', 'output', 'savingRecommendColumn')
+                recommended_vals = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport',
+                                                       'recommendations', 'speedUp',
+                                                       'selectedRecommendations')
+                cost_mask = df_row[saving_cost_col].isin(recommended_vals)
+                df_row = df_row.loc[cost_mask, selected_cols]
+                if df_row.empty:
+                    self.ctxt.set_ctxt('wrapperOutputContent',
+                                       'Found no qualified apps for cost savings.')
+                    return df_row
+            time_unit = '(ms)'
+            time_from_conf = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'timeUnits')
+            if time_from_conf == 's':
+                time_unit = '(s)'
+                # convert to seconds
+                for column in df_row[[col for col in df_row.columns if 'Duration' in col]]:
+                    df_row[column] = df_row[column].div(1000).round(2)
+            # change the header to include time unit
+            df_row.columns = df_row.columns.str.replace('Duration',
+                                                        f'Duration{time_unit}', regex=False)
+            # squeeze the header titles if enabled
+            if self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'compactWidth'):
+                col_w_conf = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'columnWidth')
+                for column in df_row.columns:
+                    if len(column) > col_w_conf:
+                        new_column_name = textwrap.fill(column, col_w_conf, break_long_words=False)
+                        if new_column_name != column:
+                            df_row.columns = df_row.columns.str.replace(column,
+                                                                        new_column_name, regex=False)
+            return df_row
 
         if not self._evaluate_rapids_jar_tool_output_exist():
             return

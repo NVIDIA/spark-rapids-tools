@@ -16,6 +16,7 @@
 
 from dataclasses import dataclass, field
 from typing import Optional
+from functools import partial
 
 import pandas as pd
 
@@ -128,7 +129,6 @@ class TopCandidates:
         for remap_entry in output_props.get('remap', []):
             column_name = remap_entry.get('columnName')
             recommendation_ranges = remap_entry.get('recommendationRanges')
-            all_apps[column_name] = all_apps[column_name].apply(
-                lambda col_value: remap_column(col_value, recommendation_ranges)
-            )
+            remap_func = partial(remap_column, recommended_ranges=recommendation_ranges)
+            all_apps[column_name] = all_apps[column_name].apply(remap_func)
         return all_apps[output_props.get('columns', [])]
