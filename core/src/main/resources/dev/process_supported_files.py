@@ -27,7 +27,8 @@ Dependencies:
     - pandas >= 2.0.3
 
 Usage:
-    python process_supported_files.py generated_files_path [--configs configs_file] [--output output_directory]
+    python process_supported_files.py generated_files_path [--configs configs_file] \
+        [--output output_directory] [--tools-csv tools_csv_dir]
 """
 
 
@@ -50,6 +51,9 @@ class SupportLevel(IntEnum):
     - CO: Configured Off.
     - PS: Partially Supported.
     - S: Supported.
+    - TOFF: Tools Off (Explicitly disabled in tools).
+    - TNEW: Tools New (New ops from plugin which have not been tested in tools).
+    - TON: Tools On (Explicitly enabled in tools).
     """
     NA = 1
     NS = 2
@@ -200,41 +204,58 @@ def override_supported_configs(json_data, file_name, df, keys):
     return df
 
 
-def compare_csv_file(union_df, tools_df, keys):
-    result = []
-    # added columns in union
+def compare_csv_file(union_df, tools_df, keys, report_file):
+    """
+    Compare the plugin union dataframe with tools dataframe and write the differences to report file.
+    For added rows in the plugin union Dataframe, update the 'SUPPORTED' or first support level column
+    to 'TNEW' for further testing.
+
+    Parameters:
+    - union_df: Pandas DataFrame which represents the union from plugin CSV files.
+    - tools_df: Pandas DataFrame which represents the tools CSV file.
+    - keys: A list of column names which identifies a row in the Dataframes.
+    - report_file: A file to write the differences into.
+
+    Returns:
+    - Modified union_df which may contain 'TNEW' entries.
+    """
+    # added columns in plugin union dataframe (compared with tools)
     for union_column_name in union_df.columns:
         if not union_column_name in tools_df.columns:
-            result.append(f"Column \"{union_column_name}\" is added in plugin merged CSV")
-    # removed columns in union
+            report_file.write(f"Column is added: \"{union_column_name}\"\n")
+
+    # removed columns in plugin union dataframe (compared with tools)
     for tools_column_name in tools_df.columns:
         if not tools_column_name in union_df.columns:
-            result.append(f"Column \"{tools_column_name}\" is removed from plugin merged CSV")
-    # added rows in union
-    for _, union_row in union_df.iterrows():
+            report_file.write(f"Column is removed: \"{tools_column_name}\"\n")
+
+    # added/changed rows in plugin union dataframe (compared with tools)
+    for union_idx, union_row in union_df.iterrows():
         exists_in_tools = False
-        for _, tools_row in tools_df.iterrrows():
+        for _, tools_row in tools_df.iterrows():
             if check_df_rows(union_row, tools_row, keys):
                 exists_in_tools = True
-                # check if row is changed
-                updated_message = ""
                 for tools_column in tools_df.columns:
                     if (tools_column in union_row) and (not tools_row[tools_column] == union_row[tools_column]):
-                        result.append(f"From tools, Row is changed: {tools_row}\n   " +
-                                      f"In column \"{tools_column}\", {tools_row[tools_column]} -> {union_row[tools_column]}")
+                        report_file.write(f"Row is changed: {', '.join(tools_row.astype(str))}\n    " +
+                                          f"{tools_column}: {tools_row[tools_column]} -> {union_row[tools_column]}\n")
         if not exists_in_tools:
-            result.append(f"Row is added from plugin merged CSV: {union_row}")
+            for column_name in union_df.columns:
+                if is_support_level(union_row[column_name]):
+                    union_df.at[union_idx, column_name] = "TNEW"
+                    break
+            report_file.write(f"Row is added: {', '.join(union_row.astype(str))}\n")
     
-    # removed rows in union
+    # removed rows in plugin union dataframe (compared with tools)
     for _, tools_row in tools_df.iterrows():
         exists_in_union = False
         for _, union_row in union_df.iterrows():
             if check_df_rows(tools_row, union_row, keys):
                 exists_in_union = True
         if not exists_in_union:
-            result.append[f"Row is removed from plugin merged CSV: {tools_row}"]
+            report_file.write(f"Row is removed: {', '.join(tools_row.astype(str))}\n")
     
-    return result
+    return union_df
 
 
 def main(args):
@@ -244,44 +265,73 @@ def main(args):
     Parameters:
     args: Namespace containing the command-line arguments
     """
+
     genrated_files_dir = args.path
     override_configs_file = args.configs
     output_dir = args.output
 
     # generate the union of supported files as pandas dataframe
+    logging.info("Processing to merge plugin supportedDataSource.csv files")
     data_source_union_df = unify_all_files(genrated_files_dir, "supportedDataSource.csv", ["Format", "Direction"])
+    logging.info("Processing to merge plugin supportedExecs.csv files")
     execs_union_df = unify_all_files(genrated_files_dir, "supportedExecs.csv", ["Exec", "Params"])
+    logging.info("Processing to merge plugin supportedExecs.csv files")
     exprs_union_df = unify_all_files(genrated_files_dir, "supportedExprs.csv", ["Expression", "Context", "Params"])
 
     # post-process the dataframes to override customed configs
     if override_configs_file:
         with open(override_configs_file, 'r') as f:
                 override_configs = json.load(f)
+        logging.info("Post-processing supportedDataSource.csv union to overrride custom configs")
         data_source_union_df = override_supported_configs(override_configs, "supportedDataSource.csv", data_source_union_df, ["Format", "Direction"])
+        logging.info("Post-processing supportedExecs.csv union to overrride custom configs")
         execs_union_df = override_supported_configs(override_configs, "supportedExecs.csv", execs_union_df, ["Exec", "Params"])
+        logging.info("Post-processing supportedExprs.csv union to overrride custom configs")
         exprs_union_df = override_supported_configs(override_configs, "supportedExprs.csv", exprs_union_df, ["Expression", "Context", "Params"])
 
-    # write the result dataframes to output CSV files
-    data_source_union_df.to_csv(f"{output_dir}/supportedDataSource.csv", index=False)
-    execs_union_df.to_csv(f"{output_dir}/supportedExecs.csv", index=False)
-    exprs_union_df.to_csv(f"{output_dir}/supportedExprs.csv", index=False)
-
     report_file = open('report.txt', 'w+')
+    report_file.write("""This report documents the differences between the tools existing CSV files and those processed from the plugin.
+    Note: 1. For added data source/exec/xpression from plugin, the first column with supported levels will be updated to 'TNEW' for future testing.\n\n""")
+
     tools_csv_dir = args.tools_csv
     if not tools_csv_dir:
-        report_file.write("Report is not generated: no input tools CSV directory")
+        report_file.write("Report is not generated: no input tools CSV directory.")
         report_file.close()
         return
 
-    tools_data_source_file = os.path.join(tools_csv_dir, "supportedDataSouce.csv")
+    logging.info("Generating report for supportedDataSource.csv")
+    tools_data_source_file = os.path.join(tools_csv_dir, "supportedDataSource.csv")
     if os.path.exists(tools_data_source_file):
+        report_file.write("\n**supportedDataSource.csv (FROM TOOLS TO PLUGIN)**\n")
         tools_data_source_df = pd.read_csv(tools_data_source_file, keep_default_na=False)
-        # compare union from plugin with tools existing data source file
-        data_source_result = compare_csv_file(data_source_union_df, tools_data_source_df, ["Format", "Direction"])
-        print(data_source_result)
+        data_source_final_df = compare_csv_file(data_source_union_df, tools_data_source_df, ["Format", "Direction"], report_file)
+
+    logging.info("Generating report for supportedExecs.csv")
+    tools_execs_file = os.path.join(tools_csv_dir, "supportedExecs.csv")
+    if os.path.exists(tools_execs_file):
+        report_file.write("\n**supportedExecs.csv (FROM TOOLS TO PLUGIN)**\n")
+        tools_execs_df = pd.read_csv(tools_execs_file, keep_default_na=False)
+        execs_final_df = compare_csv_file(execs_union_df, tools_execs_df, ["Exec", "Params"], report_file)
+
+    logging.info("Generating report for supportedExprs.csv")
+    tools_exprs_file = os.path.join(tools_csv_dir, "supportedExprs.csv")
+    if os.path.exists(tools_exprs_file):
+        report_file.write("\n**supportedExprs.csv (FROM TOOLS TO PLUGIN)**\n")
+        tools_exprs_df = pd.read_csv(tools_exprs_file, keep_default_na=False)
+        exprs_final_df = compare_csv_file(exprs_union_df, tools_exprs_df, ["Expression", "Context", "Params"], report_file)
+
+    # write the result dataframes to output CSV files
+    logging.info(f"Writing the final dataframes to output directory: {output_dir}")
+    data_source_final_df.to_csv(f"{output_dir}/supportedDataSource.csv", index=False)
+    execs_final_df.to_csv(f"{output_dir}/supportedExecs.csv", index=False)
+    exprs_final_df.to_csv(f"{output_dir}/supportedExprs.csv", index=False)
+
+    report_file.close()
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=str, help="Path to genrated_files directory.")
     parser.add_argument('--configs', type=str, help='Path to configs file for overriding current data.')
@@ -289,4 +339,5 @@ if __name__ == "__main__":
     parser.add_argument('--tools-csv', type=str, help='Path to directory which contains the original CSV files in the tools repo.')
 
     args = parser.parse_args()
+
     main(args)
