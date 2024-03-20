@@ -72,20 +72,19 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
 
   def setOperatorScore(filePath: String): Unit = {
     val source = Source.fromFile(filePath)
-    supportedOperatorsScore = readOperators(source, "score", true,
-      processOperatorLine).map(x => (x._1, x._2.toDouble))
+    supportedOperatorsScore = readOperators(source, "score", true).map(x => (x._1, x._2.toDouble))
   }
 
   def setSupportedExecs(filePath: String): Unit = {
     val source = Source.fromFile(filePath)
     // We are reading only first 2 columns for now and other columns are ignored intentionally.
-    supportedExecs = readOperators(source, "execs", true, processOperatorLine)
+    supportedExecs = readOperators(source, "execs", true)
   }
 
   def setSupportedExprs(filePath: String): Unit = {
     val source = Source.fromFile(filePath)
     // We are reading only first 2 columns for now and other columns are ignored intentionally.
-    supportedExprs = readOperators(source, "exprs", true, processOperatorLine)
+    supportedExprs = readOperators(source, "exprs", true)
   }
 
   def getSupportedExprs: Map[String, String] = supportedExprs
@@ -96,16 +95,14 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
         logInfo(s"Reading operators scores with platform: $platform")
         val file = platform.getOperatorScoreFile
         val source = Source.fromResource(file)
-        readOperators(source, "score", true,
-          processOperatorLine).map(x => (x._1, x._2.toDouble))
+        readOperators(source, "score", true).map(x => (x._1, x._2.toDouble))
       case Some(file) =>
         logInfo(s"Reading operators scores from custom speedup factor file: $file")
         try {
           val path = new Path(file)
           val fs = FileSystem.get(path.toUri, new Configuration())
           val source = new BufferedSource(fs.open(path))
-          readOperators(source, "score", true,
-            processOperatorLine).map(x => (x._1, x._2.toDouble))
+          readOperators(source, "score", true).map(x => (x._1, x._2.toDouble))
         } catch {
           case NonFatal(e) =>
             logError(s"Exception processing operators scores with file: $file", e)
@@ -116,23 +113,23 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
 
   private def readSupportedExecs: Map[String, String] = {
     val source = Source.fromResource(SUPPORTED_EXECS_FILE)
-    readOperators(source, "execs", true, processOperatorLine)
+    readOperators(source, "execs", true)
   }
 
   private def readSupportedExprs: Map[String, String] = {
     val source = Source.fromResource(SUPPORTED_EXPRS_FILE)
     // Some SQL function names have backquotes(`) around their names,
     // so we remove them before saving.
-    readOperators(source, "exprs", true, processOperatorLine).map(
+    readOperators(source, "exprs", true).map(
       x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ",""), x._2))
   }
 
   def readUnsupportedOpsByDefaultReasons: Map[String, String] = {
     val execsSource = Source.fromResource(SUPPORTED_EXECS_FILE)
-    val unsupportedExecsBydefault = readOperators(execsSource, "execs", false, processOperatorLine)
+    val unsupportedExecsBydefault = readOperators(execsSource, "execs", false)
     val exprsSource = Source.fromResource(SUPPORTED_EXPRS_FILE)
-    val unsupportedExprsByDefault = readOperators(exprsSource, "exprs", false, processOperatorLine).
-        map(x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ",""), x._2))
+    val unsupportedExprsByDefault = readOperators(exprsSource, "exprs", false).map(
+      x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ",""), x._2))
     unsupportedExecsBydefault ++ unsupportedExprsByDefault
   }
 
@@ -152,9 +149,8 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
    *                    and returns a sequence of key-value pairs to add to the result map.
    * @return A Map containing the processed operators.
    */
-  def readOperators(source: BufferedSource, operatorType: String, isSupported: Boolean,
-      processLine: (Array[String], String, Boolean) => Seq[(String, String)]
-  ): Map[String, String] = {
+  def readOperators(source: BufferedSource,
+      operatorType: String, isSupported: Boolean): Map[String, String] = {
     val operatorsMap = HashMap.empty[String, String]
     try {
       val fileContents = source.getLines().toSeq
@@ -170,7 +166,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
               s"header length doesn't match rows length. " +
               s"Row that doesn't match is ${cols.mkString(",")}")
         }
-        processLine(cols, operatorType, isSupported).foreach { case (key, value) =>
+        processOperatorLine(cols, operatorType, isSupported).foreach { case (key, value) =>
           operatorsMap.put(key, value)
         }
       }
@@ -222,7 +218,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
       case _ =>
         // Logic for unsupported execs
         if (cols(1) == "NS" && cols(2) != NONE) {
-          //Exec names have Exec at the end, we need to remove it to match with the names
+          // Exec names have Exec at the end, we need to remove it to match with the names
           // saved in the csv file.
           Seq((cols(0).dropRight(4), cols(2)))
         } else {
