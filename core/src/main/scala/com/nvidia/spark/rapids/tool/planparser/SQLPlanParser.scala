@@ -31,7 +31,7 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 object OpActions extends Enumeration {
   type OpAction = Value
-  val IgnoreNoPerf, IgnorePerf, Triage = Value
+  val NONE, IgnoreNoPerf, IgnorePerf, Triage = Value
 }
 
 object OpTypes extends Enumeration {
@@ -143,15 +143,19 @@ case class ExecInfo(
     if (reason.nonEmpty) UnsupportedReasons.CUSTOM_REASON(reason) else knownReason
   }
 
-  private def getOpAction: OpActions.OpAction = {
+  def getOpAction: OpActions.OpAction = {
     // shouldRemove is checked first because sometimes an exec could have both flag set to true,
     // but then we care about having the "NoPerf" part
-    if (shouldRemove) {
-      OpActions.IgnoreNoPerf
-    } else if (shouldIgnore) {
-      OpActions.IgnorePerf
-    } else  {
-      OpActions.Triage
+    if (isSupported) {
+      OpActions.NONE
+    } else {
+      if (shouldRemove) {
+        OpActions.IgnoreNoPerf
+      } else if (shouldIgnore) {
+        OpActions.IgnorePerf
+      } else  {
+        OpActions.Triage
+      }
     }
   }
 
