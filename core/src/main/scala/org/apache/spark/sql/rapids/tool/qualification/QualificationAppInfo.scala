@@ -559,6 +559,8 @@ class QualificationAppInfo(
           SQLPlanParser.parseSQLPlan(appId, plan, id, sqlDesc, pluginTypeChecker, this)
       }.toSeq
 
+      val unsupportedOpsReason = pluginTypeChecker.readUnsupportedOpsByDefaultReasons
+
       // get summary of each SQL Query for original plan
       val origPlanInfosSummary = summarizeSQLStageInfo(origPlanInfos)
       // filter out any execs that should be removed
@@ -628,7 +630,7 @@ class QualificationAppInfo(
 
       // Get all the unsupported Expressions from the plan
       val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(
-        _.unsupportedExprs)).flatten.filter(_.nonEmpty).toSet.mkString(";")
+        _.unsupportedExprs.map(_.exprName))).flatten.filter(_.nonEmpty).toSet.mkString(";")
         .trim.replaceAll("\n", "").replace(",", ":")
 
       // Get all unsupported execs and expressions from the plan in form of map[exec -> exprs]
@@ -694,7 +696,7 @@ class QualificationAppInfo(
         origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
-        mlTotalStageDuration, unsupportedExecExprsMap, clusterSummary)
+        mlTotalStageDuration, unsupportedOpsReason, unsupportedExecExprsMap, clusterSummary)
     }
   }
 
@@ -945,6 +947,7 @@ case class QualificationSummaryInfo(
     allClusterTagsMap: Map[String, String],
     mlFunctions: Option[Seq[MLFunctions]],
     mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]],
+    unsupportedOpsReasons: Map[String, String],
     unsupportedExecstoExprsMap: Map[String, String],
     clusterSummary: ClusterSummary,
     estimatedFrequency: Option[Long] = None)
