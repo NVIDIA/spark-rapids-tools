@@ -32,6 +32,7 @@ from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType
 from spark_rapids_tools.tools.top_candidates import TopCandidates
+from spark_rapids_tools.tools.unsupported_operators import UnsupportedOpsStageDuration
 
 
 @dataclass
@@ -47,11 +48,6 @@ class QualificationSummary:
     savings_report_flag: bool = False
     top_candidates_flag: bool = False
     sections_generators: List[Callable] = field(default_factory=lambda: [])
-
-    def __post_init__(self):
-        if self.top_candidates_flag:
-            # if top candidate flag is enabled, we want only recommended apps to be considered for output purpose
-            self.df_result = pd.merge(self.recommended_apps, self.df_result)
 
     def _get_total_durations(self) -> int:
         if not self.is_empty():
@@ -155,12 +151,10 @@ class QualificationSummary:
             return f'{x:.2f}'
 
         report_summary = [['Total applications', self._get_stats_total_apps()]]
-        # TODO: Need to fully understand the below comment
-        # do not display RAPIDS candidates count if the speedup is being overridden by the shape recommendations
         if not self.irrelevant_speedups:
-            rapids_candidates_title = 'RAPIDS top candidates' if self.top_candidates_flag \
-                else 'RAPIDS candidates'
-            report_summary.append([rapids_candidates_title, self._get_stats_recommended_apps()])
+            # do not display RAPIDS candidates count if the speedup is being overridden by the shape recommendations
+            # TODO: We should also include a line that shows number of apps after filtering
+            report_summary.append(['RAPIDS candidates', self._get_stats_recommended_apps()])
         if not self.top_candidates_flag:
             overall_speedup = 0.0
             total_apps_durations = self._get_total_durations()
@@ -668,16 +662,11 @@ class Qualification(RapidsJarTool):
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
 
         apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
-        filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
-        if filter_top_candidate_enabled:
-            # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
-            #  This should be refactored along with entire filter apps logic to use more object-oriented design.
-            top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
-            apps_pruned_df = top_candidates_obj.prepare_apps(apps_pruned_df,
-                                                             {'unsupported_ops_df': unsupported_ops_df})
-            recommended_apps = top_candidates_obj.filter_apps(apps_pruned_df)
-        else:
-            recommended_apps = self.__get_recommended_apps(apps_pruned_df)
+        unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
+                                                                              'unsupportedOperators'))
+        apps_pruned_df = unsupported_ops_obj.prepare_apps_with_unsupported_stages(apps_pruned_df,
+                                                                                  unsupported_ops_df)
+        recommended_apps = self.__get_recommended_apps(apps_pruned_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
         reshaped_notes = self.__generate_cluster_shape_report()
@@ -719,6 +708,7 @@ class Qualification(RapidsJarTool):
                 apps_reshaped_df = apps_reshaped_df.drop(columns=['Estimated Job Frequency (monthly)'])
                 self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
+        filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_pruned_df,
                                     recommended_apps=recommended_apps,
@@ -756,7 +746,8 @@ class Qualification(RapidsJarTool):
                 # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
                 #  This should be refactored along with entire filter apps logic to use more object-oriented design.
                 top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
-                return top_candidates_obj.prepare_output(raw_df)
+                filtered_apps = top_candidates_obj.filter_apps(raw_df)
+                return top_candidates_obj.prepare_output(filtered_apps)
 
             # filter by recommendations if enabled
             if filter_recommendation_enabled:

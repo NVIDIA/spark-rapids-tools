@@ -166,7 +166,7 @@ local:
           - '^(\.+).*'
           - '^(\$+).*'
           - '^.+(_\$folder\$)$'
-    topCandidates:
+    unsupportedOperators:
       mask:
         - operator: 'NOT_EQUAL'
           columnName: 'Action'
@@ -182,17 +182,6 @@ local:
         - 'App Duration'
         - 'Stage ID'
         - 'Stage Duration'
-      outputColumns:
-        - 'App ID'
-        - 'App Duration'
-        - 'Estimated GPU Speedup'
-        - 'Unsupported Stage Duration Percentage'
-      sortingColumns:
-        - 'Estimated GPU Speedup'
-        - 'Unsupported Stage Duration Percentage'
-      joinColumns:
-        - 'App ID'
-        - 'App Duration'
       groupingColumns:
         max:
           - 'App ID'
@@ -202,6 +191,20 @@ local:
           - 'App ID'
           - 'App Duration'
       resultColumnName: 'Unsupported Stage Duration Percentage'
+    topCandidates:
+      outputColumns:
+        - 'App ID'
+        - 'App Name'
+        - 'App Duration'
+        - 'Estimated GPU Speedup'
+        - 'Unsupported Stage Duration Percentage'
+      sortingColumns:
+        - 'Estimated GPU Speedup'
+        - 'Unsupported Stage Duration Percentage'
+      joinColumns:
+        - 'App ID'
+        - 'App Name'
+        - 'App Duration'
       ranges:
           - columnName: 'Estimated GPU Speedup'
             lowerBound: 1.3
