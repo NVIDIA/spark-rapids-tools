@@ -1198,8 +1198,7 @@ class QualificationSuite extends BaseTestSuite {
           val data = Seq((1, ("Person1", 30)), (2, ("Person2", 25))).toDF("id", "person")
           data.write.parquet(s"$outParquetFile/person_info")
           val df = spark.read.parquet(s"$outParquetFile/person_info")
-          val dfToJson = df.withColumn("person_json", to_json($"person"))
-          dfToJson
+          df.withColumn("person_json", to_json($"person"))
         }
 
         TrampolineUtil.withTempDir { outpath =>
@@ -1208,12 +1207,9 @@ class QualificationSuite extends BaseTestSuite {
             outpath.getAbsolutePath,
             eventLog))
 
-          val (exit, _) =
-            QualificationMain.mainInternal(appArgs)
+          val (exit, _) = QualificationMain.mainInternal(appArgs)
           assert(exit == 0)
-          // the code above that runs the Spark query stops the Sparksession
-          // so create a new one to read in the csv file
-//          createSparkSession()
+          createSparkSession()
           val filename = s"$outpath/rapids_4_spark_qualification_output/" +
               s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
 

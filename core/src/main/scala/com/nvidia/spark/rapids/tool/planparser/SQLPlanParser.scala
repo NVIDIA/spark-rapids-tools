@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
@@ -26,7 +26,7 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
-import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, ExecHelper, JoinType, RDDCheckHelper, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, ExecHelper, JoinType, RDDCheckHelper, ToolUtils, UnsupportedExpr}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 object OpActions extends Enumeration {
@@ -44,10 +44,17 @@ object UnsupportedReasons extends Enumeration {
   val IS_UDF, CONTAINS_UDF,
       IS_DATASET, CONTAINS_DATASET,
       IS_UNSUPPORTED, CONTAINS_UNSUPPORTED_EXPR,
-      UNSUPPORTED_IO_FORMAT, CUSTOM_REASON = Value
+      UNSUPPORTED_IO_FORMAT = Value
 
-  def reportUnsupportedReason(unsupportedReason: UnsupportedReason,
-      execValue: String, customReason: String): String = {
+  // Mutable map to cache custom reasons
+  private val customReasonsCache = WeakHashMap.empty[String, Value]
+
+  // Method to get or create a custom reason
+  def CUSTOM_REASON(reason: String): Value = {
+    customReasonsCache.getOrElseUpdate(reason, new Val(nextId, reason))
+  }
+
+  def reportUnsupportedReason(unsupportedReason: UnsupportedReason): String = {
     unsupportedReason match {
       case IS_UDF => "Is UDF"
       case CONTAINS_UDF => "Contains UDF"
@@ -56,7 +63,7 @@ object UnsupportedReasons extends Enumeration {
       case IS_UNSUPPORTED => "Unsupported"
       case CONTAINS_UNSUPPORTED_EXPR => "Contains unsupported expr"
       case UNSUPPORTED_IO_FORMAT => "Unsupported IO format"
-      case CUSTOM_REASON => customReason
+      case customReason @ _  => customReason.toString
     }
   }
 }
@@ -68,8 +75,7 @@ case class UnsupportedExecSummary(
     opType: OpTypes.OpType,
     reason: UnsupportedReasons.UnsupportedReason,
     opAction: OpActions.OpAction,
-    isExpression: Boolean = false,
-    customReason: String) {
+    isExpression: Boolean = false) {
 
   val finalOpType: String = if (opType.equals(OpTypes.UDF) || opType.equals(OpTypes.DataSet)) {
     s"${OpTypes.Exec.toString}"
@@ -79,8 +85,7 @@ case class UnsupportedExecSummary(
 
   val unsupportedOperator: String = execValue
 
-  val details: String = UnsupportedReasons.reportUnsupportedReason(reason, execValue, customReason)
-
+  val details: String = UnsupportedReasons.reportUnsupportedReason(reason)
 }
 
 case class ExecInfo(
@@ -95,7 +100,8 @@ case class ExecInfo(
     children: Option[Seq[ExecInfo]], // only one level deep
     var stages: Set[Int],
     var shouldRemove: Boolean,
-    unsupportedExprs: Array[String],
+    var unsupportedExecReason: String,
+    unsupportedExprs: Seq[UnsupportedExpr],
     dataSet: Boolean,
     udf: Boolean,
     shouldIgnore: Boolean) {
@@ -127,14 +133,14 @@ case class ExecInfo(
     shouldRemove ||= value
   }
 
-  // Helper function to get the reason for unsupported operations if exists
-  def getCustomReason(operator: String, unsSupportedOpsReasons: Map[String, String]): String =
-    unsSupportedOpsReasons.getOrElse(operator, "")
+  def setUnsupportedExecReason(reason: String): Unit = {
+    unsupportedExecReason = reason
+  }
 
   // Helper function to determine the unsupported reason
   def determineUnsupportedReason(reason: String,
       knownReason: UnsupportedReasons.Value): UnsupportedReasons.Value = {
-    if (reason.nonEmpty) UnsupportedReasons.CUSTOM_REASON else knownReason
+    if (reason.nonEmpty) UnsupportedReasons.CUSTOM_REASON(reason) else knownReason
   }
 
   private def getOpAction: OpActions.OpAction = {
@@ -172,17 +178,14 @@ case class ExecInfo(
     }
   }
 
-  def getUnsupportedExecSummaryRecord(
-      execId: Long,
-      unSupportedOpsReasons: Map[String, String] = Map.empty): Seq[UnsupportedExecSummary] = {
-
+  def getUnsupportedExecSummaryRecord(execId: Long): Seq[UnsupportedExecSummary] = {
     // Get the custom reason if it exists
-    val execCustomReason = getCustomReason(exec, unSupportedOpsReasons)
-    val execUnsupportedReason = determineUnsupportedReason(execCustomReason, getUnsupportedReason)
+    val execUnsupportedReason = determineUnsupportedReason(unsupportedExecReason,
+      getUnsupportedReason)
 
     // Initialize the result with the exec summary
     val res = ArrayBuffer(UnsupportedExecSummary(sqlID, execId, exec, opType,
-      execUnsupportedReason, getOpAction, isExpression = false, execCustomReason))
+      execUnsupportedReason, getOpAction))
 
     // TODO: Should we iterate on exec children?
     // add the unsupported expressions to the results, if there are any custom reasons add them
@@ -196,10 +199,10 @@ case class ExecInfo(
       }
 
       unsupportedExprs.foreach { expr =>
-        val exprCustomReason = getCustomReason(expr, unSupportedOpsReasons)
-        val exprUnsupportedReason = determineUnsupportedReason(exprCustomReason, exprKnownReason)
-        res += UnsupportedExecSummary(sqlID, execId, expr, OpTypes.Expr,
-          exprUnsupportedReason, getOpAction, isExpression = true, exprCustomReason)
+        val exprUnsupportedReason = determineUnsupportedReason(expr.unsupportedReason,
+          exprKnownReason)
+        res += UnsupportedExecSummary(sqlID, execId, expr.exprName, OpTypes.Expr,
+          exprUnsupportedReason, getOpAction, isExpression = true)
       }
     }
     res
@@ -221,7 +224,8 @@ object ExecInfo {
       children: Option[Seq[ExecInfo]], // only one level deep
       stages: Set[Int] = Set.empty,
       shouldRemove: Boolean = false,
-      unsupportedExprs: Array[String] = Array.empty,
+      unsupportedExecReason: String = "",
+      unsupportedExprs: Seq[UnsupportedExpr] = Seq.empty,
       dataSet: Boolean = false,
       udf: Boolean = false): ExecInfo = {
     // Set the ignoreFlag
@@ -255,6 +259,7 @@ object ExecInfo {
       children,
       stages,
       removeFlag,
+      unsupportedExecReason,
       unsupportedExprs,
       finalDataSet,
       udf,
@@ -274,7 +279,8 @@ object ExecInfo {
       children: Option[Seq[ExecInfo]], // only one level deep
       stages: Set[Int] = Set.empty,
       shouldRemove: Boolean = false,
-      unsupportedExprs: Array[String] = Array.empty,
+      unsupportedExecReason:String = "",
+      unsupportedExprs: Seq[UnsupportedExpr] = Seq.empty,
       dataSet: Boolean = false,
       udf: Boolean = false,
       opType: OpTypes.OpType = OpTypes.Exec): ExecInfo = {
@@ -291,7 +297,7 @@ object ExecInfo {
     // if the expression is RDD because of the node name, then we do not want to add the
     // unsupportedExpressions because it becomes bogus.
     val finalUnsupportedExpr = if (rddCheckRes.nodeDescRDD) {
-      Array.empty[String]
+      Seq.empty[UnsupportedExpr]
     } else {
       unsupportedExprs
     }
@@ -307,6 +313,7 @@ object ExecInfo {
       children,
       stages,
       shouldRemove,
+      unsupportedExecReason,
       finalUnsupportedExpr,
       ds,
       containsUDF
@@ -557,6 +564,9 @@ object SQLPlanParser extends Logging {
       // shouldRemove is set to true if the exec is a member of "execsToBeRemoved" or if the node
       // is a duplicate
       execInfos.setShouldRemove(isDupNode)
+      // Set the custom reasons for unsupported execs
+      val unsupportedExecsReason = checker.getNotSupportedExecsReason(execInfos.exec)
+      execInfos.setUnsupportedExecReason(unsupportedExecsReason)
       Seq(execInfos)
     }
   }

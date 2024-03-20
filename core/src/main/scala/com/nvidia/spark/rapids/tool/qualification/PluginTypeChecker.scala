@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import scala.collection.mutable.{ArrayBuffer,HashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.io.{BufferedSource, Source}
 import scala.util.control.NonFatal
 
@@ -25,6 +25,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.UnsupportedExpr
 
 /**
  * This class is used to check what the RAPIDS Accelerator for Apache Spark
@@ -58,6 +59,8 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
   private var supportedExecs = readSupportedExecs
 
   private var supportedExprs = readSupportedExprs
+
+  private val unsupportedOpsReasons = readUnsupportedOpsByDefaultReasons
 
   // for testing purposes only
   def setPluginDataSourceFile(filePath: String): Unit = {
@@ -364,5 +367,17 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
       logDebug(s"Expr $expr does not exist in supported execs file")
       false
     }
+  }
+
+  def getNotSupportedExprs(exprs: Seq[String]): Seq[UnsupportedExpr] = {
+    exprs.collect {
+      case expr if !isExprSupported(expr) =>
+        val reason = unsupportedOpsReasons.getOrElse(expr, "")
+        UnsupportedExpr(expr, reason)
+    }
+  }
+
+  def getNotSupportedExecsReason(exec: String): String = {
+    unsupportedOpsReasons.getOrElse(exec, "")
   }
 }

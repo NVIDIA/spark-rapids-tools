@@ -32,7 +32,7 @@ case class TakeOrderedAndProjectExecParser(
     val duration = None
     val exprString = node.desc.replaceFirst("TakeOrderedAndProject ", "")
     val expressions = SQLPlanParser.parseTakeOrderedExpressions(exprString)
-    val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
+    val notSupportedExprs = checker.getNotSupportedExprs(expressions)
     val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
       notSupportedExprs.isEmpty) {
       (checker.getSpeedupFactor(fullExecName), true)

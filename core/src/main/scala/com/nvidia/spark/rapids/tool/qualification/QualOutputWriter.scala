@@ -1027,10 +1027,8 @@ object QualOutputWriter {
       constructOutputRow(data, delimiter, prettyPrint)
     }
 
-    def writeExecToCSV(execI: ExecInfo, stageId: Int, stageDur: Long,
-        unsupportedOps: Map[String, String]): Unit = {
-      val results = execI.getUnsupportedExecSummaryRecord(execIdGenerator.getAndIncrement(),
-        unsupportedOps)
+    def writeExecToCSV(execI: ExecInfo, stageId: Int, stageDur: Long): Unit = {
+      val results = execI.getUnsupportedExecSummaryRecord(execIdGenerator.getAndIncrement())
       val unsupportedRows = results.map { unsupportedExecSummary =>
         constructDetailedUnsupportedRow(unsupportedExecSummary, stageId, stageDur)
       }.mkString
@@ -1040,15 +1038,14 @@ object QualOutputWriter {
     sumInfo.origPlanStageInfo.map { sInfo =>
       getUnsupportedExecsPerStage(sumInfo, sInfo.stageId).collect {
         case execInfo =>
-          writeExecToCSV(execInfo, sInfo.stageId, sInfo.stageWallclockDuration,
-            sumInfo.unsupportedOpsReasons)
+          writeExecToCSV(execInfo, sInfo.stageId, sInfo.stageWallclockDuration)
       }
     }
 
     // write down the execs that are not attached to any stage
     getUnsupportedExecsWithNoStage(sumInfo).collect {
       case execInfo =>
-        writeExecToCSV(execInfo, dummyStageID, dummyStageDur, sumInfo.unsupportedOpsReasons)
+        writeExecToCSV(execInfo, dummyStageID, dummyStageDur)
     }
   }
 
