@@ -32,7 +32,7 @@ import org.apache.spark.ml.feature.PCA
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
-import org.apache.spark.sql.functions.{desc, hex, udf}
+import org.apache.spark.sql.functions.{desc, hex, to_json, udf}
 import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterInfo, ClusterSummary, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo, RunningQualificationEventProcessor}
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
@@ -1184,6 +1184,47 @@ class QualificationSuite extends BaseTestSuite {
             } else {
               assert(numValue > 0)
             }
+          }
+        }
+      }
+    }
+  }
+
+  test("custom reasons for operators disabled by default") {
+    TrampolineUtil.withTempDir { outParquetFile =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "unsup") { spark =>
+          import spark.implicits._
+          val data = Seq((1, ("Person1", 30)), (2, ("Person2", 25))).toDF("id", "person")
+          data.write.parquet(s"$outParquetFile/person_info")
+          val df = spark.read.parquet(s"$outParquetFile/person_info")
+          df.withColumn("person_json", to_json($"person"))
+        }
+
+        TrampolineUtil.withTempDir { outpath =>
+          val appArgs = new QualificationArgs(Array(
+            "--output-directory",
+            outpath.getAbsolutePath,
+            eventLog))
+
+          val (exit, _) = QualificationMain.mainInternal(appArgs)
+          assert(exit == 0)
+          createSparkSession()
+          val filename = s"$outpath/rapids_4_spark_qualification_output/" +
+              s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
+
+          val inputSource = Source.fromFile(filename)
+          try {
+            val lines = inputSource.getLines.toArray
+            val expr = ".*to_json.*"
+            val matches = lines.filter(_.matches(expr))
+            assert(matches.length == 1)
+            //get line number containing to_json
+            val lineNum = lines.indexOf(matches(0))
+            // check if lineNum has the expected value "This is disabled by default"
+            assert(lines(lineNum).contains("This is disabled by default"))
+          } finally {
+            inputSource.close()
           }
         }
       }
