@@ -243,6 +243,8 @@ def compare_csv_file(union_df, tools_df, keys, report_file):
             for column_name in union_df.columns:
                 if is_support_level(union_row[column_name]):
                     union_df.at[union_idx, column_name] = "TNEW"
+                    # update override configs file
+                    # TODO
                     break
             report_file.write(f"Row is added: {', '.join(union_row.astype(str))}\n")
     
