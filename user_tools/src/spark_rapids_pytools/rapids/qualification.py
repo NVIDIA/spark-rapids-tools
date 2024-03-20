@@ -32,7 +32,7 @@ from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType
 from spark_rapids_tools.tools.top_candidates import TopCandidates
-from spark_rapids_tools.tools.unsupported_operators import UnsupportedOpsStageDuration
+from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
 
 
 @dataclass
