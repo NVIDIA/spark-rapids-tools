@@ -40,6 +40,10 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
   // configured off
   private val CO = "CO"
   private val NA = "NA"
+  // tools off (explicitly disabled in tools)
+  private val TOFF = "TOFF"
+  // tools new (new ops from plugin which have not been parsed or tested yet)
+  private val TNEW = "TNEW"
 
   private val DEFAULT_DS_FILE = "supportedDataSource.csv"
   private val SUPPORTED_EXECS_FILE = "supportedExecs.csv"
@@ -204,7 +208,8 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
         if (direction.equals("read")) {
           val dataTypesToSup = header.drop(2).zip(cols.drop(2)).toMap
           val nsTypes = dataTypesToSup.filter { case (_, sup) =>
-            sup.equals(NA) || sup.equals(NS) || sup.equals(CO)
+            sup.equals(NA) || sup.equals(NS) || sup.equals(CO) ||
+            sup.equals(TNEW) || sup.equals(TOFF)
           }.keys.toSeq.map(_.toLowerCase)
           val allNsTypes = nsTypes.flatMap(t => getOtherTypes(t) :+ t)
           val allBySup = HashMap(NS -> allNsTypes)

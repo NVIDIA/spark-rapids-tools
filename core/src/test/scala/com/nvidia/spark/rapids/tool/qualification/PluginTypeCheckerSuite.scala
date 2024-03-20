@@ -57,7 +57,7 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     }
   }
 
-  test("read not CO datatype") {
+  test("read CO datatype") {
     val checker = new PluginTypeChecker
     TrampolineUtil.withTempDir { outpath =>
       val testSchema = "loan_id:bigint,monthly_reporting_period:string,servicer:string"
@@ -69,6 +69,51 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
       val (score, nsTypes) = checker.scoreReadDataTypes("parquet", testSchema)
       assert(score == 0.0)
       assert(nsTypes.contains("int"))
+    }
+  }
+
+  test("read TOFF datatype") {
+    val checker = new PluginTypeChecker
+    TrampolineUtil.withTempDir { outpath =>
+      val testSchema = "loan_id:bigint,monthly_reporting_period:string,servicer:string"
+      val header = "Format,Direction,int\n"
+      val supText = (header + "parquet,read,TOFF\n").getBytes(StandardCharsets.UTF_8)
+      val csvSupportedFile = Paths.get(outpath.getAbsolutePath, "testDS.txt")
+      Files.write(csvSupportedFile, supText)
+      checker.setPluginDataSourceFile(csvSupportedFile.toString)
+      val (score, nsTypes) = checker.scoreReadDataTypes("parquet", testSchema)
+      assert(score == 0.0)
+      assert(nsTypes.contains("int"))
+    }
+  }
+
+  test("read TNEW datatype") {
+    val checker = new PluginTypeChecker
+    TrampolineUtil.withTempDir { outpath =>
+      val testSchema = "loan_id:bigint,monthly_reporting_period:string,servicer:string"
+      val header = "Format,Direction,int\n"
+      val supText = (header + "parquet,read,TNEW\n").getBytes(StandardCharsets.UTF_8)
+      val csvSupportedFile = Paths.get(outpath.getAbsolutePath, "testDS.txt")
+      Files.write(csvSupportedFile, supText)
+      checker.setPluginDataSourceFile(csvSupportedFile.toString)
+      val (score, nsTypes) = checker.scoreReadDataTypes("parquet", testSchema)
+      assert(score == 0.0)
+      assert(nsTypes.contains("int"))
+    }
+  }
+
+  test("read TON datatype") {
+    val checker = new PluginTypeChecker
+    TrampolineUtil.withTempDir { outpath =>
+      val testSchema = "loan_id:bigint,monthly_reporting_period:string,servicer:string"
+      val header = "Format,Direction,int\n"
+      val supText = (header + "parquet,read,TON\n").getBytes(StandardCharsets.UTF_8)
+      val csvSupportedFile = Paths.get(outpath.getAbsolutePath, "testDS.txt")
+      Files.write(csvSupportedFile, supText)
+      checker.setPluginDataSourceFile(csvSupportedFile.toString)
+      val (score, nsTypes) = checker.scoreReadDataTypes("parquet", testSchema)
+      assert(score == 1.0)
+      assert(nsTypes.isEmpty)
     }
   }
 
