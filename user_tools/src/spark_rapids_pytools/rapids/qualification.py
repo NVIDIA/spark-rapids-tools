@@ -418,7 +418,7 @@ class Qualification(RapidsJarTool):
                                                                       cols_map.get(col_rename),
                                                                       regex=False)
 
-        # for TCO, group by app name and average durations, then recalculate Estimated GPU Speedup
+        # for TCO, group by app name and average durations, then recalculate metrics
         group_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
         if group_map:
             for group_key, group_value in group_map.items():
@@ -431,11 +431,13 @@ class Qualification(RapidsJarTool):
         if len(subset_data) != len(all_rows):
             notes = 'Apps with the same name are grouped together and their metrics are averaged'
 
+        # recalculate estimated GPU speedup
         subset_data['Estimated GPU Speedup'] = subset_data['App Duration'] / subset_data['Estimated GPU Duration']
         unsupported_ops_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
                                                        'resultColumnName')
         unsupported_ops_perc_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
                                                             'percentResultColumnName')
+        # recalculate unsupported operators stage duration percent
         subset_data[unsupported_ops_perc_col_name] =\
             subset_data[unsupported_ops_col_name] * 100.0 / subset_data['App Duration']
 
