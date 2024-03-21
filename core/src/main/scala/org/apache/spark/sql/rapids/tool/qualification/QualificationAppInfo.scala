@@ -633,19 +633,6 @@ class QualificationAppInfo(
         _.unsupportedExprs.map(_.exprName))).flatten.filter(_.nonEmpty).toSet.mkString(";")
         .trim.replaceAll("\n", "").replace(",", ":")
 
-      // Get all unsupported execs and expressions from the plan in form of map[exec -> exprs]
-      val unsupportedExecExprsMap = planInfos.flatMap { p =>
-        val topLevelExecs = p.execInfo.filterNot(_.isSupported).filterNot(
-          x => x.exec.startsWith("WholeStage"))
-        val childrenExecs = p.execInfo.flatMap { e =>
-          e.children.map(x => x.filterNot(_.isSupported))
-        }.flatten
-        val execs = topLevelExecs ++ childrenExecs
-        val exprs = execs.filter(_.unsupportedExprs.nonEmpty).map(
-          e => e.exec -> e.unsupportedExprs.mkString(";")).toMap
-        exprs
-      }.toMap
-
       // check if there are any SparkML/XGBoost functions or expressions if the mlOpsEnabled
       // config is true
       val mlFunctions = if (mlOpsEnabled) {
@@ -696,7 +683,7 @@ class QualificationAppInfo(
         origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
-        mlTotalStageDuration, unsupportedOpsReason, unsupportedExecExprsMap, clusterSummary)
+        mlTotalStageDuration, unsupportedOpsReason, clusterSummary)
     }
   }
 
@@ -948,7 +935,6 @@ case class QualificationSummaryInfo(
     mlFunctions: Option[Seq[MLFunctions]],
     mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]],
     unsupportedOpsReasons: Map[String, String],
-    unsupportedExecstoExprsMap: Map[String, String],
     clusterSummary: ClusterSummary,
     estimatedFrequency: Option[Long] = None)
 
