@@ -27,6 +27,47 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.UnsupportedExpr
 
+object OpSuppLevel extends Enumeration {
+  case class OpSuppLevelVal(label: String, support: Boolean,
+      description: String = "") extends super.Val {
+    def isSupported: Boolean = support
+    def getNotesForDisabledOp(notesFromFile: String): String = {
+      if (notesFromFile != "None") {
+        notesFromFile
+      } else {
+        description
+      }
+    }
+  }
+
+  import scala.language.implicitConversions
+  implicit def valueToOpSupportLevelsVal(x: Value):
+  OpSuppLevelVal = x.asInstanceOf[OpSuppLevelVal]
+
+  val S = OpSuppLevelVal("S", true, "Enabled by the Plugin")
+  val TON = OpSuppLevelVal("TON", true, "Force enabled by the Tools")
+  // we consider PS supported for now
+  val PS = OpSuppLevelVal("PS", true, "Partially supported by the Plugin")
+  val TNEW = OpSuppLevelVal("TNEW", false, "Recently added and not tested yet in Tools")
+  val TOFF = OpSuppLevelVal("TOFF", false, "Force disabled by the Tools")
+  val NS = OpSuppLevelVal("NS", false, "Not supported by the plugin")
+  val CO = OpSuppLevelVal("CO", false, "Configured OFF by the Plugin")
+  val NA = OpSuppLevelVal("NA", false, "Not available by the Plugin")
+  val Unknown = OpSuppLevelVal("Unknown", false, "Anything that is not defined")
+
+  // Those are the support level that propagate the notes to clarify why a certain op is disabled.
+  val suppLevelsWithPropagation: Set[OpSuppLevelVal] = Set(TOFF, NS)
+
+  def fromString(str: String): OpSuppLevelVal = {
+    values.find(_.toString.toLowerCase() == str.toLowerCase()).getOrElse(Unknown)
+  }
+
+  def isLevelSupported(level: String): Boolean = {
+    val opSupLevel = fromString(level)
+    opSupLevel.isSupported
+  }
+}
+
 /**
  * This class is used to check what the RAPIDS Accelerator for Apache Spark
  * supports for data formats and data types.
@@ -36,11 +77,6 @@ import org.apache.spark.sql.rapids.tool.UnsupportedExpr
  */
 class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
                         speedupFactorFile: Option[String] = None) extends Logging {
-
-  private val NS = "NS"
-  // configured off
-  private val CO = "CO"
-  private val NA = "NA"
   private val NONE = "None"
 
   private val DEFAULT_DS_FILE = "supportedDataSource.csv"
@@ -56,9 +92,9 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
 
   private var supportedOperatorsScore = readOperatorsScore
 
-  private var supportedExecs = readSupportedExecs
+  private val supportedExecs = readSupportedExecs.map { x => (x._1, OpSuppLevel.fromString(x._2))}
 
-  private var supportedExprs = readSupportedExprs
+  private val supportedExprs = readSupportedExprs.map { x => (x._1, OpSuppLevel.fromString(x._2))}
 
   private val unsupportedOpsReasons = readUnsupportedOpsByDefaultReasons
 
@@ -75,19 +111,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
     supportedOperatorsScore = readOperators(source, "score", true).map(x => (x._1, x._2.toDouble))
   }
 
-  def setSupportedExecs(filePath: String): Unit = {
-    val source = Source.fromFile(filePath)
-    // We are reading only first 2 columns for now and other columns are ignored intentionally.
-    supportedExecs = readOperators(source, "execs", true)
-  }
-
-  def setSupportedExprs(filePath: String): Unit = {
-    val source = Source.fromFile(filePath)
-    // We are reading only first 2 columns for now and other columns are ignored intentionally.
-    supportedExprs = readOperators(source, "exprs", true)
-  }
-
-  def getSupportedExprs: Map[String, String] = supportedExprs
+  def getSupportedExprs: Map[String, OpSuppLevel.OpSuppLevelVal] = supportedExprs
 
   private def readOperatorsScore: Map[String, Double] = {
     speedupFactorFile match {
@@ -201,14 +225,16 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
         exprName ++ sqlFuncNames.map(name => (name, cols(1)))
       case "exprs" =>
         // Logic for unsupported expressions
-        if (cols(1) == "NS" && cols(3) != NONE) {
-          val exprName = Seq((cols(0), cols(3)))
+        val opSupVal = OpSuppLevel.fromString(cols(1))
+        if (OpSuppLevel.suppLevelsWithPropagation.contains(opSupVal)) {
+          val loadedReason = opSupVal.getNotesForDisabledOp(cols(3))
+          val exprName = Seq((cols(0), loadedReason))
           val sqlFuncNames = if (cols(2).nonEmpty && cols(2) != NONE) {
             cols(2).split(";").map(_.trim).toSeq
           } else {
             Seq.empty
           }
-          exprName ++ sqlFuncNames.map(name => (name, cols(3)))
+          exprName ++ sqlFuncNames.map(name => (name, loadedReason))
         } else {
           Seq.empty
         }
@@ -217,10 +243,12 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
         Seq((cols(0), cols(1)))
       case _ =>
         // Logic for unsupported execs
-        if (cols(1) == "NS" && cols(2) != NONE) {
+        val opSupVal = OpSuppLevel.fromString(cols(1))
+        if (OpSuppLevel.suppLevelsWithPropagation.contains(opSupVal)) {
+          val loadedReason = opSupVal.getNotesForDisabledOp(cols(2))
           // Exec names have Exec at the end, we need to remove it to match with the names
           // saved in the csv file.
-          Seq((cols(0).dropRight(4), cols(2)))
+          Seq((cols(0).dropRight(4), loadedReason))
         } else {
           Seq.empty
         }
@@ -256,10 +284,10 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
         if (direction.equals("read")) {
           val dataTypesToSup = header.drop(2).zip(cols.drop(2)).toMap
           val nsTypes = dataTypesToSup.filter { case (_, sup) =>
-            sup.equals(NA) || sup.equals(NS) || sup.equals(CO)
+            !OpSuppLevel.isLevelSupported(sup)
           }.keys.toSeq.map(_.toLowerCase)
           val allNsTypes = nsTypes.flatMap(t => getOtherTypes(t) :+ t)
-          val allBySup = HashMap(NS -> allNsTypes)
+          val allBySup = HashMap(OpSuppLevel.NS.label -> allNsTypes)
           allSupportedReadSources.put(format, allBySup.toMap)
         } else if (direction.equals("write")) {
           allSupportedWriteFormats += format
@@ -296,7 +324,8 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
     val score = typesBySup match {
       case Some(dtSupMap) =>
         // check if any of the not supported types are in the schema
-        val nsFiltered = dtSupMap(NS).filter(t => schemaLower.contains(t.toLowerCase()))
+        val nsFiltered =
+          dtSupMap(OpSuppLevel.NS.label).filter(t => schemaLower.contains(t.toLowerCase()))
         if (nsFiltered.nonEmpty) {
           (0.0, nsFiltered.toSet)
         } else {
@@ -325,44 +354,25 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
   }
 
   def getSpeedupFactor(execOrExpr: String): Double = {
-    supportedOperatorsScore.get(execOrExpr).getOrElse(1)
+    supportedOperatorsScore.get(execOrExpr).getOrElse(1.0)
   }
 
   def isExecSupported(exec: String): Boolean = {
     // special case ColumnarToRow and assume it will be removed or will we replace
     // with GPUColumnarToRow. TODO - we can add more logic here to look at operator
     //  before and after
+    // TODO: This is very tricky that we have this special case handled here.
     if (exec == "ColumnarToRow") {
       return true
     }
-    if (supportedExecs.contains(exec)) {
-      val execSupported = supportedExecs.getOrElse(exec, "NS")
-      if (execSupported == "S") {
-        true
-      } else {
-        logDebug(s"Exec explicitly not supported, value: $execSupported")
-        false
-      }
-    } else {
-      logDebug(s"Exec $exec does not exist in supported execs file")
-      false
-    }
+    val opSupLevel = supportedExecs.getOrElse(exec, OpSuppLevel.NS)
+    opSupLevel.isSupported
   }
 
   def isExprSupported(expr: String): Boolean = {
     val exprLowercase = expr.toLowerCase
-    if (supportedExprs.contains(exprLowercase)) {
-      val exprSupported = supportedExprs.getOrElse(exprLowercase, "NS")
-      if (exprSupported == "S") {
-        true
-      } else {
-        logDebug(s"Expression explicitly not supported, value: $exprSupported")
-        false
-      }
-    } else {
-      logDebug(s"Expr $expr does not exist in supported execs file")
-      false
-    }
+    val exprSupported = supportedExprs.getOrElse(exprLowercase, OpSuppLevel.NS)
+    exprSupported.isSupported
   }
 
   def getNotSupportedExprs(exprs: Seq[String]): Seq[UnsupportedExpr] = {
