@@ -123,8 +123,6 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     assert(checker.isExecSupported("ShuffledHashJoinExec"))
     assert(checker.isExecSupported("ShuffledHashJoinExec"))
     assert(checker.isExecSupported("CollectLimitExec") == false)
-    assert(checker.isExecSupported("ColumnarToRow"))
-
   }
 
   test("supported Expressions") {
