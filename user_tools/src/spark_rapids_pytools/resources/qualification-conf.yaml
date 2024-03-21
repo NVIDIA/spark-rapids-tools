@@ -17,6 +17,7 @@ toolOutput:
         - Estimated GPU Duration
         - App Duration
         - Estimated Job Frequency (monthly)
+        - Unsupported Operators Stage Duration
       mapColumns:
         Recommendation: 'Speedup Based Recommendation'
       recommendations:
@@ -33,6 +34,7 @@ toolOutput:
       groupColumns:
          App Duration: 'App Name'
          Estimated GPU Duration: 'App Name'
+         Unsupported Operators Stage Duration: 'App Name'
       dropDuplicates:
          - App Name
   json:
@@ -190,17 +192,18 @@ local:
         sum:
           - 'App ID'
           - 'App Duration'
-      resultColumnName: 'Unsupported Stage Duration Percentage'
+      resultColumnName: 'Unsupported Operators Stage Duration'
+      percentResultColumnName: 'Unsupported Operators Stage Duration Percent'
     topCandidates:
       outputColumns:
         - 'App ID'
         - 'App Name'
         - 'App Duration'
         - 'Estimated GPU Speedup'
-        - 'Unsupported Stage Duration Percentage'
+        - 'Unsupported Operators Stage Duration Percent'
       sortingColumns:
         - 'Estimated GPU Speedup'
-        - 'Unsupported Stage Duration Percentage'
+        - 'Unsupported Operators Stage Duration Percent'
       joinColumns:
         - 'App ID'
         - 'App Name'
@@ -209,7 +212,7 @@ local:
           - columnName: 'Estimated GPU Speedup'
             lowerBound: 1.3
             upperBound: 1000000.0
-          - columnName: 'Unsupported Stage Duration Percentage'
+          - columnName: 'Unsupported Operators Stage Duration Percent'
             lowerBound: 0.0
             upperBound: 25.0
       output: # Configs related to output

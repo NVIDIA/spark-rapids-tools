@@ -432,6 +432,12 @@ class Qualification(RapidsJarTool):
             notes = 'Apps with the same name are grouped together and their metrics are averaged'
 
         subset_data['Estimated GPU Speedup'] = subset_data['App Duration'] / subset_data['Estimated GPU Duration']
+        unsupported_ops_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
+                                                       'resultColumnName')
+        unsupported_ops_perc_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
+                                                            'percentResultColumnName')
+        subset_data[unsupported_ops_perc_col_name] =\
+            subset_data[unsupported_ops_col_name] * 100.0 / subset_data['App Duration']
 
         return subset_data, notes
 
@@ -661,11 +667,11 @@ class Qualification(RapidsJarTool):
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
 
-        apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
                                                                               'unsupportedOperators'))
-        apps_pruned_df = unsupported_ops_obj.prepare_apps_with_unsupported_stages(apps_pruned_df,
-                                                                                  unsupported_ops_df)
+        # Calculate unsupported operators stage duration before grouping
+        all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
+        apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
         recommended_apps = self.__get_recommended_apps(apps_pruned_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()

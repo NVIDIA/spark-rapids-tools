@@ -37,9 +37,12 @@ class UnsupportedOpsStageDuration:
         # Note: We might have lost some applications because of masking. Final result should include these
         # applications with unsupported stage duration percentage as 100.0. Thus implying that
         # these applications have all stages with unsupported operator and are unusable.
-        result_col_name = self.props.get('resultColumnName')
         result_df = pd.merge(all_apps, unsupported_stage_duration_percentage, how='left')
-        result_df[result_col_name] = result_df[result_col_name].fillna(100)
+        result_col_name = self.props.get('resultColumnName')
+        result_df[result_col_name] = result_df[result_col_name].fillna(result_df['App Duration'])
+        # Update the percentage column
+        perc_result_col_name = self.props.get('percentResultColumnName')
+        result_df[perc_result_col_name] = result_df[result_col_name] * 100.0 / result_df['App Duration']
         return result_df
 
     def __calculate_unsupported_stages_duration(self, unsupported_ops_df: pd.DataFrame) -> pd.DataFrame:
@@ -52,15 +55,12 @@ class UnsupportedOpsStageDuration:
 
         # Calculate total duration of stages with unsupported operators
         grouping_cols = self.props.get('groupingColumns')
-        unsupported_stage_duration = unsupported_ops_df \
+        unsupported_ops_stage_duration = unsupported_ops_df \
             .groupby(grouping_cols.get('max'))['Stage Duration'].max().reset_index() \
             .groupby(grouping_cols.get('sum'))['Stage Duration'].sum().reset_index()
 
-        # Calculate percentage of app duration
-        result_col_name = self.props.get('resultColumnName')
-        return unsupported_stage_duration \
-            .assign(unsupported_duration_perc=lambda df: (df['Stage Duration'] * 100) / df['App Duration']) \
-            .rename(columns={'unsupported_duration_perc': result_col_name})
+        # Return the calculated unsupported operators stage duration
+        return unsupported_ops_stage_duration.rename(columns={'Stage Duration':  self.props.get('resultColumnName')})
 
     def __create_column_mask(self, unsupported_ops_df: pd.DataFrame) -> bool:
         """
