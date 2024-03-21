@@ -29,13 +29,21 @@ import org.apache.spark.sql.rapids.tool.UnsupportedExpr
 
 object OpSuppLevel extends Enumeration {
   case class OpSuppLevelVal(label: String, support: Boolean,
-      description: String = "") extends super.Val {
+      description: String = "", requiresNotes: Boolean = false) extends super.Val {
     def isSupported: Boolean = support
     def getNotesForDisabledOp(notesFromFile: String): String = {
       if (notesFromFile != "None") {
         notesFromFile
       } else {
         description
+      }
+    }
+
+    def shouldLoadNotesFromFile(notesFromFile: String): Boolean = {
+      if (requiresNotes) {
+        notesFromFile != "None"
+      } else {
+        true
       }
     }
   }
@@ -50,13 +58,13 @@ object OpSuppLevel extends Enumeration {
   val PS = OpSuppLevelVal("PS", true, "Partially supported by the Plugin")
   val TNEW = OpSuppLevelVal("TNEW", false, "Recently added and not tested yet in Tools")
   val TOFF = OpSuppLevelVal("TOFF", false, "Force disabled by the Tools")
-  val NS = OpSuppLevelVal("NS", false, "Not supported by the plugin")
-  val CO = OpSuppLevelVal("CO", false, "Configured OFF by the Plugin")
+  val NS = OpSuppLevelVal("NS", false, "Not supported by the plugin", requiresNotes = true)
+  val CO = OpSuppLevelVal("CO", false, "Configured OFF by the Plugin", requiresNotes = true)
   val NA = OpSuppLevelVal("NA", false, "Not available by the Plugin")
   val Unknown = OpSuppLevelVal("Unknown", false, "Anything that is not defined")
 
   // Those are the support level that propagate the notes to clarify why a certain op is disabled.
-  val suppLevelsWithPropagation: Set[OpSuppLevelVal] = Set(TOFF, NS)
+  val suppLevelsWithPropagation: Set[OpSuppLevelVal] = Set(TOFF, NS, CO)
 
   def fromString(str: String): OpSuppLevelVal = {
     values.find(_.toString.toLowerCase() == str.toLowerCase()).getOrElse(Unknown)
@@ -226,7 +234,8 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
       case "exprs" =>
         // Logic for unsupported expressions
         val opSupVal = OpSuppLevel.fromString(cols(1))
-        if (OpSuppLevel.suppLevelsWithPropagation.contains(opSupVal)) {
+        if (OpSuppLevel.suppLevelsWithPropagation.contains(opSupVal) &&
+            opSupVal.shouldLoadNotesFromFile(cols(3))) {
           val loadedReason = opSupVal.getNotesForDisabledOp(cols(3))
           val exprName = Seq((cols(0), loadedReason))
           val sqlFuncNames = if (cols(2).nonEmpty && cols(2) != NONE) {
@@ -244,7 +253,8 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
       case _ =>
         // Logic for unsupported execs
         val opSupVal = OpSuppLevel.fromString(cols(1))
-        if (OpSuppLevel.suppLevelsWithPropagation.contains(opSupVal)) {
+        if (OpSuppLevel.suppLevelsWithPropagation.contains(opSupVal) &&
+            opSupVal.shouldLoadNotesFromFile(cols(2))) {
           val loadedReason = opSupVal.getNotesForDisabledOp(cols(2))
           // Exec names have Exec at the end, we need to remove it to match with the names
           // saved in the csv file.
