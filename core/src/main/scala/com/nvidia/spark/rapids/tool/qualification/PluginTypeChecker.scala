@@ -49,8 +49,7 @@ object OpSuppLevel extends Enumeration {
   }
 
   import scala.language.implicitConversions
-  implicit def valueToOpSupportLevelsVal(x: Value):
-  OpSuppLevelVal = x.asInstanceOf[OpSuppLevelVal]
+  implicit def valueToOpSupportLevelsVal(x: Value): OpSuppLevelVal = x.asInstanceOf[OpSuppLevelVal]
 
   val S = OpSuppLevelVal("S", true, "Enabled by the Plugin")
   val TON = OpSuppLevelVal("TON", true, "Force enabled by the Tools")
@@ -368,13 +367,6 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
   }
 
   def isExecSupported(exec: String): Boolean = {
-    // special case ColumnarToRow and assume it will be removed or will we replace
-    // with GPUColumnarToRow. TODO - we can add more logic here to look at operator
-    //  before and after
-    // TODO: This is very tricky that we have this special case handled here.
-    if (exec == "ColumnarToRow") {
-      return true
-    }
     val opSupLevel = supportedExecs.getOrElse(exec, OpSuppLevel.NS)
     opSupLevel.isSupported
   }
