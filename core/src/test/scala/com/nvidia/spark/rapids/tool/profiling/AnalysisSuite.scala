@@ -93,6 +93,7 @@ class AnalysisSuite extends FunSuite {
     val schema = new StructType()
       .add("appIndex",IntegerType,true)
       .add("appID",StringType,true)
+      .add("rootsqlID",LongType,true)
       .add("sqlID",LongType,true)
       .add("sqlDuration",LongType,true)
       .add("containsDataset",BooleanType,true)

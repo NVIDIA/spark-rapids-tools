@@ -748,7 +748,7 @@ object QualOutputWriter {
     val data = ListBuffer[(String, Int)](
       reformatCSVFunc(sumInfo.info.appName) -> headersAndSizes(APP_NAME_STR),
       reformatCSVFunc(sumInfo.info.appId) -> appIdMaxSize,
-      sumInfo.rootExecutionID.getOrElse("").toString -> ROOT_SQL_ID_STR.size,
+      reformatCSVFunc(sumInfo.rootExecutionID.getOrElse("").toString)-> ROOT_SQL_ID_STR.size,
       sumInfo.sqlID.toString -> SQL_ID_STR.size,
       reformatCSVFunc(formatSQLDescription(sumInfo.sqlDesc, maxSQLDescLength, delimiter)) ->
         headersAndSizes(SQL_DESC_STR),
