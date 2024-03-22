@@ -251,7 +251,12 @@ def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_jso
                         json_entry[key] = union_row[key]
                     json_entry["override"] = [{"key": column_name, "value": "TNEW"}]
                     if csv_file_name in override_configs_json:
-                        override_configs_json[csv_file_name].append(json_entry)
+                        json_entry_exists = False
+                        for entry in override_configs_json[csv_file_name]:
+                            if entry == json_entry:
+                                json_entry_exists = True
+                        if not json_entry_exists:
+                            override_configs_json[csv_file_name].append(json_entry)
                     else:
                         override_configs_json[csv_file_name]= [json_entry]
                     break
