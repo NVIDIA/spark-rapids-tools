@@ -282,7 +282,7 @@ def main(args):
     args: Namespace containing the command-line arguments
     """
 
-    genrated_files_dir = args.path
+    generated_files_dir = args.path
     override_configs_file = args.configs
     output_dir = args.output
     # load override configs into a json object
@@ -294,13 +294,13 @@ def main(args):
 
     # generate the union of supported files as pandas dataframe
     logging.info("Processing to merge plugin supportedDataSource.csv files")
-    data_source_union_df = unify_all_files(genrated_files_dir, "supportedDataSource.csv", ["Format", "Direction"])
+    data_source_union_df = unify_all_files(generated_files_dir, "supportedDataSource.csv", ["Format", "Direction"])
     logging.info("Processing to merge plugin supportedExecs.csv files")
-    execs_union_df = unify_all_files(genrated_files_dir, "supportedExecs.csv", ["Exec", "Params"])
+    execs_union_df = unify_all_files(generated_files_dir, "supportedExecs.csv", ["Exec", "Params"])
     logging.info("Processing to merge plugin supportedExecs.csv files")
-    exprs_union_df = unify_all_files(genrated_files_dir, "supportedExprs.csv", ["Expression", "Context", "Params"])
+    exprs_union_df = unify_all_files(generated_files_dir, "supportedExprs.csv", ["Expression", "Context", "Params"])
 
-    # post-process the dataframes to override customed configs
+    # post-process the dataframes to override custom configs
     logging.info("Post-processing supportedDataSource.csv union to overrride custom configs")
     data_source_union_df = override_supported_configs(override_configs_json, "supportedDataSource.csv", data_source_union_df, ["Format", "Direction"])
     logging.info("Post-processing supportedExecs.csv union to overrride custom configs")
@@ -308,9 +308,9 @@ def main(args):
     logging.info("Post-processing supportedExprs.csv union to overrride custom configs")
     exprs_union_df = override_supported_configs(override_configs_json, "supportedExprs.csv", exprs_union_df, ["Expression", "Context", "Params"])
 
-    report_file = open('report.txt', 'w+')
+    report_file = open('operators_plugin_sync_report.txt', 'w+')
     report_file.write("""This report documents the differences between the tools existing CSV files and those processed from the plugin.
-    Note: 1. For added data source/exec/xpression from plugin, the first column with supported levels will be updated to 'TNEW' for future testing.\n\n""")
+    Note: 1. For added data source/exec/expression from plugin, the first column with supported levels will be updated to 'TNEW' for future testing.\n\n""")
 
     tools_csv_dir = args.tools_csv
     if not tools_csv_dir:
@@ -356,7 +356,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("path", type=str, help="Path to genrated_files directory.")
+    parser.add_argument("path", type=str, help="Path to generated_files directory.")
     parser.add_argument('--configs', type=str, help='Path to configs file for overriding current data.')
     parser.add_argument('--output', type=str, help='Path to output directory.', default='.')
     parser.add_argument('--tools-csv', type=str, help='Path to directory which contains the original CSV files in the tools repo.')
