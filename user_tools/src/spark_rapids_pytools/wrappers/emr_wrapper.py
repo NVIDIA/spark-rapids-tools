@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,12 +75,13 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                 or remote S3 url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
                 from maven repo
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
-                is one of the following (ALL, SPEEDUPS, SAVINGS). Default is "SAVINGS".
+                is one of the following (ALL, SPEEDUPS, SAVINGS, TOP_CANDIDATES). Default is "SAVINGS".
                 Note that this filter does not affect the CSV report.
                 "ALL" means no filter applied. "SPEEDUPS" lists all the apps that are either
                 'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
                 lists all the apps that have positive estimated GPU savings except for the apps that
-                are "Not Applicable"
+                are "Not Applicable". "TOP_CANDIDATES" lists all apps that have unsupported operators
+                stage duration less than 25% of app duration and speedups greater than 1.3x.
         :param gpu_cluster_recommendation: The type of GPU cluster recommendation to generate.
                It accepts one of the following ("CLUSTER", "JOB" and the default value "MATCH").
                 "MATCH": keep GPU cluster same number of nodes as CPU cluster;
