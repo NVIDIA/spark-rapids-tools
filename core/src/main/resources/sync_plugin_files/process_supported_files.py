@@ -204,7 +204,7 @@ def override_supported_configs(json_data, file_name, df, keys):
     return df
 
 
-def compare_csv_file(union_df, tools_df, keys, report_file):
+def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_json, csv_file_name):
     """
     Compare the plugin union dataframe with tools dataframe and write the differences to report file.
     For added rows in the plugin union Dataframe, update the 'SUPPORTED' or first support level column
@@ -215,6 +215,8 @@ def compare_csv_file(union_df, tools_df, keys, report_file):
     - tools_df: Pandas DataFrame which represents the tools CSV file.
     - keys: A list of column names which identifies a row in the Dataframes.
     - report_file: A file to write the differences into.
+    - override_configs_json: A json object which stores the override configs information.
+    - csv_file_name: File name to identify which supported CSV type is processing.
 
     Returns:
     - Modified union_df which may contain 'TNEW' entries.
@@ -243,8 +245,15 @@ def compare_csv_file(union_df, tools_df, keys, report_file):
             for column_name in union_df.columns:
                 if is_support_level(union_row[column_name]):
                     union_df.at[union_idx, column_name] = "TNEW"
-                    # update override configs file
-                    # TODO
+                    # update override configs json object for new ops
+                    json_entry = {}
+                    for key in keys:
+                        json_entry[key] = union_row[key]
+                    json_entry["override"] = [{"key": column_name, "value": "TNEW"}]
+                    if csv_file_name in override_configs_json:
+                        override_configs_json[csv_file_name].append(json_entry)
+                    else:
+                        override_configs_json[csv_file_name]= [json_entry]
                     break
             report_file.write(f"Row is added: {', '.join(union_row.astype(str))}\n")
     
@@ -271,6 +280,12 @@ def main(args):
     genrated_files_dir = args.path
     override_configs_file = args.configs
     output_dir = args.output
+    # load override configs into a json object
+    if override_configs_file:
+        with open(override_configs_file, 'r') as f:
+            override_configs_json = json.load(f)
+    else:
+        override_configs_json = {}
 
     # generate the union of supported files as pandas dataframe
     logging.info("Processing to merge plugin supportedDataSource.csv files")
@@ -281,15 +296,12 @@ def main(args):
     exprs_union_df = unify_all_files(genrated_files_dir, "supportedExprs.csv", ["Expression", "Context", "Params"])
 
     # post-process the dataframes to override customed configs
-    if override_configs_file:
-        with open(override_configs_file, 'r') as f:
-                override_configs = json.load(f)
-        logging.info("Post-processing supportedDataSource.csv union to overrride custom configs")
-        data_source_union_df = override_supported_configs(override_configs, "supportedDataSource.csv", data_source_union_df, ["Format", "Direction"])
-        logging.info("Post-processing supportedExecs.csv union to overrride custom configs")
-        execs_union_df = override_supported_configs(override_configs, "supportedExecs.csv", execs_union_df, ["Exec", "Params"])
-        logging.info("Post-processing supportedExprs.csv union to overrride custom configs")
-        exprs_union_df = override_supported_configs(override_configs, "supportedExprs.csv", exprs_union_df, ["Expression", "Context", "Params"])
+    logging.info("Post-processing supportedDataSource.csv union to overrride custom configs")
+    data_source_union_df = override_supported_configs(override_configs_json, "supportedDataSource.csv", data_source_union_df, ["Format", "Direction"])
+    logging.info("Post-processing supportedExecs.csv union to overrride custom configs")
+    execs_union_df = override_supported_configs(override_configs_json, "supportedExecs.csv", execs_union_df, ["Exec", "Params"])
+    logging.info("Post-processing supportedExprs.csv union to overrride custom configs")
+    exprs_union_df = override_supported_configs(override_configs_json, "supportedExprs.csv", exprs_union_df, ["Expression", "Context", "Params"])
 
     report_file = open('report.txt', 'w+')
     report_file.write("""This report documents the differences between the tools existing CSV files and those processed from the plugin.
@@ -306,27 +318,31 @@ def main(args):
     if os.path.exists(tools_data_source_file):
         report_file.write("\n**supportedDataSource.csv (FROM TOOLS TO PLUGIN)**\n")
         tools_data_source_df = pd.read_csv(tools_data_source_file, keep_default_na=False)
-        data_source_final_df = compare_csv_file(data_source_union_df, tools_data_source_df, ["Format", "Direction"], report_file)
+        data_source_final_df = compare_csv_file(data_source_union_df, tools_data_source_df, ["Format", "Direction"], report_file, override_configs_json, "supportedDataSource.csv")
 
     logging.info("Generating report for supportedExecs.csv")
     tools_execs_file = os.path.join(tools_csv_dir, "supportedExecs.csv")
     if os.path.exists(tools_execs_file):
         report_file.write("\n**supportedExecs.csv (FROM TOOLS TO PLUGIN)**\n")
         tools_execs_df = pd.read_csv(tools_execs_file, keep_default_na=False)
-        execs_final_df = compare_csv_file(execs_union_df, tools_execs_df, ["Exec", "Params"], report_file)
+        execs_final_df = compare_csv_file(execs_union_df, tools_execs_df, ["Exec", "Params"], report_file, override_configs_json, "supportedExecs.csv")
 
     logging.info("Generating report for supportedExprs.csv")
     tools_exprs_file = os.path.join(tools_csv_dir, "supportedExprs.csv")
     if os.path.exists(tools_exprs_file):
         report_file.write("\n**supportedExprs.csv (FROM TOOLS TO PLUGIN)**\n")
         tools_exprs_df = pd.read_csv(tools_exprs_file, keep_default_na=False)
-        exprs_final_df = compare_csv_file(exprs_union_df, tools_exprs_df, ["Expression", "Context", "Params"], report_file)
+        exprs_final_df = compare_csv_file(exprs_union_df, tools_exprs_df, ["Expression", "Context", "Params"], report_file, override_configs_json, "supportedExprs.csv")
 
     # write the result dataframes to output CSV files
     logging.info(f"Writing the final dataframes to output directory: {output_dir}")
     data_source_final_df.to_csv(f"{output_dir}/supportedDataSource.csv", index=False)
     execs_final_df.to_csv(f"{output_dir}/supportedExecs.csv", index=False)
     exprs_final_df.to_csv(f"{output_dir}/supportedExprs.csv", index=False)
+
+    # write the processed json data to input override configs file
+    with open(override_configs_file, 'w') as f:
+        json.dump(override_configs_json, f, indent=2)
 
     report_file.close()
 

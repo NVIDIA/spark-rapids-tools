@@ -1,0 +1,2086 @@
+{
+  "supportedExprs.csv": [
+    {
+      "Expression": "PromotePrecision",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "SQL Func",
+          "value": "`promote_precision`"
+        }
+      ]
+    },
+    {
+      "Expression": "PromotePrecision",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "SQL Func",
+          "value": "`promote_precision`"
+        }
+      ]
+    },
+    {
+      "Expression": "Empty2Null",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "SQL Func",
+          "value": "`empty2null`"
+        }
+      ]
+    },
+    {
+      "Expression": "Empty2Null",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "SQL Func",
+          "value": "`empty2null`"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "CheckOverflowInTableInsert",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "CheckOverflowInTableInsert",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "KnownNullable",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "KnownNullable",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "aggregation",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "aggregation",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "reduction",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "reduction",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "window",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "window",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "project",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "value",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "scale",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "value",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "scale",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "child",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "estimatedItems",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "numBits",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "InSubqueryExec",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "InSubqueryExec",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "CheckOverflowInTableInsert",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "CheckOverflowInTableInsert",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "KnownNullable",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "KnownNullable",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "aggregation",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "aggregation",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "reduction",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "reduction",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "window",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "window",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "project",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "value",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "scale",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "value",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "scale",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "child",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "estimatedItems",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "numBits",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "InSubqueryExec",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "InSubqueryExec",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "CheckOverflowInTableInsert",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "CheckOverflowInTableInsert",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "KnownNullable",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "KnownNullable",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "aggregation",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "aggregation",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "reduction",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "reduction",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "window",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "window",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "project",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "value",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "scale",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "value",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "scale",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "child",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "estimatedItems",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "numBits",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "InSubqueryExec",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "InSubqueryExec",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterMightContain",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "CheckOverflowInTableInsert",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "CheckOverflowInTableInsert",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideDTInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "DivideYMInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "KnownNullable",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "KnownNullable",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyDTInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "lhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "rhs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MultiplyYMInterval",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "aggregation",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "aggregation",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "reduction",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "reduction",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "window",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "window",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "project",
+      "Params": "param",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "PythonUDAF",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "value",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "scale",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundCeil",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "value",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "scale",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "RoundFloor",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "child",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "estimatedItems",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "numBits",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "BloomFilterAggregate",
+      "Context": "reduction",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "InSubqueryExec",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "InSubqueryExec",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    }
+  ],
+  "supportedExecs.csv": [
+    {
+      "Exec": "AQEShuffleReadExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "WriteFilesExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AppendDataExecV1",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AtomicCreateTableAsSelectExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AtomicReplaceTableAsSelectExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "OverwriteByExpressionExecV1",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "PythonMapInArrowExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "WindowGroupLimitExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AQEShuffleReadExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "WriteFilesExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AppendDataExecV1",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AtomicCreateTableAsSelectExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AtomicReplaceTableAsSelectExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "OverwriteByExpressionExecV1",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "PythonMapInArrowExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "WindowGroupLimitExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AQEShuffleReadExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "WriteFilesExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AppendDataExecV1",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AtomicCreateTableAsSelectExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AtomicReplaceTableAsSelectExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "OverwriteByExpressionExecV1",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "PythonMapInArrowExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "WindowGroupLimitExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AQEShuffleReadExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "WriteFilesExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AppendDataExecV1",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AtomicCreateTableAsSelectExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "AtomicReplaceTableAsSelectExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "OverwriteByExpressionExecV1",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "PythonMapInArrowExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "WindowGroupLimitExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    }
+  ]
+}
