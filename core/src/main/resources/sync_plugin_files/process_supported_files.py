@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
 Description:
     This Python script goes over all directories of different spark versions under the
-    spark-rapids/tools/generated_files folder, contructs unions of the supported CSV
+    spark-rapids/tools/generated_files folder, constructs unions of the supported CSV
     files (supportedDataSource.csv, supportedExecs.csv, and supportedExprs.csv) and
     writes the results to new CSV files.
 
@@ -30,7 +30,6 @@ Usage:
     python process_supported_files.py generated_files_path [--configs configs_file] \
         [--output output_directory] [--tools-csv tools_csv_dir]
 """
-
 
 import argparse
 import json
@@ -80,7 +79,7 @@ def is_greater(elem1, elem2):
        compare using their integer values.
     2) If not, compare their length (assuming strings with greater length contain more info).
     """
-    if is_support_level(elem1) and is_support_level(elem2): 
+    if is_support_level(elem1) and is_support_level(elem2):
         return SupportLevel[elem1] > SupportLevel[elem2]
     else:
         return len(elem1) > len(elem2)
@@ -118,28 +117,28 @@ def unify_all_files(root_dir, file_name, key_names):
     """
     final_df = pd.DataFrame()
 
-    for dir_name in os.listdir(root_dir): # List entries in root_dir
+    for dir_name in os.listdir(root_dir):  # List entries in root_dir
         if os.path.isdir(os.path.join(root_dir, dir_name)):
             csv_file_path = os.path.join(root_dir, dir_name, file_name)
             cur_df = pd.read_csv(csv_file_path, keep_default_na=False)
 
             if final_df.empty:
                 final_df = pd.DataFrame(columns=cur_df.columns.tolist())
-            
+
             # expand final_df if cur_df has more columns
             for col_name in cur_df.columns:
-                if not col_name in final_df.columns:
+                if col_name not in final_df.columns:
                     logging.debug(f"Expanding final_df with new column name: {col_name}")
                     final_df[col_name] = ["NS" for _ in range(final_df.shape[0])]
-            
+
             # iterate through every row in the current df and update the final df correspondingly
             for _, cur_row in cur_df.iterrows():
                 # expand current_row if final_df has more columns
                 for col_name in final_df.columns:
-                    if not col_name in cur_row:
+                    if col_name not in cur_row:
                         logging.debug(f"Expanding cur_row with entry: ({col_name}, NS)")
                         cur_row.loc[col_name] = "NS"
-   
+
                 updated_flag = False
                 for final_idx, final_row in final_df.iterrows():
                     # current row exists in final df, unify them and update final df
@@ -147,14 +146,14 @@ def unify_all_files(root_dir, file_name, key_names):
                         updated_flag = True
                         for col_name in final_df.columns:
                             # if cur_row[col_name] has higher support level, update final_row[col_name]
-                            if (not col_name in key_names) and is_greater(cur_row[col_name], final_row[col_name]):
+                            if (col_name not in key_names) and is_greater(cur_row[col_name], final_row[col_name]):
                                 logging.debug(f"Updating final_df at ({final_idx}, {col_name}) = {cur_row[col_name]}")
                                 final_df.at[final_idx, col_name] = cur_row[col_name]
                 # current_row does not exist in final df, append it
                 if not updated_flag:
                     logging.debug("Appending row to final_df: {cur_row.values}")
                     final_df = pd.concat([final_df, cur_row.to_frame().T], ignore_index=True)
-            
+
     logging.debug(f"final_df = {final_df}")
     return final_df
 
@@ -190,7 +189,7 @@ def override_supported_configs(json_data, file_name, df, keys):
                 "Expression": "PromotePrecision",
                 "Context": "project",
                 "Params": "input",
-                "override": [{"key": "SQL Func", "value": "`promote_precision`"}]
+                "override": [{'key': 'SQL Func', 'value': "`promote_precision`"}]
             }
         ]
     }
@@ -223,12 +222,12 @@ def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_jso
     """
     # added columns in plugin union dataframe (compared with tools)
     for union_column_name in union_df.columns:
-        if not union_column_name in tools_df.columns:
+        if union_column_name not in tools_df.columns:
             report_file.write(f"Column is added: \"{union_column_name}\"\n")
 
     # removed columns in plugin union dataframe (compared with tools)
     for tools_column_name in tools_df.columns:
-        if not tools_column_name in union_df.columns:
+        if tools_column_name not in union_df.columns:
             report_file.write(f"Column is removed: \"{tools_column_name}\"\n")
 
     # added/changed rows in plugin union dataframe (compared with tools)
@@ -258,10 +257,10 @@ def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_jso
                         if not json_entry_exists:
                             override_configs_json[csv_file_name].append(json_entry)
                     else:
-                        override_configs_json[csv_file_name]= [json_entry]
+                        override_configs_json[csv_file_name] = [json_entry]
                     break
             report_file.write(f"Row is added: {', '.join(union_row.astype(str))}\n")
-    
+
     # removed rows in plugin union dataframe (compared with tools)
     for _, tools_row in tools_df.iterrows():
         exists_in_union = False
@@ -270,11 +269,11 @@ def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_jso
                 exists_in_union = True
         if not exists_in_union:
             report_file.write(f"Row is removed: {', '.join(tools_row.astype(str))}\n")
-    
+
     return union_df
 
 
-def main(args):
+def main(argvs):
     """
     Main function of the script.
 
@@ -282,9 +281,9 @@ def main(args):
     args: Namespace containing the command-line arguments
     """
 
-    generated_files_dir = args.path
-    override_configs_file = args.configs
-    output_dir = args.output
+    generated_files_dir = argvs.path
+    override_configs_file = argvs.configs
+    output_dir = argvs.output
     # load override configs into a json object
     if override_configs_file:
         with open(override_configs_file, 'r') as f:
@@ -301,18 +300,22 @@ def main(args):
     exprs_union_df = unify_all_files(generated_files_dir, "supportedExprs.csv", ["Expression", "Context", "Params"])
 
     # post-process the dataframes to override custom configs
-    logging.info("Post-processing supportedDataSource.csv union to overrride custom configs")
-    data_source_union_df = override_supported_configs(override_configs_json, "supportedDataSource.csv", data_source_union_df, ["Format", "Direction"])
-    logging.info("Post-processing supportedExecs.csv union to overrride custom configs")
-    execs_union_df = override_supported_configs(override_configs_json, "supportedExecs.csv", execs_union_df, ["Exec", "Params"])
-    logging.info("Post-processing supportedExprs.csv union to overrride custom configs")
-    exprs_union_df = override_supported_configs(override_configs_json, "supportedExprs.csv", exprs_union_df, ["Expression", "Context", "Params"])
+    logging.info("Post-processing supportedDataSource.csv union to override custom configs")
+    data_source_union_df = override_supported_configs(override_configs_json, "supportedDataSource.csv",
+                                                      data_source_union_df, ["Format", "Direction"])
+    logging.info("Post-processing supportedExecs.csv union to override custom configs")
+    execs_union_df = override_supported_configs(override_configs_json, "supportedExecs.csv", execs_union_df,
+                                                ["Exec", "Params"])
+    logging.info("Post-processing supportedExprs.csv union to override custom configs")
+    exprs_union_df = override_supported_configs(override_configs_json, "supportedExprs.csv", exprs_union_df,
+                                                ["Expression", "Context", "Params"])
 
     report_file = open('operators_plugin_sync_report.txt', 'w+')
-    report_file.write("""This report documents the differences between the tools existing CSV files and those processed from the plugin.
-    Note: 1. For added data source/exec/expression from plugin, the first column with supported levels will be updated to 'TNEW' for future testing.\n\n""")
+    report_file.write("""This report documents the differences between the tools existing CSV files and those
+    processed from the plugin. Note: 1. For added data source/exec/expression from plugin, the first column with
+    supported levels will be updated to 'TNEW' for future testing.\n\n""")
 
-    tools_csv_dir = args.tools_csv
+    tools_csv_dir = argvs.tools_csv
     if not tools_csv_dir:
         report_file.write("Report is not generated: no input tools CSV directory.")
         report_file.close()
@@ -323,21 +326,24 @@ def main(args):
     if os.path.exists(tools_data_source_file):
         report_file.write("\n**supportedDataSource.csv (FROM TOOLS TO PLUGIN)**\n")
         tools_data_source_df = pd.read_csv(tools_data_source_file, keep_default_na=False)
-        data_source_final_df = compare_csv_file(data_source_union_df, tools_data_source_df, ["Format", "Direction"], report_file, override_configs_json, "supportedDataSource.csv")
+        data_source_final_df = compare_csv_file(data_source_union_df, tools_data_source_df, ["Format", "Direction"],
+                                                report_file, override_configs_json, "supportedDataSource.csv")
 
     logging.info("Generating report for supportedExecs.csv")
     tools_execs_file = os.path.join(tools_csv_dir, "supportedExecs.csv")
     if os.path.exists(tools_execs_file):
         report_file.write("\n**supportedExecs.csv (FROM TOOLS TO PLUGIN)**\n")
         tools_execs_df = pd.read_csv(tools_execs_file, keep_default_na=False)
-        execs_final_df = compare_csv_file(execs_union_df, tools_execs_df, ["Exec", "Params"], report_file, override_configs_json, "supportedExecs.csv")
+        execs_final_df = compare_csv_file(execs_union_df, tools_execs_df, ["Exec", "Params"], report_file,
+                                          override_configs_json, "supportedExecs.csv")
 
     logging.info("Generating report for supportedExprs.csv")
     tools_exprs_file = os.path.join(tools_csv_dir, "supportedExprs.csv")
     if os.path.exists(tools_exprs_file):
         report_file.write("\n**supportedExprs.csv (FROM TOOLS TO PLUGIN)**\n")
         tools_exprs_df = pd.read_csv(tools_exprs_file, keep_default_na=False)
-        exprs_final_df = compare_csv_file(exprs_union_df, tools_exprs_df, ["Expression", "Context", "Params"], report_file, override_configs_json, "supportedExprs.csv")
+        exprs_final_df = compare_csv_file(exprs_union_df, tools_exprs_df, ["Expression", "Context", "Params"],
+                                          report_file, override_configs_json, "supportedExprs.csv")
 
     # write the result dataframes to output CSV files
     logging.info(f"Writing the final dataframes to output directory: {output_dir}")
@@ -359,7 +365,8 @@ if __name__ == "__main__":
     parser.add_argument("path", type=str, help="Path to generated_files directory.")
     parser.add_argument('--configs', type=str, help='Path to configs file for overriding current data.')
     parser.add_argument('--output', type=str, help='Path to output directory.', default='.')
-    parser.add_argument('--tools-csv', type=str, help='Path to directory which contains the original CSV files in the tools repo.')
+    parser.add_argument('--tools-csv', type=str,
+                        help='Path to directory which contains the original CSV files in the tools repo.')
 
     args = parser.parse_args()
 
