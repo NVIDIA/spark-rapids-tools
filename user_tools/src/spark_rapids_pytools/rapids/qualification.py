@@ -32,6 +32,7 @@ from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType
 from spark_rapids_tools.tools.top_candidates import TopCandidates
+from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
 
 
 @dataclass
@@ -45,6 +46,7 @@ class QualificationSummary:
     df_result: pd.DataFrame = None
     irrelevant_speedups: bool = False
     savings_report_flag: bool = False
+    top_candidates_flag: bool = False
     sections_generators: List[Callable] = field(default_factory=lambda: [])
 
     def _get_total_durations(self) -> int:
@@ -94,12 +96,7 @@ class QualificationSummary:
                         csp_report_provider: Callable[[], List[str]] = lambda: [],
                         df_pprinter: Any = None,
                         output_pprinter: Any = None):
-
-        def format_float(x: float) -> str:
-            return f'{x:.2f}'
-
         report_content = []
-
         if self.is_empty():
             # Qualification tool has no output
             report_content.append(f'{app_name} tool did not generate any valid rows')
@@ -132,31 +129,8 @@ class QualificationSummary:
         else:
             report_content.append(f'{app_name} tool found no records to show.')
 
-        overall_speedup = 0.0
-        total_apps_durations = 1.0 * self._get_total_durations()
-        total_gpu_durations = self._get_total_gpu_durations()
-        if total_gpu_durations > 0:
-            overall_speedup = total_apps_durations / total_gpu_durations
-
-        if not self.savings_report_flag:
-            report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
-            report_summary = [['Total applications', self._get_stats_total_apps()],
-                              ['Overall estimated speedup', format_float(overall_speedup)]]
-        else:
-            total_app_cost = self._get_stats_total_cost()
-            total_gpu_cost = self._get_stats_total_gpu_cost()
-            estimated_gpu_savings = 0.0
-            if total_app_cost > 0.0:
-                estimated_gpu_savings = 100.0 - (100.0 * total_gpu_cost / total_app_cost)
-
-            report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
-            report_summary = [['Total applications', self._get_stats_total_apps()],
-                              ['Overall estimated speedup', format_float(overall_speedup)],
-                              ['Overall estimated cost savings', f'{format_float(estimated_gpu_savings)}%']]
-        if not self.irrelevant_speedups:
-            # do not display speedups stats if the speedup is being overriden by the shape recommendations
-            report_summary.insert(1, ['RAPIDS candidates', self._get_stats_recommended_apps()])
-        report_content.append(tabulate(report_summary, colalign=('left', 'right')))
+        report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
+        report_content.append(tabulate(self.__generate_report_summary(), colalign=('left', 'right')))
         if self.comments:
             report_content.append(Utils.gen_report_sec_header('Notes'))
             report_content.extend(f' - {line}' for line in self.comments)
@@ -171,6 +145,31 @@ class QualificationSummary:
         # append an empty line at the end of the report
         report_content.append('')
         return report_content
+
+    def __generate_report_summary(self):
+        def format_float(x: float) -> str:
+            return f'{x:.2f}'
+
+        report_summary = [['Total applications', self._get_stats_total_apps()]]
+        if not self.irrelevant_speedups:
+            # do not display RAPIDS candidates count if the speedup is being overridden by the shape recommendations
+            # TODO: We should also include a line that shows number of apps after filtering
+            report_summary.append(['RAPIDS candidates', self._get_stats_recommended_apps()])
+        if not self.top_candidates_flag:
+            overall_speedup = 0.0
+            total_apps_durations = self._get_total_durations()
+            total_gpu_durations = self._get_total_gpu_durations()
+            if total_gpu_durations > 0:
+                overall_speedup = total_apps_durations / total_gpu_durations
+            report_summary.append(['Overall estimated speedup', format_float(overall_speedup)])
+            if self.savings_report_flag:
+                total_app_cost = self._get_stats_total_cost()
+                total_gpu_cost = self._get_stats_total_gpu_cost()
+                estimated_gpu_savings = 0.0
+                if total_app_cost > 0.0:
+                    estimated_gpu_savings = 100.0 - (100.0 * total_gpu_cost / total_app_cost)
+                report_summary.append(['Overall estimated cost savings', f'{format_float(estimated_gpu_savings)}%'])
+        return report_summary
 
 
 @dataclass
@@ -419,7 +418,7 @@ class Qualification(RapidsJarTool):
                                                                       cols_map.get(col_rename),
                                                                       regex=False)
 
-        # for TCO, group by app name and average durations, then recalculate Estimated GPU Speedup
+        # for TCO, group by app name and average durations, then recalculate metrics
         group_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
         if group_map:
             for group_key, group_value in group_map.items():
@@ -432,7 +431,15 @@ class Qualification(RapidsJarTool):
         if len(subset_data) != len(all_rows):
             notes = 'Apps with the same name are grouped together and their metrics are averaged'
 
+        # recalculate estimated GPU speedup
         subset_data['Estimated GPU Speedup'] = subset_data['App Duration'] / subset_data['Estimated GPU Duration']
+        unsupported_ops_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
+                                                       'resultColumnName')
+        unsupported_ops_perc_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
+                                                            'percentResultColumnName')
+        # recalculate unsupported operators stage duration percent
+        subset_data[unsupported_ops_perc_col_name] =\
+            subset_data[unsupported_ops_col_name] * 100.0 / subset_data['App Duration']
 
         return subset_data, notes
 
@@ -662,14 +669,11 @@ class Qualification(RapidsJarTool):
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
 
+        unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
+                                                                              'unsupportedOperators'))
+        # Calculate unsupported operators stage duration before grouping
+        all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
         apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
-        if self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES:
-            # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
-            #  This should be refactored along with entire filter apps logic to use more object-oriented design.
-            top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
-            prepared_all_apps = top_candidates_obj.prepare_apps(apps_pruned_df,
-                                                                {'unsupported_ops_df': unsupported_ops_df})
-            top_candidates_obj.filter_apps(prepared_all_apps)
         recommended_apps = self.__get_recommended_apps(apps_pruned_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
@@ -712,13 +716,15 @@ class Qualification(RapidsJarTool):
                 apps_reshaped_df = apps_reshaped_df.drop(columns=['Estimated Job Frequency (monthly)'])
                 self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
+        filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_pruned_df,
                                     recommended_apps=recommended_apps,
                                     savings_report_flag=launch_savings_calc,
                                     df_result=df_final_result,
                                     irrelevant_speedups=speedups_irrelevant_flag,
-                                    sections_generators=[self.__generate_mc_types_conversion_report])
+                                    sections_generators=[self.__generate_mc_types_conversion_report],
+                                    top_candidates_flag=filter_top_candidate_enabled)
 
     def _process_output(self):
         def process_df_for_stdout(raw_df):
@@ -734,6 +740,7 @@ class Qualification(RapidsJarTool):
             # check if any filters apply
             filter_recommendation_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SPEEDUPS
             filter_pos_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SAVINGS
+            filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
 
             if self.__recommendation_is_non_standard():
                 # During processing of arguments phase, we verified that the filter does not conflict
@@ -743,6 +750,12 @@ class Qualification(RapidsJarTool):
                                                           self.ctxt.get_ctxt('gpuClusterShapeRecommendation'))
                 # update the selected columns
                 selected_cols = list(raw_df.columns)
+            if filter_top_candidate_enabled:
+                # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
+                #  This should be refactored along with entire filter apps logic to use more object-oriented design.
+                top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
+                filtered_apps = top_candidates_obj.filter_apps(raw_df)
+                return top_candidates_obj.prepare_output(filtered_apps)
 
             # filter by recommendations if enabled
             if filter_recommendation_enabled:
