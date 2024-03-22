@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,8 +55,10 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 named `qual-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution.
         :param tools_jar: Path to a bundled jar including RAPIDS tool. The path is a local filesystem path
         :param filter_apps:  Filtering criteria of the applications listed in the final STDOUT table is one of
-                the following (`ALL`, `SPEEDUPS`). "`ALL`" means no filter applied. "`SPEEDUPS`" lists all the
-                apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups.
+                the following (`ALL`, `SPEEDUPS`, `TOP_CANDIDATES`). "`ALL`" means no filter applied. "`SPEEDUPS`"
+                lists all the apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups.
+                "`TOP_CANDIDATES`" lists all apps that have unsupported operators stage duration less than 25% of
+                app duration and speedups greater than 1.3x.
         :param target_platform: Cost savings and speedup recommendation for comparable cluster in target_platform
                 based on on-premises cluster configuration. Currently only `dataproc` is supported for
                 target_platform.If not provided, the final report will be limited to GPU speedups only

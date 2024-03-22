@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -75,14 +75,15 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 cost-savings.
         :param output_folder: path to store the output
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
-                is one of the following (ALL, SPEEDUPS, SAVINGS).
+                is one of the following (ALL, SPEEDUPS, SAVINGS, TOP_CANDIDATES).
                 Requires "Cluster".
 
                 Note that this filter does not affect the CSV report.
                 "ALL" means no filter applied. "SPEEDUPS" lists all the apps that are either
                 'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
                 lists all the apps that have positive estimated GPU savings except for the apps that
-                are "Not Applicable"
+                are "Not Applicable". "TOP_CANDIDATES" lists all apps that have unsupported operators
+                stage duration less than 25% of app duration and speedups greater than 1.3x.
         :param cpu_cluster_price: the CPU cluster hourly price provided by the user.
         :param estimated_gpu_cluster_price: the GPU cluster hourly price provided by the user.
         :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
