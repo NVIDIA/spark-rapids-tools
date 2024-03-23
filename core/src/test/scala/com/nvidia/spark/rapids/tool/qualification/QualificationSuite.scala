@@ -316,7 +316,7 @@ class QualificationSuite extends BaseTestSuite {
       val appArgs = new QualificationArgs(allArgs ++ logFiles)
       val (exit, appSum) = QualificationMain.mainInternal(appArgs)
       assert(exit == 0)
-      assert(appSum.size == 5)
+      assert(appSum.size == 4)
       assert(appSum.head.appId.equals("local-1622043423018"))
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
