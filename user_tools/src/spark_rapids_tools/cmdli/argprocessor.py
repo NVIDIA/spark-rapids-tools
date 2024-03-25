@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
-from ..enums import QualFilterApp, CspEnv
+from ..enums import QualFilterApp, CspEnv, QualEstimationModel
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
 from ..utils.util import dump_tool_usage
@@ -324,6 +324,7 @@ class QualifyUserArgModel(ToolUserArgModel):
     target_platform: Optional[CspEnv] = None
     filter_apps: Optional[QualFilterApp] = None
     gpu_cluster_recommendation: Optional[QualGpuClusterReshapeType] = None
+    estimation_model: Optional[QualEstimationModel] = None
     cpu_cluster_price: Optional[float] = None
     estimated_gpu_cluster_price: Optional[float] = None
     cpu_discount: Optional[int] = None
@@ -345,6 +346,12 @@ class QualifyUserArgModel(ToolUserArgModel):
             self.p_args['toolArgs']['gpuClusterRecommendation'] = QualGpuClusterReshapeType.get_default()
         else:
             self.p_args['toolArgs']['gpuClusterRecommendation'] = self.gpu_cluster_recommendation
+
+        # check the estimationModel argument
+        if self.estimation_model is None:
+            self.p_args['toolArgs']['estimationModel'] = QualEstimationModel.get_default()
+        else:
+            self.p_args['toolArgs']['estimationModel'] = self.estimation_model
 
     def define_extra_arg_cases(self):
         self.extra['Disable CostSavings'] = {
@@ -431,6 +438,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': None,
             'gpuClusterRecommendation': self.p_args['toolArgs']['gpuClusterRecommendation'],
+            'estimationModel': self.p_args['toolArgs']['estimationModel'],
             # used to initialize the pricing information
             'targetPlatform': self.p_args['toolArgs']['targetPlatform'],
             'cpuClusterPrice': self.p_args['toolArgs']['cpuClusterPrice'],

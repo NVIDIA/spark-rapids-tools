@@ -14,8 +14,8 @@
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
-import textwrap
 import json
+import textwrap
 from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
@@ -29,8 +29,10 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
+from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
-from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType
+from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, QualEstimationModel
+from spark_rapids_tools.tools.model_xgboost import predict
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
 
@@ -306,6 +308,24 @@ class Qualification(RapidsJarTool):
                 selected_filter = QualFilterApp.fromstring(default_filter_txt)
         self.ctxt.set_ctxt('filterApps', selected_filter)
 
+    def _process_estimation_model_args(self):
+        # set the estimation model
+        estimation_model_str = self.wrapper_options.get('estimationModel')
+        if estimation_model_str is not None:
+            selected_estimation_model = QualEstimationModel.fromstring(estimation_model_str)
+            if selected_estimation_model is None:
+                selected_estimation_model = QualEstimationModel.get_default()
+                available_models = [qual_model.value for qual_model in QualEstimationModel]
+                self.logger.warning(
+                    'Invalid argument estimation_model=%s.\n\t'
+                    'Accepted options are: [%s].\n\t'
+                    'Falling-back to default filter: %s',
+                    estimation_model_str, Utils.gen_joined_str(' | ', available_models),
+                    selected_estimation_model.value)
+        else:
+            selected_estimation_model = QualEstimationModel.get_default()
+        self.ctxt.set_ctxt('estimationModel', selected_estimation_model)
+
     def _process_external_pricing_args(self):
         cpu_cluster_price = self.wrapper_options.get('cpuClusterPrice')
         estimated_gpu_cluster_price = self.wrapper_options.get('estimatedGpuClusterPrice')
@@ -346,15 +366,6 @@ class Qualification(RapidsJarTool):
             self.ctxt.set_ctxt('cpu_discount', cpu_discount)
             self.ctxt.set_ctxt('gpu_discount', gpu_discount)
 
-    def _create_autotuner_rapids_args(self) -> list:
-        # Add the autotuner argument, also add worker-info if the autotunerPath exists
-        if self.ctxt.get_rapids_auto_tuner_enabled():
-            autotuner_path = self.ctxt.get_ctxt('autoTunerFilePath')
-            if autotuner_path is None:
-                return ['--auto-tuner']
-            return ['--auto-tuner', '--worker-info', autotuner_path]
-        return []
-
     def _create_cluster_report_args(self) -> list:
         # Add the cluster-report argument if the cluster is not defined else disable it
         if self.ctxt.get_ctxt('cpuClusterProxy') is None:
@@ -389,7 +400,7 @@ class Qualification(RapidsJarTool):
         # we need to process each argument to verify it is valid. otherwise, we may crash late
         self.__process_gpu_cluster_recommendation(self.wrapper_options.get('gpuClusterRecommendation'))
         self.__process_filter_args(self.wrapper_options.get('filterApps'))
-
+        self._process_estimation_model_args()
         self._process_offline_cluster_args()
         self._process_eventlogs_args()
         self._process_external_pricing_args()
@@ -803,6 +814,12 @@ class Qualification(RapidsJarTool):
 
         if not self._evaluate_rapids_jar_tool_output_exist():
             return
+        # process the output through the XGboost model if enabled
+        if self.ctxt.get_ctxt('estimationModel') == QualEstimationModel.XGBOOST:
+            xgboost_input_dir = self.ctxt.get_local('outputFolder')
+            xgboost_output_dir = xgboost_input_dir
+            predict(qual=xgboost_input_dir, profile=xgboost_input_dir, output_dir=xgboost_output_dir)
+
         rapids_output_dir = self.ctxt.get_rapids_output_folder()
         rapids_summary_file = FSUtil.build_path(rapids_output_dir,
                                                 self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'fileName'))
@@ -848,8 +865,14 @@ class Qualification(RapidsJarTool):
         return super()._generate_section_content(sec_conf)
 
     def _init_rapids_arg_list(self) -> List[str]:
-        return super()._init_rapids_arg_list() + self._create_autotuner_rapids_args() + \
+        return super()._init_rapids_arg_list() + self._init_rapids_arg_list_for_qual()
+
+    def _init_rapids_arg_list_for_qual(self) -> List[str]:
+        return ['--per-sql'] + self._create_autotuner_rapids_args() + \
             self._create_cluster_report_args()
+
+    def _init_rapids_arg_list_for_profile(self) -> List[str]:
+        return super()._init_rapids_arg_list() + ['--csv']
 
     def _process_cluster_info_and_update_savings(self, cluster_info_file):
         """
@@ -911,7 +934,10 @@ class QualificationAsLocal(Qualification):
         self._process_local_job_submission_args()
 
     def _prepare_job_arguments(self):
-        self._prepare_local_job_arguments()
+        super()._prepare_local_job_arguments()
+        if self.ctxt.get_ctxt('estimationModel') == QualEstimationModel.XGBOOST:
+            # when estimation_model is enabled
+            self._prepare_profile_job_args()
 
     def _delete_remote_dep_folder(self):
         self.logger.debug('Local mode skipping deleting the remote workdir')
@@ -921,3 +947,36 @@ class QualificationAsLocal(Qualification):
 
     def _archive_results(self):
         self._archive_local_results()
+
+    def _prepare_profile_job_args(self):
+        # get the job arguments
+        job_args = self.ctxt.get_ctxt('jobArgs')
+        # now we can create the job object
+        # Todo: For dataproc, this can be autogenerated from cluster name
+        rapids_arg_list = self._init_rapids_arg_list_for_profile()
+        ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
+        jar_file_path = ctxt_rapids_args.get('jarFilePath')
+        rapids_opts = ctxt_rapids_args.get('rapidsOpts')
+        if rapids_opts:
+            rapids_arg_list.extend(rapids_opts)
+        # add the eventlogs at the end of all the tool options
+        rapids_arg_list.extend(self.ctxt.get_ctxt('eventLogs'))
+        class_name = 'com.nvidia.spark.rapids.tool.profiling.ProfileMain'
+        rapids_arg_obj = {
+            'jarFile': jar_file_path,
+            'jarArgs': rapids_arg_list,
+            'className': class_name
+        }
+        platform_args = job_args.get('platformArgs')
+        spark_conf_args = {}
+        job_properties_json = {
+            'outputDirectory': job_args.get('outputDirectory'),
+            'rapidsArgs': rapids_arg_obj,
+            'sparkConfArgs': spark_conf_args,
+            'platformArgs': platform_args
+        }
+        rapids_job_container = RapidsJobPropContainer(prop_arg=job_properties_json,
+                                                      file_load=False)
+        rapids_containers = self.ctxt.get_ctxt('rapidsJobContainers')
+        rapids_containers.append(rapids_job_container)
+        self.ctxt.set_ctxt('rapidsJobContainers', rapids_containers)

@@ -43,7 +43,9 @@ dependencies = [
     "azure-storage-blob==12.17.0",
     "adlfs==2023.4.0",
     # used for spinner animation
-    "progress==1.6"
+    "progress==1.6",
+    # used for model estimations
+    "xgboost==2.0.3"
 ]
 dynamic=["entry-points", "version"]
 

@@ -80,13 +80,6 @@ class Profiling(RapidsJarTool):
         gpu_cluster_obj = self.ctxt.get_ctxt('gpuClusterProxy')
         self._generate_autotuner_input_from_cluster(gpu_cluster_obj)
 
-    def _create_autotuner_rapids_args(self) -> list:
-        # Add the autotuner argument, also add worker-info if the autotunerPath exists
-        autotuner_path = self.ctxt.get_ctxt('autoTunerFilePath')
-        if autotuner_path is None:
-            return ['--auto-tuner']
-        return ['--auto-tuner', '--worker-info', autotuner_path]
-
     def __read_single_app_output(self, file_path: str) -> (str, List[str], List[str]):
         def split_list_str_by_pattern(input_seq: List[str], pattern: str) -> int:
             ind = 0
