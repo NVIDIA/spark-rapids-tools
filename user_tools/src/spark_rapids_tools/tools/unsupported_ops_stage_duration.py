@@ -35,11 +35,11 @@ class UnsupportedOpsStageDuration:
         """
         unsupported_stage_duration_percentage = self.__calculate_unsupported_stages_duration(unsupported_ops_df)
         # Note: We might have lost some applications because of masking. Final result should include these
-        # applications with unsupported stage duration percentage as 100.0. Thus implying that
-        # these applications have all stages with unsupported operator and are unusable.
+        # applications with unsupported stage duration percentage as 0.0. Thus implying that
+        # these applications have no stages with unsupported operator.
         result_df = pd.merge(all_apps, unsupported_stage_duration_percentage, how='left')
         result_col_name = self.props.get('resultColumnName')
-        result_df[result_col_name] = result_df[result_col_name].fillna(result_df['App Duration'])
+        result_df[result_col_name] = result_df[result_col_name].fillna(0)
         # Update the percentage column
         perc_result_col_name = self.props.get('percentResultColumnName')
         result_df[perc_result_col_name] = result_df[result_col_name] * 100.0 / result_df['App Duration']
