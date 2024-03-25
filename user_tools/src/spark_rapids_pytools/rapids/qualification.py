@@ -48,6 +48,7 @@ class QualificationSummary:
     savings_report_flag: bool = False
     top_candidates_flag: bool = False
     sections_generators: List[Callable] = field(default_factory=lambda: [])
+    filter_apps_count: int = field(default=0, init=False)
 
     def _get_total_durations(self) -> int:
         if not self.is_empty():
@@ -117,6 +118,7 @@ class QualificationSummary:
                 report_content.append(f'    - Full savings and speedups CSV report: {abs_path}')
 
             pretty_df = df_pprinter(self.df_result)
+            self.filter_apps_count = len(pretty_df)
             if pretty_df.empty:
                 # the results were reduced to no rows because of the filters
                 report_content.append(
@@ -151,9 +153,11 @@ class QualificationSummary:
             return f'{x:.2f}'
 
         report_summary = [['Total applications', self._get_stats_total_apps()]]
-        if not self.irrelevant_speedups:
+        if self.top_candidates_flag:
+            # TODO: Similarly, we should include a line that shows number of apps after filtering for other filter types
+            report_summary.append(['Top candidates', self.filter_apps_count])
+        elif not self.irrelevant_speedups:
             # do not display RAPIDS candidates count if the speedup is being overridden by the shape recommendations
-            # TODO: We should also include a line that shows number of apps after filtering
             report_summary.append(['RAPIDS candidates', self._get_stats_recommended_apps()])
         if not self.top_candidates_flag:
             overall_speedup = 0.0
