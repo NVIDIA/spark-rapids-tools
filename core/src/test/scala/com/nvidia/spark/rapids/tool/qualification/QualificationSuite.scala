@@ -103,6 +103,7 @@ class QualificationSuite extends BaseTestSuite {
   private val csvPerSQLFields = Seq(
     (QualOutputWriter.APP_NAME_STR, StringType),
     (QualOutputWriter.APP_ID_STR, StringType),
+    (QualOutputWriter.ROOT_SQL_ID_STR, StringType),
     (QualOutputWriter.SQL_ID_STR, StringType),
     (QualOutputWriter.SQL_DESC_STR, StringType),
     (QualOutputWriter.SQL_DUR_STR, LongType),
@@ -234,12 +235,12 @@ class QualificationSuite extends BaseTestSuite {
           val allFiles = fs.listStatus(outputDirPath)
           assert(allFiles.size == 6)
           val dfPerSqlActual = readPerSqlFile(new File(csvOutput0))
-          assert(dfPerSqlActual.columns.size == 10)
+          assert(dfPerSqlActual.columns.size == 11)
           val rows = dfPerSqlActual.collect()
           assert(rows.size == 2)
           val firstRow = rows(1)
           // , should be replaced with ;
-          assert(firstRow(3).toString.contains("at QualificationSuite.scala"))
+          assert(firstRow(4).toString.contains("at QualificationSuite.scala"))
 
           // this reads everything into single column
           val dfPerSqlActualTxt = readPerSqlTextFile(new File(txtOutput0))
@@ -340,8 +341,8 @@ class QualificationSuite extends BaseTestSuite {
         assert(lines.size == (4 + 17))
         // skip the 3 header lines
         val firstRow = lines(3)
-        // this should be app + sqlID
-        assert(firstRow.contains("local-1622043423018|     1"))
+        // this should be app
+        assert(firstRow.contains("local-1622043423018"))
         assert(firstRow.contains("count at QualificationInfoUtils.scala:94"))
       } finally {
         persqlInputSource.close()
@@ -1004,12 +1005,12 @@ class QualificationSuite extends BaseTestSuite {
         val dfPerSqlActual = readPerSqlFile(new File(persqlResults))
         // the number of columns actually won't be wrong if sql description is malformatted
         // because spark seems to drop extra column so need more checking
-        assert(dfPerSqlActual.columns.size == 10)
+        assert(dfPerSqlActual.columns.size == 11)
         val rows = dfPerSqlActual.collect()
         assert(rows.size == 3)
         val firstRow = rows(1)
         // , should not be replaced with ; or any other delim
-        assert(firstRow(3) == "testing, csv delimiter, replacement")
+        assert(firstRow(4) == "testing, csv delimiter, replacement")
 
         // parse results from listener
         val executorCpuTime = listener.executorCpuTime
@@ -1249,20 +1250,20 @@ class QualificationSuite extends BaseTestSuite {
         }
         // just basic testing that line exists and has right separator
         val csvHeader = qualApp.getPerSqlCSVHeader
-        assert(csvHeader.contains("App Name,App ID,SQL ID,SQL Description,SQL DF Duration," +
-          "GPU Opportunity,Estimated GPU Duration,Estimated GPU Speedup," +
-          "Estimated GPU Time Saved,Recommendation"))
+        assert(csvHeader.contains("App Name,App ID,Root SQL ID,SQL ID,SQL Description," +
+            "SQL DF Duration,GPU Opportunity,Estimated GPU Duration,Estimated GPU Speedup," +
+            "Estimated GPU Time Saved,Recommendation"))
         val txtHeader = qualApp.getPerSqlTextHeader
         assert(txtHeader.contains("|                              App Name|             App ID|" +
-          "SQL ID" +
-          "|                                                                                     " +
-          "SQL Description|" +
-          "SQL DF Duration|GPU Opportunity|Estimated GPU Duration|" +
-          "Estimated GPU Speedup|Estimated GPU Time Saved|      Recommendation|"))
+            "Root SQL ID|SQL ID|                                                              " +
+            "                       SQL Description|SQL DF Duration|GPU Opportunity|" +
+            "Estimated GPU Duration|Estimated GPU Speedup|Estimated GPU Time Saved|" +
+            "      Recommendation|"))
         val randHeader = qualApp.getPerSqlHeader(";", true, 20)
-        assert(randHeader.contains(";                              App Name;             App ID" +
-          ";SQL ID;     SQL Description;SQL DF Duration;GPU Opportunity;Estimated GPU Duration;" +
-          "Estimated GPU Speedup;Estimated GPU Time Saved;      Recommendation;"))
+        assert(randHeader.contains(";                              App Name;             App ID;" +
+            "Root SQL ID;SQL ID;     SQL Description;SQL DF Duration;GPU Opportunity;" +
+            "Estimated GPU Duration;Estimated GPU Speedup;Estimated GPU Time Saved;     " +
+            " Recommendation;"))
         val allSQLIds = qualApp.getAvailableSqlIDs
         val numSQLIds = allSQLIds.size
         assert(numSQLIds > 0)
