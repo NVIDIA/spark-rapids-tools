@@ -95,8 +95,8 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
                 "JOB": recommend optimal GPU cluster by cost per job.
         :param estimation_model: Model used to calculate the estimated GPU duration and cost savings.
                It accepts one of the following:
-               "XGBOOST": an XGBoost model for GPU duration estimation
-               "SPEEDUPS": set by default. It uses a simple static estimated speedup per operator.
+               "xgboost": an XGBoost model for GPU duration estimation
+               "speedups": set by default. It uses a simple static estimated speedup per operator.
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
         :param verbose: True or False to enable verbosity to the wrapper script.
         :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
