@@ -95,7 +95,7 @@ class QualificationSummary:
 
     def generate_report(self,
                         app_name: str,
-                        wrapper_csv_file: str = None,
+                        wrapper_output_files_info: dict,
                         csp_report_provider: Callable[[], List[str]] = lambda: [],
                         df_pprinter: Any = None,
                         output_pprinter: Any = None):
@@ -115,9 +115,12 @@ class QualificationSummary:
                 report_content.append(f'{app_name} tool found no recommendations for GPU.')
 
         if self.has_tabular_result():
-            if wrapper_csv_file is not None:
-                abs_path = FSUtil.get_abs_path(wrapper_csv_file)
-                report_content.append(f'    - Full savings and speedups CSV report: {abs_path}')
+            for entry in wrapper_output_files_info:
+                path = wrapper_output_files_info[entry]['path']
+                output_comment = wrapper_output_files_info[entry]['outputComment']
+                if path is not None:
+                    abs_path = FSUtil.get_abs_path(path)
+                    report_content.append(f'    - {output_comment}: {abs_path}')
 
             pretty_df = df_pprinter(self.df_result)
             self.filter_apps_count = len(pretty_df)
@@ -432,18 +435,22 @@ class Qualification(RapidsJarTool):
                 subset_data.columns = subset_data.columns.str.replace(col_rename,
                                                                       cols_map.get(col_rename),
                                                                       regex=False)
+        return subset_data
+
+    def __group_apps_by_name(self, all_apps) -> (pd.DataFrame, str):
+        all_apps_count = len(all_apps)
 
         # for TCO, group by app name and average durations, then recalculate metrics
         group_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
         if group_map:
             for group_key, group_value in group_map.items():
-                subset_data[group_key] = subset_data.groupby(group_value)[group_key].transform('mean')
+                all_apps[group_key] = all_apps.groupby(group_value)[group_key].transform('mean')
 
         drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
-        subset_data = subset_data.drop_duplicates(subset=drop_arr)
+        subset_data = all_apps.drop_duplicates(subset=drop_arr)
 
         notes = []
-        if len(subset_data) != len(all_rows):
+        if len(subset_data) != all_apps_count:
             notes = 'Apps with the same name are grouped together and their metrics are averaged'
 
         # recalculate estimated GPU speedup
@@ -679,7 +686,7 @@ class Qualification(RapidsJarTool):
     def __build_global_report_summary(self,
                                       all_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
-                                      csv_out: str) -> QualificationSummary:
+                                      output_files_info: dict) -> QualificationSummary:
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
@@ -688,12 +695,14 @@ class Qualification(RapidsJarTool):
                                                                               'unsupportedOperators'))
         # Calculate unsupported operators stage duration before grouping
         all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
-        apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
-        recommended_apps = self.__get_recommended_apps(apps_pruned_df)
+        apps_pruned_df = self.__remap_columns_and_prune(all_apps)
+        apps_pruned_df.to_csv(output_files_info['full']['path'], float_format='%.2f')
+        apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
+        recommended_apps = self.__get_recommended_apps(apps_grouped_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
         reshaped_notes = self.__generate_cluster_shape_report()
-        report_comments = [prune_notes] if prune_notes else []
+        report_comments = [group_notes] if group_notes else []
         if reshaped_notes:
             report_comments.append(reshaped_notes)
 
@@ -711,8 +720,8 @@ class Qualification(RapidsJarTool):
         reshape_col = self.ctxt.get_value('local', 'output', 'processDFProps',
                                           'clusterShapeCols', 'columnName')
         speed_recommendation_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
-        apps_reshaped_df, per_row_flag = self.__apply_gpu_cluster_reshape(apps_pruned_df)
-
+        apps_reshaped_df, per_row_flag = self.__apply_gpu_cluster_reshape(apps_grouped_df)
+        csv_out = output_files_info['summary']['path']
         if launch_savings_calc:
             # Now, the dataframe is ready to calculate the cost and the savings
             apps_working_set = self.__calc_apps_cost(apps_reshaped_df,
@@ -733,7 +742,7 @@ class Qualification(RapidsJarTool):
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
         filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
         return QualificationSummary(comments=report_comments,
-                                    all_apps=apps_pruned_df,
+                                    all_apps=apps_grouped_df,
                                     recommended_apps=recommended_apps,
                                     savings_report_flag=launch_savings_calc,
                                     df_result=df_final_result,
@@ -832,11 +841,10 @@ class Qualification(RapidsJarTool):
                                                                'fileName')
         rapids_unsupported_operators_file = FSUtil.build_path(rapids_output_dir, unsupported_operator_report_file)
         unsupported_ops_df = pd.read_csv(rapids_unsupported_operators_file)
-        csv_file_name = self.ctxt.get_value('local', 'output', 'fileName')
-        csv_summary_file = FSUtil.build_path(self.ctxt.get_output_folder(), csv_file_name)
-        report_gen = self.__build_global_report_summary(df, unsupported_ops_df, csv_summary_file)
+        output_files_info = self.__build_output_files_info()
+        report_gen = self.__build_global_report_summary(df, unsupported_ops_df, output_files_info)
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
-                                                    wrapper_csv_file=csv_summary_file,
+                                                    wrapper_output_files_info=output_files_info,
                                                     csp_report_provider=self._generate_platform_report_sections,
                                                     df_pprinter=process_df_for_stdout,
                                                     output_pprinter=self._report_tool_full_location)
@@ -918,6 +926,15 @@ class Qualification(RapidsJarTool):
                          master_node.instance_type,
                          num_executors,
                          executor_node.instance_type)
+
+    def __build_output_files_info(self) -> dict:
+        """Build the full output path for the output files."""
+        files_info = self.ctxt.get_value('local', 'output', 'files')
+        for entry in files_info:
+            file_name = files_info[entry]['name']
+            file_path = FSUtil.build_path(self.ctxt.get_output_folder(), file_name)
+            files_info[entry]['path'] = file_path
+        return files_info
 
 
 @dataclass
