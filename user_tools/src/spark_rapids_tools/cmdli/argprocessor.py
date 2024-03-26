@@ -334,13 +334,17 @@ class QualifyUserArgModel(ToolUserArgModel):
     def init_tool_args(self):
         self.p_args['toolArgs']['platform'] = self.platform
         self.p_args['toolArgs']['savingsCalculations'] = True
-        self.p_args['toolArgs']['filterApps'] = self.filter_apps
         self.p_args['toolArgs']['targetPlatform'] = self.target_platform
         self.p_args['toolArgs']['cpuClusterPrice'] = self.cpu_cluster_price
         self.p_args['toolArgs']['estimatedGpuClusterPrice'] = self.estimated_gpu_cluster_price
         self.p_args['toolArgs']['cpuDiscount'] = self.cpu_discount
         self.p_args['toolArgs']['gpuDiscount'] = self.gpu_discount
         self.p_args['toolArgs']['globalDiscount'] = self.global_discount
+        # check the filter_apps argument
+        if self.filter_apps is None:
+            self.p_args['toolArgs']['filterApps'] = QualFilterApp.get_default()
+        else:
+            self.p_args['toolArgs']['filterApps'] = self.filter_apps
         # check the reshapeType argument
         if self.gpu_cluster_recommendation is None:
             self.p_args['toolArgs']['gpuClusterRecommendation'] = QualGpuClusterReshapeType.get_default()
@@ -406,11 +410,9 @@ class QualifyUserArgModel(ToolUserArgModel):
                                                      '"target_platform" argument to generate cost savings')
 
         # check the filter_apps argument
-        if self.p_args['toolArgs']['filterApps'] is None:
-            # set a default filterApps argument to be savings if the cost savings is enabled
-            if self.p_args['toolArgs']['savingsCalculations']:
-                self.p_args['toolArgs']['filterApps'] = QualFilterApp.SAVINGS
-            else:
+        if not self.p_args['toolArgs']['savingsCalculations']:
+            # if savingsCalculations is disabled, we cannot use savings filter
+            if self.p_args['toolArgs']['filterApps'] == QualFilterApp.SAVINGS:
                 self.p_args['toolArgs']['filterApps'] = QualFilterApp.SPEEDUPS
 
         # finally generate the final values

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,14 +66,14 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
         if tool_name == 'qualification':
             assert t_args['savingsCalculations']
             # filterApps should be set to savings
-            assert t_args['filterApps'] == QualFilterApp.SAVINGS
+            assert t_args['filterApps'] == QualFilterApp.get_default()
 
     @staticmethod
     def validate_args_w_savings_disabled(tool_name: str, t_args: dict):
         if tool_name == 'qualification':
             assert not t_args['savingsCalculations']
             # filterApps should be set to savings
-            assert t_args['filterApps'] == QualFilterApp.SPEEDUPS
+            assert t_args['filterApps'] != QualFilterApp.SAVINGS
 
     @staticmethod
     def create_tool_args_should_pass(tool_name: str, platform=None, cluster=None, eventlogs=None):

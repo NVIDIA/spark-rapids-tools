@@ -242,14 +242,18 @@ class Qualification(RapidsJarTool):
         return gpu_cluster_obj is not None
 
     def _process_offline_cluster_args(self):
-        offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
-        self._process_cpu_cluster_args(offline_cluster_opts)
-        if self.ctxt.get_ctxt('cpuClusterProxy') is None:
-            # if no cpu-cluster is defined, then we are not supposed to run cost calculations
-            enable_savings_flag = False
-        else:
-            # if no gpu-cluster is defined, then we are not supposed to run cost calculations
-            enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
+        # read the wrapper option defined by the spark_rapids cmd if any.
+        enable_savings_flag = self.wrapper_options.get('savingsCalculations', True)
+        if enable_savings_flag:
+            offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
+            self._process_cpu_cluster_args(offline_cluster_opts)
+            if self.ctxt.get_ctxt('cpuClusterProxy') is None:
+                # if no cpu-cluster is defined, then we are not supposed to run cost calculations
+                enable_savings_flag = False
+            else:
+                # if no gpu-cluster is defined, then we are not supposed to run cost calculations
+                enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
+
         self._set_savings_calculations_flag(enable_savings_flag)
 
     def _set_savings_calculations_flag(self, enable_flag: bool):
