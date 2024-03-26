@@ -18,6 +18,7 @@ toolOutput:
         - App Duration
         - Estimated Job Frequency (monthly)
         - Unsupported Operators Stage Duration
+        - Unsupported Operators Stage Duration Percent
       mapColumns:
         Recommendation: 'Speedup Based Recommendation'
       recommendations:
@@ -92,7 +93,13 @@ sparkRapids:
 local:
   output:
     cleanUp: true
-    fileName: qualification_summary.csv
+    files:
+      summary:
+        name: qualification_summary.csv
+        outputComment: "Summarized savings and speedups CSV report"
+      full:
+        name: qualification_summary_full.csv
+        outputComment: "Full savings and speedups CSV report"
     costColumns:
       - 'Savings Based Recommendation'
       - 'Estimated App Cost'
