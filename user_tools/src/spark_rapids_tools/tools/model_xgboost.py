@@ -1279,14 +1279,13 @@ def predict(platform: str = 'onprem',
                 print(f'Dataset estimated speedup: {dataset_speedup:.2f}')
 
                 # write CSV reports
-                if INTERMEDIATE_DATA_ENABLED:
-                    sql_predictions_path = output_info['perSql']['path']
-                    logger.info('Writing per-SQL predictions to: %s', sql_predictions_path)
-                    results.to_csv(sql_predictions_path, index=False)
+                sql_predictions_path = output_info['perSql']['path']
+                logger.info('Writing per-SQL predictions to: %s', sql_predictions_path)
+                results.to_csv(sql_predictions_path, index=False)
 
-                    app_predictions_path = output_info['perApp']['path']
-                    logger.info('Writing per-application predictions to: %s', app_predictions_path)
-                    summary.to_csv(app_predictions_path, index=False)
+                app_predictions_path = output_info['perApp']['path']
+                logger.info('Writing per-application predictions to: %s', app_predictions_path)
+                summary.to_csv(app_predictions_path, index=False)
 
             except XGBoostError as e:
                 # ignore and continue
