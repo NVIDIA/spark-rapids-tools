@@ -33,7 +33,7 @@ import org.apache.spark.internal.Logging
  *
  * By default, the progress bar will be shown in the stdout.
  * Sample generated line:
- *   (.)+ Progress (\\d+)% [==> ] ((\\d+) succeeded + (\\d+) failed + (\\d+) skipped + (\\d+) N/A) / [(\\d+)]
+ *   .+ Progress (\d+)% [==> ] ((\d+) succeeded + (\d+) failed + (\d+) skipped + (\d+) N/A) / (\d+)
  *   toolName Progress 71% [=======>   ] (81 succeeded + 3 failed + 1 skipped + 0 N/A) / 119
  *
  * At the end of execution, it dumps all the defined the counters.

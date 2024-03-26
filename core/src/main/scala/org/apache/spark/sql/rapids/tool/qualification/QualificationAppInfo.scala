@@ -795,7 +795,7 @@ class QualificationAppInfo(
     val sqlPlanInfoGraphEntry = SqlPlanInfoGraphBuffer.createEntry(sqlID, planInfo)
     checkMetadataForReadSchema(sqlPlanInfoGraphEntry)
     for (node <- sqlPlanInfoGraphEntry.sparkPlanGraph.allNodes) {
-      if (node.name.contains("Photon")) {
+      if (node.name.startsWith("Photon")) {
         throw PhotonEventLogException(
           "Encountered Databricks Photon event log: skipping this file!")
       }
@@ -978,7 +978,7 @@ object QualificationAppInfo extends Logging {
       case photonLog: PhotonEventLogException =>
         ("skipped", photonLog.message)
       case gpuLog: GpuEventLogException =>
-        ("unknow", gpuLog.message)
+        ("unknown", gpuLog.message)
       case _: com.fasterxml.jackson.core.JsonParseException =>
         ("unknown", s"Error parsing JSON: ${path.eventLog.toString}")
       case _: IllegalArgumentException =>
