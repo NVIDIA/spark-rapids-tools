@@ -290,29 +290,25 @@ class Qualification(RapidsJarTool):
         self.ctxt.set_ctxt('gpuClusterShapeRecommendation', selected_recommendation)
 
     def __process_filter_args(self, arg_val: str):
-        available_filters = [filter_enum.value for filter_enum in QualFilterApp]
-        default_filter_txt = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'filters',
-                                                 'defaultFilter')
-        if arg_val is not None:
-            try:
-                selected_filter = QualFilterApp.fromstring(arg_val)
-            except Exception:  # pylint: disable=broad-except
-                selected_filter = QualFilterApp.fromstring(default_filter_txt)
-                self.logger.warning(
-                    'Invalid argument filter_apps=%s.\n\t'
-                    'Accepted options are: [%s].\n\t'
-                    'Falling-back to default filter: %s',
-                    arg_val, Utils.gen_joined_str(' | ', available_filters), default_filter_txt)
-        else:
-            selected_filter = QualFilterApp.fromstring(default_filter_txt)
+        selected_filter = QualFilterApp.fromstring(arg_val)
+        if selected_filter is None:
+            selected_filter = QualFilterApp.get_default()
+            available_filters = [filter_enum.value for filter_enum in QualFilterApp]
+            self.logger.warning(
+                'Invalid argument filter_apps=%s.\n\t'
+                'Accepted options are: [%s].\n\t'
+                'Falling-back to default filter: %s',
+                arg_val, Utils.gen_joined_str(' | ', available_filters),
+                QualFilterApp.tostring(selected_filter))
+
         if self.__recommendation_is_non_standard():
             # SpeedupFilter cannot be applied with the current cluster_gpu_recommendation
             if selected_filter == QualFilterApp.SPEEDUPS:
                 self.logger.info('Cannot apply Filter argument filter_apps=%s with the selected '
                                  'gpu_cluster_shape recommendation. Setting the filter to %s',
                                  QualFilterApp.tostring(selected_filter),
-                                 default_filter_txt)
-                selected_filter = QualFilterApp.fromstring(default_filter_txt)
+                                 QualFilterApp.tostring(QualFilterApp.get_default()))
+                selected_filter = QualFilterApp.get_default()
         self.ctxt.set_ctxt('filterApps', selected_filter)
 
     def _process_estimation_model_args(self):
@@ -326,7 +322,7 @@ class Qualification(RapidsJarTool):
                 self.logger.warning(
                     'Invalid argument estimation_model=%s.\n\t'
                     'Accepted options are: [%s].\n\t'
-                    'Falling-back to default filter: %s',
+                    'Falling-back to default estimation model: %s',
                     estimation_model_str, Utils.gen_joined_str(' | ', available_models),
                     selected_estimation_model.value)
         else:
