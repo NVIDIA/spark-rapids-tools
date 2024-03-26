@@ -427,7 +427,7 @@
             <properties>
                 <buildver>400</buildver>
                 <spark.version>${spark400.version}</spark.version>
-                <delta.core.version>${delta24x.version}</delta.core.version>
+                <delta.core.version>${delta31x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
