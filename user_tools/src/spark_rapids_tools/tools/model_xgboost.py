@@ -34,6 +34,7 @@ from spark_rapids_pytools.common.utilities import Utils
 logger = logging.getLogger(__name__)
 FILTER_SPILLS = False  # remove queries with any disk/mem spills
 LOG_LABEL = True  # use log(y) as target
+INTERMEDIATE_DATA_ENABLED = False
 
 
 class ScanTblError(Exception):
@@ -1206,8 +1207,8 @@ def _print_summary(summary):
 def predict(platform: str = 'onprem',
             qual: Optional[str] = None,
             profile: Optional[str] = None,
-            output_dir: Optional[str] = None,
-            qualtool_filter: Optional[str] = 'stage'):
+            output_info: Optional[dict] = None,
+            qualtool_filter: Optional[str] = 'stage') -> pd.DataFrame:
     xgb_model = _get_model(platform)
     node_level_supp, _, _ = get_qual_data(qual)
 
@@ -1254,7 +1255,6 @@ def predict(platform: str = 'onprem',
     # predict on each input dataset
     dataset_summaries = []
     for dataset, input_df in processed_dfs.items():
-        dataset_name = Path(dataset).name
         if not input_df.empty:
             filter_str = (
                 f'with {qualtool_filter} filtering'
@@ -1279,19 +1279,14 @@ def predict(platform: str = 'onprem',
                 print(f'Dataset estimated speedup: {dataset_speedup:.2f}')
 
                 # write CSV reports
-                sql_predictions_path = os.path.join(
-                    output_dir, f'{dataset_name}_sql.csv'
-                )
-                logger.info('Writing per-SQL predictions to: %s', sql_predictions_path)
-                results.to_csv(sql_predictions_path, index=False)
+                if INTERMEDIATE_DATA_ENABLED:
+                    sql_predictions_path = output_info['perSql']['path']
+                    logger.info('Writing per-SQL predictions to: %s', sql_predictions_path)
+                    results.to_csv(sql_predictions_path, index=False)
 
-                app_predictions_path = os.path.join(
-                    output_dir, f'{dataset_name}_app.csv'
-                )
-                logger.info(
-                    'Writing per-application predictions to: %s', app_predictions_path
-                )
-                summary.to_csv(app_predictions_path, index=False)
+                    app_predictions_path = output_info['perApp']['path']
+                    logger.info('Writing per-application predictions to: %s', app_predictions_path)
+                    summary.to_csv(app_predictions_path, index=False)
 
             except XGBoostError as e:
                 # ignore and continue
@@ -1316,6 +1311,9 @@ def predict(platform: str = 'onprem',
             'Overall estimated speedup': overall_speedup,
         }
         summary_df = pd.DataFrame(summary, index=[0]).transpose()
-        print('\nReport Summary:')
-        print(tabulate(summary_df, colalign=('left', 'right')))
-        print()
+        if INTERMEDIATE_DATA_ENABLED:
+            print('\nReport Summary:')
+            print(tabulate(summary_df, colalign=('left', 'right')))
+            print()
+        return dataset_summary
+    return pd.DataFrame()

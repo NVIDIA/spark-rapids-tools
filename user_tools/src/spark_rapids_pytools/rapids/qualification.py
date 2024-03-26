@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
 
+import numpy as np
 import pandas as pd
 from tabulate import tabulate
 
@@ -824,16 +825,20 @@ class Qualification(RapidsJarTool):
         if not self._evaluate_rapids_jar_tool_output_exist():
             return
         # process the output through the XGboost model if enabled
+        predictions_df = None
         if self.ctxt.get_ctxt('estimationModel') == QualEstimationModel.XGBOOST:
-            xgboost_input_dir = self.ctxt.get_local('outputFolder')
-            xgboost_output_dir = xgboost_input_dir
-            predict(qual=xgboost_input_dir, profile=xgboost_input_dir, output_dir=xgboost_output_dir)
+            model_name = self.ctxt.platform.get_prediction_model_name()
+            input_dir = self.ctxt.get_local('outputFolder')
+            output_info = self.__build_prediction_output_files_info()
+            predictions_df = predict(platform=model_name, qual=input_dir,
+                                     profile=input_dir, output_info=output_info)
 
         rapids_output_dir = self.ctxt.get_rapids_output_folder()
         rapids_summary_file = FSUtil.build_path(rapids_output_dir,
                                                 self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'fileName'))
         self.ctxt.logger.debug('Rapids CSV summary file is located as: %s', rapids_summary_file)
         df = pd.read_csv(rapids_summary_file)
+        df = self.__update_apps_with_prediction_info(df, predictions_df)
         cluster_info_file = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'fileName')
         cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
         self._process_cluster_info_and_update_savings(cluster_info_file)
@@ -928,13 +933,64 @@ class Qualification(RapidsJarTool):
                          executor_node.instance_type)
 
     def __build_output_files_info(self) -> dict:
-        """Build the full output path for the output files."""
+        """
+        Build the full output path for the output files.
+        """
         files_info = self.ctxt.get_value('local', 'output', 'files')
+        output_folder = self.ctxt.get_output_folder()
+        return self.__update_files_info_with_paths(files_info, output_folder)
+
+    def __build_prediction_output_files_info(self) -> dict:
+        """
+        Build the full output path for the predictions output files
+        """
+        predictions_info = self.ctxt.get_value('local', 'output', 'predictionModel')
+        output_dir = FSUtil.build_path(self.ctxt.get_output_folder(), predictions_info['outputDirectory'])
+        FSUtil.make_dirs(output_dir)
+        return self.__update_files_info_with_paths(predictions_info['files'], output_dir)
+
+    @staticmethod
+    def __update_files_info_with_paths(files_info: dict, output_dir: str) -> dict:
+        """
+        Update the given files_info dictionary with full file paths.
+        """
         for entry in files_info:
             file_name = files_info[entry]['name']
-            file_path = FSUtil.build_path(self.ctxt.get_output_folder(), file_name)
+            file_path = FSUtil.build_path(output_dir, file_name)
             files_info[entry]['path'] = file_path
         return files_info
+
+    def __update_apps_with_prediction_info(self, all_apps: pd.DataFrame,
+                                           predictions_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Merges prediction data into the applications DataFrame, and applies transformations
+        based on the prediction model's output and specified mappings.
+        """
+        result_info = self.ctxt.get_value('local', 'output', 'predictionModel', 'updateResult')
+        if predictions_df is None or predictions_df.empty:
+            # Create the estimation model column as SPEEDUPS when predictions are empty
+            all_apps[result_info['estimationModelColumn']] =\
+                QualEstimationModel.tostring(QualEstimationModel.SPEEDUPS)
+            return all_apps
+
+        # Merge with a left join to include all rows from all apps and relevant rows from model predictions
+        result_df = pd.merge(all_apps, predictions_df[result_info['subsetColumns']],
+                             how='left', left_on='App ID', right_on='appId')
+        # Create a estimation model column based on the model used for calculating speedups
+        result_df[result_info['estimationModelColumn']] = np.where(
+            result_df['speedup'].isna(),
+            QualEstimationModel.tostring(QualEstimationModel.SPEEDUPS),
+            QualEstimationModel.tostring(QualEstimationModel.XGBOOST)
+        )
+        # Update columns in all apps with values from corresponding XGBoost columns,
+        # falling back to existing values in all apps when XGBoost values are NA.
+        for remap_column in result_info['remapColumns']:
+            src_col, dst_col = remap_column['srcCol'], remap_column['dstCol']
+            if src_col in result_df and dst_col in result_df:
+                result_df[dst_col] = result_df[src_col].fillna(result_df[dst_col]).astype(float).round(2)
+        # We need to be careful about other columns that depend on remapped columns
+        result_df['Estimated GPU Time Saved'] = result_df['App Duration'] - result_df['Estimated GPU Duration']
+        return result_df.drop(columns=result_info['subsetColumns'])
 
 
 @dataclass
