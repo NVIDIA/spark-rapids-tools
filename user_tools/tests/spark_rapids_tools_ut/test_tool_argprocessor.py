@@ -65,14 +65,14 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
     def validate_args_w_savings_enabled(tool_name: str, t_args: dict):
         if tool_name == 'qualification':
             assert t_args['savingsCalculations']
-            # filterApps should be set to savings
+            # filterApps should be set to default value
             assert t_args['filterApps'] == QualFilterApp.get_default()
 
     @staticmethod
     def validate_args_w_savings_disabled(tool_name: str, t_args: dict):
         if tool_name == 'qualification':
             assert not t_args['savingsCalculations']
-            # filterApps should be set to savings
+            # filterApps should not be set to savings
             assert t_args['filterApps'] != QualFilterApp.SAVINGS
 
     @staticmethod
