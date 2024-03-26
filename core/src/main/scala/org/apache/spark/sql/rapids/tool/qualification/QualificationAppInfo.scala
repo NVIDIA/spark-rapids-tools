@@ -28,7 +28,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, GpuEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, GpuEventLogException, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
 
 
 class QualificationAppInfo(
@@ -795,6 +795,10 @@ class QualificationAppInfo(
     val sqlPlanInfoGraphEntry = SqlPlanInfoGraphBuffer.createEntry(sqlID, planInfo)
     checkMetadataForReadSchema(sqlPlanInfoGraphEntry)
     for (node <- sqlPlanInfoGraphEntry.sparkPlanGraph.allNodes) {
+      if (node.name.contains("Photon")) {
+        System.err.println(s"Got photon node!!!! ${node.name}")
+        throw PhotonEventLogException(s"Got photon node!!!! ${node.name}")
+      }
       checkGraphNodeForReads(sqlID, node)
       val issues = findPotentialIssues(node.desc)
       if (issues.nonEmpty) {
@@ -1062,6 +1066,8 @@ object QualificationAppInfo extends Logging {
         logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
         Right(app)
       } catch {
+        case e: PhotonEventLogException =>
+          throw e
         case e: Exception =>
           Left(handleException(e, path))
       }

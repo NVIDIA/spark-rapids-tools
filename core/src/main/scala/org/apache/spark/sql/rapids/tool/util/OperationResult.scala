@@ -49,3 +49,6 @@ case class FailureQualAppResult(path: String, message: String)
 
 case class UnknownQualAppResult(path: String, appId: String, message: String)
   extends QualAppResult(path, message) {}
+
+case class SkippedQualAppResult(path: String, message: String)
+  extends QualAppResult(path, message) {}

@@ -27,14 +27,14 @@ import org.apache.spark.internal.Logging
  * ConsoleProgressBar shows the progress of the tool (Qualification/Profiler) in the console.
  * This class is inspired from org.apache.spark.ui.ConsoleProgressBar.
  *
- * The implementation defines three counters: succeeded, failed, and N/A.
+ * The implementation defines four counters: succeeded, failed, skipped, and N/A.
  * The list can be extended to add new counters during runtime which gives flexibility to have
  * custom statistics for different contexts.
  *
  * By default, the progress bar will be shown in the stdout.
  * Sample generated line:
- *   (.)+ Progress (\\d+)% [==> ] ((\\d+) succeeded + (\\d+) failed + (\\d+) N/A) / [(\\d+)]
- *   toolName Progress 71% [=======>   ] (83 succeeded + 2 failed + 0 N/A) / 119
+ *   (.)+ Progress (\\d+)% [==> ] ((\\d+) succeeded + (\\d+) failed + (\\d+) skipped + (\\d+) N/A) / [(\\d+)]
+ *   toolName Progress 71% [=======>   ] (81 succeeded + 3 failed + 1 skipped + 0 N/A) / 119
  *
  * At the end of execution, it dumps all the defined the counters.
  *
@@ -50,12 +50,14 @@ class ConsoleProgressBar(
   import ConsoleProgressBar._
   private val successCounter = new AtomicLong(0)
   private val failureCounter = new AtomicLong(0)
+  private val skippedCounter = new AtomicLong(0)
   private val statusNotAvailableCounter = new AtomicLong(0)
   private val totalCounter = new AtomicLong(0)
 
   private val metrics = mutable.LinkedHashMap[String, AtomicLong](
     PROCESS_SUCCESS_COUNT -> successCounter,
     PROCESS_FAILURE_COUNT -> failureCounter,
+    PROCESS_SKIPPED_COUNT -> skippedCounter,
     PROCESS_NOT_AVAILABLE_COUNT -> statusNotAvailableCounter,
     EXECUTION_TOTAL_COUNTER -> totalCounter)
 
@@ -127,6 +129,11 @@ class ConsoleProgressBar(
     totalCounter.incrementAndGet()
   }
 
+  def reportSkippedProcess(): Unit = {
+    skippedCounter.incrementAndGet()
+    totalCounter.incrementAndGet()
+  }
+
   def reportUnkownStatusProcess(): Unit = {
     statusNotAvailableCounter.incrementAndGet()
     totalCounter.incrementAndGet()
@@ -138,6 +145,10 @@ class ConsoleProgressBar(
 
   def reportFailedProcesses(n: Int): Unit = {
     (1 to n).foreach(_ => reportFailedProcess())
+  }
+
+  def reportSkippedProcesses(n: Int): Unit = {
+    (1 to n).foreach(_ => reportSkippedProcess())
   }
 
   def reportUnknownStatusProcesses(n: Int): Unit = {
@@ -158,6 +169,7 @@ class ConsoleProgressBar(
     val tailer =
       s"] (${successCounter.longValue()} succeeded + " +
         s"${failureCounter.longValue()} failed + " +
+        s"${skippedCounter.longValue()} skipped + " +
         s"${statusNotAvailableCounter.longValue()} N/A) / $totalCount"
     val w = TerminalWidth - header.length - tailer.length
     val bar = if (w > 0) {
@@ -231,6 +243,7 @@ object ConsoleProgressBar {
 
   val PROCESS_SUCCESS_COUNT = "process.success.count"
   val PROCESS_FAILURE_COUNT = "process.failure.count"
+  val PROCESS_SKIPPED_COUNT = "process.skipped.count"
   val PROCESS_NOT_AVAILABLE_COUNT = "process.NA.count"
   val EXECUTION_TOTAL_COUNTER = "execution.total.count"
 }
