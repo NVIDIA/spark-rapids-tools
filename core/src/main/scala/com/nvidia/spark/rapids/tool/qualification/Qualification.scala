@@ -29,7 +29,6 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.{ConsoleProgressBar, QualificationReportGenerator}
 import org.apache.spark.sql.rapids.tool.util._
-import org.apache.spark.sql.rapids.tool.PhotonEventLogException
 
 class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     timeout: Option[Long], nThreads: Int, order: String,
@@ -150,8 +149,12 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
         reportSqlLevel, mlOpsEnabled, penalizeTransitions)
       val qualAppResult = appResult match {
-        case Left(errorMessage: String) =>
-          // Case when an error occurred during QualificationAppInfo creation
+        case Left(FailureApp("skipped", errorMessage)) =>
+          // Case when encountered DataBricks Photon event log during QualificationAppInfo creation
+          progressBar.foreach(_.reportSkippedProcess())
+          SkippedQualAppResult(pathStr, errorMessage)
+        case Left(FailureApp(_, errorMessage)) =>
+          // Case when other error occurred during QualificationAppInfo creation
           progressBar.foreach(_.reportUnkownStatusProcess())
           UnknownQualAppResult(pathStr, "", errorMessage)
         case Right(app: QualificationAppInfo) =>
@@ -188,11 +191,6 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       case o: Error =>
         logError(s"Error occured while processing file: $pathStr", o)
         System.exit(1)
-      case e: PhotonEventLogException =>
-        progressBar.foreach(_.reportSkippedProcess())
-        val skippedAppResult = SkippedQualAppResult(pathStr, e.message)
-        skippedAppResult.logMessage()
-        appStatusReporter.put(pathStr, skippedAppResult)
       case e: Exception =>
         progressBar.foreach(_.reportFailedProcess())
         val failureAppResult = FailureQualAppResult(pathStr,

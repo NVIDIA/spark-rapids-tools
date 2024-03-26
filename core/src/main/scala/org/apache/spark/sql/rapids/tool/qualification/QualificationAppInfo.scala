@@ -796,8 +796,8 @@ class QualificationAppInfo(
     checkMetadataForReadSchema(sqlPlanInfoGraphEntry)
     for (node <- sqlPlanInfoGraphEntry.sparkPlanGraph.allNodes) {
       if (node.name.contains("Photon")) {
-        System.err.println(s"Got photon node!!!! ${node.name}")
-        throw PhotonEventLogException(s"Got photon node!!!! ${node.name}")
+        throw PhotonEventLogException(
+          "Encountered Databricks Photon event log: skipping this file!")
       }
       checkGraphNodeForReads(sqlID, node)
       val issues = findPotentialIssues(node.desc)
@@ -953,6 +953,12 @@ case class StageQualSummaryInfo(
     stageWallclockDuration: Long = 0,
     unsupportedExecs: Seq[ExecInfo] = Seq.empty)
 
+// Case class to represent a failed QualificationAppInfo creation
+case class FailureApp(
+    status: String,
+    message: String
+)
+
 object QualificationAppInfo extends Logging {
   // define recommendation constants
   val RECOMMENDED = "Recommended"
@@ -967,20 +973,22 @@ object QualificationAppInfo extends Logging {
   // based on the testing on few candidate eventlogs.
   val CPU_GPU_TRANSFER_RATE = 1000000000L
 
-  private def handleException(e: Exception, path: EventLogInfo): String = {
-    val message: String = e match {
+  private def handleException(e: Exception, path: EventLogInfo): FailureApp = {
+    val (status, message): (String, String) = e match {
+      case photonLog: PhotonEventLogException =>
+        ("skipped", photonLog.message)
       case gpuLog: GpuEventLogException =>
-        gpuLog.message
+        ("unknow", gpuLog.message)
       case _: com.fasterxml.jackson.core.JsonParseException =>
-        s"Error parsing JSON: ${path.eventLog.toString}"
+        ("unknown", s"Error parsing JSON: ${path.eventLog.toString}")
       case _: IllegalArgumentException =>
-        s"Error parsing file: ${path.eventLog.toString}"
+        ("unknown", s"Error parsing file: ${path.eventLog.toString}")
       case _: Exception =>
         // catch all exceptions and skip that file
-        s"Got unexpected exception processing file: ${path.eventLog.toString}"
+        ("unknown", s"Got unexpected exception processing file: ${path.eventLog.toString}")
     }
 
-    s"${e.getClass.getSimpleName}: $message"
+    FailureApp(status, s"${e.getClass.getSimpleName}: $message")
   }
 
   def getRecommendation(totalSpeedup: Double,
@@ -1059,17 +1067,15 @@ object QualificationAppInfo extends Logging {
       pluginTypeChecker: PluginTypeChecker,
       reportSqlLevel: Boolean,
       mlOpsEnabled: Boolean,
-      penalizeTransitions: Boolean): Either[String, QualificationAppInfo] = {
+      penalizeTransitions: Boolean): Either[FailureApp, QualificationAppInfo] = {
     try {
-        val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
-          reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
-        logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
-        Right(app)
-      } catch {
-        case e: PhotonEventLogException =>
-          throw e
-        case e: Exception =>
-          Left(handleException(e, path))
-      }
+      val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
+        reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
+      logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
+      Right(app)
+    } catch {
+      case e: Exception =>
+        Left(handleException(e, path))
+    }
   }
 }
