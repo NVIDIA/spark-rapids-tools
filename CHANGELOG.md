@@ -1,6 +1,34 @@
 
 <br/>
 
+## Release [v24.02.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.02.2)
+Generated on 2024-03-27
+### User Tools
+
+- Override estimated speedups when estimation model is enabled ([#885](https://github.com/NVIDIA/spark-rapids-tools/pull/885))
+- [FEA] Make top candidates view as the default view in user-tools ([#879](https://github.com/NVIDIA/spark-rapids-tools/pull/879))
+- Introduce new csv file containing output for all apps before grouping ([#875](https://github.com/NVIDIA/spark-rapids-tools/pull/875))
+- Fix calculation of unsupported operators stages duration and update output row ([#874](https://github.com/NVIDIA/spark-rapids-tools/pull/874))
+- Implement top candidate filter for user tools CLI output ([#866](https://github.com/NVIDIA/spark-rapids-tools/pull/866))
+
+### Core
+
+- [FEA] Skip Databricks Photon jobs at app level in Qualification tool ([#886](https://github.com/NVIDIA/spark-rapids-tools/pull/886))
+- [FEA] Add Estimation Model to Qualification CLI ([#870](https://github.com/NVIDIA/spark-rapids-tools/pull/870))
+- Add rootExecutionID to output csv files ([#871](https://github.com/NVIDIA/spark-rapids-tools/pull/871))
+- [FEA] Generate updated supported CSV files from plugin repo ([#847](https://github.com/NVIDIA/spark-rapids-tools/pull/847))
+- Add action column to qual execs output ([#859](https://github.com/NVIDIA/spark-rapids-tools/pull/859))
+- Extend supportLevels in PluginTypeChecker ([#863](https://github.com/NVIDIA/spark-rapids-tools/pull/863))
+- Propagate Reason/Notes for operators disabled by default from plugin to Qualification tool unsupported operators csv file ([#850](https://github.com/NVIDIA/spark-rapids-tools/pull/850))
+
+### Miscellaneous
+
+- Bump default Spark-version to 3.5.0 ([#877](https://github.com/NVIDIA/spark-rapids-tools/pull/877))
+- Update Github actions version ([#876](https://github.com/NVIDIA/spark-rapids-tools/pull/876))
+
+
+<br/>
+
 ## Release [v24.02.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.02.1)
 Generated on 2024-03-15
 ### User Tools
