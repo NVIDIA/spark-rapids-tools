@@ -150,7 +150,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         reportSqlLevel, mlOpsEnabled, penalizeTransitions)
       val qualAppResult = appResult match {
         case Left(FailureApp("skipped", errorMessage)) =>
-          // Case when encountered DataBricks Photon event log during QualificationAppInfo creation
+          // Case to be skipped, e.g. encountered Databricks Photon event log
           progressBar.foreach(_.reportSkippedProcess())
           SkippedQualAppResult(pathStr, errorMessage)
         case Left(FailureApp(_, errorMessage)) =>
