@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
-from ..enums import QualFilterApp, CspEnv
+from ..enums import QualFilterApp, CspEnv, QualEstimationModel
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
 from ..utils.util import dump_tool_usage
@@ -324,6 +324,7 @@ class QualifyUserArgModel(ToolUserArgModel):
     target_platform: Optional[CspEnv] = None
     filter_apps: Optional[QualFilterApp] = None
     gpu_cluster_recommendation: Optional[QualGpuClusterReshapeType] = None
+    estimation_model: Optional[QualEstimationModel] = None
     cpu_cluster_price: Optional[float] = None
     estimated_gpu_cluster_price: Optional[float] = None
     cpu_discount: Optional[int] = None
@@ -333,18 +334,28 @@ class QualifyUserArgModel(ToolUserArgModel):
     def init_tool_args(self):
         self.p_args['toolArgs']['platform'] = self.platform
         self.p_args['toolArgs']['savingsCalculations'] = True
-        self.p_args['toolArgs']['filterApps'] = self.filter_apps
         self.p_args['toolArgs']['targetPlatform'] = self.target_platform
         self.p_args['toolArgs']['cpuClusterPrice'] = self.cpu_cluster_price
         self.p_args['toolArgs']['estimatedGpuClusterPrice'] = self.estimated_gpu_cluster_price
         self.p_args['toolArgs']['cpuDiscount'] = self.cpu_discount
         self.p_args['toolArgs']['gpuDiscount'] = self.gpu_discount
         self.p_args['toolArgs']['globalDiscount'] = self.global_discount
+        # check the filter_apps argument
+        if self.filter_apps is None:
+            self.p_args['toolArgs']['filterApps'] = QualFilterApp.get_default()
+        else:
+            self.p_args['toolArgs']['filterApps'] = self.filter_apps
         # check the reshapeType argument
         if self.gpu_cluster_recommendation is None:
             self.p_args['toolArgs']['gpuClusterRecommendation'] = QualGpuClusterReshapeType.get_default()
         else:
             self.p_args['toolArgs']['gpuClusterRecommendation'] = self.gpu_cluster_recommendation
+
+        # check the estimationModel argument
+        if self.estimation_model is None:
+            self.p_args['toolArgs']['estimationModel'] = QualEstimationModel.get_default()
+        else:
+            self.p_args['toolArgs']['estimationModel'] = self.estimation_model
 
     def define_extra_arg_cases(self):
         self.extra['Disable CostSavings'] = {
@@ -399,11 +410,9 @@ class QualifyUserArgModel(ToolUserArgModel):
                                                      '"target_platform" argument to generate cost savings')
 
         # check the filter_apps argument
-        if self.p_args['toolArgs']['filterApps'] is None:
-            # set a default filterApps argument to be savings if the cost savings is enabled
-            if self.p_args['toolArgs']['savingsCalculations']:
-                self.p_args['toolArgs']['filterApps'] = QualFilterApp.SAVINGS
-            else:
+        if not self.p_args['toolArgs']['savingsCalculations']:
+            # if savingsCalculations is disabled, we cannot use savings filter
+            if self.p_args['toolArgs']['filterApps'] == QualFilterApp.SAVINGS:
                 self.p_args['toolArgs']['filterApps'] = QualFilterApp.SPEEDUPS
 
         # finally generate the final values
@@ -431,6 +440,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': None,
             'gpuClusterRecommendation': self.p_args['toolArgs']['gpuClusterRecommendation'],
+            'estimationModel': self.p_args['toolArgs']['estimationModel'],
             # used to initialize the pricing information
             'targetPlatform': self.p_args['toolArgs']['targetPlatform'],
             'cpuClusterPrice': self.p_args['toolArgs']['cpuClusterPrice'],

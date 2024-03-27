@@ -5,6 +5,8 @@ toolOutput:
     summaryLog:
       fileName: rapids_4_spark_qualification_output.log
   csv:
+    unsupportedOperatorsReport:
+      fileName: rapids_4_spark_qualification_output_unsupportedOperators.csv
     summaryReport:
       fileName: rapids_4_spark_qualification_output.csv
       columns:
@@ -15,6 +17,9 @@ toolOutput:
         - Estimated GPU Duration
         - App Duration
         - Estimated Job Frequency (monthly)
+        - Unsupported Operators Stage Duration
+        - Unsupported Operators Stage Duration Percent
+        - Speed Up Estimation Model
       mapColumns:
         Recommendation: 'Speedup Based Recommendation'
       recommendations:
@@ -31,6 +36,7 @@ toolOutput:
       groupColumns:
          App Duration: 'App Name'
          Estimated GPU Duration: 'App Name'
+         Unsupported Operators Stage Duration: 'App Name'
       dropDuplicates:
          - App Name
   json:
@@ -53,8 +59,6 @@ sparkRapids:
     cudaVersion: '11.5'
   cli:
     defaults:
-      filters:
-        defaultFilter: 'SAVINGS'
       gpuClusterRecommendation:
         defaultRecommendation: 'MATCH'
     toolOptions:
@@ -75,8 +79,6 @@ sparkRapids:
       - num-output-rows
       - num-threads
       - order
-      - p
-      - per-sql
       - r
       - report-read-schema
       - s
@@ -90,7 +92,13 @@ sparkRapids:
 local:
   output:
     cleanUp: true
-    fileName: qualification_summary.csv
+    files:
+      summary:
+        name: qualification_summary.csv
+        outputComment: "Summarized savings and speedups CSV report"
+      full:
+        name: qualification_summary_full.csv
+        outputComment: "Full savings and speedups CSV report"
     costColumns:
       - 'Savings Based Recommendation'
       - 'Estimated App Cost'
@@ -164,6 +172,88 @@ local:
           - '^(\.+).*'
           - '^(\$+).*'
           - '^.+(_\$folder\$)$'
+    unsupportedOperators:
+      mask:
+        - operator: 'NOT_EQUAL'
+          columnName: 'Action'
+          value: 'IgnoreNoPerf'
+        - operator: 'NOT_EQUAL'
+          columnName: 'Unsupported Type'
+          value: 'Expr'
+        - operator: 'NOT_EQUAL'
+          columnName: 'Stage ID'
+          value: -1
+      inputColumns:
+        - 'App ID'
+        - 'App Duration'
+        - 'Stage ID'
+        - 'Stage Duration'
+      groupingColumns:
+        max:
+          - 'App ID'
+          - 'App Duration'
+          - 'Stage ID'
+        sum:
+          - 'App ID'
+          - 'App Duration'
+      resultColumnName: 'Unsupported Operators Stage Duration'
+      percentResultColumnName: 'Unsupported Operators Stage Duration Percent'
+    topCandidates:
+      outputColumns:
+        - 'App ID'
+        - 'App Name'
+        - 'App Duration'
+        - 'Estimated GPU Speedup'
+        - 'Unsupported Operators Stage Duration Percent'
+      sortingColumns:
+        - 'Estimated GPU Speedup'
+        - 'Unsupported Operators Stage Duration Percent'
+      joinColumns:
+        - 'App ID'
+        - 'App Name'
+        - 'App Duration'
+      ranges:
+          - columnName: 'Estimated GPU Speedup'
+            lowerBound: 1.3
+            upperBound: 1000000.0
+          - columnName: 'Unsupported Operators Stage Duration Percent'
+            lowerBound: 0.0
+            upperBound: 25.0
+      output: # Configs related to output
+        columns:
+          - 'App ID'
+          - 'App Name'
+          - 'Estimated GPU Speedup'
+        remap:
+          - columnName: 'Estimated GPU Speedup'
+            recommendationRanges:
+              - title: 'Small'
+                lowerBound: 1.3
+                upperBound: 2.0
+              - title: 'Medium'
+                lowerBound: 2.0
+                upperBound: 3.0
+              - title: 'Large'
+                lowerBound: 3.0
+                upperBound: 1000000.0
+    predictionModel:
+      outputDirectory: 'xgboost_predictions'
+      files:
+        perSql:
+          name: 'per_sql.csv'
+        perApp:
+          name: 'per_app.csv'
+      updateResult:
+        subsetColumns:
+          - 'appId'
+          - 'speedup'
+          - 'appDuration_pred'
+        estimationModelColumn: 'Speed Up Estimation Model'
+        remapColumns:
+          - srcCol: 'speedup'
+            dstCol: 'Estimated GPU Speedup'
+          - srcCol: 'appDuration_pred'
+            dstCol: 'Estimated GPU Duration'
 platform:
   shortName: 'qual'
   outputDir: qual-tool-output

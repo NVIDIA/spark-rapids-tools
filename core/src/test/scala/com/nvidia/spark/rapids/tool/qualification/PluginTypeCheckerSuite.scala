@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,15 +123,13 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     assert(checker.isExecSupported("ShuffledHashJoinExec"))
     assert(checker.isExecSupported("ShuffledHashJoinExec"))
     assert(checker.isExecSupported("CollectLimitExec") == false)
-    assert(checker.isExecSupported("ColumnarToRow"))
-
   }
 
   test("supported Expressions") {
     val checker = new PluginTypeChecker
     val result = checker.getSupportedExprs
     assert(result.contains("add"))
-    assert(result("add") == "S")
+    assert(result("add").equals(OpSuppLevel.S))
     assert(result.contains("isnull"))
   }
 
@@ -183,5 +181,50 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     val checker = new PluginTypeChecker(speedupFactorFile=Some(speedupFactorFile))
     assert(checker.getSpeedupFactor("SortExec") == 13.11)
     assert(checker.getSpeedupFactor("FilterExec") == 3.14)
+  }
+
+  test("read TOFF datatype") {
+    val checker = new PluginTypeChecker
+    TrampolineUtil.withTempDir { outpath =>
+      val testSchema = "loan_id:bigint,monthly_reporting_period:string,servicer:string"
+      val header = "Format,Direction,int\n"
+      val supText = (header + "parquet,read,TOFF\n").getBytes(StandardCharsets.UTF_8)
+      val csvSupportedFile = Paths.get(outpath.getAbsolutePath, "testDS.txt")
+      Files.write(csvSupportedFile, supText)
+      checker.setPluginDataSourceFile(csvSupportedFile.toString)
+      val (score, nsTypes) = checker.scoreReadDataTypes("parquet", testSchema)
+      assert(score == 0.0)
+      assert(nsTypes.contains("int"))
+    }
+  }
+
+  test("read TNEW datatype") {
+    val checker = new PluginTypeChecker
+    TrampolineUtil.withTempDir { outpath =>
+      val testSchema = "loan_id:bigint,monthly_reporting_period:string,servicer:string"
+      val header = "Format,Direction,int\n"
+      val supText = (header + "parquet,read,TNEW\n").getBytes(StandardCharsets.UTF_8)
+      val csvSupportedFile = Paths.get(outpath.getAbsolutePath, "testDS.txt")
+      Files.write(csvSupportedFile, supText)
+      checker.setPluginDataSourceFile(csvSupportedFile.toString)
+      val (score, nsTypes) = checker.scoreReadDataTypes("parquet", testSchema)
+      assert(score == 0.0)
+      assert(nsTypes.contains("int"))
+    }
+  }
+
+  test("read TON datatype") {
+    val checker = new PluginTypeChecker
+    TrampolineUtil.withTempDir { outpath =>
+      val testSchema = "loan_id:bigint,monthly_reporting_period:string,servicer:string"
+      val header = "Format,Direction,int\n"
+      val supText = (header + "parquet,read,TON\n").getBytes(StandardCharsets.UTF_8)
+      val csvSupportedFile = Paths.get(outpath.getAbsolutePath, "testDS.txt")
+      Files.write(csvSupportedFile, supText)
+      checker.setPluginDataSourceFile(csvSupportedFile.toString)
+      val (score, nsTypes) = checker.scoreReadDataTypes("parquet", testSchema)
+      assert(score == 1.0)
+      assert(nsTypes.isEmpty)
+    }
   }
 }

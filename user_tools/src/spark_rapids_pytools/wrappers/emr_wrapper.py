@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,9 +37,10 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                       remote_folder: str = None,
                       gpu_cluster: str = None,
                       tools_jar: str = None,
-                      filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS),
+                      filter_apps: str = QualFilterApp.tostring(QualFilterApp.get_default()),
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
+                      estimation_model: str = None,
                       jvm_heap_size: int = None,
                       verbose: bool = None,
                       cpu_discount: int = None,
@@ -75,17 +76,22 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
                 or remote S3 url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
                 from maven repo
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
-                is one of the following (ALL, SPEEDUPS, SAVINGS). Default is "SAVINGS".
+                is one of the following (all, speedups, savings, top_candidates).
                 Note that this filter does not affect the CSV report.
-                "ALL" means no filter applied. "SPEEDUPS" lists all the apps that are either
-                'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
+                "all" means no filter applied. "speedups" lists all the apps that are either
+                'Recommended', or 'Strongly Recommended' based on speedups. "savings"
                 lists all the apps that have positive estimated GPU savings except for the apps that
-                are "Not Applicable"
+                are "Not Applicable". "top_candidates" lists all apps that have unsupported operators
+                stage duration less than 25% of app duration and speedups greater than 1.3x.
         :param gpu_cluster_recommendation: The type of GPU cluster recommendation to generate.
                It accepts one of the following ("CLUSTER", "JOB" and the default value "MATCH").
                 "MATCH": keep GPU cluster same number of nodes as CPU cluster;
                 "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
                 "JOB": recommend optimal GPU cluster by cost per job
+        :param estimation_model: Model used to calculate the estimated GPU duration and cost savings.
+               It accepts one of the following:
+               "xgboost": an XGBoost model for GPU duration estimation
+               "speedups": set by default. It uses a simple static estimated speedup per operator.
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes
         :param verbose: True or False to enable verbosity to the wrapper script
         :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
@@ -132,7 +138,8 @@ class CliEmrLocalMode:  # pylint: disable=too-few-public-methods
             'gpuClusterRecommendation': gpu_cluster_recommendation,
             'cpuDiscount': cpu_discount,
             'gpuDiscount': gpu_discount,
-            'globalDiscount': global_discount
+            'globalDiscount': global_discount,
+            'estimationModel': estimation_model
         }
         QualificationAsLocal(platform_type=CspEnv.EMR,
                              cluster=None,

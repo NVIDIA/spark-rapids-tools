@@ -32,7 +32,7 @@ case class GenerateExecParser(
     val duration = None
     val exprString = node.desc.replaceFirst("Generate ", "")
     val expressions = SQLPlanParser.parseGenerateExpressions(exprString)
-    val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
+    val notSupportedExprs = checker.getNotSupportedExprs(expressions)
     val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
       notSupportedExprs.isEmpty) {
       (checker.getSpeedupFactor(fullExecName), true)

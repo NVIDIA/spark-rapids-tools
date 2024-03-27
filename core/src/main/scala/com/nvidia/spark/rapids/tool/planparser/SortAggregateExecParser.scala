@@ -32,7 +32,7 @@ case class SortAggregateExecParser(
     val duration = None
     val exprString = node.desc.replaceFirst("SortAggregate", "")
     val expressions = SQLPlanParser.parseAggregateExpressions(exprString)
-    val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
+    val notSupportedExprs = checker.getNotSupportedExprs(expressions)
     val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
         notSupportedExprs.isEmpty) {
       (checker.getSpeedupFactor(fullExecName), true)

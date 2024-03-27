@@ -23,7 +23,7 @@
     <artifactId>rapids-4-spark-tools_2.12</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
-    <version>24.02.1</version>
+    <version>24.02.2-SNAPSHOT</version>
     <packaging>jar</packaging>
     <url>http://github.com/NVIDIA/spark-rapids-tools</url>
 
@@ -268,7 +268,6 @@
         <profile>
             <id>release333</id>
             <activation>
-                <activeByDefault>true</activeByDefault>
                 <property>
                     <name>buildver</name>
                     <value>333</value>
@@ -292,6 +291,21 @@
             <properties>
                 <buildver>334</buildver>
                 <spark.version>${spark334.version}</spark.version>
+                <delta.core.version>${delta23x.version}</delta.core.version>
+                <hadoop.version>3.3.6</hadoop.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release335</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>335</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>335</buildver>
+                <spark.version>${spark335.version}</spark.version>
                 <delta.core.version>${delta23x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
@@ -342,8 +356,24 @@
             </properties>
         </profile>
         <profile>
+            <id>release343</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>343</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>343</buildver>
+                <spark.version>${spark343.version}</spark.version>
+                <delta.core.version>${delta24x.version}</delta.core.version>
+                <hadoop.version>3.3.6</hadoop.version>
+            </properties>
+        </profile>
+        <profile>
             <id>release350</id>
             <activation>
+                <activeByDefault>true</activeByDefault>
                 <property>
                     <name>buildver</name>
                     <value>350</value>
@@ -352,7 +382,7 @@
             <properties>
                 <buildver>350</buildver>
                 <spark.version>${spark350.version}</spark.version>
-                <delta.core.version>${delta24x.version}</delta.core.version>
+                <delta.core.version>${delta31x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
@@ -367,7 +397,22 @@
             <properties>
                 <buildver>351</buildver>
                 <spark.version>${spark351.version}</spark.version>
-                <delta.core.version>${delta24x.version}</delta.core.version>
+                <delta.core.version>${delta31x.version}</delta.core.version>
+                <hadoop.version>3.3.6</hadoop.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>release352</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>352</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>352</buildver>
+                <spark.version>${spark352.version}</spark.version>
+                <delta.core.version>${delta31x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
@@ -382,7 +427,7 @@
             <properties>
                 <buildver>400</buildver>
                 <spark.version>${spark400.version}</spark.version>
-                <delta.core.version>${delta24x.version}</delta.core.version>
+                <delta.core.version>${delta31x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
@@ -402,12 +447,15 @@
         <spark331.version>3.3.1</spark331.version>
         <spark332.version>3.3.2</spark332.version>
         <spark333.version>3.3.3</spark333.version>
-        <spark334.version>3.3.4-SNAPSHOT</spark334.version>
+        <spark334.version>3.3.4</spark334.version>
+        <spark335.version>3.3.5-SNAPSHOT</spark335.version>
         <spark340.version>3.4.0</spark340.version>
         <spark341.version>3.4.1</spark341.version>
-        <spark342.version>3.4.2-SNAPSHOT</spark342.version>
-        <spark350.version>3.5.0-SNAPSHOT</spark350.version>
-        <spark351.version>3.5.1-SNAPSHOT</spark351.version>
+        <spark342.version>3.4.2</spark342.version>
+        <spark343.version>3.4.3-SNAPSHOT</spark343.version>
+        <spark350.version>3.5.0</spark350.version>
+        <spark351.version>3.5.1</spark351.version>
+        <spark352.version>3.5.2-SNAPSHOT</spark352.version>
         <spark400.version>4.0.0-SNAPSHOT</spark400.version>
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>
@@ -439,7 +487,10 @@
         <delta22x.version>2.2.0</delta22x.version>
         <delta23x.version>2.3.0</delta23x.version>
         <delta24x.version>2.4.0</delta24x.version>
-        <delta.core.version>${delta10x.version}</delta.core.version>
+        <!-- TODO: Fix delta version should be 3.1.0 but this requires scala-binary 2.13 which we
+                   don't have yet -->
+        <delta31x.version>2.4.0</delta31x.version>
+        <delta.core.version>${delta24x.version}</delta.core.version>
         <!-- environment properties -->
         <java.version>1.8</java.version>
         <platform-encoding>UTF-8</platform-encoding>

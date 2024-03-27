@@ -32,7 +32,7 @@ case class WindowExecParser(
     val duration = None
     val exprString = node.desc.replaceFirst("Window ", "")
     val expressions = SQLPlanParser.parseWindowExpressions(exprString)
-    val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
+    val notSupportedExprs = checker.getNotSupportedExprs(expressions)
     val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
         notSupportedExprs.isEmpty) {
       (checker.getSpeedupFactor(fullExecName), true)

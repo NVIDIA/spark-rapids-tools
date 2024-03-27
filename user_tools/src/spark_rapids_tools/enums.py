@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
 
 """Enumeration types commonly used through the AS python implementations."""
 
-from enum import Enum
-from typing import Union, cast, Optional
+from enum import Enum, auto
+from typing import Union, cast, Optional, Callable
 
 
 class EnumeratedType(str, Enum):
@@ -113,11 +113,12 @@ class QualFilterApp(EnumeratedType):
     """Values used to filter out the applications in the qualification report"""
     SAVINGS = 'savings'
     SPEEDUPS = 'speedups'
+    TOP_CANDIDATES = 'top_candidates'
     ALL = 'all'
 
     @classmethod
     def get_default(cls):
-        return cls.SAVINGS
+        return cls.TOP_CANDIDATES
 
 
 class QualGpuClusterReshapeType(EnumeratedType):
@@ -129,3 +130,41 @@ class QualGpuClusterReshapeType(EnumeratedType):
     @classmethod
     def get_default(cls):
         return cls.MATCH
+
+
+class ConditionOperator(EnumeratedType):
+    """Enum representing comparison operators for conditions."""
+    EQUAL = auto()
+    NOT_EQUAL = auto()
+    GREATER_THAN = auto()
+    LESS_THAN = auto()
+    GREATER_THAN_OR_EQUAL = auto()
+    LESS_THAN_OR_EQUAL = auto()
+
+    @classmethod
+    def get_operator_fn(cls, operator: str) -> Callable[[any, any], bool]:
+        """
+        Returns the operator function for a given operator input.
+        """
+        operator_functions = {
+            cls.EQUAL: lambda x, y: x == y,
+            cls.NOT_EQUAL: lambda x, y: x != y,
+            cls.GREATER_THAN: lambda x, y: x > y,
+            cls.LESS_THAN: lambda x, y: x < y,
+            cls.GREATER_THAN_OR_EQUAL: lambda x, y: x >= y,
+            cls.LESS_THAN_OR_EQUAL: lambda x, y: x <= y,
+        }
+        try:
+            return operator_functions[ConditionOperator.fromstring(operator)]
+        except (KeyError, ValueError) as e:
+            raise ValueError(f'Operator function not defined for {operator}') from e
+
+
+class QualEstimationModel(EnumeratedType):
+    """Values used to define the speedup values of the applications"""
+    XGBOOST = 'xgboost'
+    SPEEDUPS = 'speedups'
+
+    @classmethod
+    def get_default(cls):
+        return cls.SPEEDUPS

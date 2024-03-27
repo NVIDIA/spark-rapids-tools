@@ -14,12 +14,13 @@
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
-import textwrap
 import json
+import textwrap
 from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
 
+import numpy as np
 import pandas as pd
 from tabulate import tabulate
 
@@ -29,8 +30,12 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
+from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
-from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType
+from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, QualEstimationModel
+from spark_rapids_tools.tools.model_xgboost import predict
+from spark_rapids_tools.tools.top_candidates import TopCandidates
+from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
 
 
 @dataclass
@@ -44,7 +49,9 @@ class QualificationSummary:
     df_result: pd.DataFrame = None
     irrelevant_speedups: bool = False
     savings_report_flag: bool = False
+    top_candidates_flag: bool = False
     sections_generators: List[Callable] = field(default_factory=lambda: [])
+    filter_apps_count: int = field(default=0, init=False)
 
     def _get_total_durations(self) -> int:
         if not self.is_empty():
@@ -89,16 +96,11 @@ class QualificationSummary:
 
     def generate_report(self,
                         app_name: str,
-                        wrapper_csv_file: str = None,
+                        wrapper_output_files_info: dict,
                         csp_report_provider: Callable[[], List[str]] = lambda: [],
                         df_pprinter: Any = None,
                         output_pprinter: Any = None):
-
-        def format_float(x: float) -> str:
-            return f'{x:.2f}'
-
         report_content = []
-
         if self.is_empty():
             # Qualification tool has no output
             report_content.append(f'{app_name} tool did not generate any valid rows')
@@ -114,11 +116,15 @@ class QualificationSummary:
                 report_content.append(f'{app_name} tool found no recommendations for GPU.')
 
         if self.has_tabular_result():
-            if wrapper_csv_file is not None:
-                abs_path = FSUtil.get_abs_path(wrapper_csv_file)
-                report_content.append(f'    - Full savings and speedups CSV report: {abs_path}')
+            for entry in wrapper_output_files_info:
+                path = wrapper_output_files_info[entry]['path']
+                output_comment = wrapper_output_files_info[entry]['outputComment']
+                if path is not None:
+                    abs_path = FSUtil.get_abs_path(path)
+                    report_content.append(f'    - {output_comment}: {abs_path}')
 
             pretty_df = df_pprinter(self.df_result)
+            self.filter_apps_count = len(pretty_df)
             if pretty_df.empty:
                 # the results were reduced to no rows because of the filters
                 report_content.append(
@@ -131,31 +137,8 @@ class QualificationSummary:
         else:
             report_content.append(f'{app_name} tool found no records to show.')
 
-        overall_speedup = 0.0
-        total_apps_durations = 1.0 * self._get_total_durations()
-        total_gpu_durations = self._get_total_gpu_durations()
-        if total_gpu_durations > 0:
-            overall_speedup = total_apps_durations / total_gpu_durations
-
-        if not self.savings_report_flag:
-            report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
-            report_summary = [['Total applications', self._get_stats_total_apps()],
-                              ['Overall estimated speedup', format_float(overall_speedup)]]
-        else:
-            total_app_cost = self._get_stats_total_cost()
-            total_gpu_cost = self._get_stats_total_gpu_cost()
-            estimated_gpu_savings = 0.0
-            if total_app_cost > 0.0:
-                estimated_gpu_savings = 100.0 - (100.0 * total_gpu_cost / total_app_cost)
-
-            report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
-            report_summary = [['Total applications', self._get_stats_total_apps()],
-                              ['Overall estimated speedup', format_float(overall_speedup)],
-                              ['Overall estimated cost savings', f'{format_float(estimated_gpu_savings)}%']]
-        if not self.irrelevant_speedups:
-            # do not display speedups stats if the speedup is being overriden by the shape recommendations
-            report_summary.insert(1, ['RAPIDS candidates', self._get_stats_recommended_apps()])
-        report_content.append(tabulate(report_summary, colalign=('left', 'right')))
+        report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
+        report_content.append(tabulate(self.__generate_report_summary(), colalign=('left', 'right')))
         if self.comments:
             report_content.append(Utils.gen_report_sec_header('Notes'))
             report_content.extend(f' - {line}' for line in self.comments)
@@ -170,6 +153,33 @@ class QualificationSummary:
         # append an empty line at the end of the report
         report_content.append('')
         return report_content
+
+    def __generate_report_summary(self):
+        def format_float(x: float) -> str:
+            return f'{x:.2f}'
+
+        report_summary = [['Total applications', self._get_stats_total_apps()]]
+        if self.top_candidates_flag:
+            # TODO: Similarly, we should include a line that shows number of apps after filtering for other filter types
+            report_summary.append(['Top candidates', self.filter_apps_count])
+        elif not self.irrelevant_speedups:
+            # do not display RAPIDS candidates count if the speedup is being overridden by the shape recommendations
+            report_summary.append(['RAPIDS candidates', self._get_stats_recommended_apps()])
+        if not self.top_candidates_flag:
+            overall_speedup = 0.0
+            total_apps_durations = self._get_total_durations()
+            total_gpu_durations = self._get_total_gpu_durations()
+            if total_gpu_durations > 0:
+                overall_speedup = total_apps_durations / total_gpu_durations
+            report_summary.append(['Overall estimated speedup', format_float(overall_speedup)])
+            if self.savings_report_flag:
+                total_app_cost = self._get_stats_total_cost()
+                total_gpu_cost = self._get_stats_total_gpu_cost()
+                estimated_gpu_savings = 0.0
+                if total_app_cost > 0.0:
+                    estimated_gpu_savings = 100.0 - (100.0 * total_gpu_cost / total_app_cost)
+                report_summary.append(['Overall estimated cost savings', f'{format_float(estimated_gpu_savings)}%'])
+        return report_summary
 
 
 @dataclass
@@ -233,14 +243,18 @@ class Qualification(RapidsJarTool):
         return gpu_cluster_obj is not None
 
     def _process_offline_cluster_args(self):
-        offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
-        self._process_cpu_cluster_args(offline_cluster_opts)
-        if self.ctxt.get_ctxt('cpuClusterProxy') is None:
-            # if no cpu-cluster is defined, then we are not supposed to run cost calculations
-            enable_savings_flag = False
-        else:
-            # if no gpu-cluster is defined, then we are not supposed to run cost calculations
-            enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
+        # read the wrapper option defined by the spark_rapids cmd if any.
+        enable_savings_flag = self.wrapper_options.get('savingsCalculations', True)
+        if enable_savings_flag:
+            offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
+            self._process_cpu_cluster_args(offline_cluster_opts)
+            if self.ctxt.get_ctxt('cpuClusterProxy') is None:
+                # if no cpu-cluster is defined, then we are not supposed to run cost calculations
+                enable_savings_flag = False
+            else:
+                # if no gpu-cluster is defined, then we are not supposed to run cost calculations
+                enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
+
         self._set_savings_calculations_flag(enable_savings_flag)
 
     def _set_savings_calculations_flag(self, enable_flag: bool):
@@ -277,30 +291,44 @@ class Qualification(RapidsJarTool):
         self.ctxt.set_ctxt('gpuClusterShapeRecommendation', selected_recommendation)
 
     def __process_filter_args(self, arg_val: str):
-        available_filters = [filter_enum.value for filter_enum in QualFilterApp]
-        default_filter_txt = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'filters',
-                                                 'defaultFilter')
-        if arg_val is not None:
-            try:
-                selected_filter = QualFilterApp.fromstring(arg_val)
-            except Exception:  # pylint: disable=broad-except
-                selected_filter = QualFilterApp.fromstring(default_filter_txt)
-                self.logger.warning(
-                    'Invalid argument filter_apps=%s.\n\t'
-                    'Accepted options are: [%s].\n\t'
-                    'Falling-back to default filter: %s',
-                    arg_val, Utils.gen_joined_str(' | ', available_filters), default_filter_txt)
-        else:
-            selected_filter = QualFilterApp.fromstring(default_filter_txt)
+        selected_filter = QualFilterApp.fromstring(arg_val)
+        if selected_filter is None:
+            selected_filter = QualFilterApp.get_default()
+            available_filters = [filter_enum.value for filter_enum in QualFilterApp]
+            self.logger.warning(
+                'Invalid argument filter_apps=%s.\n\t'
+                'Accepted options are: [%s].\n\t'
+                'Falling-back to default filter: %s',
+                arg_val, Utils.gen_joined_str(' | ', available_filters),
+                QualFilterApp.tostring(selected_filter))
+
         if self.__recommendation_is_non_standard():
             # SpeedupFilter cannot be applied with the current cluster_gpu_recommendation
             if selected_filter == QualFilterApp.SPEEDUPS:
                 self.logger.info('Cannot apply Filter argument filter_apps=%s with the selected '
                                  'gpu_cluster_shape recommendation. Setting the filter to %s',
                                  QualFilterApp.tostring(selected_filter),
-                                 default_filter_txt)
-                selected_filter = QualFilterApp.fromstring(default_filter_txt)
+                                 QualFilterApp.tostring(QualFilterApp.get_default()))
+                selected_filter = QualFilterApp.get_default()
         self.ctxt.set_ctxt('filterApps', selected_filter)
+
+    def _process_estimation_model_args(self):
+        # set the estimation model
+        estimation_model_str = self.wrapper_options.get('estimationModel')
+        if estimation_model_str is not None:
+            selected_estimation_model = QualEstimationModel.fromstring(estimation_model_str)
+            if selected_estimation_model is None:
+                selected_estimation_model = QualEstimationModel.get_default()
+                available_models = [qual_model.value for qual_model in QualEstimationModel]
+                self.logger.warning(
+                    'Invalid argument estimation_model=%s.\n\t'
+                    'Accepted options are: [%s].\n\t'
+                    'Falling-back to default estimation model: %s',
+                    estimation_model_str, Utils.gen_joined_str(' | ', available_models),
+                    selected_estimation_model.value)
+        else:
+            selected_estimation_model = QualEstimationModel.get_default()
+        self.ctxt.set_ctxt('estimationModel', selected_estimation_model)
 
     def _process_external_pricing_args(self):
         cpu_cluster_price = self.wrapper_options.get('cpuClusterPrice')
@@ -342,15 +370,6 @@ class Qualification(RapidsJarTool):
             self.ctxt.set_ctxt('cpu_discount', cpu_discount)
             self.ctxt.set_ctxt('gpu_discount', gpu_discount)
 
-    def _create_autotuner_rapids_args(self) -> list:
-        # Add the autotuner argument, also add worker-info if the autotunerPath exists
-        if self.ctxt.get_rapids_auto_tuner_enabled():
-            autotuner_path = self.ctxt.get_ctxt('autoTunerFilePath')
-            if autotuner_path is None:
-                return ['--auto-tuner']
-            return ['--auto-tuner', '--worker-info', autotuner_path]
-        return []
-
     def _create_cluster_report_args(self) -> list:
         # Add the cluster-report argument if the cluster is not defined else disable it
         if self.ctxt.get_ctxt('cpuClusterProxy') is None:
@@ -385,7 +404,7 @@ class Qualification(RapidsJarTool):
         # we need to process each argument to verify it is valid. otherwise, we may crash late
         self.__process_gpu_cluster_recommendation(self.wrapper_options.get('gpuClusterRecommendation'))
         self.__process_filter_args(self.wrapper_options.get('filterApps'))
-
+        self._process_estimation_model_args()
         self._process_offline_cluster_args()
         self._process_eventlogs_args()
         self._process_external_pricing_args()
@@ -417,21 +436,33 @@ class Qualification(RapidsJarTool):
                 subset_data.columns = subset_data.columns.str.replace(col_rename,
                                                                       cols_map.get(col_rename),
                                                                       regex=False)
+        return subset_data
 
-        # for TCO, group by app name and average durations, then recalculate Estimated GPU Speedup
+    def __group_apps_by_name(self, all_apps) -> (pd.DataFrame, str):
+        all_apps_count = len(all_apps)
+
+        # for TCO, group by app name and average durations, then recalculate metrics
         group_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
         if group_map:
             for group_key, group_value in group_map.items():
-                subset_data[group_key] = subset_data.groupby(group_value)[group_key].transform('mean')
+                all_apps[group_key] = all_apps.groupby(group_value)[group_key].transform('mean')
 
         drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
-        subset_data = subset_data.drop_duplicates(subset=drop_arr)
+        subset_data = all_apps.drop_duplicates(subset=drop_arr)
 
         notes = []
-        if len(subset_data) != len(all_rows):
+        if len(subset_data) != all_apps_count:
             notes = 'Apps with the same name are grouped together and their metrics are averaged'
 
+        # recalculate estimated GPU speedup
         subset_data['Estimated GPU Speedup'] = subset_data['App Duration'] / subset_data['Estimated GPU Duration']
+        unsupported_ops_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
+                                                       'resultColumnName')
+        unsupported_ops_perc_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
+                                                            'percentResultColumnName')
+        # recalculate unsupported operators stage duration percent
+        subset_data[unsupported_ops_perc_col_name] =\
+            subset_data[unsupported_ops_col_name] * 100.0 / subset_data['App Duration']
 
         return subset_data, notes
 
@@ -655,17 +686,24 @@ class Qualification(RapidsJarTool):
 
     def __build_global_report_summary(self,
                                       all_apps: pd.DataFrame,
-                                      csv_out: str) -> QualificationSummary:
+                                      unsupported_ops_df: pd.DataFrame,
+                                      output_files_info: dict) -> QualificationSummary:
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
 
-        apps_pruned_df, prune_notes = self.__remap_columns_and_prune(all_apps)
-        recommended_apps = self.__get_recommended_apps(apps_pruned_df)
+        unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
+                                                                              'unsupportedOperators'))
+        # Calculate unsupported operators stage duration before grouping
+        all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
+        apps_pruned_df = self.__remap_columns_and_prune(all_apps)
+        apps_pruned_df.to_csv(output_files_info['full']['path'], float_format='%.2f')
+        apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
+        recommended_apps = self.__get_recommended_apps(apps_grouped_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
         reshaped_notes = self.__generate_cluster_shape_report()
-        report_comments = [prune_notes] if prune_notes else []
+        report_comments = [group_notes] if group_notes else []
         if reshaped_notes:
             report_comments.append(reshaped_notes)
 
@@ -683,8 +721,8 @@ class Qualification(RapidsJarTool):
         reshape_col = self.ctxt.get_value('local', 'output', 'processDFProps',
                                           'clusterShapeCols', 'columnName')
         speed_recommendation_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
-        apps_reshaped_df, per_row_flag = self.__apply_gpu_cluster_reshape(apps_pruned_df)
-
+        apps_reshaped_df, per_row_flag = self.__apply_gpu_cluster_reshape(apps_grouped_df)
+        csv_out = output_files_info['summary']['path']
         if launch_savings_calc:
             # Now, the dataframe is ready to calculate the cost and the savings
             apps_working_set = self.__calc_apps_cost(apps_reshaped_df,
@@ -703,14 +741,15 @@ class Qualification(RapidsJarTool):
                 apps_reshaped_df = apps_reshaped_df.drop(columns=['Estimated Job Frequency (monthly)'])
                 self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
-
+        filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
         return QualificationSummary(comments=report_comments,
-                                    all_apps=apps_pruned_df,
+                                    all_apps=apps_grouped_df,
                                     recommended_apps=recommended_apps,
                                     savings_report_flag=launch_savings_calc,
                                     df_result=df_final_result,
                                     irrelevant_speedups=speedups_irrelevant_flag,
-                                    sections_generators=[self.__generate_mc_types_conversion_report])
+                                    sections_generators=[self.__generate_mc_types_conversion_report],
+                                    top_candidates_flag=filter_top_candidate_enabled)
 
     def _process_output(self):
         def process_df_for_stdout(raw_df):
@@ -726,6 +765,7 @@ class Qualification(RapidsJarTool):
             # check if any filters apply
             filter_recommendation_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SPEEDUPS
             filter_pos_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SAVINGS
+            filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
 
             if self.__recommendation_is_non_standard():
                 # During processing of arguments phase, we verified that the filter does not conflict
@@ -735,6 +775,12 @@ class Qualification(RapidsJarTool):
                                                           self.ctxt.get_ctxt('gpuClusterShapeRecommendation'))
                 # update the selected columns
                 selected_cols = list(raw_df.columns)
+            if filter_top_candidate_enabled:
+                # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
+                #  This should be refactored along with entire filter apps logic to use more object-oriented design.
+                top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
+                filtered_apps = top_candidates_obj.filter_apps(raw_df)
+                return top_candidates_obj.prepare_output(filtered_apps)
 
             # filter by recommendations if enabled
             if filter_recommendation_enabled:
@@ -778,19 +824,35 @@ class Qualification(RapidsJarTool):
 
         if not self._evaluate_rapids_jar_tool_output_exist():
             return
+
         rapids_output_dir = self.ctxt.get_rapids_output_folder()
         rapids_summary_file = FSUtil.build_path(rapids_output_dir,
                                                 self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'fileName'))
         self.ctxt.logger.debug('Rapids CSV summary file is located as: %s', rapids_summary_file)
         df = pd.read_csv(rapids_summary_file)
+        # process the output through the XGboost model if enabled
+        if self.ctxt.get_ctxt('estimationModel') == QualEstimationModel.XGBOOST:
+            try:
+                df = self.__update_apps_with_prediction_info(df)
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.warning('Unable to use XGBoost estimation model for speed ups. '
+                                    'Falling-back to default model. Reason - %s:%s', type(e).__name__, e)
+        estimation_model_col = self.ctxt.get_value('local', 'output', 'predictionModel',
+                                                   'updateResult', 'estimationModelColumn')
+        if estimation_model_col not in df:
+            # Create the estimation model column as SPEEDUPS if there were no predictions or failure.
+            df[estimation_model_col] = QualEstimationModel.tostring(QualEstimationModel.SPEEDUPS)
         cluster_info_file = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'fileName')
         cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
         self._process_cluster_info_and_update_savings(cluster_info_file)
-        csv_file_name = self.ctxt.get_value('local', 'output', 'fileName')
-        csv_summary_file = FSUtil.build_path(self.ctxt.get_output_folder(), csv_file_name)
-        report_gen = self.__build_global_report_summary(df, csv_summary_file)
+        unsupported_operator_report_file = self.ctxt.get_value('toolOutput', 'csv', 'unsupportedOperatorsReport',
+                                                               'fileName')
+        rapids_unsupported_operators_file = FSUtil.build_path(rapids_output_dir, unsupported_operator_report_file)
+        unsupported_ops_df = pd.read_csv(rapids_unsupported_operators_file)
+        output_files_info = self.__build_output_files_info()
+        report_gen = self.__build_global_report_summary(df, unsupported_ops_df, output_files_info)
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
-                                                    wrapper_csv_file=csv_summary_file,
+                                                    wrapper_output_files_info=output_files_info,
                                                     csp_report_provider=self._generate_platform_report_sections,
                                                     df_pprinter=process_df_for_stdout,
                                                     output_pprinter=self._report_tool_full_location)
@@ -819,8 +881,14 @@ class Qualification(RapidsJarTool):
         return super()._generate_section_content(sec_conf)
 
     def _init_rapids_arg_list(self) -> List[str]:
-        return super()._init_rapids_arg_list() + self._create_autotuner_rapids_args() + \
+        return super()._init_rapids_arg_list() + self._init_rapids_arg_list_for_qual()
+
+    def _init_rapids_arg_list_for_qual(self) -> List[str]:
+        return ['--per-sql'] + self._create_autotuner_rapids_args() + \
             self._create_cluster_report_args()
+
+    def _init_rapids_arg_list_for_profile(self) -> List[str]:
+        return super()._init_rapids_arg_list() + ['--csv']
 
     def _process_cluster_info_and_update_savings(self, cluster_info_file):
         """
@@ -867,6 +935,66 @@ class Qualification(RapidsJarTool):
                          num_executors,
                          executor_node.instance_type)
 
+    def __build_output_files_info(self) -> dict:
+        """
+        Build the full output path for the output files.
+        """
+        files_info = self.ctxt.get_value('local', 'output', 'files')
+        output_folder = self.ctxt.get_output_folder()
+        return self.__update_files_info_with_paths(files_info, output_folder)
+
+    def __build_prediction_output_files_info(self) -> dict:
+        """
+        Build the full output path for the predictions output files
+        """
+        predictions_info = self.ctxt.get_value('local', 'output', 'predictionModel')
+        output_dir = FSUtil.build_path(self.ctxt.get_output_folder(), predictions_info['outputDirectory'])
+        FSUtil.make_dirs(output_dir)
+        return self.__update_files_info_with_paths(predictions_info['files'], output_dir)
+
+    @staticmethod
+    def __update_files_info_with_paths(files_info: dict, output_dir: str) -> dict:
+        """
+        Update the given files_info dictionary with full file paths.
+        """
+        for entry in files_info:
+            file_name = files_info[entry]['name']
+            file_path = FSUtil.build_path(output_dir, file_name)
+            files_info[entry]['path'] = file_path
+        return files_info
+
+    def __update_apps_with_prediction_info(self, all_apps: pd.DataFrame) -> pd.DataFrame:
+        """
+        Executes the prediction model, merges prediction data into the apps df, and applies transformations
+        based on the prediction model's output and specified mappings.
+        """
+        # Execute the prediction model
+        model_name = self.ctxt.platform.get_prediction_model_name()
+        input_dir = self.ctxt.get_local('outputFolder')
+        output_info = self.__build_prediction_output_files_info()
+        predictions_df = predict(platform=model_name, qual=input_dir,
+                                 profile=input_dir, output_info=output_info)
+
+        result_info = self.ctxt.get_value('local', 'output', 'predictionModel', 'updateResult')
+        # Merge with a left join to include all rows from all apps and relevant rows from model predictions
+        result_df = pd.merge(all_apps, predictions_df[result_info['subsetColumns']],
+                             how='left', left_on='App ID', right_on='appId')
+        # Create a estimation model column based on the model used for calculating speedups
+        result_df[result_info['estimationModelColumn']] = np.where(
+            result_df['speedup'].isna(),
+            QualEstimationModel.tostring(QualEstimationModel.SPEEDUPS),
+            QualEstimationModel.tostring(QualEstimationModel.XGBOOST)
+        )
+        # Update columns in all apps with values from corresponding XGBoost columns,
+        # falling back to existing values in all apps when XGBoost values are NA.
+        for remap_column in result_info['remapColumns']:
+            src_col, dst_col = remap_column['srcCol'], remap_column['dstCol']
+            if src_col in result_df and dst_col in result_df:
+                result_df[dst_col] = result_df[src_col].fillna(result_df[dst_col]).astype(float).round(2)
+        # We need to be careful about other columns that depend on remapped columns
+        result_df['Estimated GPU Time Saved'] = result_df['App Duration'] - result_df['Estimated GPU Duration']
+        return result_df.drop(columns=result_info['subsetColumns'])
+
 
 @dataclass
 class QualificationAsLocal(Qualification):
@@ -882,7 +1010,10 @@ class QualificationAsLocal(Qualification):
         self._process_local_job_submission_args()
 
     def _prepare_job_arguments(self):
-        self._prepare_local_job_arguments()
+        super()._prepare_local_job_arguments()
+        if self.ctxt.get_ctxt('estimationModel') == QualEstimationModel.XGBOOST:
+            # when estimation_model is enabled
+            self._prepare_profile_job_args()
 
     def _delete_remote_dep_folder(self):
         self.logger.debug('Local mode skipping deleting the remote workdir')
@@ -892,3 +1023,36 @@ class QualificationAsLocal(Qualification):
 
     def _archive_results(self):
         self._archive_local_results()
+
+    def _prepare_profile_job_args(self):
+        # get the job arguments
+        job_args = self.ctxt.get_ctxt('jobArgs')
+        # now we can create the job object
+        # Todo: For dataproc, this can be autogenerated from cluster name
+        rapids_arg_list = self._init_rapids_arg_list_for_profile()
+        ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
+        jar_file_path = ctxt_rapids_args.get('jarFilePath')
+        rapids_opts = ctxt_rapids_args.get('rapidsOpts')
+        if rapids_opts:
+            rapids_arg_list.extend(rapids_opts)
+        # add the eventlogs at the end of all the tool options
+        rapids_arg_list.extend(self.ctxt.get_ctxt('eventLogs'))
+        class_name = 'com.nvidia.spark.rapids.tool.profiling.ProfileMain'
+        rapids_arg_obj = {
+            'jarFile': jar_file_path,
+            'jarArgs': rapids_arg_list,
+            'className': class_name
+        }
+        platform_args = job_args.get('platformArgs')
+        spark_conf_args = {}
+        job_properties_json = {
+            'outputDirectory': job_args.get('outputDirectory'),
+            'rapidsArgs': rapids_arg_obj,
+            'sparkConfArgs': spark_conf_args,
+            'platformArgs': platform_args
+        }
+        rapids_job_container = RapidsJobPropContainer(prop_arg=job_properties_json,
+                                                      file_load=False)
+        rapids_containers = self.ctxt.get_ctxt('rapidsJobContainers')
+        rapids_containers.append(rapids_job_container)
+        self.ctxt.set_ctxt('rapidsJobContainers', rapids_containers)

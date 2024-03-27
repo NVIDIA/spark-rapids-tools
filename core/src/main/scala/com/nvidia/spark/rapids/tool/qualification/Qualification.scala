@@ -149,8 +149,12 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
         reportSqlLevel, mlOpsEnabled, penalizeTransitions)
       val qualAppResult = appResult match {
-        case Left(errorMessage: String) =>
-          // Case when an error occurred during QualificationAppInfo creation
+        case Left(FailureApp("skipped", errorMessage)) =>
+          // Case to be skipped, e.g. encountered Databricks Photon event log
+          progressBar.foreach(_.reportSkippedProcess())
+          SkippedQualAppResult(pathStr, errorMessage)
+        case Left(FailureApp(_, errorMessage)) =>
+          // Case when other error occurred during QualificationAppInfo creation
           progressBar.foreach(_.reportUnkownStatusProcess())
           UnknownQualAppResult(pathStr, "", errorMessage)
         case Right(app: QualificationAppInfo) =>
@@ -213,6 +217,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         StatusSummaryInfo(path, "SUCCESS", appId, message)
       case FailureQualAppResult(path, message) =>
         StatusSummaryInfo(path, "FAILURE", "", message)
+      case SkippedQualAppResult(path, message) =>
+        StatusSummaryInfo(path, "SKIPPED", "", message)
       case UnknownQualAppResult(path, appId, message) =>
         StatusSummaryInfo(path, "UNKNOWN", appId, message)
       case qualAppResult: QualAppResult =>

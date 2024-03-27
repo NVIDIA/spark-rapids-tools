@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,10 +32,11 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                       eventlogs: str = None,
                       local_folder: str = None,
                       tools_jar: str = None,
-                      filter_apps: str = QualFilterApp.tostring(QualFilterApp.SPEEDUPS),
+                      filter_apps: str = QualFilterApp.tostring(QualFilterApp.get_default()),
                       target_platform: str = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
+                      estimation_model: str = None,
                       jvm_heap_size: int = None,
                       verbose: bool = None,
                       cpu_discount: int = None,
@@ -54,9 +55,14 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 directory for temporary folders/files. The final output will go into a subdirectory
                 named `qual-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution.
         :param tools_jar: Path to a bundled jar including RAPIDS tool. The path is a local filesystem path
-        :param filter_apps:  Filtering criteria of the applications listed in the final STDOUT table is one of
-                the following (`ALL`, `SPEEDUPS`). "`ALL`" means no filter applied. "`SPEEDUPS`" lists all the
-                apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups.
+        :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
+                is one of the following (all, speedups, savings, top_candidates).
+                Note that this filter does not affect the CSV report.
+                "all" means no filter applied. "speedups" lists all the apps that are either
+                'Recommended', or 'Strongly Recommended' based on speedups. "savings"
+                lists all the apps that have positive estimated GPU savings except for the apps that
+                are "Not Applicable". "top_candidates" lists all apps that have unsupported operators
+                stage duration less than 25% of app duration and speedups greater than 1.3x.
         :param target_platform: Cost savings and speedup recommendation for comparable cluster in target_platform
                 based on on-premises cluster configuration. Currently only `dataproc` is supported for
                 target_platform.If not provided, the final report will be limited to GPU speedups only
@@ -66,6 +72,10 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 "MATCH": keep GPU cluster same number of nodes as CPU cluster;
                 "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
                 "JOB": recommend optimal GPU cluster by cost per job
+        :param estimation_model: Model used to calculate the estimated GPU duration and cost savings.
+               It accepts one of the following:
+               "xgboost": an XGBoost model for GPU duration estimation
+               "speedups": set by default. It uses a simple static estimated speedup per operator.
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes
         :param verbose: True or False to enable verbosity to the wrapper script
         :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
@@ -95,7 +105,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 if cpu_cluster is None:
                     raise RuntimeError('OnPrem\'s cluster property file required to calculate'
                                        'savings for ' + target_platform + ' platform')
-                filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS)
+                # filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS)
             else:
                 raise RuntimeError(target_platform + ' platform is currently not supported to calculate savings'
                                    ' from OnPrem cluster')
@@ -120,7 +130,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
             'targetPlatform': target_platform,
             'cpuDiscount': cpu_discount,
             'gpuDiscount': gpu_discount,
-            'globalDiscount': global_discount
+            'globalDiscount': global_discount,
+            'estimationModel': estimation_model
         }
         tool_obj = QualificationAsLocal(platform_type=CspEnv.ONPREM,
                                         output_folder=local_folder,

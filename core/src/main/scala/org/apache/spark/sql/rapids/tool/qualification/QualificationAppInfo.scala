@@ -28,7 +28,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, GpuEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, GpuEventLogException, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
 
 
 class QualificationAppInfo(
@@ -559,6 +559,8 @@ class QualificationAppInfo(
           SQLPlanParser.parseSQLPlan(appId, plan, id, sqlDesc, pluginTypeChecker, this)
       }.toSeq
 
+      val unsupportedOpsReason = pluginTypeChecker.readUnsupportedOpsByDefaultReasons
+
       // get summary of each SQL Query for original plan
       val origPlanInfosSummary = summarizeSQLStageInfo(origPlanInfos)
       // filter out any execs that should be removed
@@ -585,7 +587,8 @@ class QualificationAppInfo(
             val sqlStageSums = perSqlStageSummary.filter(_.sqlID == pInfo.sqlID)
             val estimatedInfo = getPerSQLWallClockSummary(sqlStageSums, wallClockDur,
               sqlIDtoFailures.get(pInfo.sqlID).nonEmpty, appName)
-            EstimatedPerSQLSummaryInfo(pInfo.sqlID, pInfo.sqlDesc, estimatedInfo)
+            EstimatedPerSQLSummaryInfo(pInfo.sqlID, info.rootExecutionID, pInfo.sqlDesc,
+              estimatedInfo)
           }
         })
       } else {
@@ -628,21 +631,8 @@ class QualificationAppInfo(
 
       // Get all the unsupported Expressions from the plan
       val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(
-        _.unsupportedExprs)).flatten.filter(_.nonEmpty).toSet.mkString(";")
+        _.unsupportedExprs.map(_.exprName))).flatten.filter(_.nonEmpty).toSet.mkString(";")
         .trim.replaceAll("\n", "").replace(",", ":")
-
-      // Get all unsupported execs and expressions from the plan in form of map[exec -> exprs]
-      val unsupportedExecExprsMap = planInfos.flatMap { p =>
-        val topLevelExecs = p.execInfo.filterNot(_.isSupported).filterNot(
-          x => x.exec.startsWith("WholeStage"))
-        val childrenExecs = p.execInfo.flatMap { e =>
-          e.children.map(x => x.filterNot(_.isSupported))
-        }.flatten
-        val execs = topLevelExecs ++ childrenExecs
-        val exprs = execs.filter(_.unsupportedExprs.nonEmpty).map(
-          e => e.exec -> e.unsupportedExprs.mkString(";")).toMap
-        exprs
-      }.toMap
 
       // check if there are any SparkML/XGBoost functions or expressions if the mlOpsEnabled
       // config is true
@@ -694,7 +684,7 @@ class QualificationAppInfo(
         origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
-        mlTotalStageDuration, unsupportedExecExprsMap, clusterSummary)
+        mlTotalStageDuration, unsupportedOpsReason, clusterSummary)
     }
   }
 
@@ -806,6 +796,10 @@ class QualificationAppInfo(
     val sqlPlanInfoGraphEntry = SqlPlanInfoGraphBuffer.createEntry(sqlID, planInfo)
     checkMetadataForReadSchema(sqlPlanInfoGraphEntry)
     for (node <- sqlPlanInfoGraphEntry.sparkPlanGraph.allNodes) {
+      if (node.name.startsWith("Photon")) {
+        throw PhotonEventLogException(
+          "Encountered Databricks Photon event log: skipping this file!")
+      }
       checkGraphNodeForReads(sqlID, node)
       val issues = findPotentialIssues(node.desc)
       if (issues.nonEmpty) {
@@ -851,6 +845,7 @@ case class EstimatedSummaryInfo(
 // Estimate based on wall clock times for each SQL query
 case class EstimatedPerSQLSummaryInfo(
     sqlID: Long,
+    rootExecutionID: Option[Long],
     sqlDesc: String,
     info: EstimatedAppInfo)
 
@@ -945,7 +940,7 @@ case class QualificationSummaryInfo(
     allClusterTagsMap: Map[String, String],
     mlFunctions: Option[Seq[MLFunctions]],
     mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]],
-    unsupportedExecstoExprsMap: Map[String, String],
+    unsupportedOpsReasons: Map[String, String],
     clusterSummary: ClusterSummary,
     estimatedFrequency: Option[Long] = None)
 
@@ -959,6 +954,12 @@ case class StageQualSummaryInfo(
     estimated: Boolean = false,
     stageWallclockDuration: Long = 0,
     unsupportedExecs: Seq[ExecInfo] = Seq.empty)
+
+// Case class to represent a failed QualificationAppInfo creation
+case class FailureApp(
+    status: String,
+    message: String
+)
 
 object QualificationAppInfo extends Logging {
   // define recommendation constants
@@ -974,20 +975,22 @@ object QualificationAppInfo extends Logging {
   // based on the testing on few candidate eventlogs.
   val CPU_GPU_TRANSFER_RATE = 1000000000L
 
-  private def handleException(e: Exception, path: EventLogInfo): String = {
-    val message: String = e match {
+  private def handleException(e: Exception, path: EventLogInfo): FailureApp = {
+    val (status, message): (String, String) = e match {
+      case photonLog: PhotonEventLogException =>
+        ("skipped", photonLog.message)
       case gpuLog: GpuEventLogException =>
-        gpuLog.message
+        ("unknown", gpuLog.message)
       case _: com.fasterxml.jackson.core.JsonParseException =>
-        s"Error parsing JSON: ${path.eventLog.toString}"
+        ("unknown", s"Error parsing JSON: ${path.eventLog.toString}")
       case _: IllegalArgumentException =>
-        s"Error parsing file: ${path.eventLog.toString}"
+        ("unknown", s"Error parsing file: ${path.eventLog.toString}")
       case _: Exception =>
         // catch all exceptions and skip that file
-        s"Got unexpected exception processing file: ${path.eventLog.toString}"
+        ("unknown", s"Got unexpected exception processing file: ${path.eventLog.toString}")
     }
 
-    s"${e.getClass.getSimpleName}: $message"
+    FailureApp(status, s"${e.getClass.getSimpleName}: $message")
   }
 
   def getRecommendation(totalSpeedup: Double,
@@ -1066,15 +1069,15 @@ object QualificationAppInfo extends Logging {
       pluginTypeChecker: PluginTypeChecker,
       reportSqlLevel: Boolean,
       mlOpsEnabled: Boolean,
-      penalizeTransitions: Boolean): Either[String, QualificationAppInfo] = {
+      penalizeTransitions: Boolean): Either[FailureApp, QualificationAppInfo] = {
     try {
-        val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
-          reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
-        logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
-        Right(app)
-      } catch {
-        case e: Exception =>
-          Left(handleException(e, path))
-      }
+      val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
+        reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
+      logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
+      Right(app)
+    } catch {
+      case e: Exception =>
+        Left(handleException(e, path))
+    }
   }
 }

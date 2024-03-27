@@ -853,6 +853,16 @@ class PlatformBase:
         """
         return CspEnv.pretty_print(self.type_id)
 
+    def _get_prediction_model_name(self) -> str:
+        """
+        Internal function to get the prediction model name.
+        This should be overridden by subclasses
+        """
+        return CspEnv.pretty_print(self.type_id)
+
+    def get_prediction_model_name(self) -> str:
+        return self._get_prediction_model_name().replace('_', '-')
+
     def get_footer_message(self) -> str:
         return 'To support acceleration with T4 GPUs, switch the worker node instance types'
 

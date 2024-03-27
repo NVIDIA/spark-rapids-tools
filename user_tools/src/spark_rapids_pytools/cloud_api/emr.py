@@ -114,6 +114,9 @@ class EMRPlatform(PlatformBase):
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return EmrLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
+    def _get_prediction_model_name(self) -> str:
+        return CspEnv.pretty_print(CspEnv.get_default())
+
 
 @dataclass
 class EMRCMDDriver(CMDDriverBase):

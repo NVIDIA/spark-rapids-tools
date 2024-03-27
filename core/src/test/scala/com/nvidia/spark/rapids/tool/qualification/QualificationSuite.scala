@@ -32,7 +32,7 @@ import org.apache.spark.ml.feature.PCA
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
-import org.apache.spark.sql.functions.{desc, hex, udf}
+import org.apache.spark.sql.functions.{desc, hex, to_json, udf}
 import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterInfo, ClusterSummary, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo, RunningQualificationEventProcessor}
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
@@ -103,6 +103,7 @@ class QualificationSuite extends BaseTestSuite {
   private val csvPerSQLFields = Seq(
     (QualOutputWriter.APP_NAME_STR, StringType),
     (QualOutputWriter.APP_ID_STR, StringType),
+    (QualOutputWriter.ROOT_SQL_ID_STR, StringType),
     (QualOutputWriter.SQL_ID_STR, StringType),
     (QualOutputWriter.SQL_DESC_STR, StringType),
     (QualOutputWriter.SQL_DUR_STR, LongType),
@@ -234,12 +235,12 @@ class QualificationSuite extends BaseTestSuite {
           val allFiles = fs.listStatus(outputDirPath)
           assert(allFiles.size == 6)
           val dfPerSqlActual = readPerSqlFile(new File(csvOutput0))
-          assert(dfPerSqlActual.columns.size == 10)
+          assert(dfPerSqlActual.columns.size == 11)
           val rows = dfPerSqlActual.collect()
           assert(rows.size == 2)
           val firstRow = rows(1)
           // , should be replaced with ;
-          assert(firstRow(3).toString.contains("at QualificationSuite.scala"))
+          assert(firstRow(4).toString.contains("at QualificationSuite.scala"))
 
           // this reads everything into single column
           val dfPerSqlActualTxt = readPerSqlTextFile(new File(txtOutput0))
@@ -340,8 +341,8 @@ class QualificationSuite extends BaseTestSuite {
         assert(lines.size == (4 + 17))
         // skip the 3 header lines
         val firstRow = lines(3)
-        // this should be app + sqlID
-        assert(firstRow.contains("local-1622043423018|     1"))
+        // this should be app
+        assert(firstRow.contains("local-1622043423018"))
         assert(firstRow.contains("count at QualificationInfoUtils.scala:94"))
       } finally {
         persqlInputSource.close()
@@ -1004,12 +1005,12 @@ class QualificationSuite extends BaseTestSuite {
         val dfPerSqlActual = readPerSqlFile(new File(persqlResults))
         // the number of columns actually won't be wrong if sql description is malformatted
         // because spark seems to drop extra column so need more checking
-        assert(dfPerSqlActual.columns.size == 10)
+        assert(dfPerSqlActual.columns.size == 11)
         val rows = dfPerSqlActual.collect()
         assert(rows.size == 3)
         val firstRow = rows(1)
         // , should not be replaced with ; or any other delim
-        assert(firstRow(3) == "testing, csv delimiter, replacement")
+        assert(firstRow(4) == "testing, csv delimiter, replacement")
 
         // parse results from listener
         val executorCpuTime = listener.executorCpuTime
@@ -1190,6 +1191,47 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
+  test("custom reasons for operators disabled by default") {
+    TrampolineUtil.withTempDir { outParquetFile =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "unsup") { spark =>
+          import spark.implicits._
+          val data = Seq((1, ("Person1", 30)), (2, ("Person2", 25))).toDF("id", "person")
+          data.write.parquet(s"$outParquetFile/person_info")
+          val df = spark.read.parquet(s"$outParquetFile/person_info")
+          df.withColumn("person_json", to_json($"person"))
+        }
+
+        TrampolineUtil.withTempDir { outpath =>
+          val appArgs = new QualificationArgs(Array(
+            "--output-directory",
+            outpath.getAbsolutePath,
+            eventLog))
+
+          val (exit, _) = QualificationMain.mainInternal(appArgs)
+          assert(exit == 0)
+          createSparkSession()
+          val filename = s"$outpath/rapids_4_spark_qualification_output/" +
+              s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
+
+          val inputSource = Source.fromFile(filename)
+          try {
+            val lines = inputSource.getLines.toArray
+            val expr = ".*to_json.*"
+            val matches = lines.filter(_.matches(expr))
+            assert(matches.length == 1)
+            //get line number containing to_json
+            val lineNum = lines.indexOf(matches(0))
+            // check if lineNum has the expected value "This is disabled by default"
+            assert(lines(lineNum).contains("This is disabled by default"))
+          } finally {
+            inputSource.close()
+          }
+        }
+      }
+    }
+  }
+
   test("running qualification app files with per sql") {
     TrampolineUtil.withTempPath { outParquetFile =>
       TrampolineUtil.withTempPath { outJsonFile =>
@@ -1208,20 +1250,20 @@ class QualificationSuite extends BaseTestSuite {
         }
         // just basic testing that line exists and has right separator
         val csvHeader = qualApp.getPerSqlCSVHeader
-        assert(csvHeader.contains("App Name,App ID,SQL ID,SQL Description,SQL DF Duration," +
-          "GPU Opportunity,Estimated GPU Duration,Estimated GPU Speedup," +
-          "Estimated GPU Time Saved,Recommendation"))
+        assert(csvHeader.contains("App Name,App ID,Root SQL ID,SQL ID,SQL Description," +
+            "SQL DF Duration,GPU Opportunity,Estimated GPU Duration,Estimated GPU Speedup," +
+            "Estimated GPU Time Saved,Recommendation"))
         val txtHeader = qualApp.getPerSqlTextHeader
         assert(txtHeader.contains("|                              App Name|             App ID|" +
-          "SQL ID" +
-          "|                                                                                     " +
-          "SQL Description|" +
-          "SQL DF Duration|GPU Opportunity|Estimated GPU Duration|" +
-          "Estimated GPU Speedup|Estimated GPU Time Saved|      Recommendation|"))
+            "Root SQL ID|SQL ID|                                                              " +
+            "                       SQL Description|SQL DF Duration|GPU Opportunity|" +
+            "Estimated GPU Duration|Estimated GPU Speedup|Estimated GPU Time Saved|" +
+            "      Recommendation|"))
         val randHeader = qualApp.getPerSqlHeader(";", true, 20)
-        assert(randHeader.contains(";                              App Name;             App ID" +
-          ";SQL ID;     SQL Description;SQL DF Duration;GPU Opportunity;Estimated GPU Duration;" +
-          "Estimated GPU Speedup;Estimated GPU Time Saved;      Recommendation;"))
+        assert(randHeader.contains(";                              App Name;             App ID;" +
+            "Root SQL ID;SQL ID;     SQL Description;SQL DF Duration;GPU Opportunity;" +
+            "Estimated GPU Duration;Estimated GPU Speedup;Estimated GPU Time Saved;     " +
+            " Recommendation;"))
         val allSQLIds = qualApp.getAvailableSqlIDs
         val numSQLIds = allSQLIds.size
         assert(numSQLIds > 0)
