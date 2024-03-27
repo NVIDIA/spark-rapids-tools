@@ -263,3 +263,5 @@ FlatMapGroupsInPandasExec,1.2
 FlatMapCoGroupsInPandasExec,1.2
 MapInPandasExec,1.2
 WindowInPandasExec,1.2
+RoundCeil,4.25
+RoundFloor,4.25
