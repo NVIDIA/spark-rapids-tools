@@ -347,8 +347,8 @@
       "Params": "value",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`ceil`"
         }
       ]
     },
@@ -358,8 +358,8 @@
       "Params": "scale",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`ceil`"
         }
       ]
     },
@@ -369,8 +369,8 @@
       "Params": "result",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`ceil`"
         }
       ]
     },
@@ -380,8 +380,8 @@
       "Params": "value",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`floor`"
         }
       ]
     },
@@ -391,8 +391,8 @@
       "Params": "scale",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`floor`"
         }
       ]
     },
@@ -402,8 +402,8 @@
       "Params": "result",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`floor`"
         }
       ]
     },
