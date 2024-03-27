@@ -32,7 +32,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                       eventlogs: str = None,
                       local_folder: str = None,
                       tools_jar: str = None,
-                      filter_apps: str = QualFilterApp.tostring(QualFilterApp.SPEEDUPS),
+                      filter_apps: str = QualFilterApp.tostring(QualFilterApp.get_default()),
                       target_platform: str = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
@@ -55,11 +55,14 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 directory for temporary folders/files. The final output will go into a subdirectory
                 named `qual-${EXEC_ID}` where `exec_id` is an auto-generated unique identifier of the execution.
         :param tools_jar: Path to a bundled jar including RAPIDS tool. The path is a local filesystem path
-        :param filter_apps:  Filtering criteria of the applications listed in the final STDOUT table is one of
-                the following (`ALL`, `SPEEDUPS`, `TOP_CANDIDATES`). "`ALL`" means no filter applied. "`SPEEDUPS`"
-                lists all the apps that are either '_Recommended_', or '_Strongly Recommended_' based on speedups.
-                "`TOP_CANDIDATES`" lists all apps that have unsupported operators stage duration less than 25% of
-                app duration and speedups greater than 1.3x.
+        :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
+                is one of the following (all, speedups, savings, top_candidates).
+                Note that this filter does not affect the CSV report.
+                "all" means no filter applied. "speedups" lists all the apps that are either
+                'Recommended', or 'Strongly Recommended' based on speedups. "savings"
+                lists all the apps that have positive estimated GPU savings except for the apps that
+                are "Not Applicable". "top_candidates" lists all apps that have unsupported operators
+                stage duration less than 25% of app duration and speedups greater than 1.3x.
         :param target_platform: Cost savings and speedup recommendation for comparable cluster in target_platform
                 based on on-premises cluster configuration. Currently only `dataproc` is supported for
                 target_platform.If not provided, the final report will be limited to GPU speedups only
@@ -102,7 +105,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 if cpu_cluster is None:
                     raise RuntimeError('OnPrem\'s cluster property file required to calculate'
                                        'savings for ' + target_platform + ' platform')
-                filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS)
+                # filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS)
             else:
                 raise RuntimeError(target_platform + ' platform is currently not supported to calculate savings'
                                    ' from OnPrem cluster')

@@ -37,7 +37,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
                       gpu_cluster: str = None,
                       tools_jar: str = None,
                       credentials_file: str = None,
-                      filter_apps: str = QualFilterApp.tostring(QualFilterApp.SAVINGS),
+                      filter_apps: str = QualFilterApp.tostring(QualFilterApp.get_default()),
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
                       estimation_model: str = None,
@@ -81,12 +81,12 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
                to provide the location of a credential file. The default credentials file exists as
                "~/.databrickscfg" on Unix, Linux, or macOS
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
-                is one of the following (ALL, SPEEDUPS, savings, top_candidates).
+                is one of the following (all, speedups, savings, top_candidates).
                 Note that this filter does not affect the CSV report.
-                "ALL" means no filter applied. "SPEEDUPS" lists all the apps that are either
-                'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
+                "all" means no filter applied. "speedups" lists all the apps that are either
+                'Recommended', or 'Strongly Recommended' based on speedups. "savings"
                 lists all the apps that have positive estimated GPU savings except for the apps that
-                are "Not Applicable". "TOP_CANDIDATES" lists all apps that have unsupported operators
+                are "Not Applicable". "top_candidates" lists all apps that have unsupported operators
                 stage duration less than 25% of app duration and speedups greater than 1.3x.
         :param gpu_cluster_recommendation: The type of GPU cluster recommendation to generate.
                It accepts one of the following ("CLUSTER", "JOB" and the default value "MATCH").

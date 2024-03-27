@@ -58,8 +58,6 @@ sparkRapids:
     cudaVersion: '11.5'
   cli:
     defaults:
-      filters:
-        defaultFilter: 'SAVINGS'
       gpuClusterRecommendation:
         defaultRecommendation: 'MATCH'
     toolOptions:
