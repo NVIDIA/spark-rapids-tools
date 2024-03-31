@@ -19,6 +19,7 @@ toolOutput:
         - Estimated Job Frequency (monthly)
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
+        - Speed Up Estimation Model
       mapColumns:
         Recommendation: 'Speedup Based Recommendation'
       recommendations:
@@ -58,8 +59,6 @@ sparkRapids:
     cudaVersion: '11.5'
   cli:
     defaults:
-      filters:
-        defaultFilter: 'SAVINGS'
       gpuClusterRecommendation:
         defaultRecommendation: 'MATCH'
     toolOptions:
@@ -237,6 +236,24 @@ local:
               - title: 'Large'
                 lowerBound: 3.0
                 upperBound: 1000000.0
+    predictionModel:
+      outputDirectory: 'xgboost_predictions'
+      files:
+        perSql:
+          name: 'per_sql.csv'
+        perApp:
+          name: 'per_app.csv'
+      updateResult:
+        subsetColumns:
+          - 'appId'
+          - 'speedup'
+          - 'appDuration_pred'
+        estimationModelColumn: 'Speed Up Estimation Model'
+        remapColumns:
+          - srcCol: 'speedup'
+            dstCol: 'Estimated GPU Speedup'
+          - srcCol: 'appDuration_pred'
+            dstCol: 'Estimated GPU Duration'
 platform:
   shortName: 'qual'
   outputDir: qual-tool-output

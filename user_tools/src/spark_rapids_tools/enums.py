@@ -118,7 +118,7 @@ class QualFilterApp(EnumeratedType):
 
     @classmethod
     def get_default(cls):
-        return cls.SAVINGS
+        return cls.TOP_CANDIDATES
 
 
 class QualGpuClusterReshapeType(EnumeratedType):

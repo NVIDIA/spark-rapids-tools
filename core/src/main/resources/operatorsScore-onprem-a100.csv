@@ -281,3 +281,5 @@ RandomForestRegressor-pyspark,3.66
 RandomForestRegressor-scala,1
 XGBoost-pyspark,1
 XGBoost-scala,3.31
+RoundCeil,4
+RoundFloor,4
