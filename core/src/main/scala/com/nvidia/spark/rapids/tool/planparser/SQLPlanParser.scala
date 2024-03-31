@@ -760,15 +760,21 @@ object SQLPlanParser extends Logging {
         trim.replaceAll("""^\[+""", "").replaceAll("""\]+$""", "").
         replaceAll("cast\\(", "").split("windowspecdefinition").map(_.trim)
 
-    // Get functionname from each array element except the last one as it doesn't contain
+    // Get function name from each array element except the last one as it doesn't contain
     // any window function
-    for ( i <- 0 to windowExprs.size - 1 ) {
-      val windowFunc = windowFunctionPattern.findAllIn(windowExprs(i)).toList
-      val expr = windowFunc.last
-      val functionName = getFunctionName(windowFunctionPattern, expr)
-      functionName match {
-        case Some(func) => parsedExpressions += func
-        case _ => // NO OP
+    if (windowExprs.nonEmpty) {
+      // Iterate through each expression in windowExprs
+      for (expr <- windowExprs) {
+        val windowFunc = windowFunctionPattern.findAllIn(expr).toList
+        // Check to ensure windowFunc is not empty before accessing last element
+        if (windowFunc.nonEmpty) {
+          val expr = windowFunc.last
+          val functionName = getFunctionName(windowFunctionPattern, expr)
+          functionName match {
+            case Some(func) => parsedExpressions += func
+            case _ => // NO OP
+          }
+        }
       }
     }
     parsedExpressions.distinct.toArray

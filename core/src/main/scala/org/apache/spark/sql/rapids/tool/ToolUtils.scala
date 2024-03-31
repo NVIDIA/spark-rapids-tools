@@ -415,6 +415,8 @@ object ExecHelper {
   private val ExecuteRefreshTable = "Execute RefreshTable"
   private val ExecuteRepairTableCommand = "Execute RepairTableCommand"
   private val ExecuteShowPartitionsCommand = "Execute ShowPartitionsCommand"
+  private val ExecuteClearCacheCommand = "Execute ClearCacheCommand"
+  private val ExecuteOptimizeTableCommandEdge = "Execute OptimizeTableCommandEdge"
   // DeltaLakeOperations
   private val ExecUpdateCommandEdge = "Execute UpdateCommandEdge"
   private val ExecDeleteCommandEdge = "Execute DeleteCommandEdge"
@@ -444,11 +446,17 @@ object ExecHelper {
     ExecuteRefreshTable,
     ExecuteRepairTableCommand,
     ExecuteShowPartitionsCommand,
+    ExecuteClearCacheCommand,
+    ExecuteOptimizeTableCommandEdge,
     SubqueryExecParser.execName
   )
 
   def shouldIgnore(execName: String): Boolean = {
-    getAllIgnoreExecs.contains(execName)
+    // Normalize the execName by removing the trailing '$' character, if present.
+    // This is necessary because in Scala, the '$' character is often appended to the names of
+    // generated classes or objects, and we want to match the base name regardless of this suffix.
+    val normalizedExecName = execName.stripSuffix("$")
+    getAllIgnoreExecs.contains(normalizedExecName)
   }
 }
 
