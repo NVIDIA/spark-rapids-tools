@@ -485,11 +485,6 @@ object SQLPlanParser extends Logging {
             CoalesceExecParser(node, checker, sqlID).parse
           case "CollectLimit" =>
             CollectLimitExecParser(node, checker, sqlID).parse
-          case c if c.contains("CreateDataSourceTableAsSelectCommand") =>
-            // create data source table doesn't show the format so we can't determine
-            // if we support it
-            ExecInfo(node, sqlID, normalizedNodeName, expr = "", 1, duration = None, node.id,
-              isSupported = false, None)
           case "CustomShuffleReader" | "AQEShuffleRead" =>
             CustomShuffleReaderExecParser(node, checker, sqlID).parse
           case "Exchange" =>
@@ -769,7 +764,7 @@ object SQLPlanParser extends Logging {
     if (windowExprs.nonEmpty) {
       for ( i <- 0 to windowExprs.size - 1 ) {
         val windowFunc = windowFunctionPattern.findAllIn(windowExprs(i)).toList
-          val expr = windowFunc.last
+          val expr = windowFunc.lastOption.getOrElse("")
           val functionName = getFunctionName(windowFunctionPattern, expr)
           functionName match {
             case Some(func) => parsedExpressions += func
