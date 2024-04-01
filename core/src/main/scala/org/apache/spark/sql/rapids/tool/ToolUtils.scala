@@ -415,6 +415,8 @@ object ExecHelper {
   private val ExecuteRefreshTable = "Execute RefreshTable"
   private val ExecuteRepairTableCommand = "Execute RepairTableCommand"
   private val ExecuteShowPartitionsCommand = "Execute ShowPartitionsCommand"
+  private val ExecuteClearCacheCommand = "Execute ClearCacheCommand"
+  private val ExecuteOptimizeTableCommandEdge = "Execute OptimizeTableCommandEdge"
   // DeltaLakeOperations
   private val ExecUpdateCommandEdge = "Execute UpdateCommandEdge"
   private val ExecDeleteCommandEdge = "Execute DeleteCommandEdge"
@@ -444,6 +446,8 @@ object ExecHelper {
     ExecuteRefreshTable,
     ExecuteRepairTableCommand,
     ExecuteShowPartitionsCommand,
+    ExecuteClearCacheCommand,
+    ExecuteOptimizeTableCommandEdge,
     SubqueryExecParser.execName
   )
 
