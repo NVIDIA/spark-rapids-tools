@@ -18,7 +18,7 @@ The high-level process of the above command is as follows:
 
 1. Union the supported CSV files from the plugin (since plugin has supported data for each spark-version)
 2. Use the `custom_configs_file` to override the merged CSV files
-3. Genrate a `operators_plugin_sync_report.txt` for reviewers to understand the changes made in the plugin side
+3. Generate a `operators_plugin_sync_report.txt` for reviewers to understand the changes made in the plugin side
    1. For each new data source/exec/expression from the plugin, a new entry is added to `override_supported_configs.json` to mark the `Supported` column as `TNEW`
 4. Write the final results to `output_directory`
 
