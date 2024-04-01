@@ -452,7 +452,7 @@ object ExecHelper {
   )
 
   def shouldIgnore(execName: String): Boolean = {
-     getAllIgnoreExecs.contains(execName)
+    getAllIgnoreExecs.contains(execName)
   }
 }
 

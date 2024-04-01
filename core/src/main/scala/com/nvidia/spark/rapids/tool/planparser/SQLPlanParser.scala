@@ -762,16 +762,16 @@ object SQLPlanParser extends Logging {
     // Get function name from each array element except the last one as it doesn't contain
     // any window function
     if (windowExprs.nonEmpty) {
-      for ( i <- 0 to windowExprs.size - 1 ) {
-        val windowFunc = windowFunctionPattern.findAllIn(windowExprs(i)).toList
-          val expr = windowFunc.lastOption.getOrElse("")
-          val functionName = getFunctionName(windowFunctionPattern, expr)
-          functionName match {
-            case Some(func) => parsedExpressions += func
-            case _ => // NO OP
-          }
+      windowExprs.dropRight(1).foreach { windowExprString =>
+        val windowFunc = windowFunctionPattern.findAllIn(windowExprString).toList
+        val expr = windowFunc.lastOption.getOrElse("")
+        val functionName = getFunctionName(windowFunctionPattern, expr)
+        functionName match {
+          case Some(func) => parsedExpressions += func
+          case _ => // NO OP
         }
       }
+    }
     parsedExpressions.distinct.toArray
   }
 
