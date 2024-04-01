@@ -283,3 +283,5 @@ XGBoost-pyspark,1
 XGBoost-scala,3.31
 RoundCeil,4
 RoundFloor,4
+BloomFilterMightContain,4
+BloomFilterAggregate,4
