@@ -452,11 +452,7 @@ object ExecHelper {
   )
 
   def shouldIgnore(execName: String): Boolean = {
-    // Normalize the execName by removing the trailing '$' character, if present.
-    // This is necessary because in Scala, the '$' character is often appended to the names of
-    // generated classes or objects, and we want to match the base name regardless of this suffix.
-    val normalizedExecName = execName.stripSuffix("$")
-    getAllIgnoreExecs.contains(normalizedExecName)
+     getAllIgnoreExecs.contains(execName)
   }
 }
 
