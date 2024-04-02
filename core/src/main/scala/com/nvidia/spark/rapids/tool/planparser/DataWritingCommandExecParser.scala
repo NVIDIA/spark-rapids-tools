@@ -99,7 +99,7 @@ object DataWritingCommandExecParser {
     appendDataExecV1 -> appendDataExecV1,
     overwriteByExprExecV1 -> overwriteByExprExecV1,
     atomicReplaceTableExec -> "AtomicReplaceTableAsSelectExec",
-    atomicCreateTableExec -> "AtomicCreateTableAsSelectExec",
+    atomicCreateTableExec -> "AtomicCreateTableAsSelectExec"
   )
 
   // Map to hold the relation between writeExecCmd and the format.
@@ -112,7 +112,7 @@ object DataWritingCommandExecParser {
     // if atomicReplaceTableExec is not deltaLakeProvider, then we want to mark it as unsupported
     atomicReplaceTableExec -> "unknown",
     // if atomicCreateTableExec is not deltaLakeProvider, then we want to mark it as unsupported
-    atomicCreateTableExec -> "unknown",
+    atomicCreateTableExec -> "unknown"
   )
 
   // Checks whether a node is a write CMD Exec
