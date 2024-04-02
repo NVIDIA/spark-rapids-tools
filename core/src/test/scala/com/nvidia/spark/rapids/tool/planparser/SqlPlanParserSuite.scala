@@ -1643,4 +1643,19 @@ class SQLPlanParserSuite extends BaseTestSuite {
     pluginTypeChecker.getNotSupportedExprs(aggExprArr) shouldBe 'empty
     pluginTypeChecker.getNotSupportedExprs(filterExprArray) shouldBe 'empty
   }
+
+  test("KnownNullable is supported") {
+    // scalastyle:off line.size.limit
+    // The following expression is copied from the Spark explain files
+    val projectDescr = "Project [named_struct(start, precisetimestampconversion(precisetimestampconversion(t#0, TimestampType, LongType), LongType, TimestampType), end, knownnullable(precisetimestampconversion(precisetimestampconversion(cast(t#0 + cast(10 minutes as interval) as timestamp), TimestampType, LongType), LongType, TimestampType))) AS session_window#0, d#0, t#0, s#0, x#0L, wt#0]"
+    // scalastyle:on line.size.limit
+    val projectNode = ToolsPlanGraph.constructGraphNode(
+      2,
+      "Project",
+      projectDescr, Seq[SQLPlanMetric]())
+    val filterExprArray = SQLPlanParser.parseFilterExpressions(
+      projectNode.desc.replaceFirst("Project ", ""))
+    val pluginTypeChecker = new PluginTypeChecker()
+    pluginTypeChecker.getNotSupportedExprs(filterExprArray) shouldBe 'empty
+  }
 }

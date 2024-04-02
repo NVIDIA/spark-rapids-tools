@@ -23,28 +23,6 @@
       ]
     },
     {
-      "Expression": "Empty2Null",
-      "Context": "project",
-      "Params": "input",
-      "override": [
-        {
-          "key": "SQL Func",
-          "value": "`empty2null`"
-        }
-      ]
-    },
-    {
-      "Expression": "Empty2Null",
-      "Context": "project",
-      "Params": "result",
-      "override": [
-        {
-          "key": "SQL Func",
-          "value": "`empty2null`"
-        }
-      ]
-    },
-    {
       "Expression": "BloomFilterMightContain",
       "Context": "project",
       "Params": "lhs",
@@ -156,28 +134,6 @@
     },
     {
       "Expression": "DivideYMInterval",
-      "Context": "project",
-      "Params": "result",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
-      "Expression": "KnownNullable",
-      "Context": "project",
-      "Params": "input",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
-      "Expression": "KnownNullable",
       "Context": "project",
       "Params": "result",
       "override": [
