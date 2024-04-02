@@ -452,46 +452,6 @@
       ]
     },
     {
-      "Exec": "AppendDataExecV1",
-      "Params": "Input/Output",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
-      "Exec": "AtomicCreateTableAsSelectExec",
-      "Params": "Input/Output",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
-      "Exec": "AtomicReplaceTableAsSelectExec",
-      "Params": "Input/Output",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
-      "Exec": "OverwriteByExpressionExecV1",
-      "Params": "Input/Output",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
       "Exec": "PythonMapInArrowExec",
       "Params": "Input/Output",
       "override": [
