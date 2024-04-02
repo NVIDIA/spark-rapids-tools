@@ -267,3 +267,5 @@ RoundCeil,4.25
 RoundFloor,4.25
 BloomFilterMightContain,4.25
 BloomFilterAggregate,4.25
+EphemeralSubstring,4.25
+KnownNullable,4.25
