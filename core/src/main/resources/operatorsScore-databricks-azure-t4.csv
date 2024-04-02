@@ -271,3 +271,5 @@ MapInPandasExec,1.2
 WindowInPandasExec,1.2
 RoundCeil,2.73
 RoundFloor,2.73
+BloomFilterMightContain,2.73
+BloomFilterAggregate,2.73

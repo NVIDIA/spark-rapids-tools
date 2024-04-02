@@ -50,8 +50,8 @@
       "Params": "lhs",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`might_contain`"
         }
       ]
     },
@@ -61,8 +61,8 @@
       "Params": "rhs",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`might_contain`"
         }
       ]
     },
@@ -72,8 +72,8 @@
       "Params": "result",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`might_contain`"
         }
       ]
     },
@@ -413,8 +413,8 @@
       "Params": "child",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`bloom_filter_agg`"
         }
       ]
     },
@@ -424,8 +424,8 @@
       "Params": "estimatedItems",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`bloom_filter_agg`"
         }
       ]
     },
@@ -435,8 +435,8 @@
       "Params": "numBits",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`bloom_filter_agg`"
         }
       ]
     },
@@ -446,8 +446,8 @@
       "Params": "result",
       "override": [
         {
-          "key": "Supported",
-          "value": "TNEW"
+          "key": "SQL Func",
+          "value": "`bloom_filter_agg`"
         }
       ]
     },
