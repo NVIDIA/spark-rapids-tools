@@ -644,6 +644,11 @@ class RapidsJarTool(RapidsTool):
         return self.ctxt.get_ctxt('cpuClusterProxy')
 
     def _process_eventlogs_args(self):
+        def eventlogs_arg_is_requires():
+            if self.wrapper_options.get('requiresEventlogs') is not None:
+                return self.wrapper_options.get('requiresEventlogs')
+            return self.ctxt.requires_eventlogs()
+
         eventlog_arg = self.wrapper_options.get('eventlogs')
         if eventlog_arg is None:
             # get the eventlogs from spark properties
@@ -661,7 +666,7 @@ class RapidsJarTool(RapidsTool):
                 spark_event_logs = eventlog_arg.split(',')
             else:
                 spark_event_logs = eventlog_arg
-        if len(spark_event_logs) < 1:
+        if eventlogs_arg_is_requires() and len(spark_event_logs) < 1:
             self.logger.error('Eventlogs list is empty. '
                               'The cluster Spark properties may be missing "spark.eventLog.dir". '
                               'Re-run the command passing "--eventlogs" flag to the wrapper.')

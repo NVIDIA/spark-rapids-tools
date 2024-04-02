@@ -76,7 +76,8 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
             assert t_args['filterApps'] != QualFilterApp.SAVINGS
 
     @staticmethod
-    def create_tool_args_should_pass(tool_name: str, platform=None, cluster=None, eventlogs=None):
+    def create_tool_args_should_pass(tool_name: str, platform=None, cluster=None,
+                                     eventlogs=None):
         return AbsToolUserArgModel.create_tool_args(tool_name,
                                                     platform=platform,
                                                     cluster=cluster,
@@ -285,6 +286,13 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
         self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                 cost_savings_enabled=False,
                                 expected_platform=CspEnv.ONPREM)
+
+    @pytest.mark.parametrize('prop_path', [autotuner_prop_path])
+    def test_profiler_with_driverlog(self, get_ut_data_dir, prop_path):
+        prof_args = AbsToolUserArgModel.create_tool_args('profiling',
+                                                         driverlog=f'{get_ut_data_dir}/{prop_path}')
+        assert not prof_args['requiresEventlogs']
+        assert prof_args['rapidOptions']['driverlog'] == f'{get_ut_data_dir}/{prop_path}'
 
     def test_arg_cases_coverage(self):
         """
