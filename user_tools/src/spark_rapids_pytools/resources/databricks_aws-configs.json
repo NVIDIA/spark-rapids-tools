@@ -314,6 +314,71 @@
             "num_gpus": 4,
             "gpu_mem": 16384
           }
+        },
+        "g5.xlarge": {
+          "software": {
+            "release": "emr-6.5.0"
+          },
+          "SysInfo": {
+            "num_cpus": 4,
+            "cpu_mem": 16384
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 24576
+          }
+        },
+        "g5.2xlarge": {
+          "software": {
+            "release": "emr-6.5.0"
+          },
+          "SysInfo": {
+            "num_cpus": 8,
+            "cpu_mem": 32768
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 24576
+          }
+        },
+        "g5.4xlarge": {
+          "software": {
+            "release": "emr-6.5.0"
+          },
+          "SysInfo": {
+            "num_cpus": 16,
+            "cpu_mem": 65536
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 24576
+          }
+        },
+        "g5.8xlarge": {
+          "software": {
+            "release": "emr-6.5.0"
+          },
+          "SysInfo": {
+            "num_cpus": 32,
+            "cpu_mem": 131072
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 24576
+          }
+        },
+        "g5.12xlarge": {
+          "software": {
+            "release": "emr-6.5.0"
+          },
+          "SysInfo": {
+            "num_cpus": 48,
+            "cpu_mem": 196608
+          },
+          "GpuHWInfo": {
+            "num_gpus": 4,
+            "gpu_mem": 24576
+          }
         }
       }
     }
