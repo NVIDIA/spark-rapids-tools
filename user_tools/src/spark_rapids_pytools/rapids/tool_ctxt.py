@@ -188,6 +188,12 @@ class ToolContext(YAMLPropertiesContainer):
     def get_rapids_auto_tuner_enabled(self) -> bool:
         return self.get_value('sparkRapids', 'enableAutoTuner')
 
+    def requires_eventlogs(self) -> bool:
+        flag = self.get_value_silent('sparkRapids', 'requireEventLogs')
+        if flag is None:
+            return True
+        return flag
+
     def get_rapids_output_folder(self) -> str:
         root_dir = self.get_local('outputFolder')
         rapids_subfolder = self.get_value_silent('toolOutput', 'subFolder')
