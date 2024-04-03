@@ -128,6 +128,7 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform
 
 class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPlatform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATABRICKS_AWS
+  override val defaultGpuDevice: GpuDevice = A10GGpu
 }
 
 class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPlatform(gpuDevice) {
@@ -150,7 +151,7 @@ class DataprocGkePlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform
 
 class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.EMR
-  override val defaultGpuDevice: GpuDevice = T4Gpu
+  override val defaultGpuDevice: GpuDevice = A10GGpu
 }
 
 class OnPremPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
