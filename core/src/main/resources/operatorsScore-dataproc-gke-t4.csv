@@ -16,6 +16,10 @@ HashAggregateExec,4.1
 ObjectHashAggregateExec,4.1
 SortAggregateExec,4.1
 DataWritingCommandExec,3.65
+AtomicReplaceTableAsSelectExec,3.65
+AtomicCreateTableAsSelectExec,3.65
+OverwriteByExpressionExecV1,3.65
+AppendDataExecV1,3.65
 ExecutedCommandExec,3.65
 BatchScanExec,2.84
 ShuffleExchangeExec,3.69

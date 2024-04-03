@@ -20,6 +20,10 @@ ObjectHashAggregateExec,2.07
 SortAggregateExec,2.07
 InMemoryTableScanExec,2.07
 DataWritingCommandExec,2.07
+AtomicReplaceTableAsSelectExec,2.07
+AtomicCreateTableAsSelectExec,2.07
+OverwriteByExpressionExecV1,2.07
+AppendDataExecV1,2.07
 ExecutedCommandExec,2.07
 BatchScanExec,2.07
 BroadcastExchangeExec,2.07
