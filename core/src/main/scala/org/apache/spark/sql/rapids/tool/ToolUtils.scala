@@ -484,6 +484,8 @@ case class GpuEventLogException(message: String) extends Exception(message)
 
 case class PhotonEventLogException(message: String) extends Exception(message)
 
+case class StreamingEventLogException(message: String) extends Exception(message)
+
 // Class used a container to hold the information of the Tuple<sqlID, PlanInfo, SparkGraph>
 // to simplify arguments of methods and caching.
 case class SqlPlanInfoGraphEntry(

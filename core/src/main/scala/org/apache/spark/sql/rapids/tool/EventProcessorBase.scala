@@ -25,6 +25,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui._
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, StringUtils}
+import org.apache.spark.sql.streaming.StreamingQueryListener
 
 abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener with Logging {
 
@@ -89,6 +90,10 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       case _: SparkListenerSQLAdaptiveSQLMetricUpdates =>
         doSparkListenerSQLAdaptiveSQLMetricUpdates(app,
           event.asInstanceOf[SparkListenerSQLAdaptiveSQLMetricUpdates])
+      case _: StreamingQueryListener.QueryStartedEvent
+        | _: StreamingQueryListener.QueryTerminatedEvent =>
+        throw StreamingEventLogException(
+          "Encountered Spark Structured Streaming Job: skipping this file!")
       case _ =>
         val wasResourceProfileAddedEvent = doSparkListenerResourceProfileAddedReflect(app, event)
         if (!wasResourceProfileAddedEvent) doOtherEvent(app, event)

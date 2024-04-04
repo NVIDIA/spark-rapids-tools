@@ -28,7 +28,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, GpuEventLogException, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, GpuEventLogException, PhotonEventLogException, SqlPlanInfoGraphBuffer, StreamingEventLogException, SupportedMLFuncsName, ToolUtils}
 
 
 class QualificationAppInfo(
@@ -977,6 +977,8 @@ object QualificationAppInfo extends Logging {
 
   private def handleException(e: Exception, path: EventLogInfo): FailureApp = {
     val (status, message): (String, String) = e match {
+      case streamingLog: StreamingEventLogException =>
+        ("skipped", streamingLog.message)
       case photonLog: PhotonEventLogException =>
         ("skipped", photonLog.message)
       case gpuLog: GpuEventLogException =>
