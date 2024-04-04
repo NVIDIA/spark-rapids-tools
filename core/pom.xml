@@ -382,6 +382,7 @@
             <properties>
                 <buildver>350</buildver>
                 <spark.version>${spark350.version}</spark.version>
+                <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta31x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
@@ -397,6 +398,7 @@
             <properties>
                 <buildver>351</buildver>
                 <spark.version>${spark351.version}</spark.version>
+                <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta31x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
@@ -412,6 +414,7 @@
             <properties>
                 <buildver>352</buildver>
                 <spark.version>${spark352.version}</spark.version>
+                <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta31x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
@@ -427,6 +430,7 @@
             <properties>
                 <buildver>400</buildver>
                 <spark.version>${spark400.version}</spark.version>
+                <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta31x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
@@ -487,10 +491,10 @@
         <delta22x.version>2.2.0</delta22x.version>
         <delta23x.version>2.3.0</delta23x.version>
         <delta24x.version>2.4.0</delta24x.version>
-        <!-- TODO: Fix delta version should be 3.1.0 but this requires scala-binary 2.13 which we
-                   don't have yet -->
-        <delta31x.version>2.4.0</delta31x.version>
+        <delta31x.version>3.1.0</delta31x.version>
         <delta.core.version>${delta24x.version}</delta.core.version>
+        <delta.core.artifactory>delta-core_${scala.binary.version}</delta.core.artifactory>
+        <delta.core.artifactory.post35>delta-spark_${scala.binary.version}</delta.core.artifactory.post35>
         <!-- environment properties -->
         <java.version>1.8</java.version>
         <platform-encoding>UTF-8</platform-encoding>
@@ -571,7 +575,7 @@
         <dependency>
             <!-- add delta-lake to test against delta-lake write optimizations -->
             <groupId>io.delta</groupId>
-            <artifactId>delta-core_${scala.binary.version}</artifactId>
+            <artifactId>${delta.core.artifactory}</artifactId>
             <version>${delta.core.version}</version>
             <scope>test</scope>
         </dependency>
