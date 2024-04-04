@@ -53,6 +53,7 @@ sparkRapids:
   mainClass: 'com.nvidia.spark.rapids.tool.qualification.QualificationMain'
   outputDocURL: 'https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#understanding-the-qualification-tool-output'
   enableAutoTuner: true
+  requireEventLogs: true
   gpu:
     device: 't4'
     workersPerNode: 2

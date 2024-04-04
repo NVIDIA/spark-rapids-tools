@@ -29,23 +29,25 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
     checker: PluginTypeChecker,
     sqlID: Long) extends ExecParser {
   // We use "DataWritingCommandExec" to get the speedupFactor of AppendDataExecV1
-  val fullExecName: String = DataWritingCommandExecParser.dataWriteCMD
+  val fullExecName: String = DataWritingCommandExecParser.getPhysicalExecName(node.name)
   override def parse: ExecInfo = {
     // The node description has information about the table schema and its format.
     // We do not want the op to me marked as RDD or UDF if the node description contains some
     // expressions that match UDF/RDD.
+    val (speedupFactor, isExecSupported) = if (checker.isExecSupported(fullExecName)) {
+      (checker.getSpeedupFactor(fullExecName), true)
+    } else {
+      (1.0, false)
+    }
     val dataFormat = DeltaLakeHelper.getWriteFormat
     val writeSupported = checker.isWriteFormatSupported(dataFormat)
-    val speedupFactor = if (writeSupported) {
-      checker.getSpeedupFactor(fullExecName)
-    } else {
-      1.0
-    }
+    val finalSpeedupFactor = if (writeSupported) speedupFactor else 1.0
+
     // execs like SaveIntoDataSourceCommand has prefix "Execute". So, we need to get rid of it.
     val nodeName = node.name.replace("Execute ", "")
     ExecInfo.createExecNoNode(sqlID, nodeName,
-      s"Format: $dataFormat", speedupFactor, None, node.id, OpTypes.WriteExec,
-      isSupported = writeSupported, children = None)
+      s"Format: $dataFormat", finalSpeedupFactor, None, node.id, OpTypes.WriteExec,
+      isSupported = writeSupported && isExecSupported, children = None)
   }
 }
 
@@ -62,12 +64,13 @@ object DeltaLakeHelper {
   // [fieldName, type]
   private val schemaRegex =
     "\\s+\\|--\\s+([a-zA-Z]+(?:_[a-zA-Z]+)*):\\s+([a-zA-Z]+(?:_[a-zA-Z]+)*)\\s+\\(".r
-  val saveIntoDataSrcCMD = "SaveIntoDataSourceCommand"
-  private val atomicReplaceTableExec = "AtomicReplaceTableAsSelect"
-  private val appendDataExecV1 = "AppendDataExecV1"
-  private val overwriteByExprExecV1 = "OverwriteByExpressionExecV1"
+  private val atomicCreateTableExec = DataWritingCommandExecParser.atomicCreateTableExec
+  private val atomicReplaceTableExec = DataWritingCommandExecParser.atomicReplaceTableExec
+  private val appendDataExecV1 = DataWritingCommandExecParser.appendDataExecV1
+  private val overwriteByExprExecV1 = DataWritingCommandExecParser.overwriteByExprExecV1
   private val mergeIntoCommandEdgeExec = "MergeIntoCommandEdge"
   private val writeIntoDeltaCommandExec = "WriteIntoDeltaCommand"
+  val saveIntoDataSrcCMD = "SaveIntoDataSourceCommand"
   // Note that the SaveIntoDataSourceCommand node name appears as
   // "Execute SaveIntoDataSourceCommand"
   // Same for Execute MergeIntoCommandEdge
@@ -79,7 +82,8 @@ object DeltaLakeHelper {
   private val deltaExecsFromSpark = Set(
     appendDataExecV1,
     overwriteByExprExecV1,
-    atomicReplaceTableExec)
+    atomicReplaceTableExec,
+    atomicCreateTableExec)
 
   // keywords used to verify that the operator provider is DeltaLake
   private val nodeDescKeywords = Set(
@@ -95,8 +99,16 @@ object DeltaLakeHelper {
       true
     } else if (deltaExecsFromSpark.contains(node.name)) {
       if (node.name.contains(appendDataExecV1) || node.name.contains(overwriteByExprExecV1)) {
+        // those two execs require the existence of the keywords in the node description
         nodeDescKeywords.forall(s => node.desc.contains(s))
-      } else if (node.name.contains(atomicReplaceTableExec)) {
+      } else if (node.name.contains(atomicReplaceTableExec)
+          || node.name.contains(atomicCreateTableExec)) {
+        // AtomicReplace and AtomicCreate have different format.
+        // To decide whether they are supported or not, we need to check whether the TableSpec
+        // second argument is "delta" provider. The sample below shows a table Spec with
+        // Delta Provider. If the argument is none, we assume the provider is not Delta.
+        // For simplicity, we will match regex on "*delta*".
+        //
         // AtomicReplaceTableAsSelectExec has a different format
         // AtomicReplaceTableAsSelect [num_affected_rows#ID_0L, num_inserted_rows#ID_1L],
         // com.databricks.sql.managedcatalog.UnityCatalogV2Proxy@XXXXX,

@@ -95,6 +95,7 @@ class AbsToolUserArgModel:
     cluster: Optional[str] = None
     platform: Optional[CspEnv] = None
     output_folder: Optional[str] = None
+    tools_jar: Optional[str] = None
     rejected: dict = dataclasses.field(init=False, default_factory=dict)
     detected: dict = dataclasses.field(init=False, default_factory=dict)
     extra: dict = dataclasses.field(init=False, default_factory=dict)
@@ -183,6 +184,16 @@ class AbsToolUserArgModel:
                 'invalid_argument',
                 f'Cannot run cluster by properties with platform [{CspEnv.ONPREM}] without event logs\n  Error:')
 
+    def validate_jar_argument_is_valid(self):
+        if self.tools_jar is not None:
+            if not CspPath.is_file_path(self.tools_jar,
+                                        extensions=['jar'],
+                                        raise_on_error=False):
+                raise PydanticCustomError(
+                    'file_path',
+                    f'Jar file path {self.tools_jar} is not valid\n  Error:')
+        self.p_args['toolArgs']['toolsJar'] = self.tools_jar
+
     def init_extra_arg_cases(self) -> list:
         return []
 
@@ -262,15 +273,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
 
     def define_invalid_arg_cases(self):
         super().define_invalid_arg_cases()
-        self.rejected['Missing Eventlogs'] = {
-            'valid': False,
-            'callable': partial(self.raise_validation_exception,
-                                'Cannot run tool cmd. Cannot define eventlogs from input '
-                                '(platform, cluster, and eventlogs)'),
-            'cases': [
-                [ArgValueCase.IGNORE, ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED]
-            ]
-        }
+        self.define_rejected_missing_eventlogs()
         self.rejected['Cluster By Name Without Platform Hints'] = {
             'valid': False,
             'callable': partial(self.raise_validation_exception,
@@ -293,6 +296,24 @@ class ToolUserArgModel(AbsToolUserArgModel):
             'callable': partial(self.validate_onprem_with_cluster_props_without_eventlogs),
             'cases': [
                 [ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.UNDEFINED]
+            ]
+        }
+        self.rejected['Invalid Jar Argument'] = {
+            'valid': False,
+            'callable': partial(self.validate_jar_argument_is_valid),
+            'cases': [
+                [ArgValueCase.IGNORE, ArgValueCase.IGNORE, ArgValueCase.IGNORE]
+            ]
+        }
+
+    def define_rejected_missing_eventlogs(self):
+        self.rejected['Missing Eventlogs'] = {
+            'valid': False,
+            'callable': partial(self.raise_validation_exception,
+                                'Cannot run tool cmd. Cannot define eventlogs from input '
+                                '(platform, cluster, and eventlogs)'),
+            'cases': [
+                [ArgValueCase.IGNORE, ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED]
             ]
         }
 
@@ -438,7 +459,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             'savingsCalculations': self.p_args['toolArgs']['savingsCalculations'],
             'eventlogs': self.eventlogs,
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
-            'toolsJar': None,
+            'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'gpuClusterRecommendation': self.p_args['toolArgs']['gpuClusterRecommendation'],
             'estimationModel': self.p_args['toolArgs']['estimationModel'],
             # used to initialize the pricing information
@@ -459,6 +480,7 @@ class ProfileUserArgModel(ToolUserArgModel):
     Represents the arguments collected by the user to run the profiling tool.
     This is used as doing preliminary validation against some of the common pattern
     """
+    driverlog: Optional[str] = None
 
     def determine_cluster_arg_type(self) -> ArgValueCase:
         cluster_case = super().determine_cluster_arg_type()
@@ -470,9 +492,27 @@ class ProfileUserArgModel(ToolUserArgModel):
                 self.p_args['toolArgs']['autotuner'] = self.cluster
         return cluster_case
 
+    def init_driverlog_argument(self):
+        if self.driverlog is None:
+            self.p_args['toolArgs']['driverlog'] = None
+        else:
+            if not CspPath.is_file_path(self.driverlog, raise_on_error=False):
+                raise PydanticCustomError(
+                    'file_path',
+                    'Driver log file path is not valid\n  Error:')
+
+            # the file cannot be a http_url
+            if is_http_file(self.cluster):
+                # we do not accept http://urls
+                raise PydanticCustomError(
+                    'invalid_argument',
+                    f'Driver log file path cannot be a web URL path: {self.driverlog}\n  Error:')
+            self.p_args['toolArgs']['driverlog'] = self.driverlog
+
     def init_tool_args(self):
         self.p_args['toolArgs']['platform'] = self.platform
         self.p_args['toolArgs']['autotuner'] = None
+        self.init_driverlog_argument()
 
     def define_invalid_arg_cases(self):
         super().define_invalid_arg_cases()
@@ -484,6 +524,10 @@ class ProfileUserArgModel(ToolUserArgModel):
                 [ArgValueCase.IGNORE, ArgValueCase.VALUE_C, ArgValueCase.UNDEFINED]
             ]
         }
+
+    def define_rejected_missing_eventlogs(self):
+        if self.p_args['toolArgs']['driverlog'] is None:
+            super().define_rejected_missing_eventlogs()
 
     def define_detection_cases(self):
         super().define_detection_cases()
@@ -507,6 +551,15 @@ class ProfileUserArgModel(ToolUserArgModel):
         else:
             # this is an actual cluster argument
             self.p_args['toolArgs']['cluster'] = self.cluster
+        if self.p_args['toolArgs']['driverlog'] is None:
+            requires_event_logs = True
+            rapid_options = {}
+        else:
+            requires_event_logs = False
+            rapid_options = {
+                'driverlog': self.p_args['toolArgs']['driverlog']
+            }
+
         # finally generate the final values
         wrapped_args = {
             'runtimePlatform': runtime_platform,
@@ -525,7 +578,9 @@ class ProfileUserArgModel(ToolUserArgModel):
                 }
             },
             'eventlogs': self.eventlogs,
-            'toolsJar': None,
+            'requiresEventlogs': requires_event_logs,
+            'rapidOptions': rapid_options,
+            'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'autoTunerFileInput': self.p_args['toolArgs']['autotuner']
         }
 

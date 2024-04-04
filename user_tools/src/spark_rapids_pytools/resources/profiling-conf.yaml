@@ -12,12 +12,15 @@ sparkRapids:
   mainClass: 'com.nvidia.spark.rapids.tool.profiling.ProfileMain'
   outputDocURL: 'https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#understanding-profiling-tool-detailed-output-and-examples'
   enableAutoTuner: true
+  requireEventLogs: true
   cli:
     toolOptions:
       - csv
       - any
       - a
       - application-name
+      - d
+      - driverlog
       - f
       - filter-criteria
       - g

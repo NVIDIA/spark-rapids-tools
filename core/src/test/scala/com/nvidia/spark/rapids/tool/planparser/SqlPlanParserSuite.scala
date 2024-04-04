@@ -1618,4 +1618,44 @@ class SQLPlanParserSuite extends BaseTestSuite {
       execInfo.shouldIgnore shouldBe false
     }
   }
+
+  test("BloomFilters are supported") {
+    // BloomFilter was added in Spark 3.3.0, but we do not care about the version here because
+    // we use one parser to rule all spark-versions.
+    // scalastyle:off line.size.limit
+    // The following two expressions are copied from the Spark explain files
+    val aggDescr = "ObjectHashAggregate(keys=[], functions=[partial_bloom_filter_agg(xxhash64(d_week_seq#41, 42), 335, 8990, 0, 0)])"
+    val filterDescr = "Filter (((isnotnull(c_customer_sk#1) AND isnotnull(c_current_addr_sk#3)) AND isnotnull(c_current_cdemo_sk#2)) AND might_contain(Subquery scalar-subquery#4, [id=#5], xxhash64(c_current_addr_sk#3, 42)))"
+    // scalastyle:on line.size.limit
+    val aggNode = ToolsPlanGraph.constructGraphNode(
+      1,
+      "ObjectHashAggregate",
+      aggDescr, Seq[SQLPlanMetric]())
+    val aggExprArr =
+      SQLPlanParser.parseAggregateExpressions(aggNode.desc.replaceFirst("ObjectHashAggregate", ""))
+    val filterNode = ToolsPlanGraph.constructGraphNode(
+      2,
+      "Filter",
+      filterDescr, Seq[SQLPlanMetric]())
+    val filterExprArray = SQLPlanParser.parseFilterExpressions(
+      filterNode.desc.replaceFirst("Filter ", ""))
+    val pluginTypeChecker = new PluginTypeChecker()
+    pluginTypeChecker.getNotSupportedExprs(aggExprArr) shouldBe 'empty
+    pluginTypeChecker.getNotSupportedExprs(filterExprArray) shouldBe 'empty
+  }
+
+  test("KnownNullable is supported") {
+    // scalastyle:off line.size.limit
+    // The following expression is copied from the Spark explain files
+    val projectDescr = "Project [named_struct(start, precisetimestampconversion(precisetimestampconversion(t#0, TimestampType, LongType), LongType, TimestampType), end, knownnullable(precisetimestampconversion(precisetimestampconversion(cast(t#0 + cast(10 minutes as interval) as timestamp), TimestampType, LongType), LongType, TimestampType))) AS session_window#0, d#0, t#0, s#0, x#0L, wt#0]"
+    // scalastyle:on line.size.limit
+    val projectNode = ToolsPlanGraph.constructGraphNode(
+      2,
+      "Project",
+      projectDescr, Seq[SQLPlanMetric]())
+    val filterExprArray = SQLPlanParser.parseFilterExpressions(
+      projectNode.desc.replaceFirst("Project ", ""))
+    val pluginTypeChecker = new PluginTypeChecker()
+    pluginTypeChecker.getNotSupportedExprs(filterExprArray) shouldBe 'empty
+  }
 }
