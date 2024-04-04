@@ -20,6 +20,10 @@ ObjectHashAggregateExec,2.59
 SortAggregateExec,2.59
 InMemoryTableScanExec,2.59
 DataWritingCommandExec,2.59
+AtomicReplaceTableAsSelectExec,2.59
+AtomicCreateTableAsSelectExec,2.59
+OverwriteByExpressionExecV1,2.59
+AppendDataExecV1,2.59
 ExecutedCommandExec,2.59
 BatchScanExec,2.59
 BroadcastExchangeExec,2.59
@@ -271,3 +275,7 @@ MapInPandasExec,1.2
 WindowInPandasExec,1.2
 RoundCeil,2.59
 RoundFloor,2.59
+BloomFilterMightContain,2.59
+BloomFilterAggregate,2.59
+EphemeralSubstring,2.59
+KnownNullable,2.59
