@@ -29,6 +29,7 @@ CartesianProductExec,3.74
 ShuffledHashJoinExec,3.74
 SortMergeJoinExec,5.1
 WindowExec,3.74
+WindowGroupLimitExec,3.74
 Abs,3.74
 Acos,3.74
 Acosh,3.74

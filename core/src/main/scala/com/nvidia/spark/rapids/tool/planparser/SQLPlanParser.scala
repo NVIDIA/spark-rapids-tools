@@ -361,6 +361,10 @@ object SQLPlanParser extends Logging {
     //  We do not want them to appear as independent expressions.
     "structfield", "structtype")
 
+  // row_number() is currently not supported by the plugin (v24.04)
+  // Ref: https://github.com/NVIDIA/spark-rapids/pull/10500
+  private val supportedWindowGroupLimitFunctions: Set[String] = Set("rank", "dense_rank")
+
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
    * of a specific node.
@@ -539,6 +543,8 @@ object SQLPlanParser extends Logging {
             WindowExecParser(node, checker, sqlID).parse
           case "WindowInPandas" =>
             WindowInPandasExecParser(node, checker, sqlID).parse
+          case "WindowGroupLimit" =>
+            WindowGroupLimitParser(node, checker, sqlID).parse
           case wfe if WriteFilesExecParser.accepts(wfe) =>
             WriteFilesExecParser(node, checker, sqlID).parse
           case _ =>
@@ -773,6 +779,23 @@ object SQLPlanParser extends Logging {
       }
     }
     parsedExpressions.distinct.toArray
+  }
+
+  def parseWindowGroupLimitExpression(exprStr: String): Option[String] = {
+    // [category#16], [amount#17 DESC NULLS LAST], dense_rank(amount#17), 2, Final
+
+    // This splits the string to get only the ranking expression in WindowGroupLimitExec.
+    // So we first split the string on comma and get the third element from the array.
+    // dense_rank(amount#17)
+    val rankLikeExpr = exprStr.split(", ").lift(2).map(_.trim)
+    rankLikeExpr.flatMap { rankExpr =>
+      // Get function name from WindowExpression
+      val rankLikeFunc = windowFunctionPattern.findFirstIn(rankExpr)
+      val functionName = rankLikeFunc.flatMap(getFunctionName(windowFunctionPattern, _))
+      // Validate if the function is a rank like function since the argument
+      // can only be row_number/rank/dense_rank.
+      functionName.filter(supportedWindowGroupLimitFunctions.contains)
+    }
   }
 
   def parseExpandExpressions(exprStr: String): Array[String] = {
