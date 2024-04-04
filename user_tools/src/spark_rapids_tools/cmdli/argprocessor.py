@@ -95,6 +95,7 @@ class AbsToolUserArgModel:
     cluster: Optional[str] = None
     platform: Optional[CspEnv] = None
     output_folder: Optional[str] = None
+    tools_jar: Optional[str] = None
     rejected: dict = dataclasses.field(init=False, default_factory=dict)
     detected: dict = dataclasses.field(init=False, default_factory=dict)
     extra: dict = dataclasses.field(init=False, default_factory=dict)
@@ -182,6 +183,16 @@ class AbsToolUserArgModel:
             raise PydanticCustomError(
                 'invalid_argument',
                 f'Cannot run cluster by properties with platform [{CspEnv.ONPREM}] without event logs\n  Error:')
+
+    def validate_jar_argument_is_valid(self):
+        if self.tools_jar is not None:
+            if not CspPath.is_file_path(self.tools_jar,
+                                        extensions=['jar'],
+                                        raise_on_error=False):
+                raise PydanticCustomError(
+                    'file_path',
+                    f'Jar file path {self.tools_jar} is not valid\n  Error:')
+        self.p_args['toolArgs']['toolsJar'] = self.tools_jar
 
     def init_extra_arg_cases(self) -> list:
         return []
@@ -285,6 +296,13 @@ class ToolUserArgModel(AbsToolUserArgModel):
             'callable': partial(self.validate_onprem_with_cluster_props_without_eventlogs),
             'cases': [
                 [ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.UNDEFINED]
+            ]
+        }
+        self.rejected['Invalid Jar Argument'] = {
+            'valid': False,
+            'callable': partial(self.validate_jar_argument_is_valid),
+            'cases': [
+                [ArgValueCase.IGNORE, ArgValueCase.IGNORE, ArgValueCase.IGNORE]
             ]
         }
 
@@ -441,7 +459,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             'savingsCalculations': self.p_args['toolArgs']['savingsCalculations'],
             'eventlogs': self.eventlogs,
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
-            'toolsJar': None,
+            'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'gpuClusterRecommendation': self.p_args['toolArgs']['gpuClusterRecommendation'],
             'estimationModel': self.p_args['toolArgs']['estimationModel'],
             # used to initialize the pricing information
@@ -562,7 +580,7 @@ class ProfileUserArgModel(ToolUserArgModel):
             'eventlogs': self.eventlogs,
             'requiresEventlogs': requires_event_logs,
             'rapidOptions': rapid_options,
-            'toolsJar': None,
+            'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'autoTunerFileInput': self.p_args['toolArgs']['autotuner']
         }
 
