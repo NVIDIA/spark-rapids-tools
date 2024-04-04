@@ -954,10 +954,5 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
-        <repository>
-            <!-- added to support preview releases from iodelta -->
-            <id>iodelta-staging-repo</id>
-            <url> https://oss.sonatype.org/content/repositories/iodelta-1080/</url>
-        </repository>
     </repositories>
 </project>
