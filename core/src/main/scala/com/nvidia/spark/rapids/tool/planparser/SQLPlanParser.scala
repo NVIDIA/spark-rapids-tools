@@ -792,8 +792,7 @@ object SQLPlanParser extends Logging {
       // Get function name from WindowExpression
       val rankLikeFunc = windowFunctionPattern.findFirstIn(rankExpr)
       val functionName = rankLikeFunc.flatMap(getFunctionName(windowFunctionPattern, _))
-      // Validate if the function is a rank like function since the argument
-      // can only be row_number/rank/dense_rank.
+      // Validate if the function is a supported rank like function.
       functionName.filter(supportedWindowGroupLimitFunctions.contains)
     }
   }
