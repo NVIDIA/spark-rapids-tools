@@ -42,6 +42,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       output_folder: str = None,
                       filter_apps: str = None,
                       estimation_model: str = None,
+                      tools_jar: str = None,
                       cpu_cluster_price: float = None,
                       estimated_gpu_cluster_price: float = None,
                       cpu_discount: int = None,
@@ -75,6 +76,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 If not provided, the final report will be limited to GPU speedups only without
                 cost-savings.
         :param output_folder: path to store the output
+        :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem,
+                or remote cloud storage url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
+                from maven repository.
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
                 is one of the following (ALL, SPEEDUPS, SAVINGS, TOP_CANDIDATES).
                 Requires "Cluster".
@@ -125,6 +129,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          platform=platform,
                                                          target_platform=target_platform,
                                                          output_folder=output_folder,
+                                                         tools_jar=tools_jar,
                                                          filter_apps=filter_apps,
                                                          estimation_model=estimation_model,
                                                          cpu_cluster_price=cpu_cluster_price,
@@ -146,6 +151,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                   platform: str = None,
                   driverlog: str = None,
                   output_folder: str = None,
+                  tools_jar: str = None,
                   verbose: bool = None,
                   **rapids_options):
         """The Profiling cmd provides information which can be used for debugging and profiling
@@ -166,6 +172,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 and "databricks-azure".
         :param driverlog: Valid path to the GPU driver log file.
         :param output_folder: path to store the output.
+        :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem,
+                or remote cloud storage url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
+                from maven repository.
         :param verbose: True or False to enable verbosity of the script.
         :param rapids_options: A list of valid Profiling tool options.
                 Note that the wrapper ignores ["output-directory", "worker-info"] flags, and it does not support
@@ -186,7 +195,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          cluster=cluster,
                                                          platform=platform,
                                                          driverlog=driverlog,
-                                                         output_folder=output_folder)
+                                                         output_folder=output_folder,
+                                                         tools_jar=tools_jar)
         if prof_args:
             rapids_options.update(prof_args['rapidOptions'])
             tool_obj = ProfilingAsLocal(platform_type=prof_args['runtimePlatform'],
