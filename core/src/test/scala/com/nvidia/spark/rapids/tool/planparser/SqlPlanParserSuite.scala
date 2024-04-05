@@ -1661,22 +1661,19 @@ class SQLPlanParserSuite extends BaseTestSuite {
 
   runConditionalTest("WindowGroupLimitExec is supported", execsSupportedSparkGTE350) {
     val windowGroupLimitExecCmd = "WindowGroupLimit"
-    val tbl_name = "sales_tbl"
+    val tbl_name = "foobar_tbl"
     TrampolineUtil.withTempDir { eventLogDir =>
       withTable(tbl_name) {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
           "WindowGroupLimitExec") { spark =>
-          spark.sql(s"CREATE TABLE $tbl_name (category STRING, amount STRING) USING PARQUET")
+          spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
           val query =
             s"""
-            SELECT category, amount
-            FROM (
-               SELECT category, amount,
-                      RANK() OVER (PARTITION BY category ORDER BY amount DESC) as rank
-               FROM $tbl_name
-            ) ranked_sales
-            WHERE rank <= 2
-            ORDER BY category, rank"""
+            SELECT foo, bar FROM (
+                SELECT foo, bar,
+                    RANK() OVER (PARTITION BY foo ORDER BY bar) as rank
+                FROM $tbl_name)
+            WHERE rank <= 2"""
           spark.sql(query)
         }
         val pluginTypeChecker = new PluginTypeChecker()
