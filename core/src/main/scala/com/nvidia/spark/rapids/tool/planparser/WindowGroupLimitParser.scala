@@ -27,20 +27,36 @@ case class WindowGroupLimitParser(
 
   val fullExecName: String = node.name + "Exec"
 
+  private def validateRankingExpr(rankingExprs: Array[String]): Boolean = {
+    // row_number() is currently not supported by the plugin (v24.04)
+    // Ref: https://github.com/NVIDIA/spark-rapids/pull/10500
+    val supportedRankingExprs = Set("rank", "dense_rank")
+    rankingExprs.length == 1 && supportedRankingExprs.contains(rankingExprs.head)
+  }
+
+  /**
+   * Node Description:
+   * WindowGroupLimit [category#16], [amount#17 DESC NULLS LAST], dense_rank(amount#17), 2, Final
+   *
+   * Support criteria:
+   * 1. Exec is supported by the plugin.
+   * 2. Ranking function is supported by the plugin.
+   * 3. Ranking function is supported by plugin's implementation of WindowGroupLimitExec.
+   */
   override def parse: ExecInfo = {
-    // WindowGroupLimit doesn't have duration
-    val duration = None
     val exprString = node.desc.replaceFirst("WindowGroupLimit ", "")
-    val expression = SQLPlanParser.parseWindowGroupLimitExpression(exprString)
-    val notSupportedExprs = checker.getNotSupportedExprs(expression.toSeq)
-    val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
-        notSupportedExprs.isEmpty) {
+    val expressions = SQLPlanParser.parseWindowGroupLimitExpressions(exprString)
+    val notSupportedExprs = checker.getNotSupportedExprs(expressions)
+    // Check if exec is supported and ranking expression is supported.
+    val isExecSupported = checker.isExecSupported(fullExecName)
+    val areAllExprsSupported = notSupportedExprs.isEmpty && validateRankingExpr(expressions)
+    val (speedupFactor, isSupported) = if (isExecSupported && areAllExprsSupported) {
       (checker.getSpeedupFactor(fullExecName), true)
     } else {
       (1.0, false)
     }
     // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None,
+    ExecInfo(node, sqlID, node.name, "", speedupFactor, None, node.id, isSupported, None,
       unsupportedExprs = notSupportedExprs)
   }
 }

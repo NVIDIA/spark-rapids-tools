@@ -1665,7 +1665,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     TrampolineUtil.withTempDir { eventLogDir =>
       withTable(tbl_name) {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          "WindowGroupLimitExec") { spark =>
+          windowGroupLimitExecCmd) { spark =>
           spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
           val query =
             s"""
@@ -1682,7 +1682,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-        val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(s"$windowGroupLimitExecCmd"))
+        val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
         // We should have two WindowGroupLimitExec operators (Partial and Final).
         assertSizeAndSupported(2, windowGroupLimitExecs)
       }

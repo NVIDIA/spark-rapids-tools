@@ -361,10 +361,6 @@ object SQLPlanParser extends Logging {
     //  We do not want them to appear as independent expressions.
     "structfield", "structtype")
 
-  // row_number() is currently not supported by the plugin (v24.04)
-  // Ref: https://github.com/NVIDIA/spark-rapids/pull/10500
-  private val supportedWindowGroupLimitFunctions: Set[String] = Set("rank", "dense_rank")
-
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
    * of a specific node.
@@ -781,20 +777,19 @@ object SQLPlanParser extends Logging {
     parsedExpressions.distinct.toArray
   }
 
-  def parseWindowGroupLimitExpression(exprStr: String): Option[String] = {
+  def parseWindowGroupLimitExpressions(exprStr: String): Array[String] = {
     // [category#16], [amount#17 DESC NULLS LAST], dense_rank(amount#17), 2, Final
 
     // This splits the string to get only the ranking expression in WindowGroupLimitExec.
-    // So we first split the string on comma and get the third element from the array.
+    // We split the string on comma and get the third element from the array.
     // dense_rank(amount#17)
     val rankLikeExpr = exprStr.split(", ").lift(2).map(_.trim)
+    // Get function name from WindowExpression
     rankLikeExpr.flatMap { rankExpr =>
-      // Get function name from WindowExpression
-      val rankLikeFunc = windowFunctionPattern.findFirstIn(rankExpr)
-      val functionName = rankLikeFunc.flatMap(getFunctionName(windowFunctionPattern, _))
-      // Validate if the function is a supported rank like function.
-      functionName.filter(supportedWindowGroupLimitFunctions.contains)
-    }
+      windowFunctionPattern.findFirstIn(rankExpr).flatMap { rankLikeFunc =>
+        getFunctionName(windowFunctionPattern, rankLikeFunc)
+      }
+    }.toArray
   }
 
   def parseExpandExpressions(exprStr: String): Array[String] = {
