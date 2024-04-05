@@ -90,10 +90,12 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       case _: SparkListenerSQLAdaptiveSQLMetricUpdates =>
         doSparkListenerSQLAdaptiveSQLMetricUpdates(app,
           event.asInstanceOf[SparkListenerSQLAdaptiveSQLMetricUpdates])
-      case _: StreamingQueryListener.QueryStartedEvent
-        | _: StreamingQueryListener.QueryTerminatedEvent =>
-        throw StreamingEventLogException(
-          "Encountered Spark Structured Streaming Job: skipping this file!")
+      case _: StreamingQueryListener.QueryStartedEvent =>
+        doSparkListenerStreamingQuery(app,
+          event.asInstanceOf[StreamingQueryListener.QueryStartedEvent])
+      case _: StreamingQueryListener.QueryTerminatedEvent =>
+        doSparkListenerStreamingQuery(app,
+          event.asInstanceOf[StreamingQueryListener.QueryTerminatedEvent])
       case _ =>
         val wasResourceProfileAddedEvent = doSparkListenerResourceProfileAddedReflect(app, event)
         if (!wasResourceProfileAddedEvent) doOtherEvent(app, event)
@@ -231,6 +233,13 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       exec.isActive = true
       exec.maxMemory = event.maxMem
     }
+  }
+
+  def doSparkListenerStreamingQuery(
+      app: T,
+      event: SparkListenerEvent): Unit = {
+    throw StreamingEventLogException(
+      "Encountered Spark Structured Streaming Job: skipping this file!")
   }
 
   override def onBlockManagerAdded(blockManagerAdded: SparkListenerBlockManagerAdded): Unit = {
