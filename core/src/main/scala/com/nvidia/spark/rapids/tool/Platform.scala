@@ -161,12 +161,6 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPl
 class DataprocPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC
   override val defaultGpuDevice: GpuDevice = T4Gpu
-
-  override def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
-      sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
-    val driverHost = sparkProperties.get("spark.driver.host")
-    ClusterInfo(coresPerExecutor, numExecutorNodes, driverHost = driverHost)
-  }
 }
 
 class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
