@@ -267,6 +267,7 @@ ArrowEvalPythonExec,1.2
 FlatMapGroupsInPandasExec,1.2
 FlatMapCoGroupsInPandasExec,1.2
 MapInPandasExec,1.2
+PythonMapInArrowExec,3.65
 WindowInPandasExec,1.2
 RoundCeil,3.65
 RoundFloor,3.65
