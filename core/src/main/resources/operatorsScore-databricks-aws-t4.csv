@@ -35,6 +35,7 @@ ShuffledHashJoinExec,2.45
 SortMergeJoinExec,20.57
 FlatMapCoGroupsInPandasExec,2.45
 WindowExec,2.45
+WindowGroupLimitExec,2.45
 HiveTableScanExec,2.45
 Abs,2.45
 Acos,2.45

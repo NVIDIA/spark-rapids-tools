@@ -539,6 +539,8 @@ object SQLPlanParser extends Logging {
             WindowExecParser(node, checker, sqlID).parse
           case "WindowInPandas" =>
             WindowInPandasExecParser(node, checker, sqlID).parse
+          case "WindowGroupLimit" =>
+            WindowGroupLimitParser(node, checker, sqlID).parse
           case wfe if WriteFilesExecParser.accepts(wfe) =>
             WriteFilesExecParser(node, checker, sqlID).parse
           case _ =>
@@ -773,6 +775,21 @@ object SQLPlanParser extends Logging {
       }
     }
     parsedExpressions.distinct.toArray
+  }
+
+  def parseWindowGroupLimitExpressions(exprStr: String): Array[String] = {
+    // [category#16], [amount#17 DESC NULLS LAST], dense_rank(amount#17), 2, Final
+
+    // This splits the string to get only the ranking expression in WindowGroupLimitExec.
+    // We split the string on comma and get the third element from the array.
+    // dense_rank(amount#17)
+    val rankLikeExpr = exprStr.split(", ").lift(2).map(_.trim)
+    // Get function name from WindowExpression
+    rankLikeExpr.flatMap { rankExpr =>
+      windowFunctionPattern.findFirstIn(rankExpr).flatMap { rankLikeFunc =>
+        getFunctionName(windowFunctionPattern, rankLikeFunc)
+      }
+    }.toArray
   }
 
   def parseExpandExpressions(exprStr: String): Array[String] = {
