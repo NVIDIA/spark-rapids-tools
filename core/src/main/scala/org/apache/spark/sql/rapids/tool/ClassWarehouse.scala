@@ -44,8 +44,11 @@ class ExecutorInfoClass(val executorId: String, _addTime: Long) {
 case class ClusterInfo(
     coresPerExecutor: Int,
     numExecutorNodes: Int,
-    executorInstance: Option[String],
-    driverInstance: Option[String])
+    executorInstance: Option[String] = None,
+    driverInstance: Option[String] = None,
+    driverHost: Option[String] = None,
+    clusterId: Option[String] = None,
+    clusterName: Option[String] = None)
 
 case class ClusterSummary(
     appName: String,

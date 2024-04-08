@@ -82,7 +82,7 @@ object OpSuppLevel extends Enumeration {
  * by the plugin which lists the formats and types supported.
  * The class also supports a custom speedup factor file as input.
  */
-class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
+class PluginTypeChecker(val platform: Platform = PlatformFactory.createInstance(),
                         speedupFactorFile: Option[String] = None) extends Logging {
   private val NONE = "None"
 

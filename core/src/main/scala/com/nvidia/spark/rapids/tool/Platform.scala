@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool
 import scala.annotation.tailrec
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.ClusterInfo
 
 /**
  *  Utility object containing constants for various platform names.
@@ -106,6 +107,17 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
     this.gpuDevice = Some(gpuDevice)
   }
 
+  /**
+   * Important system properties that should be retained based on platform.
+   */
+  def getRetainedSystemProps: Set[String] = Set.empty
+
+  def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
+      sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
+    val driverHost = sparkProperties.get("spark.driver.host")
+    ClusterInfo(coresPerExecutor, numExecutorNodes, driverHost = driverHost)
+  }
+
   override def toString: String = {
     val gpuStr = gpuDevice.fold("")(gpu => s"-$gpu")
     s"$platformName$gpuStr"
@@ -124,6 +136,17 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform
   override val recommendationsToInclude: Seq[(String, String)] = Seq(
     ("spark.databricks.optimizer.dynamicFilePruning", "false")
   )
+
+  override def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
+      sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
+    val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
+    val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
+    val clusterId = sparkProperties.get("spark.databricks.clusterUsageTags.clusterId")
+    val driverHost = sparkProperties.get("spark.driver.host")
+    val clusterName = sparkProperties.get("spark.databricks.clusterUsageTags.clusterName")
+    ClusterInfo(coresPerExecutor, numExecutorNodes, executorInstance,
+      driverInstance, driverHost, clusterId, clusterName)
+  }
 }
 
 class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPlatform(gpuDevice) {
@@ -138,6 +161,12 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPl
 class DataprocPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC
   override val defaultGpuDevice: GpuDevice = T4Gpu
+
+  override def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
+      sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
+    val driverHost = sparkProperties.get("spark.driver.host")
+    ClusterInfo(coresPerExecutor, numExecutorNodes, driverHost = driverHost)
+  }
 }
 
 class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
@@ -152,6 +181,15 @@ class DataprocGkePlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform
 class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.EMR
   override val defaultGpuDevice: GpuDevice = A10GGpu
+
+  override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
+
+  override def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
+      sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
+    val clusterId = systemProperties.get("EMR_CLUSTER_ID")
+    val driverHost = sparkProperties.get("spark.driver.host")
+    ClusterInfo(coresPerExecutor, numExecutorNodes, clusterId = clusterId, driverHost = driverHost)
+  }
 }
 
 class OnPremPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
