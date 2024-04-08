@@ -1537,56 +1537,105 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  test("validate cluster information JSON") {
-    // Expected result set as a map of event log -> cluster info.
-    val expectedClusterInfoMap = Map(
-      // 2 executor nodes with 8 cores.
-      "eventlog_2nodes_8cores" ->
-        Some(ClusterInfo(8, 2, None, None)),
-      // 3 executor nodes with 12 cores in databricks aws platform.
-      "eventlog_3nodes_12cores_db" ->
-        Some(ClusterInfo(12, 3, Some("m6gd.2xlarge"), Some("m6gd.2xlarge"))),
-      // 3 executor nodes with 12 cores having 2 out of 4 executors on same host.
-      "eventlog_3nodes_12cores_same_host" ->
-        Some(ClusterInfo(12, 3, None, None)),
-      // 3 executor nodes with 8, 12 and 8 cores.
-      "eventlog_3nodes_12cores_variable_cores" ->
-        Some(ClusterInfo(12, 3, None, None)),
-      // Event log with driver only
-      "eventlog_driver_only" -> None,
-      // Event log with executor removed
-      "eventlog_3nodes_12cores_exec_removed" ->
-        Some(ClusterInfo(12, 2, None, None))
-    )
+  // Expected result set as a map of event log -> cluster info.
+  val expectedClusterInfoMap: Seq[(String, Option[ClusterInfo])] = Seq(
+    // 2 executor nodes with 8 cores.
+    "eventlog_2nodes_8cores" ->
+      Some(ClusterInfo(8, 2, None, None, Some("10.10.10.100"), None, None)),
+    // 3 executor nodes with 12 cores having 2 out of 4 executors on same host.
+    "eventlog_3nodes_12cores_same_host" ->
+      Some(ClusterInfo(12, 3, None, None, Some("10.59.184.210"), None, None)),
+    // 3 executor nodes with 8, 12 and 8 cores.
+    "eventlog_3nodes_12cores_variable_cores" ->
+      Some(ClusterInfo(12, 3, None, None, Some("10.10.10.100"), None, None)),
+    // Event log with driver only
+    "eventlog_driver_only" -> None,
+    // Event log with executor removed
+    "eventlog_3nodes_12cores_exec_removed" ->
+      Some(ClusterInfo(12, 2, None, None, Some("10.10.10.100"), None, None))
+  )
 
-    // Read JSON as [{'appId': 'app-id-1', ..}, {'appId': 'app-id-2', ..}]
-    def readJson(path: String): Array[ClusterSummary] = {
-      val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
-      mapper.readValue(new File(path), classOf[Array[ClusterSummary]])
+  expectedClusterInfoMap.foreach { case (eventlogPath, expectedClusterInfo) =>
+    test(s"test cluster information JSON - $eventlogPath") {
+      val logFile = s"$logDir/cluster_information/$eventlogPath"
+      runQualificationAndTestClusterInfo(logFile, PlatformNames.ONPREM, expectedClusterInfo)
     }
+  }
 
-    // Execute the qualification tool
+  // Expected result as a map of platform -> cluster info.
+  val expectedPlatformClusterInfoMap: Seq[(String, ClusterInfo)] = Seq(
+    "databricks-aws" ->
+      ClusterInfo(8, 2,
+        Some("m6gd.2xlarge"),
+        Some("m6gd.2xlarge"),
+        Some("10.10.10.100"),
+        Some("1212-214324-test"),
+        Some("test-db-aws-cluster")),
+    "databricks-azure" ->
+      ClusterInfo(8, 2,
+        Some("Standard_E8ds_v4"),
+        Some("Standard_E8ds_v4"),
+        Some("10.10.10.100"),
+        Some("1212-214324-test"),
+        Some("test-db-azure-cluster")),
+    "dataproc" ->
+      ClusterInfo(8, 2,
+        None,
+        None,
+        Some("dataproc-test-m.c.internal"),
+        None,
+        None),
+    "emr" ->
+      ClusterInfo(8, 2,
+        None,
+        None,
+        Some("10.10.10.100"),
+        Some("j-123AB678XY321"),
+        None),
+    "onprem" ->
+      ClusterInfo(8, 2,
+        None,
+        None,
+        Some("10.10.10.100"),
+        None,
+        None)
+  )
+
+  expectedPlatformClusterInfoMap.foreach { case (platform, expectedClusterInfo) =>
+    test(s"test cluster information JSON for platform - $platform ") {
+      val logFile = s"$logDir/cluster_information/platform/$platform"
+      runQualificationAndTestClusterInfo(logFile, platform, Some(expectedClusterInfo))
+    }
+  }
+
+  /**
+   * Runs the qualification tool and verifies cluster information against expected values.
+   */
+  private def runQualificationAndTestClusterInfo(eventlogPath: String, platform: String,
+      expectedClusterInfo: Option[ClusterInfo]): Unit = {
     TrampolineUtil.withTempDir { outPath =>
-      val allArgs = Array("--output-directory", outPath.getAbsolutePath)
-      val logFiles = expectedClusterInfoMap
-        .map(entry => s"$logDir/cluster_information/${entry._1}").toArray
-      val appArgs = new QualificationArgs(allArgs ++ logFiles)
+      val baseArgs = Array("--output-directory", outPath.getAbsolutePath, "--platform", platform)
+      val appArgs = new QualificationArgs(baseArgs :+ eventlogPath)
       val (exitCode, result) = QualificationMain.mainInternal(appArgs)
-      assert(exitCode == 0 && result.size == logFiles.length)
+      assert(exitCode == 0 && result.size == 1,
+        "Qualification tool returned unexpected results.")
+
+      // Read JSON as [{'appId': 'app-id-1', ..}]
+      def readJson(path: String): Array[ClusterSummary] = {
+        val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
+        mapper.readValue(new File(path), classOf[Array[ClusterSummary]])
+      }
 
       // Read output JSON and create a set of (event log, cluster info)
       val outputResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
-      val actualClusterInfoMap = readJson(outputResultFile).map { clusterSummary =>
-        // extract file name from path
-        val eventLogFile = clusterSummary.eventLogPath.map(new File(_).getName).getOrElse("")
-        eventLogFile -> clusterSummary.clusterInfo
-      }.toMap
-      assert(actualClusterInfoMap == expectedClusterInfoMap)
+      val actualClusterInfo = readJson(outputResultFile).headOption.flatMap(_.clusterInfo)
+      assert(actualClusterInfo == expectedClusterInfo,
+        "Actual cluster info does not match the expected cluster info.")
     }
   }
 
-  test("validate cluster information generation is disabled") {
+  test("test cluster information generation is disabled") {
     // Execute the qualification tool
     TrampolineUtil.withTempDir { outPath =>
       val allArgs = Array(

@@ -833,7 +833,8 @@ class QualificationAppInfo(
    * If executor nodes exist, calculates the number of hosts and total cores,
    * and extracts executor and driver instance types (databricks only)
    *
-   * @return Cluster information including cores, number of nodes, and instance types.
+   * @return Cluster information including cores, number of nodes and maybe instance types,
+   *         driver host, cluster id and cluster name.
    */
   private def getClusterInfo: Option[ClusterInfo] = {
     // TODO: Handle dynamic allocation when determining the number of nodes.
