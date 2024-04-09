@@ -323,10 +323,10 @@ def main(argvs):
     logging.info("Generating report for this sync up process")
     report_file = open('operators_plugin_sync_report.txt', 'w+')
     report_file.write("""This report documents the differences between the tools existing CSV files and those processed from the plugin.
-                      Notes:
-                      1. For added data source/exec/expression from plugin, the first column with supported levels will be updated to 'TNEW' for future testing.
-                      2. Rows marked as "is removed" will be preserved in the output.
-                      3. Rows with "S" for column "Supported" will have value "None" for column "Notes" in the output.\n\n""")
+        Notes:
+        1. For new data source/exec/expression from plugin, the first column with supported level will be updated to 'TNEW' for future testing.
+        2. Rows marked as "is removed" will be preserved in the output.
+        3. Rows with "S" for "Supported" column will have "None" for "Notes" in the output.\n\n""")
 
     if not tools_csv_dir:
         data_source_final_df = data_source_union_df
