@@ -950,8 +950,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("get_json_object is unsupported in Project") {
-    // get_json_object is disabled by default in the RAPIDS plugin
+  test("get_json_object is supported by default in Project prior to RAPIDS 24.04") {
     TrampolineUtil.withTempDir { parquetoutputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
@@ -974,7 +973,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         }
         val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projectExprs = execInfo.filter(_.exec == "Project")
-        assertSizeAndNotSupported(1, projectExprs)
+        assertSizeAndSupported(1, projectExprs)
       }
     }
   }
@@ -1657,5 +1656,35 @@ class SQLPlanParserSuite extends BaseTestSuite {
       projectNode.desc.replaceFirst("Project ", ""))
     val pluginTypeChecker = new PluginTypeChecker()
     pluginTypeChecker.getNotSupportedExprs(filterExprArray) shouldBe 'empty
+  }
+
+  runConditionalTest("WindowGroupLimitExec is supported", execsSupportedSparkGTE350) {
+    val windowGroupLimitExecCmd = "WindowGroupLimit"
+    val tbl_name = "foobar_tbl"
+    TrampolineUtil.withTempDir { eventLogDir =>
+      withTable(tbl_name) {
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          windowGroupLimitExecCmd) { spark =>
+          spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
+          val query =
+            s"""
+            SELECT foo, bar FROM (
+                SELECT foo, bar,
+                    RANK() OVER (PARTITION BY foo ORDER BY bar) as rank
+                FROM $tbl_name)
+            WHERE rank <= 2"""
+          spark.sql(query)
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
+        // We should have two WindowGroupLimitExec operators (Partial and Final).
+        assertSizeAndSupported(2, windowGroupLimitExecs)
+      }
+    }
   }
 }
