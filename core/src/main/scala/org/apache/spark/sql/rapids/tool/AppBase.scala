@@ -289,9 +289,9 @@ abstract class AppBase(
   }
 
   /**
-   * Functions to process all the events
+   * Internal function to process all the events
    */
-  protected def processEvents(): Unit = {
+  private def processEventsInternal(): Unit = {
     eventLogInfo match {
       case Some(eventLog) =>
         val eventLogPath = eventLog.eventLog
@@ -489,6 +489,17 @@ abstract class AppBase(
       nestedComplexType
     }
     result
+  }
+
+  protected def postCompletion(): Unit = {}
+
+  /**
+   * Wrapper function to process all the events followed by any
+   * post completion tasks.
+   */
+  def processEvents(): Unit = {
+    processEventsInternal()
+    postCompletion()
   }
 }
 

@@ -62,6 +62,7 @@ class QualificationAppInfo(
   var clusterTags: String = ""
   var clusterTagClusterId: String = ""
   var clusterTagClusterName: String = ""
+  var clusterInfo: Option[ClusterInfo] = None
   private lazy val eventProcessor =  new QualificationEventProcessor(this, perSqlOnly)
 
   /**
@@ -680,7 +681,7 @@ class QualificationAppInfo(
         allClusterTagsMap)
 
       val clusterSummary = ClusterSummary(info.appName, appId,
-        eventLogInfo.map(_.eventLog.toString), getClusterInfo)
+        eventLogInfo.map(_.eventLog.toString), clusterInfo)
 
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
@@ -829,14 +830,14 @@ class QualificationAppInfo(
   }
 
   /**
-   * Retrieves cluster information based on executor nodes.
+   * Builds cluster information based on executor nodes.
    * If executor nodes exist, calculates the number of hosts and total cores,
    * and extracts executor and driver instance types (databricks only)
    *
    * @return Cluster information including vendor, cores, number of nodes and maybe
    *         instance types, driver host, cluster id and cluster name.
    */
-  private def getClusterInfo: Option[ClusterInfo] = {
+  private def buildClusterInfo: Option[ClusterInfo] = {
     // TODO: Handle dynamic allocation when determining the number of nodes.
     sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
       if (value.toBoolean) {
@@ -859,6 +860,10 @@ class QualificationAppInfo(
     } else {
       None
     }
+  }
+
+  override def postCompletion(): Unit = {
+    clusterInfo = buildClusterInfo
   }
 }
 
