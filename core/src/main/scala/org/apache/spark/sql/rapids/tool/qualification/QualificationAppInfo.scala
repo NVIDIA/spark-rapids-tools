@@ -28,7 +28,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, GpuEventLogException, PhotonEventLogException, SqlPlanInfoGraphBuffer, StreamingEventLogException, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, ClusterInfo, ClusterSummary, GpuEventLogException, PhotonEventLogException, SqlPlanInfoGraphBuffer, StreamingEventLogException, SupportedMLFuncsName, ToolUtils}
 
 
 class QualificationAppInfo(
@@ -62,7 +62,15 @@ class QualificationAppInfo(
   var clusterTags: String = ""
   var clusterTagClusterId: String = ""
   var clusterTagClusterName: String = ""
+  var clusterInfo: Option[ClusterInfo] = None
   private lazy val eventProcessor =  new QualificationEventProcessor(this, perSqlOnly)
+
+  /**
+   * Important system properties that should be retained. We also include
+   * any additional properties based on platform.
+   */
+  override def getRetainedSystemProps: Set[String] =
+    super.getRetainedSystemProps ++ pluginTypeChecker.platform.getRetainedSystemProps
 
   /**
    * Get the event listener the qualification tool uses to process Spark events.
@@ -673,7 +681,7 @@ class QualificationAppInfo(
         allClusterTagsMap)
 
       val clusterSummary = ClusterSummary(info.appName, appId,
-        eventLogInfo.map(_.eventLog.toString), getClusterInfo)
+        eventLogInfo.map(_.eventLog.toString), clusterInfo)
 
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
@@ -819,6 +827,43 @@ class QualificationAppInfo(
     // Filter unsupported write data format
     val unSupportedWriteFormat = pluginTypeChecker.isWriteFormatSupported(writeFormat)
     unSupportedWriteFormat.distinct
+  }
+
+  /**
+   * Builds cluster information based on executor nodes.
+   * If executor nodes exist, calculates the number of hosts and total cores,
+   * and extracts executor and driver instance types (databricks only)
+   *
+   * @return Cluster information including vendor, cores, number of nodes and maybe
+   *         instance types, driver host, cluster id and cluster name.
+   */
+  private def buildClusterInfo: Option[ClusterInfo] = {
+    // TODO: Handle dynamic allocation when determining the number of nodes.
+    sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
+      if (value.toBoolean) {
+        logWarning(s"Application $appId: Dynamic allocation is not supported. " +
+          s"Cluster information may be inaccurate.")
+      }
+    }
+    val activeExecInfo = executorIdToInfo.values.collect {
+      case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
+    }
+    if (activeExecInfo.nonEmpty) {
+      val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
+      if (coresPerExecutor.toSet.size != 1) {
+        logWarning(s"Application $appId: Cluster with variable executor cores detected. " +
+          s"Using maximum value.")
+      }
+      // Create cluster information based on platform type
+      Some(pluginTypeChecker.platform.createClusterInfo(coresPerExecutor.max,
+        activeHosts.toSet.size, sparkProperties, systemProperties))
+    } else {
+      None
+    }
+  }
+
+  override def postCompletion(): Unit = {
+    clusterInfo = buildClusterInfo
   }
 }
 
