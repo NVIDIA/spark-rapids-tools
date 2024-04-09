@@ -169,7 +169,7 @@ def check_override(entry, row_data, keys):
 
 def override_supported_configs(json_data, file_name, df, keys):
     """
-    Override dataframe df with input json_data and resolve inconsistencies.
+    Override dataframe df with input json_data.
 
     Parameters:
     - json_data: Data in JSON format to explicitly override input DataFrame.
@@ -323,10 +323,10 @@ def main(argvs):
     logging.info("Generating report for this sync up process")
     report_file = open('operators_plugin_sync_report.txt', 'w+')
     report_file.write("""This report documents the differences between the tools existing CSV files and those processed from the plugin.
-        Notes:
-        1. For new data source/exec/expression from plugin, the first column with supported level will be updated to 'TNEW' for future testing.
-        2. Rows marked as "is removed" will be preserved in the output.
-        3. Rows with "S" for "Supported" column will have "None" for "Notes" in the output.\n\n""")
+    Notes:
+      1. For new data source/exec/expression from plugin, the first column with supported level will be updated to 'TNEW' for future testing.
+      2. Rows marked as "is removed" will be preserved in the final output.
+      3. The "Notes" column for rows with "S" for "Supported" will be updated to "None" in the final output.\n\n""")
 
     if not tools_csv_dir:
         data_source_final_df = data_source_union_df
