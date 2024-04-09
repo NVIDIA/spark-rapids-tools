@@ -182,12 +182,12 @@ DenseRank,S,`dense_rank`,None,window,result,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,N
 Divide,S,`/`,None,project,lhs,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Divide,S,`/`,None,project,rhs,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Divide,S,`/`,None,project,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
-DivideDTInterval,TNEW, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
-DivideDTInterval,TNEW, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
-DivideDTInterval,TNEW, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
-DivideYMInterval,TNEW, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
-DivideYMInterval,TNEW, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
-DivideYMInterval,TNEW, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
+DivideDTInterval,S, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
+DivideDTInterval,S, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
+DivideDTInterval,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
+DivideYMInterval,S, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
+DivideYMInterval,S, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
+DivideYMInterval,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
 DynamicPruningExpression,S, ,None,project,input,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 DynamicPruningExpression,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
 ElementAt,S,`element_at`,None,project,array/map,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,PS,NA,NA,NS,NS
@@ -376,12 +376,12 @@ Multiply,S,`*`,None,project,result,NA,S,S,S,S,S,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,N
 Multiply,S,`*`,None,AST,lhs,NA,NS,NS,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Multiply,S,`*`,None,AST,rhs,NA,NS,NS,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Multiply,S,`*`,None,AST,result,NA,NS,NS,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NS,NS
-MultiplyDTInterval,TNEW, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
-MultiplyDTInterval,TNEW, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
-MultiplyDTInterval,TNEW, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
-MultiplyYMInterval,TNEW, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
-MultiplyYMInterval,TNEW, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
-MultiplyYMInterval,TNEW, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
+MultiplyDTInterval,S, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
+MultiplyDTInterval,S, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
+MultiplyDTInterval,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
+MultiplyYMInterval,S, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
+MultiplyYMInterval,S, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
+MultiplyYMInterval,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
 Murmur3Hash,S,`hash`,None,project,input,S,S,S,S,S,S,S,S,PS,S,S,S,NS,NS,PS,NS,PS,NS,NS,NS
 Murmur3Hash,S,`hash`,None,project,result,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 NaNvl,S,`nanvl`,None,project,lhs,NA,NA,NA,NA,NA,S,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
