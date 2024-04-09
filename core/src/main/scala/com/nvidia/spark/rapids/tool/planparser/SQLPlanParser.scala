@@ -513,6 +513,8 @@ object SQLPlanParser extends Logging {
             ObjectHashAggregateExecParser(node, checker, sqlID, app).parse
           case "Project" =>
             ProjectExecParser(node, checker, sqlID).parse
+          case "PythonMapInArrow" | "MapInArrow" =>
+            PythonMapInArrowExecParser(node, checker, sqlID).parse
           case "Range" =>
             RangeExecParser(node, checker, sqlID).parse
           case "Sample" =>

@@ -362,7 +362,7 @@ object ExecHelper {
 
   // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
   private val skipUDFCheckExecs = Seq("ArrowEvalPython", "AggregateInPandas",
-    "FlatMapGroupsInPandas", "MapInPandas", "WindowInPandas")
+    "FlatMapGroupsInPandas", "MapInPandas", "WindowInPandas", "PythonMapInArrow", "MapInArrow")
 
   // Set containing execs that should be labeled as "shouldRemove"
   private val execsToBeRemoved = Set(

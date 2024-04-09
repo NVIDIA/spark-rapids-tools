@@ -450,16 +450,6 @@
           "value": "TNEW"
         }
       ]
-    },
-    {
-      "Exec": "PythonMapInArrowExec",
-      "Params": "Input/Output",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
     }
   ]
 }
