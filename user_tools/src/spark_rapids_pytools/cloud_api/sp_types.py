@@ -1057,11 +1057,10 @@ class ClusterBase(ClusterGetAccessor):
         self.props = orig_cluster.props
         self._build_migrated_cluster(orig_cluster)
 
-    def find_matches_for_node(self) -> (dict, dict):
+    def find_matches_for_node(self) -> dict:
         """
         Maps the CPU instance types to GPU types
-        :return: a map converting CPU machines to GPU ones and a map
-                containing the supported GPUs.
+        :return: a map converting CPU machines to GPU ones.
         """
         mc_map = {}
         supported_gpus = self.platform.get_supported_gpus()
@@ -1076,7 +1075,7 @@ class ClusterBase(ClusterGetAccessor):
                     if anode.instance_type not in mc_map:
                         best_mc_match = anode.find_best_cpu_conversion(supported_gpus)
                         mc_map.update({anode.instance_type: best_mc_match})
-        return mc_map, supported_gpus
+        return mc_map
 
     def get_all_spark_properties(self) -> dict:
         """Returns a dictionary containing the spark configurations defined in the cluster properties"""

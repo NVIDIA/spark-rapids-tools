@@ -352,7 +352,7 @@ class EMRCluster(ClusterBase):
         self.instance_groups = []
         self.ec2_instances = []
         # get the map of the instance types
-        mc_type_map, _ = orig_cluster.find_matches_for_node()
+        mc_type_map = orig_cluster.find_matches_for_node()
         # convert instances and groups
         # master groups should stay the same
         for curr_group in orig_cluster.instance_groups:
