@@ -274,6 +274,7 @@ ArrowEvalPythonExec,1.2
 FlatMapGroupsInPandasExec,1.2
 MapInPandasExec,1.2
 PythonMapInArrowExec,2.45
+MapInArrowExec,2.45
 WindowInPandasExec,1.2
 KMeans-pyspark,8.86
 KMeans-scala,1.0
