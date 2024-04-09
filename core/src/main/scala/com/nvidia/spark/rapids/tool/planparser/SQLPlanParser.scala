@@ -293,7 +293,7 @@ object ExecInfo {
     // scan nodes needs trimming
     val nodeName = node.name.trim
     // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
-    val containsUDF = udf || ExecHelper.isUDF(node)
+    val containsUDF = udf && ExecHelper.isUDF(node)
     // check is the node has a dataset operations and if so change to not supported
     val rddCheckRes = RDDCheckHelper.isDatasetOrRDDPlan(nodeName, node.desc)
     val ds = dataSet || rddCheckRes.isRDD
@@ -513,7 +513,7 @@ object SQLPlanParser extends Logging {
             ObjectHashAggregateExecParser(node, checker, sqlID, app).parse
           case "Project" =>
             ProjectExecParser(node, checker, sqlID).parse
-          case "PythonMapInArrow" =>
+          case "PythonMapInArrow" | "MapInArrow" =>
             PythonMapInArrowExecParser(node, checker, sqlID).parse
           case "Range" =>
             RangeExecParser(node, checker, sqlID).parse
