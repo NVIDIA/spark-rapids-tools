@@ -52,7 +52,8 @@ object ToolUtils extends Logging {
     "311" -> new ComparableVersion("3.1.1"), // default build version
     "320" -> new ComparableVersion("3.2.0"), // introduced reusedExchange
     "331" -> new ComparableVersion("3.3.1"), // used to check for memoryOverheadFactor
-    "340" -> new ComparableVersion("3.4.0")  // introduces jsonProtocolChanges
+    "340" -> new ComparableVersion("3.4.0"),  // introduces jsonProtocolChanges
+    "350" -> new ComparableVersion("3.5.0")  // introduces windowGroupLimit
   )
 
   // Property to check the spark runtime version. We need this outside of test module as we
@@ -94,6 +95,10 @@ object ToolUtils extends Logging {
 
   def isSpark340OrLater(sparkVersion: String = sparkRuntimeVersion): Boolean = {
     compareToSparkVersion(sparkVersion, "340") >= 0
+  }
+
+  def isSpark350OrLater(sparkVersion: String = sparkRuntimeVersion): Boolean = {
+    compareToSparkVersion(sparkVersion, "350") >= 0
   }
 
   def isPluginEnabled(properties: Map[String, String]): Boolean = {
@@ -357,7 +362,7 @@ object ExecHelper {
 
   // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
   private val skipUDFCheckExecs = Seq("ArrowEvalPython", "AggregateInPandas",
-    "FlatMapGroupsInPandas", "MapInPandas", "WindowInPandas")
+    "FlatMapGroupsInPandas", "MapInPandas", "WindowInPandas", "PythonMapInArrow", "MapInArrow")
 
   // Set containing execs that should be labeled as "shouldRemove"
   private val execsToBeRemoved = Set(

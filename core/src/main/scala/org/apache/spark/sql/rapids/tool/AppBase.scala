@@ -44,7 +44,10 @@ import org.apache.spark.util.Utils.REDACTION_REPLACEMENT_TEXT
 // Properties stored in this container can be accessed to make decision about certain analysis
 // that depends on the context of the Spark properties.
 trait CacheableProps {
-  private val RETAINED_SYSTEM_PROPS = Set(
+  /**
+   * Important system properties that should be retained.
+   */
+  protected def getRetainedSystemProps: Set[String] = Set(
     "file.encoding", "java.version", "os.arch", "os.name",
     "os.version", "user.timezone")
 
@@ -108,7 +111,7 @@ trait CacheableProps {
     // Update the properties if system environments are set.
     // No need to capture all the properties in memory. We only capture important ones.
     systemProperties ++= event.environmentDetails("System Properties").toMap.filterKeys(
-      RETAINED_SYSTEM_PROPS.contains(_))
+      getRetainedSystemProps.contains(_))
   }
 
   def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
@@ -166,40 +169,6 @@ abstract class AppBase(
     executorIdToInfo.getOrElseUpdate(executorId, {
       new ExecutorInfoClass(executorId, addTime)
     })
-  }
-
-  /**
-   * Retrieves cluster information based on executor nodes.
-   * If executor nodes exist, calculates the number of hosts and total cores,
-   * and extracts executor and driver instance types (databricks only)
-   *
-   * @return Cluster information including cores, number of nodes, and instance types.
-   */
-  def getClusterInfo: Option[ClusterInfo] = {
-    // TODO: Handle dynamic allocation when determining the number of nodes.
-    sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
-      if (value.toBoolean) {
-        logWarning(s"Application $appId: Dynamic allocation is not supported. " +
-          s"Cluster information may be inaccurate.")
-      }
-    }
-    val activeExecInfo = executorIdToInfo.values.collect {
-      case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
-    }
-    if (activeExecInfo.nonEmpty) {
-      val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
-      if (coresPerExecutor.toSet.size != 1) {
-        logWarning(s"Application $appId: Cluster with variable executor cores detected. " +
-          s"Using maximum value.")
-      }
-      // Extracts instance types from properties (databricks only)
-      val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
-      val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
-      Some(ClusterInfo(coresPerExecutor.max, activeHosts.toSet.size,
-        executorInstance, driverInstance))
-    } else {
-      None
-    }
   }
 
   def getOrCreateStage(info: StageInfo): StageInfoClass = {
@@ -320,9 +289,9 @@ abstract class AppBase(
   }
 
   /**
-   * Functions to process all the events
+   * Internal function to process all the events
    */
-  protected def processEvents(): Unit = {
+  private def processEventsInternal(): Unit = {
     eventLogInfo match {
       case Some(eventLog) =>
         val eventLogPath = eventLog.eventLog
@@ -520,6 +489,17 @@ abstract class AppBase(
       nestedComplexType
     }
     result
+  }
+
+  protected def postCompletion(): Unit = {}
+
+  /**
+   * Wrapper function to process all the events followed by any
+   * post completion tasks.
+   */
+  def processEvents(): Unit = {
+    processEventsInternal()
+    postCompletion()
   }
 }
 

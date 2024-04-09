@@ -276,7 +276,8 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json",
       "Cluster Information", hadoopConf)
     try {
-      jsonFileWriter.write(Serialization.writePretty(sums.map(_.clusterSummary)))
+      // Append new line at end of JSON string
+      jsonFileWriter.write(Serialization.writePretty(sums.map(_.clusterSummary)) + "\n")
     } finally {
       jsonFileWriter.close()
     }

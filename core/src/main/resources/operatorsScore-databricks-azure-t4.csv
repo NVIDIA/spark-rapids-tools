@@ -35,6 +35,7 @@ ShuffledHashJoinExec,2.73
 SortMergeJoinExec,36.13
 FlatMapCoGroupsInPandasExec,2.73
 WindowExec,2.73
+WindowGroupLimitExec,2.73
 HiveTableScanExec,2.73
 Abs,2.73
 Acos,2.73
@@ -272,6 +273,8 @@ AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2
 FlatMapGroupsInPandasExec,1.2
 MapInPandasExec,1.2
+PythonMapInArrowExec,2.73
+MapInArrowExec,2.73
 WindowInPandasExec,1.2
 RoundCeil,2.73
 RoundFloor,2.73
