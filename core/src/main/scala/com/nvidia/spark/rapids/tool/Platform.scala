@@ -115,7 +115,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val driverHost = sparkProperties.get("spark.driver.host")
-    ClusterInfo(coresPerExecutor, numExecutorNodes, driverHost = driverHost)
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, driverHost = driverHost)
   }
 
   override def toString: String = {
@@ -144,7 +144,7 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform
     val clusterId = sparkProperties.get("spark.databricks.clusterUsageTags.clusterId")
     val driverHost = sparkProperties.get("spark.driver.host")
     val clusterName = sparkProperties.get("spark.databricks.clusterUsageTags.clusterName")
-    ClusterInfo(coresPerExecutor, numExecutorNodes, executorInstance,
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorInstance,
       driverInstance, driverHost, clusterId, clusterName)
   }
 }
@@ -182,7 +182,8 @@ class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val clusterId = systemProperties.get("EMR_CLUSTER_ID")
     val driverHost = sparkProperties.get("spark.driver.host")
-    ClusterInfo(coresPerExecutor, numExecutorNodes, clusterId = clusterId, driverHost = driverHost)
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, clusterId = clusterId,
+      driverHost = driverHost)
   }
 }
 
