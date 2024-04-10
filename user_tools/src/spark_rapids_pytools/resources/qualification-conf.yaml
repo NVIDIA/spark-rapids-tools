@@ -57,6 +57,13 @@ toolOutput:
   json:
     clusterInformation:
       fileName: rapids_4_spark_qualification_output_cluster_information.json
+      requiredColumns:
+        - vendor
+        - driverHost
+        - clusterId
+        - clusterName
+        - appName
+        - appId
       mapColumns:
         vendor: 'Vendor'
         driverHost: 'Driver Host'

@@ -847,15 +847,19 @@ class Qualification(RapidsJarTool):
         cluster_info_file = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'fileName')
         cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
         cluster_info_df = self.__parse_cluster_info(cluster_info_file)
+        # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
+        # info columns, even if `cluster_info_df` is empty.
+        df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
         if len(cluster_info_df) > 0:
             self.__infer_cluster_and_update_savings(cluster_info_df)
-            df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
 
         # 3. Operations related to unsupported operators
         unsupported_operator_report_file = self.ctxt.get_value('toolOutput', 'csv', 'unsupportedOperatorsReport',
                                                                'fileName')
         rapids_unsupported_operators_file = FSUtil.build_path(rapids_output_dir, unsupported_operator_report_file)
         unsupported_ops_df = pd.read_csv(rapids_unsupported_operators_file)
+
+        # 4. Operations related to output
         output_files_info = self.__build_output_files_info()
         report_gen = self.__build_global_report_summary(df, unsupported_ops_df, output_files_info)
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
@@ -899,7 +903,11 @@ class Qualification(RapidsJarTool):
 
     def __parse_cluster_info(self, cluster_info_file) -> pd.DataFrame:
         """
-        Parse the cluster information from the cluster info file
+        Parses cluster information from the JSON file into a pandas DataFrame.
+        1. Reads the JSON file.
+        2. Converts the nested JSON data into a flat table structure and remove the column prefix ('cluster_info').
+        3. Ensures all required columns are present, include missing columns.
+        4. Renames columns to the desired output names.
         """
         if not self.ctxt.platform.cluster_inference_supported:
             return pd.DataFrame()
@@ -913,7 +921,10 @@ class Qualification(RapidsJarTool):
 
         # Flatten the JSON file and remove `cluster_info` prefix for nested columns
         cluster_info_df = pd.json_normalize(cluster_info_dict).rename(columns=lambda x: x.split('.')[-1])
-        # Remap columns from camel case
+        # Ensure all required columns are present, add the missing columns.
+        required_columns = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'requiredColumns')
+        cluster_info_df = cluster_info_df.reindex(columns=required_columns, fill_value='')
+        # Rename the columns according to the mapping provided.
         cols_rename_map = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'mapColumns')
         return cluster_info_df.rename(columns=cols_rename_map)
 
