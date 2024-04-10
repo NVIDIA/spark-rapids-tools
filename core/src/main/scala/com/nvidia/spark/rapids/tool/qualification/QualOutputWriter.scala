@@ -826,26 +826,25 @@ object QualOutputWriter {
       prettyPrint: Boolean,
       reformatCSV: Boolean = true): Seq[String] = {
     val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
-    val clusterSummary = sumInfo.clusterSummary
-    val data = ListBuffer[(String, Int)](
-      reformatCSVFunc(clusterSummary.appId) -> headersAndSizes(APP_ID_STR),
-      reformatCSVFunc(clusterSummary.appName) -> headersAndSizes(APP_NAME_STR),
-      reformatCSVFunc(clusterSummary.clusterInfo.map(_.vendor).getOrElse(""))
-        -> headersAndSizes(VENDOR),
-      reformatCSVFunc(clusterSummary.clusterInfo.flatMap(_.driverHost).getOrElse(""))
-        -> headersAndSizes(DRIVER_HOST),
-      reformatCSVFunc(clusterSummary.clusterInfo.flatMap(_.clusterId).getOrElse(""))
-        -> headersAndSizes(CLUSTER_ID),
-      reformatCSVFunc(clusterSummary.clusterInfo.flatMap(_.clusterName).getOrElse(""))
-        -> headersAndSizes(CLUSTER_NAME),
-      reformatCSVFunc(clusterSummary.clusterInfo.flatMap(_.executorInstance).getOrElse(""))
-        -> headersAndSizes(EXEC_INSTANCE),
-      reformatCSVFunc(clusterSummary.clusterInfo.flatMap(_.driverInstance).getOrElse(""))
-        -> headersAndSizes(DRIVER_INSTANCE),
-      reformatCSVFunc(clusterSummary.clusterInfo.map(_.numExecutorNodes.toString).getOrElse(""))
-        -> headersAndSizes(NUM_EXEC_NODES),
-      reformatCSVFunc(clusterSummary.clusterInfo.map(_.coresPerExecutor.toString).getOrElse(""))
-        -> headersAndSizes(CORES_PER_EXEC))
+    val clusterInfo = sumInfo.clusterSummary.clusterInfo
+
+    // Wrapper function around reformatCSVFunc() to handle optional fields and
+    // reduce redundancy
+    def refactorCSVFuncWithOption(field: Option[String], headerConst: String): (String, Int) =
+      reformatCSVFunc(field.getOrElse("")) -> headersAndSizes(headerConst)
+
+    val data = ListBuffer(
+      refactorCSVFuncWithOption(Some(sumInfo.clusterSummary.appId), APP_ID_STR),
+      refactorCSVFuncWithOption(Some(sumInfo.clusterSummary.appName), APP_NAME_STR),
+      refactorCSVFuncWithOption(clusterInfo.map(_.vendor), VENDOR),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverHost), DRIVER_HOST),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.clusterId), CLUSTER_ID),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.clusterName), CLUSTER_NAME),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.executorInstance), EXEC_INSTANCE),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverInstance), DRIVER_INSTANCE),
+      refactorCSVFuncWithOption(clusterInfo.map(_.numExecutorNodes.toString), NUM_EXEC_NODES),
+      refactorCSVFuncWithOption(clusterInfo.map(_.coresPerExecutor.toString), CORES_PER_EXEC)
+    )
     constructOutputRow(data, delimiter, prettyPrint) :: Nil
   }
 

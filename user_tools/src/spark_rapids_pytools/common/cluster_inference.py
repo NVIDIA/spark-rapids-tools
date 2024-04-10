@@ -71,7 +71,7 @@ class ClusterInference:
             self.logger.info('Cannot infer CPU cluster from event logs. Only single cluster is supported.')
             return None
 
-        # Extract cluster information from parsed logs
+        # Extract cluster information from parsed logs. Above check ensures df contains single row.
         cluster_template_args = self.get_cluster_template_args(cluster_info_df.iloc[0])
         if cluster_template_args is None:
             return None
