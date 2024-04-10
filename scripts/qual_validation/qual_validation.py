@@ -27,6 +27,7 @@ parser = argparse.ArgumentParser(description="Qualification Tool Validation")
 parser.add_argument("--cpu_log", type=str, help="Directory of CPU event log(s)", required=True)
 parser.add_argument("--gpu_log", type=str, help="Directory of GPU event log(s)", required=True)
 parser.add_argument("--output", type=str, help="Output folder for storing logs", required=True)
+parser.add_argument("--platform", type=str, default="onprem", help="Platform name (e.g. onprem, dataproc, databricks-aws")
 parser.add_argument("--cpu_profile", type=str, help="Directory of CPU profiler log(s)")
 parser.add_argument("--gpu_profile", type=str, help="Directory of GPU profiler log(s)")
 parser.add_argument("--jar", type=str, help="Custom tools jar")
@@ -35,11 +36,14 @@ args = parser.parse_args()
 
 cpu_log = args.cpu_log
 gpu_log = args.gpu_log
+output = args.output
+platform = args.platform
 cpu_profile = args.cpu_profile
 gpu_profile = args.gpu_profile
-output = args.output
 jar = args.jar
-verbose = args.verbose
+verbose = ""
+if args.verbose:
+    verbose = "--verbose"
 
 print(f"Output folder = {output}")
 print(f"CPU event log = {cpu_log}")
@@ -59,7 +63,7 @@ if gpu_profile is not None:
     gpu_profile_dir = gpu_profile
 else:
     gpu_profile_dir = f"{output}/gpu_profile"
-    subprocess.run(f"spark_rapids_user_tools onprem profiling --csv {jar_arg} --local_folder {gpu_profile_dir} --eventlogs {gpu_log}", shell=True)
+    subprocess.run(f"spark_rapids profiling --csv {jar_arg} --output_folder {gpu_profile_dir} --eventlogs {gpu_log} {verbose}", shell=True)
 
 ### run CPU profiler if needed
 cpu_profile_dir = ""
@@ -67,11 +71,12 @@ if cpu_profile is not None:
     cpu_profile_dir = cpu_profile
 else:
     cpu_profile_dir = f"{output}/cpu_profile"
-    subprocess.run(f"spark_rapids_user_tools onprem profiling --csv {jar_arg} --local_folder {cpu_profile_dir} --eventlogs {cpu_log}", shell=True)
+    subprocess.run(f"spark_rapids profiling --csv {jar_arg} --output_folder {cpu_profile_dir} --eventlogs {cpu_log} {verbose}", shell=True)
 
 ### run CPU qualification with xgboost model
 cpu_tmp_dir = f"{output}/cpu"
-subprocess.run(f"spark_rapids_user_tools onprem qualification {jar_arg} --estimation_model xgboost --local_folder {cpu_tmp_dir} --eventlogs {cpu_log}", shell=True)
+print(f"spark_rapids qualification --platform {platform} {jar_arg} --estimation_model xgboost --output_folder {cpu_tmp_dir} --eventlogs {cpu_log} {verbose}")
+subprocess.run(f"spark_rapids qualification --platform {platform} {jar_arg} --estimation_model xgboost --output_folder {cpu_tmp_dir} --eventlogs {cpu_log} {verbose}", shell=True)
 
 # Parse and validate results
 
@@ -114,5 +119,20 @@ print("\n")
 print("==================================================")
 print("              Classification Metrics")
 print("==================================================")
-print(f"Precision = {round(100.0*tp_count/(tp_count+fp_count),2)}")
-print(f"Recall = {round(100.0*tp_count/(tp_count+fn_count),2)}")
+print(f"Total count          = {total}")
+print(f"True Positive count  = {tp_count}")
+print(f"False Positive count = {fp_count}")
+print(f"True Negative count  = {tn_count}")
+print(f"False Negative count = {fn_count}")
+if (tp_count + fp_count + tn_count + fn_count) != 0:
+    print(f"Accuracy             = {round(100.0*(tp_count+tn_count)/(tp_count+fp_count+fn_count+tn_count),2)}")
+else:
+    print(f"Accuracy             = N/A (no classified apps)")
+if (tp_count + fp_count) != 0:
+    print(f"Precision            = {round(100.0*tp_count/(tp_count+fp_count),2)}")
+else:
+    print(f"Precision            = N/A (no predicted positive apps)")
+if (tp_count + fn_count) != 0:
+    print(f"Recall               = {round(100.0*tp_count/(tp_count+fn_count),2)}")
+else:
+    print(f"Recall               = N/A (no actual positive apps)")
