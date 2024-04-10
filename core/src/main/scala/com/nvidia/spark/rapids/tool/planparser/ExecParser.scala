@@ -20,6 +20,17 @@ import org.apache.spark.sql.rapids.tool.UnsupportedExpr
 
 trait ExecParser {
   def parse: ExecInfo
-  def getUnsupportedExprReasonsForExec(expressions: Array[String]): Seq[UnsupportedExpr] = Seq.empty
   val fullExecName: String
+
+  /**
+   * Returns a sequence of UnsupportedExpr for given expressions if they are not supported
+   * by the exec node.
+   * This default implementation assumes all expressions are supported and returns an empty
+   * sequence. Specific Exec parsers should override this method to provide the list of
+   * unsupported expressions if required.
+   *
+   * @param expressions Array of expression strings to evaluate for support.
+   * @return Empty Seq[UnsupportedExpr], indicating no unsupported expressions by default.
+   */
+  def getUnsupportedExprReasonsForExec(expressions: Array[String]): Seq[UnsupportedExpr] = Seq.empty
 }
