@@ -42,15 +42,15 @@ class ClusterInference:
         """
         # Currently we support only single driver node for all CSPs
         num_driver_nodes = 1
-        driver_instance = cluster_info_df.get('driverInstance')
+        driver_instance = cluster_info_df.get('Driver Instance')
         # If driver instance is not set, use the default value from platform configurations
         if driver_instance is None:
             driver_instance = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
-        num_executor_nodes = cluster_info_df.get('numExecutorNodes')
-        executor_instance = cluster_info_df.get('executorInstance')
+        num_executor_nodes = cluster_info_df.get('Num Executor Nodes')
+        executor_instance = cluster_info_df.get('Executor Instance')
         if executor_instance is None:
             # If executor instance is not set, use the default value based on the number of cores
-            cores_per_executor = cluster_info_df.get('coresPerExecutor')
+            cores_per_executor = cluster_info_df.get('Cores Per Executor')
             executor_instance = self.platform.get_matching_executor_instance(cores_per_executor)
             if executor_instance is None:
                 self.logger.info('Unable to infer CPU cluster. No matching executor instance found for vCPUs = %s',

@@ -846,7 +846,7 @@ class Qualification(RapidsJarTool):
         cluster_info_df = pd.read_csv(cluster_info_file)
         # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
         # info columns, even if `cluster_info_df` is empty.
-        df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'])
+        df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
         if len(cluster_info_df) > 0:
             self.__infer_cluster_and_update_savings(cluster_info_df)
 
