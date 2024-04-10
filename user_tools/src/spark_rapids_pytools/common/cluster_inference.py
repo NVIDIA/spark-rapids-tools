@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 from logging import Logger
 
+import pandas as pd
+
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging
@@ -34,21 +36,21 @@ class ClusterInference:
     platform: PlatformBase = field(default=None, init=True)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster_inference'), init=False)
 
-    def get_cluster_template_args(self, cluster_info_json: JSONPropertiesContainer) -> Optional[dict]:
+    def get_cluster_template_args(self, cluster_info_df: pd.Series) -> Optional[dict]:
         """
         Extract information about drivers and executors from input json
         """
         # Currently we support only single driver node for all CSPs
         num_driver_nodes = 1
-        driver_instance = cluster_info_json.get_value_silent('driverInstance')
+        driver_instance = cluster_info_df.loc['driverInstance']
         # If driver instance is not set, use the default value from platform configurations
         if driver_instance is None:
             driver_instance = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
-        num_executor_nodes = cluster_info_json.get_value_silent('numExecutorNodes')
-        executor_instance = cluster_info_json.get_value_silent('executorInstance')
+        num_executor_nodes = cluster_info_df.loc['numExecutorNodes']
+        executor_instance = cluster_info_df.loc['executorInstance']
         if executor_instance is None:
             # If executor instance is not set, use the default value based on the number of cores
-            cores_per_executor = cluster_info_json.get_value_silent('coresPerExecutor')
+            cores_per_executor = cluster_info_df.loc['coresPerExecutor']
             executor_instance = self.platform.get_matching_executor_instance(cores_per_executor)
             if executor_instance is None:
                 self.logger.info('Unable to infer CPU cluster. No matching executor instance found for vCPUs = %s',
@@ -61,12 +63,16 @@ class ClusterInference:
             'NUM_EXECUTOR_NODES': num_executor_nodes
         }
 
-    def infer_cpu_cluster(self, cluster_info: JSONPropertiesContainer) -> Optional[ClusterBase]:
+    def infer_cpu_cluster(self, cluster_info_df: pd.DataFrame) -> Optional[ClusterBase]:
         """
         Infer CPU cluster configuration based on json input and return the constructed cluster object.
         """
+        if len(cluster_info_df) != 1:
+            self.logger.info('Cannot infer CPU cluster from event logs. Only single cluster is supported.')
+            return None
+
         # Extract cluster information from parsed logs
-        cluster_template_args = self.get_cluster_template_args(cluster_info)
+        cluster_template_args = self.get_cluster_template_args(cluster_info_df.iloc[0])
         if cluster_template_args is None:
             return None
         # Construct cluster configuration using platform-specific logic

@@ -10,6 +10,10 @@ toolOutput:
     summaryReport:
       fileName: rapids_4_spark_qualification_output.csv
       columns:
+        - Vendor
+        - Driver Host
+        - Cluster ID
+        - Cluster Name
         - App Name
         - App ID
         - Recommendation
@@ -34,14 +38,32 @@ toolOutput:
             - 'Strongly Recommended'
             - 'Recommended'
       groupColumns:
-         App Duration: 'App Name'
-         Estimated GPU Duration: 'App Name'
-         Unsupported Operators Stage Duration: 'App Name'
+         keys:
+           - Vendor
+           - Driver Host
+           - Cluster ID
+           - Cluster Name
+           - App Name
+         columns:
+           - App Duration
+           - Estimated GPU Duration
+           - Unsupported Operators Stage Duration
       dropDuplicates:
-         - App Name
+        - Vendor
+        - Driver Host
+        - Cluster ID
+        - Cluster Name
+        - App Name
   json:
     clusterInformation:
       fileName: rapids_4_spark_qualification_output_cluster_information.json
+      mapColumns:
+        vendor: 'Vendor'
+        driverHost: 'Driver Host'
+        clusterId: 'Cluster ID'
+        clusterName: 'Cluster Name'
+        appName: 'App Name'
+        appId: 'App ID'
   stdout:
     summaryReport:
       compactWidth: true

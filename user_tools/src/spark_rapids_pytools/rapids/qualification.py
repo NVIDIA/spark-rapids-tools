@@ -26,7 +26,6 @@ from tabulate import tabulate
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo, SparkNodeType
 from spark_rapids_pytools.common.cluster_inference import ClusterInference
-from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -439,13 +438,14 @@ class Qualification(RapidsJarTool):
         return subset_data
 
     def __group_apps_by_name(self, all_apps) -> (pd.DataFrame, str):
+        """
+        For TCO, group apps by name, cluster id, cluster name and recalculate metrics
+        """
         all_apps_count = len(all_apps)
 
-        # for TCO, group by app name and average durations, then recalculate metrics
-        group_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
-        if group_map:
-            for group_key, group_value in group_map.items():
-                all_apps[group_key] = all_apps.groupby(group_value)[group_key].transform('mean')
+        group_info = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
+        for group_col in group_info['columns']:
+            all_apps[group_col] = all_apps.groupby(group_info['keys'])[group_col].transform('mean')
 
         drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
         subset_data = all_apps.drop_duplicates(subset=drop_arr)
@@ -830,7 +830,7 @@ class Qualification(RapidsJarTool):
                                                 self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'fileName'))
         self.ctxt.logger.debug('Rapids CSV summary file is located as: %s', rapids_summary_file)
         df = pd.read_csv(rapids_summary_file)
-        # process the output through the XGboost model if enabled
+        # 1. Operations related to XGboost modelling
         if self.ctxt.get_ctxt('estimationModel') == QualEstimationModel.XGBOOST:
             try:
                 df = self.__update_apps_with_prediction_info(df)
@@ -842,9 +842,16 @@ class Qualification(RapidsJarTool):
         if estimation_model_col not in df:
             # Create the estimation model column as SPEEDUPS if there were no predictions or failure.
             df[estimation_model_col] = QualEstimationModel.tostring(QualEstimationModel.SPEEDUPS)
+
+        # 2. Operations related to cluster information
         cluster_info_file = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'fileName')
         cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
-        self._process_cluster_info_and_update_savings(cluster_info_file)
+        cluster_info_df = self.__parse_cluster_info(cluster_info_file)
+        if len(cluster_info_df) > 0:
+            self.__infer_cluster_and_update_savings(cluster_info_df)
+            df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
+
+        # 3. Operations related to unsupported operators
         unsupported_operator_report_file = self.ctxt.get_value('toolOutput', 'csv', 'unsupportedOperatorsReport',
                                                                'fileName')
         rapids_unsupported_operators_file = FSUtil.build_path(rapids_output_dir, unsupported_operator_report_file)
@@ -890,15 +897,12 @@ class Qualification(RapidsJarTool):
     def _init_rapids_arg_list_for_profile(self) -> List[str]:
         return super()._init_rapids_arg_list() + ['--csv']
 
-    def _process_cluster_info_and_update_savings(self, cluster_info_file):
+    def __parse_cluster_info(self, cluster_info_file) -> pd.DataFrame:
         """
-        Process the cluster information from the cluster info file and update savings if CPU cluster
-        can be inferred and corresponding GPU cluster can be defined.
-
-        :param cluster_info_file: File containing the cluster information.
+        Parse the cluster information from the cluster info file
         """
-        if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
-            return
+        if not self.ctxt.platform.cluster_inference_supported:
+            return pd.DataFrame()
 
         # Read cluster information from cluster info file
         try:
@@ -907,13 +911,22 @@ class Qualification(RapidsJarTool):
         except (FileNotFoundError, json.JSONDecodeError):
             self.logger.error('Failed to read cluster information from file: %s', cluster_info_file)
 
-        if len(cluster_info_dict) != 1:
-            self.logger.info('Cannot infer CPU cluster from event logs. Only single cluster is supported.')
+        # Flatten the JSON file and remove `cluster_info` prefix for nested columns
+        cluster_info_df = pd.json_normalize(cluster_info_dict).rename(columns=lambda x: x.split('.')[-1])
+        # Remap columns from camel case
+        cols_rename_map = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'mapColumns')
+        return cluster_info_df.rename(columns=cols_rename_map)
+
+    def __infer_cluster_and_update_savings(self, cluster_info_df: pd.DataFrame):
+        """
+        Update savings if CPU cluster can be inferred and corresponding GPU cluster can be defined.
+        :param cluster_info_df: Parsed cluster information.
+        """
+        if self.ctxt.get_ctxt('cpuClusterProxy') is not None:
             return
 
         # Infer the CPU cluster from the cluster information
-        cluster_info = JSONPropertiesContainer(cluster_info_dict[0]['clusterInfo'], False)
-        cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(cluster_info)
+        cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(cluster_info_df)
         if cpu_cluster_obj is None:
             return
 
