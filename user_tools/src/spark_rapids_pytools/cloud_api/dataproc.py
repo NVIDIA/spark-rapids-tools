@@ -460,7 +460,8 @@ class DataprocCluster(ClusterBase):
         :param orig_cluster: the cpu_cluster that does not support the GPU devices.
         """
         # get the map of the instance types
-        mc_type_map, supported_mc_map = orig_cluster.find_matches_for_node()
+        supported_mc_map = orig_cluster.platform.get_supported_gpus()
+        mc_type_map = orig_cluster.find_matches_for_node()
         new_worker_nodes: list = []
         for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
             # loop on all worker nodes.
