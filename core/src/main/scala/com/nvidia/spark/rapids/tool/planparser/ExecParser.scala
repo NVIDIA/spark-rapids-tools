@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,10 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import org.apache.spark.sql.rapids.tool.UnsupportedExpr
+
 trait ExecParser {
   def parse: ExecInfo
+  def getUnsupportedExprReasonsForExec(expressions: Array[String]): Seq[UnsupportedExpr] = Seq.empty
   val fullExecName: String
 }
