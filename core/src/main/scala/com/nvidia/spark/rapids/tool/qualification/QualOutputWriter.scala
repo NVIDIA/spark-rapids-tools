@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.qualification
 
 import java.util.concurrent.atomic.AtomicLong
 
+import scala.collection.mutable
 import scala.collection.mutable.{Buffer, LinkedHashMap, ListBuffer}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
@@ -283,6 +284,24 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
+  def writeClusterReportCsv(sums: Seq[QualificationSummaryInfo]): Unit = {
+    val csvFileWriter = new ToolTextFileWriter(outputDir,
+      s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.csv",
+      "Cluster Information", hadoopConf)
+    try {
+      val headersAndSizes = QualOutputWriter.getClusterInfoHeaderStrings
+      csvFileWriter.write(QualOutputWriter.constructDetailedHeader(
+        headersAndSizes, ",", prettyPrint = false))
+      sums.foreach { sumInfo =>
+        val appRows = QualOutputWriter.constructClusterInfo(sumInfo, headersAndSizes, ",",
+          prettyPrint = false)
+        appRows.foreach(csvFileWriter.write)
+      }
+    } finally {
+      csvFileWriter.close()
+    }
+  }
+
   def writeMlFuncsReports(sums: Seq[QualificationSummaryInfo], order: String): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_mlfunctions.csv",
@@ -418,7 +437,7 @@ object QualOutputWriter {
   val UNSUPPORTED_EXPRS = "Unsupported Expressions"
   val UNSUPPORTED_OPERATOR = "Unsupported Operator"
   val CLUSTER_TAGS = "Cluster Tags"
-  val CLUSTER_ID = "ClusterId"
+  val CLUSTER_ID = "Cluster Id"
   val JOB_ID = "JobId"
   val UNSUPPORTED_TYPE = "Unsupported Type"
   val EXEC_ID = "ExecId"
@@ -435,6 +454,13 @@ object QualOutputWriter {
   val STATUS_REPORT_PATH_STR = "Event Log"
   val STATUS_REPORT_STATUS_STR = "Status"
   val STATUS_REPORT_DESC_STR = "Description"
+  val VENDOR = "Vendor"
+  val DRIVER_HOST = "Driver Host"
+  val CLUSTER_NAME = "Cluster Name"
+  val NUM_EXEC_NODES = "Num Executor Nodes"
+  val CORES_PER_EXEC = "Cores Per Executor"
+  val EXEC_INSTANCE = "Executor Instance"
+  val DRIVER_INSTANCE = "Driver Instance"
   // Default frequency for jobs with a single instance is 30 times every month (30 days)
   val DEFAULT_JOB_FREQUENCY = 30L
 
@@ -782,6 +808,45 @@ object QualOutputWriter {
       EXEC_SHOULD_IGNORE -> EXEC_SHOULD_IGNORE.size,
       EXEC_ACTION -> EXEC_ACTION.size)
     detailedHeadersAndFields
+  }
+
+  private def getClusterInfoHeaderStrings: mutable.LinkedHashMap[String, Int] = {
+    val headersAndFields = Seq(
+      APP_ID_STR, APP_NAME_STR, VENDOR, DRIVER_HOST, CLUSTER_ID, CLUSTER_NAME,
+      EXEC_INSTANCE, DRIVER_INSTANCE, NUM_EXEC_NODES, CORES_PER_EXEC).map {
+      key => (key, key.length)
+    }
+    mutable.LinkedHashMap(headersAndFields: _*)
+  }
+
+  def constructClusterInfo(
+      sumInfo: QualificationSummaryInfo,
+      headersAndSizes: LinkedHashMap[String, Int],
+      delimiter: String = TEXT_DELIMITER,
+      prettyPrint: Boolean,
+      reformatCSV: Boolean = true): Seq[String] = {
+    val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
+    val clusterSummary = sumInfo.clusterSummary
+    val data = ListBuffer[(String, Int)](
+      reformatCSVFunc(clusterSummary.appId) -> headersAndSizes(APP_ID_STR),
+      reformatCSVFunc(clusterSummary.appName) -> headersAndSizes(APP_NAME_STR),
+      reformatCSVFunc(clusterSummary.clusterInfo.map(_.vendor).getOrElse(""))
+        -> headersAndSizes(VENDOR),
+      reformatCSVFunc(clusterSummary.clusterInfo.flatMap(_.driverHost).getOrElse(""))
+        -> headersAndSizes(DRIVER_HOST),
+      reformatCSVFunc(clusterSummary.clusterInfo.flatMap(_.clusterId).getOrElse(""))
+        -> headersAndSizes(CLUSTER_ID),
+      reformatCSVFunc(clusterSummary.clusterInfo.flatMap(_.clusterName).getOrElse(""))
+        -> headersAndSizes(CLUSTER_NAME),
+      reformatCSVFunc(clusterSummary.clusterInfo.flatMap(_.executorInstance).getOrElse(""))
+        -> headersAndSizes(EXEC_INSTANCE),
+      reformatCSVFunc(clusterSummary.clusterInfo.flatMap(_.driverInstance).getOrElse(""))
+        -> headersAndSizes(DRIVER_INSTANCE),
+      reformatCSVFunc(clusterSummary.clusterInfo.map(_.numExecutorNodes.toString).getOrElse(""))
+        -> headersAndSizes(NUM_EXEC_NODES),
+      reformatCSVFunc(clusterSummary.clusterInfo.map(_.coresPerExecutor.toString).getOrElse(""))
+        -> headersAndSizes(CORES_PER_EXEC))
+    constructOutputRow(data, delimiter, prettyPrint) :: Nil
   }
 
   def constructMlFuncsInfo(

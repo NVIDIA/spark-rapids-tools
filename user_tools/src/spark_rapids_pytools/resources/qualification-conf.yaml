@@ -7,12 +7,14 @@ toolOutput:
   csv:
     unsupportedOperatorsReport:
       fileName: rapids_4_spark_qualification_output_unsupportedOperators.csv
+    clusterInformation:
+      fileName: rapids_4_spark_qualification_output_cluster_information.csv
     summaryReport:
       fileName: rapids_4_spark_qualification_output.csv
       columns:
         - Vendor
         - Driver Host
-        - Cluster ID
+        - Cluster Id
         - Cluster Name
         - App Name
         - App ID
@@ -41,7 +43,7 @@ toolOutput:
          keys:
            - Vendor
            - Driver Host
-           - Cluster ID
+           - Cluster Id
            - Cluster Name
            - App Name
          columns:
@@ -51,26 +53,9 @@ toolOutput:
       dropDuplicates:
         - Vendor
         - Driver Host
-        - Cluster ID
+        - Cluster Id
         - Cluster Name
         - App Name
-  json:
-    clusterInformation:
-      fileName: rapids_4_spark_qualification_output_cluster_information.json
-      requiredColumns:
-        - vendor
-        - driverHost
-        - clusterId
-        - clusterName
-        - appName
-        - appId
-      mapColumns:
-        vendor: 'Vendor'
-        driverHost: 'Driver Host'
-        clusterId: 'Cluster ID'
-        clusterName: 'Cluster Name'
-        appName: 'App Name'
-        appId: 'App ID'
   stdout:
     summaryReport:
       compactWidth: true

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ from typing import Any, Optional
 
 import certifi
 import fire
+import pandas as pd
 from packaging.version import Version
 from pydantic import ValidationError, AnyHttpUrl, TypeAdapter
 
@@ -225,3 +226,10 @@ class Utilities:
         defined_version = Version(get_version(main=None))
         # get the release from version
         return cls.reformat_release_version(defined_version)
+
+    @classmethod
+    def get_valid_df_columns(cls, input_cols, input_df: pd.DataFrame) -> list:
+        """
+        Returns a subset of input_cols that are present in the input_df
+        """
+        return [col for col in input_cols if col in input_df.columns]

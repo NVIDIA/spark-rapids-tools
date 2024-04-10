@@ -258,7 +258,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       QualificationReportGenerator.generateDashBoard(outputDir, allAppsSum)
     }
     if (clusterReport) {
-      qWriter.writeClusterReport(allAppsSum)
+      qWriter.writeClusterReportCsv(allAppsSum)
     }
   }
 }

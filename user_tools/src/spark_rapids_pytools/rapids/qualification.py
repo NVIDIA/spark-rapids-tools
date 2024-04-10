@@ -14,7 +14,6 @@
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
-import json
 import textwrap
 from dataclasses import dataclass, field
 from math import ceil
@@ -35,6 +34,7 @@ from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, Q
 from spark_rapids_tools.tools.model_xgboost import predict
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
+from spark_rapids_tools.utils.util import Utilities
 
 
 @dataclass
@@ -369,12 +369,6 @@ class Qualification(RapidsJarTool):
             self.ctxt.set_ctxt('cpu_discount', cpu_discount)
             self.ctxt.set_ctxt('gpu_discount', gpu_discount)
 
-    def _create_cluster_report_args(self) -> list:
-        # Add the cluster-report argument if the cluster is not defined else disable it
-        if self.ctxt.get_ctxt('cpuClusterProxy') is None:
-            return ['--cluster-report']
-        return ['--no-cluster-report']
-
     def _process_custom_args(self):
         """
         Qualification tool processes extra arguments:
@@ -427,7 +421,7 @@ class Qualification(RapidsJarTool):
     def __remap_columns_and_prune(self, all_rows) -> pd.DataFrame:
         cols_subset = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'columns')
         # for backward compatibility, filter out non-existing columns
-        existing_cols_subset = [col for col in cols_subset if col in all_rows.columns]
+        existing_cols_subset = Utilities.get_valid_df_columns(cols_subset, all_rows)
         cols_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'mapColumns')
         subset_data = all_rows.loc[:, existing_cols_subset]
         if cols_map:
@@ -435,7 +429,8 @@ class Qualification(RapidsJarTool):
                 subset_data.columns = subset_data.columns.str.replace(col_rename,
                                                                       cols_map.get(col_rename),
                                                                       regex=False)
-        return subset_data
+        # Drop columns with only NA values for a cleaner final output.
+        return subset_data.dropna(axis=1, how='all')
 
     def __group_apps_by_name(self, all_apps) -> (pd.DataFrame, str):
         """
@@ -445,10 +440,12 @@ class Qualification(RapidsJarTool):
 
         group_info = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
         for group_col in group_info['columns']:
-            all_apps[group_col] = all_apps.groupby(group_info['keys'])[group_col].transform('mean')
+            valid_group_cols = Utilities.get_valid_df_columns(group_info['keys'], all_apps)
+            all_apps[group_col] = all_apps.groupby(valid_group_cols)[group_col].transform('mean')
 
         drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
-        subset_data = all_apps.drop_duplicates(subset=drop_arr)
+        valid_drop_cols = Utilities.get_valid_df_columns(drop_arr, all_apps)
+        subset_data = all_apps.drop_duplicates(subset=valid_drop_cols)
 
         notes = []
         if len(subset_data) != all_apps_count:
@@ -844,12 +841,12 @@ class Qualification(RapidsJarTool):
             df[estimation_model_col] = QualEstimationModel.tostring(QualEstimationModel.SPEEDUPS)
 
         # 2. Operations related to cluster information
-        cluster_info_file = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'fileName')
+        cluster_info_file = self.ctxt.get_value('toolOutput', 'csv', 'clusterInformation', 'fileName')
         cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
-        cluster_info_df = self.__parse_cluster_info(cluster_info_file)
+        cluster_info_df = pd.read_csv(cluster_info_file)
         # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
         # info columns, even if `cluster_info_df` is empty.
-        df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
+        df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'])
         if len(cluster_info_df) > 0:
             self.__infer_cluster_and_update_savings(cluster_info_df)
 
@@ -895,38 +892,10 @@ class Qualification(RapidsJarTool):
         return super()._init_rapids_arg_list() + self._init_rapids_arg_list_for_qual()
 
     def _init_rapids_arg_list_for_qual(self) -> List[str]:
-        return ['--per-sql'] + self._create_autotuner_rapids_args() + \
-            self._create_cluster_report_args()
+        return ['--per-sql'] + self._create_autotuner_rapids_args()
 
     def _init_rapids_arg_list_for_profile(self) -> List[str]:
         return super()._init_rapids_arg_list() + ['--csv']
-
-    def __parse_cluster_info(self, cluster_info_file) -> pd.DataFrame:
-        """
-        Parses cluster information from the JSON file into a pandas DataFrame.
-        1. Reads the JSON file.
-        2. Converts the nested JSON data into a flat table structure and remove the column prefix ('cluster_info').
-        3. Ensures all required columns are present, include missing columns.
-        4. Renames columns to the desired output names.
-        """
-        if not self.ctxt.platform.cluster_inference_supported:
-            return pd.DataFrame()
-
-        # Read cluster information from cluster info file
-        try:
-            with open(cluster_info_file, 'r', encoding='utf-8') as cluster_info_fp:
-                cluster_info_dict = json.load(cluster_info_fp)
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.logger.error('Failed to read cluster information from file: %s', cluster_info_file)
-
-        # Flatten the JSON file and remove `cluster_info` prefix for nested columns
-        cluster_info_df = pd.json_normalize(cluster_info_dict).rename(columns=lambda x: x.split('.')[-1])
-        # Ensure all required columns are present, add the missing columns.
-        required_columns = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'requiredColumns')
-        cluster_info_df = cluster_info_df.reindex(columns=required_columns, fill_value='')
-        # Rename the columns according to the mapping provided.
-        cols_rename_map = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'mapColumns')
-        return cluster_info_df.rename(columns=cols_rename_map)
 
     def __infer_cluster_and_update_savings(self, cluster_info_df: pd.DataFrame):
         """
