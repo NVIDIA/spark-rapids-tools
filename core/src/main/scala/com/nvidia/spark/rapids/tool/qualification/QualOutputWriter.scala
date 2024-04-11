@@ -437,7 +437,7 @@ object QualOutputWriter {
   val UNSUPPORTED_EXPRS = "Unsupported Expressions"
   val UNSUPPORTED_OPERATOR = "Unsupported Operator"
   val CLUSTER_TAGS = "Cluster Tags"
-  val CLUSTER_ID = "Cluster Id"
+  val CLUSTER_ID = "ClusterId"
   val JOB_ID = "JobId"
   val UNSUPPORTED_TYPE = "Unsupported Type"
   val EXEC_ID = "ExecId"
@@ -456,6 +456,7 @@ object QualOutputWriter {
   val STATUS_REPORT_DESC_STR = "Description"
   val VENDOR = "Vendor"
   val DRIVER_HOST = "Driver Host"
+  val CLUSTER_ID_STR = "Cluster Id" // Different from ClusterId used for Databricks Tags
   val CLUSTER_NAME = "Cluster Name"
   val NUM_EXEC_NODES = "Num Executor Nodes"
   val CORES_PER_EXEC = "Cores Per Executor"
@@ -812,7 +813,7 @@ object QualOutputWriter {
 
   private def getClusterInfoHeaderStrings: mutable.LinkedHashMap[String, Int] = {
     val headersAndFields = Seq(
-      APP_ID_STR, APP_NAME_STR, VENDOR, DRIVER_HOST, CLUSTER_ID, CLUSTER_NAME,
+      APP_ID_STR, APP_NAME_STR, VENDOR, DRIVER_HOST, CLUSTER_ID_STR, CLUSTER_NAME,
       EXEC_INSTANCE, DRIVER_INSTANCE, NUM_EXEC_NODES, CORES_PER_EXEC).map {
       key => (key, key.length)
     }
@@ -838,7 +839,7 @@ object QualOutputWriter {
       refactorCSVFuncWithOption(Some(sumInfo.clusterSummary.appName), APP_NAME_STR),
       refactorCSVFuncWithOption(clusterInfo.map(_.vendor), VENDOR),
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverHost), DRIVER_HOST),
-      refactorCSVFuncWithOption(clusterInfo.flatMap(_.clusterId), CLUSTER_ID),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.clusterId), CLUSTER_ID_STR),
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.clusterName), CLUSTER_NAME),
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.executorInstance), EXEC_INSTANCE),
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverInstance), DRIVER_INSTANCE),
