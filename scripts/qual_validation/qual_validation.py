@@ -75,7 +75,6 @@ else:
 
 ### run CPU qualification with xgboost model
 cpu_tmp_dir = f"{output}/cpu"
-print(f"spark_rapids qualification --platform {platform} {jar_arg} --estimation_model xgboost --output_folder {cpu_tmp_dir} --eventlogs {cpu_log} {verbose}")
 subprocess.run(f"spark_rapids qualification --platform {platform} {jar_arg} --estimation_model xgboost --output_folder {cpu_tmp_dir} --eventlogs {cpu_log} {verbose}", shell=True)
 
 # Parse and validate results
