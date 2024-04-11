@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.planparser
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.UnsupportedExpr
 
 case class WindowGroupLimitParser(
     node: SparkPlanGraphNode,
@@ -26,12 +27,24 @@ case class WindowGroupLimitParser(
     sqlID: Long) extends ExecParser {
 
   val fullExecName: String = node.name + "Exec"
+  // row_number() is currently not supported by the plugin (v24.04)
+  // Ref: https://github.com/NVIDIA/spark-rapids/pull/10500
+  val supportedRankingExprs = Set("rank", "dense_rank")
 
   private def validateRankingExpr(rankingExprs: Array[String]): Boolean = {
-    // row_number() is currently not supported by the plugin (v24.04)
-    // Ref: https://github.com/NVIDIA/spark-rapids/pull/10500
-    val supportedRankingExprs = Set("rank", "dense_rank")
     rankingExprs.length == 1 && supportedRankingExprs.contains(rankingExprs.head)
+  }
+
+  override def getUnsupportedExprReasonsForExec(
+      expressions: Array[String]): Seq[UnsupportedExpr] = {
+    expressions.flatMap { expr =>
+      if (!supportedRankingExprs.contains(expr)) {
+        Some(UnsupportedExpr(expr,
+          s"Ranking function $expr is not supported in $fullExecName"))
+      } else {
+        None
+      }
+    }
   }
 
   /**
@@ -46,7 +59,8 @@ case class WindowGroupLimitParser(
   override def parse: ExecInfo = {
     val exprString = node.desc.replaceFirst("WindowGroupLimit ", "")
     val expressions = SQLPlanParser.parseWindowGroupLimitExpressions(exprString)
-    val notSupportedExprs = checker.getNotSupportedExprs(expressions)
+    val notSupportedExprs = checker.getNotSupportedExprs(expressions) ++
+        getUnsupportedExprReasonsForExec(expressions)
     // Check if exec is supported and ranking expression is supported.
     val isExecSupported = checker.isExecSupported(fullExecName)
     val areAllExprsSupported = notSupportedExprs.isEmpty && validateRankingExpr(expressions)

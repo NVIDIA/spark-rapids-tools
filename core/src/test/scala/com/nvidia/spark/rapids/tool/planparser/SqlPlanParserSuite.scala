@@ -1687,4 +1687,41 @@ class SQLPlanParserSuite extends BaseTestSuite {
       }
     }
   }
+
+  runConditionalTest("row_number in WindowGroupLimitExec is not supported",
+    execsSupportedSparkGTE350) {
+    val windowGroupLimitExecCmd = "WindowGroupLimit"
+    val tbl_name = "foobar_tbl"
+    TrampolineUtil.withTempDir { eventLogDir =>
+      withTable(tbl_name) {
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          windowGroupLimitExecCmd) { spark =>
+          spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
+          val query =
+            s"""
+            SELECT foo, bar FROM (
+                SELECT foo, bar,
+                    ROW_NUMBER() OVER (PARTITION BY foo ORDER BY bar) as rank
+                FROM $tbl_name)
+            WHERE rank <= 2"""
+          spark.sql(query)
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val windowExecNotSupportedExprs = allExecInfo.filter(
+          _.exec.contains(windowGroupLimitExecCmd)).flatMap(x => x.unsupportedExprs)
+        windowExecNotSupportedExprs.head.exprName shouldEqual "row_number"
+        windowExecNotSupportedExprs.head.unsupportedReason shouldEqual
+            "Ranking function row_number is not supported in WindowGroupLimitExec"
+        val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
+        // We should have two WindowGroupLimitExec operators (Partial and Final) which are
+        // not supported due to unsupported expression.
+        assertSizeAndNotSupported(2, windowGroupLimitExecs)
+      }
+    }
+  }
 }
