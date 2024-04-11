@@ -218,6 +218,12 @@ def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_jso
     Returns:
     - Modified union_df which may contain 'TNEW' entries.
     """
+
+    # pre-process union dataframe to resolve any inconsistencies
+    for union_idx, union_row in union_df.iterrows():
+        if "Supported" in union_row and union_row["Supported"] == "S" and union_row["Notes"] != "None":
+            union_df.at[union_idx, "Notes"] = "None"
+
     # added columns in plugin union dataframe (compared with tools)
     for union_column_name in union_df.columns:
         if union_column_name not in tools_df.columns:
@@ -271,11 +277,6 @@ def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_jso
             # append removed tools_row to union_df to preserve in final output
             union_df.loc[len(union_df)] = tools_row
             report_file.write(f"Row is removed: {', '.join(tools_row.astype(str))}\n")
-
-    # post-process to resolve any inconsistencies
-    for union_idx, union_row in union_df.iterrows():
-        if "Supported" in union_row and union_row["Supported"] == "S" and union_row["Notes"] != "None":
-            union_df.at[union_idx, "Notes"] = "None"
 
     return union_df
 
