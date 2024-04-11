@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.qualification
 
 import java.util.concurrent.atomic.AtomicLong
 
+import scala.collection.mutable
 import scala.collection.mutable.{Buffer, LinkedHashMap, ListBuffer}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
@@ -283,6 +284,24 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
+  def writeClusterReportCsv(sums: Seq[QualificationSummaryInfo]): Unit = {
+    val csvFileWriter = new ToolTextFileWriter(outputDir,
+      s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.csv",
+      "Cluster Information", hadoopConf)
+    try {
+      val headersAndSizes = QualOutputWriter.getClusterInfoHeaderStrings
+      csvFileWriter.write(QualOutputWriter.constructDetailedHeader(
+        headersAndSizes, ",", prettyPrint = false))
+      sums.foreach { sumInfo =>
+        val appRows = QualOutputWriter.constructClusterInfo(sumInfo, headersAndSizes, ",",
+          prettyPrint = false)
+        appRows.foreach(csvFileWriter.write)
+      }
+    } finally {
+      csvFileWriter.close()
+    }
+  }
+
   def writeMlFuncsReports(sums: Seq[QualificationSummaryInfo], order: String): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_mlfunctions.csv",
@@ -435,6 +454,14 @@ object QualOutputWriter {
   val STATUS_REPORT_PATH_STR = "Event Log"
   val STATUS_REPORT_STATUS_STR = "Status"
   val STATUS_REPORT_DESC_STR = "Description"
+  val VENDOR = "Vendor"
+  val DRIVER_HOST = "Driver Host"
+  val CLUSTER_ID_STR = "Cluster Id" // Different from ClusterId used for Databricks Tags
+  val CLUSTER_NAME = "Cluster Name"
+  val NUM_EXEC_NODES = "Num Executor Nodes"
+  val CORES_PER_EXEC = "Cores Per Executor"
+  val EXEC_INSTANCE = "Executor Instance"
+  val DRIVER_INSTANCE = "Driver Instance"
   // Default frequency for jobs with a single instance is 30 times every month (30 days)
   val DEFAULT_JOB_FREQUENCY = 30L
 
@@ -782,6 +809,44 @@ object QualOutputWriter {
       EXEC_SHOULD_IGNORE -> EXEC_SHOULD_IGNORE.size,
       EXEC_ACTION -> EXEC_ACTION.size)
     detailedHeadersAndFields
+  }
+
+  private def getClusterInfoHeaderStrings: mutable.LinkedHashMap[String, Int] = {
+    val headersAndFields = Seq(
+      APP_ID_STR, APP_NAME_STR, VENDOR, DRIVER_HOST, CLUSTER_ID_STR, CLUSTER_NAME,
+      EXEC_INSTANCE, DRIVER_INSTANCE, NUM_EXEC_NODES, CORES_PER_EXEC).map {
+      key => (key, key.length)
+    }
+    mutable.LinkedHashMap(headersAndFields: _*)
+  }
+
+  def constructClusterInfo(
+      sumInfo: QualificationSummaryInfo,
+      headersAndSizes: LinkedHashMap[String, Int],
+      delimiter: String = TEXT_DELIMITER,
+      prettyPrint: Boolean,
+      reformatCSV: Boolean = true): Seq[String] = {
+    val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
+    val clusterInfo = sumInfo.clusterSummary.clusterInfo
+
+    // Wrapper function around reformatCSVFunc() to handle optional fields and
+    // reduce redundancy
+    def refactorCSVFuncWithOption(field: Option[String], headerConst: String): (String, Int) =
+      reformatCSVFunc(field.getOrElse("")) -> headersAndSizes(headerConst)
+
+    val data = ListBuffer(
+      refactorCSVFuncWithOption(Some(sumInfo.clusterSummary.appId), APP_ID_STR),
+      refactorCSVFuncWithOption(Some(sumInfo.clusterSummary.appName), APP_NAME_STR),
+      refactorCSVFuncWithOption(clusterInfo.map(_.vendor), VENDOR),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverHost), DRIVER_HOST),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.clusterId), CLUSTER_ID_STR),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.clusterName), CLUSTER_NAME),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.executorInstance), EXEC_INSTANCE),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverInstance), DRIVER_INSTANCE),
+      refactorCSVFuncWithOption(clusterInfo.map(_.numExecutorNodes.toString), NUM_EXEC_NODES),
+      refactorCSVFuncWithOption(clusterInfo.map(_.coresPerExecutor.toString), CORES_PER_EXEC)
+    )
+    constructOutputRow(data, delimiter, prettyPrint) :: Nil
   }
 
   def constructMlFuncsInfo(

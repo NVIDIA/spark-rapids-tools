@@ -259,6 +259,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     }
     if (clusterReport) {
       qWriter.writeClusterReport(allAppsSum)
+      qWriter.writeClusterReportCsv(allAppsSum)
     }
   }
 }
