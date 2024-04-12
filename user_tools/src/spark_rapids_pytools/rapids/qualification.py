@@ -607,7 +607,7 @@ class Qualification(RapidsJarTool):
         gpu_reshape_type = self.ctxt.get_ctxt('gpuClusterShapeRecommendation')
         gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
         per_row_flag = False
-        if self.__recommendation_is_non_standard():
+        if gpu_cluster.cluster_inst is not None and self.__recommendation_is_non_standard():
             apps_df, per_row_flag = self.__apply_non_standard_gpu_shape(all_apps,
                                                                         gpu_cluster.get_workers_count(),
                                                                         gpu_reshape_type)
@@ -764,6 +764,13 @@ class Qualification(RapidsJarTool):
             filter_pos_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SAVINGS
             filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
 
+            if filter_top_candidate_enabled:
+                # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
+                #  This should be refactored along with entire filter apps logic to use more object-oriented design.
+                top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
+                filtered_apps = top_candidates_obj.filter_apps(raw_df)
+                return top_candidates_obj.prepare_output(filtered_apps)
+
             if self.__recommendation_is_non_standard():
                 # During processing of arguments phase, we verified that the filter does not conflict
                 # with the shape recommendation
@@ -772,13 +779,6 @@ class Qualification(RapidsJarTool):
                                                           self.ctxt.get_ctxt('gpuClusterShapeRecommendation'))
                 # update the selected columns
                 selected_cols = list(raw_df.columns)
-            if filter_top_candidate_enabled:
-                # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
-                #  This should be refactored along with entire filter apps logic to use more object-oriented design.
-                top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
-                filtered_apps = top_candidates_obj.filter_apps(raw_df)
-                return top_candidates_obj.prepare_output(filtered_apps)
-
             # filter by recommendations if enabled
             if filter_recommendation_enabled:
                 df_row = self.__get_recommended_apps(raw_df, selected_cols)
