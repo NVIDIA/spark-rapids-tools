@@ -19,7 +19,7 @@ from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.diagnostic import Diagnostic
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
-from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
+from spark_rapids_pytools.rapids.qualification import QualEstimationModel, QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
 
 
 class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
@@ -40,7 +40,7 @@ class CliDBAWSLocalMode:  # pylint: disable=too-few-public-methods
                       filter_apps: str = QualFilterApp.tostring(QualFilterApp.get_default()),
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
-                      estimation_model: str = None,
+                      estimation_model: str = QualEstimationModel.tostring(QualEstimationModel.get_default()),
                       jvm_heap_size: int = None,
                       verbose: bool = None,
                       cpu_discount: int = None,

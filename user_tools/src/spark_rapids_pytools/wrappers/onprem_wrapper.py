@@ -18,7 +18,7 @@ from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
-from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
+from spark_rapids_pytools.rapids.qualification import QualEstimationModel, QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
 
 
 class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
@@ -36,7 +36,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                       target_platform: str = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
-                      estimation_model: str = None,
+                      estimation_model: str = QualEstimationModel.tostring(QualEstimationModel.get_default()),
                       jvm_heap_size: int = None,
                       verbose: bool = None,
                       cpu_discount: int = None,
