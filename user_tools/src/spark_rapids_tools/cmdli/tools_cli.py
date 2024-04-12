@@ -23,7 +23,7 @@ from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
-from spark_rapids_pytools.rapids.qualification import QualEstimationModel, QualFilterApp, QualificationAsLocal
+from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal
 
 
 class ToolsCLI(object):  # pylint: disable=too-few-public-methods
@@ -41,7 +41,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       target_platform: str = None,
                       output_folder: str = None,
                       filter_apps: str = QualFilterApp.tostring(QualFilterApp.get_default()),
-                      estimation_model: str = QualEstimationModel.tostring(QualEstimationModel.get_default()),
+                      estimation_model: str = None,
                       tools_jar: str = None,
                       cpu_cluster_price: float = None,
                       estimated_gpu_cluster_price: float = None,
