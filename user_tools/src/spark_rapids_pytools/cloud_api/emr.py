@@ -117,6 +117,12 @@ class EMRPlatform(PlatformBase):
     def _get_prediction_model_name(self) -> str:
         return CspEnv.pretty_print(CspEnv.get_default())
 
+    def generate_cluster_configuration(self, render_args: dict):
+        image_version = self.configs.get_value('clusterInference', 'defaultImage')
+        render_args['IMAGE'] = f'"{image_version}"'
+        render_args['ZONE'] = f'"{self.cli.get_zone()}"'
+        return super().generate_cluster_configuration(render_args)
+
 
 @dataclass
 class EMRCMDDriver(CMDDriverBase):
@@ -198,6 +204,17 @@ class EMRCMDDriver(CMDDriverBase):
                       '--region', f'{self.get_region()}',
                       '--instance-types', f'{node.instance_type}']
         return cmd_params
+
+    def get_zone(self) -> str | None:
+        describe_cmd = ['aws ec2 describe-availability-zones',
+                        '--region', f'{self.get_region()}']
+        selected_zone = ''
+        try:
+            zones_list = json.loads(self.run_sys_cmd(describe_cmd))
+            selected_zone = zones_list['AvailabilityZones'][0]['ZoneName']
+        except Exception:  # pylint: disable=broad-except
+            self.logger.warning('Unable to extract zone from region %s', self.get_region())
+        return selected_zone
 
     def _build_platform_list_cluster(self,
                                      cluster,
