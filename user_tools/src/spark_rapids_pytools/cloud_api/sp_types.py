@@ -299,7 +299,7 @@ class CMDDriverBase:
     def get_region(self) -> str:
         return self.env_vars.get('region')
 
-    def get_zone(self) -> str | None:
+    def get_zone(self) -> str:
         return self.env_vars.get('zone')
 
     def get_cmd_run_configs(self) -> dict:

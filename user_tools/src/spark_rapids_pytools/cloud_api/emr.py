@@ -205,7 +205,7 @@ class EMRCMDDriver(CMDDriverBase):
                       '--instance-types', f'{node.instance_type}']
         return cmd_params
 
-    def get_zone(self) -> str | None:
+    def get_zone(self) -> str:
         describe_cmd = ['aws ec2 describe-availability-zones',
                         '--region', f'{self.get_region()}']
         selected_zone = ''
