@@ -19,8 +19,7 @@ from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.diagnostic import Diagnostic
-from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, \
-    QualGpuClusterReshapeType
+from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 
 
