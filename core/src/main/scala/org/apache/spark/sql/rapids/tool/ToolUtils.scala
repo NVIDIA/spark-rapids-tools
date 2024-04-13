@@ -357,7 +357,7 @@ object RDDCheckHelper {
 
 object ExecHelper {
   private val UDFRegExLookup = Set(
-    ".*UDF.*".r
+    ".*UDF.*".r, ".*UDAF.*".r
   )
 
   // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF

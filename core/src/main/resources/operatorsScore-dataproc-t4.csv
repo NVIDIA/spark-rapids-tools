@@ -191,6 +191,7 @@ Pow,4.88
 PreciseTimestampConversion,4.88
 PromotePrecision,4.88
 PythonUDF,4.88
+PythonUDAF,4.88
 Quarter,4.88
 RLike,4.88
 RaiseError,4.88
