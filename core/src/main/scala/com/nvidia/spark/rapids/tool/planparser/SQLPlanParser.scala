@@ -297,10 +297,12 @@ object ExecInfo {
     // check is the node has a dataset operations and if so change to not supported
     val rddCheckRes = RDDCheckHelper.isDatasetOrRDDPlan(nodeName, node.desc)
     val ds = dataSet || rddCheckRes.isRDD
+    val containsPythonUDF = ExecHelper.isPythonUDF(node)
+    val finalSupported = isSupported || containsPythonUDF
 
     // if the expression is RDD because of the node name, then we do not want to add the
     // unsupportedExpressions because it becomes bogus.
-    val finalUnsupportedExpr = if (rddCheckRes.nodeDescRDD) {
+    val finalUnsupportedExpr = if (rddCheckRes.nodeDescRDD || containsPythonUDF) {
       Seq.empty[UnsupportedExpr]
     } else {
       unsupportedExprs
@@ -313,7 +315,7 @@ object ExecInfo {
       duration,
       nodeId,
       opType,
-      isSupported,
+      finalSupported,
       children,
       stages,
       shouldRemove,
