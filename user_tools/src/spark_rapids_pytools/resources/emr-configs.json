@@ -391,7 +391,8 @@
         {"name": "m5d.12xlarge", "vCPUs": 48},
         {"name": "m5d.16xlarge", "vCPUs": 64}
       ]
-    }
+    },
+    "defaultImage": "emr-6.10.0"
   },
   "clusterSpecs": {
     "minWorkerNodes": 2
