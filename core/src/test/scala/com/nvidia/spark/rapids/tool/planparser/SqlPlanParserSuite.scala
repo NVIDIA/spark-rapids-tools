@@ -28,7 +28,8 @@ import com.nvidia.spark.rapids.tool.qualification._
 import org.scalatest.Matchers.{be, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
 
-import org.apache.spark.sql.TrampolineUtil
+import org.apache.spark.sql.{DataFrame, TrampolineUtil}
+import org.apache.spark.sql.catalyst.expressions.CheckOverflowInTableInsert
 import org.apache.spark.sql.execution.ui.SQLPlanMetric
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -1721,6 +1722,38 @@ class SQLPlanParserSuite extends BaseTestSuite {
         // We should have two WindowGroupLimitExec operators (Partial and Final) which are
         // not supported due to unsupported expression.
         assertSizeAndNotSupported(2, windowGroupLimitExecs)
+      }
+    }
+  }
+
+  test("CheckOverflowInsert should not exist in Physical Plan") {
+    // This test verifies that the 'CheckOverflowInsert' expression exists in the logical plan
+    // but is absent in the physical plan as of Spark 3.5.0. If in future Spark versions,
+    // 'CheckOverflowInsert' expression appears in the physical plan, this test will fail,
+    // and we should to handle it appropriately.
+    val overflowExprStr = CheckOverflowInTableInsert.toString()
+    val tableName = "foobar_tbl"
+    var planDf: Option[DataFrame] = None
+    TrampolineUtil.withTempDir { eventLogDir =>
+      withTable(tableName) {
+        ToolTestUtils.generateEventLog(eventLogDir, overflowExprStr) { spark =>
+          spark.sql(s"CREATE TABLE $tableName (foo INT) USING PARQUET")
+          // Store the Spark Plan in a variable
+          planDf = Some(spark.sql(s"INSERT INTO $tableName VALUES (2L)"))
+          planDf.get
+        }
+        // toJSON contains information about all expressions in all plan nodes.
+        // We can use it to check if the expression exists in any node.
+        val overflowExprInLogicalPlan = planDf.get.queryExecution.optimizedPlan
+          .toJSON.contains(overflowExprStr)
+        val overflowExprInPhysicalPlan = planDf.get.queryExecution.executedPlan
+          .toJSON.contains(overflowExprStr)
+
+        // Assert CheckOverflowInsert exists in Logical Plan but not in Physical Plan
+        assert(overflowExprInLogicalPlan,
+          "CheckOverflowInTableInsert should exist in the logical plan.")
+        assert(!overflowExprInPhysicalPlan,
+          "CheckOverflowInTableInsert should not exist in the physical plan.")
       }
     }
   }
