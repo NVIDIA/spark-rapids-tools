@@ -829,7 +829,7 @@ class RapidsJarTool(RapidsTool):
             job_resources = Utilities.adjust_tools_resources(platform_args.get('jvmMaxHeapSize'), 1)
         return job_resources.get(tool_name)
 
-    def _get_rapids_threads_count(self, tool_name) -> int:
+    def _get_rapids_threads_count(self, tool_name) -> List[str]:
         """
         Get the number of threads to be used by the Rapids tool
         :return: number of threads
@@ -846,6 +846,8 @@ class RapidsJarTool(RapidsTool):
         job_resources = self._get_job_submission_resources(tool_name)
         jvm_max_heap = job_resources['jvmMaxHeapSize']
         jvm_heap_key = f'Xmx{jvm_max_heap}g'
+        # At this point, we need to set the heap argument for the JVM. Otherwise, the process uses
+        # its default values.
         result['platformArgs']['jvmArgs'].update({jvm_heap_key: ''})
         return result
 
