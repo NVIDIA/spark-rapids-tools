@@ -38,12 +38,15 @@ class BaseTestSuite extends FunSuite with BeforeAndAfterEach with Logging {
     TrampolineUtil.cleanupAnyExistingSession()
   }
 
-  protected def createSparkSession(): Unit = {
-    sparkSession = SparkSession
+  protected def createSparkSession(enableHive: Boolean = false): Unit = {
+    val sparkBuilder = SparkSession
       .builder()
       .master("local[*]")
       .appName(testAppName)
-      .getOrCreate()
+    if (enableHive) {
+      sparkBuilder.enableHiveSupport()
+    }
+    sparkSession = sparkBuilder.getOrCreate()
   }
 
   protected def checkDeltaLakeSparkRelease(): (Boolean, String) = {
@@ -106,7 +109,9 @@ class BaseTestSuite extends FunSuite with BeforeAndAfterEach with Logging {
     try {
       f  // Execute the passed block of code.
     } finally {
-      createSparkSession()
+      // The newly created SparkSession would require metadata from the hive metastore to locate
+      // the tables.
+      createSparkSession(enableHive = true)
       tableNames.foreach { name =>
         // Attempt to drop each table, ignoring any errors if the table doesn't exist.
         sparkSession.sql(s"DROP TABLE IF EXISTS $name")
