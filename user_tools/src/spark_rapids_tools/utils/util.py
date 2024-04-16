@@ -174,6 +174,9 @@ class Utilities:
     """Utility class used to enclose common helpers and utilities."""
     # Assume that any tools thread would need at least 8 GB of heap memory.
     min_jvm_heap_per_thread: ClassVar[int] = 8
+    # Flag used to disable running tools in parallel. This is a temporary hack to reduce possibility
+    # of OOME. Later we can re-enable it.
+    conc_mode_enabled: ClassVar[bool] = False
 
     @classmethod
     def get_latest_mvn_jar_from_metadata(cls, url_base: str,
@@ -255,7 +258,7 @@ class Utilities:
         """
         # The number of threads is calculated based on the total system memory and the JVM heap size
         # Each thread should at least be running within 8 GB of heap memory
-        concurrent_mode = jvm_processes > 1
+        concurrent_mode = cls.conc_mode_enabled and jvm_processes > 1
         heap_unit = max(cls.min_jvm_heap_per_thread, jvm_heap // 3 if concurrent_mode else jvm_heap)
         num_threads_unit = max(1, heap_unit // cls.min_jvm_heap_per_thread)
         # The Profiling will be assigned the remaining memory resources

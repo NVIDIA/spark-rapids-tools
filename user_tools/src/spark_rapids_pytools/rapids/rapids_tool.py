@@ -895,7 +895,8 @@ class RapidsJarTool(RapidsTool):
         rapids_job_containers = self.ctxt.get_ctxt('rapidsJobContainers')
         futures_list = []
         results = []
-        with ThreadPoolExecutor(max_workers=len(rapids_job_containers)) as executor:
+        executors_cnt = len(rapids_job_containers) if Utilities.conc_mode_enabled else 1
+        with ThreadPoolExecutor(max_workers=executors_cnt) as executor:
             for rapids_job in rapids_job_containers:
                 job_obj = self.ctxt.platform.create_local_submission_job(job_prop=rapids_job,
                                                                          ctxt=self.ctxt)
