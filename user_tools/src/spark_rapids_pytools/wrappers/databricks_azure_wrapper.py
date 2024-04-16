@@ -14,12 +14,13 @@
 
 
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on DATABRICKS_AZURE."""
-from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.diagnostic import Diagnostic
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
+from spark_rapids_tools import CspEnv
+from spark_rapids_tools.utils import Utilities
 
 
 class CliDBAzureLocalMode:  # pylint: disable=too-few-public-methods
@@ -112,7 +113,8 @@ class CliDBAzureLocalMode:  # pylint: disable=too-few-public-methods
         verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
         profile = Utils.get_value_or_pop(profile, rapids_options, 'p')
         remote_folder = Utils.get_value_or_pop(remote_folder, rapids_options, 'r')
-        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j',
+                                               Utilities.get_system_memory_in_gb())
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         filter_apps = Utils.get_value_or_pop(filter_apps, rapids_options, 'f')
         tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
@@ -206,7 +208,7 @@ class CliDBAzureLocalMode:  # pylint: disable=too-few-public-methods
         credentials_file = Utils.get_value_or_pop(credentials_file, rapids_options, 'c')
         gpu_cluster = Utils.get_value_or_pop(gpu_cluster, rapids_options, 'g')
         remote_folder = Utils.get_value_or_pop(remote_folder, rapids_options, 'r')
-        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', Utilities.get_system_memory_in_gb())
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
         worker_info = Utils.get_value_or_pop(worker_info, rapids_options, 'w')

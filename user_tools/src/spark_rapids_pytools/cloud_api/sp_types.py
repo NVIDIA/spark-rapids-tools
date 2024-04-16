@@ -551,17 +551,19 @@ class CMDDriverBase:
         :param submit_args: the arguments specified by the user that reflects on the platform.
         :return: a dictionary in the format of {"jvmArgs": {}, "envArgs": {}}
         """
-        jvm_heap_size = submit_args.get('jvmMaxHeapSize')
-        xmx_key = f'Xmx{jvm_heap_size}g'
         res = {
             'jvmArgs': {
                 # TODO: setting the AWS access keys from jvm arguments did not work
                 # 'Dspark.hadoop.fs.s3a.secret.key': aws_access_key,
                 # 'Dspark.hadoop.fs.s3a.access.key': aws_access_id
-                xmx_key: ''
             },
             'envArgs': {}
         }
+        jvm_gc_type = submit_args.get('jvmGC')
+        if jvm_gc_type is not None:
+            xgc_key = f'XX:{jvm_gc_type}'
+            res['jvmArgs'].update({xgc_key: ''})
+
         rapids_configs = self.get_rapids_job_configs(self.cloud_ctxt.get('deployMode'))
         if not rapids_configs:
             return res

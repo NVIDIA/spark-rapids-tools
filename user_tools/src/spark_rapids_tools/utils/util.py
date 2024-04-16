@@ -23,11 +23,12 @@ import urllib
 import xml.etree.ElementTree as elem_tree
 from functools import reduce
 from operator import getitem
-from typing import Any, Optional
+from typing import Any, Optional, ClassVar
 
 import certifi
 import fire
 import pandas as pd
+import psutil
 from packaging.version import Version
 from pydantic import ValidationError, AnyHttpUrl, TypeAdapter
 
@@ -171,6 +172,8 @@ def init_environment(short_name: str):
 
 class Utilities:
     """Utility class used to enclose common helpers and utilities."""
+    # Assume that any tools thread would need at least 8 GB of heap memory.
+    min_jvm_heap_per_thread: ClassVar[int] = 8
 
     @classmethod
     def get_latest_mvn_jar_from_metadata(cls, url_base: str,
@@ -233,3 +236,39 @@ class Utilities:
         Returns a subset of input_cols that are present in the input_df
         """
         return [col for col in input_cols if col in input_df.columns]
+
+    @classmethod
+    def get_system_memory_in_gb(cls) -> int:
+        """
+        Get the total system memory in GB. Ideally we only grab 80% of teh total-memory
+        """
+        ps_memory = psutil.virtual_memory()
+        return int(0.8 * ps_memory.total / (1024 ** 3))
+
+    @classmethod
+    def adjust_tools_resources(cls,
+                               jvm_heap: int,
+                               jvm_processes: int = 1) -> dict:
+        """
+        Calculate the number of threads to be used in the Rapids Tools JVM cmd.
+        In concurrent mode, the profiler needs to have more heap, and more threads.
+        """
+        # The number of threads is calculated based on the total system memory and the JVM heap size
+        # Each thread should at least be running within 8 GB of heap memory
+        concurrent_mode = jvm_processes > 1
+        heap_unit = max(cls.min_jvm_heap_per_thread, jvm_heap // 3 if concurrent_mode else jvm_heap)
+        num_threads_unit = max(1, heap_unit // cls.min_jvm_heap_per_thread)
+        # The Profiling will be assigned the remaining memory resources
+        profiler_heap = max(jvm_heap - heap_unit, cls.min_jvm_heap_per_thread) if concurrent_mode else heap_unit
+        profiler_threads = max(1, profiler_heap // cls.min_jvm_heap_per_thread) if concurrent_mode else num_threads_unit
+
+        return {
+            'qualification': {
+                'jvmMaxHeapSize': heap_unit,
+                'rapidsThreads': num_threads_unit
+            },
+            'profiling': {
+                'jvmMaxHeapSize': profiler_heap,
+                'rapidsThreads': profiler_threads
+            }
+        }
