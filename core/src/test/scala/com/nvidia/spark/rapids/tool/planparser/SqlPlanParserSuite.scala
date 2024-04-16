@@ -1665,7 +1665,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     TrampolineUtil.withTempDir { eventLogDir =>
       withTable(tbl_name) {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          windowGroupLimitExecCmd, enableHive = true) { spark =>
+          windowGroupLimitExecCmd) { spark =>
           spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
           val query =
             s"""
@@ -1696,7 +1696,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     TrampolineUtil.withTempDir { eventLogDir =>
       withTable(tbl_name) {
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          windowGroupLimitExecCmd, enableHive = true) { spark =>
+          windowGroupLimitExecCmd) { spark =>
           spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
           val query =
             s"""
@@ -1736,7 +1736,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     var planDf: Option[DataFrame] = None
     TrampolineUtil.withTempDir { eventLogDir =>
       withTable(tableName) {
-        ToolTestUtils.generateEventLog(eventLogDir, overflowExprStr, enableHive = true) { spark =>
+        ToolTestUtils.generateEventLog(eventLogDir, overflowExprStr) { spark =>
           spark.sql(s"CREATE TABLE $tableName (foo INT) USING PARQUET")
           // Store the Spark Plan in a variable
           planDf = Some(spark.sql(s"INSERT INTO $tableName VALUES (2L)"))
