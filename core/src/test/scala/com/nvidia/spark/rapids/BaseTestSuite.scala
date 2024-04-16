@@ -21,7 +21,7 @@ import scala.util.{Failure, Success, Try}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{SparkSession, TrampolineUtil}
+import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.ToolUtils
 
 class BaseTestSuite extends FunSuite with BeforeAndAfterEach with Logging {
@@ -102,14 +102,13 @@ class BaseTestSuite extends FunSuite with BeforeAndAfterEach with Logging {
     }
   }
 
-  def withTable(tableNames: String*)(f: => Unit): Unit = {
+  def withTable(spark: SparkSession, tableNames: String*)(f: => DataFrame): DataFrame = {
     try {
       f  // Execute the passed block of code.
     } finally {
-      createSparkSession()
       tableNames.foreach { name =>
         // Attempt to drop each table, ignoring any errors if the table doesn't exist.
-        sparkSession.sql(s"DROP TABLE IF EXISTS $name")
+        spark.sql(s"DROP TABLE IF EXISTS $name")
       }
     }
   }

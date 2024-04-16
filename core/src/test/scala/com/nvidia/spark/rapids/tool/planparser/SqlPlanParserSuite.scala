@@ -1663,29 +1663,29 @@ class SQLPlanParserSuite extends BaseTestSuite {
     val windowGroupLimitExecCmd = "WindowGroupLimit"
     val tbl_name = "foobar_tbl"
     TrampolineUtil.withTempDir { eventLogDir =>
-      withTable(tbl_name) {
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          windowGroupLimitExecCmd) { spark =>
-          spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
-          val query =
-            s"""
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+        windowGroupLimitExecCmd) { spark =>
+          withTable(spark, tbl_name) {
+            spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
+            val query =
+              s"""
             SELECT foo, bar FROM (
                 SELECT foo, bar,
                     RANK() OVER (PARTITION BY foo ORDER BY bar) as rank
                 FROM $tbl_name)
             WHERE rank <= 2"""
-          spark.sql(query)
+            spark.sql(query)
+          }
         }
-        val pluginTypeChecker = new PluginTypeChecker()
-        val app = createAppFromEventlog(eventLog)
-        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-        }
-        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-        val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
-        // We should have two WindowGroupLimitExec operators (Partial and Final).
-        assertSizeAndSupported(2, windowGroupLimitExecs)
+      val pluginTypeChecker = new PluginTypeChecker()
+      val app = createAppFromEventlog(eventLog)
+      val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+      val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
+      // We should have two WindowGroupLimitExec operators (Partial and Final).
+      assertSizeAndSupported(2, windowGroupLimitExecs)
     }
   }
 
@@ -1694,9 +1694,9 @@ class SQLPlanParserSuite extends BaseTestSuite {
     val windowGroupLimitExecCmd = "WindowGroupLimit"
     val tbl_name = "foobar_tbl"
     TrampolineUtil.withTempDir { eventLogDir =>
-      withTable(tbl_name) {
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          windowGroupLimitExecCmd) { spark =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+        windowGroupLimitExecCmd) { spark =>
+        withTable(spark, tbl_name) {
           spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
           val query =
             s"""
@@ -1707,22 +1707,22 @@ class SQLPlanParserSuite extends BaseTestSuite {
             WHERE rank <= 2"""
           spark.sql(query)
         }
-        val pluginTypeChecker = new PluginTypeChecker()
-        val app = createAppFromEventlog(eventLog)
-        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-        }
-        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-        val windowExecNotSupportedExprs = allExecInfo.filter(
-          _.exec.contains(windowGroupLimitExecCmd)).flatMap(x => x.unsupportedExprs)
-        windowExecNotSupportedExprs.head.exprName shouldEqual "row_number"
-        windowExecNotSupportedExprs.head.unsupportedReason shouldEqual
-            "Ranking function row_number is not supported in WindowGroupLimitExec"
-        val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
-        // We should have two WindowGroupLimitExec operators (Partial and Final) which are
-        // not supported due to unsupported expression.
-        assertSizeAndNotSupported(2, windowGroupLimitExecs)
       }
+      val pluginTypeChecker = new PluginTypeChecker()
+      val app = createAppFromEventlog(eventLog)
+      val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      }
+      val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+      val windowExecNotSupportedExprs = allExecInfo.filter(
+        _.exec.contains(windowGroupLimitExecCmd)).flatMap(x => x.unsupportedExprs)
+      windowExecNotSupportedExprs.head.exprName shouldEqual "row_number"
+      windowExecNotSupportedExprs.head.unsupportedReason shouldEqual
+          "Ranking function row_number is not supported in WindowGroupLimitExec"
+      val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
+      // We should have two WindowGroupLimitExec operators (Partial and Final) which are
+      // not supported due to unsupported expression.
+      assertSizeAndNotSupported(2, windowGroupLimitExecs)
     }
   }
 
@@ -1735,26 +1735,26 @@ class SQLPlanParserSuite extends BaseTestSuite {
     val tableName = "foobar_tbl"
     var planDf: Option[DataFrame] = None
     TrampolineUtil.withTempDir { eventLogDir =>
-      withTable(tableName) {
-        ToolTestUtils.generateEventLog(eventLogDir, overflowExprStr) { spark =>
+      ToolTestUtils.generateEventLog(eventLogDir, overflowExprStr) { spark =>
+        withTable(spark, tableName) {
           spark.sql(s"CREATE TABLE $tableName (foo INT) USING PARQUET")
           // Store the Spark Plan in a variable
           planDf = Some(spark.sql(s"INSERT INTO $tableName VALUES (2L)"))
           planDf.get
         }
-        // toJSON contains information about all expressions in all plan nodes.
-        // We can use it to check if the expression exists in any node.
-        val overflowExprInLogicalPlan = planDf.get.queryExecution.optimizedPlan
-          .toJSON.contains(overflowExprStr)
-        val overflowExprInPhysicalPlan = planDf.get.queryExecution.executedPlan
-          .toJSON.contains(overflowExprStr)
-
-        // Assert CheckOverflowInsert exists in Logical Plan but not in Physical Plan
-        assert(overflowExprInLogicalPlan,
-          "CheckOverflowInTableInsert should exist in the logical plan.")
-        assert(!overflowExprInPhysicalPlan,
-          "CheckOverflowInTableInsert should not exist in the physical plan.")
       }
+      // toJSON contains information about all expressions in all plan nodes.
+      // We can use it to check if the expression exists in any node.
+      val overflowExprInLogicalPlan = planDf.get.queryExecution.optimizedPlan
+        .toJSON.contains(overflowExprStr)
+      val overflowExprInPhysicalPlan = planDf.get.queryExecution.executedPlan
+        .toJSON.contains(overflowExprStr)
+
+      // Assert CheckOverflowInsert exists in Logical Plan but not in Physical Plan
+      assert(overflowExprInLogicalPlan,
+        "CheckOverflowInTableInsert should exist in the logical plan.")
+      assert(!overflowExprInPhysicalPlan,
+        "CheckOverflowInTableInsert should not exist in the physical plan.")
     }
   }
 }
