@@ -355,7 +355,7 @@ object RDDCheckHelper {
 }
 
 
-object ExecHelper extends Logging {
+object ExecHelper {
   private val UDFRegExLookup = Set(
     ".*(?<!python)UDF.*".r
   )
