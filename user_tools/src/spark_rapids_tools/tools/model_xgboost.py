@@ -48,6 +48,8 @@ expected_raw_features = set(
         'appDuration',
         'appName',
         'cache_hit_ratio',
+        'data_size',
+        'decode_time',
         'description',
         'diskBytesSpilled_sum',
         'diskBytesSpilledBool',
@@ -90,6 +92,10 @@ expected_raw_features = set(
         'resultSize_max',
         'runType',
         'scaleFactor',
+        'scan_bw',
+        'scan_time',
+        'shuffle_read_bw',
+        'shuffle_write_bw',
         'sparkVersion',
         'sqlID',
         'sqlOp_AQEShuffleRead',
@@ -144,6 +150,8 @@ expected_raw_features = set(
 expected_model_features = set(
     [
         'cache_hit_ratio',
+        'data_size',
+        'decode_time',
         'diskBytesSpilled_sum',
         'diskBytesSpilledBool',
         'diskBytesSpilledRatio',
@@ -179,6 +187,10 @@ expected_model_features = set(
         'resourceProfileId',
         'resultSerializationTime_sum',
         'resultSize_max',
+        'scan_bw',
+        'scan_time',
+        'shuffle_read_bw',
+        'shuffle_write_bw',
         'sqlOp_AQEShuffleRead',
         'sqlOp_BroadcastExchange',
         'sqlOp_BroadcastHashJoin',
@@ -510,6 +522,9 @@ def load_csv_files(
             stages_supp = pd.DataFrame(columns=['appId', 'sqlID', 'stageIds'])
             sql_level_supp = pd.DataFrame(columns=['App ID', 'SQL ID'])
 
+    # sqlids to drop due to failures meeting below criteria
+    sqls_to_drop = set()
+
     # Load job+stage level agg metrics:
     job_stage_agg_tbl = scan_tbl('job_+_stage_level_aggregated_task_metrics')
     if not any([job_stage_agg_tbl.empty, job_map_tbl.empty]):
@@ -522,6 +537,45 @@ def load_csv_files(
 
         # Only need job level aggs for now since one-to-many relationships between stageID and sqlID.
         job_stage_agg_tbl['js_type'] = job_stage_agg_tbl['ID'].str.split('_').str[0]
+        # mark for removal from modeling sqlids that have failed stage time > 10% total stage time
+        allowed_failed_duration_fraction = 0.10
+        stage_agg_tbl = job_stage_agg_tbl.loc[
+            job_stage_agg_tbl.js_type == 'stage'
+            ].reset_index()
+        stage_agg_tbl['ID'] = stage_agg_tbl['ID'].str.split('_').str[1].astype(int)
+        failed_stages = scan_tbl('failed_stages', warn_on_error=False)
+        if not sql_to_stage.empty and not failed_stages.empty:
+            stage_agg_tbl = stage_agg_tbl[['ID', 'Duration']].merge(
+                sql_to_stage, left_on='ID', right_on='stageId'
+            )
+            total_stage_time = (
+                stage_agg_tbl[['sqlID', 'ID', 'Duration']]
+                .groupby('sqlID')
+                .agg('sum')
+                .reset_index()
+            )
+            failed_stage_time = (
+                stage_agg_tbl[['sqlID', 'ID', 'Duration']]
+                .merge(failed_stages, left_on='ID', right_on='stageId', how='inner')
+                .groupby('sqlID')
+                .agg('sum')
+                .reset_index()
+                .drop(columns=['sqlID'])
+            )
+            stage_times = total_stage_time.merge(
+                failed_stage_time, on='ID', how='inner'
+            )
+            stage_times.info()
+            sqls_to_drop = set(
+                stage_times.loc[
+                    stage_times.Duration_y
+                    > stage_times.Duration_x * allowed_failed_duration_fraction
+                    ]['sqlID']
+            )
+
+        if sqls_to_drop:
+            logger.warning('Ignoring sqlIDs %s due to excessive failed/cancelled stage duration.', sqls_to_drop)
+
         if node_level_supp is not None and (qual_tool_filter == 'stage'):
             job_stage_agg_tbl = job_stage_agg_tbl[
                 job_stage_agg_tbl['js_type'] == 'stage'
@@ -581,8 +635,36 @@ def load_csv_files(
             right_on=['App ID', 'sqlID'],
         )
         app_info_mg = app_info_mg.drop(columns=['appID', 'appIndex', 'App ID'])
+
+        # filter out sqlIDs with aborted jobs (these are jobs failed due to sufficiently many (configurable)
+        # failed attempts of a stage due to error conditions).
+        # these are failed sqlIDs that we shouldn't model, but are still included in profiler output.
+        failed_jobs = scan_tbl('failed_jobs', warn_on_error=False)
+        if not failed_jobs.empty and not job_map_tbl.empty:
+            aborted_jobs = failed_jobs.loc[
+                failed_jobs.failureReason.str.contains('aborted')
+            ][['jobID']]
+            aborted_jobs['jobID'] = 'job_' + aborted_jobs['jobID'].astype(str)
+            aborted_jobs_sql_id = job_map_tbl.merge(
+                aborted_jobs, how='inner', on='jobID'
+            )
+            aborted_sql_ids = set(aborted_jobs_sql_id['sqlID'])
+        else:
+            aborted_sql_ids = set()
+
+        if aborted_sql_ids:
+            logger.warning('Ignoring sqlIDs %s due to aborted jobs.', aborted_sql_ids)
+
+        sqls_to_drop = sqls_to_drop.union(aborted_sql_ids)
+
+        if sqls_to_drop:
+            logger.warning('Ignoring a total of %d sqlIDs due to stage/job failures.', len(sqls_to_drop))
+            app_info_mg = app_info_mg.loc[~app_info_mg.sqlID.isin(sqls_to_drop)]
+
     else:
         app_info_mg = pd.DataFrame()
+
+    ds_tbl = scan_tbl('data_source_information')
 
     out = {
         'app_tbl': app_info_mg,
@@ -591,6 +673,7 @@ def load_csv_files(
         'job_map_tbl': job_map_tbl,
         'job_stage_agg_tbl': job_stage_agg_tbl,
         'wholestage_tbl': wholestage_tbl,
+        'ds_tbl': ds_tbl,
     }
 
     return out
@@ -828,6 +911,34 @@ def extract_raw_features(
     for cc in binarize_features:
         full_tbl[cc + 'Bool'] = full_tbl[cc + '_sum'] > 0
 
+    # add data source features
+    ds_tbl = combine_tables('ds_tbl')
+    grouped_ds_tbl = ds_tbl.groupby(['sqlID'], as_index=False).sum()
+    grouped_ds_tbl['scan_bw'] = (
+            1.0 * grouped_ds_tbl['data_size'] / grouped_ds_tbl['scan_time']
+    )
+    ds_cols = [
+        'sqlID',
+        'scan_bw',
+        'scan_time',
+        'decode_time',
+        'data_size',
+    ]
+    full_tbl = full_tbl.merge(grouped_ds_tbl[ds_cols], on=['sqlID'], how='left')
+
+    # add shuffle bandwidth aggregate features
+    full_tbl['shuffle_read_bw'] = (
+        (full_tbl['sr_totalBytesRead_sum'] / full_tbl['sr_fetchWaitTime_sum'])
+        .replace([np.inf, -np.inf], 0)
+        .fillna(0)
+    )
+    full_tbl['shuffle_write_bw'] = (
+        (full_tbl['sw_bytesWritten_sum'] / full_tbl['sw_writeTime_sum'])
+        .replace([np.inf, -np.inf], 0)
+        .fillna(0)
+    )
+    full_tbl[ds_cols] = full_tbl[ds_cols].replace([np.inf, -np.inf], 0).fillna(0)
+
     return full_tbl
 
 
@@ -983,6 +1094,13 @@ def extract_model_features(
 
         # use Duration_speedup as label
         label_col = 'Duration_speedup'
+
+        # remove nan label entries
+        original_num_rows = cpu_aug_tbl.shape[0]
+        cpu_aug_tbl = cpu_aug_tbl.loc[~cpu_aug_tbl[label_col].isna()]
+        if cpu_aug_tbl.shape[0] < original_num_rows:
+            logger.warning(
+                'Removed %d rows with NaN label values', original_num_rows - cpu_aug_tbl.shape[0])
     else:
         # inference dataset with CPU runs only
         label_col = None
