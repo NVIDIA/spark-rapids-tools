@@ -29,7 +29,6 @@ import org.scalatest.Matchers.{be, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.{DataFrame, TrampolineUtil}
-import org.apache.spark.sql.catalyst.expressions.CheckOverflowInTableInsert
 import org.apache.spark.sql.execution.ui.SQLPlanMetric
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -1726,12 +1725,13 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("CheckOverflowInsert should not exist in Physical Plan") {
+  runConditionalTest("CheckOverflowInsert should not exist in Physical Plan",
+    execsSupportedSparkGTE331) {
     // This test verifies that the 'CheckOverflowInsert' expression exists in the logical plan
     // but is absent in the physical plan as of Spark 3.5.0. If in future Spark versions,
     // 'CheckOverflowInsert' expression appears in the physical plan, this test will fail,
     // and we should to handle it appropriately.
-    val overflowExprStr = CheckOverflowInTableInsert.toString()
+    val overflowExprStr = "CheckOverflowInTableInsert"
     val tableName = "foobar_tbl"
     var planDf: Option[DataFrame] = None
     TrampolineUtil.withTempDir { eventLogDir =>

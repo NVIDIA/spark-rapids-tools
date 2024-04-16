@@ -73,6 +73,11 @@ class BaseTestSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "Spark340+ does not support the expression")
   }
 
+  protected def execsSupportedSparkGTE331(): (Boolean, String) = {
+    (ToolUtils.isSpark331OrLater(),
+      "Spark331+ supports the Exec/Expression")
+  }
+
   protected def execsSupportedSparkGTE340(): (Boolean, String) = {
     (ToolUtils.isSpark340OrLater(),
       "Spark340+ supports the Exec/Expression")
