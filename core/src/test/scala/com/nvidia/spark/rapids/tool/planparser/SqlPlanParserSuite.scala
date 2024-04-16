@@ -1668,11 +1668,11 @@ class SQLPlanParserSuite extends BaseTestSuite {
             spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
             val query =
               s"""
-            SELECT foo, bar FROM (
-                SELECT foo, bar,
-                    RANK() OVER (PARTITION BY foo ORDER BY bar) as rank
-                FROM $tbl_name)
-            WHERE rank <= 2"""
+              SELECT foo, bar FROM (
+                  SELECT foo, bar,
+                      RANK() OVER (PARTITION BY foo ORDER BY bar) as rank
+                  FROM $tbl_name)
+              WHERE rank <= 2"""
             spark.sql(query)
           }
         }
