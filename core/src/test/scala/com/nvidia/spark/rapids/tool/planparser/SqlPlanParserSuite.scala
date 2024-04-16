@@ -858,6 +858,21 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
+  test("Python UDFs should be supported") {
+    val eventLog = s"$qualLogDir/python_udf_eventlog"
+    val pluginTypeChecker = new PluginTypeChecker()
+    val app = createAppFromEventlog(eventLog)
+    assert(app.sqlPlans.size == 1)
+    val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+      SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+    }
+    val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+    val projectExec = execInfo.filter(_.exec.contains("Project"))
+    assertSizeAndSupported(2, projectExec)
+    val batchEvalPythonExec = execInfo.filter(_.exec.contains("BatchEvalPython"))
+    assertSizeAndSupported(1, batchEvalPythonExec)
+  }
+
   test("Expression not supported in FilterExec") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
