@@ -902,7 +902,7 @@ class Qualification(RapidsJarTool):
         Update savings if CPU cluster can be inferred and corresponding GPU cluster can be defined.
         :param cluster_info_df: Parsed cluster information.
         """
-        if self.ctxt.get_ctxt('cpuClusterProxy') is not None:
+        if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
             return
 
         # Infer the CPU cluster from the cluster information

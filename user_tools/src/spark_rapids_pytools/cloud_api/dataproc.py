@@ -165,6 +165,9 @@ class DataprocPlatform(PlatformBase):
     def generate_cluster_configuration(self, render_args: dict):
         executor_names = ','.join([f'"test-node-e{i}"' for i in range(render_args['NUM_EXECUTOR_NODES'])])
         render_args['EXECUTOR_NAMES'] = f'[{executor_names}]'
+        image_version = self.configs.get_value('clusterInference', 'defaultImage')
+        render_args['IMAGE'] = f'"{image_version}"'
+        render_args['ZONE'] = f'"{self.cli.get_zone()}"'
         return super().generate_cluster_configuration(render_args)
 
 

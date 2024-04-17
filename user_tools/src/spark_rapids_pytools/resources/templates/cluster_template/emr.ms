@@ -6,7 +6,7 @@
 	    "State": "TERMINATED"
 	  },
 	  "Ec2InstanceAttributes": {
-	    "Ec2AvailabilityZone": "us-west-2a"
+	    "Ec2AvailabilityZone": {{{ ZONE }}}
 	  },
 	  "InstanceGroups": [
 	    {
@@ -25,6 +25,7 @@
 	      "InstanceType": {{{ DRIVER_INSTANCE }}},
 	      "RequestedInstanceCount": {{ NUM_DRIVER_NODES }}
 	    }
-	  ]
+	  ],
+      "ReleaseLabel": {{{ IMAGE }}}
 	}
 }

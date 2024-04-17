@@ -3,7 +3,7 @@
   "clusterUuid": "1234-5678-1234567",
   "config": {
     "gceClusterConfig": {
-      "zoneUri": "us-central1-a"
+      "zoneUri": {{{ ZONE }}}
     },
     "masterConfig": {
       "instanceNames": [
@@ -16,6 +16,9 @@
       "instanceNames": {{{ EXECUTOR_NAMES }}},
       "machineTypeUri": {{{ EXECUTOR_INSTANCE }}},
       "numInstances": {{ NUM_EXECUTOR_NODES }}
+    },
+    "softwareConfig": {
+        "imageVersion": {{{ IMAGE }}}
     }
   },
   "status": {
