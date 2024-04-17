@@ -197,8 +197,8 @@ PosExplode,4
 Pow,4
 PreciseTimestampConversion,4
 PromotePrecision,4
-PythonUDF,4
-PythonUDAF,4
+PythonUDF,1.2
+PythonUDAF,1.2
 Quarter,4
 RLike,4
 RaiseError,4
