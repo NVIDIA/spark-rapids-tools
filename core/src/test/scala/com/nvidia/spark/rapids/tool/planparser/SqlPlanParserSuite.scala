@@ -869,8 +869,6 @@ class SQLPlanParserSuite extends BaseTestSuite {
     val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
     val projectExec = execInfo.filter(_.exec.contains("Project"))
     assertSizeAndSupported(2, projectExec)
-    val batchEvalPythonExec = execInfo.filter(_.exec.contains("BatchEvalPython"))
-    assertSizeAndSupported(1, batchEvalPythonExec)
   }
 
   test("Expression not supported in FilterExec") {

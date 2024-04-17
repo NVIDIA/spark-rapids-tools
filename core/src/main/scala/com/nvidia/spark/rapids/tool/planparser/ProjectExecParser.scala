@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.planparser
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.ExecHelper
 
 case class ProjectExecParser(
     node: SparkPlanGraphNode,
@@ -33,8 +34,9 @@ case class ProjectExecParser(
     val exprString = node.desc.replaceFirst("Project ", "")
     val expressions = SQLPlanParser.parseProjectExpressions(exprString)
     val notSupportedExprs = checker.getNotSupportedExprs(expressions)
+    val containsPythonUDF = ExecHelper.isPythonUDF(node)
     val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
-        notSupportedExprs.isEmpty) {
+        (notSupportedExprs.isEmpty || containsPythonUDF)) {
       (checker.getSpeedupFactor(fullExecName), true)
     } else {
       (1.0, false)
