@@ -33,7 +33,7 @@ from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
 from ..enums import QualFilterApp, CspEnv, QualEstimationModel
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
-from ..utils.util import dump_tool_usage
+from ..utils.util import dump_tool_usage, Utilities
 
 
 class ArgValueCase(IntEnum):
@@ -265,6 +265,27 @@ class ToolUserArgModel(AbsToolUserArgModel):
     This is used as doing preliminary validation against some of the common pattern
     """
     eventlogs: Optional[str] = None
+    jvm_heap_size: Optional[int] = None
+    jvm_threads: Optional[int] = None
+
+    def is_concurrent_submission(self):
+        return False
+
+    def process_jvm_args(self):
+        # JDK8 uses parallel-GC by default. Set the GC algorithm to G1GC
+        self.p_args['toolArgs']['jvmGC'] = '+UseG1GC'
+        jvm_heap = self.jvm_heap_size
+        if jvm_heap is None:
+            # set default GC heap size based on the virtual memory of the host.
+            jvm_heap = Utilities.get_system_memory_in_gb()
+        # check if both tools are going to run concurrently, then we need to reduce the heap size
+        # To reduce possibility of OOME, each core-tools thread should be running with at least 6 GB
+        # of heap.
+        adjusted_resources = Utilities.adjust_tools_resources(jvm_heap,
+                                                              jvm_processes=2 if self.is_concurrent_submission() else 1,
+                                                              jvm_threads=self.jvm_threads)
+        self.p_args['toolArgs']['jvmMaxHeapSize'] = jvm_heap
+        self.p_args['toolArgs']['jobResources'] = adjusted_resources
 
     def init_extra_arg_cases(self) -> list:
         if self.eventlogs is None:
@@ -405,6 +426,9 @@ class QualifyUserArgModel(ToolUserArgModel):
         self.validate_arguments()
         return self
 
+    def is_concurrent_submission(self):
+        return self.p_args['toolArgs']['estimationModel'] != QualEstimationModel.SPEEDUPS
+
     def build_tools_args(self) -> dict:
         # At this point, if the platform is still none, then we can set it to the default value
         # which is the onPrem platform.
@@ -436,6 +460,9 @@ class QualifyUserArgModel(ToolUserArgModel):
             if self.p_args['toolArgs']['filterApps'] == QualFilterApp.SAVINGS:
                 self.p_args['toolArgs']['filterApps'] = QualFilterApp.SPEEDUPS
 
+        # process JVM arguments
+        self.process_jvm_args()
+
         # finally generate the final values
         wrapped_args = {
             'runtimePlatform': runtime_platform,
@@ -453,8 +480,10 @@ class QualifyUserArgModel(ToolUserArgModel):
             'jobSubmissionProps': {
                 'remoteFolder': None,
                 'platformArgs': {
-                    'jvmMaxHeapSize': 24
-                }
+                    'jvmMaxHeapSize': self.p_args['toolArgs']['jvmMaxHeapSize'],
+                    'jvmGC': self.p_args['toolArgs']['jvmGC']
+                },
+                'jobResources': self.p_args['toolArgs']['jobResources']
             },
             'savingsCalculations': self.p_args['toolArgs']['savingsCalculations'],
             'eventlogs': self.eventlogs,
@@ -560,6 +589,9 @@ class ProfileUserArgModel(ToolUserArgModel):
                 'driverlog': self.p_args['toolArgs']['driverlog']
             }
 
+        # process JVM arguments
+        self.process_jvm_args()
+
         # finally generate the final values
         wrapped_args = {
             'runtimePlatform': runtime_platform,
@@ -574,8 +606,10 @@ class ProfileUserArgModel(ToolUserArgModel):
             'jobSubmissionProps': {
                 'remoteFolder': None,
                 'platformArgs': {
-                    'jvmMaxHeapSize': 24
-                }
+                    'jvmMaxHeapSize': self.p_args['toolArgs']['jvmMaxHeapSize'],
+                    'jvmGC': self.p_args['toolArgs']['jvmGC']
+                },
+                'jobResources': self.p_args['toolArgs']['jobResources']
             },
             'eventlogs': self.eventlogs,
             'requiresEventlogs': requires_event_logs,

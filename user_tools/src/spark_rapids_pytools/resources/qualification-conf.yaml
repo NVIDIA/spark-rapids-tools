@@ -92,7 +92,6 @@ sparkRapids:
       - ml-functions
       - n
       - num-output-rows
-      - num-threads
       - order
       - r
       - report-read-schema

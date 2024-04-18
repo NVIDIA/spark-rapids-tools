@@ -14,11 +14,12 @@
 
 
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on On-Prem cluster."""
-from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
+from spark_rapids_tools import CspEnv
+from spark_rapids_tools.utils import Utilities
 
 
 class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
@@ -91,7 +92,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#qualification-tool-options
         """
         verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
-        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j',
+                                               Utilities.get_system_memory_in_gb())
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         filter_apps = Utils.get_value_or_pop(filter_apps, rapids_options, 'f')
         local_folder = Utils.get_value_or_pop(local_folder, rapids_options, 'l')
@@ -175,7 +177,8 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#profiling-tool-options
         """
         verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
-        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j',
+                                               Utilities.get_system_memory_in_gb())
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
         worker_info = Utils.get_value_or_pop(worker_info, rapids_options, 'w')
