@@ -249,9 +249,20 @@ class Utilities:
         return int(0.8 * ps_memory.total / (1024 ** 3))
 
     @classmethod
+    def get_max_jvm_threads(cls) -> int:
+        """
+        Get the total cpu_count.
+        """
+        # Maximum number of threads that can be used in the tools JVM.
+        # cpu_count returns the logical number of cores. So, we take a 50% to get better representation
+        # of physical cores.
+        return min(6, (psutil.cpu_count() + 1) // 2)
+
+    @classmethod
     def adjust_tools_resources(cls,
                                jvm_heap: int,
-                               jvm_processes: int = 1) -> dict:
+                               jvm_processes: int,
+                               jvm_threads: Optional[int] = None) -> dict:
         """
         Calculate the number of threads to be used in the Rapids Tools JVM cmd.
         In concurrent mode, the profiler needs to have more heap, and more threads.
@@ -260,10 +271,22 @@ class Utilities:
         # Each thread should at least be running within 8 GB of heap memory
         concurrent_mode = cls.conc_mode_enabled and jvm_processes > 1
         heap_unit = max(cls.min_jvm_heap_per_thread, jvm_heap // 3 if concurrent_mode else jvm_heap)
-        num_threads_unit = max(1, heap_unit // cls.min_jvm_heap_per_thread)
+        # calculate the maximum number of threads.
+        upper_threads = cls.get_max_jvm_threads() // 3 if concurrent_mode else cls.get_max_jvm_threads()
+        if jvm_threads is None:
+            # make sure that the qual threads cannot exceed maximum allowed threads
+            num_threads_unit = min(upper_threads, max(1, heap_unit // cls.min_jvm_heap_per_thread))
+        else:
+            num_threads_unit = max(1, jvm_threads // 3) if concurrent_mode else jvm_threads
+
         # The Profiling will be assigned the remaining memory resources
-        profiler_heap = max(jvm_heap - heap_unit, cls.min_jvm_heap_per_thread) if concurrent_mode else heap_unit
-        profiler_threads = max(1, profiler_heap // cls.min_jvm_heap_per_thread) if concurrent_mode else num_threads_unit
+        prof_heap = max(jvm_heap - heap_unit, cls.min_jvm_heap_per_thread) if concurrent_mode else heap_unit
+        if jvm_threads is None:
+            prof_threads = max(1, prof_heap // cls.min_jvm_heap_per_thread) if concurrent_mode else num_threads_unit
+            # make sure that the profiler threads cannot exceed maximum allowed threads
+            prof_threads = min(upper_threads, prof_threads)
+        else:
+            prof_threads = max(1, jvm_threads - num_threads_unit) if concurrent_mode else jvm_threads
 
         return {
             'qualification': {
@@ -271,7 +294,7 @@ class Utilities:
                 'rapidsThreads': num_threads_unit
             },
             'profiling': {
-                'jvmMaxHeapSize': profiler_heap,
-                'rapidsThreads': profiler_threads
+                'jvmMaxHeapSize': prof_heap,
+                'rapidsThreads': prof_threads
             }
         }

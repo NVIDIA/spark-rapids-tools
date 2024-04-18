@@ -826,7 +826,7 @@ class RapidsJarTool(RapidsTool):
         if job_resources is None:
             # default values
             platform_args = submission_args.get('platformArgs')
-            job_resources = Utilities.adjust_tools_resources(platform_args.get('jvmMaxHeapSize'), 1)
+            job_resources = Utilities.adjust_tools_resources(platform_args.get('jvmMaxHeapSize'), jvm_processes=1)
         return job_resources.get(tool_name)
 
     def _get_rapids_threads_count(self, tool_name) -> List[str]:

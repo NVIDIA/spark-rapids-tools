@@ -266,6 +266,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
     """
     eventlogs: Optional[str] = None
     jvm_heap_size: Optional[int] = None
+    jvm_threads: Optional[int] = None
 
     def is_concurrent_submission(self):
         return False
@@ -281,7 +282,8 @@ class ToolUserArgModel(AbsToolUserArgModel):
         # To reduce possibility of OOME, each core-tools thread should be running with at least 6 GB
         # of heap.
         adjusted_resources = Utilities.adjust_tools_resources(jvm_heap,
-                                                              2 if self.is_concurrent_submission() else 1)
+                                                              jvm_processes=2 if self.is_concurrent_submission() else 1,
+                                                              jvm_threads=self.jvm_threads)
         self.p_args['toolArgs']['jvmMaxHeapSize'] = jvm_heap
         self.p_args['toolArgs']['jobResources'] = adjusted_resources
 
