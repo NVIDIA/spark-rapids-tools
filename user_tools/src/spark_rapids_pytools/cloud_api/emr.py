@@ -118,7 +118,7 @@ class EMRPlatform(PlatformBase):
         return CspEnv.pretty_print(CspEnv.get_default())
 
     def generate_cluster_configuration(self, render_args: dict):
-        image_version = self.configs.get_value('clusterInference', 'defaultImage')
+        image_version = self.configs.get_value_silent('clusterInference', 'defaultImage')
         render_args['IMAGE'] = f'"{image_version}"'
         render_args['ZONE'] = f'"{self.cli.get_zone()}"'
         return super().generate_cluster_configuration(render_args)
@@ -239,6 +239,12 @@ class EMRCMDDriver(CMDDriverBase):
         describe_cmd = f'aws emr describe-cluster --cluster-id {cluster_id}'
         return self.run_sys_cmd(describe_cmd)
 
+    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
+        raw_instance_descriptions = super()._exec_platform_describe_node_instance(node)
+        instance_descriptions = JSONPropertiesContainer(raw_instance_descriptions, file_load=False)
+        # Return the instance description of node type. Convert to valid JSON string for type matching.
+        return json.dumps(instance_descriptions.get_value('InstanceTypes')[0])
+
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
@@ -278,11 +284,6 @@ class EMRNode(ClusterNode):
     We assume that all nodes are running on EC2 instances.
     """
     ec2_instance: Ec2Instance = field(default=None, init=False)
-
-    def _pull_and_set_mc_props(self, cli=None):
-        instance_description = cli.exec_platform_describe_node_instance(self)
-        mc_description = json.loads(instance_description)['InstanceTypes'][0]
-        self.mc_props = JSONPropertiesContainer(prop_arg=mc_description, file_load=False)
 
     def _set_fields_from_props(self):
         self.name = self.ec2_instance.dns_name

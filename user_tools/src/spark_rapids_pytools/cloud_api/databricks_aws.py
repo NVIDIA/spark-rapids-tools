@@ -176,6 +176,12 @@ class DBAWSCMDDriver(CMDDriverBase):
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
+    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
+        raw_instance_descriptions = super()._exec_platform_describe_node_instance(node)
+        instance_descriptions = JSONPropertiesContainer(raw_instance_descriptions, file_load=False)
+        # Return the instance description of node type. Convert to valid JSON string for type matching.
+        return json.dumps(instance_descriptions.get_value('InstanceTypes')[0])
+
 
 @dataclass
 class DatabricksNode(EMRNode):
