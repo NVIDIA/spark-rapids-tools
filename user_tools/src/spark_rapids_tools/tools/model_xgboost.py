@@ -21,7 +21,7 @@ import os
 import re
 import traceback
 from pathlib import Path
-from typing import Optional, Mapping, List, Callable, Tuple
+from typing import Optional, Mapping, List, Dict, Callable, Tuple
 
 import numpy as np
 import pandas as pd
@@ -265,12 +265,15 @@ def find_paths(folder, filter_fn=None, return_directories=False):
     paths = []
     if folder and os.path.isdir(folder):
         for root, dirs, files in os.walk(folder):
-            if return_directories:
-                filtered_dirs = filter(filter_fn, dirs)
-                paths.extend([os.path.join(root, dir) for dir in filtered_dirs])
-            else:
-                filtered_files = filter(filter_fn, files)
-                paths.extend([os.path.join(root, file) for file in filtered_files])
+            try:
+                if return_directories:
+                    filtered_dirs = filter(filter_fn, dirs)
+                    paths.extend([os.path.join(root, dir) for dir in filtered_dirs])
+                else:
+                    filtered_files = filter(filter_fn, files)
+                    paths.extend([os.path.join(root, file) for file in filtered_files])
+            except Exception as e:  # pylint: disable=broad-except
+                logger.error('Error occurred when searching in %s: %s', folder, e)
     return paths
 
 
@@ -283,9 +286,12 @@ def load_qual_csv(
     qual_csv = [os.path.join(q, csv_filename) for q in qual_dirs]
     df = None
     if qual_csv:
-        df = pd.concat([pd.read_csv(f) for f in qual_csv])
-        if cols:
-            df = df[cols]
+        try:
+            df = pd.concat([pd.read_csv(f) for f in qual_csv])
+            if cols:
+                df = df[cols]
+        except Exception as e:  # pylint: disable=broad-except
+            logger.error('Error concatenating qualification output files: %s', e)
     return df
 
 
@@ -296,18 +302,21 @@ def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
     """
     node_level_supp = None
     if qtool_execs:
-        exec_info = pd.concat([pd.read_csv(f) for f in qtool_execs])
-        node_level_supp = exec_info.copy()
-        node_level_supp['Exec Is Supported'] = node_level_supp[
-                                                   'Exec Is Supported'
-                                               ] | node_level_supp['Action'].apply(
-            lambda x: x == 'IgnoreNoPerf')
-        node_level_supp = (
-            node_level_supp[['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']]
-            .groupby(['App ID', 'SQL ID', 'SQL Node Id'])
-            .agg('all')
-            .reset_index(level=[0, 1, 2])
-        )
+        try:
+            exec_info = pd.concat([pd.read_csv(f) for f in qtool_execs])
+            node_level_supp = exec_info.copy()
+            node_level_supp['Exec Is Supported'] = node_level_supp[
+                                                       'Exec Is Supported'
+                                                   ] | node_level_supp['Action'].apply(
+                lambda x: x == 'IgnoreNoPerf')
+            node_level_supp = (
+                node_level_supp[['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']]
+                .groupby(['App ID', 'SQL ID', 'SQL Node Id'])
+                .agg('all')
+                .reset_index(level=[0, 1, 2])
+            )
+        except Exception as e:  # pylint: disable=broad-except
+            logger.error('Error loading supported stage info from qualification output: %s', e)
     return node_level_supp
 
 
@@ -345,12 +354,27 @@ def get_qual_data(qual: Optional[str]):
     return node_level_supp, qual_app_preds, qual_sql_preds
 
 
+def safe_load_csv_files(
+        toc: pd.DataFrame,
+        app_id: str,
+        node_level_supp: Optional[pd.DataFrame],
+        qual_tool_filter: Optional[str]) -> Dict[str, pd.DataFrame]:
+    """
+    This wrapper function calls the load_csv_files function, handling any exceptions.
+    """
+    try:
+        return load_csv_files(toc, app_id, node_level_supp, qual_tool_filter)
+    except Exception as e:  # pylint: disable=broad-except
+        # We should catch this and continue parsing other applications
+        logger.error('Error loading csv data for app_id %s: %s', app_id, e)
+        return {}
+
+
 def load_csv_files(
         toc: pd.DataFrame,
         app_id: str,
         node_level_supp: Optional[pd.DataFrame],
-        qual_tool_filter: Optional[str],
-) -> List[Mapping[str, pd.DataFrame]]:
+        qual_tool_filter: Optional[str]) -> Dict[str, pd.DataFrame]:
     """
     Load profiler CSV files into memory.
     """
@@ -688,14 +712,14 @@ def extract_raw_features(
     # read all tables per appId
     unique_app_ids = toc['appId'].unique()
     app_id_tables = [
-        load_csv_files(toc, app_id, node_level_supp, qualtool_filter)
+        safe_load_csv_files(toc, app_id, node_level_supp, qualtool_filter)
         for app_id in unique_app_ids
     ]
 
     def combine_tables(table_name: str) -> pd.DataFrame:
         """Combine csv tables (by name) across all appIds."""
         merged = pd.concat(
-            [app_id_tables[i][table_name] for i in range(len(app_id_tables))]
+            [app_id_tables[i][table_name] for i in range(len(app_id_tables)) if table_name in app_id_tables[i]]
         )
         return merged
 
@@ -977,7 +1001,7 @@ def load_profiles(
     # get list of csv files from each profile
     for dataset_name, dataset_meta in profiles.items():
         toc_list = []
-        profile_paths = dataset_meta['profiles']
+        profile_paths = dataset_meta.get('profiles', [])
         # use default values for prediction if no app_meta provided
         app_meta = dataset_meta.get(
             'app_meta', {'default': {'runType': 'CPU', 'scaleFactor': 1}}
@@ -985,28 +1009,32 @@ def load_profiles(
         scalefactor_meta = dataset_meta.get('scaleFactorFromSqlIDRank', None)
         for path in profile_paths:
             for app_id in app_meta.keys():
-                if app_id == 'default':
-                    csv_files = glob.glob(f'{path}/**/*.csv', recursive=True)
-                else:
-                    csv_files = glob.glob(f'{path}/**/{app_id}/*.csv', recursive=True)
-                if csv_files:
-                    tmp = pd.DataFrame({'filepath': csv_files})
-                    fp_split = tmp['filepath'].str.split(r'/')
-                    tmp['test_name'] = dataset_name
-                    tmp['appId'] = fp_split.str[-2]
-                    tmp['table_name'] = fp_split.str[-1].str[:-4]
-                    tmp['runType'] = (
-                        app_meta[app_id]['runType']
-                        if app_id in app_meta
-                        else app_meta['default']['runType']
-                    )
-                    if not scalefactor_meta:
-                        tmp['scaleFactor'] = (
-                            app_meta[app_id]['scaleFactor']
+                try:
+                    if app_id == 'default':
+                        csv_files = glob.glob(f'{path}/**/*.csv', recursive=True)
+                    else:
+                        csv_files = glob.glob(f'{path}/**/{app_id}/*.csv', recursive=True)
+                    if csv_files:
+                        tmp = pd.DataFrame({'filepath': csv_files})
+                        fp_split = tmp['filepath'].str.split(r'/')
+                        tmp['test_name'] = dataset_name
+                        tmp['appId'] = fp_split.str[-2]
+                        tmp['table_name'] = fp_split.str[-1].str[:-4]
+                        tmp['runType'] = (
+                            app_meta[app_id]['runType']
                             if app_id in app_meta
-                            else app_meta['default']['scaleFactor']
+                            else app_meta['default']['runType']
                         )
-                    toc_list.append(tmp)
+                        if not scalefactor_meta:
+                            tmp['scaleFactor'] = (
+                                app_meta[app_id]['scaleFactor']
+                                if app_id in app_meta
+                                else app_meta['default']['scaleFactor']
+                            )
+                        toc_list.append(tmp)
+                except Exception as e:  # pylint: disable=broad-except
+                    # We should catch this and continue parsing other applications
+                    logger.error('Error parsing application %s: %s', app_id, e)
 
         if toc_list:
             toc = pd.concat(toc_list)
@@ -1322,6 +1350,25 @@ def _print_summary(summary):
     print(tabulate(formatted, headers='keys', tablefmt='psql', floatfmt='.2f'))
 
 
+def _print_speedup_summary(dataset_summary: pd.DataFrame):
+    try:
+        overall_speedup = (
+                dataset_summary['appDuration'].sum()
+                / dataset_summary['appDuration_pred'].sum()
+        )
+        total_applications = dataset_summary.shape[0]
+        summary = {
+            'Total applications': total_applications,
+            'Overall estimated speedup': overall_speedup,
+        }
+        summary_df = pd.DataFrame(summary, index=[0]).transpose()
+        print('\nReport Summary:')
+        print(tabulate(summary_df, colalign=('left', 'right')))
+        print()
+    except Exception as e:  # pylint: disable=broad-except
+        logger.error('Error generating summary for stdout: %s', e)
+
+
 def predict(platform: str = 'onprem',
             qual: Optional[str] = None,
             profile: Optional[str] = None,
@@ -1388,7 +1435,8 @@ def predict(platform: str = 'onprem',
                 # compute per-app speedups
                 summary = _compute_summary(results)
                 dataset_summaries.append(summary)
-                _print_summary(summary)
+                if INTERMEDIATE_DATA_ENABLED:
+                    _print_summary(summary)
 
                 # compute speedup for the entire dataset
                 dataset_speedup = (
@@ -1418,19 +1466,7 @@ def predict(platform: str = 'onprem',
     if dataset_summaries:
         # show summary stats across all datasets
         dataset_summary = pd.concat(dataset_summaries)
-        overall_speedup = (
-                dataset_summary['appDuration'].sum()
-                / dataset_summary['appDuration_pred'].sum()
-        )
-        total_applications = dataset_summary.shape[0]
-        summary = {
-            'Total applications': total_applications,
-            'Overall estimated speedup': overall_speedup,
-        }
-        summary_df = pd.DataFrame(summary, index=[0]).transpose()
         if INTERMEDIATE_DATA_ENABLED:
-            print('\nReport Summary:')
-            print(tabulate(summary_df, colalign=('left', 'right')))
-            print()
+            _print_speedup_summary(dataset_summary)
         return dataset_summary
     return pd.DataFrame()
