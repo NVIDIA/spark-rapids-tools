@@ -274,28 +274,6 @@
           "value": "`bloom_filter_agg`"
         }
       ]
-    },
-    {
-      "Expression": "InSubqueryExec",
-      "Context": "project",
-      "Params": "input",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
-      "Expression": "InSubqueryExec",
-      "Context": "project",
-      "Params": "result",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
     }
   ],
   "supportedExecs.csv": [
