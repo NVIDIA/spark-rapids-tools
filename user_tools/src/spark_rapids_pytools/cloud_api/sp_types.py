@@ -159,7 +159,8 @@ class ClusterNode:
         pass
 
     def _pull_and_set_mc_props(self, cli=None):
-        pass
+        instances_description = cli.exec_platform_describe_node_instance(self) if cli else None
+        self.mc_props = JSONPropertiesContainer(prop_arg=instances_description, file_load=False)
 
     def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
         raise NotImplementedError
@@ -292,6 +293,7 @@ class CMDDriverBase:
     timeout: int = 0
     env_vars: dict = field(default_factory=dict, init=False)
     logger: Logger = None
+    instance_descriptions_cache: dict = field(default_factory=dict, init=False)
 
     def get_env_var(self, key: str):
         return self.env_vars.get(key)
@@ -506,7 +508,14 @@ class CMDDriverBase:
         del node  # Unused by super method.
         return []
 
-    def exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
+    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
+        """
+        Generates a cache key from the node's instance type for accessing the instance description cache.
+        This default implementation should be overridden by subclasses that require additional fields.
+        """
+        return (node.instance_type,)
+
+    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
         """
         Given a node, execute platform CLI to pull the properties of the instance type running on
         that node
@@ -515,6 +524,17 @@ class CMDDriverBase:
         """
         cmd_params = self._build_platform_describe_node_instance(node=node)
         return self.run_sys_cmd(cmd_params)
+
+    def exec_platform_describe_node_instance(self, node: ClusterNode):
+        """
+        Returns the instance type description of the cluster node. If the description
+        is not cached, it executes a platform specific command to fetch and cache it.
+        """
+        key = self._get_instance_description_cache_key(node)
+        if key not in self.instance_descriptions_cache:
+            # Cache the instance description
+            self.instance_descriptions_cache[key] = self._exec_platform_describe_node_instance(node)
+        return self.instance_descriptions_cache[key]
 
     def _build_platform_list_cluster(self,
                                      cluster,

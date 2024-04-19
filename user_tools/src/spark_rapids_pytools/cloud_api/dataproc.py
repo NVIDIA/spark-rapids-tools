@@ -195,6 +195,9 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                       f'{node.zone}']
         return cmd_params
 
+    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
+        return node.instance_type, node.zone
+
     def _build_platform_list_cluster(self,
                                      cluster,
                                      query_args: dict = None) -> list:
@@ -358,10 +361,6 @@ class DataprocNode(ClusterNode):
         cpu_mem = self.mc_props.get_value('memoryMb')
         num_cpus = self.mc_props.get_value('guestCpus')
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
-
-    def _pull_and_set_mc_props(self, cli=None):
-        instance_description = cli.exec_platform_describe_node_instance(self)
-        self.mc_props = JSONPropertiesContainer(prop_arg=instance_description, file_load=False)
 
     def _set_fields_from_props(self):
         # set the machine type
