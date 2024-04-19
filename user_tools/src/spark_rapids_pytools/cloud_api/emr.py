@@ -205,6 +205,9 @@ class EMRCMDDriver(CMDDriverBase):
                       '--instance-types', f'{node.instance_type}']
         return cmd_params
 
+    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
+        return node.instance_type, self.get_region()
+
     def get_zone(self) -> str:
         describe_cmd = ['aws ec2 describe-availability-zones',
                         '--region', f'{self.get_region()}']

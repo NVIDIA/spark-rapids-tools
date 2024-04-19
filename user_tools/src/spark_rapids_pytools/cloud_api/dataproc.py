@@ -195,6 +195,9 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                       f'{node.zone}']
         return cmd_params
 
+    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
+        return node.instance_type, node.zone
+
     def _build_platform_list_cluster(self,
                                      cluster,
                                      query_args: dict = None) -> list:
