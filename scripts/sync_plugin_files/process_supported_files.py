@@ -201,7 +201,7 @@ def override_supported_configs(json_data, file_name, df, keys):
     return df
 
 
-def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_json, csv_file_name):
+def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_json, csv_file_name, new_operators_file=None):
     """
     Compare the plugin union dataframe with tools dataframe and write the differences to report file.
     For added rows in the plugin union Dataframe, update the 'Supported' or first support level column
@@ -264,6 +264,13 @@ def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_jso
                     else:
                         override_configs_json[csv_file_name] = [json_entry]
                     break
+            new_operator = ""
+            if ("Exec" in union_row):
+                new_operator = union_row["Exec"]
+            elif ("Expression" in union_row):
+                new_operator = union_row["Expression"]
+            if new_operator != "":
+                new_operators_file.write(f"{new_operator}\n")
             report_file.write(f"Row is added: {', '.join(union_row.astype(str))}\n")
 
     # removed rows in plugin union dataframe (compared with tools)
@@ -335,6 +342,9 @@ def main(argvs):
         exprs_final_df = exprs_union_df
         report_file.write("Report is not generated: no input tools CSV directory.")
     else:
+        # Construct a file to store all new Exec/Expressions from plugin CSV
+        new_operators_file = open('new_operators.txt', 'w+')
+
         logging.info("Writing report for supportedDataSource.csv")
         tools_data_source_file = os.path.join(tools_csv_dir, "supportedDataSource.csv")
         if os.path.exists(tools_data_source_file):
@@ -349,7 +359,7 @@ def main(argvs):
             report_file.write("\n**supportedExecs.csv (FROM TOOLS TO PLUGIN)**\n")
             tools_execs_df = pd.read_csv(tools_execs_file, keep_default_na=False)
             execs_final_df = compare_csv_file(execs_union_df, tools_execs_df, ["Exec", "Params"], report_file,
-                                              override_configs_json, "supportedExecs.csv")
+                                              override_configs_json, "supportedExecs.csv", new_operators_file)
 
         logging.info("Writing report for supportedExprs.csv")
         tools_exprs_file = os.path.join(tools_csv_dir, "supportedExprs.csv")
@@ -357,7 +367,9 @@ def main(argvs):
             report_file.write("\n**supportedExprs.csv (FROM TOOLS TO PLUGIN)**\n")
             tools_exprs_df = pd.read_csv(tools_exprs_file, keep_default_na=False)
             exprs_final_df = compare_csv_file(exprs_union_df, tools_exprs_df, ["Expression", "Context", "Params"],
-                                              report_file, override_configs_json, "supportedExprs.csv")
+                                              report_file, override_configs_json, "supportedExprs.csv", new_operators_file)
+        new_operators_file.close()
+
     report_file.close()
 
     # write the final result dataframes to output CSV files
