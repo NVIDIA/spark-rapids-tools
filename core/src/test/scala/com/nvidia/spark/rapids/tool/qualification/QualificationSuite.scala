@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.ml.feature.PCA
@@ -173,7 +174,7 @@ class QualificationSuite extends BaseTestSuite {
 
       // Default expectation for the status counts - All applications are successful.
       val expectedStatusCounts =
-        expectedStatus.getOrElse(StatusReportCounts(appSum.length, 0, 0))
+        expectedStatus.getOrElse(StatusReportCounts(appSum.length, 0, 0, 0))
       // Compare the expected status counts with the actual status counts from the application
       ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
         expectedStatusCounts)
@@ -278,7 +279,7 @@ class QualificationSuite extends BaseTestSuite {
       assert(appSum.head.appId.equals("local-1622043423018"))
 
       // Default expectation for the status counts - All applications are successful.
-      val expectedStatusCount = StatusReportCounts(appSum.length, 0, 0)
+      val expectedStatusCount = StatusReportCounts(appSum.length, 0, 0, 0)
       // Compare the expected status counts with the actual status counts from the application
       ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath, expectedStatusCount)
 
@@ -435,8 +436,8 @@ class QualificationSuite extends BaseTestSuite {
       assert(exit == 0)
       assert(appSum.size == 0)
 
-      // Application should fail. Status counts: 0 SUCCESS, 0 FAILURE, 1 UNKNOWN
-      val expectedStatusCounts = StatusReportCounts(0, 0, 1)
+      // Application should fail. Status counts: 0 SUCCESS, 0 FAILURE, 1 SKIPPED, 0 UNKNOWN
+      val expectedStatusCounts = StatusReportCounts(0, 0, 1, 0)
       // Compare the expected status counts with the actual status counts from the application
       ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
         expectedStatusCounts)
@@ -459,7 +460,7 @@ class QualificationSuite extends BaseTestSuite {
     val badEventLog = s"$profileLogDir/malformed_json_eventlog.zstd"
     val logFiles = Array(s"$logDir/nds_q86_test", badEventLog)
     // Status counts: 1 SUCCESS, 0 FAILURE, 1 UNKNOWN
-    val expectedStatus = Some(StatusReportCounts(1, 0, 1))
+    val expectedStatus = Some(StatusReportCounts(1, 0, 0, 1))
     runQualificationTest(logFiles, "nds_q86_test_expectation.csv", expectedStatus = expectedStatus)
   }
 
@@ -878,9 +879,9 @@ class QualificationSuite extends BaseTestSuite {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val tagConfs =
-          Map("spark.databricks.clusterUsageTags.clusterAllTags" -> "*********(redacted)",
-            "spark.databricks.clusterUsageTags.clusterId" -> "0617-131246-dray530",
-            "spark.databricks.clusterUsageTags.clusterName" -> "job-215-run-34243234")
+          Map(DatabricksParseHelper.PROP_ALL_TAGS_KEY -> "*********(redacted)",
+            DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY -> "0617-131246-dray530",
+            DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY -> "job-215-run-34243234")
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted",
           Some(tagConfs)) {
           spark =>
@@ -919,7 +920,7 @@ class QualificationSuite extends BaseTestSuite {
             |{"key":"RunName","value":"test73longer"},{"key":"DatabricksEnvironment",
             |"value":"workerenv-7026851462233806"}]""".stripMargin
         val tagConfs =
-          Map("spark.databricks.clusterUsageTags.clusterAllTags" -> allTagsConfVal)
+          Map(DatabricksParseHelper.PROP_ALL_TAGS_KEY -> allTagsConfVal)
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertags",
           Some(tagConfs)) { spark =>
           import spark.implicits._

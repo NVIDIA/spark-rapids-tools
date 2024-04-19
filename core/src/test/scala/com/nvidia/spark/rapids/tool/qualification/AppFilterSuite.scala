@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,10 +106,10 @@ class AppFilterSuite extends BaseTestSuite {
         assert(exit == 0)
         val expectedStatusCount = if (failFilter) {
           assert(appSum.size == 0)
-          StatusReportCounts(0, 1, 0) // Status counts: 0 SUCCESS, 1 FAILURE, 0 UNKNOWN
+          StatusReportCounts(0, 1, 0, 0) // Status counts: 0 SUCCESS, 1 FAILURE, 0 UNKNOWN
         } else {
           assert(appSum.size == 1)
-          StatusReportCounts(1, 0, 0) // Status counts: 1 SUCCESS, 0 FAILURE, 0 UNKNOWN
+          StatusReportCounts(1, 0, 0, 0) // Status counts: 1 SUCCESS, 0 FAILURE, 0 UNKNOWN
         }
         // Compare the expected status counts with the actual status counts from the application
         ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,

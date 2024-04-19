@@ -189,7 +189,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
             s"Increase heap size.", oom)
         System.exit(1)
       case o: Error =>
-        logError(s"Error occured while processing file: $pathStr", o)
+        logError(s"Error occurred while processing file: $pathStr", o)
         System.exit(1)
       case e: Exception =>
         progressBar.foreach(_.reportFailedProcess())

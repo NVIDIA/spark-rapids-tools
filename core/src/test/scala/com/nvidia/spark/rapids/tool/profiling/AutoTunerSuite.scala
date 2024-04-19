@@ -22,6 +22,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.{A100Gpu, GpuDevice, PlatformFactory, PlatformNames, T4Gpu}
+import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.scalatest.Matchers.convertToAnyShouldWrapper
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -1878,7 +1879,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
-        "spark.databricks.clusterUsageTags.sparkVersion" -> "11.3.x-gpu-ml-scala2.12"),
+        DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY -> "11.3.x-gpu-ml-scala2.12"),
       Some("3.3.0"), Seq())
     // Do not set the platform as DB to see if it can work correctly irrespective
     val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
