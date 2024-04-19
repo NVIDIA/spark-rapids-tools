@@ -50,13 +50,11 @@ def main(argvs):
     with open(new_operators_file, 'r') as f:
         for line in f:
             new_operators.add(line.strip())
-    print(new_operators)
 
     if os.path.exists(operator_score_dir) and os.path.isdir(operator_score_dir):
         for file in os.listdir(operator_score_dir):
             file_path = os.path.join(operator_score_dir, file)
             if "operatorsScore" in file_path and os.path.isfile(file_path):
-                print(file_path)
                 operator_file = open(file_path, 'a')
                 for operator in new_operators:
                     operator_file.write(f"{operator},{score}\n")
