@@ -970,6 +970,9 @@ class Qualification(RapidsJarTool):
         predictions_df = predict(platform=model_name, qual=input_dir,
                                  profile=input_dir, output_info=output_info)
 
+        if predictions_df.empty:
+            return all_apps
+
         result_info = self.ctxt.get_value('local', 'output', 'predictionModel', 'updateResult')
         # Merge with a left join to include all rows from all apps and relevant rows from model predictions
         result_df = pd.merge(all_apps, predictions_df[result_info['subsetColumns']],
