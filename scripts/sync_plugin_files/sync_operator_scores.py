@@ -18,20 +18,13 @@ Description:
     appends them to the operator score files under operator_score_dir directory, and
     assigns them an default or user input score.
 
-Dependencies:
-    - numpy >= 1.23.3
-    - pandas >= 2.0.3
-
 Usage:
     python sync_operator_scores.py new_operators operator_score_dir [--new-score score]
 """
 
 import argparse
-import json
 import logging
 import os
-
-import pandas as pd
 
 
 def main(argvs):
@@ -51,10 +44,11 @@ def main(argvs):
         for line in f:
             new_operators.add(line.strip())
 
+    operScoreFilePrefix = "operatorsScore"
     if os.path.exists(operator_score_dir) and os.path.isdir(operator_score_dir):
         for file in os.listdir(operator_score_dir):
             file_path = os.path.join(operator_score_dir, file)
-            if "operatorsScore" in file_path and os.path.isfile(file_path):
+            if file.startswith(operScoreFilePrefix) and os.path.isfile(file_path):
                 operator_file = open(file_path, 'a')
                 for operator in new_operators:
                     operator_file.write(f"{operator},{score}\n")

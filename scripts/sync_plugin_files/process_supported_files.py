@@ -214,6 +214,7 @@ def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_jso
     - report_file: A file to write the differences into.
     - override_configs_json: A json object which stores the override configs information.
     - csv_file_name: File name to identify which supported CSV type is processing.
+    - new_operators_file: File to write the new operators in the plugin CSV files.
 
     Returns:
     - Modified union_df which may contain 'TNEW' entries.
