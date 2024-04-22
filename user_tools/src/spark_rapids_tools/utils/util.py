@@ -19,6 +19,7 @@ import pathlib
 import re
 import ssl
 import sys
+import textwrap
 import urllib
 import xml.etree.ElementTree as elem_tree
 from functools import reduce
@@ -298,3 +299,13 @@ class Utilities:
                 'rapidsThreads': prof_threads
             }
         }
+
+    @classmethod
+    def squeeze_df_header(cls, df_row: pd.DataFrame, header_width: int) -> pd.DataFrame:
+        for column in df_row.columns:
+            if len(column) > header_width:
+                new_column_name = textwrap.fill(column, header_width, break_long_words=False)
+                if new_column_name != column:
+                    df_row.columns = df_row.columns.str.replace(column,
+                                                                new_column_name, regex=False)
+        return df_row
