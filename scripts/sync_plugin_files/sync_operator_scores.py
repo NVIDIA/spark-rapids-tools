@@ -44,22 +44,21 @@ def main(argvs):
         for line in f:
             new_operators.add(line.strip())
 
-    operScoreFilePrefix = "operatorsScore"
+    oper_score_file_prefix = 'operatorsScore'
     if os.path.exists(operator_score_dir) and os.path.isdir(operator_score_dir):
         for file in os.listdir(operator_score_dir):
             file_path = os.path.join(operator_score_dir, file)
-            if file.startswith(operScoreFilePrefix) and os.path.isfile(file_path):
-                operator_file = open(file_path, 'a')
-                for operator in new_operators:
-                    operator_file.write(f"{operator},{score}\n")
-    return
+            if file.startswith(oper_score_file_prefix) and os.path.isfile(file_path):
+                with open(file_path, 'a') as operator_file:
+                    for operator in new_operators:
+                        operator_file.write(f'{operator},{score}\n')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("new_operators_file", type=str, help="A text file with the new operators.")
+    parser.add_argument('new_operators_file', type=str, help='A text file with the new operators.')
     parser.add_argument('operator_score_dir', type=str, help='Path to directory with operator score files.')
     parser.add_argument('--new-score', type=float, help='Score for the new operators.', default='1.0')
 
