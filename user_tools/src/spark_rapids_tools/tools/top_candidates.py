@@ -15,8 +15,6 @@
 """Implementation class for Top Candidates logic."""
 
 from dataclasses import dataclass, field
-from typing import Optional
-from functools import partial
 
 import pandas as pd
 
@@ -32,11 +30,7 @@ class TopCandidates:
         """
         Generic method to filter applications based on criteria
         """
-        filtered_apps = all_apps[all_apps.apply(self.__filter_single_row, axis=1)]
-        # Select output columns and sort
-        output_columns = self.props.get('outputColumns')
-        sorting_columns = self.props.get('sortingColumns')
-        return filtered_apps[output_columns].sort_values(by=sorting_columns, ascending=False)
+        return all_apps[all_apps.apply(self.__filter_single_row, axis=1)]
 
     def __filter_single_row(self, single_row: pd.Series) -> bool:
         """
@@ -60,19 +54,7 @@ class TopCandidates:
         """
         Generic method to transform applications for the output
         """
-        output_props = self.props.get('output')
-
-        # Function to remap column values based on recommended ranges
-        def remap_column(col_value, recommended_ranges: dict) -> Optional[str]:
-            for s_range in recommended_ranges:
-                if s_range['lowerBound'] <= col_value < s_range['upperBound']:
-                    return s_range['title']
-            return None
-
-        # Iterate over each entry and apply remapping to respective columns
-        for remap_entry in output_props.get('remap', []):
-            column_name = remap_entry.get('columnName')
-            recommendation_ranges = remap_entry.get('recommendationRanges')
-            remap_func = partial(remap_column, recommended_ranges=recommendation_ranges)
-            all_apps[column_name] = all_apps[column_name].apply(remap_func)
-        return all_apps[output_props.get('columns', [])]
+        output_columns = self.props.get('outputColumns')
+        sorting_columns = self.props.get('sortingColumns')
+        # Sort columns and select output columns
+        return all_apps.sort_values(by=sorting_columns, ascending=False)[output_columns]

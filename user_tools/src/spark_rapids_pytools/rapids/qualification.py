@@ -16,8 +16,9 @@
 
 import textwrap
 from dataclasses import dataclass, field
+from functools import partial
 from math import ceil
-from typing import Any, List, Callable
+from typing import Any, List, Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -424,11 +425,24 @@ class Qualification(RapidsJarTool):
         existing_cols_subset = Utilities.get_valid_df_columns(cols_subset, all_rows)
         cols_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'mapColumns')
         subset_data = all_rows.loc[:, existing_cols_subset]
-        if cols_map:
-            for col_rename in cols_map:
-                subset_data.columns = subset_data.columns.str.replace(col_rename,
-                                                                      cols_map.get(col_rename),
-                                                                      regex=False)
+
+        # Function to remap column values based on recommended ranges
+        def remap_column(col_value, recommended_ranges: dict) -> Optional[str]:
+            for s_range in recommended_ranges:
+                if s_range['lowerBound'] <= col_value < s_range['upperBound']:
+                    return s_range['title']
+            return None
+
+        # Iterate over each entry and apply remapping to respective columns
+        for remap_entry in cols_map:
+            src_col, dst_col = remap_entry.get('srcCol'), remap_entry.get('dstCol')
+            recommendation_ranges = remap_entry.get('recommendationRanges')
+            if recommendation_ranges:
+                remap_func = partial(remap_column, recommended_ranges=recommendation_ranges)
+                subset_data[dst_col] = subset_data[src_col].apply(remap_func)
+            else:
+                subset_data[dst_col] = subset_data[src_col]
+
         # Drop columns with only NA values for a cleaner final output.
         return subset_data.dropna(axis=1, how='all')
 
