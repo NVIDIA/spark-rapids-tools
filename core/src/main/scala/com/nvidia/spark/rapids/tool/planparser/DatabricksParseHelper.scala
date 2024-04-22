@@ -64,12 +64,9 @@ object DatabricksParseHelper extends Logging {
   def parseClusterNameForJobId(clusterNameString: String): Option[String] = {
     var jobId: Option[String] = None
     val splitArr = clusterNameString.split("-")
-    if (splitArr.contains("job")) {
-      val jobIdx = splitArr.indexOf("job")
-      // indexes are 0 based so adjust to compare to length
-      if (splitArr.length > jobIdx + 1) {
-        jobId = Some(splitArr(jobIdx + 1))
-      }
+    val jobIdx = splitArr.indexOf("job")
+    if (jobIdx != -1 && splitArr.length > jobIdx + 1) {
+      jobId = Some(splitArr(jobIdx + 1))
     }
     jobId
   }

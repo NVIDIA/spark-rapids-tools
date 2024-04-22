@@ -446,8 +446,7 @@ case class StreamingEventLogException(
 
 case class IncorrectAppStatusException(
     message: String = "Application status is incorrect. Missing AppInfo")
-    extends AppEventlogProcessException(message
-)
+    extends AppEventlogProcessException(message)
 
 // Class used a container to hold the information of the Tuple<sqlID, PlanInfo, SparkGraph>
 // to simplify arguments of methods and caching.

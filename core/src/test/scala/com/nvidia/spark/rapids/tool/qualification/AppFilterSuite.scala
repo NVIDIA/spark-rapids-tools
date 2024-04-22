@@ -106,10 +106,12 @@ class AppFilterSuite extends BaseTestSuite {
         assert(exit == 0)
         val expectedStatusCount = if (failFilter) {
           assert(appSum.size == 0)
-          StatusReportCounts(0, 1, 0, 0) // Status counts: 0 SUCCESS, 1 FAILURE, 0 UNKNOWN
+          // Status counts: 0 SUCCESS, 1 FAILURE, 0 SKIPPED, 0 UNKNOWN
+          StatusReportCounts(0, 1, 0, 0)
         } else {
           assert(appSum.size == 1)
-          StatusReportCounts(1, 0, 0, 0) // Status counts: 1 SUCCESS, 0 FAILURE, 0 UNKNOWN
+          // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+          StatusReportCounts(1, 0, 0, 0)
         }
         // Compare the expected status counts with the actual status counts from the application
         ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
