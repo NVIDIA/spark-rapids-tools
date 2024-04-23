@@ -180,6 +180,7 @@ object ToolTestUtils extends Logging {
       val actualStatusReportCount = StatusReportCounts(
         countStatus("SUCCESS"),
         countStatus("FAILURE"),
+        countStatus("SKIPPED"),
         countStatus("UNKNOWN"))
       assert(actualStatusReportCount == expStatusReportCount)
     }
@@ -189,4 +190,4 @@ object ToolTestUtils extends Logging {
 /**
  * Case class representing the counts of different status categories in a status report.
  */
-case class StatusReportCounts(success: Long, failure: Long, unknown: Long)
+case class StatusReportCounts(success: Long, failure: Long, skipped: Long, unknown: Long)
