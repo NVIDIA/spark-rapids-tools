@@ -1167,10 +1167,17 @@ class ClusterBase(ClusterGetAccessor):
         render_args = self._set_render_args_bootstrap_template(overridden_args)
         return TemplateGenerator.render_template_file(template_path, render_args)
 
-    def generate_node_configuration(self, render_args: dict) -> str:
+    def _generate_node_configuration(self, render_args: dict) -> Union[str, dict]:
         platform_name = CspEnv.pretty_print(self.platform.type_id)
-        template_path = Utils.resource_path(f'templates/cluster_template/{platform_name}_node.ms')
-        return TemplateGenerator.render_template_file(template_path, render_args)
+        template_path = Utils.resource_path(f'templates/node_template/{platform_name}.ms')
+        return json.loads(TemplateGenerator.render_template_file(template_path, render_args))
+
+    def generate_node_configurations(self, num_executors: int, render_args: dict = None) -> list:
+        """
+        Generates a list of node configurations for the given number of executors.
+        """
+        node_config = self._generate_node_configuration(render_args)
+        return [node_config for _ in range(num_executors)]
 
 
 @dataclass
