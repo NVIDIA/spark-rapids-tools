@@ -1,6 +1,54 @@
 
 <br/>
 
+## Release [v24.02.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.02.3)
+Generated on 2024-04-24
+### User Tools
+
+- Cache CLI calls for node instance description ([#952](https://github.com/NVIDIA/spark-rapids-tools/pull/952))
+- Improve error handling in prediction code ([#950](https://github.com/NVIDIA/spark-rapids-tools/pull/950))
+- Support dynamic calculation of JVM resources in CLI cmd ([#944](https://github.com/NVIDIA/spark-rapids-tools/pull/944))
+- Syncup estimation model prediction logic updates ([#946](https://github.com/NVIDIA/spark-rapids-tools/pull/946))
+- Cluster inference should not run for unsupported platform ([#941](https://github.com/NVIDIA/spark-rapids-tools/pull/941))
+- Fix invalid values in cluster creation script ([#935](https://github.com/NVIDIA/spark-rapids-tools/pull/935))
+- Fix core tool doc links and user qualification tool default argument values ([#931](https://github.com/NVIDIA/spark-rapids-tools/pull/931))
+- Fix gpu cluster recommendation in user tools ([#930](https://github.com/NVIDIA/spark-rapids-tools/pull/930))
+- Bump idna from 3.4 to 3.7 in /data_validation ([#932](https://github.com/NVIDIA/spark-rapids-tools/pull/932))
+- Add cluster details in qualification summary output ([#921](https://github.com/NVIDIA/spark-rapids-tools/pull/921))
+- Refactor `find_matches_for_node` return values ([#920](https://github.com/NVIDIA/spark-rapids-tools/pull/920))
+- [FEA] Add and use g5 AWS instances as default for qualification tool output ([#898](https://github.com/NVIDIA/spark-rapids-tools/pull/898))
+- Add jar argument to spark_rapids CLI ([#902](https://github.com/NVIDIA/spark-rapids-tools/pull/902))
+- Support driverlog argument in profiler CLI ([#897](https://github.com/NVIDIA/spark-rapids-tools/pull/897))
+
+### Core
+
+- Followups on handling Photon eventlogs ([#953](https://github.com/NVIDIA/spark-rapids-tools/pull/953))
+- Sync operators support timestamped 24-04-16 ([#951](https://github.com/NVIDIA/spark-rapids-tools/pull/951))
+- Add CheckOverflowInTableInsert support: verify absence from physical plan ([#942](https://github.com/NVIDIA/spark-rapids-tools/pull/942))
+- Fix Notes column in the supported ops CSV files ([#933](https://github.com/NVIDIA/spark-rapids-tools/pull/933))
+- Improve sync plugin supported CSV python script ([#919](https://github.com/NVIDIA/spark-rapids-tools/pull/919))
+- Add cluster details in qualification summary output ([#921](https://github.com/NVIDIA/spark-rapids-tools/pull/921))
+- Add support for unsupported expressions reasons per Exec ([#923](https://github.com/NVIDIA/spark-rapids-tools/pull/923))
+- Adding more metrics and options for qual validation ([#926](https://github.com/NVIDIA/spark-rapids-tools/pull/926))
+- Generate cluster details in JSON output ([#912](https://github.com/NVIDIA/spark-rapids-tools/pull/912))
+- Add Divide and multiple interval expressions as supported ([#917](https://github.com/NVIDIA/spark-rapids-tools/pull/917))
+- Add support for PythonMapInArrowExec and MapInArrowExec ([#913](https://github.com/NVIDIA/spark-rapids-tools/pull/913))
+- Re-enable support for GetJsonObject by default ([#916](https://github.com/NVIDIA/spark-rapids-tools/pull/916))
+- Add support for WindowGroupLimitExec ([#906](https://github.com/NVIDIA/spark-rapids-tools/pull/906))
+- [FEA] Skip Spark Structured Streaming event logs for Qualification tool ([#905](https://github.com/NVIDIA/spark-rapids-tools/pull/905))
+- [FEA] Add and use g5 AWS instances as default for qualification tool output ([#898](https://github.com/NVIDIA/spark-rapids-tools/pull/898))
+- Initial version of qual tool validation script for classification metrics ([#903](https://github.com/NVIDIA/spark-rapids-tools/pull/903))
+- Fix Delta-core dependency for Spark35+ ([#904](https://github.com/NVIDIA/spark-rapids-tools/pull/904))
+- Add support for AtomicCreateTableAsSelectExec ([#895](https://github.com/NVIDIA/spark-rapids-tools/pull/895))
+- Add support for KnownNullable and EphemeralSubstring expressions ([#894](https://github.com/NVIDIA/spark-rapids-tools/pull/894))
+- Add Support for BloomFilterAggregate and BloomFilterMightContain exprs ([#891](https://github.com/NVIDIA/spark-rapids-tools/pull/891))
+- [DOC] Update README for sync plugin supported ops script ([#893](https://github.com/NVIDIA/spark-rapids-tools/pull/893))
+- Add operators to ignore list and update WindowExpr parser ([#890](https://github.com/NVIDIA/spark-rapids-tools/pull/890))
+- Add support to RoundCeil and RoundFloor expressions ([#889](https://github.com/NVIDIA/spark-rapids-tools/pull/889))
+
+
+<br/>
+
 ## Release [v24.02.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.02.2)
 Generated on 2024-03-27
 ### User Tools
