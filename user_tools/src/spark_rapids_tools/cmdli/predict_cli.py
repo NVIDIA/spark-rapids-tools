@@ -24,7 +24,15 @@ from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
 
 def run_prediction(result_folder: str,
                    platform: str = 'onprem'):
-    """CLI that runs prediction on the estimation_model in qualification tools."""
+    """CLI that runs prediction on the estimation_model in qualification tools.
+
+    The prediction CLI takes existing qualification and profiling tool output and runs
+    prediction of the GPU speedups on the estimation_model in the qualification tools.
+
+    :param result_folder: path to the qualification and profiling tool output
+    :param platform: defines one of the following "onprem", "emr", "dataproc", "dataproc-gke",
+           "databricks-aws", and "databricks-azure", default to "onprem".
+    """
 
     qual_args = AbsToolUserArgModel.create_tool_args('qualification',
                                                      eventlogs="",
