@@ -18,20 +18,26 @@
 import fire
 
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
-from spark_rapids_tools.enums import QualGpuClusterReshapeType
-from spark_rapids_tools.utils.util import gen_app_banner, init_environment
-from spark_rapids_pytools.common.utilities import Utils, ToolLogging
+from spark_rapids_tools.tools.model_xgboost import predict
+from spark_rapids_tools.utils.util import gen_app_banner
+from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
 
-
-def run_prediction(platform: str = 'onprem',
-                   qual: str = None,
-                   profile: str = None,
-                   output_info: str = None,
-                   qualtool_filter: str = 'stage'):
+def run_prediction(result_folder: str,
+                   platform: str = 'onprem'):
     """CLI that runs prediction on the estimation_model in qualification tools."""
-    print("run_prediction")
 
-    predictions_df = predict(platform, qual, profile, output_info, qualtool_filter)
+    qual_args = AbsToolUserArgModel.create_tool_args('qualification',
+                                                     eventlogs="",
+                                                     platform=platform,
+                                                     output_folder=result_folder)
+
+    tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
+                                    output_folder=qual_args['outputFolder'],
+                                    wrapper_options=qual_args)
+    tool_obj._init_ctxt()
+    tool_obj.ctxt.set_local('outputFolder', result_folder)
+    output_info = tool_obj._Qualification__build_prediction_output_files_info()
+    predict(platform, result_folder, result_folder, output_info)
 
 
 def main():
