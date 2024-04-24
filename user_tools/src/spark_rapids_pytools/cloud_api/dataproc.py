@@ -165,6 +165,9 @@ class DataprocPlatform(PlatformBase):
     def generate_cluster_configuration(self, render_args: dict):
         executor_names = ','.join([f'"test-node-e{i}"' for i in range(render_args['NUM_EXECUTOR_NODES'])])
         render_args['EXECUTOR_NAMES'] = f'[{executor_names}]'
+        image_version = self.configs.get_value('clusterInference', 'defaultImage')
+        render_args['IMAGE'] = f'"{image_version}"'
+        render_args['ZONE'] = f'"{self.cli.get_zone()}"'
         return super().generate_cluster_configuration(render_args)
 
 
@@ -191,6 +194,9 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                       '--zone',
                       f'{node.zone}']
         return cmd_params
+
+    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
+        return node.instance_type, node.zone
 
     def _build_platform_list_cluster(self,
                                      cluster,
@@ -356,10 +362,6 @@ class DataprocNode(ClusterNode):
         num_cpus = self.mc_props.get_value('guestCpus')
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
-    def _pull_and_set_mc_props(self, cli=None):
-        instance_description = cli.exec_platform_describe_node_instance(self)
-        self.mc_props = JSONPropertiesContainer(prop_arg=instance_description, file_load=False)
-
     def _set_fields_from_props(self):
         # set the machine type
         if not self.props:
@@ -460,7 +462,8 @@ class DataprocCluster(ClusterBase):
         :param orig_cluster: the cpu_cluster that does not support the GPU devices.
         """
         # get the map of the instance types
-        mc_type_map, supported_mc_map = orig_cluster.find_matches_for_node()
+        supported_mc_map = orig_cluster.platform.get_supported_gpus()
+        mc_type_map = orig_cluster.find_matches_for_node()
         new_worker_nodes: list = []
         for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
             # loop on all worker nodes.

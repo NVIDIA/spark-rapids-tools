@@ -30,15 +30,15 @@ And,S,`and`,None,AST,result,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 ArrayContains,S,`array_contains`,None,project,array,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
 ArrayContains,S,`array_contains`,None,project,key,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,NS,NS,NS,NS,NS,NS
 ArrayContains,S,`array_contains`,None,project,result,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-ArrayExcept,S,`array_except`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,array1,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
-ArrayExcept,S,`array_except`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,array2,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
-ArrayExcept,S,`array_except`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ArrayExcept,S,`array_except`,None,project,array1,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ArrayExcept,S,`array_except`,None,project,array2,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ArrayExcept,S,`array_except`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
 ArrayExists,S,`exists`,None,project,argument,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
 ArrayExists,S,`exists`,None,project,function,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 ArrayExists,S,`exists`,None,project,result,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-ArrayIntersect,S,`array_intersect`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,array1,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
-ArrayIntersect,S,`array_intersect`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,array2,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
-ArrayIntersect,S,`array_intersect`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ArrayIntersect,S,`array_intersect`,None,project,array1,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ArrayIntersect,S,`array_intersect`,None,project,array2,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ArrayIntersect,S,`array_intersect`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
 ArrayMax,S,`array_max`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
 ArrayMax,S,`array_max`,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,NS,NS,NS,NA,NS,NS,NS,NS
 ArrayMin,S,`array_min`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
@@ -52,12 +52,12 @@ ArrayRepeat,S,`array_repeat`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,N
 ArrayTransform,S,`transform`,None,project,argument,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
 ArrayTransform,S,`transform`,None,project,function,S,S,S,S,S,S,S,S,PS,S,S,S,NS,NS,PS,PS,PS,NS,NS,NS
 ArrayTransform,S,`transform`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
-ArrayUnion,S,`array_union`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,array1,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
-ArrayUnion,S,`array_union`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,array2,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
-ArrayUnion,S,`array_union`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
-ArraysOverlap,S,`arrays_overlap`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,array1,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
-ArraysOverlap,S,`arrays_overlap`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,array2,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
-ArraysOverlap,S,`arrays_overlap`,This is not 100% compatible with the Spark version because the GPU implementation treats -0.0 and 0.0 as equal; but the CPU implementation currently does not (see SPARK-39845). Also; Apache Spark 3.1.3 fixed issue SPARK-36741 where NaNs in these set like operators were not treated as being equal. We have chosen to break with compatibility for the older versions of Spark in this instance and handle NaNs the same as 3.1.3+,project,result,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+ArrayUnion,S,`array_union`,None,project,array1,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ArrayUnion,S,`array_union`,None,project,array2,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ArrayUnion,S,`array_union`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ArraysOverlap,S,`arrays_overlap`,None,project,array1,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ArraysOverlap,S,`arrays_overlap`,None,project,array2,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ArraysOverlap,S,`arrays_overlap`,None,project,result,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 ArraysZip,S,`arrays_zip`,None,project,children,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
 ArraysZip,S,`arrays_zip`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
 Ascii,NS,`ascii`,This is disabled by default because it only supports strings starting with ASCII or Latin-1 characters after Spark 3.2.3; 3.3.1 and 3.4.0. Otherwise the results will not match the CPU.,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
@@ -109,9 +109,9 @@ BitwiseXor,S,`^`,None,project,result,NA,S,S,S,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 BitwiseXor,S,`^`,None,AST,lhs,NA,NS,NS,S,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 BitwiseXor,S,`^`,None,AST,rhs,NA,NS,NS,S,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 BitwiseXor,S,`^`,None,AST,result,NA,NS,NS,S,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-BloomFilterMightContain,TNEW, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,S,NA,NA,NA,NA,NA,NA,NA
-BloomFilterMightContain,TNEW, ,None,project,rhs,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA
-BloomFilterMightContain,TNEW, ,None,project,result,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+BloomFilterMightContain,S,`might_contain`,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,S,NA,NA,NA,NA,NA,NA,NA
+BloomFilterMightContain,S,`might_contain`,None,project,rhs,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA
+BloomFilterMightContain,S,`might_contain`,None,project,result,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 CaseWhen,S,`when`,None,project,predicate,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 CaseWhen,S,`when`,None,project,value,S,S,S,S,S,S,S,S,PS,S,S,S,S,NS,PS,PS,PS,NS,NS,NS
 CaseWhen,S,`when`,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,NS,PS,PS,PS,NS,NS,NS
@@ -121,6 +121,8 @@ Cbrt,S,`cbrt`,None,AST,input,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,N
 Cbrt,S,`cbrt`,None,AST,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Ceil,S,`ceil`; `ceiling`,None,project,input,NA,NA,NA,NA,S,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Ceil,S,`ceil`; `ceiling`,None,project,result,NA,NA,NA,NA,S,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
+CheckOverflow,S, ,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
+CheckOverflow,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
 CheckOverflowInTableInsert,TNEW, ,None,project,input,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
 CheckOverflowInTableInsert,TNEW, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
 Coalesce,S,`coalesce`,None,project,param,S,S,S,S,S,S,S,S,PS,S,S,S,S,NS,PS,PS,PS,NS,S,S
@@ -182,19 +184,17 @@ DenseRank,S,`dense_rank`,None,window,result,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,N
 Divide,S,`/`,None,project,lhs,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Divide,S,`/`,None,project,rhs,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Divide,S,`/`,None,project,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
-DivideDTInterval,TNEW, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
-DivideDTInterval,TNEW, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
-DivideDTInterval,TNEW, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
-DivideYMInterval,TNEW, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
-DivideYMInterval,TNEW, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
-DivideYMInterval,TNEW, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
+DivideDTInterval,S, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
+DivideDTInterval,S, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
+DivideDTInterval,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
+DivideYMInterval,S, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
+DivideYMInterval,S, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
+DivideYMInterval,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
 DynamicPruningExpression,S, ,None,project,input,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 DynamicPruningExpression,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
 ElementAt,S,`element_at`,None,project,array/map,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,PS,NA,NA,NS,NS
 ElementAt,S,`element_at`,None,project,index/key,PS,PS,PS,S,PS,PS,PS,PS,PS,PS,PS,NS,NS,NS,NS,NS,NS,NS,NS,NS
 ElementAt,S,`element_at`,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,NS,PS,PS,PS,NS,NS,NS
-Empty2Null,S,`empty2null`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-Empty2Null,S,`empty2null`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 EndsWith,S, ,None,project,src,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 EndsWith,S, ,None,project,search,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 EndsWith,S, ,None,project,result,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
@@ -235,9 +235,9 @@ GetArrayItem,S, ,None,project,ordinal,NA,S,S,S,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,N
 GetArrayItem,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,NS,PS,PS,PS,NS,NS,NS
 GetArrayStructFields,S, ,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
 GetArrayStructFields,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
-GetJsonObject,NS,`get_json_object`,This is disabled by default because escape sequences are not processed correctly; the input is not validated; and the output is not normalized the same as Spark,project,json,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-GetJsonObject,NS,`get_json_object`,This is disabled by default because escape sequences are not processed correctly; the input is not validated; and the output is not normalized the same as Spark,project,path,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-GetJsonObject,NS,`get_json_object`,This is disabled by default because escape sequences are not processed correctly; the input is not validated; and the output is not normalized the same as Spark,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+GetJsonObject,NS,`get_json_object`,This is disabled by default because Experimental feature that could be unstable or have performance issues.,project,json,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+GetJsonObject,NS,`get_json_object`,This is disabled by default because Experimental feature that could be unstable or have performance issues.,project,path,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+GetJsonObject,NS,`get_json_object`,This is disabled by default because Experimental feature that could be unstable or have performance issues.,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 GetMapValue,S, ,None,project,map,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NS,NS
 GetMapValue,S, ,None,project,key,S,S,S,S,S,S,S,S,PS,S,S,NS,NS,NS,NS,NS,NS,NS,NS,NS
 GetMapValue,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,NS,PS,PS,PS,NS,NS,NS
@@ -274,8 +274,8 @@ In,S,`in`,None,project,list,PS,PS,PS,PS,PS,PS,PS,PS,PS,PS,PS,NS,NS,NS,NS,NA,NS,N
 In,S,`in`,None,project,result,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 InSet,S, ,None,project,input,S,S,S,S,S,S,S,S,PS,S,S,S,NS,NS,NS,NA,NS,NS,NS,NS
 InSet,S, ,None,project,result,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-InitCap,S,`initcap`,This is not 100% compatible with the Spark version because the Unicode version used by cuDF and the JVM may differ; resulting in some corner-case characters not changing case correctly.,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-InitCap,S,`initcap`,This is not 100% compatible with the Spark version because the Unicode version used by cuDF and the JVM may differ; resulting in some corner-case characters not changing case correctly.,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+InitCap,S,`initcap`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+InitCap,S,`initcap`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 InputFileBlockLength,S,`input_file_block_length`,None,project,result,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 InputFileBlockStart,S,`input_file_block_start`,None,project,result,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 InputFileName,S,`input_file_name`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
@@ -297,8 +297,6 @@ KnownFloatingPointNormalized,S, ,None,project,input,S,S,S,S,S,S,S,S,PS,S,S,S,S,S
 KnownFloatingPointNormalized,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
 KnownNotNull,S, ,None,project,input,S,S,S,S,S,S,S,S,PS,S,S,NS,S,S,PS,PS,PS,NS,NS,NS
 KnownNotNull,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,NS,S,S,PS,PS,PS,NS,NS,NS
-KnownNullable,TNEW, ,None,project,input,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
-KnownNullable,TNEW, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
 Lag,S,`lag`,None,window,input,S,S,S,S,S,S,S,S,PS,S,S,S,NS,NS,PS,NS,PS,NS,NS,NS
 Lag,S,`lag`,None,window,offset,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Lag,S,`lag`,None,window,default,S,S,S,S,S,S,S,S,PS,S,S,S,NS,NS,PS,NS,PS,NS,NS,NS
@@ -344,8 +342,8 @@ Log2,S,`log2`,None,project,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
 Logarithm,S,`log`,None,project,value,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Logarithm,S,`log`,None,project,base,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Logarithm,S,`log`,None,project,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-Lower,S,`lcase`; `lower`,This is not 100% compatible with the Spark version because the Unicode version used by cuDF and the JVM may differ; resulting in some corner-case characters not changing case correctly.,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-Lower,S,`lcase`; `lower`,This is not 100% compatible with the Spark version because the Unicode version used by cuDF and the JVM may differ; resulting in some corner-case characters not changing case correctly.,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+Lower,S,`lcase`; `lower`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+Lower,S,`lcase`; `lower`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 MakeDecimal,S, ,None,project,input,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 MakeDecimal,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NS,NS
 MapConcat,S,`map_concat`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NS,NS
@@ -376,12 +374,12 @@ Multiply,S,`*`,None,project,result,NA,S,S,S,S,S,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,N
 Multiply,S,`*`,None,AST,lhs,NA,NS,NS,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Multiply,S,`*`,None,AST,rhs,NA,NS,NS,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Multiply,S,`*`,None,AST,result,NA,NS,NS,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NS,NS
-MultiplyDTInterval,TNEW, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
-MultiplyDTInterval,TNEW, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
-MultiplyDTInterval,TNEW, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
-MultiplyYMInterval,TNEW, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
-MultiplyYMInterval,TNEW, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
-MultiplyYMInterval,TNEW, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
+MultiplyDTInterval,S, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
+MultiplyDTInterval,S, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
+MultiplyDTInterval,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA
+MultiplyYMInterval,S, ,None,project,lhs,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
+MultiplyYMInterval,S, ,None,project,rhs,NA,S,S,S,S,S,S,NA,NA,NA,NS,NA,NA,NA,NA,NA,NA,NA,NA,NA
+MultiplyYMInterval,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S
 Murmur3Hash,S,`hash`,None,project,input,S,S,S,S,S,S,S,S,PS,S,S,S,NS,NS,PS,NS,PS,NS,NS,NS
 Murmur3Hash,S,`hash`,None,project,result,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 NaNvl,S,`nanvl`,None,project,lhs,NA,NA,NA,NA,NA,S,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
@@ -422,14 +420,8 @@ Pow,S,`pow`; `power`,None,AST,rhs,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
 Pow,S,`pow`; `power`,None,AST,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 PreciseTimestampConversion,S, ,None,project,input,NA,NA,NA,NA,S,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 PreciseTimestampConversion,S, ,None,project,result,NA,NA,NA,NA,S,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-PythonUDAF,TNEW, ,None,aggregation,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
-PythonUDAF,TNEW, ,None,aggregation,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
-PythonUDAF,TNEW, ,None,reduction,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
-PythonUDAF,TNEW, ,None,reduction,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
-PythonUDAF,TNEW, ,None,window,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
-PythonUDAF,TNEW, ,None,window,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
-PythonUDAF,TNEW, ,None,project,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
-PythonUDAF,TNEW, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
+PromotePrecision,S,`promote_precision`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
+PromotePrecision,S,`promote_precision`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
 PythonUDF,S, ,None,aggregation,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
 PythonUDF,S, ,None,aggregation,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NS,NS
 PythonUDF,S, ,None,reduction,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
@@ -476,12 +468,12 @@ Rint,S,`rint`,None,AST,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,
 Round,S,`round`,None,project,value,NA,S,S,S,S,PS,PS,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Round,S,`round`,None,project,scale,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Round,S,`round`,None,project,result,NA,S,S,S,S,S,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
-RoundCeil,TNEW, ,None,project,value,NA,S,S,S,S,PS,PS,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
-RoundCeil,TNEW, ,None,project,scale,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-RoundCeil,TNEW, ,None,project,result,NA,S,S,S,S,S,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
-RoundFloor,TNEW, ,None,project,value,NA,S,S,S,S,PS,PS,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
-RoundFloor,TNEW, ,None,project,scale,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-RoundFloor,TNEW, ,None,project,result,NA,S,S,S,S,S,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
+RoundCeil,S,`ceil`,None,project,value,NA,S,S,S,S,PS,PS,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
+RoundCeil,S,`ceil`,None,project,scale,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+RoundCeil,S,`ceil`,None,project,result,NA,S,S,S,S,S,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
+RoundFloor,S,`floor`,None,project,value,NA,S,S,S,S,PS,PS,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
+RoundFloor,S,`floor`,None,project,scale,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+RoundFloor,S,`floor`,None,project,result,NA,S,S,S,S,S,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
 RowNumber,S,`row_number`,None,window,result,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 ScalaUDF,S, ,None,project,param,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,NS,NS,NS
 ScalaUDF,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,NS,NS,NS
@@ -563,10 +555,10 @@ StringToMap,S,`str_to_map`,None,project,str,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,N
 StringToMap,S,`str_to_map`,None,project,pairDelim,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 StringToMap,S,`str_to_map`,None,project,keyValueDelim,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 StringToMap,S,`str_to_map`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NS,NS
-StringTranslate,S,`translate`,This is not 100% compatible with the Spark version because the GPU implementation supports all unicode code points. In Spark versions < 3.2.0; translate() does not support unicode characters with code point >= U+10000 (See SPARK-34094),project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-StringTranslate,S,`translate`,This is not 100% compatible with the Spark version because the GPU implementation supports all unicode code points. In Spark versions < 3.2.0; translate() does not support unicode characters with code point >= U+10000 (See SPARK-34094),project,from,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-StringTranslate,S,`translate`,This is not 100% compatible with the Spark version because the GPU implementation supports all unicode code points. In Spark versions < 3.2.0; translate() does not support unicode characters with code point >= U+10000 (See SPARK-34094),project,to,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-StringTranslate,S,`translate`,This is not 100% compatible with the Spark version because the GPU implementation supports all unicode code points. In Spark versions < 3.2.0; translate() does not support unicode characters with code point >= U+10000 (See SPARK-34094),project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+StringTranslate,S,`translate`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+StringTranslate,S,`translate`,None,project,from,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+StringTranslate,S,`translate`,None,project,to,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+StringTranslate,S,`translate`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 StringTrim,S,`trim`,None,project,src,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 StringTrim,S,`trim`,None,project,trimStr,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 StringTrim,S,`trim`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
@@ -634,8 +626,8 @@ UnixTimestamp,S,`unix_timestamp`,None,project,format,NA,NA,NA,NA,NA,NA,NA,NA,NA,
 UnixTimestamp,S,`unix_timestamp`,None,project,result,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 UnscaledValue,S, ,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NS,NS
 UnscaledValue,S, ,None,project,result,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-Upper,S,`ucase`; `upper`,This is not 100% compatible with the Spark version because the Unicode version used by cuDF and the JVM may differ; resulting in some corner-case characters not changing case correctly.,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-Upper,S,`ucase`; `upper`,This is not 100% compatible with the Spark version because the Unicode version used by cuDF and the JVM may differ; resulting in some corner-case characters not changing case correctly.,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+Upper,S,`ucase`; `upper`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+Upper,S,`ucase`; `upper`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 WeekDay,S,`weekday`,None,project,input,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 WeekDay,S,`weekday`,None,project,result,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 WindowExpression,S, ,None,window,windowFunction,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
@@ -657,24 +649,24 @@ AggregateExpression,S, ,None,reduction,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS
 AggregateExpression,S, ,None,window,aggFunc,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
 AggregateExpression,S, ,None,window,filter,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 AggregateExpression,S, ,None,window,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
-ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,This is not 100% compatible with the Spark version because the GPU implementation of approx_percentile is not bit-for-bit compatible with Apache Spark,aggregation,input,NA,S,S,S,S,S,S,NS,NS,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
-ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,This is not 100% compatible with the Spark version because the GPU implementation of approx_percentile is not bit-for-bit compatible with Apache Spark,aggregation,percentage,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NS,NS
-ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,This is not 100% compatible with the Spark version because the GPU implementation of approx_percentile is not bit-for-bit compatible with Apache Spark,aggregation,accuracy,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,This is not 100% compatible with the Spark version because the GPU implementation of approx_percentile is not bit-for-bit compatible with Apache Spark,aggregation,result,NA,S,S,S,S,S,S,NS,NS,NA,S,NA,NA,NA,PS,NA,NA,NA,NS,NS
-ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,This is not 100% compatible with the Spark version because the GPU implementation of approx_percentile is not bit-for-bit compatible with Apache Spark,reduction,input,NA,S,S,S,S,S,S,NS,NS,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
-ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,This is not 100% compatible with the Spark version because the GPU implementation of approx_percentile is not bit-for-bit compatible with Apache Spark,reduction,percentage,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NS,NS
-ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,This is not 100% compatible with the Spark version because the GPU implementation of approx_percentile is not bit-for-bit compatible with Apache Spark,reduction,accuracy,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
-ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,This is not 100% compatible with the Spark version because the GPU implementation of approx_percentile is not bit-for-bit compatible with Apache Spark,reduction,result,NA,S,S,S,S,S,S,NS,NS,NA,S,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,None,aggregation,input,NA,S,S,S,S,S,S,NS,NS,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
+ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,None,aggregation,percentage,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NS,NS
+ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,None,aggregation,accuracy,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,None,aggregation,result,NA,S,S,S,S,S,S,NS,NS,NA,S,NA,NA,NA,PS,NA,NA,NA,NS,NS
+ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,None,reduction,input,NA,S,S,S,S,S,S,NS,NS,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
+ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,None,reduction,percentage,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NS,NS
+ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,None,reduction,accuracy,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+ApproximatePercentile,S,`approx_percentile`; `percentile_approx`,None,reduction,result,NA,S,S,S,S,S,S,NS,NS,NA,S,NA,NA,NA,PS,NA,NA,NA,NS,NS
 Average,S,`avg`; `mean`,None,aggregation,input,NA,S,S,S,S,S,S,NA,NA,NA,S,S,NA,NS,NA,NA,NA,NA,NS,NS
 Average,S,`avg`; `mean`,None,aggregation,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Average,S,`avg`; `mean`,None,reduction,input,NA,S,S,S,S,S,S,NA,NA,NA,S,S,NA,NS,NA,NA,NA,NA,NS,NS
 Average,S,`avg`; `mean`,None,reduction,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
 Average,S,`avg`; `mean`,None,window,input,NA,S,S,S,S,S,S,NA,NA,NA,S,S,NA,NS,NA,NA,NA,NA,NS,NS
 Average,S,`avg`; `mean`,None,window,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
-BloomFilterAggregate,TNEW, ,None,reduction,child,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-BloomFilterAggregate,TNEW, ,None,reduction,estimatedItems,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-BloomFilterAggregate,TNEW, ,None,reduction,numBits,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-BloomFilterAggregate,TNEW, ,None,reduction,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA
+BloomFilterAggregate,S,`bloom_filter_agg`,None,reduction,child,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+BloomFilterAggregate,S,`bloom_filter_agg`,None,reduction,estimatedItems,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+BloomFilterAggregate,S,`bloom_filter_agg`,None,reduction,numBits,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+BloomFilterAggregate,S,`bloom_filter_agg`,None,reduction,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA
 CollectList,S,`array_agg`; `collect_list`,None,aggregation,input,S,S,S,S,S,S,S,S,PS,S,S,S,S,NS,PS,PS,PS,NS,NS,NS
 CollectList,S,`array_agg`; `collect_list`,None,aggregation,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NS,NS
 CollectList,S,`array_agg`; `collect_list`,None,reduction,input,S,S,S,S,S,S,S,S,PS,S,S,S,S,NS,PS,PS,PS,NS,NS,NS
@@ -770,7 +762,19 @@ HiveGenericUDF,S, ,None,project,param,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,NS,N
 HiveGenericUDF,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,NS,NS,NS
 HiveSimpleUDF,S, ,None,project,param,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,NS,NS,NS
 HiveSimpleUDF,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,NS,NS,NS
-CheckOverflow,S, ,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
-CheckOverflow,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
-PromotePrecision,S,`promote_precision`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
-PromotePrecision,S,`promote_precision`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NS,NS
+Empty2Null,S, ,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+Empty2Null,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+KnownNullable,S, ,None,project,input,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
+KnownNullable,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
+PythonUDAF,TNEW, ,None,aggregation,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
+PythonUDAF,TNEW, ,None,aggregation,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
+PythonUDAF,TNEW, ,None,reduction,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
+PythonUDAF,TNEW, ,None,reduction,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
+PythonUDAF,TNEW, ,None,window,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
+PythonUDAF,TNEW, ,None,window,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
+PythonUDAF,TNEW, ,None,project,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
+PythonUDAF,TNEW, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
+EphemeralSubstring,S,`substr`; `substring`,None,project,str,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NS,NA,NA,NA,NA,NA,NS,NS
+EphemeralSubstring,S,`substr`; `substring`,None,project,pos,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+EphemeralSubstring,S,`substr`; `substring`,None,project,len,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
+EphemeralSubstring,S,`substr`; `substring`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NS,NA,NA,NA,NA,NA,NS,NS

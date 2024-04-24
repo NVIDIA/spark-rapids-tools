@@ -24,7 +24,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.io.{Codec, Source}
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
-import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
@@ -44,7 +44,10 @@ import org.apache.spark.util.Utils.REDACTION_REPLACEMENT_TEXT
 // Properties stored in this container can be accessed to make decision about certain analysis
 // that depends on the context of the Spark properties.
 trait CacheableProps {
-  private val RETAINED_SYSTEM_PROPS = Set(
+  /**
+   * Important system properties that should be retained.
+   */
+  protected def getRetainedSystemProps: Set[String] = Set(
     "file.encoding", "java.version", "os.arch", "os.name",
     "os.version", "user.timezone")
 
@@ -85,6 +88,8 @@ trait CacheableProps {
   // property is global to the entire application once it is set. a.k.a, it cannot be disabled
   // once it is was set to true.
   var hiveEnabled = false
+  // A flag to indicate whether the eventlog being processed is an eventlog from Photon.
+  var isPhoton = false
   var sparkProperties = Map[String, String]()
   var classpathEntries = Map[String, String]()
   // set the fileEncoding to UTF-8 by default
@@ -98,17 +103,29 @@ trait CacheableProps {
     srcMap ++ redactedKeys
   }
 
+  /**
+   * Used to validate that the eventlog is allowed to be processed by the Tool
+   * @throws org.apache.spark.sql.rapids.tool.AppEventlogProcessException if the eventlog fails the
+   *                                                                      validation step
+   */
+  @throws(classOf[AppEventlogProcessException])
+  def validateAppEventlogProperties(): Unit = { }
+
   def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
     sparkProperties ++= processPropKeys(event.environmentDetails("Spark Properties").toMap)
     classpathEntries ++= event.environmentDetails("Classpath Entries").toMap
 
     gpuMode ||=  ProfileUtils.isPluginEnabled(sparkProperties)
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
+    isPhoton ||= DatabricksParseHelper.isPhotonApp(sparkProperties)
 
     // Update the properties if system environments are set.
     // No need to capture all the properties in memory. We only capture important ones.
     systemProperties ++= event.environmentDetails("System Properties").toMap.filterKeys(
-      RETAINED_SYSTEM_PROPS.contains(_))
+      getRetainedSystemProps.contains(_))
+
+    // After setting the properties, validate the properties.
+    validateAppEventlogProperties()
   }
 
   def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
@@ -166,40 +183,6 @@ abstract class AppBase(
     executorIdToInfo.getOrElseUpdate(executorId, {
       new ExecutorInfoClass(executorId, addTime)
     })
-  }
-
-  /**
-   * Retrieves cluster information based on executor nodes.
-   * If executor nodes exist, calculates the number of hosts and total cores,
-   * and extracts executor and driver instance types (databricks only)
-   *
-   * @return Cluster information including cores, number of nodes, and instance types.
-   */
-  def getClusterInfo: Option[ClusterInfo] = {
-    // TODO: Handle dynamic allocation when determining the number of nodes.
-    sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
-      if (value.toBoolean) {
-        logWarning(s"Application $appId: Dynamic allocation is not supported. " +
-          s"Cluster information may be inaccurate.")
-      }
-    }
-    val activeExecInfo = executorIdToInfo.values.collect {
-      case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
-    }
-    if (activeExecInfo.nonEmpty) {
-      val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
-      if (coresPerExecutor.toSet.size != 1) {
-        logWarning(s"Application $appId: Cluster with variable executor cores detected. " +
-          s"Using maximum value.")
-      }
-      // Extracts instance types from properties (databricks only)
-      val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
-      val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
-      Some(ClusterInfo(coresPerExecutor.max, activeHosts.toSet.size,
-        executorInstance, driverInstance))
-    } else {
-      None
-    }
   }
 
   def getOrCreateStage(info: StageInfo): StageInfoClass = {
@@ -320,13 +303,13 @@ abstract class AppBase(
   }
 
   /**
-   * Functions to process all the events
+   * Internal function to process all the events
    */
-  protected def processEvents(): Unit = {
+  private def processEventsInternal(): Unit = {
     eventLogInfo match {
       case Some(eventLog) =>
         val eventLogPath = eventLog.eventLog
-        logInfo("Parsing Event Log: " + eventLogPath.toString)
+        logInfo("Start Parsing Event Log: " + eventLogPath.toString)
 
         // at this point all paths should be valid event logs or event log dirs
         val hconf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf)
@@ -520,6 +503,17 @@ abstract class AppBase(
       nestedComplexType
     }
     result
+  }
+
+  protected def postCompletion(): Unit = {}
+
+  /**
+   * Wrapper function to process all the events followed by any
+   * post completion tasks.
+   */
+  def processEvents(): Unit = {
+    processEventsInternal()
+    postCompletion()
   }
 }
 

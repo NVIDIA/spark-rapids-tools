@@ -14,7 +14,6 @@
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
-import json
 import textwrap
 from dataclasses import dataclass, field
 from math import ceil
@@ -26,7 +25,6 @@ from tabulate import tabulate
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo, SparkNodeType
 from spark_rapids_pytools.common.cluster_inference import ClusterInference
-from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -36,6 +34,7 @@ from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, Q
 from spark_rapids_tools.tools.model_xgboost import predict
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
+from spark_rapids_tools.utils.util import Utilities
 
 
 @dataclass
@@ -370,12 +369,6 @@ class Qualification(RapidsJarTool):
             self.ctxt.set_ctxt('cpu_discount', cpu_discount)
             self.ctxt.set_ctxt('gpu_discount', gpu_discount)
 
-    def _create_cluster_report_args(self) -> list:
-        # Add the cluster-report argument if the cluster is not defined else disable it
-        if self.ctxt.get_ctxt('cpuClusterProxy') is None:
-            return ['--cluster-report']
-        return ['--no-cluster-report']
-
     def _process_custom_args(self):
         """
         Qualification tool processes extra arguments:
@@ -428,7 +421,7 @@ class Qualification(RapidsJarTool):
     def __remap_columns_and_prune(self, all_rows) -> pd.DataFrame:
         cols_subset = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'columns')
         # for backward compatibility, filter out non-existing columns
-        existing_cols_subset = [col for col in cols_subset if col in all_rows.columns]
+        existing_cols_subset = Utilities.get_valid_df_columns(cols_subset, all_rows)
         cols_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'mapColumns')
         subset_data = all_rows.loc[:, existing_cols_subset]
         if cols_map:
@@ -436,19 +429,23 @@ class Qualification(RapidsJarTool):
                 subset_data.columns = subset_data.columns.str.replace(col_rename,
                                                                       cols_map.get(col_rename),
                                                                       regex=False)
-        return subset_data
+        # Drop columns with only NA values for a cleaner final output.
+        return subset_data.dropna(axis=1, how='all')
 
     def __group_apps_by_name(self, all_apps) -> (pd.DataFrame, str):
+        """
+        For TCO, group apps by name, cluster id, cluster name and recalculate metrics
+        """
         all_apps_count = len(all_apps)
 
-        # for TCO, group by app name and average durations, then recalculate metrics
-        group_map = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
-        if group_map:
-            for group_key, group_value in group_map.items():
-                all_apps[group_key] = all_apps.groupby(group_value)[group_key].transform('mean')
+        group_info = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
+        for group_col in group_info['columns']:
+            valid_group_cols = Utilities.get_valid_df_columns(group_info['keys'], all_apps)
+            all_apps[group_col] = all_apps.groupby(valid_group_cols)[group_col].transform('mean')
 
         drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
-        subset_data = all_apps.drop_duplicates(subset=drop_arr)
+        valid_drop_cols = Utilities.get_valid_df_columns(drop_arr, all_apps)
+        subset_data = all_apps.drop_duplicates(subset=valid_drop_cols)
 
         notes = []
         if len(subset_data) != all_apps_count:
@@ -610,7 +607,7 @@ class Qualification(RapidsJarTool):
         gpu_reshape_type = self.ctxt.get_ctxt('gpuClusterShapeRecommendation')
         gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
         per_row_flag = False
-        if self.__recommendation_is_non_standard():
+        if gpu_cluster.cluster_inst is not None and self.__recommendation_is_non_standard():
             apps_df, per_row_flag = self.__apply_non_standard_gpu_shape(all_apps,
                                                                         gpu_cluster.get_workers_count(),
                                                                         gpu_reshape_type)
@@ -767,6 +764,13 @@ class Qualification(RapidsJarTool):
             filter_pos_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SAVINGS
             filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
 
+            if filter_top_candidate_enabled:
+                # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
+                #  This should be refactored along with entire filter apps logic to use more object-oriented design.
+                top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
+                filtered_apps = top_candidates_obj.filter_apps(raw_df)
+                return top_candidates_obj.prepare_output(filtered_apps)
+
             if self.__recommendation_is_non_standard():
                 # During processing of arguments phase, we verified that the filter does not conflict
                 # with the shape recommendation
@@ -775,13 +779,6 @@ class Qualification(RapidsJarTool):
                                                           self.ctxt.get_ctxt('gpuClusterShapeRecommendation'))
                 # update the selected columns
                 selected_cols = list(raw_df.columns)
-            if filter_top_candidate_enabled:
-                # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
-                #  This should be refactored along with entire filter apps logic to use more object-oriented design.
-                top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
-                filtered_apps = top_candidates_obj.filter_apps(raw_df)
-                return top_candidates_obj.prepare_output(filtered_apps)
-
             # filter by recommendations if enabled
             if filter_recommendation_enabled:
                 df_row = self.__get_recommended_apps(raw_df, selected_cols)
@@ -830,7 +827,7 @@ class Qualification(RapidsJarTool):
                                                 self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'fileName'))
         self.ctxt.logger.debug('Rapids CSV summary file is located as: %s', rapids_summary_file)
         df = pd.read_csv(rapids_summary_file)
-        # process the output through the XGboost model if enabled
+        # 1. Operations related to XGboost modelling
         if self.ctxt.get_ctxt('estimationModel') == QualEstimationModel.XGBOOST:
             try:
                 df = self.__update_apps_with_prediction_info(df)
@@ -842,13 +839,24 @@ class Qualification(RapidsJarTool):
         if estimation_model_col not in df:
             # Create the estimation model column as SPEEDUPS if there were no predictions or failure.
             df[estimation_model_col] = QualEstimationModel.tostring(QualEstimationModel.SPEEDUPS)
-        cluster_info_file = self.ctxt.get_value('toolOutput', 'json', 'clusterInformation', 'fileName')
+
+        # 2. Operations related to cluster information
+        cluster_info_file = self.ctxt.get_value('toolOutput', 'csv', 'clusterInformation', 'fileName')
         cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
-        self._process_cluster_info_and_update_savings(cluster_info_file)
+        cluster_info_df = pd.read_csv(cluster_info_file)
+        # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
+        # info columns, even if `cluster_info_df` is empty.
+        df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
+        if len(cluster_info_df) > 0:
+            self.__infer_cluster_and_update_savings(cluster_info_df)
+
+        # 3. Operations related to unsupported operators
         unsupported_operator_report_file = self.ctxt.get_value('toolOutput', 'csv', 'unsupportedOperatorsReport',
                                                                'fileName')
         rapids_unsupported_operators_file = FSUtil.build_path(rapids_output_dir, unsupported_operator_report_file)
         unsupported_ops_df = pd.read_csv(rapids_unsupported_operators_file)
+
+        # 4. Operations related to output
         output_files_info = self.__build_output_files_info()
         report_gen = self.__build_global_report_summary(df, unsupported_ops_df, output_files_info)
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
@@ -884,36 +892,23 @@ class Qualification(RapidsJarTool):
         return super()._init_rapids_arg_list() + self._init_rapids_arg_list_for_qual()
 
     def _init_rapids_arg_list_for_qual(self) -> List[str]:
-        return ['--per-sql'] + self._create_autotuner_rapids_args() + \
-            self._create_cluster_report_args()
+        rapids_threads_args = self._get_rapids_threads_count(self.name)
+        return ['--per-sql'] + rapids_threads_args + self._create_autotuner_rapids_args()
 
     def _init_rapids_arg_list_for_profile(self) -> List[str]:
-        return super()._init_rapids_arg_list() + ['--csv']
+        rapids_threads_args = self._get_rapids_threads_count(tool_name='profiling')
+        return super()._init_rapids_arg_list() + ['--csv'] + rapids_threads_args
 
-    def _process_cluster_info_and_update_savings(self, cluster_info_file):
+    def __infer_cluster_and_update_savings(self, cluster_info_df: pd.DataFrame):
         """
-        Process the cluster information from the cluster info file and update savings if CPU cluster
-        can be inferred and corresponding GPU cluster can be defined.
-
-        :param cluster_info_file: File containing the cluster information.
+        Update savings if CPU cluster can be inferred and corresponding GPU cluster can be defined.
+        :param cluster_info_df: Parsed cluster information.
         """
         if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
             return
 
-        # Read cluster information from cluster info file
-        try:
-            with open(cluster_info_file, 'r', encoding='utf-8') as cluster_info_fp:
-                cluster_info_dict = json.load(cluster_info_fp)
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.logger.error('Failed to read cluster information from file: %s', cluster_info_file)
-
-        if len(cluster_info_dict) != 1:
-            self.logger.info('Cannot infer CPU cluster from event logs. Only single cluster is supported.')
-            return
-
         # Infer the CPU cluster from the cluster information
-        cluster_info = JSONPropertiesContainer(cluster_info_dict[0]['clusterInfo'], False)
-        cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(cluster_info)
+        cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(cluster_info_df)
         if cpu_cluster_obj is None:
             return
 
@@ -975,6 +970,9 @@ class Qualification(RapidsJarTool):
         predictions_df = predict(platform=model_name, qual=input_dir,
                                  profile=input_dir, output_info=output_info)
 
+        if predictions_df.empty:
+            return all_apps
+
         result_info = self.ctxt.get_value('local', 'output', 'predictionModel', 'updateResult')
         # Merge with a left join to include all rows from all apps and relevant rows from model predictions
         result_df = pd.merge(all_apps, predictions_df[result_info['subsetColumns']],
@@ -1026,7 +1024,7 @@ class QualificationAsLocal(Qualification):
 
     def _prepare_profile_job_args(self):
         # get the job arguments
-        job_args = self.ctxt.get_ctxt('jobArgs')
+        job_args = self._re_evaluate_platform_args('profiling')
         # now we can create the job object
         # Todo: For dataproc, this can be autogenerated from cluster name
         rapids_arg_list = self._init_rapids_arg_list_for_profile()

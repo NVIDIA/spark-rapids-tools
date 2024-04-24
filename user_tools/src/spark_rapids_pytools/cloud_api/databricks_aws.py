@@ -173,8 +173,17 @@ class DBAWSCMDDriver(CMDDriverBase):
                       '--instance-types', f'{node.instance_type}']
         return cmd_params
 
+    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
+        return node.instance_type, self.get_region()
+
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
+
+    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
+        raw_instance_descriptions = super()._exec_platform_describe_node_instance(node)
+        instance_descriptions = JSONPropertiesContainer(raw_instance_descriptions, file_load=False)
+        # Return the instance description of node type. Convert to valid JSON string for type matching.
+        return json.dumps(instance_descriptions.get_value('InstanceTypes')[0])
 
 
 @dataclass
@@ -276,7 +285,7 @@ class DatabricksCluster(ClusterBase):
         :param orig_cluster: the cpu_cluster that does not support the GPU devices.
         """
         # get the map of the instance types
-        mc_type_map, _ = orig_cluster.find_matches_for_node()
+        mc_type_map = orig_cluster.find_matches_for_node()
         new_worker_nodes: list = []
         for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
             # loop on all worker nodes.

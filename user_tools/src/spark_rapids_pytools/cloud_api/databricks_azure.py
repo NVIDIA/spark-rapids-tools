@@ -237,6 +237,11 @@ class DBAzureCMDDriver(CMDDriverBase):
             self.logger.info('The Azure instance type descriptions catalog is loaded from the cache')
         return fpath
 
+    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
+        instance_descriptions = JSONPropertiesContainer(self.init_instances_description())
+        # Return the instance description of node type. Convert to valid JSON string for type matching.
+        return json.dumps(instance_descriptions.get_value_silent(node.instance_type))
+
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
@@ -252,17 +257,13 @@ class DatabricksAzureNode(ClusterNode):
 
     region: str = field(default=None, init=False)
 
-    def _pull_and_set_mc_props(self, cli=None):
-        instances_description_path = cli.init_instances_description()
-        self.mc_props = JSONPropertiesContainer(prop_arg=instances_description_path)
-
     def _set_fields_from_props(self):
         self.name = self.props.get_value_silent('public_dns')
 
     def _pull_sys_info(self, cli=None) -> SysInfo:
-        cpu_mem = self.mc_props.get_value(self.instance_type, 'MemoryInfo', 'SizeInMiB')
+        cpu_mem = self.mc_props.get_value('MemoryInfo', 'SizeInMiB')
         # TODO: should we use DefaultVCpus or DefaultCores
-        num_cpus = self.mc_props.get_value(self.instance_type, 'VCpuInfo', 'DefaultVCpus')
+        num_cpus = self.mc_props.get_value('VCpuInfo', 'DefaultVCpus')
 
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
@@ -368,7 +369,7 @@ class DatabricksAzureCluster(ClusterBase):
         :param orig_cluster: the cpu_cluster that does not support the GPU devices.
         """
         # get the map of the instance types
-        mc_type_map, _ = orig_cluster.find_matches_for_node()
+        mc_type_map = orig_cluster.find_matches_for_node()
         new_worker_nodes: list = []
         for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
             # loop on all worker nodes.

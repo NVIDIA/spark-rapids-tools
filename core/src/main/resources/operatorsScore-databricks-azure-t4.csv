@@ -20,6 +20,10 @@ ObjectHashAggregateExec,2.73
 SortAggregateExec,2.73
 InMemoryTableScanExec,2.73
 DataWritingCommandExec,2.73
+AtomicReplaceTableAsSelectExec,2.73
+AtomicCreateTableAsSelectExec,2.73
+OverwriteByExpressionExecV1,2.73
+AppendDataExecV1,2.73
 ExecutedCommandExec,2.73
 BatchScanExec,2.73
 BroadcastExchangeExec,2.73
@@ -31,6 +35,7 @@ ShuffledHashJoinExec,2.73
 SortMergeJoinExec,36.13
 FlatMapCoGroupsInPandasExec,2.73
 WindowExec,2.73
+WindowGroupLimitExec,2.73
 HiveTableScanExec,2.73
 Abs,2.73
 Acos,2.73
@@ -268,4 +273,12 @@ AggregateInPandasExec,1.2
 ArrowEvalPythonExec,1.2
 FlatMapGroupsInPandasExec,1.2
 MapInPandasExec,1.2
+PythonMapInArrowExec,2.73
+MapInArrowExec,2.73
 WindowInPandasExec,1.2
+RoundCeil,2.73
+RoundFloor,2.73
+BloomFilterMightContain,2.73
+BloomFilterAggregate,2.73
+EphemeralSubstring,2.73
+KnownNullable,2.73

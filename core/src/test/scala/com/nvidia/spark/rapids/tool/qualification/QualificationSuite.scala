@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.ml.feature.PCA
@@ -173,7 +174,7 @@ class QualificationSuite extends BaseTestSuite {
 
       // Default expectation for the status counts - All applications are successful.
       val expectedStatusCounts =
-        expectedStatus.getOrElse(StatusReportCounts(appSum.length, 0, 0))
+        expectedStatus.getOrElse(StatusReportCounts(appSum.length, 0, 0, 0))
       // Compare the expected status counts with the actual status counts from the application
       ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
         expectedStatusCounts)
@@ -278,7 +279,7 @@ class QualificationSuite extends BaseTestSuite {
       assert(appSum.head.appId.equals("local-1622043423018"))
 
       // Default expectation for the status counts - All applications are successful.
-      val expectedStatusCount = StatusReportCounts(appSum.length, 0, 0)
+      val expectedStatusCount = StatusReportCounts(appSum.length, 0, 0, 0)
       // Compare the expected status counts with the actual status counts from the application
       ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath, expectedStatusCount)
 
@@ -435,8 +436,8 @@ class QualificationSuite extends BaseTestSuite {
       assert(exit == 0)
       assert(appSum.size == 0)
 
-      // Application should fail. Status counts: 0 SUCCESS, 0 FAILURE, 1 UNKNOWN
-      val expectedStatusCounts = StatusReportCounts(0, 0, 1)
+      // Application should fail. Status counts: 0 SUCCESS, 0 FAILURE, 1 SKIPPED, 0 UNKNOWN
+      val expectedStatusCounts = StatusReportCounts(0, 0, 1, 0)
       // Compare the expected status counts with the actual status counts from the application
       ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
         expectedStatusCounts)
@@ -459,7 +460,7 @@ class QualificationSuite extends BaseTestSuite {
     val badEventLog = s"$profileLogDir/malformed_json_eventlog.zstd"
     val logFiles = Array(s"$logDir/nds_q86_test", badEventLog)
     // Status counts: 1 SUCCESS, 0 FAILURE, 1 UNKNOWN
-    val expectedStatus = Some(StatusReportCounts(1, 0, 1))
+    val expectedStatus = Some(StatusReportCounts(1, 0, 0, 1))
     runQualificationTest(logFiles, "nds_q86_test_expectation.csv", expectedStatus = expectedStatus)
   }
 
@@ -878,9 +879,9 @@ class QualificationSuite extends BaseTestSuite {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val tagConfs =
-          Map("spark.databricks.clusterUsageTags.clusterAllTags" -> "*********(redacted)",
-            "spark.databricks.clusterUsageTags.clusterId" -> "0617-131246-dray530",
-            "spark.databricks.clusterUsageTags.clusterName" -> "job-215-run-34243234")
+          Map(DatabricksParseHelper.PROP_ALL_TAGS_KEY -> "*********(redacted)",
+            DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY -> "0617-131246-dray530",
+            DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY -> "job-215-run-34243234")
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertagsRedacted",
           Some(tagConfs)) {
           spark =>
@@ -919,7 +920,7 @@ class QualificationSuite extends BaseTestSuite {
             |{"key":"RunName","value":"test73longer"},{"key":"DatabricksEnvironment",
             |"value":"workerenv-7026851462233806"}]""".stripMargin
         val tagConfs =
-          Map("spark.databricks.clusterUsageTags.clusterAllTags" -> allTagsConfVal)
+          Map(DatabricksParseHelper.PROP_ALL_TAGS_KEY -> allTagsConfVal)
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "clustertags",
           Some(tagConfs)) { spark =>
           import spark.implicits._
@@ -1537,56 +1538,106 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  test("validate cluster information JSON") {
-    // Expected result set as a map of event log -> cluster info.
-    val expectedClusterInfoMap = Map(
-      // 2 executor nodes with 8 cores.
-      "eventlog_2nodes_8cores" ->
-        Some(ClusterInfo(8, 2, None, None)),
-      // 3 executor nodes with 12 cores in databricks aws platform.
-      "eventlog_3nodes_12cores_db" ->
-        Some(ClusterInfo(12, 3, Some("m6gd.2xlarge"), Some("m6gd.2xlarge"))),
-      // 3 executor nodes with 12 cores having 2 out of 4 executors on same host.
-      "eventlog_3nodes_12cores_same_host" ->
-        Some(ClusterInfo(12, 3, None, None)),
-      // 3 executor nodes with 8, 12 and 8 cores.
-      "eventlog_3nodes_12cores_variable_cores" ->
-        Some(ClusterInfo(12, 3, None, None)),
-      // Event log with driver only
-      "eventlog_driver_only" -> None,
-      // Event log with executor removed
-      "eventlog_3nodes_12cores_exec_removed" ->
-        Some(ClusterInfo(12, 2, None, None))
-    )
+  // Expected results as a map of event log -> cluster info.
+  // scalastyle:off line.size.limit
+  val expectedClusterInfoMap: Seq[(String, Option[ClusterInfo])] = Seq(
+    "eventlog_2nodes_8cores" -> // 2 executor nodes with 8 cores.
+      Some(ClusterInfo(PlatformNames.DEFAULT, 8, 2,
+        None, None, Some("10.10.10.100"), None, None)),
+    "eventlog_3nodes_12cores_same_host" -> // 3 executor nodes with 12 cores having 2 out of 4 executors on same host.
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 3,
+        None, None, Some("10.59.184.210"), None, None)),
+    "eventlog_3nodes_12cores_variable_cores" -> // 3 executor nodes with 8, 12 and 8 cores.
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 3,
+        None, None, Some("10.10.10.100"), None, None)),
+    "eventlog_3nodes_12cores_exec_removed" -> // Event log with executor removed
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2,
+        None, None, Some("10.10.10.100"), None, None)),
+    "eventlog_driver_only" -> None // Event log with driver only
+  )
+  // scalastyle:on line.size.limit
 
-    // Read JSON as [{'appId': 'app-id-1', ..}, {'appId': 'app-id-2', ..}]
-    def readJson(path: String): Array[ClusterSummary] = {
-      val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
-      mapper.readValue(new File(path), classOf[Array[ClusterSummary]])
+  expectedClusterInfoMap.foreach { case (eventlogPath, expectedClusterInfo) =>
+    test(s"test cluster information JSON - $eventlogPath") {
+      val logFile = s"$logDir/cluster_information/$eventlogPath"
+      runQualificationAndTestClusterInfo(logFile, PlatformNames.DEFAULT, expectedClusterInfo)
     }
+  }
 
-    // Execute the qualification tool
+  // Expected results as a map of platform -> cluster info.
+  val expectedPlatformClusterInfoMap: Seq[(String, ClusterInfo)] = Seq(
+    PlatformNames.DATABRICKS_AWS ->
+      ClusterInfo(PlatformNames.DATABRICKS_AWS, 8, 2,
+        Some("m6gd.2xlarge"),
+        Some("m6gd.2xlarge"),
+        Some("10.10.10.100"),
+        Some("1212-214324-test"),
+        Some("test-db-aws-cluster")),
+    PlatformNames.DATABRICKS_AZURE ->
+      ClusterInfo(PlatformNames.DATABRICKS_AZURE, 8, 2,
+        Some("Standard_E8ds_v4"),
+        Some("Standard_E8ds_v4"),
+        Some("10.10.10.100"),
+        Some("1212-214324-test"),
+        Some("test-db-azure-cluster")),
+    PlatformNames.DATAPROC ->
+      ClusterInfo(PlatformNames.DATAPROC, 8, 2,
+        None,
+        None,
+        Some("dataproc-test-m.c.internal"),
+        None,
+        None),
+    PlatformNames.EMR ->
+      ClusterInfo(PlatformNames.EMR, 8, 2,
+        None,
+        None,
+        Some("10.10.10.100"),
+        Some("j-123AB678XY321"),
+        None),
+    PlatformNames.ONPREM ->
+      ClusterInfo(PlatformNames.ONPREM, 8, 2,
+        None,
+        None,
+        Some("10.10.10.100"),
+        None,
+        None)
+  )
+
+  expectedPlatformClusterInfoMap.foreach { case (platform, expectedClusterInfo) =>
+    test(s"test cluster information JSON for platform - $platform ") {
+      val logFile = s"$logDir/cluster_information/platform/$platform"
+      runQualificationAndTestClusterInfo(logFile, platform, Some(expectedClusterInfo))
+    }
+  }
+
+  /**
+   * Runs the qualification tool and verifies cluster information against expected values.
+   */
+  private def runQualificationAndTestClusterInfo(eventlogPath: String, platform: String,
+      expectedClusterInfo: Option[ClusterInfo]): Unit = {
     TrampolineUtil.withTempDir { outPath =>
-      val allArgs = Array("--output-directory", outPath.getAbsolutePath)
-      val logFiles = expectedClusterInfoMap
-        .map(entry => s"$logDir/cluster_information/${entry._1}").toArray
-      val appArgs = new QualificationArgs(allArgs ++ logFiles)
+      val baseArgs = Array("--output-directory", outPath.getAbsolutePath, "--platform", platform)
+      val appArgs = new QualificationArgs(baseArgs :+ eventlogPath)
       val (exitCode, result) = QualificationMain.mainInternal(appArgs)
-      assert(exitCode == 0 && result.size == logFiles.length)
+      assert(exitCode == 0 && result.size == 1,
+        "Qualification tool returned unexpected results.")
+
+      // Read JSON as [{'appId': 'app-id-1', ..}]
+      def readJson(path: String): Array[ClusterSummary] = {
+        val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
+        mapper.readValue(new File(path), classOf[Array[ClusterSummary]])
+      }
 
       // Read output JSON and create a set of (event log, cluster info)
       val outputResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
-      val actualClusterInfoMap = readJson(outputResultFile).map { clusterSummary =>
-        // extract file name from path
-        val eventLogFile = clusterSummary.eventLogPath.map(new File(_).getName).getOrElse("")
-        eventLogFile -> clusterSummary.clusterInfo
-      }.toMap
-      assert(actualClusterInfoMap == expectedClusterInfoMap)
+      val actualClusterInfo = readJson(outputResultFile).headOption.flatMap(_.clusterInfo)
+      assert(actualClusterInfo == expectedClusterInfo,
+        "Actual cluster info does not match the expected cluster info.")
     }
   }
 
-  test("validate cluster information generation is disabled") {
+  test("test cluster information generation is disabled") {
     // Execute the qualification tool
     TrampolineUtil.withTempDir { outPath =>
       val allArgs = Array(

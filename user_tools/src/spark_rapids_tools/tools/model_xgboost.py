@@ -21,7 +21,7 @@ import os
 import re
 import traceback
 from pathlib import Path
-from typing import Optional, Mapping, List, Callable, Tuple
+from typing import Optional, Mapping, List, Dict, Callable, Tuple
 
 import numpy as np
 import pandas as pd
@@ -48,6 +48,8 @@ expected_raw_features = set(
         'appDuration',
         'appName',
         'cache_hit_ratio',
+        'data_size',
+        'decode_time',
         'description',
         'diskBytesSpilled_sum',
         'diskBytesSpilledBool',
@@ -90,6 +92,10 @@ expected_raw_features = set(
         'resultSize_max',
         'runType',
         'scaleFactor',
+        'scan_bw',
+        'scan_time',
+        'shuffle_read_bw',
+        'shuffle_write_bw',
         'sparkVersion',
         'sqlID',
         'sqlOp_AQEShuffleRead',
@@ -144,6 +150,8 @@ expected_raw_features = set(
 expected_model_features = set(
     [
         'cache_hit_ratio',
+        'data_size',
+        'decode_time',
         'diskBytesSpilled_sum',
         'diskBytesSpilledBool',
         'diskBytesSpilledRatio',
@@ -179,6 +187,10 @@ expected_model_features = set(
         'resourceProfileId',
         'resultSerializationTime_sum',
         'resultSize_max',
+        'scan_bw',
+        'scan_time',
+        'shuffle_read_bw',
+        'shuffle_write_bw',
         'sqlOp_AQEShuffleRead',
         'sqlOp_BroadcastExchange',
         'sqlOp_BroadcastHashJoin',
@@ -253,12 +265,15 @@ def find_paths(folder, filter_fn=None, return_directories=False):
     paths = []
     if folder and os.path.isdir(folder):
         for root, dirs, files in os.walk(folder):
-            if return_directories:
-                filtered_dirs = filter(filter_fn, dirs)
-                paths.extend([os.path.join(root, dir) for dir in filtered_dirs])
-            else:
-                filtered_files = filter(filter_fn, files)
-                paths.extend([os.path.join(root, file) for file in filtered_files])
+            try:
+                if return_directories:
+                    filtered_dirs = filter(filter_fn, dirs)
+                    paths.extend([os.path.join(root, dir) for dir in filtered_dirs])
+                else:
+                    filtered_files = filter(filter_fn, files)
+                    paths.extend([os.path.join(root, file) for file in filtered_files])
+            except Exception as e:  # pylint: disable=broad-except
+                logger.error('Error occurred when searching in %s: %s', folder, e)
     return paths
 
 
@@ -271,9 +286,12 @@ def load_qual_csv(
     qual_csv = [os.path.join(q, csv_filename) for q in qual_dirs]
     df = None
     if qual_csv:
-        df = pd.concat([pd.read_csv(f) for f in qual_csv])
-        if cols:
-            df = df[cols]
+        try:
+            df = pd.concat([pd.read_csv(f) for f in qual_csv])
+            if cols:
+                df = df[cols]
+        except Exception as e:  # pylint: disable=broad-except
+            logger.error('Error concatenating qualification output files: %s', e)
     return df
 
 
@@ -284,18 +302,21 @@ def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
     """
     node_level_supp = None
     if qtool_execs:
-        exec_info = pd.concat([pd.read_csv(f) for f in qtool_execs])
-        node_level_supp = exec_info.copy()
-        node_level_supp['Exec Is Supported'] = node_level_supp[
-                                                   'Exec Is Supported'
-                                               ] | node_level_supp['Action'].apply(
-            lambda x: x == 'IgnoreNoPerf')
-        node_level_supp = (
-            node_level_supp[['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']]
-            .groupby(['App ID', 'SQL ID', 'SQL Node Id'])
-            .agg('all')
-            .reset_index(level=[0, 1, 2])
-        )
+        try:
+            exec_info = pd.concat([pd.read_csv(f) for f in qtool_execs])
+            node_level_supp = exec_info.copy()
+            node_level_supp['Exec Is Supported'] = node_level_supp[
+                                                       'Exec Is Supported'
+                                                   ] | node_level_supp['Action'].apply(
+                lambda x: x == 'IgnoreNoPerf')
+            node_level_supp = (
+                node_level_supp[['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']]
+                .groupby(['App ID', 'SQL ID', 'SQL Node Id'])
+                .agg('all')
+                .reset_index(level=[0, 1, 2])
+            )
+        except Exception as e:  # pylint: disable=broad-except
+            logger.error('Error loading supported stage info from qualification output: %s', e)
     return node_level_supp
 
 
@@ -333,12 +354,27 @@ def get_qual_data(qual: Optional[str]):
     return node_level_supp, qual_app_preds, qual_sql_preds
 
 
+def safe_load_csv_files(
+        toc: pd.DataFrame,
+        app_id: str,
+        node_level_supp: Optional[pd.DataFrame],
+        qual_tool_filter: Optional[str]) -> Dict[str, pd.DataFrame]:
+    """
+    This wrapper function calls the load_csv_files function, handling any exceptions.
+    """
+    try:
+        return load_csv_files(toc, app_id, node_level_supp, qual_tool_filter)
+    except Exception as e:  # pylint: disable=broad-except
+        # We should catch this and continue parsing other applications
+        logger.error('Error loading csv data for app_id %s: %s', app_id, e)
+        return {}
+
+
 def load_csv_files(
         toc: pd.DataFrame,
         app_id: str,
         node_level_supp: Optional[pd.DataFrame],
-        qual_tool_filter: Optional[str],
-) -> List[Mapping[str, pd.DataFrame]]:
+        qual_tool_filter: Optional[str]) -> Dict[str, pd.DataFrame]:
     """
     Load profiler CSV files into memory.
     """
@@ -510,6 +546,9 @@ def load_csv_files(
             stages_supp = pd.DataFrame(columns=['appId', 'sqlID', 'stageIds'])
             sql_level_supp = pd.DataFrame(columns=['App ID', 'SQL ID'])
 
+    # sqlids to drop due to failures meeting below criteria
+    sqls_to_drop = set()
+
     # Load job+stage level agg metrics:
     job_stage_agg_tbl = scan_tbl('job_+_stage_level_aggregated_task_metrics')
     if not any([job_stage_agg_tbl.empty, job_map_tbl.empty]):
@@ -522,6 +561,45 @@ def load_csv_files(
 
         # Only need job level aggs for now since one-to-many relationships between stageID and sqlID.
         job_stage_agg_tbl['js_type'] = job_stage_agg_tbl['ID'].str.split('_').str[0]
+        # mark for removal from modeling sqlids that have failed stage time > 10% total stage time
+        allowed_failed_duration_fraction = 0.10
+        stage_agg_tbl = job_stage_agg_tbl.loc[
+            job_stage_agg_tbl.js_type == 'stage'
+            ].reset_index()
+        stage_agg_tbl['ID'] = stage_agg_tbl['ID'].str.split('_').str[1].astype(int)
+        failed_stages = scan_tbl('failed_stages', warn_on_error=False)
+        if not sql_to_stage.empty and not failed_stages.empty:
+            stage_agg_tbl = stage_agg_tbl[['ID', 'Duration']].merge(
+                sql_to_stage, left_on='ID', right_on='stageId'
+            )
+            total_stage_time = (
+                stage_agg_tbl[['sqlID', 'ID', 'Duration']]
+                .groupby('sqlID')
+                .agg('sum')
+                .reset_index()
+            )
+            failed_stage_time = (
+                stage_agg_tbl[['sqlID', 'ID', 'Duration']]
+                .merge(failed_stages, left_on='ID', right_on='stageId', how='inner')
+                .groupby('sqlID')
+                .agg('sum')
+                .reset_index()
+                .drop(columns=['sqlID'])
+            )
+            stage_times = total_stage_time.merge(
+                failed_stage_time, on='ID', how='inner'
+            )
+            stage_times.info()
+            sqls_to_drop = set(
+                stage_times.loc[
+                    stage_times.Duration_y
+                    > stage_times.Duration_x * allowed_failed_duration_fraction
+                    ]['sqlID']
+            )
+
+        if sqls_to_drop:
+            logger.warning('Ignoring sqlIDs %s due to excessive failed/cancelled stage duration.', sqls_to_drop)
+
         if node_level_supp is not None and (qual_tool_filter == 'stage'):
             job_stage_agg_tbl = job_stage_agg_tbl[
                 job_stage_agg_tbl['js_type'] == 'stage'
@@ -581,8 +659,36 @@ def load_csv_files(
             right_on=['App ID', 'sqlID'],
         )
         app_info_mg = app_info_mg.drop(columns=['appID', 'appIndex', 'App ID'])
+
+        # filter out sqlIDs with aborted jobs (these are jobs failed due to sufficiently many (configurable)
+        # failed attempts of a stage due to error conditions).
+        # these are failed sqlIDs that we shouldn't model, but are still included in profiler output.
+        failed_jobs = scan_tbl('failed_jobs', warn_on_error=False)
+        if not failed_jobs.empty and not job_map_tbl.empty:
+            aborted_jobs = failed_jobs.loc[
+                failed_jobs.failureReason.str.contains('aborted')
+            ][['jobID']]
+            aborted_jobs['jobID'] = 'job_' + aborted_jobs['jobID'].astype(str)
+            aborted_jobs_sql_id = job_map_tbl.merge(
+                aborted_jobs, how='inner', on='jobID'
+            )
+            aborted_sql_ids = set(aborted_jobs_sql_id['sqlID'])
+        else:
+            aborted_sql_ids = set()
+
+        if aborted_sql_ids:
+            logger.warning('Ignoring sqlIDs %s due to aborted jobs.', aborted_sql_ids)
+
+        sqls_to_drop = sqls_to_drop.union(aborted_sql_ids)
+
+        if sqls_to_drop:
+            logger.warning('Ignoring a total of %d sqlIDs due to stage/job failures.', len(sqls_to_drop))
+            app_info_mg = app_info_mg.loc[~app_info_mg.sqlID.isin(sqls_to_drop)]
+
     else:
         app_info_mg = pd.DataFrame()
+
+    ds_tbl = scan_tbl('data_source_information')
 
     out = {
         'app_tbl': app_info_mg,
@@ -591,6 +697,7 @@ def load_csv_files(
         'job_map_tbl': job_map_tbl,
         'job_stage_agg_tbl': job_stage_agg_tbl,
         'wholestage_tbl': wholestage_tbl,
+        'ds_tbl': ds_tbl,
     }
 
     return out
@@ -605,14 +712,14 @@ def extract_raw_features(
     # read all tables per appId
     unique_app_ids = toc['appId'].unique()
     app_id_tables = [
-        load_csv_files(toc, app_id, node_level_supp, qualtool_filter)
+        safe_load_csv_files(toc, app_id, node_level_supp, qualtool_filter)
         for app_id in unique_app_ids
     ]
 
     def combine_tables(table_name: str) -> pd.DataFrame:
         """Combine csv tables (by name) across all appIds."""
         merged = pd.concat(
-            [app_id_tables[i][table_name] for i in range(len(app_id_tables))]
+            [app_id_tables[i][table_name] for i in range(len(app_id_tables)) if table_name in app_id_tables[i]]
         )
         return merged
 
@@ -828,6 +935,34 @@ def extract_raw_features(
     for cc in binarize_features:
         full_tbl[cc + 'Bool'] = full_tbl[cc + '_sum'] > 0
 
+    # add data source features
+    ds_tbl = combine_tables('ds_tbl')
+    grouped_ds_tbl = ds_tbl.groupby(['sqlID'], as_index=False).sum()
+    grouped_ds_tbl['scan_bw'] = (
+            1.0 * grouped_ds_tbl['data_size'] / grouped_ds_tbl['scan_time']
+    )
+    ds_cols = [
+        'sqlID',
+        'scan_bw',
+        'scan_time',
+        'decode_time',
+        'data_size',
+    ]
+    full_tbl = full_tbl.merge(grouped_ds_tbl[ds_cols], on=['sqlID'], how='left')
+
+    # add shuffle bandwidth aggregate features
+    full_tbl['shuffle_read_bw'] = (
+        (full_tbl['sr_totalBytesRead_sum'] / full_tbl['sr_fetchWaitTime_sum'])
+        .replace([np.inf, -np.inf], 0)
+        .fillna(0)
+    )
+    full_tbl['shuffle_write_bw'] = (
+        (full_tbl['sw_bytesWritten_sum'] / full_tbl['sw_writeTime_sum'])
+        .replace([np.inf, -np.inf], 0)
+        .fillna(0)
+    )
+    full_tbl[ds_cols] = full_tbl[ds_cols].replace([np.inf, -np.inf], 0).fillna(0)
+
     return full_tbl
 
 
@@ -866,7 +1001,7 @@ def load_profiles(
     # get list of csv files from each profile
     for dataset_name, dataset_meta in profiles.items():
         toc_list = []
-        profile_paths = dataset_meta['profiles']
+        profile_paths = dataset_meta.get('profiles', [])
         # use default values for prediction if no app_meta provided
         app_meta = dataset_meta.get(
             'app_meta', {'default': {'runType': 'CPU', 'scaleFactor': 1}}
@@ -874,28 +1009,32 @@ def load_profiles(
         scalefactor_meta = dataset_meta.get('scaleFactorFromSqlIDRank', None)
         for path in profile_paths:
             for app_id in app_meta.keys():
-                if app_id == 'default':
-                    csv_files = glob.glob(f'{path}/**/*.csv', recursive=True)
-                else:
-                    csv_files = glob.glob(f'{path}/**/{app_id}/*.csv', recursive=True)
-                if csv_files:
-                    tmp = pd.DataFrame({'filepath': csv_files})
-                    fp_split = tmp['filepath'].str.split(r'/')
-                    tmp['test_name'] = dataset_name
-                    tmp['appId'] = fp_split.str[-2]
-                    tmp['table_name'] = fp_split.str[-1].str[:-4]
-                    tmp['runType'] = (
-                        app_meta[app_id]['runType']
-                        if app_id in app_meta
-                        else app_meta['default']['runType']
-                    )
-                    if not scalefactor_meta:
-                        tmp['scaleFactor'] = (
-                            app_meta[app_id]['scaleFactor']
+                try:
+                    if app_id == 'default':
+                        csv_files = glob.glob(f'{path}/**/*.csv', recursive=True)
+                    else:
+                        csv_files = glob.glob(f'{path}/**/{app_id}/*.csv', recursive=True)
+                    if csv_files:
+                        tmp = pd.DataFrame({'filepath': csv_files})
+                        fp_split = tmp['filepath'].str.split(r'/')
+                        tmp['test_name'] = dataset_name
+                        tmp['appId'] = fp_split.str[-2]
+                        tmp['table_name'] = fp_split.str[-1].str[:-4]
+                        tmp['runType'] = (
+                            app_meta[app_id]['runType']
                             if app_id in app_meta
-                            else app_meta['default']['scaleFactor']
+                            else app_meta['default']['runType']
                         )
-                    toc_list.append(tmp)
+                        if not scalefactor_meta:
+                            tmp['scaleFactor'] = (
+                                app_meta[app_id]['scaleFactor']
+                                if app_id in app_meta
+                                else app_meta['default']['scaleFactor']
+                            )
+                        toc_list.append(tmp)
+                except Exception as e:  # pylint: disable=broad-except
+                    # We should catch this and continue parsing other applications
+                    logger.error('Error parsing application %s: %s', app_id, e)
 
         if toc_list:
             toc = pd.concat(toc_list)
@@ -983,6 +1122,13 @@ def extract_model_features(
 
         # use Duration_speedup as label
         label_col = 'Duration_speedup'
+
+        # remove nan label entries
+        original_num_rows = cpu_aug_tbl.shape[0]
+        cpu_aug_tbl = cpu_aug_tbl.loc[~cpu_aug_tbl[label_col].isna()]
+        if cpu_aug_tbl.shape[0] < original_num_rows:
+            logger.warning(
+                'Removed %d rows with NaN label values', original_num_rows - cpu_aug_tbl.shape[0])
     else:
         # inference dataset with CPU runs only
         label_col = None
@@ -1204,6 +1350,25 @@ def _print_summary(summary):
     print(tabulate(formatted, headers='keys', tablefmt='psql', floatfmt='.2f'))
 
 
+def _print_speedup_summary(dataset_summary: pd.DataFrame):
+    try:
+        overall_speedup = (
+                dataset_summary['appDuration'].sum()
+                / dataset_summary['appDuration_pred'].sum()
+        )
+        total_applications = dataset_summary.shape[0]
+        summary = {
+            'Total applications': total_applications,
+            'Overall estimated speedup': overall_speedup,
+        }
+        summary_df = pd.DataFrame(summary, index=[0]).transpose()
+        print('\nReport Summary:')
+        print(tabulate(summary_df, colalign=('left', 'right')))
+        print()
+    except Exception as e:  # pylint: disable=broad-except
+        logger.error('Error generating summary for stdout: %s', e)
+
+
 def predict(platform: str = 'onprem',
             qual: Optional[str] = None,
             profile: Optional[str] = None,
@@ -1270,7 +1435,8 @@ def predict(platform: str = 'onprem',
                 # compute per-app speedups
                 summary = _compute_summary(results)
                 dataset_summaries.append(summary)
-                _print_summary(summary)
+                if INTERMEDIATE_DATA_ENABLED:
+                    _print_summary(summary)
 
                 # compute speedup for the entire dataset
                 dataset_speedup = (
@@ -1300,19 +1466,7 @@ def predict(platform: str = 'onprem',
     if dataset_summaries:
         # show summary stats across all datasets
         dataset_summary = pd.concat(dataset_summaries)
-        overall_speedup = (
-                dataset_summary['appDuration'].sum()
-                / dataset_summary['appDuration_pred'].sum()
-        )
-        total_applications = dataset_summary.shape[0]
-        summary = {
-            'Total applications': total_applications,
-            'Overall estimated speedup': overall_speedup,
-        }
-        summary_df = pd.DataFrame(summary, index=[0]).transpose()
         if INTERMEDIATE_DATA_ENABLED:
-            print('\nReport Summary:')
-            print(tabulate(summary_df, colalign=('left', 'right')))
-            print()
+            _print_speedup_summary(dataset_summary)
         return dataset_summary
     return pd.DataFrame()

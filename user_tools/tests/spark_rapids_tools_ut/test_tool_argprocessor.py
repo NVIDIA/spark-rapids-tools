@@ -76,19 +76,23 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
             assert t_args['filterApps'] != QualFilterApp.SAVINGS
 
     @staticmethod
-    def create_tool_args_should_pass(tool_name: str, platform=None, cluster=None, eventlogs=None):
+    def create_tool_args_should_pass(tool_name: str, platform=None, cluster=None,
+                                     eventlogs=None, tools_jar=None):
         return AbsToolUserArgModel.create_tool_args(tool_name,
                                                     platform=platform,
                                                     cluster=cluster,
-                                                    eventlogs=eventlogs)
+                                                    eventlogs=eventlogs,
+                                                    tools_jar=tools_jar)
 
     @staticmethod
-    def create_tool_args_should_fail(tool_name: str, platform=None, cluster=None, eventlogs=None):
+    def create_tool_args_should_fail(tool_name: str, platform=None, cluster=None,
+                                     eventlogs=None, tools_jar=None):
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             AbsToolUserArgModel.create_tool_args(tool_name,
                                                  platform=platform,
                                                  cluster=cluster,
-                                                 eventlogs=eventlogs)
+                                                 eventlogs=eventlogs,
+                                                 tools_jar=tools_jar)
         assert pytest_wrapped_e.type == SystemExit
 
     @staticmethod
@@ -131,6 +135,30 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
         self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                 cost_savings_enabled=False,
                                 expected_platform=CspEnv.ONPREM)
+
+    @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
+    @pytest.mark.parametrize('csp', all_csps)
+    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A])
+    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A])
+    def test_with_platform_with_eventlogs_with_jar_files(self, get_ut_data_dir, tool_name, csp):
+        # should pass: platform and event logs are provided. tools_jar is correct
+        tool_args = self.create_tool_args_should_pass(tool_name, platform=csp,
+                                                      eventlogs=f'{get_ut_data_dir}/eventlogs',
+                                                      tools_jar=f'{get_ut_data_dir}/tools_mock.jar')
+        assert tool_args['toolsJar'] == f'{get_ut_data_dir}/tools_mock.jar'
+
+        # should pass: tools_jar is correct
+        tool_args = self.create_tool_args_should_pass(tool_name, eventlogs=f'{get_ut_data_dir}/eventlogs',
+                                                      tools_jar=f'{get_ut_data_dir}/tools_mock.jar')
+        assert tool_args['toolsJar'] == f'{get_ut_data_dir}/tools_mock.jar'
+
+        # should fail: tools_jar does not exist
+        self.create_tool_args_should_fail(tool_name, eventlogs=f'{get_ut_data_dir}/eventlogs',
+                                          tools_jar=f'{get_ut_data_dir}/tools_mock.txt')
+
+        # should fail: tools_jar is not .jar extension
+        self.create_tool_args_should_fail(tool_name, eventlogs=f'{get_ut_data_dir}/eventlogs',
+                                          tools_jar=f'{get_ut_data_dir}/worker_info.yaml')
 
     @pytest.mark.parametrize('tool_name', ['qualification', 'profiling'])
     @pytest.mark.parametrize('csp', all_csps)
@@ -285,6 +313,13 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
         self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
                                 cost_savings_enabled=False,
                                 expected_platform=CspEnv.ONPREM)
+
+    @pytest.mark.parametrize('prop_path', [autotuner_prop_path])
+    def test_profiler_with_driverlog(self, get_ut_data_dir, prop_path):
+        prof_args = AbsToolUserArgModel.create_tool_args('profiling',
+                                                         driverlog=f'{get_ut_data_dir}/{prop_path}')
+        assert not prof_args['requiresEventlogs']
+        assert prof_args['rapidOptions']['driverlog'] == f'{get_ut_data_dir}/{prop_path}'
 
     def test_arg_cases_coverage(self):
         """

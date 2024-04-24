@@ -267,7 +267,8 @@
       "executor": {
         "n1-standard": {"vCPUs": [1, 2, 4, 8, 16, 32, 64, 96]}
       }
-    }
+    },
+    "defaultImage": "2.1.41-debian11"
   },
   "clusterSpecs": {
     "minWorkerNodes": 2,

@@ -5,7 +5,7 @@ export CLUSTER_NAME="{{ CLUSTER_NAME }}"
 gcloud dataproc clusters create $CLUSTER_NAME \
     --image-version={{ IMAGE }} \
     --region {{ REGION }} \
-    --zone {{ ZONE }}-a \
+    --zone {{ ZONE }} \
     --master-machine-type {{ MASTER_MACHINE }} \
     --num-workers {{ WORKERS_COUNT }} \
     --worker-machine-type {{ WORKERS_MACHINE }} \

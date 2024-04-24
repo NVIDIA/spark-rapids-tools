@@ -7,9 +7,15 @@ toolOutput:
   csv:
     unsupportedOperatorsReport:
       fileName: rapids_4_spark_qualification_output_unsupportedOperators.csv
+    clusterInformation:
+      fileName: rapids_4_spark_qualification_output_cluster_information.csv
     summaryReport:
       fileName: rapids_4_spark_qualification_output.csv
       columns:
+        - Vendor
+        - Driver Host
+        - Cluster Id
+        - Cluster Name
         - App Name
         - App ID
         - Recommendation
@@ -34,14 +40,22 @@ toolOutput:
             - 'Strongly Recommended'
             - 'Recommended'
       groupColumns:
-         App Duration: 'App Name'
-         Estimated GPU Duration: 'App Name'
-         Unsupported Operators Stage Duration: 'App Name'
+         keys:
+           - Vendor
+           - Driver Host
+           - Cluster Id
+           - Cluster Name
+           - App Name
+         columns:
+           - App Duration
+           - Estimated GPU Duration
+           - Unsupported Operators Stage Duration
       dropDuplicates:
-         - App Name
-  json:
-    clusterInformation:
-      fileName: rapids_4_spark_qualification_output_cluster_information.json
+        - Vendor
+        - Driver Host
+        - Cluster Id
+        - Cluster Name
+        - App Name
   stdout:
     summaryReport:
       compactWidth: true
@@ -53,6 +67,7 @@ sparkRapids:
   mainClass: 'com.nvidia.spark.rapids.tool.qualification.QualificationMain'
   outputDocURL: 'https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#understanding-the-qualification-tool-output'
   enableAutoTuner: true
+  requireEventLogs: true
   gpu:
     device: 't4'
     workersPerNode: 2
@@ -77,7 +92,6 @@ sparkRapids:
       - ml-functions
       - n
       - num-output-rows
-      - num-threads
       - order
       - r
       - report-read-schema

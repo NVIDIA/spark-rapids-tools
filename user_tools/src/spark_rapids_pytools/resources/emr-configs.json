@@ -170,7 +170,7 @@
       "onlineResources": [
         {
           "resourceKey": "emr-catalog",
-          "onlineURL": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/ElasticMapReduce/20230223011407/us-west-2/index.json",
+          "onlineURL": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/ElasticMapReduce/current/us-west-2/index.json",
           "//localFile": "the name of the file after downloading",
           "localFile": "aws_ec2_catalog_emr_us-west-2.json",
           "backupArchive": {
@@ -181,7 +181,7 @@
         },
         {
           "resourceKey": "ec2-catalog",
-          "onlineURL": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/20230307163705/us-west-2/index.json",
+          "onlineURL": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/us-west-2/index.json",
           "//localFile": "the name of the file after downloading",
           "localFile": "aws_ec2_catalog_ec2_us-west-2.json",
           "backupArchive": {
@@ -215,11 +215,11 @@
           },
           "SysInfo": {
             "num_cpus": 8,
-            "cpu_mem": 16384
+            "cpu_mem": 32768
           },
           "GpuHWInfo": {
             "num_gpus": 1,
-            "gpu_mem": 32768
+            "gpu_mem": 16384
           }
         },
         "g4dn.4xlarge": {
@@ -259,6 +259,71 @@
           "GpuHWInfo": {
             "num_gpus": 4,
             "gpu_mem": 16384
+          }
+        },
+        "g5.xlarge": {
+          "software": {
+            "release": "emr-6.5.0"
+          },
+          "SysInfo": {
+            "num_cpus": 4,
+            "cpu_mem": 16384
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 24576
+          }
+        },
+        "g5.2xlarge": {
+          "software": {
+            "release": "emr-6.5.0"
+          },
+          "SysInfo": {
+            "num_cpus": 8,
+            "cpu_mem": 32768
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 24576
+          }
+        },
+        "g5.4xlarge": {
+          "software": {
+            "release": "emr-6.5.0"
+          },
+          "SysInfo": {
+            "num_cpus": 16,
+            "cpu_mem": 65536
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 24576
+          }
+        },
+        "g5.8xlarge": {
+          "software": {
+            "release": "emr-6.5.0"
+          },
+          "SysInfo": {
+            "num_cpus": 32,
+            "cpu_mem": 131072
+          },
+          "GpuHWInfo": {
+            "num_gpus": 1,
+            "gpu_mem": 24576
+          }
+        },
+        "g5.12xlarge": {
+          "software": {
+            "release": "emr-6.5.0"
+          },
+          "SysInfo": {
+            "num_cpus": 48,
+            "cpu_mem": 196608
+          },
+          "GpuHWInfo": {
+            "num_gpus": 4,
+            "gpu_mem": 24576
           }
         }
       }
@@ -326,7 +391,8 @@
         {"name": "m5d.12xlarge", "vCPUs": 48},
         {"name": "m5d.16xlarge", "vCPUs": 64}
       ]
-    }
+    },
+    "defaultImage": "emr-6.10.0"
   },
   "clusterSpecs": {
     "minWorkerNodes": 2

@@ -28,7 +28,7 @@ import com.nvidia.spark.rapids.tool.qualification._
 import org.scalatest.Matchers.{be, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
 
-import org.apache.spark.sql.TrampolineUtil
+import org.apache.spark.sql.{DataFrame, TrampolineUtil}
 import org.apache.spark.sql.execution.ui.SQLPlanMetric
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -950,8 +950,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("get_json_object is unsupported in Project") {
-    // get_json_object is disabled by default in the RAPIDS plugin
+  test("get_json_object is not supported by default in Project with RAPIDS 24.06") {
     TrampolineUtil.withTempDir { parquetoutputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
@@ -1616,6 +1615,146 @@ class SQLPlanParserSuite extends BaseTestSuite {
       execInfo.expr shouldEqual s"Format: unknown"
       execInfo.udf shouldBe false
       execInfo.shouldIgnore shouldBe false
+    }
+  }
+
+  test("BloomFilters are supported") {
+    // BloomFilter was added in Spark 3.3.0, but we do not care about the version here because
+    // we use one parser to rule all spark-versions.
+    // scalastyle:off line.size.limit
+    // The following two expressions are copied from the Spark explain files
+    val aggDescr = "ObjectHashAggregate(keys=[], functions=[partial_bloom_filter_agg(xxhash64(d_week_seq#41, 42), 335, 8990, 0, 0)])"
+    val filterDescr = "Filter (((isnotnull(c_customer_sk#1) AND isnotnull(c_current_addr_sk#3)) AND isnotnull(c_current_cdemo_sk#2)) AND might_contain(Subquery scalar-subquery#4, [id=#5], xxhash64(c_current_addr_sk#3, 42)))"
+    // scalastyle:on line.size.limit
+    val aggNode = ToolsPlanGraph.constructGraphNode(
+      1,
+      "ObjectHashAggregate",
+      aggDescr, Seq[SQLPlanMetric]())
+    val aggExprArr =
+      SQLPlanParser.parseAggregateExpressions(aggNode.desc.replaceFirst("ObjectHashAggregate", ""))
+    val filterNode = ToolsPlanGraph.constructGraphNode(
+      2,
+      "Filter",
+      filterDescr, Seq[SQLPlanMetric]())
+    val filterExprArray = SQLPlanParser.parseFilterExpressions(
+      filterNode.desc.replaceFirst("Filter ", ""))
+    val pluginTypeChecker = new PluginTypeChecker()
+    pluginTypeChecker.getNotSupportedExprs(aggExprArr) shouldBe 'empty
+    pluginTypeChecker.getNotSupportedExprs(filterExprArray) shouldBe 'empty
+  }
+
+  test("KnownNullable is supported") {
+    // scalastyle:off line.size.limit
+    // The following expression is copied from the Spark explain files
+    val projectDescr = "Project [named_struct(start, precisetimestampconversion(precisetimestampconversion(t#0, TimestampType, LongType), LongType, TimestampType), end, knownnullable(precisetimestampconversion(precisetimestampconversion(cast(t#0 + cast(10 minutes as interval) as timestamp), TimestampType, LongType), LongType, TimestampType))) AS session_window#0, d#0, t#0, s#0, x#0L, wt#0]"
+    // scalastyle:on line.size.limit
+    val projectNode = ToolsPlanGraph.constructGraphNode(
+      2,
+      "Project",
+      projectDescr, Seq[SQLPlanMetric]())
+    val filterExprArray = SQLPlanParser.parseFilterExpressions(
+      projectNode.desc.replaceFirst("Project ", ""))
+    val pluginTypeChecker = new PluginTypeChecker()
+    pluginTypeChecker.getNotSupportedExprs(filterExprArray) shouldBe 'empty
+  }
+
+  runConditionalTest("WindowGroupLimitExec is supported", execsSupportedSparkGTE350) {
+    val windowGroupLimitExecCmd = "WindowGroupLimit"
+    val tbl_name = "foobar_tbl"
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+        windowGroupLimitExecCmd) { spark =>
+          withTable(spark, tbl_name) {
+            spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
+            val query =
+              s"""
+              SELECT foo, bar FROM (
+                  SELECT foo, bar,
+                      RANK() OVER (PARTITION BY foo ORDER BY bar) as rank
+                  FROM $tbl_name)
+              WHERE rank <= 2"""
+            spark.sql(query)
+          }
+        }
+      val pluginTypeChecker = new PluginTypeChecker()
+      val app = createAppFromEventlog(eventLog)
+      val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      }
+      val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+      val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
+      // We should have two WindowGroupLimitExec operators (Partial and Final).
+      assertSizeAndSupported(2, windowGroupLimitExecs)
+    }
+  }
+
+  runConditionalTest("row_number in WindowGroupLimitExec is not supported",
+    execsSupportedSparkGTE350) {
+    val windowGroupLimitExecCmd = "WindowGroupLimit"
+    val tbl_name = "foobar_tbl"
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+        windowGroupLimitExecCmd) { spark =>
+        withTable(spark, tbl_name) {
+          spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
+          val query =
+            s"""
+            SELECT foo, bar FROM (
+                SELECT foo, bar,
+                    ROW_NUMBER() OVER (PARTITION BY foo ORDER BY bar) as rank
+                FROM $tbl_name)
+            WHERE rank <= 2"""
+          spark.sql(query)
+        }
+      }
+      val pluginTypeChecker = new PluginTypeChecker()
+      val app = createAppFromEventlog(eventLog)
+      val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      }
+      val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+      val windowExecNotSupportedExprs = allExecInfo.filter(
+        _.exec.contains(windowGroupLimitExecCmd)).flatMap(x => x.unsupportedExprs)
+      windowExecNotSupportedExprs.head.exprName shouldEqual "row_number"
+      windowExecNotSupportedExprs.head.unsupportedReason shouldEqual
+          "Ranking function row_number is not supported in WindowGroupLimitExec"
+      val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
+      // We should have two WindowGroupLimitExec operators (Partial and Final) which are
+      // not supported due to unsupported expression.
+      assertSizeAndNotSupported(2, windowGroupLimitExecs)
+    }
+  }
+
+  runConditionalTest("CheckOverflowInsert should not exist in Physical Plan",
+    execsSupportedSparkGTE331) {
+    // This test verifies that the 'CheckOverflowInsert' expression exists in the logical plan
+    // but is absent in the physical plan as of Spark 3.5.0. If in future Spark versions,
+    // 'CheckOverflowInsert' expression appears in the physical plan, this test will fail,
+    // and we should to handle it appropriately.
+    val overflowExprStr = "CheckOverflowInTableInsert"
+    val tableName = "foobar_tbl"
+    var planDf: Option[DataFrame] = None
+    TrampolineUtil.withTempDir { eventLogDir =>
+      ToolTestUtils.generateEventLog(eventLogDir, overflowExprStr) { spark =>
+        withTable(spark, tableName) {
+          spark.sql(s"CREATE TABLE $tableName (foo INT) USING PARQUET")
+          // Store the Spark Plan in a variable
+          planDf = Some(spark.sql(s"INSERT INTO $tableName VALUES (2L)"))
+          planDf.get
+        }
+      }
+      // toJSON contains information about all expressions in all plan nodes.
+      // We can use it to check if the expression exists in any node.
+      val overflowExprInLogicalPlan = planDf.get.queryExecution.optimizedPlan
+        .toJSON.contains(overflowExprStr)
+      val overflowExprInPhysicalPlan = planDf.get.queryExecution.executedPlan
+        .toJSON.contains(overflowExprStr)
+
+      // Assert CheckOverflowInsert exists in Logical Plan but not in Physical Plan
+      assert(overflowExprInLogicalPlan,
+        "CheckOverflowInTableInsert should exist in the logical plan.")
+      assert(!overflowExprInPhysicalPlan,
+        "CheckOverflowInTableInsert should not exist in the physical plan.")
     }
   }
 }

@@ -21,7 +21,7 @@ import scala.util.{Failure, Success, Try}
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{SparkSession, TrampolineUtil}
+import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.ToolUtils
 
 class BaseTestSuite extends FunSuite with BeforeAndAfterEach with Logging {
@@ -73,9 +73,19 @@ class BaseTestSuite extends FunSuite with BeforeAndAfterEach with Logging {
       "Spark340+ does not support the expression")
   }
 
+  protected def execsSupportedSparkGTE331(): (Boolean, String) = {
+    (ToolUtils.isSpark331OrLater(),
+      "Spark331+ supports the Exec/Expression")
+  }
+
   protected def execsSupportedSparkGTE340(): (Boolean, String) = {
     (ToolUtils.isSpark340OrLater(),
       "Spark340+ supports the Exec/Expression")
+  }
+
+  protected def execsSupportedSparkGTE350(): (Boolean, String) = {
+    (ToolUtils.isSpark350OrLater(),
+      "Spark350+ supports the Exec/Expression")
   }
 
   protected def subExecutionSupportedSparkGTE340(): (Boolean, String) = {
@@ -94,6 +104,17 @@ class BaseTestSuite extends FunSuite with BeforeAndAfterEach with Logging {
       case Failure(_) =>
         // it does not matter the type of the failure
         ignore(s"$testName. Ignore Reason: $ignoreMessage") {}
+    }
+  }
+
+  def withTable(spark: SparkSession, tableNames: String*)(f: => DataFrame): DataFrame = {
+    try {
+      f  // Execute the passed block of code.
+    } finally {
+      tableNames.foreach { name =>
+        // Attempt to drop each table, ignoring any errors if the table doesn't exist.
+        spark.sql(s"DROP TABLE IF EXISTS $name")
+      }
     }
   }
 }

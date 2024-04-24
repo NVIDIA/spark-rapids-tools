@@ -20,6 +20,10 @@ ObjectHashAggregateExec,3.0
 SortAggregateExec,3.0
 InMemoryTableScanExec,3.0
 DataWritingCommandExec,3.0
+AtomicReplaceTableAsSelectExec,3.0
+AtomicCreateTableAsSelectExec,3.0
+OverwriteByExpressionExecV1,3.0
+AppendDataExecV1,3.0
 ExecutedCommandExec,3.0
 BatchScanExec,3.0
 BroadcastExchangeExec,3.0
@@ -34,8 +38,11 @@ ArrowEvalPythonExec,1.2
 FlatMapCoGroupsInPandasExec,3.0
 FlatMapGroupsInPandasExec,1.2
 MapInPandasExec,1.2
+PythonMapInArrowExec,3.0
+MapInArrowExec,3.0
 WindowInPandasExec,1.2
 WindowExec,3.0
+WindowGroupLimitExec,3.0
 HiveTableScanExec,3.0
 Abs,4
 Acos,4
@@ -281,3 +288,9 @@ RandomForestRegressor-pyspark,3.66
 RandomForestRegressor-scala,1
 XGBoost-pyspark,1
 XGBoost-scala,3.31
+RoundCeil,4
+RoundFloor,4
+BloomFilterMightContain,4
+BloomFilterAggregate,4
+EphemeralSubstring,4
+KnownNullable,4

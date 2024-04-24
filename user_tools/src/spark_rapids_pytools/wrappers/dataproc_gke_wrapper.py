@@ -14,10 +14,11 @@
 
 """Wrapper class to run tools associated with RAPIDS Accelerator for Apache Spark plugin on Dataproc."""
 
-from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.qualification import QualFilterApp, QualificationAsLocal, QualGpuClusterReshapeType
+from spark_rapids_tools import CspEnv
+from spark_rapids_tools.utils import Utilities
 
 
 class CliDataprocGKELocalMode:  # pylint: disable=too-few-public-methods
@@ -108,7 +109,8 @@ class CliDataprocGKELocalMode:  # pylint: disable=too-few-public-methods
         """
         verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
         remote_folder = Utils.get_value_or_pop(remote_folder, rapids_options, 'r')
-        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j', 24)
+        jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j',
+                                               Utilities.get_system_memory_in_gb())
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         filter_apps = Utils.get_value_or_pop(filter_apps, rapids_options, 'f')
         tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')

@@ -252,7 +252,7 @@ class OnPremCluster(ClusterBase):
         :param orig_cluster: the cpu_cluster
         """
         # get the map of the instance types
-        _, supported_mc_map = orig_cluster.find_matches_for_node()
+        supported_mc_map = orig_cluster.platform.get_supported_gpus()
         new_worker_nodes: list = []
         for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
             new_instance_type = anode.instance_type

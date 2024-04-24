@@ -451,18 +451,22 @@ object SQLPlanParser extends Logging {
     // Avoid counting duplicate nodes. We mark them as shouldRemove to neutralize their impact on
     // speedups.
     val isDupNode = reusedNodeIds.contains(node.id)
+    // Normalize the execName by removing the trailing '$' character, if present.
+    // This is necessary because in Scala, the '$' character is often appended to the names of
+    // generated classes or objects, and we want to match the base name regardless of this suffix.
+    val normalizedNodeName = node.name.stripSuffix("$")
     if (isDupNode) {
       // log that information. This should not cause significant increase in log size.
-      logDebug(s"Marking [sqlID = ${sqlID}, node = ${node.name}] as shouldRemove. " +
+      logDebug(s"Marking [sqlID = ${sqlID}, node = ${normalizedNodeName}] as shouldRemove. " +
         s"Reason: duplicate - ancestor of ReusedExchange")
     }
-    if (node.name.contains("WholeStageCodegen")) {
+    if (normalizedNodeName.contains("WholeStageCodegen")) {
       // this is special because it is a SparkPlanGraphCluster vs SparkPlanGraphNode
       WholeStageExecParser(node.asInstanceOf[SparkPlanGraphCluster], checker, sqlID, app,
         reusedNodeIds).parse
     } else {
       val execInfos = try {
-        node.name match {
+        normalizedNodeName match {
           case "AggregateInPandas" =>
             AggregateInPandasExecParser(node, checker, sqlID).parse
           case "ArrowEvalPython" =>
@@ -481,11 +485,6 @@ object SQLPlanParser extends Logging {
             CoalesceExecParser(node, checker, sqlID).parse
           case "CollectLimit" =>
             CollectLimitExecParser(node, checker, sqlID).parse
-          case c if c.contains("CreateDataSourceTableAsSelectCommand") =>
-            // create data source table doesn't show the format so we can't determine
-            // if we support it
-            ExecInfo(node, sqlID, node.name, expr = "", 1, duration = None, node.id,
-              isSupported = false, None)
           case "CustomShuffleReader" | "AQEShuffleRead" =>
             CustomShuffleReaderExecParser(node, checker, sqlID).parse
           case "Exchange" =>
@@ -514,6 +513,8 @@ object SQLPlanParser extends Logging {
             ObjectHashAggregateExecParser(node, checker, sqlID, app).parse
           case "Project" =>
             ProjectExecParser(node, checker, sqlID).parse
+          case "PythonMapInArrow" | "MapInArrow" =>
+            PythonMapInArrowExecParser(node, checker, sqlID).parse
           case "Range" =>
             RangeExecParser(node, checker, sqlID).parse
           case "Sample" =>
@@ -540,14 +541,16 @@ object SQLPlanParser extends Logging {
             WindowExecParser(node, checker, sqlID).parse
           case "WindowInPandas" =>
             WindowInPandasExecParser(node, checker, sqlID).parse
+          case "WindowGroupLimit" =>
+            WindowGroupLimitParser(node, checker, sqlID).parse
           case wfe if WriteFilesExecParser.accepts(wfe) =>
             WriteFilesExecParser(node, checker, sqlID).parse
           case _ =>
             // Execs that are members of reuseExecs (i.e., ReusedExchange) should be marked as
             // supported but with shouldRemove flag set to True.
             // Setting the "shouldRemove" is handled at the end of the function.
-            ExecInfo(node, sqlID, node.name, expr = "", 1, duration = None, node.id,
-              isSupported = reuseExecs.contains(node.name), None)
+            ExecInfo(node, sqlID, normalizedNodeName, expr = "", 1, duration = None, node.id,
+              isSupported = reuseExecs.contains(normalizedNodeName), None)
         }
       } catch {
         // Error parsing expression could trigger an exception. If the exception is not handled,
@@ -558,9 +561,9 @@ object SQLPlanParser extends Logging {
         //  - No need to add the SQL to the failed SQLs, because this will cause the app to be
         //    labeled as "Not Applicable" which is not preferred at this point.
         case NonFatal(e) =>
-          logWarning(s"Unexpected error parsing plan node ${node.name}. " +
+          logWarning(s"Unexpected error parsing plan node ${normalizedNodeName}. " +
           s" sqlID = ${sqlID}", e)
-          ExecInfo(node, sqlID, node.name, expr = "", 1, duration = None, node.id,
+          ExecInfo(node, sqlID, normalizedNodeName, expr = "", 1, duration = None, node.id,
             isSupported = false, None)
       }
       val stagesInNode = getStagesInSQLNode(node, app)
@@ -760,18 +763,35 @@ object SQLPlanParser extends Logging {
         trim.replaceAll("""^\[+""", "").replaceAll("""\]+$""", "").
         replaceAll("cast\\(", "").split("windowspecdefinition").map(_.trim)
 
-    // Get functionname from each array element except the last one as it doesn't contain
+    // Get function name from each array element except the last one as it doesn't contain
     // any window function
-    for ( i <- 0 to windowExprs.size - 1 ) {
-      val windowFunc = windowFunctionPattern.findAllIn(windowExprs(i)).toList
-      val expr = windowFunc.last
-      val functionName = getFunctionName(windowFunctionPattern, expr)
-      functionName match {
-        case Some(func) => parsedExpressions += func
-        case _ => // NO OP
+    if (windowExprs.nonEmpty) {
+      windowExprs.dropRight(1).foreach { windowExprString =>
+        val windowFunc = windowFunctionPattern.findAllIn(windowExprString).toList
+        val expr = windowFunc.lastOption.getOrElse("")
+        val functionName = getFunctionName(windowFunctionPattern, expr)
+        functionName match {
+          case Some(func) => parsedExpressions += func
+          case _ => // NO OP
+        }
       }
     }
     parsedExpressions.distinct.toArray
+  }
+
+  def parseWindowGroupLimitExpressions(exprStr: String): Array[String] = {
+    // [category#16], [amount#17 DESC NULLS LAST], dense_rank(amount#17), 2, Final
+
+    // This splits the string to get only the ranking expression in WindowGroupLimitExec.
+    // We split the string on comma and get the third element from the array.
+    // dense_rank(amount#17)
+    val rankLikeExpr = exprStr.split(", ").lift(2).map(_.trim)
+    // Get function name from WindowExpression
+    rankLikeExpr.flatMap { rankExpr =>
+      windowFunctionPattern.findFirstIn(rankExpr).flatMap { rankLikeFunc =>
+        getFunctionName(windowFunctionPattern, rankLikeFunc)
+      }
+    }.toArray
   }
 
   def parseExpandExpressions(exprStr: String): Array[String] = {
