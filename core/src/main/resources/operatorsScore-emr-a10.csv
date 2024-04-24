@@ -282,3 +282,4 @@ BloomFilterMightContain,2.59
 BloomFilterAggregate,2.59
 EphemeralSubstring,2.59
 KnownNullable,2.59
+InSubqueryExec,2.59
