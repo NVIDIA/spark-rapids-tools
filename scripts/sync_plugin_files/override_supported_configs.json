@@ -56,28 +56,6 @@
       ]
     },
     {
-      "Expression": "CheckOverflowInTableInsert",
-      "Context": "project",
-      "Params": "input",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
-      "Expression": "CheckOverflowInTableInsert",
-      "Context": "project",
-      "Params": "result",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
       "Expression": "PythonUDAF",
       "Context": "aggregation",
       "Params": "param",
@@ -272,28 +250,6 @@
         {
           "key": "SQL Func",
           "value": "`bloom_filter_agg`"
-        }
-      ]
-    }
-  ],
-  "supportedExecs.csv": [
-    {
-      "Exec": "AQEShuffleReadExec",
-      "Params": "Input/Output",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
-      "Exec": "WriteFilesExec",
-      "Params": "Input/Output",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
         }
       ]
     }
