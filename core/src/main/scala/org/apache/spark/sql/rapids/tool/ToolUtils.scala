@@ -302,7 +302,11 @@ object RDDCheckHelper {
 
 object ExecHelper {
   private val UDFRegExLookup = Set(
-    ".*UDF.*".r
+    ".*(?<!python)UDF.*".r
+  )
+
+  private val pythonUDFRegExLookUp = Set(
+    ".*pythonUDF.*".r
   )
 
   // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
@@ -328,6 +332,10 @@ object ExecHelper {
     } else {
       UDFRegExLookup.exists(regEx => node.desc.matches(regEx.regex))
     }
+  }
+
+  def isPythonUDF(node: SparkPlanGraphNode): Boolean = {
+    pythonUDFRegExLookUp.exists(regEx => node.desc.matches(regEx.regex))
   }
 
   def shouldBeRemoved(nodeName: String): Boolean = {

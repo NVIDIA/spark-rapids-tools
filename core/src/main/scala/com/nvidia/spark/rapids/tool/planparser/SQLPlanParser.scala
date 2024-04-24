@@ -471,6 +471,8 @@ object SQLPlanParser extends Logging {
             AggregateInPandasExecParser(node, checker, sqlID).parse
           case "ArrowEvalPython" =>
             ArrowEvalPythonExecParser(node, checker, sqlID).parse
+          case "BatchEvalPython" =>
+            BatchEvalPythonExecParser(node, checker, sqlID).parse
           case "BatchScan" =>
             BatchScanExecParser(node, checker, sqlID, app).parse
           case "BroadcastExchange" =>

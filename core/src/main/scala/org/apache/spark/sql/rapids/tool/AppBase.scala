@@ -345,7 +345,7 @@ abstract class AppBase(
     }
   }
 
-  private val UDFRegex = ".*UDF.*"
+  private val UDFRegex = ".*(?<!python)UDF.*"
 
   private val potentialIssuesRegexMap = Map(
     UDFRegex -> "UDF", 

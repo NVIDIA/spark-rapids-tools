@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,31 +18,19 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.ExecHelper
 
-case class ProjectExecParser(
+case class BatchEvalPythonExecParser(
     node: SparkPlanGraphNode,
     checker: PluginTypeChecker,
-    sqlID: Long) extends ExecParser {
+    sqlID: Long) extends ExecParser with Logging {
 
   val fullExecName = node.name + "Exec"
 
   override def parse: ExecInfo = {
-    // Project doesn't have duration
     val duration = None
-    val exprString = node.desc.replaceFirst("Project ", "")
-    val expressions = SQLPlanParser.parseProjectExpressions(exprString)
-    val notSupportedExprs = checker.getNotSupportedExprs(expressions)
-    val containsPythonUDF = ExecHelper.isPythonUDF(node)
-    val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
-        (notSupportedExprs.isEmpty || containsPythonUDF)) {
-      (checker.getSpeedupFactor(fullExecName), true)
-    } else {
-      (1.0, false)
-    }
     // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None,
-      unsupportedExprs = notSupportedExprs)
+    ExecInfo(node, sqlID, node.name, "", 1.0, duration, node.id, true, None)
   }
 }
