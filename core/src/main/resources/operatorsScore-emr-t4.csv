@@ -283,3 +283,5 @@ BloomFilterAggregate,2.07
 EphemeralSubstring,2.07
 KnownNullable,2.07
 InSubqueryExec,2.07
+AQEShuffleReadExec,2.07
+CheckOverflowInTableInsert,2.07
