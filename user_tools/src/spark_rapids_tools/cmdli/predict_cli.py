@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""CLI to run prediction on estimation_ model in qualification tools associated with RAPIDS Accelerator for Apache Spark plugin."""
+"""CLI to run prediction on estimation_ model in qualification tools."""
 
 
 import fire
@@ -20,31 +20,27 @@ import fire
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
 from spark_rapids_tools.tools.model_xgboost import predict
 from spark_rapids_tools.utils.util import gen_app_banner
-from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
+from spark_rapids_pytools.rapids.prediction import Prediction
 
 def run_prediction(result_folder: str,
                    platform: str = 'onprem'):
-    """CLI that runs prediction on the estimation_model in qualification tools.
+    """The prediction cmd takes existing qualification and profiling tool output and runs the
+    estimation model in the qualification tools for GPU speedups.
 
-    The prediction CLI takes existing qualification and profiling tool output and runs
-    prediction of the GPU speedups on the estimation_model in the qualification tools.
-
-    :param result_folder: path to the qualification and profiling tool output
-    :param platform: defines one of the following "onprem", "emr", "dataproc", "dataproc-gke",
+    :param result_folder: path to the qualification and profiling tool output.
+    :param platform: defines one of the following "onprem", "emr", "dataproc","dataproc-gke",
            "databricks-aws", and "databricks-azure", default to "onprem".
     """
 
-    qual_args = AbsToolUserArgModel.create_tool_args('qualification',
-                                                     eventlogs="",
-                                                     platform=platform,
-                                                     output_folder=result_folder)
+    predict_args = AbsToolUserArgModel.create_tool_args('prediction',
+                                                        platform=platform,
+                                                        result_folder=result_folder)
 
-    tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
-                                    output_folder=qual_args['outputFolder'],
-                                    wrapper_options=qual_args)
-    tool_obj._init_ctxt()
-    tool_obj.ctxt.set_local('outputFolder', result_folder)
-    output_info = tool_obj._Qualification__build_prediction_output_files_info()
+    tool_obj = Prediction(platform_type=predict_args['runtimePlatform'],
+                          result_folder=predict_args['resultFolder'],
+                          wrapper_options=predict_args)
+    tool_obj.init_ctxt()
+    output_info = tool_obj.prepare_prediction_output_info()
     predict(platform, result_folder, result_folder, output_info)
 
 

@@ -618,3 +618,20 @@ class BootstrapUserArgModel(AbsToolUserArgModel):
             missing = str.join(' and ', components)
             raise ValueError(f'Cmd requires [{missing}] to be specified')
         return self
+
+
+@dataclass
+@register_tool_arg_validator('prediction')
+class PredictUserArgModel(AbsToolUserArgModel):
+    """
+    Represents the arguments collected by the user to run the prediction tool.
+    This is used as doing preliminary validation against some of the common pattern
+    """
+    result_folder: str = None
+
+    def build_tools_args(self) -> dict:
+        return {
+            'runtimePlatform': self.platform,
+            'resultFolder': self.result_folder,
+            'platformOpts': {}
+        }
