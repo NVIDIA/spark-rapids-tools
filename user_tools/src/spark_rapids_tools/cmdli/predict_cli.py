@@ -22,6 +22,7 @@ from spark_rapids_tools.tools.model_xgboost import predict
 from spark_rapids_tools.utils.util import gen_app_banner
 from spark_rapids_pytools.rapids.prediction import Prediction
 
+
 def run_prediction(result_folder: str,
                    platform: str = 'onprem'):
     """The prediction cmd takes existing qualification and profiling tool output and runs the
