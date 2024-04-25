@@ -117,6 +117,12 @@ class EMRPlatform(PlatformBase):
     def _get_prediction_model_name(self) -> str:
         return CspEnv.pretty_print(CspEnv.get_default())
 
+    def generate_cluster_configuration(self, render_args: dict):
+        image_version = self.configs.get_value_silent('clusterInference', 'defaultImage')
+        render_args['IMAGE'] = f'"{image_version}"'
+        render_args['ZONE'] = f'"{self.cli.get_zone()}"'
+        return super().generate_cluster_configuration(render_args)
+
 
 @dataclass
 class EMRCMDDriver(CMDDriverBase):
@@ -199,6 +205,20 @@ class EMRCMDDriver(CMDDriverBase):
                       '--instance-types', f'{node.instance_type}']
         return cmd_params
 
+    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
+        return node.instance_type, self.get_region()
+
+    def get_zone(self) -> str:
+        describe_cmd = ['aws ec2 describe-availability-zones',
+                        '--region', f'{self.get_region()}']
+        selected_zone = ''
+        try:
+            zones_list = json.loads(self.run_sys_cmd(describe_cmd))
+            selected_zone = zones_list['AvailabilityZones'][0]['ZoneName']
+        except Exception:  # pylint: disable=broad-except
+            self.logger.warning('Unable to extract zone from region %s', self.get_region())
+        return selected_zone
+
     def _build_platform_list_cluster(self,
                                      cluster,
                                      query_args: dict = None) -> list:
@@ -221,6 +241,12 @@ class EMRCMDDriver(CMDDriverBase):
                                              cluster_id: str):
         describe_cmd = f'aws emr describe-cluster --cluster-id {cluster_id}'
         return self.run_sys_cmd(describe_cmd)
+
+    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
+        raw_instance_descriptions = super()._exec_platform_describe_node_instance(node)
+        instance_descriptions = JSONPropertiesContainer(raw_instance_descriptions, file_load=False)
+        # Return the instance description of node type. Convert to valid JSON string for type matching.
+        return json.dumps(instance_descriptions.get_value('InstanceTypes')[0])
 
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
@@ -261,11 +287,6 @@ class EMRNode(ClusterNode):
     We assume that all nodes are running on EC2 instances.
     """
     ec2_instance: Ec2Instance = field(default=None, init=False)
-
-    def _pull_and_set_mc_props(self, cli=None):
-        instance_description = cli.exec_platform_describe_node_instance(self)
-        mc_description = json.loads(instance_description)['InstanceTypes'][0]
-        self.mc_props = JSONPropertiesContainer(prop_arg=mc_description, file_load=False)
 
     def _set_fields_from_props(self):
         self.name = self.ec2_instance.dns_name

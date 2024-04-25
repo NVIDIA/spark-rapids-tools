@@ -50,6 +50,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       global_discount: int = None,
                       gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
                           QualGpuClusterReshapeType.get_default()),
+                      jvm_heap_size: int = None,
+                      jvm_threads: int = None,
                       verbose: bool = None,
                       **rapids_options):
         """The Qualification cmd provides estimated running costs and speedups by migrating Apache
@@ -108,6 +110,10 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 "MATCH": keep GPU cluster same number of nodes as CPU cluster;
                 "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
                 "JOB": recommend optimal GPU cluster by cost per job
+        :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
+                Default is calculated based on a function of the total memory of the host.
+        :param jvm_threads: Number of thread to use for parallel processing on the eventlogs batch.
+                Default is calculated as a function of the total number of cores and the heap size on the host.
         :param verbose: True or False to enable verbosity of the script.
         :param rapids_options: A list of valid Qualification tool options.
                 Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
@@ -130,6 +136,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          target_platform=target_platform,
                                                          output_folder=output_folder,
                                                          tools_jar=tools_jar,
+                                                         jvm_heap_size=jvm_heap_size,
+                                                         jvm_threads=jvm_threads,
                                                          filter_apps=filter_apps,
                                                          estimation_model=estimation_model,
                                                          cpu_cluster_price=cpu_cluster_price,
@@ -152,6 +160,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                   driverlog: str = None,
                   output_folder: str = None,
                   tools_jar: str = None,
+                  jvm_heap_size: int = None,
+                  jvm_threads: int = None,
                   verbose: bool = None,
                   **rapids_options):
         """The Profiling cmd provides information which can be used for debugging and profiling
@@ -175,6 +185,10 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem,
                 or remote cloud storage url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
                 from maven repository.
+        :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
+                Default is calculated based on a function of the total memory of the host.
+        :param jvm_threads: Number of thread to use for parallel processing on the eventlogs batch.
+                Default is calculated as a function of the total number of cores and the heap size on the host.
         :param verbose: True or False to enable verbosity of the script.
         :param rapids_options: A list of valid Profiling tool options.
                 Note that the wrapper ignores ["output-directory", "worker-info"] flags, and it does not support
@@ -195,6 +209,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          cluster=cluster,
                                                          platform=platform,
                                                          driverlog=driverlog,
+                                                         jvm_heap_size=jvm_heap_size,
+                                                         jvm_threads=jvm_threads,
                                                          output_folder=output_folder,
                                                          tools_jar=tools_jar)
         if prof_args:

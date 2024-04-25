@@ -238,8 +238,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
   def doSparkListenerStreamingQuery(
       app: T,
       event: SparkListenerEvent): Unit = {
-    throw StreamingEventLogException(
-      "Encountered Spark Structured Streaming Job: skipping this file!")
+    throw StreamingEventLogException()
   }
 
   override def onBlockManagerAdded(blockManagerAdded: SparkListenerBlockManagerAdded): Unit = {

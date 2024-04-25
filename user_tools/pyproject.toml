@@ -45,7 +45,9 @@ dependencies = [
     # used for spinner animation
     "progress==1.6",
     # used for model estimations
-    "xgboost==2.0.3"
+    "xgboost==2.0.3",
+    # used for retrieving available memory on the host
+    "psutil==5.9.8"
 ]
 dynamic=["entry-points", "version"]
 

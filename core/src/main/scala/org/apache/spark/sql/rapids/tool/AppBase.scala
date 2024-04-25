@@ -24,7 +24,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.io.{Codec, Source}
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
-import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
@@ -88,6 +88,8 @@ trait CacheableProps {
   // property is global to the entire application once it is set. a.k.a, it cannot be disabled
   // once it is was set to true.
   var hiveEnabled = false
+  // A flag to indicate whether the eventlog being processed is an eventlog from Photon.
+  var isPhoton = false
   var sparkProperties = Map[String, String]()
   var classpathEntries = Map[String, String]()
   // set the fileEncoding to UTF-8 by default
@@ -101,17 +103,29 @@ trait CacheableProps {
     srcMap ++ redactedKeys
   }
 
+  /**
+   * Used to validate that the eventlog is allowed to be processed by the Tool
+   * @throws org.apache.spark.sql.rapids.tool.AppEventlogProcessException if the eventlog fails the
+   *                                                                      validation step
+   */
+  @throws(classOf[AppEventlogProcessException])
+  def validateAppEventlogProperties(): Unit = { }
+
   def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
     sparkProperties ++= processPropKeys(event.environmentDetails("Spark Properties").toMap)
     classpathEntries ++= event.environmentDetails("Classpath Entries").toMap
 
     gpuMode ||=  ProfileUtils.isPluginEnabled(sparkProperties)
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
+    isPhoton ||= DatabricksParseHelper.isPhotonApp(sparkProperties)
 
     // Update the properties if system environments are set.
     // No need to capture all the properties in memory. We only capture important ones.
     systemProperties ++= event.environmentDetails("System Properties").toMap.filterKeys(
       getRetainedSystemProps.contains(_))
+
+    // After setting the properties, validate the properties.
+    validateAppEventlogProperties()
   }
 
   def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
@@ -295,7 +309,7 @@ abstract class AppBase(
     eventLogInfo match {
       case Some(eventLog) =>
         val eventLogPath = eventLog.eventLog
-        logInfo("Parsing Event Log: " + eventLogPath.toString)
+        logInfo("Start Parsing Event Log: " + eventLogPath.toString)
 
         // at this point all paths should be valid event logs or event log dirs
         val hconf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf)

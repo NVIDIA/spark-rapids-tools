@@ -15,7 +15,6 @@ sparkRapids:
   requireEventLogs: true
   cli:
     toolOptions:
-      - csv
       - any
       - a
       - application-name
@@ -30,7 +29,6 @@ sparkRapids:
       - match-event-logs
       - n
       - num-output-rows
-      - num-threads
       - order
       - p
       - print-plans

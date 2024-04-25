@@ -25,6 +25,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import java.util
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
@@ -619,7 +620,7 @@ class AutoTuner(
     appInfoProvider.getSparkVersion.map { sparkVersion =>
       val shuffleManagerVersion = sparkVersion.filterNot("().".toSet)
       val dbVersion = getPropertyValue(
-        "spark.databricks.clusterUsageTags.sparkVersion").getOrElse("")
+        DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY).getOrElse("")
       val finalShuffleVersion : String = if (dbVersion.nonEmpty) {
         dbVersion match {
           case ver if ver.contains("10.4") => "321db"

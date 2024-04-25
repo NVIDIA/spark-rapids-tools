@@ -17,6 +17,8 @@ package com.nvidia.spark.rapids.tool
 
 import scala.annotation.tailrec
 
+import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.ClusterInfo
 
@@ -139,11 +141,11 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform
 
   override def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
-    val executorInstance = sparkProperties.get("spark.databricks.workerNodeTypeId")
-    val driverInstance = sparkProperties.get("spark.databricks.driverNodeTypeId")
-    val clusterId = sparkProperties.get("spark.databricks.clusterUsageTags.clusterId")
+    val executorInstance = sparkProperties.get(DatabricksParseHelper.PROP_WORKER_TYPE_ID_KEY)
+    val driverInstance = sparkProperties.get(DatabricksParseHelper.PROP_DRIVER_TYPE_ID_KEY)
+    val clusterId = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY)
     val driverHost = sparkProperties.get("spark.driver.host")
-    val clusterName = sparkProperties.get("spark.databricks.clusterUsageTags.clusterName")
+    val clusterName = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY)
     ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorInstance,
       driverInstance, driverHost, clusterId, clusterName)
   }

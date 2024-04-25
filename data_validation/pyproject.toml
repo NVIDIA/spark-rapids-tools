@@ -25,7 +25,7 @@ dependencies = [
     "requests==2.31.0",
     "packaging==23.0",
     "certifi==2023.7.22",
-    "idna==3.4",
+    "idna==3.7",
     "urllib3==1.26.18",
     "beautifulsoup4==4.11.2"
 ]
