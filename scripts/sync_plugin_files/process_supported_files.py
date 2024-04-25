@@ -79,8 +79,8 @@ def is_greater(elem1, elem2):
     """
     if is_support_level(elem1) and is_support_level(elem2):
         return SupportLevel[elem1] > SupportLevel[elem2]
-    else:
-        return len(elem1) > len(elem2)
+
+    return len(elem1) > len(elem2)
 
 
 def check_df_rows(row1, row2, keys):
@@ -201,7 +201,8 @@ def override_supported_configs(json_data, file_name, df, keys):
     return df
 
 
-def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_json, csv_file_name):
+def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_json, csv_file_name,
+                     new_operators_file=None):
     """
     Compare the plugin union dataframe with tools dataframe and write the differences to report file.
     For added rows in the plugin union Dataframe, update the 'Supported' or first support level column
@@ -214,6 +215,7 @@ def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_jso
     - report_file: A file to write the differences into.
     - override_configs_json: A json object which stores the override configs information.
     - csv_file_name: File name to identify which supported CSV type is processing.
+    - new_operators_file: File to write the new operators in the plugin CSV files.
 
     Returns:
     - Modified union_df which may contain 'TNEW' entries.
@@ -264,6 +266,13 @@ def compare_csv_file(union_df, tools_df, keys, report_file, override_configs_jso
                     else:
                         override_configs_json[csv_file_name] = [json_entry]
                     break
+            new_operator = ""
+            if "Exec" in union_row:
+                new_operator = union_row["Exec"]
+            elif "Expression" in union_row:
+                new_operator = union_row["Expression"]
+            if new_operator != "":
+                new_operators_file.write(f"{new_operator}\n")
             report_file.write(f"Row is added: {', '.join(union_row.astype(str))}\n")
 
     # removed rows in plugin union dataframe (compared with tools)
@@ -296,7 +305,7 @@ def main(argvs):
 
     # load override configs into a json object
     if override_configs_file:
-        with open(override_configs_file, 'r') as f:
+        with open(override_configs_file, "r") as f:
             override_configs_json = json.load(f)
     else:
         override_configs_json = {}
@@ -322,7 +331,7 @@ def main(argvs):
 
     # generate report for changes from tools existing CSV files to those in plugin
     logging.info("Generating report for this sync up process")
-    report_file = open('operators_plugin_sync_report.txt', 'w+')
+    report_file = open("operators_plugin_sync_report.txt", "w+")
     report_file.write("""This report documents the differences between the tools existing CSV files and those processed from the plugin.
     Notes:
       1. For new data source/exec/expression from plugin, the first column with supported level will be updated to 'TNEW' for future testing.
@@ -335,6 +344,9 @@ def main(argvs):
         exprs_final_df = exprs_union_df
         report_file.write("Report is not generated: no input tools CSV directory.")
     else:
+        # Construct a file to store all new Exec/Expressions from plugin CSV
+        new_operators_file = open("new_operators.txt", "w+")
+
         logging.info("Writing report for supportedDataSource.csv")
         tools_data_source_file = os.path.join(tools_csv_dir, "supportedDataSource.csv")
         if os.path.exists(tools_data_source_file):
@@ -349,7 +361,7 @@ def main(argvs):
             report_file.write("\n**supportedExecs.csv (FROM TOOLS TO PLUGIN)**\n")
             tools_execs_df = pd.read_csv(tools_execs_file, keep_default_na=False)
             execs_final_df = compare_csv_file(execs_union_df, tools_execs_df, ["Exec", "Params"], report_file,
-                                              override_configs_json, "supportedExecs.csv")
+                                              override_configs_json, "supportedExecs.csv", new_operators_file)
 
         logging.info("Writing report for supportedExprs.csv")
         tools_exprs_file = os.path.join(tools_csv_dir, "supportedExprs.csv")
@@ -357,7 +369,10 @@ def main(argvs):
             report_file.write("\n**supportedExprs.csv (FROM TOOLS TO PLUGIN)**\n")
             tools_exprs_df = pd.read_csv(tools_exprs_file, keep_default_na=False)
             exprs_final_df = compare_csv_file(exprs_union_df, tools_exprs_df, ["Expression", "Context", "Params"],
-                                              report_file, override_configs_json, "supportedExprs.csv")
+                                              report_file, override_configs_json, "supportedExprs.csv",
+                                              new_operators_file)
+        new_operators_file.close()
+
     report_file.close()
 
     # write the final result dataframes to output CSV files
@@ -368,10 +383,8 @@ def main(argvs):
 
     # write the processed override json data to input configs file
     logging.info("Writing the processed override json data to input configs file")
-    with open(override_configs_file, 'w') as f:
+    with open(override_configs_file, "w") as f:
         json.dump(override_configs_json, f, indent=2)
-
-    return
 
 
 if __name__ == "__main__":
@@ -379,10 +392,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=str, help="Path to generated_files directory.")
-    parser.add_argument('--configs', type=str, help='Path to configs file for overriding current data.')
-    parser.add_argument('--output', type=str, help='Path to output directory.', default='.')
-    parser.add_argument('--tools-csv', type=str,
-                        help='Path to directory which contains the original CSV files in the tools repo.')
+    parser.add_argument("--configs", type=str, help="Path to configs file for overriding current data.")
+    parser.add_argument("--output", type=str, help="Path to output directory.", default=".")
+    parser.add_argument("--tools-csv", type=str,
+                        help="Path to directory which contains the original CSV files in the tools repo.")
 
     args = parser.parse_args()
 
