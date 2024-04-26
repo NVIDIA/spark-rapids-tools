@@ -213,12 +213,15 @@ local:
       resultColumnName: 'Unsupported Operators Stage Duration'
       percentResultColumnName: 'Unsupported Operators Stage Duration Percent'
     topCandidates:
+      categoryColumnName: 'Estimated GPU Speedup Category'
       outputColumns:
         - 'App ID'
         - 'App Name'
-        - 'App Duration'
-        - 'Estimated GPU Speedup'
-        - 'Unsupported Operators Stage Duration Percent'
+        - 'Estimated GPU Speedup Category'
+      eligibleCategories:
+        - 'Small'
+        - 'Medium'
+        - 'Large'
       sortingColumns:
         - 'Estimated GPU Speedup'
         - 'Unsupported Operators Stage Duration Percent'
@@ -226,30 +229,33 @@ local:
         - 'App ID'
         - 'App Name'
         - 'App Duration'
-      ranges:
-          - columnName: 'Estimated GPU Speedup'
-            lowerBound: 1.3
-            upperBound: 1000000.0
-          - columnName: 'Unsupported Operators Stage Duration Percent'
-            lowerBound: 0.0
-            upperBound: 25.0
-      output: # Configs related to output
-        columns:
-          - 'App ID'
-          - 'App Name'
-          - 'Estimated GPU Speedup'
-        remap:
-          - columnName: 'Estimated GPU Speedup'
-            recommendationRanges:
-              - title: 'Small'
-                lowerBound: 1.3
-                upperBound: 2.0
-              - title: 'Medium'
-                lowerBound: 2.0
-                upperBound: 3.0
-              - title: 'Large'
-                lowerBound: 3.0
-                upperBound: 1000000.0
+    speedupCategories:
+      speedupColumnName: 'Estimated GPU Speedup'
+      categoryColumnName: 'Estimated GPU Speedup Category'
+      categories:
+        - title: 'No Speedup'
+          lowerBound: -1000000.0
+          upperBound: 1.00001
+        - title: 'Very Small'
+          lowerBound: 1.00001
+          upperBound: 1.3
+        - title: 'Small'
+          lowerBound: 1.3
+          upperBound: 2.0
+        - title: 'Medium'
+          lowerBound: 2.0
+          upperBound: 3.0
+        - title: 'Large'
+          lowerBound: 3.0
+          upperBound: 1000000.0
+      eligibilityConditions:
+        - columnName: 'Estimated GPU Speedup'
+          lowerBound: 1.3
+          upperBound: 1000000.0
+        - columnName: 'Unsupported Operators Stage Duration Percent'
+          lowerBound: 0.0
+          upperBound: 25.0
+      defaultCategory: 'Very Small'
     predictionModel:
       outputDirectory: 'xgboost_predictions'
       files:
