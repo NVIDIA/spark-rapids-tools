@@ -339,18 +339,24 @@ class EMRCluster(ClusterBase):
         else:
             group_id = group_arg
             group_obj = None
+        render_args = {
+            'INSTANCE_GROUP_ID': f'"{group_id}"',
+            'INSTANCE_TYPE': f'"{group_obj.instance_type}"'
+        }
         if self.is_inferred:
-            # If cluster settings are inferred, create a list of instances with default configuration
-            render_args = {
-                'INSTANCE_GROUP_ID': f'"{group_id}"',
-                'INSTANCE_TYPE': f'"{group_obj.instance_type}"'
-            }
-            node_config = json.loads(self.generate_node_configuration(render_args))
-            instances_list = [node_config for _ in range(group_obj.count)]
+            # If the instance is inferred, generate a default list of node configurations
+            instances_list = self.generate_node_configurations(group_obj.count, render_args)
         else:
             query_args = {'instance-group-id': group_id}
-            raw_instance_list = self.cli.exec_platform_list_cluster_instances(self, query_args=query_args)
-            instances_list = json.loads(raw_instance_list).get('Instances')
+            try:
+                # Fetch cluster instances based on instance group id
+                raw_instance_list = self.cli.exec_platform_list_cluster_instances(self, query_args=query_args)
+                instances_list = json.loads(raw_instance_list).get('Instances')
+            except Exception:  # pylint: disable=broad-except
+                # If instance list creation fails, generate a default list of node configurations
+                self.logger.error('Failed to create configurations for %s instances in group %s. '
+                                  'Using generated names.', group_obj.count, group_id)
+                instances_list = self.generate_node_configurations(group_obj.count, render_args)
         ec2_instances = []
         for raw_inst in instances_list:
             parsed_state = raw_inst['Status']['State']

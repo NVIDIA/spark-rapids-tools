@@ -17,7 +17,7 @@
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, List, Union
 
 from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob
@@ -163,8 +163,6 @@ class DataprocPlatform(PlatformBase):
         return None
 
     def generate_cluster_configuration(self, render_args: dict):
-        executor_names = ','.join([f'"test-node-e{i}"' for i in range(render_args['NUM_EXECUTOR_NODES'])])
-        render_args['EXECUTOR_NAMES'] = f'[{executor_names}]'
         image_version = self.configs.get_value('clusterInference', 'defaultImage')
         render_args['IMAGE'] = f'"{image_version}"'
         render_args['ZONE'] = f'"{self.cli.get_zone()}"'
@@ -411,7 +409,14 @@ class DataprocCluster(ClusterBase):
         raw_worker_prop = self.props.get_value_silent('config', 'workerConfig')
         worker_nodes: list = []
         if raw_worker_prop:
-            worker_nodes_from_conf = self.props.get_value('config', 'workerConfig', 'instanceNames')
+            worker_cnt = self.props.get_value('config', 'workerConfig', 'numInstances')
+            worker_nodes_from_conf = self.props.get_value_silent('config', 'workerConfig', 'instanceNames')
+            instance_names_cnt = len(worker_nodes_from_conf) if worker_nodes_from_conf else 0
+            if worker_cnt != instance_names_cnt:
+                self.logger.warning('Cluster configuration: `instanceNames` count %d does not '
+                                    'match the `numInstances` value %d. Using generated names.',
+                                    instance_names_cnt, worker_cnt)
+                worker_nodes_from_conf = self.generate_node_configurations(worker_cnt)
             # create workers array
             for worker_node in worker_nodes_from_conf:
                 worker_props = {
@@ -535,6 +540,13 @@ class DataprocCluster(ClusterBase):
             'GPU_DEVICE': gpu_device_hash.get(gpu_device),
             'GPU_PER_WORKER': gpu_per_machine
         }
+
+    def _generate_node_configuration(self, render_args: dict = None) -> Union[str, dict]:
+        """
+        Overrides to provide the cluster node configuration which is node name
+        in case of Dataproc.
+        """
+        return 'test-node-e'
 
 
 @dataclass
