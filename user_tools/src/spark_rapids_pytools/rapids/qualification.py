@@ -695,9 +695,12 @@ class Qualification(RapidsJarTool):
         all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
         apps_pruned_df = self.__remap_columns_and_prune(all_apps)
         speedup_category_ob = SpeedupCategory(self.ctxt.get_value('local', 'output', 'speedupCategories'))
-        apps_with_categories = speedup_category_ob.build_category_column(apps_pruned_df)
-        apps_with_categories.to_csv(output_files_info['full']['path'], float_format='%.2f')
+        # Calculate the speedup category column
+        apps_pruned_df = speedup_category_ob.build_category_column(apps_pruned_df)
+        apps_pruned_df.to_csv(output_files_info['full']['path'], float_format='%.2f')
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
+        # Recalculate the speedup category column after grouping
+        apps_grouped_df = speedup_category_ob.build_category_column(apps_grouped_df)
         recommended_apps = self.__get_recommended_apps(apps_grouped_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
