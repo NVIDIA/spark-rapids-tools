@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ mock_live_cluster = {
                                       "machineTypes/n1-standard-2",
                 },
                 "workerConfig": {
+                    "numInstances": 1,
                     "accelerators": [{
                         "acceleratorTypeUri": "https://www.googleapis.com/compute/beta/projects/project-id/zones/"\
                                               "us-central1-a/acceleratorTypes/nvidia-tesla-t4",

@@ -13,7 +13,6 @@
       "numInstances": {{ NUM_DRIVER_NODES }}
     },
     "workerConfig": {
-      "instanceNames": {{{ EXECUTOR_NAMES }}},
       "machineTypeUri": {{{ EXECUTOR_INSTANCE }}},
       "numInstances": {{ NUM_EXECUTOR_NODES }}
     },

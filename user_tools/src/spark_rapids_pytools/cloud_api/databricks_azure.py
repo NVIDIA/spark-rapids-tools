@@ -104,14 +104,6 @@ class DBAzurePlatform(PlatformBase):
             gpu_scopes[mc_prof] = NodeHWInfo(sys_info=hw_info_ob, gpu_info=gpu_info_obj)
         return gpu_scopes
 
-    def generate_cluster_configuration(self, render_args: dict):
-        executor_names = ','.join([
-            f'{{"node_id": "12345678900{i}"}}'
-            for i in range(render_args['NUM_EXECUTOR_NODES'])
-        ])
-        render_args['EXECUTOR_NAMES'] = f'[{executor_names}]'
-        return super().generate_cluster_configuration(render_args)
-
 
 @dataclass
 class DBAzureCMDDriver(CMDDriverBase):
@@ -321,11 +313,15 @@ class DatabricksAzureCluster(ClusterBase):
                 raise RuntimeError('Failed to find driver node information from cluster properties')
             driver_nodes_from_conf = {'node_id': None}
         # construct worker nodes info when cluster is inactive
-        if worker_nodes_from_conf is None:
-            worker_node_type_id = self.props.get_value('node_type_id')
-            if worker_node_type_id is None:
-                raise RuntimeError('Failed to find worker node information from cluster properties')
-            worker_nodes_from_conf = [{'node_id': None} for i in range(num_workers)]
+        executors_cnt = len(worker_nodes_from_conf) if worker_nodes_from_conf else 0
+        if num_workers != executors_cnt:
+            self.logger.warning('Cluster configuration: `executors` count %d does not match the '
+                                '`num_workers` value %d. Using generated names.', executors_cnt,
+                                num_workers)
+            worker_nodes_from_conf = self.generate_node_configurations(num_workers)
+        if num_workers == 0 and self.props.get_value('node_type_id') is None:
+            # if there are no worker nodes and no node_type_id, then we cannot proceed
+            raise RuntimeError('Failed to find worker node information from cluster properties')
         # create workers array
         worker_nodes: list = []
         for worker_node in worker_nodes_from_conf:
