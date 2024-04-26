@@ -15,7 +15,6 @@
 """Implementation class for Speedup Category logic."""
 
 from dataclasses import dataclass, field
-from functools import partial
 from typing import Optional
 
 import pandas as pd
@@ -33,17 +32,16 @@ class SpeedupCategory:
         Build the category column based on the range values of the speedup column.
         Example:
         props['categories'] = [
-            {'title': 'No Speedup', 'lowerBound': -100000, 'upperBound': 1},
-            {'title': 'Very Small', 'lowerBound': 1,       'upperBound': 1.3},
-            {'title': 'Small',      'lowerBound': 1.3,     'upperBound': 2},
-            {'title': 'Medium',     'lowerBound': 2,       'upperBound': 3},
-            {'title': 'Large',      'lowerBound': 3,       'upperBound': 100000}
+            {'title': 'Not Recommended', 'lowerBound': -100000, 'upperBound': 1.3},
+            {'title': 'Small',           'lowerBound': 1.3,     'upperBound': 2},
+            {'title': 'Medium',          'lowerBound': 2,       'upperBound': 3},
+            {'title': 'Large',           'lowerBound': 3,       'upperBound': 100000}
         ]
-        1. input: single_row_1 = pd.Series({'speedup': 1.8})
-           output: single_row_1 = pd.Series({'speedup': 1.8, 'speedup category': 'Small'})
+        1. input: row_1 = pd.Series({'speedup': 1.8})
+           output: row_1 = pd.Series({'speedup': 1.8, 'speedup category': 'Small'})
            reason: Speedup Category will be 'Small' because the speedup is within the range (1.3-2).
-        2. input: single_row_2 = pd.Series({'speedup': 3.5})
-           output: single_row_2 = pd.Series({'speedup': 3.5, 'speedup category': 'Large'})
+        2. input: row_2 = pd.Series({'speedup': 3.5})
+           output: row_2 = pd.Series({'speedup': 3.5, 'speedup category': 'Large'})
            reason: Speedup Category will be 'Large' because the speedup is within the range (3-100000).
         """
         categories = self.props.get('categories')
@@ -62,19 +60,19 @@ class SpeedupCategory:
     def __process_category(self, all_apps: pd.DataFrame) -> pd.DataFrame:
         """
         Process the speedup category column based on the eligibility criteria. If the row does not match
-        the criteria, the category column will be set to the `Very Low` category.
+        the criteria, the category column will be set to the `Not Recommended` category.
         Example:
         self.props['eligibilityConditions'] = [
             {'columnName': 'criteriaCol1', 'lowerBound': 18, 'upperBound': 30},
             {'columnName': 'criteriaCol2', 'lowerBound': 70, 'upperBound': 100}
         ]
-        1. input: single_row_1 = pd.Series({'criteriaCol1': 25, 'criteriaCol2': 85, 'speedup category': 'Large'})
-           output: single_row_1 = pd.Series({'criteriaCol1': 25, 'criteriaCol2': 85, 'speedup category': 'Large'})
+        1. input: row_1 = pd.Series({'criteriaCol1': 25, 'criteriaCol2': 85, 'speedup category': 'Large'})
+           output: row_1 = pd.Series({'criteriaCol1': 25, 'criteriaCol2': 85, 'speedup category': 'Large'})
            reason: Category will remain 'Large' because the criteriaCol1 is within the range (18-30) and
             the criteriaCol2 (85) is within the range (70-100).
-        2. input: single_row_2 = pd.Series({'criteriaCol1': 15, 'criteriaCol2': 85, 'speedup category': 'Medium'})
-           output: single_row_2 = pd.Series({'criteriaCol1': 15, 'criteriaCol2': 85, 'speedup category': 'Very Small'})
-           reason: Category will be set to 'Very Small' because the criteriaCol1 is not within the range (18-30)
+        2. input: row_2 = pd.Series({'criteriaCol1': 15, 'criteriaCol2': 85, 'speedup category': 'Medium'})
+           output: row_2 = pd.Series({'criteriaCol1': 15, 'criteriaCol2': 85, 'speedup category': 'Not Recommended'})
+           reason: Category will be set to 'Not Recommended' because the criteriaCol1 is not within the range (18-30)
         """
         category_col_name = self.props.get('categoryColumnName')
 

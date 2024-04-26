@@ -32,9 +32,8 @@ class TopCandidates:
         """
         category_col_name = self.props.get('categoryColumnName')
         eligible_categories = self.props.get('eligibleCategories')
-
-        filtered_apps = all_apps[all_apps[category_col_name].isin(eligible_categories)]
-        return filtered_apps
+        # Filter applications based on categories
+        return all_apps[all_apps[category_col_name].isin(eligible_categories)]
 
     def prepare_output(self, all_apps: pd.DataFrame) -> pd.DataFrame:
         """
