@@ -326,6 +326,10 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
   def doSparkListenerTaskEnd(
       app: T,
       event: SparkListenerTaskEnd): Unit = {
+    // TODO: this implementation needs to be updated to use attemptID
+    // Update the map between accumulators and stages
+    app.stageManager.addAccumIdToStage(
+      event.stageId, event.taskInfo.accumulables.map(_.id))
     // Parse task accumulables
     for (res <- event.taskInfo.accumulables) {
       try {
@@ -432,16 +436,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       app: T,
       event: SparkListenerStageCompleted): Unit = {
     logDebug("Processing event: " + event.getClass)
-    val stage = app.getOrCreateStage(event.stageInfo)
-    stage.completionTime = event.stageInfo.completionTime
-    stage.failureReason = event.stageInfo.failureReason
-    stage.duration = ProfileUtils.optionLongMinusOptionLong(stage.completionTime,
-      stage.info.submissionTime)
-    val stageAccumulatorIds = event.stageInfo.accumulables.values.map { m => m.id }.toSeq
-    stageAccumulatorIds.foreach { accumId =>
-      val existingStages = app.accumulatorToStages.getOrElse(accumId, Set.empty)
-      app.accumulatorToStages.put(accumId, existingStages + event.stageInfo.stageId)
-    }
+    app.getOrCreateStage(event.stageInfo)
   }
 
   override def onStageCompleted(stageCompleted: SparkListenerStageCompleted): Unit = {

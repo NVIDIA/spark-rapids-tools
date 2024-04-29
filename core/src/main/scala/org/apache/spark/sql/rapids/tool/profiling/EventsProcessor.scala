@@ -228,7 +228,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
           event.stageInfo.stageId, event.stageInfo.attemptNumber()).foreach { thisMetric =>
           val arrBuf = app.taskStageAccumMap.getOrElseUpdate(accumInfo.id,
             ArrayBuffer[TaskStageAccumCase]())
-          app.accumIdToStageId.put(accumInfo.id, event.stageInfo.stageId)
           arrBuf += thisMetric
         }
       } catch {

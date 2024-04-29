@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,8 @@ class CompareApplications(apps: Seq[ApplicationInfo]) extends Logging {
   def findMatchingStages(): (Seq[CompareProfileResults], Seq[CompareProfileResults]) = {
     val normalizedByAppId = apps.map { app =>
       val normalized = app.sqlPlans.mapValues { plan =>
-        SparkPlanInfoWithStage(plan, app.accumIdToStageId).normalizeForStageComparison
+        SparkPlanInfoWithStage(plan,
+          app.stageManager.reduceAccumMapping()).normalizeForStageComparison
       }
       (app.appId, normalized)
     }.toMap
