@@ -1115,7 +1115,7 @@ object AutoTuner extends Logging {
     "spark.executor.instances" ->
       "'spark.executor.instances' should be set to (gpuCount * numWorkers).",
     "spark.task.resource.gpu.amount" ->
-      "'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).",
+      "'spark.task.resource.gpu.amount' should be set to Min(1, (gpuCount / numCores)).",
     "spark.rapids.sql.concurrentGpuTasks" ->
       s"'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).",
     "spark.rapids.memory.pinnedPool.size" ->

@@ -235,7 +235,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
+          |- 'spark.task.resource.gpu.amount' should be set to Min(1, (gpuCount / numCores)).
           |- RAPIDS Accelerator for Apache Spark plugin jar is missing
           |  from the classpath entries.
           |  If the Spark RAPIDS jar is being bundled with your
@@ -273,7 +273,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
+          |- 'spark.task.resource.gpu.amount' should be set to Min(1, (gpuCount / numCores)).
           |- Incorrect values in worker system information: {numCores: 0, memory: 122880MiB, numWorkers: 4}.
           |- RAPIDS Accelerator for Apache Spark plugin jar is missing
           |  from the classpath entries.
@@ -312,7 +312,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
+          |- 'spark.task.resource.gpu.amount' should be set to Min(1, (gpuCount / numCores)).
           |- Incorrect values in worker system information: {numCores: 32, memory: , numWorkers: 4}.
           |- RAPIDS Accelerator for Apache Spark plugin jar is missing
           |  from the classpath entries.
@@ -351,7 +351,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
+          |- 'spark.task.resource.gpu.amount' should be set to Min(1, (gpuCount / numCores)).
           |- Incorrect values in worker system information: {numCores: 32, memory: 0m, numWorkers: 4}.
           |- RAPIDS Accelerator for Apache Spark plugin jar is missing
           |  from the classpath entries.
