@@ -282,3 +282,6 @@ BloomFilterMightContain,4.88
 BloomFilterAggregate,4.88
 EphemeralSubstring,4.88
 KnownNullable,4.88
+InSubqueryExec,4.88
+AQEShuffleReadExec,4.88
+CheckOverflowInTableInsert,4.88

@@ -18,14 +18,11 @@ package org.apache.spark.sql.rapids.tool
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success, Try}
-import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.planparser.SubqueryExecParser
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
 import org.apache.maven.artifact.versioning.ComparableVersion
-import org.json4s.DefaultFormats
-import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.sql.DataFrame
@@ -108,58 +105,6 @@ object ToolUtils extends Logging {
 
   def showString(df: DataFrame, numRows: Int) = {
     df.showString(numRows, 0)
-  }
-
-  /**
-   * Parses the string which contains configs in JSON format ( key : value ) pairs and
-   * returns the Map of [String, String]
-   * @param clusterTag  String which contains property clusterUsageTags.clusterAllTags in
-   *                    JSON format
-   * @return Map of ClusterTags
-   */
-  def parseClusterTags(clusterTag: String): Map[String, String] = {
-    // clusterTags will be in this format -
-    // [{"key":"Vendor","value":"Databricks"},
-    // {"key":"Creator","value":"abc@company.com"},{"key":"ClusterName",
-    // "value":"job-215-run-1"},{"key":"ClusterId","value":"0617-131246-dray530"},
-    // {"key":"JobId","value":"215"},{"key":"RunName","value":"test73longer"},
-    // {"key":"DatabricksEnvironment","value":"workerenv-7026851462233806"}]
-
-    // case class to hold key -> value pairs
-    case class ClusterTags(key: String, value: String)
-    implicit val formats = DefaultFormats
-    try {
-      val listOfClusterTags = parse(clusterTag)
-      val clusterTagsMap = listOfClusterTags.extract[List[ClusterTags]].map(
-        x => x.key -> x.value).toMap
-      clusterTagsMap
-    } catch {
-      case NonFatal(_) =>
-        logWarning(s"There was an exception parsing cluster tags string: $clusterTag, skipping")
-        Map.empty
-    }
-  }
-
-  /**
-   * Try to get the JobId from the cluster name. Parse the clusterName string which
-   * looks like:
-   * "spark.databricks.clusterUsageTags.clusterName":"job-557875349296715-run-4214311276"
-   * and look for job-XXXXX where XXXXX represents the JobId.
-   *
-   * @param clusterNameString String which contains property clusterUsageTags.clusterName
-   * @return Optional JobId if found
-   */
-  def parseClusterNameForJobId(clusterNameString: String): Option[String] = {
-    var jobId: Option[String] = None
-    val splitArr = clusterNameString.split("-")
-    if (splitArr.contains("job")) {
-      val jobIdx = splitArr.indexOf("job")
-      // indexes are 0 based so adjust to compare to length
-      if (splitArr.length > jobIdx + 1) {
-        jobId = Some(splitArr(jobIdx + 1))
-      }
-    }
-    jobId
   }
 
   // given to duration values, calculate a human readable percent
@@ -485,11 +430,23 @@ object SupportedMLFuncsName {
   )
 }
 
-case class GpuEventLogException(message: String) extends Exception(message)
+class AppEventlogProcessException(message: String) extends Exception(message)
 
-case class PhotonEventLogException(message: String) extends Exception(message)
+case class GpuEventLogException(
+    message: String = "Cannot parse event logs from GPU run: skipping this file")
+    extends AppEventlogProcessException(message)
 
-case class StreamingEventLogException(message: String) extends Exception(message)
+case class PhotonEventLogException(
+    message: String = "Encountered Databricks Photon event log: skipping this file!")
+    extends AppEventlogProcessException(message)
+
+case class StreamingEventLogException(
+    message: String = "Encountered Spark Structured Streaming Job: skipping this file!")
+    extends AppEventlogProcessException(message)
+
+case class IncorrectAppStatusException(
+    message: String = "Application status is incorrect. Missing AppInfo")
+    extends AppEventlogProcessException(message)
 
 // Class used a container to hold the information of the Tuple<sqlID, PlanInfo, SparkGraph>
 // to simplify arguments of methods and caching.
