@@ -203,8 +203,7 @@ class QualificationAppInfo(
     } else {
       0
     }
-    logWarning("app end overhead is: " + appEndOverhead)
-    overhead
+    overhead + appEndOverhead
   }
 
   // Look at the total task times for all jobs/stages that aren't SQL or
@@ -399,20 +398,7 @@ class QualificationAppInfo(
         // Add 50% penalty for unsupported duration if there are transitions. This number
         // was randomly picked because it matched roughly what we saw on the experiments
         // with customer/nds event logs
-        val penaltyTime = eachStageUnsupported * 0.5
-        logWarning(s"stage task time penalty for stageID:$stageId is $penaltyTime")
-
-        // subtract penalty time from stage task time so time comes out the same
-        // TODO - make more scala like
-        /*logWarning(s"stage task time before is: $stageTaskTime unsupported is" +
-          s" $eachStageUnsupported penalty is $penaltyTime")
-
-        stageTaskTime = stageTaskTime - penaltyTime.toLong
-        logWarning(s"stage task time is: $stageTaskTime penalty is $penaltyTime")
-
-         */
-        (penaltyTime + eachStageUnsupported).toLong
-
+        (eachStageUnsupported * 0.5 + eachStageUnsupported).toLong
       } else {
         eachStageUnsupported
       }
@@ -1133,7 +1119,6 @@ object QualificationAppInfo extends Logging {
 
     val speedUpOpportunitySQL = sqlDataFrameDurationToUse * estimatedRatio
     val speedupOpportunityWallClock = speedUpOpportunitySQL + mlDuration
-    // is using app duration right? what about overhead here?
     val estimated_wall_clock_dur_not_on_gpu = appDuration - speedupOpportunityWallClock
     val estimated_gpu_duration = (speedUpOpportunitySQL / sqlSpeedupFactor) +
       estimated_wall_clock_dur_not_on_gpu + (mlDuration / mlSpeedup)
