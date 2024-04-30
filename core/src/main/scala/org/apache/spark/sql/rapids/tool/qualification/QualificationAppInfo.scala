@@ -400,7 +400,7 @@ class QualificationAppInfo(
         // was randomly picked because it matched roughly what we saw on the experiments
         // with customer/nds event logs
         val penaltyTime = eachStageUnsupported * 0.5
-        logWarning(s"stage task time penalty is $penaltyTime")
+        logWarning(s"stage task time penalty for stageID:$stageId is $penaltyTime")
 
         // subtract penalty time from stage task time so time comes out the same
         // TODO - make more scala like
@@ -640,7 +640,6 @@ class QualificationAppInfo(
         None
       }
 
-      val sparkSQLDFWallClockDuration = allSQLDurations.sum
       val longestSQLDuration = if (allSQLDurations.size > 0) {
         allSQLDurations.max
       } else {
@@ -702,86 +701,19 @@ class QualificationAppInfo(
         None
       }
 
-      // to calculate wall clock time we should really take ratio's of how much serialized task time
-      // was supports sql, dataframe, nonsql, and job overhead and apply it to the app duration
+      val (sqlDfWallDuration, supportedDfWallDuration) = getWallClockDurations(
+        appDuration, jobOverheadTime, sqlDataframeTaskDuration, supportedSQLTaskDuration)
 
-
-      // TODO - take into account transition time
-      val allTaskTime = stageIdToTaskEndSum.values.map(_.totalTaskDuration).sum
-
-      val tnonSQLDataframeTaskDuration = allTaskTime - sqlDataframeTaskDuration
-      logWarning(s"appDuration $appDuration " +
-        s"all task time: $allTaskTime sqltaskdur $sqlDataframeTaskDuration " +
-        s"nonsqltaskdur $nonSQLDataframeTaskDuration " +
-        s"tnonSQLDataframeTaskDuration $tnonSQLDataframeTaskDuration " +
-        s"supportedSQLTaskDuration $supportedSQLTaskDuration " +
-        s"unsupportedSQLTaskDuration $unsupportedSQLTaskDuration" +
-        s" totalTransitionTime $totalTransitionsTime")
-
-      val sqlDfWallEstRatio = sqlDataframeTaskDuration.toDouble/allTaskTime
-      val nonsqlDfWallEstRatio = if (tnonSQLDataframeTaskDuration > 0) {
-        tnonSQLDataframeTaskDuration.toDouble/allTaskTime
-      } else 0
-      val supportedsqlDfWallEstRatio = supportedSQLTaskDuration.toDouble/allTaskTime
-      val unsupportedsqlDfWallEstRatio = if (unsupportedSQLTaskDuration > 0) {
-        unsupportedSQLTaskDuration.toDouble/allTaskTime
-      } else 0
-      logWarning(s"nonsqlDfWallEstRatio $nonsqlDfWallEstRatio " +
-        s"sqlDfWallEstRatio: $sqlDfWallEstRatio" +
-        s" supportedsqlDfWallEstRatio $supportedsqlDfWallEstRatio " +
-        s" unsupportedsqlDfWallEstRatio $unsupportedsqlDfWallEstRatio " +
-        s"jobOverheadTime $jobOverheadTime")
-
-      val appdurationNoOverhead = appDuration - jobOverheadTime
-      val dfWallDuration = appdurationNoOverhead * sqlDfWallEstRatio
-      val supporteddfWallDuration = appdurationNoOverhead * supportedsqlDfWallEstRatio
-      val unsupporteddfWallDuration = if (unsupportedsqlDfWallEstRatio > 0) {
-        appdurationNoOverhead * unsupportedsqlDfWallEstRatio
-      } else 0
-      val nondfWallDuration = if (nonsqlDfWallEstRatio > 0) {
-        appdurationNoOverhead * nonsqlDfWallEstRatio
-      } else 0
-
-      logWarning(s"appdurationNoOverhead $appdurationNoOverhead " +
-        s"dfWallDuration: $dfWallDuration" +
-        s" supporteddfWallDuration $supporteddfWallDuration " +
-        s" unsupporteddfWallDuration $unsupporteddfWallDuration " +
-        s"nondfWallDuration $nondfWallDuration")
-
-      /*
-      // get the ratio based on the Task durations that we will use for wall clock durations
-      // totalTransitionTime is the overhead time for ColumnarToRow/RowToColumnar transitions
-      // which impacts the GPU ratio.
-      val estimatedGPURatio = if (supporteddfWallDuration > 0) {
-        supporteddfWallDuration / dfWallDuration
+      // get the ratio based on the wallclock durations of supportedSqlWallClock duration to
+      // total sqlWallclock duration
+      val estimatedGPURatio = if (supportedDfWallDuration > 0) {
+        supportedDfWallDuration / sqlDfWallDuration
       } else {
         1
       }
 
-      // get the ratio based on the Task durations that we will use for wall clock durations
-      // totalTransitionTime is the overhead time for ColumnarToRow/RowToColumnar transitions
-      // which impacts the GPU ratio.
-      val origEstimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
-        supportedSQLTaskDuration.toDouble / (
-          sqlDataframeTaskDuration.toDouble)
-        //         sqlDataframeTaskDuration.toDouble + totalTransitionsTime.toDouble)
-
-      } else {
-        1
-      }
-
-
-
-      logWarning(s"estimatedGPURatio is $estimatedGPURatio" +
-        s" oldestimatedGPURatio $origEstimatedGPURatio")
-     */
-      // val wallClockSqlDFToUse = QualificationAppInfo.wallClockSqlDataFrameToUse(
-       // sparkSQLDFWallClockDuration, appDuration)
-
-
-      // TODO - redo this function since calculate it above.
       val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
-        dfWallDuration.toLong, appDuration, taskSpeedupFactor, appName, appId,
+        sqlDfWallDuration.toLong, appDuration, taskSpeedupFactor, appName, appId,
         sqlIdsWithFailures.nonEmpty, mlSpeedup, unSupportedExecs, unSupportedExprs,
         allClusterTagsMap)
 
@@ -793,7 +725,7 @@ class QualificationAppInfo(
         notSupportFormatAndTypesString, getAllReadFileFormats, writeFormat,
         allComplexTypes, nestedComplexTypes, longestSQLDuration, sqlDataframeTaskDuration,
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
-        taskSpeedupFactor, info.sparkUser, info.startTime, dfWallDuration.toLong,
+        taskSpeedupFactor, info.sparkUser, info.startTime, sqlDfWallDuration.toLong,
         origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
@@ -847,6 +779,31 @@ class QualificationAppInfo(
           Some(info.duration.getOrElse(0L))
       }
     }.toSeq
+  }
+
+  // to calculate wall clock time we should really take ratio's of how much serialized task time
+  // is in sql, dataframe, nonsql, and job overhead and apply it to the app duration
+  private def getWallClockDurations(appDuration: Long,
+      jobOverheadTime: Long,
+      sqlDataframeTaskDuration: Long,
+      supportedSQLTaskDuration: Long): (Double, Double) = {
+    val allTaskTime = stageIdToTaskEndSum.values.map(_.totalTaskDuration).sum
+    val sqlDfWallEstimatedRatio = if (allTaskTime > 0) {
+      sqlDataframeTaskDuration.toDouble / allTaskTime
+    } else {
+      0
+    }
+    val supportedsqlDfWallEstimatedRatio = if (allTaskTime > 0) {
+      supportedSQLTaskDuration.toDouble / allTaskTime
+    } else {
+      0
+    }
+    // Exclude jobOverheadTime from appDuration to get the actual wallclock durations
+    val appDurationNoOverhead = appDuration - jobOverheadTime
+    val sqlDfWallDuration = appDurationNoOverhead * sqlDfWallEstimatedRatio
+    val supportedSqlDfWallDuration = appDurationNoOverhead * supportedsqlDfWallEstimatedRatio
+
+    (sqlDfWallDuration, supportedSqlDfWallDuration)
   }
 
   private def getMlFuntions: Option[Seq[MLFunctions]] = {
@@ -1164,7 +1121,6 @@ object QualificationAppInfo extends Logging {
       hasFailures: Boolean, mlSpeedupFactor: Option[MLFuncsSpeedupAndDuration] = None,
       unsupportedExecs: String = "", unsupportedExprs: String = "",
       allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedAppInfo = {
-    // val sqlDataFrameDurationToUse = wallClockSqlDataFrameToUse(sqlDataFrameDuration, appDuration)
 
     // get the average speedup and duration for ML funcs supported on GPU
     val (mlSpeedup, mlDuration) = if (mlSpeedupFactor.isDefined) {
