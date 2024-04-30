@@ -172,7 +172,7 @@ class QualificationAppInfo(
   }
 
   // Assume that overhead is the all time windows that do not overlap with a running job.
-  private def calculateJobOverHeadTime(startTime: Long, jobEndTime: Long): Long = {
+  private def calculateJobOverHeadTime(appStartTime: Long, appEndTime: Long): Long = {
     // Simple algorithm:
     // 1- sort all jobs by start/endtime.
     // 2- Initialize Time(p) = app.StartTime
@@ -180,7 +180,7 @@ class QualificationAppInfo(
     //    then this must be considered a gap
     // 4- Update Time(p) at the end of each iteration: Time(p+1) = Max(Time(p), job.endTime)
     val sortedJobs = jobIdToInfo.values.toSeq.sortBy(_.startTime)
-    var pivot = startTime
+    var pivot = appStartTime
     var overhead : Long = 0
 
     sortedJobs.foreach { job =>
@@ -191,18 +191,12 @@ class QualificationAppInfo(
       // if jobEndTime is not set, use job.startTime
       pivot = Math.max(pivot, job.endTime.getOrElse(job.startTime))
     }
-    // Add in the spark app start time - first job time
-    val appEndOverhead = if (sortedJobs.size > 0 && jobEndTime > 0) {
-      val lastJobEndTime = sortedJobs.last.endTime.getOrElse(0L)
-      if (lastJobEndTime > 0) {
-        jobEndTime - lastJobEndTime
-      } else {
-        0
-      }
+    // add in the Gap between maximum job's endTime (pivot)  and the argument jobEndTime
+    if (appEndTime > 0) {
+      overhead + appEndTime - pivot
     } else {
-      0
+      overhead
     }
-    overhead + appEndOverhead
   }
 
   // Look at the total task times for all jobs/stages that aren't SQL or
@@ -640,6 +634,7 @@ class QualificationAppInfo(
       val unsupportedSQLTaskDuration = calculateSQLUnsupportedTaskDuration(allStagesSummary)
       val endDurationEstimated = this.appEndTime.isEmpty && appDuration > 0
       val endTimeJob = info.endTime.getOrElse(0L)
+//      val endTimeJob = appEndTime.getOrElse(0L)
       val jobOverheadTime = calculateJobOverHeadTime(info.startTime, endTimeJob)
       val nonSQLDataframeTaskDuration =
         calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration, totalTransitionsTime)
