@@ -185,7 +185,6 @@ class QualificationAppInfo(
 
     sortedJobs.foreach { job =>
       val timeDiff = job.startTime - pivot
-      logWarning(s"job ${job.jobID} time diff is: " + timeDiff)
       if (timeDiff > 0) {
         overhead += timeDiff
       }
