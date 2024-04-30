@@ -35,8 +35,8 @@ class StageModelManager extends Logging {
   // A nested HashMap to map between ((Int: stageId, Int: attemptId) -> StageModel).
   // We keep track of the attemptId to allow improvement down the road if we decide to handle
   // different Attempts.
-  // - 1st level maps between [Int: StageId -> 2nd Level]
-  // - 2nd level maps between [Int:, StageModel]
+  // - 1st level maps between [Int: stageId -> 2nd Level]
+  // - 2nd level maps between [Int: attemptId -> StageModel]
   // Use Nested Maps to store stageModels which should be faster to retrieve than a map of
   // of composite key (i.e., Tuple).
   // Composite keys would cost more because it implicitly allocates a new object every time there
@@ -105,7 +105,7 @@ class StageModelManager extends Logging {
 
   // Shortcut to get the duration of a stage by stageId
   @WallClock
-  @Calculated("Sum all the WallaClockDuration for the given stageId")
+  @Calculated("Sum all the WallClockDuration for the given stageId")
   def getDurationById(stageId: Int): Long = {
     stageIdToInfo.get(stageId).map { attempts =>
       attempts.values.map(_.getDuration).sum
