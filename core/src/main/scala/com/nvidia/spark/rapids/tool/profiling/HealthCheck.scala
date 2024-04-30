@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,13 +43,11 @@ class HealthCheck(apps: Seq[ApplicationInfo]) {
 
   def getFailedStages: Seq[FailedStagesProfileResults] = {
     val failed = apps.flatMap { app =>
-      val stagesFailed = app.stageIdToInfo.filter { case (_, sc) =>
-        sc.failureReason.nonEmpty
-      }
-      stagesFailed.map { case ((id, attId), sc) =>
-        val failureStr = sc.failureReason.getOrElse("")
-        FailedStagesProfileResults(app.index, id, attId,
-          sc.info.name, sc.info.numTasks,
+      val stagesFailed = app.stageManager.getFailedStages
+      stagesFailed.map { case fsm =>
+        val failureStr = fsm.getFailureReason
+        FailedStagesProfileResults(app.index, fsm.sId, fsm.attemptId,
+          fsm.sInfo.name, fsm.sInfo.numTasks,
           ProfileUtils.truncateFailureStr(failureStr))
       }
     }

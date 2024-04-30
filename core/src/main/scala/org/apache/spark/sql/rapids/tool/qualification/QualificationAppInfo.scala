@@ -29,6 +29,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
 
 
 class QualificationAppInfo(
@@ -391,9 +392,8 @@ class QualificationAppInfo(
         eachStageUnsupported
       }
 
-      // Get stage info for the given stageId.
-      val stageInfos = stageIdToInfo.filterKeys { case (id, _) => id == stageId }
-      val wallclockStageDuration = stageInfos.values.map(x => x.duration.getOrElse(0L)).sum
+      // Get the duration for the given stageId.
+      val wallclockStageDuration = stageManager.getDurationById(stageId)
 
       StageQualSummaryInfo(stageId, stageFinalSpeedupFactor, stageTaskTime,
         finalEachStageUnsupported, numTransitions, transitionsTime, estimated,
@@ -756,9 +756,10 @@ class QualificationAppInfo(
   }
 
   private def getMlFuntions: Option[Seq[MLFunctions]] = {
-    val mlFunctions = stageIdToInfo.flatMap { case ((appId, _), stageInfo) =>
-      checkMLOps(appId, stageInfo)
+    val mlFunctions = stageManager.getAllStages.flatMap { case sModel =>
+      checkMLOps(Some(appId), sModel)
     }
+
     if (mlFunctions.nonEmpty) {
       Some(mlFunctions.toSeq.sortBy(mlops => mlops.stageId))
     } else {
@@ -912,6 +913,7 @@ case class MLFunctions(
     appID: Option[String],
     stageId: Int,
     mlOps: Array[String],
+    @WallClock
     duration: Long
 )
 
@@ -1004,6 +1006,8 @@ case class StageQualSummaryInfo(
     numTransitions: Int,
     transitionTime: Long,
     estimated: Boolean = false,
+    @WallClock
+    @Calculated("Calculated as the difference between submission and completion times")
     stageWallclockDuration: Long = 0,
     unsupportedExecs: Seq[ExecInfo] = Seq.empty)
 
