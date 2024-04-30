@@ -14,7 +14,6 @@
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
-import textwrap
 from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
@@ -32,6 +31,7 @@ from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, QualEstimationModel
 from spark_rapids_tools.tools.model_xgboost import predict
+from spark_rapids_tools.tools.speedup_category import SpeedupCategory
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
 from spark_rapids_tools.utils.util import Utilities
@@ -694,8 +694,13 @@ class Qualification(RapidsJarTool):
         # Calculate unsupported operators stage duration before grouping
         all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
         apps_pruned_df = self.__remap_columns_and_prune(all_apps)
+        speedup_category_ob = SpeedupCategory(self.ctxt.get_value('local', 'output', 'speedupCategories'))
+        # Calculate the speedup category column
+        apps_pruned_df = speedup_category_ob.build_category_column(apps_pruned_df)
         apps_pruned_df.to_csv(output_files_info['full']['path'], float_format='%.2f')
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
+        # Recalculate the speedup category column after grouping
+        apps_grouped_df = speedup_category_ob.build_category_column(apps_grouped_df)
         recommended_apps = self.__get_recommended_apps(apps_grouped_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
         speedups_irrelevant_flag = self.__recommendation_is_non_standard()
@@ -763,13 +768,17 @@ class Qualification(RapidsJarTool):
             filter_recommendation_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SPEEDUPS
             filter_pos_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SAVINGS
             filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
+            squeeze_header_enabled = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'compactWidth')
+            header_width = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'columnWidth')
 
             if filter_top_candidate_enabled:
                 # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
                 #  This should be refactored along with entire filter apps logic to use more object-oriented design.
                 top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
                 filtered_apps = top_candidates_obj.filter_apps(raw_df)
-                return top_candidates_obj.prepare_output(filtered_apps)
+                result_df = top_candidates_obj.prepare_output(filtered_apps)
+                # squeeze the header titles if enabled
+                return Utilities.squeeze_df_header(result_df, header_width) if squeeze_header_enabled else result_df
 
             if self.__recommendation_is_non_standard():
                 # During processing of arguments phase, we verified that the filter does not conflict
@@ -809,15 +818,7 @@ class Qualification(RapidsJarTool):
             df_row.columns = df_row.columns.str.replace('Duration',
                                                         f'Duration{time_unit}', regex=False)
             # squeeze the header titles if enabled
-            if self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'compactWidth'):
-                col_w_conf = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'columnWidth')
-                for column in df_row.columns:
-                    if len(column) > col_w_conf:
-                        new_column_name = textwrap.fill(column, col_w_conf, break_long_words=False)
-                        if new_column_name != column:
-                            df_row.columns = df_row.columns.str.replace(column,
-                                                                        new_column_name, regex=False)
-            return df_row
+            return Utilities.squeeze_df_header(df_row, header_width) if squeeze_header_enabled else df_row
 
         if not self._evaluate_rapids_jar_tool_output_exist():
             return
