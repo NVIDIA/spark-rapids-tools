@@ -12,11 +12,11 @@
           },
           {
             "name": "Hadoop Azure",
-            "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/3.3.6/hadoop-azure-3.3.6.jar",
+            "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/3.3.4/hadoop-azure-3.3.4.jar",
             "type": "jar",
-            "md5": "0fb8b8e565fd920fb809220cb2cc5ee7",
-            "sha1": "24425e7fad3a302715cefd570a0f4bdf3f50bc8e",
-            "size": 609646
+            "md5": "1ec4cbd59548412010fe1515070eef73",
+            "sha1": "a23f621bca9b2100554150f6b0b521f94b8b419e",
+            "size": 574116
           }
         ],
         "SPARK333-LOCAL": [
