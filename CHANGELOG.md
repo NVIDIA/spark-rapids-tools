@@ -1,6 +1,29 @@
 
 <br/>
 
+## Release [v24.02.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.02.4)
+Generated on 2024-04-30
+### User Tools
+
+- Fix Hadoop Azure version to be compatibe with Spark-3.5.0 ([#975](https://github.com/NVIDIA/spark-rapids-tools/pull/975))
+- Add speedup categories in qualification summary output  ([#958](https://github.com/NVIDIA/spark-rapids-tools/pull/958))
+- Improve cluster node initialisation for CSPs ([#964](https://github.com/NVIDIA/spark-rapids-tools/pull/964))
+
+### Core
+
+- Remove databricks profiling recommendation for dynamicFilePruning ([#972](https://github.com/NVIDIA/spark-rapids-tools/pull/972))
+- Add AQEShuffleRead WriteFiles execs to the supportedOps and score files ([#963](https://github.com/NVIDIA/spark-rapids-tools/pull/963))
+- [FEA] Automate appending new operators to the platform score sheets ([#954](https://github.com/NVIDIA/spark-rapids-tools/pull/954))
+- Add support for InSubqueryExec Expression ([#960](https://github.com/NVIDIA/spark-rapids-tools/pull/960))
+
+### Miscellaneous
+
+- Bump dev version to 24.02.4 ([#968](https://github.com/NVIDIA/spark-rapids-tools/pull/968))
+- Revert versions back to 24.02.3 ([#967](https://github.com/NVIDIA/spark-rapids-tools/pull/967))
+
+
+<br/>
+
 ## Release [v24.02.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.02.3)
 Generated on 2024-04-24
 ### User Tools
