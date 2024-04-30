@@ -26,7 +26,7 @@ import scala.io.{Codec, Source}
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
 import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -36,6 +36,7 @@ import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListener
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.qualification.MLFunctions
+import org.apache.spark.sql.rapids.tool.store.{StageModel, StageModelManager}
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
 import org.apache.spark.util.Utils
 import org.apache.spark.util.Utils.REDACTION_REPLACEMENT_TEXT
@@ -171,8 +172,7 @@ abstract class AppBase(
   var taskStageAccumMap: HashMap[Long, ArrayBuffer[TaskStageAccumCase]] =
     HashMap[Long, ArrayBuffer[TaskStageAccumCase]]()
 
-  val stageIdToInfo: HashMap[(Int, Int), StageInfoClass] = new HashMap[(Int, Int), StageInfoClass]()
-  val accumulatorToStages: HashMap[Long, Set[Int]] = new HashMap[Long, Set[Int]]()
+  lazy val stageManager: StageModelManager = new StageModelManager()
 
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
@@ -185,14 +185,13 @@ abstract class AppBase(
     })
   }
 
-  def getOrCreateStage(info: StageInfo): StageInfoClass = {
-    val stage = stageIdToInfo.getOrElseUpdate((info.stageId, info.attemptNumber()),
-      new StageInfoClass(info))
+  def getOrCreateStage(info: StageInfo): StageModel = {
+    val stage = stageManager.addStageInfo(info)
     stage
   }
 
-  def checkMLOps(appId: Int, stageInfo: StageInfoClass): Option[MLFunctions] = {
-    val stageInfoDetails = stageInfo.info.details
+  def checkMLOps(appId: Option[String], stageModel: StageModel): Option[MLFunctions] = {
+    val stageInfoDetails = stageModel.sInfo.details
     val mlOps = if (stageInfoDetails.contains(MlOps.sparkml) ||
       stageInfoDetails.contains(MlOps.xgBoost)) {
 
@@ -226,8 +225,8 @@ abstract class AppBase(
     }
 
     if (mlOps.nonEmpty) {
-      Some(MLFunctions(Some(appId.toString), stageInfo.info.stageId, mlOps,
-        stageInfo.duration.getOrElse(0)))
+      Some(MLFunctions(appId, stageModel.sId, mlOps,
+        stageModel.getDuration))
     } else {
       None
     }
@@ -245,15 +244,12 @@ abstract class AppBase(
   def cleanupAccumId(accId: Long): Unit = {
     taskStageAccumMap.remove(accId)
     driverAccumMap.remove(accId)
-    accumulatorToStages.remove(accId)
+    stageManager.removeAccumulatorId(accId)
   }
 
   def cleanupStages(stageIds: Set[Int]): Unit = {
     // stageIdToInfo can have multiple stage attempts, remove all of them
-    stageIds.foreach { stageId =>
-      val toRemove = stageIdToInfo.keys.filter(_._1 == stageId)
-      toRemove.foreach(stageIdToInfo.remove(_))
-    }
+    stageManager.removeStages(stageIds)
   }
 
   def cleanupSQL(sqlID: Long): Unit = {

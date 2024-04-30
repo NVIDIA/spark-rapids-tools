@@ -208,7 +208,6 @@ class ApplicationInfo(
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
   var sqlPlanMetricsAdaptive: ArrayBuffer[SQLPlanMetricsCase] = ArrayBuffer[SQLPlanMetricsCase]()
 
-  val accumIdToStageId: mutable.HashMap[Long, Int] = new mutable.HashMap[Long, Int]()
   var taskEnd: ArrayBuffer[TaskCase] = ArrayBuffer[TaskCase]()
   var unsupportedSQLplan: ArrayBuffer[UnsupportedSQLPlan] = ArrayBuffer[UnsupportedSQLPlan]()
   var wholeStage: ArrayBuffer[WholeStageCodeGenResults] = ArrayBuffer[WholeStageCodeGenResults]()
@@ -353,12 +352,10 @@ class ApplicationInfo(
     }
     val sqlToStages = jobsWithSQL.flatMap { case (jobId, j) =>
       val stages = j.stageIds
-      val stagesInJob = stageIdToInfo.filterKeys { case (sid, _) =>
-        stages.contains(sid)
-      }
-      stagesInJob.map { case ((s,sa), info) =>
+      val stagesInJob = stageManager.getStagesByIds(stages)
+      stagesInJob.map { sModel =>
         val nodeIds = sqlPlanNodeIdToStageIds.filter { case (_, v) =>
-          v.contains(s)
+          v.contains(sModel.sId)
         }.keys.toSeq
         val nodeNames = sqlPlans.get(j.sqlID.get).map { planInfo =>
           val nodes = ToolsPlanGraph(planInfo).allNodes
@@ -367,7 +364,8 @@ class ApplicationInfo(
           }
           validNodes.map(n => s"${n.name}(${n.id.toString})")
         }.getOrElse(Seq.empty)
-        SQLStageInfoProfileResult(index, j.sqlID.get, jobId, s, sa, info.duration, nodeNames)
+        SQLStageInfoProfileResult(index, j.sqlID.get, jobId, sModel.sId,
+          sModel.attemptId, sModel.duration, nodeNames)
       }
     }
     sqlToStages.toSeq

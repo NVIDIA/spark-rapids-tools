@@ -19,7 +19,6 @@ package com.nvidia.spark.rapids.tool.profiling
 import scala.collection.Map
 
 import org.apache.spark.resource.{ExecutorResourceRequest, TaskResourceRequest}
-import org.apache.spark.scheduler.StageInfo
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
@@ -157,12 +156,6 @@ case class DriverLogUnsupportedOperators(
     Seq(StringUtils.reformatCSVString(operatorName), count.toString,
       StringUtils.reformatCSVString(reason))
   }
-}
-
-class StageInfoClass(val info: StageInfo) {
-  var completionTime: Option[Long] = None
-  var failureReason: Option[String] = None
-  var duration: Option[Long] = None
 }
 
 // note that some things might not be set until after sqlMetricsAggregation called
