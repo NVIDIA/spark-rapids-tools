@@ -19,9 +19,11 @@ import fire
 
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
 from spark_rapids_tools.enums import QualGpuClusterReshapeType
+from spark_rapids_tools.tools.model_xgboost import predict, _print_summary
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
+from spark_rapids_pytools.rapids.prediction import Prediction
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
 
@@ -256,6 +258,34 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                  output_folder=boot_args['outputFolder'],
                                  wrapper_options=boot_args)
             tool_obj.launch()
+
+    def prediction(self,
+                   result_folder: str,
+                   platform: str = 'onprem',
+                   verbose: bool = False):
+        """The prediction cmd takes existing qualification and profiling tool output and runs the
+        estimation model in the qualification tools for GPU speedups.
+
+        :param result_folder: path to the qualification and profiling tool output.
+        :param platform: defines one of the following "onprem", "emr", "dataproc","dataproc-gke",
+            "databricks-aws", and "databricks-azure", default to "onprem".
+        """
+        if verbose:
+            ToolLogging.enable_debug_mode()
+
+        init_environment('pred')
+
+        predict_args = AbsToolUserArgModel.create_tool_args('prediction',
+                                                            platform=platform,
+                                                            result_folder=result_folder)
+
+        tool_obj = Prediction(platform_type=predict_args['runtimePlatform'],
+                              result_folder=predict_args['resultFolder'],
+                              wrapper_options=predict_args)
+        tool_obj.init_ctxt()
+        output_info = tool_obj.prepare_prediction_output_info()
+        df = predict(platform, result_folder, result_folder, output_info)
+        _print_summary(df)
 
 
 def main():
