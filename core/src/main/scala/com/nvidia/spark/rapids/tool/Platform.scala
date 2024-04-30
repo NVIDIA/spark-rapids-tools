@@ -63,7 +63,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   /**
    * Recommendations to be included in the final list of recommendations.
    * These properties should be specific to the platform and not general Spark properties.
-   * For example: "spark.databricks.optimizer.dynamicFilePruning" for the Databricks platform.
+   * For example: we used to set "spark.databricks.optimizer.dynamicFilePruning" to false for the
+   *              Databricks platform.
    *
    * Represented as a tuple of (propertyKey, propertyValue).
    */
@@ -134,9 +135,6 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform
     "spark.executor.instances",
     "spark.executor.memory",
     "spark.executor.memoryOverhead"
-  )
-  override val recommendationsToInclude: Seq[(String, String)] = Seq(
-    ("spark.databricks.optimizer.dynamicFilePruning", "false")
   )
 
   override def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
