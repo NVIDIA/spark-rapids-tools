@@ -41,8 +41,13 @@ class StageModel private(var sInfo: StageInfo) {
   @Calculated("Calculated as (submissionTime - completionTime)")
   var duration: Option[Long] = None
 
-  // Whenever an event is triggered, the object should update the Stage info.
-  private def updatedInfo(newSInfo: StageInfo): Unit = {
+  /**
+   * Updates the snapshot of Spark's stageInfo to point to the new value and recalculate the
+   * duration. Typically, a new StageInfo object is created with both StageSubmitted/StageCompleted
+   * events
+   * @param newSInfo Spark's StageInfo loaded from StageSubmitted/StageCompleted events.
+   */
+  private def updateInfo(newSInfo: StageInfo): Unit = {
     this.sInfo = newSInfo
     // recalculate duration
     calculateDuration()
@@ -69,19 +74,42 @@ class StageModel private(var sInfo: StageInfo) {
     sInfo.accumulables.keySet
   }
 
+
   @Calculated
   @WallClock
+  /**
+   * Duration won't be defined when neither submitted/completion-Time is defined.
+   * @return the WallClock duration of the stage in milliseconds if defined, or 0L otherwise.
+   */
   def getDuration: Long = {
     duration.getOrElse(0L)
   }
 }
 
 object StageModel {
+  /**
+   * Factory method to create a new instance of StageModel.
+   * The purpose of this method is to encapsulate the logic of updating the stageModel based on
+   * the argument.
+   * Note that this encapsulation is added to avoid a bug when the Spark's stageInfo was not
+   * updated correctly when an event was triggered. This resulted in the stageInfo pointing to an
+   * outdated Spark's StageInfo.
+   * 1- For a new StageModel: this could be triggered by either stageSubmitted event; or
+   *    stageCompleted event.
+   * 2- For an existing StageModel: the stageInfo argument is not the same object captured when the
+   *    stageModel was created. In that case, we need to call updateInfo to point to the new Spark's
+   *    StageInfo and re-calculate the duration.
+   * @param stageInfo Spark's StageInfo captured from StageSubmitted/StageCompleted events
+   * @param stageModel Option of StageModel represents the existing instance of StageModel that was
+   *                   created when the stage was submitted.
+   * @return a new instance of StageModel if it exists, or returns the existing StageModel after
+   *         updating its sInfo and duration fields.
+   */
   def apply(stageInfo: StageInfo, stageModel: Option[StageModel]): StageModel = {
     val sModel = stageModel.getOrElse(new StageModel(stageInfo))
     // Initialization code used to update the duration based on the StageInfo captured from Spark's
     // eventlog
-    sModel.updatedInfo(stageInfo)
+    sModel.updateInfo(stageInfo)
     sModel
   }
 }
@@ -95,6 +123,11 @@ class StageModelManager extends Logging {
   //       2- Convert the storage into generic that can be replaced by file-backed storage later
   //          when needed.
 
+  // A nested HashMap to map between ((Int: stageId, Int: attemptId) -> StageModel).
+  // We keep track of the attemptId to allow improvement down the road if we decide to handle
+  // different Attempts.
+  // - 1st level maps between [Int: StageId -> 2nd Level]
+  // - 2nd level maps between [Int:, StageModel]
   // Use Nested Maps to store stageModels which should be faster to retrieve than a map of
   // of composite key (i.e., Tuple).
   // Composite keys would cost more because it implicitly allocates a new object every time there
@@ -103,22 +136,22 @@ class StageModelManager extends Logging {
     new mutable.HashMap[Int, mutable.HashMap[Int, StageModel]]()
 
   // Holds the mapping between AccumulatorIDs to Stages (1-to-N)
-  // Note that we keep it as primitive type in case a stage was not created in the original map.
+  // [Long: AccumId -> SortedSet[Int: StageId]]
+  // Note that we keep it as primitive type in case we receive a stageID that does not exist
+  // in the stageIdToInfo map.
   private val accumIdToStageId: mutable.HashMap[Long, SortedSet[Int]] =
     new mutable.HashMap[Long, SortedSet[Int]]()
 
   /**
-   * Returns all StageModels that have been created. This includes stages with multiple attempts.
-   * @return
+   * Returns all StageModels that have been created as a result of handling
+   * StageSubmitted/StageCompleted-events. This includes stages with multiple attempts.
+   * @return Iterable of all StageModels
    */
   def getAllStages: Iterable[StageModel] = stageIdToInfo.values.flatMap(_.values)
 
   /**
    * Returns all Ids of stage objects created as a result of handling StageSubmitted/StageCompleted.
-   * In order to get all Ids that appeared within the accumulables' Info, then
-   * accumIdToStageId.keySet would be more appropriate for that.
-   *
-   * @return Iterable of all stage Ids
+   * @return Iterable of stage Ids
    */
   def getAllStageIds: Iterable[Int] = stageIdToInfo.keys
 
@@ -170,24 +203,32 @@ class StageModelManager extends Logging {
 
   // Remove all Stages by stageId
   def removeStages(stageIds: Iterable[Int]): Unit = {
-    stageIds.foreach { stageId =>
-      stageIdToInfo.remove(stageId)
-    }
+    stageIdToInfo --= stageIds
   }
 
-  // Used as the public entry to get or instantiate new Stage.
-  // Note that this method has a couple of side effects:
-  // 1- recalculates the WallClockDuration of the stage; and
-  // 2- adds its accumulator IDs to the accumulator mapping.
-  def getOrUpdateStageByInfo(sInfo: StageInfo): StageModel = {
+  /**
+   * Given a Spark.StageInfo, this method will return an existing StageModel that has
+   * (stageId, attemptId) if it exists. Otherwise, it will create a new instance of StageModel.
+   * Once the stageModel instance is obtained, it will update the accumulator mapping based on the
+   * elements of sInfo.accumulables.
+   * @param sInfo a snapshot from StageInfo captured from StageSubmitted/StageCompleted-events
+   * @return existing or new instance of StageModel with (sInfo.stageId, sInfo.attemptID)
+   */
+  def addStageInfo(sInfo: StageInfo): StageModel = {
     val stage = getOrCreateStage(sInfo)
     addAccumIdsToStage(stage)
     stage
   }
 
-  // This is used as a temporary workaround to use the same map with consumers that expect a
-  // 1-to-1 mapping.
-  def reduceAccumMapping(): Map[Long, Int] = {
+  /**
+   * Returns a mapping between AccumulatorID and a single stageId (1-to-1) by taking the head of
+   * the list.
+   * That getter is used as a temporary hack to avoid callers that expect a 1-to-1 mapping between
+   * accumulators and stages. i.e., GenerateDot.writeDotGraph expects a 1-to-1 mapping but it is
+   * rarely used for now.
+   * @return a Map of AccumulatorID to StageId
+   */
+  def getAccumToSingleStage(): Map[Long, Int] = {
     accumIdToStageId.map { case (accumId, stageIds) =>
       accumId -> stageIds.head
     }.toMap

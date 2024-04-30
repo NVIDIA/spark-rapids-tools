@@ -186,7 +186,7 @@ abstract class AppBase(
   }
 
   def getOrCreateStage(info: StageInfo): StageModel = {
-    val stage = stageManager.getOrUpdateStageByInfo(info)
+    val stage = stageManager.addStageInfo(info)
     stage
   }
 

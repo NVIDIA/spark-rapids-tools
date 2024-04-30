@@ -33,7 +33,7 @@ class CompareApplications(apps: Seq[ApplicationInfo]) extends Logging {
     val normalizedByAppId = apps.map { app =>
       val normalized = app.sqlPlans.mapValues { plan =>
         SparkPlanInfoWithStage(plan,
-          app.stageManager.reduceAccumMapping()).normalizeForStageComparison
+          app.stageManager.getAccumToSingleStage()).normalizeForStageComparison
       }
       (app.appId, normalized)
     }.toMap
