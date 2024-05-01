@@ -172,21 +172,6 @@ class QualificationAppInfo(
     }
   }
 
-  private def getAppEndTime: Long = {
-    this.appEndTime match {
-      case Some(endTime) => endTime
-      case None =>
-        if (lastSQLEndTime.isEmpty && lastJobEndTime.isEmpty) {
-          0L
-        } else {
-          // estimate the app end with job or sql end times
-          val sqlEndTime = if (this.lastSQLEndTime.isEmpty) 0L else this.lastSQLEndTime.get
-          val jobEndTime = if (this.lastJobEndTime.isEmpty) 0L else lastJobEndTime.get
-          math.max(sqlEndTime, jobEndTime)
-        }
-    }
-  }
-
   // Assume that overhead is the all time windows that do not overlap with a running job.
   private def calculateJobOverHeadTime(appStartTime: Long, appEndTime: Long): Long = {
     // Simple algorithm:
@@ -208,7 +193,7 @@ class QualificationAppInfo(
       pivot = Math.max(pivot, job.endTime.getOrElse(job.startTime))
     }
     // add in the Gap between maximum job's endTime (pivot)  and the argument jobEndTime
-    if (appEndTime > 0) {
+    if (appEndTime > 0 && pivot < appEndTime) {
       overhead + appEndTime - pivot
     } else {
       overhead
@@ -648,7 +633,7 @@ class QualificationAppInfo(
       val totalTransitionsTime = allStagesSummary.map(s => s.transitionTime).sum
       val unsupportedSQLTaskDuration = calculateSQLUnsupportedTaskDuration(allStagesSummary)
       val endDurationEstimated = this.appEndTime.isEmpty && appDuration > 0
-      val appEndTime = getAppEndTime
+      val appEndTime = appDuration + info.startTime
       val jobOverheadTime = calculateJobOverHeadTime(info.startTime, appEndTime)
       val nonSQLDataframeTaskDuration =
         calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration, totalTransitionsTime)
