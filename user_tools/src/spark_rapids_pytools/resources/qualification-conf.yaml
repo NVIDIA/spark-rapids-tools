@@ -260,6 +260,8 @@ local:
           name: 'per_sql.csv'
         perApp:
           name: 'per_app.csv'
+        shapValues:
+          name: 'shap_values.csv'
       updateResult:
         subsetColumns:
           - 'appId'
