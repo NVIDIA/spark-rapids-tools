@@ -33,23 +33,6 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
 
   type T = QualificationAppInfo
 
-  override def doSparkListenerApplicationStart(
-      app: QualificationAppInfo,
-      event: SparkListenerApplicationStart): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val thisAppInfo = QualApplicationInfo(
-      event.appName,
-      event.appId,
-      event.time,
-      event.sparkUser,
-      None,
-      None,
-      endDurationEstimated = false
-    )
-    app.appInfo = Some(thisAppInfo)
-    app.appId = event.appId.getOrElse("")
-  }
-
   override def doSparkListenerTaskEnd(
       app: QualificationAppInfo,
       event: SparkListenerTaskEnd): Unit = {

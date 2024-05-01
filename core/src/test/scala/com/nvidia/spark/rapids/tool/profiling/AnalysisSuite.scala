@@ -146,7 +146,7 @@ class AnalysisSuite extends FunSuite {
 
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
     apps.foreach { app =>
-      app.appInfo = null
+      app.appMetaData = None
     }
     val analysis = new Analysis(apps)
     val metrics = analysis.sqlMetricsAggregationDurationAndCpuTime()

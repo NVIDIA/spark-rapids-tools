@@ -331,7 +331,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
       app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
         SQLDurationExecutorTimeProfileResult(app.index, app.appId, sqlCase.rootExecutionID,
           sqlId, sqlCase.duration, sqlCase.hasDatasetOrRDD,
-          Option(app.appInfo).flatMap(_.duration).orElse(Option(0L)), sqlCase.problematic,
+          app.getAppDuration.orElse(Option(0L)), sqlCase.problematic,
           sqlCase.sqlCpuTimePercent)
       }
     }

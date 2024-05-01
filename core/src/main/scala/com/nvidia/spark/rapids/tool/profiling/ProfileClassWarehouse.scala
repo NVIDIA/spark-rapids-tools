@@ -293,23 +293,11 @@ case class AppLogPathProfileResults(appIndex: Int, appName: String,
   }
 }
 
-case class ApplicationCase(
-    appName: String, appId: Option[String], sparkUser: String,
-    startTime: Long, endTime: Option[Long], duration: Option[Long],
-    durationStr: String, sparkVersion: String, pluginEnabled: Boolean)
-
 case class SQLPlanMetricsCase(
     sqlID: Long,
     name: String,
     accumulatorId: Long,
     metricType: String)
-
-case class PlanNodeAccumCase(
-    sqlID: Long,
-    nodeID: Long,
-    nodeName: String,
-    nodeDesc: String,
-    accumulatorId: Long)
 
 case class SQLMetricInfoCase(
     sqlID: Long,
