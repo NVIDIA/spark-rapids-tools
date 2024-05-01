@@ -47,7 +47,7 @@ dependencies = [
     # used for model estimations
     "xgboost==2.0.3",
     # used for model interpretability
-    "shap==0.45.0",
+    "shap==0.44.1",
     # used for retrieving available memory on the host
     "psutil==5.9.8"
 ]

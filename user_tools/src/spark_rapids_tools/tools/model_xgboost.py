@@ -1208,14 +1208,14 @@ def predict_model(
     y_pred = xgb_model.predict(dmat)
 
     # shapley explainer for prediction
-    pd.set_option("display.max_rows", None)
+    pd.set_option('display.max_rows', None)
     explainer = shap.TreeExplainer(xgb_model)
     shap_values = explainer.shap_values(x_dim)
     shap_vals = np.abs(shap_values).mean(axis=0)
     feature_importance = pd.DataFrame(
-            list(zip(feature_cols, shap_vals)), columns=["feature", "shap_value"]
+            list(zip(feature_cols, shap_vals)), columns=['feature', 'shap_value']
     )
-    feature_importance.sort_values(by=["shap_value"], ascending=False, inplace=True)
+    feature_importance.sort_values(by=['shap_value'], ascending=False, inplace=True)
     shap_values_path = output_info['shapValues']['path']
     logger.info('Writing SHAPley values to: %s', shap_values_path)
     feature_importance.to_csv(shap_values_path, index=False)
