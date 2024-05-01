@@ -973,25 +973,6 @@ class StageTaskQualificationSummary(
     var totalTaskDuration: Long,
     var totalbytesRead: Long)
 
-case class QualApplicationInfo(
-    appName: String,
-    appId: Option[String],
-    startTime: Long,
-    sparkUser: String,
-    endTime: Option[Long], // time in ms
-    duration: Option[Long],
-    endDurationEstimated: Boolean)
-
-case class QualSQLExecutionInfo(
-    sqlID: Long,
-    startTime: Long,
-    endTime: Option[Long],
-    duration: Option[Long],
-    durationStr: String,
-    sqlQualDuration: Option[Long],
-    hasDataset: Boolean,
-    problematic: String = "")
-
 // Case class representing status summary information for a particular application.
 case class StatusSummaryInfo(
     path: String,
