@@ -26,6 +26,7 @@ from typing import Optional, Mapping, List, Dict, Callable, Tuple
 import numpy as np
 import pandas as pd
 import xgboost as xgb
+import shap
 from tabulate import tabulate
 from xgboost.core import XGBoostError
 
@@ -1188,6 +1189,7 @@ def predict_model(
         cpu_aug_tbl: pd.DataFrame,
         feature_cols: List[str],
         label_col: str,
+        output_info: Optional[dict] = None,
 ) -> pd.DataFrame:
     """Use model to predict on feature data."""
     model_features = xgb_model.feature_names
@@ -1204,6 +1206,20 @@ def predict_model(
 
     dmat = xgb.DMatrix(x_dim, y_dim)
     y_pred = xgb_model.predict(dmat)
+
+    # shapley explainer for prediction
+    pd.set_option("display.max_rows", None)
+    explainer = shap.TreeExplainer(xgb_model)
+    shap_values = explainer.shap_values(x_dim)
+    shap_vals = np.abs(shap_values).mean(axis=0)
+    feature_importance = pd.DataFrame(
+            list(zip(feature_cols, shap_vals)), columns=["feature", "shap_value"]
+    )
+    feature_importance.sort_values(by=["shap_value"], ascending=False, inplace=True)
+    shap_values_path = output_info['shapValues']['path']
+    logger.info('Writing SHAPley values to: %s', shap_values_path)
+    feature_importance.to_csv(shap_values_path, index=False)
+    logger.info('Feature importance (SHAPley values)\n %s', feature_importance)
 
     if y_dim is not None:
         # evaluation
@@ -1430,7 +1446,7 @@ def predict(platform: str = 'onprem',
             features, feature_cols, label_col = extract_model_features(input_df)
             # note: dataset name is already stored in the 'appName' field
             try:
-                results = predict_model(xgb_model, features, feature_cols, label_col)
+                results = predict_model(xgb_model, features, feature_cols, label_col, output_info)
 
                 # compute per-app speedups
                 summary = _compute_summary(results)
