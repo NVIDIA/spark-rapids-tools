@@ -20,7 +20,6 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
 import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, DataWritingCommandExecParser, ExecInfo, PlanInfo, SQLPlanParser}
-import com.nvidia.spark.rapids.tool.profiling._
 import com.nvidia.spark.rapids.tool.qualification._
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.conf.Configuration
@@ -28,8 +27,9 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
+import org.apache.spark.sql.rapids.tool.store.StageModel
 
 
 class QualificationAppInfo(
@@ -45,8 +45,6 @@ class QualificationAppInfo(
   var lastJobEndTime: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None
   val writeDataFormat: ArrayBuffer[String] = ArrayBuffer[String]()
-
-  var appInfo: Option[QualApplicationInfo] = None
 
   val sqlIDToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
     HashMap.empty[Long, StageTaskQualificationSummary]
@@ -150,23 +148,20 @@ class QualificationAppInfo(
   // time in ms
   private def calculateAppDuration(startTime: Long): Option[Long] = {
     if (startTime > 0) {
-      val estimatedResult =
-        this.appEndTime match {
-          case Some(_) => this.appEndTime
-          case None =>
-            if (lastSQLEndTime.isEmpty && lastJobEndTime.isEmpty) {
-              None
-            } else {
-              logWarning(s"Application End Time is unknown for $appId, estimating based on" +
-                " job and sql end times!")
-              // estimate the app end with job or sql end times
-              val sqlEndTime = if (this.lastSQLEndTime.isEmpty) 0L else this.lastSQLEndTime.get
-              val jobEndTime = if (this.lastJobEndTime.isEmpty) 0L else lastJobEndTime.get
-              val maxEndTime = math.max(sqlEndTime, jobEndTime)
-              if (maxEndTime == 0) None else Some(maxEndTime)
-            }
+      estimateAppEndTime { () =>
+        if (!(lastSQLEndTime.isEmpty && lastJobEndTime.isEmpty)) {
+          logWarning(s"Application End Time is unknown for $appId, estimating based on" +
+            " job and sql end times!")
+          // estimate the app end with job or sql end times
+          val sqlEndTime = if (this.lastSQLEndTime.isEmpty) 0L else this.lastSQLEndTime.get
+          val jobEndTime = if (this.lastJobEndTime.isEmpty) 0L else lastJobEndTime.get
+          val maxEndTime = math.max(sqlEndTime, jobEndTime)
+          if (maxEndTime == 0) None else Some(maxEndTime)
+        } else {
+          None
         }
-      ProfileUtils.OptionLongMinusLong(estimatedResult, startTime)
+      }
+      getAppDuration
     } else {
       None
     }
@@ -552,7 +547,7 @@ class QualificationAppInfo(
    *         otherwise None.
    */
   def aggregateStats(): Option[QualificationSummaryInfo] = {
-    appInfo.map { info =>
+    appMetaData.map { info =>
       val appDuration = calculateAppDuration(info.startTime).getOrElse(0L)
 
       // if either job or stage failures then we mark as N/A
@@ -594,7 +589,7 @@ class QualificationAppInfo(
       // a stage for every exec
       val allSQLDurations = getAllSQLDurations
 
-      val appName = appInfo.map(_.appName).getOrElse("")
+      val appName = appMetaData.map(_.appName).getOrElse("")
 
       val allClusterTagsMap = prepareClusterTags
 
@@ -628,7 +623,7 @@ class QualificationAppInfo(
       val sqlDataframeTaskDuration = allStagesSummary.map(s => s.stageTaskTime).sum
       val totalTransitionsTime = allStagesSummary.map(s => s.transitionTime).sum
       val unsupportedSQLTaskDuration = calculateSQLUnsupportedTaskDuration(allStagesSummary)
-      val endDurationEstimated = this.appEndTime.isEmpty && appDuration > 0
+      val endDurationEstimated = this.isAppDurationEstimated && appDuration > 0
       val jobOverheadTime = calculateJobOverHeadTime(info.startTime)
       val nonSQLDataframeTaskDuration =
         calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration, totalTransitionsTime)
@@ -762,6 +757,48 @@ class QualificationAppInfo(
 
     if (mlFunctions.nonEmpty) {
       Some(mlFunctions.toSeq.sortBy(mlops => mlops.stageId))
+    } else {
+      None
+    }
+  }
+
+  private def checkMLOps(appId: Option[String], stageModel: StageModel): Option[MLFunctions] = {
+    val stageInfoDetails = stageModel.sInfo.details
+    val mlOps = if (stageInfoDetails.contains(MlOps.sparkml) ||
+      stageInfoDetails.contains(MlOps.xgBoost)) {
+
+      // Check if it's a pyspark eventlog and set the mleventlogtype to pyspark
+      // Once it is set, do not change it to scala if other stageInfoDetails don't match.
+      if (stageInfoDetails.contains(MlOps.pysparkLog)) {
+        if (!pysparkLogFlag) {
+          mlEventLogType = MlOpsEventLogType.pyspark
+          pysparkLogFlag = true
+        }
+      } else {
+        if (!pysparkLogFlag) {
+          mlEventLogType = MlOpsEventLogType.scala
+        }
+      }
+
+      // Consider stageInfo to have below string as an example
+      //org.apache.spark.rdd.RDD.first(RDD.scala:1463)
+      //org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)
+      //org.apache.spark.ml.feature.PCA.fit(PCA.scala:93)
+      val splitString = stageInfoDetails.split("\n")
+
+      // filteredString = org.apache.spark.ml.feature.PCA.fit
+      val filteredString = splitString.filter(
+        string => string.contains(MlOps.sparkml) || string.contains(MlOps.xgBoost)).map(
+        packageName => packageName.split("\\(").head
+      )
+      filteredString
+    } else {
+      Array.empty[String]
+    }
+
+    if (mlOps.nonEmpty) {
+      Some(MLFunctions(appId, stageModel.sId, mlOps,
+        stageModel.getDuration))
     } else {
       None
     }
@@ -935,25 +972,6 @@ class StageTaskQualificationSummary(
     var executorCPUTime: Long,
     var totalTaskDuration: Long,
     var totalbytesRead: Long)
-
-case class QualApplicationInfo(
-    appName: String,
-    appId: Option[String],
-    startTime: Long,
-    sparkUser: String,
-    endTime: Option[Long], // time in ms
-    duration: Option[Long],
-    endDurationEstimated: Boolean)
-
-case class QualSQLExecutionInfo(
-    sqlID: Long,
-    startTime: Long,
-    endTime: Option[Long],
-    duration: Option[Long],
-    durationStr: String,
-    sqlQualDuration: Option[Long],
-    hasDataset: Boolean,
-    problematic: String = "")
 
 // Case class representing status summary information for a particular application.
 case class StatusSummaryInfo(
@@ -1129,7 +1147,7 @@ object QualificationAppInfo extends Logging {
     try {
       val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
         reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
-      if (app.appInfo.isEmpty) {
+      if (!app.isAppMetaDefined) {
         throw IncorrectAppStatusException()
       }
       logInfo(s"${path.eventLog.toString} has App: ${app.appId}")

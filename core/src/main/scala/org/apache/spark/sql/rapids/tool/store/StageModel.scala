@@ -70,13 +70,13 @@ class StageModel private(var sInfo: StageInfo) {
     sInfo.accumulables.keySet
   }
 
-
-  @Calculated
-  @WallClock
   /**
    * Duration won't be defined when neither submitted/completion-Time is defined.
+   *
    * @return the WallClock duration of the stage in milliseconds if defined, or 0L otherwise.
    */
+  @Calculated
+  @WallClock
   def getDuration: Long = {
     duration.getOrElse(0L)
   }

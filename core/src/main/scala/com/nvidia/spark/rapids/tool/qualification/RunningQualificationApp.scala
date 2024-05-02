@@ -77,8 +77,15 @@ class RunningQualificationApp(
 
   // we don't know the max sql query name size so lets cap it at 100
   private val SQL_DESC_LENGTH = 100
-  private lazy val appName = appInfo.map(_.appName).getOrElse("")
-  private lazy val appNameSize = if (appName.nonEmpty) appName.size else 100
+  private lazy val appNameSize = {
+    val runningAppName = getAppName
+    if (runningAppName.nonEmpty) {
+      runningAppName.size
+    } else {
+      100
+    }
+  }
+
   private lazy val perSqlHeadersAndSizes = {
       QualOutputWriter.getDetailedPerSqlHeaderStringsAndSizes(appNameSize,
         appId.size, SQL_DESC_LENGTH)
@@ -95,17 +102,9 @@ class RunningQualificationApp(
     val appStartTime = SparkEnv.get.conf.get("spark.app.startTime", "-1")
 
     // start event doesn't happen so initialize it
-    val thisAppInfo = QualApplicationInfo(
-      appName,
-      appIdConf,
-      appStartTime.toLong,
-      "",
-      None,
-      None,
-      endDurationEstimated = false
-    )
-    appId = appIdConf.getOrElse("")
-    appInfo = Some(thisAppInfo)
+    val newAppMeta =
+      RunningAppMetadata(appName, appIdConf, appStartTime.toLong)
+    appMetaData = Some(newAppMeta)
   }
 
   initApp()
@@ -229,7 +228,7 @@ class RunningQualificationApp(
               QualOutputWriter.RUN_NAME_STR_SIZE)
           }
           val appHeadersAndSizes = QualOutputWriter.getSummaryHeaderStringsAndSizes(
-            appName.size, info.appId.size, unSupExecMaxSize, unSupExprMaxSize,
+            getAppName.size, info.appId.size, unSupExecMaxSize, unSupExprMaxSize,
             estimatedFrequencyMaxSize, hasClusterTags, clusterIdMax, jobIdMax, runNameMax)
           val headerStr = QualOutputWriter.constructOutputRowFromMap(appHeadersAndSizes,
             delimiter, prettyPrint)
@@ -293,7 +292,7 @@ class RunningQualificationApp(
         // get task duration ratio
         val sqlStageSums = perSqlStageSummary.filter(_.sqlID == pInfo.sqlID)
         val estimatedInfo = getPerSQLWallClockSummary(sqlStageSums, wallClockDur,
-          sqlIDtoFailures.get(pInfo.sqlID).nonEmpty, appName)
+          sqlIDtoFailures.get(pInfo.sqlID).nonEmpty, getAppName)
         EstimatedPerSQLSummaryInfo(pInfo.sqlID, sqlInfo.rootExecutionID, pInfo.sqlDesc,
           estimatedInfo)
       }

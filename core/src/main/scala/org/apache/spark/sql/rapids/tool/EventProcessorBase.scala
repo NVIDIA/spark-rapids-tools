@@ -267,7 +267,9 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerApplicationStart(
       app: T,
-      event: SparkListenerApplicationStart): Unit = {}
+      event: SparkListenerApplicationStart): Unit = {
+    app.appMetaData = Some(AppMetaData(app.getEventLogPath, event))
+  }
 
   override def onApplicationStart(applicationStart: SparkListenerApplicationStart): Unit = {
     doSparkListenerApplicationStart(app, applicationStart)
@@ -277,7 +279,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       app: T,
       event: SparkListenerApplicationEnd): Unit = {
     logDebug("Processing event: " + event.getClass)
-    app.appEndTime = Some(event.time)
+    app.updateEndTime(event.time)
   }
 
   override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {

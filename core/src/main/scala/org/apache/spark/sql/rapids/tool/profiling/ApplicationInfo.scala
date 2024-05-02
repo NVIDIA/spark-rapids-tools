@@ -32,7 +32,6 @@ import org.apache.spark.sql.execution.ui.SparkPlanGraph
 import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, ToolUtils}
 import org.apache.spark.sql.rapids.tool.SqlPlanInfoGraphBuffer
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
-import org.apache.spark.ui.UIUtils
 
 
 class SparkPlanInfoWithStage(
@@ -198,9 +197,6 @@ class ApplicationInfo(
 
   var blockManagersRemoved: ArrayBuffer[BlockManagerRemovedCase] =
      ArrayBuffer[BlockManagerRemovedCase]()
-
-  var appInfo: ApplicationCase = null
-  val eventLogPath: String = eLogInfo.eventLog.toString
   
   // physicalPlanDescription stores HashMap (sqlID <-> physicalPlanDescription)
   var physicalPlanDescription: mutable.HashMap[Long, String] = mutable.HashMap.empty[Long, String]
@@ -372,38 +368,22 @@ class ApplicationInfo(
   }
 
   private def aggregateAppInfo: Unit = {
-    if (this.appInfo != null) {
-      val res = this.appInfo
-
-      val estimatedResult = this.appEndTime match {
-        case Some(_) => this.appEndTime
-        case None =>
-          val jobEndTimes = jobIdToInfo.map { case (_, jc) => jc.endTime }.filter(_.isDefined)
-          val sqlEndTimes = sqlIdToInfo.map { case (_, sc) => sc.endTime }.filter(_.isDefined)
-
-          if (sqlEndTimes.size == 0 && jobEndTimes.size == 0) {
-            None
-          } else {
-            logWarning("Application End Time is unknown, estimating based on" +
-              " job and sql end times!")
-            // estimate the app end with job or sql end times
-            val sqlEndTime = if (sqlEndTimes.size == 0) 0L else sqlEndTimes.map(_.get).max
-            val jobEndTime = if (jobEndTimes.size == 0) 0L else jobEndTimes.map(_.get).max
-            val maxEndTime = math.max(sqlEndTime, jobEndTime)
-            if (maxEndTime == 0) None else Some(maxEndTime)
-          }
-      }
-
-      val durationResult = ProfileUtils.OptionLongMinusLong(estimatedResult, res.startTime)
-      val durationString = durationResult match {
-        case Some(i) => UIUtils.formatDuration(i.toLong)
-        case None => ""
-      }
-
-      val newApp = res.copy(endTime = this.appEndTime, duration = durationResult,
-        durationStr = durationString, sparkVersion = this.sparkVersion,
-        pluginEnabled = this.gpuMode)
-      appInfo = newApp
+    estimateAppEndTime { () =>
+      val jobEndTimes = jobIdToInfo.map { case (_, jc) => jc.endTime }.filter(_.isDefined)
+      val sqlEndTimes = sqlIdToInfo.map { case (_, sc) => sc.endTime }.filter(_.isDefined)
+      val estimatedResult =
+        if (sqlEndTimes.size == 0 && jobEndTimes.size == 0) {
+          None
+        } else {
+          logWarning("Application End Time is unknown, estimating based on" +
+            " job and sql end times!")
+          // estimate the app end with job or sql end times
+          val sqlEndTime = if (sqlEndTimes.size == 0) 0L else sqlEndTimes.map(_.get).max
+          val jobEndTime = if (jobEndTimes.size == 0) 0L else jobEndTimes.map(_.get).max
+          val maxEndTime = math.max(sqlEndTime, jobEndTime)
+          if (maxEndTime == 0) None else Some(maxEndTime)
+        }
+      estimatedResult
     }
   }
 }
