@@ -44,7 +44,7 @@ class Prediction(RapidsTool):
 
     def _init_ctxt(self):
         # reuse qualification configs for its predictionModel section
-        self.config_path = Utils.resource_path('prediction-conf.yaml')
+        self.config_path = Utils.resource_path('qualification-conf.yaml')
         self.ctxt = ToolContext(platform_cls=get_platform(self.platform_type),
                                 platform_opts=self.wrapper_options.get('platformOpts'),
                                 prop_arg=self.config_path,
@@ -78,7 +78,8 @@ class Prediction(RapidsTool):
 
     def _run_rapids_tool(self):
         output_info = self.prepare_prediction_output_info()
-        df = predict(self.platform_type, self.qual_output, self.prof_output, output_info)
+        print("self.platform_type", self.platform_type)
+        df = predict(self.platform_type.map_to_java_arg(), self.qual_output, self.prof_output, output_info)
         _print_summary(df)
         _print_speedup_summary(df)
 
