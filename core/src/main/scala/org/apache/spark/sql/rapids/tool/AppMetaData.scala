@@ -23,7 +23,7 @@ import org.apache.spark.ui.UIUtils
 
 /**
  * A class used to hold the information of a Spark Application
- * @param eventLogPath captures the path of the eventlog being processed by teh tools.
+ * @param eventLogPath captures the path of the eventlog being processed by the tools.
  * @param appName name of the application
  * @param appId application id
  * @param sparkUser user who ran the Spark application
@@ -41,17 +41,14 @@ class AppMetaData(
   // Calculated as time in ms
   var duration: Option[Long] = _
   // Boolean to indicate whether the endTime was estimated.
-  private var durationEstimated: Boolean = _
+  private var durationEstimated: Boolean = false
 
   /**
    * Returns the duration of the application in human readable format
    * @return human readable format or empty String when the endTime is undefined.
    */
   def getDurationString: String = {
-    duration match {
-      case Some(i) => UIUtils.formatDuration(i)
-      case None => ""
-    }
+    duration.map(UIUtils.formatDuration).getOrElse("")
   }
 
   /**
@@ -78,30 +75,12 @@ class AppMetaData(
 
   def isDurationEstimated: Boolean = durationEstimated
 
-  // Initialization code
-  // 1- Calculate the duration based on the constructor argument endTime
-  // 2- Set the estimated flag to true if endTime is not set
+  // Initialization code:
+  // - Calculate the duration based on the constructor argument endTime
   calculateDurationInternal()
-  // initial estimated flag is set to True if endTime is not set
-  setEstimatedFlag(endTime.isEmpty)
 }
 
-/**
- * A class to handle appMetadata for a running SparkApplication. This is created when a Spark
- * Listener is used to analyze an existing App.
- * The AppMetaData for a running application does not have eventlog.
- * @param rName name of the application
- * @param rId application id
- * @param rUser user who ran the Spark application
- * @param rStartTime startTime of a Spark application
- */
-class RunningAppMetadata(
-    rName: String,
-    rId: Option[String],
-    val rUser: String,
-    val rStartTime: Long) extends AppMetaData(None, rName, rId, rUser, rStartTime) {
 
-}
 
 object AppMetaData {
 
@@ -112,12 +91,5 @@ object AppMetaData {
       appStartEv.appName,
       appStartEv.appId, appStartEv.sparkUser,
       appStartEv.time)
-  }
-
-  def createRunningAppMetadata(
-      rName: String,
-      rId: Option[String],
-      rStartTime: Long): RunningAppMetadata = {
-    new RunningAppMetadata(rName, rId, "", rStartTime)
   }
 }

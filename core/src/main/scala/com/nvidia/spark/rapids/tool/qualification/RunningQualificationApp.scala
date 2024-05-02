@@ -20,7 +20,6 @@ import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.SQL_DESC_STR
 
 import org.apache.spark.SparkEnv
-import org.apache.spark.sql.rapids.tool.AppMetaData
 import org.apache.spark.sql.rapids.tool.qualification._
 
 /**
@@ -104,7 +103,7 @@ class RunningQualificationApp(
 
     // start event doesn't happen so initialize it
     val newAppMeta =
-      AppMetaData.createRunningAppMetadata(appName, appIdConf, appStartTime.toLong)
+      RunningAppMetadata(appName, appIdConf, appStartTime.toLong)
     appMetaData = Some(newAppMeta)
   }
 

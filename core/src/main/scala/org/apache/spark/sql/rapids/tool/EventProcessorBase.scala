@@ -268,8 +268,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
   def doSparkListenerApplicationStart(
       app: T,
       event: SparkListenerApplicationStart): Unit = {
-    val appMeta = AppMetaData(app.getEventLogPath, event)
-    app.appMetaData = Some(appMeta)
+    app.appMetaData = Some(AppMetaData(app.getEventLogPath, event))
   }
 
   override def onApplicationStart(applicationStart: SparkListenerApplicationStart): Unit = {

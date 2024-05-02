@@ -91,7 +91,10 @@ trait CacheableProps {
   var hiveEnabled = false
   // A flag to indicate whether the eventlog being processed is an eventlog from Photon.
   var isPhoton = false
+  // Indicates the ML eventlogType (i.e., Scala or pyspark). It is set only when MLOps are detected.
+  // By default, it is empty.
   var mlEventLogType = ""
+  // A flag to indicate that the eventlog is ML
   var pysparkLogFlag = false
 
   var sparkProperties: Map[String, String] = Map[String, String]()
@@ -150,7 +153,7 @@ abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
     val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
 
-  var appMetaData: Option[AppMetaData] = _
+  var appMetaData: Option[AppMetaData] = None
 
   // appId is string is stored as a field in the AppMetaData class
   def appId: String = {
@@ -202,10 +205,7 @@ abstract class AppBase(
 
   // Returns a boolean flag to indicate whether the endTime was estimated.
   def isAppDurationEstimated: Boolean = {
-    appMetaData match {
-      case Some(meta) => meta.isDurationEstimated
-      case _ => true
-    }
+    appMetaData.map(_.isDurationEstimated).getOrElse(false)
   }
 
   // Returns the AppName
@@ -604,7 +604,7 @@ object AppBase {
   }
 
   private def getPlanMetaWithSchema(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
-    // TODO: This method does not belong to AppBAse. It should move to another member.
+    // TODO: This method does not belong to AppBase. It should move to another member.
     val childRes = planInfo.children.flatMap(getPlanMetaWithSchema(_))
     if (planInfo.metadata != null && planInfo.metadata.contains("ReadSchema")) {
       childRes :+ planInfo
