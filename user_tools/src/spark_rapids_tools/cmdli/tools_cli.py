@@ -19,7 +19,6 @@ import fire
 
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
 from spark_rapids_tools.enums import QualGpuClusterReshapeType
-from spark_rapids_tools.tools.model_xgboost import predict, _print_summary
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
@@ -289,12 +288,12 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                             output_folder=output_folder)
 
         if predict_args:
-                tool_obj = Prediction(platform_type=predict_args['runtimePlatform'],
-                                qual_output=predict_args['qual_output'],
-                                prof_output=predict_args['prof_output'],
-                                output_folder=predict_args['output_folder'],
-                                wrapper_options=predict_args)
-                tool_obj.launch()
+            tool_obj = Prediction(platform_type=predict_args['runtimePlatform'],
+                                  qual_output=predict_args['qual_output'],
+                                  prof_output=predict_args['prof_output'],
+                                  output_folder=predict_args['output_folder'],
+                                  wrapper_options=predict_args)
+            tool_obj.launch()
 
 
 def main():
