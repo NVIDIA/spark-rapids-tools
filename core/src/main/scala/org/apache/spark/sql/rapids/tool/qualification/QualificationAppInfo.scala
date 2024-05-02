@@ -634,6 +634,7 @@ class QualificationAppInfo(
         calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration, totalTransitionsTime)
 
       // this is weird we are adding wallclock with serialized task duration
+      // issue - https://github.com/NVIDIA/spark-rapids-tools/issues/987
       val nonSQLTaskDuration = nonSQLDataframeTaskDuration + jobOverheadTime
       // note that these ratios are based off the stage times which may be missing some stage
       // overhead or execs that didn't have associated stages
