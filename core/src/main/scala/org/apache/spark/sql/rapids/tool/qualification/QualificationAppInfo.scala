@@ -19,13 +19,13 @@ package org.apache.spark.sql.rapids.tool.qualification
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
-import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, DataWritingCommandExecParser, ExecInfo, PlanInfo, SQLPlanParser}
+import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, ExecInfo, PlanInfo, SQLPlanParser}
 import com.nvidia.spark.rapids.tool.qualification._
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
@@ -57,11 +57,6 @@ class QualificationAppInfo(
 
   val notSupportFormatAndTypes: HashMap[String, Set[String]] = HashMap[String, Set[String]]()
 
-  // clusterTags can be redacted so try to get ClusterId and ClusterName separately
-  var clusterTags: String = ""
-  var clusterTagClusterId: String = ""
-  var clusterTagClusterName: String = ""
-  var clusterInfo: Option[ClusterInfo] = None
   private lazy val eventProcessor =  new QualificationEventProcessor(this, perSqlOnly)
 
   /**
@@ -116,32 +111,6 @@ class QualificationAppInfo(
     }
     if (isPhoton) {
       throw PhotonEventLogException()
-    }
-  }
-
-  override def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
-    super.handleEnvUpdateForCachedProps(event)
-
-    clusterTags = sparkProperties.getOrElse(DatabricksParseHelper.PROP_ALL_TAGS_KEY, "")
-    clusterTagClusterId =
-      sparkProperties.getOrElse(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY, "")
-    clusterTagClusterName =
-      sparkProperties.getOrElse(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY, "")
-  }
-
-  override def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
-    super.handleJobStartForCachedProps(event)
-    // If the confs are set after SparkSession initialization, it is captured in this event.
-    if (clusterTags.isEmpty) {
-      clusterTags = event.properties.getProperty(DatabricksParseHelper.PROP_ALL_TAGS_KEY, "")
-    }
-    if (clusterTagClusterId.isEmpty) {
-      clusterTagClusterId =
-        event.properties.getProperty(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY, "")
-    }
-    if (clusterTagClusterName.isEmpty) {
-      clusterTagClusterName =
-        event.properties.getProperty(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY, "")
     }
   }
 
@@ -517,30 +486,6 @@ class QualificationAppInfo(
     }
   }
 
-  private def prepareClusterTags: Map[String, String] = {
-    val initialClusterTagsMap = if (clusterTags.nonEmpty) {
-      DatabricksParseHelper.parseClusterTags(clusterTags)
-    } else {
-      Map.empty[String, String]
-    }
-
-    val tagsMapWithClusterId = if (!initialClusterTagsMap.contains(QualOutputWriter.CLUSTER_ID)
-      && clusterTagClusterId.nonEmpty) {
-      initialClusterTagsMap + (QualOutputWriter.CLUSTER_ID -> clusterTagClusterId)
-    } else {
-      initialClusterTagsMap
-    }
-
-    if (!tagsMapWithClusterId.contains(QualOutputWriter.JOB_ID) && clusterTagClusterName.nonEmpty) {
-      val clusterTagJobId = DatabricksParseHelper.parseClusterNameForJobId(clusterTagClusterName)
-      clusterTagJobId.map { jobId =>
-        tagsMapWithClusterId + (QualOutputWriter.JOB_ID -> jobId)
-      }.getOrElse(tagsMapWithClusterId)
-    } else {
-      tagsMapWithClusterId
-    }
-  }
-
   /**
    * Aggregate and process the application after reading the events.
    * @return Option of QualificationSummaryInfo, Some if we were able to process the application
@@ -882,7 +827,7 @@ class QualificationAppInfo(
    * @return Cluster information including vendor, cores, number of nodes and maybe
    *         instance types, driver host, cluster id and cluster name.
    */
-  private def buildClusterInfo: Option[ClusterInfo] = {
+  override def buildClusterInfo: Option[ClusterInfo] = {
     // TODO: Handle dynamic allocation when determining the number of nodes.
     sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
       if (value.toBoolean) {
