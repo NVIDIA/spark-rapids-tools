@@ -21,10 +21,7 @@ import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.scheduler.{SparkListenerApplicationStart, SparkListenerEnvironmentUpdate, SparkListenerEvent}
 
-case class ApplicationStartInfo(
-    appName: String,
-    startTime: Long,
-    userName: String)
+
 
 class FilterAppInfo(
     eventLogInfo: EventLogInfo,
@@ -33,12 +30,8 @@ class FilterAppInfo(
   def doSparkListenerApplicationStart(
       event: SparkListenerApplicationStart): Unit = {
     logDebug("Processing event: " + event.getClass)
-    val thisAppInfo = ApplicationStartInfo(
-      event.appName,
-      event.time,
-      event.sparkUser
-    )
-    appStartInfo = Some(thisAppInfo)
+    val appMeta = AppMetaData(getEventLogPath, event)
+    appMetaData = Some(appMeta)
   }
 
   def doSparkListenerEnvironmentUpdate(event: SparkListenerEnvironmentUpdate): Unit = {
@@ -46,7 +39,6 @@ class FilterAppInfo(
     handleEnvUpdateForCachedProps(event)
   }
 
-  var appStartInfo: Option[ApplicationStartInfo] = None
   // We are currently processing 2 events. This is used as counter to send true when both the
   // event are processed so that we can stop processing further events.
   var eventsToProcess: Int = 2

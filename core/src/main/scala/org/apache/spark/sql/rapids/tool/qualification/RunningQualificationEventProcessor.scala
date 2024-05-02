@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ class RunningQualificationEventProcessor(sparkConf: SparkConf) extends SparkList
   private val maxNumFiles: Int =
     sparkConf.get("spark.rapids.qualification.output.maxNumFiles", "100").toInt
   private val outputFileFromConfig = sparkConf.get("spark.rapids.qualification.outputDir", "")
-  private lazy val appName = qualApp.appInfo.map(_.appName).getOrElse("")
+  private lazy val appName = qualApp.getAppName
   private var fileWriter: Option[RunningQualOutputWriter] = None
   private var currentFileNum = 0
   private var currentSQLQueriesWritten = 0

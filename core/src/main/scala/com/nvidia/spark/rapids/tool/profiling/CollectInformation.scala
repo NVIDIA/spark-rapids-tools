@@ -35,10 +35,11 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 
   def getAppInfo: Seq[AppInfoProfileResults] = {
     val allRows = apps.collect {
-      case app if app.appInfo != null => val a = app.appInfo
-      AppInfoProfileResults(app.index, a.appName, a.appId,
-        a.sparkUser,  a.startTime, a.endTime, a.duration,
-        a.durationStr, a.sparkVersion, a.pluginEnabled)
+      case app if app.isAppMetaDefined =>
+        val a = app.appMetaData.get
+        AppInfoProfileResults(app.index, a.appName, a.appId,
+          a.sparkUser,  a.startTime, a.endTime, app.getAppDuration,
+          a.getDurationString, app.sparkVersion, app.gpuMode)
     }
     if (allRows.nonEmpty) {
       allRows.sortBy(cols => (cols.appIndex))
@@ -49,8 +50,8 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 
   def getAppLogPath: Seq[AppLogPathProfileResults] = {
     val allRows = apps.collect {
-      case app if app.appInfo != null => val a = app.appInfo
-      AppLogPathProfileResults(app.index, a.appName, a.appId, app.eventLogPath)
+      case app if app.isAppMetaDefined => val a = app.appMetaData.get
+      AppLogPathProfileResults(app.index, a.appName, a.appId, app.getEventLogPath)
     }
     if (allRows.nonEmpty) {
       allRows.sortBy(cols => cols.appIndex)

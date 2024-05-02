@@ -21,6 +21,7 @@ import java.util.zip.GZIPInputStream
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
+import scala.collection.mutable
 import scala.io.{Codec, Source}
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
@@ -35,7 +36,6 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart, SparkListenerLogStart, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.qualification.MLFunctions
 import org.apache.spark.sql.rapids.tool.store.{StageModel, StageModelManager}
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
 import org.apache.spark.util.Utils
@@ -91,10 +91,16 @@ trait CacheableProps {
   var hiveEnabled = false
   // A flag to indicate whether the eventlog being processed is an eventlog from Photon.
   var isPhoton = false
-  var sparkProperties = Map[String, String]()
-  var classpathEntries = Map[String, String]()
+  // Indicates the ML eventlogType (i.e., Scala or pyspark). It is set only when MLOps are detected.
+  // By default, it is empty.
+  var mlEventLogType = ""
+  // A flag to indicate that the eventlog is ML
+  var pysparkLogFlag = false
+
+  var sparkProperties: Map[String, String] = Map[String, String]()
+  var classpathEntries: Map[String, String] = Map[String, String]()
   // set the fileEncoding to UTF-8 by default
-  var systemProperties = Map[String, String]()
+  var systemProperties: Map[String, String] = Map[String, String]()
 
   private def processPropKeys(srcMap: Map[String, String]): Map[String, String] = {
     // Redact the sensitive values in the given map.
@@ -147,12 +153,19 @@ abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
     val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
 
-  var appId: String = ""
+  var appMetaData: Option[AppMetaData] = None
+
+  // appId is string is stored as a field in the AppMetaData class
+  def appId: String = {
+    appMetaData match {
+      case Some(meta) => meta.appId.getOrElse("")
+      case _ => ""
+    }
+  }
 
   // Store map of executorId to executor info
   val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
 
-  var appEndTime: Option[Long] = None
   // The data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
 
@@ -176,8 +189,58 @@ abstract class AppBase(
 
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
-  var mlEventLogType = ""
-  var pysparkLogFlag = false
+
+
+  // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
+  // won't be defined for running applications
+  def getEventLogPath: String = {
+    eventLogInfo.map(_.eventLog).getOrElse(new Path("")).toString
+  }
+
+  // Update the endTime of the application and calculate the duration.
+  // This is called while handling ApplicationEnd event
+  def updateEndTime(newEndTime: Long): Unit = {
+    appMetaData.foreach(_.setEndTime(newEndTime))
+  }
+
+  // Returns a boolean flag to indicate whether the endTime was estimated.
+  def isAppDurationEstimated: Boolean = {
+    appMetaData.map(_.isDurationEstimated).getOrElse(false)
+  }
+
+  // Returns the AppName
+  def getAppName: String = {
+    appMetaData.map(_.appName).getOrElse("")
+  }
+
+  // Returns optional endTime in ms.
+  def getAppEndTime: Option[Long] = {
+    appMetaData.flatMap(_.endTime)
+  }
+
+  // Returns optional wallClock duration of the Application
+  def getAppDuration: Option[Long] = {
+    appMetaData.flatMap(_.duration)
+  }
+
+  // Returns a boolean true/false. This is used to check whether processing an eventlog was
+  // successful.
+  def isAppMetaDefined: Boolean = appMetaData.isDefined
+
+  /**
+   * Sets an estimated endTime to the application based on the function passed as an argument.
+   * First it checks if the endTime is already defined or not.
+   * This method is a temporary refactor because both QualAppInfo and ProfAppInfo have different
+   * ways of estimating the endTime.
+   *
+   * @param callBack function to estimate the endTime
+   */
+  def estimateAppEndTime(callBack: () => Option[Long]): Unit = {
+    if (getAppEndTime.isEmpty) {
+      val estimatedResult = callBack()
+      estimatedResult.foreach(eT => appMetaData.foreach(_.setEndTime(eT, estimated = true)))
+    }
+  }
 
   def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
     executorIdToInfo.getOrElseUpdate(executorId, {
@@ -188,48 +251,6 @@ abstract class AppBase(
   def getOrCreateStage(info: StageInfo): StageModel = {
     val stage = stageManager.addStageInfo(info)
     stage
-  }
-
-  def checkMLOps(appId: Option[String], stageModel: StageModel): Option[MLFunctions] = {
-    val stageInfoDetails = stageModel.sInfo.details
-    val mlOps = if (stageInfoDetails.contains(MlOps.sparkml) ||
-      stageInfoDetails.contains(MlOps.xgBoost)) {
-
-      // Check if it's a pyspark eventlog and set the mleventlogtype to pyspark
-      // Once it is set, do not change it to scala if other stageInfoDetails don't match.
-      if (stageInfoDetails.contains(MlOps.pysparkLog)) {
-        if (!pysparkLogFlag) {
-          mlEventLogType = MlOpsEventLogType.pyspark
-          pysparkLogFlag = true
-        }
-      } else {
-        if (!pysparkLogFlag) {
-          mlEventLogType = MlOpsEventLogType.scala
-        }
-      }
-
-      // Consider stageInfo to have below string as an example
-      //org.apache.spark.rdd.RDD.first(RDD.scala:1463)
-      //org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)
-      //org.apache.spark.ml.feature.PCA.fit(PCA.scala:93)
-      val splitString = stageInfoDetails.split("\n")
-
-      // filteredString = org.apache.spark.ml.feature.PCA.fit
-      val filteredString = splitString.filter(
-        string => string.contains(MlOps.sparkml) || string.contains(MlOps.xgBoost)).map(
-        packageName => packageName.split("\\(").head
-      )
-      filteredString
-    } else {
-      Array.empty[String]
-    }
-
-    if (mlOps.nonEmpty) {
-      Some(MLFunctions(appId, stageModel.sId, mlOps,
-        stageModel.getDuration))
-    } else {
-      None
-    }
   }
 
   def getAllStagesForJobsInSqlQuery(sqlID: Long): Seq[Int] = {
@@ -285,7 +306,7 @@ abstract class AppBase(
 
   private def openEventLogInternal(log: Path, fs: FileSystem): InputStream = {
     EventLogFileWriter.codecName(log) match {
-      case c if (c.isDefined && c.get.equals("gz")) =>
+      case c if c.isDefined && c.get.equals("gz") =>
         val in = fs.open(log)
         try {
           new GZIPInputStream(in)
@@ -352,49 +373,19 @@ abstract class AppBase(
     ".*second\\(.*\\).*" -> "TIMEZONE second()"
   )
 
-  def containsUDF(desc: String): Boolean = {
-    desc.matches(UDFRegex)
-  }
-
   protected def findPotentialIssues(desc: String): Set[String] =  {
     val potentialIssuesRegexs = potentialIssuesRegexMap
     val issues = potentialIssuesRegexs.filterKeys(desc.matches(_))
     issues.values.toSet
   }
 
-  def getPlanMetaWithSchema(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
-    val childRes = planInfo.children.flatMap(getPlanMetaWithSchema(_))
-    if (planInfo.metadata != null && planInfo.metadata.contains("ReadSchema")) {
-      childRes :+ planInfo
-    } else {
-      childRes
-    }
-  }
 
-  // Finds all the nodes that scan a hive table
-  def getPlanInfoWithHiveScan(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
-    val childRes = planInfo.children.flatMap(getPlanInfoWithHiveScan(_))
-    if (isHiveTableScanNode(planInfo.nodeName)) {
-      childRes :+ planInfo
-    } else {
-      childRes
-    }
-  }
-
-  private def trimSchema(str: String): String = {
-    val index = str.lastIndexOf(",")
-    if (index != -1 && str.contains("...")) {
-      str.substring(0, index)
-    } else {
-      str
-    }
-  }
 
   // The ReadSchema metadata is only in the eventlog for DataSource V1 readers
   protected def checkMetadataForReadSchema(
       sqlPlanInfoGraph: SqlPlanInfoGraphEntry): ArrayBuffer[DataSourceCase] = {
     // check if planInfo has ReadSchema
-    val allMetaWithSchema = getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
+    val allMetaWithSchema = AppBase.getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
     val allNodes = sqlPlanInfoGraph.sparkPlanGraph.allNodes
     val results = ArrayBuffer[DataSourceCase]()
 
@@ -403,7 +394,7 @@ abstract class AppBase(
       val readSchema = ReadParser.formatSchemaStr(meta.getOrElse("ReadSchema", ""))
       val scanNode = allNodes.filter(node => {
         // Get ReadSchema of each Node and sanitize it for comparison
-        val trimmedNode = trimSchema(ReadParser.parseReadNode(node).schema)
+        val trimmedNode = AppBase.trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
       }).filter(ReadParser.isScanNode(_))
 
@@ -424,7 +415,7 @@ abstract class AppBase(
     // "scan hive" has no "ReadSchema" defined. So, we need to look explicitly for nodes
     // that are scan hive and add them one by one to the dataSource
     if (hiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
-      val allPlanWithHiveScan = getPlanInfoWithHiveScan(sqlPlanInfoGraph.planInfo)
+      val allPlanWithHiveScan = AppBase.getPlanInfoWithHiveScan(sqlPlanInfoGraph.planInfo)
       allPlanWithHiveScan.foreach { hiveReadPlan =>
         val sqlGraph = ToolsPlanGraph(hiveReadPlan)
         val hiveScanNode = sqlGraph.allNodes.head
@@ -472,7 +463,7 @@ abstract class AppBase(
     }
   }
 
-  protected def probNotDataset: HashMap[Long, Set[String]] = {
+  protected def probNotDataset: mutable.HashMap[Long, Set[String]] = {
     sqlIDtoProblematic.filterNot { case (sqlID, _) => sqlIDToDataSetOrRDDCase.contains(sqlID) }
   }
 
@@ -538,10 +529,10 @@ object AppBase {
         individualSchema += tempStringBuilder.toString
         tempStringBuilder.setLength(0)
       } else {
-        tempStringBuilder.append(char);
+        tempStringBuilder.append(char)
       }
     }
-    if (!tempStringBuilder.isEmpty) {
+    if (tempStringBuilder.nonEmpty) {
       individualSchema += tempStringBuilder.toString
     }
 
@@ -601,5 +592,35 @@ object AppBase {
     })
 
     (complexTypes.filter(_.nonEmpty), nestedComplexTypes.filter(_.nonEmpty))
+  }
+
+  private def trimSchema(str: String): String = {
+    val index = str.lastIndexOf(",")
+    if (index != -1 && str.contains("...")) {
+      str.substring(0, index)
+    } else {
+      str
+    }
+  }
+
+  private def getPlanMetaWithSchema(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
+    // TODO: This method does not belong to AppBase. It should move to another member.
+    val childRes = planInfo.children.flatMap(getPlanMetaWithSchema(_))
+    if (planInfo.metadata != null && planInfo.metadata.contains("ReadSchema")) {
+      childRes :+ planInfo
+    } else {
+      childRes
+    }
+  }
+
+  // Finds all the nodes that scan a hive table
+  private def getPlanInfoWithHiveScan(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
+    // TODO: This method does not belong to AppBAse. It should move to another member.
+    val childRes = planInfo.children.flatMap(getPlanInfoWithHiveScan(_))
+    if (isHiveTableScanNode(planInfo.nodeName)) {
+      childRes :+ planInfo
+    } else {
+      childRes
+    }
   }
 }
