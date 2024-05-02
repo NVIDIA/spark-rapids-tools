@@ -81,6 +81,7 @@ class Prediction(RapidsTool):
         df = predict(self.platform_type.map_to_java_arg(), self.qual_output, self.prof_output, output_info)
         _print_summary(df)
         _print_speedup_summary(df)
+        df.to_csv(f'{self.output_folder}/prediction.csv', float_format='%.2f')
 
     def _collect_result(self):
         pass
