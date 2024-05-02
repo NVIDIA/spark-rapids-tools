@@ -661,11 +661,14 @@ class PredictUserArgModel(AbsToolUserArgModel):
     Represents the arguments collected by the user to run the prediction tool.
     This is used as doing preliminary validation against some of the common pattern
     """
-    result_folder: str = None
+    qual_output: str = None
+    prof_output: str = None
 
     def build_tools_args(self) -> dict:
         return {
             'runtimePlatform': self.platform,
-            'resultFolder': self.result_folder,
+            'qual_output': self.qual_output,
+            'prof_output': self.prof_output,
+            'output_folder': self.output_folder,
             'platformOpts': {}
         }
