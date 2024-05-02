@@ -78,7 +78,6 @@ class Prediction(RapidsTool):
 
     def _run_rapids_tool(self):
         output_info = self.prepare_prediction_output_info()
-        print("self.platform_type", self.platform_type)
         df = predict(self.platform_type.map_to_java_arg(), self.qual_output, self.prof_output, output_info)
         _print_summary(df)
         _print_speedup_summary(df)
