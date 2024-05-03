@@ -223,6 +223,10 @@ class ApplicationInfo(
     false
   }
 
+  override def postCompletion(): Unit = {
+    clusterInfo = buildClusterInfo
+  }
+
   /**
    * Connects Operators to Stages using AccumulatorIDs
    * @param cb function that creates a SparkPlanGraph. This can be used as a cacheHolder for the

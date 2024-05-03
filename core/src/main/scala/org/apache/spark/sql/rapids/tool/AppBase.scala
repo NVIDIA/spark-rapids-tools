@@ -19,139 +19,29 @@ package org.apache.spark.sql.rapids.tool
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.collection.mutable
 import scala.io.{Codec, Source}
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
-import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, HiveParseHelper, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, SQLExecutionInfoClass, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart, SparkListenerLogStart, StageInfo}
+import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.store.{StageModel, StageModelManager}
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
 import org.apache.spark.util.Utils
-import org.apache.spark.util.Utils.REDACTION_REPLACEMENT_TEXT
-
-// Handles updating and caching Spark Properties for a Spark application.
-// Properties stored in this container can be accessed to make decision about certain analysis
-// that depends on the context of the Spark properties.
-trait CacheableProps {
-  /**
-   * Important system properties that should be retained.
-   */
-  protected def getRetainedSystemProps: Set[String] = Set(
-    "file.encoding", "java.version", "os.arch", "os.name",
-    "os.version", "user.timezone")
-
-  // Patterns to be used to redact sensitive values from Spark Properties.
-  private val REDACTED_PROPERTIES = Set[String](
-    // S3
-    "spark.hadoop.fs.s3a.secret.key",
-    "spark.hadoop.fs.s3a.access.key",
-    "spark.hadoop.fs.s3a.session.token",
-    "spark.hadoop.fs.s3a.encryption.key",
-    "spark.hadoop.fs.s3a.bucket.nightly.access.key",
-    "spark.hadoop.fs.s3a.bucket.nightly.secret.key",
-    "spark.hadoop.fs.s3a.bucket.nightly.session.token",
-    // ABFS
-    "spark.hadoop.fs.azure.account.oauth2.client.secret",
-    "spark.hadoop.fs.azure.account.oauth2.client.id",
-    "spark.hadoop.fs.azure.account.oauth2.refresh.token",
-    "spark.hadoop.fs.azure.account.key\\..*",
-    "spark.hadoop.fs.azure.account.auth.type\\..*",
-    // GCS
-    "spark.hadoop.google.cloud.auth.service.account.json.keyfile",
-    "spark.hadoop.fs.gs.auth.client.id",
-    "spark.hadoop.fs.gs.encryption.key",
-    "spark.hadoop.fs.gs.auth.client.secret",
-    "spark.hadoop.fs.gs.auth.refresh.token",
-    "spark.hadoop.fs.gs.auth.impersonation.service.account.for.user\\..*",
-    "spark.hadoop.fs.gs.auth.impersonation.service.account.for.group\\..*",
-    "spark.hadoop.fs.gs.auth.impersonation.service.account",
-    "spark.hadoop.fs.gs.proxy.username",
-    // matches on any key that contains password in it.
-    "(?i).*password.*"
-  )
-
-  // caches the spark-version from the eventlogs
-  var sparkVersion: String = ""
-  var gpuMode = false
-  // A flag whether hive is enabled or not. Note that we assume that the
-  // property is global to the entire application once it is set. a.k.a, it cannot be disabled
-  // once it is was set to true.
-  var hiveEnabled = false
-  // A flag to indicate whether the eventlog being processed is an eventlog from Photon.
-  var isPhoton = false
-  // Indicates the ML eventlogType (i.e., Scala or pyspark). It is set only when MLOps are detected.
-  // By default, it is empty.
-  var mlEventLogType = ""
-  // A flag to indicate that the eventlog is ML
-  var pysparkLogFlag = false
-
-  var sparkProperties: Map[String, String] = Map[String, String]()
-  var classpathEntries: Map[String, String] = Map[String, String]()
-  // set the fileEncoding to UTF-8 by default
-  var systemProperties: Map[String, String] = Map[String, String]()
-
-  private def processPropKeys(srcMap: Map[String, String]): Map[String, String] = {
-    // Redact the sensitive values in the given map.
-    val redactedKeys = REDACTED_PROPERTIES.collect {
-      case rK if srcMap.keySet.exists(_.matches(rK)) => rK -> REDACTION_REPLACEMENT_TEXT
-    }
-    srcMap ++ redactedKeys
-  }
-
-  /**
-   * Used to validate that the eventlog is allowed to be processed by the Tool
-   * @throws org.apache.spark.sql.rapids.tool.AppEventlogProcessException if the eventlog fails the
-   *                                                                      validation step
-   */
-  @throws(classOf[AppEventlogProcessException])
-  def validateAppEventlogProperties(): Unit = { }
-
-  def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
-    sparkProperties ++= processPropKeys(event.environmentDetails("Spark Properties").toMap)
-    classpathEntries ++= event.environmentDetails("Classpath Entries").toMap
-
-    gpuMode ||=  ProfileUtils.isPluginEnabled(sparkProperties)
-    hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
-    isPhoton ||= DatabricksParseHelper.isPhotonApp(sparkProperties)
-
-    // Update the properties if system environments are set.
-    // No need to capture all the properties in memory. We only capture important ones.
-    systemProperties ++= event.environmentDetails("System Properties").toMap.filterKeys(
-      getRetainedSystemProps.contains(_))
-
-    // After setting the properties, validate the properties.
-    validateAppEventlogProperties()
-  }
-
-  def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
-    // TODO: we need to improve this in order to support per-job-level
-    hiveEnabled ||= HiveParseHelper.isHiveEnabled(event.properties.asScala)
-  }
-
-  def handleLogStartForCachedProps(event: SparkListenerLogStart): Unit = {
-    sparkVersion = event.sparkVersion
-  }
-
-  def isGPUModeEnabledForJob(event: SparkListenerJobStart): Boolean = {
-    gpuMode || ProfileUtils.isPluginEnabled(event.properties.asScala)
-  }
-}
 
 abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
-    val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
+    val hadoopConf: Option[Configuration]) extends Logging with ClusterTagPropHandler {
 
   var appMetaData: Option[AppMetaData] = None
 
@@ -190,6 +80,7 @@ abstract class AppBase(
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
 
+  var clusterInfo: Option[ClusterInfo] = None
 
   // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
   // won't be defined for running applications
@@ -379,7 +270,17 @@ abstract class AppBase(
     issues.values.toSet
   }
 
-
+  /**
+   * Builds cluster information based on executor nodes.
+   * If executor nodes exist, calculates the number of hosts and total cores,
+   * and extracts executor and driver instance types (databricks only)
+   *
+   * @return Cluster information including vendor, cores, number of nodes and maybe
+   *         instance types, driver host, cluster id and cluster name.
+   */
+  protected def buildClusterInfo: Option[ClusterInfo] = {
+    None
+  }
 
   // The ReadSchema metadata is only in the eventlog for DataSource V1 readers
   protected def checkMetadataForReadSchema(

@@ -22,7 +22,7 @@ import scala.collection.mutable
 import scala.collection.mutable.{Buffer, LinkedHashMap, ListBuffer}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
-import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo, UnsupportedExecSummary}
+import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, ExecInfo, PlanInfo, UnsupportedExecSummary}
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.{CLUSTER_ID, CLUSTER_ID_STR_SIZE, JOB_ID, JOB_ID_STR_SIZE, RUN_NAME, RUN_NAME_STR_SIZE, TEXT_DELIMITER}
 import org.apache.hadoop.conf.Configuration
@@ -437,15 +437,15 @@ object QualOutputWriter {
   val UNSUPPORTED_EXPRS = "Unsupported Expressions"
   val UNSUPPORTED_OPERATOR = "Unsupported Operator"
   val CLUSTER_TAGS = "Cluster Tags"
-  val CLUSTER_ID = "ClusterId"
-  val JOB_ID = "JobId"
+  val CLUSTER_ID = DatabricksParseHelper.SUB_PROP_CLUSTER_ID
+  val JOB_ID = DatabricksParseHelper.SUB_PROP_JOB_ID
   val UNSUPPORTED_TYPE = "Unsupported Type"
   val EXEC_ID = "ExecId"
   val DETAILS = "Details"
   val NOTES = "Notes"
   private val EXEC_ACTION = "Action"
   val IGNORE_OPERATOR = "Ignore Operator"
-  val RUN_NAME = "RunName"
+  val RUN_NAME = DatabricksParseHelper.SUB_PROP_RUN_NAME
   val ESTIMATED_FREQUENCY = "Estimated Job Frequency (monthly)"
   val ML_FUNCTIONS = "ML Functions"
   val ML_FUNCTION_NAME = "ML Function Name"
