@@ -614,14 +614,14 @@ class QualificationAppInfo(
       val sqlDfWallEstimatedRatio = if (allTaskTime > 0) {
         sqlDataframeTaskDuration.toDouble / allTaskTime
       } else {
-        0
+        1
       }
       // This is the time of just the SQL or dataframe operations that we
       // support with the Spark Rapids plugin
       val supportedsqlDfWallEstimatedRatio = if (allTaskTime > 0) {
         supportedSQLTaskDuration.toDouble / allTaskTime
       } else {
-        0
+        1
       }
       // Exclude jobOverheadTime from appDuration, app duration is what we are using
       // as the real wall clock time
@@ -721,22 +721,16 @@ class QualificationAppInfo(
     val supportedSQLTaskDuration = calculateSQLSupportedTaskDuration(allStagesSummary)
     val taskSpeedupFactor = calculateSpeedupFactor(allStagesSummary)
 
-    // now lets estimate the wall clock times based on the ratios of task times
-    // and apply that to the app duration
-    val allTaskTime = stageIdToTaskEndSum.values.map(_.totalTaskDuration).sum
-    // this is time of all SQL or dataframe operations. So excludes non sql
-    // like RDD/ml stuff and job overhead time
-    val sqlDfWallEstimatedRatio = if (allTaskTime > 0) {
-      sqlDataframeTaskDuration.toDouble / allTaskTime
-    } else {
-      0
-    }
+    // since this is per sql output we are ignoring stages outside the sql so the
+    // ratio here should just be 1
+    val sqlDfWallEstimatedRatio = 1
     // This is the time of just the SQL or dataframe operations that we
-    // support with the Spark Rapids plugin
-    val supportedsqlDfWallEstimatedRatio = if (allTaskTime > 0) {
-      supportedSQLTaskDuration.toDouble / allTaskTime
+    // support with the Spark Rapids plugin. Since this is per sql we just
+    // use the total sqlDataframeTaskDuration as the overall time
+    val supportedsqlDfWallEstimatedRatio = if (sqlDataframeTaskDuration > 0) {
+      supportedSQLTaskDuration.toDouble / sqlDataframeTaskDuration
     } else {
-      0
+      1
     }
 
     // Since this is a per sql calculation the overall app duration is just the
@@ -748,6 +742,9 @@ class QualificationAppInfo(
     // apply the task ratio we calculated above to the app duration wall clock to get
     // an estimate of what the wall clock time is for all of the SQL and Dataframe operations
     val sqlDfWallDuration = appDurationNoOverhead * sqlDfWallEstimatedRatio
+    logWarning(s"sqlDfWallEstimatedRatio $sqlDfWallEstimatedRatio " +
+      s"supportedsqlDfWallEstimatedRatio $supportedsqlDfWallEstimatedRatio " +
+      s"sqlDfWallDuration $sqlDfWallDuration")
     // apply the task ratio we calculated above to the app duration wall clock to get
     // an estimate of what the wall clock time is for just the Spark Rapids GPU supported
     // SQL and Dataframe operations
