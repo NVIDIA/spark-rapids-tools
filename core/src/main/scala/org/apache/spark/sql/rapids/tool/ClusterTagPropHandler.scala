@@ -61,19 +61,17 @@ trait ClusterTagPropHandler extends CacheablePropsHandler {
   override def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
     super.handleJobStartForCachedProps(event)
     // If the confs are set after SparkSession initialization, it is captured in this event.
-    val dbFlagPreprocess = isDatabricks
     if (!isDatabricks) {
       // Add the clusterTags to SparkProperties if any
-      Seq(DatabricksParseHelper.PROP_ALL_TAGS_KEY,
-          DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY,
-          DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY
-      ).foreach { tagKey =>
-        sparkProperties += (tagKey -> event.properties.getProperty(tagKey, ""))
+      val definedTags = Seq(DatabricksParseHelper.PROP_ALL_TAGS_KEY,
+        DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY,
+        DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY).collect {
+        case tk if event.properties.contains(tk) =>
+          sparkProperties += (tk -> event.properties.getProperty(tk, ""))
       }
-    }
-
-    if (!dbFlagPreprocess && isDatabricks) {
-      updateClusterTagsFromSparkProperties()
+      if (definedTags.nonEmpty) {
+        updateClusterTagsFromSparkProperties()
+      }
     }
   }
 
