@@ -89,7 +89,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
                 Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
                 multiple "spark-property" arguments.
                 For more details on Qualification tool options, please visit
-                https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#qualification-tool-options
+                https://docs.nvidia.com/spark-rapids/user-guide/latest/qualification/jar-usage.html#running-the-qualification-tool-standalone-on-spark-event-logs
         """
         verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
         jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j',
@@ -174,7 +174,7 @@ class CliOnpremLocalMode:  # pylint: disable=too-few-public-methods
         Note that the wrapper ignores ["output-directory", "worker-info"] flags, and it does not support
         multiple "spark-property" arguments.
         For more details on Profiling tool options, please visit
-        https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#profiling-tool-options
+        https://docs.nvidia.com/spark-rapids/user-guide/latest/profiling/jar-usage.html#prof-tool-title-options
         """
         verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
         jvm_heap_size = Utils.get_value_or_pop(jvm_heap_size, rapids_options, 'j',
