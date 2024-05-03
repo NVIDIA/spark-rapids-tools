@@ -29,7 +29,6 @@ import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
-import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo.getRecommendation
 import org.apache.spark.sql.rapids.tool.store.StageModel
 
 
@@ -626,47 +625,14 @@ class QualificationAppInfo(
       // Exclude jobOverheadTime from appDuration, app duration is what we are using
       // as the real wall clock time
       val appDurationNoOverhead = appDuration - jobOverheadTime
-      // apply the task ratio we calculated above to the app duration wall clock to get
-      // an estimate of what the wall clock time is for all of the SQL and Dataframe operations
-      val sqlDfWallDuration = appDurationNoOverhead * sqlDfWallEstimatedRatio
-      // apply the task ratio we calculated above to the app duration wall clock to get
-      // an estimate of what the wall clock time is for just the Spark Rapids GPU supported
-      // SQL and Dataframe operations
-      val supportedSqlDfWallDuration = appDurationNoOverhead * supportedsqlDfWallEstimatedRatio
-
-      // this includes the not supported SQL, nonSQL (excluding supported ml) and job overhead
-      // Note that the wall clock for ml here is not completely the same since using stage
-      // wall clock and not ratio of task time to app duration but good enough for now
-      val estWallClockDurNotOnGpuNoSupportedML = appDuration - supportedSqlDfWallDuration -
-        mlFuncReportInfo.mlWallClockDur
-      // this is the new estimated wall clock time when we apply the GPU speedup factors
-      val estWallClockDurWithGpuAccel = (supportedSqlDfWallDuration / taskSpeedupFactor) +
-        estWallClockDurNotOnGpuNoSupportedML +
-        (mlFuncReportInfo.mlWallClockDur / mlFuncReportInfo.speedup)
-      val appDurSpeedupWithGPUAccel = if (appDuration == 0 || estWallClockDurWithGpuAccel == 0) {
-        0
-      } else {
-        appDuration / estWallClockDurWithGpuAccel
-      }
-      val estGpuTimeSaved = appDuration - estWallClockDurWithGpuAccel
-      val hasFailures = sqlIdsWithFailures.nonEmpty
-      val recommendation = getRecommendation(appDurSpeedupWithGPUAccel, hasFailures)
 
       // truncate the double fields to double precision to ensure that unit-tests do not explicitly
       // set the format to match the output. Removing the truncation from here requires modifying
       // TestQualificationSummary to truncate the same fields to match the CSV static samples.
-      val estimatedInfo = EstimatedAppInfo(appName,
-        appId,
-        appDuration,
-        sqlDfWallDuration.toLong,
-        supportedSqlDfWallDuration.toLong,
-        estWallClockDurWithGpuAccel,
-        appDurSpeedupWithGPUAccel,
-        estGpuTimeSaved,
-        recommendation,
-        unSupportedExecs,
-        unSupportedExprs,
-        allClusterTagsMap)
+      val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(appDurationNoOverhead,
+        sqlDfWallEstimatedRatio, supportedsqlDfWallEstimatedRatio, taskSpeedupFactor,
+        appDuration, appName, appId, sqlIdsWithFailures.nonEmpty, mlFuncReportInfo.speedup,
+        mlFuncReportInfo.mlWallClockDur, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
 
       val clusterSummary = ClusterSummary(info.appName, appId,
         eventLogInfo.map(_.eventLog.toString), clusterInfo)
@@ -676,7 +642,7 @@ class QualificationAppInfo(
         notSupportFormatAndTypesString, getAllReadFileFormats, writeFormat,
         allComplexTypes, nestedComplexTypes, longestSQLDuration, sqlDataframeTaskDuration,
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
-        taskSpeedupFactor, info.sparkUser, info.startTime, sqlDfWallDuration.toLong,
+        taskSpeedupFactor, info.sparkUser, info.startTime, estimatedInfo.sqlDfDuration,
         origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap,
@@ -739,47 +705,10 @@ class QualificationAppInfo(
     // as the real wall clock time
     val appDurationNoOverhead = sqlDataFrameDuration
     val appDuration = appDurationNoOverhead
-    // apply the task ratio we calculated above to the app duration wall clock to get
-    // an estimate of what the wall clock time is for all of the SQL and Dataframe operations
-    val sqlDfWallDuration = appDurationNoOverhead * sqlDfWallEstimatedRatio
-    logWarning(s"sqlDfWallEstimatedRatio $sqlDfWallEstimatedRatio " +
-      s"supportedsqlDfWallEstimatedRatio $supportedsqlDfWallEstimatedRatio " +
-      s"sqlDfWallDuration $sqlDfWallDuration")
-    // apply the task ratio we calculated above to the app duration wall clock to get
-    // an estimate of what the wall clock time is for just the Spark Rapids GPU supported
-    // SQL and Dataframe operations
-    val supportedSqlDfWallDuration = appDurationNoOverhead * supportedsqlDfWallEstimatedRatio
 
-    // this includes the not supported SQL, nonSQL (excluding supported ml) and job overhead
-    // Note that the wall clock for ml here is not completely the same since using stage
-    // wall clock and not ratio of task time to app duration but good enough for now
-    val estWallClockDurNotOnGpuNoSupportedML = appDurationNoOverhead - supportedSqlDfWallDuration
-    // this is the new estimated wall clock time when we apply the GPU speedup factors
-    val estWallClockDurWithGpuAccel = (supportedSqlDfWallDuration / taskSpeedupFactor) +
-      estWallClockDurNotOnGpuNoSupportedML
-    val appDurSpeedupWithGPUAccel = if (appDuration == 0 || estWallClockDurWithGpuAccel == 0) {
-      0
-    } else {
-      appDuration / estWallClockDurWithGpuAccel
-    }
-    val estGpuTimeSaved = appDuration - estWallClockDurWithGpuAccel
-    val recommendation = getRecommendation(appDurSpeedupWithGPUAccel, hasFailures)
-
-    // truncate the double fields to double precision to ensure that unit-tests do not explicitly
-    // set the format to match the output. Removing the truncation from here requires modifying
-    // TestQualificationSummary to truncate the same fields to match the CSV static samples.
-    EstimatedAppInfo(appName,
-      appId,
-      appDuration,
-      sqlDfWallDuration.toLong,
-      supportedSqlDfWallDuration.toLong,
-      estWallClockDurWithGpuAccel,
-      appDurSpeedupWithGPUAccel,
-      estGpuTimeSaved,
-      recommendation,
-      "",
-      "",
-      Map.empty[String, String])
+    QualificationAppInfo.calculateEstimatedInfoSummary(appDurationNoOverhead,
+      sqlDfWallEstimatedRatio, supportedsqlDfWallEstimatedRatio, taskSpeedupFactor,
+      appDuration, appName, appId, hasFailures)
   }
 
   private def getAllSQLDurations: Seq[Long] = {
@@ -1148,10 +1077,58 @@ object QualificationAppInfo extends Logging {
     }
   }
 
-  def wallClockSqlDataFrameToUse(sqlDataFrameDuration: Long, appDuration: Long): Long = {
-    // If our app duration is shorter than our sql duration, estimate the sql duration down
-    // to app duration
-    math.min(sqlDataFrameDuration, appDuration)
+  def calculateEstimatedInfoSummary(appDurationNoOverhead: Long,
+      sqlDfWallEstimatedRatio: Double,
+      supportedsqlDfWallEstimatedRatio: Double, taskSpeedupFactor: Double,
+      appDuration: Long,  appName: String, appId: String,
+      hasFailures: Boolean, mlSpeedup: Double = 1.0, mlWallClockDur: Double = 0.0,
+      unSupportedExecs: String = "", unSupportedExprs: String = "",
+      allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedAppInfo = {
+
+    // apply the task ratio we calculated above to the app duration wall clock to get
+    // an estimate of what the wall clock time is for all of the SQL and Dataframe operations
+    val sqlDfWallDuration = appDurationNoOverhead * sqlDfWallEstimatedRatio
+    // apply the task ratio we calculated above to the app duration wall clock to get
+    // an estimate of what the wall clock time is for just the Spark Rapids GPU supported
+    // SQL and Dataframe operations
+    val supportedSqlDfWallDuration = appDurationNoOverhead * supportedsqlDfWallEstimatedRatio
+
+    // this includes the not supported SQL, nonSQL (excluding supported ml) and job overhead
+    // Note that the wall clock for ml here is not completely the same since using stage
+    // wall clock and not ratio of task time to app duration but good enough for now
+    val estWallClockDurNotOnGpuNoSupportedML = appDuration - supportedSqlDfWallDuration -
+      mlWallClockDur
+    val mlWallClockDurWithSpeedup = if (mlWallClockDur > 0) {
+      (mlWallClockDur / mlSpeedup)
+    } else {
+      0
+    }
+    // this is the new estimated wall clock time when we apply the GPU speedup factors
+    val estWallClockDurWithGpuAccel = (supportedSqlDfWallDuration / taskSpeedupFactor) +
+      estWallClockDurNotOnGpuNoSupportedML + mlWallClockDurWithSpeedup
+    val appDurSpeedupWithGPUAccel = if (appDuration == 0 || estWallClockDurWithGpuAccel == 0) {
+      0
+    } else {
+      appDuration / estWallClockDurWithGpuAccel
+    }
+    val estGpuTimeSaved = appDuration - estWallClockDurWithGpuAccel
+    val recommendation = getRecommendation(appDurSpeedupWithGPUAccel, hasFailures)
+
+    // truncate the double fields to double precision to ensure that unit-tests do not explicitly
+    // set the format to match the output. Removing the truncation from here requires modifying
+    // TestQualificationSummary to truncate the same fields to match the CSV static samples.
+    EstimatedAppInfo(appName,
+      appId,
+      appDuration,
+      sqlDfWallDuration.toLong,
+      supportedSqlDfWallDuration.toLong,
+      estWallClockDurWithGpuAccel,
+      appDurSpeedupWithGPUAccel,
+      estGpuTimeSaved,
+      recommendation,
+      unSupportedExecs,
+      unSupportedExprs,
+      allClusterTagsMap)
   }
 
   /**
