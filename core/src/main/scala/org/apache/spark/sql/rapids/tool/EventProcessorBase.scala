@@ -364,6 +364,9 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     app.handleJobStartForCachedProps(event)
     val sqlIDString = event.properties.getProperty("spark.sql.execution.id")
     val sqlID = StringUtils.stringToLong(sqlIDString)
+    if (sqlID.nonEmpty) {
+      app.sqlIdToStages.getOrElseUpdate(sqlID.get, ArrayBuffer.empty) ++= event.stageIds
+    }
     sqlID.foreach(app.jobIdToSqlID(event.jobId) = _)
   }
 
