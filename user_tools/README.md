@@ -18,7 +18,8 @@ The wrapper improves end-user experience within the following dimensions:
 
 Set up a Python environment with a version between 3.8 and 3.10
 
-1. Run the project in a virtual environment.
+1. Run the project in a virtual environment. Note, .venv is the directory created to put
+   the virtual env in, so modify if you want a different location.
     ```sh
     $ python -m venv .venv
     $ source .venv/bin/activate
@@ -50,13 +51,20 @@ Set up a Python environment with a version between 3.8 and 3.10
 
 Set up a Python environment similar to the steps above.
 
-1. Run the provided build script to compile the project.
+1. Create a virtual environment. Note, .venv is the directory created to put
+   the virtual env in, so modify if you want a different location.
+    ```sh
+    $ python -m venv .venv
+    $ source .venv/bin/activate
+    ```
+
+2. Run the provided build script to compile the project.
 
    ```sh
    $> ./build.sh
    ```
  
-2. **Fat Mode:** Similar to `fat jar` in Java, this mode solves the problem when web access is not
+3. **Fat Mode:** Similar to `fat jar` in Java, this mode solves the problem when web access is not
    available to download resources having Url-paths (http/https).  
    The command builds the tools jar file and downloads the necessary dependencies and packages them
    with the source code into a single 'wheel' file.

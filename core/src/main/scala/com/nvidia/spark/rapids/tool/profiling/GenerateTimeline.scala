@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -325,8 +325,8 @@ object GenerateTimeline {
       maxEndTime = Math.max(finishTime, maxEndTime)
     }
 
-    val allStageIds = app.stageIdToInfo.keys.map(_._1).toList
-    allStageIds.distinct.sorted.foreach { stageId =>
+    val allStageIds = app.stageManager.getAllStageIds.toSeq
+    allStageIds.sorted.foreach { stageId =>
       stageIdToColor.getOrElseUpdate(stageId, {
         val color = COLORS(colorIndex % COLORS.length)
         colorIndex += 1
@@ -345,11 +345,11 @@ object GenerateTimeline {
         new TimelineStageInfo(stageId, start, end, end-start)
     }
 
-    val stageInfo = app.stageIdToInfo.map { case ((_, _), sc) =>
-      val stageId = sc.info.stageId
-      val submissionTime = sc.info.submissionTime.get
-      val completionTime = sc.completionTime.get
-      val duration = sc.duration.get
+    val stageInfo = app.stageManager.getAllStages.map { case sm =>
+      val stageId = sm.sId
+      val submissionTime = sm.sInfo.submissionTime.get
+      val completionTime = sm.sInfo.completionTime.get
+      val duration = sm.getDuration
       minStartTime = Math.min(minStartTime, submissionTime)
       maxEndTime = Math.max(maxEndTime, completionTime)
       new TimelineStageInfo(stageId, submissionTime, completionTime, duration)

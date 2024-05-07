@@ -88,7 +88,7 @@ class AppFilterImpl(
        appArgs: ProfileArgs): Seq[EventLogInfo] = {
     val appTimeFiltered = if (appArgs.startAppTime.isSupplied) {
       val msTimeToFilter = AppFilterImpl.parseAppTimePeriodArgs(appArgs.startAppTime)
-      apps.filter(_.appInfo.appStartInfo.exists(_.startTime >= msTimeToFilter))
+      apps.filter(_.appInfo.appMetaData.exists(_.startTime >= msTimeToFilter))
     } else {
       apps
     }
@@ -121,7 +121,7 @@ class AppFilterImpl(
       } else {
         appNameFiltered
       }
-      appNamelogicFiltered.filter(_.appInfo.appStartInfo.exists(_.userName.contains(userName)))
+      appNamelogicFiltered.filter(_.appInfo.appMetaData.exists(_.sparkUser.contains(userName)))
     } else {
       appNameFiltered
     }
@@ -165,7 +165,7 @@ class AppFilterImpl(
       } else {
         configFiltered
       }
-      logicFiltered.filter(_.appInfo.appStartInfo.exists(_.startTime >= msTimeToFilter))
+      logicFiltered.filter(_.appInfo.appMetaData.exists(_.startTime >= msTimeToFilter))
     } else {
       configFiltered
     }
@@ -212,22 +212,22 @@ class AppFilterImpl(
         val criteria = filteredInfo(1)
         val filtered = if (criteria.equals("oldest")) {
           finalLogicFiltered.toSeq.sortBy(
-            _.appInfo.appStartInfo.get.startTime).take(numberofEventLogs)
+            _.appInfo.appMetaData.get.startTime).take(numberofEventLogs)
         } else {
           finalLogicFiltered.toSeq.sortBy(
-            _.appInfo.appStartInfo.get.startTime).reverse.take(numberofEventLogs)
+            _.appInfo.appMetaData.get.startTime).reverse.take(numberofEventLogs)
         }
         filtered
       } else if (filterCriteria.endsWith("-per-app-name")) {
-        val distinctAppNameMap = finalLogicFiltered.groupBy(_.appInfo.appStartInfo.get.appName)
+        val distinctAppNameMap = finalLogicFiltered.groupBy(_.appInfo.getAppName)
         val filteredInfo = filterCriteria.split("-")
         val numberofEventLogs = filteredInfo(0).toInt
         val criteria = filteredInfo(1)
         val filtered = distinctAppNameMap.map { case (name, apps) =>
           val sortedApps = if (criteria.equals("oldest")) {
-            apps.toSeq.sortBy(_.appInfo.appStartInfo.get.startTime).take(numberofEventLogs)
+            apps.toSeq.sortBy(_.appInfo.appMetaData.get.startTime).take(numberofEventLogs)
           } else {
-            apps.toSeq.sortBy(_.appInfo.appStartInfo.get.startTime).reverse.take(numberofEventLogs)
+            apps.toSeq.sortBy(_.appInfo.appMetaData.get.startTime).reverse.take(numberofEventLogs)
           }
           (name, sortedApps)
         }
@@ -242,7 +242,7 @@ class AppFilterImpl(
   }
 
   private def containsAppName(app: AppFilterReturnParameters, filterAppName: String): Boolean = {
-    val appNameOpt = app.appInfo.appStartInfo.map(_.appName)
+    val appNameOpt = app.appInfo.appMetaData.map(_.appName)
     if (appNameOpt.isDefined) {
       try {
         if (appNameOpt.get.contains(filterAppName) || appNameOpt.get.matches(filterAppName)) {
@@ -272,7 +272,7 @@ class AppFilterImpl(
 
     val startAppInfo = new FilterAppInfo(path, hadoopConf)
     val appInfo = AppFilterReturnParameters(startAppInfo, path)
-    if (startAppInfo.appStartInfo.isEmpty) {
+    if (!startAppInfo.isAppMetaDefined) {
       logWarning("Cannot process file due to missing start event: " + path) 
     } else {
       appsForFiltering.add(appInfo)

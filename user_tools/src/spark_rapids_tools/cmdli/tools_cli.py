@@ -22,6 +22,7 @@ from spark_rapids_tools.enums import QualGpuClusterReshapeType
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
+from spark_rapids_pytools.rapids.prediction import Prediction
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
 
@@ -119,7 +120,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
                 multiple "spark-property" arguments.
                 For more details on Qualification tool options, please visit
-                https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-qualification-tool.html#qualification-tool-options
+                https://docs.nvidia.com/spark-rapids/user-guide/latest/qualification/jar-usage.html#running-the-qualification-tool-standalone-on-spark-event-logs
         """
         platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
         target_platform = Utils.get_value_or_pop(target_platform, rapids_options, 't')
@@ -194,7 +195,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 Note that the wrapper ignores ["output-directory", "worker-info"] flags, and it does not support
                 multiple "spark-property" arguments.
                 For more details on Profiling tool options, please visit
-                https://docs.nvidia.com/spark-rapids/user-guide/latest/spark-profiling-tool.html#profiling-tool-options
+                https://docs.nvidia.com/spark-rapids/user-guide/latest/profiling/jar-usage.html#prof-tool-title-options
         """
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         cluster = Utils.get_value_or_pop(cluster, rapids_options, 'c')
@@ -255,6 +256,43 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                  cluster=cluster,
                                  output_folder=boot_args['outputFolder'],
                                  wrapper_options=boot_args)
+            tool_obj.launch()
+
+    def prediction(self,
+                   qual_output: str = None,
+                   prof_output: str = None,
+                   output_folder: str = None,
+                   platform: str = 'onprem',
+                   verbose: bool = False):
+        """The prediction cmd takes existing qualification and profiling tool output and runs the
+        estimation model in the qualification tools for GPU speedups.
+
+        :param qual_output: path to the directory which contains the qualification tool output. E.g. user should
+                            specify the parent directory $WORK_DIR where $WORK_DIR/rapids_4_spark_qualification_output
+                            exists.
+        :param prof_output: path to the directory that contains the profiling tool output. E.g. user should
+                            specify the parent directory $WORK_DIR where $WORK_DIR/rapids_4_spark_profile exists.
+        :param output_folder: path to store the output.
+        :param platform: defines one of the following "onprem", "dataproc", "databricks-aws",
+                         and "databricks-azure", default to "onprem".
+        """
+        if verbose:
+            ToolLogging.enable_debug_mode()
+
+        init_environment('pred')
+
+        predict_args = AbsToolUserArgModel.create_tool_args('prediction',
+                                                            platform=platform,
+                                                            qual_output=qual_output,
+                                                            prof_output=prof_output,
+                                                            output_folder=output_folder)
+
+        if predict_args:
+            tool_obj = Prediction(platform_type=predict_args['runtimePlatform'],
+                                  qual_output=predict_args['qual_output'],
+                                  prof_output=predict_args['prof_output'],
+                                  output_folder=predict_args['output_folder'],
+                                  wrapper_options=predict_args)
             tool_obj.launch()
 
 

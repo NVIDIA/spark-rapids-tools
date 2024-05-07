@@ -95,9 +95,9 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(firstApp.sparkVersion.equals("3.1.1"))
     assert(firstApp.gpuMode.equals(true))
     assert(firstApp.jobIdToInfo.keys.toSeq.contains(1))
-    val stageInfo = firstApp.stageIdToInfo.get((0,0))
-    assert(stageInfo.isDefined && stageInfo.get.info.numTasks.equals(1))
-    assert(firstApp.stageIdToInfo.get((2, 0)).isDefined)
+    val stageInfo = firstApp.stageManager.getStage(0, 0)
+    assert(stageInfo.isDefined && stageInfo.get.sInfo.numTasks.equals(1))
+    assert(firstApp.stageManager.getStage(2, 0).isDefined)
     assert(firstApp.taskEnd(firstApp.index).successful.equals(true))
     assert(firstApp.taskEnd(firstApp.index).endReason.equals("Success"))
     val execInfo = firstApp.executorIdToInfo.get(firstApp.executorIdToInfo.keys.head)
@@ -134,7 +134,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(rapidsJarResults.filter(_.jar.contains("rapids-4-spark_2.12-0.5.0.jar")).size === 1)
     assert(rapidsJarResults.filter(_.jar.contains("cudf-0.19.2-cuda11.jar")).size === 1)
 
-    assert(apps.head.eventLogPath == (s"file:$logDir/rapids_join_eventlog.zstd"))
+    assert(apps.head.getEventLogPath == s"file:$logDir/rapids_join_eventlog.zstd")
   }
 
   test("test sql and resourceprofile eventlog") {
@@ -157,9 +157,9 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(apps.head.gpuMode.equals(false))
     assert(apps.head.jobIdToInfo.keys.toSeq.size == 6)
     assert(apps.head.jobIdToInfo.keys.toSeq.contains(0))
-    val stage0 = apps.head.stageIdToInfo.get((0, 0))
+    val stage0 = apps.head.stageManager.getStage(0, 0)
     assert(stage0.isDefined)
-    assert(stage0.get.info.numTasks.equals(1))
+    assert(stage0.get.sInfo.numTasks.equals(1))
   }
 
   test("test no sql eventlog") {

@@ -117,40 +117,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     logDebug(s"App's GPU Mode = ${app.gpuMode}")
   }
 
-  override def doSparkListenerApplicationStart(
-      app: ApplicationInfo,
-      event: SparkListenerApplicationStart): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val thisAppStart = ApplicationCase(
-      event.appName,
-      event.appId,
-      event.sparkUser,
-      event.time,
-      None,
-      None,
-      "",
-      "",
-      pluginEnabled = false
-    )
-    app.appInfo = thisAppStart
-    app.appId = event.appId.getOrElse("")
-  }
-
-  override def doSparkListenerApplicationEnd(
-      app: ApplicationInfo,
-      event: SparkListenerApplicationEnd): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    app.appEndTime = Some(event.time)
-  }
-
-  override def doSparkListenerTaskStart(
-      app: ApplicationInfo,
-      event: SparkListenerTaskStart): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    // currently not used
-    // app.taskStart += event
-  }
-
   override def doSparkListenerTaskEnd(
       app: ApplicationInfo,
       event: SparkListenerTaskEnd): Unit = {
@@ -228,7 +194,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
           event.stageInfo.stageId, event.stageInfo.attemptNumber()).foreach { thisMetric =>
           val arrBuf = app.taskStageAccumMap.getOrElseUpdate(accumInfo.id,
             ArrayBuffer[TaskStageAccumCase]())
-          app.accumIdToStageId.put(accumInfo.id, event.stageInfo.stageId)
           arrBuf += thisMetric
         }
       } catch {

@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.sql.rapids.tool.ToolUtils
@@ -37,7 +38,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     }
   }
 
-  private def maxWithEmptyHandling(arr: ArrayBuffer[Long]): Long = {
+  private def maxWithEmptyHandling(arr: Iterable[Long]): Long = {
     if (arr.isEmpty) {
       0L
     } else {
@@ -45,172 +46,119 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     }
   }
 
+  private def minWithEmptyHandling(arr: Iterable[Long]): Long = {
+    if (arr.isEmpty) {
+      0L
+    } else {
+      arr.min
+    }
+  }
+
   // Job + Stage Level TaskMetrics Aggregation
   def jobAndStageMetricsAggregation(): Seq[JobStageAggTaskMetricsProfileResult] = {
-    val allJobRows = apps.flatMap { app =>
-      app.jobIdToInfo.map { case (id, jc) =>
-        val stagesInJob = app.stageIdToInfo.filterKeys { case (sid, _) =>
-          jc.stageIds.contains(sid)
-        }.keys.map(_._1).toSet
-        if (stagesInJob.isEmpty) {
-          None
-        } else {
-          val tasksInJob = app.taskEnd.filter { tc =>
-            stagesInJob.contains(tc.stageId)
-          }
-          // count duplicate task attempts
-          val (durSum, durMax, durMin, durAvg) = getDurations(tasksInJob)
-          Some(JobStageAggTaskMetricsProfileResult(app.index,
-            s"job_$id",
-            tasksInJob.size,
-            jc.duration,
-            tasksInJob.map(_.diskBytesSpilled).sum,
-            durSum,
-            durMax,
-            durMin,
-            durAvg,
-            tasksInJob.map(_.executorCPUTime).sum,
-            tasksInJob.map(_.executorDeserializeCPUTime).sum,
-            tasksInJob.map(_.executorDeserializeTime).sum,
-            tasksInJob.map(_.executorRunTime).sum,
-            tasksInJob.map(_.input_bytesRead).sum,
-            tasksInJob.map(_.input_recordsRead).sum,
-            tasksInJob.map(_.jvmGCTime).sum,
-            tasksInJob.map(_.memoryBytesSpilled).sum,
-            tasksInJob.map(_.output_bytesWritten).sum,
-            tasksInJob.map(_.output_recordsWritten).sum,
-            maxWithEmptyHandling(tasksInJob.map(_.peakExecutionMemory)),
-            tasksInJob.map(_.resultSerializationTime).sum,
-            maxWithEmptyHandling(tasksInJob.map(_.resultSize)),
-            tasksInJob.map(_.sr_fetchWaitTime).sum,
-            tasksInJob.map(_.sr_localBlocksFetched).sum,
-            tasksInJob.map(_.sr_localBytesRead).sum,
-            tasksInJob.map(_.sr_remoteBlocksFetched).sum,
-            tasksInJob.map(_.sr_remoteBytesRead).sum,
-            tasksInJob.map(_.sr_remoteBytesReadToDisk).sum,
-            tasksInJob.map(_.sr_totalBytesRead).sum,
-            tasksInJob.map(_.sw_bytesWritten).sum,
-            tasksInJob.map(_.sw_recordsWritten).sum,
-            tasksInJob.map(_.sw_writeTime).sum
-          ))
+    // first get all stage aggregated levels
+    val allRows = apps.flatMap { app =>
+      // create a cache of stage rows to be used by the job aggregator
+      val cachedStageRows = new mutable.LinkedHashMap[Int, JobStageAggTaskMetricsProfileResult]()
+      app.stageManager.getAllStages.foreach { case sm =>
+        val tasksInStage = app.taskEnd.filter { tc =>
+          tc.stageId == sm.sId && tc.stageAttemptId == sm.attemptId
         }
+        // count duplicate task attempts
+        val numAttempts = tasksInStage.size
+        val (durSum, durMax, durMin, durAvg) = getDurations(tasksInStage)
+        val stageRow = JobStageAggTaskMetricsProfileResult(app.index,
+          s"stage_${sm.sId}",
+          numAttempts,
+          sm.duration,
+          tasksInStage.map(_.diskBytesSpilled).sum,
+          durSum,
+          durMax,
+          durMin,
+          durAvg,
+          tasksInStage.map(_.executorCPUTime).sum,
+          tasksInStage.map(_.executorDeserializeCPUTime).sum,
+          tasksInStage.map(_.executorDeserializeTime).sum,
+          tasksInStage.map(_.executorRunTime).sum,
+          tasksInStage.map(_.input_bytesRead).sum,
+          tasksInStage.map(_.input_recordsRead).sum,
+          tasksInStage.map(_.jvmGCTime).sum,
+          tasksInStage.map(_.memoryBytesSpilled).sum,
+          tasksInStage.map(_.output_bytesWritten).sum,
+          tasksInStage.map(_.output_recordsWritten).sum,
+          maxWithEmptyHandling(tasksInStage.map(_.peakExecutionMemory)),
+          tasksInStage.map(_.resultSerializationTime).sum,
+          maxWithEmptyHandling(tasksInStage.map(_.resultSize)),
+          tasksInStage.map(_.sr_fetchWaitTime).sum,
+          tasksInStage.map(_.sr_localBlocksFetched).sum,
+          tasksInStage.map(_.sr_localBytesRead).sum,
+          tasksInStage.map(_.sr_remoteBlocksFetched).sum,
+          tasksInStage.map(_.sr_remoteBytesRead).sum,
+          tasksInStage.map(_.sr_remoteBytesReadToDisk).sum,
+          tasksInStage.map(_.sr_totalBytesRead).sum,
+          tasksInStage.map(_.sw_bytesWritten).sum,
+          tasksInStage.map(_.sw_recordsWritten).sum,
+          tasksInStage.map(_.sw_writeTime).sum
+        )
+        // cache the stage row to be used later
+        cachedStageRows.put(sm.sId, stageRow)
       }
-    }
-    val allJobStageRows = apps.flatMap { app =>
-      app.jobIdToInfo.flatMap { case (_, jc) =>
-        val stagesInJob = app.stageIdToInfo.filterKeys { case (sid, _) =>
-          jc.stageIds.contains(sid)
-        }
-        if (stagesInJob.isEmpty) {
+      // Aggregate all the stages by job
+      val jobRows = app.jobIdToInfo.map { case (id, jc) =>
+        if (jc.stageIds.isEmpty) {
           None
         } else {
-          stagesInJob.map { case ((id, _), sc) =>
-            val tasksInStage = app.taskEnd.filter { tc =>
-              tc.stageId == id
-            }
-            val (durSum, durMax, durMin, durAvg) = getDurations(tasksInStage)
+          val profResultsInJob = cachedStageRows.filterKeys(jc.stageIds.contains).values
+          if (profResultsInJob.isEmpty) {
+            None
+          } else {
+            // Recalculate the duration sum, max, min, avg for the job based on the cached
+            // stage Profiling results
+            val tasksInJob = profResultsInJob.map(_.numTasks).sum
+            val durSum = profResultsInJob.map(_.durationSum).sum
+            val durMax = maxWithEmptyHandling(profResultsInJob.map(_.durationMax))
+            val durMin = minWithEmptyHandling(profResultsInJob.map(_.durationMin))
+            val durAvg = ToolUtils.calculateAverage(durSum, tasksInJob, 1)
             Some(JobStageAggTaskMetricsProfileResult(app.index,
-              s"stage_$id",
-              tasksInStage.size,
-              sc.duration,
-              tasksInStage.map(_.diskBytesSpilled).sum,
+              s"job_$id",
+              tasksInJob,
+              jc.duration,
+              profResultsInJob.map(_.diskBytesSpilledSum).sum,
               durSum,
               durMax,
               durMin,
               durAvg,
-              tasksInStage.map(_.executorCPUTime).sum,
-              tasksInStage.map(_.executorDeserializeCPUTime).sum,
-              tasksInStage.map(_.executorDeserializeTime).sum,
-              tasksInStage.map(_.executorRunTime).sum,
-              tasksInStage.map(_.input_bytesRead).sum,
-              tasksInStage.map(_.input_recordsRead).sum,
-              tasksInStage.map(_.jvmGCTime).sum,
-              tasksInStage.map(_.memoryBytesSpilled).sum,
-              tasksInStage.map(_.output_bytesWritten).sum,
-              tasksInStage.map(_.output_recordsWritten).sum,
-              maxWithEmptyHandling(tasksInStage.map(_.peakExecutionMemory)),
-              tasksInStage.map(_.resultSerializationTime).sum,
-              maxWithEmptyHandling(tasksInStage.map(_.resultSize)),
-              tasksInStage.map(_.sr_fetchWaitTime).sum,
-              tasksInStage.map(_.sr_localBlocksFetched).sum,
-              tasksInStage.map(_.sr_localBytesRead).sum,
-              tasksInStage.map(_.sr_remoteBlocksFetched).sum,
-              tasksInStage.map(_.sr_remoteBytesRead).sum,
-              tasksInStage.map(_.sr_remoteBytesReadToDisk).sum,
-              tasksInStage.map(_.sr_totalBytesRead).sum,
-              tasksInStage.map(_.sw_bytesWritten).sum,
-              tasksInStage.map(_.sw_recordsWritten).sum,
-              tasksInStage.map(_.sw_writeTime).sum
-            ))
+              profResultsInJob.map(_.executorCPUTimeSum).sum,
+              profResultsInJob.map(_.executorDeserializeCpuTimeSum).sum,
+              profResultsInJob.map(_.executorDeserializeTimeSum).sum,
+              profResultsInJob.map(_.executorRunTimeSum).sum,
+              profResultsInJob.map(_.inputBytesReadSum).sum,
+              profResultsInJob.map(_.inputRecordsReadSum).sum,
+              profResultsInJob.map(_.jvmGCTimeSum).sum,
+              profResultsInJob.map(_.memoryBytesSpilledSum).sum,
+              profResultsInJob.map(_.outputBytesWrittenSum).sum,
+              profResultsInJob.map(_.outputRecordsWrittenSum).sum,
+              maxWithEmptyHandling(profResultsInJob.map(_.peakExecutionMemoryMax)),
+              profResultsInJob.map(_.resultSerializationTimeSum).sum,
+              maxWithEmptyHandling(profResultsInJob.map(_.resultSizeMax)),
+              profResultsInJob.map(_.srFetchWaitTimeSum).sum,
+              profResultsInJob.map(_.srLocalBlocksFetchedSum).sum,
+              profResultsInJob.map(_.srcLocalBytesReadSum).sum,
+              profResultsInJob.map(_.srRemoteBlocksFetchSum).sum,
+              profResultsInJob.map(_.srRemoteBytesReadSum).sum,
+              profResultsInJob.map(_.srRemoteBytesReadToDiskSum).sum,
+              profResultsInJob.map(_.srTotalBytesReadSum).sum,
+              profResultsInJob.map(_.swBytesWrittenSum).sum,
+              profResultsInJob.map(_.swRecordsWrittenSum).sum,
+              profResultsInJob.map(_.swWriteTimeSum).sum))
           }
         }
       }
-    }
-    // stages that are missing from a job, perhaps dropped events
-    val stagesWithoutJobs = apps.flatMap { app =>
-      val allStageInJobs = app.jobIdToInfo.flatMap { case (_, jc) =>
-        app.stageIdToInfo.filterKeys { case (sid, _) =>
-          jc.stageIds.contains(sid)
-        }
-      }
-      val missing = app.stageIdToInfo.keys.toSet.diff(allStageInJobs.keys.toSet)
-      if (missing.isEmpty) {
-        Seq.empty
-      } else {
-        missing.map { case (id, saId) =>
-          val scOpt = app.stageIdToInfo.get((id, saId))
-          scOpt match {
-            case None =>
-              None
-            case Some(sc) =>
-              val tasksInStage = app.taskEnd.filter { tc =>
-                tc.stageId == id
-              }
-              // count duplicate task attempts
-              val numAttempts = tasksInStage.size
-              val (durSum, durMax, durMin, durAvg) = getDurations(tasksInStage)
-              Some(JobStageAggTaskMetricsProfileResult(app.index,
-                s"stage_$id",
-                numAttempts,
-                sc.duration,
-                tasksInStage.map(_.diskBytesSpilled).sum,
-                durSum,
-                durMax,
-                durMin,
-                durAvg,
-                tasksInStage.map(_.executorCPUTime).sum,
-                tasksInStage.map(_.executorDeserializeCPUTime).sum,
-                tasksInStage.map(_.executorDeserializeTime).sum,
-                tasksInStage.map(_.executorRunTime).sum,
-                tasksInStage.map(_.input_bytesRead).sum,
-                tasksInStage.map(_.input_recordsRead).sum,
-                tasksInStage.map(_.jvmGCTime).sum,
-                tasksInStage.map(_.memoryBytesSpilled).sum,
-                tasksInStage.map(_.output_bytesWritten).sum,
-                tasksInStage.map(_.output_recordsWritten).sum,
-                maxWithEmptyHandling(tasksInStage.map(_.peakExecutionMemory)),
-                tasksInStage.map(_.resultSerializationTime).sum,
-                maxWithEmptyHandling(tasksInStage.map(_.resultSize)),
-                tasksInStage.map(_.sr_fetchWaitTime).sum,
-                tasksInStage.map(_.sr_localBlocksFetched).sum,
-                tasksInStage.map(_.sr_localBytesRead).sum,
-                tasksInStage.map(_.sr_remoteBlocksFetched).sum,
-                tasksInStage.map(_.sr_remoteBytesRead).sum,
-                tasksInStage.map(_.sr_remoteBytesReadToDisk).sum,
-                tasksInStage.map(_.sr_totalBytesRead).sum,
-                tasksInStage.map(_.sw_bytesWritten).sum,
-                tasksInStage.map(_.sw_recordsWritten).sum,
-                tasksInStage.map(_.sw_writeTime).sum
-              ))
-          }
-        }
-      }
+      cachedStageRows.values ++ jobRows.flatMap(row => row)
     }
 
-    val allRows = allJobRows ++ allJobStageRows ++ stagesWithoutJobs
-    val filteredRows = allRows.flatMap(row => row)
-    if (filteredRows.nonEmpty) {
-      val sortedRows = filteredRows.sortBy { cols =>
+    if (allRows.nonEmpty) {
+      val sortedRows = allRows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
         (cols.appIndex, -sortDur, cols.id)
       }
@@ -224,15 +172,10 @@ class Analysis(apps: Seq[ApplicationInfo]) {
   def sqlMetricsAggregation(): Seq[SQLTaskAggMetricsProfileResult] = {
     val allRows = apps.flatMap { app =>
       app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
-        val jcs = app.jobIdToInfo.filter { case (_, jc) =>
-          jc.sqlID.isDefined && jc.sqlID.get == sqlId
-        }
-        if (jcs.isEmpty) {
-          None
-        } else {
-          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSet
+        if (app.sqlIdToStages.contains(sqlId)) {
+          val stagesInSQL = app.sqlIdToStages(sqlId)
           val tasksInSQL = app.taskEnd.filter { tc =>
-            stageIdsForSQL.contains(tc.stageId)
+            stagesInSQL.contains(tc.stageId)
           }
           if (tasksInSQL.isEmpty) {
             None
@@ -247,7 +190,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
 
             // set this here, so make sure we don't get it again until later
             sqlCase.sqlCpuTimePercent = execCPURatio
-           
+
             val (durSum, durMax, durMin, durAvg) = getDurations(tasksInSQL)
             Some(SQLTaskAggMetricsProfileResult(app.index,
               app.appId,
@@ -289,6 +232,8 @@ class Analysis(apps: Seq[ApplicationInfo]) {
               tasksInSQL.map(_.sw_writeTime).sum
             ))
           }
+        } else {
+          None
         }
       }
     }
@@ -306,17 +251,10 @@ class Analysis(apps: Seq[ApplicationInfo]) {
 
   def ioAnalysis(): Seq[IOAnalysisProfileResult] = {
     val allRows = apps.flatMap { app =>
-      app.sqlIdToInfo.map { case (sqlId, _) =>
-        val jcs = app.jobIdToInfo.filter { case (_, jc) =>
-          jc.sqlID.isDefined && jc.sqlID.get == sqlId
-        }
-        if (jcs.isEmpty) {
-          None
-        } else {
-          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSet
-
+      app.sqlIdToStages.map {
+        case (sqlId, stageIds) =>
           val tasksInSQL = app.taskEnd.filter { tc =>
-            stageIdsForSQL.contains(tc.stageId)
+            stageIds.contains(tc.stageId)
           }
           if (tasksInSQL.isEmpty) {
             None
@@ -335,7 +273,6 @@ class Analysis(apps: Seq[ApplicationInfo]) {
               tasksInSQL.map(_.sw_bytesWritten).sum
             ))
           }
-        }
       }
     }
     val allFiltered = allRows.flatMap(row => row)
@@ -351,23 +288,16 @@ class Analysis(apps: Seq[ApplicationInfo]) {
 
   def getMaxTaskInputSizeBytes(): Seq[SQLMaxTaskInputSizes] = {
     apps.map { app =>
-      val maxOfSqls = app.sqlIdToInfo.map { case (sqlId, _) =>
-        val jcs = app.jobIdToInfo.filter { case (_, jc) =>
-          jc.sqlID.isDefined && jc.sqlID.get == sqlId
-        }
-        if (jcs.isEmpty) {
-          0L
-        } else {
-          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSet
+      val maxOfSqls = app.sqlIdToStages.map {
+        case (_, stageIds) =>
           val tasksInSQL = app.taskEnd.filter { tc =>
-            stageIdsForSQL.contains(tc.stageId)
+            stageIds.contains(tc.stageId)
           }
           if (tasksInSQL.isEmpty) {
             0L
           } else {
             tasksInSQL.map(_.input_bytesRead).max
           }
-        }
       }
       val maxVal = if (maxOfSqls.nonEmpty) {
         maxOfSqls.max
@@ -383,7 +313,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
       app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
         SQLDurationExecutorTimeProfileResult(app.index, app.appId, sqlCase.rootExecutionID,
           sqlId, sqlCase.duration, sqlCase.hasDatasetOrRDD,
-          Option(app.appInfo).flatMap(_.duration).orElse(Option(0L)), sqlCase.problematic,
+          app.getAppDuration.orElse(Option(0L)), sqlCase.problematic,
           sqlCase.sqlCpuTimePercent)
       }
     }

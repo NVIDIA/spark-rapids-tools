@@ -19,7 +19,6 @@ package com.nvidia.spark.rapids.tool.profiling
 import scala.collection.Map
 
 import org.apache.spark.resource.{ExecutorResourceRequest, TaskResourceRequest}
-import org.apache.spark.scheduler.StageInfo
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
@@ -159,12 +158,6 @@ case class DriverLogUnsupportedOperators(
   }
 }
 
-class StageInfoClass(val info: StageInfo) {
-  var completionTime: Option[Long] = None
-  var failureReason: Option[String] = None
-  var duration: Option[Long] = None
-}
-
 // note that some things might not be set until after sqlMetricsAggregation called
 class SQLExecutionInfoClass(
     val sqlID: Long,
@@ -300,23 +293,11 @@ case class AppLogPathProfileResults(appIndex: Int, appName: String,
   }
 }
 
-case class ApplicationCase(
-    appName: String, appId: Option[String], sparkUser: String,
-    startTime: Long, endTime: Option[Long], duration: Option[Long],
-    durationStr: String, sparkVersion: String, pluginEnabled: Boolean)
-
 case class SQLPlanMetricsCase(
     sqlID: Long,
     name: String,
     accumulatorId: Long,
     metricType: String)
-
-case class PlanNodeAccumCase(
-    sqlID: Long,
-    nodeID: Long,
-    nodeName: String,
-    nodeDesc: String,
-    accumulatorId: Long)
 
 case class SQLMetricInfoCase(
     sqlID: Long,

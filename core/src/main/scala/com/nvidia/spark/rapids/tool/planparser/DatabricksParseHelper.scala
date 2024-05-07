@@ -39,6 +39,9 @@ object DatabricksParseHelper extends Logging {
   val PROP_WORKER_TYPE_ID_KEY = "spark.databricks.workerNodeTypeId"
   val PROP_DRIVER_TYPE_ID_KEY = "spark.databricks.driverNodeTypeId"
 
+  val SUB_PROP_CLUSTER_ID = "ClusterId"
+  val SUB_PROP_JOB_ID = "JobId"
+  val SUB_PROP_RUN_NAME = "RunName"
   /**
    * Checks if the properties indicate that the application is a Photon app.
    * This ca be checked by looking for keywords in one of the keys defined in PHOTON_SPARK_PROPS
@@ -50,6 +53,10 @@ object DatabricksParseHelper extends Logging {
     PHOTON_SPARK_PROPS.exists { case (key, value) =>
       properties.get(key).exists(_.matches(value))
     }
+  }
+
+  def getSparkVersion(properties: collection.Map[String, String]): String = {
+    properties.getOrElse(PROP_TAG_CLUSTER_SPARK_VERSION_KEY, "")
   }
 
   /**

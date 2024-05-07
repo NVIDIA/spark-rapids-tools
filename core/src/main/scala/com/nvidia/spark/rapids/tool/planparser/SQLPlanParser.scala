@@ -432,8 +432,8 @@ object SQLPlanParser extends Logging {
   def getStagesInSQLNode(node: SparkPlanGraphNode, app: AppBase): Set[Int] = {
     val nodeAccums = node.metrics.map(_.accumulatorId)
     nodeAccums.flatMap { nodeAccumId =>
-      app.accumulatorToStages.get(nodeAccumId)
-    }.flatten.toSet
+      app.stageManager.getStagesIdsByAccumId(nodeAccumId)
+    }.toSet
   }
 
   // Set containing execs that refers to other expressions. We need this to be a list to allow

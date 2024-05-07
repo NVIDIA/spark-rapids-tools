@@ -19,139 +19,43 @@ package org.apache.spark.sql.rapids.tool
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
+import scala.collection.mutable
 import scala.io.{Codec, Source}
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
-import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, HiveParseHelper, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, StageInfoClass, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, SQLExecutionInfoClass, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart, SparkListenerLogStart, StageInfo}
+import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.qualification.MLFunctions
+import org.apache.spark.sql.rapids.tool.store.{StageModel, StageModelManager}
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
 import org.apache.spark.util.Utils
-import org.apache.spark.util.Utils.REDACTION_REPLACEMENT_TEXT
-
-// Handles updating and caching Spark Properties for a Spark application.
-// Properties stored in this container can be accessed to make decision about certain analysis
-// that depends on the context of the Spark properties.
-trait CacheableProps {
-  /**
-   * Important system properties that should be retained.
-   */
-  protected def getRetainedSystemProps: Set[String] = Set(
-    "file.encoding", "java.version", "os.arch", "os.name",
-    "os.version", "user.timezone")
-
-  // Patterns to be used to redact sensitive values from Spark Properties.
-  private val REDACTED_PROPERTIES = Set[String](
-    // S3
-    "spark.hadoop.fs.s3a.secret.key",
-    "spark.hadoop.fs.s3a.access.key",
-    "spark.hadoop.fs.s3a.session.token",
-    "spark.hadoop.fs.s3a.encryption.key",
-    "spark.hadoop.fs.s3a.bucket.nightly.access.key",
-    "spark.hadoop.fs.s3a.bucket.nightly.secret.key",
-    "spark.hadoop.fs.s3a.bucket.nightly.session.token",
-    // ABFS
-    "spark.hadoop.fs.azure.account.oauth2.client.secret",
-    "spark.hadoop.fs.azure.account.oauth2.client.id",
-    "spark.hadoop.fs.azure.account.oauth2.refresh.token",
-    "spark.hadoop.fs.azure.account.key\\..*",
-    "spark.hadoop.fs.azure.account.auth.type\\..*",
-    // GCS
-    "spark.hadoop.google.cloud.auth.service.account.json.keyfile",
-    "spark.hadoop.fs.gs.auth.client.id",
-    "spark.hadoop.fs.gs.encryption.key",
-    "spark.hadoop.fs.gs.auth.client.secret",
-    "spark.hadoop.fs.gs.auth.refresh.token",
-    "spark.hadoop.fs.gs.auth.impersonation.service.account.for.user\\..*",
-    "spark.hadoop.fs.gs.auth.impersonation.service.account.for.group\\..*",
-    "spark.hadoop.fs.gs.auth.impersonation.service.account",
-    "spark.hadoop.fs.gs.proxy.username",
-    // matches on any key that contains password in it.
-    "(?i).*password.*"
-  )
-
-  // caches the spark-version from the eventlogs
-  var sparkVersion: String = ""
-  var gpuMode = false
-  // A flag whether hive is enabled or not. Note that we assume that the
-  // property is global to the entire application once it is set. a.k.a, it cannot be disabled
-  // once it is was set to true.
-  var hiveEnabled = false
-  // A flag to indicate whether the eventlog being processed is an eventlog from Photon.
-  var isPhoton = false
-  var sparkProperties = Map[String, String]()
-  var classpathEntries = Map[String, String]()
-  // set the fileEncoding to UTF-8 by default
-  var systemProperties = Map[String, String]()
-
-  private def processPropKeys(srcMap: Map[String, String]): Map[String, String] = {
-    // Redact the sensitive values in the given map.
-    val redactedKeys = REDACTED_PROPERTIES.collect {
-      case rK if srcMap.keySet.exists(_.matches(rK)) => rK -> REDACTION_REPLACEMENT_TEXT
-    }
-    srcMap ++ redactedKeys
-  }
-
-  /**
-   * Used to validate that the eventlog is allowed to be processed by the Tool
-   * @throws org.apache.spark.sql.rapids.tool.AppEventlogProcessException if the eventlog fails the
-   *                                                                      validation step
-   */
-  @throws(classOf[AppEventlogProcessException])
-  def validateAppEventlogProperties(): Unit = { }
-
-  def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
-    sparkProperties ++= processPropKeys(event.environmentDetails("Spark Properties").toMap)
-    classpathEntries ++= event.environmentDetails("Classpath Entries").toMap
-
-    gpuMode ||=  ProfileUtils.isPluginEnabled(sparkProperties)
-    hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
-    isPhoton ||= DatabricksParseHelper.isPhotonApp(sparkProperties)
-
-    // Update the properties if system environments are set.
-    // No need to capture all the properties in memory. We only capture important ones.
-    systemProperties ++= event.environmentDetails("System Properties").toMap.filterKeys(
-      getRetainedSystemProps.contains(_))
-
-    // After setting the properties, validate the properties.
-    validateAppEventlogProperties()
-  }
-
-  def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
-    // TODO: we need to improve this in order to support per-job-level
-    hiveEnabled ||= HiveParseHelper.isHiveEnabled(event.properties.asScala)
-  }
-
-  def handleLogStartForCachedProps(event: SparkListenerLogStart): Unit = {
-    sparkVersion = event.sparkVersion
-  }
-
-  def isGPUModeEnabledForJob(event: SparkListenerJobStart): Boolean = {
-    gpuMode || ProfileUtils.isPluginEnabled(event.properties.asScala)
-  }
-}
 
 abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
-    val hadoopConf: Option[Configuration]) extends Logging with CacheableProps {
+    val hadoopConf: Option[Configuration]) extends Logging with ClusterTagPropHandler {
 
-  var appId: String = ""
+  var appMetaData: Option[AppMetaData] = None
+
+  // appId is string is stored as a field in the AppMetaData class
+  def appId: String = {
+    appMetaData match {
+      case Some(meta) => meta.appId.getOrElse("")
+      case _ => ""
+    }
+  }
 
   // Store map of executorId to executor info
   val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
 
-  var appEndTime: Option[Long] = None
   // The data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
 
@@ -164,6 +68,7 @@ abstract class AppBase(
   val sqlIDtoProblematic: HashMap[Long, Set[String]] = HashMap[Long, Set[String]]()
   // sqlId to sql info
   val sqlIdToInfo = new HashMap[Long, SQLExecutionInfoClass]()
+  val sqlIdToStages = new HashMap[Long, ArrayBuffer[Int]]()
   // sqlPlans stores HashMap (sqlID <-> SparkPlanInfo)
   var sqlPlans: HashMap[Long, SparkPlanInfo] = HashMap.empty[Long, SparkPlanInfo]
 
@@ -171,13 +76,63 @@ abstract class AppBase(
   var taskStageAccumMap: HashMap[Long, ArrayBuffer[TaskStageAccumCase]] =
     HashMap[Long, ArrayBuffer[TaskStageAccumCase]]()
 
-  val stageIdToInfo: HashMap[(Int, Int), StageInfoClass] = new HashMap[(Int, Int), StageInfoClass]()
-  val accumulatorToStages: HashMap[Long, Set[Int]] = new HashMap[Long, Set[Int]]()
+  lazy val stageManager: StageModelManager = new StageModelManager()
 
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
-  var mlEventLogType = ""
-  var pysparkLogFlag = false
+
+  var clusterInfo: Option[ClusterInfo] = None
+
+  // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
+  // won't be defined for running applications
+  def getEventLogPath: String = {
+    eventLogInfo.map(_.eventLog).getOrElse(new Path("")).toString
+  }
+
+  // Update the endTime of the application and calculate the duration.
+  // This is called while handling ApplicationEnd event
+  def updateEndTime(newEndTime: Long): Unit = {
+    appMetaData.foreach(_.setEndTime(newEndTime))
+  }
+
+  // Returns a boolean flag to indicate whether the endTime was estimated.
+  def isAppDurationEstimated: Boolean = {
+    appMetaData.map(_.isDurationEstimated).getOrElse(false)
+  }
+
+  // Returns the AppName
+  def getAppName: String = {
+    appMetaData.map(_.appName).getOrElse("")
+  }
+
+  // Returns optional endTime in ms.
+  def getAppEndTime: Option[Long] = {
+    appMetaData.flatMap(_.endTime)
+  }
+
+  // Returns optional wallClock duration of the Application
+  def getAppDuration: Option[Long] = {
+    appMetaData.flatMap(_.duration)
+  }
+
+  // Returns a boolean true/false. This is used to check whether processing an eventlog was
+  // successful.
+  def isAppMetaDefined: Boolean = appMetaData.isDefined
+
+  /**
+   * Sets an estimated endTime to the application based on the function passed as an argument.
+   * First it checks if the endTime is already defined or not.
+   * This method is a temporary refactor because both QualAppInfo and ProfAppInfo have different
+   * ways of estimating the endTime.
+   *
+   * @param callBack function to estimate the endTime
+   */
+  def estimateAppEndTime(callBack: () => Option[Long]): Unit = {
+    if (getAppEndTime.isEmpty) {
+      val estimatedResult = callBack()
+      estimatedResult.foreach(eT => appMetaData.foreach(_.setEndTime(eT, estimated = true)))
+    }
+  }
 
   def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
     executorIdToInfo.getOrElseUpdate(executorId, {
@@ -185,52 +140,9 @@ abstract class AppBase(
     })
   }
 
-  def getOrCreateStage(info: StageInfo): StageInfoClass = {
-    val stage = stageIdToInfo.getOrElseUpdate((info.stageId, info.attemptNumber()),
-      new StageInfoClass(info))
+  def getOrCreateStage(info: StageInfo): StageModel = {
+    val stage = stageManager.addStageInfo(info)
     stage
-  }
-
-  def checkMLOps(appId: Int, stageInfo: StageInfoClass): Option[MLFunctions] = {
-    val stageInfoDetails = stageInfo.info.details
-    val mlOps = if (stageInfoDetails.contains(MlOps.sparkml) ||
-      stageInfoDetails.contains(MlOps.xgBoost)) {
-
-      // Check if it's a pyspark eventlog and set the mleventlogtype to pyspark
-      // Once it is set, do not change it to scala if other stageInfoDetails don't match.
-      if (stageInfoDetails.contains(MlOps.pysparkLog)) {
-        if (!pysparkLogFlag) {
-          mlEventLogType = MlOpsEventLogType.pyspark
-          pysparkLogFlag = true
-        }
-      } else {
-        if (!pysparkLogFlag) {
-          mlEventLogType = MlOpsEventLogType.scala
-        }
-      }
-
-      // Consider stageInfo to have below string as an example
-      //org.apache.spark.rdd.RDD.first(RDD.scala:1463)
-      //org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)
-      //org.apache.spark.ml.feature.PCA.fit(PCA.scala:93)
-      val splitString = stageInfoDetails.split("\n")
-
-      // filteredString = org.apache.spark.ml.feature.PCA.fit
-      val filteredString = splitString.filter(
-        string => string.contains(MlOps.sparkml) || string.contains(MlOps.xgBoost)).map(
-        packageName => packageName.split("\\(").head
-      )
-      filteredString
-    } else {
-      Array.empty[String]
-    }
-
-    if (mlOps.nonEmpty) {
-      Some(MLFunctions(Some(appId.toString), stageInfo.info.stageId, mlOps,
-        stageInfo.duration.getOrElse(0)))
-    } else {
-      None
-    }
   }
 
   def getAllStagesForJobsInSqlQuery(sqlID: Long): Seq[Int] = {
@@ -245,15 +157,12 @@ abstract class AppBase(
   def cleanupAccumId(accId: Long): Unit = {
     taskStageAccumMap.remove(accId)
     driverAccumMap.remove(accId)
-    accumulatorToStages.remove(accId)
+    stageManager.removeAccumulatorId(accId)
   }
 
   def cleanupStages(stageIds: Set[Int]): Unit = {
     // stageIdToInfo can have multiple stage attempts, remove all of them
-    stageIds.foreach { stageId =>
-      val toRemove = stageIdToInfo.keys.filter(_._1 == stageId)
-      toRemove.foreach(stageIdToInfo.remove(_))
-    }
+    stageManager.removeStages(stageIds)
   }
 
   def cleanupSQL(sqlID: Long): Unit = {
@@ -289,7 +198,7 @@ abstract class AppBase(
 
   private def openEventLogInternal(log: Path, fs: FileSystem): InputStream = {
     EventLogFileWriter.codecName(log) match {
-      case c if (c.isDefined && c.get.equals("gz")) =>
+      case c if c.isDefined && c.get.equals("gz") =>
         val in = fs.open(log)
         try {
           new GZIPInputStream(in)
@@ -356,49 +265,29 @@ abstract class AppBase(
     ".*second\\(.*\\).*" -> "TIMEZONE second()"
   )
 
-  def containsUDF(desc: String): Boolean = {
-    desc.matches(UDFRegex)
-  }
-
   protected def findPotentialIssues(desc: String): Set[String] =  {
     val potentialIssuesRegexs = potentialIssuesRegexMap
     val issues = potentialIssuesRegexs.filterKeys(desc.matches(_))
     issues.values.toSet
   }
 
-  def getPlanMetaWithSchema(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
-    val childRes = planInfo.children.flatMap(getPlanMetaWithSchema(_))
-    if (planInfo.metadata != null && planInfo.metadata.contains("ReadSchema")) {
-      childRes :+ planInfo
-    } else {
-      childRes
-    }
-  }
-
-  // Finds all the nodes that scan a hive table
-  def getPlanInfoWithHiveScan(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
-    val childRes = planInfo.children.flatMap(getPlanInfoWithHiveScan(_))
-    if (isHiveTableScanNode(planInfo.nodeName)) {
-      childRes :+ planInfo
-    } else {
-      childRes
-    }
-  }
-
-  private def trimSchema(str: String): String = {
-    val index = str.lastIndexOf(",")
-    if (index != -1 && str.contains("...")) {
-      str.substring(0, index)
-    } else {
-      str
-    }
+  /**
+   * Builds cluster information based on executor nodes.
+   * If executor nodes exist, calculates the number of hosts and total cores,
+   * and extracts executor and driver instance types (databricks only)
+   *
+   * @return Cluster information including vendor, cores, number of nodes and maybe
+   *         instance types, driver host, cluster id and cluster name.
+   */
+  protected def buildClusterInfo: Option[ClusterInfo] = {
+    None
   }
 
   // The ReadSchema metadata is only in the eventlog for DataSource V1 readers
   protected def checkMetadataForReadSchema(
       sqlPlanInfoGraph: SqlPlanInfoGraphEntry): ArrayBuffer[DataSourceCase] = {
     // check if planInfo has ReadSchema
-    val allMetaWithSchema = getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
+    val allMetaWithSchema = AppBase.getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
     val allNodes = sqlPlanInfoGraph.sparkPlanGraph.allNodes
     val results = ArrayBuffer[DataSourceCase]()
 
@@ -407,7 +296,7 @@ abstract class AppBase(
       val readSchema = ReadParser.formatSchemaStr(meta.getOrElse("ReadSchema", ""))
       val scanNode = allNodes.filter(node => {
         // Get ReadSchema of each Node and sanitize it for comparison
-        val trimmedNode = trimSchema(ReadParser.parseReadNode(node).schema)
+        val trimmedNode = AppBase.trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
       }).filter(ReadParser.isScanNode(_))
 
@@ -428,7 +317,7 @@ abstract class AppBase(
     // "scan hive" has no "ReadSchema" defined. So, we need to look explicitly for nodes
     // that are scan hive and add them one by one to the dataSource
     if (hiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
-      val allPlanWithHiveScan = getPlanInfoWithHiveScan(sqlPlanInfoGraph.planInfo)
+      val allPlanWithHiveScan = AppBase.getPlanInfoWithHiveScan(sqlPlanInfoGraph.planInfo)
       allPlanWithHiveScan.foreach { hiveReadPlan =>
         val sqlGraph = ToolsPlanGraph(hiveReadPlan)
         val hiveScanNode = sqlGraph.allNodes.head
@@ -476,7 +365,7 @@ abstract class AppBase(
     }
   }
 
-  protected def probNotDataset: HashMap[Long, Set[String]] = {
+  protected def probNotDataset: mutable.HashMap[Long, Set[String]] = {
     sqlIDtoProblematic.filterNot { case (sqlID, _) => sqlIDToDataSetOrRDDCase.contains(sqlID) }
   }
 
@@ -542,10 +431,10 @@ object AppBase {
         individualSchema += tempStringBuilder.toString
         tempStringBuilder.setLength(0)
       } else {
-        tempStringBuilder.append(char);
+        tempStringBuilder.append(char)
       }
     }
-    if (!tempStringBuilder.isEmpty) {
+    if (tempStringBuilder.nonEmpty) {
       individualSchema += tempStringBuilder.toString
     }
 
@@ -605,5 +494,35 @@ object AppBase {
     })
 
     (complexTypes.filter(_.nonEmpty), nestedComplexTypes.filter(_.nonEmpty))
+  }
+
+  private def trimSchema(str: String): String = {
+    val index = str.lastIndexOf(",")
+    if (index != -1 && str.contains("...")) {
+      str.substring(0, index)
+    } else {
+      str
+    }
+  }
+
+  private def getPlanMetaWithSchema(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
+    // TODO: This method does not belong to AppBase. It should move to another member.
+    val childRes = planInfo.children.flatMap(getPlanMetaWithSchema(_))
+    if (planInfo.metadata != null && planInfo.metadata.contains("ReadSchema")) {
+      childRes :+ planInfo
+    } else {
+      childRes
+    }
+  }
+
+  // Finds all the nodes that scan a hive table
+  private def getPlanInfoWithHiveScan(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
+    // TODO: This method does not belong to AppBAse. It should move to another member.
+    val childRes = planInfo.children.flatMap(getPlanInfoWithHiveScan(_))
+    if (isHiveTableScanNode(planInfo.nodeName)) {
+      childRes :+ planInfo
+    } else {
+      childRes
+    }
   }
 }

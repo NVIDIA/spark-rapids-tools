@@ -19,16 +19,17 @@ package org.apache.spark.sql.rapids.tool.qualification
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
-import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, DataWritingCommandExecParser, ExecInfo, PlanInfo, SQLPlanParser}
-import com.nvidia.spark.rapids.tool.profiling._
+import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, ExecInfo, PlanInfo, SQLPlanParser}
 import com.nvidia.spark.rapids.tool.qualification._
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerEnvironmentUpdate, SparkListenerEvent, SparkListenerJobStart}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
+import org.apache.spark.sql.rapids.tool.store.StageModel
 
 
 class QualificationAppInfo(
@@ -45,8 +46,6 @@ class QualificationAppInfo(
   var lastSQLEndTime: Option[Long] = None
   val writeDataFormat: ArrayBuffer[String] = ArrayBuffer[String]()
 
-  var appInfo: Option[QualApplicationInfo] = None
-
   val sqlIDToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
     HashMap.empty[Long, StageTaskQualificationSummary]
   val stageIdToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
@@ -58,11 +57,6 @@ class QualificationAppInfo(
 
   val notSupportFormatAndTypes: HashMap[String, Set[String]] = HashMap[String, Set[String]]()
 
-  // clusterTags can be redacted so try to get ClusterId and ClusterName separately
-  var clusterTags: String = ""
-  var clusterTagClusterId: String = ""
-  var clusterTagClusterName: String = ""
-  var clusterInfo: Option[ClusterInfo] = None
   private lazy val eventProcessor =  new QualificationEventProcessor(this, perSqlOnly)
 
   /**
@@ -120,59 +114,30 @@ class QualificationAppInfo(
     }
   }
 
-  override def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
-    super.handleEnvUpdateForCachedProps(event)
-
-    clusterTags = sparkProperties.getOrElse(DatabricksParseHelper.PROP_ALL_TAGS_KEY, "")
-    clusterTagClusterId =
-      sparkProperties.getOrElse(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY, "")
-    clusterTagClusterName =
-      sparkProperties.getOrElse(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY, "")
-  }
-
-  override def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
-    super.handleJobStartForCachedProps(event)
-    // If the confs are set after SparkSession initialization, it is captured in this event.
-    if (clusterTags.isEmpty) {
-      clusterTags = event.properties.getProperty(DatabricksParseHelper.PROP_ALL_TAGS_KEY, "")
-    }
-    if (clusterTagClusterId.isEmpty) {
-      clusterTagClusterId =
-        event.properties.getProperty(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY, "")
-    }
-    if (clusterTagClusterName.isEmpty) {
-      clusterTagClusterName =
-        event.properties.getProperty(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY, "")
-    }
-  }
-
   // time in ms
   private def calculateAppDuration(startTime: Long): Option[Long] = {
     if (startTime > 0) {
-      val estimatedResult =
-        this.appEndTime match {
-          case Some(_) => this.appEndTime
-          case None =>
-            if (lastSQLEndTime.isEmpty && lastJobEndTime.isEmpty) {
-              None
-            } else {
-              logWarning(s"Application End Time is unknown for $appId, estimating based on" +
-                " job and sql end times!")
-              // estimate the app end with job or sql end times
-              val sqlEndTime = if (this.lastSQLEndTime.isEmpty) 0L else this.lastSQLEndTime.get
-              val jobEndTime = if (this.lastJobEndTime.isEmpty) 0L else lastJobEndTime.get
-              val maxEndTime = math.max(sqlEndTime, jobEndTime)
-              if (maxEndTime == 0) None else Some(maxEndTime)
-            }
+      estimateAppEndTime { () =>
+        if (!(lastSQLEndTime.isEmpty && lastJobEndTime.isEmpty)) {
+          logWarning(s"Application End Time is unknown for $appId, estimating based on" +
+            " job and sql end times!")
+          // estimate the app end with job or sql end times
+          val sqlEndTime = if (this.lastSQLEndTime.isEmpty) 0L else this.lastSQLEndTime.get
+          val jobEndTime = if (this.lastJobEndTime.isEmpty) 0L else lastJobEndTime.get
+          val maxEndTime = math.max(sqlEndTime, jobEndTime)
+          if (maxEndTime == 0) None else Some(maxEndTime)
+        } else {
+          None
         }
-      ProfileUtils.OptionLongMinusLong(estimatedResult, startTime)
+      }
+      getAppDuration
     } else {
       None
     }
   }
 
   // Assume that overhead is the all time windows that do not overlap with a running job.
-  private def calculateJobOverHeadTime(startTime: Long): Long = {
+  private def calculateJobOverHeadTime(appStartTime: Long, appEndTime: Long): Long = {
     // Simple algorithm:
     // 1- sort all jobs by start/endtime.
     // 2- Initialize Time(p) = app.StartTime
@@ -180,7 +145,7 @@ class QualificationAppInfo(
     //    then this must be considered a gap
     // 4- Update Time(p) at the end of each iteration: Time(p+1) = Max(Time(p), job.endTime)
     val sortedJobs = jobIdToInfo.values.toSeq.sortBy(_.startTime)
-    var pivot = startTime
+    var pivot = appStartTime
     var overhead : Long = 0
 
     sortedJobs.foreach { job =>
@@ -191,15 +156,19 @@ class QualificationAppInfo(
       // if jobEndTime is not set, use job.startTime
       pivot = Math.max(pivot, job.endTime.getOrElse(job.startTime))
     }
-    overhead
+    // add in the Gap between maximum job's endTime (pivot)  and the argument jobEndTime
+    if (appEndTime > 0 && pivot < appEndTime) {
+      overhead + appEndTime - pivot
+    } else {
+      overhead
+    }
   }
 
   // Look at the total task times for all jobs/stages that aren't SQL or
   // SQL but dataset or rdd
   private def calculateNonSQLTaskDataframeDuration(
-      taskDFDuration: Long,
-      totalTransitionTime: Long): Long = {
-    val allTaskTime = stageIdToTaskEndSum.values.map(_.totalTaskDuration).sum + totalTransitionTime
+      taskDFDuration: Long): Long = {
+    val allTaskTime = stageIdToTaskEndSum.values.map(_.totalTaskDuration).sum
     val res = allTaskTime - taskDFDuration
     assert(res >= 0)
     res
@@ -391,9 +360,8 @@ class QualificationAppInfo(
         eachStageUnsupported
       }
 
-      // Get stage info for the given stageId.
-      val stageInfos = stageIdToInfo.filterKeys { case (id, _) => id == stageId }
-      val wallclockStageDuration = stageInfos.values.map(x => x.duration.getOrElse(0L)).sum
+      // Get the duration for the given stageId.
+      val wallclockStageDuration = stageManager.getDurationById(stageId)
 
       StageQualSummaryInfo(stageId, stageFinalSpeedupFactor, stageTaskTime,
         finalEachStageUnsupported, numTransitions, transitionsTime, estimated,
@@ -522,37 +490,13 @@ class QualificationAppInfo(
     }
   }
 
-  private def prepareClusterTags: Map[String, String] = {
-    val initialClusterTagsMap = if (clusterTags.nonEmpty) {
-      DatabricksParseHelper.parseClusterTags(clusterTags)
-    } else {
-      Map.empty[String, String]
-    }
-
-    val tagsMapWithClusterId = if (!initialClusterTagsMap.contains(QualOutputWriter.CLUSTER_ID)
-      && clusterTagClusterId.nonEmpty) {
-      initialClusterTagsMap + (QualOutputWriter.CLUSTER_ID -> clusterTagClusterId)
-    } else {
-      initialClusterTagsMap
-    }
-
-    if (!tagsMapWithClusterId.contains(QualOutputWriter.JOB_ID) && clusterTagClusterName.nonEmpty) {
-      val clusterTagJobId = DatabricksParseHelper.parseClusterNameForJobId(clusterTagClusterName)
-      clusterTagJobId.map { jobId =>
-        tagsMapWithClusterId + (QualOutputWriter.JOB_ID -> jobId)
-      }.getOrElse(tagsMapWithClusterId)
-    } else {
-      tagsMapWithClusterId
-    }
-  }
-
   /**
    * Aggregate and process the application after reading the events.
    * @return Option of QualificationSummaryInfo, Some if we were able to process the application
    *         otherwise None.
    */
   def aggregateStats(): Option[QualificationSummaryInfo] = {
-    appInfo.map { info =>
+    appMetaData.map { info =>
       val appDuration = calculateAppDuration(info.startTime).getOrElse(0L)
 
       // if either job or stage failures then we mark as N/A
@@ -594,7 +538,7 @@ class QualificationAppInfo(
       // a stage for every exec
       val allSQLDurations = getAllSQLDurations
 
-      val appName = appInfo.map(_.appName).getOrElse("")
+      val appName = appMetaData.map(_.appName).getOrElse("")
 
       val allClusterTagsMap = prepareClusterTags
 
@@ -614,7 +558,6 @@ class QualificationAppInfo(
         None
       }
 
-      val sparkSQLDFWallClockDuration = allSQLDurations.sum
       val longestSQLDuration = if (allSQLDurations.size > 0) {
         allSQLDurations.max
       } else {
@@ -626,12 +569,15 @@ class QualificationAppInfo(
       val allStagesSummary = perSqlStageSummary.flatMap(_.stageSum)
         .map(sum => sum.stageId -> sum).toMap.values.toSeq
       val sqlDataframeTaskDuration = allStagesSummary.map(s => s.stageTaskTime).sum
-      val totalTransitionsTime = allStagesSummary.map(s => s.transitionTime).sum
       val unsupportedSQLTaskDuration = calculateSQLUnsupportedTaskDuration(allStagesSummary)
-      val endDurationEstimated = this.appEndTime.isEmpty && appDuration > 0
-      val jobOverheadTime = calculateJobOverHeadTime(info.startTime)
+      val endDurationEstimated = this.isAppDurationEstimated && appDuration > 0
+      val appEndTime = appDuration + info.startTime
+      val jobOverheadTime = calculateJobOverHeadTime(info.startTime, appEndTime)
       val nonSQLDataframeTaskDuration =
-        calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration, totalTransitionsTime)
+        calculateNonSQLTaskDataframeDuration(sqlDataframeTaskDuration)
+
+      // this is weird we are adding wallclock with serialized task duration
+      // issue - https://github.com/NVIDIA/spark-rapids-tools/issues/987
       val nonSQLTaskDuration = nonSQLDataframeTaskDuration + jobOverheadTime
       // note that these ratios are based off the stage times which may be missing some stage
       // overhead or execs that didn't have associated stages
@@ -653,43 +599,40 @@ class QualificationAppInfo(
         _.unsupportedExprs.map(_.exprName))).flatten.filter(_.nonEmpty).toSet.mkString(";")
         .trim.replaceAll("\n", "").replace(",", ":")
 
-      // check if there are any SparkML/XGBoost functions or expressions if the mlOpsEnabled
-      // config is true
-      val mlFunctions = if (mlOpsEnabled) {
-        getMlFuntions
-      } else {
-        None
-      }
+      // TODO - this is not correct as this is using the straight stage wall
+      // clock time and hasn't been adjusted to the app duration wall clock
+      // which could be different if things are overlapping, but this
+      // feature is not used by anyone we know of so leave for now
+      val mlFuncReportInfo = getMlSpeedupAndDur
 
-      val mlTotalStageDuration = if (mlFunctions.isDefined) {
-        getMlTotalStageDuration(mlFunctions.get)
-      } else {
-        None
-      }
-
-      val mlSpeedup = if (mlTotalStageDuration.nonEmpty) {
-        getMlSpeedUp(mlTotalStageDuration.get, mlEventLogType)
-      } else {
-        None
-      }
-
-      // get the ratio based on the Task durations that we will use for wall clock durations
-      // totalTransitionTime is the overhead time for ColumnarToRow/RowToColumnar transitions
-      // which impacts the GPU ratio.
-      val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
-        supportedSQLTaskDuration.toDouble / (
-          sqlDataframeTaskDuration.toDouble + totalTransitionsTime.toDouble)
+      // now lets estimate the wall clock times based on the ratios of task times
+      // and apply that to the app duration
+      val allTaskTime = stageIdToTaskEndSum.values.map(_.totalTaskDuration).sum
+      // this is time of all SQL or dataframe operations. So excludes non sql
+      // like RDD/ml stuff and job overhead time
+      val sqlDfWallEstimatedRatio = if (allTaskTime > 0) {
+        sqlDataframeTaskDuration.toDouble / allTaskTime
       } else {
         1
       }
+      // This is the time of just the SQL or dataframe operations that we
+      // support with the Spark Rapids plugin
+      val supportedsqlDfWallEstimatedRatio = if (allTaskTime > 0) {
+        supportedSQLTaskDuration.toDouble / allTaskTime
+      } else {
+        1
+      }
+      // Exclude jobOverheadTime from appDuration, app duration is what we are using
+      // as the real wall clock time
+      val appDurationNoOverhead = appDuration - jobOverheadTime
 
-      val wallClockSqlDFToUse = QualificationAppInfo.wallClockSqlDataFrameToUse(
-        sparkSQLDFWallClockDuration, appDuration)
-
-      val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
-        sparkSQLDFWallClockDuration, appDuration, taskSpeedupFactor, appName, appId,
-        sqlIdsWithFailures.nonEmpty, mlSpeedup, unSupportedExecs, unSupportedExprs,
-        allClusterTagsMap)
+      // truncate the double fields to double precision to ensure that unit-tests do not explicitly
+      // set the format to match the output. Removing the truncation from here requires modifying
+      // TestQualificationSummary to truncate the same fields to match the CSV static samples.
+      val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(appDurationNoOverhead,
+        sqlDfWallEstimatedRatio, supportedsqlDfWallEstimatedRatio, taskSpeedupFactor,
+        appDuration, appName, appId, sqlIdsWithFailures.nonEmpty, mlFuncReportInfo.speedup,
+        mlFuncReportInfo.mlWallClockDur, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
 
       val clusterSummary = ClusterSummary(info.appName, appId,
         eventLogInfo.map(_.eventLog.toString), clusterInfo)
@@ -699,12 +642,42 @@ class QualificationAppInfo(
         notSupportFormatAndTypesString, getAllReadFileFormats, writeFormat,
         allComplexTypes, nestedComplexTypes, longestSQLDuration, sqlDataframeTaskDuration,
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
-        taskSpeedupFactor, info.sparkUser, info.startTime, wallClockSqlDFToUse,
+        taskSpeedupFactor, info.sparkUser, info.startTime, estimatedInfo.sqlDfDuration,
         origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
-        unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap, mlFunctions,
-        mlTotalStageDuration, unsupportedOpsReason, clusterSummary)
+        unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap,
+        mlFuncReportInfo.mlFunctionsAndStageInfo, mlFuncReportInfo.mlTotalStageDurations,
+        unsupportedOpsReason, clusterSummary)
     }
+  }
+
+  private def getMlSpeedupAndDur(): MLFunctionReportInfo = {
+    // check if there are any SparkML/XGBoost functions or expressions if the mlOpsEnabled
+    // config is true
+    val mlFunctionsAndStageInfo = if (mlOpsEnabled) {
+      getStagesWithMlFuntions
+    } else {
+      None
+    }
+    val mlTotalStageDurations = if (mlFunctionsAndStageInfo.isDefined) {
+      getMlTotalStageDuration(mlFunctionsAndStageInfo.get)
+    } else {
+      None
+    }
+    val mlSpeedupAndDur = if (mlTotalStageDurations.nonEmpty) {
+      getMlSpeedUp(mlTotalStageDurations.get, mlEventLogType)
+    } else {
+      None
+    }
+    val (mlSpeedup, stageDur) = if (mlSpeedupAndDur.isDefined) {
+      val speedUp = mlSpeedupAndDur.get.averageSpeedup
+      // wall clock of the stage
+      val duration = mlSpeedupAndDur.get.duration
+      (speedUp, duration.toDouble)
+    } else {
+      (1.0, 0.0)
+    }
+    MLFunctionReportInfo(mlSpeedup, stageDur, mlFunctionsAndStageInfo, mlTotalStageDurations)
   }
 
   def getPerSQLWallClockSummary(sqlStageSums: Seq[SQLStageSummary], sqlDataFrameDuration: Long,
@@ -714,17 +687,28 @@ class QualificationAppInfo(
     val supportedSQLTaskDuration = calculateSQLSupportedTaskDuration(allStagesSummary)
     val taskSpeedupFactor = calculateSpeedupFactor(allStagesSummary)
 
-    // get the ratio based on the Task durations that we will use for wall clock durations
-    val estimatedGPURatio = if (sqlDataframeTaskDuration > 0) {
-      supportedSQLTaskDuration.toDouble / sqlDataframeTaskDuration.toDouble
+    // since this is per sql output we are ignoring stages outside the sql so the
+    // ratio here should just be 1
+    val sqlDfWallEstimatedRatio = 1
+    // This is the time of just the SQL or dataframe operations that we
+    // support with the Spark Rapids plugin. Since this is per sql we just
+    // use the total sqlDataframeTaskDuration as the overall time
+    val supportedsqlDfWallEstimatedRatio = if (sqlDataframeTaskDuration > 0) {
+      supportedSQLTaskDuration.toDouble / sqlDataframeTaskDuration
     } else {
       1
     }
-    // reusing the same function here (calculateEstimatedInfoSummary) as the app level,
-    // there is no app duration so just set it to sqlDataFrameDuration
-    QualificationAppInfo.calculateEstimatedInfoSummary(estimatedGPURatio,
-      sqlDataFrameDuration, sqlDataFrameDuration, taskSpeedupFactor, appName,
-      appId, hasFailures)
+
+    // Since this is a per sql calculation the overall app duration is just the
+    // sqlDataFrameDuration
+    // Exclude jobOverheadTime from appDuration, app duration is what we are using
+    // as the real wall clock time
+    val appDurationNoOverhead = sqlDataFrameDuration
+    val appDuration = appDurationNoOverhead
+
+    QualificationAppInfo.calculateEstimatedInfoSummary(appDurationNoOverhead,
+      sqlDfWallEstimatedRatio, supportedsqlDfWallEstimatedRatio, taskSpeedupFactor,
+      appDuration, appName, appId, hasFailures)
   }
 
   private def getAllSQLDurations: Seq[Long] = {
@@ -755,12 +739,55 @@ class QualificationAppInfo(
     }.toSeq
   }
 
-  private def getMlFuntions: Option[Seq[MLFunctions]] = {
-    val mlFunctions = stageIdToInfo.flatMap { case ((appId, _), stageInfo) =>
-      checkMLOps(appId, stageInfo)
+  private def getStagesWithMlFuntions: Option[Seq[MLFunctions]] = {
+    val mlFunctions = stageManager.getAllStages.flatMap { case sModel =>
+      checkMLOps(Some(appId), sModel)
     }
+
     if (mlFunctions.nonEmpty) {
       Some(mlFunctions.toSeq.sortBy(mlops => mlops.stageId))
+    } else {
+      None
+    }
+  }
+
+  private def checkMLOps(appId: Option[String], stageModel: StageModel): Option[MLFunctions] = {
+    val stageInfoDetails = stageModel.sInfo.details
+    val mlOps = if (stageInfoDetails.contains(MlOps.sparkml) ||
+      stageInfoDetails.contains(MlOps.xgBoost)) {
+
+      // Check if it's a pyspark eventlog and set the mleventlogtype to pyspark
+      // Once it is set, do not change it to scala if other stageInfoDetails don't match.
+      if (stageInfoDetails.contains(MlOps.pysparkLog)) {
+        if (!pysparkLogFlag) {
+          mlEventLogType = MlOpsEventLogType.pyspark
+          pysparkLogFlag = true
+        }
+      } else {
+        if (!pysparkLogFlag) {
+          mlEventLogType = MlOpsEventLogType.scala
+        }
+      }
+
+      // Consider stageInfo to have below string as an example
+      //org.apache.spark.rdd.RDD.first(RDD.scala:1463)
+      //org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)
+      //org.apache.spark.ml.feature.PCA.fit(PCA.scala:93)
+      val splitString = stageInfoDetails.split("\n")
+
+      // filteredString = org.apache.spark.ml.feature.PCA.fit
+      val filteredString = splitString.filter(
+        string => string.contains(MlOps.sparkml) || string.contains(MlOps.xgBoost)).map(
+        packageName => packageName.split("\\(").head
+      )
+      filteredString
+    } else {
+      Array.empty[String]
+    }
+
+    if (mlOps.nonEmpty) {
+      Some(MLFunctions(appId, stageModel.sId, mlOps,
+        stageModel.getDuration))
     } else {
       None
     }
@@ -770,7 +797,7 @@ class QualificationAppInfo(
       mlFunctions: Seq[MLFunctions]): Option[Seq[MLFuncsStageDuration]] = {
     // Get ML function names, durations and stage Id's
     val mlFuncs = mlFunctions.map(mlFun => (mlFun.mlOps, mlFun.duration, mlFun.stageId))
-    // Check if the ML function is supported on GPU, if so then save it as corresonding simple
+    // Check if the ML function is supported on GPU, if so then save it as corresponding simple
     // function name along with it's duration and stage Id.
     // Example: (org.apache.spark.ml.feature.PCA.fit, 200) becomes (PCA, 200)
     val supportedMlFuncsStats = SupportedMLFuncsName.funcName.map(
@@ -844,7 +871,7 @@ class QualificationAppInfo(
    * @return Cluster information including vendor, cores, number of nodes and maybe
    *         instance types, driver host, cluster id and cluster name.
    */
-  private def buildClusterInfo: Option[ClusterInfo] = {
+  override def buildClusterInfo: Option[ClusterInfo] = {
     // TODO: Handle dynamic allocation when determining the number of nodes.
     sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
       if (value.toBoolean) {
@@ -873,6 +900,14 @@ class QualificationAppInfo(
     clusterInfo = buildClusterInfo
   }
 }
+
+case class MLFunctionReportInfo(
+    speedup: Double,
+    // this is the wall clock of the stage
+    mlWallClockDur: Double,
+    mlFunctionsAndStageInfo: Option[Seq[MLFunctions]],
+    mlTotalStageDurations: Option[Seq[MLFuncsStageDuration]]
+)
 
 // Estimate based on wall clock times
 case class EstimatedAppInfo(
@@ -912,6 +947,7 @@ case class MLFunctions(
     appID: Option[String],
     stageId: Int,
     mlOps: Array[String],
+    @WallClock
     duration: Long
 )
 
@@ -933,25 +969,6 @@ class StageTaskQualificationSummary(
     var executorCPUTime: Long,
     var totalTaskDuration: Long,
     var totalbytesRead: Long)
-
-case class QualApplicationInfo(
-    appName: String,
-    appId: Option[String],
-    startTime: Long,
-    sparkUser: String,
-    endTime: Option[Long], // time in ms
-    duration: Option[Long],
-    endDurationEstimated: Boolean)
-
-case class QualSQLExecutionInfo(
-    sqlID: Long,
-    startTime: Long,
-    endTime: Option[Long],
-    duration: Option[Long],
-    durationStr: String,
-    sqlQualDuration: Option[Long],
-    hasDataset: Boolean,
-    problematic: String = "")
 
 // Case class representing status summary information for a particular application.
 case class StatusSummaryInfo(
@@ -1004,6 +1021,8 @@ case class StageQualSummaryInfo(
     numTransitions: Int,
     transitionTime: Long,
     estimated: Boolean = false,
+    @WallClock
+    @Calculated("Calculated as the difference between submission and completion times")
     stageWallclockDuration: Long = 0,
     unsupportedExecs: Seq[ExecInfo] = Seq.empty)
 
@@ -1058,54 +1077,57 @@ object QualificationAppInfo extends Logging {
     }
   }
 
-  def wallClockSqlDataFrameToUse(sqlDataFrameDuration: Long, appDuration: Long): Long = {
-    // If our app duration is shorter than our sql duration, estimate the sql duration down
-    // to app duration
-    math.min(sqlDataFrameDuration, appDuration)
-  }
-
-  // Summarize and estimate based on wall clock times
-  def calculateEstimatedInfoSummary(estimatedRatio: Double, sqlDataFrameDuration: Long,
-      appDuration: Long, sqlSpeedupFactor: Double, appName: String, appId: String,
-      hasFailures: Boolean, mlSpeedupFactor: Option[MLFuncsSpeedupAndDuration] = None,
-      unsupportedExecs: String = "", unsupportedExprs: String = "",
+  def calculateEstimatedInfoSummary(appDurationNoOverhead: Long,
+      sqlDfWallEstimatedRatio: Double,
+      supportedsqlDfWallEstimatedRatio: Double, taskSpeedupFactor: Double,
+      appDuration: Long,  appName: String, appId: String,
+      hasFailures: Boolean, mlSpeedup: Double = 1.0, mlWallClockDur: Double = 0.0,
+      unSupportedExecs: String = "", unSupportedExprs: String = "",
       allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedAppInfo = {
-    val sqlDataFrameDurationToUse = wallClockSqlDataFrameToUse(sqlDataFrameDuration, appDuration)
 
-    // get the average speedup and duration for ML funcs supported on GPU
-    val (mlSpeedup, mlDuration) = if (mlSpeedupFactor.isDefined) {
-      val speedUp = mlSpeedupFactor.get.averageSpeedup
-      val duration = mlSpeedupFactor.get.duration
-      (speedUp, duration.toDouble)
+    // apply the task ratio we calculated above to the app duration wall clock to get
+    // an estimate of what the wall clock time is for all of the SQL and Dataframe operations
+    val sqlDfWallDuration = appDurationNoOverhead * sqlDfWallEstimatedRatio
+    // apply the task ratio we calculated above to the app duration wall clock to get
+    // an estimate of what the wall clock time is for just the Spark Rapids GPU supported
+    // SQL and Dataframe operations
+    val supportedSqlDfWallDuration = appDurationNoOverhead * supportedsqlDfWallEstimatedRatio
+
+    // this includes the not supported SQL, nonSQL (excluding supported ml) and job overhead
+    // Note that the wall clock for ml here is not completely the same since using stage
+    // wall clock and not ratio of task time to app duration but good enough for now
+    val estWallClockDurNotOnGpuNoSupportedML = appDuration - supportedSqlDfWallDuration -
+      mlWallClockDur
+    val mlWallClockDurWithSpeedup = if (mlWallClockDur > 0) {
+      (mlWallClockDur / mlSpeedup)
     } else {
-      (1.0, 0.0)
+      0
     }
-
-    val speedUpOpportunitySQL = sqlDataFrameDurationToUse * estimatedRatio
-    val speedupOpportunityWallClock = speedUpOpportunitySQL + mlDuration
-    val estimated_wall_clock_dur_not_on_gpu = appDuration - speedupOpportunityWallClock
-    val estimated_gpu_duration = (speedUpOpportunitySQL / sqlSpeedupFactor) +
-      estimated_wall_clock_dur_not_on_gpu + (mlDuration / mlSpeedup)
-    val estimated_gpu_speedup = if (appDuration == 0 || estimated_gpu_duration == 0) {
+    // this is the new estimated wall clock time when we apply the GPU speedup factors
+    val estWallClockDurWithGpuAccel = (supportedSqlDfWallDuration / taskSpeedupFactor) +
+      estWallClockDurNotOnGpuNoSupportedML + mlWallClockDurWithSpeedup
+    val appDurSpeedupWithGPUAccel = if (appDuration == 0 || estWallClockDurWithGpuAccel == 0) {
       0
     } else {
-      appDuration / estimated_gpu_duration
+      appDuration / estWallClockDurWithGpuAccel
     }
-    val estimated_gpu_timesaved = appDuration - estimated_gpu_duration
-    val recommendation = getRecommendation(estimated_gpu_speedup, hasFailures)
+    val estGpuTimeSaved = appDuration - estWallClockDurWithGpuAccel
+    val recommendation = getRecommendation(appDurSpeedupWithGPUAccel, hasFailures)
 
     // truncate the double fields to double precision to ensure that unit-tests do not explicitly
     // set the format to match the output. Removing the truncation from here requires modifying
     // TestQualificationSummary to truncate the same fields to match the CSV static samples.
-    EstimatedAppInfo(appName, appId, appDuration,
-      sqlDataFrameDurationToUse,
-      speedupOpportunityWallClock.toLong,
-      estimated_gpu_duration,
-      estimated_gpu_speedup,
-      estimated_gpu_timesaved,
+    EstimatedAppInfo(appName,
+      appId,
+      appDuration,
+      sqlDfWallDuration.toLong,
+      supportedSqlDfWallDuration.toLong,
+      estWallClockDurWithGpuAccel,
+      appDurSpeedupWithGPUAccel,
+      estGpuTimeSaved,
       recommendation,
-      unsupportedExecs,
-      unsupportedExprs,
+      unSupportedExecs,
+      unSupportedExprs,
       allClusterTagsMap)
   }
 
@@ -1125,7 +1147,7 @@ object QualificationAppInfo extends Logging {
     try {
       val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
         reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
-      if (app.appInfo.isEmpty) {
+      if (!app.isAppMetaDefined) {
         throw IncorrectAppStatusException()
       }
       logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
