@@ -172,10 +172,8 @@ class Analysis(apps: Seq[ApplicationInfo]) {
   def sqlMetricsAggregation(): Seq[SQLTaskAggMetricsProfileResult] = {
     val allRows = apps.flatMap { app =>
       app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
-        val stagesInSQL = app.sqlIdToStages.getOrElse(sqlId, ArrayBuffer.empty)
-        if (stagesInSQL.isEmpty) {
-          None
-        } else {
+        if (app.sqlIdToStages.contains(sqlId)) {
+          val stagesInSQL = app.sqlIdToStages(sqlId)
           val tasksInSQL = app.taskEnd.filter { tc =>
             stagesInSQL.contains(tc.stageId)
           }
@@ -192,7 +190,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
 
             // set this here, so make sure we don't get it again until later
             sqlCase.sqlCpuTimePercent = execCPURatio
-           
+
             val (durSum, durMax, durMin, durAvg) = getDurations(tasksInSQL)
             Some(SQLTaskAggMetricsProfileResult(app.index,
               app.appId,
@@ -234,6 +232,8 @@ class Analysis(apps: Seq[ApplicationInfo]) {
               tasksInSQL.map(_.sw_writeTime).sum
             ))
           }
+        } else {
+          None
         }
       }
     }
