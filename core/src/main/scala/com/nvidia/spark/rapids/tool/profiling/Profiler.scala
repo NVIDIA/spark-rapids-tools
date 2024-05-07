@@ -336,6 +336,11 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
     val collect = new CollectInformation(apps)
     val appInfo = collect.getAppInfo
+    // Fail early to skip further processing
+    if (appInfo.isEmpty) {
+      throw new RuntimeException("Failed to process application because the " +
+        "eventlog does not contain any SparkListenerApplicationStart event")
+    }
     val appLogPath = collect.getAppLogPath
     val dsInfo = collect.getDataSourceInfo
     val execInfo = collect.getExecutorInfo
