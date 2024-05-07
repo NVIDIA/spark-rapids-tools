@@ -351,6 +351,8 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
             + res.name + ",value=" + res.value + ",update=" + res.update)
       }
     }
+    // Create Task Objects and update the taskEnd dataStructure.
+    app.taskManager.addTaskFromEvent(event)
   }
 
   override def onTaskEnd(taskEnd: SparkListenerTaskEnd): Unit = {

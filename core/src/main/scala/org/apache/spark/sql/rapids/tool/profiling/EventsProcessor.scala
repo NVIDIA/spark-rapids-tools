@@ -16,15 +16,12 @@
 
 package org.apache.spark.sql.rapids.tool.profiling
 
-import java.util.concurrent.TimeUnit
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.profiling._
 
-import org.apache.spark.TaskFailedReason
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui.{SparkListenerSQLAdaptiveExecutionUpdate, SparkListenerSQLAdaptiveSQLMetricUpdates, SparkListenerSQLExecutionStart}
@@ -115,62 +112,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     super.doSparkListenerEnvironmentUpdate(app, event)
 
     logDebug(s"App's GPU Mode = ${app.gpuMode}")
-  }
-
-  override def doSparkListenerTaskEnd(
-      app: ApplicationInfo,
-      event: SparkListenerTaskEnd): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    super.doSparkListenerTaskEnd(app, event)
-    val reason = event.reason match {
-      case failed: TaskFailedReason =>
-        failed.toErrorString
-      case _ =>
-        event.reason.toString
-    }
-
-    val thisTask = TaskCase(
-      event.stageId,
-      event.stageAttemptId,
-      event.taskType,
-      reason,
-      event.taskInfo.taskId,
-      event.taskInfo.attemptNumber,
-      event.taskInfo.launchTime,
-      event.taskInfo.finishTime,
-      event.taskInfo.duration,
-      event.taskInfo.successful,
-      event.taskInfo.executorId,
-      event.taskInfo.host,
-      event.taskInfo.taskLocality.toString,
-      event.taskInfo.speculative,
-      event.taskInfo.gettingResultTime,
-      event.taskMetrics.executorDeserializeTime,
-      TimeUnit.NANOSECONDS.toMillis(event.taskMetrics.executorDeserializeCpuTime),
-      event.taskMetrics.executorRunTime,
-      TimeUnit.NANOSECONDS.toMillis(event.taskMetrics.executorCpuTime),
-      event.taskMetrics.peakExecutionMemory,
-      event.taskMetrics.resultSize,
-      event.taskMetrics.jvmGCTime,
-      event.taskMetrics.resultSerializationTime,
-      event.taskMetrics.memoryBytesSpilled,
-      event.taskMetrics.diskBytesSpilled,
-      event.taskMetrics.shuffleReadMetrics.remoteBlocksFetched,
-      event.taskMetrics.shuffleReadMetrics.localBlocksFetched,
-      event.taskMetrics.shuffleReadMetrics.fetchWaitTime,
-      event.taskMetrics.shuffleReadMetrics.remoteBytesRead,
-      event.taskMetrics.shuffleReadMetrics.remoteBytesReadToDisk,
-      event.taskMetrics.shuffleReadMetrics.localBytesRead,
-      event.taskMetrics.shuffleReadMetrics.totalBytesRead,
-      event.taskMetrics.shuffleWriteMetrics.bytesWritten,
-      TimeUnit.NANOSECONDS.toMillis(event.taskMetrics.shuffleWriteMetrics.writeTime),
-      event.taskMetrics.shuffleWriteMetrics.recordsWritten,
-      event.taskMetrics.inputMetrics.bytesRead,
-      event.taskMetrics.inputMetrics.recordsRead,
-      event.taskMetrics.outputMetrics.bytesWritten,
-      event.taskMetrics.outputMetrics.recordsWritten
-    )
-    app.taskEnd += thisTask
   }
 
   override def doSparkListenerSQLExecutionStart(

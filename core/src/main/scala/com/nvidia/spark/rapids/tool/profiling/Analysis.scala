@@ -17,10 +17,10 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.profiling._
+import org.apache.spark.sql.rapids.tool.store.TaskModel
 
 /**
  * Does analysis on the DataFrames
@@ -28,7 +28,7 @@ import org.apache.spark.sql.rapids.tool.profiling._
  */
 class Analysis(apps: Seq[ApplicationInfo]) {
 
-  def getDurations(tcs: ArrayBuffer[TaskCase]): (Long, Long, Long, Double) = {
+  def getDurations(tcs: Iterable[TaskModel]): (Long, Long, Long, Double) = {
     val durations = tcs.map(_.duration)
     if (durations.nonEmpty ) {
       (durations.sum, durations.max, durations.min,
@@ -60,10 +60,9 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     val allRows = apps.flatMap { app =>
       // create a cache of stage rows to be used by the job aggregator
       val cachedStageRows = new mutable.LinkedHashMap[Int, JobStageAggTaskMetricsProfileResult]()
+      // TODO: this has stage attempts. we should handle different attempts
       app.stageManager.getAllStages.foreach { case sm =>
-        val tasksInStage = app.taskEnd.filter { tc =>
-          tc.stageId == sm.sId && tc.stageAttemptId == sm.attemptId
-        }
+        val tasksInStage = app.taskManager.getTasks(sm.sId, sm.attemptId)
         // count duplicate task attempts
         val numAttempts = tasksInStage.size
         val (durSum, durMax, durMin, durAvg) = getDurations(tasksInStage)
@@ -174,9 +173,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
       app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
         if (app.sqlIdToStages.contains(sqlId)) {
           val stagesInSQL = app.sqlIdToStages(sqlId)
-          val tasksInSQL = app.taskEnd.filter { tc =>
-            stagesInSQL.contains(tc.stageId)
-          }
+          val tasksInSQL = app.taskManager.getTasksByStageIds(stagesInSQL)
           if (tasksInSQL.isEmpty) {
             None
           } else {
@@ -253,9 +250,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     val allRows = apps.flatMap { app =>
       app.sqlIdToStages.map {
         case (sqlId, stageIds) =>
-          val tasksInSQL = app.taskEnd.filter { tc =>
-            stageIds.contains(tc.stageId)
-          }
+          val tasksInSQL = app.taskManager.getTasksByStageIds(stageIds)
           if (tasksInSQL.isEmpty) {
             None
           } else {
@@ -290,9 +285,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     apps.map { app =>
       val maxOfSqls = app.sqlIdToStages.map {
         case (_, stageIds) =>
-          val tasksInSQL = app.taskEnd.filter { tc =>
-            stageIds.contains(tc.stageId)
-          }
+          val tasksInSQL = app.taskManager.getTasksByStageIds(stageIds)
           if (tasksInSQL.isEmpty) {
             0L
           } else {
@@ -332,40 +325,29 @@ class Analysis(apps: Seq[ApplicationInfo]) {
 
   def shuffleSkewCheck(): Seq[ShuffleSkewProfileResult] = {
     val allRows = apps.flatMap { app =>
-      val tasksPerStageAttempt = app.taskEnd.groupBy { tc =>
-        (tc.stageId, tc.stageAttemptId)
-      }
-      val avgsStageInfos = tasksPerStageAttempt.map { case ((sId, saId), tcArr) =>
-        val sumDuration = tcArr.map(_.duration).sum
-        val avgDuration = ToolUtils.calculateAverage(sumDuration, tcArr.size, 2)
-        val sumShuffleReadBytes = tcArr.map(_.sr_totalBytesRead).sum
-        val avgShuffleReadBytes = ToolUtils.calculateAverage(sumShuffleReadBytes, tcArr.size, 2)
-        ((sId, saId), AverageStageInfo(avgDuration, avgShuffleReadBytes))
-      }
+      val avgsStageInfos = app.taskManager.stageAttemptToTasks.collect {
+        case (stageId, attemptsToTasks) if attemptsToTasks.nonEmpty =>
+          attemptsToTasks.map { case (attemptId, tasks) =>
+            val sumDuration = tasks.map(_.duration).sum
+            val avgDuration = ToolUtils.calculateAverage(sumDuration, tasks.size, 2)
+            val sumShuffleReadBytes = tasks.map(_.sr_totalBytesRead).sum
+            val avgShuffleReadBytes = ToolUtils.calculateAverage(sumShuffleReadBytes, tasks.size, 2)
+            ((stageId, attemptId), AverageStageInfo(avgDuration, avgShuffleReadBytes))
+          }
+      }.flatten
 
-      val tasksWithSkew = app.taskEnd.filter { tc =>
-        val avgShuffleDur = avgsStageInfos.get((tc.stageId, tc.stageAttemptId))
-        avgShuffleDur match {
-          case Some(avg) =>
-            (tc.sr_totalBytesRead > 3 * avg.avgShuffleReadBytes) &&
-              (tc.sr_totalBytesRead > 100 * 1024 * 1024)
-          case None => false
-        }
-      }
-
-      tasksWithSkew.map { tc =>
-        val avgShuffleDur = avgsStageInfos.get((tc.stageId, tc.stageAttemptId))
-        avgShuffleDur match {
-          case Some(avg) =>
-            Some(ShuffleSkewProfileResult(app.index, tc.stageId, tc.stageAttemptId,
-              tc.taskId, tc.attempt, tc.duration, avg.avgDuration, tc.sr_totalBytesRead,
-              avg.avgShuffleReadBytes, tc.peakExecutionMemory, tc.successful, tc.endReason))
-          case None =>
-            None
+      avgsStageInfos.flatMap { case ((stageId, attemptId), avg) =>
+        val definedTasks =
+          app.taskManager.getTasks(stageId, attemptId, Some(
+            tc => (tc.sr_totalBytesRead > 3 * avg.avgShuffleReadBytes)
+              && (tc.sr_totalBytesRead > 100 * 1024 * 1024)))
+        definedTasks.map { tc =>
+          Some(ShuffleSkewProfileResult(app.index, stageId, attemptId,
+            tc.taskId, tc.attempt, tc.duration, avg.avgDuration, tc.sr_totalBytesRead,
+            avg.avgShuffleReadBytes, tc.peakExecutionMemory, tc.successful, tc.endReason))
         }
       }
     }
-
     val allNonEmptyRows = allRows.flatMap(row => row)
     if (allNonEmptyRows.nonEmpty) {
       val sortedRows = allNonEmptyRows.sortBy { cols =>

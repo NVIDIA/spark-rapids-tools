@@ -26,7 +26,7 @@ class HealthCheck(apps: Seq[ApplicationInfo]) {
   // Function to list all failed tasks , stages and jobs.
   def getFailedTasks: Seq[FailedTaskProfileResults] = {
     val failed = apps.flatMap { app =>
-      val tasksFailed = app.taskEnd.filter(_.successful == false)
+      val tasksFailed = app.taskManager.getAllFailedTasks
       tasksFailed.map { t =>
         FailedTaskProfileResults(app.index, t.stageId, t.stageAttemptId,
           t.taskId, t.attempt, ProfileUtils.truncateFailureStr(t.endReason))

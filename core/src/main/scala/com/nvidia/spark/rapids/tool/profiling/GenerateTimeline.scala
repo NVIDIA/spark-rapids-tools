@@ -295,7 +295,7 @@ object GenerateTimeline {
       app.taskStageAccumMap.get(id)
     }.flatten
 
-    app.taskEnd.foreach { tc =>
+    app.taskManager.getAllTasks().foreach { tc =>
       val host = tc.host
       val execId = tc.executorId
       val stageId = tc.stageId
