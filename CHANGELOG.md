@@ -1,6 +1,27 @@
 
 <br/>
 
+## Release [v24.04.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.04.0)
+Generated on 2024-05-07
+### User Tools
+
+- [FEA] Add CLI to run prediction on estimation_model ([#961](https://github.com/NVIDIA/spark-rapids-tools/pull/961))
+- Adding SHAP predict values as new output file ([#982](https://github.com/NVIDIA/spark-rapids-tools/pull/982))
+- Update docs for building to clarify to build in a virtual environment ([#976](https://github.com/NVIDIA/spark-rapids-tools/pull/976))
+
+### Core
+
+- [BUG] Catch Profiler error when app info is empty ([#994](https://github.com/NVIDIA/spark-rapids-tools/pull/994))
+- Get stages from sqlId for collecting info for output writer functions ([#996](https://github.com/NVIDIA/spark-rapids-tools/pull/996))
+- Account for joboverhead time in qualification tool estimation ([#992](https://github.com/NVIDIA/spark-rapids-tools/pull/992))
+- [Followup] Fix handling of clusterTags and SparkVersion in Q/P Tools ([#993](https://github.com/NVIDIA/spark-rapids-tools/pull/993))
+- Fix handling of clusterTags and SparkVersion in Q/P Tools ([#991](https://github.com/NVIDIA/spark-rapids-tools/pull/991))
+- Refactor AppBase to use common AppMetaData between Q/P tools ([#983](https://github.com/NVIDIA/spark-rapids-tools/pull/983))
+- Refactor Stage info code between Q/P tools ([#971](https://github.com/NVIDIA/spark-rapids-tools/pull/971))
+
+
+<br/>
+
 ## Release [v24.02.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.02.4)
 Generated on 2024-04-30
 ### User Tools
