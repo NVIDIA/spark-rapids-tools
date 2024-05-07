@@ -172,15 +172,10 @@ class Analysis(apps: Seq[ApplicationInfo]) {
   def sqlMetricsAggregation(): Seq[SQLTaskAggMetricsProfileResult] = {
     val allRows = apps.flatMap { app =>
       app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
-        val jcs = app.jobIdToInfo.filter { case (_, jc) =>
-          jc.sqlID.isDefined && jc.sqlID.get == sqlId
-        }
-        if (jcs.isEmpty) {
-          None
-        } else {
-          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSet
+        if (app.sqlIdToStages.contains(sqlId)) {
+          val stagesInSQL = app.sqlIdToStages(sqlId)
           val tasksInSQL = app.taskEnd.filter { tc =>
-            stageIdsForSQL.contains(tc.stageId)
+            stagesInSQL.contains(tc.stageId)
           }
           if (tasksInSQL.isEmpty) {
             None
@@ -195,7 +190,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
 
             // set this here, so make sure we don't get it again until later
             sqlCase.sqlCpuTimePercent = execCPURatio
-           
+
             val (durSum, durMax, durMin, durAvg) = getDurations(tasksInSQL)
             Some(SQLTaskAggMetricsProfileResult(app.index,
               app.appId,
@@ -237,6 +232,8 @@ class Analysis(apps: Seq[ApplicationInfo]) {
               tasksInSQL.map(_.sw_writeTime).sum
             ))
           }
+        } else {
+          None
         }
       }
     }
@@ -254,17 +251,10 @@ class Analysis(apps: Seq[ApplicationInfo]) {
 
   def ioAnalysis(): Seq[IOAnalysisProfileResult] = {
     val allRows = apps.flatMap { app =>
-      app.sqlIdToInfo.map { case (sqlId, _) =>
-        val jcs = app.jobIdToInfo.filter { case (_, jc) =>
-          jc.sqlID.isDefined && jc.sqlID.get == sqlId
-        }
-        if (jcs.isEmpty) {
-          None
-        } else {
-          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSet
-
+      app.sqlIdToStages.map {
+        case (sqlId, stageIds) =>
           val tasksInSQL = app.taskEnd.filter { tc =>
-            stageIdsForSQL.contains(tc.stageId)
+            stageIds.contains(tc.stageId)
           }
           if (tasksInSQL.isEmpty) {
             None
@@ -283,7 +273,6 @@ class Analysis(apps: Seq[ApplicationInfo]) {
               tasksInSQL.map(_.sw_bytesWritten).sum
             ))
           }
-        }
       }
     }
     val allFiltered = allRows.flatMap(row => row)
@@ -299,23 +288,16 @@ class Analysis(apps: Seq[ApplicationInfo]) {
 
   def getMaxTaskInputSizeBytes(): Seq[SQLMaxTaskInputSizes] = {
     apps.map { app =>
-      val maxOfSqls = app.sqlIdToInfo.map { case (sqlId, _) =>
-        val jcs = app.jobIdToInfo.filter { case (_, jc) =>
-          jc.sqlID.isDefined && jc.sqlID.get == sqlId
-        }
-        if (jcs.isEmpty) {
-          0L
-        } else {
-          val stageIdsForSQL = jcs.flatMap(_._2.stageIds).toSet
+      val maxOfSqls = app.sqlIdToStages.map {
+        case (_, stageIds) =>
           val tasksInSQL = app.taskEnd.filter { tc =>
-            stageIdsForSQL.contains(tc.stageId)
+            stageIds.contains(tc.stageId)
           }
           if (tasksInSQL.isEmpty) {
             0L
           } else {
             tasksInSQL.map(_.input_bytesRead).max
           }
-        }
       }
       val maxVal = if (maxOfSqls.nonEmpty) {
         maxOfSqls.max
