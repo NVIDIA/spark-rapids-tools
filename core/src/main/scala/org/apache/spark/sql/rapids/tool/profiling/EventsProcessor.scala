@@ -17,8 +17,6 @@
 package org.apache.spark.sql.rapids.tool.profiling
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
-import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.profiling._
 
@@ -26,7 +24,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui.{SparkListenerSQLAdaptiveExecutionUpdate, SparkListenerSQLAdaptiveSQLMetricUpdates, SparkListenerSQLExecutionStart}
 import org.apache.spark.sql.rapids.tool.EventProcessorBase
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, StringUtils}
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
  * This class is to process all events and do validation in the end.
@@ -119,33 +117,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
       event: SparkListenerSQLExecutionStart): Unit = {
     super.doSparkListenerSQLExecutionStart(app, event)
     app.physicalPlanDescription += (event.executionId -> event.physicalPlanDescription)
-  }
-
-  override def doSparkListenerStageCompleted(
-      app: ApplicationInfo,
-      event: SparkListenerStageCompleted): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    super.doSparkListenerStageCompleted(app, event)
-
-    // Parse stage accumulables
-    for (res <- event.stageInfo.accumulables) {
-      try {
-        val accumInfo = res._2
-        EventUtils.buildTaskStageAccumFromAccumInfo(accumInfo,
-          event.stageInfo.stageId, event.stageInfo.attemptNumber()).foreach { thisMetric =>
-          val arrBuf = app.taskStageAccumMap.getOrElseUpdate(accumInfo.id,
-            ArrayBuffer[TaskStageAccumCase]())
-          arrBuf += thisMetric
-        }
-      } catch {
-        case NonFatal(e) =>
-          logWarning("Exception when parsing accumulables on stage-completed " +
-              "stageID=" + event.stageInfo.stageId + ": ")
-          logWarning(e.toString)
-          logWarning("The problematic accumulable is: name="
-              + res._2.name + ",value=" + res._2.value + ",update=" + res._2.update)
-      }
-    }
   }
 
   override def doSparkListenerTaskGettingResult(

@@ -60,6 +60,7 @@ class TaskModelManager {
   }
 
   // Given a stageID and stageAttemptID, return all tasks or Empty iterable.
+  // The returned tasks will be filtered by the the predicate func if the latter exists
   def getTasks(stageID: Int, stageAttemptID: Int,
       predicateFunc: Option[TaskModel => Boolean] = None): Iterable[TaskModel] = {
     stageAttemptToTasks.get(stageID).flatMap { stageAttempts =>
@@ -82,6 +83,7 @@ class TaskModelManager {
     }.getOrElse(Iterable.empty)
   }
 
+  // Returns the combined list of all tasks that satisfy the predicate function if it exists.
   def getAllTasks(predicateFunc: Option[TaskModel => Boolean] = None): Iterable[TaskModel] = {
     stageAttemptToTasks.collect {
       case (_, attemptsToTasks) if attemptsToTasks.nonEmpty =>

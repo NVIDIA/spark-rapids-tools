@@ -62,6 +62,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
       val cachedStageRows = new mutable.LinkedHashMap[Int, JobStageAggTaskMetricsProfileResult]()
       // TODO: this has stage attempts. we should handle different attempts
       app.stageManager.getAllStages.foreach { case sm =>
+        // TODO: Should we only consider successful tasks?
         val tasksInStage = app.taskManager.getTasks(sm.sId, sm.attemptId)
         // count duplicate task attempts
         val numAttempts = tasksInStage.size
@@ -173,6 +174,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
       app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
         if (app.sqlIdToStages.contains(sqlId)) {
           val stagesInSQL = app.sqlIdToStages(sqlId)
+          // TODO: Should we only consider successful tasks?
           val tasksInSQL = app.taskManager.getTasksByStageIds(stagesInSQL)
           if (tasksInSQL.isEmpty) {
             None
@@ -250,6 +252,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     val allRows = apps.flatMap { app =>
       app.sqlIdToStages.map {
         case (sqlId, stageIds) =>
+          // TODO: Should we only consider successful tasks?
           val tasksInSQL = app.taskManager.getTasksByStageIds(stageIds)
           if (tasksInSQL.isEmpty) {
             None
@@ -285,6 +288,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
     apps.map { app =>
       val maxOfSqls = app.sqlIdToStages.map {
         case (_, stageIds) =>
+          // TODO: Should we only consider successful tasks?
           val tasksInSQL = app.taskManager.getTasksByStageIds(stageIds)
           if (tasksInSQL.isEmpty) {
             0L
@@ -325,6 +329,7 @@ class Analysis(apps: Seq[ApplicationInfo]) {
 
   def shuffleSkewCheck(): Seq[ShuffleSkewProfileResult] = {
     val allRows = apps.flatMap { app =>
+      // TODO: Should we only consider successful tasks?
       val avgsStageInfos = app.taskManager.stageAttemptToTasks.collect {
         case (stageId, attemptsToTasks) if attemptsToTasks.nonEmpty =>
           attemptsToTasks.map { case (attemptId, tasks) =>

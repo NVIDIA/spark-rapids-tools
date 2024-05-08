@@ -444,6 +444,26 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       event: SparkListenerStageCompleted): Unit = {
     logDebug("Processing event: " + event.getClass)
     app.getOrCreateStage(event.stageInfo)
+    // TODO: Should accumulators be added only if the stage is successful?
+    // Parse stage accumulables
+    for (res <- event.stageInfo.accumulables) {
+      try {
+        val accumInfo = res._2
+        EventUtils.buildTaskStageAccumFromAccumInfo(accumInfo,
+          event.stageInfo.stageId, event.stageInfo.attemptNumber()).foreach { thisMetric =>
+          val arrBuf = app.taskStageAccumMap.getOrElseUpdate(accumInfo.id,
+            ArrayBuffer[TaskStageAccumCase]())
+          arrBuf += thisMetric
+        }
+      } catch {
+        case NonFatal(e) =>
+          logWarning("Exception when parsing accumulables on stage-completed " +
+            "stageID=" + event.stageInfo.stageId + ": ")
+          logWarning(e.toString)
+          logWarning("The problematic accumulable is: name="
+            + res._2.name + ",value=" + res._2.value + ",update=" + res._2.update)
+      }
+    }
   }
 
   override def onStageCompleted(stageCompleted: SparkListenerStageCompleted): Unit = {
