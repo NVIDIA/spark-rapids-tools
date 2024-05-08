@@ -46,10 +46,15 @@ toolOutput:
            - Cluster Id
            - Cluster Name
            - App Name
-         columns:
-           - App Duration
-           - Estimated GPU Duration
-           - Unsupported Operators Stage Duration
+         aggregate:
+           - column: App Duration
+             function: 'mean'
+           - column: Estimated GPU Duration
+             function: 'mean'
+           - column: Unsupported Operators Stage Duration
+             function: 'mean'
+           - column: Skip by Heuristics
+             function: 'any'
       dropDuplicates:
         - Vendor
         - Driver Host
@@ -232,6 +237,7 @@ local:
     speedupCategories:
       speedupColumnName: 'Estimated GPU Speedup'
       categoryColumnName: 'Estimated GPU Speedup Category'
+      heuristicsColumnName: 'Skip by Heuristics'
       categories:
         - title: 'Not Applicable'
           lowerBound: -1000000.0
@@ -253,6 +259,30 @@ local:
           lowerBound: 0.0
           upperBound: 25.0
       defaultCategory: 'Not Recommended'
+    additionalHeuristics:
+      appInfo:
+        fileName: 'application_information.csv'
+      resultCols:
+        - 'App Name'
+        - 'App ID'
+        - 'Skip by Heuristics'
+      spillBased:
+        jobStageAggMetrics:
+          fileName: 'job_+_stage_level_aggregated_task_metrics.csv'
+          columns:
+            - 'ID'
+            - 'diskBytesSpilled_sum'
+            - 'memoryBytesSpilled_sum'
+        sqlToStageInfo:
+          fileName: 'sql_to_stage_information.csv'
+          columns:
+            - 'stageId'
+            - 'SQL Nodes(IDs)'
+        spillThresholdBytes: 1000000000
+        allowedExecs:
+          - 'Aggregate'
+          - 'Join'
+          - 'Sort'
     predictionModel:
       outputDirectory: 'xgboost_predictions'
       files:

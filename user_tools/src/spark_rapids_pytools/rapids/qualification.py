@@ -31,6 +31,7 @@ from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, QualEstimationModel
 from spark_rapids_tools.tools.model_xgboost import predict
+from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.speedup_category import SpeedupCategory
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
@@ -439,9 +440,12 @@ class Qualification(RapidsJarTool):
         all_apps_count = len(all_apps)
 
         group_info = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
-        for group_col in group_info['columns']:
-            valid_group_cols = Utilities.get_valid_df_columns(group_info['keys'], all_apps)
-            all_apps[group_col] = all_apps.groupby(valid_group_cols)[group_col].transform('mean')
+        valid_group_cols = Utilities.get_valid_df_columns(group_info['keys'], all_apps)
+        for agg_info in group_info['aggregate']:
+            agg_col = agg_info['column']
+            if agg_col in all_apps.columns:
+                all_apps[agg_col] = all_apps.groupby(valid_group_cols)[agg_col].transform(
+                    agg_info['function'])
 
         drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
         valid_drop_cols = Utilities.get_valid_df_columns(drop_arr, all_apps)
@@ -694,12 +698,16 @@ class Qualification(RapidsJarTool):
         # Calculate unsupported operators stage duration before grouping
         all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
         apps_pruned_df = self.__remap_columns_and_prune(all_apps)
+        additional_heuristics = AdditionalHeuristics(
+            props=self.ctxt.get_value('local', 'output', 'additionalHeuristics'),
+            output_dir=self.ctxt.get_local('outputFolder'))
+        apps_pruned_df = additional_heuristics.apply_heuristics(apps_pruned_df)
         speedup_category_ob = SpeedupCategory(self.ctxt.get_value('local', 'output', 'speedupCategories'))
-        # Calculate the speedup category column
-        apps_pruned_df = speedup_category_ob.build_category_column(apps_pruned_df)
-        apps_pruned_df.to_csv(output_files_info['full']['path'], float_format='%.2f')
+        # Calculate the speedup category column, send a copy of the dataframe to avoid modifying the original
+        apps_pruned_result = speedup_category_ob.build_category_column(apps_pruned_df.copy())
+        apps_pruned_result.to_csv(output_files_info['full']['path'], float_format='%.2f')
+        # Group the applications and recalculate metrics
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
-        # Recalculate the speedup category column after grouping
         apps_grouped_df = speedup_category_ob.build_category_column(apps_grouped_df)
         recommended_apps = self.__get_recommended_apps(apps_grouped_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
