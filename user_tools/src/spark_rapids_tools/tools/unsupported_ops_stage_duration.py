@@ -42,7 +42,9 @@ class UnsupportedOpsStageDuration:
         result_df[result_col_name] = result_df[result_col_name].fillna(0)
         # Update the percentage column
         perc_result_col_name = self.props.get('percentResultColumnName')
-        result_df[perc_result_col_name] = result_df[result_col_name] * 100.0 / result_df['App Duration']
+        # Calculate the percentage of total application duration, clip the value to 100.0
+        result_df[perc_result_col_name] = ((result_df[result_col_name] * 100.0 / result_df['App Duration'])
+                                           .clip(upper=100.0))
         return result_df
 
     def __calculate_unsupported_stages_duration(self, unsupported_ops_df: pd.DataFrame) -> pd.DataFrame:

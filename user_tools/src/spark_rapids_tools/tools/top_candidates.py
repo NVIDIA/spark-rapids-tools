@@ -41,5 +41,7 @@ class TopCandidates:
         """
         output_columns = self.props.get('outputColumns')
         sorting_columns = self.props.get('sortingColumns')
+        valid_output_columns = list(all_apps.columns.intersection(output_columns))
+        valid_sorting_columns = list(all_apps.columns.intersection(sorting_columns))
         # Sort columns and select output columns
-        return all_apps.sort_values(by=sorting_columns, ascending=False)[output_columns]
+        return all_apps.sort_values(by=valid_sorting_columns, ascending=False)[valid_output_columns]
