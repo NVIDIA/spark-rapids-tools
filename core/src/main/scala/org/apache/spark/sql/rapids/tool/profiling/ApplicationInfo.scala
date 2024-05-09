@@ -16,11 +16,11 @@
 
 package org.apache.spark.sql.rapids.tool.profiling
 
-import scala.collection.{mutable, Map}
+import scala.collection.{Map, mutable}
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
-import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
+import com.nvidia.spark.rapids.tool.planparser.{ReadParser, SQLPlanParser}
 import com.nvidia.spark.rapids.tool.profiling._
 import org.apache.hadoop.conf.Configuration
 
@@ -347,6 +347,96 @@ class ApplicationInfo(
   }
 
   def aggregateSQLStageInfo: Seq[SQLStageInfoProfileResult] = {
+    logWarning("Number before count " + sqlPlans.size)
+
+    val noDeltaLogs = sqlPlans.filter {
+      case (id, planInfo) =>
+        val planGraph = ToolsPlanGraph(planInfo)
+        val sqlDesc = sqlIdToInfo(id).description
+
+        val leftoverNodes = planGraph.nodes.filter { node =>
+          val normalizedNodeName = node.name.stripSuffix("$")
+          // logWarning(" normalizedNodeName " + normalizedNodeName)
+          normalizedNodeName match {
+            case "RDDScanExec" =>
+              if (sqlDesc.contains("Delta Table State") ||
+              sqlDesc.contains("Delta Table Checkpoint") ||
+              sqlDesc.contains("delta_log")) {
+                // logWarning("Remove " + id + "  Batch scan plan: " +
+                // planInfo + " node: " + node.name
+                //  + " desc: " + sqlDesc + " node desc " + node.desc)
+                false
+              } else {
+                // logWarning("KEEP rddscaneexec")
+                true
+              }
+            case s if s.contains("WholeStageCodegen") =>
+              val deltaLogLoc = "(.*)_delta_log(.*)".r
+              if (deltaLogLoc.findFirstIn(sqlDesc).isDefined) {
+                // logWarning("Remove " + id +
+                //  " WholeStageCodegen: " + planInfo + " node: " + node.name
+                //  + " desc: " + sqlDesc + " node desc " + node.desc)
+                false
+              } else {
+                // logWarning("KEEP id: " + id + " doesn't WholeStageCodegen match " +
+                 // "regex deltalog " + sqlDesc)
+                true
+              }
+            case "LocalTableScan" =>
+              /* val res = if (sqlDesc.contains("stats_parsed.numRecords")) {
+                // logWarning("Remove " + id + " LocalTableScan: " + planInfo + " node: " + node.name
+                //  + " desc: " + sqlDesc + " node desc " + node.desc)
+                false
+              } else {
+                // logWarning("KEEP local table scan didn't include stats parsed!")
+                true
+              }
+              // logWarning("local table scan rest is " + res)
+              // res
+               */
+              false
+            case s if ReadParser.isScanNode(s) =>
+              val deltaLogLoc = ".*Location:(.*)_delta_log(.*)".r
+              val deltaLogLocStateCache = ".*Delta Table State(.*)_delta_log(.*)".r
+              val deltaLogStateCacheCheckpoint = ".*Delta Table Checkpoint(.*)_delta_log(.*)".r
+              val checkpoint = ".*Location:(.*)checkpoint(.*).parquet(.*)".r
+              if (deltaLogLoc.findFirstIn(sqlDesc).isDefined ||
+                  checkpoint.findFirstIn(sqlDesc).isDefined ||
+                deltaLogLocStateCache.findFirstIn(sqlDesc).isDefined ||
+                deltaLogStateCacheCheckpoint.findFirstIn(sqlDesc).isDefined ||
+                sqlDesc.contains("_databricks_internal")) {
+                // logWarning("Remove " + id +
+                //  " read parser scan plan: " + planInfo + " node: " + node.name
+                //   + " desc: " + sqlDesc + " node desc " + node.desc)
+                false
+              } else {
+                // logWarning("KEEP id: " + id + " doesn't match regex deltalog " + sqlDesc)
+                true
+              }
+
+            case _ =>
+              // logWarning(" NOT scan plan: " + node.name + " normalized " + normalizedNodeName)
+              true
+          }
+        }
+        if (leftoverNodes.size < planGraph.nodes.size) {
+          // logWarning("REMOVE SQL id: " + id + " desc: " + sqlIdToInfo(id).description)
+
+          false
+        } else {
+          // logWarning("KEEP sql id: " + id +
+           // " desc: " + sqlIdToInfo(id).description)
+          true
+        }
+      case _ =>
+        true
+    }.toSeq
+    logWarning("no delta log count " + noDeltaLogs.size + " ids: "
+      + noDeltaLogs.map(_._1).sorted.mkString(","))
+    noDeltaLogs.map(_._1).sorted.foreach { id =>
+      logWarning("KEEP sql id: " + id + " desc: " + sqlIdToInfo(id).description)
+    }
+
     val jobsWithSQL = jobIdToInfo.filter { case (_, j) =>
       j.sqlID.nonEmpty
     }
