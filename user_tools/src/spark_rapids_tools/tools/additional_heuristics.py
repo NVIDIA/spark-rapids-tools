@@ -94,8 +94,7 @@ class AdditionalHeuristics:
         spill_threshold_bytes = self.props.get_value('spillBased', 'spillThresholdBytes')
         stages_with_spills = job_stage_agg_metrics[
             job_stage_agg_metrics['ID'].str.startswith('stage') &
-            (job_stage_agg_metrics['diskBytesSpilled_sum'] +
-             job_stage_agg_metrics['memoryBytesSpilled_sum'] > spill_threshold_bytes)
+            (job_stage_agg_metrics['memoryBytesSpilled_sum'] > spill_threshold_bytes)
             ].copy()
         stages_with_spills['stageId'] = stages_with_spills['ID'].str.extract(r'(\d+)').astype(int)
 

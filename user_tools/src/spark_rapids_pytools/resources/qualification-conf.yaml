@@ -271,7 +271,6 @@ local:
           fileName: 'job_+_stage_level_aggregated_task_metrics.csv'
           columns:
             - 'ID'
-            - 'diskBytesSpilled_sum'
             - 'memoryBytesSpilled_sum'
         sqlToStageInfo:
           fileName: 'sql_to_stage_information.csv'
