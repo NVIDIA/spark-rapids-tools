@@ -113,6 +113,9 @@ local:
       full:
         name: qualification_summary_full.csv
         outputComment: "Full savings and speedups CSV report"
+      clusterShapeRecommendation:
+        name: cluster_shape_recommendation.json
+        outputComment: "Cluster shape recommendation report"
     costColumns:
       - 'Savings Based Recommendation'
       - 'Estimated App Cost'

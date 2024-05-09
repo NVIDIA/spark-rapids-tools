@@ -521,25 +521,36 @@ class DataprocCluster(ClusterBase):
         return self.props.get_value_silent('config', 'softwareConfig', 'imageVersion')
 
     def _set_render_args_create_template(self) -> dict:
-        worker_node = self.get_worker_node()
+        render_args = super()._set_render_args_create_template()
+        cluster_config = self.get_cluster_configuration()
+        render_args['IMAGE'] = self.get_image_version()
+        render_args['LOCAL_SSD'] = cluster_config.get('additionalConfig').get('localSsd')
+        render_args['GPU_DEVICE'] = cluster_config.get('gpuInfo').get('device')
+        render_args['GPU_PER_WORKER'] = cluster_config.get('gpuInfo').get('gpuPerWorker')
+        return render_args
+
+    def get_cluster_configuration(self) -> dict:
+        """
+        Overrides to provide the cluster configuration which is specific to Dataproc.
+        """
+        cluster_config = super().get_cluster_configuration()
         gpu_per_machine, gpu_device = self.get_gpu_per_worker()
-        # map the gpu device to the equivalent accepted argument
-        gpu_device_hash = {
-            'T4': 'nvidia-tesla-t4',
-            'L4': 'nvidia-l4'
-        }
-        return {
-            'CLUSTER_NAME': self.get_name(),
-            'REGION': self.region,
-            'ZONE': self.zone,
-            'IMAGE': self.get_image_version(),
-            'MASTER_MACHINE': self.get_master_node().instance_type,
-            'WORKERS_COUNT': self.get_workers_count(),
-            'WORKERS_MACHINE': worker_node.instance_type,
-            'LOCAL_SSD': 2,
-            'GPU_DEVICE': gpu_device_hash.get(gpu_device),
-            'GPU_PER_WORKER': gpu_per_machine
-        }
+        if gpu_device and gpu_per_machine > 0:
+            gpu_device_hash = {
+                'T4': 'nvidia-tesla-t4',
+                'L4': 'nvidia-l4'
+            }
+            additional_config = {
+                'gpuInfo': {
+                    'device': gpu_device_hash.get(gpu_device),
+                    'gpuPerWorker': gpu_per_machine
+                },
+                'additionalConfig': {
+                    'localSsd': 2
+                }
+            }
+            cluster_config.update(additional_config)
+        return cluster_config
 
     def _generate_node_configuration(self, render_args: dict = None) -> Union[str, dict]:
         """
