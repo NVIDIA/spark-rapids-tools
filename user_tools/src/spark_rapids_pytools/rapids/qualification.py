@@ -120,7 +120,7 @@ class QualificationSummary:
                 output_comment = wrapper_output_files_info[entry]['outputComment']
                 if path is not None:
                     abs_path = FSUtil.get_abs_path(path)
-                    if FSUtil.resource_exists(abs_path): # check if the file exists
+                    if FSUtil.resource_exists(abs_path):  # check if the file exists
                         report_content.append(f'    - {output_comment}: {abs_path}')
 
             pretty_df = df_pprinter(self.df_result)
