@@ -22,6 +22,7 @@ operations.
 """
 
 import abc
+import os
 import sys
 from collections import defaultdict
 from functools import cached_property
@@ -216,6 +217,8 @@ class CspPath(metaclass=CspPathMeta):
     """
     protocol_prefix: str
     _path_meta: CspPathImplementation
+    from spark_rapids_pytools.common.utilities import ToolLogging
+    logger = ToolLogging.get_and_setup_logger('spark_rapids_tools.csppath')
 
     @staticmethod
     def is_file_path(file_path: Union[str, PathlibPath],
@@ -255,13 +258,20 @@ class CspPath(metaclass=CspPathMeta):
             entry_path: Union[str, Self],
             fs_obj: Optional['CspFs'] = None
     ) -> None:
+        self.logger.info('init CspPath')
         self.is_valid_csppath(entry_path, raise_on_error=True)
         self._fpath = str(entry_path)
+        self.logger.info('self._fpath = %s', self._fpath)
+        if self._fpath.startswith("abfss://"):
+            account_name = self._fpath.split('@')[1].split('.')[0]
+            self.logger.info("account name = %s", account_name)
+            os.environ['AZURE_STORAGE_ACCOUNT_NAME'] = account_name
         if fs_obj is None:
             if isinstance(entry_path, CspPath):
                 fs_obj = entry_path.fs_obj
             else:
                 fs_obj = self._path_meta.fs_class.get_default_client()
+        self.logger.info("fs_obj = %s", fs_obj)
         if not isinstance(fs_obj, self._path_meta.fs_class):
             raise FSMismatchError(
                 f'Client of type [{fs_obj.__class__}] is not valid for cloud path of type '
