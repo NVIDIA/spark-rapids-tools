@@ -104,7 +104,8 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       default = Some(false))
   val outputSqlIdsAligned: ScallopOption[Boolean] =
     opt[Boolean](required = false,
-      descr = "Output the SQL Ids after being cleaned to be able to align cpu/gpu runs.",
+      descr = "Output the SQL Ids after being cleaned of delta log metadata operations to " +
+        "allow aligning cpu/gpu runs.",
       default = Some(false))
   val workerInfo: ScallopOption[String] =
     opt[String](required = false,
