@@ -163,6 +163,7 @@ class SQLExecutionInfoClass(
     val sqlID: Long,
     val rootExecutionID: Option[Long],
     val description: String,
+    val physicalPlanDesc: String,
     val details: String,
     val startTime: Long,
     var endTime: Option[Long],

@@ -352,7 +352,7 @@ class ApplicationInfo(
     val noDeltaLogs = sqlPlans.filter {
       case (id, planInfo) =>
         val planGraph = ToolsPlanGraph(planInfo)
-        val sqlDesc = sqlIdToInfo(id).description
+        val sqlDesc = sqlIdToInfo(id).physicalPlanDesc
 
         // TODO - if we use allNodes do we need the wholestagecodegen?
         val leftoverNodes = planGraph.allNodes.filter { node =>
@@ -473,7 +473,7 @@ class ApplicationInfo(
     logWarning("no delta log count " + noDeltaLogs.size + " ids: "
       + noDeltaLogs.map(_._1).sorted.mkString(","))
     noDeltaLogs.map(_._1).sorted.foreach { id =>
-      logWarning("KEEP sql id: " + id + " desc: " + sqlIdToInfo(id).description)
+      logWarning("KEEP sql id: " + id + " desc: " + sqlIdToInfo(id).physicalPlanDesc)
     }
 
     val jobsWithSQL = jobIdToInfo.filter { case (_, j) =>

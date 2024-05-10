@@ -19,7 +19,7 @@ package org.apache.spark.sql.rapids.tool.qualification
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
-import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, ExecInfo, PlanInfo, ReadParser, SQLPlanParser}
+import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, ExecInfo, PlanInfo, SQLPlanParser}
 import com.nvidia.spark.rapids.tool.qualification._
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.conf.Configuration
@@ -30,7 +30,6 @@ import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
 import org.apache.spark.sql.rapids.tool.store.StageModel
-import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 
 class QualificationAppInfo(
@@ -491,47 +490,6 @@ class QualificationAppInfo(
     }
   }
 
-  /*
-  val deltaLogScans = PlanUtils.findOperators(plan, {
-    case f: FileSourceScanExec if DeltaLakeUtils.isDatabricksDeltaLakeScan(f) =>
-      logDebug(s"Fallback for FileSourceScanExec with _databricks_internal: $f")
-      true
-    case f: FileSourceScanExec =>
-      val checkDeltaFunc = (name: String) => if (detectDeltaCheckpoint) {
-        name.contains("/_delta_log/") && (name.endsWith(".json") ||
-          (name.endsWith(".parquet") && new Path(name).getName().contains("checkpoint")))
-      } else {
-        name.contains("/_delta_log/") && name.endsWith(".json")
-      }
-
-      // example filename: "file:/tmp/delta-table/_delta_log/00000000000000000000.json"
-      val found = f.relation.inputFiles.exists { name =>
-        checkDeltaFunc(name)
-      }
-      if (found) {
-        logDebug(s"Fallback for FileSourceScanExec delta log: $f")
-      }
-      found
-    case rdd: RDDScanExec =>
-      // example rdd name: "Delta Table State #1 - file:///tmp/delta-table/_delta_log" or
-      // "Scan ExistingRDD Delta Table Checkpoint with Stats #1 -
-      // file:///tmp/delta-table/_delta_log"
-      val found = rdd.inputRDD != null &&
-        rdd.inputRDD.name != null &&
-        (rdd.inputRDD.name.startsWith("Delta Table State")
-          || rdd.inputRDD.name.startsWith("Delta Table Checkpoint")) &&
-        rdd.inputRDD.name.endsWith("/_delta_log")
-      if (found) {
-        logDebug(s"Fallback for RDDScanExec delta log: $rdd")
-      }
-      found
-
-      def isDatabricksDeltaLakeScan(f: FileSourceScanExec): Boolean = {
-     f.requiredSchema.fields.exists(_.name.startsWith("_databricks_internal"))
-   }
-
-   */
-
   /**
    * Aggregate and process the application after reading the events.
    * @return Option of QualificationSummaryInfo, Some if we were able to process the application
@@ -557,54 +515,6 @@ class QualificationAppInfo(
       val writeFormat = writeFormatNotSupported(writeDataFormat)
       val (allComplexTypes, nestedComplexTypes) = reportComplexTypes
       val problems = getAllPotentialProblems(getPotentialProblemsForDf, nestedComplexTypes)
-
-      logWarning("plans before count " +  sqlPlans.size)
-
-      val noDeltaLogs = sqlPlans.filter {
-        case (id, planInfo)  =>
-          val planGraph = ToolsPlanGraph(planInfo)
-          val sqlDesc = sqlIdToInfo(id).description
-
-          val leftoverNodes = planGraph.nodes.filter { node =>
-            val normalizedNodeName = node.name.stripSuffix("$")
-
-            normalizedNodeName match {
-              case "BatchScan" =>
-                logWarning("Batch scan plan: " + planInfo + " node: " + node.name
-                  + " desc: " + sqlDesc + " node desc " + node.desc)
-                false
-              case "LocalTableScan" =>
-                logWarning("LocalTableScan: " + planInfo + " node: " + node.name
-                  + " desc: " + sqlDesc + " node desc " + node.desc)
-                val res = if (sqlDesc.contains("stats_parsed.numRecords")) {
-                  false
-                } else {
-                  logWarning("local table scan didn't include stats parsed!")
-                  true
-                }
-                logWarning("local table scan rest is " + res)
-                res
-              case s if ReadParser.isScanNode(s) =>
-                logWarning("read parser scan plan: " + planInfo + " node: " + node.name
-                  + " desc: " + sqlDesc + " node desc " + node.desc)
-                false
-              case _ =>
-                logWarning("NOT scan plan: " + node.name + " normalized " + normalizedNodeName)
-                true
-            }
-          }
-          if (leftoverNodes.size < planGraph.nodes.size) {
-            logWarning("REMOVE SQL id: " + id)
-            false
-          } else {
-            logWarning("KEEP sql id: " + id)
-            true
-          }
-        case _ =>
-          true
-      }.toSeq
-      logWarning("no delta log count " +  noDeltaLogs.size + " ids: "
-        + noDeltaLogs.map(_._1).mkString(","))
 
       val origPlanInfos = sqlPlans.collect {
         case (id, plan) if sqlIdToInfo.contains(id) =>

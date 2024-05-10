@@ -140,6 +140,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     val sqlExecution = new SQLExecutionInfoClass(
       event.executionId,
       rootExecutionIdOpt,
+      event.description,
       event.physicalPlanDescription,
       event.details,
       event.time,
