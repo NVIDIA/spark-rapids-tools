@@ -354,48 +354,71 @@ class ApplicationInfo(
         val planGraph = ToolsPlanGraph(planInfo)
         val sqlDesc = sqlIdToInfo(id).description
 
-        val leftoverNodes = planGraph.nodes.filter { node =>
+        // TODO - if we use allNodes do we need the wholestagecodegen?
+        val leftoverNodes = planGraph.allNodes.filter { node =>
           val normalizedNodeName = node.name.stripSuffix("$")
           // logWarning(" normalizedNodeName " + normalizedNodeName)
           normalizedNodeName match {
             case "RDDScanExec" =>
               if (sqlDesc.contains("Delta Table State") ||
-              sqlDesc.contains("Delta Table Checkpoint") ||
-              sqlDesc.contains("delta_log")) {
-                // logWarning("Remove " + id + "  Batch scan plan: " +
-                // planInfo + " node: " + node.name
-                //  + " desc: " + sqlDesc + " node desc " + node.desc)
+                sqlDesc.contains("Delta Table Checkpoint") ||
+                sqlDesc.contains("delta_log")) {
+                logWarning("Remove " + id + "  Batch scan plan: " +
+                planInfo + " node: " + node.name
+                + " desc: " + sqlDesc + " node desc " + node.desc)
                 false
               } else {
-                // logWarning("KEEP rddscaneexec")
+                logWarning("KEEP rddscaneexec")
                 true
               }
             case s if s.contains("WholeStageCodegen") =>
-              val deltaLogLoc = "(.*)_delta_log(.*)".r
-              if (deltaLogLoc.findFirstIn(sqlDesc).isDefined) {
-                // logWarning("Remove " + id +
-                //  " WholeStageCodegen: " + planInfo + " node: " + node.name
-                //  + " desc: " + sqlDesc + " node desc " + node.desc)
+              if (sqlDesc.contains("_delta_log")) {
+                logWarning("Remove " + id +
+                " WholeStageCodegen: " + planInfo + " node: " + node.name
+                  + " desc: " + sqlDesc + " node desc " + node.desc)
                 false
               } else {
-                // logWarning("KEEP id: " + id + " doesn't WholeStageCodegen match " +
-                 // "regex deltalog " + sqlDesc)
+                logWarning("KEEP id: " + id + " doesn't WholeStageCodegen match " +
+                  "regex deltalog " + sqlDesc)
+                true
+              }
+            case s if s.contains("MergeIntoCommandEdge")  =>
+              // this is a bit odd but GPU doesn't accelerate anyway, I think this might be
+              // due to differences in data between runs
+              // Execute MergeIntoCommandEdge (1)
+              //   +- MergeIntoCommandEdge (2)
+              if (planGraph.allNodes.size < 2) {
+                logWarning("Remove " + id + "MergeIntoCommandEdge size: " + planGraph.allNodes.size)
+                  false
+              } else {
+                logWarning("KEEP " + id + "MergeIntoCommandEdge size: " + planGraph.allNodes.size)
                 true
               }
             case "LocalTableScan" =>
-              /* val res = if (sqlDesc.contains("stats_parsed.numRecords")) {
-                // logWarning("Remove " + id + " LocalTableScan: " + planInfo + " node: " + node.name
-                //  + " desc: " + sqlDesc + " node desc " + node.desc)
+               val res = if (sqlDesc.contains("stats_parsed.numRecords")) {
+                 // logWarning("Remove " + id + " LocalTableScan: " + planInfo + " node: " + node.name
+                 //  + " desc: " + sqlDesc + " node desc " + node.desc)
+                 false
+               } else if (planGraph.allNodes.size == 1) {
+                 false
+               } else {
+                // logWarning("KEEP local table scan didn't include stats parsed!")
+                 true
+               }
+              logWarning("local table scan rest is " + res)
+              res
+             /*
+              // this is removing to much - only single ones?
+
+                logWarning("local table scan remove with only 1 exec")
                 false
               } else {
-                // logWarning("KEEP local table scan didn't include stats parsed!")
                 true
               }
-              // logWarning("local table scan rest is " + res)
-              // res
-               */
-              false
+
+              */
             case s if ReadParser.isScanNode(s) =>
+              /*
               val deltaLogLoc = ".*Location:(.*)_delta_log(.*)".r
               val deltaLogLocStateCache = ".*Delta Table State(.*)_delta_log(.*)".r
               val deltaLogStateCacheCheckpoint = ".*Delta Table Checkpoint(.*)_delta_log(.*)".r
@@ -404,13 +427,29 @@ class ApplicationInfo(
                   checkpoint.findFirstIn(sqlDesc).isDefined ||
                 deltaLogLocStateCache.findFirstIn(sqlDesc).isDefined ||
                 deltaLogStateCacheCheckpoint.findFirstIn(sqlDesc).isDefined ||
-                sqlDesc.contains("_databricks_internal")) {
-                // logWarning("Remove " + id +
-                //  " read parser scan plan: " + planInfo + " node: " + node.name
-                //   + " desc: " + sqlDesc + " node desc " + node.desc)
+
+               */
+              if (sqlDesc.contains("_delta_log") || sqlDesc.contains("_databricks_internal")) {
+                logWarning("Remove " + id +
+                  " read parser scan plan: " + planInfo + " node: " + node.name
+                   + " desc: " + sqlDesc + " node desc " + node.desc)
                 false
+              } else if (sqlDesc.contains("checkpoint")) {
+                // double check it has parquet - regex are expensive though so only do
+                // if necessary
+                val checkpoint = ".*Location:(.*)checkpoint(.*).parquet(.*)".r
+                if (checkpoint.findFirstIn(sqlDesc).isDefined) {
+                  logWarning("Remove  checkpoint " + id +
+                    " read parser scan plan: " + planInfo + " node: " + node.name
+                    + " desc: " + sqlDesc + " node desc " + node.desc)
+                  false
+                } else {
+                  logWarning("KEEP 2 id: " + id + " doesn't match regex deltalog " + sqlDesc)
+
+                  true
+                }
               } else {
-                // logWarning("KEEP id: " + id + " doesn't match regex deltalog " + sqlDesc)
+                logWarning("KEEP id: " + id + " doesn't match regex deltalog " + sqlDesc)
                 true
               }
 
@@ -419,7 +458,7 @@ class ApplicationInfo(
               true
           }
         }
-        if (leftoverNodes.size < planGraph.nodes.size) {
+        if (leftoverNodes.size < planGraph.allNodes.size) {
           // logWarning("REMOVE SQL id: " + id + " desc: " + sqlIdToInfo(id).description)
 
           false
