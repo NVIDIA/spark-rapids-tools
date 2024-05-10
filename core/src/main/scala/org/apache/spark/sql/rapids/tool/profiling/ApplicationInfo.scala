@@ -346,136 +346,87 @@ class ApplicationInfo(
     }
   }
 
-  def aggregateSQLStageInfo: Seq[SQLStageInfoProfileResult] = {
-    logWarning("Number before count " + sqlPlans.size)
-
+  /**
+   * This function is meant to clean up Delta log execs so that you could align
+   * SQL ids between CPU and GPU eventlogs. It attempts to remove any delta log
+   * only SQL ids. This includes reading checkpoints, delta_log json files,
+   * updating Delta state cache/table. There is also one special case for
+   * MergeIntoCommandEdge that I think showed up because some eventlogs might not
+   * be on the exact same data.
+   */
+  def cleanSQLIdsToAlign(): Seq[SQLCleanAndAlignIdsProfileResult] = {
     val noDeltaLogs = sqlPlans.filter {
       case (id, planInfo) =>
         val planGraph = ToolsPlanGraph(planInfo)
         val sqlDesc = sqlIdToInfo(id).physicalPlanDesc
-
-        // TODO - if we use allNodes do we need the wholestagecodegen?
         val leftoverNodes = planGraph.allNodes.filter { node =>
           val normalizedNodeName = node.name.stripSuffix("$")
-          // logWarning(" normalizedNodeName " + normalizedNodeName)
           normalizedNodeName match {
             case "RDDScanExec" =>
               if (sqlDesc.contains("Delta Table State") ||
                 sqlDesc.contains("Delta Table Checkpoint") ||
                 sqlDesc.contains("delta_log")) {
-                logWarning("Remove " + id + "  Batch scan plan: " +
-                planInfo + " node: " + node.name
-                + " desc: " + sqlDesc + " node desc " + node.desc)
                 false
               } else {
-                logWarning("KEEP rddscaneexec")
                 true
               }
             case s if s.contains("WholeStageCodegen") =>
               if (sqlDesc.contains("_delta_log")) {
-                logWarning("Remove " + id +
-                " WholeStageCodegen: " + planInfo + " node: " + node.name
-                  + " desc: " + sqlDesc + " node desc " + node.desc)
                 false
               } else {
-                logWarning("KEEP id: " + id + " doesn't WholeStageCodegen match " +
-                  "regex deltalog " + sqlDesc)
                 true
               }
-            case s if s.contains("MergeIntoCommandEdge")  =>
+            case s if s.contains("MergeIntoCommandEdge") =>
               // this is a bit odd but GPU doesn't accelerate anyway, I think this might be
               // due to differences in data between runs
               // Execute MergeIntoCommandEdge (1)
               //   +- MergeIntoCommandEdge (2)
               if (planGraph.allNodes.size < 2) {
-                logWarning("Remove " + id + "MergeIntoCommandEdge size: " + planGraph.allNodes.size)
-                  false
-              } else {
-                logWarning("KEEP " + id + "MergeIntoCommandEdge size: " + planGraph.allNodes.size)
-                true
-              }
-            case "LocalTableScan" =>
-               val res = if (sqlDesc.contains("stats_parsed.numRecords")) {
-                 // logWarning("Remove " + id + " LocalTableScan: " + planInfo + " node: " + node.name
-                 //  + " desc: " + sqlDesc + " node desc " + node.desc)
-                 false
-               } else if (planGraph.allNodes.size == 1) {
-                 false
-               } else {
-                // logWarning("KEEP local table scan didn't include stats parsed!")
-                 true
-               }
-              logWarning("local table scan rest is " + res)
-              res
-             /*
-              // this is removing to much - only single ones?
-
-                logWarning("local table scan remove with only 1 exec")
                 false
               } else {
                 true
               }
-
-              */
+            case "LocalTableScan" =>
+              if (sqlDesc.contains("stats_parsed.numRecords")) {
+                false
+              } else if (planGraph.allNodes.size == 1) {
+                false
+              } else {
+                true
+              }
             case s if ReadParser.isScanNode(s) =>
-              /*
-              val deltaLogLoc = ".*Location:(.*)_delta_log(.*)".r
-              val deltaLogLocStateCache = ".*Delta Table State(.*)_delta_log(.*)".r
-              val deltaLogStateCacheCheckpoint = ".*Delta Table Checkpoint(.*)_delta_log(.*)".r
-              val checkpoint = ".*Location:(.*)checkpoint(.*).parquet(.*)".r
-              if (deltaLogLoc.findFirstIn(sqlDesc).isDefined ||
-                  checkpoint.findFirstIn(sqlDesc).isDefined ||
-                deltaLogLocStateCache.findFirstIn(sqlDesc).isDefined ||
-                deltaLogStateCacheCheckpoint.findFirstIn(sqlDesc).isDefined ||
-
-               */
               if (sqlDesc.contains("_delta_log") || sqlDesc.contains("_databricks_internal")) {
-                logWarning("Remove " + id +
-                  " read parser scan plan: " + planInfo + " node: " + node.name
-                   + " desc: " + sqlDesc + " node desc " + node.desc)
                 false
               } else if (sqlDesc.contains("checkpoint")) {
                 // double check it has parquet - regex are expensive though so only do
                 // if necessary
                 val checkpoint = ".*Location:(.*)checkpoint(.*).parquet(.*)".r
                 if (checkpoint.findFirstIn(sqlDesc).isDefined) {
-                  logWarning("Remove  checkpoint " + id +
-                    " read parser scan plan: " + planInfo + " node: " + node.name
-                    + " desc: " + sqlDesc + " node desc " + node.desc)
                   false
                 } else {
-                  logWarning("KEEP 2 id: " + id + " doesn't match regex deltalog " + sqlDesc)
-
                   true
                 }
               } else {
-                logWarning("KEEP id: " + id + " doesn't match regex deltalog " + sqlDesc)
                 true
               }
-
             case _ =>
-              // logWarning(" NOT scan plan: " + node.name + " normalized " + normalizedNodeName)
               true
           }
         }
         if (leftoverNodes.size < planGraph.allNodes.size) {
-          // logWarning("REMOVE SQL id: " + id + " desc: " + sqlIdToInfo(id).description)
-
           false
         } else {
-          // logWarning("KEEP sql id: " + id +
-           // " desc: " + sqlIdToInfo(id).description)
           true
         }
       case _ =>
         true
     }.toSeq
-    logWarning("no delta log count " + noDeltaLogs.size + " ids: "
-      + noDeltaLogs.map(_._1).sorted.mkString(","))
-    noDeltaLogs.map(_._1).sorted.foreach { id =>
-      logWarning("KEEP sql id: " + id + " desc: " + sqlIdToInfo(id).physicalPlanDesc)
+    noDeltaLogs.map(_._1).sorted.map { id =>
+      SQLCleanAndAlignIdsProfileResult(index, id)
     }
+  }
 
+  def aggregateSQLStageInfo: Seq[SQLStageInfoProfileResult] = {
     val jobsWithSQL = jobIdToInfo.filter { case (_, j) =>
       j.sqlID.nonEmpty
     }

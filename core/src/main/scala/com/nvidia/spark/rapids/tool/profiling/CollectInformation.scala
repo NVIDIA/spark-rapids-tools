@@ -192,6 +192,17 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     }
   }
 
+  def getSQLCleanAndAligned: Seq[SQLCleanAndAlignIdsProfileResult] = {
+    val allRows = apps.flatMap { app =>
+      app.cleanSQLIdsToAlign
+    }
+    if (allRows.size > 0) {
+      allRows.sortBy(cols => (cols.appIndex, cols.sqlID))
+    } else {
+      Seq.empty
+    }
+  }
+
   def getSQLToStage: Seq[SQLStageInfoProfileResult] = {
     val allRows = apps.flatMap { app =>
       app.aggregateSQLStageInfo

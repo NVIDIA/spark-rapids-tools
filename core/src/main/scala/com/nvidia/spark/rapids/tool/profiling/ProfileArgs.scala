@@ -102,6 +102,10 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[Boolean](required = false,
       descr = "Toggle AutoTuner module.",
       default = Some(false))
+  val outputSqlIdsAligned: ScallopOption[Boolean] =
+    opt[Boolean](required = false,
+      descr = "Output the SQL Ids after being cleaned to be able to align cpu/gpu runs.",
+      default = Some(false))
   val workerInfo: ScallopOption[String] =
     opt[String](required = false,
       descr = "File path containing the system information of a worker node. It is assumed " +

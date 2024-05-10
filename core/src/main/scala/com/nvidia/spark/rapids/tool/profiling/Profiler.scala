@@ -48,6 +48,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private val outputCombined: Boolean = appArgs.combined()
 
   private val useAutoTuner: Boolean = appArgs.autoTuner()
+  private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
   private var progressBar: Option[ConsoleProgressBar] = None
 
   override val outputDir = appArgs.outputDirectory().stripSuffix("/") +
@@ -346,6 +347,11 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val execInfo = collect.getExecutorInfo
     val jobInfo = collect.getJobInfo
     val sqlStageInfo = collect.getSQLToStage
+    val sqlIdAlign = if (outputAlignedSQLIds) {
+      collect.getSQLCleanAndAligned
+    } else {
+      Seq.empty
+    }
     val rapidsProps = collect.getRapidsProperties
     val sparkProps = collect.getSparkProperties
     val systemProps = collect.getSystemProperties
@@ -417,7 +423,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       rapidsJar, sqlMetrics, jsMetAgg, sqlTaskAggMetrics, durAndCpuMet, skewInfo,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, sqlStageInfo, wholeStage, maxTaskInputInfo,
-      appLogPath, ioAnalysisMetrics, systemProps), compareRes)
+      appLogPath, ioAnalysisMetrics, systemProps, sqlIdAlign), compareRes)
   }
 
   /**
@@ -500,7 +506,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         appsSum.flatMap(_.maxTaskInputBytesRead).sortBy(_.appIndex),
         appsSum.flatMap(_.appLogPath).sortBy(_.appIndex),
         appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex),
-        combineProps("system", appsSum).sortBy(_.key)
+        combineProps("system", appsSum).sortBy(_.key),
+        appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex)
       )
       Seq(reduced)
     } else {
@@ -557,6 +564,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         val (properties, comments) = runAutoTuner(Some(app))
         profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
+      }
+      if (outputAlignedSQLIds) {
+        profileOutputWriter.write("SQL Ids Cleaned For Alignment", app.sqlCleanedAlignedIds,
+          Some("SQL  Ids Cleaned For Alignment"))
       }
     }
   }

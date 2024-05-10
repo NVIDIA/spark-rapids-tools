@@ -90,6 +90,19 @@ case class JobInfoProfileResult(
   }
 }
 
+case class SQLCleanAndAlignIdsProfileResult(
+    appIndex: Int,
+    sqlID: Long) extends ProfileResult {
+  override val outputHeaders = Seq("appIndex", "sqlID")
+
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString, sqlID.toString)
+  }
+  override def convertToCSVSeq: Seq[String] = {
+    Seq(appIndex.toString, sqlID.toString)
+  }
+}
+
 case class SQLStageInfoProfileResult(
     appIndex: Int,
     sqlID: Long,
