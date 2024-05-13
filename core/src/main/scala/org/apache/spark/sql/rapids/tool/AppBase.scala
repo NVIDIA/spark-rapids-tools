@@ -525,4 +525,22 @@ object AppBase {
       childRes
     }
   }
+
+  def handleException(e: Exception, path: EventLogInfo): FailureApp = {
+    val (status, message): (String, String) = e match {
+      case incorrectStatusEx: IncorrectAppStatusException =>
+        ("unknown", incorrectStatusEx.getMessage)
+      case skippedEx: AppEventlogProcessException =>
+        ("skipped", skippedEx.getMessage)
+      case _: com.fasterxml.jackson.core.JsonParseException =>
+        ("unknown", s"Error parsing JSON: ${path.eventLog.toString}")
+      case _: IllegalArgumentException =>
+        ("unknown", s"Error parsing file: ${path.eventLog.toString}")
+      case _: Exception =>
+        // catch all exceptions and skip that file
+        ("unknown", s"Got unexpected exception processing file: ${path.eventLog.toString}")
+    }
+
+    FailureApp(status, s"${e.getClass.getSimpleName}: $message")
+  }
 }

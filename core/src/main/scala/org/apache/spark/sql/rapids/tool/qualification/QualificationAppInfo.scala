@@ -27,7 +27,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, FailureApp, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
 import org.apache.spark.sql.rapids.tool.store.StageModel
 
@@ -1026,12 +1026,6 @@ case class StageQualSummaryInfo(
     stageWallclockDuration: Long = 0,
     unsupportedExecs: Seq[ExecInfo] = Seq.empty)
 
-// Case class to represent a failed QualificationAppInfo creation
-case class FailureApp(
-    status: String,
-    message: String
-)
-
 object QualificationAppInfo extends Logging {
   // define recommendation constants
   val RECOMMENDED = "Recommended"
@@ -1045,24 +1039,6 @@ object QualificationAppInfo extends Logging {
   // to transfer the data from CPU to GPU and vice versa. Current transfer rate is 1GB/s and is
   // based on the testing on few candidate eventlogs.
   val CPU_GPU_TRANSFER_RATE = 1000000000L
-
-  private def handleException(e: Exception, path: EventLogInfo): FailureApp = {
-    val (status, message): (String, String) = e match {
-      case incorrectStatusEx: IncorrectAppStatusException =>
-        ("unknown", incorrectStatusEx.getMessage)
-      case skippedEx: AppEventlogProcessException =>
-        ("skipped", skippedEx.getMessage)
-      case _: com.fasterxml.jackson.core.JsonParseException =>
-        ("unknown", s"Error parsing JSON: ${path.eventLog.toString}")
-      case _: IllegalArgumentException =>
-        ("unknown", s"Error parsing file: ${path.eventLog.toString}")
-      case _: Exception =>
-        // catch all exceptions and skip that file
-        ("unknown", s"Got unexpected exception processing file: ${path.eventLog.toString}")
-    }
-
-    FailureApp(status, s"${e.getClass.getSimpleName}: $message")
-  }
 
   def getRecommendation(totalSpeedup: Double,
       hasFailures: Boolean): String = {
@@ -1154,7 +1130,7 @@ object QualificationAppInfo extends Logging {
       Right(app)
     } catch {
       case e: Exception =>
-        Left(handleException(e, path))
+        Left(AppBase.handleException(e, path))
     }
   }
 }
