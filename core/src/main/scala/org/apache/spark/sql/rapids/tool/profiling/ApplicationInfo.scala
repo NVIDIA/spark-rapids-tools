@@ -17,21 +17,16 @@
 package org.apache.spark.sql.rapids.tool.profiling
 
 import scala.collection.{mutable, Map}
-import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
-import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
-import com.nvidia.spark.rapids.tool.profiling._
+import com.nvidia.spark.rapids.tool.analysis.SQLPlanMetricProcessor
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.metric.SQLMetricInfo
-import org.apache.spark.sql.execution.ui.SparkPlanGraph
-import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, ToolUtils}
-import org.apache.spark.sql.rapids.tool.SqlPlanInfoGraphBuffer
-import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
+import org.apache.spark.sql.rapids.tool.AppBase
 
 
 class SparkPlanInfoWithStage(
@@ -192,182 +187,26 @@ class ApplicationInfo(
     val index: Int)
   extends AppBase(Some(eLogInfo), Some(hadoopConf)) with Logging {
 
-  // resourceprofile id to resource profile info
-  val resourceProfIdToInfo = new HashMap[Int, ResourceProfileInfoCase]()
-
-  var blockManagersRemoved: ArrayBuffer[BlockManagerRemovedCase] =
-     ArrayBuffer[BlockManagerRemovedCase]()
-  
   // physicalPlanDescription stores HashMap (sqlID <-> physicalPlanDescription)
   var physicalPlanDescription: mutable.HashMap[Long, String] = mutable.HashMap.empty[Long, String]
-
-  var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
-  var sqlPlanMetricsAdaptive: ArrayBuffer[SQLPlanMetricsCase] = ArrayBuffer[SQLPlanMetricsCase]()
-
-  var unsupportedSQLplan: ArrayBuffer[UnsupportedSQLPlan] = ArrayBuffer[UnsupportedSQLPlan]()
-  var wholeStage: ArrayBuffer[WholeStageCodeGenResults] = ArrayBuffer[WholeStageCodeGenResults]()
-  val sqlPlanNodeIdToStageIds: mutable.HashMap[(Long, Long), Set[Int]] =
-    mutable.HashMap.empty[(Long, Long), Set[Int]]
 
   private lazy val eventProcessor =  new EventsProcessor(this)
 
   // Process all events
   processEvents()
+
   // Process SQL Plan Metrics after all events are processed
-  processSQLPlanMetrics()
+  val planMetricProcessor: SQLPlanMetricProcessor = SQLPlanMetricProcessor.processSQLPlan(this)
+  // finally aggregate the Info
   aggregateAppInfo
 
-  override def processEvent(event: SparkListenerEvent) = {
+  override def processEvent(event: SparkListenerEvent): Boolean = {
     eventProcessor.processAnyEvent(event)
     false
   }
 
   override def postCompletion(): Unit = {
     clusterInfo = buildClusterInfo
-  }
-
-  /**
-   * Connects Operators to Stages using AccumulatorIDs
-   * @param cb function that creates a SparkPlanGraph. This can be used as a cacheHolder for the
-   *           object created to be used later.
-   */
-  private def connectOperatorToStage(cb: (Long, SparkPlanInfo) => SparkPlanGraph): Unit = {
-    for ((sqlId, planInfo) <- sqlPlans) {
-      val planGraph: SparkPlanGraph = cb.apply(sqlId, planInfo)
-      // Maps stages to operators by checking for non-zero intersection
-      // between nodeMetrics and stageAccumulateIDs
-      val nodeIdToStage = planGraph.allNodes.map { node =>
-        val mappedStages = SQLPlanParser.getStagesInSQLNode(node, this)
-        ((sqlId, node.id), mappedStages)
-      }.toMap
-      sqlPlanNodeIdToStageIds ++= nodeIdToStage
-    }
-  }
-
-  /**
-   * Function to process SQL Plan Metrics after all events are processed
-   */
-  def processSQLPlanMetrics(): Unit = {
-    // Define a buffer to cache the SQLPlanInfoGraphs
-    val sqlPlanInfoBuffer = SqlPlanInfoGraphBuffer()
-    // Define a function used to fill in the buffer while executing "connectOperatorToStage"
-    val createGraphFunc = (sqlId: Long, planInfo: SparkPlanInfo) => {
-      sqlPlanInfoBuffer.addSqlPlanInfoGraph(sqlId, planInfo).sparkPlanGraph
-    }
-    connectOperatorToStage(createGraphFunc)
-    for (sqlPIGEntry <- sqlPlanInfoBuffer.sqlPlanInfoGraphs) {
-      var sqlIsDsOrRDD = false
-      val potentialProblems = collection.mutable.Set[String]()
-      // store all datasources of the given SQL in a variable so that we won't have to iterate
-      // through the entire list
-      // get V1 dataSources for that SQLId
-      val sqlDataSources = checkMetadataForReadSchema(sqlPIGEntry)
-      for (node <- sqlPIGEntry.sparkPlanGraph.allNodes) {
-        var nodeIsDsOrRDD = false
-        if (node.isInstanceOf[org.apache.spark.sql.execution.ui.SparkPlanGraphCluster]) {
-          val ch = node.asInstanceOf[org.apache.spark.sql.execution.ui.SparkPlanGraphCluster].nodes
-          ch.foreach { c =>
-            wholeStage += WholeStageCodeGenResults(
-              index, sqlPIGEntry.sqlID, node.id, node.name, c.name, c.id)
-          }
-        }
-        // get V2 dataSources for that node
-        val nodeV2Reads = checkGraphNodeForReads(sqlPIGEntry.sqlID, node)
-        if (nodeV2Reads.isDefined) {
-          sqlDataSources += nodeV2Reads.get
-        }
-        nodeIsDsOrRDD = RDDCheckHelper.isDatasetOrRDDPlan(node.name, node.desc).isRDD
-        if (nodeIsDsOrRDD) {
-          if (gpuMode) { // we want to report every node that is an RDD
-            val thisPlan = UnsupportedSQLPlan(sqlPIGEntry.sqlID, node.id, node.name, node.desc,
-              "Contains Dataset or RDD")
-            unsupportedSQLplan += thisPlan
-          }
-          // If one node is RDD, the Sql should be set too
-          if (!sqlIsDsOrRDD) { // We need to set the flag only once for the given sqlID
-            sqlIsDsOrRDD = true
-            sqlIdToInfo.get(sqlPIGEntry.sqlID).foreach { sql =>
-              sql.setDsOrRdd(sqlIsDsOrRDD)
-              sqlIDToDataSetOrRDDCase += sqlPIGEntry.sqlID
-              // Clear the potential problems since it is an RDD to free memory
-              potentialProblems.clear()
-            }
-          }
-        }
-        if (!sqlIsDsOrRDD) {
-          // Append current node's potential problems to the Sql problems only if the SQL is not an
-          // RDD. This is an optimization since the potentialProblems won't be used any more.
-          potentialProblems ++= findPotentialIssues(node.desc)
-        }
-        // Then process SQL plan metric type
-        for (metric <- node.metrics) {
-          val stages =
-            sqlPlanNodeIdToStageIds.get((sqlPIGEntry.sqlID, node.id)).getOrElse(Set.empty)
-          val allMetric = SQLMetricInfoCase(sqlPIGEntry.sqlID, metric.name,
-            metric.accumulatorId, metric.metricType, node.id,
-            node.name, node.desc, stages)
-
-          allSQLMetrics += allMetric
-          if (this.sqlPlanMetricsAdaptive.nonEmpty) {
-            val adaptive = sqlPlanMetricsAdaptive.filter { adaptiveMetric =>
-              adaptiveMetric.sqlID == sqlPIGEntry.sqlID &&
-                adaptiveMetric.accumulatorId == metric.accumulatorId
-            }
-            adaptive.foreach { adaptiveMetric =>
-              val allMetric = SQLMetricInfoCase(sqlPIGEntry.sqlID, adaptiveMetric.name,
-                adaptiveMetric.accumulatorId, adaptiveMetric.metricType, node.id,
-                node.name, node.desc, stages)
-              // could make this more efficient but seems ok for now
-              val exists = allSQLMetrics.filter { a =>
-                ((a.accumulatorId == adaptiveMetric.accumulatorId) && (a.sqlID == sqlPIGEntry.sqlID)
-                  && (a.nodeID == node.id && adaptiveMetric.metricType == a.metricType))
-              }
-              if (exists.isEmpty) {
-                allSQLMetrics += allMetric
-              }
-            }
-          }
-        }
-      }
-      // Check if readsSchema is complex for the given sql
-      val sqlNestedComplexTypes =
-        AppBase.parseReadSchemaForNestedTypes(sqlDataSources.map { ds => ds.schema })
-      // Append problematic issues to the global variable for that SqlID
-      if (sqlNestedComplexTypes._2.nonEmpty) {
-        potentialProblems += "NESTED COMPLEX TYPE"
-      }
-      // Finally, add the local potentialProblems to the global data structure if any.
-      sqlIDtoProblematic(sqlPIGEntry.sqlID) = potentialProblems.toSet
-      // Convert the problematic issues to a string and update the SQLInfo
-      sqlIdToInfo.get(sqlPIGEntry.sqlID).foreach { sqlInfoClass =>
-        sqlInfoClass.problematic = ToolUtils.formatPotentialProblems(potentialProblems.toSeq)
-      }
-    }
-  }
-
-  def aggregateSQLStageInfo: Seq[SQLStageInfoProfileResult] = {
-    val jobsWithSQL = jobIdToInfo.filter { case (_, j) =>
-      j.sqlID.nonEmpty
-    }
-    val sqlToStages = jobsWithSQL.flatMap { case (jobId, j) =>
-      val stages = j.stageIds
-      val stagesInJob = stageManager.getStagesByIds(stages)
-      stagesInJob.map { sModel =>
-        val nodeIds = sqlPlanNodeIdToStageIds.filter { case (_, v) =>
-          v.contains(sModel.sId)
-        }.keys.toSeq
-        val nodeNames = sqlPlans.get(j.sqlID.get).map { planInfo =>
-          val nodes = ToolsPlanGraph(planInfo).allNodes
-          val validNodes = nodes.filter { n =>
-            nodeIds.contains((j.sqlID.get, n.id))
-          }
-          validNodes.map(n => s"${n.name}(${n.id.toString})")
-        }.getOrElse(Seq.empty)
-        SQLStageInfoProfileResult(index, j.sqlID.get, jobId, sModel.sId,
-          sModel.attemptId, sModel.duration, nodeNames)
-      }
-    }
-    sqlToStages.toSeq
   }
 
   private def aggregateAppInfo: Unit = {

@@ -24,6 +24,7 @@ import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, PlatformFactory}
+import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -343,9 +344,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
     val appLogPath = collect.getAppLogPath
     val dsInfo = collect.getDataSourceInfo
-    val execInfo = collect.getExecutorInfo
-    val jobInfo = collect.getJobInfo
-    val sqlStageInfo = collect.getSQLToStage
     val rapidsProps = collect.getRapidsProperties
     val sparkProps = collect.getSparkProperties
     val systemProps = collect.getSystemProperties
@@ -360,18 +358,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       Some(CompareSummaryInfo(matchingSqlIds, matchingStageIds))
     } else {
       None
-    }
-
-    val analysis = new Analysis(apps)
-    val jsMetAgg = analysis.jobAndStageMetricsAggregation()
-    val sqlTaskAggMetrics = analysis.sqlMetricsAggregation()
-    val ioAnalysisMetrics = analysis.ioAnalysis()
-    val durAndCpuMet = analysis.sqlMetricsAggregationDurationAndCpuTime()
-    val skewInfo = analysis.shuffleSkewCheck()
-    val maxTaskInputInfo = if (useAutoTuner) {
-      analysis.getMaxTaskInputSizeBytes()
-    } else {
-      Seq.empty
     }
 
     val healthCheck = new HealthCheck(apps)
@@ -411,13 +397,21 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           s"to $outputDir in $duration second(s)\n")
       }
     }
+    val analysis = RawMetricProfilerView.getAggMetrics(apps)
+    val maxTaskInputInfo = if (useAutoTuner) {
+      analysis.maxTaskInputSizes
+    } else {
+      Seq.empty
+    }
     val endTime = System.currentTimeMillis()
     logInfo(s"Took ${endTime - startTime}ms to Process [${appInfo.head.appId}]")
-    (ApplicationSummaryInfo(appInfo, dsInfo, execInfo, jobInfo, rapidsProps,
-      rapidsJar, sqlMetrics, jsMetAgg, sqlTaskAggMetrics, durAndCpuMet, skewInfo,
+    (ApplicationSummaryInfo(appInfo, dsInfo,
+      collect.getExecutorInfo, collect.getJobInfo, rapidsProps,
+      rapidsJar, sqlMetrics, analysis.jobStageAggs,
+      analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
-      unsupportedOps, sparkProps, sqlStageInfo, wholeStage, maxTaskInputInfo,
-      appLogPath, ioAnalysisMetrics, systemProps), compareRes)
+      unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
+      appLogPath, analysis.ioAggs, systemProps), compareRes)
   }
 
   /**
@@ -511,9 +505,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profileOutputWriter.write("Application Information", app.appInfo)
       profileOutputWriter.write("Application Log Path Mapping", app.appLogPath)
       profileOutputWriter.write("Data Source Information", app.dsInfo)
-      profileOutputWriter.write("Executor Information", app.execInfo)
-      profileOutputWriter.write("Job Information", app.jobInfo)
-      profileOutputWriter.write("SQL to Stage Information", app.sqlStageInfo)
+      profileOutputWriter.write(ProfExecutorView.getLabel, app.execInfo)
+      profileOutputWriter.write(ProfJobsView.getLabel, app.jobInfo)
+      profileOutputWriter.write(ProfSQLToStageView.getLabel, app.sqlStageInfo)
       profileOutputWriter.write("Spark Rapids parameters set explicitly", app.rapidsProps,
         Some("Spark Rapids parameters"))
       profileOutputWriter.write("Spark Properties", app.sparkProps,
@@ -522,10 +516,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some("System Properties"))
       profileOutputWriter.write("Rapids Accelerator Jar and cuDF Jar", app.rapidsJar,
         Some("Rapids 4 Spark Jars"))
-      profileOutputWriter.write("SQL Plan Metrics for Application", app.sqlMetrics,
-        Some("SQL Plan Metrics"))
-      profileOutputWriter.write("WholeStageCodeGen Mapping", app.wholeStage,
-        Some("WholeStagecodeGen Mapping"))
+      profileOutputWriter.write(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
+        Some(ProfSQLPlanMetricsView.getDescription))
+      profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
+        Some(ProfSQLCodeGenView.getDescription))
       comparedRes.foreach { compareSum =>
         val matchingSqlIds = compareSum.matchingSqlIds
         val matchingStageIds = compareSum.matchingStageIds
@@ -534,22 +528,22 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
 
       profileOutputWriter.writeText("\n### B. Analysis ###\n")
-      profileOutputWriter.write("Job + Stage level aggregated task metrics", app.jsMetAgg,
-        Some("Job/Stage Metrics"))
-      profileOutputWriter.write("SQL level aggregated task metrics", app.sqlTaskAggMetrics,
-        Some("SQL Metrics"))
-      profileOutputWriter.write("IO Metrics", app.ioMetrics)
-      profileOutputWriter.write("SQL Duration and Executor CPU Time Percent", app.durAndCpuMet)
-      val skewHeader = "Shuffle Skew Check" // +
-      val skewTableDesc = "(When task's Shuffle Read Size > 3 * Avg Stage-level size)"
+      profileOutputWriter.write(JOB_AND_STAGE_AGG_LABEL, app.jsMetAgg,
+        Some(AGG_DESCRIPTION(JOB_AND_STAGE_AGG_LABEL)))
+      profileOutputWriter.write(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
+        Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
+      profileOutputWriter.write(IO_LABEL, app.ioMetrics)
+      profileOutputWriter.write(SQL_DUR_LABEL, app.durAndCpuMet)
+      val skewHeader = TASK_SHUFFLE_SKEW
+      val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
       profileOutputWriter.write(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
 
       profileOutputWriter.writeText("\n### C. Health Check###\n")
-      profileOutputWriter.write("Failed Tasks", app.failedTasks)
-      profileOutputWriter.write("Failed Stages", app.failedStages)
-      profileOutputWriter.write("Failed Jobs", app.failedJobs)
-      profileOutputWriter.write("Removed BlockManagers", app.removedBMs)
-      profileOutputWriter.write("Removed Executors", app.removedExecutors)
+      profileOutputWriter.write(QualFailedTaskView.getLabel, app.failedTasks)
+      profileOutputWriter.write(ProfFailedStageView.getLabel, app.failedStages)
+      profileOutputWriter.write(ProfFailedJobsView.getLabel, app.failedJobs)
+      profileOutputWriter.write(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
+      profileOutputWriter.write(ProfRemovedExecutorView.getLabel, app.removedExecutors)
       profileOutputWriter.write("Unsupported SQL Plan", app.unsupportedOps,
         Some("Unsupported SQL Ops"))
 

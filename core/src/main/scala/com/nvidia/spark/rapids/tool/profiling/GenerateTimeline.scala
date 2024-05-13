@@ -259,7 +259,7 @@ object GenerateTimeline {
     val readTimeIds = new mutable.HashSet[Long]()
     val opTimeIds = new mutable.HashSet[Long]()
     val writeTimeIds = new mutable.HashSet[Long]()
-    app.allSQLMetrics.foreach { f =>
+    app.planMetricProcessor.allSQLMetrics.foreach { f =>
       f.name match {
         case "op time" | "GPU decode time" | "GPU Time" if f.metricType == "nsTiming" =>
           opTimeIds += f.accumulatorId

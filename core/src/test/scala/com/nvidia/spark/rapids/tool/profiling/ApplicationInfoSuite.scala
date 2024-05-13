@@ -22,6 +22,7 @@ import java.nio.file.{Files, Paths, StandardOpenOption}
 import scala.collection.mutable.ArrayBuffer
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
 import org.apache.hadoop.io.IOUtils
 import org.scalatest.FunSuite
 
@@ -376,8 +377,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         index += 1
       }
       assert(apps.size == 1)
-      val analysis = new Analysis(apps)
-      val ioMetrics = analysis.ioAnalysis()
+      val aggResults = RawMetricProfilerView.getAggMetrics(apps)
+      val ioMetrics = aggResults.ioAggs
       assert(ioMetrics.size == 5)
       val metricsSqlId1 = ioMetrics.filter(metrics => metrics.sqlId == 1)
       assert(metricsSqlId1.size == 1)

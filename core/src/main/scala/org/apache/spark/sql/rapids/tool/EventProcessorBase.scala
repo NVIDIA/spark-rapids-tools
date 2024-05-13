@@ -19,7 +19,7 @@ package org.apache.spark.sql.rapids.tool
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.tool.profiling.{DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ProfileUtils, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase, TaskStageAccumCase}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
@@ -185,7 +185,15 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerSQLAdaptiveSQLMetricUpdates(
       app: T,
-      event: SparkListenerSQLAdaptiveSQLMetricUpdates): Unit = {}
+      event: SparkListenerSQLAdaptiveSQLMetricUpdates): Unit = {
+    logDebug("Processing event: " + event.getClass)
+    val SparkListenerSQLAdaptiveSQLMetricUpdates(sqlID, sqlPlanMetrics) = event
+    val metrics = sqlPlanMetrics.map { metric =>
+      SQLPlanMetricsCase(sqlID, metric.name,
+        metric.accumulatorId, metric.metricType)
+    }
+    app.sqlPlanMetricsAdaptive ++= metrics
+  }
 
   override def onOtherEvent(event: SparkListenerEvent): Unit = event match {
     case e: SparkListenerSQLExecutionStart =>
@@ -207,7 +215,12 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerResourceProfileAdded(
       app: T,
-      event: SparkListenerResourceProfileAdded): Unit = {}
+      event: SparkListenerResourceProfileAdded): Unit = {
+    // leave off maxTasks for now
+    val rp = ResourceProfileInfoCase(event.resourceProfile.id,
+      event.resourceProfile.executorResources, event.resourceProfile.taskResources)
+    app.resourceProfIdToInfo(event.resourceProfile.id) = rp
+  }
 
   override def onResourceProfileAdded(event: SparkListenerResourceProfileAdded): Unit = {
     doSparkListenerResourceProfileAdded(app, event)
@@ -247,7 +260,15 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerBlockManagerRemoved(
       app: T,
-      event: SparkListenerBlockManagerRemoved): Unit = {}
+      event: SparkListenerBlockManagerRemoved): Unit = {
+    val thisBlockManagerRemoved = BlockManagerRemovedCase(
+      event.blockManagerId.executorId,
+      event.blockManagerId.host,
+      event.blockManagerId.port,
+      event.time
+    )
+    app.blockManagersRemoved += thisBlockManagerRemoved
+  }
 
   override def onBlockManagerRemoved(
       blockManagerRemoved: SparkListenerBlockManagerRemoved): Unit = {

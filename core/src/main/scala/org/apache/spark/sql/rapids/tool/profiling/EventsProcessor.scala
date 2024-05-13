@@ -22,7 +22,7 @@ import com.nvidia.spark.rapids.tool.profiling._
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
-import org.apache.spark.sql.execution.ui.{SparkListenerSQLAdaptiveExecutionUpdate, SparkListenerSQLAdaptiveSQLMetricUpdates, SparkListenerSQLExecutionStart}
+import org.apache.spark.sql.execution.ui.{SparkListenerSQLAdaptiveExecutionUpdate, SparkListenerSQLExecutionStart}
 import org.apache.spark.sql.rapids.tool.EventProcessorBase
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
@@ -79,30 +79,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     }
   }
 
-  override def doSparkListenerResourceProfileAdded(
-      app: ApplicationInfo,
-      event: SparkListenerResourceProfileAdded): Unit = {
-
-    logDebug("Processing event: " + event.getClass)
-    // leave off maxTasks for now
-    val rp = ResourceProfileInfoCase(event.resourceProfile.id,
-      event.resourceProfile.executorResources, event.resourceProfile.taskResources)
-    app.resourceProfIdToInfo(event.resourceProfile.id) = rp
-  }
-
-  override def doSparkListenerBlockManagerRemoved(
-      app: ApplicationInfo,
-      event: SparkListenerBlockManagerRemoved): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val thisBlockManagerRemoved = BlockManagerRemovedCase(
-      event.blockManagerId.executorId,
-      event.blockManagerId.host,
-      event.blockManagerId.port,
-      event.time
-    )
-    app.blockManagersRemoved += thisBlockManagerRemoved
-  }
-
   override def doSparkListenerEnvironmentUpdate(
       app: ApplicationInfo,
       event: SparkListenerEnvironmentUpdate): Unit = {
@@ -132,18 +108,6 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     // AQE plan can override the ones got from SparkListenerSQLExecutionStart
     app.physicalPlanDescription += (event.executionId -> event.physicalPlanDescription)
     super.doSparkListenerSQLAdaptiveExecutionUpdate(app, event)
-  }
-
-  override def doSparkListenerSQLAdaptiveSQLMetricUpdates(
-      app: ApplicationInfo,
-      event: SparkListenerSQLAdaptiveSQLMetricUpdates): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    val SparkListenerSQLAdaptiveSQLMetricUpdates(sqlID, sqlPlanMetrics) = event
-    val metrics = sqlPlanMetrics.map { metric =>
-      SQLPlanMetricsCase(sqlID, metric.name,
-        metric.accumulatorId, metric.metricType)
-    }
-    app.sqlPlanMetricsAdaptive ++= metrics
   }
 
   // To process all other unknown events
