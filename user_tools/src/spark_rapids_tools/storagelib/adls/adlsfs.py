@@ -42,12 +42,5 @@ class AdlsFs(CspFs):
 
     @classmethod
     def create_fs_handler(cls, *args: Any, **kwargs: Any) -> BoundedArrowFsT:
-        from spark_rapids_pytools.common.utilities import ToolLogging
-        logger = ToolLogging.get_and_setup_logger('spark_rapids_tools.csppath')
-        logger.info("create_fs_handler AdlsFs")
         azure_fs = adlfs.AzureBlobFileSystem(*args, **kwargs)
-        logger.info("done azure_fs")
-        res = PyFileSystem(FSSpecHandler(azure_fs))
-        logger.info("done res")
-        return res
-        # return PyFileSystem(FSSpecHandler(azure_fs))
+        return PyFileSystem(FSSpecHandler(azure_fs))

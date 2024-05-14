@@ -156,7 +156,6 @@ class AbsToolUserArgModel:
         self.p_args['toolArgs']['platform'] = CspEnv.fromstring(client_cluster.platform_name)
 
     def detect_platform_from_eventlogs_prefix(self):
-        self.logger.info('Enter detect_platform_from_eventlogs_prefix\n')
         map_storage_to_platform = {
             'gcs': CspEnv.DATAPROC,
             's3': CspEnv.EMR,
@@ -166,9 +165,7 @@ class AbsToolUserArgModel:
         }
         # in case we have a list of eventlogs, we need to split them and take the first one
         ev_logs_path = CspPath(self.get_eventlogs().split(',')[0])
-        self.logger.info('ev_logs_path = %s', ev_logs_path)
         storage_type = ev_logs_path.get_storage_name()
-        self.logger.info('storage_type = %s', storage_type)
         self.p_args['toolArgs']['platform'] = map_storage_to_platform[storage_type]
 
     def validate_onprem_with_cluster_name(self):

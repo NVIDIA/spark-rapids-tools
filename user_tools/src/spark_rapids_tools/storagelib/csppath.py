@@ -41,7 +41,7 @@ from ..exceptions import (
     FSMismatchError, CspFileExistsError
 )
 
-from ..utils.util import get_path_as_uri, is_http_file
+from ..utils.util import get_abfs_account_name, get_path_as_uri, is_http_file
 
 if sys.version_info >= (3, 10):
     from typing import TypeGuard
@@ -217,8 +217,6 @@ class CspPath(metaclass=CspPathMeta):
     """
     protocol_prefix: str
     _path_meta: CspPathImplementation
-    from spark_rapids_pytools.common.utilities import ToolLogging
-    logger = ToolLogging.get_and_setup_logger('spark_rapids_tools.csppath')
 
     @staticmethod
     def is_file_path(file_path: Union[str, PathlibPath],
@@ -258,20 +256,14 @@ class CspPath(metaclass=CspPathMeta):
             entry_path: Union[str, Self],
             fs_obj: Optional['CspFs'] = None
     ) -> None:
-        self.logger.info('init CspPath')
+        self.init_env_vars(entry_path)
         self.is_valid_csppath(entry_path, raise_on_error=True)
         self._fpath = str(entry_path)
-        self.logger.info('self._fpath = %s', self._fpath)
-        if self._fpath.startswith("abfss://"):
-            account_name = self._fpath.split('@')[1].split('.')[0]
-            self.logger.info("account name = %s", account_name)
-            os.environ['AZURE_STORAGE_ACCOUNT_NAME'] = account_name
         if fs_obj is None:
             if isinstance(entry_path, CspPath):
                 fs_obj = entry_path.fs_obj
             else:
                 fs_obj = self._path_meta.fs_class.get_default_client()
-        self.logger.info("fs_obj = %s", fs_obj)
         if not isinstance(fs_obj, self._path_meta.fs_class):
             raise FSMismatchError(
                 f'Client of type [{fs_obj.__class__}] is not valid for cloud path of type '
@@ -283,6 +275,12 @@ class CspPath(metaclass=CspPathMeta):
 
     def __str__(self) -> str:
         return self._fpath
+
+    @classmethod
+    def init_env_vars(cls, path: str) -> None:
+        if cls.protocol_prefix.startswith('abfss'):
+            account_name = get_abfs_account_name(str(path))
+            os.environ['AZURE_STORAGE_ACCOUNT_NAME'] = account_name
 
     @classmethod
     def is_protocol_prefix(cls, value: str) -> bool:
