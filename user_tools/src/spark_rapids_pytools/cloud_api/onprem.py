@@ -104,6 +104,9 @@ class OnPremPlatform(PlatformBase):
                                                       source_cluster=source_cluster,
                                                       target_cost=target_cost,
                                                       source_cost=source_cost)
+        else:
+            # Should not happen that we reach here.
+            raise NotImplementedError
         return saving_estimator
 
     def set_offline_cluster(self, cluster_args: dict = None):
@@ -322,4 +325,7 @@ class OnpremSavingsEstimator(SavingsEstimator):
                             * cluster.get_node_core_count(SparkNodeType.WORKER))
             dataproc_cost = self.price_provider.get_container_cost() * (master_cores + worker_cores)
             total_cost = master_cost + workers_cost + dataproc_cost
+        else:
+            # Should not happen that we reach here.
+            raise NotImplementedError
         return total_cost
