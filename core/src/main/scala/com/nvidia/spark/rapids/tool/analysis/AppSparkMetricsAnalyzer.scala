@@ -154,25 +154,17 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         }
     }.flatten
 
-    val shuffleSkewResults = avgsStageInfos.flatMap { case ((stageId, attemptId), avg) =>
+    avgsStageInfos.flatMap { case ((stageId, attemptId), avg) =>
       val definedTasks =
         app.taskManager.getTasks(stageId, attemptId, Some(
           tc => (tc.sr_totalBytesRead > 3 * avg.avgShuffleReadBytes)
             && (tc.sr_totalBytesRead > 100 * 1024 * 1024)))
       definedTasks.map { tc =>
-        Some(ShuffleSkewProfileResult(index, stageId, attemptId,
+        ShuffleSkewProfileResult(index, stageId, attemptId,
           tc.taskId, tc.attempt, tc.duration, avg.avgDuration, tc.sr_totalBytesRead,
-          avg.avgShuffleReadBytes, tc.peakExecutionMemory, tc.successful, tc.endReason))
+          avg.avgShuffleReadBytes, tc.peakExecutionMemory, tc.successful, tc.endReason)
       }
-    }.flatten
-    if (shuffleSkewResults.isEmpty) {
-      Seq.empty
-    } else {
-      val sortedRows = shuffleSkewResults.toSeq.sortBy { cols =>
-        (index, cols.stageId, cols.stageAttemptId, cols.taskId, cols.taskAttemptId)
-      }
-      sortedRows
-    }
+    }.toSeq
   }
 
   /**
