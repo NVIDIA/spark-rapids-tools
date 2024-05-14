@@ -272,11 +272,10 @@ local:
     additionalHeuristics:
       appInfo:
         fileName: 'application_information.csv'
-      reasonColumnName: 'Skip by Heuristics Reason'
       resultCols:
         - 'App ID'
         - 'Skip by Heuristics'
-        - 'Skip by Heuristics Reason'
+        - 'Reason'
       spillBased:
         jobStageAggMetrics:
           fileName: 'job_+_stage_level_aggregated_task_metrics.csv'

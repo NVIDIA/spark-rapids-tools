@@ -108,7 +108,7 @@ class AdditionalHeuristics:
             lambda x: isinstance(x, str) and bool(re.search(pattern, x)))]
         # If there are any stages with spills caused by non-allowed Execs, skip the application
         if not relevant_stages_with_spills.empty:
-            stages_str = ', '.join(relevant_stages_with_spills['stageId'].astype(str))
+            stages_str = '; '.join(relevant_stages_with_spills['stageId'].astype(str))
             reason = f'Skipping due to spills in stages [{stages_str}] exceeding {spill_threshold_bytes} bytes'
             return True, reason
         return False, ''
@@ -118,7 +118,7 @@ class AdditionalHeuristics:
             heuristics_df = self._apply_heuristics(all_apps['App ID'].unique())
             # Save the heuristics results to a file and drop the reason column
             heuristics_df.to_csv(self.output_file, index=False)
-            heuristics_df.drop(columns=self.props.get_value('reasonColumnName'), inplace=True)
+            heuristics_df.drop(columns=['Reason'], inplace=True)
             all_apps = pd.merge(all_apps, heuristics_df, on=['App ID'], how='left')
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Error occurred while applying additional heuristics. '
