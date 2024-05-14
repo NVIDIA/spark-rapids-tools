@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ class SavingsEstimator:
     comments: list = field(default_factory=lambda: [], init=False)
     logger: Logger = field(default=None, init=False)
 
-    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
+    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor) -> float:
         raise NotImplementedError
 
     def _setup_costs(self):
