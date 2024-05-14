@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.analysis.{ProfAppIndexMapperTrait, QualAppIndexMapperTrait, SQLPlanMetricProcessor}
+import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
 import com.nvidia.spark.rapids.tool.profiling.{SQLAccumProfileResults, WholeStageCodeGenResults}
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -64,7 +64,7 @@ object QualSQLCodeGenView extends AppSQLCodeGenViewTrait with QualAppIndexMapper
   }
 
   def getRawViewFromSqlProcessor(
-      sqlAnalyzer: SQLPlanMetricProcessor): Seq[WholeStageCodeGenResults] = {
+      sqlAnalyzer: AppSQLPlanAnalyzer): Seq[WholeStageCodeGenResults] = {
     sortView(sqlAnalyzer.wholeStage)
   }
 }
@@ -89,7 +89,7 @@ object QualSQLPlanMetricsView extends AppSQLPlanMetricsViewTrait with QualAppInd
   }
 
   def getRawViewFromSqlProcessor(
-      sqlAnalyzer: SQLPlanMetricProcessor): Seq[SQLAccumProfileResults] = {
+      sqlAnalyzer: AppSQLPlanAnalyzer): Seq[SQLAccumProfileResults] = {
     sortView(sqlAnalyzer.generateSQLAccums())
   }
 }

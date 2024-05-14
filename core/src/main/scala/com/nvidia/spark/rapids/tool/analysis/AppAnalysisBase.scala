@@ -16,10 +16,16 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-// This object is kept to provide the aggregation of the application data for the profiler.
-// Currently, it the difference is not significant because `ProfAppIndexMapperTrait` handles the
-// the extraction of AppIndex from ApplicationInfo. However, in the future this object can be used
-// to provide logic for the Profiler (i.e., GPU eventlogs analysis)
-object ProfilerAppAnalysis extends AppAggregatorTrait with ProfAppIndexMapperTrait {
+import org.apache.spark.sql.rapids.tool.AppBase
 
+/**
+ * Base class for application analysis
+ * @param app the AppBase object to analyze
+ */
+abstract class AppAnalysisBase(app: AppBase) {
+ // Keep for future refactoring to use common methods for all Analysis classes.
+ // Ideally, we can common interface
+ // 1- caching layer
+ // 2- initializations
+ // 3- interface to pull information to generate views and reports
 }

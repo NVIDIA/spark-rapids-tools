@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.analysis.{ProfAppIndexMapperTrait, QualAppIndexMapperTrait, SQLPlanMetricProcessor}
+import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
 import com.nvidia.spark.rapids.tool.profiling.{FailedStagesProfileResults, ProfileUtils, SQLStageInfoProfileResult}
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -73,7 +73,7 @@ object QualSQLToStageView extends AppSQLToStageViewTrait with QualAppIndexMapper
   }
 
   def getRawViewFromSqlProcessor(
-      sqlAnalyzer: SQLPlanMetricProcessor): Seq[SQLStageInfoProfileResult] = {
+      sqlAnalyzer: AppSQLPlanAnalyzer): Seq[SQLStageInfoProfileResult] = {
     sortView(sqlAnalyzer.aggregateSQLStageInfo)
   }
 }

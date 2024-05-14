@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2024, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.nvidia.spark.rapids.tool.analysis
 
 import scala.collection.mutable
@@ -20,12 +36,11 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * tools.
  * TODO: 1- Make the processor accepts appBase instead of applicationInfo. The tricky part here
  *       that Qual has its own way of reporting Problematic SQLs and identifying RDDs.
- *       2- Restructure the implementation similar to AppAnalysis to separate between analysis and
- *       views
- *
+ *       2- Restructure the implementation similar to AppSparkMetricsAnalysis to separate between
+ *       analysis and views.
  * @param app the Application into objects that contains the SQL plans to be processed
  */
-class SQLPlanMetricProcessor(app: AppBase, appIndex: Int) {
+class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(app) {
   private val sqlPlanNodeIdToStageIds: mutable.HashMap[(Long, Long), Set[Int]] =
     mutable.HashMap.empty[(Long, Long), Set[Int]]
   var wholeStage: ArrayBuffer[WholeStageCodeGenResults] = ArrayBuffer[WholeStageCodeGenResults]()
@@ -159,8 +174,6 @@ class SQLPlanMetricProcessor(app: AppBase, appIndex: Int) {
     }
   }
 
-
-
   def aggregateSQLStageInfo: Seq[SQLStageInfoProfileResult] = {
     val jobsWithSQL = app.jobIdToInfo.filter { case (_, j) =>
       j.sqlID.nonEmpty
@@ -271,14 +284,14 @@ class SQLPlanMetricProcessor(app: AppBase, appIndex: Int) {
   }
 }
 
-object SQLPlanMetricProcessor {
-  def processSQLPlan(app: ApplicationInfo): SQLPlanMetricProcessor = {
-    val sqlProcessor = new SQLPlanMetricProcessor(app, app.index)
+object AppSQLPlanAnalyzer {
+  def processSQLPlan(app: ApplicationInfo): AppSQLPlanAnalyzer = {
+    val sqlProcessor = new AppSQLPlanAnalyzer(app, app.index)
     sqlProcessor.processSQLPlanMetrics()
     sqlProcessor
   }
-  def apply(app: AppBase, appIndex: Int): SQLPlanMetricProcessor = {
-    val sqlProcessor = new SQLPlanMetricProcessor(app, appIndex)
+  def apply(app: AppBase, appIndex: Int): AppSQLPlanAnalyzer = {
+    val sqlProcessor = new AppSQLPlanAnalyzer(app, appIndex)
     sqlProcessor.processSQLPlanMetrics()
     sqlProcessor
   }

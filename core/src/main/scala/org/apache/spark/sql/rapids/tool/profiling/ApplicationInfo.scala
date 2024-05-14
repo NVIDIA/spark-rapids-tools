@@ -19,7 +19,7 @@ package org.apache.spark.sql.rapids.tool.profiling
 import scala.collection.{mutable, Map}
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
-import com.nvidia.spark.rapids.tool.analysis.SQLPlanMetricProcessor
+import com.nvidia.spark.rapids.tool.analysis.AppSQLPlanAnalyzer
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -196,7 +196,7 @@ class ApplicationInfo(
   processEvents()
 
   // Process SQL Plan Metrics after all events are processed
-  val planMetricProcessor: SQLPlanMetricProcessor = SQLPlanMetricProcessor.processSQLPlan(this)
+  val planMetricProcessor: AppSQLPlanAnalyzer = AppSQLPlanAnalyzer.processSQLPlan(this)
   // finally aggregate the Info
   aggregateAppInfo
 

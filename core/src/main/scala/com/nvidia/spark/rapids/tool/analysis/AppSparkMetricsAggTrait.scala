@@ -16,49 +16,22 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
-import org.apache.spark.sql.rapids.tool.store.TaskModel
+import org.apache.spark.sql.rapids.tool.AppBase
 
 // A trait that provides the common methods used for Spark metrics aggregator
 // This is extended by the Qual/Prof aggregators
-trait AppAggregatorTrait extends AppIndexMapperTrait {
-  def getDurations(tcs: Iterable[TaskModel]): (Long, Long, Long, Double) = {
-    val durations = tcs.map(_.duration)
-    if (durations.nonEmpty) {
-      (durations.sum, durations.max, durations.min,
-        ToolUtils.calculateAverage(durations.sum, durations.size, 1))
-    } else {
-      (0L, 0L, 0L, 0.toDouble)
-    }
-  }
-
-  def maxWithEmptyHandling(arr: Iterable[Long]): Long = {
-    if (arr.isEmpty) {
-      0L
-    } else {
-      arr.max
-    }
-  }
-
-  def minWithEmptyHandling(arr: Iterable[Long]): Long = {
-    if (arr.isEmpty) {
-      0L
-    } else {
-      arr.min
-    }
-  }
-
+trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
   /**
    * Given an application and its index, this methods creates a new appAnalysis
    * object to aggregate the Raw metrics and returns the result
    * @param app the AppBase to be analyzed
    * @param index the application index
-   * @return a single record of AggregateRawMetricsResult containing all the raw aggregated Spark
+   * @return a single record of AggRawMetricsResult containing all the raw aggregated Spark
    *         metrics
    */
-  def getAggregateRawMetrics(app: AppBase, index: Int): AggregateRawMetricsResult = {
-    val analysisObj = new AppAnalysis(app)
-    AggregateRawMetricsResult(
+  def getAggRawMetrics(app: AppBase, index: Int): AggRawMetricsResult = {
+    val analysisObj = new AppSparkMetricsAnalyzer(app)
+    AggRawMetricsResult(
       analysisObj.aggregateSparkMetricsByJob(index),
       analysisObj.aggregateSparkMetricsByStage(index),
       analysisObj.shuffleSkewCheck(index),
@@ -75,11 +48,11 @@ trait AppAggregatorTrait extends AppIndexMapperTrait {
    * @return a single record of all the aggregated metrics
    */
   def getAggregateRawMetrics(
-      apps: Seq[AppBase]): AggregateRawMetricsResult = {
+      apps: Seq[AppBase]): AggRawMetricsResult = {
     zipAppsWithIndex(apps).map { case (app, index) =>
-      getAggregateRawMetrics(app, index)
+      getAggRawMetrics(app, index)
     }.reduce { (agg1, agg2) =>
-      AggregateRawMetricsResult(
+      AggRawMetricsResult(
         agg1.jobAggs ++ agg2.jobAggs,
         agg1.stageAggs ++ agg2.stageAggs,
         agg1.taskShuffleSkew ++ agg2.taskShuffleSkew,

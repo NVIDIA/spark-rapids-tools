@@ -21,6 +21,7 @@ import scala.collection.mutable
 import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStageAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult}
 
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
+import org.apache.spark.sql.rapids.tool.store.TaskModel
 
 /**
  * Does analysis on the DataFrames from object of AppBase.
@@ -42,7 +43,7 @@ import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
  *
  * @param app the AppBase object to analyze
  */
-class AppAnalysis(app: AppBase) {
+class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   // Hashmap to cache the stage level metrics. It is initialized to None just in case the caller
   // does not call methods in order starting with stage level metrics.
   private var stageLevelCache:
@@ -86,8 +87,10 @@ class AppAnalysis(app: AppBase) {
           // stage Profiling results
           val tasksInJob = profResultsInJob.map(_.numTasks).sum
           val durSum = profResultsInJob.map(_.durationSum).sum
-          val durMax = AppAnalysis.maxWithEmptyHandling(profResultsInJob.map(_.durationMax))
-          val durMin = AppAnalysis.minWithEmptyHandling(profResultsInJob.map(_.durationMin))
+          val durMax =
+            AppSparkMetricsAnalyzer.maxWithEmptyHandling(profResultsInJob.map(_.durationMax))
+          val durMin =
+            AppSparkMetricsAnalyzer.minWithEmptyHandling(profResultsInJob.map(_.durationMin))
           val durAvg = ToolUtils.calculateAverage(durSum, tasksInJob, 1)
           Some(JobStageAggTaskMetricsProfileResult(index,
             s"job_$id",
@@ -108,9 +111,10 @@ class AppAnalysis(app: AppBase) {
             profResultsInJob.map(_.memoryBytesSpilledSum).sum,
             profResultsInJob.map(_.outputBytesWrittenSum).sum,
             profResultsInJob.map(_.outputRecordsWrittenSum).sum,
-            AppAnalysis.maxWithEmptyHandling(profResultsInJob.map(_.peakExecutionMemoryMax)),
+            AppSparkMetricsAnalyzer.maxWithEmptyHandling(
+              profResultsInJob.map(_.peakExecutionMemoryMax)),
             profResultsInJob.map(_.resultSerializationTimeSum).sum,
-            AppAnalysis.maxWithEmptyHandling(profResultsInJob.map(_.resultSizeMax)),
+            AppSparkMetricsAnalyzer.maxWithEmptyHandling(profResultsInJob.map(_.resultSizeMax)),
             profResultsInJob.map(_.srFetchWaitTimeSum).sum,
             profResultsInJob.map(_.srLocalBlocksFetchedSum).sum,
             profResultsInJob.map(_.srcLocalBytesReadSum).sum,
@@ -181,22 +185,24 @@ class AppAnalysis(app: AppBase) {
       if (app.sqlIdToStages.contains(sqlId)) {
         val stagesInSQL = app.sqlIdToStages(sqlId)
         // TODO: Should we only consider successful tasks?
-        val profResultsInSql = stageLevelSparkMetrics(index).filterKeys(stagesInSQL.contains).values
-        if (profResultsInSql.isEmpty) {
+        val cachedResBySQL = stageLevelSparkMetrics(index).filterKeys(stagesInSQL.contains).values
+        if (cachedResBySQL.isEmpty) {
           None
         } else {
           // Recalculate the duration sum, max, min, avg for the job based on the cached
           // stage Profiling results
-          val tasksInSql = profResultsInSql.map(_.numTasks).sum
-          val durSum = profResultsInSql.map(_.durationSum).sum
-          val durMax = AppAnalysis.maxWithEmptyHandling(profResultsInSql.map(_.durationMax))
-          val durMin = AppAnalysis.minWithEmptyHandling(profResultsInSql.map(_.durationMin))
+          val tasksInSql = cachedResBySQL.map(_.numTasks).sum
+          val durSum = cachedResBySQL.map(_.durationSum).sum
+          val durMax =
+            AppSparkMetricsAnalyzer.maxWithEmptyHandling(cachedResBySQL.map(_.durationMax))
+          val durMin =
+            AppSparkMetricsAnalyzer.minWithEmptyHandling(cachedResBySQL.map(_.durationMin))
           val durAvg = ToolUtils.calculateAverage(durSum, tasksInSql, 1)
-          val diskBytes = profResultsInSql.map(_.diskBytesSpilledSum).sum
-          val execCpuTime = profResultsInSql.map(_.executorCPUTimeSum).sum
-          val execRunTime = profResultsInSql.map(_.executorRunTimeSum).sum
+          val diskBytes = cachedResBySQL.map(_.diskBytesSpilledSum).sum
+          val execCpuTime = cachedResBySQL.map(_.executorCPUTimeSum).sum
+          val execRunTime = cachedResBySQL.map(_.executorRunTimeSum).sum
           val execCPURatio = ToolUtils.calculateDurationPercent(execCpuTime, execRunTime)
-          val inputBytesRead = profResultsInSql.map(_.inputBytesReadSum).sum
+          val inputBytesRead = cachedResBySQL.map(_.inputBytesReadSum).sum
           // set this here, so make sure we don't get it again until later
           sqlCase.sqlCpuTimePercent = execCPURatio
 
@@ -215,29 +221,30 @@ class AppAnalysis(app: AppBase) {
             durMin,
             durAvg,
             execCpuTime,
-            profResultsInSql.map(_.executorDeserializeCpuTimeSum).sum,
-            profResultsInSql.map(_.executorDeserializeTimeSum).sum,
+            cachedResBySQL.map(_.executorDeserializeCpuTimeSum).sum,
+            cachedResBySQL.map(_.executorDeserializeTimeSum).sum,
             execRunTime,
             inputBytesRead,
             inputBytesRead * 1.0 / tasksInSql,
-            profResultsInSql.map(_.inputRecordsReadSum).sum,
-            profResultsInSql.map(_.jvmGCTimeSum).sum,
-            profResultsInSql.map(_.memoryBytesSpilledSum).sum,
-            profResultsInSql.map(_.outputBytesWrittenSum).sum,
-            profResultsInSql.map(_.outputRecordsWrittenSum).sum,
-            AppAnalysis.maxWithEmptyHandling(profResultsInSql.map(_.peakExecutionMemoryMax)),
-            profResultsInSql.map(_.resultSerializationTimeSum).sum,
-            AppAnalysis.maxWithEmptyHandling(profResultsInSql.map(_.resultSizeMax)),
-            profResultsInSql.map(_.srFetchWaitTimeSum).sum,
-            profResultsInSql.map(_.srLocalBlocksFetchedSum).sum,
-            profResultsInSql.map(_.srcLocalBytesReadSum).sum,
-            profResultsInSql.map(_.srRemoteBlocksFetchSum).sum,
-            profResultsInSql.map(_.srRemoteBytesReadSum).sum,
-            profResultsInSql.map(_.srRemoteBytesReadToDiskSum).sum,
-            profResultsInSql.map(_.srTotalBytesReadSum).sum,
-            profResultsInSql.map(_.swBytesWrittenSum).sum,
-            profResultsInSql.map(_.swRecordsWrittenSum).sum,
-            profResultsInSql.map(_.swWriteTimeSum).sum))
+            cachedResBySQL.map(_.inputRecordsReadSum).sum,
+            cachedResBySQL.map(_.jvmGCTimeSum).sum,
+            cachedResBySQL.map(_.memoryBytesSpilledSum).sum,
+            cachedResBySQL.map(_.outputBytesWrittenSum).sum,
+            cachedResBySQL.map(_.outputRecordsWrittenSum).sum,
+            AppSparkMetricsAnalyzer.maxWithEmptyHandling(
+              cachedResBySQL.map(_.peakExecutionMemoryMax)),
+            cachedResBySQL.map(_.resultSerializationTimeSum).sum,
+            AppSparkMetricsAnalyzer.maxWithEmptyHandling(cachedResBySQL.map(_.resultSizeMax)),
+            cachedResBySQL.map(_.srFetchWaitTimeSum).sum,
+            cachedResBySQL.map(_.srLocalBlocksFetchedSum).sum,
+            cachedResBySQL.map(_.srcLocalBytesReadSum).sum,
+            cachedResBySQL.map(_.srRemoteBlocksFetchSum).sum,
+            cachedResBySQL.map(_.srRemoteBytesReadSum).sum,
+            cachedResBySQL.map(_.srRemoteBytesReadToDiskSum).sum,
+            cachedResBySQL.map(_.srTotalBytesReadSum).sum,
+            cachedResBySQL.map(_.swBytesWrittenSum).sum,
+            cachedResBySQL.map(_.swRecordsWrittenSum).sum,
+            cachedResBySQL.map(_.swWriteTimeSum).sum))
         }
       } else {
         None
@@ -323,7 +330,7 @@ class AppAnalysis(app: AppBase) {
       val tasksInStage = app.taskManager.getTasks(sm.sId, sm.attemptId)
       // count duplicate task attempts
       val numAttempts = tasksInStage.size
-      val (durSum, durMax, durMin, durAvg) = AppAnalysis.getDurations(tasksInStage)
+      val (durSum, durMax, durMin, durAvg) = AppSparkMetricsAnalyzer.getDurations(tasksInStage)
       val stageRow = JobStageAggTaskMetricsProfileResult(index,
         s"stage_${sm.sId}",
         numAttempts,
@@ -343,9 +350,9 @@ class AppAnalysis(app: AppBase) {
         tasksInStage.map(_.memoryBytesSpilled).sum,
         tasksInStage.map(_.output_bytesWritten).sum,
         tasksInStage.map(_.output_recordsWritten).sum,
-        AppAnalysis.maxWithEmptyHandling(tasksInStage.map(_.peakExecutionMemory)),
+        AppSparkMetricsAnalyzer.maxWithEmptyHandling(tasksInStage.map(_.peakExecutionMemory)),
         tasksInStage.map(_.resultSerializationTime).sum,
-        AppAnalysis.maxWithEmptyHandling(tasksInStage.map(_.resultSize)),
+        AppSparkMetricsAnalyzer.maxWithEmptyHandling(tasksInStage.map(_.resultSize)),
         tasksInStage.map(_.sr_fetchWaitTime).sum,
         tasksInStage.map(_.sr_localBlocksFetched).sum,
         tasksInStage.map(_.sr_localBytesRead).sum,
@@ -363,6 +370,30 @@ class AppAnalysis(app: AppBase) {
 }
 
 
-object AppAnalysis extends AppAggregatorTrait with QualAppIndexMapperTrait {
+object AppSparkMetricsAnalyzer  {
+  def getDurations(tcs: Iterable[TaskModel]): (Long, Long, Long, Double) = {
+    val durations = tcs.map(_.duration)
+    if (durations.nonEmpty) {
+      (durations.sum, durations.max, durations.min,
+        ToolUtils.calculateAverage(durations.sum, durations.size, 1))
+    } else {
+      (0L, 0L, 0L, 0.toDouble)
+    }
+  }
 
+  def maxWithEmptyHandling(arr: Iterable[Long]): Long = {
+    if (arr.isEmpty) {
+      0L
+    } else {
+      arr.max
+    }
+  }
+
+  def minWithEmptyHandling(arr: Iterable[Long]): Long = {
+    if (arr.isEmpty) {
+      0L
+    } else {
+      arr.min
+    }
+  }
 }

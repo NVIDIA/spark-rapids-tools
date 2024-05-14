@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.analysis.ProfilerAppAnalysis
+import com.nvidia.spark.rapids.tool.analysis.ProfSparkMetricsAnalyzer
 import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStageAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult}
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -33,14 +33,14 @@ case class ProfilerAggregatedView(
 
 object RawMetricProfilerView  {
   def getAggMetrics(apps: Seq[ApplicationInfo]): ProfilerAggregatedView = {
-    val aggMetricsResults = ProfilerAppAnalysis.getAggregateRawMetrics(apps)
+    val aggMetricsResults = ProfSparkMetricsAnalyzer.getAggregateRawMetrics(apps)
     ProfilerAggregatedView(
-      AggregateMetricsResultSorter.sortJobSparkMetrics(
+      AggMetricsResultSorter.sortJobSparkMetrics(
         aggMetricsResults.stageAggs ++ aggMetricsResults.jobAggs),
-      AggregateMetricsResultSorter.sortShuffleSkewProfileResult(aggMetricsResults.taskShuffleSkew),
-      AggregateMetricsResultSorter.sortSqlAgg(aggMetricsResults.sqlAggs),
-      AggregateMetricsResultSorter.sortIO(aggMetricsResults.ioAggs),
-      AggregateMetricsResultSorter.sortSqlDurationAgg(aggMetricsResults.sqlDurAggs),
+      AggMetricsResultSorter.sortShuffleSkew(aggMetricsResults.taskShuffleSkew),
+      AggMetricsResultSorter.sortSqlAgg(aggMetricsResults.sqlAggs),
+      AggMetricsResultSorter.sortIO(aggMetricsResults.ioAggs),
+      AggMetricsResultSorter.sortSqlDurationAgg(aggMetricsResults.sqlDurAggs),
       aggMetricsResults.maxTaskInputSizes)
   }
 }

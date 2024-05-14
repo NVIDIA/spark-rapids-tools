@@ -25,11 +25,11 @@ import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStage
  * Having that in one place has the following pros:
  * 1- makes the code easier to read, because otherwise the sorting code was spread everywhere in
  *    the aggregation methods.
- * 2- Easier to maintain the code and extend it to implemnt different sort strategies for different
+ * 2- Easier to maintain the code and extend it to implement different sort strategies for different
  *    tools/reports. For example, the qualification tool can define object that executes a different
  *    sorting logic compared to the profiler.
  */
-object AggregateMetricsResultSorter {
+object AggMetricsResultSorter {
   // TODO: The implementation needs to be cleaner to allow for different sort strategies.
   //      Also, it will be better to use some generics to allow for different argument types.
   def sortJobSparkMetrics(
@@ -69,7 +69,7 @@ object AggregateMetricsResultSorter {
     }
   }
 
-  def sortShuffleSkewProfileResult(
+  def sortShuffleSkew(
       rows: Seq[ShuffleSkewProfileResult]):
   Seq[ShuffleSkewProfileResult] = {
     if (rows.isEmpty) {

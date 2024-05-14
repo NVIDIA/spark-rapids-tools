@@ -24,7 +24,7 @@ import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStage
  * how the view are generated.
  * For example, the profiler tool currently merges both job/stage-level in a single list.
  * As a step toward separating the logic from the views, the analyzer returns
- * AggregateRawMetricsResult that contains the aggregated metrics for jobs, stages, SQLs, and IOs.
+ * AggRawMetricsResult that contains the aggregated metrics for jobs, stages, SQLs, and IOs.
  * In later refactors, we can revisit *TaskMetricsProfileResult to have integer IDs instead of
  * the current format "stage_ID" or "job_ID". We still use the old format to keep the compatibility
  * with other modules.
@@ -37,7 +37,7 @@ import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStage
  * @param sqlDurAggs        the aggregated duration and CPU time for SQLs
  * @param maxTaskInputSizes a sequence of SQLMaxTaskInputSizes that contains the maximum input size
  */
-case class AggregateRawMetricsResult(
+case class AggRawMetricsResult(
     jobAggs: Seq[JobStageAggTaskMetricsProfileResult],
     stageAggs: Seq[JobStageAggTaskMetricsProfileResult],
     taskShuffleSkew: Seq[ShuffleSkewProfileResult],

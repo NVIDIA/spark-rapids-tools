@@ -89,14 +89,26 @@ trait AppRemovedBlockManagerView extends ViewableTrait[BlockManagerRemovedProfil
   }
 }
 
-object QualExecutorView extends AppExecutorViewTrait with QualAppIndexMapperTrait { }
+object QualExecutorView extends AppExecutorViewTrait with QualAppIndexMapperTrait {
+  // Keep for the following refactor stages to customize the view based on the app type (Qual/Prof)
+}
 
-object ProfExecutorView extends AppExecutorViewTrait with ProfAppIndexMapperTrait { }
+object ProfExecutorView extends AppExecutorViewTrait with ProfAppIndexMapperTrait {
+  // Keep for the following refactor stages to customize the view based on the app type (Qual/Prof)
+}
 
-object QualRemovedExecutorView extends AppRemovedExecutorView with QualAppIndexMapperTrait { }
+object QualRemovedExecutorView extends AppRemovedExecutorView with QualAppIndexMapperTrait {
+  // Keep for the following refactor stages to customize the view based on the app type (Qual/Prof)
+}
 
-object ProfRemovedExecutorView extends AppRemovedExecutorView with ProfAppIndexMapperTrait { }
+object ProfRemovedExecutorView extends AppRemovedExecutorView with ProfAppIndexMapperTrait {
+  // Keep for the following refactor stages to customize the view based on the app type (Qual/Prof)
+}
 
-object QualRemovedBLKMgrView extends AppRemovedBlockManagerView with QualAppIndexMapperTrait { }
+object QualRemovedBLKMgrView extends AppRemovedBlockManagerView with QualAppIndexMapperTrait {
+  // Keep for the following refactor stages to customize the view based on the app type (Qual/Prof)
+}
 
-object ProfRemovedBLKMgrView extends AppRemovedBlockManagerView with ProfAppIndexMapperTrait { }
+object ProfRemovedBLKMgrView extends AppRemovedBlockManagerView with ProfAppIndexMapperTrait {
+  // Keep for the following refactor stages to customize the view based on the app type (Qual/Prof)
+}

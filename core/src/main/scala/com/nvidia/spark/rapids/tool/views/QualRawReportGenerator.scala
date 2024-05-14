@@ -16,11 +16,10 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.analysis.{AggregateRawMetricsResult, AppAnalysis, SQLPlanMetricProcessor}
+import com.nvidia.spark.rapids.tool.analysis.{AggRawMetricsResult, AppSQLPlanAnalyzer, QualSparkMetricsAnalyzer}
 import com.nvidia.spark.rapids.tool.profiling.{ProfileOutputWriter, ProfileResult}
 
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
-
 
 /**
  * This object generates the raw metrics view for the qualification tool. It is used to generate
@@ -29,14 +28,14 @@ import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 object QualRawReportGenerator {
 
   private def constructLabelsMaps(
-      aggRawResult: AggregateRawMetricsResult): Map[String, Seq[ProfileResult]] = {
-    val sortedRes = AggregateRawMetricsResult(
-      AggregateMetricsResultSorter.sortJobSparkMetrics(aggRawResult.stageAggs),
-      AggregateMetricsResultSorter.sortJobSparkMetrics(aggRawResult.jobAggs),
-      AggregateMetricsResultSorter.sortShuffleSkewProfileResult(aggRawResult.taskShuffleSkew),
-      AggregateMetricsResultSorter.sortSqlAgg(aggRawResult.sqlAggs),
-      AggregateMetricsResultSorter.sortIO(aggRawResult.ioAggs),
-      AggregateMetricsResultSorter.sortSqlDurationAgg(aggRawResult.sqlDurAggs),
+      aggRawResult: AggRawMetricsResult): Map[String, Seq[ProfileResult]] = {
+    val sortedRes = AggRawMetricsResult(
+      AggMetricsResultSorter.sortJobSparkMetrics(aggRawResult.stageAggs),
+      AggMetricsResultSorter.sortJobSparkMetrics(aggRawResult.jobAggs),
+      AggMetricsResultSorter.sortShuffleSkew(aggRawResult.taskShuffleSkew),
+      AggMetricsResultSorter.sortSqlAgg(aggRawResult.sqlAggs),
+      AggMetricsResultSorter.sortIO(aggRawResult.ioAggs),
+      AggMetricsResultSorter.sortSqlDurationAgg(aggRawResult.sqlDurAggs),
       aggRawResult.maxTaskInputSizes)
     Map(
       STAGE_AGG_LABEL -> sortedRes.stageAggs,
@@ -52,7 +51,7 @@ object QualRawReportGenerator {
       appIndex: Int): Unit = {
     // We only need the SQL analyzer here to generate the output. It is not saved in the AppBase to
     // save memory
-    val sqlPlanAnalyzer = SQLPlanMetricProcessor(app, appIndex)
+    val sqlPlanAnalyzer = AppSQLPlanAnalyzer(app, appIndex)
     pWriter.write(QualSQLToStageView.getLabel,
       QualSQLToStageView.getRawViewFromSqlProcessor(sqlPlanAnalyzer))
     pWriter.write(QualSQLPlanMetricsView.getLabel,
@@ -78,7 +77,7 @@ object QualRawReportGenerator {
       generateSQLProcessingView(pWriter, app, appIndex)
       pWriter.writeText("\n### B. Analysis ###\n")
       constructLabelsMaps(
-        AppAnalysis.getAggregateRawMetrics(app, appIndex)).foreach { case (label, metrics) =>
+        QualSparkMetricsAnalyzer.getAggRawMetrics(app, appIndex)).foreach { case (label, metrics) =>
         pWriter.write(label,
           metrics,
           AGG_DESCRIPTION.get(label))
