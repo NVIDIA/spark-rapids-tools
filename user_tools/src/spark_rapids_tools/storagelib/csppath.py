@@ -278,7 +278,7 @@ class CspPath(metaclass=CspPathMeta):
         return self._fpath
 
     @classmethod
-    def init_env_vars(cls, path: str) -> None:
+    def init_env_vars(cls, path: Union[str, 'CspPath']) -> None:
         if cls.protocol_prefix == AZURE_STORAGE_PREFIX:
             account_name = get_abfs_account_name(str(path))
             os.environ['AZURE_STORAGE_ACCOUNT_NAME'] = account_name
