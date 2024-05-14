@@ -55,8 +55,6 @@ toolOutput:
              function: 'mean'
            - column: Skip by Heuristics
              function: 'any'
-           - column: Skip by Heuristics Reason
-             function: 'concat'
       dropDuplicates:
         - Vendor
         - Driver Host
@@ -265,9 +263,9 @@ local:
       appInfo:
         fileName: 'application_information.csv'
       resultCols:
+        - 'App Name'
         - 'App ID'
         - 'Skip by Heuristics'
-        - 'Skip by Heuristics Reason'
       spillBased:
         jobStageAggMetrics:
           fileName: 'job_+_stage_level_aggregated_task_metrics.csv'

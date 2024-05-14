@@ -18,6 +18,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from logging import Logger
+from pathlib import Path
 
 import pandas as pd
 
@@ -40,7 +41,7 @@ class AdditionalHeuristics:
         self.output_dir = output_dir
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.{self.__class__.__name__}')
 
-    def _apply_heuristics(self, app_ids: list) -> pd.DataFrame:
+    def _apply_heuristics(self) -> pd.DataFrame:
         """
         Apply additional heuristics to applications to determine if they can be accelerated on GPU.
         """
@@ -49,30 +50,31 @@ class AdditionalHeuristics:
             RegexPattern.rapids_profile.match,
             return_directories=True,
         )
-        if len(profile_list) == 0:
+        if not profile_list:
             self.logger.warning('No RAPIDS profiles found in output directory: %s', self.output_dir)
-            return pd.DataFrame(columns=self.props.get_value('resultCols'))
+            return pd.DataFrame()
 
-        profile_path = profile_list[0]
+        app_id_paths = find_paths(profile_list[0], RegexPattern.app_id.match, return_directories=True)
         result_arr = []
-        if not os.listdir(profile_path) or len(app_ids) == 0:
+        if not app_id_paths:
             self.logger.warning('Skipping empty profile: %s', profile_list[0])
         else:
-            for app_id in app_ids:
-                app_id_path = os.path.join(profile_path, app_id)
+            for app_id_path in app_id_paths:
                 try:
+                    app_info_path = os.path.join(app_id_path, self.props.get_value('appInfo', 'fileName'))
+                    app_info = pd.read_csv(app_info_path)
+                    app_name = app_info['appName'].values[0]
+                    app_id = Path(app_id_path).name
                     # Apply heuristics and determine if the application should be skipped.
                     # Note: `should_skip` flag can be a combination of multiple heuristic checks.
-                    should_skip, reason = self.heuristics_based_on_spills(app_id_path)
+                    should_skip = self.heuristics_based_on_spills(app_id_path)
+                    result_arr.append([app_name, app_id, should_skip])
                 except Exception as e:  # pylint: disable=broad-except
-                    should_skip = False
-                    reason = f'Cannot apply heuristics for qualification. Reason - {type(e).__name__}:{e}'
-                    self.logger.error(reason)
-                result_arr.append([app_id, should_skip, reason])
-
+                    self.logger.error('Error occurred while applying additional heuristics. '
+                                      'Reason - %s:%s', type(e).__name__, e)
         return pd.DataFrame(result_arr, columns=self.props.get_value('resultCols'))
 
-    def heuristics_based_on_spills(self, app_id_path: str) -> (bool, str):
+    def heuristics_based_on_spills(self, app_id_path: str) -> bool:
         """
         Apply heuristics based on spills to determine if the app can be accelerated on GPU.
         """
@@ -105,16 +107,12 @@ class AdditionalHeuristics:
         relevant_stages_with_spills = merged_df[~merged_df['SQL Nodes(IDs)'].apply(
             lambda x: isinstance(x, str) and bool(re.search(pattern, x)))]
         # If there are any stages with spills caused by non-allowed Execs, skip the application
-        should_skip = len(relevant_stages_with_spills) > 0
-        stages_str = ', '.join(relevant_stages_with_spills['stageId'].astype(str))
-        reason = f'Skipping due to spills in stages [{stages_str}] exceeding {spill_threshold_bytes} bytes' \
-            if should_skip else ''
-        return should_skip, reason
+        return len(relevant_stages_with_spills) > 0
 
     def apply_heuristics(self, all_apps: pd.DataFrame) -> pd.DataFrame:
         try:
-            additional_heuristics_df = self._apply_heuristics(all_apps['App ID'].unique())
-            all_apps = pd.merge(all_apps, additional_heuristics_df, on=['App ID'], how='left')
+            additional_heuristics_df = self._apply_heuristics()
+            all_apps = pd.merge(all_apps, additional_heuristics_df, on=['App Name', 'App ID'], how='left')
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Error occurred while applying additional heuristics. '
                               'Reason - %s:%s', type(e).__name__, e)

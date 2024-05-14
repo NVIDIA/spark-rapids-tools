@@ -16,7 +16,7 @@
 
 from dataclasses import dataclass, field
 from math import ceil
-from typing import Any, List, Callable, Union
+from typing import Any, List, Callable
 
 import numpy as np
 import pandas as pd
@@ -439,25 +439,13 @@ class Qualification(RapidsJarTool):
         """
         all_apps_count = len(all_apps)
 
-        def resolve_agg_function(agg_func_str: str) -> Union[str, Callable]:
-            """
-            Return a custom aggregation function or the input string.
-            """
-            agg_func_map = {
-                'concat': lambda x: '; '.join(map(str, x)),
-            }
-            return agg_func_map.get(agg_func_str, agg_func_str)
-
         group_info = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
         valid_group_cols = Utilities.get_valid_df_columns(group_info['keys'], all_apps)
         for agg_info in group_info['aggregate']:
-            agg_col = agg_info.get('column')
-            # resolve the aggregation function if it is a custom function
-            agg_func = resolve_agg_function(agg_info.get('function'))
+            agg_col = agg_info['column']
             if agg_col in all_apps.columns:
-                all_apps[agg_col] = all_apps[agg_col].dropna()
-                # Group by columns can contain NaN values, so we need to include them in the grouping
-                all_apps[agg_col] = all_apps.groupby(valid_group_cols, dropna=False)[agg_col].transform(agg_func)
+                all_apps[agg_col] = all_apps.groupby(valid_group_cols)[agg_col].transform(
+                    agg_info['function'])
 
         drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
         valid_drop_cols = Utilities.get_valid_df_columns(drop_arr, all_apps)
