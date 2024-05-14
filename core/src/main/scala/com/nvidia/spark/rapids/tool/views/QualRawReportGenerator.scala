@@ -30,8 +30,8 @@ object QualRawReportGenerator {
   private def constructLabelsMaps(
       aggRawResult: AggRawMetricsResult): Map[String, Seq[ProfileResult]] = {
     val sortedRes = AggRawMetricsResult(
-      AggMetricsResultSorter.sortJobSparkMetrics(aggRawResult.stageAggs),
       AggMetricsResultSorter.sortJobSparkMetrics(aggRawResult.jobAggs),
+      AggMetricsResultSorter.sortJobSparkMetrics(aggRawResult.stageAggs),
       AggMetricsResultSorter.sortShuffleSkew(aggRawResult.taskShuffleSkew),
       AggMetricsResultSorter.sortSqlAgg(aggRawResult.sqlAggs),
       AggMetricsResultSorter.sortIO(aggRawResult.ioAggs),
