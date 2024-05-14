@@ -21,6 +21,7 @@ from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_tools.utils.util import get_abfs_account_name
 
 
 @dataclass
@@ -71,7 +72,7 @@ class AzureStorageDriver(StorageDriver):
 
         try:
             file_system = self.get_file_system(src)
-            account_name = self.get_account_name(src)
+            account_name = get_abfs_account_name(src)
             path = self.get_path(src)
 
             cmd_args = self.get_cmd_prefix()

@@ -57,6 +57,7 @@ if TYPE_CHECKING:
 
 
 CspPathString = Annotated[str, StringConstraints(pattern=r'^\w+://.*')]
+AZURE_STORAGE_PREFIX = 'abfss://'
 
 
 class CspPathImplementation:
@@ -278,7 +279,7 @@ class CspPath(metaclass=CspPathMeta):
 
     @classmethod
     def init_env_vars(cls, path: str) -> None:
-        if cls.protocol_prefix.startswith('abfss'):
+        if cls.protocol_prefix == AZURE_STORAGE_PREFIX:
             account_name = get_abfs_account_name(str(path))
             os.environ['AZURE_STORAGE_ACCOUNT_NAME'] = account_name
 
