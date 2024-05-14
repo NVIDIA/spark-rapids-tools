@@ -213,8 +213,10 @@ class Qualification(RapidsJarTool):
                 sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
-            except Exception:  # pylint: disable=broad-except
-                return
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.warning(
+                    'Failed to get the worker node information for the GPU cluster %s:%s',
+                    type(e).__name__, e)
 
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
         cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
