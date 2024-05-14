@@ -24,6 +24,7 @@ from tabulate import tabulate
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo, SparkNodeType
 from spark_rapids_pytools.common.cluster_inference import ClusterInference
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -444,7 +445,8 @@ class Qualification(RapidsJarTool):
         for agg_info in group_info['aggregate']:
             agg_col = agg_info['column']
             if agg_col in all_apps.columns:
-                all_apps[agg_col] = all_apps.groupby(valid_group_cols)[agg_col].transform(
+                # Group by columns can contain NaN values, so we need to include them in the grouping
+                all_apps[agg_col] = all_apps.groupby(valid_group_cols, dropna=False)[agg_col].transform(
                     agg_info['function'])
 
         drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
@@ -688,24 +690,27 @@ class Qualification(RapidsJarTool):
     def __build_global_report_summary(self,
                                       all_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
-                                      output_files_info: dict) -> QualificationSummary:
+                                      output_files_raw: dict) -> QualificationSummary:
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
 
+        output_files_info = JSONPropertiesContainer(output_files_raw, file_load=False)
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
                                                                               'unsupportedOperators'))
         # Calculate unsupported operators stage duration before grouping
         all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
         apps_pruned_df = self.__remap_columns_and_prune(all_apps)
-        additional_heuristics = AdditionalHeuristics(
+        # Apply additional heuristics to skip apps not suitable for GPU acceleration
+        heuristics_ob = AdditionalHeuristics(
             props=self.ctxt.get_value('local', 'output', 'additionalHeuristics'),
-            output_dir=self.ctxt.get_local('outputFolder'))
-        apps_pruned_df = additional_heuristics.apply_heuristics(apps_pruned_df)
+            tools_output_dir=self.ctxt.get_local('outputFolder'),
+            output_file=output_files_info.get_value('intermediateOutput', 'files', 'heuristics', 'path'))
+        apps_pruned_df = heuristics_ob.apply_heuristics(apps_pruned_df)
         speedup_category_ob = SpeedupCategory(self.ctxt.get_value('local', 'output', 'speedupCategories'))
         # Calculate the speedup category column, send a copy of the dataframe to avoid modifying the original
         apps_pruned_result = speedup_category_ob.build_category_column(apps_pruned_df.copy())
-        apps_pruned_result.to_csv(output_files_info['full']['path'], float_format='%.2f')
+        apps_pruned_result.to_csv(output_files_info.get_value('full', 'path'), float_format='%.2f')
         # Group the applications and recalculate metrics
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
         apps_grouped_df = speedup_category_ob.build_category_column(apps_grouped_df)
@@ -732,7 +737,7 @@ class Qualification(RapidsJarTool):
                                           'clusterShapeCols', 'columnName')
         speed_recommendation_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
         apps_reshaped_df, per_row_flag = self.__apply_gpu_cluster_reshape(apps_grouped_df)
-        csv_out = output_files_info['summary']['path']
+        csv_out = output_files_info.get_value('summary', 'path')
         if launch_savings_calc:
             # Now, the dataframe is ready to calculate the cost and the savings
             apps_working_set = self.__calc_apps_cost(apps_reshaped_df,
@@ -956,15 +961,19 @@ class Qualification(RapidsJarTool):
         FSUtil.make_dirs(output_dir)
         return self.__update_files_info_with_paths(predictions_info['files'], output_dir)
 
-    @staticmethod
-    def __update_files_info_with_paths(files_info: dict, output_dir: str) -> dict:
+    @classmethod
+    def __update_files_info_with_paths(cls, files_info: dict, output_dir: str) -> dict:
         """
         Update the given files_info dictionary with full file paths.
         """
-        for entry in files_info:
-            file_name = files_info[entry]['name']
-            file_path = FSUtil.build_path(output_dir, file_name)
-            files_info[entry]['path'] = file_path
+        for _, entry in files_info.items():
+            file_name = entry['name']
+            path = FSUtil.build_path(output_dir, file_name)
+            # if entry is a directory, create the directory and update the files info recursively
+            if entry.get('isDirectory'):
+                FSUtil.make_dirs(path)
+                entry['files'] = cls.__update_files_info_with_paths(entry['files'], path)
+            entry['path'] = path
         return files_info
 
     def __update_apps_with_prediction_info(self, all_apps: pd.DataFrame) -> pd.DataFrame:
