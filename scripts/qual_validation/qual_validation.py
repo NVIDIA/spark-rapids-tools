@@ -81,7 +81,8 @@ subprocess.run(f"spark_rapids qualification --platform {platform} {jar_arg} --es
 
 ### CPU log parsing
 cpu_app_info = pd.read_csv(glob.glob(f"{cpu_tmp_dir}/*/qualification_summary.csv")[0])
-cpu_query_info = cpu_app_info[["App Name", "App Duration", "Estimated GPU Duration", "Estimated GPU Speedup", "Unsupported Operators Stage Duration Percent", "Speedup Based Recommendation"]]
+cpu_query_info = cpu_app_info[["App Name", "App Duration", "Estimated GPU Duration", "Estimated GPU Speedup", "Unsupported Operators Stage Duration Percent", "Speedup Based Recommendation", "Estimated GPU Speedup Category"]]
+cpu_query_info["Qualified"] = cpu_query_info["Estimated GPU Speedup Category"].apply(lambda x: x in {'Small', 'Medium', 'Large'})
 
 ### GPU log parsing
 gpu_query_info = pd.DataFrame(columns = ['App Name', 'GPU Duration'])
@@ -97,11 +98,10 @@ merged_info = cpu_query_info.merge(gpu_query_info, left_on='App Name', right_on=
 merged_info["GPU Speedup"] = (merged_info["App Duration"]/merged_info["GPU Duration"]).apply(lambda x: round(x,2))
 
 speedup_threshold = 1.3
-unsupported_threshold = 25
-merged_info["True Positive"] = ((merged_info["Estimated GPU Speedup"] > speedup_threshold) & (merged_info["Unsupported Operators Stage Duration Percent"] < unsupported_threshold) & (merged_info["GPU Speedup"] > speedup_threshold))
-merged_info["False Positive"] = ((merged_info["Estimated GPU Speedup"] > speedup_threshold) & (merged_info["Unsupported Operators Stage Duration Percent"] < unsupported_threshold) & (merged_info["GPU Speedup"] <= speedup_threshold))
-merged_info["True Negative"] = (((merged_info["Estimated GPU Speedup"] < speedup_threshold) | (merged_info["Unsupported Operators Stage Duration Percent"] > unsupported_threshold)) & (merged_info["GPU Speedup"] <= speedup_threshold))
-merged_info["False Negative"] = (((merged_info["Estimated GPU Speedup"] < speedup_threshold) | (merged_info["Unsupported Operators Stage Duration Percent"] > unsupported_threshold)) & (merged_info["GPU Speedup"] > speedup_threshold))
+merged_info["True Positive"] = ((merged_info["Qualified"] == True) & (merged_info["GPU Speedup"] > speedup_threshold))
+merged_info["False Positive"] = ((merged_info["Qualified"] == True) & (merged_info["GPU Speedup"] <= speedup_threshold))
+merged_info["True Negative"] = ((merged_info["Qualified"] != True) & (merged_info["GPU Speedup"] <= speedup_threshold))
+merged_info["False Negative"] = ((merged_info["Qualified"] != True) & (merged_info["GPU Speedup"] > speedup_threshold))
 
 tp_count = merged_info["True Positive"].sum()
 fp_count = merged_info["False Positive"].sum()
