@@ -143,11 +143,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
     progressBar.foreach(_.finishAll())
     
-    // Write status reports for all event logs
-    val profileOutputWriter = new ProfileOutputWriter(outputDir, Profiler.PROFILE_LOG_NAME,
-      numOutputRows, outputCSV = outputCSV)
+    // Write status reports for all event logs to a CSV file
     val reportResults = generateStatusProfResults(appStatusReporter.asScala.values.toSeq)
-    profileOutputWriter.write("Profiling Status", reportResults)
+    ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir=outputDir)
   }
 
   def profileDriver(driverLogInfos: String, eventLogsEmpty: Boolean): Unit = {
