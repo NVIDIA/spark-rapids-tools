@@ -21,6 +21,8 @@ from ..csppath import CspPath, register_path_class
 
 @register_path_class("adls")
 class AdlsPath(CspPath):
+    """Implementation for ADLS paths"""
+
     protocol_prefix: str = "abfss://"
 
     @classmethod
@@ -29,7 +31,7 @@ class AdlsPath(CspPath):
 
     @classmethod
     def is_protocol_prefix(cls, value: str) -> bool:
-        if "AZURE_STORAGE_ACCOUNT_NAME" not in os.environ:
+        if value.startswith(cls.protocol_prefix) and "AZURE_STORAGE_ACCOUNT_NAME" not in os.environ:
             account_name = cls.get_abfs_account_name(value)
             os.environ["AZURE_STORAGE_ACCOUNT_NAME"] = account_name
         return super().is_protocol_prefix(value)
