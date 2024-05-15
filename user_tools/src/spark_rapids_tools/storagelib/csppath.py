@@ -22,7 +22,6 @@ operations.
 """
 
 import abc
-import os
 import sys
 from collections import defaultdict
 from functools import cached_property
