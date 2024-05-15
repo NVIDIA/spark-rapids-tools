@@ -32,9 +32,6 @@ trait ProfileResult {
   def convertToCSVSeq: Seq[String]
 }
 
-case class DriverInfo(val executorId: String, maxMemory: Long, totalOnHeap: Long,
-    totalOffHeap: Long)
-
 case class ExecutorInfoProfileResult(appIndex: Int, resourceProfileId: Int,
     numExecutors: Int, executorCores: Int, maxMem: Long, maxOnHeapMem: Long,
     maxOffHeapMem: Long, executorMemory: Option[Long], numGpusPerExecutor: Option[Long],
@@ -325,48 +322,6 @@ case class TaskStageAccumCase(
     // The amount for this particular task/update
     update: Option[Long],
     isInternal: Boolean)
-
-// Note: sr = Shuffle Read; sw = Shuffle Write
-case class TaskCase(
-    stageId: Int,
-    stageAttemptId: Int,
-    taskType: String,
-    endReason: String,
-    taskId: Long,
-    attempt: Int,
-    launchTime: Long,
-    finishTime: Long,
-    duration: Long,
-    successful: Boolean,
-    executorId: String,
-    host: String,
-    taskLocality: String,
-    speculative: Boolean,
-    gettingResultTime: Long,
-    executorDeserializeTime: Long,
-    executorDeserializeCPUTime: Long,
-    executorRunTime: Long,
-    executorCPUTime: Long,
-    peakExecutionMemory: Long,
-    resultSize: Long,
-    jvmGCTime: Long,
-    resultSerializationTime: Long,
-    memoryBytesSpilled: Long,
-    diskBytesSpilled: Long,
-    sr_remoteBlocksFetched: Long,
-    sr_localBlocksFetched: Long,
-    sr_fetchWaitTime: Long,
-    sr_remoteBytesRead: Long,
-    sr_remoteBytesReadToDisk: Long,
-    sr_localBytesRead: Long,
-    sr_totalBytesRead: Long,
-    sw_bytesWritten: Long,
-    sw_writeTime: Long,
-    sw_recordsWritten: Long,
-    input_bytesRead: Long,
-    input_recordsRead: Long,
-    output_bytesWritten: Long,
-    output_recordsWritten: Long)
 
 case class UnsupportedSQLPlan(sqlID: Long, nodeID: Long, nodeName: String,
     nodeDesc: String, reason: String)

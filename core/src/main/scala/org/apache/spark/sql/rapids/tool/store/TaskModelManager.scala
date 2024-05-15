@@ -42,7 +42,7 @@ class TaskModelManager {
   // - 1st level maps between [Int: stageId -> 2nd Level]
   // - 2nd level maps between [Int: attemptId -> ArrayBuffer[TaskModel]]
   // Use Nested Maps to store taskModels which should be faster to retrieve than a map of
-  // of composite key (i.e., Tuple).
+  // composite key (i.e., Tuple).
   // Composite keys would cost more because it implicitly allocates a new object every time there
   // is a read operation from the map.
   val stageAttemptToTasks: mutable.HashMap[Int, mutable.HashMap[Int, ArrayBuffer[TaskModel]]] =

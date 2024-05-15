@@ -142,7 +142,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   def shuffleSkewCheck(index: Int): Seq[ShuffleSkewProfileResult] = {
     // TODO: we can add averageShuffleRead as a field in JobStageAggTaskMetricsProfileResult instead
     //       of making an extra path on the StageAttempts
-    val avgsStageInfos = app.taskManager.stageAttemptToTasks.collect {
+    val avgStageInfos = app.taskManager.stageAttemptToTasks.collect {
       // TODO: Should we only consider successful tasks?
       case (stageId, attemptsToTasks) if attemptsToTasks.nonEmpty =>
         attemptsToTasks.map { case (attemptId, tasks) =>
@@ -154,7 +154,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         }
     }.flatten
 
-    avgsStageInfos.flatMap { case ((stageId, attemptId), avg) =>
+    avgStageInfos.flatMap { case ((stageId, attemptId), avg) =>
       val definedTasks =
         app.taskManager.getTasks(stageId, attemptId, Some(
           tc => (tc.sr_totalBytesRead > 3 * avg.avgShuffleReadBytes)

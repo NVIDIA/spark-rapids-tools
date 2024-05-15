@@ -23,7 +23,7 @@ trait AppIndexMapperTrait {
   def zipAppsWithIndex(apps: Seq[AppBase]): Seq[(AppBase, Int)]
 }
 
-// Implementation ued by Qualification components because AppBase has no appIndex field. Instead,
+// Implementation used by Qualification components because AppBase has no appIndex field. Instead,
 // this implementation generates index based on the order of the apps.
 trait QualAppIndexMapperTrait extends AppIndexMapperTrait {
   def zipAppsWithIndex(apps: Seq[AppBase]): Seq[(AppBase, Int)] = {
@@ -32,7 +32,7 @@ trait QualAppIndexMapperTrait extends AppIndexMapperTrait {
   }
 }
 
-// Implementation ued by Profiling components because ApplicationInfo has appIndex field which is
+// Implementation used by Profiling components because ApplicationInfo has appIndex field which is
 // used in generating reports with multiple AppIds
 trait ProfAppIndexMapperTrait extends AppIndexMapperTrait {
   override def zipAppsWithIndex(apps: Seq[AppBase]): Seq[(AppBase, Int)] = {

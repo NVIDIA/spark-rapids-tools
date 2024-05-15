@@ -49,6 +49,7 @@ case class TaskModel(
     resultSerializationTime: Long,
     memoryBytesSpilled: Long,
     diskBytesSpilled: Long,
+    // Note: sr stands for ShuffleRead
     sr_remoteBlocksFetched: Long,
     sr_localBlocksFetched: Long,
     sr_fetchWaitTime: Long,
@@ -56,6 +57,7 @@ case class TaskModel(
     sr_remoteBytesReadToDisk: Long,
     sr_localBytesRead: Long,
     sr_totalBytesRead: Long,
+    // Note: sw stands for ShuffleWrite
     sw_bytesWritten: Long,
     sw_writeTime: Long,
     sw_recordsWritten: Long,
