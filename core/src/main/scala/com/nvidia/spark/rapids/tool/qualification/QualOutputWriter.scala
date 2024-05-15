@@ -401,6 +401,7 @@ object QualOutputWriter {
   val TASK_DUR_STR = "SQL Dataframe Task Duration"
   val STAGE_DUR_STR = "Stage Task Duration"
   val STAGE_WALLCLOCK_DUR_STR = "Stage Duration"
+  val TOTAL_STAGE_WALLCLOCK_DUR_STR = "Total Stage Duration"
   val POT_PROBLEM_STR = "Potential Problems"
   val EXEC_CPU_PERCENT_STR = "Executor CPU Time Percent"
   val APP_DUR_ESTIMATED_STR = "App Duration Estimated"
@@ -602,6 +603,7 @@ object QualOutputWriter {
       DETAILS -> DETAILS.size,
       STAGE_WALLCLOCK_DUR_STR -> STAGE_WALLCLOCK_DUR_STR.size,
       APP_DUR_STR -> APP_DUR_STR.size,
+      TOTAL_STAGE_WALLCLOCK_DUR_STR -> TOTAL_STAGE_WALLCLOCK_DUR_STR.size,
       EXEC_ACTION -> EXEC_ACTION.size
     )
     detailedHeaderAndFields
@@ -1018,6 +1020,7 @@ object QualOutputWriter {
     val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
     val appId = sumInfo.appId
     val appDuration = sumInfo.estimatedInfo.appDur
+    val totalStageWallclockDur = sumInfo.stageInfo.map(_.stageWallclockDuration).sum
     val dummyStageID = -1
     val dummyStageDur = 0
     val execIdGenerator = new AtomicLong(0)
@@ -1034,6 +1037,7 @@ object QualOutputWriter {
         reformatCSVFunc(unSupExecInfo.details) -> headersAndSizes(DETAILS),
         stageAppDuration.toString -> headersAndSizes(STAGE_WALLCLOCK_DUR_STR),
         appDuration.toString -> headersAndSizes(APP_DUR_STR),
+        totalStageWallclockDur.toString -> headersAndSizes(TOTAL_STAGE_WALLCLOCK_DUR_STR),
         reformatCSVFunc(unSupExecInfo.opAction.toString) -> headersAndSizes(EXEC_ACTION)
       )
       constructOutputRow(data, delimiter, prettyPrint)

@@ -23,6 +23,7 @@ toolOutput:
         - Estimated GPU Duration
         - App Duration
         - Estimated Job Frequency (monthly)
+        - Total Stage Duration
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
         - Speed Up Estimation Model
@@ -50,6 +51,7 @@ toolOutput:
            - App Duration
            - Estimated GPU Duration
            - Unsupported Operators Stage Duration
+           - Total Stage Duration
       dropDuplicates:
         - Vendor
         - Driver Host
@@ -199,19 +201,20 @@ local:
           value: -1
       inputColumns:
         - 'App ID'
-        - 'App Duration'
         - 'Stage ID'
         - 'Stage Duration'
+        - 'Total Stage Duration'
       groupingColumns:
         max:
           - 'App ID'
-          - 'App Duration'
+          - 'Total Stage Duration'
           - 'Stage ID'
         sum:
           - 'App ID'
-          - 'App Duration'
+          - 'Total Stage Duration'
       resultColumnName: 'Unsupported Operators Stage Duration'
       percentResultColumnName: 'Unsupported Operators Stage Duration Percent'
+      totalStageDurationColumnName: 'Total Stage Duration'
     topCandidates:
       categoryColumnName: 'Estimated GPU Speedup Category'
       outputColumns:
