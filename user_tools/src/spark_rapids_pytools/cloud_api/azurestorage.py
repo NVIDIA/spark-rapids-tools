@@ -21,7 +21,7 @@ from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging
-from spark_rapids_tools.utils.util import get_abfs_account_name
+from spark_rapids_tools.storagelib.adls.adlspath import AdlsPath
 
 
 @dataclass
@@ -41,10 +41,6 @@ class AzureStorageDriver(StorageDriver):
     @classmethod
     def get_file_system(cls, url: str):
         return url.split('@')[0].split('://')[1]
-
-    @classmethod
-    def get_account_name(cls, url: str):
-        return url.split('@')[1].split('.')[0]
 
     @classmethod
     def get_path(cls, url: str):
@@ -72,7 +68,7 @@ class AzureStorageDriver(StorageDriver):
 
         try:
             file_system = self.get_file_system(src)
-            account_name = get_abfs_account_name(src)
+            account_name = AdlsPath.get_abfs_account_name(src)
             path = self.get_path(src)
 
             cmd_args = self.get_cmd_prefix()
@@ -101,7 +97,7 @@ class AzureStorageDriver(StorageDriver):
         # run 'az storage fs file list' if result is 0, then the resource exists.
         try:
             file_system = self.get_file_system(src)
-            account_name = self.get_account_name(src)
+            account_name = AdlsPath.get_abfs_account_name(src)
             path = self.get_path(src)
 
             cmd_args = self.get_cmd_prefix()
@@ -124,7 +120,7 @@ class AzureStorageDriver(StorageDriver):
             return super()._download_remote_resource(src, dest)
         # this is azure data lake storage
         file_system = self.get_file_system(src)
-        account_name = self.get_account_name(src)
+        account_name = AdlsPath.get_abfs_account_name(src)
         path = self.get_path(src)
 
         cmd_args = self.get_cmd_prefix()
@@ -147,7 +143,7 @@ class AzureStorageDriver(StorageDriver):
             return super()._upload_remote_dest(src, dest)
         # this is azure data lake storage
         file_system = self.get_file_system(dest)
-        account_name = self.get_account_name(dest)
+        account_name = AdlsPath.get_abfs_account_name(dest)
         dest_path = self.get_path(dest)
         src_resource_name = FSUtil.get_resource_name(src)
         dest_resource_name = FSUtil.get_resource_name(dest)
@@ -189,7 +185,7 @@ class AzureStorageDriver(StorageDriver):
 
         # this is azure data lake storage
         file_system = self.get_file_system(src)
-        account_name = self.get_account_name(src)
+        account_name = AdlsPath.get_abfs_account_name(src)
         path = self.get_path(src)
 
         cmd_args = self.get_cmd_prefix()

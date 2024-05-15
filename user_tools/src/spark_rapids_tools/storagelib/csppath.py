@@ -41,7 +41,7 @@ from ..exceptions import (
     FSMismatchError, CspFileExistsError
 )
 
-from ..utils.util import get_abfs_account_name, get_path_as_uri, is_http_file
+from ..utils.util import get_path_as_uri, is_http_file
 
 if sys.version_info >= (3, 10):
     from typing import TypeGuard
@@ -57,7 +57,6 @@ if TYPE_CHECKING:
 
 
 CspPathString = Annotated[str, StringConstraints(pattern=r'^\w+://.*')]
-AZURE_STORAGE_PREFIX = 'abfss://'
 
 
 class CspPathImplementation:
@@ -257,7 +256,6 @@ class CspPath(metaclass=CspPathMeta):
             entry_path: Union[str, Self],
             fs_obj: Optional['CspFs'] = None
     ) -> None:
-        self.init_env_vars(entry_path)
         self.is_valid_csppath(entry_path, raise_on_error=True)
         self._fpath = str(entry_path)
         if fs_obj is None:
@@ -276,12 +274,6 @@ class CspPath(metaclass=CspPathMeta):
 
     def __str__(self) -> str:
         return self._fpath
-
-    @classmethod
-    def init_env_vars(cls, path: Union[str, 'CspPath']) -> None:
-        if cls.protocol_prefix == AZURE_STORAGE_PREFIX:
-            account_name = get_abfs_account_name(str(path))
-            os.environ['AZURE_STORAGE_ACCOUNT_NAME'] = account_name
 
     @classmethod
     def is_protocol_prefix(cls, value: str) -> bool:
