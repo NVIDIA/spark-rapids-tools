@@ -455,16 +455,13 @@ class Qualification(RapidsJarTool):
 
         # recalculate estimated GPU speedup
         subset_data['Estimated GPU Speedup'] = subset_data['App Duration'] / subset_data['Estimated GPU Duration']
-        # fetch the column names required to recalculate the unsupported operators stage duration percent
         unsupported_ops_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
                                                        'resultColumnName')
-        total_stage_dur_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
-                                                       'totalStageDurationColumnName')
         unsupported_ops_perc_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
                                                             'percentResultColumnName')
         # recalculate unsupported operators stage duration percent
         subset_data[unsupported_ops_perc_col_name] =\
-            subset_data[unsupported_ops_col_name] * 100.0 / subset_data[total_stage_dur_col_name]
+            subset_data[unsupported_ops_col_name] * 100.0 / subset_data['App Duration']
 
         return subset_data, notes
 
