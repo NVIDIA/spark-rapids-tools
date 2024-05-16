@@ -90,18 +90,18 @@ object GenerateDot {
     }
     val accumIdToStageId = app.stageManager.getAccumToSingleStage()
     val formatter = java.text.NumberFormat.getIntegerInstance
-    val stageIdToStageMetrics = app.taskEnd.groupBy(task => task.stageId).mapValues { tasks =>
+    val stageIdToStageMetrics = app.taskManager.stageAttemptToTasks.collect { case (stageId, _) =>
+      val tasks = app.taskManager.getAllTasksStageAttempt(stageId)
       val durations = tasks.map(_.duration)
-      val numTasks = durations.length
+      val numTasks = tasks.size
       val minDur = durations.min
       val maxDur = durations.max
       val meanDur = durations.sum / numTasks.toDouble
-      StageMetrics(numTasks,
+      stageId -> StageMetrics(numTasks,
         s"MIN: ${formatter.format(minDur)} ms " +
           s"MAX: ${formatter.format(maxDur)} ms " +
           s"AVG: ${formatter.format(meanDur)} ms")
-    }
-
+    }.toMap
 
     val sqlIdToMaxMetric = new mutable.HashMap[Long, ArrayBuffer[(Long, Long)]]()
     for (row <- accumSummary) {

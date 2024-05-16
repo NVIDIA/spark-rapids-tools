@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.rapids.tool.annotation
+package com.nvidia.spark.rapids.tool.analysis
 
-import scala.annotation.StaticAnnotation
-import scala.annotation.meta.{beanGetter, beanSetter, field, getter, param, setter}
-
+import org.apache.spark.sql.rapids.tool.AppBase
 
 /**
- * A Scala annotation that specifies whether the type of duration: wallClockTime Vs. TaskDuration
+ * Base class for application analysis
+ * @param app the AppBase object to analyze
  */
-@param @field @getter @setter @beanGetter @beanSetter
-class WallClock extends StaticAnnotation
+abstract class AppAnalysisBase(app: AppBase) {
+ // Keep for future refactoring to use common methods for all Analysis classes.
+ // Ideally, we can common interface
+ // 1- caching layer
+ // 2- initializations
+ // 3- interface to pull information to generate views and reports
+}

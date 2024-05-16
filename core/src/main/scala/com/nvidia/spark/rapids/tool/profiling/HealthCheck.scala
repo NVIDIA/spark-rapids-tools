@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
+import com.nvidia.spark.rapids.tool.views.{ProfFailedJobsView, ProfFailedStageView, ProfFailedTaskView, ProfRemovedBLKMgrView, ProfRemovedExecutorView}
+
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
 /**
@@ -25,95 +27,29 @@ class HealthCheck(apps: Seq[ApplicationInfo]) {
 
   // Function to list all failed tasks , stages and jobs.
   def getFailedTasks: Seq[FailedTaskProfileResults] = {
-    val failed = apps.flatMap { app =>
-      val tasksFailed = app.taskEnd.filter(_.successful == false)
-      tasksFailed.map { t =>
-        FailedTaskProfileResults(app.index, t.stageId, t.stageAttemptId,
-          t.taskId, t.attempt, ProfileUtils.truncateFailureStr(t.endReason))
-      }
-    }
-    if (failed.size > 0) {
-      val sortedRows = failed.sortBy(cols =>
-        (cols.appIndex, cols.stageId, cols.stageAttemptId, cols.taskId, cols.taskAttemptId))
-      sortedRows
-    } else {
-      Seq.empty
-    }
+    ProfFailedTaskView.getRawView(apps)
   }
 
   def getFailedStages: Seq[FailedStagesProfileResults] = {
-    val failed = apps.flatMap { app =>
-      val stagesFailed = app.stageManager.getFailedStages
-      stagesFailed.map { case fsm =>
-        val failureStr = fsm.getFailureReason
-        FailedStagesProfileResults(app.index, fsm.sId, fsm.attemptId,
-          fsm.sInfo.name, fsm.sInfo.numTasks,
-          ProfileUtils.truncateFailureStr(failureStr))
-      }
-    }
-    if (failed.size > 0) {
-      val sortedRows = failed.sortBy(cols => (cols.appIndex, cols.stageId,
-        cols.stageAttemptId))
-      sortedRows
-    } else {
-      Seq.empty
-    }
+    ProfFailedStageView.getRawView(apps)
   }
 
   def getFailedJobs: Seq[FailedJobsProfileResults] = {
-    val failed = apps.flatMap { app =>
-      val jobsFailed = app.jobIdToInfo.filter { case (_, jc) =>
-        jc.jobResult.nonEmpty && !jc.jobResult.get.equals("JobSucceeded")
-      }
-      jobsFailed.map { case (id, jc) =>
-        val failureStr = jc.failedReason.getOrElse("")
-        FailedJobsProfileResults(app.index, id, jc.jobResult.getOrElse("Unknown"),
-          ProfileUtils.truncateFailureStr(failureStr))
-      }
-    }
-    if (failed.size > 0) {
-      val sortedRows = failed.sortBy { cols =>
-        (cols.appIndex, cols.jobId, cols.jobResult)
-      }
-      sortedRows
-    } else {
-      Seq.empty
-    }
+    ProfFailedJobsView.getRawView(apps)
   }
 
   def getRemovedBlockManager: Seq[BlockManagerRemovedProfileResult] = {
-    val res = apps.flatMap { app =>
-      app.blockManagersRemoved.map { bm =>
-        BlockManagerRemovedProfileResult(app.index, bm.executorId, bm.time)
-      }
-    }
-    if (res.size > 0) {
-      res.sortBy(cols => (cols.appIndex, cols.executorId))
-    } else {
-      Seq.empty
-    }
+    ProfRemovedBLKMgrView.getRawView(apps)
   }
 
   def getRemovedExecutors: Seq[ExecutorsRemovedProfileResult] = {
-    val res = apps.flatMap { app =>
-      val execsRemoved = app.executorIdToInfo.filter { case (_, exec) =>
-          exec.isActive == false
-      }
-      execsRemoved.map { case (id, exec) =>
-        ExecutorsRemovedProfileResult(app.index, id, exec.removeTime, exec.removeReason)
-      }
-    }
-    if (res.size > 0) {
-      res.sortBy(cols => (cols.appIndex, cols.executorId))
-    } else {
-      Seq.empty
-    }
+    ProfRemovedExecutorView.getRawView(apps)
   }
 
   //Function to list all *possible* not-supported plan nodes if GPU Mode=on
   def getPossibleUnsupportedSQLPlan: Seq[UnsupportedOpsProfileResult] = {
     val res = apps.flatMap { app =>
-      app.unsupportedSQLplan.map { unsup =>
+      app.planMetricProcessor.unsupportedSQLPlan.map { unsup =>
         UnsupportedOpsProfileResult(app.index, unsup.sqlID, unsup.nodeID, unsup.nodeName,
           ProfileUtils.truncateFailureStr(unsup.nodeDesc), unsup.reason)
       }
