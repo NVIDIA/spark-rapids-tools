@@ -23,6 +23,7 @@ toolOutput:
         - Estimated GPU Duration
         - App Duration
         - Estimated Job Frequency (monthly)
+        - Total Stage Duration
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
         - Speed Up Estimation Model
@@ -50,6 +51,7 @@ toolOutput:
            - App Duration
            - Estimated GPU Duration
            - Unsupported Operators Stage Duration
+           - Total Stage Duration
       dropDuplicates:
         - Vendor
         - Driver Host
