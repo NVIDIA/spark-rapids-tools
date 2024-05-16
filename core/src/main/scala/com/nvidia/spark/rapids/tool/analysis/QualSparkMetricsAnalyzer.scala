@@ -13,15 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.nvidia.spark.rapids.tool.analysis
 
-package org.apache.spark.sql.rapids.tool.annotation
-
-import scala.annotation.StaticAnnotation
-import scala.annotation.meta.{beanGetter, beanSetter, field, getter, param, setter}
-
-
-/**
- * A Scala annotation that specifies whether the type of duration: wallClockTime Vs. TaskDuration
- */
-@param @field @getter @setter @beanGetter @beanSetter
-class WallClock extends StaticAnnotation
+object QualSparkMetricsAnalyzer extends AppSparkMetricsAggTrait with QualAppIndexMapperTrait {
+  // This object is kept to provide the aggregation of the application data for the Qualification.
+  // In future, we might need to provide customized logic for the Qualification
+  // (i.e., handle metrics; or filter; ..etc)
+}
