@@ -24,6 +24,7 @@ import pandas as pd
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_tools.tools.model_xgboost import find_paths, RegexPattern
+from spark_rapids_tools.utils import Utilities
 
 
 @dataclass
@@ -109,7 +110,8 @@ class AdditionalHeuristics:
         # If there are any stages with spills caused by non-allowed Execs, skip the application
         if not relevant_stages_with_spills.empty:
             stages_str = '; '.join(relevant_stages_with_spills['stageId'].astype(str))
-            reason = f'Skipping due to spills in stages [{stages_str}] exceeding {spill_threshold_bytes} bytes'
+            spill_threshold_human_readable = Utilities.bytes_to_human_readable(spill_threshold_bytes)
+            reason = f'Skipping due to spills in stages [{stages_str}] exceeding {spill_threshold_human_readable}'
             return True, reason
         return False, ''
 

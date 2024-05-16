@@ -309,3 +309,15 @@ class Utilities:
                     df_row.columns = df_row.columns.str.replace(column,
                                                                 new_column_name, regex=False)
         return df_row
+
+    @classmethod
+    def bytes_to_human_readable(cls, num_bytes: int) -> str:
+        """
+        Convert bytes to human-readable format up to PB
+        """
+        size_units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+        i = 0
+        while num_bytes >= 1024 and i < len(size_units) - 1:
+            num_bytes /= 1024.0
+            i += 1
+        return f'{num_bytes:.2f} {size_units[i]}'
