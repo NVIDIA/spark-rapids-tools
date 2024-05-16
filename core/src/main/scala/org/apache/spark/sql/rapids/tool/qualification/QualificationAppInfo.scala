@@ -970,13 +970,6 @@ class StageTaskQualificationSummary(
     var totalTaskDuration: Long,
     var totalbytesRead: Long)
 
-// Case class representing status summary information for a particular application.
-case class StatusSummaryInfo(
-    path: String,
-    status: String,
-    appId: String = "",
-    message: String = "")
-
 case class QualificationSummaryInfo(
     appName: String,
     appId: String,

@@ -29,6 +29,7 @@ import org.apache.spark.sql.rapids.tool.{AppBase, FailureApp, IncorrectAppStatus
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
+import scala.util.control.NonFatal
 
 class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean)
   extends RuntimeReporter {
@@ -56,21 +57,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     s"/${Profiler.SUBDIR}"
 
   logInfo(s"Threadpool size is $nThreads")
-
-  /**
-   * For each app status report, generate a StatusProfileResult.
-   * @return Seq[StatusProfileResult] - Seq[(path, status, description)]
-   */
-  private def generateStatusProfResults(appStatuses: Seq[AppResult]): Seq[StatusProfileResult] = {
-    appStatuses.map {
-      case FailureAppResult(path, message) => StatusProfileResult(path, "FAILURE", message)
-      case SkippedAppResult(path, message) => StatusProfileResult(path, "SKIPPED", message)
-      case SuccessAppResult(path, _, message) => StatusProfileResult(path, "SUCCESS", message)
-      case UnknownAppResult(path, _, message) => StatusProfileResult(path, "UNKNOWN", message)
-      case profAppResult: AppResult =>
-        throw new UnsupportedOperationException(s"Invalid status for $profAppResult")
-    }
-  }
 
   /**
    * Profiles application according to the mode requested. The main difference in processing for
@@ -144,8 +130,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     progressBar.foreach(_.finishAll())
     
     // Write status reports for all event logs to a CSV file
-    val reportResults = generateStatusProfResults(appStatusReporter.asScala.values.toSeq)
-    ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir=outputDir)
+    val reportResults =
+      Profiler.generateStatusProfResults(appStatusReporter.asScala.values.toSeq)
+    ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir)
   }
 
   def profileDriver(driverLogInfos: String, eventLogsEmpty: Boolean): Unit = {
@@ -200,19 +187,19 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       // Update the appStatusReporter with the result of Application processing
       appStatusReporter.put(pathStr, profAppResult)
     } catch {
-      case oom: OutOfMemoryError =>
-        logError(s"OOM error while processing large file: $pathStr." +
-            s"Increase heap size.", oom)
-        sys.exit(1)
-      case o: Error =>
-        logError(s"Error occurred while processing file: $pathStr", o)
-        sys.exit(1)
-      case e: Exception =>
+      case NonFatal(e) =>
         progressBar.foreach(_.reportFailedProcess())
         val failureAppResult = FailureAppResult(pathStr,
           s"Unexpected exception processing log, skipping!")
-        failureAppResult.logMessage(Some(e))
+        failureAppResult.logMessage(Some(new Exception(e.getMessage(), e)))
         appStatusReporter.put(pathStr, failureAppResult)
+      case oom: OutOfMemoryError =>
+        logError(s"OOM error while processing large file: $pathStr." +
+            s"Increase heap size. Exiting.", oom)
+        System.exit(1)
+      case o: Throwable =>
+        logError(s"Error occurred while processing file: $pathStr", o)
+        System.exit(1)
     }
   }
 
@@ -591,6 +578,25 @@ object Profiler {
     } else {
       val commentsToStr = comments.map(_.toString).reduce(_ + "\n" + _)
       propStr + s"\nComments:\n$commentsToStr\n"
+    }
+  }
+
+  /**
+   * For each app status report, generate a StatusProfileResult(path, status, appId, message).
+   * @return Seq[StatusProfileResult] - Seq[(path, status, description)]
+   */
+  def generateStatusProfResults(appStatuses: Seq[AppResult]): Seq[StatusProfileResult] = {
+    appStatuses.map {
+      case FailureAppResult(path, message) =>
+        StatusProfileResult(path, "FAILURE", "", message)
+      case SkippedAppResult(path, message) =>
+        StatusProfileResult(path, "SKIPPED", "", message)
+      case SuccessAppResult(path, appId, message) =>
+        StatusProfileResult(path, "SUCCESS", appId, message)
+      case UnknownAppResult(path, appId, message) =>
+        StatusProfileResult(path, "UNKNOWN", appId, message)
+      case profAppResult: AppResult =>
+        throw new UnsupportedOperationException(s"Invalid status for $profAppResult")
     }
   }
 }

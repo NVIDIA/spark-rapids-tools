@@ -22,10 +22,11 @@ import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.EventLogInfo
+
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import com.nvidia.spark.rapids.tool.tuning.TunerContext
 import org.apache.hadoop.conf.Configuration
-
+import com.nvidia.spark.rapids.tool.profiling.Profiler
 import org.apache.spark.sql.rapids.tool.FailureApp
 import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.{ConsoleProgressBar, QualificationReportGenerator}
@@ -209,25 +210,6 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
   }
 
   /**
-   * For each app status report, generate a summary containing appId and message (if any).
-   * @return Seq[Summary] - Seq[(path, status, [appId], [message])]
-   */
-  private def generateStatusSummary(appStatuses: Seq[AppResult]): Seq[StatusSummaryInfo] = {
-    appStatuses.map {
-      case SuccessAppResult(path, appId, message) =>
-        StatusSummaryInfo(path, "SUCCESS", appId, message)
-      case FailureAppResult(path, message) =>
-        StatusSummaryInfo(path, "FAILURE", "", message)
-      case SkippedAppResult(path, message) =>
-        StatusSummaryInfo(path, "SKIPPED", "", message)
-      case UnknownAppResult(path, appId, message) =>
-        StatusSummaryInfo(path, "UNKNOWN", appId, message)
-      case qualAppResult: AppResult =>
-        throw new UnsupportedOperationException(s"Invalid status for $qualAppResult")
-    }
-  }
-
-  /**
    * Generates a qualification report based on the provided summary information.
    */
   private def generateQualificationReport(allAppsSum: Seq[QualificationSummaryInfo],
@@ -245,7 +227,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
-    val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
+    val appStatusResult =
+      Profiler.generateStatusProfResults(appStatusReporter.asScala.values.toSeq)
     qWriter.writeStatusReport(appStatusResult, order)
     if (mlOpsEnabled) {
       if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {

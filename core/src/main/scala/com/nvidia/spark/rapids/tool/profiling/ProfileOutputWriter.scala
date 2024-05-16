@@ -54,7 +54,9 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
   def write(headerText: String, outRows: Seq[ProfileResult],
       emptyTableText: Option[String] = None, tableDesc: Option[String] = None): Unit = {
     writeTextTable(headerText, outRows, emptyTableText, tableDesc)
-    ProfileOutputWriter.writeCSVTable(headerText, outRows, outputCSV, outputDir)
+    if (outputCSV) {
+      ProfileOutputWriter.writeCSVTable(headerText, outRows, outputDir)
+    }
   }
 
   def close(): Unit = {
@@ -72,27 +74,24 @@ object ProfileOutputWriter {
   /**
    * Write a CSV file give the input header and data.
    */
-  def writeCSVTable(header: String, outRows: Seq[ProfileResult],
-      outputCSV: Boolean = true, outputDir: String): Unit = {
+  def writeCSVTable(header: String, outRows: Seq[ProfileResult], outputDir: String): Unit = {
     if (outRows.nonEmpty) {
-      if (outputCSV) {
-        // need to have separate CSV file per table, use header text
-        // with spaces as _ and lowercase as filename
-        val suffix = header.replace(" ", "_").toLowerCase
-        val csvWriter = new ToolTextFileWriter(outputDir, s"${suffix}.csv", s"$header CSV:")
-        try {
-          val headerString = outRows.head.outputHeaders.mkString(CSVDelimiter)
-          csvWriter.write(headerString + "\n")
-          val rows = outRows.map(_.convertToCSVSeq)
-          rows.foreach { row =>
-            val delimiterHandledRow = row.map(ProfileUtils.replaceDelimiter(_, CSVDelimiter))
-            val formattedRow = delimiterHandledRow.map(stringIfempty(_))
-            val outStr = formattedRow.mkString(CSVDelimiter)
-            csvWriter.write(outStr + "\n")
-          }
-        } finally {
-          csvWriter.close()
+      // need to have separate CSV file per table, use header text
+      // with spaces as _ and lowercase as filename
+      val suffix = header.replace(" ", "_").toLowerCase
+      val csvWriter = new ToolTextFileWriter(outputDir, s"${suffix}.csv", s"$header CSV:")
+      try {
+        val headerString = outRows.head.outputHeaders.mkString(CSVDelimiter)
+        csvWriter.write(headerString + "\n")
+        val rows = outRows.map(_.convertToCSVSeq)
+        rows.foreach { row =>
+          val delimiterHandledRow = row.map(ProfileUtils.replaceDelimiter(_, CSVDelimiter))
+          val formattedRow = delimiterHandledRow.map(stringIfempty(_))
+          val outStr = formattedRow.mkString(CSVDelimiter)
+          csvWriter.write(outStr + "\n")
         }
+      } finally {
+        csvWriter.close()
       }
     }
   }
