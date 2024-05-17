@@ -41,8 +41,6 @@ object ToolTestUtils extends Logging {
   val statusReportSchema =
     new StructType(csvStatusFields.map(f => StructField(f._1, f._2)).toArray)
 
-  // val qualStatusFilePath = "rapids_4_spark_qualification_output/rapids_4_spark_qualification_output_status.csv"
-
   def getTestResourceFile(file: String): File = {
     new File(getClass.getClassLoader.getResource(file).getFile)
   }
@@ -163,9 +161,6 @@ object ToolTestUtils extends Logging {
    */
   def compareStatusReport(sparkSession: SparkSession, expStatusReportCount: StatusReportCounts,
       filePath: String): Unit = {
-    // val filename = s"$outpath/rapids_4_spark_qualification_output/" +
-    //   s"rapids_4_spark_qualification_output_status.csv"
-    // val filename = s"$outpath/$filePath"
     val csvFile = new File(filePath)
 
     // If the status report file does not exist, all applications are expected to be failures.

@@ -20,6 +20,7 @@ import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, Executors
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, PlatformFactory}
@@ -30,7 +31,6 @@ import org.apache.spark.sql.rapids.tool.{AppBase, FailureApp, IncorrectAppStatus
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
-import scala.util.control.NonFatal
 
 class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean)
   extends RuntimeReporter {
