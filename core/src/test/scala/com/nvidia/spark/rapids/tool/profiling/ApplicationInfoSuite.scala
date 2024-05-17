@@ -751,7 +751,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(execInfo.head.maxMem === 5538054144L)
   }
 
-  test("test malformed json eventlog") {
+  test("test status reports for multiple eventlogs") {
+    // Test with normal and malformed eventlogs and verify their status reports
     val bad_eventLog = s"$logDir/malformed_json_eventlog.zstd"
     val eventLog = s"$logDir/rapids_join_eventlog.zstd"
     TrampolineUtil.withTempDir { tempDir =>
