@@ -26,7 +26,7 @@ import scala.io.{Codec, Source}
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, SQLExecutionInfoClass, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DataSourceCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -35,7 +35,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.store.{StageModel, StageModelManager}
+import org.apache.spark.sql.rapids.tool.store.{StageModel, StageModelManager, TaskModelManager}
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
 import org.apache.spark.util.Utils
 
@@ -55,7 +55,10 @@ abstract class AppBase(
 
   // Store map of executorId to executor info
   val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
-
+  // resourceProfile id to resource profile info
+  val resourceProfIdToInfo = new HashMap[Int, ResourceProfileInfoCase]()
+  var blockManagersRemoved: ArrayBuffer[BlockManagerRemovedCase] =
+    ArrayBuffer[BlockManagerRemovedCase]()
   // The data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
 
@@ -71,12 +74,16 @@ abstract class AppBase(
   val sqlIdToStages = new HashMap[Long, ArrayBuffer[Int]]()
   // sqlPlans stores HashMap (sqlID <-> SparkPlanInfo)
   var sqlPlans: HashMap[Long, SparkPlanInfo] = HashMap.empty[Long, SparkPlanInfo]
+  var sqlPlanMetricsAdaptive: ArrayBuffer[SQLPlanMetricsCase] = ArrayBuffer[SQLPlanMetricsCase]()
 
   // accum id to task stage accum info
   var taskStageAccumMap: HashMap[Long, ArrayBuffer[TaskStageAccumCase]] =
     HashMap[Long, ArrayBuffer[TaskStageAccumCase]]()
 
   lazy val stageManager: StageModelManager = new StageModelManager()
+  // Container that manages TaskIno including SparkMetrics.
+  // A task is added during a TaskEnd eventLog
+  lazy val taskManager: TaskModelManager = new TaskModelManager()
 
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
@@ -265,7 +272,7 @@ abstract class AppBase(
     ".*second\\(.*\\).*" -> "TIMEZONE second()"
   )
 
-  protected def findPotentialIssues(desc: String): Set[String] =  {
+  def findPotentialIssues(desc: String): Set[String] =  {
     val potentialIssuesRegexs = potentialIssuesRegexMap
     val issues = potentialIssuesRegexs.filterKeys(desc.matches(_))
     issues.values.toSet
@@ -284,7 +291,7 @@ abstract class AppBase(
   }
 
   // The ReadSchema metadata is only in the eventlog for DataSource V1 readers
-  protected def checkMetadataForReadSchema(
+  def checkMetadataForReadSchema(
       sqlPlanInfoGraph: SqlPlanInfoGraphEntry): ArrayBuffer[DataSourceCase] = {
     // check if planInfo has ReadSchema
     val allMetaWithSchema = AppBase.getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
@@ -338,7 +345,7 @@ abstract class AppBase(
 
   // This will find scans for DataSource V2, if the schema is very large it
   // will likely be incomplete and have ... at the end.
-  protected def checkGraphNodeForReads(
+  def checkGraphNodeForReads(
       sqlID: Long, node: SparkPlanGraphNode): Option[DataSourceCase] = {
     if (ReadParser.isDataSourceV2Node(node)) {
       val res = ReadParser.parseReadNode(node)

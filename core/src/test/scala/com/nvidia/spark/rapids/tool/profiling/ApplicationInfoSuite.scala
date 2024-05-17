@@ -22,6 +22,7 @@ import java.nio.file.{Files, Paths, StandardOpenOption}
 import scala.collection.mutable.ArrayBuffer
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
 import org.apache.hadoop.io.IOUtils
 import org.scalatest.FunSuite
 
@@ -98,8 +99,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     val stageInfo = firstApp.stageManager.getStage(0, 0)
     assert(stageInfo.isDefined && stageInfo.get.sInfo.numTasks.equals(1))
     assert(firstApp.stageManager.getStage(2, 0).isDefined)
-    assert(firstApp.taskEnd(firstApp.index).successful.equals(true))
-    assert(firstApp.taskEnd(firstApp.index).endReason.equals("Success"))
+    assert(firstApp.taskManager.getTasks(firstApp.index, 0).head.successful.equals(true))
+    assert(firstApp.taskManager.getTasks(firstApp.index, 0).head.endReason.equals("Success"))
     val execInfo = firstApp.executorIdToInfo.get(firstApp.executorIdToInfo.keys.head)
     assert(execInfo.isDefined && execInfo.get.totalCores.equals(8))
     val rp = firstApp.resourceProfIdToInfo.get(firstApp.resourceProfIdToInfo.keys.head)
@@ -376,8 +377,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         index += 1
       }
       assert(apps.size == 1)
-      val analysis = new Analysis(apps)
-      val ioMetrics = analysis.ioAnalysis()
+      val aggResults = RawMetricProfilerView.getAggMetrics(apps)
+      val ioMetrics = aggResults.ioAggs
       assert(ioMetrics.size == 5)
       val metricsSqlId1 = ioMetrics.filter(metrics => metrics.sqlId == 1)
       assert(metricsSqlId1.size == 1)

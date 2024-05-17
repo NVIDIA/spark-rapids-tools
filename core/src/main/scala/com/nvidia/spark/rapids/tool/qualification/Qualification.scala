@@ -25,6 +25,7 @@ import com.nvidia.spark.rapids.tool.EventLogInfo
 
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import com.nvidia.spark.rapids.tool.tuning.TunerContext
+import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import org.apache.hadoop.conf.Configuration
 import com.nvidia.spark.rapids.tool.profiling.Profiler
 import org.apache.spark.sql.rapids.tool.FailureApp
@@ -161,6 +162,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
           UnknownAppResult(pathStr, "", errorMessage)
         case Right(app: QualificationAppInfo) =>
           // Case with successful creation of QualificationAppInfo
+          // First, generate the Raw metrics view
+          QualRawReportGenerator.generateRawMetricQualView(outputDir, app)
           val qualSumInfo = app.aggregateStats()
           tunerContext.foreach { tuner =>
             // Run the autotuner if it is enabled.

@@ -75,12 +75,15 @@ class SpeedupCategory:
            reason: Category will be set to 'Not Recommended' because the criteriaCol1 is not within the range (18-30)
         """
         category_col_name = self.props.get('categoryColumnName')
+        heuristics_col_name = self.props.get('heuristicsColumnName')
 
         def process_row(single_row: pd.Series) -> str:
             for entry in self.props.get('eligibilityConditions'):
                 col_value = single_row[entry.get('columnName')]
-                # If the value is not within the range, set the category to default category (Not Recommended)
-                if not entry.get('lowerBound') <= col_value <= entry.get('upperBound'):
+                # If the row is marked to be skipped by heuristics or the value is not within the range,
+                # set the category to default category (Not Recommended)
+                if (single_row.get(heuristics_col_name) is True or
+                        not entry.get('lowerBound') <= col_value <= entry.get('upperBound')):
                     return self.props.get('defaultCategory')
             return single_row.get(category_col_name)
 

@@ -259,7 +259,7 @@ object GenerateTimeline {
     val readTimeIds = new mutable.HashSet[Long]()
     val opTimeIds = new mutable.HashSet[Long]()
     val writeTimeIds = new mutable.HashSet[Long]()
-    app.allSQLMetrics.foreach { f =>
+    app.planMetricProcessor.allSQLMetrics.foreach { f =>
       f.name match {
         case "op time" | "GPU decode time" | "GPU Time" if f.metricType == "nsTiming" =>
           opTimeIds += f.accumulatorId
@@ -295,7 +295,7 @@ object GenerateTimeline {
       app.taskStageAccumMap.get(id)
     }.flatten
 
-    app.taskEnd.foreach { tc =>
+    app.taskManager.getAllTasks().foreach { tc =>
       val host = tc.host
       val execId = tc.executorId
       val stageId = tc.stageId

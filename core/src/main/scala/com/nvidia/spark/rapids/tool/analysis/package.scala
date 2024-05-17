@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.rapids.tool.annotation
-
-import scala.annotation.StaticAnnotation
-import scala.annotation.meta.{beanGetter, beanSetter, field, getter, param, setter}
-
+package com.nvidia.spark.rapids.tool
 
 /**
- * A Scala annotation that specifies whether the type of duration: wallClockTime Vs. TaskDuration
+ * RAPIDS tools analysis package holds the implementation of classes that process the information
+ * gathered from the eventlogs to transform it into meaningful data which is consumed by the
+ * reporting/heuristics engines.
  */
-@param @field @getter @setter @beanGetter @beanSetter
-class WallClock extends StaticAnnotation
+package object analysis {
+
+}
