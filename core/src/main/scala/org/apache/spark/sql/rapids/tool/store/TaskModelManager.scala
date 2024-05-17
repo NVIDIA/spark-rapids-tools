@@ -45,15 +45,17 @@ class TaskModelManager {
   // composite key (i.e., Tuple).
   // Composite keys would cost more because it implicitly allocates a new object every time there
   // is a read operation from the map.
-  val stageAttemptToTasks: mutable.HashMap[Int, mutable.HashMap[Int, ArrayBuffer[TaskModel]]] =
-    new mutable.HashMap[Int, mutable.HashMap[Int, ArrayBuffer[TaskModel]]]()
+  // Finally use SortedMaps to keep the map sorted. That way iterating on the map will be orders
+  // by IDs/AttemptIDs.
+  val stageAttemptToTasks: mutable.SortedMap[Int, mutable.SortedMap[Int, ArrayBuffer[TaskModel]]] =
+    mutable.SortedMap[Int, mutable.SortedMap[Int, ArrayBuffer[TaskModel]]]()
 
   // Given a Spark taskEnd event, create a new Task and add it to the Map.
   def addTaskFromEvent(event: SparkListenerTaskEnd): Unit = {
     val taskModel = TaskModel(event)
     val stageAttempts =
       stageAttemptToTasks.getOrElseUpdate(event.stageId,
-        new mutable.HashMap[Int, ArrayBuffer[TaskModel]]())
+        mutable.SortedMap[Int, ArrayBuffer[TaskModel]]())
     val attemptToTasks =
       stageAttempts.getOrElseUpdate(event.stageAttemptId, ArrayBuffer[TaskModel]())
     attemptToTasks += taskModel

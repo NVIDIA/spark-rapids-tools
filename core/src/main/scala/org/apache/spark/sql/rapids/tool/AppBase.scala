@@ -68,12 +68,16 @@ abstract class AppBase(
 
   // SQL containing any Dataset operation or RDD to DataSet/DataFrame operation
   val sqlIDToDataSetOrRDDCase: HashSet[Long] = HashSet[Long]()
-  val sqlIDtoProblematic: HashMap[Long, Set[String]] = HashMap[Long, Set[String]]()
+  // Map (sqlID <-> String(problematic issues))
+  // Use LinkedHashSet of Strings to preserve the order of insertion.
+  val sqlIDtoProblematic: HashMap[Long, collection.mutable.LinkedHashSet[String]] =
+    HashMap[Long, mutable.LinkedHashSet[String]]()
   // sqlId to sql info
   val sqlIdToInfo = new HashMap[Long, SQLExecutionInfoClass]()
   val sqlIdToStages = new HashMap[Long, ArrayBuffer[Int]]()
   // sqlPlans stores HashMap (sqlID <-> SparkPlanInfo)
-  var sqlPlans: HashMap[Long, SparkPlanInfo] = HashMap.empty[Long, SparkPlanInfo]
+  // SortedMap is used to keep the order of the sqlPlans since AQEs can overrides the existing ones
+  var sqlPlans: mutable.Map[Long, SparkPlanInfo] = mutable.SortedMap[Long, SparkPlanInfo]()
   var sqlPlanMetricsAdaptive: ArrayBuffer[SQLPlanMetricsCase] = ArrayBuffer[SQLPlanMetricsCase]()
 
   // accum id to task stage accum info
@@ -372,33 +376,12 @@ abstract class AppBase(
     }
   }
 
-  protected def probNotDataset: mutable.HashMap[Long, Set[String]] = {
+  protected def probNotDataset: mutable.HashMap[Long, mutable.LinkedHashSet[String]] = {
     sqlIDtoProblematic.filterNot { case (sqlID, _) => sqlIDToDataSetOrRDDCase.contains(sqlID) }
   }
 
   protected def getPotentialProblemsForDf: Seq[String] = {
     probNotDataset.values.flatten.toSet.toSeq
-  }
-
-  // This is to append potential issues such as UDF, decimal type determined from
-  // SparkGraphPlan Node description and nested complex type determined from reading the
-  // event logs. If there are any complex nested types, then `NESTED COMPLEX TYPE` is mentioned
-  // in the `Potential Problems` section in the csv file. Section `Unsupported Nested Complex
-  // Types` has information on the exact nested complex types which are not supported for a
-  // particular application.
-  protected def getAllPotentialProblems(
-      dFPotentialProb: Seq[String], nestedComplex: Seq[String]): Seq[String] = {
-    val nestedComplexType = if (nestedComplex.nonEmpty) Seq("NESTED COMPLEX TYPE") else Seq("")
-    val result = if (dFPotentialProb.nonEmpty) {
-      if (nestedComplex.nonEmpty) {
-        dFPotentialProb ++ nestedComplexType
-      } else {
-        dFPotentialProb
-      }
-    } else {
-      nestedComplexType
-    }
-    result
   }
 
   protected def postCompletion(): Unit = {}

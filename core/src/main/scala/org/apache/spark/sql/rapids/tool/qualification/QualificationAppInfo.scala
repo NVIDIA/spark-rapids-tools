@@ -17,17 +17,17 @@
 package org.apache.spark.sql.rapids.tool.qualification
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
-import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, ExecInfo, PlanInfo, SQLPlanParser}
+import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo, SQLPlanParser}
 import com.nvidia.spark.rapids.tool.qualification._
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
-import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
 import org.apache.spark.sql.rapids.tool.store.StageModel
 
@@ -37,14 +37,16 @@ class QualificationAppInfo(
     hadoopConf: Option[Configuration] = None,
     pluginTypeChecker: PluginTypeChecker,
     reportSqlLevel: Boolean,
-    perSqlOnly: Boolean = false,
+    val perSqlOnly: Boolean = false,
     mlOpsEnabled: Boolean = false,
     penalizeTransitions: Boolean = true)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
   var lastJobEndTime: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None
-  val writeDataFormat: ArrayBuffer[String] = ArrayBuffer[String]()
+  // Keeps track of the WriteDataFormats used in the WriteExecs
+  // Use LinkedHAshSet to preserve Order of insertion and avoid duplicates
+  val writeDataFormat: mutable.AbstractSet[String] = mutable.LinkedHashSet[String]()
 
   val sqlIDToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
     HashMap.empty[Long, StageTaskQualificationSummary]
@@ -201,7 +203,7 @@ class QualificationAppInfo(
   }
 
   protected def checkUnsupportedReadFormats(): Unit = {
-    if (dataSourceInfo.size > 0) {
+    if (dataSourceInfo.nonEmpty) {
       dataSourceInfo.map { ds =>
         val (_, nsTypes) = pluginTypeChecker.scoreReadDataTypes(ds.format, ds.schema)
         if (nsTypes.nonEmpty) {
@@ -502,7 +504,7 @@ class QualificationAppInfo(
       // if either job or stage failures then we mark as N/A
       // TODO - what about incomplete, do we want to change those?
       val sqlIdsWithFailures = sqlIDtoFailures.filter { case (_, v) =>
-        v.size > 0
+        v.nonEmpty
       }.keys.map(_.toString).toSeq
 
       // a bit odd but force filling in notSupportFormatAndTypes
@@ -514,7 +516,7 @@ class QualificationAppInfo(
       }.toSeq
       val writeFormat = writeFormatNotSupported(writeDataFormat)
       val (allComplexTypes, nestedComplexTypes) = reportComplexTypes
-      val problems = getAllPotentialProblems(getPotentialProblemsForDf, nestedComplexTypes)
+      val problems = getPotentialProblemsForDf
 
       val origPlanInfos = sqlPlans.collect {
         case (id, plan) if sqlIdToInfo.contains(id) =>
@@ -838,29 +840,10 @@ class QualificationAppInfo(
     }
   }
 
-  private[qualification] def processSQLPlan(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
-    val sqlPlanInfoGraphEntry = SqlPlanInfoGraphBuffer.createEntry(sqlID, planInfo)
-    checkMetadataForReadSchema(sqlPlanInfoGraphEntry)
-    for (node <- sqlPlanInfoGraphEntry.sparkPlanGraph.allNodes) {
-      checkGraphNodeForReads(sqlID, node)
-      val issues = findPotentialIssues(node.desc)
-      if (issues.nonEmpty) {
-        val existingIssues = sqlIDtoProblematic.getOrElse(sqlID, Set.empty[String])
-        sqlIDtoProblematic(sqlID) = existingIssues ++ issues
-      }
-      // Get the write data format
-      if (!perSqlOnly) {
-        DataWritingCommandExecParser.getWriteCMDWrapper(node).map { wWrapper =>
-          writeDataFormat += wWrapper.dataFormat
-        }
-      }
-    }
-  }
-
-  private def writeFormatNotSupported(writeFormat: ArrayBuffer[String]): Seq[String] = {
+  private def writeFormatNotSupported(writeFormat: mutable.AbstractSet[String]): Seq[String] = {
     // Filter unsupported write data format
-    val unSupportedWriteFormat = pluginTypeChecker.isWriteFormatSupported(writeFormat)
-    unSupportedWriteFormat.distinct
+    val unSupportedWriteFormat = pluginTypeChecker.getUnsupportedWriteFormat(writeFormat)
+    unSupportedWriteFormat.toSeq
   }
 
   /**
