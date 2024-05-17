@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.rapids.tool.annotation
+package com.nvidia.spark.rapids.tool.analysis
 
-import scala.annotation.StaticAnnotation
-import scala.annotation.meta.{beanGetter, beanSetter, field, getter, param, setter}
+// This object is kept to provide the aggregation of the application data for the profiler.
+// Currently, the difference is not significant because `ProfAppIndexMapperTrait` handles the
+// extraction of AppIndex from ApplicationInfo. However, in the future this object can be used
+// to provide customized logic for the Profiler (i.e., handle metrics specific to GPU eventlogs)
+object ProfSparkMetricsAnalyzer extends AppSparkMetricsAggTrait with ProfAppIndexMapperTrait {
 
-
-/**
- * A Scala annotation that specifies whether the type of duration: wallClockTime Vs. TaskDuration
- */
-@param @field @getter @setter @beanGetter @beanSetter
-class WallClock extends StaticAnnotation
+}
