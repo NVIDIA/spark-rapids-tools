@@ -454,6 +454,7 @@ object QualOutputWriter {
   val ML_STAGE_IDS = "Stage Ids"
   val STATUS_REPORT_PATH_STR = "Event Log"
   val STATUS_REPORT_STATUS_STR = "Status"
+  val STATUS_REPORT_APP_ID = "AppID"
   val STATUS_REPORT_DESC_STR = "Description"
   val VENDOR = "Vendor"
   val DRIVER_HOST = "Driver Host"
@@ -1179,6 +1180,8 @@ object QualOutputWriter {
         getMaxSizeForHeader(statusInfos.map(_.path.length), STATUS_REPORT_PATH_STR),
       STATUS_REPORT_STATUS_STR ->
         getMaxSizeForHeader(statusInfos.map(_.status.length), STATUS_REPORT_STATUS_STR),
+      STATUS_REPORT_APP_ID ->
+        getMaxSizeForHeader(statusInfos.map(_.appId.length), STATUS_REPORT_APP_ID),
       STATUS_REPORT_DESC_STR ->
         getMaxSizeForHeader(descLengthList, STATUS_REPORT_DESC_STR)
     )
@@ -1192,14 +1195,11 @@ object QualOutputWriter {
       prettyPrint: Boolean,
       reformatCSV: Boolean = true): Seq[String] = {
     val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
-    val descriptionStr = statusInfo.appId match {
-      case "" => statusInfo.message
-      case appId => if (statusInfo.message.isEmpty) appId else s"$appId,${statusInfo.message}"
-    }
     val data = ListBuffer[(String, Int)](
       reformatCSVFunc(statusInfo.path) -> headersAndSizes(STATUS_REPORT_PATH_STR),
       reformatCSVFunc(statusInfo.status) -> headersAndSizes(STATUS_REPORT_STATUS_STR),
-      reformatCSVFunc(descriptionStr) -> headersAndSizes(STATUS_REPORT_DESC_STR))
+      reformatCSVFunc(statusInfo.appId) -> headersAndSizes(STATUS_REPORT_APP_ID),
+      reformatCSVFunc(statusInfo.message) -> headersAndSizes(STATUS_REPORT_DESC_STR))
     Seq(constructOutputRow(data, delimiter, prettyPrint))
   }
 }

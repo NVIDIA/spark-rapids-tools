@@ -161,14 +161,14 @@ case class StatusProfileResult(
     status: String,
     appId: String = "",
     message: String = "") extends ProfileResult {
-  override val outputHeaders: Seq[String] = Seq("Event Log", "Status", "Description")
+  override val outputHeaders: Seq[String] = Seq("Event Log", "Status", "AppID", "Description")
 
   override def convertToSeq: Seq[String] = {
-    Seq(path, status, message)
+    Seq(path, status, appId, message)
   }
 
   override def convertToCSVSeq: Seq[String] = {
-    Seq(path, status, message)
+    Seq(path, status, appId, message)
   }
 }
 

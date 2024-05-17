@@ -586,9 +586,9 @@ object Profiler {
       case SkippedAppResult(path, message) =>
         StatusProfileResult(path, "SKIPPED", "", message)
       case SuccessAppResult(path, appId, message) =>
-        StatusProfileResult(path, "SUCCESS", appId, s"$appId, $message")
+        StatusProfileResult(path, "SUCCESS", appId, message)
       case UnknownAppResult(path, appId, message) =>
-        StatusProfileResult(path, "UNKNOWN", appId, s"$appId, $message")
+        StatusProfileResult(path, "UNKNOWN", appId, message)
       case profAppResult: AppResult =>
         throw new UnsupportedOperationException(s"Invalid status for $profAppResult")
     }
