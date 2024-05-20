@@ -119,9 +119,9 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    *
    * It has the following effect on the visitor object:
    * 1- It updates the sqlIsDsOrRDD argument to True when the visited node is an RDD or Dataset.
-   * 2- If the SLID is an RDD, the potentialProblems is cleared because once SQL is marked as RDD,
+   * 2- If the SQLID is an RDD, the potentialProblems is cleared because once SQL is marked as RDD,
    *    all the other problems are ignored. Note that we need to set that flag only once to True
-   *    for the given sqlID.
+   *    for the given SQLID.
    * 3- It appends the current node's potential problems to the SQLID problems only if the SQL is
    *    visitor.sqlIsDsOrRDD is False. Otherwise, it is kind of redundant to keep checking for
    *    potential problems for every node when they get to be ignored.
