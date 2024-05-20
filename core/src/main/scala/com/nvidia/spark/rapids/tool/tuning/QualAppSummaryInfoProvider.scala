@@ -18,7 +18,9 @@ package com.nvidia.spark.rapids.tool.tuning
 
 import com.nvidia.spark.rapids.tool.AppSummaryInfoBaseProvider
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
+import com.nvidia.spark.rapids.tool.profiling.DataSourceProfileResult
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
 
 /**
@@ -27,11 +29,13 @@ import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, Qua
  * @param appAggStats optional stats aggregate is included here for future improvement as we may
  *                    need to feed the autotuner with values from the aggregates.
  * @param rawAggMetrics the raw profiler aggregation metrics
+ * @param dsInfo Data source information
  */
 class QualAppSummaryInfoProvider(
     val appInfo: QualificationAppInfo,
     val appAggStats: Option[QualificationSummaryInfo],
-    val rawAggMetrics: AggRawMetricsResult) extends AppSummaryInfoBaseProvider {
+    val rawAggMetrics: AggRawMetricsResult,
+    val dsInfo: Seq[DataSourceProfileResult]) extends AppSummaryInfoBaseProvider with Logging{
   override def isAppInfoAvailable = true
   private def findPropertyInternal(
       key: String, props: collection.Map[String, String]): Option[String] = {
@@ -95,12 +99,11 @@ class QualAppSummaryInfoProvider(
     }
   }
 
-  // TODO - need DataSourceProfileResult
-  /*
-  private lazy val distinctLocations = rawAggMetrics.dsInfo.groupBy(_.location)
+  private lazy val distinctLocations = dsInfo.groupBy(_.location)
+  logWarning("distinct locations are redundant: " + getRedundantReadSize)
 
   override def getDistinctLocationPct: Double = {
-      100.0 * distinctLocations.size / app.dsInfo.size
+      100.0 * distinctLocations.size / dsInfo.size
     }
 
   override def getRedundantReadSize: Long = {
@@ -112,10 +115,6 @@ class QualAppSummaryInfoProvider(
       .values
       .sum
   }
-
-
-
-   */
 
   // Rapids Jar will be empty since CPU event logs are used here
   override def getRapidsJars: Seq[String] = {

@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{AggRawMetricsResult, AppSQLPlanAnalyzer, QualSparkMetricsAnalyzer}
-import com.nvidia.spark.rapids.tool.profiling.{ProfileOutputWriter, ProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, ProfileOutputWriter, ProfileResult}
 
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 
@@ -47,11 +47,7 @@ object QualRawReportGenerator {
   }
 
   private def generateSQLProcessingView(
-      pWriter: ProfileOutputWriter, app: QualificationAppInfo,
-      appIndex: Int): Unit = {
-    // We only need the SQL analyzer here to generate the output. It is not saved in the AppBase to
-    // save memory
-    val sqlPlanAnalyzer = AppSQLPlanAnalyzer(app, appIndex)
+      pWriter: ProfileOutputWriter, sqlPlanAnalyzer: AppSQLPlanAnalyzer): Unit = {
     pWriter.write(QualSQLToStageView.getLabel,
       QualSQLToStageView.getRawViewFromSqlProcessor(sqlPlanAnalyzer))
     pWriter.write(QualSQLPlanMetricsView.getLabel,
@@ -62,18 +58,20 @@ object QualRawReportGenerator {
       Some(QualSQLCodeGenView.getDescription))
   }
 
-  def generateRawMetricQualView(
+  def generateRawMetricQualViewAndGetDataSourceInfo(
       rootDir: String,
       app: QualificationAppInfo,
-      appIndex: Int = 1): Unit = {
+      appIndex: Int = 1): Seq[DataSourceProfileResult] = {
     val metricsDirectory = s"$rootDir/raw_metrics/${app.appId}"
+    val sqlPlanAnalyzer = AppSQLPlanAnalyzer(app, appIndex)
+    val dsInfo = sqlPlanAnalyzer.getDataSourceInfo(app)
     val pWriter =
       new ProfileOutputWriter(metricsDirectory, "profile", 10000000, outputCSV = true)
     try {
       pWriter.writeText("### A. Information Collected ###")
       pWriter.write(QualExecutorView.getLabel, QualExecutorView.getRawView(Seq(app)))
       pWriter.write(QualAppJobView.getLabel, QualAppJobView.getRawView(Seq(app)))
-      generateSQLProcessingView(pWriter, app, appIndex)
+      generateSQLProcessingView(pWriter, sqlPlanAnalyzer)
       pWriter.writeText("\n### B. Analysis ###\n")
       constructLabelsMaps(
         QualSparkMetricsAnalyzer.getAggRawMetrics(app, appIndex)).foreach { case (label, metrics) =>
@@ -93,5 +91,6 @@ object QualRawReportGenerator {
     } finally {
       pWriter.close()
     }
+    dsInfo
   }
 }
