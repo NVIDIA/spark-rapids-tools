@@ -22,6 +22,7 @@ import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.EventLogInfo
+import com.nvidia.spark.rapids.tool.analysis.QualSparkMetricsAnalyzer
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import com.nvidia.spark.rapids.tool.tuning.TunerContext
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
@@ -161,6 +162,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         case Right(app: QualificationAppInfo) =>
           // Case with successful creation of QualificationAppInfo
           // First, generate the Raw metrics view
+          val rawAggMetrics = QualSparkMetricsAnalyzer.getAggRawMetrics(app, index = 1)
           QualRawReportGenerator.generateRawMetricQualView(outputDir, app)
           val qualSumInfo = app.aggregateStats()
           tunerContext.foreach { tuner =>
@@ -168,7 +170,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
             // Note that we call the autotuner anyway without checking the aggregate results
             // because the Autotuner can still make some recommendations based on the information
             // enclosed by the QualificationInfo object
-            tuner.tuneApplication(app, qualSumInfo)
+            tuner.tuneApplication(app, qualSumInfo, rawAggMetrics)
           }
           if (qualSumInfo.isDefined) {
             allApps.add(qualSumInfo.get)

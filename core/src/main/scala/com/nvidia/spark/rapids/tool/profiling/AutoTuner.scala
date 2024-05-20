@@ -24,7 +24,7 @@ import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{GpuDevice, Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import java.util
 import org.apache.hadoop.conf.Configuration
@@ -818,6 +818,7 @@ class AutoTuner(
   private def calculateMaxPartitionBytes(maxPartitionBytes: String): String = {
     // AutoTuner only supports a single app right now, so we get whatever value is here
     val inputBytesMax = appInfoProvider.getMaxInput / 1024 / 1024
+    logWarning("calculateMaxPartitionBytes input bytes max is: " + inputBytesMax)
     val maxPartitionBytesNum = StringUtils.convertToMB(maxPartitionBytes)
     if (inputBytesMax == 0.0) {
       maxPartitionBytesNum.toString

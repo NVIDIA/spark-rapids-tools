@@ -134,6 +134,9 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   }
 
   // Return shuffle stage(Id)s which have positive spilling metrics
+  // The heuristics below assume that these are GPU event logs. ie
+  // its ok to add disk bytes spilled with memory bytes spilled. This
+  // is not correct if its a CPU event log.
   override def getShuffleStagesWithPosSpilling: Set[Long] = {
     app.jsMetAgg.collect { case row if (row.id.contains("stage") &&
       row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&

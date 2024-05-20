@@ -16,7 +16,8 @@
 
 package com.nvidia.spark.rapids.tool
 
-import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSqlTaskAggMetricsVisitor, AppInfoSQLTaskInputSizes, ApplicationSummaryInfo, SingleAppSummaryInfoProvider}
+import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
+import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSQLTaskInputSizes, AppInfoSqlTaskAggMetricsVisitor, ApplicationSummaryInfo, SingleAppSummaryInfoProvider}
 import com.nvidia.spark.rapids.tool.tuning.QualAppSummaryInfoProvider
 
 import org.apache.spark.sql.rapids.tool.ToolUtils
@@ -75,7 +76,8 @@ object AppSummaryInfoBaseProvider {
    * @return object that can be used by the AutoTuner to calculate the recommendations
    */
   def fromQualAppInfo(appInfo: QualificationAppInfo,
-      appAggStats: Option[QualificationSummaryInfo] = None): AppSummaryInfoBaseProvider = {
-    new QualAppSummaryInfoProvider(appInfo, appAggStats)
+      appAggStats: Option[QualificationSummaryInfo] = None,
+      rawAggMetrics: AggRawMetricsResult): AppSummaryInfoBaseProvider = {
+    new QualAppSummaryInfoProvider(appInfo, appAggStats, rawAggMetrics)
   }
 }

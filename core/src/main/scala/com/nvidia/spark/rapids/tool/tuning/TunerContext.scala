@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.tuning
 import scala.util.{Failure, Success, Try}
 
 import com.nvidia.spark.rapids.tool.Platform
+import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
 import com.nvidia.spark.rapids.tool.profiling.{RecommendedCommentResult, RecommendedPropertyResult}
 import org.apache.hadoop.conf.Configuration
 
@@ -52,8 +53,9 @@ case class TunerContext (
 
   def tuneApplication(
       appInfo: QualificationAppInfo,
-      appAggStats: Option[QualificationSummaryInfo]): Option[TuningResult] = {
-    QualificationAutoTuner(appInfo, appAggStats, this).collect {
+      appAggStats: Option[QualificationSummaryInfo],
+      rawAggMetrics: AggRawMetricsResult): Option[TuningResult] = {
+    QualificationAutoTuner(appInfo, appAggStats, this, rawAggMetrics).collect {
       case qualTuner =>
         Try {
           qualTuner.runAutoTuner()
