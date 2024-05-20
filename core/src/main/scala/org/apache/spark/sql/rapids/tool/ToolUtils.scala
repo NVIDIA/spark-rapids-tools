@@ -458,7 +458,7 @@ case class SqlPlanInfoGraphEntry(
 
 // A class used to cache the SQLPlanInfoGraphs
 class SqlPlanInfoGraphBuffer {
-  // A set to hold the SqlPlanInfoGraphEntry. LinkedHAshSet to maintain the order of insertion.
+  // A set to hold the SqlPlanInfoGraphEntry. LinkedHashSet to maintain the order of insertion.
   val sqlPlanInfoGraphs = mutable.LinkedHashSet[SqlPlanInfoGraphEntry]()
   def addSqlPlanInfoGraph(sqlID: Long, planInfo: SparkPlanInfo): SqlPlanInfoGraphEntry = {
     val newEntry = SqlPlanInfoGraphBuffer.createEntry(sqlID, planInfo)

@@ -15,8 +15,7 @@
  */
 package org.apache.spark.sql.rapids.tool.store
 
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, SortedMap}
 
 import org.apache.spark.scheduler.SparkListenerTaskEnd
 import org.apache.spark.sql.rapids.tool.annotation.Since
@@ -47,15 +46,14 @@ class TaskModelManager {
   // is a read operation from the map.
   // Finally use SortedMaps to keep the map sorted. That way iterating on the map will be orders
   // by IDs/AttemptIDs.
-  val stageAttemptToTasks: mutable.SortedMap[Int, mutable.SortedMap[Int, ArrayBuffer[TaskModel]]] =
-    mutable.SortedMap[Int, mutable.SortedMap[Int, ArrayBuffer[TaskModel]]]()
+  val stageAttemptToTasks: SortedMap[Int, SortedMap[Int, ArrayBuffer[TaskModel]]] =
+    SortedMap[Int, SortedMap[Int, ArrayBuffer[TaskModel]]]()
 
   // Given a Spark taskEnd event, create a new Task and add it to the Map.
   def addTaskFromEvent(event: SparkListenerTaskEnd): Unit = {
     val taskModel = TaskModel(event)
     val stageAttempts =
-      stageAttemptToTasks.getOrElseUpdate(event.stageId,
-        mutable.SortedMap[Int, ArrayBuffer[TaskModel]]())
+      stageAttemptToTasks.getOrElseUpdate(event.stageId, SortedMap[Int, ArrayBuffer[TaskModel]]())
     val attemptToTasks =
       stageAttempts.getOrElseUpdate(event.stageAttemptId, ArrayBuffer[TaskModel]())
     attemptToTasks += taskModel

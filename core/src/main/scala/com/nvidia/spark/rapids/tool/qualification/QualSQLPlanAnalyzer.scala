@@ -26,7 +26,7 @@ import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
  * A class that extends the AppSQLPlanAnalyzer to analyze the SQL plans of the applications.
  * It needs to override the parent class to process the WriteDataFormat while visiting a
  * SparkGraphNode.
- * In addition to the sid effects mentioned in AppSQLPlanAnalyzer, it updates the writeDataFormat
+ * In addition to the side effects mentioned in AppSQLPlanAnalyzer, it updates the writeDataFormat
  * field defined in the QualificationAppInfo object.
  *
  * @param app the Application info objects that contains the SQL plans to be processed

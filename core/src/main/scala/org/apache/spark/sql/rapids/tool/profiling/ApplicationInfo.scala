@@ -196,7 +196,7 @@ class ApplicationInfo(
   processEvents()
 
   // Process SQL Plan Metrics after all events are processed
-  val planMetricProcessor: AppSQLPlanAnalyzer = AppSQLPlanAnalyzer(this)
+  val planMetricProcessor: AppSQLPlanAnalyzer = AppSQLPlanAnalyzer(this, index)
   // finally aggregate the Info
   aggregateAppInfo
 

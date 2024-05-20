@@ -19,8 +19,7 @@ package org.apache.spark.sql.rapids.tool
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
-import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
-import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, Map, SortedMap}
 import scala.io.{Codec, Source}
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
@@ -70,14 +69,14 @@ abstract class AppBase(
   val sqlIDToDataSetOrRDDCase: HashSet[Long] = HashSet[Long]()
   // Map (sqlID <-> String(problematic issues))
   // Use LinkedHashSet of Strings to preserve the order of insertion.
-  val sqlIDtoProblematic: HashMap[Long, collection.mutable.LinkedHashSet[String]] =
-    HashMap[Long, mutable.LinkedHashSet[String]]()
+  val sqlIDtoProblematic: HashMap[Long, LinkedHashSet[String]] =
+    HashMap[Long, LinkedHashSet[String]]()
   // sqlId to sql info
   val sqlIdToInfo = new HashMap[Long, SQLExecutionInfoClass]()
   val sqlIdToStages = new HashMap[Long, ArrayBuffer[Int]]()
   // sqlPlans stores HashMap (sqlID <-> SparkPlanInfo)
   // SortedMap is used to keep the order of the sqlPlans since AQEs can overrides the existing ones
-  var sqlPlans: mutable.Map[Long, SparkPlanInfo] = mutable.SortedMap[Long, SparkPlanInfo]()
+  var sqlPlans: Map[Long, SparkPlanInfo] = SortedMap[Long, SparkPlanInfo]()
   var sqlPlanMetricsAdaptive: ArrayBuffer[SQLPlanMetricsCase] = ArrayBuffer[SQLPlanMetricsCase]()
 
   // accum id to task stage accum info
@@ -376,7 +375,7 @@ abstract class AppBase(
     }
   }
 
-  protected def probNotDataset: mutable.HashMap[Long, mutable.LinkedHashSet[String]] = {
+  protected def probNotDataset: HashMap[Long, LinkedHashSet[String]] = {
     sqlIDtoProblematic.filterNot { case (sqlID, _) => sqlIDToDataSetOrRDDCase.contains(sqlID) }
   }
 

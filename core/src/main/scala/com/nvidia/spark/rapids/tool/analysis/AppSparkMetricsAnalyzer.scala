@@ -302,10 +302,17 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
    */
   def aggregateDurationAndCPUTimeBySql(index: Int): Seq[SQLDurationExecutorTimeProfileResult] = {
     val sqlRows = app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
+      // First, build the SQLIssues string by retrieving the potential issues from the
+      // app.sqlIDtoProblematic map.
+      val sqlIssues = if (app.sqlIDtoProblematic.contains(sqlId)) {
+        ToolUtils.formatPotentialProblems(app.sqlIDtoProblematic(sqlId).toSeq)
+      } else {
+        ""
+      }
+      // Then, build the SQLDurationExecutorTimeProfileResult
       SQLDurationExecutorTimeProfileResult(index, app.appId, sqlCase.rootExecutionID,
         sqlId, sqlCase.duration, sqlCase.hasDatasetOrRDD,
-        app.getAppDuration.orElse(Option(0L)), sqlCase.problematic,
-        sqlCase.sqlCpuTimePercent)
+        app.getAppDuration.orElse(Option(0L)), sqlIssues, sqlCase.sqlCpuTimePercent)
     }
     sqlRows.toSeq
   }

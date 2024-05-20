@@ -45,7 +45,7 @@ class QualificationAppInfo(
   var lastJobEndTime: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None
   // Keeps track of the WriteDataFormats used in the WriteExecs
-  // Use LinkedHAshSet to preserve Order of insertion and avoid duplicates
+  // Use LinkedHashSet to preserve Order of insertion and avoid duplicates
   val writeDataFormat: mutable.AbstractSet[String] = mutable.LinkedHashSet[String]()
 
   val sqlIDToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =

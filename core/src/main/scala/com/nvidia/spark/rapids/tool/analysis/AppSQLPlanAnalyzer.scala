@@ -16,8 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
@@ -25,7 +24,7 @@ import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
-import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SQLMetricsStats, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SQLMetricsStats, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
@@ -39,15 +38,21 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * Calling processSQLPlanMetrics() has a side effect on the app object:
  * 1- it updates dataSourceInfo with V2 and V1 data sources
  * 2- it updates sqlIDtoProblematic the map between SQL ID and potential problems
- * 3- it updates sqlIdToInfo.problematic as a formatted String with potential problems
- * 4- it updates sqlIdToInfo.DsOrRdd as boolean to indicate whether a sql is an RDD/DS or not
+ * 3- it updates sqlIdToInfo.DsOrRdd as boolean to indicate whether a sql is an RDD/DS or not
  *
  * @param app the Application info objects that contains the SQL plans to be processed
  */
 class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(app) {
-  private val sqlPlanNodeIdToStageIds: mutable.HashMap[(Long, Long), Set[Int]] =
-    mutable.HashMap.empty[(Long, Long), Set[Int]]
+  // A map between (SQL ID, Node ID) and the set of stage IDs
+  // TODO: The Qualification should use this map instead of building a new set for each exec.
+  private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
+    HashMap.empty[(Long, Long), Set[Int]]
   var wholeStage: ArrayBuffer[WholeStageCodeGenResults] = ArrayBuffer[WholeStageCodeGenResults]()
+  // A list of UnsupportedSQLPlan that contains the SQL ID, node ID, node name.
+  // TODO: for now, unsupportedSQLPlan is kept here for now to match the legacy Profiler's
+  //      output but we need to revisit this in the future to see if we can move it to a
+  //      different place or fix any inconsistent issues between this implementation and
+  //      SQLPlanParser.
   var unsupportedSQLPlan: ArrayBuffer[UnsupportedSQLPlan] = ArrayBuffer[UnsupportedSQLPlan]()
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
 
@@ -80,34 +85,56 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    *                          SQL plan.
    */
   private def updateAppPotentialProblems(sqlId: Long,
-      potentialProblems: mutable.AbstractSet[String]): Unit = {
+      potentialProblems: AbstractSet[String]): Unit = {
     // Append problematic issues to the global variable for that SqlID
-    val existingIssues = app.sqlIDtoProblematic.getOrElse(sqlId, mutable.LinkedHashSet[String]())
+    val existingIssues = app.sqlIDtoProblematic.getOrElse(sqlId, LinkedHashSet[String]())
     app.sqlIDtoProblematic(sqlId) = existingIssues ++ potentialProblems
-    // update the SQLInfoClass with the problematic issues
-    app.sqlIdToInfo.get(sqlId).foreach { sqlInfoClass =>
-      sqlInfoClass.problematic = ToolUtils.formatPotentialProblems(potentialProblems.toSeq)
-    }
   }
 
-  // A visitor context to hold the state of the SQL plan visitor
+  // A visitor context to hold the state of the SQL plan visitor.
+  // The fields are updated and modified by the visitNode function.
+  // sqlIsDsOrRDD is initialized to False, and it is set only once to True when a node is detected
+  // as RDD or DS.
   protected case class SQLPlanVisitorContext(
       sqlPIGEntry: SqlPlanInfoGraphEntry,
       sqlDataSources: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase](),
-      potentialProblems: collection.mutable.LinkedHashSet[String] = mutable.LinkedHashSet[String](),
+      potentialProblems: LinkedHashSet[String] = LinkedHashSet[String](),
       var sqlIsDsOrRDD: Boolean = false)
 
   /**
-   * Visit a node in the SQL plan and process:
+   * The method is called for each node in the SparkGraph plan.
+   * It visits the node to extract the following information
    * 1- the metrics;
    * 2- potential problems.
    * 3- data sources
+   *
+   * It updates the following fields defined in AppSQLPlanAnalyzer:
+   * 1- allSQLMetrics: a list of SQLMetricInfoCase
+   * 2- wholeStage: a list of WholeStageCodeGenResults
+   * 3- unsupportedSQLPlan: a list of UnsupportedSQLPlan that contains the SQL ID, node ID,
+   *    node name.
+   *    TODO: Consider handling the construction of this list in a different way for the
+   *         Qualification
+   * 4- sqlPlanNodeIdToStageIds: A map between (SQL ID, Node ID) and the set of stage IDs
+   *
+   * It has the following effect on the visitor object:
+   * 1- It updates the sqlIsDsOrRDD argument to True when the visited node is an RDD or Dataset.
+   * 2- If the SLID is an RDD, the potentialProblems is cleared because once SQL is marked as RDD,
+   *    all the other problems are ignored. Note that we need to set that flag only once to True
+   *    for the given sqlID.
+   * 3- It appends the current node's potential problems to the SQLID problems only if the SQL is
+   *    visitor.sqlIsDsOrRDD is False. Otherwise, it is kind of redundant to keep checking for
+   *    potential problems for every node when they get to be ignored.
+   *
+   * It has the following effect on the app object:
+   * 1- it updates dataSourceInfo with V2 and V1 data sources
+   * 2- it updates sqlIDtoProblematic the map between SQL ID and potential problems
+ *
    * @param visitor the visitor context defined per SQLPlan
    * @param node the node being currently visited.
    */
   protected def visitNode(visitor: SQLPlanVisitorContext,
       node: SparkPlanGraphNode): Unit = {
-    var nodeIsDsOrRDD = false
     node match {
       case cluster: SparkPlanGraphCluster =>
         val ch = cluster.nodes
@@ -122,13 +149,13 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     if (nodeV2Reads.isDefined) {
       visitor.sqlDataSources += nodeV2Reads.get
     }
-    nodeIsDsOrRDD = RDDCheckHelper.isDatasetOrRDDPlan(node.name, node.desc).isRDD
+
+    val nodeIsDsOrRDD = RDDCheckHelper.isDatasetOrRDDPlan(node.name, node.desc).isRDD
     if (nodeIsDsOrRDD) {
-      if (app.gpuMode) { // we want to report every node that is an RDD
-        val thisPlan = UnsupportedSQLPlan(visitor.sqlPIGEntry.sqlID, node.id, node.name, node.desc,
+      // we want to report every node that is an RDD
+      val thisPlan = UnsupportedSQLPlan(visitor.sqlPIGEntry.sqlID, node.id, node.name, node.desc,
           "Contains Dataset or RDD")
-        unsupportedSQLPlan += thisPlan
-      }
+      unsupportedSQLPlan += thisPlan
       // If one node is RDD, the Sql should be set too
       if (!visitor.sqlIsDsOrRDD) { // We need to set the flag only once for the given sqlID
         visitor.sqlIsDsOrRDD = true
@@ -242,15 +269,6 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   // Store (min, median, max, total) for a given metric
   private case class StatisticsMetrics(min: Long, med:Long, max:Long, total: Long)
 
-  private object StatisticsMetrics {
-    def getOrZerofill(src: Option[StatisticsMetrics]): StatisticsMetrics = {
-      src match {
-        case Some(src) => src
-        case None => StatisticsMetrics(0L, 0L, 0L, 0L)
-      }
-    }
-  }
-
   def generateSQLAccums(): Seq[SQLAccumProfileResults] = {
     allSQLMetrics.flatMap { metric =>
       val jobsForSql = app.jobIdToInfo.filter { case (_, jc) =>
@@ -309,8 +327,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       }
 
       if (taskMax.isDefined || driverMax.isDefined) {
-        val taskInfo = StatisticsMetrics.getOrZerofill(taskMax)
-        val driverInfo = StatisticsMetrics.getOrZerofill(driverMax)
+        val taskInfo = taskMax.getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
+        val driverInfo = driverMax.getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
 
         val max = Math.max(taskInfo.max, driverInfo.max)
         val min = Math.max(taskInfo.min, driverInfo.min)
