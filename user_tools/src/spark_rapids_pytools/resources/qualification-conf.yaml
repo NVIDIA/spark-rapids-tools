@@ -23,7 +23,7 @@ toolOutput:
         - Estimated GPU Duration
         - App Duration
         - Estimated Job Frequency (monthly)
-        - Total Stage Duration
+        - SQL Stage Durations Sum
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
         - Speed Up Estimation Model
@@ -56,7 +56,7 @@ toolOutput:
              function: 'mean'
            - column: Skip by Heuristics
              function: 'any'
-           - column: Total Stage Duration
+           - column: SQL Stage Durations Sum
              function: 'mean'
       dropDuplicates:
         - Vendor

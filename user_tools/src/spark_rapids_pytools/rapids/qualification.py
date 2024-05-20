@@ -468,7 +468,7 @@ class Qualification(RapidsJarTool):
                                                             'percentResultColumnName')
         # recalculate unsupported operators stage duration percent
         subset_data[unsupported_ops_perc_col_name] =\
-            subset_data[unsupported_ops_col_name] * 100.0 / subset_data['Total Stage Duration']
+            subset_data[unsupported_ops_col_name] * 100.0 / subset_data['SQL Stage Durations Sum']
         return subset_data, notes
 
     def __remap_cols_for_shape_type(self,

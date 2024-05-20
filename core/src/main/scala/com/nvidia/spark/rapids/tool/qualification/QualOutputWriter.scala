@@ -402,7 +402,7 @@ object QualOutputWriter {
   val TASK_DUR_STR = "SQL Dataframe Task Duration"
   val STAGE_DUR_STR = "Stage Task Duration"
   val STAGE_WALLCLOCK_DUR_STR = "Stage Duration"
-  val TOTAL_STAGE_WALLCLOCK_DUR_STR = "Total Stage Duration"
+  val SQL_STAGE_DUR_SUM_STR = "SQL Stage Durations Sum"
   val POT_PROBLEM_STR = "Potential Problems"
   val EXEC_CPU_PERCENT_STR = "Executor CPU Time Percent"
   val APP_DUR_ESTIMATED_STR = "App Duration Estimated"
@@ -638,7 +638,7 @@ object QualOutputWriter {
       POT_PROBLEM_STR ->
         getMaxSizeForHeader(appInfos.map(_.potentialProblems.size), POT_PROBLEM_STR),
       LONGEST_SQL_DURATION_STR -> LONGEST_SQL_DURATION_STR_SIZE,
-      TOTAL_STAGE_WALLCLOCK_DUR_STR -> TOTAL_STAGE_WALLCLOCK_DUR_STR.size,
+      SQL_STAGE_DUR_SUM_STR -> SQL_STAGE_DUR_SUM_STR.size,
       NONSQL_DUR_STR -> NONSQL_DUR_STR.size,
       UNSUPPORTED_TASK_DURATION_STR -> UNSUPPORTED_TASK_DURATION_STR.size,
       SUPPORTED_SQL_TASK_DURATION_STR -> SUPPORTED_SQL_TASK_DURATION_STR.size,
@@ -1143,7 +1143,7 @@ object QualOutputWriter {
       reformatCSVFunc(appInfo.potentialProblems) -> headersAndSizes(POT_PROBLEM_STR),
       appInfo.longestSqlDuration.toString -> headersAndSizes(LONGEST_SQL_DURATION_STR),
       appInfo.totalStageWallClockDuration.toString ->
-        headersAndSizes(TOTAL_STAGE_WALLCLOCK_DUR_STR),
+        headersAndSizes(SQL_STAGE_DUR_SUM_STR),
       appInfo.nonSqlTaskDurationAndOverhead.toString -> headersAndSizes(NONSQL_DUR_STR),
       appInfo.unsupportedSQLTaskDuration.toString -> headersAndSizes(UNSUPPORTED_TASK_DURATION_STR),
       appInfo.supportedSQLTaskDuration.toString -> headersAndSizes(SUPPORTED_SQL_TASK_DURATION_STR),

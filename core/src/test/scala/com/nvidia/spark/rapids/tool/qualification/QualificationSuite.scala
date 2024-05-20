@@ -93,7 +93,7 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.NESTED_TYPES_STR, StringType),
     (QualOutputWriter.POT_PROBLEM_STR, StringType),
     (QualOutputWriter.LONGEST_SQL_DURATION_STR, LongType),
-    (QualOutputWriter.TOTAL_STAGE_WALLCLOCK_DUR_STR, LongType),
+    (QualOutputWriter.SQL_STAGE_DUR_SUM_STR, LongType),
     (QualOutputWriter.NONSQL_DUR_STR, LongType),
     (QualOutputWriter.UNSUPPORTED_TASK_DURATION_STR, LongType),
     (QualOutputWriter.SUPPORTED_SQL_TASK_DURATION_STR, LongType),
