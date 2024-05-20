@@ -22,7 +22,6 @@ import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.EventLogInfo
-import com.nvidia.spark.rapids.tool.profiling.Profiler
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import com.nvidia.spark.rapids.tool.tuning.TunerContext
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
@@ -230,8 +229,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
-    val appStatusResult =
-      Profiler.generateStatusProfResults(appStatusReporter.asScala.values.toSeq)
+    val appStatusResult = generateStatusResults(appStatusReporter.asScala.values.toSeq)
     qWriter.writeStatusReport(appStatusResult, order)
     if (mlOpsEnabled) {
       if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {

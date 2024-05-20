@@ -24,7 +24,7 @@ import scala.collection.mutable.{Buffer, LinkedHashMap, ListBuffer}
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, ExecInfo, PlanInfo, UnsupportedExecSummary}
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
-import com.nvidia.spark.rapids.tool.profiling.StatusProfileResult
+import com.nvidia.spark.rapids.tool.profiling.AppStatusResult
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.{CLUSTER_ID, CLUSTER_ID_STR_SIZE, JOB_ID, JOB_ID_STR_SIZE, RUN_NAME, RUN_NAME_STR_SIZE, TEXT_DELIMITER}
 import org.apache.hadoop.conf.Configuration
 import org.json4s.DefaultFormats
@@ -339,7 +339,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
-  def writeStatusReport(statusReports: Seq[StatusProfileResult], order: String): Unit = {
+  def writeStatusReport(statusReports: Seq[AppStatusResult], order: String): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_status.csv",
       "Status Report Info", hadoopConf)
@@ -1171,7 +1171,7 @@ object QualOutputWriter {
   }
 
   private def getDetailedStatusHeaderStringsAndSizes(
-      statusInfos: Seq[StatusProfileResult]): LinkedHashMap[String, Int] = {
+      statusInfos: Seq[AppStatusResult]): LinkedHashMap[String, Int] = {
     val descLengthList = statusInfos.map { statusInfo =>
       statusInfo.appId.length + statusInfo.message.length + 1
     }
@@ -1189,7 +1189,7 @@ object QualOutputWriter {
   }
 
   private def constructStatusReportInfo(
-      statusInfo: StatusProfileResult,
+      statusInfo: AppStatusResult,
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String,
       prettyPrint: Boolean,

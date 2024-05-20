@@ -156,7 +156,7 @@ case class DriverLogUnsupportedOperators(
 }
 
 // Case class representing status summary information for a particular application.
-case class StatusProfileResult(
+case class AppStatusResult(
     path: String,
     status: String,
     appId: String = "",

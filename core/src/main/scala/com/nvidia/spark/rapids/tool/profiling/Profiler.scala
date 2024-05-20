@@ -131,8 +131,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     progressBar.foreach(_.finishAll())
     
     // Write status reports for all event logs to a CSV file
-    val reportResults =
-      Profiler.generateStatusProfResults(appStatusReporter.asScala.values.toSeq)
+    val reportResults = generateStatusResults(appStatusReporter.asScala.values.toSeq)
     ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir)
   }
 
@@ -572,25 +571,6 @@ object Profiler {
     } else {
       val commentsToStr = comments.map(_.toString).reduce(_ + "\n" + _)
       propStr + s"\nComments:\n$commentsToStr\n"
-    }
-  }
-
-  /**
-   * For each app status report, generate a StatusProfileResult(path, status, appId, message).
-   * @return Seq[StatusProfileResult] - Seq[(path, status, description)]
-   */
-  def generateStatusProfResults(appStatuses: Seq[AppResult]): Seq[StatusProfileResult] = {
-    appStatuses.map {
-      case FailureAppResult(path, message) =>
-        StatusProfileResult(path, "FAILURE", "", message)
-      case SkippedAppResult(path, message) =>
-        StatusProfileResult(path, "SKIPPED", "", message)
-      case SuccessAppResult(path, appId, message) =>
-        StatusProfileResult(path, "SUCCESS", appId, message)
-      case UnknownAppResult(path, appId, message) =>
-        StatusProfileResult(path, "UNKNOWN", appId, message)
-      case profAppResult: AppResult =>
-        throw new UnsupportedOperationException(s"Invalid status for $profAppResult")
     }
   }
 }
