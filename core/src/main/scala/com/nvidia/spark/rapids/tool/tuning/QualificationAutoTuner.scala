@@ -18,8 +18,8 @@ package com.nvidia.spark.rapids.tool.tuning
 
 import scala.util.{Failure, Success, Try}
 
-import com.nvidia.spark.rapids.tool.ToolTextFileWriter
-import com.nvidia.spark.rapids.tool.profiling.{AppSummaryInfoBaseProvider, AutoTuner, Profiler}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ToolTextFileWriter}
+import com.nvidia.spark.rapids.tool.profiling.{AutoTuner, Profiler}
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging

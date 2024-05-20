@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
-import com.nvidia.spark.rapids.tool.profiling.AppSummaryInfoBaseProvider
+import com.nvidia.spark.rapids.tool.AppSummaryInfoBaseProvider
 
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
 
@@ -56,4 +56,11 @@ class QualAppSummaryInfoProvider(
   }
 
   def getAppID: String = appInfo.appId
+
+  // TODO fill in
+  override def getMaxInput: Double = 0.0
+
+  // Spill on CPU side should just look at memory or disk, it should not add
+  // them together
+  override def getShuffleStagesWithPosSpilling: Set[Long] = Set.empty
 }
