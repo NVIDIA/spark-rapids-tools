@@ -165,7 +165,6 @@ class SQLExecutionInfoClass(
     var endTime: Option[Long],
     var duration: Option[Long],
     var hasDatasetOrRDD: Boolean,
-    var problematic: String = "",
     var sqlCpuTimePercent: Double = -1) {
   def setDsOrRdd(value: Boolean): Unit = {
     hasDatasetOrRDD = value

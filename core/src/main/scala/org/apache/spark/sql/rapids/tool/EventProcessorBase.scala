@@ -145,8 +145,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       event.time,
       None,
       None,
-      hasDatasetOrRDD = false,
-      ""
+      hasDatasetOrRDD = false
     )
     app.sqlIdToInfo.put(event.executionId, sqlExecution)
     app.sqlPlans += (event.executionId -> event.sparkPlanInfo)

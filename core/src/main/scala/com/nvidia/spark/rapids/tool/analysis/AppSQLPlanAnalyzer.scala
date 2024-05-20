@@ -16,39 +16,49 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
-import com.nvidia.spark.rapids.tool.profiling.{SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.execution.ui.SparkPlanGraph
-import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SQLMetricsStats, SqlPlanInfoGraphBuffer, ToolUtils}
+import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
+import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SQLMetricsStats, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 /**
- * This class processes SQL plan to build some information such as: metrics, wholestage nodes, and
- * connecting operators to nodes. The implementation used to be directly under profiler's
+ * This class processes SQL plan to build some information such as: metrics, wholeStage nodes, and
+ * connecting operators to nodes. The implementation used to be directly under Profiler's
  * ApplicationInfo class. Moving the logic and the data structure to this new class is part of
  * refactor to have a SQLPlan processor that can produce the same analysis for both the Prof/Qual
  * tools.
- * TODO: 1- Make the processor accepts appBase instead of applicationInfo. The tricky part here
- *       that Qual has its own way of reporting Problematic SQLs and identifying RDDs.
- *       2- Restructure the implementation similar to AppSparkMetricsAnalysis to separate between
- *       analysis and views.
- * @param app the Application into objects that contains the SQL plans to be processed
+ * Calling processSQLPlanMetrics() has a side effect on the app object:
+ * 1- it updates dataSourceInfo with V2 and V1 data sources
+ * 2- it updates sqlIDtoProblematic the map between SQL ID and potential problems
+ * 3- it updates sqlIdToInfo.DsOrRdd as boolean to indicate whether a sql is an RDD/DS or not
+ *
+ * @param app the Application info objects that contains the SQL plans to be processed
  */
 class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(app) {
-  private val sqlPlanNodeIdToStageIds: mutable.HashMap[(Long, Long), Set[Int]] =
-    mutable.HashMap.empty[(Long, Long), Set[Int]]
+  // A map between (SQL ID, Node ID) and the set of stage IDs
+  // TODO: The Qualification should use this map instead of building a new set for each exec.
+  private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
+    HashMap.empty[(Long, Long), Set[Int]]
   var wholeStage: ArrayBuffer[WholeStageCodeGenResults] = ArrayBuffer[WholeStageCodeGenResults]()
+  // A list of UnsupportedSQLPlan that contains the SQL ID, node ID, node name.
+  // TODO: for now, unsupportedSQLPlan is kept here for now to match the legacy Profiler's
+  //      output but we need to revisit this in the future to see if we can move it to a
+  //      different place or fix any inconsistent issues between this implementation and
+  //      SQLPlanParser.
   var unsupportedSQLPlan: ArrayBuffer[UnsupportedSQLPlan] = ArrayBuffer[UnsupportedSQLPlan]()
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
 
   /**
-   * Connects Operators to Stages using AccumulatorIDs
+   * Connects Operators to Stages using AccumulatorIDs.
+   * TODO: This function can be fused in the visitNode function to avoid the extra iteration.
    * @param cb function that creates a SparkPlanGraph. This can be used as a cacheHolder for the
    *           object created to be used later.
    */
@@ -66,6 +76,135 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   }
 
   /**
+   * Update the potential problems in the app object. This is a common function that is used by
+   * Both Qual/Prof analysis.
+   * For Qual apps, the app.sqlIDtoProblematic won't be set because it is done later during the
+   * aggregation phase.
+   * @param sqlId the SQL ID being analyzed
+   * @param potentialProblems a set of strings that represent the potential problems found in the
+   *                          SQL plan.
+   */
+  private def updateAppPotentialProblems(sqlId: Long,
+      potentialProblems: AbstractSet[String]): Unit = {
+    // Append problematic issues to the global variable for that SqlID
+    val existingIssues = app.sqlIDtoProblematic.getOrElse(sqlId, LinkedHashSet[String]())
+    app.sqlIDtoProblematic(sqlId) = existingIssues ++ potentialProblems
+  }
+
+  // A visitor context to hold the state of the SQL plan visitor.
+  // The fields are updated and modified by the visitNode function.
+  // sqlIsDsOrRDD is initialized to False, and it is set only once to True when a node is detected
+  // as RDD or DS.
+  protected case class SQLPlanVisitorContext(
+      sqlPIGEntry: SqlPlanInfoGraphEntry,
+      sqlDataSources: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase](),
+      potentialProblems: LinkedHashSet[String] = LinkedHashSet[String](),
+      var sqlIsDsOrRDD: Boolean = false)
+
+  /**
+   * The method is called for each node in the SparkGraph plan.
+   * It visits the node to extract the following information
+   * 1- the metrics;
+   * 2- potential problems.
+   * 3- data sources
+   *
+   * It updates the following fields defined in AppSQLPlanAnalyzer:
+   * 1- allSQLMetrics: a list of SQLMetricInfoCase
+   * 2- wholeStage: a list of WholeStageCodeGenResults
+   * 3- unsupportedSQLPlan: a list of UnsupportedSQLPlan that contains the SQL ID, node ID,
+   *    node name.
+   *    TODO: Consider handling the construction of this list in a different way for the
+   *         Qualification
+   * 4- sqlPlanNodeIdToStageIds: A map between (SQL ID, Node ID) and the set of stage IDs
+   *
+   * It has the following effect on the visitor object:
+   * 1- It updates the sqlIsDsOrRDD argument to True when the visited node is an RDD or Dataset.
+   * 2- If the SQLID is an RDD, the potentialProblems is cleared because once SQL is marked as RDD,
+   *    all the other problems are ignored. Note that we need to set that flag only once to True
+   *    for the given SQLID.
+   * 3- It appends the current node's potential problems to the SQLID problems only if the SQL is
+   *    visitor.sqlIsDsOrRDD is False. Otherwise, it is kind of redundant to keep checking for
+   *    potential problems for every node when they get to be ignored.
+   *
+   * It has the following effect on the app object:
+   * 1- it updates dataSourceInfo with V2 and V1 data sources
+   * 2- it updates sqlIDtoProblematic the map between SQL ID and potential problems
+ *
+   * @param visitor the visitor context defined per SQLPlan
+   * @param node the node being currently visited.
+   */
+  protected def visitNode(visitor: SQLPlanVisitorContext,
+      node: SparkPlanGraphNode): Unit = {
+    node match {
+      case cluster: SparkPlanGraphCluster =>
+        val ch = cluster.nodes
+        ch.foreach { c =>
+          wholeStage += WholeStageCodeGenResults(
+            appIndex, visitor.sqlPIGEntry.sqlID, node.id, node.name, c.name, c.id)
+        }
+      case _ =>
+    }
+    // get V2 dataSources for that node
+    val nodeV2Reads = app.checkGraphNodeForReads(visitor.sqlPIGEntry.sqlID, node)
+    if (nodeV2Reads.isDefined) {
+      visitor.sqlDataSources += nodeV2Reads.get
+    }
+
+    val nodeIsDsOrRDD = RDDCheckHelper.isDatasetOrRDDPlan(node.name, node.desc).isRDD
+    if (nodeIsDsOrRDD) {
+      // we want to report every node that is an RDD
+      val thisPlan = UnsupportedSQLPlan(visitor.sqlPIGEntry.sqlID, node.id, node.name, node.desc,
+          "Contains Dataset or RDD")
+      unsupportedSQLPlan += thisPlan
+      // If one node is RDD, the Sql should be set too
+      if (!visitor.sqlIsDsOrRDD) { // We need to set the flag only once for the given sqlID
+        visitor.sqlIsDsOrRDD = true
+        app.sqlIdToInfo.get(visitor.sqlPIGEntry.sqlID).foreach { sql =>
+          sql.setDsOrRdd(visitor.sqlIsDsOrRDD)
+          app.sqlIDToDataSetOrRDDCase += visitor.sqlPIGEntry.sqlID
+          // Clear the potential problems since it is an RDD to free memory
+          visitor.potentialProblems.clear()
+        }
+      }
+    }
+    if (!visitor.sqlIsDsOrRDD) {
+      // Append current node's potential problems to the Sql problems only if the SQL is not an
+      // RDD. This is an optimization since the potentialProblems won't be used any more.
+      visitor.potentialProblems ++= app.findPotentialIssues(node.desc)
+    }
+    // Then process SQL plan metric type
+    for (metric <- node.metrics) {
+      val stages =
+        sqlPlanNodeIdToStageIds.getOrElse((visitor.sqlPIGEntry.sqlID, node.id), Set.empty)
+      val allMetric = SQLMetricInfoCase(visitor.sqlPIGEntry.sqlID, metric.name,
+        metric.accumulatorId, metric.metricType, node.id,
+        node.name, node.desc, stages)
+
+      allSQLMetrics += allMetric
+      if (app.sqlPlanMetricsAdaptive.nonEmpty) {
+        val adaptive = app.sqlPlanMetricsAdaptive.filter { adaptiveMetric =>
+          adaptiveMetric.sqlID == visitor.sqlPIGEntry.sqlID &&
+            adaptiveMetric.accumulatorId == metric.accumulatorId
+        }
+        adaptive.foreach { adaptiveMetric =>
+          val allMetric = SQLMetricInfoCase(visitor.sqlPIGEntry.sqlID, adaptiveMetric.name,
+            adaptiveMetric.accumulatorId, adaptiveMetric.metricType, node.id,
+            node.name, node.desc, stages)
+          // could make this more efficient but seems ok for now
+          val exists = allSQLMetrics.filter { a =>
+            ((a.accumulatorId == adaptiveMetric.accumulatorId)
+              && (a.sqlID == visitor.sqlPIGEntry.sqlID)
+              && (a.nodeID == node.id && adaptiveMetric.metricType == a.metricType))
+          }
+          if (exists.isEmpty) {
+            allSQLMetrics += allMetric
+          }
+        }
+      }
+    }
+  }
+
+  /**
    * Function to process SQL Plan Metrics after all events are processed
    */
   def processSQLPlanMetrics(): Unit = {
@@ -77,99 +216,27 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     }
     connectOperatorToStage(createGraphFunc)
     for (sqlPIGEntry <- sqlPlanInfoBuffer.sqlPlanInfoGraphs) {
-      var sqlIsDsOrRDD = false
-      val potentialProblems = collection.mutable.Set[String]()
-      // store all datasources of the given SQL in a variable so that we won't have to iterate
+      // store all dataSources of the given SQL in a variable so that we won't have to iterate
       // through the entire list
       // get V1 dataSources for that SQLId
-      val sqlDataSources = app.checkMetadataForReadSchema(sqlPIGEntry)
+      val visitorContext = SQLPlanVisitorContext(sqlPIGEntry,
+        app.checkMetadataForReadSchema(sqlPIGEntry))
       for (node <- sqlPIGEntry.sparkPlanGraph.allNodes) {
-        var nodeIsDsOrRDD = false
-        if (node.isInstanceOf[org.apache.spark.sql.execution.ui.SparkPlanGraphCluster]) {
-          val ch = node.asInstanceOf[org.apache.spark.sql.execution.ui.SparkPlanGraphCluster].nodes
-          ch.foreach { c =>
-            wholeStage += WholeStageCodeGenResults(
-              appIndex, sqlPIGEntry.sqlID, node.id, node.name, c.name, c.id)
-          }
-        }
-        // get V2 dataSources for that node
-        val nodeV2Reads = app.checkGraphNodeForReads(sqlPIGEntry.sqlID, node)
-        if (nodeV2Reads.isDefined) {
-          sqlDataSources += nodeV2Reads.get
-        }
-        nodeIsDsOrRDD = RDDCheckHelper.isDatasetOrRDDPlan(node.name, node.desc).isRDD
-        if (nodeIsDsOrRDD) {
-          if (app.gpuMode) { // we want to report every node that is an RDD
-            val thisPlan = UnsupportedSQLPlan(sqlPIGEntry.sqlID, node.id, node.name, node.desc,
-              "Contains Dataset or RDD")
-            unsupportedSQLPlan += thisPlan
-          }
-          // If one node is RDD, the Sql should be set too
-          if (!sqlIsDsOrRDD) { // We need to set the flag only once for the given sqlID
-            sqlIsDsOrRDD = true
-            app.sqlIdToInfo.get(sqlPIGEntry.sqlID).foreach { sql =>
-              sql.setDsOrRdd(sqlIsDsOrRDD)
-              app.sqlIDToDataSetOrRDDCase += sqlPIGEntry.sqlID
-              // Clear the potential problems since it is an RDD to free memory
-              potentialProblems.clear()
-            }
-          }
-        }
-        if (!sqlIsDsOrRDD) {
-          // Append current node's potential problems to the Sql problems only if the SQL is not an
-          // RDD. This is an optimization since the potentialProblems won't be used any more.
-          potentialProblems ++= app.findPotentialIssues(node.desc)
-        }
-        // Then process SQL plan metric type
-        for (metric <- node.metrics) {
-          val stages =
-            sqlPlanNodeIdToStageIds.get((sqlPIGEntry.sqlID, node.id)).getOrElse(Set.empty)
-          val allMetric = SQLMetricInfoCase(sqlPIGEntry.sqlID, metric.name,
-            metric.accumulatorId, metric.metricType, node.id,
-            node.name, node.desc, stages)
-
-          allSQLMetrics += allMetric
-          if (app.sqlPlanMetricsAdaptive.nonEmpty) {
-            val adaptive = app.sqlPlanMetricsAdaptive.filter { adaptiveMetric =>
-              adaptiveMetric.sqlID == sqlPIGEntry.sqlID &&
-                adaptiveMetric.accumulatorId == metric.accumulatorId
-            }
-            adaptive.foreach { adaptiveMetric =>
-              val allMetric = SQLMetricInfoCase(sqlPIGEntry.sqlID, adaptiveMetric.name,
-                adaptiveMetric.accumulatorId, adaptiveMetric.metricType, node.id,
-                node.name, node.desc, stages)
-              // could make this more efficient but seems ok for now
-              val exists = allSQLMetrics.filter { a =>
-                ((a.accumulatorId == adaptiveMetric.accumulatorId) && (a.sqlID == sqlPIGEntry.sqlID)
-                  && (a.nodeID == node.id && adaptiveMetric.metricType == a.metricType))
-              }
-              if (exists.isEmpty) {
-                allSQLMetrics += allMetric
-              }
-            }
-          }
-        }
+        visitNode(visitorContext, node)
       }
-      if (app.isInstanceOf[ApplicationInfo]) {
-        // TODO: We should clean this in better way so that sqlItoProblematic is handled similar
-        //      way in both Qual/Prof tools.
-        //      This is a hack to get the processSQLPlanMetrics() method to work for both Qual/Prof
-        //       - we check if the app is AppInfo, then we add the potential problems.
-        //       - If not, then we do not set the problematic issues because this will cause
-        //        records to be duplicated in the Qualification tool.
-        // Check if readsSchema is complex for the given sql
+      if (visitorContext.sqlDataSources.nonEmpty) {
         val sqlNestedComplexTypes =
-          AppBase.parseReadSchemaForNestedTypes(sqlDataSources.map { ds => ds.schema })
+          AppBase.parseReadSchemaForNestedTypes(
+            visitorContext.sqlDataSources.map { ds => ds.schema })
         // Append problematic issues to the global variable for that SqlID
         if (sqlNestedComplexTypes._2.nonEmpty) {
-          potentialProblems += "NESTED COMPLEX TYPE"
+          visitorContext.potentialProblems += "NESTED COMPLEX TYPE"
         }
-        // Finally, add the local potentialProblems to the global data structure if any.
-        app.sqlIDtoProblematic(sqlPIGEntry.sqlID) = potentialProblems.toSet
-        // Convert the problematic issues to a string and update the SQLInfo
-        app.sqlIdToInfo.get(sqlPIGEntry.sqlID).foreach { sqlInfoClass =>
-          sqlInfoClass.problematic = ToolUtils.formatPotentialProblems(potentialProblems.toSeq)
-        }
+      }
+      // Finally, update the potential problems in the app object
+      // Note that the implementation depends on teh type of the AppBase
+      if (visitorContext.potentialProblems.nonEmpty) {
+        updateAppPotentialProblems(sqlPIGEntry.sqlID, visitorContext.potentialProblems)
       }
     }
   }
@@ -200,7 +267,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   }
 
   // Store (min, median, max, total) for a given metric
-  private case class statisticsMetrics(min: Long, med:Long, max:Long, total: Long)
+  private case class StatisticsMetrics(min: Long, med:Long, max:Long, total: Long)
 
   def generateSQLAccums(): Seq[SQLAccumProfileResults] = {
     allSQLMetrics.flatMap { metric =>
@@ -223,9 +290,9 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
               None
             }
             else if (accumValues.length <= 1) {
-              Some(statisticsMetrics(0L, 0L, 0L, accumValues.sum))
+              Some(StatisticsMetrics(0L, 0L, 0L, accumValues.sum))
             } else {
-              Some(statisticsMetrics(accumValues(0), accumValues(accumValues.size / 2),
+              Some(StatisticsMetrics(accumValues(0), accumValues(accumValues.size / 2),
                 accumValues(accumValues.size - 1), accumValues.sum))
             }
           } else {
@@ -233,7 +300,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
             if (accumValues.isEmpty) {
               None
             } else {
-              Some(statisticsMetrics(0L, 0L, 0L, accumValues.max))
+              Some(StatisticsMetrics(0L, 0L, 0L, accumValues.max))
             }
           }
         case None => None
@@ -250,9 +317,9 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           if (accumValues.isEmpty) {
             None
           } else if (accumValues.length <= 1) {
-            Some(statisticsMetrics(0L, 0L, 0L, accumValues.sum))
+            Some(StatisticsMetrics(0L, 0L, 0L, accumValues.sum))
           } else {
-            Some(statisticsMetrics(accumValues(0), accumValues(accumValues.size / 2),
+            Some(StatisticsMetrics(accumValues(0), accumValues(accumValues.size / 2),
               accumValues(accumValues.size - 1), accumValues.sum))
           }
         case None =>
@@ -260,14 +327,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       }
 
       if (taskMax.isDefined || driverMax.isDefined) {
-        val taskInfo = taskMax match {
-          case Some(task) => task
-          case None => statisticsMetrics(0L, 0L, 0L, 0L)
-        }
-        val driverInfo = driverMax match {
-          case Some(driver) => driver
-          case None => statisticsMetrics(0L, 0L, 0L, 0L)
-        }
+        val taskInfo = taskMax.getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
+        val driverInfo = driverMax.getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
 
         val max = Math.max(taskInfo.max, driverInfo.max)
         val min = Math.max(taskInfo.min, driverInfo.min)
@@ -285,14 +346,14 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
 }
 
 object AppSQLPlanAnalyzer {
-  def processSQLPlan(app: ApplicationInfo): AppSQLPlanAnalyzer = {
-    val sqlProcessor = new AppSQLPlanAnalyzer(app, app.index)
-    sqlProcessor.processSQLPlanMetrics()
-    sqlProcessor
-  }
-  def apply(app: AppBase, appIndex: Int): AppSQLPlanAnalyzer = {
-    val sqlProcessor = new AppSQLPlanAnalyzer(app, appIndex)
-    sqlProcessor.processSQLPlanMetrics()
-    sqlProcessor
+  def apply(app: AppBase, appIndex: Integer = 1): AppSQLPlanAnalyzer = {
+    val sqlAnalyzer = app match {
+      case qApp: QualificationAppInfo =>
+        new QualSQLPlanAnalyzer(qApp, appIndex)
+      case pApp: ApplicationInfo =>
+        new AppSQLPlanAnalyzer(pApp, pApp.index)
+    }
+    sqlAnalyzer.processSQLPlanMetrics()
+    sqlAnalyzer
   }
 }
