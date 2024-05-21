@@ -68,8 +68,7 @@ object QualRawReportGenerator {
       appIndex: Int = 1): Unit = {
     val metricsDirectory = s"$rootDir/raw_metrics/${app.appId}"
     val pWriter =
-      new ProfileOutputWriter(metricsDirectory, "raw_information",
-        10000000, outputCSV = true)
+      new ProfileOutputWriter(metricsDirectory, "profile", 10000000, outputCSV = true)
     try {
       pWriter.writeText("### A. Information Collected ###")
       pWriter.write(QualExecutorView.getLabel, QualExecutorView.getRawView(Seq(app)))

@@ -285,3 +285,4 @@ KnownNullable,2.73
 InSubqueryExec,2.73
 AQEShuffleReadExec,2.73
 CheckOverflowInTableInsert,2.73
+ArrayFilter,1.5

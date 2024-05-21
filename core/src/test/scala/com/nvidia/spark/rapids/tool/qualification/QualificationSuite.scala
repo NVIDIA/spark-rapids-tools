@@ -1340,7 +1340,7 @@ class QualificationSuite extends BaseTestSuite {
         val outputActual = readExpectedFile(new File(outputResults))
         assert(outputActual.collect().size == 1)
         assert(outputActual.select("Potential Problems").first.getString(0) == 
-          "TIMEZONE to_timestamp():TIMEZONE hour():TIMEZONE current_timestamp():TIMEZONE second()")
+          "TIMEZONE hour():TIMEZONE current_timestamp():TIMEZONE to_timestamp():TIMEZONE second()")
       }
     }
   }

@@ -53,4 +53,4 @@ python sync_operator_scores.py new_operators operator_score_dir [--new-score sco
 The script take three parameters:
 - `new_operators`: required, a text file of the new operators, separated by \newline
 - `operator_score_dir`: required, path to directory with operator score files
-- `--new-score`: optional, a score for the new operators, default to 1.0
+- `--new-score`: optional, a score for the new operators, default to 1.5
