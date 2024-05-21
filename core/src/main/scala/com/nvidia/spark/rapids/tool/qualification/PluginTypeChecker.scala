@@ -357,7 +357,7 @@ class PluginTypeChecker(val platform: Platform = PlatformFactory.createInstance(
     writeFormats.map(x => x.trim).contains(format)
   }
 
-  def isWriteFormatSupported(writeFormat: ArrayBuffer[String]): ArrayBuffer[String] = {
+  def getUnsupportedWriteFormat(writeFormat: Iterable[String]): Iterable[String] = {
     writeFormat.map(x => x.toLowerCase.trim).filterNot(
       writeFormats.map(x => x.trim).contains(_))
   }

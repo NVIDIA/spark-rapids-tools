@@ -88,7 +88,7 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 
   // get read data schema information
   def getDataSourceInfo: Seq[DataSourceProfileResult] = {
-    val dataSourceApps = apps.filter(_.dataSourceInfo.size > 0)
+    val dataSourceApps = apps.filter(_.dataSourceInfo.nonEmpty)
     val sqlAccums = CollectInformation.generateSQLAccums(dataSourceApps)
 
     // Metrics to capture from event log to the result
@@ -216,9 +216,6 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 }
 
 object CollectInformation extends Logging {
-
- // Store (min, median, max, total) for a given metric
-  case class statisticsMetrics(min: Long, med:Long, max:Long, total: Long)
 
   def generateSQLAccums(apps: Seq[ApplicationInfo]): Seq[SQLAccumProfileResults] = {
     apps.flatMap { app =>

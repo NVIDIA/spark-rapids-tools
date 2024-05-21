@@ -67,13 +67,6 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
     }
   }
 
-  override def doSparkListenerSQLExecutionStart(
-      app: QualificationAppInfo,
-      event: SparkListenerSQLExecutionStart): Unit = {
-    super.doSparkListenerSQLExecutionStart(app, event)
-    app.processSQLPlan(event.executionId, event.sparkPlanInfo)
-  }
-
   override def doSparkListenerSQLExecutionEnd(
       app: QualificationAppInfo,
       event: SparkListenerSQLExecutionEnd): Unit = {
@@ -162,14 +155,5 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
         case None =>
       }
     }
-  }
-
-  override def doSparkListenerSQLAdaptiveExecutionUpdate(
-      app: QualificationAppInfo,
-      event: SparkListenerSQLAdaptiveExecutionUpdate): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    // AQE plan can override the ones got from SparkListenerSQLExecutionStart
-    app.processSQLPlan(event.executionId, event.sparkPlanInfo)
-    super.doSparkListenerSQLAdaptiveExecutionUpdate(app, event)
   }
 }
