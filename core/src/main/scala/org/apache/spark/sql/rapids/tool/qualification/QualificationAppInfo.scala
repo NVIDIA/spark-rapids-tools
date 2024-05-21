@@ -27,8 +27,7 @@ import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
-import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, FailureApp, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, FailureApp, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
 import org.apache.spark.sql.rapids.tool.store.StageModel
 
