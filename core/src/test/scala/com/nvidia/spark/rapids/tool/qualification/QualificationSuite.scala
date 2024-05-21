@@ -144,7 +144,7 @@ class QualificationSuite extends BaseTestSuite {
         sum.gpuOpportunity, sum.executorCpuTimePercent, sum.failedSQLIds,
         sum.readFileFormatAndTypesNotSupported, sum.writeDataFormat,
         sum.complexTypes, sum.nestedComplexTypes, sum.potentialProblems, sum.longestSqlDuration,
-        sum.totalStageWallClockDuration, sum.nonSqlTaskDurationAndOverhead,
+        sum.sqlStageDurationsSum, sum.nonSqlTaskDurationAndOverhead,
         sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration, sum.taskSpeedupFactor,
         sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs,
         sum.estimatedFrequency)

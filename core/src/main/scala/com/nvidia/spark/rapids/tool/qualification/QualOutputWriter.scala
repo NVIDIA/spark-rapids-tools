@@ -378,7 +378,7 @@ case class FormattedQualificationSummaryInfo(
     nestedComplexTypes: String,
     potentialProblems: String,
     longestSqlDuration: Long,
-    totalStageWallClockDuration: Long,
+    sqlStageDurationsSum: Long,
     nonSqlTaskDurationAndOverhead: Long,
     unsupportedSQLTaskDuration: Long,
     supportedSQLTaskDuration: Long,
@@ -1142,7 +1142,7 @@ object QualOutputWriter {
       reformatCSVFunc(appInfo.nestedComplexTypes) -> headersAndSizes(NESTED_TYPES_STR),
       reformatCSVFunc(appInfo.potentialProblems) -> headersAndSizes(POT_PROBLEM_STR),
       appInfo.longestSqlDuration.toString -> headersAndSizes(LONGEST_SQL_DURATION_STR),
-      appInfo.totalStageWallClockDuration.toString ->
+      appInfo.sqlStageDurationsSum.toString ->
         headersAndSizes(SQL_STAGE_DUR_SUM_STR),
       appInfo.nonSqlTaskDurationAndOverhead.toString -> headersAndSizes(NONSQL_DUR_STR),
       appInfo.unsupportedSQLTaskDuration.toString -> headersAndSizes(UNSUPPORTED_TASK_DURATION_STR),
