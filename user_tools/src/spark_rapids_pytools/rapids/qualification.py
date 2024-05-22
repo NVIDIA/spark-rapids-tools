@@ -848,8 +848,8 @@ class Qualification(RapidsJarTool):
             try:
                 df = self.__update_apps_with_prediction_info(df)
             except Exception as e:  # pylint: disable=broad-except
-                self.logger.warning('Unable to use XGBoost estimation model for speed ups. '
-                                    'Falling-back to default model. Reason - %s:%s', type(e).__name__, e)
+                self.logger.error('Unable to use XGBoost estimation model for speed ups. '
+                                  'Falling-back to default model. Reason - %s:%s', type(e).__name__, e)
         estimation_model_col = self.ctxt.get_value('local', 'output', 'predictionModel',
                                                    'updateResult', 'estimationModelColumn')
         if estimation_model_col not in df:
@@ -857,14 +857,18 @@ class Qualification(RapidsJarTool):
             df[estimation_model_col] = QualEstimationModel.tostring(QualEstimationModel.SPEEDUPS)
 
         # 2. Operations related to cluster information
-        cluster_info_file = self.ctxt.get_value('toolOutput', 'csv', 'clusterInformation', 'fileName')
-        cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
-        cluster_info_df = pd.read_csv(cluster_info_file)
-        # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
-        # info columns, even if `cluster_info_df` is empty.
-        df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
-        if len(cluster_info_df) > 0:
-            self.__infer_cluster_and_update_savings(cluster_info_df)
+        try:
+            cluster_info_file = self.ctxt.get_value('toolOutput', 'csv', 'clusterInformation', 'fileName')
+            cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
+            cluster_info_df = pd.read_csv(cluster_info_file)
+            # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
+            # info columns, even if `cluster_info_df` is empty.
+            df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
+            if len(cluster_info_df) > 0:
+                self.__infer_cluster_and_update_savings(cluster_info_df)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Unable to process cluster information. Cost savings will be disabled. '
+                              'Reason - %s:%s', type(e).__name__, e)
 
         # 3. Operations related to unsupported operators
         unsupported_operator_report_file = self.ctxt.get_value('toolOutput', 'csv', 'unsupportedOperatorsReport',
