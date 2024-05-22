@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob
+from spark_rapids_tools.storagelib.adls.adlspath import AdlsPath
 
 
 @dataclass
@@ -34,7 +35,7 @@ class DBAzureLocalRapidsJob(RapidsLocalJob):
         for path in eventlogs:
             if path.startswith('abfss://'):
                 # assume all eventlogs are under the same storage account
-                return path.split('@')[1].split('.')[0]
+                return AdlsPath.get_abfs_account_name(path)
         return ''
 
     def _build_jvm_args(self):

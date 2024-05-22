@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
+import com.nvidia.spark.rapids.tool.analysis.AppSQLPlanAnalyzer
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.SQL_DESC_STR
 
@@ -38,7 +39,7 @@ import org.apache.spark.sql.rapids.tool.qualification._
  * SQL query level without tracking all the Application information, but currently does
  * not cleanup. There is a cleanupSQL function that the user can force cleanup if required.
  *
- * Create the `RunningQualicationApp`:
+ * Create the `RunningQualificationApp`:
  * {{{
  *   val qualApp = new com.nvidia.spark.rapids.tool.qualification.RunningQualificationApp()
  * }}}
@@ -200,7 +201,7 @@ class RunningQualificationApp(
    */
   def getSummary(delimiter: String = "|", prettyPrint: Boolean = true): String = {
     if (!perSqlOnly) {
-      val appInfo = super.aggregateStats()
+      val appInfo = aggregateStats()
       appInfo match {
         case Some(info) =>
           val unSupExecMaxSize = QualOutputWriter.getunSupportedMaxSize(
@@ -257,7 +258,7 @@ class RunningQualificationApp(
   def getDetailed(delimiter: String = "|", prettyPrint: Boolean = true,
       reportReadSchema: Boolean = false): String = {
     if (!perSqlOnly) {
-      val appInfo = super.aggregateStats()
+      val appInfo = aggregateStats()
       appInfo match {
         case Some(info) =>
           val headersAndSizesToUse =
@@ -298,5 +299,16 @@ class RunningQualificationApp(
       }
     }
     perSqlInfos
+  }
+
+  /**
+   * Aggregate and process the application after reading the events.
+   * @return Option of QualificationSummaryInfo, Some if we were able to process the application
+   *         otherwise None.
+   */
+  override def aggregateStats(): Option[QualificationSummaryInfo] = {
+    // make sure that the APPSQLAppAnalyzer has processed the running application
+    AppSQLPlanAnalyzer(this)
+    super.aggregateStats()
   }
 }

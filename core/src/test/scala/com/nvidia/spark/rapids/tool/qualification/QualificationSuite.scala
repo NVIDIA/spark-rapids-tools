@@ -59,6 +59,7 @@ case class TestQualificationSummary(
     nestedComplexTypes: String,
     potentialProblems: String,
     longestSqlDuration: Long,
+    totalStageWallClockDuration: Long,
     nonSqlTaskDurationAndOverhead: Long,
     unsupportedSQLTaskDuration: Long,
     supportedSQLTaskDuration: Long,
@@ -92,6 +93,7 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.NESTED_TYPES_STR, StringType),
     (QualOutputWriter.POT_PROBLEM_STR, StringType),
     (QualOutputWriter.LONGEST_SQL_DURATION_STR, LongType),
+    (QualOutputWriter.SQL_STAGE_DUR_SUM_STR, LongType),
     (QualOutputWriter.NONSQL_DUR_STR, LongType),
     (QualOutputWriter.UNSUPPORTED_TASK_DURATION_STR, LongType),
     (QualOutputWriter.SUPPORTED_SQL_TASK_DURATION_STR, LongType),
@@ -142,7 +144,7 @@ class QualificationSuite extends BaseTestSuite {
         sum.gpuOpportunity, sum.executorCpuTimePercent, sum.failedSQLIds,
         sum.readFileFormatAndTypesNotSupported, sum.writeDataFormat,
         sum.complexTypes, sum.nestedComplexTypes, sum.potentialProblems, sum.longestSqlDuration,
-        sum.nonSqlTaskDurationAndOverhead,
+        sum.sqlStageDurationsSum, sum.nonSqlTaskDurationAndOverhead,
         sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration, sum.taskSpeedupFactor,
         sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs,
         sum.estimatedFrequency)
@@ -1338,7 +1340,7 @@ class QualificationSuite extends BaseTestSuite {
         val outputActual = readExpectedFile(new File(outputResults))
         assert(outputActual.collect().size == 1)
         assert(outputActual.select("Potential Problems").first.getString(0) == 
-          "TIMEZONE to_timestamp():TIMEZONE hour():TIMEZONE current_timestamp():TIMEZONE second()")
+          "TIMEZONE hour():TIMEZONE current_timestamp():TIMEZONE to_timestamp():TIMEZONE second()")
       }
     }
   }

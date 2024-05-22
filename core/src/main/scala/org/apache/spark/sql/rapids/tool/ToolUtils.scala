@@ -16,7 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 import com.nvidia.spark.rapids.tool.planparser.SubqueryExecParser
@@ -458,7 +458,8 @@ case class SqlPlanInfoGraphEntry(
 
 // A class used to cache the SQLPlanInfoGraphs
 class SqlPlanInfoGraphBuffer {
-  val sqlPlanInfoGraphs = ArrayBuffer[SqlPlanInfoGraphEntry]()
+  // A set to hold the SqlPlanInfoGraphEntry. LinkedHashSet to maintain the order of insertion.
+  val sqlPlanInfoGraphs = mutable.LinkedHashSet[SqlPlanInfoGraphEntry]()
   def addSqlPlanInfoGraph(sqlID: Long, planInfo: SparkPlanInfo): SqlPlanInfoGraphEntry = {
     val newEntry = SqlPlanInfoGraphBuffer.createEntry(sqlID, planInfo)
     sqlPlanInfoGraphs += newEntry
