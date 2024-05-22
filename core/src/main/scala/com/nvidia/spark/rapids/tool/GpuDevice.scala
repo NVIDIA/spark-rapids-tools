@@ -54,6 +54,7 @@ case object T4Gpu extends GpuDevice {
 
   override def getAdvisoryPartitionSizeInBytes: Option[String] = Some("32m")
 
+  // TODO - what is this based off of?
   override def getInitialPartitionNum: Option[Int] = Some(800)
   override def toString: String = GpuTypes.T4
 }

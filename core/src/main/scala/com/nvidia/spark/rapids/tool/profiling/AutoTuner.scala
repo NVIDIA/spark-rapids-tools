@@ -63,6 +63,7 @@ class GpuWorkerProps(
    * @return true if the value has been updated.
    */
   def setDefaultGpuCountIfMissing(): Boolean = {
+    // TODO - do we want to recommend 1 or base it on core count?  32 cores to 1 gpu may be to much.
     if (count == 0) {
       count = AutoTuner.DEF_WORKER_GPU_COUNT
       true
@@ -591,6 +592,8 @@ class AutoTuner(
     appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
     addRecommendationForMemoryOverhead(s"$memoryOverhead")
 
+    // TODO - I have found that make this greater shows better performance in most cases we
+    // should reevaluate! both shuffle and reader threads
     appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", numExecutorCores)
     appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numExecutorCores)
     appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
@@ -601,6 +604,8 @@ class AutoTuner(
   }
 
   def calculateJobLevelRecommendations(): Unit = {
+    // TODO - do we do anything with 200 shuffle partitions or maybe if its close
+    // set the Spark config  spark.shuffle.sort.bypassMergeThreshold
    getShuffleManagerClassName match  {
       case Some(smClassName) => appendRecommendation("spark.shuffle.manager", smClassName)
       case None => appendComment("Could not define the Spark Version")
@@ -644,18 +649,27 @@ class AutoTuner(
    */
   def processPropsAndCheck: Boolean = {
     if (clusterProps.system.isEmpty) {
+      logWarning("cluster system properties empty")
       if (!clusterProps.isEmpty) {
         appendComment(
           s"Incorrect values in worker system information: ${clusterProps.system}.")
       }
       false
     } else {
+      logWarning("cluster properties not empty")
+
       if (clusterProps.system.isMissingInfo) {
+        logWarning("cluster system missing info")
+
         clusterProps.system.setMissingFields().foreach(m => appendComment(m))
       }
       if (clusterProps.gpu.isMissingInfo) {
+        logWarning("cluster gpu missing info")
+
         clusterProps.gpu.setMissingFields(platform).foreach(m => appendComment(m))
       }
+      logWarning("cluster props true")
+
       true
     }
   }
@@ -664,6 +678,7 @@ class AutoTuner(
     val jvmGCFraction = appInfoProvider.getJvmGCFractions
     if (jvmGCFraction.nonEmpty) { // avoid zero division
       if ((jvmGCFraction.sum / jvmGCFraction.size) > MAX_JVM_GCTIME_FRACTION) {
+        // TODO - or other cores/memory ratio
         appendComment("Average JVM GC time is very high. " +
           "Other Garbage Collectors can be used for better performance.")
       }
@@ -711,6 +726,8 @@ class AutoTuner(
     }
     if (appInfoProvider.getMeanInput > AQE_INPUT_SIZE_BYTES_THRESHOLD &&
       appInfoProvider.getMeanShuffleRead > AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
+      logWarning("mean shuffle read is " + appInfoProvider.getMeanShuffleRead +
+        " mean input is: " + appInfoProvider.getMeanInput)
       // AQE Recommendations for large input and large shuffle reads
       platform.getGpuOrDefault.getAdvisoryPartitionSizeInBytes.foreach { size =>
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
@@ -852,6 +869,7 @@ class AutoTuner(
     if (appInfoProvider.getDistinctLocationPct < DEF_DISTINCT_READ_THRESHOLD
         && appInfoProvider.getRedundantReadSize > DEF_READ_SIZE_THRESHOLD) {
       appendRecommendation("spark.rapids.filecache.enabled", "true")
+      // TODO - should also discuss Disk Space available!
       appendComment("Enable file cache only if Spark local disks bandwidth is > 1 GB/s")
     }
   }
@@ -1015,14 +1033,17 @@ class AutoTuner(
       initRecommendations()
       calculateJobLevelRecommendations()
       if (processPropsAndCheck) {
-        // update GPU device of platform based on cluster properties if it iss not already set.
+        logWarning("processPropsAndCheck true")
+        // update GPU device of platform based on cluster properties if it is not already set.
         // if the GPU device cannot be inferred from cluster properties, do not make any updates.
-        if(platform.gpuDevice.isEmpty) {
+        if (platform.gpuDevice.isEmpty) {
           GpuDevice.createInstance(clusterProps.gpu.getName)
             .foreach(platform.setGpuDevice)
         }
         calculateClusterLevelRecommendations()
       } else {
+        logWarning("processPropsAndCheck false")
+
         // add all default comments
         addDefaultComments()
       }
@@ -1245,13 +1266,13 @@ object AutoTuner extends Logging {
   }
 
   def buildAutoTuner(
-      filePath: String,
+      workerInfoFilePath: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
       platform: Platform = PlatformFactory.createInstance(),
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
-      val clusterPropsOpt = loadClusterProps(filePath)
+      val clusterPropsOpt = loadClusterProps(workerInfoFilePath)
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
         driverInfoProvider)
     } catch {

@@ -54,6 +54,7 @@ object PlatformNames {
 abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   val platformName: String
   val defaultGpuDevice: GpuDevice
+  val defaultGpuForSpeedupFactor: GpuDevice = defaultGpuDevice
 
   /**
    * Recommendations to be excluded from the list of recommendations.
@@ -101,10 +102,14 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   }
 
   def getOperatorScoreFile: String = {
-    s"operatorsScore-$platformName-$getGpuOrDefault.csv"
+    s"operatorsScore-$platformName-$getGpuOrDefaultForSpeedupFactors.csv"
   }
 
   final def getGpuOrDefault: GpuDevice = gpuDevice.getOrElse(defaultGpuDevice)
+
+  final def getGpuOrDefaultForSpeedupFactors: GpuDevice =
+    gpuDevice.getOrElse(defaultGpuForSpeedupFactor)
+
 
   final def setGpuDevice(gpuDevice: GpuDevice): Unit = {
     this.gpuDevice = Some(gpuDevice)
@@ -189,7 +194,11 @@ class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
 
 class OnPremPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.ONPREM
-  override val defaultGpuDevice: GpuDevice = A100Gpu
+  // Note we don't have an speedup factor file for onprem l4's but we want auto tuner
+  // to use L4.
+  override val defaultGpuDevice: GpuDevice = L4Gpu
+  override val defaultGpuForSpeedupFactor: GpuDevice = A100Gpu
+
 }
 
 /**
