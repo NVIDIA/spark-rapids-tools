@@ -18,7 +18,8 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphNode}
+import org.apache.spark.sql.rapids.tool.SqlPlanInfoGraphEntry
 
 // A class used to handle the DL writeOps such as:
 // - AppendDataExecV1
@@ -160,5 +161,60 @@ object DeltaLakeHelper {
     schemaRegex.findAllMatchIn(nodeDesc).map { m =>
       s"${m.group(1)}:${m.group(2)}"
     }.mkString(",")
+  }
+
+  /**
+   * Check if the node is a Delta meta-data operation.
+   *
+   * @param sqlPIGEntry container that references the planInfo and the planGraph
+   * @param sqlDesc the physical plan description
+   * @param node the node to check
+   * @return true if the node is a Delta meta-data operation
+   */
+  def isDeltaOpNode(sqlPIGEntry: SqlPlanInfoGraphEntry,
+      sqlDesc: String,
+      node: SparkPlanGraphNode): Boolean = {
+    node match {
+      case _: SparkPlanGraphCluster =>
+        // This is WholeStageCodeGen
+        // It is consider a delta-op if it has the _delta_log in the physical description
+        // TODO: Improve this by checking if any of the nodes array is Delta Op instead of
+        //       using "contains" on SQLDesc which is duplicating the work done the nodes array
+        sqlDesc.contains("_delta_log")
+      case _ =>
+        // Some nodes have a $ at the end of the name
+        val normalizedName = node.name.stripSuffix("$")
+        normalizedName match {
+          case n if n.contains("MergeIntoCommandEdge") =>
+            // this is a bit odd but GPU doesn't accelerate anyway, this might be due to
+            // differences in data between runs
+            // Execute MergeIntoCommandEdge (1)
+            //   +- MergeIntoCommandEdge (2)
+            sqlPIGEntry.sparkPlanGraph.allNodes.size < 2
+          case "LocalTableScan" =>
+            sqlDesc.contains("stats_parsed.numRecords") ||
+              sqlPIGEntry.sparkPlanGraph.allNodes.size == 1
+          case s if ReadParser.isScanNode(s) =>
+            // RAPIDS plugin checks that a node is Delta Scan by looking at the type of the exec
+            // "RDDScanExec" and checking for some string patterns in the Relation/schema
+            // sqlDesc.contains("Delta Table State") ||
+            //   sqlDesc.contains("Delta Table Checkpoint") ||
+            //   sqlDesc.contains("delta_log")
+            if (sqlDesc.contains("/_delta_log") ||
+              sqlDesc.contains("Delta Table State") ||
+              sqlDesc.contains("Delta Table Checkpoint") ||
+              sqlDesc.contains("_databricks_internal")) {
+              true
+            } else if (sqlDesc.contains("checkpoint")) {
+              // double check it has parquet - regex are expensive though so only do
+              // if necessary
+              val checkpointRegEx = ".*Location:(.*)checkpoint(.*).parquet(.*)".r
+              checkpointRegEx.findFirstIn(sqlDesc).isDefined
+            } else {
+              false
+            }
+          case _ => false
+        }
+    }
   }
 }

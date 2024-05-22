@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
-import com.nvidia.spark.rapids.tool.views.{ProfExecutorView, ProfJobsView, ProfSQLCodeGenView, ProfSQLPlanMetricsView, ProfSQLToStageView}
+import com.nvidia.spark.rapids.tool.views.{ProfExecutorView, ProfJobsView, ProfSQLCodeGenView, ProfSQLPlanAlignedView, ProfSQLPlanMetricsView, ProfSQLToStageView}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.ToolUtils
@@ -212,6 +212,16 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
   // Print SQL Plan Metrics
   def getSQLPlanMetrics: Seq[SQLAccumProfileResults] = {
     ProfSQLPlanMetricsView.getRawView(apps)
+  }
+
+  /**
+   * This function is meant to clean up Delta log execs so that you could align
+   * SQL ids between CPU and GPU eventlogs. It attempts to remove any delta log
+   * SQL ids. This includes reading checkpoints, delta_log json files,
+   * updating Delta state cache/table.
+   */
+  def getSQLCleanAndAligned: Seq[SQLCleanAndAlignIdsProfileResult] = {
+    ProfSQLPlanAlignedView.getRawView(apps)
   }
 }
 

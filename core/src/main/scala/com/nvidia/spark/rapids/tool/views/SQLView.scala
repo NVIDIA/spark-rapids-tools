@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
-import com.nvidia.spark.rapids.tool.profiling.{SQLAccumProfileResults, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{SQLAccumProfileResults, SQLCleanAndAlignIdsProfileResult, SQLPlanClassifier, WholeStageCodeGenResults}
 
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -40,6 +40,35 @@ trait AppSQLPlanMetricsViewTrait extends ViewableTrait[SQLAccumProfileResults] {
       rows: Seq[SQLAccumProfileResults]): Seq[SQLAccumProfileResults] = {
     rows.sortBy(cols => (cols.appIndex, cols.sqlID, cols.nodeID,
       cols.nodeName, cols.accumulatorId, cols.metricType))
+  }
+}
+
+trait AppSQLPlanNonDeltaOpsViewTrait extends ViewableTrait[SQLCleanAndAlignIdsProfileResult] {
+  override def getLabel: String = "SQL Ids Cleaned For Alignment"
+  override def getDescription: String = "SQL Ids Cleaned For Alignment"
+
+  override def sortView(
+      rows: Seq[SQLCleanAndAlignIdsProfileResult]): Seq[SQLCleanAndAlignIdsProfileResult] = {
+    rows.sortBy(cols => (cols.appIndex, cols.sqlID))
+  }
+}
+
+/**
+ * This view is meant to clean up Delta log execs so that you could align
+ * SQL ids between CPU and GPU eventlogs. It attempts to remove any delta log
+ * SQL ids. This includes reading checkpoints, delta_log json files,
+ * updating Delta state cache/table.
+ */
+object ProfSQLPlanAlignedView extends AppSQLPlanNonDeltaOpsViewTrait with ProfAppIndexMapperTrait {
+  override def getRawView(app: AppBase, index: Int): Seq[SQLCleanAndAlignIdsProfileResult] = {
+    // Create a SQLClassifier object and attach it to the AppInfo
+    val sqlPlanTypeAnalysis = new SQLPlanClassifier(app.asInstanceOf[ApplicationInfo])
+    // Walk through the SQLPlans to identify the delta-op SQIds
+    sqlPlanTypeAnalysis.walkPlans(app.sqlPlans)
+    app.sqlPlans.filterKeys(!sqlPlanTypeAnalysis.sqlCategories("deltaOp").contains(_)).
+      map { case (sqlID, _) =>
+        SQLCleanAndAlignIdsProfileResult(index, sqlID)
+      }.toSeq
   }
 }
 

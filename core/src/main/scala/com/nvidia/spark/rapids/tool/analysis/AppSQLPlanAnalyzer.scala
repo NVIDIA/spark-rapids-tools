@@ -39,7 +39,7 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * 1- it updates dataSourceInfo with V2 and V1 data sources
  * 2- it updates sqlIDtoProblematic the map between SQL ID and potential problems
  * 3- it updates sqlIdToInfo.DsOrRdd as boolean to indicate whether a sql is an RDD/DS or not
- *
+ * TODO: this class should extend the trait SparkSQLPlanInfoVisitor[T]
  * @param app the Application info objects that contains the SQL plans to be processed
  */
 class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(app) {
