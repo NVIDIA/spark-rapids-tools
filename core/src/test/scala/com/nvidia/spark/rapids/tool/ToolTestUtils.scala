@@ -157,13 +157,11 @@ object ToolTestUtils extends Logging {
 
   /**
    * Performs an expected status report dataframe to validate the counts
-   * of different status categories (SUCCESS, FAILURE, UNKNOWN).
+   * of different status categories (SUCCESS, FAILURE, UNKNOWN, SKIPPED).
    */
-  def compareStatusReport(sparkSession: SparkSession, outpath: String,
-      expStatusReportCount: StatusReportCounts): Unit = {
-    val filename = s"$outpath/rapids_4_spark_qualification_output/" +
-      s"rapids_4_spark_qualification_output_status.csv"
-    val csvFile = new File(filename)
+  def compareStatusReport(sparkSession: SparkSession, expStatusReportCount: StatusReportCounts,
+      filePath: String): Unit = {
+    val csvFile = new File(filePath)
 
     // If the status report file does not exist, all applications are expected to be failures.
     if(!csvFile.exists()) {
@@ -171,7 +169,7 @@ object ToolTestUtils extends Logging {
         expStatusReportCount.unknown == 0 &&
         expStatusReportCount.failure > 0)
     } else {
-      val expectedStatusDf = readExpectationCSV(sparkSession, filename, Some(statusReportSchema))
+      val expectedStatusDf = readExpectationCSV(sparkSession, filePath, Some(statusReportSchema))
 
       // Function to count the occurrences of a specific status in the DataFrame
       def countStatus(status: String): Long =

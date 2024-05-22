@@ -21,7 +21,7 @@ import java.nio.file.{Files, Paths, StandardOpenOption}
 
 import scala.collection.mutable.ArrayBuffer
 
-import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
 import org.apache.hadoop.io.IOUtils
 import org.scalatest.FunSuite
@@ -751,6 +751,28 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(execInfo.head.maxMem === 5538054144L)
   }
 
+  test("test status reports for multiple eventlogs") {
+    // Test with normal and malformed eventlogs and verify their status reports
+    val bad_eventLog = s"$logDir/malformed_json_eventlog.zstd"
+    val eventLog = s"$logDir/rapids_join_eventlog.zstd"
+    TrampolineUtil.withTempDir { tempDir =>
+      val appArgs = new ProfileArgs(Array(
+        "--csv",
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        bad_eventLog,
+        eventLog))
+      val (exit, _) = ProfileMain.mainInternal(appArgs)
+      assert(exit == 0)
+
+      // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 1 UNKNOWN
+      val expectedStatusCount = StatusReportCounts(1, 0, 0, 1)
+      // Compare the expected status counts with the actual status counts from the application
+      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
+        s"${tempDir.getAbsolutePath}/rapids_4_spark_profile/profiling_status.csv")
+    }
+  }
+
   test("test csv file output with failures") {
     val eventLog = s"$logDir/tasks_executors_fail_compressed_eventlog.zstd"
     TrampolineUtil.withTempDir { tempDir =>
@@ -775,6 +797,12 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         val res = df.collect()
         assert(res.nonEmpty)
       }
+
+      // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+      val expectedStatusCount = StatusReportCounts(1, 0, 0, 0)
+      // Compare the expected status counts with the actual status counts from the application
+      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
+        s"${tempDir.getAbsolutePath}/rapids_4_spark_profile/profiling_status.csv")
     }
   }
 
@@ -802,6 +830,12 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         val res = df.collect()
         assert(res.nonEmpty)
       }
+
+      // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+      val expectedStatusCount = StatusReportCounts(1, 0, 0, 0)
+      // Compare the expected status counts with the actual status counts from the application
+      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
+        s"${tempDir.getAbsolutePath}/rapids_4_spark_profile/profiling_status.csv")
     }
   }
 
@@ -832,6 +866,12 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         val res = df.collect()
         assert(res.nonEmpty)
       }
+
+      // Status counts: 2 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+      val expectedStatusCount = StatusReportCounts(2, 0, 0, 0)
+      // Compare the expected status counts with the actual status counts from the application
+      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
+        s"${tempDir.getAbsolutePath}/rapids_4_spark_profile/profiling_status.csv")
     }
   }
 
@@ -862,6 +902,12 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         val res = df.collect()
         assert(res.nonEmpty)
       }
+
+      // Status counts: 2 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+      val expectedStatusCount = StatusReportCounts(2, 0, 0, 0)
+      // Compare the expected status counts with the actual status counts from the application
+      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
+        s"${tempDir.getAbsolutePath}/rapids_4_spark_profile/profiling_status.csv")
     }
   }
 

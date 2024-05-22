@@ -155,6 +155,23 @@ case class DriverLogUnsupportedOperators(
   }
 }
 
+// Case class representing status summary information for a particular application.
+case class AppStatusResult(
+    path: String,
+    status: String,
+    appId: String = "",
+    message: String = "") extends ProfileResult {
+  override val outputHeaders: Seq[String] = Seq("Event Log", "Status", "AppID", "Description")
+
+  override def convertToSeq: Seq[String] = {
+    Seq(path, status, appId, message)
+  }
+
+  override def convertToCSVSeq: Seq[String] = {
+    Seq(path, status, appId, message)
+  }
+}
+
 // note that some things might not be set until after sqlMetricsAggregation called
 class SQLExecutionInfoClass(
     val sqlID: Long,

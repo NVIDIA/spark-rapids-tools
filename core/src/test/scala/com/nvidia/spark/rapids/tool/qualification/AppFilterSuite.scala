@@ -85,7 +85,7 @@ class AppFilterSuite extends BaseTestSuite {
       failFilter: Boolean = false): Unit = {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { tmpEventLogDir =>
-
+        val qualOutputPrefix = "rapids_4_spark_qualification_output"
         val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath, "testTimeEventLog")
 
         // scalastyle:off line.size.limit
@@ -114,8 +114,8 @@ class AppFilterSuite extends BaseTestSuite {
           StatusReportCounts(1, 0, 0, 0)
         }
         // Compare the expected status counts with the actual status counts from the application
-        ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
-          expectedStatusCount)
+        ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
+          s"${outpath.getAbsolutePath}/$qualOutputPrefix/${qualOutputPrefix}_status.csv")
       }
     }
   }
