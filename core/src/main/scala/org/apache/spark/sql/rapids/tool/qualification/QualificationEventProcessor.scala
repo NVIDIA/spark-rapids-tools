@@ -134,17 +134,24 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
       app.lastJobEndTime = Some(event.time)
     }
     if (event.jobResult != JobSucceeded) {
-      app.jobIdToSqlID.get(event.jobId) match {
-        case Some(sqlID) =>
-          // zero out the cpu and run times since failed
-          app.sqlIDToTaskEndSum.get(sqlID).foreach { sum =>
-            sum.executorRunTime = 0
-            sum.executorCPUTime = 0
+      if (event.jobResult.isInstanceOf[JobFailed]) {
+        val failedJob = event.jobResult.asInstanceOf[JobFailed]
+        if (!failedJob.exception.getMessage.toLowerCase().contains("cancelled")) {
+          app.jobIdToSqlID.get(event.jobId) match {
+            case Some(sqlID) =>
+              // zero out the cpu and run times since failed
+              app.sqlIDToTaskEndSum.get(sqlID).foreach { sum =>
+                sum.executorRunTime = 0
+                sum.executorCPUTime = 0
+              }
+              val failures = app.sqlIDtoFailures.getOrElseUpdate(sqlID, ArrayBuffer.empty[String])
+              val jobStr = s"Job${event.jobId}"
+              failures += jobStr
+            case None =>
           }
-          val failures = app.sqlIDtoFailures.getOrElseUpdate(sqlID, ArrayBuffer.empty[String])
-          val jobStr = s"Job${event.jobId}"
-          failures += jobStr
-        case None =>
+        } else {
+          logDebug(s"Job was cancelled so not skipping, failure reason: ${failedJob.exception}")
+        }
       }
     }
   }
@@ -154,12 +161,18 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
       event: SparkListenerStageCompleted): Unit = {
     super.doSparkListenerStageCompleted(app, event)
     if (event.stageInfo.failureReason.nonEmpty) {
-      app.stageIdToSqlID.get(event.stageInfo.stageId) match {
-        case Some(sqlID) =>
-          val failures = app.sqlIDtoFailures.getOrElseUpdate(sqlID, ArrayBuffer.empty[String])
-          val stageStr = s"Stage${event.stageInfo.stageId}"
-          failures += stageStr
-        case None =>
+      // don't count cancelled stages as failures
+      if (!event.stageInfo.failureReason.get.toLowerCase().contains("cancelled")) {
+        app.stageIdToSqlID.get(event.stageInfo.stageId) match {
+          case Some(sqlID) =>
+            val failures = app.sqlIDtoFailures.getOrElseUpdate(sqlID, ArrayBuffer.empty[String])
+            val stageStr = s"Stage${event.stageInfo.stageId}"
+            failures += stageStr
+          case None =>
+        }
+      } else {
+        logDebug("Stage was cancelled so not skipping, " +
+          s"failure reason: ${event.stageInfo.failureReason}")
       }
     }
   }
