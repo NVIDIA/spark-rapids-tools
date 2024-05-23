@@ -152,6 +152,8 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
         } else {
           logDebug(s"Job was cancelled so not skipping, failure reason: ${failedJob.exception}")
         }
+      } else {
+        logError("Unknown JobResult type, not checking for failure!")
       }
     }
   }
