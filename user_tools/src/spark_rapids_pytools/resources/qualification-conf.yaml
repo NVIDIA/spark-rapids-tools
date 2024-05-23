@@ -129,6 +129,9 @@ local:
           heuristics:
             name: 'heuristics_info.csv'
             outputComment: "Heuristics information"
+          clusterShapeRecommendation:
+            name: cluster_shape_recommendation.json
+            outputComment: "Cluster shape recommendation report"
     costColumns:
       - 'Savings Based Recommendation'
       - 'Estimated App Cost'

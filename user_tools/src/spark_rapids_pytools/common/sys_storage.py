@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -273,6 +273,10 @@ class FSUtil:
         res_arr.append(f'{indent}{dir_count} directories'
                        f', {files_count} files' if files_count else '')
         return res_arr
+
+    @classmethod
+    def resource_exists(cls, src) -> bool:
+        return os.path.exists(src)
 
 
 @dataclass

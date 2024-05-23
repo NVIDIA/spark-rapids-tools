@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
-
+import json
 from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
@@ -122,7 +122,8 @@ class QualificationSummary:
                 output_comment = wrapper_output_files_info[entry]['outputComment']
                 if path is not None:
                     abs_path = FSUtil.get_abs_path(path)
-                    report_content.append(f'    - {output_comment}: {abs_path}')
+                    if FSUtil.resource_exists(abs_path):  # check if the file exists
+                        report_content.append(f'    - {output_comment}: {abs_path}')
 
             pretty_df = df_pprinter(self.df_result)
             self.filter_apps_count = len(pretty_df)
@@ -232,6 +233,7 @@ class Qualification(RapidsJarTool):
         self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster_obj)
 
         _process_gpu_cluster_worker_node()
+        self.__generate_cluster_recommendation_report()
         if cpu_cluster.is_inferred:
             # If the CPU cluster is inferred, we skip the auto-tuner as it is called after the Qualification tool.
             return gpu_cluster_obj is not None
@@ -467,7 +469,7 @@ class Qualification(RapidsJarTool):
         unsupported_ops_perc_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
                                                             'percentResultColumnName')
         # recalculate unsupported operators stage duration percent
-        subset_data[unsupported_ops_perc_col_name] =\
+        subset_data[unsupported_ops_perc_col_name] = \
             subset_data[unsupported_ops_col_name] * 100.0 / subset_data['SQL Stage Durations Sum']
         return subset_data, notes
 
@@ -689,6 +691,46 @@ class Qualification(RapidsJarTool):
                 lambda row: get_cost_per_row(row, shape_col), axis=1)
         return app_df_set
 
+    def __generate_cluster_recommendation_report(self):
+        """
+        Generate the cluster shape recommendation as:
+        {
+            "clusterName": "1234-5678-test",
+            "sourceCluster": {"driverInstance": "m6gd.xlarge", "executorInstance": "m6gd.2xlarge", "numExecutors": 2 },
+            "targetCluster": {"driverInstance": "m6gd.xlarge", "executorInstance": "g5.2xlarge", "numExecutors": 2 }
+        }
+        """
+        cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
+        gpu_cluster = self.ctxt.get_ctxt('gpuClusterProxy')
+        if cpu_cluster is None or gpu_cluster is None:
+            self.logger.warning('Cannot generate the cluster recommendation report because the cluster information is '
+                                'not available.')
+        try:
+            cpu_cluster_info = cpu_cluster.get_cluster_configuration()
+            gpu_cluster_info = gpu_cluster.get_cluster_configuration()
+            cluster_shape_recommendation = [{
+                'clusterName': cpu_cluster.get_name(),
+                'sourceCluster': cpu_cluster_info,
+                'targetCluster': gpu_cluster_info
+            }]
+            self.ctxt.set_ctxt('clusterShapeRecommendation', cluster_shape_recommendation)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Error generating the cluster recommendation report. '
+                              'Reason - %s:%s', type(e).__name__, e)
+
+    def __write_cluster_recommendation_report(self, output_file: str):
+        """
+        Write the cluster shape recommendation as a JSON file.
+        """
+        cluster_recommendation = self.ctxt.get_ctxt('clusterShapeRecommendation')
+        if cluster_recommendation and output_file:
+            try:
+                with open(output_file, 'w', encoding='UTF-8') as f:
+                    json.dump(cluster_recommendation, f, indent=2)
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.error('Error writing the cluster recommendation report to %s. '
+                                  'Reason - %s:%s', output_file, type(e).__name__, e)
+
     def __build_global_report_summary(self,
                                       all_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
@@ -698,6 +740,8 @@ class Qualification(RapidsJarTool):
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
 
         output_files_info = JSONPropertiesContainer(output_files_raw, file_load=False)
+        self.__write_cluster_recommendation_report(output_files_info.get_value('intermediateOutput', 'files',
+                                                                               'clusterShapeRecommendation', 'path'))
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
                                                                               'unsupportedOperators'))
         # Calculate unsupported operators stage duration before grouping

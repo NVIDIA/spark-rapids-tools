@@ -1145,8 +1145,29 @@ class ClusterBase(ClusterGetAccessor):
     def get_tmp_storage(self) -> str:
         raise NotImplementedError
 
-    def _set_render_args_create_template(self) -> dict:
+    def get_image_version(self) -> str:
         raise NotImplementedError
+
+    def _set_render_args_create_template(self) -> dict:
+        cluster_config = self.get_cluster_configuration()
+        return {
+            'CLUSTER_NAME': self.get_name(),
+            'REGION': self.region,
+            'ZONE': self.zone,
+            'MASTER_MACHINE': cluster_config.get('driverInstance'),
+            'WORKERS_COUNT': cluster_config.get('numExecutors'),
+            'WORKERS_MACHINE': cluster_config.get('executorInstance')
+        }
+
+    def get_cluster_configuration(self) -> dict:
+        """
+        Returns a dictionary containing the configuration of the cluster
+        """
+        return {
+            'driverInstance': self.get_master_node().instance_type,
+            'executorInstance': self.get_worker_node().instance_type,
+            'numExecutors': self.get_workers_count(),
+        }
 
     def generate_create_script(self) -> str:
         platform_name = CspEnv.pretty_print(self.platform.type_id)
