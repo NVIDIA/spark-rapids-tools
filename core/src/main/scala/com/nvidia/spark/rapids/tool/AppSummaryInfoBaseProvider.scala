@@ -17,15 +17,15 @@
 package com.nvidia.spark.rapids.tool
 
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
-import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSQLTaskInputSizes, AppInfoSqlTaskAggMetricsVisitor, ApplicationSummaryInfo, DataSourceProfileResult, SingleAppSummaryInfoProvider}
+import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSqlTaskAggMetricsVisitor, AppInfoSQLTaskInputSizes, ApplicationSummaryInfo, DataSourceProfileResult, SingleAppSummaryInfoProvider}
 import com.nvidia.spark.rapids.tool.tuning.QualAppSummaryInfoProvider
 
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
 
 /**
- * A base class definition that provides an empty implementation of the profile results embedded in
- * [[ApplicationSummaryInfo]].
+ * A base class definition that provides an empty implementation of an
+ * applications summary information that is used for tuning the application.
  */
 class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   with AppInfoJobStageAggMetricsVisitor
