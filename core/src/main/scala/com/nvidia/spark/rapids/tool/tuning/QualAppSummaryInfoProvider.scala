@@ -37,7 +37,6 @@ class QualAppSummaryInfoProvider(
     val rawAggMetrics: AggRawMetricsResult,
     val dsInfo: Seq[DataSourceProfileResult]) extends AppSummaryInfoBaseProvider with Logging{
   private lazy val distinctLocations = dsInfo.groupBy(_.location)
-  logWarning("distinct locations are redundant: " + getRedundantReadSize)
 
   override def isAppInfoAvailable = true
   private def findPropertyInternal(

@@ -344,6 +344,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     }
   }
 
+  // This is copy of getDataSourceInfo in the CollectInformation
   // get read data schema information
   def getDataSourceInfo(appInfo: QualificationAppInfo,
       appIndex: Int = 1): Seq[DataSourceProfileResult] = {
