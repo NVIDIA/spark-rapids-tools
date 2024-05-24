@@ -36,6 +36,9 @@ class QualAppSummaryInfoProvider(
     val appAggStats: Option[QualificationSummaryInfo],
     val rawAggMetrics: AggRawMetricsResult,
     val dsInfo: Seq[DataSourceProfileResult]) extends AppSummaryInfoBaseProvider with Logging{
+  private lazy val distinctLocations = dsInfo.groupBy(_.location)
+  logWarning("distinct locations are redundant: " + getRedundantReadSize)
+
   override def isAppInfoAvailable = true
   private def findPropertyInternal(
       key: String, props: collection.Map[String, String]): Option[String] = {
@@ -99,8 +102,10 @@ class QualAppSummaryInfoProvider(
     }
   }
 
-  private lazy val distinctLocations = dsInfo.groupBy(_.location)
-  logWarning("distinct locations are redundant: " + getRedundantReadSize)
+  // Rapids Jar will be empty since CPU event logs are used here
+  override def getRapidsJars: Seq[String] = {
+    Seq.empty
+  }
 
   override def getDistinctLocationPct: Double = {
       100.0 * distinctLocations.size / dsInfo.size
@@ -114,11 +119,6 @@ class QualAppSummaryInfoProvider(
       .mapValues(_.map(_.data_size).sum)
       .values
       .sum
-  }
-
-  // Rapids Jar will be empty since CPU event logs are used here
-  override def getRapidsJars: Seq[String] = {
-    Seq.empty
   }
 
   override def getMeanInput: Double = {

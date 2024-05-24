@@ -36,7 +36,6 @@ import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStage
  * @param ioAggs            lists the SQLs along their IO metrics
  * @param sqlDurAggs        the aggregated duration and CPU time for SQLs
  * @param maxTaskInputSizes a sequence of SQLMaxTaskInputSizes that contains the maximum input size
- * @param dsInfo            collect datasource information
  */
 case class AggRawMetricsResult(
     jobAggs: Seq[JobStageAggTaskMetricsProfileResult],
@@ -46,4 +45,3 @@ case class AggRawMetricsResult(
     ioAggs: Seq[IOAnalysisProfileResult],
     sqlDurAggs: Seq[SQLDurationExecutorTimeProfileResult],
     maxTaskInputSizes: Seq[SQLMaxTaskInputSizes])
-

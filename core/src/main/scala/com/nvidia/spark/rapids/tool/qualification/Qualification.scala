@@ -163,7 +163,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
           // Case with successful creation of QualificationAppInfo
           // First, generate the Raw metrics view
           val appIndex = 1
-          // this is a big ugly right now to overload writing out the report and returning the
+          // this is a bit ugly right now to overload writing out the report and returning the
           // DataSource information but this encapsulates the analyzer to keep the memory usage
           // smaller.
           val dsInfo = QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(

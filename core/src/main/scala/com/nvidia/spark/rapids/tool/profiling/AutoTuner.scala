@@ -649,27 +649,18 @@ class AutoTuner(
    */
   def processPropsAndCheck: Boolean = {
     if (clusterProps.system.isEmpty) {
-      logWarning("cluster system properties empty")
       if (!clusterProps.isEmpty) {
         appendComment(
           s"Incorrect values in worker system information: ${clusterProps.system}.")
       }
       false
     } else {
-      logWarning("cluster properties not empty")
-
       if (clusterProps.system.isMissingInfo) {
-        logWarning("cluster system missing info")
-
         clusterProps.system.setMissingFields().foreach(m => appendComment(m))
       }
       if (clusterProps.gpu.isMissingInfo) {
-        logWarning("cluster gpu missing info")
-
         clusterProps.gpu.setMissingFields(platform).foreach(m => appendComment(m))
       }
-      logWarning("cluster props true")
-
       true
     }
   }
@@ -726,8 +717,6 @@ class AutoTuner(
     }
     if (appInfoProvider.getMeanInput > AQE_INPUT_SIZE_BYTES_THRESHOLD &&
       appInfoProvider.getMeanShuffleRead > AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
-      logWarning("mean shuffle read is " + appInfoProvider.getMeanShuffleRead +
-        " mean input is: " + appInfoProvider.getMeanInput)
       // AQE Recommendations for large input and large shuffle reads
       platform.getGpuOrDefault.getAdvisoryPartitionSizeInBytes.foreach { size =>
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
@@ -835,7 +824,6 @@ class AutoTuner(
   private def calculateMaxPartitionBytes(maxPartitionBytes: String): String = {
     // AutoTuner only supports a single app right now, so we get whatever value is here
     val inputBytesMax = appInfoProvider.getMaxInput / 1024 / 1024
-    logWarning("calculateMaxPartitionBytes input bytes max is: " + inputBytesMax)
     val maxPartitionBytesNum = StringUtils.convertToMB(maxPartitionBytes)
     if (inputBytesMax == 0.0) {
       maxPartitionBytesNum.toString
@@ -1033,7 +1021,6 @@ class AutoTuner(
       initRecommendations()
       calculateJobLevelRecommendations()
       if (processPropsAndCheck) {
-        logWarning("processPropsAndCheck true")
         // update GPU device of platform based on cluster properties if it is not already set.
         // if the GPU device cannot be inferred from cluster properties, do not make any updates.
         if (platform.gpuDevice.isEmpty) {
@@ -1042,8 +1029,6 @@ class AutoTuner(
         }
         calculateClusterLevelRecommendations()
       } else {
-        logWarning("processPropsAndCheck false")
-
         // add all default comments
         addDefaultComments()
       }
