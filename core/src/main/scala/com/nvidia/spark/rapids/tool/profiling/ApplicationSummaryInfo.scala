@@ -45,7 +45,8 @@ case class ApplicationSummaryInfo(
     maxTaskInputBytesRead: Seq[SQLMaxTaskInputSizes],
     appLogPath: Seq[AppLogPathProfileResults],
     ioMetrics: Seq[IOAnalysisProfileResult],
-    sysProps: Seq[RapidsPropertyProfileResult])
+    sysProps: Seq[RapidsPropertyProfileResult],
+    sqlCleanedAlignedIds: Seq[SQLCleanAndAlignIdsProfileResult])
 
 trait AppInfoPropertyGetter {
   // returns all the properties (i.e., spark)

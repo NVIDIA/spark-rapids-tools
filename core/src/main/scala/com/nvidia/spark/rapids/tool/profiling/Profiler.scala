@@ -54,6 +54,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   // Store application status reports indexed by event log path.
   private val appStatusReporter = new ConcurrentHashMap[String, AppResult]
 
+  private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
+
   override val outputDir = appArgs.outputDirectory().stripSuffix("/") +
     s"/${Profiler.SUBDIR}"
 
@@ -381,6 +383,11 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     } else {
       Seq.empty
     }
+    val sqlIdAlign = if (outputAlignedSQLIds) {
+      collect.getSQLCleanAndAligned
+    } else {
+      Seq.empty
+    }
     val endTime = System.currentTimeMillis()
     logInfo(s"Took ${endTime - startTime}ms to Process [${appInfo.head.appId}]")
     (ApplicationSummaryInfo(appInfo, dsInfo,
@@ -389,7 +396,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
-      appLogPath, analysis.ioAggs, systemProps), compareRes)
+      appLogPath, analysis.ioAggs, systemProps, sqlIdAlign), compareRes)
   }
 
   /**
@@ -472,7 +479,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         appsSum.flatMap(_.maxTaskInputBytesRead).sortBy(_.appIndex),
         appsSum.flatMap(_.appLogPath).sortBy(_.appIndex),
         appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex),
-        combineProps("system", appsSum).sortBy(_.key)
+        combineProps("system", appsSum).sortBy(_.key),
+        appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex)
       )
       Seq(reduced)
     } else {
@@ -524,7 +532,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profileOutputWriter.write(ProfRemovedExecutorView.getLabel, app.removedExecutors)
       profileOutputWriter.write("Unsupported SQL Plan", app.unsupportedOps,
         Some("Unsupported SQL Ops"))
-
+      if (outputAlignedSQLIds) {
+        profileOutputWriter.write(ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
+          Some(ProfSQLPlanAlignedView.getDescription))
+      }
       if (useAutoTuner) {
         val (properties, comments) = runAutoTuner(Some(app))
         profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")
