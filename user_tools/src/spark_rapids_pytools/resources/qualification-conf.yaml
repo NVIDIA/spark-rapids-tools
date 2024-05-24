@@ -23,6 +23,7 @@ toolOutput:
         - Estimated GPU Duration
         - App Duration
         - Estimated Job Frequency (monthly)
+        - SQL Stage Durations Sum
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
         - Speed Up Estimation Model
@@ -55,8 +56,8 @@ toolOutput:
              function: 'mean'
            - column: Skip by Heuristics
              function: 'any'
-           - column: Skip by Heuristics Reason
-             function: 'concat'
+           - column: SQL Stage Durations Sum
+             function: 'mean'
       dropDuplicates:
         - Vendor
         - Driver Host
@@ -128,6 +129,9 @@ local:
           heuristics:
             name: 'heuristics_info.csv'
             outputComment: "Heuristics information"
+          clusterShapeRecommendation:
+            name: cluster_shape_recommendation.json
+            outputComment: "Cluster shape recommendation report"
     costColumns:
       - 'Savings Based Recommendation'
       - 'Estimated App Cost'

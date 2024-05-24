@@ -60,7 +60,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('new_operators_file', type=str, help='A text file with the new operators.')
     parser.add_argument('operator_score_dir', type=str, help='Path to directory with operator score files.')
-    parser.add_argument('--new-score', type=float, help='Score for the new operators.', default='1.0')
+    parser.add_argument('--new-score', type=float, help='Score for the new operators.', default='1.5')
 
     args = parser.parse_args()
 

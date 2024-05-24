@@ -19,6 +19,7 @@ package org.apache.spark.sql.rapids.tool.util
 import java.io.{PrintWriter, StringWriter}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
+import com.nvidia.spark.rapids.tool.profiling.AppStatusResult
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -29,6 +30,27 @@ trait RuntimeReporter extends Logging {
   val outputDir: String
   def generateRuntimeReport(hadoopConf: Option[Configuration] = None): Unit = {
     RuntimeReportGenerator.generateReport(outputDir, hadoopConf)
+  }
+
+  /**
+   * For each app status report, generate an AppStatusResult.
+   * If appId is empty, convert to "N/A" in the output.
+   * @return Seq[AppStatusResult] - Seq[(path, status, appId, message)]
+   */
+  def generateStatusResults(appStatuses: Seq[AppResult]): Seq[AppStatusResult] = {
+    appStatuses.map {
+      case FailureAppResult(path, message) =>
+        AppStatusResult(path, "FAILURE", "N/A", message)
+      case SkippedAppResult(path, message) =>
+        AppStatusResult(path, "SKIPPED", "N/A", message)
+      case SuccessAppResult(path, appId, message) =>
+        AppStatusResult(path, "SUCCESS", appId, message)
+      case UnknownAppResult(path, appId, message) =>
+        val finalAppId = if (appId.isEmpty) "N/A" else appId
+        AppStatusResult(path, "UNKNOWN", finalAppId, message)
+      case profAppResult: AppResult =>
+        throw new UnsupportedOperationException(s"Invalid status for $profAppResult")
+    }
   }
 }
 

@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import java.util.concurrent.{ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap}
@@ -27,9 +27,10 @@ import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, E
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
+import org.apache.spark.sql.rapids.tool.{AppBase, FailureApp, IncorrectAppStatusException}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
-import org.apache.spark.sql.rapids.tool.util.RuntimeReporter
+import org.apache.spark.sql.rapids.tool.util._
 
 class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean)
   extends RuntimeReporter {
@@ -50,6 +51,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private var progressBar: Option[ConsoleProgressBar] = None
+  // Store application status reports indexed by event log path.
+  private val appStatusReporter = new ConcurrentHashMap[String, AppResult]
 
   override val outputDir = appArgs.outputDirectory().stripSuffix("/") +
     s"/${Profiler.SUBDIR}"
@@ -126,6 +129,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
     }
     progressBar.foreach(_.finishAll())
+    
+    // Write status reports for all event logs to a CSV file
+    val reportResults = generateStatusResults(appStatusReporter.asScala.values.toSeq)
+    ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir)
   }
 
   def profileDriver(driverLogInfos: String, eventLogsEmpty: Boolean): Unit = {
@@ -148,17 +155,51 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
   }
 
-  private def errorHandler(error: Throwable, path: EventLogInfo) = {
-    error match {
-      case oom: OutOfMemoryError =>
-        logError(s"OOM error while processing large file: ${path.eventLog.toString}." +
-            s" Increase heap size. Exiting ...", oom)
-        sys.exit(1)
+  /**
+   * Process a created ApplicationInfo object and handles all exceptions.
+   */
+  private def profileApp(
+      path: EventLogInfo,
+      index: Int,
+      processSuccessApp: ApplicationInfo => Unit): Unit = {
+    val pathStr = path.eventLog.toString
+    try {
+      val startTime = System.currentTimeMillis()
+      val appOpt = createApp(path, index, hadoopConf)
+      val profAppResult = appOpt match {
+        case Left(FailureApp("skipped", errorMessage)) =>
+          // Case to be skipped
+          progressBar.foreach(_.reportSkippedProcess())
+          SkippedAppResult(pathStr, errorMessage)
+        case Left(FailureApp(_, errorMessage)) =>
+          // Case when other error occurred during ApplicationInfo creation
+          progressBar.foreach(_.reportUnkownStatusProcess())
+          UnknownAppResult(pathStr, "", errorMessage)
+        case Right(app: ApplicationInfo) =>
+          // Case with successful creation of ApplicationInfo
+          processSuccessApp(app)
+          progressBar.foreach(_.reportSuccessfulProcess())
+          val endTime = System.currentTimeMillis()
+          SuccessAppResult(pathStr, app.appId, s"Took ${endTime - startTime}ms to process")
+      }
+      // Log the information to the console
+      profAppResult.logMessage()
+      // Update the appStatusReporter with the result of Application processing
+      appStatusReporter.put(pathStr, profAppResult)
+    } catch {
       case NonFatal(e) =>
-        logWarning(s"Exception occurred processing file: ${path.eventLog.getName}", e)
+        progressBar.foreach(_.reportFailedProcess())
+        val failureAppResult = FailureAppResult(pathStr,
+          s"Unexpected exception processing log, skipping!")
+        failureAppResult.logMessage(Some(new Exception(e.getMessage(), e)))
+        appStatusReporter.put(pathStr, failureAppResult)
+      case oom: OutOfMemoryError =>
+        logError(s"OOM error while processing large file: $pathStr." +
+            s"Increase heap size. Exiting.", oom)
+        System.exit(1)
       case o: Throwable =>
-        logError(s"Error occurred while processing file: ${path.eventLog.toString}. Exiting ...", o)
-        sys.exit(1)
+        logError(s"Error occurred while processing file: $pathStr", o)
+        System.exit(1)
     }
   }
 
@@ -166,21 +207,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val allApps = new ConcurrentLinkedQueue[ApplicationInfo]()
 
     class ProfileThread(path: EventLogInfo, index: Int) extends Runnable {
-      def run: Unit = {
-        try {
-          val appOpt = createApp(path, index, hadoopConf)
-          appOpt match {
-            case Some(app) =>
-              allApps.add(app)
-            case None =>
-              progressBar.foreach(_.reportUnkownStatusProcess())
-          }
-        } catch {
-          case t: Throwable =>
-            progressBar.foreach(_.reportFailedProcess())
-            errorHandler(t, path)
-        }
-      }
+      def run: Unit = profileApp(path, index, (app => allApps.add(app)))
     }
 
     var appIndex = 1
@@ -208,30 +235,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val allApps = new ConcurrentLinkedQueue[ApplicationSummaryInfo]()
 
     class ProfileThread(path: EventLogInfo, index: Int) extends Runnable {
-      def run: Unit = {
-        try {
-          val appOpt = createApp(path, index, hadoopConf)
-          appOpt match {
-            case Some(app) =>
-              try {
-                val (s, _) = processApps(Seq(app), false, profileOutputWriter)
-                progressBar.foreach(_.reportSuccessfulProcess())
-                allApps.add(s)
-              } catch {
-                case t: Throwable =>
-                  progressBar.foreach(_.reportFailedProcess())
-                  errorHandler(t, path)
-              }
-            case None =>
-              progressBar.foreach(_.reportUnkownStatusProcess())
-          }
-        } catch {
-          case t: Throwable =>
-            progressBar.foreach(_.reportFailedProcess())
-            errorHandler(t, path)
-        }
-      }
+      def run: Unit = profileApp(path, index, { app =>
+        val (s, _) = processApps(Seq(app), false, profileOutputWriter)
+        allApps.add(s)
+      })
     }
+
     var appIndex = 1
     allPaths.foreach { path =>
       try {
@@ -256,37 +265,16 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       allPaths: Seq[EventLogInfo],
       startIndex: Int): Unit = {
     class ProfileProcessThread(path: EventLogInfo, index: Int) extends Runnable {
-      def run: Unit = {
+      def run: Unit = profileApp(path, index, { app =>
+        val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/${app.appId}",
+          Profiler.PROFILE_LOG_NAME, numOutputRows, outputCSV = outputCSV)
         try {
-          // we just skip apps that don't process cleanly and exit if heap is smaller
-          val appOpt = createApp(path, index, hadoopConf)
-          appOpt match {
-            case Some(app) =>
-              val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/${app.appId}",
-                Profiler.PROFILE_LOG_NAME, numOutputRows,
-                outputCSV = outputCSV)
-              try {
-                val (sum, _) =
-                  processApps(Seq(appOpt.get), appArgs.printPlans(), profileOutputWriter)
-                progressBar.foreach(_.reportSuccessfulProcess())
-                writeSafelyToOutput(profileOutputWriter, Seq(sum), false)
-              } catch {
-                case t: Throwable =>
-                  progressBar.foreach(_.reportFailedProcess())
-                  errorHandler(t, path)
-              } finally {
-                profileOutputWriter.close()
-              }
-            case None =>
-              progressBar.foreach(_.reportUnkownStatusProcess())
-              logInfo("No application to process. Exiting")
-          }
-        } catch {
-          case t: Throwable =>
-            progressBar.foreach(_.reportFailedProcess())
-            errorHandler(t, path)
+          val (sum, _) = processApps(Seq(app), appArgs.printPlans(), profileOutputWriter)
+          writeSafelyToOutput(profileOutputWriter, Seq(sum), false)
+        } finally {
+          profileOutputWriter.close()
         }
-      }
+      })
     }
 
     allPaths.foreach { path =>
@@ -300,26 +288,21 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   }
 
   private def createApp(path: EventLogInfo, index: Int,
-      hadoopConf: Configuration): Option[ApplicationInfo] = {
+      hadoopConf: Configuration): Either[FailureApp, ApplicationInfo] = {
     try {
       // This apps only contains 1 app in each loop.
       val startTime = System.currentTimeMillis()
       val app = new ApplicationInfo(hadoopConf, path, index)
       EventLogPathProcessor.logApplicationInfo(app)
       val endTime = System.currentTimeMillis()
+      if (!app.isAppMetaDefined) {
+        throw IncorrectAppStatusException()
+      }
       logInfo(s"Took ${endTime - startTime}ms to create App for ${path.eventLog.toString}")
-      Some(app)
+      Right(app)
     } catch {
-      case _: com.fasterxml.jackson.core.JsonParseException =>
-        logWarning(s"Error parsing JSON: $path")
-        None
-      case il: IllegalArgumentException =>
-        logWarning(s"Error parsing file: $path", il)
-        None
       case e: Exception =>
-        // catch all exceptions and skip that file
-        logWarning(s"Got unexpected exception processing file: $path", e)
-        None
+        Left(AppBase.handleException(e, path))
     }
   }
 
@@ -337,11 +320,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
     val collect = new CollectInformation(apps)
     val appInfo = collect.getAppInfo
-    // Fail early to skip further processing
-    if (appInfo.isEmpty) {
-      throw new RuntimeException("Failed to process application because the " +
-        "eventlog does not contain any SparkListenerApplicationStart event")
-    }
     val appLogPath = collect.getAppLogPath
     val dsInfo = collect.getDataSourceInfo
     val rapidsProps = collect.getRapidsProperties

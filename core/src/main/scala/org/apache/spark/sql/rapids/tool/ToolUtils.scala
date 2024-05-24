@@ -474,3 +474,9 @@ object SqlPlanInfoGraphBuffer {
     SqlPlanInfoGraphEntry(sqlID, planInfo, planGraph)
   }
 }
+
+// Case class to represent a failed AppInfo creation
+case class FailureApp(
+    status: String,
+    message: String
+)

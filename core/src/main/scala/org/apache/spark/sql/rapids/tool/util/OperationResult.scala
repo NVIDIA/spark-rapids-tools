@@ -19,10 +19,10 @@ package org.apache.spark.sql.rapids.tool.util
 import org.apache.spark.internal.Logging
 
 /**
- *  Represents a result specific to `QualificationAppInfo` class. This is a base class for
+ *  Represents a result specific to `AppBase` class. This is a base class for
  *  Success, Failure and Unknown types.
  */
-class QualAppResult(path: String, message: String) extends Logging {
+class AppResult(path: String, message: String) extends Logging {
   /**
    * Logs the message along with an optional exception, if provided.
    */
@@ -35,20 +35,20 @@ class QualAppResult(path: String, message: String) extends Logging {
   }
 }
 
-case class SuccessQualAppResult(
+case class SuccessAppResult(
     path: String,
     appId: String,
-    message: String = "") extends QualAppResult(path, message) {
+    message: String = "") extends AppResult(path, message) {
   override def logMessage(exp: Option[Exception] = None): Unit = {
     logInfo(s"File: $path, Message: $message")
   }
 }
 
-case class FailureQualAppResult(path: String, message: String)
-  extends QualAppResult(path, message) {}
+case class FailureAppResult(path: String, message: String)
+  extends AppResult(path, message) {}
 
-case class UnknownQualAppResult(path: String, appId: String, message: String)
-  extends QualAppResult(path, message) {}
+case class UnknownAppResult(path: String, appId: String, message: String)
+  extends AppResult(path, message) {}
 
-case class SkippedQualAppResult(path: String, message: String)
-  extends QualAppResult(path, message) {}
+case class SkippedAppResult(path: String, message: String)
+  extends AppResult(path, message) {}

@@ -27,6 +27,7 @@ import com.nvidia.spark.rapids.tool.tuning.TunerContext
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import org.apache.hadoop.conf.Configuration
 
+import org.apache.spark.sql.rapids.tool.FailureApp
 import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.{ConsoleProgressBar, QualificationReportGenerator}
 import org.apache.spark.sql.rapids.tool.util._
@@ -52,7 +53,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
 
   private var progressBar: Option[ConsoleProgressBar] = None
   // Store application status reports indexed by event log path.
-  private val appStatusReporter = new ConcurrentHashMap[String, QualAppResult]
+  private val appStatusReporter = new ConcurrentHashMap[String, AppResult]
 
   override val outputDir = s"$outputPath/rapids_4_spark_qualification_output"
   private class QualifyThread(path: EventLogInfo) extends Runnable {
@@ -153,11 +154,11 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         case Left(FailureApp("skipped", errorMessage)) =>
           // Case to be skipped, e.g. encountered Databricks Photon event log
           progressBar.foreach(_.reportSkippedProcess())
-          SkippedQualAppResult(pathStr, errorMessage)
+          SkippedAppResult(pathStr, errorMessage)
         case Left(FailureApp(_, errorMessage)) =>
           // Case when other error occurred during QualificationAppInfo creation
           progressBar.foreach(_.reportUnkownStatusProcess())
-          UnknownQualAppResult(pathStr, "", errorMessage)
+          UnknownAppResult(pathStr, "", errorMessage)
         case Right(app: QualificationAppInfo) =>
           // Case with successful creation of QualificationAppInfo
           // First, generate the Raw metrics view
@@ -179,11 +180,11 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
             allApps.add(qualSumInfo.get)
             progressBar.foreach(_.reportSuccessfulProcess())
             val endTime = System.currentTimeMillis()
-            SuccessQualAppResult(pathStr, app.appId,
+            SuccessAppResult(pathStr, app.appId,
               s"Took ${endTime - startTime}ms to process")
           } else {
             progressBar.foreach(_.reportUnkownStatusProcess())
-            UnknownQualAppResult(pathStr, app.appId,
+            UnknownAppResult(pathStr, app.appId,
               "No aggregated stats for event log")
           }
       }
@@ -201,7 +202,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         System.exit(1)
       case e: Exception =>
         progressBar.foreach(_.reportFailedProcess())
-        val failureAppResult = FailureQualAppResult(pathStr,
+        val failureAppResult = FailureAppResult(pathStr,
           s"Unexpected exception processing log, skipping!")
         failureAppResult.logMessage(Some(e))
         appStatusReporter.put(pathStr, failureAppResult)
@@ -213,25 +214,6 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
    */
   def getReportOutputPath: String = {
     s"$outputDir/rapids_4_spark_qualification_output"
-  }
-
-  /**
-   * For each app status report, generate a summary containing appId and message (if any).
-   * @return Seq[Summary] - Seq[(path, status, [appId], [message])]
-   */
-  private def generateStatusSummary(appStatuses: Seq[QualAppResult]): Seq[StatusSummaryInfo] = {
-    appStatuses.map {
-      case SuccessQualAppResult(path, appId, message) =>
-        StatusSummaryInfo(path, "SUCCESS", appId, message)
-      case FailureQualAppResult(path, message) =>
-        StatusSummaryInfo(path, "FAILURE", "", message)
-      case SkippedQualAppResult(path, message) =>
-        StatusSummaryInfo(path, "SKIPPED", "", message)
-      case UnknownQualAppResult(path, appId, message) =>
-        StatusSummaryInfo(path, "UNKNOWN", appId, message)
-      case qualAppResult: QualAppResult =>
-        throw new UnsupportedOperationException(s"Invalid status for $qualAppResult")
-    }
   }
 
   /**
@@ -252,7 +234,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     qWriter.writeExecReport(allAppsSum, order)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
-    val appStatusResult = generateStatusSummary(appStatusReporter.asScala.values.toSeq)
+    val appStatusResult = generateStatusResults(appStatusReporter.asScala.values.toSeq)
     qWriter.writeStatusReport(appStatusResult, order)
     if (mlOpsEnabled) {
       if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {

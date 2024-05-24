@@ -291,6 +291,9 @@ class OnPremCluster(ClusterBase):
     def get_tmp_storage(self) -> str:
         pass
 
+    def get_image_version(self) -> str:
+        pass
+
 
 @dataclass
 class OnpremSavingsEstimator(SavingsEstimator):
