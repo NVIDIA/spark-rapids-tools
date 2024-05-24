@@ -21,7 +21,7 @@ import java.util
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.{A100Gpu, AppSummaryInfoBaseProvider, GpuDevice, PlatformFactory, PlatformNames, T4Gpu}
+import com.nvidia.spark.rapids.tool.{A100Gpu, AppSummaryInfoBaseProvider, GpuDevice, L4Gpu, PlatformFactory, PlatformNames, T4Gpu}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.scalatest.Matchers.convertToAnyShouldWrapper
@@ -570,7 +570,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       s"""|
           |Spark Properties:
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
-          |--conf spark.rapids.sql.concurrentGpuTasks=4
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
           |--conf spark.sql.shuffle.partitions=200
@@ -581,8 +581,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- GPU device is missing. Setting default to $A100Gpu.
-          |- GPU memory is missing. Setting default to ${A100Gpu.getMemory}.
+          |- GPU device is missing. Setting default to $L4Gpu.
+          |- GPU memory is missing. Setting default to ${L4Gpu.getMemory}.
           |- ${AutoTuner.classPathComments("rapids.jars.missing")}
           |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -613,7 +613,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       s"""|
           |Spark Properties:
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
-          |--conf spark.rapids.sql.concurrentGpuTasks=4
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
           |--conf spark.sql.shuffle.partitions=200
@@ -624,8 +624,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- GPU device is missing. Setting default to $A100Gpu.
-          |- GPU memory is missing. Setting default to ${A100Gpu.getMemory}.
+          |- GPU device is missing. Setting default to $L4Gpu.
+          |- GPU memory is missing. Setting default to ${L4Gpu.getMemory}.
           |- ${AutoTuner.classPathComments("rapids.jars.missing")}
           |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin

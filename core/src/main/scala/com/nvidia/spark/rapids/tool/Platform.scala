@@ -54,7 +54,12 @@ object PlatformNames {
 abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   val platformName: String
   val defaultGpuDevice: GpuDevice
-  val defaultGpuForSpeedupFactor: GpuDevice = defaultGpuDevice
+  // This function allow us to have one gpu type used by the auto
+  // tuner recommendations but have a different GPU used for speedup
+  // factors since we don't have speedup factors for all combinations of
+  // platforms and GPUs. We expect speedup factor usage to be going away
+  // so this is less of an issue.
+  def defaultGpuForSpeedupFactor: GpuDevice = getGpuOrDefault
 
   /**
    * Recommendations to be excluded from the list of recommendations.
