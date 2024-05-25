@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.analysis
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DataSourceProfileResult, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
@@ -343,67 +343,6 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       }
     }
   }
-
-  // This is copy of getDataSourceInfo in the CollectInformation
-  // get read data schema information
-  def getDataSourceInfo(appInfo: QualificationAppInfo,
-      appIndex: Int = 1): Seq[DataSourceProfileResult] = {
-    val dataSourceApps = Seq(appInfo)
-    val sqlAccums = generateSQLAccums()
-
-    // Metrics to capture from event log to the result
-    val buffer_time: String = "buffer time"
-    val scan_time = "scan time"
-    val data_size = "size of files read"
-    val decode_time = "GPU decode time"
-
-    // This is to save the metrics which will be extracted while creating the result.
-    case class IoMetrics(
-        var buffer_time: Long,
-        var scan_time: Long,
-        var data_size: Long,
-        var decode_time: Long)
-
-    def getIoMetrics(sqlAccums: Seq[SQLAccumProfileResults]): IoMetrics = {
-      val finalRes = IoMetrics(0, 0, 0, 0)
-      sqlAccums.map(accum => accum.name match {
-        case `buffer_time` => finalRes.buffer_time = accum.total
-        case `scan_time` => finalRes.scan_time = accum.total
-        case `data_size` => finalRes.data_size = accum.total
-        case `decode_time` => finalRes.decode_time = accum.total
-      })
-      finalRes
-    }
-
-    val allRows = dataSourceApps.flatMap { app =>
-      val appSqlAccums = sqlAccums.filter(sqlAccum => sqlAccum.appIndex == appIndex)
-
-      // Filter appSqlAccums to get only required metrics
-      val dataSourceMetrics = appSqlAccums.filter(sqlAccum => sqlAccum.name.contains(buffer_time)
-        || sqlAccum.name.contains(scan_time) || sqlAccum.name.contains(decode_time)
-        || sqlAccum.name.equals(data_size))
-
-      app.dataSourceInfo.map { ds =>
-        val sqlIdtoDs = dataSourceMetrics.filter(
-          sqlAccum => sqlAccum.sqlID == ds.sqlID && sqlAccum.nodeID == ds.nodeId)
-        if (!sqlIdtoDs.isEmpty) {
-          val ioMetrics = getIoMetrics(sqlIdtoDs)
-          DataSourceProfileResult(appIndex, ds.sqlID, ds.nodeId,
-            ds.format, ioMetrics.buffer_time, ioMetrics.scan_time, ioMetrics.data_size,
-            ioMetrics.decode_time, ds.location, ds.pushedFilters, ds.schema)
-        } else {
-          DataSourceProfileResult(appIndex, ds.sqlID, ds.nodeId,
-            ds.format, 0, 0, 0, 0, ds.location, ds.pushedFilters, ds.schema)
-        }
-      }
-    }
-    if (allRows.size > 0) {
-      allRows.sortBy(cols => (cols.appIndex, cols.sqlID, cols.location, cols.schema))
-    } else {
-      Seq.empty
-    }
-  }
-
 }
 
 object AppSQLPlanAnalyzer {
