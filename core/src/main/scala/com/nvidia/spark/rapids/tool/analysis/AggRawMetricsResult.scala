@@ -16,18 +16,14 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStageAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult}
 
 /**
  * The result of the aggregation of the raw metrics. It contains the aggregated metrics for an
  * application. This case class is used to allow to separate the aggregation of the metrics from
  * how the view are generated.
- * For example, the profiler tool currently merges both job/stage-level in a single list.
  * As a step toward separating the logic from the views, the analyzer returns
  * AggRawMetricsResult that contains the aggregated metrics for jobs, stages, SQLs, and IOs.
- * In later refactors, we can revisit *TaskMetricsProfileResult to have integer IDs instead of
- * the current format "stage_ID" or "job_ID". We still use the old format to keep the compatibility
- * with other modules.
  *
  * @param jobAggs           the aggregated Spark metrics for jobs
  * @param stageAggs         the aggregated Spark metrics for stages
@@ -38,8 +34,8 @@ import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStage
  * @param maxTaskInputSizes a sequence of SQLMaxTaskInputSizes that contains the maximum input size
  */
 case class AggRawMetricsResult(
-    jobAggs: Seq[JobStageAggTaskMetricsProfileResult],
-    stageAggs: Seq[JobStageAggTaskMetricsProfileResult],
+    jobAggs: Seq[JobAggTaskMetricsProfileResult],
+    stageAggs: Seq[StageAggTaskMetricsProfileResult],
     taskShuffleSkew: Seq[ShuffleSkewProfileResult],
     sqlAggs: Seq[SQLTaskAggMetricsProfileResult],
     ioAggs: Seq[IOAnalysisProfileResult],
