@@ -23,7 +23,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
-import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, PlatformFactory}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
@@ -408,6 +408,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private def runAutoTuner(appInfo: Option[ApplicationSummaryInfo],
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog)
   : (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
+    // only run the auto tuner on GPU event logs for profiling tool right now. There are
+    // assumptions made in the code
+    if (appInfo.isDefined && appInfo.get.appInfo.head.pluginEnabled) {
       val appInfoProvider = AppSummaryInfoBaseProvider.fromAppInfo(appInfo)
       val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
       val platform = appArgs.platform()
@@ -418,6 +421,11 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       // e.g., getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
       // recommendation related to executor instances.
       autoTuner.getRecommendedProperties()
+    } else {
+      logWarning("The Profiling tool AutoTuner is only available for GPU event logs, " +
+        "skipping recommendations!")
+      (Seq.empty, Seq.empty)
+    }
   }
 
   def writeOutput(profileOutputWriter: ProfileOutputWriter,

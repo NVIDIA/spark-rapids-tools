@@ -16,10 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import com.nvidia.spark.rapids.tool.tuning.QualAppSummaryInfoProvider
-
-import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
+import com.nvidia.spark.rapids.tool.AppSummaryInfoBaseProvider
 
 case class ApplicationSummaryInfo(
     appInfo: Seq[AppInfoProfileResults],
@@ -81,42 +78,6 @@ trait AppInfoReadMetrics {
 }
 
 /**
- * A base class definition that provides an empty implementation of the profile results embedded in
- * [[ApplicationSummaryInfo]].
- */
-class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
-  with AppInfoJobStageAggMetricsVisitor
-  with AppInfoSqlTaskAggMetricsVisitor
-  with AppInfoSQLTaskInputSizes
-  with AppInfoReadMetrics {
-  def isAppInfoAvailable = false
-  override def getAllProperties: Map[String, String] = Map[String, String]()
-  override def getSparkProperty(propKey: String): Option[String] = None
-  override def getRapidsProperty(propKey: String): Option[String] = None
-  override def getSystemProperty(propKey: String): Option[String] = None
-  override def getProperty(propKey: String): Option[String] = {
-    if (propKey.startsWith(ToolUtils.PROPS_RAPIDS_KEY_PREFIX)) {
-      getRapidsProperty(propKey)
-    } else if (propKey.startsWith("spark")){
-      getSparkProperty(propKey)
-    } else {
-      getSystemProperty(propKey)
-    }
-  }
-  override def getSparkVersion: Option[String] = None
-  override def getMaxInput: Double = 0.0
-  override def getMeanInput: Double = 0.0
-  override def getMeanShuffleRead: Double = 0.0
-  override def getJvmGCFractions: Seq[Double] = Seq()
-  override def getSpilledMetrics: Seq[Long] = Seq()
-  override def getShuffleStagesWithPosSpilling: Set[Long] = Set()
-  override def getShuffleSkewStages: Set[Long] = Set()
-  override def getRapidsJars: Seq[String] = Seq()
-  override def getDistinctLocationPct: Double = 0.0
-  override def getRedundantReadSize: Long = 0
-}
-
-/**
  * A wrapper class to process the information embedded in a valid instance of
  * [[ApplicationSummaryInfo]].
  * Note that this class does not handle combined mode and assume that the profiling results belong
@@ -174,6 +135,9 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   }
 
   // Return shuffle stage(Id)s which have positive spilling metrics
+  // The heuristics below assume that these are GPU event logs. ie
+  // its ok to add disk bytes spilled with memory bytes spilled. This
+  // is not correct if its a CPU event log.
   override def getShuffleStagesWithPosSpilling: Set[Long] = {
     app.jsMetAgg.collect { case row if (row.id.contains("stage") &&
       row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&
@@ -226,26 +190,5 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
     } else {
       0.0
     }
-  }
-}
-
-object AppSummaryInfoBaseProvider {
-  def fromAppInfo(appInfoInst: Option[ApplicationSummaryInfo]): AppSummaryInfoBaseProvider = {
-    appInfoInst match {
-      case Some(appSummaryInfo) => new SingleAppSummaryInfoProvider(appSummaryInfo)
-      case _ => new AppSummaryInfoBaseProvider()
-    }
-  }
-
-  /**
-   * Constructs an application information provider based on the results of Qualification
-   * tool.
-   * @param appInfo
-   * @param appAggStats optional aggregate of application stats
-   * @return object that can be used by the AutoTuner to calculate the recommendations
-   */
-  def fromQualAppInfo(appInfo: QualificationAppInfo,
-      appAggStats: Option[QualificationSummaryInfo] = None): AppSummaryInfoBaseProvider = {
-    new QualAppSummaryInfoProvider(appInfo, appAggStats)
   }
 }

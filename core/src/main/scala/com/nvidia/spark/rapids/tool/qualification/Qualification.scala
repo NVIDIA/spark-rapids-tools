@@ -162,14 +162,19 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         case Right(app: QualificationAppInfo) =>
           // Case with successful creation of QualificationAppInfo
           // First, generate the Raw metrics view
-          QualRawReportGenerator.generateRawMetricQualView(outputDir, app)
+          val appIndex = 1
+          // this is a bit ugly right now to overload writing out the report and returning the
+          // DataSource information but this encapsulates the analyzer to keep the memory usage
+          // smaller.
+          val dsInfo = QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(
+            outputDir, app, appIndex)
           val qualSumInfo = app.aggregateStats()
           tunerContext.foreach { tuner =>
             // Run the autotuner if it is enabled.
             // Note that we call the autotuner anyway without checking the aggregate results
             // because the Autotuner can still make some recommendations based on the information
             // enclosed by the QualificationInfo object
-            tuner.tuneApplication(app, qualSumInfo)
+            tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo)
           }
           if (qualSumInfo.isDefined) {
             allApps.add(qualSumInfo.get)
