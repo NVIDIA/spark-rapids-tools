@@ -177,8 +177,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       val stages =
         sqlPlanNodeIdToStageIds.getOrElse((visitor.sqlPIGEntry.sqlID, node.id), Set.empty)
       val allMetric = SQLMetricInfoCase(visitor.sqlPIGEntry.sqlID, metric.name,
-        metric.accumulatorId, metric.metricType, node.id,
-        node.name, node.desc, stages)
+        metric.accumulatorId, metric.metricType, node.id, node.name, node.desc, stages)
 
       allSQLMetrics += allMetric
       if (app.sqlPlanMetricsAdaptive.nonEmpty) {

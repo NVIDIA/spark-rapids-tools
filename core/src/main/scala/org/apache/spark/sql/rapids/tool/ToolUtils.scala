@@ -448,6 +448,10 @@ case class IncorrectAppStatusException(
     message: String = "Application status is incorrect. Missing AppInfo")
     extends AppEventlogProcessException(message)
 
+case class UnsupportedMetricNameException(metricName: String)
+    extends AppEventlogProcessException(
+      s"Unsupported metric name found in the event log: $metricName")
+
 // Class used a container to hold the information of the Tuple<sqlID, PlanInfo, SparkGraph>
 // to simplify arguments of methods and caching.
 case class SqlPlanInfoGraphEntry(
