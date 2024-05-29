@@ -135,10 +135,17 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
     val gpuStr = gpuDevice.fold("")(gpu => s"-$gpu")
     s"$platformName$gpuStr"
   }
+
+  /**
+   * Indicate if the platform is a cloud service provider.
+   */
+  def isPlatformCSP: Boolean = false
 }
 
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val defaultGpuDevice: GpuDevice = T4Gpu
+
+  override def isPlatformCSP: Boolean = true
 
   override val recommendationsToExclude: Set[String] = Set(
     "spark.executor.cores",
@@ -171,20 +178,24 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPl
 class DataprocPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC
   override val defaultGpuDevice: GpuDevice = T4Gpu
+  override def isPlatformCSP: Boolean = true
 }
 
 class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC_SL
   override val defaultGpuDevice: GpuDevice = L4Gpu
+  override def isPlatformCSP: Boolean = true
 }
 
 class DataprocGkePlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC_GKE
+  override def isPlatformCSP: Boolean = true
 }
 
 class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.EMR
   override val defaultGpuDevice: GpuDevice = A10GGpu
+  override def isPlatformCSP: Boolean = true
 
   override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
 
