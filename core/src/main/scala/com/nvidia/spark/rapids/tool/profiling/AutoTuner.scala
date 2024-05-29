@@ -490,32 +490,61 @@ class AutoTuner(
 
   /**
    * Recommendation for 'spark.executor.memory' based on system memory, cluster scheduler
-   * and num of gpus.
+   * and num of gpus. Note that we will later reduce this if needed for off heap memory.
    */
+  def calcInitialExecutorHeap(executorContainerMemCalculator: () => Double): Long = {
+    val maxExecutorHeap = Math.max(0, executorContainerMemCalculator()).toInt
+    logWarning("max executor heap is : " + maxExecutorHeap)
+    maxExecutorHeap
+  }
+
   def calcExecutorHeap(executorContainerMemCalculator: () => Double,
       numExecCoresCalculator: () => Int): Long = {
     // reserve 10% of heap as memory overhead
     val maxExecutorHeap = Math.max(0,
       executorContainerMemCalculator() * (1 - DEF_HEAP_OVERHEAD_FRACTION)).toInt
-    // give up to 2GB of heap to each executor core
-    Math.min(maxExecutorHeap, DEF_HEAP_PER_CORE_MB * numExecCoresCalculator())
+    //
+    if (maxExecutorHeap < DEF_HEAP_PER_CORE_MB * numExecCoresCalculator()) {
+      maxExecutorHeap
+    } else {
+      Math.max(maxExecutorHeap, DEF_HEAP_PER_CORE_MB * numExecCoresCalculator())
+    }
   }
 
   /**
    * Recommendation for 'spark.rapids.memory.pinnedPool.size' and 'spark.executor.memoryOverhead'
    * based on executor memory.
    */
-  def calcPinnedMemoryWithOverhead(
+  def calcOverallMemory(
       execHeapCalculator: () => Long,
-      containerMemCalculator: () => Double): (Long, Long) = {
+      numExecCoresCalculator: () => Int): (Long, Long, Long) = {
+    val numExecutorCores = numExecCoresCalculator()
     val executorHeap = execHeapCalculator()
     var executorMemOverhead = (executorHeap * DEF_HEAP_OVERHEAD_FRACTION).toLong
-    val pageablePool = DEF_PAGEABLE_POOL_MB.toLong
+    executorMemOverhead += DEF_PAGEABLE_POOL_MB
+    // see how this applies to other CSPs
+    if (numExecutorCores >= 16) {
+      // appendRecommendation("spark.rapids.shuffle.multiThreaded.maxBytesInFlight", "4g")
+      executorMemOverhead += 4096L
+    }
     // pinned memory uses any unused space up to 4GB
-    val pinnedMem = Math.min(MAX_PINNED_MEMORY_MB, containerMemCalculator.apply() -
-      executorHeap - executorMemOverhead - pageablePool).toLong
-    executorMemOverhead += pinnedMem + pageablePool
-    (pinnedMem, executorMemOverhead)
+    val pinnedMem = Math.min(MAX_PINNED_MEMORY_MB, executorHeap - executorMemOverhead)
+    // Spill storage is set to the pinned size by default. Its not guaranteed to use just pinned
+    // memory though so the size worst case would be doesn't use any pinned memory and uses
+    // all off heap memory.
+    val recommendedMinHeap = DEF_HEAP_PER_CORE_MB * numExecutorCores
+    val spillMem = pinnedMem
+    val (finalSpillMem, finalPinnedMem) =
+      if ((executorHeap - executorMemOverhead + spillMem + pinnedMem) < recommendedMinHeap) {
+        // we should resize pinned and spill memory
+        val heapLargerMinRecommend = executorHeap - executorMemOverhead - recommendedMinHeap
+        (spillMem, pinnedMem)
+      } else {
+        (spillMem, pinnedMem)
+      }
+    executorMemOverhead += finalSpillMem + finalPinnedMem
+    val executorHeapAdjusted = executorHeap - executorMemOverhead
+    (pinnedMem, executorMemOverhead, executorHeapAdjusted)
   }
 
   /**
@@ -584,21 +613,56 @@ class AutoTuner(
       calcGpuConcTasks().toInt)
     val availableMemPerExec = calcAvailableMemPerExec()
     val availableMemPerExecExpr = () => availableMemPerExec
-    val executorHeap = calcExecutorHeap(availableMemPerExecExpr, execCoresExpr)
+    val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCoresExpr)
     val executorHeapExpr = () => executorHeap
-    appendRecommendationForMemoryMB("spark.executor.memory", s"$executorHeap")
-    val (pinnedMemory, memoryOverhead) =
-      calcPinnedMemoryWithOverhead(executorHeapExpr, availableMemPerExecExpr)
+    val (pinnedMemory, memoryOverhead, finalExecutorHeap) =
+      calcOverallMemory(executorHeapExpr, execCoresExpr)
     appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
     addRecommendationForMemoryOverhead(s"$memoryOverhead")
+    appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
 
-    // TODO - I have found that make this greater shows better performance in most cases we
-    // should reevaluate! both shuffle and reader threads
-    appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", numExecutorCores)
-    appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numExecutorCores)
-    appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
-      Math.max(20, numExecutorCores))
+    // if on a CSP using blob store recommend more threads for certain sizes. This is based on
+    // testing on customer jobs on Databricks
+    // didn't test with > 16 thread so leave those as numExecutorCores
+    if (numExecutorCores >= 4 && numExecutorCores < 16) {
+      appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", 20)
+      appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", 20)
+    } else if (numExecutorCores >= 16 && numExecutorCores < 20) {
+      appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", 28)
+      appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", 28)
+    } else {
+      appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numExecutorCores)
+    }
+
+    // xlarge/2xlarge (4 and 8 cores) use 40
+    // 4xlarge with 16 cores -  use 80 - though customer uses 100.
+    //  "spark.rapids.shuffle.multiThreaded.maxBytesInFlight" = "4g"
+    if (numExecutorCores >= 4 && numExecutorCores < 8) {
+      appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
+        Math.max(20, numExecutorCores))
+    } else if (numExecutorCores >= 8 && numExecutorCores < 16) {
+      appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
+        Math.max(40, numExecutorCores))
+    } else if (numExecutorCores >= 16 && numExecutorCores < 20) {
+      appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
+        Math.max(80, numExecutorCores))
+      // TODO - tie this to the memory settings
+      appendRecommendation("spark.rapids.shuffle.multiThreaded.maxBytesInFlight", "4g")
+
+      appendRecommendation("spark.rapids.sql.reader.multithreaded.combine.sizeBytes",
+        10 * 1024 * 1024)
+      appendRecommendation("spark.rapids.sql.format.parquet.multithreaded.combine.waitTime", 1000)
+    } else {
+      appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
+        Math.max(20, numExecutorCores))
+      // TODO - tie this to the memory settings
+      appendRecommendation("spark.rapids.shuffle.multiThreaded.maxBytesInFlight", "4g")
+      appendRecommendation("spark.rapids.sql.reader.multithreaded.combine.sizeBytes",
+        10 * 1024 * 1024)
+      appendRecommendation("spark.rapids.sql.format.parquet.multithreaded.combine.waitTime", 1000)
+    }
     appendRecommendation("spark.rapids.sql.batchSizeBytes", BATCH_SIZE_BYTES)
+    appendRecommendation("spark.locality.wait", 0)
 
     recommendAQEProperties()
   }
@@ -610,9 +674,7 @@ class AutoTuner(
       case Some(smClassName) => appendRecommendation("spark.shuffle.manager", smClassName)
       case None => appendComment("Could not define the Spark Version")
     }
-
     appendComment(classPathComments("rapids.shuffle.jars"))
-
     recommendFileCache()
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
@@ -735,6 +797,7 @@ class AutoTuner(
       appendRecommendation("spark.sql.adaptive.coalescePartitions.parallelismFirst", "false")
     }
 
+    // TODO - can we set spark.sql.autoBroadcastJoinThreshold ???
     val autoBroadcastJoinThresholdProperty =
       getPropertyValue("spark.sql.adaptive.autoBroadcastJoinThreshold").map(StringUtils.convertToMB)
     if (autoBroadcastJoinThresholdProperty.isEmpty) {
@@ -1082,8 +1145,9 @@ object AutoTuner extends Logging {
   val MAX_PINNED_MEMORY_MB: Long = 4 * 1024L
   // Default pinned memory to use per executor in MB
   val DEF_PINNED_MEMORY_MB: Long = 2 * 1024L
-  // Default pageable pool to use per executor in MB
-  val DEF_PAGEABLE_POOL_MB: Long = 1 * 1024L
+  // the pageable pool doesn't exist anymore but by default we don't have any hard limits so
+  // leave this for now to account for off heap memory usage.
+  val DEF_PAGEABLE_POOL_MB: Long = 2 * 1024L
   // value in MB
   val MIN_PARTITION_BYTES_RANGE_MB = 128L
   // value in MB
