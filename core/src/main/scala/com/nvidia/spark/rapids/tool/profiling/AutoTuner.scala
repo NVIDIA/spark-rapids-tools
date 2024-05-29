@@ -482,9 +482,9 @@ class AutoTuner(
    */
   private def calcAvailableMemPerExec(): Double = {
     // account for system overhead
-    // TODO - this should only be for non-container environments!
-    val usableWorkerMem =
-      Math.max(0, StringUtils.convertToMB(clusterProps.system.memory) - DEF_SYSTEM_RESERVE_MB)
+    // TODO - need to subtract DEF_SYSTEM_RESERVE_MB for non-container environments!
+    // for now leave it out
+    val usableWorkerMem = Math.max(0, StringUtils.convertToMB(clusterProps.system.memory))
     // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
     (1.0 * usableWorkerMem) / clusterProps.gpu.getCount
   }
