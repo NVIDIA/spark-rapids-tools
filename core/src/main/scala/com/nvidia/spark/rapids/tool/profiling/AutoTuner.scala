@@ -653,17 +653,26 @@ class AutoTuner(
     // if on a CSP using blob store recommend more threads for certain sizes. This is based on
     // testing on customer jobs on Databricks
     // didn't test with > 16 thread so leave those as numExecutorCores
-    if (numExecutorCores >= 4 && numExecutorCores < 16 && platform.isPlatformCSP) {
+    if (numExecutorCores < 4) {
+      appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", numExecutorCores)
+      appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numExecutorCores)
+    } else if (numExecutorCores >= 4 && numExecutorCores < 16 && platform.isPlatformCSP) {
       appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", 20)
       appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", 20)
     } else if (numExecutorCores >= 16 && numExecutorCores < 20 && platform.isPlatformCSP) {
       appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", 28)
       appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", 28)
     } else {
-      appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numExecutorCores)
+      val numThreads = (numExecutorCores * 1.5).toLong
+      logWarning("numThread is: " + numThreads)
+      appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", numThreads.toInt)
+      appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numThreads.toInt)
     }
 
-    if (numExecutorCores >= 4 && numExecutorCores < 8 && platform.isPlatformCSP) {
+    if (numExecutorCores < 4) {
+      appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
+        Math.max(20, numExecutorCores))
+    } else if (numExecutorCores >= 4 && numExecutorCores < 8 && platform.isPlatformCSP) {
       appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
         Math.max(20, numExecutorCores))
     } else if (numExecutorCores >= 8 && numExecutorCores < 16 && platform.isPlatformCSP) {
@@ -679,8 +688,10 @@ class AutoTuner(
         10 * 1024 * 1024)
       appendRecommendation("spark.rapids.sql.format.parquet.multithreaded.combine.waitTime", 1000)
     } else {
+      val numThreads = (numExecutorCores * 2).toInt
+      logWarning("numThread is: " + numThreads)
       appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
-        Math.max(20, numExecutorCores))
+        Math.max(20, numThreads).toInt)
       if (platform.isPlatformCSP) {
         if (setMaxBytesInFlight) {
           appendRecommendation("spark.rapids.shuffle.multiThreaded.maxBytesInFlight", "4g")
