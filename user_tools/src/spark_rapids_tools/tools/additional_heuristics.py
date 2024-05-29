@@ -80,10 +80,10 @@ class AdditionalHeuristics:
         Apply heuristics based on spills to determine if the app can be accelerated on GPU.
         """
         # Load stage aggregation metrics (this contains spill information)
-        job_stage_agg_metrics_file = self.props.get_value('spillBased', 'jobStageAggMetrics', 'fileName')
-        job_stage_agg_metrics = pd.read_csv(os.path.join(app_id_path, job_stage_agg_metrics_file))
-        job_stage_agg_metrics = job_stage_agg_metrics[self.props.get_value('spillBased',
-                                                                           'jobStageAggMetrics', 'columns')]
+        stage_agg_metrics_file = self.props.get_value('spillBased', 'stageAggMetrics', 'fileName')
+        stage_agg_metrics = pd.read_csv(os.path.join(app_id_path, stage_agg_metrics_file))
+        stage_agg_metrics = stage_agg_metrics[self.props.get_value('spillBased',
+                                                                   'stageAggMetrics', 'columns')]
 
         # Load sql-to-stage information (this contains Exec names)
         sql_to_stage_info_file = self.props.get_value('spillBased', 'sqlToStageInfo', 'fileName')
@@ -93,11 +93,8 @@ class AdditionalHeuristics:
 
         # Identify stages with significant spills
         spill_threshold_bytes = self.props.get_value('spillBased', 'spillThresholdBytes')
-        stages_with_spills = job_stage_agg_metrics[
-            job_stage_agg_metrics['ID'].str.startswith('stage') &
-            (job_stage_agg_metrics['memoryBytesSpilled_sum'] > spill_threshold_bytes)
-            ].copy()
-        stages_with_spills['stageId'] = stages_with_spills['ID'].str.extract(r'(\d+)').astype(int)
+        spill_condition = stage_agg_metrics['memoryBytesSpilled_sum'] > spill_threshold_bytes
+        stages_with_spills = stage_agg_metrics[spill_condition]
 
         # Merge stages with spills with SQL-to-stage information
         merged_df = pd.merge(stages_with_spills, sql_to_stage_info, on='stageId', how='inner')
