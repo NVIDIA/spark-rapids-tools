@@ -482,6 +482,7 @@ class AutoTuner(
    */
   private def calcAvailableMemPerExec(): Double = {
     // account for system overhead
+    // TODO - this should only be for non-container environments!
     val usableWorkerMem =
       Math.max(0, StringUtils.convertToMB(clusterProps.system.memory) - DEF_SYSTEM_RESERVE_MB)
     // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
@@ -492,12 +493,6 @@ class AutoTuner(
    * Recommendation for 'spark.executor.memory' based on system memory, cluster scheduler
    * and num of gpus. Note that we will later reduce this if needed for off heap memory.
    */
-  def calcExecutorHeap(executorContainerMemCalculator: () => Double): Long = {
-    val maxExecutorHeap = Math.max(0, executorContainerMemCalculator()).toInt
-    logWarning("max executor heap is : " + maxExecutorHeap)
-    maxExecutorHeap
-  }
-
   def calcInitialExecutorHeap(executorContainerMemCalculator: () => Double,
       numExecCoresCalculator: () => Int): Long = {
     val maxExecutorHeap = Math.max(0, executorContainerMemCalculator()).toInt
