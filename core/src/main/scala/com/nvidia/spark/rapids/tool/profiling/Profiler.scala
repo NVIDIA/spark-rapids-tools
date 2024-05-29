@@ -496,20 +496,20 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
     sums.foreach { app: ApplicationSummaryInfo =>
       profileOutputWriter.writeText("### A. Information Collected ###")
-      profileOutputWriter.write("Application Information", app.appInfo)
-      profileOutputWriter.write("Application Log Path Mapping", app.appLogPath)
-      profileOutputWriter.write("Data Source Information", app.dsInfo)
+      profileOutputWriter.write(ProfInformationView.getLabel, app.appInfo)
+      profileOutputWriter.write(ProfLogPathView.getLabel, app.appLogPath)
+      profileOutputWriter.write(ProfDataSourceView.getLabel, app.dsInfo)
       profileOutputWriter.write(ProfExecutorView.getLabel, app.execInfo)
       profileOutputWriter.write(ProfJobsView.getLabel, app.jobInfo)
       profileOutputWriter.write(ProfSQLToStageView.getLabel, app.sqlStageInfo)
-      profileOutputWriter.write("Spark Rapids parameters set explicitly", app.rapidsProps,
-        Some("Spark Rapids parameters"))
-      profileOutputWriter.write("Spark Properties", app.sparkProps,
-        Some("Spark Properties"))
-      profileOutputWriter.write("System Properties", app.sysProps,
-        Some("System Properties"))
-      profileOutputWriter.write("Rapids Accelerator Jar and cuDF Jar", app.rapidsJar,
-        Some("Rapids 4 Spark Jars"))
+      profileOutputWriter.write(RapidsQualPropertiesView.getLabel, app.rapidsProps,
+        Some(RapidsQualPropertiesView.getDescription))
+      profileOutputWriter.write(SparkQualPropertiesView.getLabel, app.sparkProps,
+        Some(SparkQualPropertiesView.getDescription))
+      profileOutputWriter.write(SystemQualPropertiesView.getLabel, app.sysProps,
+        Some(SystemQualPropertiesView.getDescription))
+      profileOutputWriter.write(ProfRapidsJarView.getLabel, app.rapidsJar,
+        Some(ProfRapidsJarView.getDescription))
       profileOutputWriter.write(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
         Some(ProfSQLPlanMetricsView.getDescription))
       profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
