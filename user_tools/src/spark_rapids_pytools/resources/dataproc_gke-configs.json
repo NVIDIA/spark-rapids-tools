@@ -55,7 +55,8 @@
         },
         {
           "envVariableKey": "CLOUDSDK_DATAPROC_REGION",
-          "confProperty": "region"
+          "confProperty": "region",
+          "defaultValue": "us-central1"
         },
         {
           "envVariableKey": "CLOUDSDK_COMPUTE_REGION",
@@ -63,7 +64,8 @@
         },
         {
           "envVariableKey": "CLOUDSDK_COMPUTE_ZONE",
-          "confProperty": "zone"
+          "confProperty": "zone",
+          "defaultValue": "us-central1-b"
         },
         {
           "envVariableKey": "CLOUDSDK_CORE_PROJECT",
