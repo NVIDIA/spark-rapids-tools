@@ -553,7 +553,7 @@ def load_csv_files(
     # Load job+stage level agg metrics:
     job_agg_tbl = scan_tbl('job_level_aggregated_task_metrics')
     stage_agg_tbl = scan_tbl('stage_level_aggregated_task_metrics')
-
+    job_stage_agg_tbl = pd.DataFrame()
     if not any([job_agg_tbl.empty, stage_agg_tbl.empty, job_map_tbl.empty]):
         # Rename jobId and stageId to ID
         job_df = job_agg_tbl.rename(columns={'jobId': 'ID'})
