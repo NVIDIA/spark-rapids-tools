@@ -281,10 +281,10 @@ local:
         - 'Skip by Heuristics'
         - 'Reason'
       spillBased:
-        jobStageAggMetrics:
-          fileName: 'job_+_stage_level_aggregated_task_metrics.csv'
+        stageAggMetrics:
+          fileName: 'stage_level_aggregated_task_metrics.csv'
           columns:
-            - 'ID'
+            - 'stageId'
             - 'memoryBytesSpilled_sum'
         sqlToStageInfo:
           fileName: 'sql_to_stage_information.csv'

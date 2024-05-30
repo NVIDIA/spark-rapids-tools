@@ -392,7 +392,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     logInfo(s"Took ${endTime - startTime}ms to Process [${appInfo.head.appId}]")
     (ApplicationSummaryInfo(appInfo, dsInfo,
       collect.getExecutorInfo, collect.getJobInfo, rapidsProps,
-      rapidsJar, sqlMetrics, analysis.jobStageAggs,
+      rapidsJar, sqlMetrics, analysis.jobAggs, analysis.stageAggs,
       analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
@@ -471,7 +471,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         combineProps("rapids", appsSum).sortBy(_.key),
         appsSum.flatMap(_.rapidsJar).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlMetrics).sortBy(_.appIndex),
-        appsSum.flatMap(_.jsMetAgg).sortBy(_.appIndex),
+        appsSum.flatMap(_.jobAggMetrics).sortBy(_.appIndex),
+        appsSum.flatMap(_.stageAggMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlTaskAggMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.durAndCpuMet).sortBy(_.appIndex),
         appsSum.flatMap(_.skewInfo).sortBy(_.appIndex),
@@ -522,8 +523,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
 
       profileOutputWriter.writeText("\n### B. Analysis ###\n")
-      profileOutputWriter.write(JOB_AND_STAGE_AGG_LABEL, app.jsMetAgg,
-        Some(AGG_DESCRIPTION(JOB_AND_STAGE_AGG_LABEL)))
+      profileOutputWriter.write(JOB_AGG_LABEL, app.jobAggMetrics,
+        Some(AGG_DESCRIPTION(JOB_AGG_LABEL)))
+      profileOutputWriter.write(STAGE_AGG_LABEL, app.stageAggMetrics,
+        Some(AGG_DESCRIPTION(STAGE_AGG_LABEL)))
       profileOutputWriter.write(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
         Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
       profileOutputWriter.write(IO_LABEL, app.ioMetrics)
