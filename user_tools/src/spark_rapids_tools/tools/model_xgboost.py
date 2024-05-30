@@ -551,7 +551,19 @@ def load_csv_files(
     sqls_to_drop = set()
 
     # Load job+stage level agg metrics:
-    job_stage_agg_tbl = scan_tbl('job_+_stage_level_aggregated_task_metrics')
+    job_agg_tbl = scan_tbl('job_level_aggregated_task_metrics')
+    stage_agg_tbl = scan_tbl('stage_level_aggregated_task_metrics')
+
+    # Rename jobId and stageId to ID
+    job_df = job_agg_tbl.rename(columns={'jobId': 'ID'})
+    job_df['ID'] = 'job_' + job_df['ID'].astype(str)
+    stage_df = stage_agg_tbl.rename(columns={'stageId': 'ID'})
+    job_df['ID'] = 'stage_' + stage_df['ID'].astype(str)
+
+    # Concatenate the DataFrames.
+    # TODO: This is a temporary solution to minimize changes in existing code.
+    #        We should refactor this once we have updated the code with latest changes.
+    job_stage_agg_tbl = pd.concat([job_df, stage_df], ignore_index=True)
     if not any([job_stage_agg_tbl.empty, job_map_tbl.empty]):
         job_stage_agg_tbl = job_stage_agg_tbl.drop(columns='appIndex')
         job_stage_agg_tbl = job_stage_agg_tbl.rename(
