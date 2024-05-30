@@ -496,7 +496,7 @@ class AutoTuner(
     // for now leave it out
     val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
     if (clusterInfoEventLog.isDefined) {
-      clusterInfoEventLog.get.executorMemoryMB.getOrElse(0.0)
+      clusterInfoEventLog.get.executorMemoryMB.getOrElse(0L).toDouble
     } else {
       if (processPropsAndCheck) {
         val usableWorkerMem = Math.max(0, StringUtils.convertToMB(clusterProps.system.memory))
