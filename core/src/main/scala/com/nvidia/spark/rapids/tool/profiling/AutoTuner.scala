@@ -494,9 +494,18 @@ class AutoTuner(
     // account for system overhead
     // TODO - need to subtract DEF_SYSTEM_RESERVE_MB for non-container environments!
     // for now leave it out
-    val usableWorkerMem = Math.max(0, StringUtils.convertToMB(clusterProps.system.memory))
-    // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
-    (1.0 * usableWorkerMem) / clusterProps.gpu.getCount
+    val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
+    if (clusterInfoEventLog.isDefined) {
+      clusterInfoEventLog.get.executorMemoryMB.getOrElse(0.0)
+    } else {
+      if (processPropsAndCheck) {
+        val usableWorkerMem = Math.max(0, StringUtils.convertToMB(clusterProps.system.memory))
+        // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
+        (1.0 * usableWorkerMem) / clusterProps.gpu.getCount
+      } else {
+        0.0
+      }
+    }
   }
 
   /**
