@@ -21,6 +21,7 @@ import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.ClusterInfo
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
  *  Utility object containing constants for various platform names.
@@ -128,7 +129,11 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val driverHost = sparkProperties.get("spark.driver.host")
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, driverHost = driverHost)
+    // TODO - add more logic for finding memory
+    val executorMemPropValue = sparkProperties.get("spark.executor.memory")
+    val executorMemoryMB = executorMemPropValue.map(StringUtils.convertToMB(_))
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorMemoryMB,
+      driverHost = driverHost)
   }
 
   override def toString: String = {
@@ -161,8 +166,10 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform
     val clusterId = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY)
     val driverHost = sparkProperties.get("spark.driver.host")
     val clusterName = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY)
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorInstance,
-      driverInstance, driverHost, clusterId, clusterName)
+    val executorMemPropValue = sparkProperties.get("spark.executor.memory")
+    val executorMemoryMB = executorMemPropValue.map(StringUtils.convertToMB(_))
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorMemoryMB,
+      executorInstance, driverInstance, driverHost, clusterId, clusterName)
   }
 }
 
@@ -203,8 +210,11 @@ class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val clusterId = systemProperties.get("EMR_CLUSTER_ID")
     val driverHost = sparkProperties.get("spark.driver.host")
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, clusterId = clusterId,
-      driverHost = driverHost)
+    val executorMemPropValue = sparkProperties.get("spark.executor.memory")
+    val executorMemoryMB = executorMemPropValue.map(StringUtils.convertToMB(_))
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes,
+      executorMemoryMB = executorMemoryMB,
+      clusterId = clusterId, driverHost = driverHost)
   }
 }
 

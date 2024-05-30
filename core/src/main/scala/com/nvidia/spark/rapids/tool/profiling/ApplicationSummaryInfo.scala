@@ -18,6 +18,8 @@ package com.nvidia.spark.rapids.tool.profiling
 
 import com.nvidia.spark.rapids.tool.AppSummaryInfoBaseProvider
 
+import org.apache.spark.sql.rapids.tool.ClusterSummary
+
 case class ApplicationSummaryInfo(
     appInfo: Seq[AppInfoProfileResults],
     dsInfo: Seq[DataSourceProfileResult],
@@ -53,6 +55,8 @@ trait AppInfoPropertyGetter {
   def getProperty(propKey: String): Option[String]
   def getSparkVersion: Option[String]
   def getRapidsJars: Seq[String]
+  def getClusterInfo: Option[ClusterSummary]
+
 }
 
 trait AppInfoSqlTaskAggMetricsVisitor {
