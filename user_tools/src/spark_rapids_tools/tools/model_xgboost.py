@@ -559,7 +559,7 @@ def load_csv_files(
         job_df = job_agg_tbl.rename(columns={'jobId': 'ID'})
         job_df['ID'] = 'job_' + job_df['ID'].astype(str)
         stage_df = stage_agg_tbl.rename(columns={'stageId': 'ID'})
-        job_df['ID'] = 'stage_' + stage_df['ID'].astype(str)
+        stage_df['ID'] = 'stage_' + stage_df['ID'].astype(str)
 
         # Concatenate the DataFrames.
         # TODO: This is a temporary solution to minimize changes in existing code.
