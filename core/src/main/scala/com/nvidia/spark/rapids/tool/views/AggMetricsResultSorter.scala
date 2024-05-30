@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStageAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{BaseJobStageAggTaskMetricsProfileResult, IOAnalysisProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult}
 
 /**
  * Contains the sort logic for the aggregated Spark RawMetrics.
@@ -32,8 +32,7 @@ import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStage
 object AggMetricsResultSorter {
   // TODO: The implementation needs to be cleaner to allow for different sort strategies.
   //      Also, it will be better to use some generics to allow for different argument types.
-  def sortJobSparkMetrics(
-      rows: Seq[JobStageAggTaskMetricsProfileResult]): Seq[JobStageAggTaskMetricsProfileResult] = {
+  def sortJobSparkMetrics[T <: BaseJobStageAggTaskMetricsProfileResult](rows: Seq[T]): Seq[T] = {
     if (rows.isEmpty) {
       Seq.empty
     } else {
