@@ -676,19 +676,22 @@ class Qualification(RapidsJarTool):
             return cost_pd_series
 
         cost_cols = self.ctxt.get_value('local', 'output', 'costColumns')
-        if not cost_per_row:
-            # initialize the savings estimator only once
-            reshaped_gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
-            savings_estimator = self.ctxt.platform.create_saving_estimator(self.ctxt.get_ctxt('cpuClusterProxy'),
-                                                                           reshaped_gpu_cluster,
-                                                                           self.ctxt.get_ctxt('target_cost'),
-                                                                           self.ctxt.get_ctxt('source_cost'))
-            app_df_set[cost_cols] = app_df_set.apply(
-                lambda row: get_costs_for_single_app(row, estimator=savings_estimator), axis=1)
-        else:
-            # this is per row calculation and saving estimator should be created for each row
-            app_df_set[cost_cols] = app_df_set.apply(
-                lambda row: get_cost_per_row(row, shape_col), axis=1)
+        try:
+            if not cost_per_row:
+                # initialize the savings estimator only once
+                reshaped_gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
+                savings_estimator = self.ctxt.platform.create_saving_estimator(self.ctxt.get_ctxt('cpuClusterProxy'),
+                                                                               reshaped_gpu_cluster,
+                                                                               self.ctxt.get_ctxt('target_cost'),
+                                                                               self.ctxt.get_ctxt('source_cost'))
+                app_df_set[cost_cols] = app_df_set.apply(
+                    lambda row: get_costs_for_single_app(row, estimator=savings_estimator), axis=1)
+            else:
+                # this is per row calculation and saving estimator should be created for each row
+                app_df_set[cost_cols] = app_df_set.apply(
+                    lambda row: get_cost_per_row(row, shape_col), axis=1)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Error computing cost savings. Reason - %s: %s. Skipping!', type(e).__name__, e)
         return app_df_set
 
     def __generate_cluster_recommendation_report(self):
