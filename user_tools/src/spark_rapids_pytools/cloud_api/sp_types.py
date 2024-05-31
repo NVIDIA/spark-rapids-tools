@@ -735,9 +735,8 @@ class PlatformBase:
             # loaded configuration.
             for prop_entry in properties_map_arr:
                 prop_entry_key = prop_entry.get('propKey')
-                if self.ctxt.get(prop_entry_key) is None:
-                    # set it using environment variable if possible
-                    self._set_env_prop_from_env_var(prop_entry_key)
+                # set it using environment variable if possible
+                self._set_env_prop_from_env_var(prop_entry_key)
 
     def _set_credential_properties(self) -> None:
         properties_map_arr = self._get_config_environment('cliConfig',
