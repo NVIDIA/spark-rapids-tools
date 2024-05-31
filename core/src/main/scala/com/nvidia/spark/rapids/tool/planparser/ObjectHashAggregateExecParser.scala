@@ -32,8 +32,7 @@ case class ObjectHashAggregateExecParser(
 
   override def parse: ExecInfo = {
     // TODO - Its partial duration only. We need a way to specify it as partial.
-    val accumId = node.metrics.find(
-      _.name == "time in aggregation build total").map(_.accumulatorId)
+    val accumId = node.metrics.find(_.name == "time in aggregation build").map(_.accumulatorId)
     val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
     val exprString = node.desc.replaceFirst("ObjectHashAggregate", "")
     val expressions = SQLPlanParser.parseAggregateExpressions(exprString)

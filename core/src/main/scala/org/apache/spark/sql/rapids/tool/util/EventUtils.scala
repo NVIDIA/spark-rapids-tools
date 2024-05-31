@@ -39,8 +39,73 @@ object EventUtils extends Logging {
   private def reportMissingEventClass(className: String): Unit = {
     if (!missingEventClasses.contains(className)) {
       missingEventClasses.add(className)
-      logWarning(s"ClassNotFoundException while parsing an event: ${className}")
+      logWarning(s"ClassNotFoundException while parsing an event: $className")
     }
+  }
+
+  // Legacy spark version used to have different Metric names. This map is to transform those
+  // old names into new names.
+  private val SPARK_LEGACY_METRICS_MAP = Map(
+    // from pull https://github.com/apache/spark/pull/23551/files
+    "number of files" -> "number of files read", // type sum
+    "metadata time (ms)" -> "metadata time", // type sum spark2.x, but it was fixed to be timing
+    "time to build (ms)" -> "time to build", //type timing
+    "time to broadcast (ms)" -> "time to broadcast", //type timing
+    "total time to update rows" -> "time to update",
+    "total time to remove rows" -> "time to remove",
+    "bytes of written output" -> "written output", // type sum
+    // v2.0.0+
+    "spill size total (min, med, max)" -> "spill size", // type size
+    "peak memory total (min, med, max)" -> "peak memory", // type size
+    "aggregate time total (min, med, max)" -> "time in aggregation build", // type timing
+    "avg hash probe (min, med, max)" -> "avg hash probe bucket list iters", // type average
+    "duration total (min, med, max)" -> "duration", // type timing
+    "data size total (min, med, max)" -> "data size", // type size
+    "sort time total (min, med, max)" -> "sort time", // type timing
+    "scan time total (min, med, max)" -> "scan time", // type timing
+    // v3.0.0 (https://github.com/apache/spark/commit/dddfeca175bdce5294debe00d4a993daef92ca60)
+    "spill size total (min, med, max (stageId (attemptId): taskId))" -> "spill size", // type size
+    "peak memory total (min, med, max (stageId (attemptId): taskId))" -> "peak memory", // type size
+    "aggregate time total (min, med, max (stageId (attemptId): taskId))" ->
+      "time in aggregation build", // type timing
+    "avg hash probe (min, med, max (stageId (attemptId): taskId))" ->
+      "avg hash probe bucket list iters", // type average
+    "duration total (min, med, max (stageId (attemptId): taskId))" -> "duration", // type timing
+    "data size total (min, med, max (stageId (attemptId): taskId))" -> "data size", // type size
+    "sort time total (min, med, max (stageId (attemptId): taskId))" -> "sort time", // type timing
+    "scan time total (min, med, max (stageId (attemptId): taskId))" -> "scan time", // type timing
+    // v3.1.0 (https://github.com/apache/spark/commit/bc37fdc77130ce4f60806db0bb2b1b8914452040)
+    "spill size total (min, med, max (stageId: taskId))" -> "spill size", // type size
+    "peak memory total (min, med, max (stageId: taskId))" -> "peak memory", // type size
+    "aggregate time total (min, med, max (stageId: taskId))" ->
+      "time in aggregation build", // type timing
+    "avg hash probe (min, med, max (stageId: taskId))" ->
+      "avg hash probe bucket list iters", // type average
+    "duration total (min, med, max (stageId: taskId))" -> "duration", // type timing
+    "data size total (min, med, max (stageId: taskId))" -> "data size", // type size
+    "sort time total (min, med, max (stageId: taskId))" -> "sort time", // type timing
+    "scan time total (min, med, max (stageId: taskId))" -> "scan time", // type timing
+    // Finally, in V3.1.0,
+    // PR https://github.com/apache/spark/commit/c4e98c065c99d2cf840e6006ee5414fbaaba9937
+    // introduced the current format in recent Spark versions.
+    "aggregate time" -> "time in aggregation build",
+    // v3.2.0 -> https://github.com/apache/spark/commit/dd677770d88324bdbac13e48ecb9597c0f176a81
+    "number of tasks fall-backed to sort-based aggregation" -> "number of sort fallback tasks",
+    // Misc: I cannot find the occurrence but it was used in Qual code
+    "time to build hash map total" -> "time to build hash map",
+    "time in aggregation build total" -> "time in aggregation build"
+  )
+
+  /**
+   * Legacy spark versions (i.e., 2.3.x) used to have different metric names. We need to call this
+   * method before consuming the metric's name to make sure that all names are consistent.
+   * Failing to do so may result in listing metrics that cannot be processed by consumer modules
+   * such as Prediction mode (see https://github.com/NVIDIA/spark-rapids-tools/issues/1042).
+   * @param metricName the name of the metric stored in the Spark AccumulableInfo object
+   * @return the normalized metric name
+   */
+  def normalizeMetricName(metricName: String): String = {
+    SPARK_LEGACY_METRICS_MAP.getOrElse(metricName, metricName)
   }
 
   /**
@@ -79,7 +144,7 @@ object EventUtils extends Logging {
     val value = accuInfo.value.flatMap(parseAccumFieldToLong)
     val update = accuInfo.update.flatMap(parseAccumFieldToLong)
     if (!(value.isDefined || update.isDefined)) {
-      // we could not get any valid number from both value/update
+      // We could not get any valid number from both value/update
       if (log.isDebugEnabled()) {
         if ((accuInfo.value.isDefined && value.isEmpty) ||
           (accuInfo.update.isDefined && update.isEmpty)) {
@@ -91,9 +156,13 @@ object EventUtils extends Logging {
       // No need to return a new object to save memory consumption
       None
     } else {
+      val accumName = accuInfo.name match {
+        case Some(name) => Some(normalizeMetricName(name))
+        case _ => accuInfo.name
+      }
       Some(TaskStageAccumCase(
         stageId, attemptId,
-        taskId, accuInfo.id, accuInfo.name, value, update, accuInfo.internal))
+        taskId, accuInfo.id, accumName, value, update, accuInfo.internal))
     }
   }
 

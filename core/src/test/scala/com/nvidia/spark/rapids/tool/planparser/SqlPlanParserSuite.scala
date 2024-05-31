@@ -41,18 +41,22 @@ class SQLPlanParserSuite extends BaseTestSuite {
   private val profileLogDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
   private val qualLogDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
 
-  private def assertSizeAndNotSupported(size: Int, execs: Seq[ExecInfo]): Unit = {
+  private def assertSizeAndNotSupported(size: Int, execs: Seq[ExecInfo],
+      checkDurations: Boolean = true): Unit = {
     for (t <- Seq(execs)) {
       assert(t.size == size, t)
       assert(t.forall(_.speedupFactor == 1), t)
       assert(t.forall(_.isSupported == false), t)
       assert(t.forall(_.children.isEmpty), t)
-      assert(t.forall(_.duration.isEmpty), t)
+      if (checkDurations) {
+        assert(t.forall(_.duration.isEmpty), t)
+      }
     }
   }
 
   private def assertSizeAndSupported(size: Int, execs: Seq[ExecInfo],
-    expectedDur: Seq[Option[Long]] = Seq.empty, extraText: String = ""): Unit = {
+    expectedDur: Seq[Option[Long]] = Seq.empty, extraText: String = "",
+      checkDurations: Boolean = true): Unit = {
     for (t <- Seq(execs)) {
       assert(t.size == size, s"$extraText $t")
       assert(t.forall(_.isSupported == true), s"$extraText $t")
@@ -62,7 +66,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         assert(durations.diff(expectedDur).isEmpty,
           s"$extraText durations differ expected ${expectedDur.mkString(",")} " +
             s"but got ${durations.mkString(",")}")
-      } else {
+      } else if (checkDurations) {
         assert(t.forall(_.duration.isEmpty), s"$extraText $t")
       }
     }
@@ -679,7 +683,10 @@ class SQLPlanParserSuite extends BaseTestSuite {
       val broadcastNestedJoin = allExecInfo.filter(_.exec == "BroadcastNestedLoopJoin")
       assertSizeAndSupported(1, broadcastNestedJoin)
       val shj = allExecInfo.filter(_.exec == "ShuffledHashJoin")
-      assertSizeAndSupported(1, shj)
+      // sjh will get sql time metrics "time in aggregation build"
+      // but the UT might fail everytime due to the time difference.
+      // Therefore, we should disable the verification of the durations
+      assertSizeAndSupported(1, shj, checkDurations = false)
     }
   }
 
@@ -718,7 +725,10 @@ class SQLPlanParserSuite extends BaseTestSuite {
       val broadcastNestedJoin = allExecInfo.filter(_.exec == "BroadcastNestedLoopJoin")
       assertSizeAndNotSupported(1, broadcastNestedJoin)
       val shj = allExecInfo.filter(_.exec == "ShuffledHashJoin")
-       assertSizeAndNotSupported(1, shj)
+      // sjh will get sql time metrics "time in aggregation build"
+      // but the UT might fail everytime due to the time difference.
+      // Therefore, we should disable the verification of the durations
+       assertSizeAndNotSupported(1, shj, checkDurations = false)
     }
   }
 
@@ -786,7 +796,10 @@ class SQLPlanParserSuite extends BaseTestSuite {
       }
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val objectHashAggregate = execInfo.filter(_.exec == "ObjectHashAggregate")
-      assertSizeAndSupported(2, objectHashAggregate)
+      // OHA will get sql time metrics "time in aggregation build"
+      // but the UT might fail everytime due to the time difference.
+      // Therefore, we should disable the verification of the durations
+      assertSizeAndSupported(2, objectHashAggregate, checkDurations = false)
     }
   }
 

@@ -20,22 +20,22 @@ import com.nvidia.spark.rapids.tool.analysis.{ProfAppIndexMapperTrait, QualAppIn
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, SQLAccumProfileResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
-import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.{AppBase, UnsupportedMetricNameException}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 
 case class IoMetrics(
-    var buffer_time: Long,
-    var scan_time: Long,
-    var data_size: Long,
-    var decode_time: Long
+    var bufferTime: Long,
+    var scanTime: Long,
+    var dataSize: Long,
+    var decodeTime: Long
 )
 
-object Metrics {
-  val bufferTime = "buffer time"
-  val scanTime = "scan time"
-  val dataSize = "size of files read"
-  val decodeTime = "GPU decode time"
+object IoMetrics {
+  val BUFFER_TIME_LABEL = "buffer time"
+  val SCAN_TIME_LABEL = "scan time"
+  val DATA_SIZE_LABEL = "size of files read"
+  val DECODE_TIME_LABEL = "GPU decode time"
 }
 
 trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
@@ -43,12 +43,18 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
 
   private def getIoMetrics(sqlAccums: Seq[SQLAccumProfileResults]): IoMetrics = {
     val finalRes = IoMetrics(0, 0, 0, 0)
-    sqlAccums.map(accum => accum.name match {
-      case Metrics.bufferTime => finalRes.buffer_time = accum.total
-      case Metrics.scanTime => finalRes.scan_time = accum.total
-      case Metrics.dataSize => finalRes.data_size = accum.total
-      case Metrics.decodeTime => finalRes.decode_time = accum.total
-    })
+    try {
+      sqlAccums.map(accum => accum.name match {
+        case IoMetrics.BUFFER_TIME_LABEL => finalRes.bufferTime = accum.total
+        case IoMetrics.SCAN_TIME_LABEL => finalRes.scanTime = accum.total
+        case IoMetrics.DATA_SIZE_LABEL => finalRes.dataSize = accum.total
+        case IoMetrics.DECODE_TIME_LABEL => finalRes.decodeTime = accum.total
+        case _ => throw UnsupportedMetricNameException(accum.name)
+      })
+    } catch {
+      case e: Exception =>
+        logError(s"Error while processing DataSource metrics: ${e.getMessage}")
+    }
     finalRes
   }
 
@@ -68,10 +74,11 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
   def getRawView(app: AppBase, index: Int): Seq[DataSourceProfileResult] = {
     val appSqlAccums = getSQLAccums(app, index)
     // Filter appSqlAccums to get only required metrics
-    val dataSourceMetrics =
-      appSqlAccums.filter(sqlAccum => sqlAccum.name.contains(Metrics.bufferTime)
-      || sqlAccum.name.contains(Metrics.scanTime) || sqlAccum.name.contains(Metrics.decodeTime)
-      || sqlAccum.name.equals(Metrics.dataSize))
+    val dataSourceMetrics = appSqlAccums.filter(
+      sqlAccum => sqlAccum.name.contains(IoMetrics.BUFFER_TIME_LABEL)
+        || sqlAccum.name.contains(IoMetrics.SCAN_TIME_LABEL)
+        || sqlAccum.name.contains(IoMetrics.DECODE_TIME_LABEL)
+        || sqlAccum.name.equals(IoMetrics.DATA_SIZE_LABEL))
 
     app.dataSourceInfo.map { ds =>
       val sqlIdtoDs = dataSourceMetrics.filter(
@@ -79,8 +86,8 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
       if (sqlIdtoDs.nonEmpty) {
         val ioMetrics = getIoMetrics(sqlIdtoDs)
         DataSourceProfileResult(index, ds.sqlID, ds.nodeId,
-          ds.format, ioMetrics.buffer_time, ioMetrics.scan_time, ioMetrics.data_size,
-          ioMetrics.decode_time, ds.location, ds.pushedFilters, ds.schema)
+          ds.format, ioMetrics.bufferTime, ioMetrics.scanTime, ioMetrics.dataSize,
+          ioMetrics.decodeTime, ds.location, ds.pushedFilters, ds.schema)
       } else {
         DataSourceProfileResult(index, ds.sqlID, ds.nodeId,
           ds.format, 0, 0, 0, 0, ds.location, ds.pushedFilters, ds.schema)
