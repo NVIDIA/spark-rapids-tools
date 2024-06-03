@@ -495,9 +495,14 @@ class AutoTuner(
     // TODO - need to subtract DEF_SYSTEM_RESERVE_MB for non-container environments!
     // for now leave it out
     val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
-    if (clusterInfoEventLog.isDefined) {
+    val eventLogExecMemoryMB = if (clusterInfoEventLog.isDefined) {
+      val execInstance = clusterInfoEventLog.get.executorInstance
       clusterInfoEventLog.get.executorMemoryMB.getOrElse(0L).toDouble
+
     } else {
+      0.0
+    }
+    if (eventLogExecMemoryMB <= 0.0) {
       if (processPropsAndCheck) {
         val usableWorkerMem = Math.max(0, StringUtils.convertToMB(clusterProps.system.memory))
         // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
@@ -505,6 +510,8 @@ class AutoTuner(
       } else {
         0.0
       }
+    } else {
+      0.0
     }
   }
 
@@ -649,6 +656,25 @@ class AutoTuner(
     }
   }
 
+  private def calculateMemoryClusterLevelRecommendations(execCoresExpr: () => Int): Boolean = {
+    val availableMemPerExec = calcAvailableMemPerExec()
+    if (availableMemPerExec > 0) {
+      // TODO - if the CPU side memory is really small we may consider changing it for GPU
+      val availableMemPerExecExpr = () => availableMemPerExec
+      val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCoresExpr)
+      val executorHeapExpr = () => executorHeap
+      val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
+        calcOverallMemory(executorHeapExpr, execCoresExpr, availableMemPerExecExpr)
+      appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
+      addRecommendationForMemoryOverhead(s"$memoryOverhead")
+      appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
+      setMaxBytesInFlight
+    } else {
+      addDefaultMemoryComments()
+      false
+    }
+  }
+
   def calculateClusterLevelRecommendations(): Unit = {
     recommendExecutorInstances()
     val numExecutorCores = calcNumExecutorCores
@@ -659,15 +685,7 @@ class AutoTuner(
       calcTaskGPUAmount(execCoresExpr))
     appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
       calcGpuConcTasks().toInt)
-    val availableMemPerExec = calcAvailableMemPerExec()
-    val availableMemPerExecExpr = () => availableMemPerExec
-    val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCoresExpr)
-    val executorHeapExpr = () => executorHeap
-    val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
-      calcOverallMemory(executorHeapExpr, execCoresExpr, availableMemPerExecExpr)
-    appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
-    addRecommendationForMemoryOverhead(s"$memoryOverhead")
-    appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
+    val setMaxBytesInFlight = calculateMemoryClusterLevelRecommendations(execCoresExpr)
 
     // if on a CSP using blob store recommend more threads for certain sizes. This is based on
     // testing on customer jobs on Databricks
@@ -1099,6 +1117,15 @@ class AutoTuner(
     }
   }
 
+  private def addDefaultMemoryComments(): Unit = {
+    commentsForMissingMemoryProps.foreach {
+      case (key, value) =>
+        if (!skippedRecommendations.contains(key)) {
+          appendComment(value)
+        }
+    }
+  }
+
   private def toCommentProfileResult: Seq[RecommendedCommentResult] = {
     comments.map(RecommendedCommentResult).sortBy(_.comment)
   }
@@ -1247,22 +1274,25 @@ object AutoTuner extends Logging {
     "spark.app.id"
   )
 
-  val commentsForMissingProps: Map[String, String] = Map(
+  val commentsForMissingMemoryProps: Map[String, String] = Map(
     "spark.executor.memory" ->
       "'spark.executor.memory' should be set to at least 2GB/core.",
+    "spark.rapids.memory.pinnedPool.size" ->
+      s"'spark.rapids.memory.pinnedPool.size' should be set to ${DEF_PINNED_MEMORY_MB}m.",
+  )
+
+  val commentsForMissingProps: Map[String, String] = Map(
     "spark.executor.instances" ->
       "'spark.executor.instances' should be set to (gpuCount * numWorkers).",
     "spark.task.resource.gpu.amount" ->
       "'spark.task.resource.gpu.amount' should be set to Min(1, (gpuCount / numCores)).",
     "spark.rapids.sql.concurrentGpuTasks" ->
       s"'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).",
-    "spark.rapids.memory.pinnedPool.size" ->
-      s"'spark.rapids.memory.pinnedPool.size' should be set to ${DEF_PINNED_MEMORY_MB}m.",
     "spark.rapids.sql.enabled" ->
       "'spark.rapids.sql.enabled' should be true to enable SQL operations on the GPU.",
     "spark.sql.adaptive.enabled" ->
       "'spark.sql.adaptive.enabled' should be enabled for better performance."
-  )
+  ) ++ commentsForMissingMemoryProps
 
   val recommendationsTarget: Seq[String] = Seq[String](
     "spark.executor.instances",
