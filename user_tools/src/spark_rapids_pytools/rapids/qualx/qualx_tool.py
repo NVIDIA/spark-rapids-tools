@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Implementation class representing wrapper around the RAPIDS acceleration Prediction tool."""
+"""Base class representing wrapper around the QualX tool."""
 
 import os
-
 from dataclasses import dataclass
 
-from spark_rapids_tools.tools.model_xgboost import predict, _print_summary, _print_speedup_summary
 from spark_rapids_pytools.cloud_api.sp_types import get_platform
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
@@ -27,15 +25,11 @@ from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
 @dataclass
-class Prediction(RapidsTool):
+class QualXTool(RapidsTool):
     """
-    Wrapper layer around Prediction Tool.
+    Base class for QualX tool. This class overrides methods from RapidsTool that are not
+    applicable to the QualX tool.
     """
-    qual_output: str = None
-    prof_output: str = None
-
-    name = 'prediction'
-
     def _check_environment(self):
         pass
 
@@ -43,7 +37,10 @@ class Prediction(RapidsTool):
         pass
 
     def _init_ctxt(self):
-        # reuse qualification configs for its predictionModel section
+        """
+        Initialize the tool context, reusing qualification configurations.
+        TODO: We should use qualx_conf.yaml instead of qualification-conf.yaml
+        """
         self.config_path = Utils.resource_path('qualification-conf.yaml')
         self.ctxt = ToolContext(platform_cls=get_platform(self.platform_type),
                                 platform_opts=self.wrapper_options.get('platformOpts'),
@@ -51,6 +48,9 @@ class Prediction(RapidsTool):
                                 name=self.name)
 
     def _process_output_args(self):
+        """
+        Sets the `output_folder`, ensures its creation, and updates the context with the folder path.
+        """
         self.logger.debug('Processing Output Arguments')
         if self.output_folder is None:
             self.output_folder = os.getcwd()
@@ -61,27 +61,6 @@ class Prediction(RapidsTool):
         FSUtil.make_dirs(self.output_folder, exist_ok=False)
         self.ctxt.set_local('outputFolder', self.output_folder)
         self.logger.info('Local output folder is set as: %s', self.output_folder)
-
-    def prepare_prediction_output_info(self):
-        # build the full output path for the predictions output files
-        predictions_info = self.ctxt.get_value('local', 'output', 'predictionModel')
-        output_dir = FSUtil.build_path(self.ctxt.get_output_folder(), predictions_info['outputDirectory'])
-        FSUtil.make_dirs(output_dir)
-
-        files_info = predictions_info['files']
-        # update files_info dictionary with full file paths
-        for entry in files_info:
-            file_name = files_info[entry]['name']
-            file_path = FSUtil.build_path(output_dir, file_name)
-            files_info[entry]['path'] = file_path
-        return files_info
-
-    def _run_rapids_tool(self):
-        output_info = self.prepare_prediction_output_info()
-        df = predict(self.platform_type.map_to_java_arg(), self.qual_output, self.prof_output, output_info)
-        _print_summary(df)
-        _print_speedup_summary(df)
-        df.to_csv(f'{self.output_folder}/prediction.csv', float_format='%.2f')
 
     def _collect_result(self):
         pass
