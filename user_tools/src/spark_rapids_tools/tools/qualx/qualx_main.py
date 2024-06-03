@@ -385,10 +385,8 @@ def predict(
     platform: str,
     output_info: dict,
     *,
-    eventlogs: Optional[str] = None,
     profile: Optional[str] = None,
     qual: Optional[str] = None,
-    input_dir: Optional[str] = None,
     preprocessed: Optional[str] = None,
     model: Optional[str] = None,
     qualtool_filter: Optional[str] = 'stage',
@@ -402,9 +400,7 @@ def predict(
     compared against actual performance.
 
     For predictions with filtering of unsupported operators, the input data should be specified by
-    one of the following:
-    - `--eventlogs`: this will run the profiler and qualification tools on the eventlogs to generate
-        the necessary CSV files for prediction.
+    the following:
     - `--profile` and `--qual`: predict on existing profiler (and qualification tool) CSV output.
         If `--qual` is provided, this will output predictions with stage filtering of unsupported operators.
         If `--qual` is not provided, this will output the raw predictions from the XGBoost model.
@@ -414,9 +410,6 @@ def predict(
         If `--qual` is provided, this will return adjusted predictions with filtering, along with the
         predictions from the qualification tool.  This is primarily used for evaulating models, since
         the preprocessed data includes GPU runs and labels.
-    - `--input_dir`: predict on the profiler and qualification tool outputs generated and stored in
-        the `--output_dir` of a prior run of `qualx predict --eventlogs`.  This is primarily used
-        during development of qualx to avoid the need to re-run the profiler and qualification tools.
 
     Parameters
     ----------
@@ -426,8 +419,6 @@ def predict(
     model: str
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
-    eventlogs: str
-        Path to a single event log, or a directory containing multiple event logs.
     profile: str
         Path to a directory containing one or more profiler outputs.
     qual: str
@@ -436,9 +427,6 @@ def predict(
         fully supported sqlIDs or heuristically to fully supported stages.
     preprocessed: str
         Path to a directory containing one or more preprocessed datasets in parquet format.
-    input_dir: str
-        Path to the a directory containing both profiler and qualtool outputs, i.e. the `--output_dir`
-        of a prior `qualx predict --eventlogs` run.
     qualtool_filter: str
         Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages, based on qualtool
         output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
@@ -446,8 +434,8 @@ def predict(
         Dictionary containing paths to save predictions as CSV files.
     """
     assert (
-        eventlogs or profile or preprocessed or input_dir
-    ), 'One of the following arguments is required: --eventlog, --profile, --preprocessed, or --input_dir.'
+        profile or preprocessed
+    ), 'One of the following arguments is required: --profile, --preprocessed'
 
     xgb_model = _get_model(platform, model)
     node_level_supp, _, _ = _get_qual_data(qual)
