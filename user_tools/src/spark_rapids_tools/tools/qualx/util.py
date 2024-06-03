@@ -11,8 +11,9 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timezone
 from pathlib import Path
+from tabulate import tabulate
 
-
+INTERMEDIATE_DATA_ENABLED = False
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 
@@ -251,3 +252,44 @@ def run_commands(commands: list[str], workers: int = 8):
             except Exception as e:
                 logger.error(f'Command failed: {command}')
                 logger.error(e)
+
+
+def print_summary(summary):
+    # print summary as formatted table
+    display_cols = {
+        # qualx
+        'appName': 'App Name',
+        'appId': 'App ID',
+        'appDuration': 'App Duration',
+        'Duration': 'SQL Duration',
+        'Duration_supported': 'Estimated Supported\nSQL Duration',
+        'Duration_pred': 'Estimated GPU\nSQL Duration',
+        'appDuration_pred': 'Estimated GPU\nApp Duration',
+        'fraction_supported': 'Estimated Supported\nSQL Duration Fraction',
+        'speedup': 'Estimated GPU\nSpeedup',
+        # actual
+        'gpuDuration': 'Actual GPU\nSQL Duration',
+        'appDuration_actual': 'Actual GPU\nApp Duration',
+        'speedup_actual': 'Actual GPU\nSpeedup',
+        # qual
+        'Estimated GPU Speedup': 'Estimated Qualtool\nGPU Speedup',
+    }
+    col_map = {k: v for k, v in display_cols.items() if k in summary.columns}
+    formatted = summary[col_map.keys()].rename(col_map, axis=1)
+    print(tabulate(formatted, headers='keys', tablefmt='psql', floatfmt='.2f'))
+
+
+def print_speedup_summary(dataset_summary: pd.DataFrame):
+    overall_speedup = (
+            dataset_summary["appDuration"].sum()
+            / dataset_summary["appDuration_pred"].sum()
+    )
+    total_applications = dataset_summary.shape[0]
+    summary = {
+        "Total applications": total_applications,
+        "Overall estimated speedup": overall_speedup,
+    }
+    summary_df = pd.DataFrame(summary, index=[0]).transpose()
+    print("\nReport Summary:")
+    print(tabulate(summary_df, colalign=("left", "right")))
+    print()
