@@ -483,7 +483,8 @@ class AutoTuner(
   private def calcAvailableMemPerExec(): Double = {
     // account for system overhead
     // TODO - need to subtract DEF_SYSTEM_RESERVE_MB for non-container environments!
-    // for now leave it out
+    // This is likely just applicable in onprem standalone setups.
+    // for now leave it out since it messes with settings on Databricks.
     val usableWorkerMem = Math.max(0, StringUtils.convertToMB(clusterProps.system.memory))
     // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
     (1.0 * usableWorkerMem) / clusterProps.gpu.getCount
@@ -510,13 +511,15 @@ class AutoTuner(
       containerMemCalculator: () => Double): (Long, Long, Long, Boolean) = {
     val numExecutorCores = numExecCoresCalculator()
     val executorHeap = execHeapCalculator()
-    val containerMem =  containerMemCalculator.apply()
+    val containerMem = containerMemCalculator.apply()
     var setMaxBytesInFlight = false
     // reserve 10% of heap as memory overhead
     var executorMemOverhead = (executorHeap * DEF_HEAP_OVERHEAD_FRACTION).toLong
     executorMemOverhead += DEF_PAGEABLE_POOL_MB
     val containerMemLeftOverOffHeap = containerMem - executorHeap
     val minOverhead = executorMemOverhead + (MIN_PINNED_MEMORY_MB + MIN_SPILL_MEMORY_MB)
+    logDebug("containerMem " + containerMem + " executorHeap: " + executorHeap +
+      " executorMemOverhead: " + executorMemOverhead + " minOverhead " + minOverhead)
     if (containerMemLeftOverOffHeap >= minOverhead) {
       // this is hopefully path in the majority of cases because CSPs generally have a good
       // memory to core ratio
@@ -548,6 +551,9 @@ class AutoTuner(
       // first calculate what we think min overhead is and make sure we have enough
       // for that
       if ((containerMem - minOverhead) < (MIN_HEAP_PER_CORE_MB * numExecutorCores)) {
+        // For now just throw so we don't get any tunings and its obvious to user this isn't a good
+        // setup. In the future we may just recommend them to use larger nodes. This would be more
+        // ideal once we hook up actual executor heap from an eventlog vs what user passes in.
         throwNotEnoughMemException()
         (0, 0, 0, false)
       } else {
@@ -664,7 +670,6 @@ class AutoTuner(
       appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", 28)
     } else {
       val numThreads = (numExecutorCores * 1.5).toLong
-      logWarning("numThread is: " + numThreads)
       appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", numThreads.toInt)
       appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numThreads.toInt)
     }
