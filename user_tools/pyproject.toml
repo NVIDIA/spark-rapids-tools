@@ -49,13 +49,7 @@ dependencies = [
     # used for model interpretability
     "shap==0.44.1",
     # used for retrieving available memory on the host
-    "psutil==5.9.8",
-    # TODO: Do we need specific version?
-    "holoviews",
-    "matplotlib",
-    "optuna",
-    "optuna-integration",
-    "seaborn",
+    "psutil==5.9.8"
 ]
 dynamic=["entry-points", "version"]
 
@@ -76,4 +70,11 @@ repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
 [project.optional-dependencies]
 test = [
     "tox", 'pytest', 'cli_test_helpers'
+]
+qualx = [
+    "holoviews",
+    "matplotlib",
+    "optuna",
+    "optuna-integration",
+    "seaborn"
 ]
