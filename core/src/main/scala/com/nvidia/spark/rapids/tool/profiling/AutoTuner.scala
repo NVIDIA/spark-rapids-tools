@@ -660,9 +660,8 @@ class AutoTuner(
     // testing on customer jobs on Databricks
     // didn't test with > 16 thread so leave those as numExecutorCores
     if (numExecutorCores < 4) {
-      appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", numExecutorCores)
-      appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numExecutorCores)
-    } else if (numExecutorCores >= 4 && numExecutorCores < 16 && platform.isPlatformCSP) {
+      // leave as defaults - should we reduce less then default of 20? need more testing
+    } else if (numExecutorCores >= 4 && numExecutorCores < 16) {
       appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", 20)
       appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", 20)
     } else if (numExecutorCores >= 16 && numExecutorCores < 20 && platform.isPlatformCSP) {
