@@ -245,7 +245,6 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |  path to the Spark RAPIDS plugin jar.
           |  If the Spark RAPIDS jar is being bundled with your Spark
           |  distribution, this step is not needed.
-          |- java.io.FileNotFoundException: File non-existing.yaml does not exist
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
