@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import java.io.{BufferedReader, InputStreamReader}
+import java.io.{BufferedReader, FileNotFoundException, InputStreamReader}
 
 import scala.beans.BeanProperty
 import scala.collection.{mutable, Seq}
@@ -1215,7 +1215,14 @@ object AutoTuner extends Logging {
       val reader = new BufferedReader(new InputStreamReader(fsIs))
       val fileContent = Stream.continually(reader.readLine()).takeWhile(_ != null).mkString("\n")
       loadClusterPropertiesFromContent(fileContent)
-    } finally {
+    }
+    catch {
+      case _: FileNotFoundException =>
+        logWarning("No yaml found for input path")
+        None
+      case e: Exception => throw e
+    }
+    finally {
       if (fsIs != null) {
         fsIs.close()
       }
