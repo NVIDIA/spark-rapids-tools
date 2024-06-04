@@ -1,15 +1,32 @@
+# Copyright (c) 2024, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import Callable, List, Tuple
 import numpy as np
-import optuna
 import pandas as pd
 import random
 import shap
 import xgboost as xgb
-from preprocess import expected_raw_features
-from util import get_logger
+from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
+from spark_rapids_tools.tools.qualx.util import get_logger
 from tabulate import tabulate
 from xgboost import XGBModel
-
+# Import optional packages
+try:
+    import optuna
+except ImportError:
+    optuna = None
 
 logger = get_logger(__name__)
 
@@ -105,6 +122,7 @@ def predict(
     cpu_aug_tbl: pd.DataFrame,
     feature_cols: List[str],
     label_col: str,
+    output_info: dict
 ) -> pd.DataFrame:
     """Use model to predict on feature data."""
     model_features = xgb_model.feature_names
@@ -121,6 +139,10 @@ def predict(
 
     dmat = xgb.DMatrix(X, y)
     y_pred = xgb_model.predict(dmat)
+
+    # compute SHAPley values for the model
+    shap_values_output_file = output_info['shapValues']['path']
+    compute_shapley_values(xgb_model, X, feature_cols, shap_values_output_file)
 
     if LOG_LABEL:
         y_pred = np.exp(y_pred)
@@ -403,3 +425,24 @@ def tune_hyperparameters(X, y, n_trials: int = 200) -> dict:
     optuna_search.fit(X, y)
 
     return optuna_search.best_params_
+
+
+def compute_shapley_values(
+        xgb_model: xgb.Booster,
+        x_dim: pd.DataFrame,
+        feature_cols: List[str],
+        output_file: str):
+    """
+    Compute SHAPley values for the model.
+    """
+    pd.set_option('display.max_rows', None)
+    explainer = shap.TreeExplainer(xgb_model)
+    shap_values = explainer.shap_values(x_dim)
+    shap_vals = np.abs(shap_values).mean(axis=0)
+    feature_importance = pd.DataFrame(
+        list(zip(feature_cols, shap_vals)), columns=['feature', 'shap_value']
+    )
+    feature_importance.sort_values(by=['shap_value'], ascending=False, inplace=True)
+    logger.info('Writing SHAPley values to: %s', output_file)
+    feature_importance.to_csv(output_file, index=False)
+    logger.info('Feature importance (SHAPley values)\n %s', feature_importance)

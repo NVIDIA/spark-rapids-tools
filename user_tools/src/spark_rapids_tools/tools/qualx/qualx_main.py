@@ -1,3 +1,17 @@
+# Copyright (c) 2024, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import Callable, Optional
 import glob
 import json
@@ -8,31 +22,36 @@ import traceback
 import xgboost as xgb
 from importlib_resources import files as package_files
 from pathlib import Path
-from preprocess import (
+from spark_rapids_tools.tools.qualx.preprocess import (
     load_datasets,
     load_profiles,
     load_qtool_execs,
     load_qual_csv,
     PREPROCESSED_FILE,
+    ScanTblError
 )
-from model import (
+from spark_rapids_tools.tools.qualx.model import (
     extract_model_features,
     compute_feature_importance,
     split_nds,
     split_all_test,
 )
-from model import train as train_model, predict as predict_model
-from util import (
+from spark_rapids_tools.tools.qualx.model import train as train_model, predict as predict_model
+from spark_rapids_tools.tools.qualx.util import (
     compute_accuracy,
     ensure_directory,
     find_paths,
     get_cache_dir,
     get_logger,
     get_dataset_platforms,
+    print_summary,
+    print_speedup_summary,
     run_profiler_tool,
     run_qualification_tool,
     RegexPattern,
+    INTERMEDIATE_DATA_ENABLED
 )
+from spark_rapids_pytools.common.utilities import Utils
 from tabulate import tabulate
 from xgboost.core import XGBoostError
 
@@ -42,7 +61,7 @@ logger = get_logger(__name__)
 def _get_model(platform: str, model: Optional[str]):
     if not model:
         # try pre-trained model for platform
-        model_path = Path(package_files('qualx').joinpath(f'models/{platform}.json'))
+        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
         if not model_path.exists():
             raise ValueError(
                 f'Platform {platform} does not have a pre-trained model, please specify --model or choose another '
@@ -50,7 +69,7 @@ def _get_model(platform: str, model: Optional[str]):
             )
     else:
         # try pre-trained model first
-        model_path = Path(package_files('qualx').joinpath(f'models/{model}.json'))
+        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
         if not model_path.exists():
             model_path = model
 
@@ -153,31 +172,6 @@ def _compute_summary(results):
     cols = [col for col in long_cols if col in summary.columns]
     summary[cols] = summary[cols].fillna(-1).astype('long')
     return summary
-
-
-def _print_summary(summary):
-    # print summary as formatted table
-    display_cols = {
-        # qualx
-        'appName': 'App Name',
-        'appId': 'App ID',
-        'appDuration': 'App Duration',
-        'Duration': 'SQL Duration',
-        'Duration_supported': 'Estimated Supported\nSQL Duration',
-        'Duration_pred': 'Estimated GPU\nSQL Duration',
-        'appDuration_pred': 'Estimated GPU\nApp Duration',
-        'fraction_supported': 'Estimated Supported\nSQL Duration Fraction',
-        'speedup': 'Estimated GPU\nSpeedup',
-        # actual
-        'gpuDuration': 'Actual GPU\nSQL Duration',
-        'appDuration_actual': 'Actual GPU\nApp Duration',
-        'speedup_actual': 'Actual GPU\nSpeedup',
-        # qual
-        'Estimated GPU Speedup': 'Estimated Qualtool\nGPU Speedup',
-    }
-    col_map = {k: v for k, v in display_cols.items() if k in summary.columns}
-    formatted = summary[col_map.keys()].rename(col_map, axis=1)
-    print(tabulate(formatted, headers='keys', tablefmt='psql', floatfmt='.2f'))
 
 
 def _predict(
@@ -403,16 +397,14 @@ def train(
 
 def predict(
     platform: str,
-    output_dir: str,
+    output_info: dict,
     *,
-    eventlogs: Optional[str] = None,
     profile: Optional[str] = None,
     qual: Optional[str] = None,
-    input_dir: Optional[str] = None,
     preprocessed: Optional[str] = None,
     model: Optional[str] = None,
     qualtool_filter: Optional[str] = 'stage',
-):
+) -> pd.DataFrame:
     """Predict GPU speedup given CPU logs.
 
     Predict the speedup of running a Spark application with Spark-RAPIDS on GPUs (vs. CPUs).
@@ -422,9 +414,7 @@ def predict(
     compared against actual performance.
 
     For predictions with filtering of unsupported operators, the input data should be specified by
-    one of the following:
-    - `--eventlogs`: this will run the profiler and qualification tools on the eventlogs to generate
-        the necessary CSV files for prediction.
+    the following:
     - `--profile` and `--qual`: predict on existing profiler (and qualification tool) CSV output.
         If `--qual` is provided, this will output predictions with stage filtering of unsupported operators.
         If `--qual` is not provided, this will output the raw predictions from the XGBoost model.
@@ -434,9 +424,6 @@ def predict(
         If `--qual` is provided, this will return adjusted predictions with filtering, along with the
         predictions from the qualification tool.  This is primarily used for evaulating models, since
         the preprocessed data includes GPU runs and labels.
-    - `--input_dir`: predict on the profiler and qualification tool outputs generated and stored in
-        the `--output_dir` of a prior run of `qualx predict --eventlogs`.  This is primarily used
-        during development of qualx to avoid the need to re-run the profiler and qualification tools.
 
     Parameters
     ----------
@@ -446,8 +433,6 @@ def predict(
     model: str
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
-    eventlogs: str
-        Path to a single event log, or a directory containing multiple event logs.
     profile: str
         Path to a directory containing one or more profiler outputs.
     qual: str
@@ -456,42 +441,18 @@ def predict(
         fully supported sqlIDs or heuristically to fully supported stages.
     preprocessed: str
         Path to a directory containing one or more preprocessed datasets in parquet format.
-    input_dir: str
-        Path to the a directory containing both profiler and qualtool outputs, i.e. the `--output_dir`
-        of a prior `qualx predict --eventlogs` run.
     qualtool_filter: str
         Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages, based on qualtool
         output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
-    output_dir:
-        Path to save predictions as CSV files.
+    output_info: dict
+        Dictionary containing paths to save predictions as CSV files.
     """
     assert (
-        eventlogs or profile or preprocessed or input_dir
-    ), 'One of the following arguments is required: --eventlog, --profile, --preprocessed, or --input_dir.'
+        profile or preprocessed
+    ), 'One of the following arguments is required: --profile, --preprocessed'
 
-    ensure_directory(output_dir)
     xgb_model = _get_model(platform, model)
-
-    # handle different input types
-    if input_dir:
-        profile = input_dir
-        qual = input_dir
-    elif eventlogs:
-        # run profiler tool on eventlogs
-        if not profile:
-            run_profiler_tool(platform, eventlogs, output_dir)
-            profile = output_dir
-        else:
-            logger.info(f'Using existing profiler output: {profile}')
-
-        # run qualifier tool on eventlogs
-        if not qual:
-            run_qualification_tool(platform, eventlogs, output_dir)
-            qual = output_dir
-        else:
-            logger.info(f'Using existing qualification tool output: {qual}')
-
-    node_level_supp, qual_preds, _ = _get_qual_data(qual)
+    node_level_supp, _, _ = _get_qual_data(qual)
 
     # preprocess profiles
     if profile:
@@ -500,13 +461,12 @@ def predict(
             lambda x: RegexPattern.rapidsProfile.match(x),
             return_directories=True,
         )
-        # use parent directory of `rapids_4_spark_profile`
-        profile_list = [Path(p).parent for p in profile_list]
         processed_dfs = {}
         for prof in profile_list:
             datasets = {}
-            # add profiles
-            dataset_name = Path(prof).name
+            # add profiles to datasets
+            # use parent directory of `rapids_4_spark_profile`
+            dataset_name = Path(prof).parent.name
             datasets[dataset_name] = {
                 'profiles': [prof],
                 'app_meta': {},
@@ -520,8 +480,6 @@ def predict(
             if len(appIds) == 0:
                 logger.warn(f'Skipping empty profile: {prof}')
             else:
-                from preprocess import ScanTblError
-
                 try:
                     for appId in appIds:
                         # create dummy app_meta, assuming CPU and scale factor of 1 (for inference)
@@ -564,31 +522,29 @@ def predict(
             features, feature_cols, label_col = extract_model_features(input_df)
             # note: dataset name is already stored in the 'appName' field
             try:
-                results = predict_model(xgb_model, features, feature_cols, label_col)
+                results = predict_model(xgb_model, features, feature_cols, label_col, output_info)
 
                 # compute per-app speedups
                 # _compute_summary takes only one arg
                 # summary = _compute_summary(results, qual_preds)
                 summary = _compute_summary(results)
                 dataset_summaries.append(summary)
-                _print_summary(summary)
+                if INTERMEDIATE_DATA_ENABLED:
+                    print_summary(summary)
 
                 # compute speedup for the entire dataset
                 dataset_speedup = (
                     summary['appDuration'].sum() / summary['appDuration_pred'].sum()
                 )
-                print(f'Dataset estimated speedup: {dataset_speedup:.2f}')
+                if INTERMEDIATE_DATA_ENABLED:
+                    print(f'Dataset estimated speedup: {dataset_speedup:.2f}')
 
                 # write CSV reports
-                sql_predictions_path = os.path.join(
-                    output_dir, f'{dataset_name}_sql.csv'
-                )
-                logger.info(f'Writing per-SQL predictions to: {sql_predictions_path}')
+                sql_predictions_path = output_info['perSql']['path']
+                logger.info(f"Writing per-SQL predictions to: {sql_predictions_path}")
                 results.to_csv(sql_predictions_path, index=False)
 
-                app_predictions_path = os.path.join(
-                    output_dir, f'{dataset_name}_app.csv'
-                )
+                app_predictions_path = output_info['perApp']['path']
                 logger.info(
                     f'Writing per-application predictions to: {app_predictions_path}'
                 )
@@ -607,20 +563,10 @@ def predict(
     if dataset_summaries:
         # show summary stats across all datasets
         dataset_summary = pd.concat(dataset_summaries)
-        overall_speedup = (
-            dataset_summary['appDuration'].sum()
-            / dataset_summary['appDuration_pred'].sum()
-        )
-        total_applications = dataset_summary.shape[0]
-        summary = {
-            'Total applications': total_applications,
-            'Overall estimated speedup': overall_speedup,
-        }
-        summary_df = pd.DataFrame(summary, index=[0]).transpose()
-        print('\nReport Summary:')
-        print(tabulate(summary_df, colalign=('left', 'right')))
-        print()
-    return
+        if INTERMEDIATE_DATA_ENABLED:
+            print_speedup_summary(dataset_summary)
+        return dataset_summary
+    return pd.DataFrame()
 
 
 def evaluate(
