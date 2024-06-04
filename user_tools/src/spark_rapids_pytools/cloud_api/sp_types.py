@@ -689,6 +689,8 @@ class PlatformBase:
                     # this is a file
                     env_var_val = FSUtil.expand_path(env_var_val)
                 self.ctxt.update({prop_key: env_var_val})
+                self.logger.warning('Property %s is not set. Setting default value %s'
+                                    ' from environment variable', prop_key, env_var_val)
                 break
 
     def _set_initial_configuration_list(self) -> None:
@@ -727,10 +729,14 @@ class PlatformBase:
                                                         sectionKey=self.ctxt.get(config_file_section[config_file]))
                 if loaded_conf_dict:
                     self.ctxt.update(loaded_conf_dict)
-            for prop_elem in properties_map_arr:
-                if loaded_conf_dict and prop_elem.get('propKey') not in loaded_conf_dict:
-                    # set it using environment variable if possible
-                    self._set_env_prop_from_env_var(prop_elem.get('propKey'))
+            # If the property key is not already set, below code attempts to set the property
+            # using an environment variable. This is a fallback mechanism to populate configuration
+            # properties from the environment if they are not already set in the
+            # loaded configuration.
+            for prop_entry in properties_map_arr:
+                prop_entry_key = prop_entry.get('propKey')
+                # set it using environment variable if possible
+                self._set_env_prop_from_env_var(prop_entry_key)
 
     def _set_credential_properties(self) -> None:
         properties_map_arr = self._get_config_environment('cliConfig',

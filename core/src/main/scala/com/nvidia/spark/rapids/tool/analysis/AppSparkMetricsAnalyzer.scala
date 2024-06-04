@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStageAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult}
 
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 import org.apache.spark.sql.rapids.tool.store.TaskModel
@@ -47,14 +47,14 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   // Hashmap to cache the stage level metrics. It is initialized to None just in case the caller
   // does not call methods in order starting with stage level metrics.
   private var stageLevelCache:
-    Option[mutable.LinkedHashMap[Int, JobStageAggTaskMetricsProfileResult]] = None
+    Option[mutable.LinkedHashMap[Int, StageAggTaskMetricsProfileResult]] = None
 
   // Getter method used to protect the cache from out-of-order calls.
   // If the stage-level metrics are not generated yet, generates and add them to the cache
   private def stageLevelSparkMetrics(
-      index: Int): mutable.LinkedHashMap[Int, JobStageAggTaskMetricsProfileResult] = {
+      index: Int): mutable.LinkedHashMap[Int, StageAggTaskMetricsProfileResult] = {
     if (stageLevelCache.isEmpty) {
-      stageLevelCache = Some(mutable.LinkedHashMap[Int, JobStageAggTaskMetricsProfileResult]())
+      stageLevelCache = Some(mutable.LinkedHashMap[Int, StageAggTaskMetricsProfileResult]())
       aggregateSparkMetricsByStageInternal(index)
     }
     stageLevelCache.get
@@ -63,18 +63,18 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   /**
    *  Aggregate the SparkMetrics by stage
    * @param index the App-index (used by the profiler tool)
-   * @return sequence of JobStageAggTaskMetricsProfileResult that contains only Stage Ids
+   * @return sequence of StageAggTaskMetricsProfileResult that contains only Stage Ids
    */
-  def aggregateSparkMetricsByStage(index: Int): Seq[JobStageAggTaskMetricsProfileResult] = {
+  def aggregateSparkMetricsByStage(index: Int): Seq[StageAggTaskMetricsProfileResult] = {
     stageLevelSparkMetrics(index).values.toSeq
   }
 
   /**
    * Aggregate the SparkMetrics by Job
    * @param index the App-index (used by the profiler tool)
-   * @return sequence of JobStageAggTaskMetricsProfileResult that contains only Job Ids
+   * @return sequence of JobAggTaskMetricsProfileResult that contains only Job Ids
    */
-  def aggregateSparkMetricsByJob(index: Int): Seq[JobStageAggTaskMetricsProfileResult] = {
+  def aggregateSparkMetricsByJob(index: Int): Seq[JobAggTaskMetricsProfileResult] = {
     val jobRows = app.jobIdToInfo.flatMap { case (id, jc) =>
       if (jc.stageIds.isEmpty) {
         None
@@ -92,8 +92,8 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
           val durMin =
             AppSparkMetricsAnalyzer.minWithEmptyHandling(profResultsInJob.map(_.durationMin))
           val durAvg = ToolUtils.calculateAverage(durSum, tasksInJob, 1)
-          Some(JobStageAggTaskMetricsProfileResult(index,
-            s"job_$id",
+          Some(JobAggTaskMetricsProfileResult(index,
+            id,
             tasksInJob,
             jc.duration,
             profResultsInJob.map(_.diskBytesSpilledSum).sum,
@@ -330,9 +330,9 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       // count duplicate task attempts
       val numAttempts = tasksInStage.size
       val (durSum, durMax, durMin, durAvg) = AppSparkMetricsAnalyzer.getDurations(tasksInStage)
-      val stageRow = JobStageAggTaskMetricsProfileResult(index,
-        s"stage_${sm.sId}",
-        numAttempts,
+      val stageRow = StageAggTaskMetricsProfileResult(index,
+        sm.sId,
+        numAttempts,  // TODO: why is this numAttempts and not numTasks?
         sm.duration,
         tasksInStage.map(_.diskBytesSpilled).sum,
         durSum,

@@ -64,14 +64,26 @@ object QualRawReportGenerator {
       appIndex: Int = 1): Seq[DataSourceProfileResult] = {
     val metricsDirectory = s"$rootDir/raw_metrics/${app.appId}"
     val sqlPlanAnalyzer = AppSQLPlanAnalyzer(app, appIndex)
-    val dsInfo = sqlPlanAnalyzer.getDataSourceInfo(app)
+    val dataSourceInfo = QualDataSourceView.getRawView(Seq(app))
     val pWriter =
       new ProfileOutputWriter(metricsDirectory, "profile", 10000000, outputCSV = true)
     try {
       pWriter.writeText("### A. Information Collected ###")
+      pWriter.write(QualInformationView.getLabel, QualInformationView.getRawView(Seq(app)))
+      pWriter.write(QualLogPathView.getLabel, QualLogPathView.getRawView(Seq(app)))
+      pWriter.write(QualDataSourceView.getLabel, dataSourceInfo)
       pWriter.write(QualExecutorView.getLabel, QualExecutorView.getRawView(Seq(app)))
       pWriter.write(QualAppJobView.getLabel, QualAppJobView.getRawView(Seq(app)))
       generateSQLProcessingView(pWriter, sqlPlanAnalyzer)
+      pWriter.write(RapidsQualPropertiesView.getLabel,
+        RapidsQualPropertiesView.getRawView(Seq(app)),
+        Some(RapidsQualPropertiesView.getDescription))
+      pWriter.write(SparkQualPropertiesView.getLabel,
+        SparkQualPropertiesView.getRawView(Seq(app)),
+        Some(SparkQualPropertiesView.getDescription))
+      pWriter.write(SystemQualPropertiesView.getLabel,
+        SystemQualPropertiesView.getRawView(Seq(app)),
+        Some(SystemQualPropertiesView.getDescription))
       pWriter.writeText("\n### B. Analysis ###\n")
       constructLabelsMaps(
         QualSparkMetricsAnalyzer.getAggRawMetrics(app, appIndex)).foreach { case (label, metrics) =>
@@ -91,6 +103,6 @@ object QualRawReportGenerator {
     } finally {
       pWriter.close()
     }
-    dsInfo
+    dataSourceInfo
   }
 }

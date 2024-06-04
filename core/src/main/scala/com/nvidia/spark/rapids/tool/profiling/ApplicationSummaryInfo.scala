@@ -26,7 +26,8 @@ case class ApplicationSummaryInfo(
     rapidsProps: Seq[RapidsPropertyProfileResult],
     rapidsJar: Seq[RapidsJarProfileResult],
     sqlMetrics: Seq[SQLAccumProfileResults],
-    jsMetAgg: Seq[JobStageAggTaskMetricsProfileResult],
+    jobAggMetrics: Seq[JobAggTaskMetricsProfileResult],
+    stageAggMetrics: Seq[StageAggTaskMetricsProfileResult],
     sqlTaskAggMetrics: Seq[SQLTaskAggMetricsProfileResult],
     durAndCpuMet: Seq[SQLDurationExecutorTimeProfileResult],
     skewInfo: Seq[ShuffleSkewProfileResult],
@@ -42,7 +43,8 @@ case class ApplicationSummaryInfo(
     maxTaskInputBytesRead: Seq[SQLMaxTaskInputSizes],
     appLogPath: Seq[AppLogPathProfileResults],
     ioMetrics: Seq[IOAnalysisProfileResult],
-    sysProps: Seq[RapidsPropertyProfileResult])
+    sysProps: Seq[RapidsPropertyProfileResult],
+    sqlCleanedAlignedIds: Seq[SQLCleanAndAlignIdsProfileResult])
 
 trait AppInfoPropertyGetter {
   // returns all the properties (i.e., spark)
@@ -138,10 +140,9 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   // its ok to add disk bytes spilled with memory bytes spilled. This
   // is not correct if its a CPU event log.
   override def getShuffleStagesWithPosSpilling: Set[Long] = {
-    app.jsMetAgg.collect { case row if (row.id.contains("stage") &&
-      row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&
-      row.diskBytesSpilledSum + row.memoryBytesSpilledSum > 0) =>
-        row.id.split("_")(1).toLong
+    app.stageAggMetrics.collect { case row
+      if row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&
+      row.diskBytesSpilledSum + row.memoryBytesSpilledSum > 0 => row.id
     }.toSet
   }
 

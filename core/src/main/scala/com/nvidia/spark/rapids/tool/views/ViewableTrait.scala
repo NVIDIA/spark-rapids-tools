@@ -19,9 +19,10 @@ package com.nvidia.spark.rapids.tool.views
 import com.nvidia.spark.rapids.tool.analysis.AppIndexMapperTrait
 import com.nvidia.spark.rapids.tool.profiling.ProfileResult
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppBase
 
-trait ViewableTrait[R <: ProfileResult] extends AppIndexMapperTrait {
+trait ViewableTrait[R <: ProfileResult] extends AppIndexMapperTrait with Logging {
   def getLabel: String
   def getDescription: String = ""
 

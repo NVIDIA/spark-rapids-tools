@@ -72,9 +72,8 @@ class DataprocPlatform(PlatformBase):
                     self.ctxt.update({prop_entry_key: prop_cmd_res})
             for prop_entry in properties_map_arr:
                 prop_entry_key = prop_entry.get('propKey')
-                if self.ctxt.get(prop_entry_key) is None:
-                    # set it using environment variable if possible
-                    self._set_env_prop_from_env_var(prop_entry_key)
+                # set it using environment variable if possible
+                self._set_env_prop_from_env_var(prop_entry_key)
 
     def _construct_cli_object(self) -> CMDDriverBase:
         return DataprocCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
