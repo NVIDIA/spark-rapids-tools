@@ -23,7 +23,7 @@ import pandas as pd
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging
-from spark_rapids_tools.tools.model_xgboost import find_paths, RegexPattern
+from spark_rapids_tools.tools.qualx.util import find_paths, RegexPattern
 from spark_rapids_tools.utils import Utilities
 
 
@@ -49,7 +49,7 @@ class AdditionalHeuristics:
         """
         profile_list = find_paths(
             self.tools_output_dir,
-            RegexPattern.rapids_profile.match,
+            RegexPattern.rapidsProfile.match,
             return_directories=True,
         )
         if len(profile_list) == 0:
