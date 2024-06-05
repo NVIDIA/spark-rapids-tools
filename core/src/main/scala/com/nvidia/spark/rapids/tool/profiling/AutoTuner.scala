@@ -503,7 +503,12 @@ class AutoTuner(
   }
 
   /**
-   * Recommendation memory settings for executor.
+   * Recommendation of memory settings for executor.
+   * Returns:
+   * (pinned memory size,
+   *  executor memory overhead size,
+   *  executor heap size,
+   *  boolean if should set MaxBytesInFlight)
    */
   def calcOverallMemory(
       execHeapCalculator: () => Long,
@@ -550,21 +555,21 @@ class AutoTuner(
       // recommendedMinHeap = DEF_HEAP_PER_CORE_MB * numExecutorCores
       // first calculate what we think min overhead is and make sure we have enough
       // for that
-      if ((containerMem - minOverhead) < (MIN_HEAP_PER_CORE_MB * numExecutorCores)) {
+      // calculate minimum heap size
+      val minExecHeapMem = MIN_HEAP_PER_CORE_MB * numExecutorCores
+      if ((containerMem - minOverhead) < minExecHeapMem) {
         // For now just throw so we don't get any tunings and its obvious to user this isn't a good
         // setup. In the future we may just recommend them to use larger nodes. This would be more
         // ideal once we hook up actual executor heap from an eventlog vs what user passes in.
         throwNotEnoughMemException()
         (0, 0, 0, false)
       } else {
-        // change heap size to be the minimum
-        val minExecHeapMem = MIN_HEAP_PER_CORE_MB * numExecutorCores
-        val leftOverMem = containerMem - minExecHeapMem
-        if (leftOverMem < 0) {
+        val leftOverMemUsingMinHeap = containerMem - minExecHeapMem
+        if (leftOverMemUsingMinHeap < 0) {
           throwNotEnoughMemException()
         }
         // Pinned memory uses any unused space up to 4GB. Spill memory is same size as pinned.
-        val pinnedMem = Math.min(MAX_PINNED_MEMORY_MB, (leftOverMem / 2)).toLong
+        val pinnedMem = Math.min(MAX_PINNED_MEMORY_MB, (leftOverMemUsingMinHeap / 2)).toLong
         val spillMem = pinnedMem
         // spill memory is by default same size as pinned memory
         executorMemOverhead += pinnedMem + spillMem
@@ -574,7 +579,7 @@ class AutoTuner(
   }
 
   private def throwNotEnoughMemException(): Unit = {
-    // would be nice to enhance the error message with a recommendation of size
+    // in the future it would be nice to enhance the error message with a recommendation of size
     val msg = "This node/worker configuration is not ideal for using the Spark Rapids " +
       "Accelerator because it doesn't have enough memory for the executors. " +
       "We recommend using nodes/workers with more memory."
@@ -636,26 +641,7 @@ class AutoTuner(
     }
   }
 
-  def calculateClusterLevelRecommendations(): Unit = {
-    recommendExecutorInstances()
-    val numExecutorCores = calcNumExecutorCores
-    val execCoresExpr = () => numExecutorCores
-
-    appendRecommendation("spark.executor.cores", numExecutorCores)
-    appendRecommendation("spark.task.resource.gpu.amount",
-      calcTaskGPUAmount(execCoresExpr))
-    appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
-      calcGpuConcTasks().toInt)
-    val availableMemPerExec = calcAvailableMemPerExec()
-    val availableMemPerExecExpr = () => availableMemPerExec
-    val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCoresExpr)
-    val executorHeapExpr = () => executorHeap
-    val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
-      calcOverallMemory(executorHeapExpr, execCoresExpr, availableMemPerExecExpr)
-    appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
-    addRecommendationForMemoryOverhead(s"$memoryOverhead")
-    appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
-
+  private def configureShuffleReaderWriterNumThreads(numExecutorCores: Int): Unit = {
     // if on a CSP using blob store recommend more threads for certain sizes. This is based on
     // testing on customer jobs on Databricks
     // didn't test with > 16 thread so leave those as numExecutorCores
@@ -672,7 +658,10 @@ class AutoTuner(
       appendRecommendation("spark.rapids.shuffle.multiThreaded.reader.threads", numThreads.toInt)
       appendRecommendation("spark.rapids.shuffle.multiThreaded.writer.threads", numThreads.toInt)
     }
+  }
 
+  private def configureMultiThreadedReaders(numExecutorCores: Int,
+      setMaxBytesInFlight: Boolean): Unit = {
     if (numExecutorCores < 4) {
       appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
         Math.max(20, numExecutorCores))
@@ -705,9 +694,32 @@ class AutoTuner(
         appendRecommendation("spark.rapids.sql.format.parquet.multithreaded.combine.waitTime", 1000)
       }
     }
+  }
+
+
+  def calculateClusterLevelRecommendations(): Unit = {
+    recommendExecutorInstances()
+    val numExecutorCores = calcNumExecutorCores
+    val execCoresExpr = () => numExecutorCores
+
+    appendRecommendation("spark.executor.cores", numExecutorCores)
+    appendRecommendation("spark.task.resource.gpu.amount",
+      calcTaskGPUAmount(execCoresExpr))
+    appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
+      calcGpuConcTasks().toInt)
+    val availableMemPerExec = calcAvailableMemPerExec()
+    val availableMemPerExecExpr = () => availableMemPerExec
+    val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCoresExpr)
+    val executorHeapExpr = () => executorHeap
+    val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
+      calcOverallMemory(executorHeapExpr, execCoresExpr, availableMemPerExecExpr)
+    appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
+    addRecommendationForMemoryOverhead(s"$memoryOverhead")
+    appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
+    configureShuffleReaderWriterNumThreads(numExecutorCores)
+    configureMultiThreadedReaders(numExecutorCores, setMaxBytesInFlight)
     appendRecommendation("spark.rapids.sql.batchSizeBytes", BATCH_SIZE_BYTES)
     appendRecommendation("spark.locality.wait", 0)
-
     recommendAQEProperties()
   }
 
