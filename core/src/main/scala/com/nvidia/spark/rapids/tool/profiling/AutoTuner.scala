@@ -19,9 +19,10 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.io.{BufferedReader, FileNotFoundException, InputStreamReader}
 
 import scala.beans.BeanProperty
-import scala.collection.{mutable, Seq}
+import scala.collection.{mutable, Seq }
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable.ListBuffer
+import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory}
@@ -1179,7 +1180,7 @@ object AutoTuner extends Logging {
   val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
 
   private def handleException(
-      ex: Exception,
+      ex: Throwable,
       appInfo: AppSummaryInfoBaseProvider,
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
@@ -1218,9 +1219,8 @@ object AutoTuner extends Logging {
     }
     catch {
       case _: FileNotFoundException =>
-        logWarning("No yaml found for input path")
+        logWarning(s"No file found for input workerInfo path: $filePath")
         None
-      case e: Exception => throw e
     }
     finally {
       if (fsIs != null) {
@@ -1252,7 +1252,7 @@ object AutoTuner extends Logging {
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
         driverInfoProvider)
     } catch {
-      case e: Exception =>
+      case NonFatal(e) =>
         handleException(e, singleAppProvider, platform, driverInfoProvider)
     }
   }
@@ -1265,10 +1265,15 @@ object AutoTuner extends Logging {
   ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(workerInfoFilePath)
-      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
-        driverInfoProvider)
+      val autoT = new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()),
+        singleAppProvider, platform, driverInfoProvider)
+      if(clusterPropsOpt.isEmpty) {
+        autoT.appendComment(s"workerInfo file not found at $workerInfoFilePath. " +
+          "Using default values.")
+      }
+      autoT
     } catch {
-      case e: Exception =>
+      case NonFatal(e) =>
         handleException(e, singleAppProvider, platform, driverInfoProvider)
     }
   }
