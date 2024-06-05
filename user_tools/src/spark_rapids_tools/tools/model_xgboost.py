@@ -20,6 +20,7 @@ import logging
 import os
 import re
 import traceback
+import warnings
 from pathlib import Path
 from typing import Optional, Mapping, List, Dict, Callable, Tuple
 
@@ -31,6 +32,13 @@ from tabulate import tabulate
 from xgboost.core import XGBoostError
 
 from spark_rapids_pytools.common.utilities import Utils
+
+warnings.simplefilter('always', DeprecationWarning)
+warnings.warn(
+    f"Module '{__name__}' is deprecated and will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 logger = logging.getLogger(__name__)
 FILTER_SPILLS = False  # remove queries with any disk/mem spills

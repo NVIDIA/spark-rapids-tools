@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 import glob
 import json
 import os
@@ -251,7 +251,7 @@ def _read_dataset_scores(
 
 
 def _read_platform_scores(
-    eval_dir: str, score: str, split: str, dataset_filter: list[str] = []
+    eval_dir: str, score: str, split: str, dataset_filter: List[str] = []
 ) -> pd.DataFrame:
     """Load accuracy scores per platform.
 

@@ -1065,7 +1065,7 @@ def load_csv_files(
     return out
 
 
-def load_qtool_execs(qtool_execs: list[str]) -> Optional[pd.DataFrame]:
+def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
     """
     Load supported stage info from qtool output in a form that can be merged with profiler data
     to aggregate features and durations only over supported stages.
@@ -1089,7 +1089,7 @@ def load_qtool_execs(qtool_execs: list[str]) -> Optional[pd.DataFrame]:
 
 
 def load_qual_csv(
-    qual_dirs: list[str], csv_filename: str, cols: Optional[list[str]] = None
+    qual_dirs: List[str], csv_filename: str, cols: Optional[List[str]] = None
 ) -> Optional[pd.DataFrame]:
     """
     Load CSV file from qual tool output as pandas DataFrame.

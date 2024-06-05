@@ -17,7 +17,7 @@ import glob
 import logging
 import os
 import re
-from typing import Tuple
+from typing import Dict, List, Tuple
 import secrets
 import string
 import subprocess
@@ -86,7 +86,7 @@ def find_paths(dir, filter_fn=None, return_directories=False):
     return paths
 
 
-def find_eventlogs(path) -> list[str]:
+def find_eventlogs(path) -> List[str]:
     """Find all eventlogs given a root directory."""
     if '*' in path:
         # handle paths w/ glob patterns
@@ -113,7 +113,7 @@ def get_cache_dir():
     return os.environ.get('QUALX_CACHE_DIR', 'qualx_cache')
 
 
-def get_dataset_platforms(dataset: str) -> Tuple[list[str], str]:
+def get_dataset_platforms(dataset: str) -> Tuple[List[str], str]:
     """Return list of platforms and dataset parent directory from a string path.
 
     Parameters
@@ -139,7 +139,7 @@ def get_dataset_platforms(dataset: str) -> Tuple[list[str], str]:
 
 
 def compute_accuracy(
-    results: pd.DataFrame, y: str, y_preds: dict[str, str], weight: str = None
+    results: pd.DataFrame, y: str, y_preds: Dict[str, str], weight: str = None
 ):
     """Compute accuracy scores on a pandas DataFrame.
 
@@ -149,7 +149,7 @@ def compute_accuracy(
         Pandas dataframe containing the label column and one or more prediction columns.
     y: str
         Label column name.
-    y_preds: dict[str, str]
+    y_preds: Dict[str, str]
         Dictionary of display name of metric -> prediction column name.
     weight: str
         Name of column to use as weight, e.g. 'Duration' or 'appDuration'.
@@ -238,7 +238,7 @@ def run_qualification_tool(platform: str, eventlog: str, output_dir: str):
     run_commands(cmds)
 
 
-def run_commands(commands: list[str], workers: int = 8):
+def run_commands(commands: List[str], workers: int = 8):
     """Run a list of commands using a thread pool."""
     if not commands:
         return
