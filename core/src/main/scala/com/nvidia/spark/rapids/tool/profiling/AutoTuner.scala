@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.io.{BufferedReader, FileNotFoundException, InputStreamReader}
 
 import scala.beans.BeanProperty
-import scala.collection.{mutable, Seq }
+import scala.collection.{mutable, Seq}
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable.ListBuffer
 import scala.util.control.NonFatal
