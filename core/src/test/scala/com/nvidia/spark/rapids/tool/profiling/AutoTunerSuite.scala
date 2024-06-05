@@ -289,6 +289,12 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     assert(expectedResults == autoTunerOutput)
   }
 
+  test("Load cluster properties with memory to cores ratio to small") {
+    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(8), Some("14000MiB"))
+    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
+    assertThrows[IllegalArgumentException](autoTuner.getRecommendedProperties())
+  }
+
   test("Load cluster properties with CPU memory missing") {
     val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(32), None)
     val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
@@ -642,6 +648,57 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU device is missing. Setting default to $L4Gpu.
           |- GPU memory is missing. Setting default to ${L4Gpu.getMemory}.
+          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
+          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    assert(expectedResults == autoTunerOutput)
+  }
+
+  test("Test executor memory on CSP where executor/cpu ratio is small") {
+    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(8), Some("15360MiB"),
+      Some(4), Some(1))
+    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.cores=8
+          |--conf spark.executor.instances=4
+          |--conf spark.executor.memory=8192m
+          |--conf spark.executor.memoryOverhead=10752m
+          |--conf spark.rapids.memory.pinnedPool.size=3584m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark311.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=32
+          |--conf spark.sql.files.maxPartitionBytes=512m
+          |--conf spark.sql.shuffle.partitions=200
+          |--conf spark.task.resource.gpu.amount=0.125
+          |
+          |Comments:
+          |- 'spark.executor.cores' was not set.
+          |- 'spark.executor.instances' was not set.
+          |- 'spark.executor.memory' was not set.
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- 'spark.sql.shuffle.partitions' was not set.
+          |- 'spark.task.resource.gpu.amount' was not set.
           |- ${AutoTuner.classPathComments("rapids.jars.missing")}
           |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
