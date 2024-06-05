@@ -41,5 +41,5 @@ spark_rapids train --dataset </path/to/dataset/files(s)> --model </path/to/save/
 - n_trials: Number of trials for hyperparameter search.
 
 ## Notes
-- `QUALX_DATA_DIR` should already exist and must contain the dataset files (e.g., from SwiftStack).
-- `QUALX_CACHE_DIR` will be created automatically if it does not already exist and will store intermediate files generated during processing (e.g., profiling output).
+- `QUALX_DATA_DIR` should be a valid path containing the training data (e.g., from SwiftStack).
+- `QUALX_CACHE_DIR` stores intermediate files generated during processing (e.g., profiling output). It will be created automatically if it does not exist.
