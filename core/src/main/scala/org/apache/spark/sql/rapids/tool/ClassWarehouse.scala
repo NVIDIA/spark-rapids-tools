@@ -18,6 +18,8 @@ package org.apache.spark.sql.rapids.tool
 
 import java.util.Date
 
+import com.nvidia.spark.rapids.tool.InstanceCoresMemory
+
 import org.apache.spark.resource.{ResourceInformation, ResourceProfile}
 
 class ExecutorInfoClass(val executorId: String, _addTime: Long) {
@@ -45,7 +47,7 @@ case class ClusterInfo(
     vendor: String,
     coresPerExecutor: Int,
     numExecutorNodes: Int,
-    executorMemoryMB: Option[Long],
+    instanceInfo: Option[InstanceCoresMemory],
     executorInstance: Option[String] = None,
     driverInstance: Option[String] = None,
     driverHost: Option[String] = None,
