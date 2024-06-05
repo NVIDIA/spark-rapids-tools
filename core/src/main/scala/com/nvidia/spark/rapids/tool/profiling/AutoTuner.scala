@@ -1218,6 +1218,8 @@ object AutoTuner extends Logging {
       loadClusterPropertiesFromContent(fileContent)
     }
     catch {
+      // In case of missing file for cluster properties, default properties are used.
+      // Hence, catching and logging as a warning
       case _: FileNotFoundException =>
         logWarning(s"No file found for input workerInfo path: $filePath")
         None
