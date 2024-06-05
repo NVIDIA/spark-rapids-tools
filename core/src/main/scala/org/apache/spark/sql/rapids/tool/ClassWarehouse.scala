@@ -47,6 +47,7 @@ case class ClusterInfo(
     vendor: String,
     coresPerExecutor: Int,
     numExecutorNodes: Int,
+    executorMemory: Option[String],
     instanceInfo: Option[InstanceCoresMemory],
     executorInstance: Option[String] = None,
     driverInstance: Option[String] = None,

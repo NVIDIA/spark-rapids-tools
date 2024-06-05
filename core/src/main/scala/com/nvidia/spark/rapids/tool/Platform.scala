@@ -170,10 +170,34 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
    */
   def getRetainedSystemProps: Set[String] = Set.empty
 
+  def getExecutorMemory(sparkProperties: Map[String, String]): Option[String] = {
+    val executorMemoryFromConf = sparkProperties.get("spark.executor.memory")
+    if (executorMemoryFromConf.isDefined) {
+      executorMemoryFromConf
+    } else {
+      val sparkMasterConf = sparkProperties.get("spark.master")
+      sparkMasterConf match {
+        case None => None
+        case Some(sparkMaster) =>
+          if (sparkMaster.contains("yarn")) {
+            Some("1g")
+          } else if (sparkMaster.contains("k8s")) {
+            Some("1g")
+          } else if (sparkMaster.startsWith("spark:")) {
+            // would be the entire node memory by default
+            None
+          } else {
+            None
+          }
+      }
+    }
+  }
+
   def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val driverHost = sparkProperties.get("spark.driver.host")
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes,
+    val executorMem = getExecutorMemory(sparkProperties)
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorMem,
       getInstanceResources(sparkProperties), driverHost = driverHost)
   }
 
@@ -216,8 +240,9 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform
     val clusterId = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY)
     val driverHost = sparkProperties.get("spark.driver.host")
     val clusterName = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY)
+    val executorMem = getExecutorMemory(sparkProperties)
 
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes,
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorMem,
       getInstanceResources(sparkProperties), executorInstance, driverInstance,
       driverHost, clusterId, clusterName)
   }
@@ -337,7 +362,8 @@ class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val clusterId = systemProperties.get("EMR_CLUSTER_ID")
     val driverHost = sparkProperties.get("spark.driver.host")
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes,
+    val executorMem = getExecutorMemory(sparkProperties)
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorMem,
       instanceInfo = getInstanceResources(sparkProperties),
       clusterId = clusterId, driverHost = driverHost)
   }

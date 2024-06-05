@@ -1545,16 +1545,16 @@ class QualificationSuite extends BaseTestSuite {
   // scalastyle:off line.size.limit
   val expectedClusterInfoMap: Seq[(String, Option[ClusterInfo])] = Seq(
     "eventlog_2nodes_8cores" -> // 2 executor nodes with 8 cores.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 8, 2, None,
+      Some(ClusterInfo(PlatformNames.DEFAULT, 8, 2, None, None,
         None, None, Some("10.10.10.100"), None, None)),
     "eventlog_3nodes_12cores_same_host" -> // 3 executor nodes with 12 cores having 2 out of 4 executors on same host.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 3, None,
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 3, None, None,
         None, None, Some("10.59.184.210"), None, None)),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 executor nodes with 8, 12 and 8 cores.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 3, None,
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 3, None, None,
         None, None, Some("10.10.10.100"), None, None)),
     "eventlog_3nodes_12cores_exec_removed" -> // Event log with executor removed
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, None,
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, None, None,
         None, None, Some("10.10.10.100"), None, None)),
     "eventlog_driver_only" -> None // Event log with driver only
   )
@@ -1571,6 +1571,7 @@ class QualificationSuite extends BaseTestSuite {
   val expectedPlatformClusterInfoMap: Seq[(String, ClusterInfo)] = Seq(
     PlatformNames.DATABRICKS_AWS ->
       ClusterInfo(PlatformNames.DATABRICKS_AWS, 8, 2, None,
+        None,
         Some("m6gd.2xlarge"),
         Some("m6gd.2xlarge"),
         Some("10.10.10.100"),
@@ -1578,6 +1579,7 @@ class QualificationSuite extends BaseTestSuite {
         Some("test-db-aws-cluster")),
     PlatformNames.DATABRICKS_AZURE ->
       ClusterInfo(PlatformNames.DATABRICKS_AZURE, 8, 2, None,
+        None,
         Some("Standard_E8ds_v4"),
         Some("Standard_E8ds_v4"),
         Some("10.10.10.100"),
@@ -1585,6 +1587,7 @@ class QualificationSuite extends BaseTestSuite {
         Some("test-db-azure-cluster")),
     PlatformNames.DATAPROC ->
       ClusterInfo(PlatformNames.DATAPROC, 8, 2,
+        None,
         None,
         None,
         None,
@@ -1596,11 +1599,13 @@ class QualificationSuite extends BaseTestSuite {
         None,
         None,
         None,
+        None,
         Some("10.10.10.100"),
         Some("j-123AB678XY321"),
         None),
     PlatformNames.ONPREM ->
       ClusterInfo(PlatformNames.ONPREM, 8, 2,
+        None,
         None,
         None,
         None,
