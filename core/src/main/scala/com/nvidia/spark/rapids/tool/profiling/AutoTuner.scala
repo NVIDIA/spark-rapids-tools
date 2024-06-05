@@ -1268,6 +1268,8 @@ object AutoTuner extends Logging {
       val autoT = new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()),
         singleAppProvider, platform, driverInfoProvider)
       if(clusterPropsOpt.isEmpty) {
+        // In case the workerInfo input path is incorrect, extra comment
+        // mentioning that recommendations were generated using default values
         autoT.appendComment(s"workerInfo file not found at $workerInfoFilePath. " +
           "Using default values.")
       }
