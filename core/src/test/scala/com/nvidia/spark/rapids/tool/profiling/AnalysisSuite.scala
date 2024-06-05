@@ -22,7 +22,7 @@ import com.nvidia.spark.rapids.tool.ToolTestUtils
 import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
 import org.scalatest.FunSuite
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
 
 class AnalysisSuite extends FunSuite {
@@ -42,41 +42,49 @@ class AnalysisSuite extends FunSuite {
   private val skippedColumnsInSqlAggProfile = Seq("inputBytesReadAvg")
 
   test("test sqlMetricsAggregation simple") {
+    val expectFile = (metric: String) => {
+      s"rapids_join_eventlog_${metric}metricsagg_expectation.csv"
+    }
     testSqlMetricsAggregation(Array(s"$logDir/rapids_join_eventlog.zstd"),
-      "rapids_join_eventlog_sqlmetricsagg_expectation.csv",
-      "rapids_join_eventlog_jobandstagemetrics_expectation.csv")
+      expectFile("sql"), expectFile("job"), expectFile("stage"))
   }
 
   test("test sqlMetricsAggregation second single app") {
+    val expectFile = (metric: String) => {
+      s"rapids_join_eventlog_${metric}metricsagg2_expectation.csv"
+    }
     testSqlMetricsAggregation(Array(s"$logDir/rapids_join_eventlog2.zstd"),
-      "rapids_join_eventlog_sqlmetricsagg2_expectation.csv",
-      "rapids_join_eventlog_jobandstagemetrics2_expectation.csv")
+      expectFile("sql"), expectFile("job"), expectFile("stage"))
   }
 
   test("test sqlMetricsAggregation 2 combined") {
+    val expectFile = (metric: String) => {
+      s"rapids_join_eventlog_${metric}metricsaggmulti_expectation.csv"
+    }
     testSqlMetricsAggregation(
       Array(s"$logDir/rapids_join_eventlog.zstd", s"$logDir/rapids_join_eventlog2.zstd"),
-      "rapids_join_eventlog_sqlmetricsaggmulti_expectation.csv",
-      "rapids_join_eventlog_jobandstagemetricsmulti_expectation.csv")
+      expectFile("sql"), expectFile("job"), expectFile("stage"))
   }
 
-  private def testSqlMetricsAggregation(logs: Array[String], expectFile: String,
-      expectFileJS: String): Unit = {
+  private def testSqlMetricsAggregation(logs: Array[String], expectFileSQL: String,
+      expectFileJob: String, expectFileStage: String): Unit = {
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
     assert(apps.size == logs.size)
     val aggResults = RawMetricProfilerView.getAggMetrics(apps)
-    val sqlTaskMetrics = aggResults.sqlAggs
-    val resultExpectation = new File(expRoot, expectFile)
     import sparkSession.implicits._
-    val actualDf = sqlTaskMetrics.toDF.drop(skippedColumnsInSqlAggProfile:_*)
-    val dfExpect = ToolTestUtils.readExpectationCSV(sparkSession, resultExpectation.getPath())
-    ToolTestUtils.compareDataFrames(actualDf, dfExpect)
+    // Check the SQL metrics
+    val sqlAggsFiltered = aggResults.sqlAggs.toDF.drop(skippedColumnsInSqlAggProfile: _*)
+    compareMetrics(sqlAggsFiltered, expectFileSQL)
+    // Check the job metrics
+    compareMetrics(aggResults.jobAggs.toDF, expectFileJob)
+    // Check the stage metrics
+    compareMetrics(aggResults.stageAggs.toDF, expectFileStage)
+  }
 
-    val jobStageMetrics = aggResults.jobStageAggs
-    val resultExpectationJS = new File(expRoot, expectFileJS)
-    val actualDfJS = jobStageMetrics.toDF
-    val dfExpectJS = ToolTestUtils.readExpectationCSV(sparkSession, resultExpectationJS.getPath())
-    ToolTestUtils.compareDataFrames(actualDfJS, dfExpectJS)
+  private def compareMetrics(actualDf: DataFrame, expectFileName: String): Unit = {
+    val expectationFile = new File(expRoot, expectFileName)
+    val dfExpect = ToolTestUtils.readExpectationCSV(sparkSession, expectationFile.getPath())
+    ToolTestUtils.compareDataFrames(actualDf, dfExpect)
   }
 
   test("test sqlMetrics duration, execute cpu time and potential_problems") {

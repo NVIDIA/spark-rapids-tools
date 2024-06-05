@@ -54,6 +54,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   // Store application status reports indexed by event log path.
   private val appStatusReporter = new ConcurrentHashMap[String, AppResult]
 
+  private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
+
   override val outputDir = appArgs.outputDirectory().stripSuffix("/") +
     s"/${Profiler.SUBDIR}"
 
@@ -381,15 +383,20 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     } else {
       Seq.empty
     }
+    val sqlIdAlign = if (outputAlignedSQLIds) {
+      collect.getSQLCleanAndAligned
+    } else {
+      Seq.empty
+    }
     val endTime = System.currentTimeMillis()
     logInfo(s"Took ${endTime - startTime}ms to Process [${appInfo.head.appId}]")
     (ApplicationSummaryInfo(appInfo, dsInfo,
       collect.getExecutorInfo, collect.getJobInfo, rapidsProps,
-      rapidsJar, sqlMetrics, analysis.jobStageAggs,
+      rapidsJar, sqlMetrics, analysis.jobAggs, analysis.stageAggs,
       analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
-      appLogPath, analysis.ioAggs, systemProps), compareRes)
+      appLogPath, analysis.ioAggs, systemProps, sqlIdAlign), compareRes)
   }
 
   /**
@@ -464,7 +471,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         combineProps("rapids", appsSum).sortBy(_.key),
         appsSum.flatMap(_.rapidsJar).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlMetrics).sortBy(_.appIndex),
-        appsSum.flatMap(_.jsMetAgg).sortBy(_.appIndex),
+        appsSum.flatMap(_.jobAggMetrics).sortBy(_.appIndex),
+        appsSum.flatMap(_.stageAggMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlTaskAggMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.durAndCpuMet).sortBy(_.appIndex),
         appsSum.flatMap(_.skewInfo).sortBy(_.appIndex),
@@ -480,7 +488,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         appsSum.flatMap(_.maxTaskInputBytesRead).sortBy(_.appIndex),
         appsSum.flatMap(_.appLogPath).sortBy(_.appIndex),
         appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex),
-        combineProps("system", appsSum).sortBy(_.key)
+        combineProps("system", appsSum).sortBy(_.key),
+        appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex)
       )
       Seq(reduced)
     } else {
@@ -488,20 +497,20 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
     sums.foreach { app: ApplicationSummaryInfo =>
       profileOutputWriter.writeText("### A. Information Collected ###")
-      profileOutputWriter.write("Application Information", app.appInfo)
-      profileOutputWriter.write("Application Log Path Mapping", app.appLogPath)
-      profileOutputWriter.write("Data Source Information", app.dsInfo)
+      profileOutputWriter.write(ProfInformationView.getLabel, app.appInfo)
+      profileOutputWriter.write(ProfLogPathView.getLabel, app.appLogPath)
+      profileOutputWriter.write(ProfDataSourceView.getLabel, app.dsInfo)
       profileOutputWriter.write(ProfExecutorView.getLabel, app.execInfo)
       profileOutputWriter.write(ProfJobsView.getLabel, app.jobInfo)
       profileOutputWriter.write(ProfSQLToStageView.getLabel, app.sqlStageInfo)
-      profileOutputWriter.write("Spark Rapids parameters set explicitly", app.rapidsProps,
-        Some("Spark Rapids parameters"))
-      profileOutputWriter.write("Spark Properties", app.sparkProps,
-        Some("Spark Properties"))
-      profileOutputWriter.write("System Properties", app.sysProps,
-        Some("System Properties"))
-      profileOutputWriter.write("Rapids Accelerator Jar and cuDF Jar", app.rapidsJar,
-        Some("Rapids 4 Spark Jars"))
+      profileOutputWriter.write(RapidsQualPropertiesView.getLabel, app.rapidsProps,
+        Some(RapidsQualPropertiesView.getDescription))
+      profileOutputWriter.write(SparkQualPropertiesView.getLabel, app.sparkProps,
+        Some(SparkQualPropertiesView.getDescription))
+      profileOutputWriter.write(SystemQualPropertiesView.getLabel, app.sysProps,
+        Some(SystemQualPropertiesView.getDescription))
+      profileOutputWriter.write(ProfRapidsJarView.getLabel, app.rapidsJar,
+        Some(ProfRapidsJarView.getDescription))
       profileOutputWriter.write(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
         Some(ProfSQLPlanMetricsView.getDescription))
       profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
@@ -514,8 +523,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
 
       profileOutputWriter.writeText("\n### B. Analysis ###\n")
-      profileOutputWriter.write(JOB_AND_STAGE_AGG_LABEL, app.jsMetAgg,
-        Some(AGG_DESCRIPTION(JOB_AND_STAGE_AGG_LABEL)))
+      profileOutputWriter.write(JOB_AGG_LABEL, app.jobAggMetrics,
+        Some(AGG_DESCRIPTION(JOB_AGG_LABEL)))
+      profileOutputWriter.write(STAGE_AGG_LABEL, app.stageAggMetrics,
+        Some(AGG_DESCRIPTION(STAGE_AGG_LABEL)))
       profileOutputWriter.write(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
         Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
       profileOutputWriter.write(IO_LABEL, app.ioMetrics)
@@ -532,7 +543,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profileOutputWriter.write(ProfRemovedExecutorView.getLabel, app.removedExecutors)
       profileOutputWriter.write("Unsupported SQL Plan", app.unsupportedOps,
         Some("Unsupported SQL Ops"))
-
+      if (outputAlignedSQLIds) {
+        profileOutputWriter.write(ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
+          Some(ProfSQLPlanAlignedView.getDescription))
+      }
       if (useAutoTuner) {
         val (properties, comments) = runAutoTuner(Some(app))
         profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")

@@ -19,10 +19,9 @@ package com.nvidia.spark.rapids.tool.profiling
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
-import com.nvidia.spark.rapids.tool.views.{ProfExecutorView, ProfJobsView, ProfSQLCodeGenView, ProfSQLPlanMetricsView, ProfSQLToStageView}
+import com.nvidia.spark.rapids.tool.views._
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
 case class StageMetrics(numTasks: Int, duration: String)
@@ -34,114 +33,21 @@ case class StageMetrics(numTasks: Int, duration: String)
 class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 
   def getAppInfo: Seq[AppInfoProfileResults] = {
-    val allRows = apps.collect {
-      case app if app.isAppMetaDefined =>
-        val a = app.appMetaData.get
-        AppInfoProfileResults(app.index, a.appName, a.appId,
-          a.sparkUser,  a.startTime, a.endTime, app.getAppDuration,
-          a.getDurationString, app.sparkVersion, app.gpuMode)
-    }
-    if (allRows.nonEmpty) {
-      allRows.sortBy(cols => (cols.appIndex))
-    } else {
-      Seq.empty
-    }
+    ProfInformationView.getRawView(apps)
   }
 
   def getAppLogPath: Seq[AppLogPathProfileResults] = {
-    val allRows = apps.collect {
-      case app if app.isAppMetaDefined => val a = app.appMetaData.get
-      AppLogPathProfileResults(app.index, a.appName, a.appId, app.getEventLogPath)
-    }
-    if (allRows.nonEmpty) {
-      allRows.sortBy(cols => cols.appIndex)
-    } else {
-      Seq.empty
-    }
+    ProfLogPathView.getRawView(apps)
   }
 
   // get rapids-4-spark and cuDF jar if CPU Mode is on.
   def getRapidsJARInfo: Seq[RapidsJarProfileResult] = {
-    val allRows = apps.flatMap { app =>
-      if (app.gpuMode) {
-        // Look for rapids-4-spark and cuDF jar in classPathEntries
-        val rapidsJars = app.classpathEntries.filterKeys(_ matches ToolUtils.RAPIDS_JAR_REGEX.regex)
-        if (rapidsJars.nonEmpty) {
-          val cols = rapidsJars.keys.toSeq
-          cols.map(jar => RapidsJarProfileResult(app.index, jar))
-        } else {
-          // Look for the rapids-4-spark and cuDF jars in Spark Properties
-          ToolUtils.extractRAPIDSJarsFromProps(app.sparkProperties).map {
-            jar => RapidsJarProfileResult(app.index, jar)
-          }
-        }
-      } else {
-        Seq.empty
-      }
-    }
-    if (allRows.size > 0) {
-      allRows.sortBy(cols => (cols.appIndex, cols.jar))
-    } else {
-      Seq.empty
-    }
+    ProfRapidsJarView.getRawView(apps)
   }
 
   // get read data schema information
   def getDataSourceInfo: Seq[DataSourceProfileResult] = {
-    val dataSourceApps = apps.filter(_.dataSourceInfo.nonEmpty)
-    val sqlAccums = CollectInformation.generateSQLAccums(dataSourceApps)
-
-    // Metrics to capture from event log to the result
-    val buffer_time: String = "buffer time"
-    val scan_time = "scan time"
-    val data_size = "size of files read"
-    val decode_time = "GPU decode time"
-
-    // This is to save the metrics which will be extracted while creating the result.
-    case class IoMetrics(
-        var buffer_time: Long,
-        var scan_time: Long,
-        var data_size: Long,
-        var decode_time: Long)
-
-    def getIoMetrics(sqlAccums: Seq[SQLAccumProfileResults]): IoMetrics = {
-      val finalRes = IoMetrics(0, 0, 0, 0)
-      sqlAccums.map(accum => accum.name match {
-        case `buffer_time` => finalRes.buffer_time = accum.total
-        case `scan_time` => finalRes.scan_time = accum.total
-        case `data_size` => finalRes.data_size = accum.total
-        case `decode_time` => finalRes.decode_time = accum.total
-      })
-      finalRes
-    }
-
-    val allRows = dataSourceApps.flatMap { app =>
-      val appSqlAccums = sqlAccums.filter(sqlAccum => sqlAccum.appIndex == app.index)
-
-      // Filter appSqlAccums to get only required metrics
-      val dataSourceMetrics = appSqlAccums.filter(sqlAccum => sqlAccum.name.contains(buffer_time)
-        || sqlAccum.name.contains(scan_time) || sqlAccum.name.contains(decode_time)
-        || sqlAccum.name.equals(data_size))
-
-      app.dataSourceInfo.map { ds =>
-        val sqlIdtoDs = dataSourceMetrics.filter(
-          sqlAccum => sqlAccum.sqlID == ds.sqlID && sqlAccum.nodeID == ds.nodeId)
-        if (!sqlIdtoDs.isEmpty) {
-          val ioMetrics = getIoMetrics(sqlIdtoDs)
-          DataSourceProfileResult(app.index, ds.sqlID, ds.nodeId,
-            ds.format, ioMetrics.buffer_time, ioMetrics.scan_time, ioMetrics.data_size,
-            ioMetrics.decode_time, ds.location, ds.pushedFilters, ds.schema)
-        } else {
-          DataSourceProfileResult(app.index, ds.sqlID, ds.nodeId,
-            ds.format, 0, 0, 0, 0, ds.location, ds.pushedFilters, ds.schema)
-        }
-      }
-    }
-    if (allRows.size > 0) {
-      allRows.sortBy(cols => (cols.appIndex, cols.sqlID, cols.location, cols.schema))
-    } else {
-      Seq.empty
-    }
+    ProfDataSourceView.getRawView(apps)
   }
 
   // get executor related information
@@ -158,50 +64,14 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfSQLToStageView.getRawView(apps)
   }
 
-  /**
-   * Print RAPIDS related or all Spark Properties when the propSource is set to "rapids".
-   * Note that RAPIDS related properties are not necessarily starting with prefix 'spark.rapids'.
-   * This table is inverse of the other tables where the row keys are property keys and the columns
-   * are the application values. So column1 would be all the key values for app index 1.
-   * @param propSource defines which type of properties to be retrieved the properties from.
-   *                   It can be: rapids, spark, or system
-   * @return List of properties relevant to the source.
-   */
-  private def getProperties(propSource: String): Seq[RapidsPropertyProfileResult] = {
-    val outputHeaders = ArrayBuffer("propertyName")
-    val props = HashMap[String, ArrayBuffer[String]]()
-    var numApps = 0
-    apps.foreach { app =>
-      numApps += 1
-      outputHeaders += s"appIndex_${app.index}"
-      val propsToKeep = if (propSource.equals("rapids")) {
-        app.sparkProperties.filterKeys { ToolUtils.isRapidsPropKey(_) }
-      } else if (propSource.equals("spark")) {
-        // remove the rapids related ones
-        app.sparkProperties.filterKeys(key => !key.contains(ToolUtils.PROPS_RAPIDS_KEY_PREFIX))
-      } else {
-        // get the system properties
-        app.systemProperties
-      }
-      CollectInformation.addNewProps(propsToKeep, props, numApps)
-    }
-    val allRows = props.map { case (k, v) => Seq(k) ++ v }.toSeq
-    if (allRows.nonEmpty) {
-      val resRows = allRows.map(r => RapidsPropertyProfileResult(r(0), outputHeaders, r))
-      resRows.sortBy(cols => cols.key)
-    } else {
-      Seq.empty
-    }
-  }
-
   def getRapidsProperties: Seq[RapidsPropertyProfileResult] = {
-    getProperties("rapids")
+    RapidsProfPropertiesView.getRawView(apps)
   }
   def getSparkProperties: Seq[RapidsPropertyProfileResult] = {
-    getProperties("spark")
+    SparkProfPropertiesView.getRawView(apps)
   }
   def getSystemProperties: Seq[RapidsPropertyProfileResult] = {
-    getProperties("system")
+    SystemProfPropertiesView.getRawView(apps)
   }
 
   // Print SQL whole stage code gen mapping
@@ -212,6 +82,16 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
   // Print SQL Plan Metrics
   def getSQLPlanMetrics: Seq[SQLAccumProfileResults] = {
     ProfSQLPlanMetricsView.getRawView(apps)
+  }
+
+  /**
+   * This function is meant to clean up Delta log execs so that you could align
+   * SQL ids between CPU and GPU eventlogs. It attempts to remove any delta log
+   * SQL ids. This includes reading checkpoints, delta_log json files,
+   * updating Delta state cache/table.
+   */
+  def getSQLCleanAndAligned: Seq[SQLCleanAndAlignIdsProfileResult] = {
+    ProfSQLPlanAlignedView.getRawView(apps)
   }
 }
 

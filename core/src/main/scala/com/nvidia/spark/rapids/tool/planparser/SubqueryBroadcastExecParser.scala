@@ -30,7 +30,8 @@ case class SubqueryBroadcastExecParser(
   val fullExecName = node.name + "Exec"
 
   override def parse: ExecInfo = {
-    val collectTimeId = node.metrics.find(_.name == "time to collect (ms)").map(_.accumulatorId)
+    val collectTimeId =
+      node.metrics.find(_.name.contains("time to collect")).map(_.accumulatorId)
     val duration = SQLPlanParser.getDriverTotalDuration(collectTimeId, app)
     val (filterSpeedupFactor, isSupported) = if (checker.isExecSupported(fullExecName)) {
       (checker.getSpeedupFactor(fullExecName), true)

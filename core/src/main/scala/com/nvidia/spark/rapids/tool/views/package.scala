@@ -21,7 +21,6 @@ package com.nvidia.spark.rapids.tool
  * refactor code to separate the internal object representation from the final output format.
  */
 package object views {
-  val JOB_AND_STAGE_AGG_LABEL = "Job + Stage level aggregated task metrics"
   val STAGE_AGG_LABEL = "Stage level aggregated task metrics"
   val JOB_AGG_LABEL = "Job level aggregated task metrics"
   val TASK_SHUFFLE_SKEW = "Shuffle Skew Check"
@@ -31,7 +30,6 @@ package object views {
   val SQL_MAX_INPUT_SIZE = "SQL Max Task Input Size"
 
   val AGG_DESCRIPTION = Map(
-    JOB_AND_STAGE_AGG_LABEL -> "Job/Stage Metrics",
     STAGE_AGG_LABEL -> "Stage metrics",
     JOB_AGG_LABEL -> "Job metrics",
     SQL_AGG_LABEL -> "SQL metrics",

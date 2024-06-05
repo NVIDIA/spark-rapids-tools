@@ -198,10 +198,13 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform
 
   override def isPlatformCSP: Boolean = true
 
+  // note that Databricks generally sets the spark.executor.memory for the user.  Our
+  // auto tuner heuristics generally sets it lower then Databricks so go ahead and
+  // allow our auto tuner to take affect for this in anticipation that we will use more
+  // off heap memory.
   override val recommendationsToExclude: Set[String] = Set(
     "spark.executor.cores",
     "spark.executor.instances",
-    "spark.executor.memory",
     "spark.executor.memoryOverhead"
   )
 

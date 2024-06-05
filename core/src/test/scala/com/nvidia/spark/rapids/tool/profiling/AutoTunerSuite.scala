@@ -167,13 +167,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=8396m
+          |--conf spark.executor.memoryOverhead=13516m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark320.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -378,13 +378,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=8396m
+          |--conf spark.executor.memoryOverhead=13516m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark311.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=32
@@ -439,11 +439,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |Spark Properties:
           |--conf spark.executor.cores=32
           |--conf spark.executor.memory=65536m
-          |--conf spark.executor.memoryOverhead=11673m
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=32
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=32
+          |--conf spark.executor.memoryOverhead=16793m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=48
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=48
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=64
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark311.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
@@ -490,7 +490,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
           |--conf spark.sql.shuffle.partitions=200
@@ -533,7 +537,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
@@ -569,8 +577,12 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
           |--conf spark.sql.shuffle.partitions=200
@@ -612,8 +624,12 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
           |--conf spark.sql.shuffle.partitions=200
@@ -650,7 +666,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
           |--conf spark.sql.shuffle.partitions=200
@@ -692,7 +712,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       s"""|
           |Spark Properties:
           |--conf spark.executor.instances=8
+          |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
           |--conf spark.sql.shuffle.partitions=200
@@ -720,13 +744,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=8396m
+          |--conf spark.executor.memoryOverhead=13516m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark311.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
@@ -806,8 +830,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -873,8 +899,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -931,10 +959,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=8
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=8
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
@@ -999,10 +1027,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=8
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=8
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
@@ -1073,8 +1101,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -1139,8 +1169,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -1200,8 +1232,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -1250,7 +1284,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
           |--conf spark.sql.shuffle.partitions=200
@@ -1284,7 +1322,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
           |--conf spark.sql.shuffle.partitions=200
@@ -1316,7 +1358,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
           |--conf spark.sql.shuffle.partitions=200
@@ -1371,9 +1417,11 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.filecache.enabled=true
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -1389,7 +1437,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
-          |- Enable file cache only if Spark local disks bandwidth is > 1 GB/s
+          |- Enable file cache only if Spark local disks bandwidth is > 1 GB/s and you have sufficient disk space available to fit both cache and normal Spark temporary data.
           |- ${AutoTuner.classPathComments("rapids.jars.missing")}
           |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -1434,8 +1482,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -1516,6 +1566,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -1598,13 +1650,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=8396m
+          |--conf spark.executor.memoryOverhead=13516m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=16
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=16
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.incompatibleDateFormats.enabled=true
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark311.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionNum=128
@@ -1720,10 +1772,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=8
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=8
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
@@ -1851,8 +1903,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -1938,8 +1992,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
@@ -2004,8 +2060,10 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.cores=8
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
-          |--conf spark.executor.memoryOverhead=6758m
+          |--conf spark.executor.memoryOverhead=11878m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20

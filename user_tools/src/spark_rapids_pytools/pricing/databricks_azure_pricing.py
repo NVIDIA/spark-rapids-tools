@@ -79,5 +79,4 @@ class DatabricksAzurePriceProvider(PriceProvider):
             rate_per_hour = instance_conf.get('TotalPricePerHour')
             return rate_per_hour
         except Exception as ex:  # pylint: disable=broad-except
-            self.logger.error('Could not find price for instance type \'%s\': %s', instance, ex)
-            raise ex
+            raise RuntimeError(f'Could not find pricing info for instance type \'{instance}\'') from ex

@@ -17,14 +17,15 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.ProfSparkMetricsAnalyzer
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobStageAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult}
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
 // The profiling shows a single combined view for both Stage/Job-levels which is different from
 // the default view that separates between the two.
 case class ProfilerAggregatedView(
-    jobStageAggs: Seq[JobStageAggTaskMetricsProfileResult],
+    jobAggs: Seq[JobAggTaskMetricsProfileResult],
+    stageAggs: Seq[StageAggTaskMetricsProfileResult],
     taskShuffleSkew: Seq[ShuffleSkewProfileResult],
     sqlAggs: Seq[SQLTaskAggMetricsProfileResult],
     ioAggs: Seq[IOAnalysisProfileResult],
@@ -35,8 +36,8 @@ object RawMetricProfilerView  {
   def getAggMetrics(apps: Seq[ApplicationInfo]): ProfilerAggregatedView = {
     val aggMetricsResults = ProfSparkMetricsAnalyzer.getAggregateRawMetrics(apps)
     ProfilerAggregatedView(
-      AggMetricsResultSorter.sortJobSparkMetrics(
-        aggMetricsResults.stageAggs ++ aggMetricsResults.jobAggs),
+      AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.jobAggs),
+      AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.stageAggs),
       AggMetricsResultSorter.sortShuffleSkew(aggMetricsResults.taskShuffleSkew),
       AggMetricsResultSorter.sortSqlAgg(aggMetricsResults.sqlAggs),
       AggMetricsResultSorter.sortIO(aggMetricsResults.ioAggs),

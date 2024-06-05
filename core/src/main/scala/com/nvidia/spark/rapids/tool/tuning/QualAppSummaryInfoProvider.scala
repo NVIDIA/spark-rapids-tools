@@ -84,10 +84,10 @@ class QualAppSummaryInfoProvider(
   // The heuristics below assume that these are CPU event logs and just look at the
   // size of memory bytes spilled.
   override def getShuffleStagesWithPosSpilling: Set[Long] = {
-    rawAggMetrics.stageAggs.collect { case row if (row.id.contains("stage") &&
-      row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&
-      row.diskBytesSpilledSum > 0) =>
-      row.id.split("_")(1).toLong
+    // TODO:Should not this be same as SingleAppSummaryInfoProvider.getShuffleStagesWithPosSpilling?
+    rawAggMetrics.stageAggs.collect { case row
+      if row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&
+      row.diskBytesSpilledSum > 0 => row.id
     }.toSet
   }
 
