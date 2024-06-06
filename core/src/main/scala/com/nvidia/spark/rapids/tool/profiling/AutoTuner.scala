@@ -1270,8 +1270,8 @@ object AutoTuner extends Logging {
       if (clusterPropsOpt.isEmpty) {
         // In case the workerInfo input path is incorrect, extra comment
         // mentioning that recommendations were generated using default values
-        autoT.appendComment(s"Exception reading workerInfo: $workerInfoFilePath. " +
-          "Recommendations are generated using default values.")
+        autoT.appendComment(s"Exception reading workerInfo: $workerInfoFilePath.\n" +
+          "  Recommendations are generated using default values.")
       }
       autoT
     } catch {

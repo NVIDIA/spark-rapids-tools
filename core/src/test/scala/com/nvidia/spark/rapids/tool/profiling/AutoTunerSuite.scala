@@ -236,7 +236,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' should be set to Min(1, (gpuCount / numCores)).
-          |- Exception reading workerInfo: non-existing.yaml. Recommendations are generated using default values.
+          |- Exception reading workerInfo: non-existing.yaml.
+          |  Recommendations are generated using default values.
           |- RAPIDS Accelerator for Apache Spark plugin jar is missing
           |  from the classpath entries.
           |  If the Spark RAPIDS jar is being bundled with your
