@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from typing import Callable, List, Optional
+import fire
 import glob
 import json
 import os
@@ -405,48 +406,6 @@ def predict(
     model: Optional[str] = None,
     qualtool_filter: Optional[str] = 'stage',
 ) -> pd.DataFrame:
-    """Predict GPU speedup given CPU logs.
-
-    Predict the speedup of running a Spark application with Spark-RAPIDS on GPUs (vs. CPUs).
-    This uses an XGBoost model trained on matching CPU and GPU runs of various Spark applications.
-
-    Note: this provides a 'best guess' based on an ML model, which may show incorrect results when
-    compared against actual performance.
-
-    For predictions with filtering of unsupported operators, the input data should be specified by
-    the following:
-    - `--profile` and `--qual`: predict on existing profiler (and qualification tool) CSV output.
-        If `--qual` is provided, this will output predictions with stage filtering of unsupported operators.
-        If `--qual` is not provided, this will output the raw predictions from the XGBoost model.
-
-    Advanced usage:
-    - `--preprocessed`: return raw predictions and ground truth labels on the output of qualx preprocessing.
-        If `--qual` is provided, this will return adjusted predictions with filtering, along with the
-        predictions from the qualification tool.  This is primarily used for evaulating models, since
-        the preprocessed data includes GPU runs and labels.
-
-    Parameters
-    ----------
-    platform: str
-        Name of platform for spark_rapids_user_tools, e.g. `onprem`, `dataproc`, etc.  This will
-        be used as the model name, if --model is not provided.
-    model: str
-        Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
-        model on disk.
-    profile: str
-        Path to a directory containing one or more profiler outputs.
-    qual: str
-        Path to a directory containing one or more qualtool outputs.
-        If supplied, qualtool info about supported/unsupported operators is used to apply modeling to only
-        fully supported sqlIDs or heuristically to fully supported stages.
-    preprocessed: str
-        Path to a directory containing one or more preprocessed datasets in parquet format.
-    qualtool_filter: str
-        Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages, based on qualtool
-        output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
-    output_info: dict
-        Dictionary containing paths to save predictions as CSV files.
-    """
     assert (
         profile or preprocessed
     ), 'One of the following arguments is required: --profile, --preprocessed'
@@ -567,6 +526,79 @@ def predict(
             print_speedup_summary(dataset_summary)
         return dataset_summary
     return pd.DataFrame()
+
+
+def __predict_cli(
+    platform: str,
+    output_dir: str,
+    *,
+    profile: Optional[str] = None,
+    qual: Optional[str] = None,
+    preprocessed: Optional[str] = None,
+    model: Optional[str] = None,
+    qualtool_filter: Optional[str] = 'stage',
+):
+    """Predict GPU speedup given CPU logs.
+
+    Predict the speedup of running a Spark application with Spark-RAPIDS on GPUs (vs. CPUs).
+    This uses an XGBoost model trained on matching CPU and GPU runs of various Spark applications.
+
+    Note: this provides a 'best guess' based on an ML model, which may show incorrect results when
+    compared against actual performance.
+
+    For predictions with filtering of unsupported operators, the input data should be specified by
+    the following:
+    - `--profile` and `--qual`: predict on existing profiler (and qualification tool) CSV output.
+        If `--qual` is provided, this will output predictions with stage filtering of unsupported operators.
+        If `--qual` is not provided, this will output the raw predictions from the XGBoost model.
+
+    Advanced usage:
+    - `--preprocessed`: return raw predictions and ground truth labels on the output of qualx preprocessing.
+        If `--qual` is provided, this will return adjusted predictions with filtering, along with the
+        predictions from the qualification tool.  This is primarily used for evaulating models, since
+        the preprocessed data includes GPU runs and labels.
+
+    Parameters
+    ----------
+    platform: str
+        Name of platform for spark_rapids_user_tools, e.g. `onprem`, `dataproc`, etc.  This will
+        be used as the model name, if --model is not provided.
+    model: str
+        Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
+        model on disk.
+    profile: str
+        Path to a directory containing one or more profiler outputs.
+    qual: str
+        Path to a directory containing one or more qualtool outputs.
+        If supplied, qualtool info about supported/unsupported operators is used to apply modeling to only
+        fully supported sqlIDs or heuristically to fully supported stages.
+    preprocessed: str
+        Path to a directory containing one or more preprocessed datasets in parquet format.
+    qualtool_filter: str
+        Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages, based on qualtool
+        output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
+    output_dir:
+        Path to save predictions as CSV files.
+    """
+    # Note this function is for internal usage only. `spark_rapids predict` cmd is the public interface.
+
+    # Construct output paths
+    ensure_directory(output_dir)
+    output_info = {
+        'perSql': {'path': os.path.join(output_dir, 'per_sql.csv')},
+        'perApp': {'path': os.path.join(output_dir, 'per_app.csv')},
+        'shapValues': {'path': os.path.join(output_dir, 'shap_values.csv')},
+    }
+
+    predict(
+        platform,
+        profile=profile,
+        output_info=output_info,
+        qual=qual,
+        preprocessed=preprocessed,
+        model=model,
+        qualtool_filter=qualtool_filter,
+    )
 
 
 def evaluate(
@@ -866,3 +898,22 @@ def compare(
     added = curr_datasets - prev_datasets
     if added:
         logger.warn(f'New datasets added, comparisons may be skewed: added={added}')
+
+
+def entrypoint():
+    """
+    These are commands are intended for internal usage only.
+    """
+    cmds = {
+        "models": models,
+        "preprocess": preprocess,
+        "train": train,
+        "predict": __predict_cli,
+        "evaluate": evaluate,
+        "compare": compare,
+    }
+    fire.Fire(cmds)
+
+
+if __name__ == "__main__":
+    entrypoint()

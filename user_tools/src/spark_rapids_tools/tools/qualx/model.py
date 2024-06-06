@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, List, Tuple
+from typing import Callable, Optional, List, Tuple
 import numpy as np
 import pandas as pd
 import random
@@ -122,7 +122,7 @@ def predict(
     cpu_aug_tbl: pd.DataFrame,
     feature_cols: List[str],
     label_col: str,
-    output_info: dict
+    output_info: Optional[dict] = None,
 ) -> pd.DataFrame:
     """Use model to predict on feature data."""
     model_features = xgb_model.feature_names
@@ -141,8 +141,9 @@ def predict(
     y_pred = xgb_model.predict(dmat)
 
     # compute SHAPley values for the model
-    shap_values_output_file = output_info['shapValues']['path']
-    compute_shapley_values(xgb_model, X, feature_cols, shap_values_output_file)
+    if output_info:
+        shap_values_output_file = output_info['shapValues']['path']
+        compute_shapley_values(xgb_model, X, feature_cols, shap_values_output_file)
 
     if LOG_LABEL:
         y_pred = np.exp(y_pred)
