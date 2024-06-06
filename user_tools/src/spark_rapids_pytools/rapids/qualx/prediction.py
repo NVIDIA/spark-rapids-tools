@@ -31,11 +31,8 @@ class Prediction(QualXTool):
     ----------
     qual_output: str
         Path to a directory containing qualification tool output.
-    prof_output: str
-        Path to a directory containing profiling tool output.
     """
     qual_output: str = None
-    prof_output: str = None
 
     name = 'prediction'
 
@@ -64,7 +61,7 @@ class Prediction(QualXTool):
         try:
             output_info = self.__prepare_prediction_output_info()
             df = predict(platform=self.platform_type.map_to_java_arg(), qual=self.qual_output,
-                         profile=self.prof_output, output_info=output_info)
+                         output_info=output_info)
             print_summary(df)
             print_speedup_summary(df)
             df.to_csv(f'{self.output_folder}/prediction.csv', float_format='%.2f')

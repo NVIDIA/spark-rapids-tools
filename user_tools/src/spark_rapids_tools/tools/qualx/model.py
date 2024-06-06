@@ -19,7 +19,7 @@ import random
 import shap
 import xgboost as xgb
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
-from spark_rapids_tools.tools.qualx.util import get_logger
+from spark_rapids_tools.tools.qualx.util import get_logger, INTERMEDIATE_DATA_ENABLED
 from tabulate import tabulate
 from xgboost import XGBModel
 # Import optional packages
@@ -446,4 +446,5 @@ def compute_shapley_values(
     feature_importance.sort_values(by=['shap_value'], ascending=False, inplace=True)
     logger.info('Writing SHAPley values to: %s', output_file)
     feature_importance.to_csv(output_file, index=False)
-    logger.info('Feature importance (SHAPley values)\n %s', feature_importance)
+    if INTERMEDIATE_DATA_ENABLED:
+        logger.info('Feature importance (SHAPley values)\n %s', feature_importance)

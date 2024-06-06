@@ -262,7 +262,7 @@ def load_datasets(
 
 def load_profiles(
     datasets: Mapping[str, Mapping],
-    profile_dir: str,
+    profile_dir: Optional[str] = None,
     node_level_supp: Optional[pd.DataFrame] = None,
     qualtool_filter: Optional[str] = None,
 ) -> pd.DataFrame:
@@ -300,6 +300,9 @@ def load_profiles(
         # We should clean this up in the future.
         if 'profiles' in ds_meta:
             profile_paths = ds_meta['profiles']
+        elif profile_dir is None:
+            logger.error('No profiles provided or profile_dir specified.')
+            continue
         elif 'query_per_app' in ds_name:
             # don't return list of profile paths, since we'll glob by appId pattern later
             profile_paths = [f'{profile_dir}/{ds_name}']
