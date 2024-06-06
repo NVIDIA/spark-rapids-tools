@@ -18,7 +18,7 @@
 import fire
 
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
-from spark_rapids_tools.enums import QualGpuClusterReshapeType
+from spark_rapids_tools.enums import QualGpuClusterReshapeType, CspEnv
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
@@ -299,8 +299,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
               dataset: str = None,
               model: str = None,
               output_folder: str = None,
-              n_trials: int = 200,
-              platform: str = 'onprem'):
+              n_trials: int = 200):
         """The train cmd trains an XGBoost model on the input data to estimate the speedup of a
          Spark CPU application.
 
@@ -308,15 +307,13 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param model: Path to save the trained XGBoost model.
         :param output_folder: Path to store the output.
         :param n_trials: Number of trials for hyperparameter search.
-        :param platform: Defines one of the following "onprem", "dataproc", "databricks-aws",
-                         and "databricks-azure", default to "onprem".
         """
         # Since train is an internal tool with frequent output, we enable debug mode by default
         ToolLogging.enable_debug_mode()
         init_environment('train')
 
         train_args = AbsToolUserArgModel.create_tool_args('train',
-                                                          platform=platform,
+                                                          platform=CspEnv.get_default(),
                                                           dataset=dataset,
                                                           model=model,
                                                           output_folder=output_folder,
