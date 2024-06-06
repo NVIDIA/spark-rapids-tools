@@ -257,7 +257,7 @@ class Utilities:
         # Maximum number of threads that can be used in the tools JVM.
         # cpu_count returns the logical number of cores. So, we take a 50% to get better representation
         # of physical cores.
-        return min(6, (psutil.cpu_count() + 1) // 2)
+        return min(3, (psutil.cpu_count() + 1) // 2)
 
     @classmethod
     def adjust_tools_resources(cls,
