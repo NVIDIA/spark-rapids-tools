@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import java.io.{BufferedReader, FileNotFoundException, InputStreamReader}
+import java.io.{BufferedReader, InputStreamReader, IOException}
 
 import scala.beans.BeanProperty
 import scala.collection.{mutable, Seq}
@@ -1216,15 +1216,13 @@ object AutoTuner extends Logging {
       val reader = new BufferedReader(new InputStreamReader(fsIs))
       val fileContent = Stream.continually(reader.readLine()).takeWhile(_ != null).mkString("\n")
       loadClusterPropertiesFromContent(fileContent)
-    }
-    catch {
-      // In case of missing file for cluster properties, default properties are used.
+    } catch {
+      // In case of missing file/malformed for cluster properties, default properties are used.
       // Hence, catching and logging as a warning
-      case _: FileNotFoundException =>
+      case _: IOException =>
         logWarning(s"No file found for input workerInfo path: $filePath")
         None
-    }
-    finally {
+    } finally {
       if (fsIs != null) {
         fsIs.close()
       }
@@ -1269,11 +1267,11 @@ object AutoTuner extends Logging {
       val clusterPropsOpt = loadClusterProps(workerInfoFilePath)
       val autoT = new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()),
         singleAppProvider, platform, driverInfoProvider)
-      if(clusterPropsOpt.isEmpty) {
+      if (clusterPropsOpt.isEmpty) {
         // In case the workerInfo input path is incorrect, extra comment
         // mentioning that recommendations were generated using default values
-        autoT.appendComment(s"workerInfo file not found at $workerInfoFilePath. " +
-          "Using default values.")
+        autoT.appendComment(s"Exception reading workerInfo: $workerInfoFilePath. " +
+          "Recommendations are generated using default values.")
       }
       autoT
     } catch {
