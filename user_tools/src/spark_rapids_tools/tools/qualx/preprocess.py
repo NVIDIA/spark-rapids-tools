@@ -330,7 +330,9 @@ def load_profiles(
                         )
                     toc_list.append(tmp)
 
-        if toc_list:
+        if not toc_list:
+            raise ValueError(f'No CSV files found for: {ds_name}')
+        else:
             toc = pd.concat(toc_list)
             raw_features = extract_raw_features(toc, node_level_supp, qualtool_filter)
             if raw_features.empty:
@@ -415,7 +417,7 @@ def extract_raw_features(
 
     # normalize WholeStageCodegen labels
     ops_tbl.loc[
-        ops_tbl['nodeName'].str.startswith('WholeStageCodegen') == True, 'nodeName'
+        ops_tbl['nodeName'].str.startswith('WholeStageCodegen'), 'nodeName'
     ] = 'WholeStageCodegen'
 
     # format WholeStageCodegen for merging
@@ -449,7 +451,7 @@ def extract_raw_features(
     ]
     for op in dynamic_op_labels:
         sql_ops_counter.loc[
-            sql_ops_counter['nodeName'].str.startswith(op) == True, 'nodeName'
+            sql_ops_counter['nodeName'].str.startswith(op), 'nodeName'
         ] = op
 
     # count occurrences
@@ -533,7 +535,7 @@ def extract_raw_features(
 
     # filter rows w/ sqlID
     sql_job_agg_tbl['hasSqlID'] = sql_job_agg_tbl['sqlID'] >= 0
-    full_tbl = sql_job_agg_tbl[sql_job_agg_tbl['hasSqlID'] == True]
+    full_tbl = sql_job_agg_tbl[sql_job_agg_tbl['hasSqlID']]
 
     # add runType features from toc
     app_runtype = toc[['appId', 'runType']].drop_duplicates()
@@ -929,21 +931,22 @@ def load_csv_files(
                 sql_to_stage, left_on='ID', right_on='stageId'
             )
             total_stage_time = (
-                stage_agg_tbl[['sqlID', 'ID', 'Duration']]
+                stage_agg_tbl[['sqlID', 'Duration']]
                 .groupby('sqlID')
                 .agg('sum')
                 .reset_index()
             )
             failed_stage_time = (
                 stage_agg_tbl[['sqlID', 'ID', 'Duration']]
-                .merge(failed_stages, left_on='ID', right_on='stageId', how='inner')
+                .merge(failed_stages, left_on='ID', right_on='stageId', how='inner')[
+                    ['sqlID', 'Duration']
+                ]
                 .groupby('sqlID')
                 .agg('sum')
                 .reset_index()
-                .drop(columns=['sqlID'])
             )
             stage_times = total_stage_time.merge(
-                failed_stage_time, on='ID', how='inner'
+                failed_stage_time, on='sqlID', how='inner'
             )
             stage_times.info()
             sqls_to_drop = set(
@@ -1074,10 +1077,14 @@ def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
     if qtool_execs:
         exec_info = pd.concat([pd.read_csv(f) for f in qtool_execs])
         node_level_supp = exec_info.copy()
-        node_level_supp['Exec Is Supported'] = node_level_supp[
-            'Exec Is Supported'
-        ] | node_level_supp['Exec Name'].apply(
-            lambda x: any([x.startswith(nm) for nm in unsupported_overrides])
+        node_level_supp['Exec Is Supported'] = (
+            node_level_supp['Exec Is Supported']
+            | node_level_supp['Exec Name'].apply(
+                lambda x: any([x.startswith(nm) for nm in unsupported_overrides])
+            )
+            | node_level_supp['Exec Name'].apply(
+                lambda x: x.startswith('WholeStageCodegen')
+            )
         )
         node_level_supp = (
             node_level_supp[['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']]

@@ -21,7 +21,6 @@ import numpy as np
 import pandas as pd
 import traceback
 import xgboost as xgb
-from importlib_resources import files as package_files
 from pathlib import Path
 from spark_rapids_tools.tools.qualx.preprocess import (
     load_datasets,
@@ -126,12 +125,14 @@ def _compute_summary(results):
         'Duration_supported',
         # actual
         'gpuDuration',
+        'xgpu_appDuration',
     ]
     cols = [col for col in result_cols if col in results.columns]
     # compute per-app stats
-    summary = (
-        results[cols].groupby(['appName', 'appId', 'appDuration']).sum().reset_index()
-    )
+    group_by_cols = ['appName', 'appId', 'appDuration']
+    if 'xgpu_appDuration' in results:
+        group_by_cols.append('xgpu_appDuration')
+    summary = results[cols].groupby(group_by_cols).sum().reset_index()
     if 'gpuDuration' in summary:
         summary['gpuDuration'] = summary['gpuDuration'].replace(0.0, np.nan)
 
@@ -153,9 +154,8 @@ def _compute_summary(results):
     # for datasets w/ labels, reconstruct actual speedup per-app
     # TODO: get this from actual CSV file?
     if 'y' in results:
-        summary['appDuration_actual'] = (
-            summary['appDuration'] - summary['Duration'] + summary['gpuDuration']
-        )
+        assert 'xgpu_appDuration' in summary
+        summary = summary.rename({'xgpu_appDuration': 'appDuration_actual'}, axis=1)
         summary['speedup_actual'] = (
             summary['appDuration'] / summary['appDuration_actual']
         )
@@ -199,6 +199,7 @@ def _predict(
             if 'y' not in results:
                 results['y'] = np.nan
                 results['gpuDuration'] = 0.0
+                results['xgpu_appDuration'] = 0.0
 
             # compute per-app speedups
             summary = _compute_summary(results)
@@ -222,7 +223,7 @@ def _read_dataset_scores(
     eval_dir: str
         Path to the output directory of a `qualx evaluate` run.
     score: str
-        Type of metric to report: MAPE, wMAPE.
+        Type of metric to report.
     granularity: str
         Aggregation level for metric: sql, app.
     split: str
@@ -263,7 +264,7 @@ def _read_platform_scores(
     eval_dir: str
         Path to the output directory of a `qualx evaluate` run.
     score: str
-        Type of metric to report: MAPE, wMAPE.
+        Type of metric to report
     split: str
         Name of data split to report: train, test, all.
     """
@@ -321,7 +322,9 @@ def models():
     """Show available pre-trained models."""
     available_models = [
         model.replace('.json', '')
-        for model in os.listdir(package_files('qualx').joinpath('models'))
+        for model in os.listdir(
+            Path(Utils.resource_path('qualx/models/xgboost'))
+        )
     ]
     for model in sorted(available_models):
         print(model)
@@ -830,7 +833,7 @@ def compare(
     previous: str,
     current: str,
     *,
-    score: str = 'wMAPE',
+    score: str = 'dMAPE',
     granularity: str = 'sql',
     split: str = 'all',
 ):
@@ -845,7 +848,7 @@ def compare(
     current: str
         Path to current evaluation results directory.
     score: str
-        Type of score to compare: 'MAPE' (default) or 'wMAPE'.
+        Type of score to compare: 'MAPE', 'wMAPE', or 'dMAPE' (default).
     granularity: str
         Granularity of score to compare: 'sql' (default) or 'app'.
     split: str
