@@ -18,13 +18,14 @@
 import fire
 
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
-from spark_rapids_tools.enums import QualGpuClusterReshapeType
+from spark_rapids_tools.enums import QualGpuClusterReshapeType, CspEnv
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.bootstrap import Bootstrap
-from spark_rapids_pytools.rapids.prediction import Prediction
+from spark_rapids_pytools.rapids.qualx.prediction import Prediction
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
+from spark_rapids_pytools.rapids.qualx.train import Train
 
 
 class ToolsCLI(object):  # pylint: disable=too-few-public-methods
@@ -262,8 +263,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                    qual_output: str = None,
                    prof_output: str = None,
                    output_folder: str = None,
-                   platform: str = 'onprem',
-                   verbose: bool = False):
+                   platform: str = 'onprem'):
         """The prediction cmd takes existing qualification and profiling tool output and runs the
         estimation model in the qualification tools for GPU speedups.
 
@@ -276,8 +276,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param platform: defines one of the following "onprem", "dataproc", "databricks-aws",
                          and "databricks-azure", default to "onprem".
         """
-        if verbose:
-            ToolLogging.enable_debug_mode()
+        # Since prediction is an internal tool with frequent output, we enable debug mode by default
+        ToolLogging.enable_debug_mode()
 
         init_environment('pred')
 
@@ -294,6 +294,38 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                   output_folder=predict_args['output_folder'],
                                   wrapper_options=predict_args)
             tool_obj.launch()
+
+    def train(self,
+              dataset: str = None,
+              model: str = None,
+              output_folder: str = None,
+              n_trials: int = 200):
+        """The train cmd trains an XGBoost model on the input data to estimate the speedup of a
+         Spark CPU application.
+
+        :param dataset: Path to a folder containing one or more dataset JSON files.
+        :param model: Path to save the trained XGBoost model.
+        :param output_folder: Path to store the output.
+        :param n_trials: Number of trials for hyperparameter search.
+        """
+        # Since train is an internal tool with frequent output, we enable debug mode by default
+        ToolLogging.enable_debug_mode()
+        init_environment('train')
+
+        train_args = AbsToolUserArgModel.create_tool_args('train',
+                                                          platform=CspEnv.get_default(),
+                                                          dataset=dataset,
+                                                          model=model,
+                                                          output_folder=output_folder,
+                                                          n_trials=n_trials)
+
+        tool_obj = Train(platform_type=train_args['runtimePlatform'],
+                         dataset=dataset,
+                         model=model,
+                         output_folder=output_folder,
+                         n_trials=n_trials,
+                         wrapper_options=train_args)
+        tool_obj.launch()
 
 
 def main():

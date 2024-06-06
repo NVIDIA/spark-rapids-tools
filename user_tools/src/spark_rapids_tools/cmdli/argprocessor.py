@@ -672,3 +672,25 @@ class PredictUserArgModel(AbsToolUserArgModel):
             'output_folder': self.output_folder,
             'platformOpts': {}
         }
+
+
+@dataclass
+@register_tool_arg_validator('train')
+class TrainUserArgModel(AbsToolUserArgModel):
+    """
+    Represents the arguments collected by the user to run the training tool.
+    """
+    dataset: str = None
+    model: Optional[str] = None
+    n_trials: Optional[int] = None
+
+    def build_tools_args(self) -> dict:
+        runtime_platform = CspEnv.fromstring(self.platform)
+        return {
+            'runtimePlatform': runtime_platform,
+            'dataset': self.dataset,
+            'model': self.model,
+            'output_folder': self.output_folder,
+            'n_trials': self.n_trials,
+            'platformOpts': {},
+        }
