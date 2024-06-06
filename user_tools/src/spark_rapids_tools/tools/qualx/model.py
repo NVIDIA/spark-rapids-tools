@@ -49,6 +49,7 @@ ignored_features = set(
         'scaleFactor',
         'sparkVersion',
         'sqlID',
+        'xgpu_appDuration',
     ]
 )
 
@@ -164,6 +165,8 @@ def predict(
     ]
     if 'split' in cpu_aug_tbl:
         select_columns.append('split')
+    if 'xgpu_appDuration' in cpu_aug_tbl:
+        select_columns.append('xgpu_appDuration')
 
     # join predictions with select input features
     results_df = (
@@ -230,9 +233,18 @@ def extract_model_features(
             )
         # train/validation dataset with CPU + GPU runs
         gpu_aug_tbl = gpu_aug_tbl[
-            ['appName', 'scaleFactor', 'sqlID', 'Duration', 'description']
+            [
+                'appName',
+                'scaleFactor',
+                'sqlID',
+                'Duration',
+                'description',
+                'appDuration',
+            ]
         ]
-        gpu_aug_tbl = gpu_aug_tbl.rename(columns={'Duration': 'xgpu_Duration'})
+        gpu_aug_tbl = gpu_aug_tbl.rename(
+            columns={'Duration': 'xgpu_Duration', 'appDuration': 'xgpu_appDuration'}
+        )
         cpu_aug_tbl = cpu_aug_tbl.merge(
             gpu_aug_tbl,
             on=['appName', 'scaleFactor', 'sqlID', 'description'],
