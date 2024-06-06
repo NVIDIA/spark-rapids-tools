@@ -47,22 +47,27 @@ class AdditionalHeuristics:
         """
         Apply additional heuristics to applications to determine if they can be accelerated on GPU.
         """
-        profile_list = find_paths(
+        qual_metrics = find_paths(
             self.tools_output_dir,
-            RegexPattern.rapidsProfile.match,
+            RegexPattern.qualToolMetrics.match,
             return_directories=True,
         )
-        if len(profile_list) == 0:
-            self.logger.warning('No RAPIDS profiles found in output directory: %s', self.tools_output_dir)
+        if len(qual_metrics) == 0:
+            self.logger.warning('No metrics found in output directory: %s', self.tools_output_dir)
             return pd.DataFrame(columns=self.props.get_value('resultCols'))
 
-        profile_path = profile_list[0]
+        if len(qual_metrics) > 1:
+            # We don't expect multiple metrics directories. Log a warning and use the first one.
+            self.logger.warning('Unexpected multiple metrics directories found. Using the first one: %s',
+                                qual_metrics[0])
+
+        metrics_path = qual_metrics[0]
         result_arr = []
-        if not os.listdir(profile_path) or len(app_ids) == 0:
-            self.logger.warning('Skipping empty profile: %s', profile_list[0])
+        if not os.listdir(metrics_path) or len(app_ids) == 0:
+            self.logger.warning('Skipping empty metrics folder: %s', qual_metrics[0])
         else:
             for app_id in app_ids:
-                app_id_path = os.path.join(profile_path, app_id)
+                app_id_path = os.path.join(metrics_path, app_id)
                 try:
                     # Apply heuristics and determine if the application should be skipped.
                     # Note: `should_skip` flag can be a combination of multiple heuristic checks.

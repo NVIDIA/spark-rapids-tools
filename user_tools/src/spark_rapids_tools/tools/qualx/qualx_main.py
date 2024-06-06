@@ -47,7 +47,6 @@ from spark_rapids_tools.tools.qualx.util import (
     get_dataset_platforms,
     print_summary,
     print_speedup_summary,
-    run_profiler_tool,
     run_qualification_tool,
     RegexPattern,
     INTERMEDIATE_DATA_ENABLED
@@ -82,12 +81,19 @@ def _get_model(platform: str, model: Optional[str]):
 
 def _get_qual_data(qual: Optional[str]):
     if not qual:
-        return None, None, None
+        return None, None, None, None
 
     # load qual tool execs
     qual_list = find_paths(
         qual, lambda x: RegexPattern.rapidsQualtool.match(x), return_directories=True
     )
+    # load metrics directory from all qualification paths.
+    # metrics follow the pattern 'qual_2024xx/rapids_4_spark_qualification_output/raw_metrics'
+    qual_metrics = [
+        path
+        for q in qual_list
+        for path in find_paths(q, RegexPattern.qualToolMetrics.match, return_directories=True)
+    ]
     qual_execs = [
         os.path.join(
             q,
@@ -111,7 +117,7 @@ def _get_qual_data(qual: Optional[str]):
         ['App ID', 'Estimated GPU Speedup'],
     )
 
-    return node_level_supp, qual_app_preds, qual_sql_preds
+    return node_level_supp, qual_app_preds, qual_sql_preds, qual_metrics
 
 
 def _compute_summary(results):
@@ -400,44 +406,39 @@ def predict(
     platform: str,
     output_info: dict,
     *,
-    profile: Optional[str] = None,
     qual: Optional[str] = None,
     preprocessed: Optional[str] = None,
     model: Optional[str] = None,
     qualtool_filter: Optional[str] = 'stage',
 ) -> pd.DataFrame:
     assert (
-        profile or preprocessed
-    ), 'One of the following arguments is required: --profile, --preprocessed'
+        qual or preprocessed
+    ), 'One of the following arguments is required: --qual, --preprocessed'
 
     xgb_model = _get_model(platform, model)
-    node_level_supp, _, _ = _get_qual_data(qual)
+    node_level_supp, _, _, qual_metrics = _get_qual_data(qual)
 
-    # preprocess profiles
-    if profile:
-        profile_list = find_paths(
-            profile,
-            lambda x: RegexPattern.rapidsProfile.match(x),
-            return_directories=True,
-        )
+    # if qualification metrics are provided, load metrics and apply filtering
+    if len(qual_metrics) > 0:
         processed_dfs = {}
-        for prof in profile_list:
+        for metrics_dir in qual_metrics:
             datasets = {}
-            # add profiles to datasets
-            # use parent directory of `rapids_4_spark_profile`
-            dataset_name = Path(prof).parent.name
+            # add metrics directory to datasets
+            # metrics follow the pattern 'qual_2024xx/rapids_4_spark_qualification_output/raw_metrics'
+            # use grandparent directory as dataset name 'qual_2024xxxx'
+            dataset_name = Path(metrics_dir).parent.parent.name
             datasets[dataset_name] = {
-                'profiles': [prof],
+                'profiles': [metrics_dir],
                 'app_meta': {},
                 'platform': platform,
             }
-            # search profile sub directories for appIds
+            # search sub directories for appIds
             appIds = find_paths(
-                prof, lambda x: RegexPattern.appId.match(x), return_directories=True
+                metrics_dir, lambda x: RegexPattern.appId.match(x), return_directories=True
             )
             appIds = [Path(p).name for p in appIds]
             if len(appIds) == 0:
-                logger.warn(f'Skipping empty profile: {prof}')
+                logger.warn(f'Skipping empty metrics directory: {metrics_dir}')
             else:
                 try:
                     for appId in appIds:
@@ -446,10 +447,12 @@ def predict(
                             {appId: {'runType': 'CPU', 'scaleFactor': 1}}
                         )
                     logger.info(f'Loading dataset {dataset_name}')
-                    profile_df = load_profiles(
-                        datasets, profile, node_level_supp, qualtool_filter
+                    metrics_df = load_profiles(
+                        datasets=datasets,
+                        node_level_supp=node_level_supp,
+                        qualtool_filter=qualtool_filter
                     )
-                    processed_dfs[dataset_name] = profile_df
+                    processed_dfs[dataset_name] = metrics_df
                 except ScanTblError:
                     # ignore
                     logger.error(f'Skipping invalid dataset: {dataset_name}')
@@ -532,7 +535,6 @@ def __predict_cli(
     platform: str,
     output_dir: str,
     *,
-    profile: Optional[str] = None,
     qual: Optional[str] = None,
     preprocessed: Optional[str] = None,
     model: Optional[str] = None,
@@ -548,9 +550,8 @@ def __predict_cli(
 
     For predictions with filtering of unsupported operators, the input data should be specified by
     the following:
-    - `--profile` and `--qual`: predict on existing profiler (and qualification tool) CSV output.
-        If `--qual` is provided, this will output predictions with stage filtering of unsupported operators.
-        If `--qual` is not provided, this will output the raw predictions from the XGBoost model.
+    - `--qual`: predict on existing qualification tool CSV output.
+        This will output predictions with stage filtering of unsupported operators.
 
     Advanced usage:
     - `--preprocessed`: return raw predictions and ground truth labels on the output of qualx preprocessing.
@@ -566,8 +567,6 @@ def __predict_cli(
     model: str
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
-    profile: str
-        Path to a directory containing one or more profiler outputs.
     qual: str
         Path to a directory containing one or more qualtool outputs.
         If supplied, qualtool info about supported/unsupported operators is used to apply modeling to only
@@ -592,7 +591,6 @@ def __predict_cli(
 
     predict(
         platform,
-        profile=profile,
         output_info=output_info,
         qual=qual,
         preprocessed=preprocessed,

@@ -44,6 +44,7 @@ class RegexPattern:
     qualtool = re.compile(r'^qual_[0-9]+_[0-9a-zA-Z]+$')
     rapidsProfile = re.compile(r'rapids_4_spark_profile')
     rapidsQualtool = re.compile(r'rapids_4_spark_qualification_output')
+    qualToolMetrics = re.compile(r'raw_metrics')
 
 
 def ensure_directory(path, parent=False):
