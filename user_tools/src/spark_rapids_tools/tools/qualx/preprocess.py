@@ -413,7 +413,7 @@ def extract_raw_features(
     if empty_tables:
         empty_tables_str = ', '.join(empty_tables)
         log_fallback(logger, unique_app_ids,
-                     fallback_reason=f'Empty feature tables found: {empty_tables_str}')
+                     fallback_reason=f'Empty feature tables found after preprocessing: {empty_tables_str}')
         return pd.DataFrame()
 
     # normalize dtypes
