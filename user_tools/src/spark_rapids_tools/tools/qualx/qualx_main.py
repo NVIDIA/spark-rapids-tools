@@ -434,8 +434,8 @@ def predict(
     default_preds_df['dataset_name'] = None
 
     # if qualification metrics are provided, load metrics and apply filtering
+    processed_dfs = {}
     if len(qual_metrics) > 0:
-        processed_dfs = {}
         for metrics_dir in qual_metrics:
             datasets = {}
             # add metrics directory to datasets
@@ -474,10 +474,13 @@ def predict(
                 except ScanTblError:
                     # ignore
                     logger.error(f'Skipping invalid dataset: {dataset_name}')
+    else:
+        logger.warning('Qualification tool metrics are missing. Speedup predictions will be skipped.')
+        return pd.DataFrame()
 
     if not processed_dfs:
-        # this is an error condition and we should not fall back to the default predictions.
-        raise ValueError('No data with metrics found.')
+        # this is an error condition, and we should not fall back to the default predictions.
+        raise ValueError('Data preprocessing resulted in an empty dataset. Speedup predictions will be skipped.')
 
     # predict on each input dataset
     dataset_summaries = []
