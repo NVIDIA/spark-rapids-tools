@@ -419,17 +419,12 @@ def train(
 
 def predict(
     platform: str,
+    qual: str,
     output_info: dict,
     *,
-    qual: Optional[str] = None,
-    preprocessed: Optional[str] = None,
     model: Optional[str] = None,
     qualtool_filter: Optional[str] = 'stage',
 ) -> pd.DataFrame:
-    assert (
-        qual or preprocessed
-    ), 'One of the following arguments is required: --qual, --preprocessed'
-
     xgb_model = _get_model(platform, model)
     node_level_supp, qualtool_output, _, qual_metrics = _get_qual_data(qual)
     # create a DataFrame with default predictions for all app IDs.
@@ -479,15 +474,6 @@ def predict(
                 except ScanTblError:
                     # ignore
                     logger.error(f'Skipping invalid dataset: {dataset_name}')
-    elif preprocessed:
-        if os.path.isdir(preprocessed):
-            processed = find_paths(preprocessed, lambda x: x.endswith('.parquet'))
-        else:
-            processed = [preprocessed]
-        processed_dfs = {
-            dataset.replace('.parquet', ''): pd.read_parquet(dataset)
-            for dataset in processed
-        }
 
     if not processed_dfs:
         # this is an error condition and we should not fall back to the default predictions.
@@ -554,10 +540,9 @@ def predict(
 
 def __predict_cli(
     platform: str,
+    eventlogs: str,
     output_dir: str,
     *,
-    qual: Optional[str] = None,
-    preprocessed: Optional[str] = None,
     model: Optional[str] = None,
     qualtool_filter: Optional[str] = 'stage',
 ):
@@ -569,41 +554,32 @@ def __predict_cli(
     Note: this provides a 'best guess' based on an ML model, which may show incorrect results when
     compared against actual performance.
 
-    For predictions with filtering of unsupported operators, the input data should be specified by
-    the following:
-    - `--qual`: predict on existing qualification tool CSV output.
-        This will output predictions with stage filtering of unsupported operators.
-
-    Advanced usage:
-    - `--preprocessed`: return raw predictions and ground truth labels on the output of qualx preprocessing.
-        If `--qual` is provided, this will return adjusted predictions with filtering, along with the
-        predictions from the qualification tool.  This is primarily used for evaulating models, since
-        the preprocessed data includes GPU runs and labels.
-
     Parameters
     ----------
     platform: str
         Name of platform for spark_rapids_user_tools, e.g. `onprem`, `dataproc`, etc.  This will
         be used as the model name, if --model is not provided.
+    eventlogs: str
+        Path to a single event log, or a directory containing multiple event logs.
+    output_dir:
+        Path to save predictions as CSV files.
     model: str
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
-    qual: str
-        Path to a directory containing one or more qualtool outputs.
-        If supplied, qualtool info about supported/unsupported operators is used to apply modeling to only
-        fully supported sqlIDs or heuristically to fully supported stages.
-    preprocessed: str
-        Path to a directory containing one or more preprocessed datasets in parquet format.
     qualtool_filter: str
         Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages, based on qualtool
         output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
-    output_dir:
-        Path to save predictions as CSV files.
     """
     # Note this function is for internal usage only. `spark_rapids predict` cmd is the public interface.
 
     # Construct output paths
     ensure_directory(output_dir)
+
+    if not any([f.startswith('qual_') for f in os.listdir(output_dir)]):
+        # run qual tool if no existing qual output found
+        run_qualification_tool(platform, eventlogs, output_dir)
+    qual = output_dir
+
     output_info = {
         'perSql': {'path': os.path.join(output_dir, 'per_sql.csv')},
         'perApp': {'path': os.path.join(output_dir, 'per_app.csv')},
@@ -614,7 +590,6 @@ def __predict_cli(
         platform,
         output_info=output_info,
         qual=qual,
-        preprocessed=preprocessed,
         model=model,
         qualtool_filter=qualtool_filter,
     )
