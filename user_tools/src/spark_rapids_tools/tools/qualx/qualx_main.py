@@ -110,13 +110,13 @@ def _get_qual_data(qual: Optional[str]):
     )
 
     # load qual tool per-app predictions
-    qual_app_preds = load_qual_csv(
+    qualtool_output = load_qual_csv(
         qual_list,
         'rapids_4_spark_qualification_output.csv',
         ['App Name', 'App ID', 'App Duration', 'Estimated GPU Speedup'],
     )
 
-    return node_level_supp, qual_app_preds, qual_sql_preds, qual_metrics
+    return node_level_supp, qualtool_output, qual_sql_preds, qual_metrics
 
 
 def _compute_summary(results):
@@ -431,10 +431,10 @@ def predict(
     ), 'One of the following arguments is required: --qual, --preprocessed'
 
     xgb_model = _get_model(platform, model)
-    node_level_supp, qual_app_df, _, qual_metrics = _get_qual_data(qual)
+    node_level_supp, qualtool_output, _, qual_metrics = _get_qual_data(qual)
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.
-    default_preds_df = qual_app_df.apply(create_row_with_default_speedup, axis=1)
+    default_preds_df = qualtool_output.apply(create_row_with_default_speedup, axis=1)
     # add a column for dataset names to associate apps with datasets.
     default_preds_df['dataset_name'] = None
 
@@ -472,7 +472,8 @@ def predict(
                     metrics_df = load_profiles(
                         datasets=datasets,
                         node_level_supp=node_level_supp,
-                        qualtool_filter=qualtool_filter
+                        qualtool_filter=qualtool_filter,
+                        qualtool_output=qualtool_output
                     )
                     processed_dfs[dataset_name] = metrics_df
                 except ScanTblError:
@@ -680,12 +681,12 @@ def evaluate(
                 run_qualification_tool(platform, eventlog, f'{qual_dir}/{ds_name}')
 
     logger.info('Loading qualification tool CSV files.')
-    node_level_supp, qual_app_preds, qual_sql_preds, _ = _get_qual_data(qual_dir)
+    node_level_supp, qualtool_output, qual_sql_preds, _ = _get_qual_data(qual_dir)
 
     logger.info('Loading profiler tool CSV files.')
     profile_df = load_profiles(datasets, profile_dir)  # w/ GPU rows
     filtered_profile_df = load_profiles(
-        datasets, profile_dir, node_level_supp, qualtool_filter
+        datasets, profile_dir, node_level_supp, qualtool_filter, qualtool_output
     )  # w/o GPU rows
     if profile_df.empty:
         raise ValueError(f'Warning: No profile data found for {dataset}')
@@ -783,7 +784,7 @@ def evaluate(
         how='left',
     )
     results_app = results_app.merge(
-        qual_app_preds[['App ID', 'Estimated GPU Speedup']],
+        qualtool_output[['App ID', 'Estimated GPU Speedup']],
         left_on='appId',
         right_on='App ID',
         how='left',

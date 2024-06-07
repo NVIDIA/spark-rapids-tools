@@ -265,6 +265,7 @@ def load_profiles(
     profile_dir: Optional[str] = None,
     node_level_supp: Optional[pd.DataFrame] = None,
     qualtool_filter: Optional[str] = None,
+    qualtool_output: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     """Load dataset profiler CSV files as a pd.DataFrame."""
 
@@ -337,7 +338,7 @@ def load_profiles(
             raise ValueError(f'No CSV files found for: {ds_name}')
         else:
             toc = pd.concat(toc_list)
-            raw_features = extract_raw_features(toc, node_level_supp, qualtool_filter)
+            raw_features = extract_raw_features(toc, node_level_supp, qualtool_filter, qualtool_output)
             if raw_features.empty:
                 continue
             # add scaleFactor from toc or from sqlID ordering within queries grouped by query name and app
@@ -381,12 +382,13 @@ def extract_raw_features(
     toc: pd.DataFrame,
     node_level_supp: Optional[pd.DataFrame],
     qualtool_filter: Optional[str],
+    qualtool_output: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     """Given a pandas dataframe of CSV files, extract raw features into a single dataframe keyed by (appId, sqlID)."""
     # read all tables per appId
     unique_app_ids = toc['appId'].unique()
     appId_tables = [
-        load_csv_files(toc, appId, node_level_supp, qualtool_filter)
+        load_csv_files(toc, appId, node_level_supp, qualtool_filter, qualtool_output)
         for appId in unique_app_ids
     ]
 
@@ -735,6 +737,7 @@ def load_csv_files(
     app_id: str,
     node_level_supp: Optional[pd.DataFrame],
     qualtool_filter: Optional[str],
+    qualtool_output: Optional[pd.DataFrame],
 ) -> List[Mapping[str, pd.DataFrame]]:
     """
     Load profiler CSV files into memory.
@@ -759,8 +762,18 @@ def load_csv_files(
     # Merge summary tables within each appId:
     sgl_app = toc[toc['appId'] == app_id]
 
+    qual_tool_app_duration = pd.DataFrame()
+    # CSV metrics from the profiling tool does not have app duration for incomplete applications.
+    # Qualification tool provides an estimated app duration for these. We should replace the app
+    # duration from CSV metrics with the estimated app duration from the qualification tool output.
+    if qualtool_output is not None:
+        qual_tool_app_duration = qualtool_output.loc[qualtool_output['App ID'] == app_id, 'App Duration']
+
     # Load summary tables:
     app_info = scan_tbl('application_information')
+    if not app_info.empty and not qual_tool_app_duration.empty:
+        # TODO: Update 'durationStr' if it is included as a model feature in the future.
+        app_info['duration'] = qual_tool_app_duration.iloc[0]
 
     # Allow user-provided 'test_name' as 'appName'
     # appName = app_info['appName'].iloc[0]
@@ -803,6 +816,9 @@ def load_csv_files(
 
     sql_duration = scan_tbl('sql_duration_and_executor_cpu_time_percent')
     if not sql_duration.empty:
+        # Replace app duration with the app duration from the qualification tool output. See details above.
+        if not qual_tool_app_duration.empty:
+            sql_duration['App Duration'] = qual_tool_app_duration.iloc[0]
         sql_duration = sql_duration.rename(
             {
                 'App Duration': 'appDuration',
