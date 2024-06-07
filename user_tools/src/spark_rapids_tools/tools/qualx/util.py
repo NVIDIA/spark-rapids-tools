@@ -308,3 +308,50 @@ def print_speedup_summary(dataset_summary: pd.DataFrame):
     print("\nReport Summary:")
     print(tabulate(summary_df, colalign=("left", "right")))
     print()
+
+
+def create_row_with_default_speedup(app: pd.Series) -> pd.Series:
+    """
+    Create a default row for an app with no speedup prediction.
+    """
+    return pd.Series({
+        'appName': app['App Name'],
+        'appId': app['App ID'],
+        'appDuration': app['App Duration'],
+        'Duration': 0,
+        'Duration_pred': 0,
+        'Duration_supported': 0,
+        'fraction_supported': 0.0,
+        'appDuration_pred': app['App Duration'],
+        'speedup': 1.0,
+    })
+
+
+def write_csv_reports(per_sql: pd.DataFrame, per_app: pd.DataFrame, output_info: dict):
+    """
+    Write per-SQL and per-application predictions to CSV files
+    """
+    try:
+        if per_sql is not None:
+            sql_predictions_path = output_info['perSql']['path']
+            logger.info(f'Writing per-SQL predictions to: {sql_predictions_path}')
+            per_sql.to_csv(sql_predictions_path, index=False)
+    except Exception as e:
+        logger.error(f'Error writing per-SQL predictions. Reason: {e}')
+
+    try:
+        if per_app is not None:
+            app_predictions_path = output_info['perApp']['path']
+            logger.info(f'Writing per-application predictions to: {app_predictions_path}')
+            per_app.to_csv(app_predictions_path, index=False)
+    except Exception as e:
+        logger.error(f'Error writing per-app predictions. Reason: {e}')
+
+
+def log_fallback(logger_obj: logging.Logger, app_ids: List[str], fallback_reason: str):
+    """
+    Log a warning message for a fallback during preprocessing.
+    This function expects logger object to log the source module of the warning.
+    """
+    app_id_str = ', '.join(app_ids)
+    logger_obj.warning(f'Predicted speedup will be 1.0 for {app_id_str}. Reason: {fallback_reason}.')

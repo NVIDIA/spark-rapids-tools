@@ -27,7 +27,7 @@ from spark_rapids_tools.tools.qualx.util import (
     get_cache_dir,
     get_logger,
     get_dataset_platforms,
-    run_profiler_tool,
+    run_profiler_tool, log_fallback,
 )
 
 PREPROCESSED_FILE = 'preprocessed.parquet'
@@ -403,8 +403,17 @@ def extract_raw_features(
     # job_map_tbl = combine_tables('job_map_tbl')
     job_stage_agg_tbl = combine_tables('job_stage_agg_tbl')
     wholestage_tbl = combine_tables('wholestage_tbl')
-    if any([app_tbl.empty, ops_tbl.empty, job_stage_agg_tbl.empty]):
-        logger.warn('Empty features tables')
+    # feature tables that must be non-empty
+    features_tables = [
+        (app_tbl, 'application_information'),
+        (ops_tbl, 'sql_plan_metrics_for_application'),
+        (job_stage_agg_tbl, 'job_+_stage_level_aggregated_task_metrics')
+    ]
+    empty_tables = [tbl_name for tbl, tbl_name in features_tables if tbl.empty]
+    if empty_tables:
+        empty_tables_str = ', '.join(empty_tables)
+        log_fallback(logger, unique_app_ids,
+                     fallback_reason=f'Empty feature tables found: {empty_tables_str}')
         return pd.DataFrame()
 
     # normalize dtypes
@@ -490,7 +499,7 @@ def extract_raw_features(
         # if supported exec info supplied aggregate features only over supported stages
         sql_job_agg_tbl = job_stage_agg_tbl.loc[job_stage_agg_tbl['Exec Is Supported']]
         if sql_job_agg_tbl.empty:
-            logger.warn('No fully supported stages.')
+            log_fallback(logger, unique_app_ids, fallback_reason='No fully supported stages found')
             return pd.DataFrame()
     else:
         sql_job_agg_tbl = job_stage_agg_tbl
@@ -684,6 +693,10 @@ def extract_raw_features(
     # impute inf/nan
     full_tbl[ds_cols] = full_tbl[ds_cols].replace([np.inf, -np.inf], 0).fillna(0)
 
+    # warn if any appIds are missing after preprocessing
+    missing_app_ids = list(set(unique_app_ids) - set(full_tbl['appId'].unique()))
+    if missing_app_ids:
+        log_fallback(logger, missing_app_ids, fallback_reason='Missing features after preprocessing')
     return full_tbl
 
 

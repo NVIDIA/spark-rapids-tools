@@ -48,7 +48,7 @@ from spark_rapids_tools.tools.qualx.util import (
     print_speedup_summary,
     run_qualification_tool,
     RegexPattern,
-    INTERMEDIATE_DATA_ENABLED
+    INTERMEDIATE_DATA_ENABLED, create_row_with_default_speedup, write_csv_reports
 )
 from spark_rapids_pytools.common.utilities import Utils
 from tabulate import tabulate
@@ -113,7 +113,7 @@ def _get_qual_data(qual: Optional[str]):
     qual_app_preds = load_qual_csv(
         qual_list,
         'rapids_4_spark_qualification_output.csv',
-        ['App ID', 'Estimated GPU Speedup'],
+        ['App Name', 'App ID', 'App Duration', 'Estimated GPU Speedup'],
     )
 
     return node_level_supp, qual_app_preds, qual_sql_preds, qual_metrics
@@ -324,6 +324,18 @@ def _read_platform_scores(
     return scores_df, set(preds_df.dataset.unique())
 
 
+def _add_entries_for_missing_apps(all_default_preds: pd.DataFrame, summary_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add entry with default speedup prediction for apps that are missing in the summary.
+    """
+    # identify apps that do not have predictions in the summary
+    missing_apps = all_default_preds[~all_default_preds['appId'].isin(summary_df['appId'])].copy()
+    missing_apps['wasPredicted'] = False
+    summary_df['wasPredicted'] = True
+    # add missing applications with default predictions to the summary
+    return pd.concat([summary_df, missing_apps], ignore_index=True)
+
+
 def models():
     """Show available pre-trained models."""
     available_models = [
@@ -419,7 +431,12 @@ def predict(
     ), 'One of the following arguments is required: --qual, --preprocessed'
 
     xgb_model = _get_model(platform, model)
-    node_level_supp, _, _, qual_metrics = _get_qual_data(qual)
+    node_level_supp, qual_app_df, _, qual_metrics = _get_qual_data(qual)
+    # create a DataFrame with default predictions for all app IDs.
+    # this will be used for apps without predictions.
+    default_preds_df = qual_app_df.apply(create_row_with_default_speedup, axis=1)
+    # add a column for dataset names to associate apps with datasets.
+    default_preds_df['dataset_name'] = None
 
     # if qualification metrics are provided, load metrics and apply filtering
     if len(qual_metrics) > 0:
@@ -449,6 +466,8 @@ def predict(
                         datasets[dataset_name]['app_meta'].update(
                             {appId: {'runType': 'CPU', 'scaleFactor': 1}}
                         )
+                        # update the dataset_name for each appId
+                        default_preds_df.loc[default_preds_df['appId'] == appId, 'dataset_name'] = dataset_name
                     logger.info(f'Loading dataset {dataset_name}')
                     metrics_df = load_profiles(
                         datasets=datasets,
@@ -470,12 +489,19 @@ def predict(
         }
 
     if not processed_dfs:
-        raise ValueError('No profile data found.')
+        # this is an error condition and we should not fall back to the default predictions.
+        raise ValueError('No data with metrics found.')
 
     # predict on each input dataset
     dataset_summaries = []
     for dataset, input_df in processed_dfs.items():
         dataset_name = Path(dataset).name
+        # filter default predictions for the current dataset and drop the dataset_name column
+        filtered_default_preds = default_preds_df[default_preds_df['dataset_name'] == dataset_name].copy()
+        filtered_default_preds.drop(columns=['dataset_name'], inplace=True)
+        # use default predictions if no input data is available
+        per_app_summary = filtered_default_preds
+        per_sql_summary = None
         if not input_df.empty:
             filter_str = (
                 f'with {qualtool_filter} filtering'
@@ -487,34 +513,22 @@ def predict(
             features, feature_cols, label_col = extract_model_features(input_df)
             # note: dataset name is already stored in the 'appName' field
             try:
-                results = predict_model(xgb_model, features, feature_cols, label_col, output_info)
-
+                per_sql_summary = predict_model(xgb_model, features, feature_cols, label_col, output_info)
                 # compute per-app speedups
                 # _compute_summary takes only one arg
                 # summary = _compute_summary(results, qual_preds)
-                summary = _compute_summary(results)
-                dataset_summaries.append(summary)
+                summary = _compute_summary(per_sql_summary)
+                # combine calculated summary with default predictions for missing apps
+                per_app_summary = _add_entries_for_missing_apps(filtered_default_preds, summary)
                 if INTERMEDIATE_DATA_ENABLED:
-                    print_summary(summary)
+                    print_summary(per_app_summary)
 
                 # compute speedup for the entire dataset
                 dataset_speedup = (
-                    summary['appDuration'].sum() / summary['appDuration_pred'].sum()
+                    per_app_summary['appDuration'].sum() / per_app_summary['appDuration_pred'].sum()
                 )
                 if INTERMEDIATE_DATA_ENABLED:
                     print(f'Dataset estimated speedup: {dataset_speedup:.2f}')
-
-                # write CSV reports
-                sql_predictions_path = output_info['perSql']['path']
-                logger.info(f"Writing per-SQL predictions to: {sql_predictions_path}")
-                results.to_csv(sql_predictions_path, index=False)
-
-                app_predictions_path = output_info['perApp']['path']
-                logger.info(
-                    f'Writing per-application predictions to: {app_predictions_path}'
-                )
-                summary.to_csv(app_predictions_path, index=False)
-
             except XGBoostError as e:
                 # ignore and continue
                 logger.error(e)
@@ -523,7 +537,10 @@ def predict(
                 logger.error(e)
                 traceback.print_exc(e)
         else:
-            logger.warn(f'Nothing to predict for dataset {dataset}')
+            logger.warn(f'Predicted speedup will be 1.0 for dataset: {dataset}. Check logs for details.')
+        # TODO: Writing CSV reports for all datasets to the same location. We should write to separate directories.
+        write_csv_reports(per_sql_summary, per_app_summary, output_info)
+        dataset_summaries.append(per_app_summary)
 
     if dataset_summaries:
         # show summary stats across all datasets
