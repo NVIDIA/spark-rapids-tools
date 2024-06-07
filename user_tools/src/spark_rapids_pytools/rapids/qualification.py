@@ -196,7 +196,7 @@ class Qualification(RapidsJarTool):
         Qualification tool processes extra arguments:
         1. filter out applications.
         """
-        self.logger.info('Qualification tool processing the arguments')
+        self.logger.info('Qualification tool processing the arguments TOM')
         super()._process_rapids_args()
 
     def _process_cpu_cluster_args(self, offline_cluster_opts: dict = None):
@@ -207,6 +207,7 @@ class Qualification(RapidsJarTool):
             self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
+        self.logger.warning("TOM 1")
         def _process_gpu_cluster_worker_node():
             try:
                 worker_node = gpu_cluster_obj.get_worker_node()
@@ -214,6 +215,11 @@ class Qualification(RapidsJarTool):
                 sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
+                num_cpus = sys_info.num_cpus
+                cpu_mem = sys_info.cpu_mem
+                self.logger.info('cpu emmory is  %s', cpu_mem)
+                self.logger.info('cpu cores is  %s', num_cpus)
+
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.warning(
                     'Failed to get the worker node information for the GPU cluster %s:%s',
@@ -221,9 +227,12 @@ class Qualification(RapidsJarTool):
 
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
         cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
+        self.logger.warning("TOM 2")
         if gpu_cluster_arg:
+            self.logger.warning("TOM 3")
             gpu_cluster_obj = self._create_migration_cluster('GPU', gpu_cluster_arg)
         else:
+            self.logger.warning("TOM 4")
             gpu_cluster_obj = None
             if cpu_cluster:
                 # Convert the CPU instances to support gpu. Otherwise, gpuCluster is not set
@@ -238,6 +247,11 @@ class Qualification(RapidsJarTool):
             # If the CPU cluster is inferred, we skip the auto-tuner as it is called after the Qualification tool.
             return gpu_cluster_obj is not None
 
+        if gpu_cluster_obj:
+            self.logger.info("TOM gpu cluster obj on")
+        else:
+            self.logger.info("TOM gpu cluster obj off")
+
         if gpu_cluster_obj and self.ctxt.get_rapids_auto_tuner_enabled():
             # Generate Autotuner input file for the Qualification
             # Note that we do not call the `_calculate_spark_settings(worker_node_hw_info)` method here
@@ -249,8 +263,10 @@ class Qualification(RapidsJarTool):
 
     def _process_offline_cluster_args(self):
         # read the wrapper option defined by the spark_rapids cmd if any.
+        self.logger.warning("TOM 11")
         enable_savings_flag = self.wrapper_options.get('savingsCalculations', True)
         if enable_savings_flag:
+            self.logger.warning("TOM 12")
             offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
             self._process_cpu_cluster_args(offline_cluster_opts)
             if self.ctxt.get_ctxt('cpuClusterProxy') is None:
@@ -383,6 +399,7 @@ class Qualification(RapidsJarTool):
         3. gpu_per_machine: number of gpu installed on a worker node.
         4. cuda version
         """
+        self.logger.warning("TOM 21")
         gpu_device = self.ctxt.get_value('sparkRapids', 'gpu', 'device')
         gpu_device_arg = self.wrapper_options.get('gpuDevice')
         if gpu_device_arg is not None:

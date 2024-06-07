@@ -296,6 +296,7 @@ class EMRNode(ClusterNode):
         cpu_mem = self.mc_props.get_value('MemoryInfo', 'SizeInMiB')
         # TODO: should we use DefaultVCpus or DefaultCores
         num_cpus = self.mc_props.get_value('VCpuInfo', 'DefaultVCpus')
+        self.logger.info('TOM emr sys info %s and %s', cpu_mem, num_cpus)
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
     def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo or None:

@@ -32,7 +32,7 @@ import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, Qua
  * @param tunerContext Container which holds the arguments passed to the AutoTuner execution
  */
 class QualificationAutoTuner(val appInfoProvider: QualAppSummaryInfoProvider,
-    val tunerContext: TunerContext) {
+    val tunerContext: TunerContext) extends Logging {
 
   // When enabled, the profiler recommendations should only include updated settings.
   private val filterByUpdatedPropsEnabled: Boolean = false
@@ -67,6 +67,7 @@ class QualificationAutoTuner(val appInfoProvider: QualAppSummaryInfoProvider,
   def runAutoTuner(): TuningResult = {
     val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(
       tunerContext.workerInfoPath, appInfoProvider, tunerContext.platform)
+    logWarning("TOM in run auto tuner!!")
     val (recommendations, comments) =
       autoTuner.getRecommendedProperties(showOnlyUpdatedProps = filterByUpdatedPropsEnabled)
     // Combine the GPU recommendations with all others.

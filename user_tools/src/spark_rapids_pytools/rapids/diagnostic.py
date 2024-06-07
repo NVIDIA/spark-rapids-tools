@@ -153,7 +153,7 @@ class Diagnostic(RapidsTool):
 
         # Cleanup unused work dir
         work_dir = FSUtil.build_path(output_path, self.ctxt.get_local_work_dir())
-        FSUtil.remove_path(work_dir, fail_ok=True)
+        #FSUtil.remove_path(work_dir, fail_ok=True)
 
         # Save cluster info
         self.logger.info('Saving cluster info.')

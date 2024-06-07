@@ -253,6 +253,7 @@ class DatabricksAzureNode(ClusterNode):
         self.name = self.props.get_value_silent('public_dns')
 
     def _pull_sys_info(self, cli=None) -> SysInfo:
+        self.logger.info('TOM azure db sys info')
         cpu_mem = self.mc_props.get_value('MemoryInfo', 'SizeInMiB')
         # TODO: should we use DefaultVCpus or DefaultCores
         num_cpus = self.mc_props.get_value('VCpuInfo', 'DefaultVCpus')

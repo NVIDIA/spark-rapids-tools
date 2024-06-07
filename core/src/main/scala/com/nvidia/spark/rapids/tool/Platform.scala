@@ -170,7 +170,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
    */
   def getRetainedSystemProps: Set[String] = Set.empty
 
-  def getExecutorMemory(sparkProperties: Map[String, String]): Option[String] = {
+  def getExecutorHeapMemory(sparkProperties: Map[String, String]): Option[String] = {
     val executorMemoryFromConf = sparkProperties.get("spark.executor.memory")
     if (executorMemoryFromConf.isDefined) {
       executorMemoryFromConf
@@ -187,17 +187,51 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
             // would be the entire node memory by default
             None
           } else {
+            // TODO - any special ones for specific CSPs?
             None
           }
       }
     }
   }
 
+  /*
+  def getExecutorTotalMemory(sparkProperties: Map[String, String]): Option[String] = {
+    val heapMemory = getExecutorHeapMemory(sparkProperties)
+    val execOverheadMemoryFromConf = sparkProperties.get("spark.executor.memoryOverhead")
+    val execOverheadMemoryFactorFromConf =
+      sparkProperties.get("spark.executor.memoryOverheadFactor")
+
+    if (execOverheadMemoryFromConf.isDefined) {
+      execOverheadMemoryFromConf
+    } else {
+      val sparkMasterConf = sparkProperties.get("spark.master")
+      sparkMasterConf match {
+        case None => None
+        case Some(sparkMaster) =>
+          if (sparkMaster.contains("yarn")) {
+            Some("1g")
+          } else if (sparkMaster.contains("k8s")) {
+            val execOverheadMemoryFactorFromConf =
+              sparkProperties.get("spark.kubernetes.memoryOverheadFactor")
+            Some("1g")
+          } else if (sparkMaster.startsWith("spark:")) {
+            // would be the entire node memory by default
+            None
+          } else {
+            // TODO - any special ones for specific CSPs?
+            None
+          }
+      }
+    }
+  }
+
+   */
+
   def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val driverHost = sparkProperties.get("spark.driver.host")
-    val executorMem = getExecutorMemory(sparkProperties)
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorMem,
+    val executorHeapMem = getExecutorHeapMemory(sparkProperties)
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorHeapMem,
       getInstanceResources(sparkProperties), driverHost = driverHost)
   }
 
@@ -240,28 +274,32 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform
     val clusterId = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY)
     val driverHost = sparkProperties.get("spark.driver.host")
     val clusterName = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY)
-    val executorMem = getExecutorMemory(sparkProperties)
+    val executorHeapMem = getExecutorHeapMemory(sparkProperties)
 
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorMem,
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorHeapMem,
       getInstanceResources(sparkProperties), executorInstance, driverInstance,
       driverHost, clusterId, clusterName)
   }
 }
 
-class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPlatform(gpuDevice) {
+class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPlatform(gpuDevice)
+  with Logging {
   override val platformName: String =  PlatformNames.DATABRICKS_AWS
   override val defaultGpuDevice: GpuDevice = A10GGpu
 
   override def getInstanceResources(
       sparkProperties: Map[String, String]): Option[InstanceCoresMemory] = {
     val executorInstance = sparkProperties.get(DatabricksParseHelper.PROP_WORKER_TYPE_ID_KEY)
+    logWarning("executor instance is: " + executorInstance)
     if (executorInstance.isDefined) {
-      val NODE_REGEX = """(a-z)*\.(\d){1,2}xlarge""".r
+      val NODE_REGEX = """[a-z0-9]*\.(\d{1,2}xlarge)""".r
       val nodeSizeMatch = NODE_REGEX.findFirstMatchIn(executorInstance.get).get
       if (nodeSizeMatch.subgroups.size >= 1) {
         val nodeSize = nodeSizeMatch.group(1)
+        logWarning("node size is: " + nodeSize)
         PlatformInstanceTypes.AWS.get(nodeSize)
       } else {
+        logWarning("couldn't match node size")
         None
       }
     } else {
@@ -362,8 +400,8 @@ class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val clusterId = systemProperties.get("EMR_CLUSTER_ID")
     val driverHost = sparkProperties.get("spark.driver.host")
-    val executorMem = getExecutorMemory(sparkProperties)
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorMem,
+    val executorHeapMem = getExecutorHeapMemory(sparkProperties)
+    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorHeapMem,
       instanceInfo = getInstanceResources(sparkProperties),
       clusterId = clusterId, driverHost = driverHost)
   }

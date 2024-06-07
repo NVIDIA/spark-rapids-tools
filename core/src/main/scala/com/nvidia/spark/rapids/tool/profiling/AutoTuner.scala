@@ -73,7 +73,7 @@ class GpuWorkerProps(
   }
   def setDefaultGpuNameIfMissing(platform: Platform): Boolean = {
     if (!GpuDevice.deviceMap.contains(name)) {
-      name = platform.defaultGpuDevice.toString
+      name = platform.gpuDevice.getOrElse(platform.defaultGpuDevice).toString
       true
     } else {
       false
@@ -491,13 +491,30 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   private def calcAvailableMemPerExec(): Double = {
-    // account for system overhead
-    // TODO - need to subtract DEF_SYSTEM_RESERVE_MB for non-container environments!
-    // This is likely just applicable in onprem standalone setups.
-    // for now leave it out since it messes with settings on Databricks.
-    val usableWorkerMem = Math.max(0, StringUtils.convertToMB(clusterProps.system.memory))
-    // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
-    (1.0 * usableWorkerMem) / clusterProps.gpu.getCount
+    val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
+    if (clusterInfoEventLog.isDefined && clusterInfoEventLog.get.instanceInfo.isDefined) {
+      // if possible use the actual executor memory from the event log
+      val instanceCoresMemory = clusterInfoEventLog.get.instanceInfo.get
+      logWarning("Tom using cluster event log instance info: "
+        + instanceCoresMemory.memoryMB)
+      instanceCoresMemory.memoryMB
+    } else {
+      if (processPropsAndCheck) {
+        // get the configuration passed in by the user
+        // TODO - need to subtract DEF_SYSTEM_RESERVE_MB for non-container environments!
+        // This is likely just applicable in onprem standalone setups.
+        // for now leave it out since it messes with settings on Databricks.
+        val usableWorkerMem = Math.max(0, StringUtils.convertToMB(clusterProps.system.memory))
+        // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
+        logWarning("Tom using cluster supplied info: "
+          + (1.0 * usableWorkerMem) / clusterProps.gpu.getCount)
+
+        (1.0 * usableWorkerMem) / clusterProps.gpu.getCount
+      } else {
+        logWarning("Tom no memory specified!")
+        0.0
+      }
+    }
   }
 
   /**
@@ -506,7 +523,16 @@ class AutoTuner(
    */
   def calcInitialExecutorHeap(executorContainerMemCalculator: () => Double,
       numExecCoresCalculator: () => Int): Long = {
+    // val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
+
     val maxExecutorHeap = Math.max(0, executorContainerMemCalculator()).toInt
+    /*
+    if (maxExecutorHeap == 0 && clusterInfoEventLog.isDefined &&
+      clusterInfoEventLog.get.instanceInfo.isDefined) {
+      val existingHeapMem = clusterInfoEventLog.get.executorHeapMemory.get
+    }
+
+     */
     // give up to 2GB of heap to each executor core
     // TODO - revisit this in future as we could let heap be bigger
     Math.min(maxExecutorHeap, DEF_HEAP_PER_CORE_MB * numExecCoresCalculator())
@@ -614,7 +640,7 @@ class AutoTuner(
         } else if (sparkMaster.contains("k8s")) {
           appInfoProvider.getSparkVersion match {
             case Some(version) =>
-              if (ToolUtils.isSpark331OrLater(version)) {
+              if (ToolUtils.isSpark330OrLater(version)) {
                 "spark.executor.memoryOverheadFactor"
               } else {
                 "spark.kubernetes.memoryOverheadFactor"
@@ -711,23 +737,29 @@ class AutoTuner(
     recommendExecutorInstances()
     val numExecutorCores = calcNumExecutorCores
     val execCoresExpr = () => numExecutorCores
-
     appendRecommendation("spark.executor.cores", numExecutorCores)
     appendRecommendation("spark.task.resource.gpu.amount",
       calcTaskGPUAmount(execCoresExpr))
     appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
       calcGpuConcTasks().toInt)
     val availableMemPerExec = calcAvailableMemPerExec()
-    val availableMemPerExecExpr = () => availableMemPerExec
-    val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCoresExpr)
-    val executorHeapExpr = () => executorHeap
-    val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
-      calcOverallMemory(executorHeapExpr, execCoresExpr, availableMemPerExecExpr)
-    appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
-    addRecommendationForMemoryOverhead(s"$memoryOverhead")
-    appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
+    logWarning("available mem per executor is: " +  availableMemPerExec +
+      " cores: " + numExecutorCores)
+    val shouldSetMaxBytesInFlight = if (availableMemPerExec > 0.0) {
+      val availableMemPerExecExpr = () => availableMemPerExec
+      val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCoresExpr)
+      val executorHeapExpr = () => executorHeap
+      val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
+        calcOverallMemory(executorHeapExpr, execCoresExpr, availableMemPerExecExpr)
+      appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
+      addRecommendationForMemoryOverhead(s"$memoryOverhead")
+      appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
+      setMaxBytesInFlight
+    } else {
+      false
+    }
     configureShuffleReaderWriterNumThreads(numExecutorCores)
-    configureMultiThreadedReaders(numExecutorCores, setMaxBytesInFlight)
+    configureMultiThreadedReaders(numExecutorCores, shouldSetMaxBytesInFlight)
     appendRecommendation("spark.rapids.sql.batchSizeBytes", BATCH_SIZE_BYTES)
     appendRecommendation("spark.locality.wait", 0)
     recommendAQEProperties()
