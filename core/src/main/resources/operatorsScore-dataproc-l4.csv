@@ -286,3 +286,4 @@ InSubqueryExec,4.16
 AQEShuffleReadExec,4.16
 CheckOverflowInTableInsert,4.16
 ArrayFilter,1.5
+BoundReference,1.5
