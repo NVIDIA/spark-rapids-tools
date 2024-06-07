@@ -663,7 +663,7 @@ def evaluate(
                 run_qualification_tool(platform, eventlog, f'{qual_dir}/{ds_name}')
 
     logger.info('Loading qualification tool CSV files.')
-    node_level_supp, qual_app_preds, qual_sql_preds = _get_qual_data(qual_dir)
+    node_level_supp, qual_app_preds, qual_sql_preds, _ = _get_qual_data(qual_dir)
 
     logger.info('Loading profiler tool CSV files.')
     profile_df = load_profiles(datasets, profile_dir)  # w/ GPU rows
