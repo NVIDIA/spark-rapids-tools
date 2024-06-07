@@ -39,10 +39,13 @@ object PlatformNames {
    * Return a list of all supported platform names.
    */
   def getAllNames: List[String] = List(
-    DATABRICKS_AWS, DATABRICKS_AZURE, DATAPROC, EMR, ONPREM,
-    s"$DATAPROC-$L4Gpu", s"$DATAPROC-$T4Gpu",
-    s"$DATAPROC_GKE-$L4Gpu", s"$DATAPROC_GKE-$T4Gpu",
-    s"$DATAPROC_SL-$L4Gpu", s"$EMR-$A10Gpu", s"$EMR-$T4Gpu"
+    DATABRICKS_AWS, s"$DATABRICKS_AWS-$A10GGpu", s"$DATABRICKS_AWS-$T4Gpu",
+    DATABRICKS_AZURE, s"$DATABRICKS_AZURE-$T4Gpu",
+    DATAPROC, s"$DATAPROC-$L4Gpu", s"$DATAPROC-$T4Gpu",
+    DATAPROC_GKE, s"$DATAPROC_GKE-$L4Gpu", s"$DATAPROC_GKE-$T4Gpu",
+    DATAPROC_SL, s"$DATAPROC_SL-$L4Gpu",
+    EMR, s"$EMR-$A10Gpu", s"$EMR-$A10GGpu", s"$EMR-$T4Gpu",
+    ONPREM, s"$ONPREM-$A100Gpu"
   )
 }
 
