@@ -74,7 +74,7 @@ class GpuWorkerProps(
   }
   def setDefaultGpuNameIfMissing(platform: Platform): Boolean = {
     if (!GpuDevice.deviceMap.contains(name)) {
-      name = platform.defaultGpuDevice.toString
+      name = platform.gpuDevice.getOrElse(platform.defaultGpuDevice).toString
       true
     } else {
       false
