@@ -144,6 +144,24 @@ abstract class AppBase(
     }
   }
 
+  def guestimateAppEndTimeCB(): () => Option[Long] = {
+    () => None
+  }
+
+  // time in ms
+  def calculateAppDuration(): Option[Long] = {
+    if (appMetaData.isDefined) {
+      val appMeta = appMetaData.get
+      val startTime = appMeta.startTime
+      if (startTime > 0) {
+        estimateAppEndTime(guestimateAppEndTimeCB())
+      }
+      getAppDuration
+    } else {
+      None
+    }
+  }
+
   def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
     executorIdToInfo.getOrElseUpdate(executorId, {
       new ExecutorInfoClass(executorId, addTime)
@@ -383,7 +401,9 @@ abstract class AppBase(
     probNotDataset.values.flatten.toSet.toSeq
   }
 
-  protected def postCompletion(): Unit = {}
+  protected def postCompletion(): Unit = {
+    calculateAppDuration()
+  }
 
   /**
    * Wrapper function to process all the events followed by any

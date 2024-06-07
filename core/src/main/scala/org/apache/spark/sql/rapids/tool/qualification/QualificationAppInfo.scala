@@ -116,26 +116,19 @@ class QualificationAppInfo(
     }
   }
 
-  // time in ms
-  private def calculateAppDuration(startTime: Long): Option[Long] = {
-    if (startTime > 0) {
-      estimateAppEndTime { () =>
-        if (!(lastSQLEndTime.isEmpty && lastJobEndTime.isEmpty)) {
-          logWarning(s"Application End Time is unknown for $appId, estimating based on" +
-            " job and sql end times!")
-          // estimate the app end with job or sql end times
-          val sqlEndTime = if (this.lastSQLEndTime.isEmpty) 0L else this.lastSQLEndTime.get
-          val jobEndTime = if (this.lastJobEndTime.isEmpty) 0L else lastJobEndTime.get
-          val maxEndTime = math.max(sqlEndTime, jobEndTime)
-          if (maxEndTime == 0) None else Some(maxEndTime)
-        } else {
-          None
-        }
+  override def guestimateAppEndTimeCB(): () => Option[Long] = {
+    () =>
+      if (!(lastSQLEndTime.isEmpty && lastJobEndTime.isEmpty)) {
+        logWarning(s"Application End Time is unknown for $appId, estimating based on" +
+          " job and sql end times!")
+        // estimate the app end with job or sql end times
+        val sqlEndTime = if (this.lastSQLEndTime.isEmpty) 0L else this.lastSQLEndTime.get
+        val jobEndTime = if (this.lastJobEndTime.isEmpty) 0L else lastJobEndTime.get
+        val maxEndTime = math.max(sqlEndTime, jobEndTime)
+        if (maxEndTime == 0) None else Some(maxEndTime)
+      } else {
+        None
       }
-      getAppDuration
-    } else {
-      None
-    }
   }
 
   // Assume that overhead is the all time windows that do not overlap with a running job.
@@ -499,7 +492,8 @@ class QualificationAppInfo(
    */
   def aggregateStats(): Option[QualificationSummaryInfo] = {
     appMetaData.map { info =>
-      val appDuration = calculateAppDuration(info.startTime).getOrElse(0L)
+      val appDuration = calculateAppDuration().getOrElse(0L)
+      //calculateAppDuration(info.startTime).getOrElse(0L)
 
       // if either job or stage failures then we mark as N/A
       // TODO - what about incomplete, do we want to change those?
@@ -880,6 +874,7 @@ class QualificationAppInfo(
   }
 
   override def postCompletion(): Unit = {
+    super.postCompletion()
     clusterInfo = buildClusterInfo
   }
 }
