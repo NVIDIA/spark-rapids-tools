@@ -162,6 +162,7 @@ local:
     processDFProps:
       minimumWorkerCount: 2
       gpuScaleFactor: 0.80
+      savingsRecommendationsDefault: 'Not Recommended'
       savingRecommendationsRanges:
         nonRecommended:
           title: 'Not Recommended'

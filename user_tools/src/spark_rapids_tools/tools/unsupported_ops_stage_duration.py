@@ -16,6 +16,7 @@
 
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 from spark_rapids_tools.enums import ConditionOperator
@@ -44,7 +45,12 @@ class UnsupportedOpsStageDuration:
         # Update the percentage column
         perc_result_col_name = self.props.get('percentResultColumnName')
         # Calculate the percentage of all sql stage durations sum for unsupported operators
-        result_df[perc_result_col_name] = result_df[result_col_name] * 100.0 / result_df['SQL Stage Durations Sum']
+        result_df[perc_result_col_name] = np.where(
+            result_df['SQL Stage Durations Sum'] != 0,
+            result_df[result_col_name] * 100.0 / result_df['SQL Stage Durations Sum'],
+            100.0
+        )
+
         return result_df
 
     def __calculate_unsupported_stages_duration(self, unsupported_ops_df: pd.DataFrame) -> pd.DataFrame:
