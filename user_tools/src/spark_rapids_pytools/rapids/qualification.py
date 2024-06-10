@@ -460,17 +460,25 @@ class Qualification(RapidsJarTool):
         if len(subset_data) != all_apps_count:
             notes = 'Apps with the same name are grouped together and their metrics are averaged'
 
-        # recalculate estimated GPU speedup
-        subset_data['Estimated GPU Speedup'] = subset_data['App Duration'] / subset_data['Estimated GPU Duration']
+        # recalculate estimated GPU speedup. If no GPU-speedup; then set GPU speedup to 1.0
+        result_df = subset_data.copy()
+        result_df.loc[:, 'Estimated GPU Speedup'] = np.where(
+            result_df['Estimated GPU Duration'] != 0,
+            result_df['App Duration'].div(result_df['Estimated GPU Duration'], axis=0),
+            1.0)
         # fetch the column names required to recalculate the unsupported operators stage duration percent
         unsupported_ops_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
                                                        'resultColumnName')
         unsupported_ops_perc_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
                                                             'percentResultColumnName')
-        # recalculate unsupported operators stage duration percent
-        subset_data[unsupported_ops_perc_col_name] = \
-            subset_data[unsupported_ops_col_name] * 100.0 / subset_data['SQL Stage Durations Sum']
-        return subset_data, notes
+        # recalculate unsupported operators stage duration percent.
+        # The equation takes into consideration division by zero.
+        result_df[unsupported_ops_perc_col_name] = np.where(
+            result_df['SQL Stage Durations Sum'] != 0,
+            result_df[unsupported_ops_col_name] * 100.0 / result_df['SQL Stage Durations Sum'],
+            100.0
+        )
+        return result_df, notes
 
     def __remap_cols_for_shape_type(self,
                                     data_set: pd.DataFrame,
@@ -633,6 +641,8 @@ class Qualification(RapidsJarTool):
         saving_estimator_cache = {}
         savings_ranges = self.ctxt.get_value('local', 'output', 'processDFProps',
                                              'savingRecommendationsRanges')
+        default_savings_recommendation = self.ctxt.get_value('local', 'output', 'processDFProps',
+                                                             'savingsRecommendationsDefault')
 
         def get_costs_for_single_app(df_row, estimator: SavingsEstimator) -> pd.Series:
             raw_cpu_cost, raw_gpu_cost, _ = estimator.get_costs_and_savings(df_row['App Duration'],
@@ -640,6 +650,9 @@ class Qualification(RapidsJarTool):
             cpu_cost = (100 - self.ctxt.get_ctxt('cpu_discount')) / 100 * raw_cpu_cost
             gpu_cost = (100 - self.ctxt.get_ctxt('gpu_discount')) / 100 * raw_gpu_cost
             est_savings = 100.0 - ((100.0 * gpu_cost) / cpu_cost)
+            # If savings fall into unexpected values such as NaN or infinity, then the code set
+            # default to "Not Recommended"
+            savings_recommendations = default_savings_recommendation
             # We do not want to mistakenly mark a Not-applicable app as Recommended in the savings column
             if df_row[speedup_rec_col] == 'Not Applicable':
                 savings_recommendations = 'Not Applicable'
