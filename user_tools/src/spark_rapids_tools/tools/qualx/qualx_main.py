@@ -145,6 +145,7 @@ def _compute_summary(results):
     # compute the fraction of app duration w/ supported ops
     # without qual tool output, this is the entire SQL duration
     # with qual tool output, this is the fraction of SQL w/ supported ops
+    summary['appDuration'] = summary['appDuration'].clip(lower=summary['Duration'])
     summary['fraction_supported'] = (
         summary['Duration_supported'] / summary['appDuration']
     )
