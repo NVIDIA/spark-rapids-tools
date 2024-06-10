@@ -29,7 +29,7 @@ TODO
 Training requires the following environment variables to be set:
 ```bash
 export SPARK_HOME=/path/to/spark
-export SPARK_RAPIDS_TOOL_JAR=/path/to/rapids-4-spark-tools-0.1.0-SNAPSHOT.jar
+export SPARK_RAPIDS_TOOLS_JAR=/path/to/rapids-4-spark-tools-0.1.0-SNAPSHOT.jar
 export QUALX_DATA_DIR=/path/to/qualx/datasets
 export QUALX_CACHE_DIR=/path/to/qualx/cache
 ```

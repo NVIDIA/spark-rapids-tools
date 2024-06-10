@@ -62,11 +62,12 @@ class Prediction(QualXTool):
             output_info = self.__prepare_prediction_output_info()
             df = predict(platform=self.platform_type.map_to_java_arg(), qual=self.qual_output,
                          output_info=output_info)
-            print_summary(df)
-            print_speedup_summary(df)
-            df.to_csv(f'{self.output_folder}/prediction.csv', float_format='%.2f')
-            self.logger.info('Prediction completed successfully.')
-            self.logger.info('Prediction results are generated at: %s', self.output_folder)
+            if not df.empty:
+                print_summary(df)
+                print_speedup_summary(df)
+                df.to_csv(f'{self.output_folder}/prediction.csv', float_format='%.2f')
+                self.logger.info('Prediction completed successfully.')
+                self.logger.info('Prediction results are generated at: %s', self.output_folder)
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Prediction failed with error: %s', e)
             raise e
