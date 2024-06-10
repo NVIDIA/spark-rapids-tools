@@ -176,7 +176,7 @@ def predict(
     if 'y' in results_df.columns:
         # reconstruct original gpu duration for validation purposes
         results_df['gpuDuration'] = results_df['Duration'] / results_df['y']
-        results_df["gpuDuration"] = np.floor(results_df['gpuDuration'])
+        results_df['gpuDuration'] = np.floor(results_df['gpuDuration'])
 
     # adjust raw predictions with stage/sqlID filtering of unsupporteds
     results_df['Duration_pred'] = results_df['Duration'] * (
@@ -239,7 +239,7 @@ def extract_model_features(
                 'description',
             ]
         ]
-        gpu_aug_tbl = gpu_aug_tbl.rename(columns={"Duration": "xgpu_Duration"})
+        gpu_aug_tbl = gpu_aug_tbl.rename(columns={'Duration': 'xgpu_Duration'})
         cpu_aug_tbl = cpu_aug_tbl.merge(
             gpu_aug_tbl,
             on=['appName', 'scaleFactor', 'sqlID', 'description'],
