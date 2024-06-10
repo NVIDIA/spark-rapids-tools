@@ -17,7 +17,6 @@ import fire
 import glob
 import json
 import os
-import numpy as np
 import pandas as pd
 import traceback
 import xgboost as xgb
@@ -68,7 +67,7 @@ def _get_model(platform: str, model: Optional[str]):
             )
     else:
         # try pre-trained model first
-        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
+        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{model}.json'))
         if not model_path.exists():
             model_path = model
 
@@ -130,10 +129,11 @@ def _compute_summary(results):
         'Duration',
         'Duration_pred',
         'Duration_supported',
+        'scaleFactor',
     ]
     cols = [col for col in result_cols if col in results.columns]
     # compute per-app stats
-    group_by_cols = ['appName', 'appId', 'appDuration']
+    group_by_cols = ['appName', 'appId', 'appDuration', 'scaleFactor']
     summary = (
         results[cols]
         .groupby(group_by_cols)
@@ -676,9 +676,9 @@ def evaluate(
     # join raw app data with app level gpu ground truth
     app_durations = (
         profile_df.loc[profile_df.runType == 'GPU'][
-            ['appName', 'appDuration', 'description']
+            ['appName', 'appDuration', 'description', 'scaleFactor']
         ]
-        .groupby(['appName', 'appDuration'])
+        .groupby(['appName', 'appDuration', 'scaleFactor'])
         .first()
         .reset_index()
     )
@@ -692,18 +692,18 @@ def evaluate(
     raw_app_q_per_app = raw_app.loc[raw_app.appName.str.contains('query_per_app')]
     app_durations_regular = app_durations.loc[
         ~app_durations.appName.str.contains('query_per_app')
-    ][['appName', 'gpu_appDuration']]
+    ][['appName', 'gpu_appDuration', 'scaleFactor']]
     app_durations_q_per_app = app_durations.loc[
         app_durations.appName.str.contains('query_per_app')
     ]
 
     raw_app_regular = raw_app_regular.merge(
-        app_durations_regular[['appName', 'gpu_appDuration']],
-        on=['appName'],
+        app_durations_regular[['appName', 'gpu_appDuration', 'scaleFactor']],
+        on=['appName', 'scaleFactor'],
         how='left',
     )
     raw_app_q_per_app = raw_app_q_per_app.merge(
-        app_durations_q_per_app, on=['appName', 'description'], how='left'
+        app_durations_q_per_app, on=['appName', 'description', 'scaleFactor'], how='left'
     )
 
     raw_app = pd.concat([raw_app_regular, raw_app_q_per_app])
@@ -712,7 +712,7 @@ def evaluate(
         logger.error(
             f'missing gpu apps: {raw_app.loc[raw_app.gpu_appDuration.isna()].to_markdown()}'
         )
-        raise ValueError('Some cpu apps with no gpu ground truth.')
+        raw_app = raw_app.loc[~raw_app.gpu_appDuration.isna()]
 
     raw_app = raw_app.rename({'gpu_appDuration': 'appDuration_actual'}, axis=1)
     raw_app['speedup_actual'] = raw_app['appDuration'] / raw_app['appDuration_actual']

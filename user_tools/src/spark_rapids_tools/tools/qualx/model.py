@@ -176,9 +176,7 @@ def predict(
     if 'y' in results_df.columns:
         # reconstruct original gpu duration for validation purposes
         results_df['gpuDuration'] = results_df['Duration'] / results_df['y']
-        results_df["gpuDuration"] = np.floor(
-            results_df["gpuDuration"]
-        )  # .astype("long")
+        results_df["gpuDuration"] = np.floor(results_df['gpuDuration'])
 
     # adjust raw predictions with stage/sqlID filtering of unsupporteds
     results_df['Duration_pred'] = results_df['Duration'] * (
