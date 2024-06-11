@@ -167,4 +167,4 @@ class QualEstimationModel(EnumeratedType):
 
     @classmethod
     def get_default(cls):
-        return cls.SPEEDUPS
+        return cls.XGBOOST

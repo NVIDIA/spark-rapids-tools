@@ -905,7 +905,7 @@ class PlatformBase:
     def generate_cluster_configuration(self, render_args: dict):
         if not self.cluster_inference_supported:
             return None
-        template_path = Utils.resource_path(f'templates/cluster_template/{self.type_id}.ms')
+        template_path = Utils.resource_path(f'templates/cluster_template/{CspEnv.pretty_print(self.type_id)}.ms')
         return TemplateGenerator.render_template_file(template_path, render_args)
 
 
