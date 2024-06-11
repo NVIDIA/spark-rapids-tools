@@ -16,10 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import com.nvidia.spark.rapids.tool.tuning.QualAppSummaryInfoProvider
-
-import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
+import com.nvidia.spark.rapids.tool.AppSummaryInfoBaseProvider
 
 case class ApplicationSummaryInfo(
     appInfo: Seq[AppInfoProfileResults],
@@ -29,7 +26,8 @@ case class ApplicationSummaryInfo(
     rapidsProps: Seq[RapidsPropertyProfileResult],
     rapidsJar: Seq[RapidsJarProfileResult],
     sqlMetrics: Seq[SQLAccumProfileResults],
-    jsMetAgg: Seq[JobStageAggTaskMetricsProfileResult],
+    jobAggMetrics: Seq[JobAggTaskMetricsProfileResult],
+    stageAggMetrics: Seq[StageAggTaskMetricsProfileResult],
     sqlTaskAggMetrics: Seq[SQLTaskAggMetricsProfileResult],
     durAndCpuMet: Seq[SQLDurationExecutorTimeProfileResult],
     skewInfo: Seq[ShuffleSkewProfileResult],
@@ -45,7 +43,8 @@ case class ApplicationSummaryInfo(
     maxTaskInputBytesRead: Seq[SQLMaxTaskInputSizes],
     appLogPath: Seq[AppLogPathProfileResults],
     ioMetrics: Seq[IOAnalysisProfileResult],
-    sysProps: Seq[RapidsPropertyProfileResult])
+    sysProps: Seq[RapidsPropertyProfileResult],
+    sqlCleanedAlignedIds: Seq[SQLCleanAndAlignIdsProfileResult])
 
 trait AppInfoPropertyGetter {
   // returns all the properties (i.e., spark)
@@ -77,42 +76,6 @@ trait AppInfoSQLTaskInputSizes {
 trait AppInfoReadMetrics {
   def getDistinctLocationPct: Double
   def getRedundantReadSize: Long
-}
-
-/**
- * A base class definition that provides an empty implementation of the profile results embedded in
- * [[ApplicationSummaryInfo]].
- */
-class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
-  with AppInfoJobStageAggMetricsVisitor
-  with AppInfoSqlTaskAggMetricsVisitor
-  with AppInfoSQLTaskInputSizes
-  with AppInfoReadMetrics {
-  def isAppInfoAvailable = false
-  override def getAllProperties: Map[String, String] = Map[String, String]()
-  override def getSparkProperty(propKey: String): Option[String] = None
-  override def getRapidsProperty(propKey: String): Option[String] = None
-  override def getSystemProperty(propKey: String): Option[String] = None
-  override def getProperty(propKey: String): Option[String] = {
-    if (propKey.startsWith(ToolUtils.PROPS_RAPIDS_KEY_PREFIX)) {
-      getRapidsProperty(propKey)
-    } else if (propKey.startsWith("spark")){
-      getSparkProperty(propKey)
-    } else {
-      getSystemProperty(propKey)
-    }
-  }
-  override def getSparkVersion: Option[String] = None
-  override def getMaxInput: Double = 0.0
-  override def getMeanInput: Double = 0.0
-  override def getMeanShuffleRead: Double = 0.0
-  override def getJvmGCFractions: Seq[Double] = Seq()
-  override def getSpilledMetrics: Seq[Long] = Seq()
-  override def getShuffleStagesWithPosSpilling: Set[Long] = Set()
-  override def getShuffleSkewStages: Set[Long] = Set()
-  override def getRapidsJars: Seq[String] = Seq()
-  override def getDistinctLocationPct: Double = 0.0
-  override def getRedundantReadSize: Long = 0
 }
 
 /**
@@ -173,11 +136,13 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   }
 
   // Return shuffle stage(Id)s which have positive spilling metrics
+  // The heuristics below assume that these are GPU event logs. ie
+  // its ok to add disk bytes spilled with memory bytes spilled. This
+  // is not correct if its a CPU event log.
   override def getShuffleStagesWithPosSpilling: Set[Long] = {
-    app.jsMetAgg.collect { case row if (row.id.contains("stage") &&
-      row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&
-      row.diskBytesSpilledSum + row.memoryBytesSpilledSum > 0) =>
-        row.id.split("_")(1).toLong
+    app.stageAggMetrics.collect { case row
+      if row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&
+      row.diskBytesSpilledSum + row.memoryBytesSpilledSum > 0 => row.id
     }.toSet
   }
 
@@ -225,26 +190,5 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
     } else {
       0.0
     }
-  }
-}
-
-object AppSummaryInfoBaseProvider {
-  def fromAppInfo(appInfoInst: Option[ApplicationSummaryInfo]): AppSummaryInfoBaseProvider = {
-    appInfoInst match {
-      case Some(appSummaryInfo) => new SingleAppSummaryInfoProvider(appSummaryInfo)
-      case _ => new AppSummaryInfoBaseProvider()
-    }
-  }
-
-  /**
-   * Constructs an application information provider based on the results of Qualification
-   * tool.
-   * @param appInfo
-   * @param appAggStats optional aggregate of application stats
-   * @return object that can be used by the AutoTuner to calculate the recommendations
-   */
-  def fromQualAppInfo(appInfo: QualificationAppInfo,
-      appAggStats: Option[QualificationSummaryInfo] = None): AppSummaryInfoBaseProvider = {
-    new QualAppSummaryInfoProvider(appInfo, appAggStats)
   }
 }

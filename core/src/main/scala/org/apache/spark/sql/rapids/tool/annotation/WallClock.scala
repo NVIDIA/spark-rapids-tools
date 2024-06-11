@@ -21,7 +21,7 @@ import scala.annotation.meta.{beanGetter, beanSetter, field, getter, param, sett
 
 
 /**
- * A Scala annotation that specifies whether the type of duration: wallClockTime Vs. CPUTime
+ * A Scala annotation that specifies whether the type of duration: wallClockTime Vs. TaskDuration
  */
 @param @field @getter @setter @beanGetter @beanSetter
 class WallClock extends StaticAnnotation

@@ -41,8 +41,10 @@ class StageModelManager extends Logging {
   // of composite key (i.e., Tuple).
   // Composite keys would cost more because it implicitly allocates a new object every time there
   // is a read operation from the map.
-  private val stageIdToInfo: mutable.HashMap[Int, mutable.HashMap[Int, StageModel]] =
-    new mutable.HashMap[Int, mutable.HashMap[Int, StageModel]]()
+  // Finally use SortedMaps to keep the map sorted. That way iterating on the map will be orders
+  // by IDs/AttemptIDs.
+  private val stageIdToInfo: mutable.SortedMap[Int, mutable.SortedMap[Int, StageModel]] =
+    mutable.SortedMap[Int, mutable.SortedMap[Int, StageModel]]()
 
   // Holds the mapping between AccumulatorIDs to Stages (1-to-N)
   // [Long: AccumId -> SortedSet[Int: StageId]]
@@ -69,7 +71,7 @@ class StageModelManager extends Logging {
   // Internal method used to create new instance of StageModel if it does not exist.
   private def getOrCreateStage(stageInfo: StageInfo): StageModel = {
     val currentAttempts =
-      stageIdToInfo.getOrElseUpdate(stageInfo.stageId, new mutable.HashMap[Int, StageModel]())
+      stageIdToInfo.getOrElseUpdate(stageInfo.stageId, mutable.SortedMap[Int, StageModel]())
     val sModel = StageModel(stageInfo, currentAttempts.get(stageInfo.attemptNumber()))
     currentAttempts.put(stageInfo.attemptNumber(), sModel)
     sModel

@@ -21,12 +21,13 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 import java.util.Calendar
 
-import org.scalatest.FunSuite
+import com.nvidia.spark.rapids.BaseTestSuite
+import com.nvidia.spark.rapids.tool.{StatusReportCounts, ToolTestUtils}
 
 import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
 
-class AppFilterSuite extends FunSuite {
+class AppFilterSuite extends BaseTestSuite {
 
   test("illegal args") {
     assertThrows[IllegalArgumentException](AppFilterImpl.parseAppTimePeriod("0"))
@@ -103,11 +104,18 @@ class AppFilterSuite extends FunSuite {
         val appArgs = new ProfileArgs(allArgs ++ Array(elogFile.toString()))
         val (exit, filteredSize) = ProfileMain.mainInternal(appArgs)
         assert(exit == 0)
-        if (failFilter) {
+        val expectedStatusCount = if (failFilter) {
           assert(filteredSize == 0)
+          // Status counts: 0 SUCCESS, 1 FAILURE, 0 SKIPPED, 0 UNKNOWN
+          StatusReportCounts(0, 1, 0, 0)
         } else {
           assert(filteredSize == 1)
+          // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+          StatusReportCounts(1, 0, 0, 0)
         }
+        // Compare the expected status counts with the actual status counts from the application
+        ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
+          s"${outpath.getAbsolutePath}/rapids_4_spark_profile/profiling_status.csv")
       }
     }
   }

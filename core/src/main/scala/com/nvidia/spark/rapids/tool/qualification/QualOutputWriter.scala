@@ -23,6 +23,7 @@ import scala.collection.mutable.{Buffer, LinkedHashMap, ListBuffer}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, ExecInfo, PlanInfo, UnsupportedExecSummary}
+import com.nvidia.spark.rapids.tool.profiling.AppStatusResult
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.{CLUSTER_ID, CLUSTER_ID_STR_SIZE, JOB_ID, JOB_ID_STR_SIZE, RUN_NAME, RUN_NAME_STR_SIZE, TEXT_DELIMITER}
 import org.apache.hadoop.conf.Configuration
@@ -30,7 +31,7 @@ import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization
 
 import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.qualification.{EstimatedPerSQLSummaryInfo, EstimatedSummaryInfo, QualificationAppInfo, QualificationSummaryInfo, StatusSummaryInfo}
+import org.apache.spark.sql.rapids.tool.qualification.{EstimatedPerSQLSummaryInfo, EstimatedSummaryInfo, QualificationAppInfo, QualificationSummaryInfo}
 import org.apache.spark.sql.rapids.tool.util._
 
 /**
@@ -338,7 +339,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
-  def writeStatusReport(statusReports: Seq[StatusSummaryInfo], order: String): Unit = {
+  def writeStatusReport(statusReports: Seq[AppStatusResult], order: String): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_status.csv",
       "Status Report Info", hadoopConf)
@@ -378,6 +379,7 @@ case class FormattedQualificationSummaryInfo(
     nestedComplexTypes: String,
     potentialProblems: String,
     longestSqlDuration: Long,
+    sqlStageDurationsSum: Long,
     nonSqlTaskDurationAndOverhead: Long,
     unsupportedSQLTaskDuration: Long,
     supportedSQLTaskDuration: Long,
@@ -401,6 +403,7 @@ object QualOutputWriter {
   val TASK_DUR_STR = "SQL Dataframe Task Duration"
   val STAGE_DUR_STR = "Stage Task Duration"
   val STAGE_WALLCLOCK_DUR_STR = "Stage Duration"
+  val SQL_STAGE_DUR_SUM_STR = "SQL Stage Durations Sum"
   val POT_PROBLEM_STR = "Potential Problems"
   val EXEC_CPU_PERCENT_STR = "Executor CPU Time Percent"
   val APP_DUR_ESTIMATED_STR = "App Duration Estimated"
@@ -453,6 +456,7 @@ object QualOutputWriter {
   val ML_STAGE_IDS = "Stage Ids"
   val STATUS_REPORT_PATH_STR = "Event Log"
   val STATUS_REPORT_STATUS_STR = "Status"
+  val STATUS_REPORT_APP_ID = "AppID"
   val STATUS_REPORT_DESC_STR = "Description"
   val VENDOR = "Vendor"
   val DRIVER_HOST = "Driver Host"
@@ -636,6 +640,7 @@ object QualOutputWriter {
       POT_PROBLEM_STR ->
         getMaxSizeForHeader(appInfos.map(_.potentialProblems.size), POT_PROBLEM_STR),
       LONGEST_SQL_DURATION_STR -> LONGEST_SQL_DURATION_STR_SIZE,
+      SQL_STAGE_DUR_SUM_STR -> SQL_STAGE_DUR_SUM_STR.size,
       NONSQL_DUR_STR -> NONSQL_DUR_STR.size,
       UNSUPPORTED_TASK_DURATION_STR -> UNSUPPORTED_TASK_DURATION_STR.size,
       SUPPORTED_SQL_TASK_DURATION_STR -> SUPPORTED_SQL_TASK_DURATION_STR.size,
@@ -1100,6 +1105,7 @@ object QualOutputWriter {
       ToolUtils.formatComplexTypes(appInfo.nestedComplexTypes, delimiter),
       ToolUtils.formatPotentialProblems(appInfo.potentialProblems, delimiter),
       appInfo.longestSqlDuration,
+      appInfo.stageInfo.map(_.stageWallclockDuration).sum,
       appInfo.nonSqlTaskDurationAndOverhead,
       appInfo.unsupportedSQLTaskDuration,
       appInfo.supportedSQLTaskDuration,
@@ -1138,6 +1144,8 @@ object QualOutputWriter {
       reformatCSVFunc(appInfo.nestedComplexTypes) -> headersAndSizes(NESTED_TYPES_STR),
       reformatCSVFunc(appInfo.potentialProblems) -> headersAndSizes(POT_PROBLEM_STR),
       appInfo.longestSqlDuration.toString -> headersAndSizes(LONGEST_SQL_DURATION_STR),
+      appInfo.sqlStageDurationsSum.toString ->
+        headersAndSizes(SQL_STAGE_DUR_SUM_STR),
       appInfo.nonSqlTaskDurationAndOverhead.toString -> headersAndSizes(NONSQL_DUR_STR),
       appInfo.unsupportedSQLTaskDuration.toString -> headersAndSizes(UNSUPPORTED_TASK_DURATION_STR),
       appInfo.supportedSQLTaskDuration.toString -> headersAndSizes(SUPPORTED_SQL_TASK_DURATION_STR),
@@ -1169,7 +1177,7 @@ object QualOutputWriter {
   }
 
   private def getDetailedStatusHeaderStringsAndSizes(
-      statusInfos: Seq[StatusSummaryInfo]): LinkedHashMap[String, Int] = {
+      statusInfos: Seq[AppStatusResult]): LinkedHashMap[String, Int] = {
     val descLengthList = statusInfos.map { statusInfo =>
       statusInfo.appId.length + statusInfo.message.length + 1
     }
@@ -1178,6 +1186,8 @@ object QualOutputWriter {
         getMaxSizeForHeader(statusInfos.map(_.path.length), STATUS_REPORT_PATH_STR),
       STATUS_REPORT_STATUS_STR ->
         getMaxSizeForHeader(statusInfos.map(_.status.length), STATUS_REPORT_STATUS_STR),
+      STATUS_REPORT_APP_ID ->
+        getMaxSizeForHeader(statusInfos.map(_.appId.length), STATUS_REPORT_APP_ID),
       STATUS_REPORT_DESC_STR ->
         getMaxSizeForHeader(descLengthList, STATUS_REPORT_DESC_STR)
     )
@@ -1185,20 +1195,17 @@ object QualOutputWriter {
   }
 
   private def constructStatusReportInfo(
-      statusInfo: StatusSummaryInfo,
+      statusInfo: AppStatusResult,
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String,
       prettyPrint: Boolean,
       reformatCSV: Boolean = true): Seq[String] = {
     val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
-    val descriptionStr = statusInfo.appId match {
-      case "" => statusInfo.message
-      case appId => if (statusInfo.message.isEmpty) appId else s"$appId,${statusInfo.message}"
-    }
     val data = ListBuffer[(String, Int)](
       reformatCSVFunc(statusInfo.path) -> headersAndSizes(STATUS_REPORT_PATH_STR),
       reformatCSVFunc(statusInfo.status) -> headersAndSizes(STATUS_REPORT_STATUS_STR),
-      reformatCSVFunc(descriptionStr) -> headersAndSizes(STATUS_REPORT_DESC_STR))
+      reformatCSVFunc(statusInfo.appId) -> headersAndSizes(STATUS_REPORT_APP_ID),
+      reformatCSVFunc(statusInfo.message) -> headersAndSizes(STATUS_REPORT_DESC_STR))
     Seq(constructOutputRow(data, delimiter, prettyPrint))
   }
 }

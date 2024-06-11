@@ -39,10 +39,13 @@ object PlatformNames {
    * Return a list of all supported platform names.
    */
   def getAllNames: List[String] = List(
-    DATABRICKS_AWS, DATABRICKS_AZURE, DATAPROC, EMR, ONPREM,
-    s"$DATAPROC-$L4Gpu", s"$DATAPROC-$T4Gpu",
-    s"$DATAPROC_GKE-$L4Gpu", s"$DATAPROC_GKE-$T4Gpu",
-    s"$DATAPROC_SL-$L4Gpu", s"$EMR-$A10Gpu", s"$EMR-$T4Gpu"
+    DATABRICKS_AWS, s"$DATABRICKS_AWS-$A10GGpu", s"$DATABRICKS_AWS-$T4Gpu",
+    DATABRICKS_AZURE, s"$DATABRICKS_AZURE-$T4Gpu",
+    DATAPROC, s"$DATAPROC-$L4Gpu", s"$DATAPROC-$T4Gpu",
+    DATAPROC_GKE, s"$DATAPROC_GKE-$L4Gpu", s"$DATAPROC_GKE-$T4Gpu",
+    DATAPROC_SL, s"$DATAPROC_SL-$L4Gpu",
+    EMR, s"$EMR-$A10Gpu", s"$EMR-$A10GGpu", s"$EMR-$T4Gpu",
+    ONPREM, s"$ONPREM-$A100Gpu"
   )
 }
 
@@ -54,6 +57,12 @@ object PlatformNames {
 abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   val platformName: String
   val defaultGpuDevice: GpuDevice
+  // This function allow us to have one gpu type used by the auto
+  // tuner recommendations but have a different GPU used for speedup
+  // factors since we don't have speedup factors for all combinations of
+  // platforms and GPUs. We expect speedup factor usage to be going away
+  // so this is less of an issue.
+  def defaultGpuForSpeedupFactor: GpuDevice = getGpuOrDefault
 
   /**
    * Recommendations to be excluded from the list of recommendations.
@@ -101,10 +110,14 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   }
 
   def getOperatorScoreFile: String = {
-    s"operatorsScore-$platformName-$getGpuOrDefault.csv"
+    s"operatorsScore-$platformName-$getGpuOrDefaultForSpeedupFactors.csv"
   }
 
   final def getGpuOrDefault: GpuDevice = gpuDevice.getOrElse(defaultGpuDevice)
+
+  final def getGpuOrDefaultForSpeedupFactors: GpuDevice =
+    gpuDevice.getOrElse(defaultGpuForSpeedupFactor)
+
 
   final def setGpuDevice(gpuDevice: GpuDevice): Unit = {
     this.gpuDevice = Some(gpuDevice)
@@ -125,15 +138,25 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
     val gpuStr = gpuDevice.fold("")(gpu => s"-$gpu")
     s"$platformName$gpuStr"
   }
+
+  /**
+   * Indicate if the platform is a cloud service provider.
+   */
+  def isPlatformCSP: Boolean = false
 }
 
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val defaultGpuDevice: GpuDevice = T4Gpu
 
+  override def isPlatformCSP: Boolean = true
+
+  // note that Databricks generally sets the spark.executor.memory for the user.  Our
+  // auto tuner heuristics generally sets it lower then Databricks so go ahead and
+  // allow our auto tuner to take affect for this in anticipation that we will use more
+  // off heap memory.
   override val recommendationsToExclude: Set[String] = Set(
     "spark.executor.cores",
     "spark.executor.instances",
-    "spark.executor.memory",
     "spark.executor.memoryOverhead"
   )
 
@@ -161,20 +184,24 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPl
 class DataprocPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC
   override val defaultGpuDevice: GpuDevice = T4Gpu
+  override def isPlatformCSP: Boolean = true
 }
 
 class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC_SL
   override val defaultGpuDevice: GpuDevice = L4Gpu
+  override def isPlatformCSP: Boolean = true
 }
 
 class DataprocGkePlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC_GKE
+  override def isPlatformCSP: Boolean = true
 }
 
 class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.EMR
   override val defaultGpuDevice: GpuDevice = A10GGpu
+  override def isPlatformCSP: Boolean = true
 
   override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
 
@@ -189,7 +216,11 @@ class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
 
 class OnPremPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.ONPREM
-  override val defaultGpuDevice: GpuDevice = A100Gpu
+  // Note we don't have an speedup factor file for onprem l4's but we want auto tuner
+  // to use L4.
+  override val defaultGpuDevice: GpuDevice = L4Gpu
+  override val defaultGpuForSpeedupFactor: GpuDevice = A100Gpu
+
 }
 
 /**

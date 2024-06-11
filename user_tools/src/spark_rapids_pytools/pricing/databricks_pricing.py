@@ -85,5 +85,7 @@ class DatabricksPriceProvider(EMREc2PriceProvider):
         job_type_conf = self.catalogs[self.plan].get_value(compute_type)
         rate_per_hour = job_type_conf.get('RatePerHour')
         instance_conf = job_type_conf.get('Instances').get(instance)
+        if instance_conf is None:
+            raise RuntimeError(f'Could not find pricing info for instance type \'{instance}\'')
         instance_dbu = instance_conf.get('DBU')
         return instance_dbu * rate_per_hour

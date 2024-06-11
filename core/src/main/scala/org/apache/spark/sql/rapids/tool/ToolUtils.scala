@@ -16,7 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 import com.nvidia.spark.rapids.tool.planparser.SubqueryExecParser
@@ -448,6 +448,10 @@ case class IncorrectAppStatusException(
     message: String = "Application status is incorrect. Missing AppInfo")
     extends AppEventlogProcessException(message)
 
+case class UnsupportedMetricNameException(metricName: String)
+    extends AppEventlogProcessException(
+      s"Unsupported metric name found in the event log: $metricName")
+
 // Class used a container to hold the information of the Tuple<sqlID, PlanInfo, SparkGraph>
 // to simplify arguments of methods and caching.
 case class SqlPlanInfoGraphEntry(
@@ -458,7 +462,8 @@ case class SqlPlanInfoGraphEntry(
 
 // A class used to cache the SQLPlanInfoGraphs
 class SqlPlanInfoGraphBuffer {
-  val sqlPlanInfoGraphs = ArrayBuffer[SqlPlanInfoGraphEntry]()
+  // A set to hold the SqlPlanInfoGraphEntry. LinkedHashSet to maintain the order of insertion.
+  val sqlPlanInfoGraphs = mutable.LinkedHashSet[SqlPlanInfoGraphEntry]()
   def addSqlPlanInfoGraph(sqlID: Long, planInfo: SparkPlanInfo): SqlPlanInfoGraphEntry = {
     val newEntry = SqlPlanInfoGraphBuffer.createEntry(sqlID, planInfo)
     sqlPlanInfoGraphs += newEntry
@@ -473,3 +478,9 @@ object SqlPlanInfoGraphBuffer {
     SqlPlanInfoGraphEntry(sqlID, planInfo, planGraph)
   }
 }
+
+// Case class to represent a failed AppInfo creation
+case class FailureApp(
+    status: String,
+    message: String
+)

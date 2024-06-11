@@ -76,11 +76,13 @@
         },
         {
           "envVariableKey": "AWS_REGION",
-          "confProperty": "region"
+          "confProperty": "region",
+          "defaultValue": "us-east-1"
         },
         {
           "envVariableKey": "AWS_DEFAULT_REGION",
-          "confProperty": "region"
+          "confProperty": "region",
+          "defaultValue": "us-east-1"
         },
         {
           "envVariableKey": "AWS_PROFILE",

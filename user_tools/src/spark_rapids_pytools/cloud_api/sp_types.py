@@ -689,6 +689,8 @@ class PlatformBase:
                     # this is a file
                     env_var_val = FSUtil.expand_path(env_var_val)
                 self.ctxt.update({prop_key: env_var_val})
+                self.logger.warning('Property %s is not set. Setting default value %s'
+                                    ' from environment variable', prop_key, env_var_val)
                 break
 
     def _set_initial_configuration_list(self) -> None:
@@ -727,10 +729,14 @@ class PlatformBase:
                                                         sectionKey=self.ctxt.get(config_file_section[config_file]))
                 if loaded_conf_dict:
                     self.ctxt.update(loaded_conf_dict)
-            for prop_elem in properties_map_arr:
-                if loaded_conf_dict and prop_elem.get('propKey') not in loaded_conf_dict:
-                    # set it using environment variable if possible
-                    self._set_env_prop_from_env_var(prop_elem.get('propKey'))
+            # If the property key is not already set, below code attempts to set the property
+            # using an environment variable. This is a fallback mechanism to populate configuration
+            # properties from the environment if they are not already set in the
+            # loaded configuration.
+            for prop_entry in properties_map_arr:
+                prop_entry_key = prop_entry.get('propKey')
+                # set it using environment variable if possible
+                self._set_env_prop_from_env_var(prop_entry_key)
 
     def _set_credential_properties(self) -> None:
         properties_map_arr = self._get_config_environment('cliConfig',
@@ -1145,8 +1151,29 @@ class ClusterBase(ClusterGetAccessor):
     def get_tmp_storage(self) -> str:
         raise NotImplementedError
 
-    def _set_render_args_create_template(self) -> dict:
+    def get_image_version(self) -> str:
         raise NotImplementedError
+
+    def _set_render_args_create_template(self) -> dict:
+        cluster_config = self.get_cluster_configuration()
+        return {
+            'CLUSTER_NAME': self.get_name(),
+            'REGION': self.region,
+            'ZONE': self.zone,
+            'MASTER_MACHINE': cluster_config.get('driverInstance'),
+            'WORKERS_COUNT': cluster_config.get('numExecutors'),
+            'WORKERS_MACHINE': cluster_config.get('executorInstance')
+        }
+
+    def get_cluster_configuration(self) -> dict:
+        """
+        Returns a dictionary containing the configuration of the cluster
+        """
+        return {
+            'driverInstance': self.get_master_node().instance_type,
+            'executorInstance': self.get_worker_node().instance_type,
+            'numExecutors': self.get_workers_count(),
+        }
 
     def generate_create_script(self) -> str:
         platform_name = CspEnv.pretty_print(self.platform.type_id)

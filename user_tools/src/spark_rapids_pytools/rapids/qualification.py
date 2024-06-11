@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
-
+import json
 from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
@@ -24,13 +24,14 @@ from tabulate import tabulate
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo, SparkNodeType
 from spark_rapids_pytools.common.cluster_inference import ClusterInference
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
-from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, QualEstimationModel
-from spark_rapids_tools.tools.model_xgboost import predict
+from spark_rapids_tools.tools.qualx.qualx_main import predict
+from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.speedup_category import SpeedupCategory
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
@@ -120,7 +121,8 @@ class QualificationSummary:
                 output_comment = wrapper_output_files_info[entry]['outputComment']
                 if path is not None:
                     abs_path = FSUtil.get_abs_path(path)
-                    report_content.append(f'    - {output_comment}: {abs_path}')
+                    if FSUtil.resource_exists(abs_path):  # check if the file exists
+                        report_content.append(f'    - {output_comment}: {abs_path}')
 
             pretty_df = df_pprinter(self.df_result)
             self.filter_apps_count = len(pretty_df)
@@ -211,8 +213,10 @@ class Qualification(RapidsJarTool):
                 sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
-            except Exception:  # pylint: disable=broad-except
-                return
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.warning(
+                    'Failed to get the worker node information for the GPU cluster %s:%s',
+                    type(e).__name__, e)
 
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
         cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
@@ -228,6 +232,7 @@ class Qualification(RapidsJarTool):
         self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster_obj)
 
         _process_gpu_cluster_worker_node()
+        self.__generate_cluster_recommendation_report()
         if cpu_cluster.is_inferred:
             # If the CPU cluster is inferred, we skip the auto-tuner as it is called after the Qualification tool.
             return gpu_cluster_obj is not None
@@ -439,9 +444,13 @@ class Qualification(RapidsJarTool):
         all_apps_count = len(all_apps)
 
         group_info = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'groupColumns')
-        for group_col in group_info['columns']:
-            valid_group_cols = Utilities.get_valid_df_columns(group_info['keys'], all_apps)
-            all_apps[group_col] = all_apps.groupby(valid_group_cols)[group_col].transform('mean')
+        valid_group_cols = Utilities.get_valid_df_columns(group_info['keys'], all_apps)
+        for agg_info in group_info['aggregate']:
+            agg_col = agg_info['column']
+            if agg_col in all_apps.columns:
+                # Group by columns can contain NaN values, so we need to include them in the grouping
+                all_apps[agg_col] = all_apps.groupby(valid_group_cols, dropna=False)[agg_col].transform(
+                    agg_info['function'])
 
         drop_arr = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'dropDuplicates')
         valid_drop_cols = Utilities.get_valid_df_columns(drop_arr, all_apps)
@@ -451,17 +460,25 @@ class Qualification(RapidsJarTool):
         if len(subset_data) != all_apps_count:
             notes = 'Apps with the same name are grouped together and their metrics are averaged'
 
-        # recalculate estimated GPU speedup
-        subset_data['Estimated GPU Speedup'] = subset_data['App Duration'] / subset_data['Estimated GPU Duration']
+        # recalculate estimated GPU speedup. If no GPU-speedup; then set GPU speedup to 1.0
+        result_df = subset_data.copy()
+        result_df.loc[:, 'Estimated GPU Speedup'] = np.where(
+            result_df['Estimated GPU Duration'] != 0,
+            result_df['App Duration'].div(result_df['Estimated GPU Duration'], axis=0),
+            1.0)
+        # fetch the column names required to recalculate the unsupported operators stage duration percent
         unsupported_ops_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
                                                        'resultColumnName')
         unsupported_ops_perc_col_name = self.ctxt.get_value('local', 'output', 'unsupportedOperators',
                                                             'percentResultColumnName')
-        # recalculate unsupported operators stage duration percent
-        subset_data[unsupported_ops_perc_col_name] =\
-            subset_data[unsupported_ops_col_name] * 100.0 / subset_data['App Duration']
-
-        return subset_data, notes
+        # recalculate unsupported operators stage duration percent.
+        # The equation takes into consideration division by zero.
+        result_df[unsupported_ops_perc_col_name] = np.where(
+            result_df['SQL Stage Durations Sum'] != 0,
+            result_df[unsupported_ops_col_name] * 100.0 / result_df['SQL Stage Durations Sum'],
+            100.0
+        )
+        return result_df, notes
 
     def __remap_cols_for_shape_type(self,
                                     data_set: pd.DataFrame,
@@ -624,6 +641,8 @@ class Qualification(RapidsJarTool):
         saving_estimator_cache = {}
         savings_ranges = self.ctxt.get_value('local', 'output', 'processDFProps',
                                              'savingRecommendationsRanges')
+        default_savings_recommendation = self.ctxt.get_value('local', 'output', 'processDFProps',
+                                                             'savingsRecommendationsDefault')
 
         def get_costs_for_single_app(df_row, estimator: SavingsEstimator) -> pd.Series:
             raw_cpu_cost, raw_gpu_cost, _ = estimator.get_costs_and_savings(df_row['App Duration'],
@@ -631,6 +650,9 @@ class Qualification(RapidsJarTool):
             cpu_cost = (100 - self.ctxt.get_ctxt('cpu_discount')) / 100 * raw_cpu_cost
             gpu_cost = (100 - self.ctxt.get_ctxt('gpu_discount')) / 100 * raw_gpu_cost
             est_savings = 100.0 - ((100.0 * gpu_cost) / cpu_cost)
+            # If savings fall into unexpected values such as NaN or infinity, then the code set
+            # default to "Not Recommended"
+            savings_recommendations = default_savings_recommendation
             # We do not want to mistakenly mark a Not-applicable app as Recommended in the savings column
             if df_row[speedup_rec_col] == 'Not Applicable':
                 savings_recommendations = 'Not Applicable'
@@ -666,40 +688,92 @@ class Qualification(RapidsJarTool):
             return cost_pd_series
 
         cost_cols = self.ctxt.get_value('local', 'output', 'costColumns')
-        if not cost_per_row:
-            # initialize the savings estimator only once
-            reshaped_gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
-            savings_estimator = self.ctxt.platform.create_saving_estimator(self.ctxt.get_ctxt('cpuClusterProxy'),
-                                                                           reshaped_gpu_cluster,
-                                                                           self.ctxt.get_ctxt('target_cost'),
-                                                                           self.ctxt.get_ctxt('source_cost'))
-            app_df_set[cost_cols] = app_df_set.apply(
-                lambda row: get_costs_for_single_app(row, estimator=savings_estimator), axis=1)
-        else:
-            # this is per row calculation and saving estimator should be created for each row
-            app_df_set[cost_cols] = app_df_set.apply(
-                lambda row: get_cost_per_row(row, shape_col), axis=1)
+        try:
+            if not cost_per_row:
+                # initialize the savings estimator only once
+                reshaped_gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
+                savings_estimator = self.ctxt.platform.create_saving_estimator(self.ctxt.get_ctxt('cpuClusterProxy'),
+                                                                               reshaped_gpu_cluster,
+                                                                               self.ctxt.get_ctxt('target_cost'),
+                                                                               self.ctxt.get_ctxt('source_cost'))
+                app_df_set[cost_cols] = app_df_set.apply(
+                    lambda row: get_costs_for_single_app(row, estimator=savings_estimator), axis=1)
+            else:
+                # this is per row calculation and saving estimator should be created for each row
+                app_df_set[cost_cols] = app_df_set.apply(
+                    lambda row: get_cost_per_row(row, shape_col), axis=1)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Error computing cost savings. Reason - %s: %s. Skipping!', type(e).__name__, e)
         return app_df_set
+
+    def __generate_cluster_recommendation_report(self):
+        """
+        Generate the cluster shape recommendation as:
+        {
+            "clusterName": "1234-5678-test",
+            "sourceCluster": {"driverInstance": "m6gd.xlarge", "executorInstance": "m6gd.2xlarge", "numExecutors": 2 },
+            "targetCluster": {"driverInstance": "m6gd.xlarge", "executorInstance": "g5.2xlarge", "numExecutors": 2 }
+        }
+        """
+        cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
+        gpu_cluster = self.ctxt.get_ctxt('gpuClusterProxy')
+        if cpu_cluster is None or gpu_cluster is None:
+            self.logger.warning('Cannot generate the cluster recommendation report because the cluster information is '
+                                'not available.')
+        try:
+            cpu_cluster_info = cpu_cluster.get_cluster_configuration()
+            gpu_cluster_info = gpu_cluster.get_cluster_configuration()
+            cluster_shape_recommendation = [{
+                'clusterName': cpu_cluster.get_name(),
+                'sourceCluster': cpu_cluster_info,
+                'targetCluster': gpu_cluster_info
+            }]
+            self.ctxt.set_ctxt('clusterShapeRecommendation', cluster_shape_recommendation)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Error generating the cluster recommendation report. '
+                              'Reason - %s:%s', type(e).__name__, e)
+
+    def __write_cluster_recommendation_report(self, output_file: str):
+        """
+        Write the cluster shape recommendation as a JSON file.
+        """
+        cluster_recommendation = self.ctxt.get_ctxt('clusterShapeRecommendation')
+        if cluster_recommendation and output_file:
+            try:
+                with open(output_file, 'w', encoding='UTF-8') as f:
+                    json.dump(cluster_recommendation, f, indent=2)
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.error('Error writing the cluster recommendation report to %s. '
+                                  'Reason - %s:%s', output_file, type(e).__name__, e)
 
     def __build_global_report_summary(self,
                                       all_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
-                                      output_files_info: dict) -> QualificationSummary:
+                                      output_files_raw: dict) -> QualificationSummary:
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
 
+        output_files_info = JSONPropertiesContainer(output_files_raw, file_load=False)
+        self.__write_cluster_recommendation_report(output_files_info.get_value('intermediateOutput', 'files',
+                                                                               'clusterShapeRecommendation', 'path'))
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
                                                                               'unsupportedOperators'))
         # Calculate unsupported operators stage duration before grouping
         all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
         apps_pruned_df = self.__remap_columns_and_prune(all_apps)
+        # Apply additional heuristics to skip apps not suitable for GPU acceleration
+        heuristics_ob = AdditionalHeuristics(
+            props=self.ctxt.get_value('local', 'output', 'additionalHeuristics'),
+            tools_output_dir=self.ctxt.get_rapids_output_folder(),
+            output_file=output_files_info.get_value('intermediateOutput', 'files', 'heuristics', 'path'))
+        apps_pruned_df = heuristics_ob.apply_heuristics(apps_pruned_df)
         speedup_category_ob = SpeedupCategory(self.ctxt.get_value('local', 'output', 'speedupCategories'))
-        # Calculate the speedup category column
-        apps_pruned_df = speedup_category_ob.build_category_column(apps_pruned_df)
-        apps_pruned_df.to_csv(output_files_info['full']['path'], float_format='%.2f')
+        # Calculate the speedup category column, send a copy of the dataframe to avoid modifying the original
+        apps_pruned_result = speedup_category_ob.build_category_column(apps_pruned_df.copy())
+        apps_pruned_result.to_csv(output_files_info.get_value('full', 'path'), float_format='%.2f')
+        # Group the applications and recalculate metrics
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
-        # Recalculate the speedup category column after grouping
         apps_grouped_df = speedup_category_ob.build_category_column(apps_grouped_df)
         recommended_apps = self.__get_recommended_apps(apps_grouped_df)
         # if the gpu_reshape_type is set to JOB then, then we should ignore recommended apps
@@ -724,7 +798,7 @@ class Qualification(RapidsJarTool):
                                           'clusterShapeCols', 'columnName')
         speed_recommendation_col = self.ctxt.get_value('local', 'output', 'speedupRecommendColumn')
         apps_reshaped_df, per_row_flag = self.__apply_gpu_cluster_reshape(apps_grouped_df)
-        csv_out = output_files_info['summary']['path']
+        csv_out = output_files_info.get_value('summary', 'path')
         if launch_savings_calc:
             # Now, the dataframe is ready to calculate the cost and the savings
             apps_working_set = self.__calc_apps_cost(apps_reshaped_df,
@@ -842,14 +916,18 @@ class Qualification(RapidsJarTool):
             df[estimation_model_col] = QualEstimationModel.tostring(QualEstimationModel.SPEEDUPS)
 
         # 2. Operations related to cluster information
-        cluster_info_file = self.ctxt.get_value('toolOutput', 'csv', 'clusterInformation', 'fileName')
-        cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
-        cluster_info_df = pd.read_csv(cluster_info_file)
-        # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
-        # info columns, even if `cluster_info_df` is empty.
-        df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
-        if len(cluster_info_df) > 0:
-            self.__infer_cluster_and_update_savings(cluster_info_df)
+        try:
+            cluster_info_file = self.ctxt.get_value('toolOutput', 'csv', 'clusterInformation', 'fileName')
+            cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
+            cluster_info_df = pd.read_csv(cluster_info_file)
+            # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
+            # info columns, even if `cluster_info_df` is empty.
+            df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
+            if len(cluster_info_df) > 0:
+                self.__infer_cluster_and_update_savings(cluster_info_df)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Unable to process cluster information. Cost savings will be disabled. '
+                              'Reason - %s:%s', type(e).__name__, e)
 
         # 3. Operations related to unsupported operators
         unsupported_operator_report_file = self.ctxt.get_value('toolOutput', 'csv', 'unsupportedOperatorsReport',
@@ -895,10 +973,6 @@ class Qualification(RapidsJarTool):
     def _init_rapids_arg_list_for_qual(self) -> List[str]:
         rapids_threads_args = self._get_rapids_threads_count(self.name)
         return ['--per-sql'] + rapids_threads_args + self._create_autotuner_rapids_args()
-
-    def _init_rapids_arg_list_for_profile(self) -> List[str]:
-        rapids_threads_args = self._get_rapids_threads_count(tool_name='profiling')
-        return super()._init_rapids_arg_list() + ['--csv'] + rapids_threads_args
 
     def __infer_cluster_and_update_savings(self, cluster_info_df: pd.DataFrame):
         """
@@ -948,15 +1022,19 @@ class Qualification(RapidsJarTool):
         FSUtil.make_dirs(output_dir)
         return self.__update_files_info_with_paths(predictions_info['files'], output_dir)
 
-    @staticmethod
-    def __update_files_info_with_paths(files_info: dict, output_dir: str) -> dict:
+    @classmethod
+    def __update_files_info_with_paths(cls, files_info: dict, output_dir: str) -> dict:
         """
         Update the given files_info dictionary with full file paths.
         """
-        for entry in files_info:
-            file_name = files_info[entry]['name']
-            file_path = FSUtil.build_path(output_dir, file_name)
-            files_info[entry]['path'] = file_path
+        for _, entry in files_info.items():
+            file_name = entry['name']
+            path = FSUtil.build_path(output_dir, file_name)
+            # if entry is a directory, create the directory and update the files info recursively
+            if entry.get('isDirectory'):
+                FSUtil.make_dirs(path)
+                entry['files'] = cls.__update_files_info_with_paths(entry['files'], path)
+            entry['path'] = path
         return files_info
 
     def __update_apps_with_prediction_info(self, all_apps: pd.DataFrame) -> pd.DataFrame:
@@ -966,10 +1044,10 @@ class Qualification(RapidsJarTool):
         """
         # Execute the prediction model
         model_name = self.ctxt.platform.get_prediction_model_name()
-        input_dir = self.ctxt.get_local('outputFolder')
+        qual_output_dir = self.ctxt.get_local('outputFolder')
         output_info = self.__build_prediction_output_files_info()
-        predictions_df = predict(platform=model_name, qual=input_dir,
-                                 profile=input_dir, output_info=output_info)
+        predictions_df = predict(platform=model_name, qual=qual_output_dir,
+                                 output_info=output_info)
 
         if predictions_df.empty:
             return all_apps
@@ -1010,9 +1088,6 @@ class QualificationAsLocal(Qualification):
 
     def _prepare_job_arguments(self):
         super()._prepare_local_job_arguments()
-        if self.ctxt.get_ctxt('estimationModel') == QualEstimationModel.XGBOOST:
-            # when estimation_model is enabled
-            self._prepare_profile_job_args()
 
     def _delete_remote_dep_folder(self):
         self.logger.debug('Local mode skipping deleting the remote workdir')
@@ -1022,36 +1097,3 @@ class QualificationAsLocal(Qualification):
 
     def _archive_results(self):
         self._archive_local_results()
-
-    def _prepare_profile_job_args(self):
-        # get the job arguments
-        job_args = self._re_evaluate_platform_args('profiling')
-        # now we can create the job object
-        # Todo: For dataproc, this can be autogenerated from cluster name
-        rapids_arg_list = self._init_rapids_arg_list_for_profile()
-        ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
-        jar_file_path = ctxt_rapids_args.get('jarFilePath')
-        rapids_opts = ctxt_rapids_args.get('rapidsOpts')
-        if rapids_opts:
-            rapids_arg_list.extend(rapids_opts)
-        # add the eventlogs at the end of all the tool options
-        rapids_arg_list.extend(self.ctxt.get_ctxt('eventLogs'))
-        class_name = 'com.nvidia.spark.rapids.tool.profiling.ProfileMain'
-        rapids_arg_obj = {
-            'jarFile': jar_file_path,
-            'jarArgs': rapids_arg_list,
-            'className': class_name
-        }
-        platform_args = job_args.get('platformArgs')
-        spark_conf_args = {}
-        job_properties_json = {
-            'outputDirectory': job_args.get('outputDirectory'),
-            'rapidsArgs': rapids_arg_obj,
-            'sparkConfArgs': spark_conf_args,
-            'platformArgs': platform_args
-        }
-        rapids_job_container = RapidsJobPropContainer(prop_arg=job_properties_json,
-                                                      file_load=False)
-        rapids_containers = self.ctxt.get_ctxt('rapidsJobContainers')
-        rapids_containers.append(rapids_job_container)
-        self.ctxt.set_ctxt('rapidsJobContainers', rapids_containers)

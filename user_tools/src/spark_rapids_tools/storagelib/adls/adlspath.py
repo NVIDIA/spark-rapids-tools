@@ -14,9 +14,30 @@
 
 """Wrapper implementation for ADLS remote path"""
 
+import os
+
 from ..csppath import CspPath, register_path_class
 
 
 @register_path_class("adls")
 class AdlsPath(CspPath):
+    """Implementation for ADLS paths"""
+
     protocol_prefix: str = "abfss://"
+
+    @classmethod
+    def get_abfs_account_name(cls, path: str) -> str:
+        # ABFS path format: abfss://<file_system>@<account_name>.dfs.core.windows.net/<path_to_file>
+        return path.split("@")[1].split(".")[0]
+
+    @classmethod
+    def is_protocol_prefix(cls, value: str) -> bool:
+        valid_prefix = super().is_protocol_prefix(value)
+        if valid_prefix:
+            # Check if AZURE_STORAGE_ACCOUNT_NAME env_variable is defined. If not,
+            # set it to avoid failures when user is not specifying the platform.
+            # https://github.com/NVIDIA/spark-rapids-tools/issues/981
+            if "AZURE_STORAGE_ACCOUNT_NAME" not in os.environ:
+                account_name = cls.get_abfs_account_name(value)
+                os.environ["AZURE_STORAGE_ACCOUNT_NAME"] = account_name
+        return valid_prefix

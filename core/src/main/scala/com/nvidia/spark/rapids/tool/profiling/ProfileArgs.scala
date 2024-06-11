@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -101,6 +101,11 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val autoTuner: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Toggle AutoTuner module.",
+      default = Some(false))
+  val outputSqlIdsAligned: ScallopOption[Boolean] =
+    opt[Boolean](required = false,
+      descr = "Output the SQL Ids after being cleaned of delta log metadata operations to " +
+        "allow aligning cpu/gpu runs.",
       default = Some(false))
   val workerInfo: ScallopOption[String] =
     opt[String](required = false,

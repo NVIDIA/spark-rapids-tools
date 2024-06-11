@@ -19,7 +19,7 @@ package org.apache.spark.sql.rapids.tool
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.tool.profiling.{DriverAccumCase, JobInfoClass, ProfileUtils, SQLExecutionInfoClass, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ProfileUtils, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase, TaskStageAccumCase}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
@@ -145,8 +145,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       event.time,
       None,
       None,
-      hasDatasetOrRDD = false,
-      ""
+      hasDatasetOrRDD = false
     )
     app.sqlIdToInfo.put(event.executionId, sqlExecution)
     app.sqlPlans += (event.executionId -> event.sparkPlanInfo)
@@ -185,7 +184,15 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerSQLAdaptiveSQLMetricUpdates(
       app: T,
-      event: SparkListenerSQLAdaptiveSQLMetricUpdates): Unit = {}
+      event: SparkListenerSQLAdaptiveSQLMetricUpdates): Unit = {
+    logDebug("Processing event: " + event.getClass)
+    val SparkListenerSQLAdaptiveSQLMetricUpdates(sqlID, sqlPlanMetrics) = event
+    val metrics = sqlPlanMetrics.map { metric =>
+      SQLPlanMetricsCase(sqlID, metric.name,
+        metric.accumulatorId, metric.metricType)
+    }
+    app.sqlPlanMetricsAdaptive ++= metrics
+  }
 
   override def onOtherEvent(event: SparkListenerEvent): Unit = event match {
     case e: SparkListenerSQLExecutionStart =>
@@ -207,7 +214,12 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerResourceProfileAdded(
       app: T,
-      event: SparkListenerResourceProfileAdded): Unit = {}
+      event: SparkListenerResourceProfileAdded): Unit = {
+    // leave off maxTasks for now
+    val rp = ResourceProfileInfoCase(event.resourceProfile.id,
+      event.resourceProfile.executorResources, event.resourceProfile.taskResources)
+    app.resourceProfIdToInfo(event.resourceProfile.id) = rp
+  }
 
   override def onResourceProfileAdded(event: SparkListenerResourceProfileAdded): Unit = {
     doSparkListenerResourceProfileAdded(app, event)
@@ -247,7 +259,15 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerBlockManagerRemoved(
       app: T,
-      event: SparkListenerBlockManagerRemoved): Unit = {}
+      event: SparkListenerBlockManagerRemoved): Unit = {
+    val thisBlockManagerRemoved = BlockManagerRemovedCase(
+      event.blockManagerId.executorId,
+      event.blockManagerId.host,
+      event.blockManagerId.port,
+      event.time
+    )
+    app.blockManagersRemoved += thisBlockManagerRemoved
+  }
 
   override def onBlockManagerRemoved(
       blockManagerRemoved: SparkListenerBlockManagerRemoved): Unit = {
@@ -351,6 +371,8 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
             + res.name + ",value=" + res.value + ",update=" + res.update)
       }
     }
+    // Create Task Objects and update the taskEnd dataStructure.
+    app.taskManager.addTaskFromEvent(event)
   }
 
   override def onTaskEnd(taskEnd: SparkListenerTaskEnd): Unit = {
@@ -442,6 +464,26 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       event: SparkListenerStageCompleted): Unit = {
     logDebug("Processing event: " + event.getClass)
     app.getOrCreateStage(event.stageInfo)
+    // TODO: Should accumulators be added only if the stage is successful?
+    // Parse stage accumulables
+    for (res <- event.stageInfo.accumulables) {
+      try {
+        val accumInfo = res._2
+        EventUtils.buildTaskStageAccumFromAccumInfo(accumInfo,
+          event.stageInfo.stageId, event.stageInfo.attemptNumber()).foreach { thisMetric =>
+          val arrBuf = app.taskStageAccumMap.getOrElseUpdate(accumInfo.id,
+            ArrayBuffer[TaskStageAccumCase]())
+          arrBuf += thisMetric
+        }
+      } catch {
+        case NonFatal(e) =>
+          logWarning("Exception when parsing accumulables on stage-completed " +
+            "stageID=" + event.stageInfo.stageId + ": ")
+          logWarning(e.toString)
+          logWarning("The problematic accumulable is: name="
+            + res._2.name + ",value=" + res._2.value + ",update=" + res._2.update)
+      }
+    }
   }
 
   override def onStageCompleted(stageCompleted: SparkListenerStageCompleted): Unit = {

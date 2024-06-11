@@ -16,6 +16,7 @@
 
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 from spark_rapids_tools.enums import ConditionOperator
@@ -31,7 +32,8 @@ class UnsupportedOpsStageDuration:
     def prepare_apps_with_unsupported_stages(self, all_apps: pd.DataFrame,
                                              unsupported_ops_df: pd.DataFrame) -> pd.DataFrame:
         """
-        Transform applications to include additional column having stage durations for unsupported operators.
+        Transform applications to include additional column having stage durations for unsupported operators
+        and its percentage of all sql stage durations sum.
         """
         unsupported_stage_duration_percentage = self.__calculate_unsupported_stages_duration(unsupported_ops_df)
         # Note: We might have lost some applications because of masking. Final result should include these
@@ -42,12 +44,18 @@ class UnsupportedOpsStageDuration:
         result_df[result_col_name] = result_df[result_col_name].fillna(0)
         # Update the percentage column
         perc_result_col_name = self.props.get('percentResultColumnName')
-        result_df[perc_result_col_name] = result_df[result_col_name] * 100.0 / result_df['App Duration']
+        # Calculate the percentage of all sql stage durations sum for unsupported operators
+        result_df[perc_result_col_name] = np.where(
+            result_df['SQL Stage Durations Sum'] != 0,
+            result_df[result_col_name] * 100.0 / result_df['SQL Stage Durations Sum'],
+            100.0
+        )
+
         return result_df
 
     def __calculate_unsupported_stages_duration(self, unsupported_ops_df: pd.DataFrame) -> pd.DataFrame:
         """
-        Calculates the percentage of total stage duration for unsupported operators for each application
+        Calculates the percentage of all sql stage durations sum for unsupported operators for each application
         """
         # Define mask to remove rows invalid entries
         mask = self.__create_column_mask(unsupported_ops_df)

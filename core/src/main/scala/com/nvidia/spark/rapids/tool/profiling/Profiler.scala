@@ -16,19 +16,21 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import java.util.concurrent.{ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
-import com.nvidia.spark.rapids.tool.{EventLogInfo, EventLogPathProcessor, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, PlatformFactory}
+import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
+import org.apache.spark.sql.rapids.tool.{AppBase, FailureApp, IncorrectAppStatusException}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
-import org.apache.spark.sql.rapids.tool.util.RuntimeReporter
+import org.apache.spark.sql.rapids.tool.util._
 
 class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean)
   extends RuntimeReporter {
@@ -49,6 +51,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private var progressBar: Option[ConsoleProgressBar] = None
+  // Store application status reports indexed by event log path.
+  private val appStatusReporter = new ConcurrentHashMap[String, AppResult]
+
+  private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
 
   override val outputDir = appArgs.outputDirectory().stripSuffix("/") +
     s"/${Profiler.SUBDIR}"
@@ -125,6 +131,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
     }
     progressBar.foreach(_.finishAll())
+    
+    // Write status reports for all event logs to a CSV file
+    val reportResults = generateStatusResults(appStatusReporter.asScala.values.toSeq)
+    ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir)
   }
 
   def profileDriver(driverLogInfos: String, eventLogsEmpty: Boolean): Unit = {
@@ -147,17 +157,51 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
   }
 
-  private def errorHandler(error: Throwable, path: EventLogInfo) = {
-    error match {
-      case oom: OutOfMemoryError =>
-        logError(s"OOM error while processing large file: ${path.eventLog.toString}." +
-            s" Increase heap size. Exiting ...", oom)
-        sys.exit(1)
+  /**
+   * Process a created ApplicationInfo object and handles all exceptions.
+   */
+  private def profileApp(
+      path: EventLogInfo,
+      index: Int,
+      processSuccessApp: ApplicationInfo => Unit): Unit = {
+    val pathStr = path.eventLog.toString
+    try {
+      val startTime = System.currentTimeMillis()
+      val appOpt = createApp(path, index, hadoopConf)
+      val profAppResult = appOpt match {
+        case Left(FailureApp("skipped", errorMessage)) =>
+          // Case to be skipped
+          progressBar.foreach(_.reportSkippedProcess())
+          SkippedAppResult(pathStr, errorMessage)
+        case Left(FailureApp(_, errorMessage)) =>
+          // Case when other error occurred during ApplicationInfo creation
+          progressBar.foreach(_.reportUnkownStatusProcess())
+          UnknownAppResult(pathStr, "", errorMessage)
+        case Right(app: ApplicationInfo) =>
+          // Case with successful creation of ApplicationInfo
+          processSuccessApp(app)
+          progressBar.foreach(_.reportSuccessfulProcess())
+          val endTime = System.currentTimeMillis()
+          SuccessAppResult(pathStr, app.appId, s"Took ${endTime - startTime}ms to process")
+      }
+      // Log the information to the console
+      profAppResult.logMessage()
+      // Update the appStatusReporter with the result of Application processing
+      appStatusReporter.put(pathStr, profAppResult)
+    } catch {
       case NonFatal(e) =>
-        logWarning(s"Exception occurred processing file: ${path.eventLog.getName}", e)
+        progressBar.foreach(_.reportFailedProcess())
+        val failureAppResult = FailureAppResult(pathStr,
+          s"Unexpected exception processing log, skipping!")
+        failureAppResult.logMessage(Some(new Exception(e.getMessage(), e)))
+        appStatusReporter.put(pathStr, failureAppResult)
+      case oom: OutOfMemoryError =>
+        logError(s"OOM error while processing large file: $pathStr." +
+            s"Increase heap size. Exiting.", oom)
+        System.exit(1)
       case o: Throwable =>
-        logError(s"Error occurred while processing file: ${path.eventLog.toString}. Exiting ...", o)
-        sys.exit(1)
+        logError(s"Error occurred while processing file: $pathStr", o)
+        System.exit(1)
     }
   }
 
@@ -165,21 +209,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val allApps = new ConcurrentLinkedQueue[ApplicationInfo]()
 
     class ProfileThread(path: EventLogInfo, index: Int) extends Runnable {
-      def run: Unit = {
-        try {
-          val appOpt = createApp(path, index, hadoopConf)
-          appOpt match {
-            case Some(app) =>
-              allApps.add(app)
-            case None =>
-              progressBar.foreach(_.reportUnkownStatusProcess())
-          }
-        } catch {
-          case t: Throwable =>
-            progressBar.foreach(_.reportFailedProcess())
-            errorHandler(t, path)
-        }
-      }
+      def run: Unit = profileApp(path, index, (app => allApps.add(app)))
     }
 
     var appIndex = 1
@@ -207,30 +237,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val allApps = new ConcurrentLinkedQueue[ApplicationSummaryInfo]()
 
     class ProfileThread(path: EventLogInfo, index: Int) extends Runnable {
-      def run: Unit = {
-        try {
-          val appOpt = createApp(path, index, hadoopConf)
-          appOpt match {
-            case Some(app) =>
-              try {
-                val (s, _) = processApps(Seq(app), false, profileOutputWriter)
-                progressBar.foreach(_.reportSuccessfulProcess())
-                allApps.add(s)
-              } catch {
-                case t: Throwable =>
-                  progressBar.foreach(_.reportFailedProcess())
-                  errorHandler(t, path)
-              }
-            case None =>
-              progressBar.foreach(_.reportUnkownStatusProcess())
-          }
-        } catch {
-          case t: Throwable =>
-            progressBar.foreach(_.reportFailedProcess())
-            errorHandler(t, path)
-        }
-      }
+      def run: Unit = profileApp(path, index, { app =>
+        val (s, _) = processApps(Seq(app), false, profileOutputWriter)
+        allApps.add(s)
+      })
     }
+
     var appIndex = 1
     allPaths.foreach { path =>
       try {
@@ -255,37 +267,16 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       allPaths: Seq[EventLogInfo],
       startIndex: Int): Unit = {
     class ProfileProcessThread(path: EventLogInfo, index: Int) extends Runnable {
-      def run: Unit = {
+      def run: Unit = profileApp(path, index, { app =>
+        val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/${app.appId}",
+          Profiler.PROFILE_LOG_NAME, numOutputRows, outputCSV = outputCSV)
         try {
-          // we just skip apps that don't process cleanly and exit if heap is smaller
-          val appOpt = createApp(path, index, hadoopConf)
-          appOpt match {
-            case Some(app) =>
-              val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/${app.appId}",
-                Profiler.PROFILE_LOG_NAME, numOutputRows,
-                outputCSV = outputCSV)
-              try {
-                val (sum, _) =
-                  processApps(Seq(appOpt.get), appArgs.printPlans(), profileOutputWriter)
-                progressBar.foreach(_.reportSuccessfulProcess())
-                writeSafelyToOutput(profileOutputWriter, Seq(sum), false)
-              } catch {
-                case t: Throwable =>
-                  progressBar.foreach(_.reportFailedProcess())
-                  errorHandler(t, path)
-              } finally {
-                profileOutputWriter.close()
-              }
-            case None =>
-              progressBar.foreach(_.reportUnkownStatusProcess())
-              logInfo("No application to process. Exiting")
-          }
-        } catch {
-          case t: Throwable =>
-            progressBar.foreach(_.reportFailedProcess())
-            errorHandler(t, path)
+          val (sum, _) = processApps(Seq(app), appArgs.printPlans(), profileOutputWriter)
+          writeSafelyToOutput(profileOutputWriter, Seq(sum), false)
+        } finally {
+          profileOutputWriter.close()
         }
-      }
+      })
     }
 
     allPaths.foreach { path =>
@@ -299,26 +290,21 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   }
 
   private def createApp(path: EventLogInfo, index: Int,
-      hadoopConf: Configuration): Option[ApplicationInfo] = {
+      hadoopConf: Configuration): Either[FailureApp, ApplicationInfo] = {
     try {
       // This apps only contains 1 app in each loop.
       val startTime = System.currentTimeMillis()
       val app = new ApplicationInfo(hadoopConf, path, index)
       EventLogPathProcessor.logApplicationInfo(app)
       val endTime = System.currentTimeMillis()
+      if (!app.isAppMetaDefined) {
+        throw IncorrectAppStatusException()
+      }
       logInfo(s"Took ${endTime - startTime}ms to create App for ${path.eventLog.toString}")
-      Some(app)
+      Right(app)
     } catch {
-      case _: com.fasterxml.jackson.core.JsonParseException =>
-        logWarning(s"Error parsing JSON: $path")
-        None
-      case il: IllegalArgumentException =>
-        logWarning(s"Error parsing file: $path", il)
-        None
       case e: Exception =>
-        // catch all exceptions and skip that file
-        logWarning(s"Got unexpected exception processing file: $path", e)
-        None
+        Left(AppBase.handleException(e, path))
     }
   }
 
@@ -336,16 +322,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
     val collect = new CollectInformation(apps)
     val appInfo = collect.getAppInfo
-    // Fail early to skip further processing
-    if (appInfo.isEmpty) {
-      throw new RuntimeException("Failed to process application because the " +
-        "eventlog does not contain any SparkListenerApplicationStart event")
-    }
     val appLogPath = collect.getAppLogPath
     val dsInfo = collect.getDataSourceInfo
-    val execInfo = collect.getExecutorInfo
-    val jobInfo = collect.getJobInfo
-    val sqlStageInfo = collect.getSQLToStage
     val rapidsProps = collect.getRapidsProperties
     val sparkProps = collect.getSparkProperties
     val systemProps = collect.getSystemProperties
@@ -360,18 +338,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       Some(CompareSummaryInfo(matchingSqlIds, matchingStageIds))
     } else {
       None
-    }
-
-    val analysis = new Analysis(apps)
-    val jsMetAgg = analysis.jobAndStageMetricsAggregation()
-    val sqlTaskAggMetrics = analysis.sqlMetricsAggregation()
-    val ioAnalysisMetrics = analysis.ioAnalysis()
-    val durAndCpuMet = analysis.sqlMetricsAggregationDurationAndCpuTime()
-    val skewInfo = analysis.shuffleSkewCheck()
-    val maxTaskInputInfo = if (useAutoTuner) {
-      analysis.getMaxTaskInputSizeBytes()
-    } else {
-      Seq.empty
     }
 
     val healthCheck = new HealthCheck(apps)
@@ -411,13 +377,26 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           s"to $outputDir in $duration second(s)\n")
       }
     }
+    val analysis = RawMetricProfilerView.getAggMetrics(apps)
+    val maxTaskInputInfo = if (useAutoTuner) {
+      analysis.maxTaskInputSizes
+    } else {
+      Seq.empty
+    }
+    val sqlIdAlign = if (outputAlignedSQLIds) {
+      collect.getSQLCleanAndAligned
+    } else {
+      Seq.empty
+    }
     val endTime = System.currentTimeMillis()
     logInfo(s"Took ${endTime - startTime}ms to Process [${appInfo.head.appId}]")
-    (ApplicationSummaryInfo(appInfo, dsInfo, execInfo, jobInfo, rapidsProps,
-      rapidsJar, sqlMetrics, jsMetAgg, sqlTaskAggMetrics, durAndCpuMet, skewInfo,
+    (ApplicationSummaryInfo(appInfo, dsInfo,
+      collect.getExecutorInfo, collect.getJobInfo, rapidsProps,
+      rapidsJar, sqlMetrics, analysis.jobAggs, analysis.stageAggs,
+      analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
-      unsupportedOps, sparkProps, sqlStageInfo, wholeStage, maxTaskInputInfo,
-      appLogPath, ioAnalysisMetrics, systemProps), compareRes)
+      unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
+      appLogPath, analysis.ioAggs, systemProps, sqlIdAlign), compareRes)
   }
 
   /**
@@ -429,6 +408,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private def runAutoTuner(appInfo: Option[ApplicationSummaryInfo],
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog)
   : (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
+    // only run the auto tuner on GPU event logs for profiling tool right now. There are
+    // assumptions made in the code
+    if (appInfo.isDefined && appInfo.get.appInfo.head.pluginEnabled) {
       val appInfoProvider = AppSummaryInfoBaseProvider.fromAppInfo(appInfo)
       val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
       val platform = appArgs.platform()
@@ -439,6 +421,11 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       // e.g., getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
       // recommendation related to executor instances.
       autoTuner.getRecommendedProperties()
+    } else {
+      logWarning("The Profiling tool AutoTuner is only available for GPU event logs, " +
+        "skipping recommendations!")
+      (Seq.empty, Seq.empty)
+    }
   }
 
   def writeOutput(profileOutputWriter: ProfileOutputWriter,
@@ -484,7 +471,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         combineProps("rapids", appsSum).sortBy(_.key),
         appsSum.flatMap(_.rapidsJar).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlMetrics).sortBy(_.appIndex),
-        appsSum.flatMap(_.jsMetAgg).sortBy(_.appIndex),
+        appsSum.flatMap(_.jobAggMetrics).sortBy(_.appIndex),
+        appsSum.flatMap(_.stageAggMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlTaskAggMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.durAndCpuMet).sortBy(_.appIndex),
         appsSum.flatMap(_.skewInfo).sortBy(_.appIndex),
@@ -500,7 +488,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         appsSum.flatMap(_.maxTaskInputBytesRead).sortBy(_.appIndex),
         appsSum.flatMap(_.appLogPath).sortBy(_.appIndex),
         appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex),
-        combineProps("system", appsSum).sortBy(_.key)
+        combineProps("system", appsSum).sortBy(_.key),
+        appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex)
       )
       Seq(reduced)
     } else {
@@ -508,24 +497,24 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
     sums.foreach { app: ApplicationSummaryInfo =>
       profileOutputWriter.writeText("### A. Information Collected ###")
-      profileOutputWriter.write("Application Information", app.appInfo)
-      profileOutputWriter.write("Application Log Path Mapping", app.appLogPath)
-      profileOutputWriter.write("Data Source Information", app.dsInfo)
-      profileOutputWriter.write("Executor Information", app.execInfo)
-      profileOutputWriter.write("Job Information", app.jobInfo)
-      profileOutputWriter.write("SQL to Stage Information", app.sqlStageInfo)
-      profileOutputWriter.write("Spark Rapids parameters set explicitly", app.rapidsProps,
-        Some("Spark Rapids parameters"))
-      profileOutputWriter.write("Spark Properties", app.sparkProps,
-        Some("Spark Properties"))
-      profileOutputWriter.write("System Properties", app.sysProps,
-        Some("System Properties"))
-      profileOutputWriter.write("Rapids Accelerator Jar and cuDF Jar", app.rapidsJar,
-        Some("Rapids 4 Spark Jars"))
-      profileOutputWriter.write("SQL Plan Metrics for Application", app.sqlMetrics,
-        Some("SQL Plan Metrics"))
-      profileOutputWriter.write("WholeStageCodeGen Mapping", app.wholeStage,
-        Some("WholeStagecodeGen Mapping"))
+      profileOutputWriter.write(ProfInformationView.getLabel, app.appInfo)
+      profileOutputWriter.write(ProfLogPathView.getLabel, app.appLogPath)
+      profileOutputWriter.write(ProfDataSourceView.getLabel, app.dsInfo)
+      profileOutputWriter.write(ProfExecutorView.getLabel, app.execInfo)
+      profileOutputWriter.write(ProfJobsView.getLabel, app.jobInfo)
+      profileOutputWriter.write(ProfSQLToStageView.getLabel, app.sqlStageInfo)
+      profileOutputWriter.write(RapidsQualPropertiesView.getLabel, app.rapidsProps,
+        Some(RapidsQualPropertiesView.getDescription))
+      profileOutputWriter.write(SparkQualPropertiesView.getLabel, app.sparkProps,
+        Some(SparkQualPropertiesView.getDescription))
+      profileOutputWriter.write(SystemQualPropertiesView.getLabel, app.sysProps,
+        Some(SystemQualPropertiesView.getDescription))
+      profileOutputWriter.write(ProfRapidsJarView.getLabel, app.rapidsJar,
+        Some(ProfRapidsJarView.getDescription))
+      profileOutputWriter.write(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
+        Some(ProfSQLPlanMetricsView.getDescription))
+      profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
+        Some(ProfSQLCodeGenView.getDescription))
       comparedRes.foreach { compareSum =>
         val matchingSqlIds = compareSum.matchingSqlIds
         val matchingStageIds = compareSum.matchingStageIds
@@ -534,25 +523,30 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
 
       profileOutputWriter.writeText("\n### B. Analysis ###\n")
-      profileOutputWriter.write("Job + Stage level aggregated task metrics", app.jsMetAgg,
-        Some("Job/Stage Metrics"))
-      profileOutputWriter.write("SQL level aggregated task metrics", app.sqlTaskAggMetrics,
-        Some("SQL Metrics"))
-      profileOutputWriter.write("IO Metrics", app.ioMetrics)
-      profileOutputWriter.write("SQL Duration and Executor CPU Time Percent", app.durAndCpuMet)
-      val skewHeader = "Shuffle Skew Check" // +
-      val skewTableDesc = "(When task's Shuffle Read Size > 3 * Avg Stage-level size)"
+      profileOutputWriter.write(JOB_AGG_LABEL, app.jobAggMetrics,
+        Some(AGG_DESCRIPTION(JOB_AGG_LABEL)))
+      profileOutputWriter.write(STAGE_AGG_LABEL, app.stageAggMetrics,
+        Some(AGG_DESCRIPTION(STAGE_AGG_LABEL)))
+      profileOutputWriter.write(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
+        Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
+      profileOutputWriter.write(IO_LABEL, app.ioMetrics)
+      profileOutputWriter.write(SQL_DUR_LABEL, app.durAndCpuMet)
+      val skewHeader = TASK_SHUFFLE_SKEW
+      val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
       profileOutputWriter.write(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
 
       profileOutputWriter.writeText("\n### C. Health Check###\n")
-      profileOutputWriter.write("Failed Tasks", app.failedTasks)
-      profileOutputWriter.write("Failed Stages", app.failedStages)
-      profileOutputWriter.write("Failed Jobs", app.failedJobs)
-      profileOutputWriter.write("Removed BlockManagers", app.removedBMs)
-      profileOutputWriter.write("Removed Executors", app.removedExecutors)
+      profileOutputWriter.write(QualFailedTaskView.getLabel, app.failedTasks)
+      profileOutputWriter.write(ProfFailedStageView.getLabel, app.failedStages)
+      profileOutputWriter.write(ProfFailedJobsView.getLabel, app.failedJobs)
+      profileOutputWriter.write(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
+      profileOutputWriter.write(ProfRemovedExecutorView.getLabel, app.removedExecutors)
       profileOutputWriter.write("Unsupported SQL Plan", app.unsupportedOps,
         Some("Unsupported SQL Ops"))
-
+      if (outputAlignedSQLIds) {
+        profileOutputWriter.write(ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
+          Some(ProfSQLPlanAlignedView.getDescription))
+      }
       if (useAutoTuner) {
         val (properties, comments) = runAutoTuner(Some(app))
         profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")

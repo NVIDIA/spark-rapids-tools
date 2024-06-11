@@ -213,10 +213,11 @@ object ToolsPlanGraph {
       accumulatorId: Long,
       metricType: String): SQLPlanMetric = {
     try {
-      SQLPlanMetric(name, accumulatorId, metricType)
+      SQLPlanMetric(EventUtils.normalizeMetricName(name), accumulatorId, metricType)
     } catch {
       case _: java.lang.NoSuchMethodError =>
-        dbRuntimeReflection.constructSQLPlanMetric(name, accumulatorId, metricType)
+        dbRuntimeReflection.constructSQLPlanMetric(
+          EventUtils.normalizeMetricName(name), accumulatorId, metricType)
     }
   }
 

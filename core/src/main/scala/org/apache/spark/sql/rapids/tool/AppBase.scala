@@ -19,14 +19,13 @@ package org.apache.spark.sql.rapids.tool
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
-import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
-import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, Map, SortedMap}
 import scala.io.{Codec, Source}
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, DriverAccumCase, JobInfoClass, SQLExecutionInfoClass, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DataSourceCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase, TaskStageAccumCase}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -35,7 +34,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.store.{StageModel, StageModelManager}
+import org.apache.spark.sql.rapids.tool.store.{StageModel, StageModelManager, TaskModelManager}
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
 import org.apache.spark.util.Utils
 
@@ -55,7 +54,10 @@ abstract class AppBase(
 
   // Store map of executorId to executor info
   val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
-
+  // resourceProfile id to resource profile info
+  val resourceProfIdToInfo = new HashMap[Int, ResourceProfileInfoCase]()
+  var blockManagersRemoved: ArrayBuffer[BlockManagerRemovedCase] =
+    ArrayBuffer[BlockManagerRemovedCase]()
   // The data source information
   val dataSourceInfo: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase]()
 
@@ -65,18 +67,26 @@ abstract class AppBase(
 
   // SQL containing any Dataset operation or RDD to DataSet/DataFrame operation
   val sqlIDToDataSetOrRDDCase: HashSet[Long] = HashSet[Long]()
-  val sqlIDtoProblematic: HashMap[Long, Set[String]] = HashMap[Long, Set[String]]()
+  // Map (sqlID <-> String(problematic issues))
+  // Use LinkedHashSet of Strings to preserve the order of insertion.
+  val sqlIDtoProblematic: HashMap[Long, LinkedHashSet[String]] =
+    HashMap[Long, LinkedHashSet[String]]()
   // sqlId to sql info
   val sqlIdToInfo = new HashMap[Long, SQLExecutionInfoClass]()
   val sqlIdToStages = new HashMap[Long, ArrayBuffer[Int]]()
   // sqlPlans stores HashMap (sqlID <-> SparkPlanInfo)
-  var sqlPlans: HashMap[Long, SparkPlanInfo] = HashMap.empty[Long, SparkPlanInfo]
+  // SortedMap is used to keep the order of the sqlPlans since AQEs can overrides the existing ones
+  var sqlPlans: Map[Long, SparkPlanInfo] = SortedMap[Long, SparkPlanInfo]()
+  var sqlPlanMetricsAdaptive: ArrayBuffer[SQLPlanMetricsCase] = ArrayBuffer[SQLPlanMetricsCase]()
 
   // accum id to task stage accum info
   var taskStageAccumMap: HashMap[Long, ArrayBuffer[TaskStageAccumCase]] =
     HashMap[Long, ArrayBuffer[TaskStageAccumCase]]()
 
   lazy val stageManager: StageModelManager = new StageModelManager()
+  // Container that manages TaskIno including SparkMetrics.
+  // A task is added during a TaskEnd eventLog
+  lazy val taskManager: TaskModelManager = new TaskModelManager()
 
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
@@ -131,6 +141,24 @@ abstract class AppBase(
     if (getAppEndTime.isEmpty) {
       val estimatedResult = callBack()
       estimatedResult.foreach(eT => appMetaData.foreach(_.setEndTime(eT, estimated = true)))
+    }
+  }
+
+  def guestimateAppEndTimeCB(): () => Option[Long] = {
+    () => None
+  }
+
+  // time in ms
+  def calculateAppDuration(): Option[Long] = {
+    if (appMetaData.isDefined) {
+      val appMeta = appMetaData.get
+      val startTime = appMeta.startTime
+      if (startTime > 0) {
+        estimateAppEndTime(guestimateAppEndTimeCB())
+      }
+      getAppDuration
+    } else {
+      None
     }
   }
 
@@ -265,7 +293,7 @@ abstract class AppBase(
     ".*second\\(.*\\).*" -> "TIMEZONE second()"
   )
 
-  protected def findPotentialIssues(desc: String): Set[String] =  {
+  def findPotentialIssues(desc: String): Set[String] =  {
     val potentialIssuesRegexs = potentialIssuesRegexMap
     val issues = potentialIssuesRegexs.filterKeys(desc.matches(_))
     issues.values.toSet
@@ -284,7 +312,7 @@ abstract class AppBase(
   }
 
   // The ReadSchema metadata is only in the eventlog for DataSource V1 readers
-  protected def checkMetadataForReadSchema(
+  def checkMetadataForReadSchema(
       sqlPlanInfoGraph: SqlPlanInfoGraphEntry): ArrayBuffer[DataSourceCase] = {
     // check if planInfo has ReadSchema
     val allMetaWithSchema = AppBase.getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
@@ -338,7 +366,7 @@ abstract class AppBase(
 
   // This will find scans for DataSource V2, if the schema is very large it
   // will likely be incomplete and have ... at the end.
-  protected def checkGraphNodeForReads(
+  def checkGraphNodeForReads(
       sqlID: Long, node: SparkPlanGraphNode): Option[DataSourceCase] = {
     if (ReadParser.isDataSourceV2Node(node)) {
       val res = ReadParser.parseReadNode(node)
@@ -365,7 +393,7 @@ abstract class AppBase(
     }
   }
 
-  protected def probNotDataset: mutable.HashMap[Long, Set[String]] = {
+  protected def probNotDataset: HashMap[Long, LinkedHashSet[String]] = {
     sqlIDtoProblematic.filterNot { case (sqlID, _) => sqlIDToDataSetOrRDDCase.contains(sqlID) }
   }
 
@@ -373,28 +401,9 @@ abstract class AppBase(
     probNotDataset.values.flatten.toSet.toSeq
   }
 
-  // This is to append potential issues such as UDF, decimal type determined from
-  // SparkGraphPlan Node description and nested complex type determined from reading the
-  // event logs. If there are any complex nested types, then `NESTED COMPLEX TYPE` is mentioned
-  // in the `Potential Problems` section in the csv file. Section `Unsupported Nested Complex
-  // Types` has information on the exact nested complex types which are not supported for a
-  // particular application.
-  protected def getAllPotentialProblems(
-      dFPotentialProb: Seq[String], nestedComplex: Seq[String]): Seq[String] = {
-    val nestedComplexType = if (nestedComplex.nonEmpty) Seq("NESTED COMPLEX TYPE") else Seq("")
-    val result = if (dFPotentialProb.nonEmpty) {
-      if (nestedComplex.nonEmpty) {
-        dFPotentialProb ++ nestedComplexType
-      } else {
-        dFPotentialProb
-      }
-    } else {
-      nestedComplexType
-    }
-    result
+  protected def postCompletion(): Unit = {
+    calculateAppDuration()
   }
-
-  protected def postCompletion(): Unit = {}
 
   /**
    * Wrapper function to process all the events followed by any
@@ -524,5 +533,23 @@ object AppBase {
     } else {
       childRes
     }
+  }
+
+  def handleException(e: Exception, path: EventLogInfo): FailureApp = {
+    val (status, message): (String, String) = e match {
+      case incorrectStatusEx: IncorrectAppStatusException =>
+        ("unknown", incorrectStatusEx.getMessage)
+      case skippedEx: AppEventlogProcessException =>
+        ("skipped", skippedEx.getMessage)
+      case _: com.fasterxml.jackson.core.JsonParseException =>
+        ("unknown", s"Error parsing JSON: ${path.eventLog.toString}")
+      case _: IllegalArgumentException =>
+        ("unknown", s"Error parsing file: ${path.eventLog.toString}")
+      case _: Exception =>
+        // catch all exceptions and skip that file
+        ("unknown", s"Got unexpected exception processing file: ${path.eventLog.toString}")
+    }
+
+    FailureApp(status, s"${e.getClass.getSimpleName}: $message")
   }
 }

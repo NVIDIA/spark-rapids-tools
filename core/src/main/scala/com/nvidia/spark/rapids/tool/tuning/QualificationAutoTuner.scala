@@ -18,8 +18,9 @@ package com.nvidia.spark.rapids.tool.tuning
 
 import scala.util.{Failure, Success, Try}
 
-import com.nvidia.spark.rapids.tool.ToolTextFileWriter
-import com.nvidia.spark.rapids.tool.profiling.{AppSummaryInfoBaseProvider, AutoTuner, Profiler}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ToolTextFileWriter}
+import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
+import com.nvidia.spark.rapids.tool.profiling.{AutoTuner, DataSourceProfileResult, Profiler}
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -85,10 +86,12 @@ class QualificationAutoTuner(val appInfoProvider: QualAppSummaryInfoProvider,
 object QualificationAutoTuner extends Logging {
   def apply(appInfo: QualificationAppInfo,
       appAggStats: Option[QualificationSummaryInfo],
-      tunerContext: TunerContext): Option[QualificationAutoTuner] = {
+      tunerContext: TunerContext,
+      rawAggMetrics: AggRawMetricsResult,
+      dsInfo: Seq[DataSourceProfileResult]): Option[QualificationAutoTuner] = {
     Try {
       val qualInfoProvider: QualAppSummaryInfoProvider =
-        AppSummaryInfoBaseProvider.fromQualAppInfo(appInfo, appAggStats)
+        AppSummaryInfoBaseProvider.fromQualAppInfo(appInfo, appAggStats, rawAggMetrics, dsInfo)
           .asInstanceOf[QualAppSummaryInfoProvider]
       new QualificationAutoTuner(qualInfoProvider, tunerContext)
     } match {

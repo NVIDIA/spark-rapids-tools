@@ -17,17 +17,17 @@
 package org.apache.spark.sql.rapids.tool.qualification
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
-import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, ExecInfo, PlanInfo, SQLPlanParser}
+import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo, SQLPlanParser}
 import com.nvidia.spark.rapids.tool.qualification._
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
-import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SqlPlanInfoGraphBuffer, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, FailureApp, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
 import org.apache.spark.sql.rapids.tool.store.StageModel
 
@@ -37,14 +37,16 @@ class QualificationAppInfo(
     hadoopConf: Option[Configuration] = None,
     pluginTypeChecker: PluginTypeChecker,
     reportSqlLevel: Boolean,
-    perSqlOnly: Boolean = false,
+    val perSqlOnly: Boolean = false,
     mlOpsEnabled: Boolean = false,
     penalizeTransitions: Boolean = true)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
   var lastJobEndTime: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None
-  val writeDataFormat: ArrayBuffer[String] = ArrayBuffer[String]()
+  // Keeps track of the WriteDataFormats used in the WriteExecs
+  // Use LinkedHashSet to preserve Order of insertion and avoid duplicates
+  val writeDataFormat: mutable.AbstractSet[String] = mutable.LinkedHashSet[String]()
 
   val sqlIDToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
     HashMap.empty[Long, StageTaskQualificationSummary]
@@ -114,26 +116,19 @@ class QualificationAppInfo(
     }
   }
 
-  // time in ms
-  private def calculateAppDuration(startTime: Long): Option[Long] = {
-    if (startTime > 0) {
-      estimateAppEndTime { () =>
-        if (!(lastSQLEndTime.isEmpty && lastJobEndTime.isEmpty)) {
-          logWarning(s"Application End Time is unknown for $appId, estimating based on" +
-            " job and sql end times!")
-          // estimate the app end with job or sql end times
-          val sqlEndTime = if (this.lastSQLEndTime.isEmpty) 0L else this.lastSQLEndTime.get
-          val jobEndTime = if (this.lastJobEndTime.isEmpty) 0L else lastJobEndTime.get
-          val maxEndTime = math.max(sqlEndTime, jobEndTime)
-          if (maxEndTime == 0) None else Some(maxEndTime)
-        } else {
-          None
-        }
+  override def guestimateAppEndTimeCB(): () => Option[Long] = {
+    () =>
+      if (!(lastSQLEndTime.isEmpty && lastJobEndTime.isEmpty)) {
+        logWarning(s"Application End Time is unknown for $appId, estimating based on" +
+          " job and sql end times!")
+        // estimate the app end with job or sql end times
+        val sqlEndTime = if (this.lastSQLEndTime.isEmpty) 0L else this.lastSQLEndTime.get
+        val jobEndTime = if (this.lastJobEndTime.isEmpty) 0L else lastJobEndTime.get
+        val maxEndTime = math.max(sqlEndTime, jobEndTime)
+        if (maxEndTime == 0) None else Some(maxEndTime)
+      } else {
+        None
       }
-      getAppDuration
-    } else {
-      None
-    }
   }
 
   // Assume that overhead is the all time windows that do not overlap with a running job.
@@ -201,7 +196,7 @@ class QualificationAppInfo(
   }
 
   protected def checkUnsupportedReadFormats(): Unit = {
-    if (dataSourceInfo.size > 0) {
+    if (dataSourceInfo.nonEmpty) {
       dataSourceInfo.map { ds =>
         val (_, nsTypes) = pluginTypeChecker.scoreReadDataTypes(ds.format, ds.schema)
         if (nsTypes.nonEmpty) {
@@ -497,12 +492,13 @@ class QualificationAppInfo(
    */
   def aggregateStats(): Option[QualificationSummaryInfo] = {
     appMetaData.map { info =>
-      val appDuration = calculateAppDuration(info.startTime).getOrElse(0L)
+      val appDuration = calculateAppDuration().getOrElse(0L)
+      //calculateAppDuration(info.startTime).getOrElse(0L)
 
       // if either job or stage failures then we mark as N/A
       // TODO - what about incomplete, do we want to change those?
       val sqlIdsWithFailures = sqlIDtoFailures.filter { case (_, v) =>
-        v.size > 0
+        v.nonEmpty
       }.keys.map(_.toString).toSeq
 
       // a bit odd but force filling in notSupportFormatAndTypes
@@ -514,7 +510,7 @@ class QualificationAppInfo(
       }.toSeq
       val writeFormat = writeFormatNotSupported(writeDataFormat)
       val (allComplexTypes, nestedComplexTypes) = reportComplexTypes
-      val problems = getAllPotentialProblems(getPotentialProblemsForDf, nestedComplexTypes)
+      val problems = getPotentialProblemsForDf
 
       val origPlanInfos = sqlPlans.collect {
         case (id, plan) if sqlIdToInfo.contains(id) =>
@@ -838,29 +834,10 @@ class QualificationAppInfo(
     }
   }
 
-  private[qualification] def processSQLPlan(sqlID: Long, planInfo: SparkPlanInfo): Unit = {
-    val sqlPlanInfoGraphEntry = SqlPlanInfoGraphBuffer.createEntry(sqlID, planInfo)
-    checkMetadataForReadSchema(sqlPlanInfoGraphEntry)
-    for (node <- sqlPlanInfoGraphEntry.sparkPlanGraph.allNodes) {
-      checkGraphNodeForReads(sqlID, node)
-      val issues = findPotentialIssues(node.desc)
-      if (issues.nonEmpty) {
-        val existingIssues = sqlIDtoProblematic.getOrElse(sqlID, Set.empty[String])
-        sqlIDtoProblematic(sqlID) = existingIssues ++ issues
-      }
-      // Get the write data format
-      if (!perSqlOnly) {
-        DataWritingCommandExecParser.getWriteCMDWrapper(node).map { wWrapper =>
-          writeDataFormat += wWrapper.dataFormat
-        }
-      }
-    }
-  }
-
-  private def writeFormatNotSupported(writeFormat: ArrayBuffer[String]): Seq[String] = {
+  private def writeFormatNotSupported(writeFormat: mutable.AbstractSet[String]): Seq[String] = {
     // Filter unsupported write data format
-    val unSupportedWriteFormat = pluginTypeChecker.isWriteFormatSupported(writeFormat)
-    unSupportedWriteFormat.distinct
+    val unSupportedWriteFormat = pluginTypeChecker.getUnsupportedWriteFormat(writeFormat)
+    unSupportedWriteFormat.toSeq
   }
 
   /**
@@ -897,6 +874,7 @@ class QualificationAppInfo(
   }
 
   override def postCompletion(): Unit = {
+    super.postCompletion()
     clusterInfo = buildClusterInfo
   }
 }
@@ -970,13 +948,6 @@ class StageTaskQualificationSummary(
     var totalTaskDuration: Long,
     var totalbytesRead: Long)
 
-// Case class representing status summary information for a particular application.
-case class StatusSummaryInfo(
-    path: String,
-    status: String,
-    appId: String = "",
-    message: String = "")
-
 case class QualificationSummaryInfo(
     appName: String,
     appId: String,
@@ -1026,12 +997,6 @@ case class StageQualSummaryInfo(
     stageWallclockDuration: Long = 0,
     unsupportedExecs: Seq[ExecInfo] = Seq.empty)
 
-// Case class to represent a failed QualificationAppInfo creation
-case class FailureApp(
-    status: String,
-    message: String
-)
-
 object QualificationAppInfo extends Logging {
   // define recommendation constants
   val RECOMMENDED = "Recommended"
@@ -1045,24 +1010,6 @@ object QualificationAppInfo extends Logging {
   // to transfer the data from CPU to GPU and vice versa. Current transfer rate is 1GB/s and is
   // based on the testing on few candidate eventlogs.
   val CPU_GPU_TRANSFER_RATE = 1000000000L
-
-  private def handleException(e: Exception, path: EventLogInfo): FailureApp = {
-    val (status, message): (String, String) = e match {
-      case incorrectStatusEx: IncorrectAppStatusException =>
-        ("unknown", incorrectStatusEx.getMessage)
-      case skippedEx: AppEventlogProcessException =>
-        ("skipped", skippedEx.getMessage)
-      case _: com.fasterxml.jackson.core.JsonParseException =>
-        ("unknown", s"Error parsing JSON: ${path.eventLog.toString}")
-      case _: IllegalArgumentException =>
-        ("unknown", s"Error parsing file: ${path.eventLog.toString}")
-      case _: Exception =>
-        // catch all exceptions and skip that file
-        ("unknown", s"Got unexpected exception processing file: ${path.eventLog.toString}")
-    }
-
-    FailureApp(status, s"${e.getClass.getSimpleName}: $message")
-  }
 
   def getRecommendation(totalSpeedup: Double,
       hasFailures: Boolean): String = {
@@ -1154,7 +1101,7 @@ object QualificationAppInfo extends Logging {
       Right(app)
     } catch {
       case e: Exception =>
-        Left(handleException(e, path))
+        Left(AppBase.handleException(e, path))
     }
   }
 }

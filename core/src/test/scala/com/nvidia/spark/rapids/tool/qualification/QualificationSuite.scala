@@ -59,6 +59,7 @@ case class TestQualificationSummary(
     nestedComplexTypes: String,
     potentialProblems: String,
     longestSqlDuration: Long,
+    totalStageWallClockDuration: Long,
     nonSqlTaskDurationAndOverhead: Long,
     unsupportedSQLTaskDuration: Long,
     supportedSQLTaskDuration: Long,
@@ -92,6 +93,7 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.NESTED_TYPES_STR, StringType),
     (QualOutputWriter.POT_PROBLEM_STR, StringType),
     (QualOutputWriter.LONGEST_SQL_DURATION_STR, LongType),
+    (QualOutputWriter.SQL_STAGE_DUR_SUM_STR, LongType),
     (QualOutputWriter.NONSQL_DUR_STR, LongType),
     (QualOutputWriter.UNSUPPORTED_TASK_DURATION_STR, LongType),
     (QualOutputWriter.SUPPORTED_SQL_TASK_DURATION_STR, LongType),
@@ -142,7 +144,7 @@ class QualificationSuite extends BaseTestSuite {
         sum.gpuOpportunity, sum.executorCpuTimePercent, sum.failedSQLIds,
         sum.readFileFormatAndTypesNotSupported, sum.writeDataFormat,
         sum.complexTypes, sum.nestedComplexTypes, sum.potentialProblems, sum.longestSqlDuration,
-        sum.nonSqlTaskDurationAndOverhead,
+        sum.sqlStageDurationsSum, sum.nonSqlTaskDurationAndOverhead,
         sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration, sum.taskSpeedupFactor,
         sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs,
         sum.estimatedFrequency)
@@ -153,6 +155,7 @@ class QualificationSuite extends BaseTestSuite {
       shouldReturnEmpty: Boolean = false, expectPerSqlFileName: Option[String] = None,
       expectedStatus: Option[StatusReportCounts] = None) = {
     TrampolineUtil.withTempDir { outpath =>
+      val qualOutputPrefix = "rapids_4_spark_qualification_output"
       val resultExpectation = new File(expRoot, expectFileName)
       val outputArgs = Array(
         "--output-directory",
@@ -176,8 +179,8 @@ class QualificationSuite extends BaseTestSuite {
       val expectedStatusCounts =
         expectedStatus.getOrElse(StatusReportCounts(appSum.length, 0, 0, 0))
       // Compare the expected status counts with the actual status counts from the application
-      ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
-        expectedStatusCounts)
+      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCounts,
+        s"${outpath.getAbsolutePath}/$qualOutputPrefix/${qualOutputPrefix}_status.csv")
 
       if (shouldReturnEmpty) {
         assert(appSum.head.estimatedInfo.sqlDfDuration == 0.0)
@@ -188,8 +191,7 @@ class QualificationSuite extends BaseTestSuite {
         if (expectPerSqlFileName.isDefined) {
           val resultExpectation = new File(expRoot, expectPerSqlFileName.get)
           val dfPerSqlExpect = readPerSqlFile(resultExpectation)
-          val actualExpectation = s"$outpath/rapids_4_spark_qualification_output/" +
-            s"rapids_4_spark_qualification_output_persql.csv"
+          val actualExpectation = s"$outpath/$qualOutputPrefix/${qualOutputPrefix}_persql.csv"
           val dfPerSqlActual = readPerSqlFile(new File(actualExpectation))
           ToolTestUtils.compareDataFrames(dfPerSqlActual, dfPerSqlExpect)
         }
@@ -266,6 +268,7 @@ class QualificationSuite extends BaseTestSuite {
       s"$logDir/udf_func_eventlog"
     )
     TrampolineUtil.withTempDir { outpath =>
+      val qualOutputPrefix = "rapids_4_spark_qualification_output"
       val allArgs = Array(
         "--output-directory",
         outpath.getAbsolutePath(),
@@ -281,10 +284,10 @@ class QualificationSuite extends BaseTestSuite {
       // Default expectation for the status counts - All applications are successful.
       val expectedStatusCount = StatusReportCounts(appSum.length, 0, 0, 0)
       // Compare the expected status counts with the actual status counts from the application
-      ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath, expectedStatusCount)
+      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
+        s"${outpath.getAbsolutePath}/$qualOutputPrefix/${qualOutputPrefix}_status.csv")
 
-      val filename = s"$outpath/rapids_4_spark_qualification_output/" +
-        s"rapids_4_spark_qualification_output.log"
+      val filename = s"$outpath/$qualOutputPrefix/$qualOutputPrefix.log"
       val inputSource = Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toArray
@@ -427,6 +430,7 @@ class QualificationSuite extends BaseTestSuite {
     val qualLogDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
     val logFiles = Array(s"$qualLogDir/gpu_eventlog")
     TrampolineUtil.withTempDir { outpath =>
+      val qualOutputPrefix = "rapids_4_spark_qualification_output"
       val allArgs = Array(
         "--output-directory",
         outpath.getAbsolutePath())
@@ -439,11 +443,10 @@ class QualificationSuite extends BaseTestSuite {
       // Application should fail. Status counts: 0 SUCCESS, 0 FAILURE, 1 SKIPPED, 0 UNKNOWN
       val expectedStatusCounts = StatusReportCounts(0, 0, 1, 0)
       // Compare the expected status counts with the actual status counts from the application
-      ToolTestUtils.compareStatusReport(sparkSession, outpath.getAbsolutePath,
-        expectedStatusCounts)
+      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCounts,
+        s"${outpath.getAbsolutePath}/$qualOutputPrefix/${qualOutputPrefix}_status.csv")
 
-      val filename = s"$outpath/rapids_4_spark_qualification_output/" +
-        s"rapids_4_spark_qualification_output.csv"
+      val filename = s"$outpath/$qualOutputPrefix/$qualOutputPrefix.csv"
       val inputSource = Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toSeq
@@ -459,7 +462,7 @@ class QualificationSuite extends BaseTestSuite {
     val profileLogDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
     val badEventLog = s"$profileLogDir/malformed_json_eventlog.zstd"
     val logFiles = Array(s"$logDir/nds_q86_test", badEventLog)
-    // Status counts: 1 SUCCESS, 0 FAILURE, 1 UNKNOWN
+    // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 1 UNKNOWN
     val expectedStatus = Some(StatusReportCounts(1, 0, 0, 1))
     runQualificationTest(logFiles, "nds_q86_test_expectation.csv", expectedStatus = expectedStatus)
   }
@@ -1338,7 +1341,7 @@ class QualificationSuite extends BaseTestSuite {
         val outputActual = readExpectedFile(new File(outputResults))
         assert(outputActual.collect().size == 1)
         assert(outputActual.select("Potential Problems").first.getString(0) == 
-          "TIMEZONE to_timestamp():TIMEZONE hour():TIMEZONE current_timestamp():TIMEZONE second()")
+          "TIMEZONE hour():TIMEZONE current_timestamp():TIMEZONE to_timestamp():TIMEZONE second()")
       }
     }
   }

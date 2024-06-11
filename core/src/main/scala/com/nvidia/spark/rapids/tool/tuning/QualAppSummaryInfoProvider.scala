@@ -16,8 +16,11 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
-import com.nvidia.spark.rapids.tool.profiling.AppSummaryInfoBaseProvider
+import com.nvidia.spark.rapids.tool.AppSummaryInfoBaseProvider
+import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
+import com.nvidia.spark.rapids.tool.profiling.DataSourceProfileResult
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
 
 /**
@@ -25,10 +28,16 @@ import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, Qua
  * @param appInfo the main QualificationAppInfo object representing the CPU application.
  * @param appAggStats optional stats aggregate is included here for future improvement as we may
  *                    need to feed the autotuner with values from the aggregates.
+ * @param rawAggMetrics the raw profiler aggregation metrics
+ * @param dsInfo Data source information
  */
 class QualAppSummaryInfoProvider(
     val appInfo: QualificationAppInfo,
-    val appAggStats: Option[QualificationSummaryInfo]) extends AppSummaryInfoBaseProvider {
+    val appAggStats: Option[QualificationSummaryInfo],
+    val rawAggMetrics: AggRawMetricsResult,
+    val dsInfo: Seq[DataSourceProfileResult]) extends AppSummaryInfoBaseProvider with Logging{
+  private lazy val distinctLocations = dsInfo.groupBy(_.location)
+
   override def isAppInfoAvailable = true
   private def findPropertyInternal(
       key: String, props: collection.Map[String, String]): Option[String] = {
@@ -56,4 +65,74 @@ class QualAppSummaryInfoProvider(
   }
 
   def getAppID: String = appInfo.appId
+
+  override def getJvmGCFractions: Seq[Double] = {
+    rawAggMetrics.sqlAggs.map {
+      taskMetrics => taskMetrics.jvmGCTimeSum * 1.0 / taskMetrics.executorCpuTime
+    }
+  }
+
+  override def getSpilledMetrics: Seq[Long] = {
+    rawAggMetrics.sqlAggs.map { task =>
+      task.diskBytesSpilledSum + task.memoryBytesSpilledSum
+    }
+  }
+
+  // Return shuffle stage(Id)s which have positive spilling metrics
+  // The heuristics below assume that these are CPU event logs and just look at the
+  // size of memory bytes spilled.
+  override def getShuffleStagesWithPosSpilling: Set[Long] = {
+    // TODO:Should not this be same as SingleAppSummaryInfoProvider.getShuffleStagesWithPosSpilling?
+    rawAggMetrics.stageAggs.collect { case row
+      if row.srTotalBytesReadSum + row.swBytesWrittenSum > 0 &&
+      row.diskBytesSpilledSum > 0 => row.id
+    }.toSet
+  }
+
+  override def getShuffleSkewStages: Set[Long] = {
+    rawAggMetrics.taskShuffleSkew.map { row => row.stageId }.toSet
+  }
+
+  override def getMaxInput: Double = {
+    if (rawAggMetrics.maxTaskInputSizes.nonEmpty) {
+      rawAggMetrics.maxTaskInputSizes.head.maxTaskInputBytesRead
+    } else {
+      0.0
+    }
+  }
+
+  // Rapids Jar will be empty since CPU event logs are used here
+  override def getRapidsJars: Seq[String] = {
+    Seq.empty
+  }
+
+  override def getDistinctLocationPct: Double = {
+      100.0 * distinctLocations.size / dsInfo.size
+    }
+
+  override def getRedundantReadSize: Long = {
+    distinctLocations
+      .filter {
+        case (_, objects) => objects.size > 1 && objects.exists(_.format.contains("Parquet"))
+      }
+      .mapValues(_.map(_.data_size).sum)
+      .values
+      .sum
+  }
+
+  override def getMeanInput: Double = {
+    if (rawAggMetrics.ioAggs.nonEmpty) {
+      rawAggMetrics.ioAggs.map(_.inputBytesReadSum).sum * 1.0 / rawAggMetrics.ioAggs.size
+    } else {
+      0.0
+    }
+  }
+
+  override def getMeanShuffleRead: Double = {
+    if (rawAggMetrics.ioAggs.nonEmpty) {
+      rawAggMetrics.ioAggs.map(_.srTotalBytesReadSum).sum * 1.0 / rawAggMetrics.ioAggs.size
+    } else {
+      0.0
+    }
+  }
 }
