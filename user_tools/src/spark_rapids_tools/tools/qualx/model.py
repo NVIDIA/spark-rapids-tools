@@ -71,6 +71,16 @@ def train(
         cpu_aug_tbl = cpu_aug_tbl.copy()
         cpu_aug_tbl[label_col] = np.log(cpu_aug_tbl[label_col])
 
+    # remove nan label entries
+    original_num_rows = cpu_aug_tbl.shape[0]
+    cpu_aug_tbl = cpu_aug_tbl.loc[~cpu_aug_tbl[label_col].isna()].reset_index(
+        drop=True
+    )
+    if cpu_aug_tbl.shape[0] < original_num_rows:
+        logger.warn(
+            f'Removed {original_num_rows - cpu_aug_tbl.shape[0]} rows with NaN label values'
+        )
+
     # split into train/val/test sets
     X_train = cpu_aug_tbl.loc[cpu_aug_tbl['split'] == 'train', feature_cols]
     y_train = cpu_aug_tbl.loc[cpu_aug_tbl['split'] == 'train', label_col]
