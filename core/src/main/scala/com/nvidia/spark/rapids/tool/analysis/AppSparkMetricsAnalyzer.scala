@@ -172,7 +172,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
             AppSparkMetricsAnalyzer.maxWithEmptyHandling(profResultsInJob.map(_.durationMax))
           val durMin =
             AppSparkMetricsAnalyzer.minWithEmptyHandling(profResultsInJob.map(_.durationMin))
-          val durAvg = ToolUtils.calculateAverage(totalSums.numTasks, totalSums.durationSum, 1)
+          val durAvg = ToolUtils.calculateAverage(totalSums.durationSum, totalSums.numTasks, 1)
           Some(JobAggTaskMetricsProfileResult(index,
             id,
             totalSums.numTasks,
