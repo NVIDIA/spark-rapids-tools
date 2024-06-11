@@ -366,6 +366,10 @@ def load_profiles(
                     if 'description' in meta
                 }
                 raw_features['description'] = raw_features['appId'].map(app_desc)
+                # append also to appName to allow joining cpu and gpu logs at the app level
+                raw_features['appName'] = (
+                    raw_features['appName'] + '_' + raw_features['description']
+                )
 
             # add platform from app_meta
             raw_features[f'platform_{platform}'] = 1

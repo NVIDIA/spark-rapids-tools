@@ -17,7 +17,6 @@ import fire
 import glob
 import json
 import os
-import numpy as np
 import pandas as pd
 import traceback
 import xgboost as xgb
@@ -68,7 +67,7 @@ def _get_model(platform: str, model: Optional[str]):
             )
     else:
         # try pre-trained model first
-        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
+        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{model}.json'))
         if not model_path.exists():
             model_path = model
 
@@ -126,21 +125,28 @@ def _compute_summary(results):
         'appName',
         'appId',
         'appDuration',
+        'description',
         'Duration',
         'Duration_pred',
         'Duration_supported',
-        # actual
-        'gpuDuration',
-        'xgpu_appDuration',
+        'scaleFactor',
     ]
     cols = [col for col in result_cols if col in results.columns]
     # compute per-app stats
-    group_by_cols = ['appName', 'appId', 'appDuration']
-    if 'xgpu_appDuration' in results:
-        group_by_cols.append('xgpu_appDuration')
-    summary = results[cols].groupby(group_by_cols).sum().reset_index()
-    if 'gpuDuration' in summary:
-        summary['gpuDuration'] = summary['gpuDuration'].replace(0.0, np.nan)
+    group_by_cols = ['appName', 'appId', 'appDuration', 'scaleFactor']
+    summary = (
+        results[cols]
+        .groupby(group_by_cols)
+        .agg(
+            {
+                'Duration': 'sum',
+                'Duration_pred': 'sum',
+                'Duration_supported': 'sum',
+                'description': 'first',
+            }
+        )
+        .reset_index()
+    )
 
     # compute the fraction of app duration w/ supported ops
     # without qual tool output, this is the entire SQL duration
@@ -157,15 +163,6 @@ def _compute_summary(results):
     )
     # compute the per-app speedup
     summary['speedup'] = summary['appDuration'] / summary['appDuration_pred']
-
-    # for datasets w/ labels, reconstruct actual speedup per-app
-    # TODO: get this from actual CSV file?
-    if 'y' in results:
-        assert 'xgpu_appDuration' in summary
-        summary = summary.rename({'xgpu_appDuration': 'appDuration_actual'}, axis=1)
-        summary['speedup_actual'] = (
-            summary['appDuration'] / summary['appDuration_actual']
-        )
 
     # fix dtypes
     long_cols = [
@@ -202,14 +199,11 @@ def _predict(
         try:
             results = predict_model(xgb_model, features, feature_cols, label_col)
 
-            # for evaluation purposes, impute actual GPU values if not provided
-            if 'y' not in results:
-                results['y'] = np.nan
-                results['gpuDuration'] = 0.0
-                results['xgpu_appDuration'] = 0.0
-
             # compute per-app speedups
             summary = _compute_summary(results)
+
+            if 'y' in results:
+                results = results.loc[~results.y.isna()].reset_index(drop=True)
         except XGBoostError as e:
             # ignore and continue
             logger.error(e)
@@ -680,6 +674,49 @@ def evaluate(
         split_fn=split_fn,
         qualtool_filter=qualtool_filter,
     )
+    # join raw app data with app level gpu ground truth
+    app_durations = (
+        profile_df.loc[profile_df.runType == 'GPU'][
+            ['appName', 'appDuration', 'description', 'scaleFactor']
+        ]
+        .groupby(['appName', 'appDuration', 'scaleFactor'])
+        .first()
+        .reset_index()
+    )
+    app_durations = app_durations.rename(columns={'appDuration': 'gpu_appDuration'})
+
+    # handle query per app and regular app differently.
+    # For the former, we need to use query description field to join cpu and gpu data
+    # since appname is the same for all queries/apps in these case.
+
+    raw_app_regular = raw_app.loc[~raw_app.appName.str.contains('query_per_app')]
+    raw_app_q_per_app = raw_app.loc[raw_app.appName.str.contains('query_per_app')]
+    app_durations_regular = app_durations.loc[
+        ~app_durations.appName.str.contains('query_per_app')
+    ][['appName', 'gpu_appDuration', 'scaleFactor']]
+    app_durations_q_per_app = app_durations.loc[
+        app_durations.appName.str.contains('query_per_app')
+    ]
+
+    raw_app_regular = raw_app_regular.merge(
+        app_durations_regular[['appName', 'gpu_appDuration', 'scaleFactor']],
+        on=['appName', 'scaleFactor'],
+        how='left',
+    )
+    raw_app_q_per_app = raw_app_q_per_app.merge(
+        app_durations_q_per_app, on=['appName', 'description', 'scaleFactor'], how='left'
+    )
+
+    raw_app = pd.concat([raw_app_regular, raw_app_q_per_app])
+
+    if not raw_app.loc[raw_app.gpu_appDuration.isna()].empty:
+        logger.error(
+            f'missing gpu apps: {raw_app.loc[raw_app.gpu_appDuration.isna()].to_markdown()}'
+        )
+        raw_app = raw_app.loc[~raw_app.gpu_appDuration.isna()]
+
+    raw_app = raw_app.rename({'gpu_appDuration': 'appDuration_actual'}, axis=1)
+    raw_app['speedup_actual'] = raw_app['appDuration'] / raw_app['appDuration_actual']
 
     # adjusted prediction on filtered data
     filtered_sql, filtered_app = _predict(
