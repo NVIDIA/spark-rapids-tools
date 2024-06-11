@@ -95,8 +95,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 stage duration less than 25% of app duration and speedups greater than 1.3x.
         :param estimation_model: Model used to calculate the estimated GPU duration and cost savings.
                It accepts one of the following:
-               "xgboost": an XGBoost model for GPU duration estimation
-               "speedups": set by default. It uses a simple static estimated speedup per operator.
+               "xgboost": An XGBoost model for GPU duration estimation. Set by default
+               "speedups": It uses a simple static estimated speedup per operator.
         :param cpu_cluster_price: the CPU cluster hourly price provided by the user.
         :param estimated_gpu_cluster_price: the GPU cluster hourly price provided by the user.
         :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
