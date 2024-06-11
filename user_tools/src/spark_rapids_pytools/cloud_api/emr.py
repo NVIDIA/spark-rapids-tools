@@ -114,9 +114,6 @@ class EMRPlatform(PlatformBase):
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return EmrLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
-    def _get_prediction_model_name(self) -> str:
-        return CspEnv.pretty_print(CspEnv.get_default())
-
     def generate_cluster_configuration(self, render_args: dict):
         image_version = self.configs.get_value_silent('clusterInference', 'defaultImage')
         render_args['IMAGE'] = f'"{image_version}"'

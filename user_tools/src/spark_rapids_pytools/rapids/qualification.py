@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
 
+from logging import Logger
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
@@ -26,12 +27,11 @@ from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo, 
 from spark_rapids_pytools.common.cluster_inference import ClusterInference
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
-from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, QualEstimationModel
-from spark_rapids_tools.tools.model_xgboost import predict
+from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.speedup_category import SpeedupCategory
 from spark_rapids_tools.tools.top_candidates import TopCandidates
@@ -53,6 +53,11 @@ class QualificationSummary:
     top_candidates_flag: bool = False
     sections_generators: List[Callable] = field(default_factory=lambda: [])
     filter_apps_count: int = field(default=0, init=False)
+    conversion_items: List[str] = field(default_factory=list)
+    auto_tuning_path: str = None
+
+    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster'), init=False)
+
 
     def _get_total_durations(self) -> int:
         if not self.is_empty():
@@ -125,7 +130,34 @@ class QualificationSummary:
                     if FSUtil.resource_exists(abs_path):  # check if the file exists
                         report_content.append(f'    - {output_comment}: {abs_path}')
 
-            pretty_df = df_pprinter(self.df_result)
+            self.logger.warning("TOM 1")
+            print_result = self.df_result
+            #rapids_output_dir = "testing/"
+            #tunings_dir = FSUtil.build_path(rapids_output_dir,
+            #                                self.ctxt.get_value('toolOutput', 'csv', 'tunings', 'subFolder'))
+            tunings_file_path = self.auto_tuning_path + "/" + self.df_result['App ID'] + ".log"
+            tunings_rec = ["spark.executor.memory=8192m",
+                    "spark.rapids.memory.pinnedPool.size=2662m", 
+                    "spark.rapids.shuffle.multiThreaded.reader.threads=20", 
+                    "spark.rapids.shuffle.multiThreaded.writer.threads=20",
+                    "spark.rapids.sql.batchSizeBytes=2147483647",
+                    "spark.rapids.sql.concurrentGpuTasks=3",
+                    "spark.rapids.sql.multiThreadedRead.numThreads=20",
+                    "spark.shuffle.manager=com.nvidia.spark.rapids.spark332.RapidsShuffleManager",
+                    "spark.sql.adaptive.coalescePartitions.minPartitionSize=4m",
+                    "spark.sql.adaptive.coalescePartitions.parallelismFirst=false",
+                    "spark.sql.files.maxPartitionBytes=434m",
+                    "spark.sql.shuffle.partitions=256",
+                    "spark.task.resource.gpu.amount=0.25"]
+
+            tunings_multiline = Utils.gen_multiline_str(tunings_rec)
+
+            print_result['Config Recommendation'] = tunings_multiline
+            # TODO - we really want to track this per individual app
+            print_result['Qualified Node Recommendation'] = Utils.gen_multiline_str(self.conversion_items)
+            self.logger.warning('TOM %s' + ','.join(list(print_result.columns.values)))
+            self.logger.warning('TOM orig %s' + ','.join(list(self.df_result.columns.values)))
+            pretty_df = df_pprinter(print_result)
             self.filter_apps_count = len(pretty_df)
             if pretty_df.empty:
                 # the results were reduced to no rows because of the filters
@@ -217,7 +249,7 @@ class Qualification(RapidsJarTool):
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
                 num_cpus = sys_info.num_cpus
                 cpu_mem = sys_info.cpu_mem
-                self.logger.info('cpu emmory is  %s', cpu_mem)
+                self.logger.info('cpu memory is  %s', cpu_mem)
                 self.logger.info('cpu cores is  %s', num_cpus)
 
             except Exception as e:  # pylint: disable=broad-except
@@ -770,7 +802,7 @@ class Qualification(RapidsJarTool):
         # Apply additional heuristics to skip apps not suitable for GPU acceleration
         heuristics_ob = AdditionalHeuristics(
             props=self.ctxt.get_value('local', 'output', 'additionalHeuristics'),
-            tools_output_dir=self.ctxt.get_local('outputFolder'),
+            tools_output_dir=self.ctxt.get_rapids_output_folder(),
             output_file=output_files_info.get_value('intermediateOutput', 'files', 'heuristics', 'path'))
         apps_pruned_df = heuristics_ob.apply_heuristics(apps_pruned_df)
         speedup_category_ob = SpeedupCategory(self.ctxt.get_value('local', 'output', 'speedupCategories'))
@@ -823,6 +855,19 @@ class Qualification(RapidsJarTool):
                 self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
         filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
+
+        conversion_items_summary = []
+        node_conversions = self.ctxt.platform.ctxt['notes'].get('nodeConversions')
+        if node_conversions is not None:
+            for mc_src, mc_target in node_conversions.items():
+                conversion_items_summary.append(mc_src + ' to ' + mc_target)
+
+        conversion_items_summary.append("testing1" + ' to ' + "testing2")
+
+        rapids_output_dir = self.ctxt.get_rapids_output_folder()
+        tunings_dir = FSUtil.build_path(rapids_output_dir,
+                                        self.ctxt.get_value('toolOutput', 'csv', 'tunings', 'subFolder'))
+
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_grouped_df,
                                     recommended_apps=recommended_apps,
@@ -830,7 +875,9 @@ class Qualification(RapidsJarTool):
                                     df_result=df_final_result,
                                     irrelevant_speedups=speedups_irrelevant_flag,
                                     sections_generators=[self.__generate_mc_types_conversion_report],
-                                    top_candidates_flag=filter_top_candidate_enabled)
+                                    top_candidates_flag=filter_top_candidate_enabled,
+                                    conversion_items=conversion_items_summary,
+                                    auto_tuning_path=tunings_dir)
 
     def _process_output(self):
         def process_df_for_stdout(raw_df):
@@ -849,13 +896,16 @@ class Qualification(RapidsJarTool):
             filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
             squeeze_header_enabled = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'compactWidth')
             header_width = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'columnWidth')
+            self.logger.warning('TOM raw df %s' + ','.join(list(raw_df.columns.values)))
 
             if filter_top_candidate_enabled:
                 # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
                 #  This should be refactored along with entire filter apps logic to use more object-oriented design.
-                top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
+                top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'tomTest'))
                 filtered_apps = top_candidates_obj.filter_apps(raw_df)
+                self.logger.warning('TOM filter df %s' + ','.join(list(filtered_apps.columns.values)))
                 result_df = top_candidates_obj.prepare_output(filtered_apps)
+                self.logger.warning('after filter apps %s' + ','.join(list(result_df.columns.values)))
                 # squeeze the header titles if enabled
                 return Utilities.squeeze_df_header(result_df, header_width) if squeeze_header_enabled else result_df
 
@@ -898,6 +948,8 @@ class Qualification(RapidsJarTool):
                                                         f'Duration{time_unit}', regex=False)
             # squeeze the header titles if enabled
             return Utilities.squeeze_df_header(df_row, header_width) if squeeze_header_enabled else df_row
+
+        ### end process output stdout
 
         if not self._evaluate_rapids_jar_tool_output_exist():
             return
@@ -979,10 +1031,6 @@ class Qualification(RapidsJarTool):
         rapids_threads_args = self._get_rapids_threads_count(self.name)
         return ['--per-sql'] + rapids_threads_args + self._create_autotuner_rapids_args()
 
-    def _init_rapids_arg_list_for_profile(self) -> List[str]:
-        rapids_threads_args = self._get_rapids_threads_count(tool_name='profiling')
-        return super()._init_rapids_arg_list() + ['--csv'] + rapids_threads_args
-
     def __infer_cluster_and_update_savings(self, cluster_info_df: pd.DataFrame):
         """
         Update savings if CPU cluster can be inferred and corresponding GPU cluster can be defined.
@@ -1053,10 +1101,10 @@ class Qualification(RapidsJarTool):
         """
         # Execute the prediction model
         model_name = self.ctxt.platform.get_prediction_model_name()
-        input_dir = self.ctxt.get_local('outputFolder')
+        qual_output_dir = self.ctxt.get_local('outputFolder')
         output_info = self.__build_prediction_output_files_info()
-        predictions_df = predict(platform=model_name, qual=input_dir,
-                                 profile=input_dir, output_info=output_info)
+        predictions_df = predict(platform=model_name, qual=qual_output_dir,
+                                 output_info=output_info)
 
         if predictions_df.empty:
             return all_apps
@@ -1097,9 +1145,6 @@ class QualificationAsLocal(Qualification):
 
     def _prepare_job_arguments(self):
         super()._prepare_local_job_arguments()
-        if self.ctxt.get_ctxt('estimationModel') == QualEstimationModel.XGBOOST:
-            # when estimation_model is enabled
-            self._prepare_profile_job_args()
 
     def _delete_remote_dep_folder(self):
         self.logger.debug('Local mode skipping deleting the remote workdir')
@@ -1109,36 +1154,3 @@ class QualificationAsLocal(Qualification):
 
     def _archive_results(self):
         self._archive_local_results()
-
-    def _prepare_profile_job_args(self):
-        # get the job arguments
-        job_args = self._re_evaluate_platform_args('profiling')
-        # now we can create the job object
-        # Todo: For dataproc, this can be autogenerated from cluster name
-        rapids_arg_list = self._init_rapids_arg_list_for_profile()
-        ctxt_rapids_args = self.ctxt.get_ctxt('rapidsArgs')
-        jar_file_path = ctxt_rapids_args.get('jarFilePath')
-        rapids_opts = ctxt_rapids_args.get('rapidsOpts')
-        if rapids_opts:
-            rapids_arg_list.extend(rapids_opts)
-        # add the eventlogs at the end of all the tool options
-        rapids_arg_list.extend(self.ctxt.get_ctxt('eventLogs'))
-        class_name = 'com.nvidia.spark.rapids.tool.profiling.ProfileMain'
-        rapids_arg_obj = {
-            'jarFile': jar_file_path,
-            'jarArgs': rapids_arg_list,
-            'className': class_name
-        }
-        platform_args = job_args.get('platformArgs')
-        spark_conf_args = {}
-        job_properties_json = {
-            'outputDirectory': job_args.get('outputDirectory'),
-            'rapidsArgs': rapids_arg_obj,
-            'sparkConfArgs': spark_conf_args,
-            'platformArgs': platform_args
-        }
-        rapids_job_container = RapidsJobPropContainer(prop_arg=job_properties_json,
-                                                      file_load=False)
-        rapids_containers = self.ctxt.get_ctxt('rapidsJobContainers')
-        rapids_containers.append(rapids_job_container)
-        self.ctxt.set_ctxt('rapidsJobContainers', rapids_containers)

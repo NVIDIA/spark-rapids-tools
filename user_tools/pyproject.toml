@@ -71,3 +71,10 @@ repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
 test = [
     "tox", 'pytest', 'cli_test_helpers'
 ]
+qualx = [
+    "holoviews",
+    "matplotlib",
+    "optuna",
+    "optuna-integration",
+    "seaborn"
+]

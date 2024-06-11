@@ -320,6 +320,7 @@ class DatabricksCluster(ClusterBase):
         }
         if bool(mc_type_map):
             # update the platform notes
+            self.logger.info('Tom updating node conversions')
             self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
 
     def get_tmp_storage(self) -> str:

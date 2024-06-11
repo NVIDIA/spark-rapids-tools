@@ -16,12 +16,13 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import java.io.{BufferedReader, InputStreamReader}
+import java.io.{BufferedReader, InputStreamReader, IOException}
 
 import scala.beans.BeanProperty
 import scala.collection.{mutable, Seq}
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable.ListBuffer
+import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory}
@@ -453,10 +454,10 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   def calcNumExecutorCores: Int = {
-    val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
-    if (clusterInfoEventLog.isDefined) {
-      clusterInfoEventLog.get.coresPerExecutor
-    } else {
+    // val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
+    // if (clusterInfoEventLog.isDefined) {
+    //   clusterInfoEventLog.get.coresPerExecutor
+    // } else {
       if (processPropsAndCheck) {
         val executorsPerNode = clusterProps.gpu.getCount
         // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
@@ -464,7 +465,7 @@ class AutoTuner(
       } else {
         0
       }
-    }
+    // }
   }
 
   /**
@@ -491,7 +492,8 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   private def calcAvailableMemPerExec(): Double = {
-    val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
+    // val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
+    /*
     if (clusterInfoEventLog.isDefined && clusterInfoEventLog.get.instanceInfo.isDefined) {
       // if possible use the actual executor memory from the event log
       val instanceCoresMemory = clusterInfoEventLog.get.instanceInfo.get
@@ -499,6 +501,8 @@ class AutoTuner(
         + instanceCoresMemory.memoryMB)
       instanceCoresMemory.memoryMB
     } else {
+
+     */
       if (processPropsAndCheck) {
         // get the configuration passed in by the user
         // TODO - need to subtract DEF_SYSTEM_RESERVE_MB for non-container environments!
@@ -514,7 +518,7 @@ class AutoTuner(
         logWarning("Tom no memory specified!")
         0.0
       }
-    }
+    // }
   }
 
   /**
@@ -1352,7 +1356,7 @@ object AutoTuner extends Logging {
   val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
 
   private def handleException(
-      ex: Exception,
+      ex: Throwable,
       appInfo: AppSummaryInfoBaseProvider,
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
@@ -1388,6 +1392,12 @@ object AutoTuner extends Logging {
       val reader = new BufferedReader(new InputStreamReader(fsIs))
       val fileContent = Stream.continually(reader.readLine()).takeWhile(_ != null).mkString("\n")
       loadClusterPropertiesFromContent(fileContent)
+    } catch {
+      // In case of missing file/malformed for cluster properties, default properties are used.
+      // Hence, catching and logging as a warning
+      case _: IOException =>
+        logWarning(s"No file found for input workerInfo path: $filePath")
+        None
     } finally {
       if (fsIs != null) {
         fsIs.close()
@@ -1418,7 +1428,7 @@ object AutoTuner extends Logging {
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
         driverInfoProvider)
     } catch {
-      case e: Exception =>
+      case NonFatal(e) =>
         handleException(e, singleAppProvider, platform, driverInfoProvider)
     }
   }
@@ -1431,10 +1441,17 @@ object AutoTuner extends Logging {
   ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterProps(workerInfoFilePath)
-      new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
-        driverInfoProvider)
+      val autoT = new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()),
+        singleAppProvider, platform, driverInfoProvider)
+      if (clusterPropsOpt.isEmpty) {
+        // In case the workerInfo input path is incorrect, extra comment
+        // mentioning that recommendations were generated using default values
+        autoT.appendComment(s"Exception reading workerInfo: $workerInfoFilePath.\n" +
+          "  Recommendations are generated using default values.")
+      }
+      autoT
     } catch {
-      case e: Exception =>
+      case NonFatal(e) =>
         handleException(e, singleAppProvider, platform, driverInfoProvider)
     }
   }

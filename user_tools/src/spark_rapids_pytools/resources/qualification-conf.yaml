@@ -9,6 +9,8 @@ toolOutput:
       fileName: rapids_4_spark_qualification_output_unsupportedOperators.csv
     clusterInformation:
       fileName: rapids_4_spark_qualification_output_cluster_information.csv
+    tunings:
+      subFolder: tuning
     summaryReport:
       fileName: rapids_4_spark_qualification_output.csv
       columns:
@@ -231,12 +233,14 @@ local:
           - 'App Duration'
       resultColumnName: 'Unsupported Operators Stage Duration'
       percentResultColumnName: 'Unsupported Operators Stage Duration Percent'
-    topCandidates:
+    tomTest:
       categoryColumnName: 'Estimated GPU Speedup Category'
       outputColumns:
         - 'App ID'
         - 'App Name'
         - 'Estimated GPU Speedup Category'
+        - 'Config Recommendation'
+        - 'Qualified Node Recommendation'
       eligibleCategories:
         - 'Small'
         - 'Medium'
