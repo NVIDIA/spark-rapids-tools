@@ -536,7 +536,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profileOutputWriter.write(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
 
       profileOutputWriter.writeText("\n### C. Health Check###\n")
-      profileOutputWriter.write(QualFailedTaskView.getLabel, app.failedTasks)
+      profileOutputWriter.write(ProfFailedTaskView.getLabel, app.failedTasks)
       profileOutputWriter.write(ProfFailedStageView.getLabel, app.failedStages)
       profileOutputWriter.write(ProfFailedJobsView.getLabel, app.failedJobs)
       profileOutputWriter.write(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
