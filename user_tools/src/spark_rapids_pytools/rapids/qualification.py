@@ -180,7 +180,7 @@ class QualificationSummary:
             report_content.append(f'{app_name} tool found no records to show.')
 
         report_content.append(f'* Config Recommendations can be found in {self.auto_tuning_path}')
-        report_content.append(f'** Estimated GPU Speedup Category assumes the user is using the node type recommended and config recommendations with same size cluster as was used with the CPU side.')
+        report_content.append(f'** Estimated GPU Speedup Category assumes the user is using the node type recommended and config recommendations with the same size cluster as was used with the CPU side.')
 
         #for row_label, row in print_result.iterrows():
         #    report_content.append(f'{row_label} tom {row}')
