@@ -167,6 +167,7 @@ class AbsToolUserArgModel:
         ev_logs_path = CspPath(self.get_eventlogs().split(',')[0])
         storage_type = ev_logs_path.get_storage_name()
         self.p_args['toolArgs']['platform'] = map_storage_to_platform[storage_type]
+        self.logger.info('Detected platform from eventlogs prefix: %s', self.p_args['toolArgs']['platform'].name)
 
     def validate_onprem_with_cluster_name(self):
         # this field has already been populated during initialization
@@ -319,7 +320,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
                 [ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.UNDEFINED]
             ]
         }
-        self.rejected['Invalid Jar Argument'] = {
+        self.rejected['Jar Argument'] = {
             'valid': False,
             'callable': partial(self.validate_jar_argument_is_valid),
             'cases': [
@@ -443,9 +444,10 @@ class QualifyUserArgModel(ToolUserArgModel):
                 self.p_args['toolArgs']['targetPlatform'] = None
             else:
                 if not self.p_args['toolArgs']['targetPlatform'] in equivalent_pricing_list:
+                    target_platform = self.p_args['toolArgs']['targetPlatform']
                     raise PydanticCustomError(
                         'invalid_argument',
-                        f'The platform [{self.p_args["toolArgs"]["targetPlatform"]}] is currently '
+                        f'The platform [{target_platform}] is currently '
                         f'not supported to calculate savings from [{runtime_platform}] cluster\n  Error:')
         else:
             # target platform is not set, then we disable cost savings if the runtime platform if

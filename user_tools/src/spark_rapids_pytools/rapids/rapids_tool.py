@@ -364,13 +364,14 @@ class RapidsTool(object):
         pinned_mem = min(constants.get('maxPinnedMemoryMB'),
                          executor_container_mem - executor_heap - executor_mem_overhead - pageable_pool)
         executor_mem_overhead += pinned_mem + pageable_pool
+        max_sql_files_partitions = constants.get('maxSqlFilesPartitionsMB')
         res = {
             'spark.executor.cores': num_executor_cores,
             'spark.executor.memory': f'{executor_heap}m',
             'spark.executor.memoryOverhead': f'{executor_mem_overhead}m',
             'spark.rapids.sql.concurrentGpuTasks': gpu_concurrent_tasks,
             'spark.rapids.memory.pinnedPool.size': f'{pinned_mem}m',
-            'spark.sql.files.maxPartitionBytes': f'{constants.get("maxSqlFilesPartitionsMB")}m',
+            'spark.sql.files.maxPartitionBytes': f'{max_sql_files_partitions}m',
             'spark.task.resource.gpu.amount': 1 / num_executor_cores,
             'spark.rapids.shuffle.multiThreaded.reader.threads': num_executor_cores,
             'spark.rapids.shuffle.multiThreaded.writer.threads': num_executor_cores,
@@ -394,7 +395,7 @@ class RapidsJarTool(RapidsTool):
                                                                 self.ctxt.get_local_work_dir(),
                                                                 fail_ok=False,
                                                                 create_dir=True)
-        self.logger.info('RAPIDS accelerator jar is downloaded to work_dir %s', jar_path)
+        self.logger.info('RAPIDS accelerator tools jar is downloaded to work_dir %s', jar_path)
         # get the jar file name
         jar_file_name = FSUtil.get_resource_name(jar_path)
         version_match = re.search(r'\d{2}\.\d{2}\.\d+', jar_file_name)

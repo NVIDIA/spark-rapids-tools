@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -328,8 +328,8 @@ class SysCmd:
             if len(std_error_lines) > 0:
                 error_lines = Utils.gen_multiline_str(std_error_lines)
                 stderr_str = f'\n{error_lines}'
-            processed_cmd_args = process_credentials_option(cmd_args)
-            cmd_err_msg = f'Error invoking CMD <{Utils.gen_joined_str(" ", processed_cmd_args)}>: {stderr_str}'
+            processed_cmd_args = Utils.gen_joined_str(' ', process_credentials_option(cmd_args))
+            cmd_err_msg = f'Error invoking CMD <{processed_cmd_args}>: {stderr_str}'
             raise RuntimeError(f'{cmd_err_msg}')
 
         self.out_std = c.stdout if isinstance(c.stdout, str) else c.stdout.decode('utf-8', errors='ignore')
