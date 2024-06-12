@@ -21,7 +21,7 @@ dependencies = [
     "fastcore==1.5.29",
     "fire>=0.5.0",
     "pandas==1.4.3",
-    "pyYAML==6.0",
+    "pyYAML>=6.0",
     "tabulate==0.8.10",
     "importlib-resources==5.10.2",
     "requests==2.31.0",

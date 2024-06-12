@@ -62,7 +62,8 @@ class DataprocPlatform(PlatformBase):
                     # Skip if the property already set
                     continue
                 prop_cmd = config_cmd_prefix[:]
-                prop_cmd.append(f'{prop_entry.get("section")}/{prop_entry_key}')
+                section_entry = prop_entry.get('section')
+                prop_cmd.append(f'{section_entry}/{prop_entry_key}')
                 cmd_args = {
                     'cmd': prop_cmd,
                 }

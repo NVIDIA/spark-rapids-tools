@@ -444,9 +444,10 @@ class QualifyUserArgModel(ToolUserArgModel):
                 self.p_args['toolArgs']['targetPlatform'] = None
             else:
                 if not self.p_args['toolArgs']['targetPlatform'] in equivalent_pricing_list:
+                    target_platform = self.p_args['toolArgs']['targetPlatform']
                     raise PydanticCustomError(
                         'invalid_argument',
-                        f'The platform [{self.p_args["toolArgs"]["targetPlatform"]}] is currently '
+                        f'The platform [{target_platform}] is currently '
                         f'not supported to calculate savings from [{runtime_platform}] cluster\n  Error:')
         else:
             # target platform is not set, then we disable cost savings if the runtime platform if
