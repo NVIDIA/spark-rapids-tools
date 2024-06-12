@@ -167,6 +167,7 @@ class AbsToolUserArgModel:
         ev_logs_path = CspPath(self.get_eventlogs().split(',')[0])
         storage_type = ev_logs_path.get_storage_name()
         self.p_args['toolArgs']['platform'] = map_storage_to_platform[storage_type]
+        self.logger.info('Detected platform from eventlogs prefix: %s', self.p_args['toolArgs']['platform'].name)
 
     def validate_onprem_with_cluster_name(self):
         # this field has already been populated during initialization
@@ -319,7 +320,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
                 [ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.UNDEFINED]
             ]
         }
-        self.rejected['Invalid Jar Argument'] = {
+        self.rejected['Jar Argument'] = {
             'valid': False,
             'callable': partial(self.validate_jar_argument_is_valid),
             'cases': [

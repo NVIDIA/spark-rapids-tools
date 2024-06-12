@@ -394,7 +394,7 @@ class RapidsJarTool(RapidsTool):
                                                                 self.ctxt.get_local_work_dir(),
                                                                 fail_ok=False,
                                                                 create_dir=True)
-        self.logger.info('RAPIDS accelerator jar is downloaded to work_dir %s', jar_path)
+        self.logger.info('RAPIDS accelerator tools jar is downloaded to work_dir %s', jar_path)
         # get the jar file name
         jar_file_name = FSUtil.get_resource_name(jar_path)
         version_match = re.search(r'\d{2}\.\d{2}\.\d+', jar_file_name)
