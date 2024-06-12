@@ -624,39 +624,6 @@ class ProfileUserArgModel(ToolUserArgModel):
 
 
 @dataclass
-@register_tool_arg_validator('bootstrap')
-class BootstrapUserArgModel(AbsToolUserArgModel):
-    """
-    Represents the arguments collected by the user to run the bootstrap tool.
-    This is used as doing preliminary validation against some of the common pattern
-    """
-    dry_run: Optional[bool] = True
-
-    def build_tools_args(self) -> dict:
-        return {
-            'runtimePlatform': self.platform,
-            'outputFolder': self.output_folder,
-            'platformOpts': {},
-            'dryRun': self.dry_run
-        }
-
-    @model_validator(mode='after')
-    def validate_non_empty_args(self) -> 'BootstrapUserArgModel':
-        error_flag = 0
-        components = []
-        if self.cluster is None:
-            error_flag = 1
-            components.append('cluster')
-        if self.platform is None:
-            error_flag |= 2
-            components.append('platform')
-        if error_flag > 0:
-            missing = str.join(' and ', components)
-            raise ValueError(f'Cmd requires [{missing}] to be specified')
-        return self
-
-
-@dataclass
 @register_tool_arg_validator('prediction')
 class PredictUserArgModel(AbsToolUserArgModel):
     """
