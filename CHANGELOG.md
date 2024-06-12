@@ -1,6 +1,64 @@
 
 <br/>
 
+## Release [v24.06.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.06.0)
+Generated on 2024-06-12
+### User Tools
+
+- Add support to Python 3.12 ([#1111](https://github.com/NVIDIA/spark-rapids-tools/pull/1111))
+- user-tools: Update log messages ([#1110](https://github.com/NVIDIA/spark-rapids-tools/pull/1110))
+- Enable xgboost prediction model by default ([#1108](https://github.com/NVIDIA/spark-rapids-tools/pull/1108))
+- Add support to Python3.11 ([#1105](https://github.com/NVIDIA/spark-rapids-tools/pull/1105))
+- Fix nan label issue in training ([#1104](https://github.com/NVIDIA/spark-rapids-tools/pull/1104))
+- Fix qualx app metrics ([#1102](https://github.com/NVIDIA/spark-rapids-tools/pull/1102))
+- clip appDuration to at least Duration ([#1096](https://github.com/NVIDIA/spark-rapids-tools/pull/1096))
+- Fix missing assignment to savings_recommendations ([#1098](https://github.com/NVIDIA/spark-rapids-tools/pull/1098))
+- Handle QualX behaviour when Qual Tool does not generate any outputs ([#1095](https://github.com/NVIDIA/spark-rapids-tools/pull/1095))
+- Fix internal predict CLI and remove preprocessed argument ([#1093](https://github.com/NVIDIA/spark-rapids-tools/pull/1093))
+- Update QualX to return default speedups and fix App Duration for incomplete apps ([#1089](https://github.com/NVIDIA/spark-rapids-tools/pull/1089))
+- fix signature error from overlapping merges ([#1084](https://github.com/NVIDIA/spark-rapids-tools/pull/1084))
+- sync w/ internal repo; update models ([#1083](https://github.com/NVIDIA/spark-rapids-tools/pull/1083))
+- Reduce the maximum number of Java threads in CLI ([#1082](https://github.com/NVIDIA/spark-rapids-tools/pull/1082))
+- Remove using Profiler metrics for QualX and Heuristics ([#1080](https://github.com/NVIDIA/spark-rapids-tools/pull/1080))
+- Port QualX repo and add CLI for train ([#1076](https://github.com/NVIDIA/spark-rapids-tools/pull/1076))
+- User tools fallback to default zone/region ([#1054](https://github.com/NVIDIA/spark-rapids-tools/pull/1054))
+- Handle missing pricing info for user qual tool on Databricks platforms ([#1053](https://github.com/NVIDIA/spark-rapids-tools/pull/1053))
+- Split job and stage level aggregated metrics into different files ([#1050](https://github.com/NVIDIA/spark-rapids-tools/pull/1050))
+- Skip Cluster Inference when CSP CLIs are missing or not configured ([#1035](https://github.com/NVIDIA/spark-rapids-tools/pull/1035))
+- Store Cluster Shape Recommendation in User Tools Qualification Output ([#1005](https://github.com/NVIDIA/spark-rapids-tools/pull/1005))
+- Fix calculation of unsupported operators stage duration percentage ([#1006](https://github.com/NVIDIA/spark-rapids-tools/pull/1006))
+- Update Databricks Azure qual tool to set env variable for ABFS paths ([#1016](https://github.com/NVIDIA/spark-rapids-tools/pull/1016))
+- Add heuristics using stage spill metrics to skip apps ([#1002](https://github.com/NVIDIA/spark-rapids-tools/pull/1002))
+- Fix failure in github workflow's pylint ([#1015](https://github.com/NVIDIA/spark-rapids-tools/pull/1015))
+- Updating qual validation script to directly use top candidate view recommendation ([#1001](https://github.com/NVIDIA/spark-rapids-tools/pull/1001))
+
+### Core
+
+- Fix typo in Profiler class using qual instead of prof ([#1113](https://github.com/NVIDIA/spark-rapids-tools/pull/1113))
+- Fix missing appEndTime in raw_metrics folder ([#1092](https://github.com/NVIDIA/spark-rapids-tools/pull/1092))
+- Sync tools with plugin newly supported operators ([#1066](https://github.com/NVIDIA/spark-rapids-tools/pull/1066))
+- Fix java Qual tool Autotuner output when GPU device is missing ([#1085](https://github.com/NVIDIA/spark-rapids-tools/pull/1085))
+- Update the Qual tool AutoTuner Heuristics against CPU event logs ([#1069](https://github.com/NVIDIA/spark-rapids-tools/pull/1069))
+- Handling FileNotFound exception in AutoTuner ([#1065](https://github.com/NVIDIA/spark-rapids-tools/pull/1065))
+- Handle metric names from legacy spark ([#1052](https://github.com/NVIDIA/spark-rapids-tools/pull/1052))
+- Split job and stage level aggregated metrics into different files ([#1050](https://github.com/NVIDIA/spark-rapids-tools/pull/1050))
+- Refactor ProfileResult classes to implement new interface design and add CSV output to Qual Tool ([#1043](https://github.com/NVIDIA/spark-rapids-tools/pull/1043))
+- Hook up the auto tuner in the qualification tool ([#1039](https://github.com/NVIDIA/spark-rapids-tools/pull/1039))
+- Profiler should identify the delta log ops and generate views for non-delta logs ([#1031](https://github.com/NVIDIA/spark-rapids-tools/pull/1031))
+- Qualification tool - Handle cancelled jobs and stages better and don't skip the app ([#1033](https://github.com/NVIDIA/spark-rapids-tools/pull/1033))
+- [FEA] Generate Status Report for Profiling Tool ([#1012](https://github.com/NVIDIA/spark-rapids-tools/pull/1012))
+- Fix calculation of unsupported operators stage duration percentage ([#1006](https://github.com/NVIDIA/spark-rapids-tools/pull/1006))
+- Fix potential problems and AQE updates in Qual tool ([#1021](https://github.com/NVIDIA/spark-rapids-tools/pull/1021))
+- Sync supported operators with plugin changes and update default score ([#1020](https://github.com/NVIDIA/spark-rapids-tools/pull/1020))
+- Refactor TaskEnd to be accessible by Q/P tools ([#1000](https://github.com/NVIDIA/spark-rapids-tools/pull/1000))
+
+### Miscellaneous
+
+- Bump requests from 2.31.0 to 2.32.2 in /data_validation ([#1077](https://github.com/NVIDIA/spark-rapids-tools/pull/1077))
+
+
+<br/>
+
 ## Release [v24.04.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.04.0)
 Generated on 2024-05-07
 ### User Tools
