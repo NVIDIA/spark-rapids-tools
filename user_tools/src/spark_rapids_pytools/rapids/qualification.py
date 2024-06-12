@@ -14,6 +14,7 @@
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 import json
+import textwrap
 from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
@@ -135,7 +136,8 @@ class QualificationSummary:
             #rapids_output_dir = "testing/"
             #tunings_dir = FSUtil.build_path(rapids_output_dir,
             #                                self.ctxt.get_value('toolOutput', 'csv', 'tunings', 'subFolder'))
-            tunings_file_path = self.auto_tuning_path + "/" + self.df_result['App ID'] + ".log"
+            full_tunings_file = self.df_result['App ID'] + ".conf"
+            gpu_tunings_file = self.df_result['App ID'] + ".log"
             tunings_rec = ["spark.executor.memory=8192m",
                     "spark.rapids.memory.pinnedPool.size=2662m", 
                     "spark.rapids.shuffle.multiThreaded.reader.threads=20", 
@@ -152,9 +154,15 @@ class QualificationSummary:
 
             tunings_multiline = Utils.gen_multiline_str(tunings_rec)
 
-            print_result['Config Recommendation'] = tunings_multiline
-            # TODO - we really want to track this per individual app
+            #wrapper = textwrap.TextWrapper(width=50) 
+            #string = wrapper.fill("/home/tgraves/workspace/spark-rapids-tools2/user_tools/qual_20240611211142_d68B4CcA/rapids_4_spark_qualification_output/tuning/application_1709275675195_0233.log") 
             print_result['Qualified Node Recommendation'] = Utils.gen_multiline_str(self.conversion_items)
+            print_result['Full Cluster Config Recommendations*'] = full_tunings_file
+            print_result['GPU Config Recommendation Breakdown*'] = gpu_tunings_file
+
+            #p_new_column = textwrap.fill(print_result['Config Recommendation'], 40, break_long_words=True)
+            #print_result['Config Recommendation'] = print
+            # TODO - we really want to track this per individual app
             self.logger.warning('TOM %s' + ','.join(list(print_result.columns.values)))
             self.logger.warning('TOM orig %s' + ','.join(list(self.df_result.columns.values)))
             pretty_df = df_pprinter(print_result)
@@ -170,6 +178,12 @@ class QualificationSummary:
             report_content.append(f'pricing information not found for ${app_name}')
         else:
             report_content.append(f'{app_name} tool found no records to show.')
+
+        report_content.append(f'* Config Recommendations can be found in {self.auto_tuning_path}')
+        report_content.append(f'** Estimated GPU Speedup Category assumes the user is using the node type recommended and config recommendations with same size cluster as was used with the CPU side.')
+
+        #for row_label, row in print_result.iterrows():
+        #    report_content.append(f'{row_label} tom {row}')
 
         report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
         report_content.append(tabulate(self.__generate_report_summary(), colalign=('left', 'right')))
@@ -861,8 +875,6 @@ class Qualification(RapidsJarTool):
         if node_conversions is not None:
             for mc_src, mc_target in node_conversions.items():
                 conversion_items_summary.append(mc_src + ' to ' + mc_target)
-
-        conversion_items_summary.append("testing1" + ' to ' + "testing2")
 
         rapids_output_dir = self.ctxt.get_rapids_output_folder()
         tunings_dir = FSUtil.build_path(rapids_output_dir,

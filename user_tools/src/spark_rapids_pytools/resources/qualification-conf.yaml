@@ -234,13 +234,14 @@ local:
       resultColumnName: 'Unsupported Operators Stage Duration'
       percentResultColumnName: 'Unsupported Operators Stage Duration Percent'
     tomTest:
-      categoryColumnName: 'Estimated GPU Speedup Category'
+      categoryColumnName: 'Estimated GPU Speedup Category**'
       outputColumns:
         - 'App ID'
         - 'App Name'
-        - 'Estimated GPU Speedup Category'
-        - 'Config Recommendation'
+        - 'Estimated GPU Speedup Category**'
         - 'Qualified Node Recommendation'
+        - 'Full Cluster Config Recommendations*'
+        - 'GPU Config Recommendation Breakdown*'
       eligibleCategories:
         - 'Small'
         - 'Medium'
@@ -254,7 +255,7 @@ local:
         - 'App Duration'
     speedupCategories:
       speedupColumnName: 'Estimated GPU Speedup'
-      categoryColumnName: 'Estimated GPU Speedup Category'
+      categoryColumnName: 'Estimated GPU Speedup Category**'
       heuristicsColumnName: 'Skip by Heuristics'
       categories:
         - title: 'Not Applicable'
