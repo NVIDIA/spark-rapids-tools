@@ -17,8 +17,10 @@ package org.apache.spark.sql.rapids.tool.store
 
 import scala.collection.mutable.{ArrayBuffer, SortedMap}
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.SparkListenerTaskEnd
 import org.apache.spark.sql.rapids.tool.annotation.Since
+import org.apache.spark.sql.rapids.tool.kvstore.KVLocalStore
 
 /**
  * A class to maintain the tasks.
@@ -32,8 +34,10 @@ import org.apache.spark.sql.rapids.tool.annotation.Since
  * 2- flexibility in refactoring the TaskManager to use a permanent storage toward future
  * improvements.
  */
+
+
 @Since("24.04.1")
-class TaskModelManager {
+class TaskModelManager extends Logging {
   // A nested HashMap to map between ((Int: stageId, Int: attemptId) -> ArrayBuffer[TaskModel]).
   // We keep track of the attemptId to allow improvement down the road if we decide to handle
   // different Attempts.
@@ -46,17 +50,38 @@ class TaskModelManager {
   // is a read operation from the map.
   // Finally use SortedMaps to keep the map sorted. That way iterating on the map will be orders
   // by IDs/AttemptIDs.
+
+  private val kvStoreLocal = new KVLocalStore()
+
   val stageAttemptToTasks: SortedMap[Int, SortedMap[Int, ArrayBuffer[TaskModel]]] =
     SortedMap[Int, SortedMap[Int, ArrayBuffer[TaskModel]]]()
+
+
 
   // Given a Spark taskEnd event, create a new Task and add it to the Map.
   def addTaskFromEvent(event: SparkListenerTaskEnd): Unit = {
     val taskModel = TaskModel(event)
+    try{
+      kvStoreLocal.write(taskModel)
+      logInfo("TaskModel written to kvStoreLocal")
+      val taskModelNew: TaskModel = kvStoreLocal.read(classOf[TaskModel], taskModel.stageId)
+      println("Printing task model" + taskModelNew.stageId)
+      kvStoreLocal.delete(classOf[TaskModel], taskModel.stageId)
+      logInfo("TaskModel deleted from kvStoreLocal")
+      kvStoreLocal.read(classOf[TaskModel], taskModel.stageId)
+    } catch {
+      case _: NoSuchElementException => logError("Read element not found in store")
+      case e: Exception => logError("Error writing to kvStoreLocal", e)
+    } finally {
+      logInfo("Done writing to kvStoreLocal")
+    }
+
     val stageAttempts =
       stageAttemptToTasks.getOrElseUpdate(event.stageId, SortedMap[Int, ArrayBuffer[TaskModel]]())
     val attemptToTasks =
       stageAttempts.getOrElseUpdate(event.stageAttemptId, ArrayBuffer[TaskModel]())
     attemptToTasks += taskModel
+
   }
 
   // Given a stageID and stageAttemptID, return all tasks or Empty iterable.
