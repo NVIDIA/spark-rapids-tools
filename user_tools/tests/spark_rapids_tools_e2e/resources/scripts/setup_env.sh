@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# Copyright (c) 2024, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+set -e
+
+err () {
+    echo "ERROR: $1" >&2
+    exit 1
+}
+
+if [ -z "$TOOLS_DIR" ]; then
+  err "Please set TOOLS_DIR to the root directory of the spark-rapids-tools repository. Exiting script."
+fi
+
+build_jar() {
+  JAR_TOOLS_DIR="$TOOLS_DIR/core"
+  echo "Building Spark RAPIDS Tools JAR file"
+  pushd "$JAR_TOOLS_DIR"
+  mvn install -DskipTests
+  popd
+}
+
+install_python_package() {
+  if [ -z "$VENV_DIR" ]; then
+    err "Please set VENV_DIR to the name of the virtual environment. Exiting script."
+  fi
+
+  echo "Setting up Python environment in $VENV_DIR"
+  PYTHON_TOOLS_DIR="$TOOLS_DIR/user_tools"
+  python -m venv "$VENV_DIR"
+  source "$VENV_DIR"/bin/activate
+
+  echo "Installing Spark RAPIDS Tools Python package"
+  pushd "$PYTHON_TOOLS_DIR"
+  pip install --upgrade pip setuptools wheel > /dev/null
+  pip install .
+  popd
+  echo "$VENV_DIR"
+}
+
+if [ ! -f "$TOOLS_JAR_PATH" ] || [ "$BUILD_JAR" = "true" ]; then
+  build_jar
+fi
+
+install_python_package
