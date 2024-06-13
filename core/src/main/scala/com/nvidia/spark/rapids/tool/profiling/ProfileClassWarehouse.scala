@@ -20,6 +20,7 @@ import scala.collection.Map
 
 import org.apache.spark.resource.{ExecutorResourceRequest, TaskResourceRequest}
 import org.apache.spark.sql.rapids.tool.util.StringUtils
+import org.apache.spark.util.kvstore.KVIndex
 
 /**
  * This is a warehouse to store all Classes
@@ -350,7 +351,12 @@ case class TaskStageAccumCase(
     value: Option[Long],
     // The amount for this particular task/update
     update: Option[Long],
-    isInternal: Boolean)
+    isInternal: Boolean){
+
+  @KVIndex
+  def id: Array[Any] = Array(stageId, attemptId, taskId.getOrElse(-1L), accumulatorId)
+
+}
 
 case class UnsupportedSQLPlan(sqlID: Long, nodeID: Long, nodeName: String,
     nodeDesc: String, reason: String)

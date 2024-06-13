@@ -51,12 +51,10 @@ class TaskModelManager extends Logging {
   // Finally use SortedMaps to keep the map sorted. That way iterating on the map will be orders
   // by IDs/AttemptIDs.
 
-  private val kvStoreLocal = new KVLocalStore()
+  val kvStoreLocal = new KVLocalStore()
 
-  val stageAttemptToTasks: SortedMap[Int, SortedMap[Int, ArrayBuffer[TaskModel]]] =
-    SortedMap[Int, SortedMap[Int, ArrayBuffer[TaskModel]]]()
-
-
+  val stageAttemptToTasks: SortedMap[Int, SortedMap[Int, ArrayBuffer[Array[Any]]]] =
+    SortedMap[Int, SortedMap[Int, ArrayBuffer[Array[Any]]]]()
 
   // Given a Spark taskEnd event, create a new Task and add it to the Map.
   def addTaskFromEvent(event: SparkListenerTaskEnd): Unit = {
@@ -64,12 +62,7 @@ class TaskModelManager extends Logging {
     try{
       kvStoreLocal.write(taskModel)
       logInfo("TaskModel written to kvStoreLocal")
-      val taskModelNew: TaskModel = kvStoreLocal.read(classOf[TaskModel], taskModel.stageId)
-      println("Printing task model" + taskModelNew.stageId)
-      kvStoreLocal.delete(classOf[TaskModel], taskModel.stageId)
-      logInfo("TaskModel deleted from kvStoreLocal")
-      kvStoreLocal.read(classOf[TaskModel], taskModel.stageId)
-    } catch {
+  } catch {
       case _: NoSuchElementException => logError("Read element not found in store")
       case e: Exception => logError("Error writing to kvStoreLocal", e)
     } finally {
@@ -77,11 +70,10 @@ class TaskModelManager extends Logging {
     }
 
     val stageAttempts =
-      stageAttemptToTasks.getOrElseUpdate(event.stageId, SortedMap[Int, ArrayBuffer[TaskModel]]())
+      stageAttemptToTasks.getOrElseUpdate(event.stageId, SortedMap[Int, ArrayBuffer[Array[Any]]]())
     val attemptToTasks =
-      stageAttempts.getOrElseUpdate(event.stageAttemptId, ArrayBuffer[TaskModel]())
-    attemptToTasks += taskModel
-
+      stageAttempts.getOrElseUpdate(event.stageAttemptId, ArrayBuffer[Array[Any]]())
+    attemptToTasks += taskModel.id
   }
 
   // Given a stageID and stageAttemptID, return all tasks or Empty iterable.
@@ -89,11 +81,11 @@ class TaskModelManager extends Logging {
   def getTasks(stageID: Int, stageAttemptID: Int,
       predicateFunc: Option[TaskModel => Boolean] = None): Iterable[TaskModel] = {
     stageAttemptToTasks.get(stageID).flatMap { stageAttempts =>
-      stageAttempts.get(stageAttemptID).map { tasks =>
+      stageAttempts.get(stageAttemptID).map { tasks : ArrayBuffer[Array[Any]] =>
         if (predicateFunc.isDefined) {
-          tasks.filter(predicateFunc.get)
+          tasks.map(kvStoreLocal.read(classOf[TaskModel], _)).filter(predicateFunc.get)
         } else {
-          tasks
+          tasks.map(kvStoreLocal.read(classOf[TaskModel], _))
         }
       }
     }.getOrElse(Iterable.empty)
@@ -104,7 +96,7 @@ class TaskModelManager extends Logging {
   // This is mainly supporting callers that use stageID (without attemptID).
   def getAllTasksStageAttempt(stageID: Int): Iterable[TaskModel] = {
     stageAttemptToTasks.get(stageID).map { stageAttempts =>
-      stageAttempts.values.flatten
+      stageAttempts.values.flatten.map(kvStoreLocal.read(classOf[TaskModel], _))
     }.getOrElse(Iterable.empty)
   }
 
@@ -113,9 +105,10 @@ class TaskModelManager extends Logging {
     stageAttemptToTasks.collect {
       case (_, attemptsToTasks) if attemptsToTasks.nonEmpty =>
         if (predicateFunc.isDefined) {
-          attemptsToTasks.values.flatten.filter(predicateFunc.get)
+          attemptsToTasks.values.flatten.map(kvStoreLocal.read(classOf[TaskModel], _))
+            .filter(predicateFunc.get)
         } else {
-          attemptsToTasks.values.flatten
+          attemptsToTasks.values.flatten.map(kvStoreLocal.read(classOf[TaskModel], _))
         }
     }.flatten
   }

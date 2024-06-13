@@ -360,6 +360,11 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
           val arrBuf = app.taskStageAccumMap.getOrElseUpdate(res.id,
             ArrayBuffer[TaskStageAccumCase]())
           arrBuf += thisMetric
+          val arrBufTest = app.testingTaskStageAccumMap.getOrElseUpdate(res.id,
+            ArrayBuffer[Array[Any]]())
+          arrBufTest += thisMetric.id
+          logInfo("Adding accumulable to disk")
+          app.taskManager.kvStoreLocal.write(thisMetric)
         }
       } catch {
         case NonFatal(e) =>

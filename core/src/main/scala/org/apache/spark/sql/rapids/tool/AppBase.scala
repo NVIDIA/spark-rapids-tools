@@ -83,6 +83,9 @@ abstract class AppBase(
   var taskStageAccumMap: HashMap[Long, ArrayBuffer[TaskStageAccumCase]] =
     HashMap[Long, ArrayBuffer[TaskStageAccumCase]]()
 
+  var testingTaskStageAccumMap: HashMap[Long, ArrayBuffer[Array[Any]]] =
+    HashMap[Long, ArrayBuffer[Array[Any]]]()
+
   lazy val stageManager: StageModelManager = new StageModelManager()
   // Container that manages TaskIno including SparkMetrics.
   // A task is added during a TaskEnd eventLog

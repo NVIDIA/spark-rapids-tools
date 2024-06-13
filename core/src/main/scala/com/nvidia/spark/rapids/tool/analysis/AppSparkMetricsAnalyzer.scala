@@ -229,9 +229,11 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       // TODO: Should we only consider successful tasks?
       case (stageId, attemptsToTasks) if attemptsToTasks.nonEmpty =>
         attemptsToTasks.map { case (attemptId, tasks) =>
-          val sumDuration = tasks.map(_.duration).sum
+          val sumDuration = tasks.map(app.taskManager.kvStoreLocal.
+            read(classOf[TaskModel],_)).map(_.duration).sum
           val avgDuration = ToolUtils.calculateAverage(sumDuration, tasks.size, 2)
-          val sumShuffleReadBytes = tasks.map(_.sr_totalBytesRead).sum
+          val sumShuffleReadBytes = tasks.map(app.taskManager.kvStoreLocal
+            .read(classOf[TaskModel],_)).map(_.sr_totalBytesRead).sum
           val avgShuffleReadBytes = ToolUtils.calculateAverage(sumShuffleReadBytes, tasks.size, 2)
           ((stageId, attemptId), AverageStageInfo(avgDuration, avgShuffleReadBytes))
         }

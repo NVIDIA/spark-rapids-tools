@@ -21,51 +21,54 @@ import java.util.concurrent.TimeUnit
 import org.apache.spark.TaskFailedReason
 import org.apache.spark.scheduler.SparkListenerTaskEnd
 import org.apache.spark.sql.rapids.tool.annotation.Since
-import org.apache.spark.status.KVUtils.KVIndexParam
+import org.apache.spark.util.kvstore.KVIndex
 
 @Since("24.04.1")
 case class TaskModel(
-                      @KVIndexParam stageId: Int = 1,
-                      stageAttemptId: Int = 1,
-                      taskType: String = "a",
-                      endReason: String = "a",
-                      taskId: Long = 1L,
-                      attempt: Int = 1,
-                      launchTime: Long = 1L,
-                      finishTime: Long = 1L,
-                      duration: Long = 1L,
-                      successful: Boolean = true,
-                      executorId: String = "a",
-                      host: String = "a",
-                      taskLocality: String = "a",
-                      speculative: Boolean = false,
-                      gettingResultTime: Long = 1L,
-                      executorDeserializeTime: Long = 1L,
-                      executorDeserializeCPUTime: Long = 1L,
-                      executorRunTime: Long = 1L,
-                      executorCPUTime: Long = 1L,
-                      peakExecutionMemory: Long = 1L,
-                      resultSize: Long = 1L,
-                      jvmGCTime: Long = 1L,
-                      resultSerializationTime: Long = 1L,
-                      memoryBytesSpilled: Long = 1L,
-                      diskBytesSpilled: Long = 1L,
-                      // Note: sr stands for ShuffleRead
-                      sr_remoteBlocksFetched: Long = 1L,
-                      sr_localBlocksFetched: Long = 1L,
-                      sr_fetchWaitTime: Long = 1L,
-                      sr_remoteBytesRead: Long= 1L,
-                      sr_remoteBytesReadToDisk: Long = 1L,
-                      sr_localBytesRead: Long = 1L,
-                      sr_totalBytesRead: Long = 1L,
-                      // Note: sw stands for ShuffleWrite
-                      sw_bytesWritten: Long = 1L,
-                      sw_writeTime: Long = 1L,
-                      sw_recordsWritten: Long = 1L,
-                      input_bytesRead: Long = 1L,
-                      input_recordsRead: Long = 1L,
-                      output_bytesWritten: Long = 1L,
-                      output_recordsWritten: Long = 1L)
+      stageId: Int = 1,
+      stageAttemptId: Int = 1,
+      taskType: String = "a",
+      endReason: String = "a",
+      taskId: Long = 1L,
+      attempt: Int = 1,
+      launchTime: Long = 1L,
+      finishTime: Long = 1L,
+      duration: Long = 1L,
+      successful: Boolean = true,
+      executorId: String = "a",
+      host: String = "a",
+      taskLocality: String = "a",
+      speculative: Boolean = false,
+      gettingResultTime: Long = 1L,
+      executorDeserializeTime: Long = 1L,
+      executorDeserializeCPUTime: Long = 1L,
+      executorRunTime: Long = 1L,
+      executorCPUTime: Long = 1L,
+      peakExecutionMemory: Long = 1L,
+      resultSize: Long = 1L,
+      jvmGCTime: Long = 1L,
+      resultSerializationTime: Long = 1L,
+      memoryBytesSpilled: Long = 1L,
+      diskBytesSpilled: Long = 1L,
+      // Note: sr stands for ShuffleRead
+      sr_remoteBlocksFetched: Long = 1L,
+      sr_localBlocksFetched: Long = 1L,
+      sr_fetchWaitTime: Long = 1L,
+      sr_remoteBytesRead: Long= 1L,
+      sr_remoteBytesReadToDisk: Long = 1L,
+      sr_localBytesRead: Long = 1L,
+      sr_totalBytesRead: Long = 1L,
+      // Note: sw stands for ShuffleWrite
+      sw_bytesWritten: Long = 1L,
+      sw_writeTime: Long = 1L,
+      sw_recordsWritten: Long = 1L,
+      input_bytesRead: Long = 1L,
+      input_recordsRead: Long = 1L,
+      output_bytesWritten: Long = 1L,
+      output_recordsWritten: Long = 1L){
+  @KVIndex
+  def id: Array[Any] = Array(stageId, stageAttemptId, taskId, attempt)
+}
 
 object TaskModel {
   def apply(event: SparkListenerTaskEnd): TaskModel = {

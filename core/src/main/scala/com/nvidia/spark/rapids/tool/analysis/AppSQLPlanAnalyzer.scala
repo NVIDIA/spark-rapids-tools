@@ -16,12 +16,14 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
+import scala.Option.option2Iterable
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, TaskStageAccumCase, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SQLMetricsStats, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
@@ -42,7 +44,7 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * TODO: this class should extend the trait SparkSQLPlanInfoVisitor[T]
  * @param app the Application info objects that contains the SQL plans to be processed
  */
-class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(app) {
+class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(app) with Logging {
   // A map between (SQL ID, Node ID) and the set of stage IDs
   // TODO: The Qualification should use this map instead of building a new set for each exec.
   private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
@@ -276,6 +278,14 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       }
       val stageIdsForSQL = jobsForSql.flatMap(_._2.stageIds).toSet
       val accumsOpt = app.taskStageAccumMap.get(metric.accumulatorId)
+      logInfo("Getting test accumulable")
+      app.testingTaskStageAccumMap.get(metric.accumulatorId) match {
+        case Some(accum) =>
+          accum.foreach(a =>
+            logInfo(app.taskManager.kvStoreLocal.read(classOf[TaskStageAccumCase], a).toString))
+        case None =>
+              logInfo("No test accumulable")
+      }
       val taskMax = accumsOpt match {
         case Some(accums) =>
           val filtered = accums.filter { a =>
