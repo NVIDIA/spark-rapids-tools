@@ -865,9 +865,13 @@ class QualificationAppInfo(
         logWarning(s"Application $appId: Cluster with variable executor cores detected. " +
           s"Using maximum value.")
       }
+      // Group by host name, find max executors per host, and number of unique hosts
+      val groupedHosts = activeHosts.groupBy(identity)
+      val numExecsPerNode = groupedHosts.mapValues(_.size).values.max
+      val numExecNodes = groupedHosts.size
       // Create cluster information based on platform type
-      Some(pluginTypeChecker.platform.createClusterInfo(coresPerExecutor.max,
-        activeHosts.toSet.size, sparkProperties, systemProperties))
+      Some(pluginTypeChecker.platform.createClusterInfo(coresPerExecutor.max, numExecsPerNode,
+        numExecNodes, sparkProperties, systemProperties))
     } else {
       None
     }

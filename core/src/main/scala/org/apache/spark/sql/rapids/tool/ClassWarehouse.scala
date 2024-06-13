@@ -44,6 +44,7 @@ class ExecutorInfoClass(val executorId: String, _addTime: Long) {
 case class ClusterInfo(
     vendor: String,
     coresPerExecutor: Int,
+    numExecsPerNode: Int,
     numExecutorNodes: Int,
     executorInstance: Option[String] = None,
     driverInstance: Option[String] = None,
