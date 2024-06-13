@@ -67,9 +67,6 @@ The following table summarizes the commands supported for each cloud platform:
 |                  | profiling     | spark_rapids_user_tools \               |  23.08+  |
 |                  |               |   emr profiling [ARGS]                  |          |
 |                  +---------------+-----------------------------------------+----------+
-|                  | bootstrap     | spark_rapids_user_tools \               |  23.02+  |
-|                  |               |   emr bootstrap [ARGS]                  |          |
-|                  +---------------+-----------------------------------------+----------+
 |                  | diagnostic    | spark_rapids_user_tools \               |  23.06+  |
 |                  |               |   emr diagnostic [ARGS]                 |          |
 +------------------+---------------+-----------------------------------------+----------+
