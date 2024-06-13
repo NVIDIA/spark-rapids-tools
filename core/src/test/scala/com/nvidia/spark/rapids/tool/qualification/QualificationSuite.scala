@@ -1547,7 +1547,7 @@ class QualificationSuite extends BaseTestSuite {
     "eventlog_2nodes_8cores" -> // 2 nodes, each with 1 executor having 8 cores.
       Some(ClusterInfo(PlatformNames.DEFAULT, 8, 1, 2,
         None, None, Some("10.10.10.100"), None, None)),
-    "eventlog_3nodes_12cores_same_host" -> // 3 nodes, each with 2 executors having 12 cores.
+    "eventlog_3nodes_12cores_multiple_executors" -> // 3 nodes, each with 2 executors having 12 cores.
       Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, 3,
         None, None, Some("10.59.184.210"), None, None)),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 nodes with varying cores: 8, 12, and 8, each with 1 executor.
