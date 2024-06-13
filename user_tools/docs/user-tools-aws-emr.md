@@ -12,7 +12,7 @@ the applications running on AWS EMR.
 - Install the AWS CLI version 2. Follow the instructions on [aws-cli-getting-started](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
 - Set the configuration settings and credentials of the AWS CLI by creating `credentials` and `config`
   files as described in [aws-cli-configure-files](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html).
-- In order to be able to run tools that require SSH on the EMR nodes (i.e., bootstrap), then:
+- In order to be able to run tools that require SSH on the EMR nodes then:
   - make sure that you have SSH access to the cluster nodes; and
   - create a key pair using Amazon EC2 through the AWS CLI command `aws ec2 create-key-pair`
     as instructed in [aws-cli-create-key-pairs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html).
@@ -44,7 +44,7 @@ Before running any command, you can set environment variables to specify configu
     caching the resources locally has an impact on the total execution time of the command.
   - `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY`: specifies the location of a local directory that the RAPIDS-cli uses to
     generate the output. The wrapper CLI arguments override that environment variable
-    (`--output_folder` and `local_folder` for Bootstrap and Qualification respectively).
+    (`local_folder` for Qualification).
 - For AWS CLI, some environment variables can be set and picked by the RAPIDS-user tools such as:
   `AWS_PROFILE`, `AWS_DEFAULT_REGION`, `AWS_CONFIG_FILE`, `AWS_SHARED_CREDENTIALS_FILE`. See the full list of variables in
   [aws-cli-configure-envvars](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
@@ -308,69 +308,6 @@ The CLI is triggered by providing the location where the yaml file is stored `--
 
 Note that if the user does not supply a cluster or worker properties file, the autotuner will still recommend
 tuning settings based on the job event log.
-
-## Bootstrap command
-
-```
-spark_rapids_user_tools emr bootstrap [options]
-spark_rapids_user_tools emr bootstrap -- --help
-```
-
-The command generates an output with a list of properties to be applied to Spark configurations.
-In order to apply those recommendations, the cluster has to be running, and the user must have SSH
-access.
-
-### Bootstrap options
-
-| Option            | Description                                                                                                                                                                                                                 | Default                                                                                     | Required |
-|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|:--------:|
-| **cluster**       | Name of the EMR cluster running an accelerated computing instance                                                                                                                                                           | N/A                                                                                         |     Y    |
-| **profile**       | A named AWS profile that you can specify to get the settings/credentials of the AWS account.                                                                                                                                | "default" if the the env-variable `AWS_PROFILE` is not set                                  |     N    |
-| **output_folder** | Path to local directory where the final recommendations is logged                                                                                                                                                           | env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. |     N    |
-| **dry_run**       | True or False to update the Spark config settings on EMR master node                                                                                                                                                        | True                                                                                        |     N    |
-| **key_pair_path** | A '.pem' file path that enables to connect to EC2 instances using SSH. For more details on creating key pairs, visit [aws-create-key-pair-guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html) | env variable '`RAPIDS_USER_TOOLS_KEY_PAIR_PATH`' if any                                     |     N    |
-| **verbose**       | True or False to enable verbosity to the wrapper script                                                                                                                                                                     | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                           |     N    |
-
-### Dry-run enabled
-
-The default is to enable dry-run. This generates recommendations without any side effect. This mode helps to generate
-a map between cluster configuration and the recommended Spark properties.  
-Note that this mode:
-- does not require SSH access to the cluster
-- does not require the cluster to be active and running.
-
-1. User creates a cluster
-2. Run the following command
-
-    ```bash
-    spark_rapids_user_tools emr bootstrap \
-      --cluster my-cluster-name
-    ```
-
-### Dry-run disabled
-
-In some cases, the user may want to run this command as part of the initialization scripts.  
-The command update Sparks default-conf `/etc/spark/conf/spark-defaults.conf` requiring SSH access
-to the active cluster. The key-pair can be passed to the command through argument `key_pair_path`
-or the env-var `RAPIDS_USER_TOOLS_KEY_PAIR_PATH`.
-
-The steps to run the command:
-
-1. The user creates a cluster
-2. The user creates a key pair access "_.pem_" file as instructed in
-   [aws-create-key-pair-guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/create-key-pairs.html)
-3. The user runs the following command:
-
-    ```bash
-    spark_rapids_user_tools emr bootstrap \
-      --cluster my-cluster-name \
-      --key_pair_path my-file-path \
-      --nodry_run
-    ```
-   If `key_pair_path` is missing, the user must set an ev-variable `RAPIDS_USER_TOOLS_KEY_PAIR_PATH`
-
-If the connection to EC2 instances cannot be established through SSH, the command will still
-generate an output while displaying warning that the remote changes failed. 
 
 ## Diagnostic command
 
