@@ -637,7 +637,7 @@ class QualificationAppInfo(
         mlFuncReportInfo.mlWallClockDur, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
 
       val clusterSummary = ClusterSummary(info.appName, appId,
-        eventLogInfo.map(_.eventLog.toString), None)
+        eventLogInfo.map(_.eventLog.toString), pluginTypeChecker.platform.clusterInfoFromEventLog)
 
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,

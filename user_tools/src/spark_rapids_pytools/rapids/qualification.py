@@ -883,13 +883,16 @@ class Qualification(RapidsJarTool):
             for mc_src, mc_target in node_conversions.items():
                 conversion_items_summary.append(mc_src + ' to ' + mc_target)
 
-        # we need to take into account clusters that already have the same node type and print there here
-        cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
-        cpu_cluster_info = cpu_cluster.get_cluster_configuration()
 
-        # TODO - this relies on a per app ndoe conversion which we don't do right now
+        # TODO - this relies on a per app node conversion which we don't do right now
+        # this case is the node didn't need converted just use same node type as cpu
         if not conversion_items_summary:
-            conversion_items_summary.append(cpu_cluster_info['executorInstance'])
+            # we need to take into account clusters that already have the same node type and print there here
+            cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
+            if cpu_cluster:
+                cpu_cluster_info = cpu_cluster.get_cluster_configuration()
+                if cpu_cluster_info:
+                    conversion_items_summary.append(cpu_cluster_info['executorInstance'])
 
         rapids_output_dir = self.ctxt.get_rapids_output_folder()
         tunings_dir = FSUtil.build_path(rapids_output_dir,

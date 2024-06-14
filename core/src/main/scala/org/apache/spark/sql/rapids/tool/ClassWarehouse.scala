@@ -48,7 +48,7 @@ case class ClusterInfo(
     coresPerExecutor: Int,
     execsPerNode: Int,
     numExecutorNodes: Int,
-    executorHeapMemory: Option[String],
+    executorHeapMemory: Long,
     executorOverheadMemoryMB: Long,
     instanceInfo: Option[InstanceCoresMemory],
     executorInstance: Option[String] = None,

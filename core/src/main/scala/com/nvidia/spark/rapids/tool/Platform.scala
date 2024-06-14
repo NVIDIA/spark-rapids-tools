@@ -176,25 +176,25 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def getRetainedSystemProps: Set[String] = Set.empty
 
   // TODO - change to return memoryMB
-  def getExecutorHeapMemory(sparkProperties: Map[String, String]): Option[String] = {
+  def getExecutorHeapMemory(sparkProperties: Map[String, String]): Long = {
     val executorMemoryFromConf = sparkProperties.get("spark.executor.memory")
     if (executorMemoryFromConf.isDefined) {
-      executorMemoryFromConf
+      StringUtils.convertToMB(executorMemoryFromConf.getOrElse("0"))
     } else {
       val sparkMasterConf = sparkProperties.get("spark.master")
       sparkMasterConf match {
-        case None => None
+        case None => 0L
         case Some(sparkMaster) =>
           if (sparkMaster.contains("yarn")) {
-            Some("1g")
+            StringUtils.convertToMB("1g")
           } else if (sparkMaster.contains("k8s")) {
-            Some("1g")
+            StringUtils.convertToMB("1g")
           } else if (sparkMaster.startsWith("spark:")) {
             // would be the entire node memory by default
-            None
+            0L
           } else {
             // TODO - any special ones for specific CSPs?
-            None
+            0L
           }
       }
     }
@@ -203,13 +203,12 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def getExecutorOverheadMemoryMB(sparkProperties: Map[String, String]): Long = {
     val executorMemoryOverheadFromConf = sparkProperties.get("spark.executor.memoryOverhead")
     val execMemOverheadFactorFromConf = sparkProperties.get("spark.executor.memoryOverheadFactor")
-    val execHeapMemory = getExecutorHeapMemory(sparkProperties)
+    val execHeapMemoryMB = getExecutorHeapMemory(sparkProperties)
     if (executorMemoryOverheadFromConf.isDefined) {
       StringUtils.convertToMB(executorMemoryOverheadFromConf.get)
-    } else if (execHeapMemory.isDefined) {
-      val execHeapMemMB = StringUtils.convertToMB(execHeapMemory.get)
+    } else if (execHeapMemoryMB > 0) {
       if (execMemOverheadFactorFromConf.isDefined) {
-        (execHeapMemMB * StringUtils.convertToMB(execMemOverheadFactorFromConf.get)).toLong
+        (execHeapMemoryMB * execMemOverheadFactorFromConf.get.toDouble).toLong
       } else {
         val sparkMasterConf = sparkProperties.get("spark.master")
         sparkMasterConf match {
@@ -217,15 +216,15 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
           case Some(sparkMaster) =>
             if (sparkMaster.contains("yarn")) {
               // default is 10%
-              (execHeapMemMB * 0.1).toLong
+              (execHeapMemoryMB * 0.1).toLong
             } else if (sparkMaster.contains("k8s")) {
               val k8sOverheadFactor = sparkProperties.get("spark.kubernetes.memoryOverheadFactor")
               if (k8sOverheadFactor.isDefined) {
-                (execHeapMemMB * StringUtils.convertToMB(k8sOverheadFactor.get)).toLong
+                (execHeapMemoryMB * k8sOverheadFactor.get.toDouble).toLong
               } else {
                 // For JVM-based jobs this value will default to 0.10 and 0.40 for non-JVM jobs
                 // TODO - We can't tell above by any property... do we try to parse submit cli?
-                (execHeapMemMB * 0.1).toLong
+                (execHeapMemoryMB * 0.1).toLong
               }
             } else if (sparkMaster.startsWith("spark:")) {
               // would be the entire node memory by default, we don't know and user doesn't
@@ -252,10 +251,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 
   def getNumCoresPerNode(): Int = {
-
-    // TODO - need to try to map to instance type for CSPs we know because YARN
-    // may only show subset of node memory
-
     // try to use the ones from event log for now first
     if (clusterInfoFromEventLog.isDefined) {
       if (clusterInfoFromEventLog.get.instanceInfo.isDefined) {
@@ -263,7 +258,17 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       } else {
         // this is assume this job filled an entire node, which may not be true on
         // a multiple tenant cluster
-        clusterInfoFromEventLog.get.coresPerExecutor * clusterInfoFromEventLog.get.execsPerNode
+        val nodeCores = clusterInfoFromEventLog.get.coresPerExecutor * clusterInfoFromEventLog.get.execsPerNode
+        val instanceInfo = getInstanceInfoFromResource(nodeCores, None)
+        if (!instanceInfo.isDefined) {
+          // we either miscalculated cores or we don't have a node type of the same size
+          logWarning(s"Number of cores per node was calculated as: ${nodeCores} but " +
+            "we don't have an instance mapping for that!")
+          // TODO - find closest instance
+          nodeCores
+        } else {
+          nodeCores
+        }
       }
     } else if (clusterProperties.isDefined) {
       // if can't get real event log based info then use what the user passes in
@@ -288,8 +293,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
         } else {
           1L
         }
-        val heapMemMB =
-          StringUtils.convertToMB(clusterInfoFromEventLog.get.executorHeapMemory.getOrElse("0"))
+        val heapMemMB = clusterInfoFromEventLog.get.executorHeapMemory
         val overheadMemMB = clusterInfoFromEventLog.get.executorOverheadMemoryMB
         logWarning("TOM using cluster info execsper node: " + numExecutorsPerNode +
           "overhead: " + overheadMemMB + " heap : " + heapMemMB)
@@ -297,7 +301,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
         val memPerNodeCalc = (heapMemMB + overheadMemMB) * numExecutorsPerNode
         // now lookup the type if possible
         val cores = getNumCoresPerNode()
-        val instanceInfo = getInstanceInfoFromResource(cores, memPerNodeCalc)
+        val instanceInfo = getInstanceInfoFromResource(cores, Some(memPerNodeCalc))
         logWarning("instance info for cores: " + cores + " mem: " + memPerNodeCalc +
           " is: " + instanceInfo)
         if (instanceInfo.isDefined) {
@@ -317,39 +321,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       0L
     }
   }
-
-  /*
-  def getExecutorTotalMemory(sparkProperties: Map[String, String]): Option[String] = {
-    val heapMemory = getExecutorHeapMemory(sparkProperties)
-    val execOverheadMemoryFromConf = sparkProperties.get("spark.executor.memoryOverhead")
-    val execOverheadMemoryFactorFromConf =
-      sparkProperties.get("spark.executor.memoryOverheadFactor")
-
-    if (execOverheadMemoryFromConf.isDefined) {
-      execOverheadMemoryFromConf
-    } else {
-      val sparkMasterConf = sparkProperties.get("spark.master")
-      sparkMasterConf match {
-        case None => None
-        case Some(sparkMaster) =>
-          if (sparkMaster.contains("yarn")) {
-            Some("1g")
-          } else if (sparkMaster.contains("k8s")) {
-            val execOverheadMemoryFactorFromConf =
-              sparkProperties.get("spark.kubernetes.memoryOverheadFactor")
-            Some("1g")
-          } else if (sparkMaster.startsWith("spark:")) {
-            // would be the entire node memory by default
-            None
-          } else {
-            // TODO - any special ones for specific CSPs?
-            None
-          }
-      }
-    }
-  }
-
-   */
 
   def createClusterInfo(coresPerExecutor: Int, execsPerNode: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
@@ -384,7 +355,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   def getInstanceResources(sparkProperties: Map[String, String]): Option[InstanceCoresMemory] = None
 
-  def getInstanceInfoFromResource(cores: Int, memoryMB: Long): Option[InstanceCoresMemory] = None
+  def getInstanceInfoFromResource(cores: Int,
+      memoryMB: Option[Long]): Option[InstanceCoresMemory] = None
 }
 
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
@@ -509,17 +481,21 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
   }
 
   override def getInstanceInfoFromResource(cores: Int,
-      memoryMB: Long): Option[InstanceCoresMemory] = {
+      memoryMB: Option[Long]): Option[InstanceCoresMemory] = {
     val instanceType = PlatformInstanceTypes.DATAPROC.get(cores.toString)
     if (instanceType.isDefined) {
-      // make sure memory size within 75%
-      if (instanceType.get.memoryMB >= (memoryMB * .75)) {
-        instanceType
+      if (memoryMB.isDefined) {
+        // make sure memory size within 75%
+        if (instanceType.get.memoryMB >= (memoryMB.get * .75)) {
+          instanceType
+        } else {
+          // look for bigger size, we know it doubles in size but probably find
+          // better algo
+          // skip checking memory after this
+          PlatformInstanceTypes.DATAPROC.get(cores.toString * 2)
+        }
       } else {
-        // look for bigger size, we know it doubles in size but probably find
-        // better algo
-        // skip checking memory after this
-        PlatformInstanceTypes.DATAPROC.get(cores.toString * 2)
+        instanceType
       }
     } else {
       None

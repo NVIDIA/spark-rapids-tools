@@ -1100,7 +1100,7 @@ class AutoTuner(
    * Add default comments for missing properties except the ones
    * which should be skipped.
    */
-  private def addDefaultComments(): Unit = {
+ /* private def addDefaultComments(): Unit = {
     commentsForMissingProps.foreach {
       case (key, value) =>
         if (!skippedRecommendations.contains(key)) {
@@ -1108,6 +1108,8 @@ class AutoTuner(
         }
     }
   }
+
+  */
 
   private def toCommentProfileResult: Seq[RecommendedCommentResult] = {
     comments.map(RecommendedCommentResult).sortBy(_.comment)
@@ -1153,20 +1155,19 @@ class AutoTuner(
       skippedRecommendations ++= platform.recommendationsToExclude
       initRecommendations()
       calculateJobLevelRecommendations()
-      // TODO - need to reconcile the cluster properties passed in with the cluster
-      // properties from the eventlog -
-      if (processPropsAndCheck || appInfoProvider.getClusterInfo.flatMap(_.clusterInfo).isDefined) {
-        // update GPU device of platform based on cluster properties if it is not already set.
-        // if the GPU device cannot be inferred from cluster properties, do not make any updates.
-        if (platform.gpuDevice.isEmpty) {
-          GpuDevice.createInstance(clusterProps.gpu.getName)
-            .foreach(platform.setGpuDevice)
-        }
-        calculateClusterLevelRecommendations()
-      } else {
-        // add all default comments
-        addDefaultComments()
+
+      // update GPU device of platform based on cluster properties if it is not already set.
+      // if the GPU device cannot be inferred from cluster properties, do not make any updates.
+      if (platform.gpuDevice.isEmpty && !clusterProps.isEmpty && !clusterProps.gpu.isEmpty) {
+        GpuDevice.createInstance(clusterProps.gpu.getName)
+          .foreach(platform.setGpuDevice)
       }
+      calculateClusterLevelRecommendations()
+
+      // TODO - ANY any cases just defaults now?
+      // add all default comments
+      //addDefaultComments()
+
       // add all platform specific recommendations
       platform.recommendationsToInclude.foreach {
         case (property, value) => appendRecommendation(property, value)
