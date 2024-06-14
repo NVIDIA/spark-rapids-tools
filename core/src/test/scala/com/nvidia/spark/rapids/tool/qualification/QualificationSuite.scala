@@ -1550,6 +1550,14 @@ class QualificationSuite extends BaseTestSuite {
     "eventlog_3nodes_12cores_multiple_executors" -> // 3 nodes, each with 2 executors having 12 cores.
       Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, 3,
         None, None, Some("10.59.184.210"), None, None)),
+    // TODO: Currently we do not handle dynamic allocation while calculating number of nodes. For
+    //  calculating nodes, we look at unique active hosts at the end of application. In this test
+    //  case, the application used all 4 nodes initially (8 executors total), and then 7 executors were
+    //  removed. In the end, only 1 executor was active on 1 node. This test case should be updated
+    //  once we handle dynamic allocation.
+    "eventlog_4nodes_8cores_dynamic_alloc" -> // 4 nodes, each with 2 executor having 8 cores, with dynamic allocation.
+      Some(ClusterInfo(PlatformNames.DEFAULT, 8, 2, 1,
+        None, None, Some("test-cpu-cluster-m"), None, None)),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 nodes with varying cores: 8, 12, and 8, each with 1 executor.
       Some(ClusterInfo(PlatformNames.DEFAULT, 12, 1, 3,
         None, None, Some("10.10.10.100"), None, None)),
