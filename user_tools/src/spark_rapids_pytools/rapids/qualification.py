@@ -156,6 +156,8 @@ class QualificationSummary:
 
             #wrapper = textwrap.TextWrapper(width=50) 
             #string = wrapper.fill("/home/tgraves/workspace/spark-rapids-tools2/user_tools/qual_20240611211142_d68B4CcA/rapids_4_spark_qualification_output/tuning/application_1709275675195_0233.log") 
+
+
             print_result['Qualified Node Recommendation'] = Utils.gen_multiline_str(self.conversion_items)
             print_result['Full Cluster Config Recommendations*'] = full_tunings_file
             print_result['GPU Config Recommendation Breakdown*'] = gpu_tunings_file
@@ -257,10 +259,15 @@ class Qualification(RapidsJarTool):
         def _process_gpu_cluster_worker_node():
             try:
                 worker_node = gpu_cluster_obj.get_worker_node()
+                self.logger.warning('Tom worker info 1')
                 worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                self.logger.warning('Tom worker info 2')
                 sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                self.logger.warning('Tom worker info 3')
                 gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                self.logger.warning('Tom worker info 4 %s ', gpu_info)
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
+                self.logger.warning('Tom worker info 5')
                 num_cpus = sys_info.num_cpus
                 cpu_mem = sys_info.cpu_mem
                 self.logger.info('cpu memory is  %s', cpu_mem)
@@ -875,6 +882,14 @@ class Qualification(RapidsJarTool):
         if node_conversions is not None:
             for mc_src, mc_target in node_conversions.items():
                 conversion_items_summary.append(mc_src + ' to ' + mc_target)
+
+        # we need to take into account clusters that already have the same node type and print there here
+        cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
+        cpu_cluster_info = cpu_cluster.get_cluster_configuration()
+
+        # TODO - this relies on a per app ndoe conversion which we don't do right now
+        if not conversion_items_summary:
+            conversion_items_summary.append(cpu_cluster_info['executorInstance'])
 
         rapids_output_dir = self.ctxt.get_rapids_output_folder()
         tunings_dir = FSUtil.build_path(rapids_output_dir,

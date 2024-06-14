@@ -454,18 +454,9 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   def calcNumExecutorCores: Int = {
-    // val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
-    // if (clusterInfoEventLog.isDefined) {
-    //   clusterInfoEventLog.get.coresPerExecutor
-    // } else {
-      if (processPropsAndCheck) {
-        val executorsPerNode = clusterProps.gpu.getCount
-        // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
-        Math.max(1, clusterProps.system.getNumCores / executorsPerNode)
-      } else {
-        0
-      }
-    // }
+    val coresPerNode = platform.getNumCoresPerNode
+    val gpusPerExec = platform.getNumGPUsPerExecutor
+    Math.max(1, coresPerNode/gpusPerExec)
   }
 
   /**
@@ -492,33 +483,9 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   private def calcAvailableMemPerExec(): Double = {
-    // val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
-    /*
-    if (clusterInfoEventLog.isDefined && clusterInfoEventLog.get.instanceInfo.isDefined) {
-      // if possible use the actual executor memory from the event log
-      val instanceCoresMemory = clusterInfoEventLog.get.instanceInfo.get
-      logWarning("Tom using cluster event log instance info: "
-        + instanceCoresMemory.memoryMB)
-      instanceCoresMemory.memoryMB
-    } else {
-
-     */
-      if (processPropsAndCheck) {
-        // get the configuration passed in by the user
-        // TODO - need to subtract DEF_SYSTEM_RESERVE_MB for non-container environments!
-        // This is likely just applicable in onprem standalone setups.
-        // for now leave it out since it messes with settings on Databricks.
-        val usableWorkerMem = Math.max(0, StringUtils.convertToMB(clusterProps.system.memory))
-        // clusterProps.gpu.getCount can never be 0. This is verified in processPropsAndCheck()
-        logWarning("Tom using cluster supplied info: "
-          + (1.0 * usableWorkerMem) / clusterProps.gpu.getCount)
-
-        (1.0 * usableWorkerMem) / clusterProps.gpu.getCount
-      } else {
-        logWarning("Tom no memory specified!")
-        0.0
-      }
-    // }
+    val memMBPerNode = platform.getMemoryMBPerNode
+    val gpusPerExec = platform.getNumGPUsPerExecutor
+    Math.max(1, memMBPerNode / gpusPerExec)
   }
 
   /**
@@ -1419,12 +1386,11 @@ object AutoTuner extends Logging {
   def buildAutoTunerFromProps(
       clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.createInstance(),
+      platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
-
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
         driverInfoProvider)
     } catch {
@@ -1436,7 +1402,7 @@ object AutoTuner extends Logging {
   def buildAutoTuner(
       workerInfoFilePath: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.createInstance(),
+      platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {

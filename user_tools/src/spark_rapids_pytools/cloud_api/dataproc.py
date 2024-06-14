@@ -313,7 +313,9 @@ class DataprocNode(ClusterNode):
         #    "gcloud compute accelerator-types describe nvidia-tesla-a100 --zone=us-central1-a"
         # 2- Read the description flag to determine the memory size. (applies for A100)
         #    If it is not included, then load the gpu-memory from a lookup table
+        self.logger.warning('Tom pull hw info 1')
         def parse_accelerator_description(raw_description: str) -> dict:
+            self.logger.warning('Tom parse accel 1')
             parsing_res = {}
             descr_json = json.loads(raw_description)
             description_field = descr_json.get('description')
@@ -323,6 +325,7 @@ class DataprocNode(ClusterNode):
             final_entries = [entry.lower() for entry in field_components if entry not in dumped_tokens]
             gpu_device: GpuDevice = None
             for token_entry in final_entries:
+                self.logger.warning('Tom parse accel 2')
                 if 'GB' in token_entry:
                     # this is the memory value
                     memory_in_gb_str = token_entry.removesuffix('GB')
@@ -332,15 +335,25 @@ class DataprocNode(ClusterNode):
                     gpu_device = GpuDevice.fromstring(token_entry)
                     parsing_res.setdefault('gpu_device', gpu_device)
             if 'gpu_mem' not in parsing_res:
+                self.logger.warning('Tom parse accel 3')
                 # get the GPU memory size from lookup
                 parsing_res.setdefault('gpu_mem', gpu_device.get_gpu_mem()[0])
             return parsing_res
 
-        accelerator_arr = self.props.get_value_silent('accelerators')
+        self.logger.warning('Tom before parse accel Exception')
+        try: 
+            accelerator_arr = self.props.get_value_silent('accelerators')
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.warning('Tom parse accel Exception')
+            accelerator_arr = None
+            
+        self.logger.warning('Tom parse accel 4')
         if not accelerator_arr:
             return None
 
         for defined_acc in accelerator_arr:
+
+            self.logger.warning('Tom parse accel 5')
             # TODO: if the accelerator_arr has other non-gpu ones, then we need to loop until we
             #       find the gpu accelerators
             gpu_configs = {'num_gpus': int(defined_acc.get('acceleratorCount'))}
@@ -465,11 +478,13 @@ class DataprocCluster(ClusterBase):
         specific to the platform on how to build a cluster based on migration
         :param orig_cluster: the cpu_cluster that does not support the GPU devices.
         """
+        self.logger.info('TOM build migrated cluster')
         # get the map of the instance types
         supported_mc_map = orig_cluster.platform.get_supported_gpus()
         mc_type_map = orig_cluster.find_matches_for_node()
         new_worker_nodes: list = []
         for anode in orig_cluster.nodes.get(SparkNodeType.WORKER):
+            self.logger.info('TOM build migrated cluster 2')
             # loop on all worker nodes.
             # even if the node is the same type, we still need to set the hardware
             if anode.instance_type not in mc_type_map:
@@ -501,8 +516,11 @@ class DataprocCluster(ClusterBase):
             SparkNodeType.WORKER: new_worker_nodes,
             SparkNodeType.MASTER: orig_cluster.nodes.get(SparkNodeType.MASTER)
         }
+
+        self.logger.info('Tom before type map check')
         if bool(mc_type_map):
             # update the platform notes
+            self.logger.info('Tom setting type map check')
             self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
 
     def get_all_spark_properties(self) -> dict:
@@ -523,8 +541,14 @@ class DataprocCluster(ClusterBase):
         render_args = super()._set_render_args_create_template()
         cluster_config = self.get_cluster_configuration()
         render_args['IMAGE'] = self.get_image_version()
+        #if cluster_config.get('additionalConfig'):
+        #    if cluster_config.get('additionalConfig').get('localSsd'):
         render_args['LOCAL_SSD'] = cluster_config.get('additionalConfig').get('localSsd')
+
+        #if cluster_config.get('gpuInfo'):
+        #    if cluster_config.get('gpuInfo').get('device'):
         render_args['GPU_DEVICE'] = cluster_config.get('gpuInfo').get('device')
+
         render_args['GPU_PER_WORKER'] = cluster_config.get('gpuInfo').get('gpuPerWorker')
         return render_args
 
@@ -532,13 +556,16 @@ class DataprocCluster(ClusterBase):
         """
         Overrides to provide the cluster configuration which is specific to Dataproc.
         """
+        self.logger.warning('Tom get cluster config info 1')
         cluster_config = super().get_cluster_configuration()
         gpu_per_machine, gpu_device = self.get_gpu_per_worker()
+        self.logger.warning('Tom get cluster config info 2 %s %s', gpu_per_machine, gpu_device)
+        # Need to handle case this was CPU event log and just make a recommendation
+        gpu_device_hash = {
+            'T4': 'nvidia-tesla-t4',
+            'L4': 'nvidia-l4'
+        }
         if gpu_device and gpu_per_machine > 0:
-            gpu_device_hash = {
-                'T4': 'nvidia-tesla-t4',
-                'L4': 'nvidia-l4'
-            }
             additional_config = {
                 'gpuInfo': {
                     'device': gpu_device_hash.get(gpu_device),
@@ -549,6 +576,22 @@ class DataprocCluster(ClusterBase):
                 }
             }
             cluster_config.update(additional_config)
+        elif gpu_per_machine == 0:
+            recommended_device = 'nvidia-tesla-t4'
+            if gpu_device:
+                recommended_device = gpu_device_hash.get(gpu_device)
+
+            additional_config = {
+                'gpuInfo': {
+                    'device': recommended_device,
+                    'gpuPerWorker': 2
+                },
+                'additionalConfig': {
+                    'localSsd': 2
+                }
+            }
+            cluster_config.update(additional_config)
+
         return cluster_config
 
     def _generate_node_configuration(self, render_args: dict = None) -> Union[str, dict]:

@@ -206,7 +206,7 @@ class ApplicationInfo(
   }
 
   override def postCompletion(): Unit = {
-    clusterInfo = buildClusterInfo
+    buildClusterInfo
   }
 
   private def aggregateAppInfo: Unit = {

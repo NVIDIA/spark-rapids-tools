@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
+import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterProps
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
 import com.nvidia.spark.rapids.tool.tuning.TunerContext
 
@@ -64,7 +65,8 @@ object QualificationMain extends Logging {
 
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf
     val platform = try {
-      PlatformFactory.createInstance(appArgs.platform())
+      val clusterPropsOpt = loadClusterProps(appArgs.workerInfo())
+      PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
     } catch {
       case ie: IllegalStateException =>
         logError("Error creating the platform", ie)

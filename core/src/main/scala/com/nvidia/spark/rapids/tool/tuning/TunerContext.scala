@@ -37,7 +37,6 @@ case class TuningResult(
  * Container which holds metadata and arguments specific to the execution of the AutoTuner.
  * TODO: we need to use the same class in constructing the AutoTuner in the Profiling tools.
  * @param platform object representing the host platform on which the application was executed.
- * @param workerInfoPath the path of the GPU workers
  * @param outputRootDir the output directory to dump the recommendation/comments.
  * @param hadoopConf optional configuration to access the remote storage.
  */
@@ -78,7 +77,8 @@ object TunerContext extends Logging {
       hadoopConf: Option[Configuration] = None): Option[TunerContext] = {
     Try {
       val hConf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf())
-      TunerContext(platform, workerInfoPath, outputRootDir, hConf)
+      TunerContext(platform, workerInfoPath,
+        outputRootDir, hConf)
     } match {
       case Success(c) => Some(c)
       case Failure(e) =>
