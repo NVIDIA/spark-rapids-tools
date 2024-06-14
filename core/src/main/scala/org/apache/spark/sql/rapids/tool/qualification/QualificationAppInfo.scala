@@ -857,7 +857,8 @@ class QualificationAppInfo(
       }
     }
     // Group by host name, find max executors per host
-    val numExecsPerNode = executorIdToInfo.values.groupBy(_.host).mapValues(_.size).values.max
+    val execsPerNodeList = executorIdToInfo.values.groupBy(_.host).mapValues(_.size).values
+    val numExecsPerNode = execsPerNodeList.reduceOption(_ max _).getOrElse(0)
     val activeExecInfo = executorIdToInfo.values.collect {
       case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
     }
