@@ -856,6 +856,8 @@ class QualificationAppInfo(
           s"Cluster information may be inaccurate.")
       }
     }
+    // Group by host name, find max executors per host
+    val numExecsPerNode = executorIdToInfo.values.groupBy(_.host).mapValues(_.size).values.max
     val activeExecInfo = executorIdToInfo.values.collect {
       case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
     }
@@ -865,13 +867,9 @@ class QualificationAppInfo(
         logWarning(s"Application $appId: Cluster with variable executor cores detected. " +
           s"Using maximum value.")
       }
-      // Group by host name, find max executors per host, and number of unique hosts
-      val groupedHosts = activeHosts.groupBy(identity)
-      val numExecsPerNode = groupedHosts.mapValues(_.size).values.max
-      val numExecNodes = groupedHosts.size
       // Create cluster information based on platform type
       Some(pluginTypeChecker.platform.createClusterInfo(coresPerExecutor.max, numExecsPerNode,
-        numExecNodes, sparkProperties, systemProperties))
+        activeHosts.toSet.size, sparkProperties, systemProperties))
     } else {
       None
     }
