@@ -27,6 +27,7 @@ from spark_rapids_tools.tools.qualx.util import (
     get_cache_dir,
     get_logger,
     get_dataset_platforms,
+    load_plugin,
     run_profiler_tool, log_fallback,
 )
 
@@ -277,14 +278,15 @@ def load_profiles(
             parts = Path(e).parts
             appId = parts[-1]
             runType = parts[-2].upper()
-            description = parts[-4]
+            jobName = parts[-4]
             app_meta[appId] = {
+                'jobName': jobName,
                 'runType': runType,
-                'description': description,
                 'scaleFactor': 1,
             }
         return app_meta
 
+    plugins = []
     all_raw_features = []
     # get list of csv files from each profile
     for ds_name, ds_meta in datasets.items():
@@ -292,6 +294,8 @@ def load_profiles(
         app_meta = ds_meta.get('app_meta', None)
         platform = ds_meta.get('platform', 'onprem')
         scalefactor_meta = ds_meta.get('scaleFactorFromSqlIDRank', None)
+        if 'load_profiles_hook' in ds_meta:
+            plugins.append(ds_meta['load_profiles_hook'])
 
         if not app_meta:
             # if no 'app_meta' key provided, infer app_meta from directory structure of eventlogs
@@ -358,28 +362,38 @@ def load_profiles(
                 app_scales = toc[['appId', 'scaleFactor']].drop_duplicates()
                 raw_features = raw_features.merge(app_scales, on='appId')
 
-            # override description from app_meta (if available)
-            if 'description' in app_meta[list(app_meta.keys())[0]]:
-                app_desc = {
-                    appId: meta['description']
+            # add jobName to appName from app_meta (if available)
+            if 'jobName' in app_meta[list(app_meta.keys())[0]]:
+                app_job = {
+                    appId: meta['jobName']
                     for appId, meta in app_meta.items()
-                    if 'description' in meta
+                    if 'jobName' in meta
                 }
-                raw_features['description'] = raw_features['appId'].map(app_desc)
-                # append also to appName to allow joining cpu and gpu logs at the app level
+                raw_features['jobName'] = raw_features['appId'].map(app_job)
+                # append jobName to appName to allow joining cpu and gpu logs at the app level
                 raw_features['appName'] = (
-                    raw_features['appName'] + '_' + raw_features['description']
+                    raw_features['appName'] + '_' + raw_features['jobName']
                 )
+                raw_features.drop(columns=['jobName'])
 
             # add platform from app_meta
             raw_features[f'platform_{platform}'] = 1
             raw_features = impute(raw_features)
             all_raw_features.append(raw_features)
-    return (
+
+    profile_df =  (
         pd.concat(all_raw_features).reset_index(drop=True)
         if all_raw_features
         else pd.DataFrame()
     )
+
+    # run any plugin hooks on profile_df
+    for p in plugins:
+        plugin = load_plugin(p)
+        if plugin:
+            profile_df = plugin.load_profile_hook(profile_df)
+
+    return profile_df
 
 
 def extract_raw_features(

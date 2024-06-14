@@ -14,6 +14,7 @@
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import glob
+import importlib
 import logging
 import os
 import re
@@ -23,6 +24,7 @@ import string
 import subprocess
 import numpy as np
 import pandas as pd
+import types
 from datetime import datetime, timezone
 from pathlib import Path
 from tabulate import tabulate
@@ -185,6 +187,28 @@ def compute_accuracy(
     return scores
 
 
+def load_plugin(plugin_path: str) -> types.ModuleType:
+    """Dynamically load plugin modules with helper functions for dataset-specific code.
+
+    Supported APIs:
+
+    def post_process(profile_df: pd.DataFrame) -> pd.DataFrame:
+        # post-process profile_df
+        return profile_df
+    """
+    plugin_path = os.path.expandvars(plugin_path)
+    plugin_name = Path(plugin_path).name.split('.')[0]
+    if os.path.exists(plugin_path):
+        spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        logger.info(f'Successfully loaded plugin: {plugin_path}')
+        return module
+    else:
+        logger.warn(f'Failed to load plugin: {plugin_path}')
+        return None
+
+
 def random_string(length: int) -> str:
     """Return a random hexadecimal string of a specified length."""
     return ''.join(secrets.choice(string.hexdigits) for _ in range(length))
@@ -210,7 +234,7 @@ def run_profiler_tool(platform: str, eventlog: str, output_dir: str):
             # f'spark_rapids_user_tools {platform} profiling --csv --eventlogs {log} --local_folder {output}'
             'java -Xmx64g -cp $SPARK_RAPIDS_TOOLS_JAR:$SPARK_HOME/jars/*:$SPARK_HOME/assembly/target/scala-2.12/jars/* '
             'com.nvidia.spark.rapids.tool.profiling.ProfileMain '
-            f'--platform {platform} --csv -o {output} {log}'
+            f'--platform {platform} --csv --output-sql-ids-aligned -o {output} {log}'
         )
         cmds.append(cmd)
     run_commands(cmds)
