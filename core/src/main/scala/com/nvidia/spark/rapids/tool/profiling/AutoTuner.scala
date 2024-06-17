@@ -426,7 +426,7 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   def calcExecInstances(): Int = {
-    clusterProps.gpu.getCount * clusterProps.system.numWorkers
+    platform.getNumExecutorInstances()
   }
 
   /**
@@ -444,6 +444,8 @@ class AutoTuner(
           }
         case None => Option(calcExecInstances())
       }
+    logWarning("Tom exec instances " + execInstancesOpt)
+
     if (execInstancesOpt.isDefined) {
       appendRecommendation("spark.executor.instances", execInstancesOpt.get)
     }
@@ -568,12 +570,12 @@ class AutoTuner(
         // For now just throw so we don't get any tunings and its obvious to user this isn't a good
         // setup. In the future we may just recommend them to use larger nodes. This would be more
         // ideal once we hook up actual executor heap from an eventlog vs what user passes in.
-        throwNotEnoughMemException()
+        throwNotEnoughMemException(minExecHeapMem + minOverhead)
         (0, 0, 0, false)
       } else {
         val leftOverMemUsingMinHeap = containerMem - minExecHeapMem
         if (leftOverMemUsingMinHeap < 0) {
-          throwNotEnoughMemException()
+          throwNotEnoughMemException(minExecHeapMem + minOverhead)
         }
         // Pinned memory uses any unused space up to 4GB. Spill memory is same size as pinned.
         val pinnedMem = Math.min(MAX_PINNED_MEMORY_MB, (leftOverMemUsingMinHeap / 2)).toLong
@@ -585,11 +587,11 @@ class AutoTuner(
     }
   }
 
-  private def throwNotEnoughMemException(): Unit = {
+  private def throwNotEnoughMemException(minSize: Long): Unit = {
     // in the future it would be nice to enhance the error message with a recommendation of size
     val msg = "This node/worker configuration is not ideal for using the Spark Rapids " +
       "Accelerator because it doesn't have enough memory for the executors. " +
-      "We recommend using nodes/workers with more memory."
+      s"We recommend using nodes/workers with more memory. Need at least ${minSize}MB memory."
     logError(msg)
     throw new IllegalArgumentException(msg)
   }
@@ -771,20 +773,15 @@ class AutoTuner(
   }
 
   /**
-   * Checks whether the cluster properties are valid.
    * If the cluster worker-info is missing entries (i.e., CPU and GPU count), it sets the entries
    * to default values. For each default value, a comment is added to the [[comments]].
-   *
-   * @return false if the cluster properties are not loaded. e.g, all entries are set to 0.
-   *         true if the missing information were updated to default initial values.
    */
-  def processPropsAndCheck: Boolean = {
+  def configureClusterPropDefaults: Unit = {
     if (clusterProps.system.isEmpty) {
       if (!clusterProps.isEmpty) {
         appendComment(
-          s"Incorrect values in worker system information: ${clusterProps.system}.")
+          s"Worker system information not provided.")
       }
-      false
     } else {
       if (clusterProps.system.isMissingInfo) {
         clusterProps.system.setMissingFields().foreach(m => appendComment(m))
@@ -792,7 +789,6 @@ class AutoTuner(
       if (clusterProps.gpu.isMissingInfo) {
         clusterProps.gpu.setMissingFields(platform).foreach(m => appendComment(m))
       }
-      true
     }
   }
 
@@ -1147,6 +1143,7 @@ class AutoTuner(
       showOnlyUpdatedProps: Boolean = true):
       (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
     if (appInfoProvider.isAppInfoAvailable) {
+      configureClusterPropDefaults
       // Makes recommendations based on information extracted from the AppInfoProvider
       filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
       recommendPluginProps
@@ -1392,6 +1389,7 @@ object AutoTuner extends Logging {
   ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
+      logWarning("Tom cluster propers is: " + clusterPropsOpt)
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
         driverInfoProvider)
     } catch {
@@ -1410,12 +1408,6 @@ object AutoTuner extends Logging {
       val clusterPropsOpt = loadClusterProps(workerInfoFilePath)
       val autoT = new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()),
         singleAppProvider, platform, driverInfoProvider)
-      if (clusterPropsOpt.isEmpty) {
-        // In case the workerInfo input path is incorrect, extra comment
-        // mentioning that recommendations were generated using default values
-        autoT.appendComment(s"Exception reading workerInfo: $workerInfoFilePath.\n" +
-          "  Recommendations are generated using default values.")
-      }
       autoT
     } catch {
       case NonFatal(e) =>

@@ -56,6 +56,7 @@ case class TunerContext (
       appIndex: Int = 1,
       dsInfo: Seq[DataSourceProfileResult]): Option[TuningResult] = {
     val rawAggMetrics = QualSparkMetricsAnalyzer.getAggRawMetrics(appInfo, appIndex)
+    logWarning("Tom tune application!")
     QualificationAutoTuner(appInfo, appAggStats, this, rawAggMetrics, dsInfo).collect {
       case qualTuner =>
         Try {

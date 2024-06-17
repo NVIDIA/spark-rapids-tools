@@ -1545,16 +1545,16 @@ class QualificationSuite extends BaseTestSuite {
   // scalastyle:off line.size.limit
   val expectedClusterInfoMap: Seq[(String, Option[ClusterInfo])] = Seq(
     "eventlog_2nodes_8cores" -> // 2 executor nodes with 8 cores.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 8, 2, 2, 0L, 16L, None,
+      Some(ClusterInfo(PlatformNames.DEFAULT, 8, 1, 2, 0L, 16L, None,
         None, None, Some("10.10.10.100"), None, None)),
     "eventlog_3nodes_12cores_same_host" -> // 3 executor nodes with 12 cores having 2 out of 4 executors on same host.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, 3, 0L, 16L, None,
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, 3, 0L, 0L, None,
         None, None, Some("10.59.184.210"), None, None)),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 executor nodes with 8, 12 and 8 cores.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, 3, 0L, 16L, None,
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, 3, 0L, 0L, None,
         None, None, Some("10.10.10.100"), None, None)),
     "eventlog_3nodes_12cores_exec_removed" -> // Event log with executor removed
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, 2, 0L, 16L, None,
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, 2, 0L, 0L, None,
         None, None, Some("10.10.10.100"), None, None)),
     "eventlog_driver_only" -> None // Event log with driver only
   )

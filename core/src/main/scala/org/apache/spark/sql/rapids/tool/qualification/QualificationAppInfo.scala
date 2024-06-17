@@ -865,11 +865,8 @@ class QualificationAppInfo(
 
     // try to figure out number of executors per node based on the executor info
     // groupby host and then find the one with the most executors
-    val numExecsPerNode = executorIdToInfo.values.groupBy(_.host).mapValues(_.size).max
-    logWarning("numExec per node max host: " + numExecsPerNode._1 +
-      " value " + numExecsPerNode._2)
-
-
+    val execsPerNodeList = executorIdToInfo.values.groupBy(_.host).mapValues(_.size).values
+    val numExecsPerNode = execsPerNodeList.reduceOption(_ max _).getOrElse(0)
     val activeExecInfo = executorIdToInfo.values.collect {
       case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
     }
@@ -882,7 +879,7 @@ class QualificationAppInfo(
       // Create cluster information based on platform type
       // TODO - can we remove this return value?
       Some(pluginTypeChecker.platform.configureClusterInfoFromEventLog(coresPerExecutor.max,
-        numExecsPerNode._2, activeHosts.toSet.size, sparkProperties, systemProperties))
+        numExecsPerNode, activeHosts.toSet.size, sparkProperties, systemProperties))
     } else {
       None
     }
