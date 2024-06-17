@@ -489,21 +489,46 @@ class QualificationSuite extends BaseTestSuite {
       // create the following files:
       // 1- inprogress eventlog that does not contain "SparkListenerApplicationEnd" (unfinished)
       // 2- inprogress eventlog with a terminated app (incomplete)
+      // 3- inprogress eventlog with broken line (half line)
       val unfinishedLog = new File(s"$eventLogDir/unfinished.inprogress")
       val incompleteLog = new File(s"$eventLogDir/eventlog.inprogress")
-      val pwList = Array(new PrintWriter(unfinishedLog), new PrintWriter(incompleteLog))
+      val brokenEvLog = new File(s"$eventLogDir/brokenevent.inprogress")
+      val pwList = Array(new PrintWriter(unfinishedLog), new PrintWriter(incompleteLog),
+        new PrintWriter(brokenEvLog))
       val bufferedSource = Source.fromFile(eventLog)
       try {
         val allEventLines = bufferedSource.getLines.toList
-        val selectedLines: List[String] = allEventLines.dropRight(1)
+        // the following val will contain the last two lines of the eventlog
+        //59 = "{"Event":"SparkListenerTaskEnd",
+        //60 = "{"Event":"SparkListenerStageCompleted"
+        //61 = "{"Event":"SparkListenerJobEnd","Job ID":5,"Completion Time":1718401564645,"
+        //62 = "{"Event":"org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd","
+        //63 = "{"Event":"SparkListenerApplicationEnd","Timestamp":1718401564663}"
+        val tailLines = allEventLines.takeRight(5)
+        val selectedLines: List[String] = allEventLines.dropRight(5)
         selectedLines.foreach { line =>
           pwList.foreach(pw => pw.println(line))
         }
-        // add the "SparkListenerApplicationEnd" to the incompleteLog
-        pwList(1).println(allEventLines.last)
-        pwList.foreach( pw =>
+        for (i <- 0 to tailLines.length - 1) {
+          if (i == 0) {
+            // add truncatedTaskEvent to the brokenEventlog
+            pwList(2).println(tailLines(i).substring(0, 59))
+          }
+          // Write all the lines to the unfinishedLog and incompleteLog.
+          // We do not want to ApplicationEnd in the incompleteLog
+          val startListInd = if (i == tailLines.length - 1) {
+            1 // index of unfinished
+          } else {
+            0 // index of incomplete
+          }
+          for (lIndex <- startListInd to 1) {
+            pwList(lIndex).println(tailLines(i))
+          }
+        }
+        // For the first two eventlogs, add a random incomplete line
+        pwList.dropRight(1).foreach(pw =>
           pw.print("{\"Event\":\"SparkListenerEnvironmentUpdate\"," +
-          "\"JVM Information\":{\"Java Home:")
+            "\"JVM Information\":{\"Java Home:")
         )
       } finally {
         bufferedSource.close()
@@ -511,7 +536,10 @@ class QualificationSuite extends BaseTestSuite {
       }
       // All the eventlogs should be parsed successfully
       // Status counts: 3 SUCCESS, 0 FAILURE, 0 UNKNOWN
-      val logFiles = Array(eventLog, incompleteLog.getAbsolutePath, unfinishedLog.getAbsolutePath)
+      val logFiles = Array(eventLog,
+        incompleteLog.getAbsolutePath,
+        unfinishedLog.getAbsolutePath,
+        brokenEvLog.getAbsolutePath)
       // test Qualification
       val outpath = new File(s"$eventLogDir/output_folder")
       val allArgs = Array(
@@ -521,10 +549,10 @@ class QualificationSuite extends BaseTestSuite {
       val appArgs = new QualificationArgs(allArgs ++ logFiles)
       val (exit, appSum) = QualificationMain.mainInternal(appArgs)
       assert(exit == 0)
-      assert(appSum.size == 3)
+      assert(appSum.size == pwList.length + 1)
       // test Profiler
       val apps = ToolTestUtils.processProfileApps(logFiles, sparkSession)
-      assert(apps.size == 3)
+      assert(apps.size == pwList.length + 1)
     }
   }
 
