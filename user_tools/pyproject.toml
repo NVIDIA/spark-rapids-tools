@@ -20,7 +20,9 @@ dependencies = [
     "fastprogress==1.0.3",
     "fastcore==1.5.29",
     "fire>=0.5.0",
-    "pandas==1.4.3",
+    # pandas 2.0.0 is the latest release that supports Python 3.8 because the dependency of numpy
+    # P.S: we cannot pin 2.0.0 because it does not compile with Python 3.12
+    "pandas>=2.0.0",
     "pyYAML>=6.0",
     "tabulate==0.8.10",
     "importlib-resources==5.10.2",
@@ -36,8 +38,9 @@ dependencies = [
     # used to help pylint understand pydantic
     "pylint-pydantic==0.3.0",
     # used for common API to access remote filesystems like local/s3/gcs/hdfs
-    # this will include numpy
-    "pyarrow==14.0.1",
+    # 16.1.0 is a release that depends on numpy2.0.0+ which is compatible with pandas dependencies
+    # Otherwise, there will be conflicts with numpy versions (1.00.0 and 2.0.0)
+    "pyarrow==16.1.0",
     # used for ADLS filesystem implementation
     # Issue-568: use 12.17.0 as the new 12.18.0 causes an error in runtime
     "azure-storage-blob==12.17.0",
