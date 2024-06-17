@@ -131,46 +131,29 @@ class QualificationSummary:
                     if FSUtil.resource_exists(abs_path):  # check if the file exists
                         report_content.append(f'    - {output_comment}: {abs_path}')
 
-            self.logger.warning("TOM 1 result rows %s", len(self.df_result.index))
             print_result = self.df_result
             #rapids_output_dir = "testing/"
             #tunings_dir = FSUtil.build_path(rapids_output_dir,
             #                                self.ctxt.get_value('toolOutput', 'csv', 'tunings', 'subFolder'))
             full_tunings_file = self.df_result['App ID'] + ".conf"
             gpu_tunings_file = self.df_result['App ID'] + ".log"
-            tunings_rec = ["spark.executor.memory=8192m",
-                    "spark.rapids.memory.pinnedPool.size=2662m", 
-                    "spark.rapids.shuffle.multiThreaded.reader.threads=20", 
-                    "spark.rapids.shuffle.multiThreaded.writer.threads=20",
-                    "spark.rapids.sql.batchSizeBytes=2147483647",
-                    "spark.rapids.sql.concurrentGpuTasks=3",
-                    "spark.rapids.sql.multiThreadedRead.numThreads=20",
-                    "spark.shuffle.manager=com.nvidia.spark.rapids.spark332.RapidsShuffleManager",
-                    "spark.sql.adaptive.coalescePartitions.minPartitionSize=4m",
-                    "spark.sql.adaptive.coalescePartitions.parallelismFirst=false",
-                    "spark.sql.files.maxPartitionBytes=434m",
-                    "spark.sql.shuffle.partitions=256",
-                    "spark.task.resource.gpu.amount=0.25"]
-
-            tunings_multiline = Utils.gen_multiline_str(tunings_rec)
-
-            #wrapper = textwrap.TextWrapper(width=50) 
-            #string = wrapper.fill("/home/tgraves/workspace/spark-rapids-tools2/user_tools/qual_20240611211142_d68B4CcA/rapids_4_spark_qualification_output/tuning/application_1709275675195_0233.log") 
 
 
             # check to see if the tuning are actually there, assume if one tuning file is there,
             # the other will be as well.
-            #tunings_abs_path = FSUtil.get_abs_path(self.auto_tuning_path)
-            #if FSUtil.resource_exists(tunings_abs_path):  # check if the file exists
-            #    full_tunings_path = self.auto_tuning_path + "/" + gpu_tunings_file
-            #    abs_path = FSUtil.get_abs_path(full_tunings_path)
-            #    self.logger.warning('abs path is %s', abs_path)
-            #    if not FSUtil.resource_exists(abs_path):  # check if the file exists
-            #        full_tunings_file = "Doesn't exist, see log"
-            #        gpu_tunings_file = "Doesn't exist, see log"
-            #else:
-            #    full_tunings_file = "Doesn't exist, see the stdout for errors"
-            #    gpu_tunings_file = "Doesn't exist, see the stdout for errors"
+            tunings_abs_path = FSUtil.get_abs_path(self.auto_tuning_path)
+            if FSUtil.resource_exists(tunings_abs_path):  # check if the file exists
+                for index, file in gpu_tunings_file.items():
+                    self.logger.warning('TOM row is %s', file)
+                    full_tunings_path = self.auto_tuning_path + "/" + file
+                    abs_path = FSUtil.get_abs_path(full_tunings_path)
+                    self.logger.warning('abs path is %s', abs_path)
+                    if not FSUtil.resource_exists(abs_path):  # check if the file exists
+                        gpu_tunings_file.at[index] = "Doesn't exist, see log"
+                        full_tunings_file.at[index] = "Doesn't exist, see log"
+            else:
+                full_tunings_file = "Doesn't exist, see the stdout for errors"
+                gpu_tunings_file = "Doesn't exist, see the stdout for errors"
 
             print_result['Qualified Node Recommendation'] = Utils.gen_multiline_str(self.conversion_items)
             print_result['Full Cluster Config Recommendations*'] = full_tunings_file
@@ -940,14 +923,12 @@ class Qualification(RapidsJarTool):
             filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
             squeeze_header_enabled = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'compactWidth')
             header_width = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'columnWidth')
-            self.logger.warning('TOM raw df %s' + ','.join(list(raw_df.columns.values)))
 
             if filter_top_candidate_enabled:
                 # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
                 #  This should be refactored along with entire filter apps logic to use more object-oriented design.
                 top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'tomTest'))
                 filtered_apps = top_candidates_obj.filter_apps(raw_df)
-                self.logger.warning('TOM filter df %s' + ','.join(list(filtered_apps.columns.values)))
                 result_df = top_candidates_obj.prepare_output(filtered_apps)
                 self.logger.warning('after filter apps %s' + ','.join(list(result_df.columns.values)))
                 # squeeze the header titles if enabled
