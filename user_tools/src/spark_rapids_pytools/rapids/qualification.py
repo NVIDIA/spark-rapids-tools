@@ -131,7 +131,7 @@ class QualificationSummary:
                     if FSUtil.resource_exists(abs_path):  # check if the file exists
                         report_content.append(f'    - {output_comment}: {abs_path}')
 
-            self.logger.warning("TOM 1")
+            self.logger.warning("TOM 1 result rows %s", len(self.df_result.index))
             print_result = self.df_result
             #rapids_output_dir = "testing/"
             #tunings_dir = FSUtil.build_path(rapids_output_dir,
@@ -160,17 +160,17 @@ class QualificationSummary:
 
             # check to see if the tuning are actually there, assume if one tuning file is there,
             # the other will be as well.
-            tunings_abs_path = FSUtil.get_abs_path(self.auto_tuning_path)
-            if FSUtil.resource_exists(tunings_abs_path):  # check if the file exists
-                full_tunings_path = self.auto_tuning_path + "/" + gpu_tunings_file
-                abs_path = FSUtil.get_abs_path(full_tunings_path)
-                self.logger.warning('abs path is %s', abs_path)
-                if not FSUtil.resource_exists(abs_path):  # check if the file exists
-                    full_tunings_file = "Doesn't exist, see log"
-                    gpu_tunings_file = "Doesn't exist, see log"
-            else:
-                full_tunings_file = "Doesn't exist, see log"
-                gpu_tunings_file = "Doesn't exist, see log"
+            #tunings_abs_path = FSUtil.get_abs_path(self.auto_tuning_path)
+            #if FSUtil.resource_exists(tunings_abs_path):  # check if the file exists
+            #    full_tunings_path = self.auto_tuning_path + "/" + gpu_tunings_file
+            #    abs_path = FSUtil.get_abs_path(full_tunings_path)
+            #    self.logger.warning('abs path is %s', abs_path)
+            #    if not FSUtil.resource_exists(abs_path):  # check if the file exists
+            #        full_tunings_file = "Doesn't exist, see log"
+            #        gpu_tunings_file = "Doesn't exist, see log"
+            #else:
+            #    full_tunings_file = "Doesn't exist, see the stdout for errors"
+            #    gpu_tunings_file = "Doesn't exist, see the stdout for errors"
 
             print_result['Qualified Node Recommendation'] = Utils.gen_multiline_str(self.conversion_items)
             print_result['Full Cluster Config Recommendations*'] = full_tunings_file

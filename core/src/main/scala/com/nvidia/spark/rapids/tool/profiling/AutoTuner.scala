@@ -1210,7 +1210,7 @@ object AutoTuner extends Logging {
   val DEF_HEAP_OVERHEAD_FRACTION = 0.1
   val MAX_JVM_GCTIME_FRACTION = 0.3
   // Minimum amount of JVM heap memory to request per CPU core in megabytes
-  val MIN_HEAP_PER_CORE_MB: Long = 1024L
+  val MIN_HEAP_PER_CORE_MB: Long = 750L
   // Ideal amount of JVM heap memory to request per CPU core in megabytes
   val DEF_HEAP_PER_CORE_MB: Long = 2 * 1024L
   // Minimum amount of pinned memory to use per executor in MB
