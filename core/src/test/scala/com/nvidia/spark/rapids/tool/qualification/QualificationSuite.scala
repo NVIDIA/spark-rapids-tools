@@ -489,21 +489,46 @@ class QualificationSuite extends BaseTestSuite {
       // create the following files:
       // 1- inprogress eventlog that does not contain "SparkListenerApplicationEnd" (unfinished)
       // 2- inprogress eventlog with a terminated app (incomplete)
+      // 3- inprogress eventlog with broken line (half line)
       val unfinishedLog = new File(s"$eventLogDir/unfinished.inprogress")
       val incompleteLog = new File(s"$eventLogDir/eventlog.inprogress")
-      val pwList = Array(new PrintWriter(unfinishedLog), new PrintWriter(incompleteLog))
+      val brokenEvLog = new File(s"$eventLogDir/brokenevent.inprogress")
+      val pwList = Array(new PrintWriter(unfinishedLog), new PrintWriter(incompleteLog),
+        new PrintWriter(brokenEvLog))
       val bufferedSource = Source.fromFile(eventLog)
       try {
         val allEventLines = bufferedSource.getLines.toList
-        val selectedLines: List[String] = allEventLines.dropRight(1)
+        // the following val will contain the last two lines of the eventlog
+        //59 = "{"Event":"SparkListenerTaskEnd",
+        //60 = "{"Event":"SparkListenerStageCompleted"
+        //61 = "{"Event":"SparkListenerJobEnd","Job ID":5,"Completion Time":1718401564645,"
+        //62 = "{"Event":"org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd","
+        //63 = "{"Event":"SparkListenerApplicationEnd","Timestamp":1718401564663}"
+        val tailLines = allEventLines.takeRight(5)
+        val selectedLines: List[String] = allEventLines.dropRight(5)
         selectedLines.foreach { line =>
           pwList.foreach(pw => pw.println(line))
         }
-        // add the "SparkListenerApplicationEnd" to the incompleteLog
-        pwList(1).println(allEventLines.last)
-        pwList.foreach( pw =>
+        for (i <- 0 to tailLines.length - 1) {
+          if (i == 0) {
+            // add truncatedTaskEvent to the brokenEventlog
+            pwList(2).println(tailLines(i).substring(0, 59))
+          }
+          // Write all the lines to the unfinishedLog and incompleteLog.
+          // We do not want to ApplicationEnd in the incompleteLog
+          val startListInd = if (i == tailLines.length - 1) {
+            1 // index of unfinished
+          } else {
+            0 // index of incomplete
+          }
+          for (lIndex <- startListInd to 1) {
+            pwList(lIndex).println(tailLines(i))
+          }
+        }
+        // For the first two eventlogs, add a random incomplete line
+        pwList.dropRight(1).foreach(pw =>
           pw.print("{\"Event\":\"SparkListenerEnvironmentUpdate\"," +
-          "\"JVM Information\":{\"Java Home:")
+            "\"JVM Information\":{\"Java Home:")
         )
       } finally {
         bufferedSource.close()
@@ -511,7 +536,10 @@ class QualificationSuite extends BaseTestSuite {
       }
       // All the eventlogs should be parsed successfully
       // Status counts: 3 SUCCESS, 0 FAILURE, 0 UNKNOWN
-      val logFiles = Array(eventLog, incompleteLog.getAbsolutePath, unfinishedLog.getAbsolutePath)
+      val logFiles = Array(eventLog,
+        incompleteLog.getAbsolutePath,
+        unfinishedLog.getAbsolutePath,
+        brokenEvLog.getAbsolutePath)
       // test Qualification
       val outpath = new File(s"$eventLogDir/output_folder")
       val allArgs = Array(
@@ -521,10 +549,10 @@ class QualificationSuite extends BaseTestSuite {
       val appArgs = new QualificationArgs(allArgs ++ logFiles)
       val (exit, appSum) = QualificationMain.mainInternal(appArgs)
       assert(exit == 0)
-      assert(appSum.size == 3)
+      assert(appSum.size == pwList.length + 1)
       // test Profiler
       val apps = ToolTestUtils.processProfileApps(logFiles, sparkSession)
-      assert(apps.size == 3)
+      assert(apps.size == pwList.length + 1)
     }
   }
 
@@ -1544,17 +1572,25 @@ class QualificationSuite extends BaseTestSuite {
   // Expected results as a map of event log -> cluster info.
   // scalastyle:off line.size.limit
   val expectedClusterInfoMap: Seq[(String, Option[ClusterInfo])] = Seq(
-    "eventlog_2nodes_8cores" -> // 2 executor nodes with 8 cores.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 8, 2,
+    "eventlog_2nodes_8cores" -> // 2 nodes, each with 1 executor having 8 cores.
+      Some(ClusterInfo(PlatformNames.DEFAULT, 8, 1, 2,
         None, None, Some("10.10.10.100"), None, None)),
-    "eventlog_3nodes_12cores_same_host" -> // 3 executor nodes with 12 cores having 2 out of 4 executors on same host.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 3,
+    "eventlog_3nodes_12cores_multiple_executors" -> // 3 nodes, each with 2 executors having 12 cores.
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, 3,
         None, None, Some("10.59.184.210"), None, None)),
-    "eventlog_3nodes_12cores_variable_cores" -> // 3 executor nodes with 8, 12 and 8 cores.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 3,
+    // TODO: Currently we do not handle dynamic allocation while calculating number of nodes. For
+    //  calculating nodes, we look at unique active hosts at the end of application. In this test
+    //  case, the application used all 4 nodes initially (8 executors total), and then 7 executors were
+    //  removed. In the end, only 1 executor was active on 1 node. This test case should be updated
+    //  once we handle dynamic allocation.
+    "eventlog_4nodes_8cores_dynamic_alloc" -> // 4 nodes, each with 2 executor having 8 cores, with dynamic allocation.
+      Some(ClusterInfo(PlatformNames.DEFAULT, 8, 2, 1,
+        None, None, Some("test-cpu-cluster-m"), None, None)),
+    "eventlog_3nodes_12cores_variable_cores" -> // 3 nodes with varying cores: 8, 12, and 8, each with 1 executor.
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 1, 3,
         None, None, Some("10.10.10.100"), None, None)),
-    "eventlog_3nodes_12cores_exec_removed" -> // Event log with executor removed
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2,
+    "eventlog_3nodes_12cores_exec_removed" -> // 2 nodes, each with 1 executor having 12 cores, 1 executor removed.
+      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 1, 2,
         None, None, Some("10.10.10.100"), None, None)),
     "eventlog_driver_only" -> None // Event log with driver only
   )
@@ -1570,35 +1606,35 @@ class QualificationSuite extends BaseTestSuite {
   // Expected results as a map of platform -> cluster info.
   val expectedPlatformClusterInfoMap: Seq[(String, ClusterInfo)] = Seq(
     PlatformNames.DATABRICKS_AWS ->
-      ClusterInfo(PlatformNames.DATABRICKS_AWS, 8, 2,
+      ClusterInfo(PlatformNames.DATABRICKS_AWS, 8, 1, 2,
         Some("m6gd.2xlarge"),
         Some("m6gd.2xlarge"),
         Some("10.10.10.100"),
         Some("1212-214324-test"),
         Some("test-db-aws-cluster")),
     PlatformNames.DATABRICKS_AZURE ->
-      ClusterInfo(PlatformNames.DATABRICKS_AZURE, 8, 2,
+      ClusterInfo(PlatformNames.DATABRICKS_AZURE, 8, 1, 2,
         Some("Standard_E8ds_v4"),
         Some("Standard_E8ds_v4"),
         Some("10.10.10.100"),
         Some("1212-214324-test"),
         Some("test-db-azure-cluster")),
     PlatformNames.DATAPROC ->
-      ClusterInfo(PlatformNames.DATAPROC, 8, 2,
+      ClusterInfo(PlatformNames.DATAPROC, 8, 1, 2,
         None,
         None,
         Some("dataproc-test-m.c.internal"),
         None,
         None),
     PlatformNames.EMR ->
-      ClusterInfo(PlatformNames.EMR, 8, 2,
+      ClusterInfo(PlatformNames.EMR, 8, 1, 2,
         None,
         None,
         Some("10.10.10.100"),
         Some("j-123AB678XY321"),
         None),
     PlatformNames.ONPREM ->
-      ClusterInfo(PlatformNames.ONPREM, 8, 2,
+      ClusterInfo(PlatformNames.ONPREM, 8, 1, 2,
         None,
         None,
         Some("10.10.10.100"),

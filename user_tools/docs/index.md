@@ -23,16 +23,6 @@ averaging duration metrics accordingly.
 For more details, please visit the
 [Qualification Tool guide](https://docs.nvidia.com/spark-rapids/user-guide/latest/qualification/overview.html).
 
-### Bootstrap
-
-Provides optimized RAPIDS Accelerator for Apache Spark configs based on GPU cluster shape.
-This tool is supposed to be used once a cluster has been created to set the recommended configurations.  The tool
-will apply settings for the cluster assuming that jobs will run serially so that each job can use up all the
-cluster resources (CPU and GPU) when it is running.
-
-Note that the command may require `SSH` access on the cluster nodes to read the GPU settings and to update
-Apache Spark default configurations.
-
 ### Profiling
 
 Provides a wrapper to simplify the execution of [RAPIDS Profiling tool](https://docs.nvidia.com/spark-rapids/user-guide/latest/profiling/overview.html).
@@ -77,9 +67,6 @@ The following table summarizes the commands supported for each cloud platform:
 |                  | profiling     | spark_rapids_user_tools \               |  23.08+  |
 |                  |               |   emr profiling [ARGS]                  |          |
 |                  +---------------+-----------------------------------------+----------+
-|                  | bootstrap     | spark_rapids_user_tools \               |  23.02+  |
-|                  |               |   emr bootstrap [ARGS]                  |          |
-|                  +---------------+-----------------------------------------+----------+
 |                  | diagnostic    | spark_rapids_user_tools \               |  23.06+  |
 |                  |               |   emr diagnostic [ARGS]                 |          |
 +------------------+---------------+-----------------------------------------+----------+
@@ -88,9 +75,6 @@ The following table summarizes the commands supported for each cloud platform:
 |                  +---------------+-----------------------------------------+----------+
 |                  | profiling     | spark_rapids_user_tools \               | 23.02.1+ |
 |                  |               |   dataproc profiling [ARGS]             |          |
-|                  +---------------+-----------------------------------------+----------+
-|                  | bootstrap     | spark_rapids_user_tools \               | 23.02.1+ |
-|                  |               |   dataproc bootstrap [ARGS]             |          |
 |                  +---------------+-----------------------------------------+----------+
 |                  | diagnostic    | spark_rapids_user_tools \               |  23.06+  |
 |                  |               |   dataproc diagnostic [ARGS]            |          |
@@ -104,8 +88,6 @@ The following table summarizes the commands supported for each cloud platform:
 |                  | profiling     | spark_rapids_user_tools \               | 23.06.1+ |
 |                  |               |   databricks-aws profiling [ARGS]       |          |
 |                  +---------------+-----------------------------------------+----------+
-|                  | bootstrap     |               N/A                       |    TBD   |
-|                  +---------------+-----------------------------------------+----------+
 |                  | diagnostic    |               N/A                       |    TBD   |
 +------------------+---------------+-----------------------------------------+----------+
 | Databricks_Azure | qualification | spark_rapids_user_tools \               |  23.06+  |
@@ -114,16 +96,12 @@ The following table summarizes the commands supported for each cloud platform:
 |                  | profiling     | spark_rapids_user_tools \               | 23.06.2+ |
 |                  |               |   databricks-azure profiling [ARGS]     |          |
 |                  +---------------+-----------------------------------------+----------+
-|                  | bootstrap     |               N/A                       |    TBD   |
-|                  +---------------+-----------------------------------------+----------+
 |                  | diagnostic    |               N/A                       |    TBD   |
 +------------------+---------------+-----------------------------------------+----------+
 | OnPrem           | qualification | spark_rapids_user_tools \               |  23.06+  |
 |                  |               |   onprem qualification [ARGS]           |          |
 |                  +---------------+-----------------------------------------+----------+
 |                  | profiling     |               N/A                       |    TBD   |
-|                  +---------------+-----------------------------------------+----------+
-|                  | bootstrap     |               N/A                       |    TBD   |
 |                  +---------------+-----------------------------------------+----------+
 |                  | diagnostic    |               N/A                       |    TBD   |
 +------------------+---------------+-----------------------------------------+----------+
