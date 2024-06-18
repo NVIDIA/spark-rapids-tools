@@ -1,6 +1,21 @@
 
 <br/>
 
+## Release [v24.06.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.06.1)
+Generated on 2024-06-18
+### User Tools
+
+- Fix Python runtime error caused by numpy 2.0.0 release ([#1130](https://github.com/NVIDIA/spark-rapids-tools/pull/1130))
+- Disable the spark_rapids bootstrap command ([#1114](https://github.com/NVIDIA/spark-rapids-tools/pull/1114))
+
+### Core
+
+- Handle different exception thrown by incomplete eventlogs ([#1124](https://github.com/NVIDIA/spark-rapids-tools/pull/1124))
+- Include number of executors per node in cluster information  ([#1119](https://github.com/NVIDIA/spark-rapids-tools/pull/1119))
+
+
+<br/>
+
 ## Release [v24.06.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.06.0)
 Generated on 2024-06-12
 ### User Tools
