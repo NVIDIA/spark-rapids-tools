@@ -9,13 +9,19 @@ authors = [
 ]
 description = "A simple wrapper process around cloud service providers to run tools for the RAPIDS Accelerator for Apache Spark."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.8,<3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    # numpy-1.24.4 is the latest version to support python3.8. P.S: does not support python-3.12+
+    "numpy<=1.24.4",
     "chevron==0.14.0",
     "fastprogress==1.0.3",
     "fastcore==1.5.29",
@@ -36,8 +42,8 @@ dependencies = [
     # used to help pylint understand pydantic
     "pylint-pydantic==0.3.0",
     # used for common API to access remote filesystems like local/s3/gcs/hdfs
-    # this will include numpy
-    "pyarrow==14.0.1",
+    # pin to 16.1.0 which works for both numpy-1.0 and numpy-2.0
+    "pyarrow==16.1.0",
     # used for ADLS filesystem implementation
     # Issue-568: use 12.17.0 as the new 12.18.0 causes an error in runtime
     "azure-storage-blob==12.17.0",
