@@ -249,6 +249,7 @@ class Qualification(RapidsJarTool):
         cpu_cluster_arg = offline_cluster_opts.get('cpuCluster')
         if cpu_cluster_arg is not None:
             cpu_cluster_obj = self._create_migration_cluster('CPU', cpu_cluster_arg)
+            self.logger.info('cpu args Cluster cpu node %s', cpu_cluster_obj)
             self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
@@ -293,7 +294,7 @@ class Qualification(RapidsJarTool):
 
         _process_gpu_cluster_worker_node()
         self.__generate_cluster_recommendation_report()
-        if cpu_cluster.is_inferred:
+        if cpu_cluster and cpu_cluster.is_inferred:
             # If the CPU cluster is inferred, we skip the auto-tuner as it is called after the Qualification tool.
             return gpu_cluster_obj is not None
 
@@ -314,17 +315,18 @@ class Qualification(RapidsJarTool):
     def _process_offline_cluster_args(self):
         # read the wrapper option defined by the spark_rapids cmd if any.
         self.logger.warning("TOM 11")
+        offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
+        gpu_cluster_enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
         enable_savings_flag = self.wrapper_options.get('savingsCalculations', True)
         if enable_savings_flag:
             self.logger.warning("TOM 12")
-            offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
             self._process_cpu_cluster_args(offline_cluster_opts)
             if self.ctxt.get_ctxt('cpuClusterProxy') is None:
                 # if no cpu-cluster is defined, then we are not supposed to run cost calculations
                 enable_savings_flag = False
             else:
                 # if no gpu-cluster is defined, then we are not supposed to run cost calculations
-                enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
+                gpu_cluster_enable_savings_flag
 
         self._set_savings_calculations_flag(enable_savings_flag)
 
@@ -1071,6 +1073,7 @@ class Qualification(RapidsJarTool):
 
         # Log the inferred cluster information and set the context
         self._log_inferred_cluster_info(cpu_cluster_obj)
+        self.logger.info('Inferred Cluster cpu node %s', cpu_cluster_obj)
         self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
         # Process gpu cluster arguments and update savings calculations flag
