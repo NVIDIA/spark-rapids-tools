@@ -17,9 +17,10 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
-import com.nvidia.spark.rapids.tool.profiling.{FailedTaskProfileResults, ProfileUtils}
+import com.nvidia.spark.rapids.tool.profiling.FailedTaskProfileResults
 
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 
 trait AppFailedTaskViewTrait extends ViewableTrait[FailedTaskProfileResults] {
@@ -28,7 +29,8 @@ trait AppFailedTaskViewTrait extends ViewableTrait[FailedTaskProfileResults] {
   override def getRawView(app: AppBase, index: Int): Seq[FailedTaskProfileResults] = {
     app.taskManager.getAllFailedTasks.map { t =>
       FailedTaskProfileResults(index, t.stageId, t.stageAttemptId,
-        t.taskId, t.attempt, ProfileUtils.truncateFailureStr(t.endReason))
+        t.taskId, t.attempt, StringUtils.renderStr(t.endReason, doTruncate = false,
+          doEscapeMetaCharacters = false))
     }.toSeq
   }
 

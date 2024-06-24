@@ -369,12 +369,14 @@ case class FailedTaskProfileResults(appIndex: Int, stageId: Int, stageAttemptId:
     "attempt", "failureReason")
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, stageId.toString, stageAttemptId.toString,
-      taskId.toString, taskAttemptId.toString, ProfileUtils.truncateFailureStr(endReason))
+      taskId.toString, taskAttemptId.toString, StringUtils.renderStr(endReason, doTruncate = true,
+        doEscapeMetaCharacters = true))
   }
   override def convertToCSVSeq: Seq[String] = {
     Seq(appIndex.toString, stageId.toString, stageAttemptId.toString,
       taskId.toString, taskAttemptId.toString,
-      StringUtils.reformatCSVString(ProfileUtils.truncateFailureStr(endReason)))
+      StringUtils.reformatCSVString(StringUtils.renderStr(endReason, doTruncate = false,
+        doEscapeMetaCharacters = true)))
   }
 }
 
@@ -384,12 +386,14 @@ case class FailedStagesProfileResults(appIndex: Int, stageId: Int, stageAttemptI
     "numTasks", "failureReason")
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, stageId.toString, stageAttemptId.toString,
-      name, numTasks.toString, ProfileUtils.truncateFailureStr(endReason))
+      name, numTasks.toString,
+      StringUtils.renderStr(endReason, doTruncate = true, doEscapeMetaCharacters = true))
   }
   override def convertToCSVSeq: Seq[String] = {
     Seq(appIndex.toString, stageId.toString, stageAttemptId.toString,
       StringUtils.reformatCSVString(name), numTasks.toString,
-      StringUtils.reformatCSVString(ProfileUtils.truncateFailureStr(endReason)))
+      StringUtils.reformatCSVString(StringUtils.renderStr(endReason, doTruncate = false,
+        doEscapeMetaCharacters = true)))
   }
 }
 
@@ -399,11 +403,13 @@ case class FailedJobsProfileResults(appIndex: Int, jobId: Int,
 
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, jobId.toString,
-      jobResult, ProfileUtils.truncateFailureStr(endReason))
+      jobResult,
+      StringUtils.renderStr(endReason, doTruncate = true, doEscapeMetaCharacters = true))
   }
   override def convertToCSVSeq: Seq[String] = {
     Seq(appIndex.toString, jobId.toString, StringUtils.reformatCSVString(jobResult),
-      StringUtils.reformatCSVString(ProfileUtils.truncateFailureStr(endReason)))
+      StringUtils.reformatCSVString(
+        StringUtils.renderStr(endReason, doTruncate = false, doEscapeMetaCharacters = true)))
   }
 }
 
@@ -849,7 +855,7 @@ case class ShuffleSkewProfileResult(appIndex: Int, stageId: Long, stageAttemptId
       f"${avgShuffleReadMB / 1024 / 1024}%1.2f",
       f"${taskPeakMemoryMB.toDouble / 1024 / 1024}%1.2f",
       successful.toString,
-      ProfileUtils.truncateFailureStr(reason))
+      StringUtils.renderStr(reason, doTruncate = true, doEscapeMetaCharacters = true))
   }
   override def convertToCSVSeq: Seq[String] = {
     Seq(appIndex.toString,
@@ -863,7 +869,10 @@ case class ShuffleSkewProfileResult(appIndex: Int, stageId: Long, stageAttemptId
       f"${avgShuffleReadMB / 1024 / 1024}%1.2f",
       f"${taskPeakMemoryMB.toDouble / 1024 / 1024}%1.2f",
       successful.toString,
-      StringUtils.reformatCSVString(ProfileUtils.truncateFailureStr(reason)))
+      // truncate this field because it might be a very long string and it is already
+      // fully displayed in failed_* files
+      StringUtils.reformatCSVString(
+        StringUtils.renderStr(reason, doTruncate = true, doEscapeMetaCharacters = true)))
   }
 }
 

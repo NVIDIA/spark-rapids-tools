@@ -17,9 +17,10 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
-import com.nvidia.spark.rapids.tool.profiling.{FailedJobsProfileResults, JobInfoProfileResult, ProfileUtils}
+import com.nvidia.spark.rapids.tool.profiling.{FailedJobsProfileResults, JobInfoProfileResult}
 
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 
 trait AppJobsViewTrait extends ViewableTrait[JobInfoProfileResult] {
@@ -45,7 +46,7 @@ trait AppFailedJobsViewTrait extends ViewableTrait[FailedJobsProfileResults] {
     jobsFailed.map { case (id, jc) =>
       val failureStr = jc.failedReason.getOrElse("")
       FailedJobsProfileResults(index, id, jc.jobResult.getOrElse("Unknown"),
-        ProfileUtils.truncateFailureStr(failureStr))
+        StringUtils.renderStr(failureStr, doTruncate = false, doEscapeMetaCharacters = false))
     }.toSeq
   }
 

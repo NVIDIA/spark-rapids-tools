@@ -56,6 +56,51 @@ object StringUtils extends Logging {
     "\"" + str.replace("\"", "\"\"") + "\""
   }
 
+  def escapeMetaCharacters(str: String): String = {
+    str.replaceAll("\n", "\\\\n")
+      .replaceAll("\r", "\\\\r")
+      .replaceAll("\t", "\\\\t")
+      .replaceAll("\f", "\\\\f")
+      .replaceAll("\b", "\\\\b")
+      .replaceAll("\u000B", "\\\\v")
+      .replaceAll("\u0007", "\\\\a")
+  }
+
+/**
+   * Process a string from Spark info objects. It is used as a wrapper to truncate the string.
+   * @param str the original input string
+   * @param doTruncate when set to true, the output string will be a truncated version of the
+   *                   original input string
+   * @param doEscapeMetaCharacters when set to true, escapes the special characters (i.e., \n).
+   * @param maxLength optional max length in case doTruncate flag is set to true. Default is 100.
+   * @param showEllipses append ellipses at the end of the str. This mainly used in the text
+   *                     formatted output
+   * @return a formatted output string
+   */
+  def renderStr(str: String, doTruncate: Boolean,
+      doEscapeMetaCharacters: Boolean,
+      maxLength: Int = 100,
+      showEllipses: Boolean = false): String = {
+    val truncatedStr = if (doTruncate) {
+      val tmpStr = str.substring(0, Math.min(str.size, maxLength))
+      if (showEllipses && tmpStr.length > 4) {
+        // do not show ellipses for strings shorter than 4 characters.
+        tmpStr + "..."
+      } else {
+        tmpStr
+      }
+    } else {
+      str
+    }
+    val escapedStr = if (doEscapeMetaCharacters) {
+      escapeMetaCharacters(truncatedStr)
+    } else {
+      truncatedStr
+    }
+    // Finally trim the string to remove any trailing spaces
+    escapedStr.trim
+  }
+
   // Convert a null-able String to Option[Long]
   def stringToLong(in: String): Option[Long] = try {
     Some(in.toLong)
