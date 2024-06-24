@@ -138,7 +138,6 @@ class QualificationSummary:
             full_tunings_file = self.df_result['App ID'] + ".conf"
             gpu_tunings_file = self.df_result['App ID'] + ".log"
 
-
             # check to see if the tuning are actually there, assume if one tuning file is there,
             # the other will be as well.
             tunings_abs_path = FSUtil.get_abs_path(self.auto_tuning_path)
@@ -178,8 +177,9 @@ class QualificationSummary:
         else:
             report_content.append(f'{app_name} tool found no records to show.')
 
-        report_content.append(f'* Config Recommendations can be found in {self.auto_tuning_path}')
-        report_content.append(f'** Estimated GPU Speedup Category assumes the user is using the node type recommended and config recommendations with the same size cluster as was used with the CPU side.')
+        if (self.filter_apps_count > 0):
+            report_content.append(f'* Config Recommendations can be found in {self.auto_tuning_path}')
+            report_content.append(f'** Estimated GPU Speedup Category assumes the user is using the node type recommended and config recommendations with the same size cluster as was used with the CPU side.')
 
         #for row_label, row in print_result.iterrows():
         #    report_content.append(f'{row_label} tom {row}')
@@ -1007,6 +1007,11 @@ class Qualification(RapidsJarTool):
             # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
             # info columns, even if `cluster_info_df` is empty.
             df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
+            for col in df.columns:
+                self.logger.warning("Tom column is: %s", col)
+
+            for col in cluster_info_df.columns:
+                self.logger.warning("Tom column cluster_info_df is: %s", col)
             if len(cluster_info_df) > 0:
                 self.__infer_cluster_and_update_savings(cluster_info_df)
         except Exception as e:  # pylint: disable=broad-except
@@ -1073,7 +1078,7 @@ class Qualification(RapidsJarTool):
 
         # Log the inferred cluster information and set the context
         self._log_inferred_cluster_info(cpu_cluster_obj)
-        self.logger.info('Inferred Cluster cpu node %s', cpu_cluster_obj)
+        #self.logger.info('Inferred Cluster cpu node %s', cpu_cluster_obj)
         self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
         # Process gpu cluster arguments and update savings calculations flag
