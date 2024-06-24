@@ -25,7 +25,7 @@ from spark_rapids_pytools.cloud_api.gstorage import GStorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CMDDriverBase, \
     ClusterBase, ClusterNode, SysInfo, GpuHWInfo, SparkNodeType, ClusterState, GpuDevice, \
     NodeHWInfo, ClusterGetAccessor
-from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, is_valid_gpu_device
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import SysCmd, Utils
 from spark_rapids_pytools.pricing.dataproc_pricing import DataprocPriceProvider
@@ -291,6 +291,35 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
             cmd.extend(jar_args)
         return cmd
 
+    def _process_instance_description(self, instance_descriptions: str) -> dict:
+        def extract_gpu_info(gpu_description: str) -> [str, str]:
+            gpu_description_list = gpu_description.split('-')
+            gpu_manufacturer = gpu_description_list[0] if len(gpu_description_list) > 1 else ''
+            gpu_name = gpu_description_list[0]
+            for elem in gpu_description_list[1:]:
+                if is_valid_gpu_device(elem):
+                    gpu_name = elem
+                    break
+            return gpu_name.upper(), gpu_manufacturer.upper()
+
+        processed_instance_descriptions = {}
+        raw_instances_descriptions = JSONPropertiesContainer(prop_arg=instance_descriptions, file_load=False)
+        for instance in raw_instances_descriptions.props:
+            instance_content =  {'MemoryInfo': {}, 'GpuInfo': {}}
+            instance_content['VCpuInfo'] = {'DefaultVCpus': int(instance.get('guestCpus', -1))}
+            instance_content['MemoryInfo']['SizeInMiB'] = instance.get('memoryMb', -1)
+            if 'accelerators' in instance:
+                raw_accelerator_info = instance['accelerators'][0]
+                gpu_count = int(raw_accelerator_info.get('guestAcceleratorCount', -1))
+                gpu_name, gpu_manufacturer = extract_gpu_info(raw_accelerator_info.get('guestAcceleratorType'))
+                gpu_info = {'Name': gpu_name, 'Manufacturer': gpu_manufacturer, 'Count': gpu_count,
+                            'MemoryInfo': {}}
+                instance_content['GpuInfo']['GPUs'] = [gpu_info]
+            processed_instance_descriptions[instance.get('name')] = instance_content
+        return processed_instance_descriptions
+
+    def get_instance_description_cli_params(self):
+        return ['gcloud compute machine-types list', '--zones', f'{self.get_zone()}']
 
 @dataclass
 class DataprocNode(ClusterNode):

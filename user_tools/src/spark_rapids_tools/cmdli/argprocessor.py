@@ -663,3 +663,18 @@ class TrainUserArgModel(AbsToolUserArgModel):
             'n_trials': self.n_trials,
             'platformOpts': {},
         }
+
+@dataclass
+@register_tool_arg_validator('instance_description')
+class InstanceDescriptionUserArgModel(AbsToolUserArgModel):
+    """
+    Represents the arguments to run the generate_instance_description tool.
+    """
+
+    def build_tools_args(self) -> dict:
+        runtime_platform = CspEnv.fromstring(self.platform)
+        return {
+            'runtimePlatform': runtime_platform,
+            'output_folder': self.output_folder,
+            'platformOpts': {},
+        }

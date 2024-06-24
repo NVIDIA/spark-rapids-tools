@@ -174,38 +174,29 @@ class DBAzureCMDDriver(CMDDriverBase):
                        dest]
         return Utils.gen_joined_str(' ', prefix_args)
 
-    def process_instances_description(self, raw_instances_description: str) -> dict:
-        processed_instances_description = {}
-        instances_description = JSONPropertiesContainer(prop_arg=raw_instances_description, file_load=False)
-        for instance in instances_description.props:
-            instance_dict = {}
-            v_cpus = 0
-            memory_gb = 0
-            gpus = 0
+    def _process_instance_description(self, instance_descriptions: str) -> dict:
+        processed_instance_descriptions = {}
+        raw_instance_descriptions = JSONPropertiesContainer(prop_arg=instance_descriptions, file_load=False)
+        for instance in raw_instance_descriptions.props:
             if not instance['capabilities']:
                 continue
-            for item in instance['capabilities']:
-                if item['name'] == 'vCPUs':
-                    v_cpus = int(item['value'])
-                elif item['name'] == 'MemoryGB':
-                    memory_gb = int(float(item['value']) * 1024)
-                elif item['name'] == 'GPUs':
-                    gpus = int(item['value'])
-            instance_dict['VCpuInfo'] = {'DefaultVCpus': v_cpus}
-            instance_dict['MemoryInfo'] = {'SizeInMiB': memory_gb}
-            if gpus > 0:
-                gpu_list = [{'Name': '', 'Manufacturer': '', 'Count': gpus, 'MemoryInfo': {'SizeInMiB': 0}}]
-                instance_dict['GpuInfo'] = {'GPUs': gpu_list}
-            processed_instances_description[instance['name']] = instance_dict
-        return processed_instances_description
+            instance_content = {'VCpuInfo': {'DefaultVCpus': -1}, 'MemoryInfo': {}, 'GpuInfo': {}}
+            gpu_count = 0
+            for elem in instance['capabilities']:
+                if elem['name'] == 'vCPUs':
+                    instance_content['VCpuInfo']['DefaultVCpus'] = int(elem['value'])
+                elif elem['name'] == 'MemoryGB':
+                    instance_content['MemoryInfo'] = {'SizeInMiB': int(float(elem['value']) * 1024)}
+                elif elem['name'] == 'GPUs':
+                    gpu_count = int(elem['value'])
+            if gpu_count > 0:
+                gpu_info = {'Name': '', 'Manufacturer': '', 'Count': gpu_count, 'MemoryInfo': {}}
+                instance_content['GpuInfo']['GPUs'] = [gpu_info]
+            processed_instance_descriptions[instance['name']] = instance_content
+        return processed_instance_descriptions
 
-    def generate_instances_description(self, fpath: str):
-        cmd_params = ['az vm list-skus',
-                      '--location', f'{self.get_region()}']
-        raw_instances_description = self.run_sys_cmd(cmd_params)
-        json_instances_description = self.process_instances_description(raw_instances_description)
-        with open(fpath, 'w', encoding='UTF-8') as output_file:
-            json.dump(json_instances_description, output_file, indent=2)
+    def get_instance_description_cli_params(self):
+        return ['az vm list-skus', '--location', f'{self.get_region()}']
 
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         pass
@@ -224,7 +215,7 @@ class DBAzureCMDDriver(CMDDriverBase):
         fpath = FSUtil.build_path(cache_dir, 'azure-instances-catalog.json')
         if self._caches_expired(fpath):
             self.logger.info('Downloading the Azure instance type descriptions catalog')
-            self.generate_instances_description(fpath)
+            self.generate_instance_description(fpath)
         else:
             self.logger.info('The Azure instance type descriptions catalog is loaded from the cache')
         return fpath

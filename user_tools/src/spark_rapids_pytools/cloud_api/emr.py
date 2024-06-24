@@ -249,6 +249,22 @@ class EMRCMDDriver(CMDDriverBase):
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
+    def _process_instance_description(self, instance_descriptions: str) -> dict:
+        processed_instance_descriptions = {}
+        raw_instances_descriptions = JSONPropertiesContainer(prop_arg=instance_descriptions, file_load=False)
+        for instance in raw_instances_descriptions.get_value('InstanceTypes'):
+            instance_content = {}
+            v_cpus = instance.get('VCpuInfo', {}).get('DefaultVCpus', -1)
+            instance_content['VCpuInfo'] = {'DefaultVCpus': int(v_cpus)}
+            instance_content['MemoryInfo'] = instance.get('MemoryInfo', {})
+            instance_content['GpuInfo'] = instance.get('GpuInfo', {})
+            # remove entry to keep json output consistent with other CSPs
+            instance_content['GpuInfo'].pop('TotalGpuMemoryInMiB', None)
+            processed_instance_descriptions[instance.get('InstanceType')] = instance_content
+        return processed_instance_descriptions
+
+    def get_instance_description_cli_params(self):
+        return ['aws ec2 describe-instance-types', '--region', f'{self.get_region()}']
 
 @dataclass
 class InstanceGroup:
