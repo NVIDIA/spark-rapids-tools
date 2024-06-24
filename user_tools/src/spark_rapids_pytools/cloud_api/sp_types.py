@@ -605,6 +605,9 @@ class CMDDriverBase:
                                              submit_args: dict) -> List[str]:
         raise NotImplementedError
 
+    def _process_instance_description(self, instance_descriptions: str) -> dict:
+        raise NotImplementedError
+
     def get_instance_description_cli_params(self) -> List[str]:
         raise NotImplementedError
 

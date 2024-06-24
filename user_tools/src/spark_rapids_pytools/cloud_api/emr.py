@@ -266,6 +266,7 @@ class EMRCMDDriver(CMDDriverBase):
     def get_instance_description_cli_params(self):
         return ['aws ec2 describe-instance-types', '--region', f'{self.get_region()}']
 
+
 @dataclass
 class InstanceGroup:
     """

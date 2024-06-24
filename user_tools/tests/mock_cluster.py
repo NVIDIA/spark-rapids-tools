@@ -28,20 +28,20 @@ mock_live_cluster = {
                     "instanceNames": [
                         "test-master",
                     ],
-                    "machineTypeUri": "https://www.googleapis.com/compute/v1/projects/project-id/zones/us-central1-a/"\
+                    "machineTypeUri": "https://www.googleapis.com/compute/v1/projects/project-id/zones/us-central1-a/"
                                       "machineTypes/n1-standard-2",
                 },
                 "workerConfig": {
                     "numInstances": 1,
                     "accelerators": [{
-                        "acceleratorTypeUri": "https://www.googleapis.com/compute/beta/projects/project-id/zones/"\
+                        "acceleratorTypeUri": "https://www.googleapis.com/compute/beta/projects/project-id/zones/"
                                               "us-central1-a/acceleratorTypes/nvidia-tesla-t4",
                         "acceleratorCount": 1,
                     }],
                     "instanceNames": [
                         "test-worker-0",
                     ],
-                    "machineTypeUri": "https://www.googleapis.com/compute/v1/projects/project-id/zones/us-central1-a/"\
+                    "machineTypeUri": "https://www.googleapis.com/compute/v1/projects/project-id/zones/us-central1-a/"
                                       "machineTypes/n1-standard-8",
                 },
             },

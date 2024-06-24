@@ -664,6 +664,7 @@ class TrainUserArgModel(AbsToolUserArgModel):
             'platformOpts': {},
         }
 
+
 @dataclass
 @register_tool_arg_validator('instance_description')
 class InstanceDescriptionUserArgModel(AbsToolUserArgModel):

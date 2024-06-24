@@ -20,12 +20,12 @@ import fire
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import ToolLogging
-from spark_rapids_pytools.rapids.dev.instance_description import Instance_Description
+from spark_rapids_pytools.rapids.dev.instance_description import InstanceDescription
 
 
 class DevCLI(object):  # pylint: disable=too-few-public-methods
     """CLI to run development related tools (for internal use only)."""
-    
+
     def generate_instance_description(self,
                                       platform: str = None,
                                       output_folder: str = None):
@@ -41,12 +41,12 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
         init_environment('instance_description')
 
         instance_description_args = AbsToolUserArgModel.create_tool_args('instance_description',
-                                                                          platform=platform,
-                                                                          output_folder=output_folder)
+                                                                         platform=platform,
+                                                                         output_folder=output_folder)
         if instance_description_args:
-            tool_obj = Instance_Description(platform_type=instance_description_args['runtimePlatform'],
-                                            output_folder=instance_description_args['output_folder'],
-                                            wrapper_options=instance_description_args)
+            tool_obj = InstanceDescription(platform_type=instance_description_args['runtimePlatform'],
+                                           output_folder=instance_description_args['output_folder'],
+                                           wrapper_options=instance_description_args)
             tool_obj.launch()
 
 

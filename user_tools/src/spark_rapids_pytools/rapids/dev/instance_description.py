@@ -25,7 +25,7 @@ from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
 @dataclass
-class Instance_Description(RapidsTool):
+class InstanceDescription(RapidsTool):
     """Wrapper layer around Generate_Instance_Description Tool."""
 
     name = 'instance_description'

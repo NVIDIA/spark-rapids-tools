@@ -305,7 +305,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
         processed_instance_descriptions = {}
         raw_instances_descriptions = JSONPropertiesContainer(prop_arg=instance_descriptions, file_load=False)
         for instance in raw_instances_descriptions.props:
-            instance_content =  {'MemoryInfo': {}, 'GpuInfo': {}}
+            instance_content = {'MemoryInfo': {}, 'GpuInfo': {}}
             instance_content['VCpuInfo'] = {'DefaultVCpus': int(instance.get('guestCpus', -1))}
             instance_content['MemoryInfo']['SizeInMiB'] = instance.get('memoryMb', -1)
             if 'accelerators' in instance:
@@ -320,6 +320,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
 
     def get_instance_description_cli_params(self):
         return ['gcloud compute machine-types list', '--zones', f'{self.get_zone()}']
+
 
 @dataclass
 class DataprocNode(ClusterNode):

@@ -45,6 +45,7 @@ def convert_dict_to_camel_case(dic: dict):
             res[to_camel_case(key)] = value
     return res
 
+
 def get_gpu_device_list():
     return ['T4', 'V100', 'K80', 'A100', 'P100', 'A10', 'A10G']
 
