@@ -41,10 +41,13 @@ object PlatformNames {
    * Return a list of all supported platform names.
    */
   def getAllNames: List[String] = List(
-    DATABRICKS_AWS, DATABRICKS_AZURE, DATAPROC, EMR, ONPREM,
-    s"$DATAPROC-$L4Gpu", s"$DATAPROC-$T4Gpu",
-    s"$DATAPROC_GKE-$L4Gpu", s"$DATAPROC_GKE-$T4Gpu",
-    s"$DATAPROC_SL-$L4Gpu", s"$EMR-$A10Gpu", s"$EMR-$T4Gpu"
+    DATABRICKS_AWS, s"$DATABRICKS_AWS-$A10GGpu", s"$DATABRICKS_AWS-$T4Gpu",
+    DATABRICKS_AZURE, s"$DATABRICKS_AZURE-$T4Gpu",
+    DATAPROC, s"$DATAPROC-$L4Gpu", s"$DATAPROC-$T4Gpu",
+    DATAPROC_GKE, s"$DATAPROC_GKE-$L4Gpu", s"$DATAPROC_GKE-$T4Gpu",
+    DATAPROC_SL, s"$DATAPROC_SL-$L4Gpu",
+    EMR, s"$EMR-$A10Gpu", s"$EMR-$A10GGpu", s"$EMR-$T4Gpu",
+    ONPREM, s"$ONPREM-$A100Gpu"
   )
 }
 
@@ -175,7 +178,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   def getRetainedSystemProps: Set[String] = Set.empty
 
-  // TODO - change to return memoryMB
+  // TODO - if no config add in check executor heap sizes
   def getExecutorHeapMemory(sparkProperties: Map[String, String]): Long = {
     val executorMemoryFromConf = sparkProperties.get("spark.executor.memory")
     if (executorMemoryFromConf.isDefined) {
@@ -193,6 +196,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
             // would be the entire node memory by default
             0L
           } else {
+            // TODO - local mode covered here - do we want to handle specifically?
             // TODO - any special ones for specific CSPs?
             0L
           }
@@ -283,7 +287,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       } else {
         // this is assume this job filled an entire node, which may not be true on
         // a multiple tenant cluster
-        val nodeCores = clusterInfoFromEventLog.get.coresPerExecutor * clusterInfoFromEventLog.get.execsPerNode
+        val nodeCores = clusterInfoFromEventLog.get.coresPerExecutor * clusterInfoFromEventLog.get.numExecsPerNode
         val instanceInfo = getInstanceInfoFromResource(nodeCores, None)
         if (!instanceInfo.isDefined) {
           // we either miscalculated cores or we don't have a node type of the same size
@@ -319,7 +323,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
         clusterInfoFromEventLog.get.instanceInfo.get.memoryMB
       } else {
         val numExecutorsPerNode = if (clusterInfoFromEventLog.isDefined) {
-          clusterInfoFromEventLog.get.execsPerNode.toLong
+          clusterInfoFromEventLog.get.numExecsPerNode.toLong
         } else {
           1L
         }
@@ -354,12 +358,12 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     }
   }
 
-  def createClusterInfo(coresPerExecutor: Int, execsPerNode: Int, numExecutorNodes: Int,
+  def createClusterInfo(coresPerExecutor: Int, numExecsPerNode: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val driverHost = sparkProperties.get("spark.driver.host")
     val executorHeapMem = getExecutorHeapMemory(sparkProperties)
     val executorOverheadMem = getExecutorOverheadMemoryMB(sparkProperties)
-    ClusterInfo(platformName, coresPerExecutor, execsPerNode, numExecutorNodes,
+    ClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecutorNodes,
       executorHeapMem, executorOverheadMem,
       getInstanceResources(sparkProperties), driverHost = driverHost)
   }
@@ -407,8 +411,7 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     "spark.executor.memoryOverhead"
   )
 
-
-  override def createClusterInfo(coresPerExecutor: Int, execsPerNode: Int, numExecutorNodes: Int,
+  override def createClusterInfo(coresPerExecutor: Int, numExecsPerNode: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val executorInstance = sparkProperties.get(DatabricksParseHelper.PROP_WORKER_TYPE_ID_KEY)
     val driverInstance = sparkProperties.get(DatabricksParseHelper.PROP_DRIVER_TYPE_ID_KEY)
@@ -419,7 +422,7 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     val executorOverheadMem = getExecutorOverheadMemoryMB(sparkProperties)
 
     // todo check execs per node in case user configured differently
-    ClusterInfo(platformName, coresPerExecutor, execsPerNode, numExecutorNodes,
+    ClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecutorNodes,
       executorHeapMem, executorOverheadMem,
       getInstanceResources(sparkProperties), executorInstance, driverInstance,
       driverHost, clusterId, clusterName)
@@ -574,14 +577,14 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
 
   override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
 
-  override def createClusterInfo(coresPerExecutor: Int, execsPerNode: Int, numExecutorNodes: Int,
+  override def createClusterInfo(coresPerExecutor: Int, numExecsPerNode: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val clusterId = systemProperties.get("EMR_CLUSTER_ID")
     val driverHost = sparkProperties.get("spark.driver.host")
     val executorHeapMem = getExecutorHeapMemory(sparkProperties)
     val executorOverheadMem = getExecutorOverheadMemoryMB(sparkProperties)
 
-    ClusterInfo(platformName, coresPerExecutor, execsPerNode, numExecutorNodes,
+    ClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecutorNodes,
       executorHeapMem, executorOverheadMem,
       instanceInfo = getInstanceResources(sparkProperties),
       clusterId = clusterId, driverHost = driverHost)

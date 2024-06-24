@@ -138,9 +138,10 @@ class EMRCMDDriver(CMDDriverBase):
                 if not (emr_pem_path.endswith('.pem') or emr_pem_path.endswith('ppk')):
                     incorrect_envs.append(f'Private key file path [{emr_pem_path}] should be ppk or pem format')
         else:
+            tools_env_k = Utils.find_full_rapids_tools_env_key('KEY_PAIR_PATH')
             incorrect_envs.append(
                 f'Private key file path is not set. It is required to SSH on driver node. '
-                f'Set {Utils.find_full_rapids_tools_env_key("KEY_PAIR_PATH")}')
+                f'Set {tools_env_k}')
         return incorrect_envs
 
     def pull_cluster_props_by_args(self, args: dict) -> str:

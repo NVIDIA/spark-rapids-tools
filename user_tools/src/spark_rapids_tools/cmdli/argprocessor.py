@@ -167,6 +167,7 @@ class AbsToolUserArgModel:
         ev_logs_path = CspPath(self.get_eventlogs().split(',')[0])
         storage_type = ev_logs_path.get_storage_name()
         self.p_args['toolArgs']['platform'] = map_storage_to_platform[storage_type]
+        self.logger.info('Detected platform from eventlogs prefix: %s', self.p_args['toolArgs']['platform'].name)
 
     def validate_onprem_with_cluster_name(self):
         # this field has already been populated during initialization
@@ -319,7 +320,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
                 [ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.UNDEFINED]
             ]
         }
-        self.rejected['Invalid Jar Argument'] = {
+        self.rejected['Jar Argument'] = {
             'valid': False,
             'callable': partial(self.validate_jar_argument_is_valid),
             'cases': [
@@ -443,9 +444,10 @@ class QualifyUserArgModel(ToolUserArgModel):
                 self.p_args['toolArgs']['targetPlatform'] = None
             else:
                 if not self.p_args['toolArgs']['targetPlatform'] in equivalent_pricing_list:
+                    target_platform = self.p_args['toolArgs']['targetPlatform']
                     raise PydanticCustomError(
                         'invalid_argument',
-                        f'The platform [{self.p_args["toolArgs"]["targetPlatform"]}] is currently '
+                        f'The platform [{target_platform}] is currently '
                         f'not supported to calculate savings from [{runtime_platform}] cluster\n  Error:')
         else:
             # target platform is not set, then we disable cost savings if the runtime platform if
@@ -619,39 +621,6 @@ class ProfileUserArgModel(ToolUserArgModel):
         }
 
         return wrapped_args
-
-
-@dataclass
-@register_tool_arg_validator('bootstrap')
-class BootstrapUserArgModel(AbsToolUserArgModel):
-    """
-    Represents the arguments collected by the user to run the bootstrap tool.
-    This is used as doing preliminary validation against some of the common pattern
-    """
-    dry_run: Optional[bool] = True
-
-    def build_tools_args(self) -> dict:
-        return {
-            'runtimePlatform': self.platform,
-            'outputFolder': self.output_folder,
-            'platformOpts': {},
-            'dryRun': self.dry_run
-        }
-
-    @model_validator(mode='after')
-    def validate_non_empty_args(self) -> 'BootstrapUserArgModel':
-        error_flag = 0
-        components = []
-        if self.cluster is None:
-            error_flag = 1
-            components.append('cluster')
-        if self.platform is None:
-            error_flag |= 2
-            components.append('platform')
-        if error_flag > 0:
-            missing = str.join(' and ', components)
-            raise ValueError(f'Cmd requires [{missing}] to be specified')
-        return self
 
 
 @dataclass

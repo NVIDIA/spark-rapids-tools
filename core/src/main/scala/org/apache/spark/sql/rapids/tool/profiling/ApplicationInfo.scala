@@ -197,8 +197,6 @@ class ApplicationInfo(
 
   // Process SQL Plan Metrics after all events are processed
   val planMetricProcessor: AppSQLPlanAnalyzer = AppSQLPlanAnalyzer(this, index)
-  // finally aggregate the Info
-  aggregateAppInfo
 
   override def processEvent(event: SparkListenerEvent): Boolean = {
     eventProcessor.processAnyEvent(event)
@@ -206,11 +204,13 @@ class ApplicationInfo(
   }
 
   override def postCompletion(): Unit = {
+    // finally aggregate the Info
+    super.postCompletion()
     buildClusterInfo
   }
 
-  private def aggregateAppInfo: Unit = {
-    estimateAppEndTime { () =>
+  override def guestimateAppEndTimeCB(): () => Option[Long] = {
+    () =>
       val jobEndTimes = jobIdToInfo.map { case (_, jc) => jc.endTime }.filter(_.isDefined)
       val sqlEndTimes = sqlIdToInfo.map { case (_, sc) => sc.endTime }.filter(_.isDefined)
       val estimatedResult =
@@ -226,6 +226,5 @@ class ApplicationInfo(
           if (maxEndTime == 0) None else Some(maxEndTime)
         }
       estimatedResult
-    }
   }
 }

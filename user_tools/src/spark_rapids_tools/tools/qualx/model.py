@@ -49,7 +49,6 @@ ignored_features = set(
         'scaleFactor',
         'sparkVersion',
         'sqlID',
-        'xgpu_appDuration',
     ]
 )
 
@@ -71,6 +70,16 @@ def train(
     if LOG_LABEL:
         cpu_aug_tbl = cpu_aug_tbl.copy()
         cpu_aug_tbl[label_col] = np.log(cpu_aug_tbl[label_col])
+
+    # remove nan label entries
+    original_num_rows = cpu_aug_tbl.shape[0]
+    cpu_aug_tbl = cpu_aug_tbl.loc[~cpu_aug_tbl[label_col].isna()].reset_index(
+        drop=True
+    )
+    if cpu_aug_tbl.shape[0] < original_num_rows:
+        logger.warn(
+            f'Removed {original_num_rows - cpu_aug_tbl.shape[0]} rows with NaN label values'
+        )
 
     # split into train/val/test sets
     X_train = cpu_aug_tbl.loc[cpu_aug_tbl['split'] == 'train', feature_cols]
@@ -138,7 +147,7 @@ def predict(
     X = cpu_aug_tbl[model_features]
     y = cpu_aug_tbl[label_col] if label_col else None
 
-    dmat = xgb.DMatrix(X, y)
+    dmat = xgb.DMatrix(X)
     y_pred = xgb_model.predict(dmat)
 
     # compute SHAPley values for the model
@@ -162,11 +171,10 @@ def predict(
         'scaleFactor',
         'Duration',
         'fraction_supported',
+        'description',
     ]
     if 'split' in cpu_aug_tbl:
         select_columns.append('split')
-    if 'xgpu_appDuration' in cpu_aug_tbl:
-        select_columns.append('xgpu_appDuration')
 
     # join predictions with select input features
     results_df = (
@@ -178,7 +186,7 @@ def predict(
     if 'y' in results_df.columns:
         # reconstruct original gpu duration for validation purposes
         results_df['gpuDuration'] = results_df['Duration'] / results_df['y']
-        results_df['gpuDuration'] = results_df['gpuDuration'].astype('long')
+        results_df['gpuDuration'] = np.floor(results_df['gpuDuration'])
 
     # adjust raw predictions with stage/sqlID filtering of unsupporteds
     results_df['Duration_pred'] = results_df['Duration'] * (
@@ -239,12 +247,9 @@ def extract_model_features(
                 'sqlID',
                 'Duration',
                 'description',
-                'appDuration',
             ]
         ]
-        gpu_aug_tbl = gpu_aug_tbl.rename(
-            columns={'Duration': 'xgpu_Duration', 'appDuration': 'xgpu_appDuration'}
-        )
+        gpu_aug_tbl = gpu_aug_tbl.rename(columns={'Duration': 'xgpu_Duration'})
         cpu_aug_tbl = cpu_aug_tbl.merge(
             gpu_aug_tbl,
             on=['appName', 'scaleFactor', 'sqlID', 'description'],
@@ -269,16 +274,6 @@ def extract_model_features(
 
         # use Duration_speedup as label
         label_col = 'Duration_speedup'
-
-        # remove nan label entries
-        original_num_rows = cpu_aug_tbl.shape[0]
-        cpu_aug_tbl = cpu_aug_tbl.loc[~cpu_aug_tbl[label_col].isna()].reset_index(
-            drop=True
-        )
-        if cpu_aug_tbl.shape[0] < original_num_rows:
-            logger.warn(
-                f'Removed {original_num_rows - cpu_aug_tbl.shape[0]} rows with NaN label values'
-            )
     else:
         # inference dataset with CPU runs only
         label_col = None

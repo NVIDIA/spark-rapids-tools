@@ -21,7 +21,6 @@ from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
 from spark_rapids_tools.enums import QualGpuClusterReshapeType, CspEnv
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
-from spark_rapids_pytools.rapids.bootstrap import Bootstrap
 from spark_rapids_pytools.rapids.qualx.prediction import Prediction
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
@@ -32,7 +31,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
     """CLI that provides a runtime environment that simplifies running cost and performance analysis
     using the RAPIDS Accelerator for Apache Spark.
 
-    A wrapper script to run RAPIDS Accelerator tools (Qualification, Profiling, and Bootstrap)
+    A wrapper script to run RAPIDS Accelerator tools (Qualification, and Profiling)
     locally on the dev machine.
     """
 
@@ -95,8 +94,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 stage duration less than 25% of app duration and speedups greater than 1.3x.
         :param estimation_model: Model used to calculate the estimated GPU duration and cost savings.
                It accepts one of the following:
-               "xgboost": an XGBoost model for GPU duration estimation
-               "speedups": set by default. It uses a simple static estimated speedup per operator.
+               "xgboost": An XGBoost model for GPU duration estimation. Set by default
+               "speedups": It uses a simple static estimated speedup per operator.
         :param cpu_cluster_price: the CPU cluster hourly price provided by the user.
         :param estimated_gpu_cluster_price: the GPU cluster hourly price provided by the user.
         :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
@@ -221,42 +220,6 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                         output_folder=prof_args['outputFolder'],
                                         wrapper_options=prof_args,
                                         rapids_options=rapids_options)
-            tool_obj.launch()
-
-    def bootstrap(self,
-                  cluster: str,
-                  platform: str,
-                  output_folder: str = None,
-                  dry_run: bool = True,
-                  verbose: bool = False):
-        """Provides optimized RAPIDS Accelerator for Apache Spark configs based on GPU cluster shape.
-
-        This tool is supposed to be used once a cluster has been created to set the recommended
-        configurations.
-        The tool will apply settings for the cluster assuming that jobs will run serially so that
-        each job can use up all the cluster resources (CPU and GPU) when it is running.
-
-        :param cluster: Name or ID (for databricks platforms) of the cluster running an accelerated
-                computing instance class
-        :param platform: defines one of the following "onprem", "emr", "dataproc", "databricks-aws",
-                and "databricks-azure".
-        :param output_folder: path where the final recommendations will be saved.
-        :param dry_run: True or False to update the Spark config settings on Dataproc driver node.
-        :param verbose: True or False to enable verbosity of the script.
-        """
-        if verbose:
-            ToolLogging.enable_debug_mode()
-        init_environment('boot')
-        boot_args = AbsToolUserArgModel.create_tool_args('bootstrap',
-                                                         cluster=cluster,
-                                                         platform=platform,
-                                                         output_folder=output_folder,
-                                                         dry_run=dry_run)
-        if boot_args:
-            tool_obj = Bootstrap(platform_type=boot_args['runtimePlatform'],
-                                 cluster=cluster,
-                                 output_folder=boot_args['outputFolder'],
-                                 wrapper_options=boot_args)
             tool_obj.launch()
 
     def prediction(self,

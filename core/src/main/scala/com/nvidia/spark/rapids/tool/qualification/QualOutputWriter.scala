@@ -462,6 +462,7 @@ object QualOutputWriter {
   val DRIVER_HOST = "Driver Host"
   val CLUSTER_ID_STR = "Cluster Id" // Different from ClusterId used for Databricks Tags
   val CLUSTER_NAME = "Cluster Name"
+  val NUM_EXECS_PER_NODE = "Num Executors Per Node"
   val NUM_EXEC_NODES = "Num Executor Nodes"
   val CORES_PER_EXEC = "Cores Per Executor"
   val EXEC_INSTANCE = "Executor Instance"
@@ -819,7 +820,7 @@ object QualOutputWriter {
   private def getClusterInfoHeaderStrings: mutable.LinkedHashMap[String, Int] = {
     val headersAndFields = Seq(
       APP_ID_STR, APP_NAME_STR, VENDOR, DRIVER_HOST, CLUSTER_ID_STR, CLUSTER_NAME,
-      EXEC_INSTANCE, DRIVER_INSTANCE, NUM_EXEC_NODES, CORES_PER_EXEC).map {
+      EXEC_INSTANCE, DRIVER_INSTANCE, NUM_EXEC_NODES, NUM_EXECS_PER_NODE, CORES_PER_EXEC).map {
       key => (key, key.length)
     }
     mutable.LinkedHashMap(headersAndFields: _*)
@@ -849,6 +850,7 @@ object QualOutputWriter {
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.executorInstance), EXEC_INSTANCE),
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverInstance), DRIVER_INSTANCE),
       refactorCSVFuncWithOption(clusterInfo.map(_.numExecutorNodes.toString), NUM_EXEC_NODES),
+      refactorCSVFuncWithOption(clusterInfo.map(_.numExecsPerNode.toString), NUM_EXECS_PER_NODE),
       refactorCSVFuncWithOption(clusterInfo.map(_.coresPerExecutor.toString), CORES_PER_EXEC)
     )
     constructOutputRow(data, delimiter, prettyPrint) :: Nil

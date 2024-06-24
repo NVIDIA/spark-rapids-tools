@@ -182,6 +182,25 @@ object EventUtils extends Logging {
     Try(rootExecutionIdField.get(event).asInstanceOf[Option[Long]]).getOrElse(None)
   }
 
+  @throws[com.fasterxml.jackson.core.JsonParseException]
+  private def handleEventJsonParseEx(ex: com.fasterxml.jackson.core.JsonParseException): Unit = {
+    // Spark 3.4- will throw a JsonParseException if the eventlog is incomplete (lines are broken)
+    val exMsg = ex.getMessage
+    if (exMsg != null && exMsg.contains("Unexpected end-of-input within/between Object entries")) {
+      // In case the eventlog is incomplete (i.e., inprogress), we show a warning message
+      // because we do not want to cause the entire app to fail.
+      logWarning(s"Incomplete eventlog, $exMsg")
+    } else {
+      // This is a parser error thrown by spark-3.4+ which indicates the log is malformed
+      if (exMsg != null) {
+        // dump an error message to explain the details of the exception, without dumping the
+        // entire stack. Otherwise, the logs become not friendly to read.
+        logError(s"Eventlog parse exception: $exMsg")
+      }
+      throw ex
+    }
+  }
+
   private lazy val rootExecutionIdField = {
     val field = classOf[SparkListenerSQLExecutionStart].getDeclaredField("rootExecutionId")
     field.setAccessible(true)
@@ -231,7 +250,7 @@ object EventUtils extends Logging {
                 case k: com.fasterxml.jackson.core.JsonParseException =>
                   // this is a parser error thrown by spark-3.4+ which indicates the log is
                   // malformed
-                  throw k
+                  handleEventJsonParseEx(k)
                 case z: ClassNotFoundException if z.getMessage != null =>
                   // Avoid reporting missing classes more than once to reduce the noise in the logs
                   reportMissingEventClass(z.getMessage)
@@ -251,7 +270,7 @@ object EventUtils extends Logging {
           case k: com.fasterxml.jackson.core.JsonParseException =>
             // this is a parser error thrown by version prior to spark-3.4+ which indicates the
             // log is malformed
-            throw k
+            handleEventJsonParseEx(k)
         }
         None
     }

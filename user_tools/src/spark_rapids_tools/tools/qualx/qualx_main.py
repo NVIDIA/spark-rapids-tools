@@ -17,7 +17,6 @@ import fire
 import glob
 import json
 import os
-import numpy as np
 import pandas as pd
 import traceback
 import xgboost as xgb
@@ -48,7 +47,7 @@ from spark_rapids_tools.tools.qualx.util import (
     print_speedup_summary,
     run_qualification_tool,
     RegexPattern,
-    INTERMEDIATE_DATA_ENABLED
+    INTERMEDIATE_DATA_ENABLED, create_row_with_default_speedup, write_csv_reports
 )
 from spark_rapids_pytools.common.utilities import Utils
 from tabulate import tabulate
@@ -68,7 +67,7 @@ def _get_model(platform: str, model: Optional[str]):
             )
     else:
         # try pre-trained model first
-        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
+        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{model}.json'))
         if not model_path.exists():
             model_path = model
 
@@ -110,13 +109,13 @@ def _get_qual_data(qual: Optional[str]):
     )
 
     # load qual tool per-app predictions
-    qual_app_preds = load_qual_csv(
+    qualtool_output = load_qual_csv(
         qual_list,
         'rapids_4_spark_qualification_output.csv',
-        ['App ID', 'Estimated GPU Speedup'],
+        ['App Name', 'App ID', 'App Duration', 'Estimated GPU Speedup'],
     )
 
-    return node_level_supp, qual_app_preds, qual_sql_preds, qual_metrics
+    return node_level_supp, qualtool_output, qual_sql_preds, qual_metrics
 
 
 def _compute_summary(results):
@@ -126,25 +125,33 @@ def _compute_summary(results):
         'appName',
         'appId',
         'appDuration',
+        'description',
         'Duration',
         'Duration_pred',
         'Duration_supported',
-        # actual
-        'gpuDuration',
-        'xgpu_appDuration',
+        'scaleFactor',
     ]
     cols = [col for col in result_cols if col in results.columns]
     # compute per-app stats
-    group_by_cols = ['appName', 'appId', 'appDuration']
-    if 'xgpu_appDuration' in results:
-        group_by_cols.append('xgpu_appDuration')
-    summary = results[cols].groupby(group_by_cols).sum().reset_index()
-    if 'gpuDuration' in summary:
-        summary['gpuDuration'] = summary['gpuDuration'].replace(0.0, np.nan)
+    group_by_cols = ['appName', 'appId', 'appDuration', 'scaleFactor']
+    summary = (
+        results[cols]
+        .groupby(group_by_cols)
+        .agg(
+            {
+                'Duration': 'sum',
+                'Duration_pred': 'sum',
+                'Duration_supported': 'sum',
+                'description': 'first',
+            }
+        )
+        .reset_index()
+    )
 
     # compute the fraction of app duration w/ supported ops
     # without qual tool output, this is the entire SQL duration
     # with qual tool output, this is the fraction of SQL w/ supported ops
+    summary['appDuration'] = summary['appDuration'].clip(lower=summary['Duration'])
     summary['fraction_supported'] = (
         summary['Duration_supported'] / summary['appDuration']
     )
@@ -156,15 +163,6 @@ def _compute_summary(results):
     )
     # compute the per-app speedup
     summary['speedup'] = summary['appDuration'] / summary['appDuration_pred']
-
-    # for datasets w/ labels, reconstruct actual speedup per-app
-    # TODO: get this from actual CSV file?
-    if 'y' in results:
-        assert 'xgpu_appDuration' in summary
-        summary = summary.rename({'xgpu_appDuration': 'appDuration_actual'}, axis=1)
-        summary['speedup_actual'] = (
-            summary['appDuration'] / summary['appDuration_actual']
-        )
 
     # fix dtypes
     long_cols = [
@@ -201,14 +199,11 @@ def _predict(
         try:
             results = predict_model(xgb_model, features, feature_cols, label_col)
 
-            # for evaluation purposes, impute actual GPU values if not provided
-            if 'y' not in results:
-                results['y'] = np.nan
-                results['gpuDuration'] = 0.0
-                results['xgpu_appDuration'] = 0.0
-
             # compute per-app speedups
             summary = _compute_summary(results)
+
+            if 'y' in results:
+                results = results.loc[~results.y.isna()].reset_index(drop=True)
         except XGBoostError as e:
             # ignore and continue
             logger.error(e)
@@ -324,6 +319,18 @@ def _read_platform_scores(
     return scores_df, set(preds_df.dataset.unique())
 
 
+def _add_entries_for_missing_apps(all_default_preds: pd.DataFrame, summary_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add entry with default speedup prediction for apps that are missing in the summary.
+    """
+    # identify apps that do not have predictions in the summary
+    missing_apps = all_default_preds[~all_default_preds['appId'].isin(summary_df['appId'])].copy()
+    missing_apps['wasPredicted'] = False
+    summary_df['wasPredicted'] = True
+    # add missing applications with default predictions to the summary
+    return pd.concat([summary_df, missing_apps], ignore_index=True)
+
+
 def models():
     """Show available pre-trained models."""
     available_models = [
@@ -407,23 +414,23 @@ def train(
 
 def predict(
     platform: str,
+    qual: str,
     output_info: dict,
     *,
-    qual: Optional[str] = None,
-    preprocessed: Optional[str] = None,
     model: Optional[str] = None,
     qualtool_filter: Optional[str] = 'stage',
 ) -> pd.DataFrame:
-    assert (
-        qual or preprocessed
-    ), 'One of the following arguments is required: --qual, --preprocessed'
-
     xgb_model = _get_model(platform, model)
-    node_level_supp, _, _, qual_metrics = _get_qual_data(qual)
+    node_level_supp, qualtool_output, _, qual_metrics = _get_qual_data(qual)
+    # create a DataFrame with default predictions for all app IDs.
+    # this will be used for apps without predictions.
+    default_preds_df = qualtool_output.apply(create_row_with_default_speedup, axis=1)
+    # add a column for dataset names to associate apps with datasets.
+    default_preds_df['dataset_name'] = None
 
     # if qualification metrics are provided, load metrics and apply filtering
+    processed_dfs = {}
     if len(qual_metrics) > 0:
-        processed_dfs = {}
         for metrics_dir in qual_metrics:
             datasets = {}
             # add metrics directory to datasets
@@ -449,33 +456,37 @@ def predict(
                         datasets[dataset_name]['app_meta'].update(
                             {appId: {'runType': 'CPU', 'scaleFactor': 1}}
                         )
+                        # update the dataset_name for each appId
+                        default_preds_df.loc[default_preds_df['appId'] == appId, 'dataset_name'] = dataset_name
                     logger.info(f'Loading dataset {dataset_name}')
                     metrics_df = load_profiles(
                         datasets=datasets,
                         node_level_supp=node_level_supp,
-                        qualtool_filter=qualtool_filter
+                        qualtool_filter=qualtool_filter,
+                        qualtool_output=qualtool_output
                     )
                     processed_dfs[dataset_name] = metrics_df
                 except ScanTblError:
                     # ignore
                     logger.error(f'Skipping invalid dataset: {dataset_name}')
-    elif preprocessed:
-        if os.path.isdir(preprocessed):
-            processed = find_paths(preprocessed, lambda x: x.endswith('.parquet'))
-        else:
-            processed = [preprocessed]
-        processed_dfs = {
-            dataset.replace('.parquet', ''): pd.read_parquet(dataset)
-            for dataset in processed
-        }
+    else:
+        logger.warning('Qualification tool metrics are missing. Speedup predictions will be skipped.')
+        return pd.DataFrame()
 
     if not processed_dfs:
-        raise ValueError('No profile data found.')
+        # this is an error condition, and we should not fall back to the default predictions.
+        raise ValueError('Data preprocessing resulted in an empty dataset. Speedup predictions will be skipped.')
 
     # predict on each input dataset
     dataset_summaries = []
     for dataset, input_df in processed_dfs.items():
         dataset_name = Path(dataset).name
+        # filter default predictions for the current dataset and drop the dataset_name column
+        filtered_default_preds = default_preds_df[default_preds_df['dataset_name'] == dataset_name].copy()
+        filtered_default_preds.drop(columns=['dataset_name'], inplace=True)
+        # use default predictions if no input data is available
+        per_app_summary = filtered_default_preds
+        per_sql_summary = None
         if not input_df.empty:
             filter_str = (
                 f'with {qualtool_filter} filtering'
@@ -487,34 +498,22 @@ def predict(
             features, feature_cols, label_col = extract_model_features(input_df)
             # note: dataset name is already stored in the 'appName' field
             try:
-                results = predict_model(xgb_model, features, feature_cols, label_col, output_info)
-
+                per_sql_summary = predict_model(xgb_model, features, feature_cols, label_col, output_info)
                 # compute per-app speedups
                 # _compute_summary takes only one arg
                 # summary = _compute_summary(results, qual_preds)
-                summary = _compute_summary(results)
-                dataset_summaries.append(summary)
+                summary = _compute_summary(per_sql_summary)
+                # combine calculated summary with default predictions for missing apps
+                per_app_summary = _add_entries_for_missing_apps(filtered_default_preds, summary)
                 if INTERMEDIATE_DATA_ENABLED:
-                    print_summary(summary)
+                    print_summary(per_app_summary)
 
                 # compute speedup for the entire dataset
                 dataset_speedup = (
-                    summary['appDuration'].sum() / summary['appDuration_pred'].sum()
+                    per_app_summary['appDuration'].sum() / per_app_summary['appDuration_pred'].sum()
                 )
                 if INTERMEDIATE_DATA_ENABLED:
                     print(f'Dataset estimated speedup: {dataset_speedup:.2f}')
-
-                # write CSV reports
-                sql_predictions_path = output_info['perSql']['path']
-                logger.info(f"Writing per-SQL predictions to: {sql_predictions_path}")
-                results.to_csv(sql_predictions_path, index=False)
-
-                app_predictions_path = output_info['perApp']['path']
-                logger.info(
-                    f'Writing per-application predictions to: {app_predictions_path}'
-                )
-                summary.to_csv(app_predictions_path, index=False)
-
             except XGBoostError as e:
                 # ignore and continue
                 logger.error(e)
@@ -523,7 +522,10 @@ def predict(
                 logger.error(e)
                 traceback.print_exc(e)
         else:
-            logger.warn(f'Nothing to predict for dataset {dataset}')
+            logger.warn(f'Predicted speedup will be 1.0 for dataset: {dataset}. Check logs for details.')
+        # TODO: Writing CSV reports for all datasets to the same location. We should write to separate directories.
+        write_csv_reports(per_sql_summary, per_app_summary, output_info)
+        dataset_summaries.append(per_app_summary)
 
     if dataset_summaries:
         # show summary stats across all datasets
@@ -536,10 +538,9 @@ def predict(
 
 def __predict_cli(
     platform: str,
+    eventlogs: str,
     output_dir: str,
     *,
-    qual: Optional[str] = None,
-    preprocessed: Optional[str] = None,
     model: Optional[str] = None,
     qualtool_filter: Optional[str] = 'stage',
 ):
@@ -551,41 +552,32 @@ def __predict_cli(
     Note: this provides a 'best guess' based on an ML model, which may show incorrect results when
     compared against actual performance.
 
-    For predictions with filtering of unsupported operators, the input data should be specified by
-    the following:
-    - `--qual`: predict on existing qualification tool CSV output.
-        This will output predictions with stage filtering of unsupported operators.
-
-    Advanced usage:
-    - `--preprocessed`: return raw predictions and ground truth labels on the output of qualx preprocessing.
-        If `--qual` is provided, this will return adjusted predictions with filtering, along with the
-        predictions from the qualification tool.  This is primarily used for evaulating models, since
-        the preprocessed data includes GPU runs and labels.
-
     Parameters
     ----------
     platform: str
         Name of platform for spark_rapids_user_tools, e.g. `onprem`, `dataproc`, etc.  This will
         be used as the model name, if --model is not provided.
+    eventlogs: str
+        Path to a single event log, or a directory containing multiple event logs.
+    output_dir:
+        Path to save predictions as CSV files.
     model: str
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
-    qual: str
-        Path to a directory containing one or more qualtool outputs.
-        If supplied, qualtool info about supported/unsupported operators is used to apply modeling to only
-        fully supported sqlIDs or heuristically to fully supported stages.
-    preprocessed: str
-        Path to a directory containing one or more preprocessed datasets in parquet format.
     qualtool_filter: str
         Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages, based on qualtool
         output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
-    output_dir:
-        Path to save predictions as CSV files.
     """
     # Note this function is for internal usage only. `spark_rapids predict` cmd is the public interface.
 
     # Construct output paths
     ensure_directory(output_dir)
+
+    if not any([f.startswith('qual_') for f in os.listdir(output_dir)]):
+        # run qual tool if no existing qual output found
+        run_qualification_tool(platform, eventlogs, output_dir)
+    qual = output_dir
+
     output_info = {
         'perSql': {'path': os.path.join(output_dir, 'per_sql.csv')},
         'perApp': {'path': os.path.join(output_dir, 'per_app.csv')},
@@ -596,7 +588,6 @@ def __predict_cli(
         platform,
         output_info=output_info,
         qual=qual,
-        preprocessed=preprocessed,
         model=model,
         qualtool_filter=qualtool_filter,
     )
@@ -663,12 +654,12 @@ def evaluate(
                 run_qualification_tool(platform, eventlog, f'{qual_dir}/{ds_name}')
 
     logger.info('Loading qualification tool CSV files.')
-    node_level_supp, qual_app_preds, qual_sql_preds, _ = _get_qual_data(qual_dir)
+    node_level_supp, qualtool_output, qual_sql_preds, _ = _get_qual_data(qual_dir)
 
     logger.info('Loading profiler tool CSV files.')
     profile_df = load_profiles(datasets, profile_dir)  # w/ GPU rows
     filtered_profile_df = load_profiles(
-        datasets, profile_dir, node_level_supp, qualtool_filter
+        datasets, profile_dir, node_level_supp, qualtool_filter, qualtool_output
     )  # w/o GPU rows
     if profile_df.empty:
         raise ValueError(f'Warning: No profile data found for {dataset}')
@@ -683,6 +674,49 @@ def evaluate(
         split_fn=split_fn,
         qualtool_filter=qualtool_filter,
     )
+    # join raw app data with app level gpu ground truth
+    app_durations = (
+        profile_df.loc[profile_df.runType == 'GPU'][
+            ['appName', 'appDuration', 'description', 'scaleFactor']
+        ]
+        .groupby(['appName', 'appDuration', 'scaleFactor'])
+        .first()
+        .reset_index()
+    )
+    app_durations = app_durations.rename(columns={'appDuration': 'gpu_appDuration'})
+
+    # handle query per app and regular app differently.
+    # For the former, we need to use query description field to join cpu and gpu data
+    # since appname is the same for all queries/apps in these case.
+
+    raw_app_regular = raw_app.loc[~raw_app.appName.str.contains('query_per_app')]
+    raw_app_q_per_app = raw_app.loc[raw_app.appName.str.contains('query_per_app')]
+    app_durations_regular = app_durations.loc[
+        ~app_durations.appName.str.contains('query_per_app')
+    ][['appName', 'gpu_appDuration', 'scaleFactor']]
+    app_durations_q_per_app = app_durations.loc[
+        app_durations.appName.str.contains('query_per_app')
+    ]
+
+    raw_app_regular = raw_app_regular.merge(
+        app_durations_regular[['appName', 'gpu_appDuration', 'scaleFactor']],
+        on=['appName', 'scaleFactor'],
+        how='left',
+    )
+    raw_app_q_per_app = raw_app_q_per_app.merge(
+        app_durations_q_per_app, on=['appName', 'description', 'scaleFactor'], how='left'
+    )
+
+    raw_app = pd.concat([raw_app_regular, raw_app_q_per_app])
+
+    if not raw_app.loc[raw_app.gpu_appDuration.isna()].empty:
+        logger.error(
+            f'missing gpu apps: {raw_app.loc[raw_app.gpu_appDuration.isna()].to_markdown()}'
+        )
+        raw_app = raw_app.loc[~raw_app.gpu_appDuration.isna()]
+
+    raw_app = raw_app.rename({'gpu_appDuration': 'appDuration_actual'}, axis=1)
+    raw_app['speedup_actual'] = raw_app['appDuration'] / raw_app['appDuration_actual']
 
     # adjusted prediction on filtered data
     filtered_sql, filtered_app = _predict(
@@ -766,7 +800,7 @@ def evaluate(
         how='left',
     )
     results_app = results_app.merge(
-        qual_app_preds[['App ID', 'Estimated GPU Speedup']],
+        qualtool_output[['App ID', 'Estimated GPU Speedup']],
         left_on='appId',
         right_on='App ID',
         how='left',
