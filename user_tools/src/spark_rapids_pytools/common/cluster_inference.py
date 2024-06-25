@@ -52,7 +52,7 @@ class ClusterInference:
             # If executor instance is not set, use the default value based on the number of cores
             executors_per_node = cluster_info_df.get('Num Executors Per Node')
             cores_per_executor = cluster_info_df.get('Cores Per Executor')
-            if executors_per_node is None or cores_per_executor is None:
+            if pd.isna(executors_per_node) or pd.isna(cores_per_executor):
                 self.logger.info('Unable to infer CPU cluster. Could not read the number of executors'
                                  ' per node or cores per executor from the event logs.')
                 return None
