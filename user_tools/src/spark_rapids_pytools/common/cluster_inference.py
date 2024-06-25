@@ -56,7 +56,7 @@ class ClusterInference:
                 self.logger.info('Unable to infer CPU cluster. Could not read the number of executors'
                                  ' per node or cores per executor from the event logs.')
                 return None
-            cores_per_worker_node =  cores_per_executor * executors_per_node
+            cores_per_worker_node = cores_per_executor * executors_per_node
             executor_instance = self.platform.get_matching_executor_instance(cores_per_worker_node)
             if pd.isna(executor_instance):
                 self.logger.info('Unable to infer CPU cluster. No matching executor instance found for vCPUs = %s',
