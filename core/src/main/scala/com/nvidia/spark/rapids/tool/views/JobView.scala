@@ -46,7 +46,7 @@ trait AppFailedJobsViewTrait extends ViewableTrait[FailedJobsProfileResults] {
     jobsFailed.map { case (id, jc) =>
       val failureStr = jc.failedReason.getOrElse("")
       FailedJobsProfileResults(index, id, jc.jobResult.getOrElse("Unknown"),
-        StringUtils.renderStr(failureStr, doTruncate = false, doEscapeMetaCharacters = false))
+        StringUtils.renderStr(failureStr, doEscapeMetaCharacters = false, maxLength = 0))
     }.toSeq
   }
 

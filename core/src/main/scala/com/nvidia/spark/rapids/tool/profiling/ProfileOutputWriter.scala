@@ -146,8 +146,8 @@ object ProfileOutputWriter {
     }
 
     val escapedSchema = schema.map(
-      org.apache.spark.sql.rapids.tool.util.StringUtils.renderStr(_, doTruncate = false,
-        doEscapeMetaCharacters = true))
+      org.apache.spark.sql.rapids.tool.util.StringUtils.renderStr(_, doEscapeMetaCharacters = true,
+        maxLength = 0))
 
     val schemaAndData = escapedSchema +: rows.map { row =>
       row.map { cell =>
@@ -156,9 +156,7 @@ object ProfileOutputWriter {
           case str: String =>
             // Escapes meta-characters not to break the `showString` format
             org.apache.spark.sql.rapids.tool.util.StringUtils.renderStr(
-              str, doTruncate = truncate > 0, maxLength = truncate,
-              doEscapeMetaCharacters = true,
-              showEllipses = true)
+              str, doEscapeMetaCharacters = true, maxLength = truncate, showEllipses = true)
         }
       }: Seq[String]
     }

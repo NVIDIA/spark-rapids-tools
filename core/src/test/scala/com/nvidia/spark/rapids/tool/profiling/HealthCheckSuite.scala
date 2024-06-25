@@ -61,8 +61,8 @@ class HealthCheckSuite extends FunSuite {
       // the end reason gets the delimiter changed when writing to CSV so to compare properly
       // change it to be the same here
       val failedWithDelimiter = failedTasks.map { t =>
-        val delimited = StringUtils.renderStr(t.endReason, doTruncate = false,
-          doEscapeMetaCharacters = true)
+        val delimited = StringUtils.renderStr(t.endReason, doEscapeMetaCharacters = true,
+          maxLength = 0)
         t.copy(endReason = delimited)
       }
       import sparkSession.implicits._
@@ -74,8 +74,8 @@ class HealthCheckSuite extends FunSuite {
       ToolTestUtils.compareDataFrames(taskAccums, tasksDfExpect)
 
       val failedStages = healthCheck.getFailedStages.map { s =>
-        val rendered = StringUtils.renderStr(s.endReason, doTruncate = false,
-          doEscapeMetaCharacters = true)
+        val rendered = StringUtils.renderStr(s.endReason, doEscapeMetaCharacters = true,
+          maxLength = 0)
         s.copy(endReason = rendered)
       }
       val stageAccums = failedStages.toDF

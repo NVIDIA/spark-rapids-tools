@@ -51,7 +51,8 @@ class HealthCheck(apps: Seq[ApplicationInfo]) {
   def getPossibleUnsupportedSQLPlan: Seq[UnsupportedOpsProfileResult] = {
     val res = apps.flatMap { app =>
       app.planMetricProcessor.unsupportedSQLPlan.map { unsup =>
-        val renderedNodeDesc = StringUtils.renderStr(unsup.nodeDesc, doTruncate = true,
+        // truncates the node description to 100 characters
+        val renderedNodeDesc = StringUtils.renderStr(unsup.nodeDesc,
           doEscapeMetaCharacters = false)
         UnsupportedOpsProfileResult(app.index, unsup.sqlID, unsup.nodeID, unsup.nodeName,
           renderedNodeDesc, unsup.reason)

@@ -30,8 +30,7 @@ trait AppFailedStageViewTrait extends ViewableTrait[FailedStagesProfileResults] 
     app.stageManager.getFailedStages.map { fsm =>
       FailedStagesProfileResults(index, fsm.sId, fsm.attemptId,
         fsm.sInfo.name, fsm.sInfo.numTasks,
-        StringUtils.renderStr(fsm.getFailureReason, doTruncate = false,
-          doEscapeMetaCharacters = false))
+        StringUtils.renderStr(fsm.getFailureReason, doEscapeMetaCharacters = false, maxLength = 0))
     }.toSeq
   }
 

@@ -29,8 +29,8 @@ trait AppFailedTaskViewTrait extends ViewableTrait[FailedTaskProfileResults] {
   override def getRawView(app: AppBase, index: Int): Seq[FailedTaskProfileResults] = {
     app.taskManager.getAllFailedTasks.map { t =>
       FailedTaskProfileResults(index, t.stageId, t.stageAttemptId,
-        t.taskId, t.attempt, StringUtils.renderStr(t.endReason, doTruncate = false,
-          doEscapeMetaCharacters = false))
+        t.taskId, t.attempt, StringUtils.renderStr(t.endReason,
+          doEscapeMetaCharacters = false, maxLength = 0))
     }.toSeq
   }
 

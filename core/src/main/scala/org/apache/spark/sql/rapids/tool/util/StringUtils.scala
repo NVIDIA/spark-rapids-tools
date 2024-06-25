@@ -66,22 +66,26 @@ object StringUtils extends Logging {
       .replaceAll("\u0007", "\\\\a")
   }
 
-/**
-   * Process a string from Spark info objects. It is used as a wrapper to truncate the string.
+  /**
+   * Process a string based on parameters:
+   * - escapes special characters (i.e., \n) if doEscapeMetaCharacters is set to true.
+   * - truncates the string if maxLength is a positive integer. It adds ellipses to the end of the
+   *   truncated string if showEllipses is set to true.
+   * - trim trailing white spaces.
    * @param str the original input string
-   * @param doTruncate when set to true, the output string will be a truncated version of the
-   *                   original input string
-   * @param doEscapeMetaCharacters when set to true, escapes the special characters (i.e., \n).
-   * @param maxLength optional max length in case doTruncate flag is set to true. Default is 100.
-   * @param showEllipses append ellipses at the end of the str. This mainly used in the text
-   *                     formatted output
-   * @return a formatted output string
+   * @param doEscapeMetaCharacters when set to true, escapes the special characters. See the full
+   *                               list of characters in #escapeMetaCharacters(java.lang.String)
+   * @param maxLength maximum length of the output string. Default is 100.
+   *                  A 0-value does not truncate the output string.
+   * @param showEllipses When set to true and maxLength is >= 0, ellipses will be appended to the
+   *                     output string to indicate the string content was truncated.
+   * @return a formatted output string based on the input parameters.
    */
-  def renderStr(str: String, doTruncate: Boolean,
+  def renderStr(str: String,
       doEscapeMetaCharacters: Boolean,
       maxLength: Int = 100,
       showEllipses: Boolean = false): String = {
-    val truncatedStr = if (doTruncate) {
+    val truncatedStr = if (maxLength > 0) {
       val tmpStr = str.substring(0, Math.min(str.size, maxLength))
       if (showEllipses && tmpStr.length > 4) {
         // do not show ellipses for strings shorter than 4 characters.
@@ -97,7 +101,7 @@ object StringUtils extends Logging {
     } else {
       truncatedStr
     }
-    // Finally trim the string to remove any trailing spaces
+    // Finally trim the string to remove any trailing spaces.
     escapedStr.trim
   }
 
