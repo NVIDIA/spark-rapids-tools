@@ -762,11 +762,10 @@ object QualOutputWriter {
 
   private def formatSQLDescription(sqlDesc: String, maxSQLDescLength: Int,
       delimiter: String): String = {
-    val escapedMetaStr = ToolUtils.escapeMetaCharacters(sqlDesc).trim()
-    val sqlDescTruncated = escapedMetaStr.substring(0,
-      Math.min(maxSQLDescLength, escapedMetaStr.length))
+    val escapedMetaStr =
+      StringUtils.renderStr(sqlDesc, doEscapeMetaCharacters = true, maxLength = maxSQLDescLength)
     // should be a one for one replacement so length wouldn't be affected by this
-    replaceDelimiter(sqlDescTruncated, delimiter)
+    replaceDelimiter(escapedMetaStr, delimiter)
   }
 
   def constructPerSqlSummaryInfo(

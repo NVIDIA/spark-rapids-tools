@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import com.nvidia.spark.rapids.tool.views.{ProfFailedJobsView, ProfFailedStageView, ProfFailedTaskView, ProfRemovedBLKMgrView, ProfRemovedExecutorView}
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
  * HealthCheck defined health check rules
@@ -50,8 +51,11 @@ class HealthCheck(apps: Seq[ApplicationInfo]) {
   def getPossibleUnsupportedSQLPlan: Seq[UnsupportedOpsProfileResult] = {
     val res = apps.flatMap { app =>
       app.planMetricProcessor.unsupportedSQLPlan.map { unsup =>
+        // truncates the node description to 100 characters
+        val renderedNodeDesc = StringUtils.renderStr(unsup.nodeDesc,
+          doEscapeMetaCharacters = false)
         UnsupportedOpsProfileResult(app.index, unsup.sqlID, unsup.nodeID, unsup.nodeName,
-          ProfileUtils.truncateFailureStr(unsup.nodeDesc), unsup.reason)
+          renderedNodeDesc, unsup.reason)
       }
     }
     if (res.size > 0) {

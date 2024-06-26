@@ -856,7 +856,6 @@ class QualificationAppInfo(
           s"Cluster information may be inaccurate.")
       }
     }
-
     // try to figure out number of executors per node based on the executor info
     // Group by host name, find max executors per host
     val execsPerNodeList = executorIdToInfo.values.groupBy(_.host).mapValues(_.size).values
