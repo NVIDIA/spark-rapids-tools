@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from spark_rapids_tools import get_elem_from_dict, get_elem_non_safe
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.emr_pricing import AWSCatalogContainer, EMREc2PriceProvider
 
 
@@ -55,7 +54,7 @@ class DatabricksAWSPriceProvider(EMREc2PriceProvider):
     name = 'Databricks-AWS'
     # TODO: current default to 'Premium' plan and 'Jobs Compute' compute type,
     # need to figure out how to find these values from cluster properties.
-    plan: str = field(default='Premium', init=False) # Standard, Premium (default), or Enterprise
+    plan: str = field(default='Premium', init=False)  # Standard, Premium (default), or Enterprise
 
     def _process_resource_configs(self):
         online_entries = self.pricing_configs['databricks-aws'].get_value('catalog', 'onlineResources')
