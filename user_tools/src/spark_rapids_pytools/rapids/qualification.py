@@ -139,10 +139,8 @@ class QualificationSummary:
             tunings_abs_path = FSUtil.get_abs_path(self.auto_tuning_path)
             if FSUtil.resource_exists(tunings_abs_path):  # check if the file exists
                 for index, file in gpu_tunings_file.items():
-                    self.logger.warning('TOM row is %s', file)
                     full_tunings_path = self.auto_tuning_path + "/" + file
                     abs_path = FSUtil.get_abs_path(full_tunings_path)
-                    self.logger.warning('abs path is %s', abs_path)
                     if not FSUtil.resource_exists(abs_path):  # check if the file exists
                         gpu_tunings_file.at[index] = "Doesn't exist, see log"
                         full_tunings_file.at[index] = "Doesn't exist, see log"
@@ -152,7 +150,7 @@ class QualificationSummary:
 
             # add the per app node conversions
             conversion_column_dict = {'App ID': list(self.conversion_items.keys()),
-                                       'Qualified Node Recommendation': list(self.conversion_items.values())}
+                                      'Qualified Node Recommendation': list(self.conversion_items.values())}
             conversion_df = pd.DataFrame.from_dict(conversion_column_dict)
             print_result = pd.merge(self.df_result, conversion_df, on=['App ID'], how='left')
             print_result['Full Cluster Config Recommendations*'] = full_tunings_file
@@ -246,19 +244,14 @@ class Qualification(RapidsJarTool):
             self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
-        self.logger.warning("TOM 1")
         def _process_gpu_cluster_worker_node():
             try:
                 worker_node = gpu_cluster_obj.get_worker_node()
-                self.logger.warning('Tom worker info 1')
                 worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                self.logger.warning('Tom worker info 2')
                 sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                self.logger.warning('Tom worker info 3')
                 gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 self.logger.warning('Tom worker info 4 %s ', gpu_info)
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
-                self.logger.warning('Tom worker info 5')
                 num_cpus = sys_info.num_cpus
                 cpu_mem = sys_info.cpu_mem
                 self.logger.info('cpu memory is  %s', cpu_mem)
@@ -271,7 +264,6 @@ class Qualification(RapidsJarTool):
 
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
         cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
-        self.logger.warning("TOM 2")
         if gpu_cluster_arg:
             self.logger.warning("TOM 3")
             gpu_cluster_obj = self._create_migration_cluster('GPU', gpu_cluster_arg)
@@ -308,15 +300,11 @@ class Qualification(RapidsJarTool):
         def _process_gpu_cluster_worker_node():
             try:
                 worker_node = gpu_cluster_obj.get_worker_node()
-                self.logger.warning('Tom worker info 1')
                 worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                self.logger.warning('Tom worker info 2')
                 sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                self.logger.warning('Tom worker info 3')
                 gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 self.logger.warning('Tom worker info 4 %s ', gpu_info)
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
-                self.logger.warning('Tom worker info 5')
                 num_cpus = sys_info.num_cpus
                 cpu_mem = sys_info.cpu_mem
                 self.logger.info('cpu memory is  %s', cpu_mem)
@@ -331,7 +319,6 @@ class Qualification(RapidsJarTool):
         # only do this if no gpu cluster specified
         gpu_cluster_info_dict = {}
         if not gpu_cluster_arg:
-            self.logger.warning("TOM 4")
             gpu_cluster_obj = None
             cpu_cluster_info_per_app = self.ctxt.get_ctxt('cpuClusterInfoPerApp')
             for app_id in cpu_cluster_info_per_app:
@@ -349,7 +336,6 @@ class Qualification(RapidsJarTool):
     # process single GPU cluster specified by the user
     def _process_offline_cluster_args(self):
         # read the wrapper option defined by the spark_rapids cmd if any.
-        self.logger.warning("TOM 11")
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
         enable_savings_flag = self.wrapper_options.get('savingsCalculations', True)
         if enable_savings_flag:
@@ -488,7 +474,6 @@ class Qualification(RapidsJarTool):
         3. gpu_per_machine: number of gpu installed on a worker node.
         4. cuda version
         """
-        self.logger.warning("TOM 21")
         gpu_device = self.ctxt.get_value('sparkRapids', 'gpu', 'device')
         gpu_device_arg = self.wrapper_options.get('gpuDevice')
         if gpu_device_arg is not None:
@@ -929,23 +914,17 @@ class Qualification(RapidsJarTool):
         conversion_items_summary = {}
         gpu_cluster_info_per_app = self.ctxt.get_ctxt('gpuClusterInfoPerApp')
         cpu_cluster_info_per_app = self.ctxt.get_ctxt('cpuClusterInfoPerApp')
-        for app_id in cpu_cluster_info_per_app:
-            cpu_cluster_info = cpu_cluster_info_per_app[app_id]
-            gpu_cluster_info = gpu_cluster_info_per_app[app_id]
-            if cpu_cluster_info is not None and gpu_cluster_info is not None:
-                self.logger.info("src is %s target is %s", cpu_cluster_info.get_worker_node(), gpu_cluster_info.get_worker_node())
-                conversion_items_summary[app_id] = cpu_cluster_info.get_worker_node().instance_type + ' to ' + gpu_cluster_info.get_worker_node().instance_type
-
-
-        # TODO - this relies on a per app node conversion which we don't do right now
-        # this case is the node didn't need converted just use same node type as cpu
-        if not conversion_items_summary:
-            # we need to take into account clusters that already have the same node type and print there here
-            cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
-            if cpu_cluster:
-                cpu_cluster_info = cpu_cluster.get_cluster_configuration()
-                if cpu_cluster_info:
-                    conversion_items_summary.append(cpu_cluster_info['executorInstance'])
+        if cpu_cluster_info_per_app is not None:
+            for app_id in cpu_cluster_info_per_app:
+                cpu_cluster_info = cpu_cluster_info_per_app[app_id]
+                gpu_cluster_info = gpu_cluster_info_per_app[app_id]
+                if cpu_cluster_info is not None and gpu_cluster_info is not None:
+                    self.logger.info("src is %s target is %s", cpu_cluster_info.get_worker_node(), gpu_cluster_info.get_worker_node())
+                    if cpu_cluster_info.get_worker_node().instance_type == gpu_cluster_info.get_worker_node().instance_type:
+                        conversion_items_summary[app_id] = cpu_cluster_info.get_worker_node().instance_type
+                    else:
+                        conversion_items_summary[app_id] = cpu_cluster_info.get_worker_node().instance_type + ' to '\
+                                                           + gpu_cluster_info.get_worker_node().instance_type
 
         rapids_output_dir = self.ctxt.get_rapids_output_folder()
         tunings_dir = FSUtil.build_path(rapids_output_dir,
@@ -1058,14 +1037,9 @@ class Qualification(RapidsJarTool):
             cluster_info_file = self.ctxt.get_value('toolOutput', 'csv', 'clusterInformation', 'fileName')
             cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
             cluster_info_df = pd.read_csv(cluster_info_file)
-            for col in cluster_info_df.columns:
-                self.logger.warning("Tom column cluster_info_df is: %s", col)
             # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
             # info columns, even if `cluster_info_df` is empty.
             df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
-            for col in df.columns:
-                self.logger.warning("Tom column is: %s", col)
-
             if len(cluster_info_df) > 0:
                 self.__infer_cluster_and_update_savings(cluster_info_df)
                 self.__infer_cluster_for_auto_tuning(cluster_info_df)
@@ -1158,9 +1132,6 @@ class Qualification(RapidsJarTool):
         if len(cluster_info_df) != 1:
             self.logger.info('cluster info df is %d', len(cluster_info_df))
 
-        for col in cluster_info_df.columns:
-            self.logger.warning("Tom column 2 cluster_info_df is: %s", col)
-
         cpu_cluster_dict = {}
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
         for index, row in cluster_info_df.iterrows():
@@ -1176,7 +1147,6 @@ class Qualification(RapidsJarTool):
                              total_cores_per_node, row['Executor Instance'], row['Cluster Id'],
                              row['App ID'], row['Cores Per Executor'])
 
-            self.logger.info('Tom single cluster df: %s ', single_cluster_df)
             # Infer the CPU cluster from the cluster information
             cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(single_cluster_df)
             if cpu_cluster_obj is None:
@@ -1185,7 +1155,6 @@ class Qualification(RapidsJarTool):
             cpu_cluster_dict[row['App ID']] = cpu_cluster_obj
             # Log the inferred cluster information and set the context
             self._log_inferred_cluster_info(cpu_cluster_obj)
-            #self.logger.info('Inferred Cluster cpu node %s', cpu_cluster_obj)
 
         self.ctxt.set_ctxt('cpuClusterInfoPerApp', cpu_cluster_dict)
         # Process gpu cluster arguments and update savings calculations flag

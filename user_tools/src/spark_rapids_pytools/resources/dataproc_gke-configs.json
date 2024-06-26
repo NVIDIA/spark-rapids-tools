@@ -224,7 +224,7 @@
           "sectionName": "Initialization Scripts",
           "content": {
             "header": [
-              "To create a GPU cluster, run the following script:",
+              "To create a GPU cluster, run the following script. Adjust based on the per application recommendations.",
               ""
             ]
           }
