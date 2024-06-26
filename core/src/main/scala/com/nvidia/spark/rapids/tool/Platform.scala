@@ -495,23 +495,6 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
   override def getInstanceResources(
       sparkProperties: Map[String, String]): Option[InstanceCoresMemory] = {
     // TODO - what is dataproc way to get instance type?
-    // not seeing a way to do this might require user input!!!!
-    /*
-    val executorInstance = sparkProperties.get(DatabricksParseHelper.PROP_WORKER_TYPE_ID_KEY)
-    if (executorInstance.isDefined) {
-      val NODE_REGEX = """(a-z)*\.(\d){1,2}xlarge""".r
-      val nodeSizeMatch = NODE_REGEX.findFirstMatchIn(executorInstance.get).get
-      if (nodeSizeMatch.subgroups.size >= 1) {
-        val nodeSize = nodeSizeMatch.group(1)
-        PlatformInstanceTypes.DATAPROC.get(nodeSize)
-      } else {
-        None
-      }
-    } else {
-      None
-    }
-
-     */
     None
   }
 
