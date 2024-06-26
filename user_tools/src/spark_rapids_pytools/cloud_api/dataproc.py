@@ -161,15 +161,20 @@ class DataprocPlatform(PlatformBase):
         # If the number of cores is a valid entry in the list, return the equivalent instance
         if cores_per_executor in unit_info['vCPUs']:
             return f'{series_name}-{cores_per_executor}'
-        # If the num-cores is not in the list, then we need to adjust the cores to the best match.
-        # The loop below should always return a valid instance type. It takes the instance type with
-        # number of cores less than or equal to the "cores_per_executor".
-        adjusted_cores = unit_info['vCPUs'][0]
-        for num_cpu in unit_info['vCPUs'][1:]:
-            if num_cpu <= cores_per_executor:
-                adjusted_cores = num_cpu
-        # At this point adjusted_cores should be the best match. The abobe code
-        return f'{series_name}-{adjusted_cores}'
+        # If the num-cores is not in the list, then we need to adjust the cores to the best match
+        # that is greater than the input cores.
+        adjusted_cores = unit_info['vCPUs'][-1]
+        for arr_index in range(len(unit_info['vCPUs']) - 1, -1, -1):
+            # do not break the loop just in case the array is not sorted
+            if unit_info['vCPUs'][arr_index] >= cores_per_executor:
+                adjusted_cores = unit_info['vCPUs'][arr_index]
+        # At this point adjusted_cores should be the best match.
+        selected_machine_type = f'{series_name}-{adjusted_cores}'
+        self.logger.info(
+            'The number of cores %d is not in the list of supported cores. '
+            'Adjusting it to the nearest CSP machine with higher number of cores %s',
+            cores_per_executor, selected_machine_type)
+        return selected_machine_type
 
     def generate_cluster_configuration(self, render_args: dict):
         image_version = self.configs.get_value('clusterInference', 'defaultImage')
