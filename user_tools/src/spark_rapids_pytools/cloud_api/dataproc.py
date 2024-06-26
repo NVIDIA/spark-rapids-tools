@@ -162,8 +162,8 @@ class DataprocPlatform(PlatformBase):
         if cores_per_executor in unit_info['vCPUs']:
             return f'{series_name}-{cores_per_executor}'
         # If the num-cores is not in the list, then we need to adjust the cores to the best match.
-        # The loop below should always return a valid instance type. It takes the instancetype with
-        # number of cores less than or equan to the "cores_per_executor".
+        # The loop below should always return a valid instance type. It takes the instance type with
+        # number of cores less than or equal to the "cores_per_executor".
         adjusted_cores = unit_info['vCPUs'][0]
         for num_cpu in unit_info['vCPUs'][1:]:
             if num_cpu <= cores_per_executor:
