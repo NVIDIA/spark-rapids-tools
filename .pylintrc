@@ -86,6 +86,8 @@ disable=
         #       W0107: Used when a "pass" statement that can be avoided is encountered.
         #unnecessary-pass,
         broad-exception-raised,
+        #Disable the Unreachable-code since pylint 2.4 generates too many false-positives
+        unreachable
 
 
 # Set max of arguments for function / method the line below if "too-many-arguments" is allowed. Default: 5
