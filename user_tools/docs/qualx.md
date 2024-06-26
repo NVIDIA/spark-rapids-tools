@@ -22,7 +22,7 @@ Arguments:
 
 ### Training
 
-To train an XGBoost model on a specific dataset, follow these steps below. Refer to [Getting Started](../README.md#getting-started) section for installing the required dependencies for training.
+To train an XGBoost model on a specific dataset, follow these steps below. Refer to [Getting Started](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/README.md#getting-started) section for installing the required dependencies for training.
 
 #### Environment Setup
 
