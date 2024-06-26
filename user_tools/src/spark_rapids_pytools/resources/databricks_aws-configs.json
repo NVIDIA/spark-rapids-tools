@@ -206,38 +206,19 @@
     "catalog": {
       "onlineResources": [
         {
-          "resourceKey": "databricks-standard-catalog",
-          "onlineURL": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
-          "//localFile": "the name of the local file",
-          "localFile": "databricks-standard-catalog.json",
+          "resourceKey": "databricks-aws-catalog",
+          "onlineURL": "https://www.databricks.com/en-website-assets/data/pricing/AWS.json",
+          "//localFile": "the name of the file after downloading",
+          "localFile": "databricks-aws-catalog.json",
           "backupArchive": {
-            "//description": "We use this archive as a backup. It is stored in the resources",
-            "archiveName": "databricks-standard-catalog.json"
-          }
-        },
-        {
-          "resourceKey": "databricks-premium-catalog",
-          "onlineURL": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
-          "//localFile": "the name of the local file",
-          "localFile": "databricks-premium-catalog.json",
-          "backupArchive": {
-            "//description": "We use this archive as a backup. It is stored in the resources",
-            "archiveName": "databricks-premium-catalog.json"
-          }
-        },
-        {
-          "resourceKey": "databricks-enterprise-catalog",
-          "onlineURL": "https://www.databricks.com/product/pricing/product-pricing/instance-types",
-          "//localFile": "the name of the local file",
-          "localFile": "databricks-enterprise-catalog.json",
-          "backupArchive": {
-            "//description": "We use this archive as a backup. It is stored in the resources",
-            "archiveName": "databricks-enterprise-catalog.json"
+            "//description-1": "In case the file is stuck, we use this archive as a backup.",
+            "//description-2": "It is stored in the resources",
+            "archiveName": "databricks-aws-catalog.json"
           }
         },
         {
           "resourceKey": "ec2-catalog",
-          "onlineURL": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/20230307163705/us-west-2/index.json",
+          "onlineURL": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/us-west-2/index.json",
           "//localFile": "the name of the file after downloading",
           "localFile": "aws_ec2_catalog_ec2_us-west-2.json",
           "backupArchive": {
