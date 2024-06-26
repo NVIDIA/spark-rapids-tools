@@ -212,19 +212,19 @@ class AbsToolUserArgModel:
             self.argv_cases.append(self.determine_cluster_arg_type())
         self.argv_cases.extend(self.init_extra_arg_cases())
 
-    def define_invalid_arg_cases(self):
+    def define_invalid_arg_cases(self) -> None:
         pass
 
-    def define_detection_cases(self):
+    def define_detection_cases(self) -> None:
         pass
 
-    def define_extra_arg_cases(self):
+    def define_extra_arg_cases(self) -> None:
         pass
 
     def build_tools_args(self) -> dict:
         pass
 
-    def apply_arg_cases(self, cases_list: list):
+    def apply_arg_cases(self, cases_list: list) -> None:
         for curr_cases in cases_list:
             for case_key, case_value in curr_cases.items():
                 if any(ArgValueCase.array_equal(self.argv_cases, case_i) for case_i in case_value['cases']):
@@ -232,10 +232,10 @@ class AbsToolUserArgModel:
                     self.logger.info('...applying argument case: %s', case_key)
                     case_value['callable']()
 
-    def apply_all_arg_cases(self):
+    def apply_all_arg_cases(self) -> None:
         self.apply_arg_cases([self.rejected, self.detected, self.extra])
 
-    def validate_arguments(self):
+    def validate_arguments(self) -> None:
         self.init_tool_args()
         self.init_arg_cases()
         self.define_invalid_arg_cases()
@@ -252,7 +252,7 @@ class AbsToolUserArgModel:
         self.post_platform_assignment_validation()
         return runtime_platform
 
-    def post_platform_assignment_validation(self):
+    def post_platform_assignment_validation(self) -> None:
         # Update argv_cases to reflect the platform
         self.argv_cases[0] = ArgValueCase.VALUE_A
         # Any validation post platform assignment should be done here
@@ -269,10 +269,10 @@ class ToolUserArgModel(AbsToolUserArgModel):
     jvm_heap_size: Optional[int] = None
     jvm_threads: Optional[int] = None
 
-    def is_concurrent_submission(self):
+    def is_concurrent_submission(self) -> bool:
         return False
 
-    def process_jvm_args(self):
+    def process_jvm_args(self) -> None:
         # JDK8 uses parallel-GC by default. Set the GC algorithm to G1GC
         self.p_args['toolArgs']['jvmGC'] = '+UseG1GC'
         jvm_heap = self.jvm_heap_size
@@ -293,7 +293,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
             return [ArgValueCase.UNDEFINED]
         return [ArgValueCase.VALUE_A]
 
-    def define_invalid_arg_cases(self):
+    def define_invalid_arg_cases(self) -> None:
         super().define_invalid_arg_cases()
         self.define_rejected_missing_eventlogs()
         self.rejected['Cluster By Name Without Platform Hints'] = {
@@ -328,7 +328,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
             ]
         }
 
-    def define_rejected_missing_eventlogs(self):
+    def define_rejected_missing_eventlogs(self) -> None:
         self.rejected['Missing Eventlogs'] = {
             'valid': False,
             'callable': partial(self.raise_validation_exception,
@@ -339,7 +339,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
             ]
         }
 
-    def define_detection_cases(self):
+    def define_detection_cases(self) -> None:
         self.detected['Define Platform from Cluster Properties file'] = {
             'valid': True,
             'callable': partial(self.detect_platform_from_cluster_prop),
@@ -374,7 +374,7 @@ class QualifyUserArgModel(ToolUserArgModel):
     gpu_discount: Optional[int] = None
     global_discount: Optional[int] = None
 
-    def init_tool_args(self):
+    def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
         self.p_args['toolArgs']['savingsCalculations'] = True
         self.p_args['toolArgs']['targetPlatform'] = self.target_platform
@@ -400,7 +400,7 @@ class QualifyUserArgModel(ToolUserArgModel):
         else:
             self.p_args['toolArgs']['estimationModel'] = self.estimation_model
 
-    def define_extra_arg_cases(self):
+    def define_extra_arg_cases(self) -> None:
         self.extra['Disable CostSavings'] = {
             'valid': True,
             'callable': partial(self.disable_savings_calculations),
@@ -409,7 +409,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             ]
         }
 
-    def _reset_savings_flags(self, reason_msg: Optional[str] = None):
+    def _reset_savings_flags(self, reason_msg: Optional[str] = None) -> None:
         self.p_args['toolArgs']['savingsCalculations'] = False
         if self.p_args['toolArgs']['filterApps'] == QualFilterApp.SAVINGS:
             # we cannot use QualFilterApp.SAVINGS if savingsCalculations is disabled.
@@ -417,7 +417,7 @@ class QualifyUserArgModel(ToolUserArgModel):
         if reason_msg:
             self.logger.info('Cost saving is disabled: %s', reason_msg)
 
-    def disable_savings_calculations(self):
+    def disable_savings_calculations(self) -> None:
         self._reset_savings_flags(reason_msg='Cluster\'s information is missing.')
         self.p_args['toolArgs']['targetPlatform'] = None
 
@@ -427,7 +427,7 @@ class QualifyUserArgModel(ToolUserArgModel):
         self.validate_arguments()
         return self
 
-    def is_concurrent_submission(self):
+    def is_concurrent_submission(self) -> bool:
         return self.p_args['toolArgs']['estimationModel'] != QualEstimationModel.SPEEDUPS
 
     def build_tools_args(self) -> dict:
@@ -523,7 +523,7 @@ class ProfileUserArgModel(ToolUserArgModel):
                 self.p_args['toolArgs']['autotuner'] = self.cluster
         return cluster_case
 
-    def init_driverlog_argument(self):
+    def init_driverlog_argument(self) -> None:
         if self.driverlog is None:
             self.p_args['toolArgs']['driverlog'] = None
         else:
@@ -540,12 +540,12 @@ class ProfileUserArgModel(ToolUserArgModel):
                     f'Driver log file path cannot be a web URL path: {self.driverlog}\n  Error:')
             self.p_args['toolArgs']['driverlog'] = self.driverlog
 
-    def init_tool_args(self):
+    def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
         self.p_args['toolArgs']['autotuner'] = None
         self.init_driverlog_argument()
 
-    def define_invalid_arg_cases(self):
+    def define_invalid_arg_cases(self) -> None:
         super().define_invalid_arg_cases()
         self.rejected['Autotuner requires eventlogs'] = {
             'valid': False,
@@ -556,11 +556,11 @@ class ProfileUserArgModel(ToolUserArgModel):
             ]
         }
 
-    def define_rejected_missing_eventlogs(self):
+    def define_rejected_missing_eventlogs(self) -> None:
         if self.p_args['toolArgs']['driverlog'] is None:
             super().define_rejected_missing_eventlogs()
 
-    def define_detection_cases(self):
+    def define_detection_cases(self) -> None:
         super().define_detection_cases()
         # append the case when the autotuner input
         self.detected['Define Platform based on Eventlogs prefix']['cases'].append(
