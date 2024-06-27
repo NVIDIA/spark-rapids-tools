@@ -192,9 +192,9 @@ def load_plugin(plugin_path: str) -> types.ModuleType:
 
     Supported APIs:
 
-    def post_process(profile_df: pd.DataFrame) -> pd.DataFrame:
-        # post-process profile_df
-        return profile_df
+    def load_profiles_hook(df: pd.DataFrame) -> pd.DataFrame:
+        # add dataset-specific modifications
+        return df
     """
     plugin_path = os.path.expandvars(plugin_path)
     plugin_name = Path(plugin_path).name.split('.')[0]

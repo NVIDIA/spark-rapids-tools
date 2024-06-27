@@ -395,7 +395,7 @@ def load_profiles(
     for p in plugins:
         plugin = load_plugin(p)
         if plugin:
-            profile_df = plugin.load_profile_hook(profile_df)
+            profile_df = plugin.load_profiles_hook(profile_df)
 
     return profile_df
 
