@@ -230,7 +230,7 @@ def load_datasets(
                 dataset_keys = list(datasets.keys())
                 profile_df['appName_base'] = profile_df['appName'].str.split(':').str[0]
                 profile_df = profile_df.loc[profile_df['appName_base'].isin(dataset_keys)]
-                profile_df.drop(columns='appName_base')
+                profile_df.drop(columns='appName_base', inplace=True)
         else:
             # otherwise, check for cached profiler output
             profile_dir = f'{platform_cache}/profile'
@@ -378,7 +378,7 @@ def load_profiles(
                 raw_features['appName'] = (
                     raw_features['appName'] + ':' + raw_features['jobName']
                 )
-                raw_features.drop(columns=['jobName'])
+                raw_features.drop(columns=['jobName'], inplace=True)
 
             # add platform from app_meta
             raw_features[f'platform_{platform}'] = 1
