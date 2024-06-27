@@ -225,9 +225,12 @@ def load_datasets(
             )
             profile_df = pd.read_parquet(f'{platform_cache}/{PREPROCESSED_FILE}')
             if ignore_test:
-                # remove any 'test' datasets from preprocessed data
+                # remove any 'test' datasets from cached data by filtering
+                # only appNames found in datasets structure
                 dataset_keys = list(datasets.keys())
-                profile_df = profile_df.loc[profile_df['appName'].isin(dataset_keys)]
+                profile_df['appName_base'] = profile_df['appName'].str.split(':').str[0]
+                profile_df = profile_df.loc[profile_df['appName_base'].isin(dataset_keys)]
+                profile_df.drop(columns='appName_base')
         else:
             # otherwise, check for cached profiler output
             profile_dir = f'{platform_cache}/profile'
@@ -271,6 +274,7 @@ def load_profiles(
     """Load dataset profiler CSV files as a pd.DataFrame."""
 
     def infer_app_meta(eventlogs: List[str]) -> Mapping[str, Mapping]:
+        """Given a list of paths to eventlogs, infer the app_meta from the path for each appId."""
         eventlog_list = [find_eventlogs(os.path.expandvars(e)) for e in eventlogs]
         eventlog_list = list(chain(*eventlog_list))
         app_meta = {}
@@ -372,7 +376,7 @@ def load_profiles(
                 raw_features['jobName'] = raw_features['appId'].map(app_job)
                 # append jobName to appName to allow joining cpu and gpu logs at the app level
                 raw_features['appName'] = (
-                    raw_features['appName'] + '_' + raw_features['jobName']
+                    raw_features['appName'] + ':' + raw_features['jobName']
                 )
                 raw_features.drop(columns=['jobName'])
 

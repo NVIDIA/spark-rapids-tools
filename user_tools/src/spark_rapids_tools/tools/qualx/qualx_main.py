@@ -395,8 +395,8 @@ def train(
 
     # sanity check
     if set(dataset_list) != set(profile_datasets):
-        logger.error(
-            'Training data contained datasets: {profile_datasets}, expected: {dataset_list}.'
+        logger.warn(
+            f'Training data contained datasets: {profile_datasets}, expected: {dataset_list}.'
         )
 
     features, feature_cols, label_col = extract_model_features(profile_df, split_nds)
