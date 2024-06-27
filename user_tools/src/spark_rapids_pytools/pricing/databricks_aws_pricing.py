@@ -15,6 +15,7 @@
 """providing absolute costs of resources in Databricks"""
 
 from dataclasses import dataclass, field
+from typing import Optional
 
 from spark_rapids_tools import get_elem_from_dict, get_elem_non_safe
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
@@ -33,13 +34,13 @@ class DBAWSCatalogContainer():
     catalog_file: str
     props: dict = field(default_factory=dict, init=False)  # instance -> price [str, float]
 
-    def get_value(self, *key_strs):
+    def get_value(self, *key_strs) -> Optional[float]:
         return get_elem_from_dict(self.props, key_strs)
 
-    def get_value_silent(self, *key_strs):
+    def get_value_silent(self, *key_strs) -> Optional[float]:
         return get_elem_non_safe(self.props, key_strs)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.props = {}
         raw_props = JSONPropertiesContainer(self.catalog_file)
         for elem in raw_props.props:
@@ -57,7 +58,7 @@ class DatabricksAWSPriceProvider(PriceProvider):
     # need to figure out how to find these values from cluster properties.
     plan: str = field(default='Premium', init=False)  # Standard, Premium (default), or Enterprise
 
-    def _process_resource_configs(self):
+    def _process_resource_configs(self) -> None:
         online_entries = self.pricing_configs['databricks-aws'].get_value('catalog', 'onlineResources')
         for online_entry in online_entries:
             file_name = online_entry.get('localFile')
@@ -65,7 +66,7 @@ class DatabricksAWSPriceProvider(PriceProvider):
             self.cache_files[file_key] = FSUtil.build_path(self.cache_directory, file_name)
             self.resource_urls[file_key] = online_entry.get('onlineURL')
 
-    def _create_catalogs(self):
+    def _create_catalogs(self) -> None:
         ec2_cached_files = {'ec2': self.cache_files['ec2']}
         self.catalogs = {'aws': AWSCatalogContainer(ec2_cached_files)}
         self.catalogs['databricks-aws'] = DBAWSCatalogContainer(self.cache_files['databricks-aws'])

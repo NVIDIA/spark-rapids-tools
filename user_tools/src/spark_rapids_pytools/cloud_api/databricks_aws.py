@@ -332,7 +332,7 @@ class DBAWSSavingsEstimator(SavingsEstimator):
     A class that calculates the savings based on a Databricks-AWS price provider
     """
 
-    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
+    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor) -> float:
         total_cost = 0.0
         for node_type in [SparkNodeType.MASTER, SparkNodeType.WORKER]:
             instance_type = cluster.get_node_instance_type(node_type)
