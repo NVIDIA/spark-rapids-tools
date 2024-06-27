@@ -171,10 +171,16 @@ class DataprocPlatform(PlatformBase):
                 adjusted_cores = num_cpu
         # At this point adjusted_cores should be the best match.
         selected_machine_type = f'{series_name}-{adjusted_cores}'
-        self.logger.info(
-            'The number of cores %d is not in the list of supported cores. '
-            'Adjusting it to the nearest CSP machine with higher number of cores %s',
-            cores_per_executor, selected_machine_type)
+        self.logger.info('The number of cores %d is not in the list of supported cores.',
+                         cores_per_executor)
+        if adjusted_cores > cores_per_executor:
+            self.logger.info(
+                'Adjusting number of cores the nearest CSP machine with higher number of cores %s',
+                selected_machine_type)
+        else:
+            self.logger.info(
+                'Adjusting number of cores the CSP machine with highest number of cores %s',
+                selected_machine_type)
         return selected_machine_type
 
     def generate_cluster_configuration(self, render_args: dict):
