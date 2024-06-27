@@ -34,26 +34,6 @@ PREPROCESSED_FILE = 'preprocessed.parquet'
 
 logger = get_logger(__name__)
 
-# determing if a containing stage or sqlID is fully supported
-unsupported_overrides = [
-    'AdaptiveSparkPlan',
-    'AppendDataExecV1',
-    'AtomicReplaceTableAsSelect',
-    'BroadcastNestedLoopJoin',
-    'ColumnarToRow',
-    'CommandResult',
-    'DeltaInvariantChecker',
-    'Execute AddJarsCommand',
-    'Execute MergeIntoCommandEdge',
-    'OverwriteByExpressionExecV1',
-    'ResultQueryStage',
-    'Scan ExistingRDD',
-    'Scan ExistingRDD Delta Table',
-    'Scan ExistingRDD mergeMaterializedSource',
-    'SortMergeJoin(skew=true)',
-    'Subquery',
-    'TableCacheQueryStage',
-]
 # expected features for dataframe produced by preprocessing
 expected_raw_features = \
     {
@@ -1110,14 +1090,16 @@ def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
     to aggregate features and durations only over supported stages.
     """
     node_level_supp = None
+
+    def __isIgnoreNoPerf(action: str) -> bool:
+        return action == 'IgnoreNoPerf'
+
     if qtool_execs:
         exec_info = pd.concat([pd.read_csv(f) for f in qtool_execs])
         node_level_supp = exec_info.copy()
         node_level_supp['Exec Is Supported'] = (
             node_level_supp['Exec Is Supported']
-            | node_level_supp['Exec Name'].apply(
-                lambda x: any([x.startswith(nm) for nm in unsupported_overrides])
-            )
+            | node_level_supp['Action'].apply(__isIgnoreNoPerf)
             | node_level_supp['Exec Name'].apply(
                 lambda x: x.startswith('WholeStageCodegen')
             )
