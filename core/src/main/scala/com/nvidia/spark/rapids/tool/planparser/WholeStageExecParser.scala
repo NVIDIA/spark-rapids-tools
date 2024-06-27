@@ -55,7 +55,6 @@ case class WholeStageExecParser(
     // average speedup across the execs in the WholeStageCodegen for now
     val supportedChildren = childNodes.filterNot(_.shouldRemove)
     val avSpeedupFactor = SQLPlanParser.averageSpeedup(supportedChildren.map(_.speedupFactor))
-    // TODO: revisit the logic behind adding the stages of child nodes to the current node.
     // can't rely on the wholeStagecodeGen having a stage if children do so aggregate them together
     // for now
     val allStagesIncludingChildren = childNodes.flatMap(_.stages).toSet ++ stagesInNode.toSet
