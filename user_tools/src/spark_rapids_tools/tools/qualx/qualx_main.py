@@ -248,7 +248,7 @@ def _read_dataset_scores(
             nan_df['model'] + '/' + nan_df['platform'] + '/' + nan_df['dataset']
         )
         keys = list(nan_df['key'].unique())
-        logger.warn(f'Dropped rows w/ NaN values from: {eval_dir}: {keys}')
+        logger.warning(f'Dropped rows w/ NaN values from: {eval_dir}: {keys}')
 
     return df
 
@@ -298,7 +298,7 @@ def _read_platform_scores(
             nan_df['model'] + '/' + nan_df['platform'] + '/' + nan_df['dataset']
         )
         keys = list(nan_df['key'].unique())
-        logger.warn(f'Dropped rows w/ NaN values from: {eval_dir}: {keys}')
+        logger.warning(f'Dropped rows w/ NaN values from: {eval_dir}: {keys}')
 
     # compute accuracy by platform
     scores = {}
@@ -395,7 +395,7 @@ def train(
 
     # sanity check
     if set(dataset_list) != set(profile_datasets):
-        logger.warn(
+        logger.warning(
             f'Training data contained datasets: {profile_datasets}, expected: {dataset_list}.'
         )
 
@@ -448,7 +448,7 @@ def predict(
             )
             appIds = [Path(p).name for p in appIds]
             if len(appIds) == 0:
-                logger.warn(f'Skipping empty metrics directory: {metrics_dir}')
+                logger.warning(f'Skipping empty metrics directory: {metrics_dir}')
             else:
                 try:
                     for appId in appIds:
@@ -522,7 +522,7 @@ def predict(
                 logger.error(e)
                 traceback.print_exc(e)
         else:
-            logger.warn(f'Predicted speedup will be 1.0 for dataset: {dataset}. Check logs for details.')
+            logger.warning(f'Predicted speedup will be 1.0 for dataset: {dataset}. Check logs for details.')
         # TODO: Writing CSV reports for all datasets to the same location. We should write to separate directories.
         write_csv_reports(per_sql_summary, per_app_summary, output_info)
         dataset_summaries.append(per_app_summary)
@@ -932,7 +932,7 @@ def compare(
     # warn user of any new datasets
     added = curr_datasets - prev_datasets
     if added:
-        logger.warn(f'New datasets added, comparisons may be skewed: added={added}')
+        logger.warning(f'New datasets added, comparisons may be skewed: added={added}')
 
 
 def entrypoint():

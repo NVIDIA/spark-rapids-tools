@@ -77,7 +77,7 @@ def train(
         drop=True
     )
     if cpu_aug_tbl.shape[0] < original_num_rows:
-        logger.warn(
+        logger.warning(
             f'Removed {original_num_rows - cpu_aug_tbl.shape[0]} rows with NaN label values'
         )
 
@@ -142,7 +142,7 @@ def predict(
     if missing:
         raise ValueError(f'Input is missing model features: {missing}')
     if extra:
-        logger.warn(f'Input had extra features not present in model: {extra}')
+        logger.warning(f'Input had extra features not present in model: {extra}')
 
     X = cpu_aug_tbl[model_features]
     y = cpu_aug_tbl[label_col] if label_col else None
@@ -212,7 +212,7 @@ def extract_model_features(
     """Extract model features from raw features."""
     missing = expected_raw_features - set(df.columns)
     if missing:
-        logger.warn(f'Input dataframe is missing expected raw features: {missing}')
+        logger.warning(f'Input dataframe is missing expected raw features: {missing}')
 
     if FILTER_SPILLS:
         df = df[
@@ -234,7 +234,7 @@ def extract_model_features(
     gpu_aug_tbl = df[df['runType'] == 'GPU']
     if gpu_aug_tbl.shape[0] > 0:
         if gpu_aug_tbl.shape[0] != cpu_aug_tbl.shape[0]:
-            logger.warn(
+            logger.warning(
                 'Number of GPU rows ({}) does not match number of CPU rows ({})'.format(
                     gpu_aug_tbl.shape[0], cpu_aug_tbl.shape[0]
                 )
@@ -262,7 +262,7 @@ def extract_model_features(
         if (
             num_na / num_rows > 0.05
         ):  # arbitrary threshold, misaligned sqlIDs still may 'match' most of the time
-            logger.warn(
+            logger.warning(
                 f'Percentage of NaN GPU durations is high: {num_na} / {num_rows}  Per-sql actual speedups may be inaccurate.'
             )
 
@@ -299,7 +299,7 @@ def extract_model_features(
         raise ValueError(f'Input data is missing model features: {missing}')
     if extra:
         # remove extra columns
-        logger.warn(f'Input data has extra features (removed): {extra}')
+        logger.warning(f'Input data has extra features (removed): {extra}')
         feature_cols = [c for c in feature_cols if c not in extra]
 
     # add train/val/test split column, if split function provided

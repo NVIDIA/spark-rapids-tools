@@ -205,7 +205,7 @@ def load_plugin(plugin_path: str) -> types.ModuleType:
         logger.info(f'Successfully loaded plugin: {plugin_path}')
         return module
     else:
-        logger.warn(f'Failed to load plugin: {plugin_path}')
+        logger.warning(f'Failed to load plugin: {plugin_path}')
         return None
 
 

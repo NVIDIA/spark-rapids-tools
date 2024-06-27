@@ -257,7 +257,7 @@ def load_datasets(
 
     # sanity check
     if ds_count != len(all_datasets):
-        logger.warn(
+        logger.warning(
             f'Duplicate dataset key detected, got {len(all_datasets)} datasets, but read {ds_count} datasets.'
         )
 
@@ -733,7 +733,7 @@ def impute(full_tbl: pd.DataFrame) -> pd.DataFrame:
         missing = sorted(expected_raw_features - actual_features)
         extra = sorted(actual_features - expected_raw_features)
         if missing:
-            logger.warn(f'Imputing missing features: {missing}')
+            logger.warning(f'Imputing missing features: {missing}')
             for col in missing:
                 if col != 'fraction_supported':
                     full_tbl[col] = 0
@@ -741,7 +741,7 @@ def impute(full_tbl: pd.DataFrame) -> pd.DataFrame:
                     full_tbl[col] = 1.0
 
         if extra:
-            logger.warn(f'Removing extra features: {extra}')
+            logger.warning(f'Removing extra features: {extra}')
             full_tbl = full_tbl.drop(columns=extra)
 
         # one last check after modifications (update expected_raw_features if needed)
@@ -775,7 +775,7 @@ def load_csv_files(
             )
         except Exception:
             if warn_on_error or abort_on_error:
-                logger.warn(f'Failed to load {tb_name} for {app_id}.')
+                logger.warning(f'Failed to load {tb_name} for {app_id}.')
             if abort_on_error:
                 raise ScanTblError()
             out = pd.DataFrame()
@@ -1011,7 +1011,7 @@ def load_csv_files(
             )
 
         if sqls_to_drop:
-            logger.warn(
+            logger.warning(
                 f'Ignoring sqlIDs {sqls_to_drop} due to excessive failed/cancelled stage duration.'
             )
 
@@ -1092,12 +1092,12 @@ def load_csv_files(
             aborted_sql_ids = set()
 
         if aborted_sql_ids:
-            logger.warn(f'Ignoring sqlIDs {aborted_sql_ids} due to aborted jobs.')
+            logger.warning(f'Ignoring sqlIDs {aborted_sql_ids} due to aborted jobs.')
 
         sqls_to_drop = sqls_to_drop.union(aborted_sql_ids)
 
         if sqls_to_drop:
-            logger.warn(
+            logger.warning(
                 f'Ignoring a total of {len(sqls_to_drop)} sqlIDs due to stage/job failures.'
             )
             app_info_mg = app_info_mg.loc[~app_info_mg.sqlID.isin(sqls_to_drop)]
