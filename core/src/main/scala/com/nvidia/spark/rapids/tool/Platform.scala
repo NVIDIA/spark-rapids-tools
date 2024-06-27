@@ -255,13 +255,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 
   def getNumExecutorInstances(): Int = {
-    if (clusterInfoFromEventLog.isDefined) {
-      logWarning("Tom using eventlog")
-      // TODO - if gpu eventlog use that number, cpu use 1 or platform
-      // TODO - anyway to tell from gpu eventlog?
-      logWarning("num instances is 1")
-      1
-    } else if (clusterProperties.isDefined) {
+    if (clusterProperties.isDefined) {
       // assume 1 GPU per machine unless specified
       // TODO - double check this with python side
       val numGpus = Math.max(1, clusterProperties.get.gpu.getCount)
@@ -269,6 +263,12 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       logWarning("num instances is " + numGpus + " numworksr: "
         + clusterProperties.get.system.numWorkers)
       numGpus * numWorkers
+    } else if (clusterInfoFromEventLog.isDefined) {
+      logWarning("Tom using eventlog")
+      // TODO - if gpu eventlog use that number, cpu use 1 or platform
+      // TODO - anyway to tell from gpu eventlog?
+      logWarning("num instances is 1")
+      1
     } else {
       // not sure so don't set it
       logWarning("num instances is 0")
@@ -278,8 +278,12 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 
   def getNumCoresPerNode(): Int = {
-    // try to use the ones from event log for now first
-    if (clusterInfoFromEventLog.isDefined) {
+    if (clusterProperties.isDefined) {
+      // if can't get real event log based info then use what the user passes in
+      // TODO - make this configurable to override event log
+      logWarning("Tom using the cluster props")
+      clusterProperties.get.system.getNumCores
+    } else if (clusterInfoFromEventLog.isDefined) {
       logWarning("Tom using eventlog")
 
       if (clusterInfoFromEventLog.get.instanceInfo.isDefined) {
@@ -299,11 +303,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
           nodeCores
         }
       }
-    } else if (clusterProperties.isDefined) {
-      // if can't get real event log based info then use what the user passes in
-      // TODO - make this configurable to override event log
-      logWarning("Tom using the cluster props")
-      clusterProperties.get.system.getNumCores
     } else {
       logWarning("Tom using 0")
 
@@ -313,8 +312,18 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 
   def getMemoryMBPerNode(): Long = {
-    // try to use the ones from event log for now first
-    if (clusterInfoFromEventLog.isDefined) {
+    // To keep the previous behavior we first check if cluster properties are defined and
+    // use those are the target cluster. Even though this is going to be wrong in many
+    // cases. Ideally we change this in the future.
+    if (clusterProperties.isDefined) {
+      logWarning("Tom using cluster properties mem ")
+
+      // if can't get real event log based info then use what the user passes in
+      // TODO - make this configurable to override event log
+      logWarning("TOM using cluster properties: " + clusterProperties.get.system.getMemory)
+      StringUtils.convertToMB(clusterProperties.get.system.getMemory)
+      // try to use the ones from event log for now first
+    } else if (clusterInfoFromEventLog.isDefined) {
       logWarning("Tom using eventlog mem ")
 
       if (clusterInfoFromEventLog.get.instanceInfo.isDefined) {
@@ -344,13 +353,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
           memPerNodeCalc
         }
       }
-    } else if (clusterProperties.isDefined) {
-      logWarning("Tom using cluster properties mem ")
-
-      // if can't get real event log based info then use what the user passes in
-      // TODO - make this configurable to override event log
-      logWarning("TOM using cluster properties: " + clusterProperties.get.system.getMemory)
-      StringUtils.convertToMB(clusterProperties.get.system.getMemory)
     } else {
       logWarning("TOM using 0")
       // we don't know

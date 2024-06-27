@@ -148,11 +148,16 @@ class QualificationSummary:
                 full_tunings_file = "Doesn't exist, see the stdout for errors"
                 gpu_tunings_file = "Doesn't exist, see the stdout for errors"
 
-            # add the per app node conversions
-            conversion_column_dict = {'App ID': list(self.conversion_items.keys()),
-                                      'Qualified Node Recommendation': list(self.conversion_items.values())}
-            conversion_df = pd.DataFrame.from_dict(conversion_column_dict)
-            print_result = pd.merge(self.df_result, conversion_df, on=['App ID'], how='left')
+            if ('all' in self.conversion_items):
+                print_result = self.df_result
+                print_result['Qualified Node Recommendation'] = self.conversion_items['all']
+            else:
+                # add the per app node conversions
+                conversion_column_dict = {'App ID': list(self.conversion_items.keys()),
+                                          'Qualified Node Recommendation': list(self.conversion_items.values())}
+                conversion_df = pd.DataFrame.from_dict(conversion_column_dict)
+                print_result = pd.merge(self.df_result, conversion_df, on=['App ID'], how='left')
+
             print_result['Full Cluster Config Recommendations*'] = full_tunings_file
             print_result['GPU Config Recommendation Breakdown*'] = gpu_tunings_file
             pretty_df = df_pprinter(print_result)
@@ -912,6 +917,18 @@ class Qualification(RapidsJarTool):
         filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
 
         conversion_items_summary = {}
+        if self.ctxt.get_ctxt('cpuClusterProxy'):
+            cpu_cluster_info = self.ctxt.get_ctxt('cpuClusterProxy')
+            gpu_cluster_info = self.ctxt.get_ctxt('gpuClusterProxy')
+            if cpu_cluster_info is not None and gpu_cluster_info is not None:
+                if cpu_cluster_info.get_worker_node().instance_type == gpu_cluster_info.get_worker_node().instance_type:
+                    conversion_items_summary["all"] = cpu_cluster_info.get_worker_node().instance_type
+                else:
+                    conversion_items_summary["all"] = cpu_cluster_info.get_worker_node().instance_type + ' to ' \
+                                                       + gpu_cluster_info.get_worker_node().instance_type
+            else:
+                conversion_items_summary["all"] = cpu_cluster_info.get_worker_node().instance_type
+
         gpu_cluster_info_per_app = self.ctxt.get_ctxt('gpuClusterInfoPerApp')
         cpu_cluster_info_per_app = self.ctxt.get_ctxt('cpuClusterInfoPerApp')
         if cpu_cluster_info_per_app is not None:
@@ -1124,29 +1141,21 @@ class Qualification(RapidsJarTool):
     # changing the cost savings flow at the same time. Ideally in the future they
     # get combined back together.
     def __infer_cluster_for_auto_tuning(self, cluster_info_df: pd.DataFrame):
-        # we actually want to use the inferred version over what user passed if possible
+        # if the user passed in the cpu cluster property, use that but we still want to try to infer the gpu
+        # cluster to use
         if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
-            self.logger.info('Inferred Cluster but cpu node already set %s', self.ctxt.get_ctxt('cpuClusterProxy'))
-            return
+            self.logger.info('auto tuning Inferred Cluster but cpu node already set %s gpu cluster is %s',
+                             self.ctxt.get_ctxt('cpuClusterProxy'), self.ctxt.get_ctxt('gpuClusterProxy'))
+            # here we want to just infer the gpu cluster from the cpu cluster passed in
 
-        if len(cluster_info_df) != 1:
-            self.logger.info('cluster info df is %d', len(cluster_info_df))
+            return
 
         cpu_cluster_dict = {}
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
         for index, row in cluster_info_df.iterrows():
             single_cluster_df = cluster_info_df.iloc[[index]]
 
-            exec_inst = row['Executor Instance']
-            #if exec_inst is not None:
-            # use that information,
-            cores_per_exec = row['Cores Per Executor']
-            execs_per_node  = row['Num Executors Per Node']
-            total_cores_per_node = cores_per_exec * execs_per_node
-            self.logger.info('Tom total cores: %d exec instances: %s for cluster id: %s app id %s cores %s',
-                             total_cores_per_node, row['Executor Instance'], row['Cluster Id'],
-                             row['App ID'], row['Cores Per Executor'])
-
+            # TODO - test executor instance picked up if there
             # Infer the CPU cluster from the cluster information
             cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(single_cluster_df)
             if cpu_cluster_obj is None:

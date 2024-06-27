@@ -67,7 +67,6 @@ class QualificationAutoTuner(val appInfoProvider: QualAppSummaryInfoProvider,
   def runAutoTuner(): TuningResult = {
     val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(
       tunerContext.workerInfoPath, appInfoProvider, tunerContext.platform)
-    logWarning("TOM in run auto tuner!!")
     val (recommendations, comments) =
       autoTuner.getRecommendedProperties(showOnlyUpdatedProps = filterByUpdatedPropsEnabled)
     // Combine the GPU recommendations with all others.
