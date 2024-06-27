@@ -426,7 +426,7 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   def calcExecInstances(): Int = {
-    platform.getNumExecutorInstances()
+    platform.getNumExecutorInstances(getAllProperties.toMap)
   }
 
   /**

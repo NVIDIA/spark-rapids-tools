@@ -27,7 +27,7 @@ import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
-import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, FailureApp, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterSummary, FailureApp, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
 import org.apache.spark.sql.rapids.tool.store.StageModel
 
@@ -848,7 +848,7 @@ class QualificationAppInfo(
    * @return Cluster information including vendor, cores, number of nodes and maybe
    *         instance types, driver host, cluster id and cluster name.
    */
-  override def buildClusterInfo: Option[ClusterInfo] = {
+  override def buildClusterInfo: Unit = {
     // TODO: Handle dynamic allocation when determining the number of nodes.
     sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
       if (value.toBoolean) {
@@ -870,11 +870,8 @@ class QualificationAppInfo(
           s"Using maximum value.")
       }
       // Create cluster information based on platform type
-      // TODO - can we remove this return value?
-      Some(pluginTypeChecker.platform.configureClusterInfoFromEventLog(coresPerExecutor.max,
-        numExecsPerNode, activeHosts.toSet.size, sparkProperties, systemProperties))
-    } else {
-      None
+      pluginTypeChecker.platform.configureClusterInfoFromEventLog(coresPerExecutor.max,
+        numExecsPerNode, activeHosts.toSet.size, sparkProperties, systemProperties)
     }
   }
 
