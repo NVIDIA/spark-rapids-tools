@@ -258,7 +258,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     }
   }
 
-  def getNumExecutorInstances(sparkProperties: Map[String, String]): Int = {
+  def getNumExecutorInstances(execInstFromProps: Option[String]): Int = {
     if (clusterProperties.isDefined) {
       // assume 1 GPU per machine unless specified
       // TODO - double check this with python side
@@ -267,15 +267,15 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       logWarning("num instances is " + numGpus + " numworksr: "
         + clusterProperties.get.system.numWorkers)
       numGpus * numWorkers
-    } else if (sparkProperties.contains("spark.executor.instances")) {
+    } else if (execInstFromProps.isDefined) {
       logWarning("Tom using spark.executor.instances")
-      sparkProperties.get("spark.executor.instances").get.toInt
+      execInstFromProps.get.toInt
     } else if (clusterInfoFromEventLog.isDefined) {
       val clusterInfo = clusterInfoFromEventLog.get
-      logWarning("Tom using eventlog")
+      logWarning("Tom using eventlog 11")
       // TODO - if gpu eventlog use that number, cpu use 1 or platform
       // TODO - anyway to tell from gpu eventlog?
-      logWarning("num instances is 1")
+      logWarning("num instances is: " + clusterInfo.numExecutorNodes * clusterInfo.numExecsPerNode)
       // TODO - get spark.executor.instances?
       clusterInfo.numExecutorNodes * clusterInfo.numExecsPerNode
     } else {

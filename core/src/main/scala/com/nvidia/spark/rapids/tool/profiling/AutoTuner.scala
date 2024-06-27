@@ -426,7 +426,7 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   def calcExecInstances(): Int = {
-    platform.getNumExecutorInstances(getAllProperties.toMap)
+    platform.getNumExecutorInstances(getPropertyValue("spark.executor.instances"))
   }
 
   /**
@@ -707,6 +707,7 @@ class AutoTuner(
 
 
   def calculateClusterLevelRecommendations(): Unit = {
+    logWarning("Tom in calculateClusterLevelRecommendations")
     recommendExecutorInstances()
     val numExecutorCores = calcNumExecutorCores
     val execCoresExpr = () => numExecutorCores
