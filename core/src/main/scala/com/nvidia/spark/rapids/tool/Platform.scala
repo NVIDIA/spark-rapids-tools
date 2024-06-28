@@ -128,10 +128,11 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
    */
   def getRetainedSystemProps: Set[String] = Set.empty
 
-  def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
+  def createClusterInfo(coresPerExecutor: Int, numExecsPerNode: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val driverHost = sparkProperties.get("spark.driver.host")
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, driverHost = driverHost)
+    ClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecutorNodes,
+      driverHost = driverHost)
   }
 
   override def toString: String = {
@@ -160,14 +161,14 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform
     "spark.executor.memoryOverhead"
   )
 
-  override def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
+  override def createClusterInfo(coresPerExecutor: Int, numExecsPerNode: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val executorInstance = sparkProperties.get(DatabricksParseHelper.PROP_WORKER_TYPE_ID_KEY)
     val driverInstance = sparkProperties.get(DatabricksParseHelper.PROP_DRIVER_TYPE_ID_KEY)
     val clusterId = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY)
     val driverHost = sparkProperties.get("spark.driver.host")
     val clusterName = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY)
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, executorInstance,
+    ClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecutorNodes, executorInstance,
       driverInstance, driverHost, clusterId, clusterName)
   }
 }
@@ -205,12 +206,12 @@ class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
 
   override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
 
-  override def createClusterInfo(coresPerExecutor: Int, numExecutorNodes: Int,
+  override def createClusterInfo(coresPerExecutor: Int, numExecsPerNode: Int, numExecutorNodes: Int,
       sparkProperties: Map[String, String], systemProperties: Map[String, String]): ClusterInfo = {
     val clusterId = systemProperties.get("EMR_CLUSTER_ID")
     val driverHost = sparkProperties.get("spark.driver.host")
-    ClusterInfo(platformName, coresPerExecutor, numExecutorNodes, clusterId = clusterId,
-      driverHost = driverHost)
+    ClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecutorNodes,
+      clusterId = clusterId, driverHost = driverHost)
   }
 }
 

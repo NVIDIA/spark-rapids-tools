@@ -47,7 +47,7 @@ RAPIDS variables have a naming pattern `RAPIDS_USER_TOOLS_*`:
     Note that caching the resources locally has an impact on the total execution time of the command.
   - `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY`: specifies the location of a local directory that the RAPIDS-cli uses to
     generate the output. The wrapper CLI arguments override that environment variable
-    (`--output_folder` and `local_folder` for Bootstrap and Qualification respectively).
+    (`local_folder` for Qualification).
   
 ## Qualification command
 
@@ -325,62 +325,6 @@ The CLI is triggered by providing the location where the yaml file is stored `--
 
 Note that if the user does not supply a cluster or worker properties file, the autotuner will still recommend
 tuning settings based on the job event log.
-
-## Bootstrap command
-
-```
-spark_rapids_user_tools dataproc bootstrap [options]
-spark_rapids_user_tools dataproc bootstrap --help
-```
-
-The command generates an output with a list of properties to be applied to Spark configurations.
-In order to apply those recommendations, the cluster has to be running, and the user must have SSH
-access.
-
-### Bootstrap options
-
-| Option            | Description                                                               | Default                                                                                     | Required |
-|-------------------|---------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|:--------:|
-| **cluster**       | Name of the Dataproc cluster running an accelerated computing instance    | N/A                                                                                         |     Y    |
-| **output_folder** | Path to local directory where the final recommendations is logged         | env variable `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY` if any; or the current working directory. |     N    |
-| **dry_run**       | True or False to update the Spark config settings on Dataproc master node | True                                                                                        |     N    |
-| **verbose**       | True or False to enable verbosity to the wrapper script                   | False if `RAPIDS_USER_TOOLS_LOG_DEBUG` is not set                                           |     N    |
-
-### Dry-run enabled
-
-The default is to enable dry-run. This generates recommendations without any side effect. This mode helps to generate
-a map between cluster configuration and the recommended Spark properties.  
-Note that this mode:
-- does not require SSH access to the cluster
-- does not require the cluster to be active and running.
-
-1. User creates a cluster
-2. Run the following command
-
-    ```bash
-    spark_rapids_user_tools dataproc bootstrap \
-      --cluster my-cluster-name
-    ```
-
-### Dry-run disabled
-
-In some cases, the user may want to run this command as part of the initialization scripts.  
-The command update Sparks default-conf `/etc/spark/conf/spark-defaults.conf` SSH access
-to the active cluster.
-
-The steps to run the command:
-
-1. The user creates a cluster
-2. The user runs the following command:
-
-    ```bash
-    spark_rapids_user_tools dataproc bootstrap \
-      --cluster my-cluster-name \
-      --nodry_run
-    ```
-
-If the connection to Dataproc instances cannot be established through SSH, the command will still
-generate an output while displaying warning that the remote changes failed. 
 
 ## Diagnostic command
 

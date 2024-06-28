@@ -6,14 +6,12 @@ The wrapper improves end-user experience within the following dimensions:
 1. **Qualification**: Educate the CPU customer on the cost savings and acceleration potential of RAPIDS Accelerator for
    Apache Spark. The output shows a list of apps recommended for RAPIDS Accelerator for Apache Spark with estimated savings
    and speed-up.
-2. **Bootstrap**: Provide optimized RAPIDS Accelerator for Apache Spark configs based on GPU cluster shape. The output
-   shows updated Spark config settings on driver node.
-3. **Tuning**: Tune RAPIDS Accelerator for Apache Spark configs based on initial job run leveraging Spark event logs. The output
+2. **Tuning**: Tune RAPIDS Accelerator for Apache Spark configs based on initial job run leveraging Spark event logs. The output
    shows recommended per-app RAPIDS Accelerator for Apache Spark config settings.
-4. **Diagnostics**: Run diagnostic functions to validate the Dataproc with RAPIDS Accelerator for Apache Spark environment to
+3. **Diagnostics**: Run diagnostic functions to validate the Dataproc with RAPIDS Accelerator for Apache Spark environment to
    make sure the cluster is healthy and ready for Spark jobs.
-5. **Prediction**: Predict the speedup of running a Spark application with Spark RAPIDS on GPUs.
-6. **Train**: Train a model to predict the performance of a Spark job on RAPIDS Accelerator for Apache Spark. The output shows
+4. **Prediction**: Predict the speedup of running a Spark application with Spark RAPIDS on GPUs.
+5. **Train**: Train a model to predict the performance of a Spark job on RAPIDS Accelerator for Apache Spark. The output shows
    the model file that can be used to predict the performance of a Spark job.
 
 

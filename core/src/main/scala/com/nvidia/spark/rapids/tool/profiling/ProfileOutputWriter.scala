@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2022, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package com.nvidia.spark.rapids.tool.profiling
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import org.apache.commons.lang3.StringUtils
 
-import org.apache.spark.sql.rapids.tool.ToolUtils
 
 class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: Int,
     outputCSV: Boolean = false) {
@@ -85,8 +84,7 @@ object ProfileOutputWriter {
         csvWriter.write(headerString + "\n")
         val rows = outRows.map(_.convertToCSVSeq)
         rows.foreach { row =>
-          val delimiterHandledRow = row.map(ProfileUtils.replaceDelimiter(_, CSVDelimiter))
-          val formattedRow = delimiterHandledRow.map(stringIfempty(_))
+          val formattedRow = row.map(stringIfempty(_))
           val outStr = formattedRow.mkString(CSVDelimiter)
           csvWriter.write(outStr + "\n")
         }
@@ -146,22 +144,19 @@ object ProfileOutputWriter {
     if (rows.nonEmpty && schema.size != rows.head.size) {
       throw new IllegalArgumentException("schema must be same size as data!")
     }
-    val escapedSchema = schema.map(ToolUtils.escapeMetaCharacters)
+
+    val escapedSchema = schema.map(
+      org.apache.spark.sql.rapids.tool.util.StringUtils.renderStr(_, doEscapeMetaCharacters = true,
+        maxLength = 0))
 
     val schemaAndData = escapedSchema +: rows.map { row =>
       row.map { cell =>
-        val str = cell match {
+        cell match {
           case null => "null"
-          case _ =>
+          case str: String =>
             // Escapes meta-characters not to break the `showString` format
-            ToolUtils.escapeMetaCharacters(cell.toString)
-        }
-        if (truncate > 0 && str.length > truncate) {
-          // do not show ellipses for strings shorter than 4 characters.
-          if (truncate < 4) str.substring(0, truncate)
-          else str.substring(0, truncate - 3) + "..."
-        } else {
-          str
+            org.apache.spark.sql.rapids.tool.util.StringUtils.renderStr(
+              str, doEscapeMetaCharacters = true, maxLength = truncate, showEllipses = true)
         }
       }: Seq[String]
     }

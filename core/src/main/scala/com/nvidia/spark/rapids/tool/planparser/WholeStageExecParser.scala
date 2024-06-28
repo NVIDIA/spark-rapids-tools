@@ -45,20 +45,25 @@ case class WholeStageExecParser(
     val childNodes = node.nodes.flatMap { c =>
       SQLPlanParser.parsePlanNode(c, sqlID, checker, app, reusedNodeIds)
     }
-    // if any of the execs in WholeStageCodegen supported mark this entire thing
-    // as supported
+    // For the childNodes, we need to append the stages. Otherwise, nodes without metrics won't be
+    // assigned to stage
+    childNodes.foreach(_.appendToStages(stagesInNode))
+    // if any of the execs in WholeStageCodegen supported mark this entire thing as supported
     val anySupported = childNodes.exists(_.isSupported == true)
-    val unSupportedExprsArray = childNodes.filter(_.unsupportedExprs.length > 0 ).map(
-      x => x.unsupportedExprs).flatten.toArray
+    val unSupportedExprsArray =
+      childNodes.filter(_.unsupportedExprs.nonEmpty).flatMap(x => x.unsupportedExprs).toArray
     // average speedup across the execs in the WholeStageCodegen for now
     val supportedChildren = childNodes.filterNot(_.shouldRemove)
     val avSpeedupFactor = SQLPlanParser.averageSpeedup(supportedChildren.map(_.speedupFactor))
     // can't rely on the wholeStagecodeGen having a stage if children do so aggregate them together
     // for now
     val allStagesIncludingChildren = childNodes.flatMap(_.stages).toSet ++ stagesInNode.toSet
+    // Finally, the node should be marked as shouldRemove when all the children of the
+    // wholeStageCodeGen are marked as shouldRemove.
+    val removeNode = isDupNode || childNodes.forall(_.shouldRemove)
     val execInfo = ExecInfo(node, sqlID, node.name, node.name, avSpeedupFactor, maxDuration,
       node.id, anySupported, Some(childNodes), allStagesIncludingChildren,
-      shouldRemove = isDupNode, unsupportedExprs = unSupportedExprsArray)
+      shouldRemove = removeNode, unsupportedExprs = unSupportedExprsArray)
     Seq(execInfo)
   }
 }
