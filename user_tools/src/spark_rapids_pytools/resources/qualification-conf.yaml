@@ -261,9 +261,9 @@ local:
       categories:
         - title: 'Not Applicable'
           lowerBound: -1000000.0
-          upperBound: 1.3
+          upperBound: 0.8
         - title: 'Small'
-          lowerBound: 1.3
+          lowerBound: 0.8 
           upperBound: 2.0
         - title: 'Medium'
           lowerBound: 2.0
@@ -273,7 +273,7 @@ local:
           upperBound: 1000000.0
       eligibilityConditions:
         - columnName: 'Estimated GPU Speedup'
-          lowerBound: 1.3
+          lowerBound: 0.8 
           upperBound: 1000000.0
         - columnName: 'Unsupported Operators Stage Duration Percent'
           lowerBound: 0.0

@@ -863,6 +863,7 @@ class QualificationAppInfo(
     val activeExecInfo = executorIdToInfo.values.collect {
       case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
     }
+    logWarning("build cluster info " + activeExecInfo)
     if (activeExecInfo.nonEmpty) {
       val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
       if (coresPerExecutor.toSet.size != 1) {

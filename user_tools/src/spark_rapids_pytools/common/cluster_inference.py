@@ -53,6 +53,7 @@ class ClusterInference:
             cores_per_executor = cluster_info_df.get('Cores Per Executor')
             execs_per_node = cluster_info_df.get('Num Executors Per Node')
             total_cores_per_node = execs_per_node * cores_per_executor
+            # TODO - need to account for number of GPUs per executor
             executor_instance = self.platform.get_matching_executor_instance(total_cores_per_node)
             if pd.isna(executor_instance):
                 self.logger.info('Unable to infer CPU cluster. No matching executor instance found for vCPUs = %s',

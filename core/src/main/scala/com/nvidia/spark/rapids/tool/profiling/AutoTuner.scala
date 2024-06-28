@@ -456,9 +456,15 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   def calcNumExecutorCores: Int = {
+    logWarning("calling cores per node from calcNumExecutorCores")
     val coresPerNode = platform.getNumCoresPerNode
-    val gpusPerExec = platform.getNumGPUsPerExecutor
+    val gpusPerExec = platform.getNumGPUsPerNode
     Math.max(1, coresPerNode/gpusPerExec)
+    // This gets tricky for platforms that don't support arbitrarily adding GPUs
+    // to nodes. By default we expect user to use the same cluster shape as CPU
+    // but if you have multiple executors on a node and node only supports one
+    // GPU then it makes this difficult.
+
   }
 
   /**
@@ -486,7 +492,7 @@ class AutoTuner(
    */
   private def calcAvailableMemPerExec(): Double = {
     val memMBPerNode = platform.getMemoryMBPerNode
-    val gpusPerExec = platform.getNumGPUsPerExecutor
+    val gpusPerExec = platform.getNumGPUsPerNode
     Math.max(1, memMBPerNode / gpusPerExec)
   }
 

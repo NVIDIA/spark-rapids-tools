@@ -47,6 +47,7 @@ class QualAppSummaryInfoProvider(
   }
 
   override def getAllProperties: Map[String, String] = {
+    logWarning("get all props TOM: " + appInfo.sparkProperties.get("spark.executor.instances"))
     appInfo.sparkProperties
   }
 
