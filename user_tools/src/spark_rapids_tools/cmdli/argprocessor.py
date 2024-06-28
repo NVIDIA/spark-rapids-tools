@@ -107,18 +107,23 @@ class AbsToolUserArgModel:
     })
     logger: ClassVar[Logger] = None
     tool_name: ClassVar[str] = None
+    cli_class: ClassVar[str] = None
+    cli_name: ClassVar[str] = None
 
     @classmethod
-    def create_tool_args(cls, tool_name: str, *args: Any, **kwargs: Any) -> Optional[dict]:
+    def create_tool_args(cls, tool_name: str, cli_class: str = 'ToolsCLI', cli_name: str = 'spark_rapids',
+                         *args: Any, **kwargs: Any) -> Optional[dict]:
         cls.logger = ToolLogging.get_and_setup_logger('spark_rapids_tools.argparser')
         try:
             impl_entry = user_arg_validation_registry.get(tool_name)
             impl_class = impl_entry.validator_class
+            impl_class.cli_class = cli_class
+            impl_class.cli_name = cli_name
             new_obj = impl_class(*args, **kwargs)
             return new_obj.build_tools_args()
         except (ValidationError, PydanticCustomError) as e:
             impl_class.logger.error('Validation err: %s\n', e)
-            dump_tool_usage(impl_class.tool_name)
+            dump_tool_usage(impl_class.cli_class, impl_class.cli_name, impl_class.tool_name)
         return None
 
     def get_eventlogs(self) -> Optional[str]:
@@ -666,16 +671,24 @@ class TrainUserArgModel(AbsToolUserArgModel):
 
 
 @dataclass
-@register_tool_arg_validator('instance_description')
+@register_tool_arg_validator('generate_instance_description')
 class InstanceDescriptionUserArgModel(AbsToolUserArgModel):
     """
     Represents the arguments to run the generate_instance_description tool.
     """
+    target_platform: str = None
+    accepted_platforms = ['dataproc', 'emr', 'databricks_azure']
+
+    def validate_platform(self) -> None:
+        if self.target_platform not in self.accepted_platforms:
+            raise PydanticCustomError('invalid_argument',
+                                      f'Platform \'{self.target_platform}\' is not in ' +
+                                      f'accepted platform list: {self.accepted_platforms}.')
 
     def build_tools_args(self) -> dict:
-        runtime_platform = CspEnv.fromstring(self.platform)
+        self.validate_platform()
         return {
-            'runtimePlatform': runtime_platform,
+            'targetPlatform': self.target_platform,
             'output_folder': self.output_folder,
             'platformOpts': {},
         }

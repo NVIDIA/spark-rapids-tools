@@ -30,16 +30,16 @@ class InstanceDescription(RapidsTool):
 
     name = 'instance_description'
 
-    def _connect_to_execution_cluster(self):
+    def _connect_to_execution_cluster(self) -> None:
         pass
 
-    def _collect_result(self):
+    def _collect_result(self) -> None:
         pass
 
-    def _archive_phase(self):
+    def _archive_phase(self) -> None:
         pass
 
-    def _init_ctxt(self):
+    def _init_ctxt(self) -> None:
         """
         Initialize the tool context, reusing qualification configurations.
         """
@@ -49,7 +49,7 @@ class InstanceDescription(RapidsTool):
                                 prop_arg=self.config_path,
                                 name=self.name)
 
-    def _process_output_args(self):
+    def _process_output_args(self) -> None:
         self.logger.debug('Processing Output Arguments')
         if self.output_folder is None:
             self.output_folder = Utils.get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
@@ -57,6 +57,6 @@ class InstanceDescription(RapidsTool):
         self.output_folder = FSUtil.get_abs_path(self.output_folder)
         self.logger.debug('Root directory of local storage is set as: %s', self.output_folder)
 
-    def _run_rapids_tool(self):
+    def _run_rapids_tool(self) -> None:
         instance_file = f'{self.output_folder}/{self.platform_type}-instance-catalog.json'
         self.ctxt.platform.cli.generate_instance_description(instance_file)

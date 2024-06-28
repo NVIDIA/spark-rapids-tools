@@ -318,7 +318,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
             processed_instance_descriptions[instance.get('name')] = instance_content
         return processed_instance_descriptions
 
-    def get_instance_description_cli_params(self):
+    def get_instance_description_cli_params(self) -> list:
         return ['gcloud compute machine-types list', '--zones', f'{self.get_zone()}']
 
 

@@ -33,18 +33,20 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
         instance type descriptions for that CSP platform.
 
         :param platform: defines one of the following "dataproc", "emr", and "databricks-azure".
-        :param output_folder: path to store the output.
+        :param output_folder: local path to store the output.
         """
         # Since this is an internal tool, we enable debug mode by default
         ToolLogging.enable_debug_mode()
 
-        init_environment('instance_description')
+        init_environment('generate_instance_description')
 
-        instance_description_args = AbsToolUserArgModel.create_tool_args('instance_description',
-                                                                         platform=platform,
+        instance_description_args = AbsToolUserArgModel.create_tool_args('generate_instance_description',
+                                                                         cli_class='DevCLI',
+                                                                         cli_name='spark_rapids_dev',
+                                                                         target_platform=platform,
                                                                          output_folder=output_folder)
         if instance_description_args:
-            tool_obj = InstanceDescription(platform_type=instance_description_args['runtimePlatform'],
+            tool_obj = InstanceDescription(platform_type=instance_description_args['targetPlatform'],
                                            output_folder=instance_description_args['output_folder'],
                                            wrapper_options=instance_description_args)
             tool_obj.launch()
@@ -53,7 +55,7 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
 def main():
     # Make Python Fire not use a pager when it prints a help text
     fire.core.Display = lambda lines, out: out.write('\n'.join(lines) + '\n')
-    print(gen_app_banner())
+    print(gen_app_banner('Development'))
     fire.Fire(DevCLI())
 
 
