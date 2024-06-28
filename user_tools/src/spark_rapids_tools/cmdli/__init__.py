@@ -14,8 +14,10 @@
 
 """init file of the user CLI used to run the tools"""
 
+from .dev_cli import DevCLI
 from .tools_cli import ToolsCLI
 
 __all__ = [
-    'ToolsCLI'
+    'ToolsCLI',
+    'DevCLI'
 ]

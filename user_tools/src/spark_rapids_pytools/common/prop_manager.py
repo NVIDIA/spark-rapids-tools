@@ -46,6 +46,14 @@ def convert_dict_to_camel_case(dic: dict):
     return res
 
 
+def get_gpu_device_list() -> list:
+    return ['T4', 'V100', 'K80', 'A100', 'P100', 'A10', 'A10G']
+
+
+def is_valid_gpu_device(val) -> bool:
+    return val.upper() in get_gpu_device_list()
+
+
 @dataclass
 class AbstractPropertiesContainer(object):
     """
