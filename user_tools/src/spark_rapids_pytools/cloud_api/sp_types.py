@@ -611,7 +611,7 @@ class CMDDriverBase:
     def get_instance_description_cli_params(self) -> List[str]:
         raise NotImplementedError
 
-    def generate_instance_description(self, fpath: str):
+    def generate_instance_description(self, fpath: str) -> None:
         """
         Generates CSP instance type descriptions and store them in a json file.
         :param fpath: the output json file path.
