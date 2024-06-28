@@ -158,9 +158,30 @@ class DataprocPlatform(PlatformBase):
         executors_from_config = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
         # TODO: Currently only single series is supported. Change this to a loop when using multiple series.
         series_name, unit_info = list(executors_from_config.items())[0]
+        # If the number of cores is a valid entry in the list, return the equivalent instance
         if cores_per_executor in unit_info['vCPUs']:
             return f'{series_name}-{cores_per_executor}'
-        return None
+        # If the num-cores is not in the list, then we need to adjust the cores to the best match
+        # that is greater than the input cores.
+        rev_sorted_cores = unit_info['vCPUs'].copy()
+        rev_sorted_cores.sort(reverse=True)
+        adjusted_cores = rev_sorted_cores[0]
+        for num_cpu in rev_sorted_cores[1:]:
+            if num_cpu >= cores_per_executor:
+                adjusted_cores = num_cpu
+        # At this point adjusted_cores should be the best match.
+        selected_machine_type = f'{series_name}-{adjusted_cores}'
+        self.logger.info('The number of cores %d is not in the list of supported cores.',
+                         cores_per_executor)
+        if adjusted_cores > cores_per_executor:
+            self.logger.info(
+                'Adjusting number of cores the nearest CSP machine with higher number of cores %s',
+                selected_machine_type)
+        else:
+            self.logger.info(
+                'Adjusting number of cores the CSP machine with highest number of cores %s',
+                selected_machine_type)
+        return selected_machine_type
 
     def generate_cluster_configuration(self, render_args: dict):
         image_version = self.configs.get_value('clusterInference', 'defaultImage')

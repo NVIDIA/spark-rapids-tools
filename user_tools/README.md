@@ -17,7 +17,7 @@ The wrapper improves end-user experience within the following dimensions:
 
 ## Getting started
 
-Set up a Python environment with a version between 3.8 and 3.10
+Set up a Python environment with a version between 3.8 and 3.11
 
 1. Run the project in a virtual environment. Note, .venv is the directory created to put
    the virtual env in, so modify if you want a different location.
@@ -80,7 +80,7 @@ Set up a Python environment similar to the steps above.
 Please refer to [spark-rapids-user-tools guide](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/index.md) for details on how to use the tools
 and the platform.
 
-Please refer to [qualx guide](docs/qualx.md) for details on how to use the QualX tool for prediction and training.
+Please refer to [qualx guide](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/qualx.md) for details on how to use the QualX tool for prediction and training.
 
 ## What's new
 
