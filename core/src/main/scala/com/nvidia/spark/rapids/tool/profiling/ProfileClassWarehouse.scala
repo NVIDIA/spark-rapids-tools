@@ -219,6 +219,23 @@ case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
   }
 }
 
+case class GpuAccumProfileResults(appIndex: Int, name: String, accumulatorId: Long, min: Long,
+    median: Long, max: Long, total: Long, stageId: String) extends ProfileResult {
+  override val outputHeaders = Seq("appIndex", "name", "accumulatorId", "min", "median", "max",
+    "total", "stageId")
+
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString, name, accumulatorId.toString, min.toString, median.toString,
+      max.toString, total.toString, stageId)
+  }
+
+  override def convertToCSVSeq: Seq[String] = {
+    Seq(appIndex.toString, StringUtils.reformatCSVString(name), accumulatorId.toString,
+      min.toString, median.toString, max.toString, total.toString,
+      StringUtils.reformatCSVString(stageId))
+  }
+}
+
 case class ResourceProfileInfoCase(
     val resourceProfileId: Int,
     val executorResources: Map[String, ExecutorResourceRequest],

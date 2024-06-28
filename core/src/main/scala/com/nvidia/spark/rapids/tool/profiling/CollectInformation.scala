@@ -84,6 +84,11 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfSQLPlanMetricsView.getRawView(apps)
   }
 
+  // Print GPU Metrics
+  def getGpuMetrics: Seq[GpuAccumProfileResults] = {
+    ProfGpuMetricView.getRawView(apps)
+  }
+
   /**
    * This function is meant to clean up Delta log execs so that you could align
    * SQL ids between CPU and GPU eventlogs. It attempts to remove any delta log
@@ -100,6 +105,12 @@ object CollectInformation extends Logging {
   def generateSQLAccums(apps: Seq[ApplicationInfo]): Seq[SQLAccumProfileResults] = {
     apps.flatMap { app =>
       app.planMetricProcessor.generateSQLAccums()
+    }
+  }
+
+  def generateGpuAccums(apps: Seq[ApplicationInfo]): Seq[GpuAccumProfileResults] = {
+    apps.flatMap { app =>
+      app.planMetricProcessor.generateGpuAccums()
     }
   }
 

@@ -26,6 +26,7 @@ case class ApplicationSummaryInfo(
     rapidsProps: Seq[RapidsPropertyProfileResult],
     rapidsJar: Seq[RapidsJarProfileResult],
     sqlMetrics: Seq[SQLAccumProfileResults],
+    gpuMetrics: Seq[GpuAccumProfileResults],
     jobAggMetrics: Seq[JobAggTaskMetricsProfileResult],
     stageAggMetrics: Seq[StageAggTaskMetricsProfileResult],
     sqlTaskAggMetrics: Seq[SQLTaskAggMetricsProfileResult],

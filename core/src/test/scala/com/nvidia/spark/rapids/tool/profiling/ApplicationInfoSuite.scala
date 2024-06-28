@@ -17,6 +17,7 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import java.io.File
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths, StandardOpenOption}
 
 import scala.collection.mutable.ArrayBuffer
@@ -200,6 +201,51 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     val df = sqlMetricsWithDelim.toDF
     val dfExpect = ToolTestUtils.readExpectationCSV(sparkSession, resultExpectation.getPath())
     ToolTestUtils.compareDataFrames(df, dfExpect)
+  }
+
+  test("test GpuMetrics in eventlog") {
+    TrampolineUtil.withTempDir { outputDir =>
+      TrampolineUtil.withTempDir { tmpEventLogDir =>
+        val eventLogFilePath = Paths.get(tmpEventLogDir.getAbsolutePath, "gpu_metrics_eventlog")
+        // scalastyle:off line.size.limit
+        val eventLogContent =
+          """{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
+            |{"Event":"SparkListenerApplicationStart","App Name":"GPUMetrics", "App ID":"local-16261043003", "Timestamp":123456, "User":"User1"}
+            |{"Event":"SparkListenerTaskEnd","Stage ID":10,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":5073,"Index":5054,"Attempt":0,"Partition ID":5054,"Launch Time":1712248533994,"Executor ID":"100","Host":"10.154.65.143","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253284920,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.492","Value":"03:13:31.359","Internal":false,"Count Failed Values":true},{"ID":1018,"Name":"gpuSpillToHostTime","Update":"00:00:00.845","Value":"00:29:39.521","Internal":false,"Count Failed Values":true},{"ID":1016,"Name":"gpuSplitAndRetryCount","Update":"1","Value":"2","Internal":false,"Count Failed Values":true}]}}""".stripMargin
+        // scalastyle:on line.size.limit
+        Files.write(eventLogFilePath, eventLogContent.getBytes(StandardCharsets.UTF_8))
+
+        val profileArgs = Array(
+          "--output-directory", outputDir.getAbsolutePath,
+          eventLogFilePath.toString
+        )
+
+        val appArgs = new ProfileArgs(profileArgs)
+        val (exit, _) = ProfileMain.mainInternal(appArgs)
+        assert(exit == 0)
+
+        val apps = ArrayBuffer[ApplicationInfo]()
+        var index = 1
+
+        val eventLogPaths = appArgs.eventlog()
+        eventLogPaths.foreach { path =>
+          println(s"processing $path")
+          val eventLogInfo = EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1
+          apps += new ApplicationInfo(hadoopConf, eventLogInfo, index)
+          index += 1
+        }
+        assert(apps.size == 1)
+
+        val collect = new CollectInformation(apps)
+        val gpuMetrics = collect.getGpuMetrics
+
+        // Sample eventlog has 3 gpu metrics, gpuSemaphoreWait,
+        // gpuSpillToHostTime, gpuSplitAndRetryCount
+        assert(gpuMetrics.size == 3)
+        val gpuSemaphoreWait = gpuMetrics.find(_.name == "gpuSemaphoreWait")
+        assert(gpuSemaphoreWait.isDefined)
+      }
+    }
   }
 
   test("test printSQLPlans") {

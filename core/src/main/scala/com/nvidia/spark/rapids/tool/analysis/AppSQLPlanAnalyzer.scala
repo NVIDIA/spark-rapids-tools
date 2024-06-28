@@ -19,12 +19,12 @@ package com.nvidia.spark.rapids.tool.analysis
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, GpuAccumProfileResults, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, TaskStageAccumCase, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
-import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SQLMetricsStats, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
+import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SQLMetricsStats, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry, ToolUtils}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
@@ -341,6 +341,50 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         None
       }
     }
+  }
+
+  def generateGpuAccums(): Seq[GpuAccumProfileResults] = {
+    def isGpuAccum(accum: TaskStageAccumCase): Boolean = {
+      accum.name.exists(_.startsWith(ToolUtils.GpuPrefix))
+    }
+
+    def computeStatistics(updates: Seq[Long]): Option[StatisticsMetrics] = {
+      if (updates.isEmpty) {
+        None
+      } else if (updates.length == 1) {
+        Some(StatisticsMetrics(0L, 0L, 0L, updates.sum))
+      } else {
+        Some(StatisticsMetrics(
+          min = updates.head,
+          med = updates(updates.size / 2),
+          max = updates.last,
+          total = updates.sum
+        ))
+      }
+    }
+
+    // Filter and process taskStageAccumMap to get accumulators that correspond to GPU
+    val gpuAccums = app.taskStageAccumMap.values.flatten.filter(isGpuAccum)
+    val groupedByAccumulatorId = gpuAccums.groupBy(_.accumulatorId)
+    groupedByAccumulatorId.flatMap { case (accumulatorId, accums) =>
+      // Extract and sort the update values, defaulting to 0 if not present
+      val sortedUpdates = accums.flatMap(_.update).toSeq.sorted
+
+      // Generate StatisticsMetrics if there are any updates
+      computeStatistics(sortedUpdates).map { stats =>
+        val sampleAccum = accums.head
+        GpuAccumProfileResults(
+          appIndex = appIndex,
+          name = sampleAccum.name.getOrElse("Unknown"),
+          accumulatorId = accumulatorId,
+          min = stats.min,
+          median = stats.med,
+          max = stats.max,
+          total = stats.total,
+          stageId = sampleAccum.stageId.toString
+        )
+      }
+    }.toSeq
   }
 }
 
