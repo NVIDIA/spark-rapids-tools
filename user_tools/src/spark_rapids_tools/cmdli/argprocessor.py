@@ -111,8 +111,8 @@ class AbsToolUserArgModel:
     cli_name: ClassVar[str] = None
 
     @classmethod
-    def create_tool_args(cls, tool_name: str, cli_class: str = 'ToolsCLI', cli_name: str = 'spark_rapids',
-                         *args: Any, **kwargs: Any) -> Optional[dict]:
+    def create_tool_args(cls, tool_name: str, *args: Any, cli_class: str = 'ToolsCLI',
+                         cli_name: str = 'spark_rapids', **kwargs: Any) -> Optional[dict]:
         cls.logger = ToolLogging.get_and_setup_logger('spark_rapids_tools.argparser')
         try:
             impl_entry = user_arg_validation_registry.get(tool_name)
