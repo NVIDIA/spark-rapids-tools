@@ -84,9 +84,9 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfSQLPlanMetricsView.getRawView(apps)
   }
 
-  // Print GPU Metrics
-  def getGpuMetrics: Seq[GpuAccumProfileResults] = {
-    ProfGpuMetricView.getRawView(apps)
+  // Print all Stage level Metrics
+  def getStageLevelMetrics: Seq[AccumProfileResults] = {
+    ProfStageMetricView.getRawView(apps)
   }
 
   /**
@@ -108,9 +108,9 @@ object CollectInformation extends Logging {
     }
   }
 
-  def generateGpuAccums(apps: Seq[ApplicationInfo]): Seq[GpuAccumProfileResults] = {
+  def generateStageLevelAccums(apps: Seq[ApplicationInfo]): Seq[AccumProfileResults] = {
     apps.flatMap { app =>
-      app.planMetricProcessor.generateGpuAccums()
+      app.planMetricProcessor.generateStageLevelAccums()
     }
   }
 

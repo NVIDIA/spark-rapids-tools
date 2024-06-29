@@ -219,20 +219,20 @@ case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
   }
 }
 
-case class GpuAccumProfileResults(appIndex: Int, name: String, accumulatorId: Long, min: Long,
+case class AccumProfileResults(appIndex: Int, name: String, accumulatorId: Long, min: Long,
     median: Long, max: Long, total: Long, stageId: String) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "name", "accumulatorId", "min", "median", "max",
-    "total", "stageId")
+  override val outputHeaders = Seq("appIndex", "stageId", "accumulatorId", "name", "min",
+    "median", "max", "total")
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, name, accumulatorId.toString, min.toString, median.toString,
-      max.toString, total.toString, stageId)
+    Seq(appIndex.toString, stageId, accumulatorId.toString, name, min.toString, median.toString,
+      max.toString, total.toString)
   }
 
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, StringUtils.reformatCSVString(name), accumulatorId.toString,
-      min.toString, median.toString, max.toString, total.toString,
-      StringUtils.reformatCSVString(stageId))
+    Seq(appIndex.toString, StringUtils.reformatCSVString(stageId), accumulatorId.toString,
+      StringUtils.reformatCSVString(name), min.toString, median.toString, max.toString,
+      total.toString)
   }
 }
 

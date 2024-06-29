@@ -329,7 +329,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val systemProps = collect.getSystemProperties
     val rapidsJar = collect.getRapidsJARInfo
     val sqlMetrics = collect.getSQLPlanMetrics
-    val gpuMetrics = collect.getGpuMetrics
+    val stageMetrics = collect.getStageLevelMetrics
     val wholeStage = collect.getWholeStageCodeGenMapping
     // for compare mode we just add in extra tables for matching across applications
     // the rest of the tables simply list all applications specified
@@ -393,7 +393,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     logInfo(s"Took ${endTime - startTime}ms to Process [${appInfo.head.appId}]")
     (ApplicationSummaryInfo(appInfo, dsInfo,
       collect.getExecutorInfo, collect.getJobInfo, rapidsProps,
-      rapidsJar, sqlMetrics, gpuMetrics, analysis.jobAggs, analysis.stageAggs,
+      rapidsJar, sqlMetrics, stageMetrics, analysis.jobAggs, analysis.stageAggs,
       analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
@@ -515,8 +515,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some(ProfRapidsJarView.getDescription))
       profileOutputWriter.write(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
         Some(ProfSQLPlanMetricsView.getDescription))
-      profileOutputWriter.write(ProfGpuMetricView.getLabel, app.gpuMetrics,
-        Some(ProfGpuMetricView.getDescription))
+      profileOutputWriter.write(ProfStageMetricView.getLabel, app.gpuMetrics,
+        Some(ProfStageMetricView.getDescription))
       profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
         Some(ProfSQLCodeGenView.getDescription))
       comparedRes.foreach { compareSum =>

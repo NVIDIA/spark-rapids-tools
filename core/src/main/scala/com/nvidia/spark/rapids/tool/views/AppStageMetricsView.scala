@@ -17,27 +17,29 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.ProfAppIndexMapperTrait
-import com.nvidia.spark.rapids.tool.profiling.GpuAccumProfileResults
+import com.nvidia.spark.rapids.tool.profiling.AccumProfileResults
 
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.annotation.Since
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
-trait AppGpuMetricsViewTrait extends ViewableTrait[GpuAccumProfileResults] {
-  override def getLabel: String = "GPU Metrics for Application"
-  override def getDescription: String = "GPU Metrics"
+trait AppStageMetricsViewTrait extends ViewableTrait[AccumProfileResults] {
+  override def getLabel: String = "Stage Level All Metrics for Application"
+  override def getDescription: String = "Stage Level Metrics"
 
   override def sortView(
-      rows: Seq[GpuAccumProfileResults]): Seq[GpuAccumProfileResults] = {
-    rows.sortBy(cols => (cols.appIndex, cols.accumulatorId, cols.stageId))
+      rows: Seq[AccumProfileResults]): Seq[AccumProfileResults] = {
+    rows.sortBy(cols => (cols.stageId, cols.appIndex, cols.accumulatorId))
   }
 }
 
-object ProfGpuMetricView extends AppGpuMetricsViewTrait with ProfAppIndexMapperTrait {
+@Since("24.06.2")
+object ProfStageMetricView extends AppStageMetricsViewTrait with ProfAppIndexMapperTrait {
 
-  override def getRawView(app: AppBase, index: Int): Seq[GpuAccumProfileResults] = {
+  override def getRawView(app: AppBase, index: Int): Seq[AccumProfileResults] = {
     app match {
       case app: ApplicationInfo =>
-        app.planMetricProcessor.generateGpuAccums()
+        app.planMetricProcessor.generateStageLevelAccums()
       case _ => Seq.empty
     }
   }
