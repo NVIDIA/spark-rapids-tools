@@ -343,6 +343,17 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     }
   }
 
+  /**
+   * Generate the stage level metrics for the SQL plan including GPU metrics if applicable.
+   * Along with Spark defined metrics, below is the list of GPU metrics that are collected if they
+   * are present in the eventlog:
+   * gpuSemaphoreWait, gpuRetryCount, gpuSplitAndRetryCount, gpuRetryBlockTime,
+   * gpuRetryComputationTime, gpuSpillToHostTime, gpuSpillToDiskTime, gpuReadSpillFromHostTime,
+   * gpuReadSpillFromDiskTime
+   *
+   * @return a sequence of AccumProfileResults
+   */
+
   def generateStageLevelAccums(): Seq[AccumProfileResults] = {
 
     def computeStatistics(updates: Seq[Long]): Option[StatisticsMetrics] = {
@@ -367,18 +378,18 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       // Extract and sort the update values, defaulting to 0 if not present
       val sortedUpdates = accums.flatMap(_.update).toSeq.sorted
 
-      // Generate StatisticsMetrics if there are any updates
+      // Compute the statistics for the accumulator if applicable
       computeStatistics(sortedUpdates).map { stats =>
         val sampleAccum = accums.head
         AccumProfileResults(
           appIndex = appIndex,
-          name = sampleAccum.name.getOrElse("Unknown"),
+          stageId = sampleAccum.stageId.toString,
           accumulatorId = accumulatorId,
+          name = sampleAccum.name.getOrElse("Unknown"),
           min = stats.min,
           median = stats.med,
           max = stats.max,
-          total = stats.total,
-          stageId = sampleAccum.stageId.toString
+          total = stats.total
         )
       }
     }.toSeq

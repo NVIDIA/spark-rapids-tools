@@ -219,8 +219,8 @@ case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
   }
 }
 
-case class AccumProfileResults(appIndex: Int, name: String, accumulatorId: Long, min: Long,
-    median: Long, max: Long, total: Long, stageId: String) extends ProfileResult {
+case class AccumProfileResults(appIndex: Int, stageId: String, accumulatorId: Long,  name: String,
+    min: Long, median: Long, max: Long, total: Long) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "stageId", "accumulatorId", "name", "min",
     "median", "max", "total")
 
