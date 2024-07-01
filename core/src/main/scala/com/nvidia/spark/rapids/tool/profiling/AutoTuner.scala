@@ -16,20 +16,21 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import java.io.{BufferedReader, InputStreamReader, IOException}
+import java.io.{BufferedReader, IOException, InputStreamReader}
 
 import scala.beans.BeanProperty
-import scala.collection.{mutable, Seq}
+import scala.collection.{Seq, mutable}
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable.ListBuffer
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GPUNodeConfigRecommendation, GpuDevice, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import java.util
+
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
+import org.apache.hadoop.fs.{FSDataInputStream, FileSystem, Path}
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
 import org.yaml.snakeyaml.constructor.{Constructor, ConstructorException}
 import org.yaml.snakeyaml.representer.Representer
@@ -352,6 +353,7 @@ class AutoTuner(
   private val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
+  var gpuInstanceTypeRecommendation: Option[GPUNodeConfigRecommendation] = None
 
   private def isCalculationEnabled(prop: String) : Boolean = {
     !limitedLogicRecommendations.contains(prop)
@@ -398,6 +400,7 @@ class AutoTuner(
    */
   def appendRecommendation(key: String, value: Int): Unit = {
     if (value > 0) {
+      logWarning(s"appending $key wiht value $value")
       appendRecommendation(key: String, s"$value")
     }
   }
@@ -422,33 +425,22 @@ class AutoTuner(
   }
 
   /**
-   * calculated 'spark.executor.instances' based on number of gpus and workers.
-   * Assumption - cluster properties were updated to have a default values if missing.
+   * Get the recommended instance type to use when possible.
+   * Returns None if the platform doesn't support specific instance types.
    */
-  def calcExecInstances(): Int = {
-    platform.getNumExecutorInstances(getPropertyValue("spark.executor.instances"))
-  }
-
-  /**
-   * Recommendation for 'spark.executor.instances' based on number of gpus and workers.
-   * Assumption - If the properties include "spark.dynamicAllocation.enabled=true", then ignore
-   * spark.executor.instances.
-   */
-  def recommendExecutorInstances(): Unit = {
-    val execInstancesOpt = getPropertyValue("spark.dynamicAllocation.enabled") match {
-        case Some(propValue) =>
-          if (propValue.toBoolean) {
-            None
-          } else {
-            Option(calcExecInstances())
-          }
-        case None => Option(calcExecInstances())
+  def getGPURecommendedInstanceType: Option[GPUNodeConfigRecommendation] = {
+    val gpuNodeRec = platform.getGPUInstanceTypeRecommendation(getAllProperties.toMap)
+    // set the number of executor instance config
+    logWarning("gpu recommendation instance: " + gpuNodeRec)
+    if (gpuNodeRec.isDefined) {
+      logWarning("gpu recommendation num execs: " + gpuNodeRec.get.numExecutors )
+      if (gpuNodeRec.get.numExecutors > 0) {
+        logWarning("appending recommendation gpu recommendation num execs: " +
+          gpuNodeRec.get.numExecutors )
+        appendRecommendation("spark.executor.instances", gpuNodeRec.get.numExecutors)
       }
-    logWarning("Tom exec instances " + execInstancesOpt)
-
-    if (execInstancesOpt.isDefined) {
-      appendRecommendation("spark.executor.instances", execInstancesOpt.get)
     }
+    gpuNodeRec
   }
 
   /**
@@ -457,14 +449,16 @@ class AutoTuner(
    */
   def calcNumExecutorCores: Int = {
     logWarning("calling cores per node from calcNumExecutorCores")
-    val coresPerNode = platform.getNumCoresPerNode
-    val gpusPerExec = platform.getNumGPUsPerNode
-    Math.max(1, coresPerNode/gpusPerExec)
-    // This gets tricky for platforms that don't support arbitrarily adding GPUs
-    // to nodes. By default we expect user to use the same cluster shape as CPU
-    // but if you have multiple executors on a node and node only supports one
-    // GPU then it makes this difficult.
-
+    val executorCores = if (gpuInstanceTypeRecommendation.isDefined &&
+      gpuInstanceTypeRecommendation.get.instanceInfo.isDefined) {
+      val instanceInfo = gpuInstanceTypeRecommendation.get.instanceInfo.get
+      instanceInfo.cores / instanceInfo.numGpus
+    } else {
+      // TODO - do we make sure that the gpuInstanceTypeRecommendation is set???? seems easier
+      // other options are look at spark.executor.cores or number cores per exec in cluster info
+      0
+    }
+    Math.max(1, executorCores)
   }
 
   /**
@@ -491,27 +485,25 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   private def calcAvailableMemPerExec(): Double = {
-    val memMBPerNode = platform.getMemoryMBPerNode
+    val memMBPerNode = if (gpuInstanceTypeRecommendation.isDefined &&
+      gpuInstanceTypeRecommendation.get.instanceInfo.isDefined) {
+      val instanceInfo = gpuInstanceTypeRecommendation.get.instanceInfo.get
+      instanceInfo.memoryMB
+    } else {
+      // gpuInstanceTypeRecommendation is expected to be set otherwise some error happened
+      0
+    }
     val gpusPerExec = platform.getNumGPUsPerNode
     Math.max(1, memMBPerNode / gpusPerExec)
   }
 
   /**
-   * Recommendation for 'spark.executor.memory' based on system memory, cluster scheduler
-   * and num of gpus. Note that we will later reduce this if needed for off heap memory.
+   * Recommendation for initial heap size based on certain amount of memory per core.
+   * Note that we will later reduce this if needed for off heap memory.
    */
   def calcInitialExecutorHeap(executorContainerMemCalculator: () => Double,
       numExecCoresCalculator: () => Int): Long = {
-    // val clusterInfoEventLog = appInfoProvider.getClusterInfo.flatMap(_.clusterInfo)
-
     val maxExecutorHeap = Math.max(0, executorContainerMemCalculator()).toInt
-    /*
-    if (maxExecutorHeap == 0 && clusterInfoEventLog.isDefined &&
-      clusterInfoEventLog.get.instanceInfo.isDefined) {
-      val existingHeapMem = clusterInfoEventLog.get.executorHeapMemory.get
-    }
-
-     */
     // give up to 2GB of heap to each executor core
     // TODO - revisit this in future as we could let heap be bigger
     Math.min(maxExecutorHeap, DEF_HEAP_PER_CORE_MB * numExecCoresCalculator())
@@ -713,8 +705,8 @@ class AutoTuner(
 
 
   def calculateClusterLevelRecommendations(): Unit = {
-    logWarning("Tom in calculateClusterLevelRecommendations")
-    recommendExecutorInstances()
+    // gpuInstanceTypeRecommendation
+    // TODO should we just skip if gpuInstanceTypeRecommendation isn't set?
     val numExecutorCores = calcNumExecutorCores
     val execCoresExpr = () => numExecutorCores
     appendRecommendation("spark.executor.cores", numExecutorCores)
@@ -734,6 +726,7 @@ class AutoTuner(
       appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
       addRecommendationForMemoryOverhead(s"$memoryOverhead")
       appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
+      platform.setRecommendedClusterInfo(numExecutorCores)
       setMaxBytesInFlight
     } else {
       false
@@ -1150,22 +1143,23 @@ class AutoTuner(
       showOnlyUpdatedProps: Boolean = true):
       (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
     if (appInfoProvider.isAppInfoAvailable) {
-      configureClusterPropDefaults
-      // Makes recommendations based on information extracted from the AppInfoProvider
-      filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
-      recommendPluginProps
       limitedLogicList.foreach(limitedSeq => limitedLogicRecommendations ++= limitedSeq)
       skipList.foreach(skipSeq => skippedRecommendations ++= skipSeq)
       skippedRecommendations ++= platform.recommendationsToExclude
       initRecommendations()
-      calculateJobLevelRecommendations()
-
       // update GPU device of platform based on cluster properties if it is not already set.
       // if the GPU device cannot be inferred from cluster properties, do not make any updates.
       if (platform.gpuDevice.isEmpty && !clusterProps.isEmpty && !clusterProps.gpu.isEmpty) {
         GpuDevice.createInstance(clusterProps.gpu.getName)
           .foreach(platform.setGpuDevice)
+        platform.setNumGpus(clusterProps.gpu.getCount)
       }
+      gpuInstanceTypeRecommendation = getGPURecommendedInstanceType
+      configureClusterPropDefaults
+      // Makes recommendations based on information extracted from the AppInfoProvider
+      filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
+      recommendPluginProps
+      calculateJobLevelRecommendations()
       calculateClusterLevelRecommendations()
 
       // TODO - ANY any cases just defaults now?

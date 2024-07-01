@@ -18,8 +18,6 @@ package org.apache.spark.sql.rapids.tool
 
 import java.util.Date
 
-import com.nvidia.spark.rapids.tool.InstanceCoresMemory
-
 import org.apache.spark.resource.{ResourceInformation, ResourceProfile}
 
 class ExecutorInfoClass(val executorId: String, _addTime: Long) {
@@ -43,22 +41,41 @@ class ExecutorInfoClass(val executorId: String, _addTime: Long) {
     var resourceProfileId = ResourceProfile.DEFAULT_RESOURCE_PROFILE_ID
 }
 
-case class ClusterInfo(
+/**
+ * @param vendor
+ * @param coresPerExecutor
+ * @param numExecsPerNode
+ * @param numExecutorNodes
+ * @param executorHeapMemory
+ * @param executorInstance
+ * @param driverInstance
+ * @param driverHost
+ * @param clusterId
+ * @param clusterName
+ */
+case class ExistingClusterInfo(
     vendor: String,
     coresPerExecutor: Int,
     numExecsPerNode: Int,
     numExecutorNodes: Int,
     executorHeapMemory: Long,
-    executorOverheadMemoryMB: Long,
-    instanceInfo: Option[InstanceCoresMemory],
     executorInstance: Option[String] = None,
     driverInstance: Option[String] = None,
     driverHost: Option[String] = None,
     clusterId: Option[String] = None,
     clusterName: Option[String] = None)
 
+case class RecommendedClusterInfo(
+    vendor: String,
+    coresPerExecutor: Int,
+    numExecutors: Int,
+    numExecutorNodes: Int,
+    numGpus: Int,
+    executorInstance: String)
+
 case class ClusterSummary(
     appName: String,
     appId: String,
     eventLogPath: Option[String],
-    clusterInfo: Option[ClusterInfo])
+    clusterInfo: Option[ExistingClusterInfo],
+    recommendedClusterInfo: Option[RecommendedClusterInfo])

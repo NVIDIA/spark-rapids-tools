@@ -631,7 +631,10 @@ class QualificationAppInfo(
         mlFuncReportInfo.mlWallClockDur, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
 
       val clusterSummary = ClusterSummary(info.appName, appId,
-        eventLogInfo.map(_.eventLog.toString), pluginTypeChecker.platform.clusterInfoFromEventLog)
+        eventLogInfo.map(_.eventLog.toString), pluginTypeChecker.platform.clusterInfoFromEventLog,
+        None)
+
+      logWarning("cluster summary is: " + clusterSummary)
 
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
@@ -863,6 +866,7 @@ class QualificationAppInfo(
     val activeExecInfo = executorIdToInfo.values.collect {
       case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
     }
+    // TODO - any conditions we need to check for spark.executor.cores?
     logWarning("build cluster info " + activeExecInfo)
     if (activeExecInfo.nonEmpty) {
       val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
@@ -873,6 +877,9 @@ class QualificationAppInfo(
       // Create cluster information based on platform type
       pluginTypeChecker.platform.configureClusterInfoFromEventLog(coresPerExecutor.max,
         numExecsPerNode, activeHosts.toSet.size, sparkProperties, systemProperties)
+    } else {
+      // if no executors do we want to qualify at all?  maybe not, else we could look at
+      // properties like spark.executor.cores
     }
   }
 

@@ -1051,6 +1051,7 @@ class Qualification(RapidsJarTool):
 
         # 2. Operations related to cluster information
         try:
+            ## TODO - here - need to get real instance from scala code!!!
             cluster_info_file = self.ctxt.get_value('toolOutput', 'csv', 'clusterInformation', 'fileName')
             cluster_info_file = FSUtil.build_path(rapids_output_dir, cluster_info_file)
             cluster_info_df = pd.read_csv(cluster_info_file)
