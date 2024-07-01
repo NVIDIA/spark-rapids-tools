@@ -19,52 +19,31 @@ package org.apache.spark.sql.rapids.tool.util
 import java.io.{PrintWriter, StringWriter}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
-import com.nvidia.spark.rapids.tool.profiling.AppStatusResult
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.ToolUtils
 
-
-trait RuntimeReporter extends Logging {
-  val outputDir: String
-  def generateRuntimeReport(hadoopConf: Option[Configuration] = None): Unit = {
-    RuntimeReportGenerator.generateReport(outputDir, hadoopConf)
-  }
-
-  /**
-   * For each app status report, generate an AppStatusResult.
-   * If appId is empty, convert to "N/A" in the output.
-   * @return Seq[AppStatusResult] - Seq[(path, status, appId, message)]
-   */
-  def generateStatusResults(appStatuses: Seq[AppResult]): Seq[AppStatusResult] = {
-    appStatuses.map {
-      case FailureAppResult(path, message) =>
-        AppStatusResult(path, "FAILURE", "N/A", message)
-      case SkippedAppResult(path, message) =>
-        AppStatusResult(path, "SKIPPED", "N/A", message)
-      case SuccessAppResult(path, appId, message) =>
-        AppStatusResult(path, "SUCCESS", appId, message)
-      case UnknownAppResult(path, appId, message) =>
-        val finalAppId = if (appId.isEmpty) "N/A" else appId
-        AppStatusResult(path, "UNKNOWN", finalAppId, message)
-      case profAppResult: AppResult =>
-        throw new UnsupportedOperationException(s"Invalid status for $profAppResult")
-    }
-  }
-}
-
 /**
- * Generates a file containing the properties of the build loaded.
+ * Utility class to pull information about the runtime system and the properties of the build
+ * loaded.
  * In addition, it concatenates properties from the runtime (i.e., SparkVersion).
  * It is expected that the list of properties in that file will grow depending on whether a
  * property helps understanding and investigating the tools output.
- * @param outputDir the directory where the report is generated.
- * @param hadoopConf the hadoop configuration object used to access the HDFS if any.
  */
-object RuntimeReportGenerator extends Logging {
+object RuntimeUtil extends Logging {
   private val REPORT_LABEL = "RAPIDS Accelerator for Apache Spark's Build/Runtime Information"
   private val REPORT_FILE_NAME = "runtime.properties"
+
+  /**
+   * Generates a file containing the properties of the build loaded.
+   * In addition, it concatenates properties from the runtime (i.e., SparkVersion).
+   * It is expected that the list of properties in that file will grow depending on whether a
+   * property helps understanding and investigating the tools output.
+   *
+   * @param outputDir the directory where the report is generated.
+   * @param hadoopConf the hadoop configuration object used to access the HDFS if any.
+   */
   def generateReport(outputDir: String, hadoopConf: Option[Configuration] = None): Unit = {
     val buildProps = RapidsToolsConfUtil.loadBuildProperties
     // Add the Spark version used in runtime.
@@ -80,6 +59,19 @@ object RuntimeReportGenerator extends Logging {
     val writer = new StringWriter
     buildProps.list(new PrintWriter(writer))
     logInfo(s"\n$REPORT_LABEL\n${writer.getBuffer.toString}")
+  }
+
+  /**
+   * Returns a map of the JVM and OS information.
+   * @return Map[String, String] - Map of the JVM and OS information.
+   */
+  def getJVMOSInfo: Map[String, String] = {
+    Map(
+      "jvm.name" -> System.getProperty("java.vm.name"),
+      "jvm.version" -> System.getProperty("java.vm.version"),
+      "os.name" -> System.getProperty("os.name"),
+      "os.version" -> System.getProperty("os.version")
+    )
   }
 }
 
