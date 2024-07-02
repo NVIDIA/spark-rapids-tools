@@ -66,7 +66,7 @@ object QualificationMain extends Logging {
     val platform = try {
       PlatformFactory.createInstance(appArgs.platform())
     } catch {
-      case ie: IllegalStateException =>
+      case ie: Exception =>
         logError("Error creating the platform", ie)
         return (1, Seq[QualificationSummaryInfo]())
     }

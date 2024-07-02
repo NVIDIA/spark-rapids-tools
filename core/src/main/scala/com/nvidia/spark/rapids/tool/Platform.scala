@@ -113,11 +113,14 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
     s"operatorsScore-$platformName-$getGpuOrDefaultForSpeedupFactors.csv"
   }
 
+  def getDefaultOperatorScoreFile: String = {
+    s"operatorsScore-$platformName-$defaultGpuForSpeedupFactor.csv"
+  }
+
   final def getGpuOrDefault: GpuDevice = gpuDevice.getOrElse(defaultGpuDevice)
 
   final def getGpuOrDefaultForSpeedupFactors: GpuDevice =
     gpuDevice.getOrElse(defaultGpuForSpeedupFactor)
-
 
   final def setGpuDevice(gpuDevice: GpuDevice): Unit = {
     this.gpuDevice = Some(gpuDevice)
@@ -148,7 +151,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
 
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val defaultGpuDevice: GpuDevice = T4Gpu
-
+  override val defaultGpuForSpeedupFactor: GpuDevice = T4Gpu
   override def isPlatformCSP: Boolean = true
 
   // note that Databricks generally sets the spark.executor.memory for the user.  Our
@@ -185,6 +188,7 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPl
 class DataprocPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC
   override val defaultGpuDevice: GpuDevice = T4Gpu
+  override val defaultGpuForSpeedupFactor: GpuDevice = T4Gpu
   override def isPlatformCSP: Boolean = true
 }
 
@@ -202,6 +206,7 @@ class DataprocGkePlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform
 class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.EMR
   override val defaultGpuDevice: GpuDevice = A10GGpu
+  override val defaultGpuForSpeedupFactor: GpuDevice = A10GGpu
   override def isPlatformCSP: Boolean = true
 
   override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
@@ -279,6 +284,10 @@ object PlatformFactory extends Logging {
   def createInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
     val (platformName, gpuName) = extractPlatformGpuName(platformKey)
     val gpuDevice = gpuName.flatMap(GpuDevice.createInstance)
+    // case when gpu name is detected but not in device map
+    if (gpuName.isDefined && gpuDevice.isEmpty) {
+      throw new IllegalArgumentException(s"Unsupprted GPU device: ${gpuName.get}")
+    }
     val platform = createPlatformInstance(platformName, gpuDevice)
     logInfo(s"Using platform: $platform")
     platform
