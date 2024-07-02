@@ -87,9 +87,12 @@ class Benchmark(
   def run(): Unit = {
     require(benchmarks.nonEmpty)
     // scalastyle:off
+    println("-" * 80)
     println("Running benchmark: " + name)
+    println("-" * 80)
     val results = benchmarks.map { c =>
-      println("  Running case: " + c.name)
+      println("  RUNNING CASE : " + c.name)
+      println("-" * 80)
       measure(valuesPerIteration, c.numIters)(c.fn)
     }
     println
@@ -98,17 +101,15 @@ class Benchmark(
     // The results are going to be processor specific so it is useful to include that.
     out.println(RuntimeUtil.getJVMOSInfo.mkString("\n"))
     val nameLen = Math.max(40, Math.max(name.length, benchmarks.map(_.name.length).max))
-    out.printf(s"%-${nameLen}s %14s %14s %11s %12s %13s %10s\n",
-      name + ":", "Best Time(ms)", "Avg Time(ms)", "Stdev(ms)", "Rate(M/s)", "Per Row(ns)", "Relative")
+    out.printf(s"%-${nameLen}s %14s %14s %11s %10s\n",
+      name + ":", "Best Time(ms)", "Avg Time(ms)", "Stdev(ms)", "Relative")
     out.println("-" * (nameLen + 80))
     results.zip(benchmarks).foreach { case (result, benchmark) =>
-      out.printf(s"%-${nameLen}s %14s %14s %11s %12s %13s %10s\n",
+      out.printf(s"%-${nameLen}s %14s %14s %11s %10s\n",
         benchmark.name,
         "%5.0f" format result.bestMs,
         "%4.0f" format result.avgMs,
         "%5.0f" format result.stdevMs,
-        "%10.1f" format result.bestRate,
-        "%6.1f" format (1000 / result.bestRate),
         "%3.1fX" format (firstBest / result.bestMs))
     }
     out.println()
@@ -120,16 +121,13 @@ class Benchmark(
    */
   def measure(num: Long, overrideNumIters: Int)(f: ToolsTimer => Unit): Result = {
     System.gc()  // ensures garbage from previous cases don't impact this one
-    var wi = 0
-    while (wi < warmUpIterations) {
+    for (wi <- 0 until warmUpIterations) {
       f(new ToolsTimer(-1))
-      wi += 1
     }
     val minIters = if (overrideNumIters != 0) overrideNumIters else minNumIters
     val runTimes = ArrayBuffer[Long]()
     var totalTime = 0L
-    var i = 0
-    while (i < minIters) {
+    for (i <- 0 until minIters) {
       val timer = new ToolsTimer(i)
       f(timer)
       val runTime = timer.totalTime()
@@ -138,13 +136,16 @@ class Benchmark(
 
       if (outputPerIteration) {
         // scalastyle:off
+        println("*"*80)
         println(s"Iteration $i took ${NANOSECONDS.toMicros(runTime)} microseconds")
+        println("*"*80)
         // scalastyle:on
       }
-      i += 1
     }
     // scalastyle:off
-    println(s"  Stopped after $i iterations, ${NANOSECONDS.toMillis(runTimes.sum)} ms")
+    println("*"*80)
+    println(s"  Stopped after $minIters iterations, ${NANOSECONDS.toMillis(runTimes.sum)} ms")
+    println("*"*80)
     // scalastyle:on
     assert(runTimes.nonEmpty)
     val best = runTimes.min
@@ -152,12 +153,12 @@ class Benchmark(
     val stdev = if (runTimes.size > 1) {
       math.sqrt(runTimes.map(time => (time - avg) * (time - avg)).sum / (runTimes.size - 1))
     } else 0
-    Benchmark.Result(avg / 1000000.0, num / (best / 1000.0), best / 1000000.0, stdev / 1000000.0)
+    Benchmark.Result(avg / 1000000.0,  best / 1000000.0, stdev / 1000000.0)
   }
 }
 
 
 object Benchmark {
   case class Case(name: String, fn: ToolsTimer => Unit, numIters: Int)
-  case class Result(avgMs: Double, bestRate: Double, bestMs: Double, stdevMs: Double)
+  case class Result(avgMs: Double, bestMs: Double, stdevMs: Double)
 }

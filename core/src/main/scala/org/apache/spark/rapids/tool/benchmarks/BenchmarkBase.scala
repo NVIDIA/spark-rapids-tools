@@ -54,7 +54,6 @@ abstract class BenchmarkBase {
   def main(args: Array[String]): Unit = {
 
     val conf = new BenchmarkArgs(args)
-    // TODO: get the dirRoot from the arguments instead
     val dirRoot = conf.outputDirectory().stripSuffix("/")
     val resultFileName = "results.txt"
     val dir = new File(s"$dirRoot/$prefix/")
