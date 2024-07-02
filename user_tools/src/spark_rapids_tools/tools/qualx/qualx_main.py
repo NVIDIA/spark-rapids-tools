@@ -442,22 +442,19 @@ def predict(
                 'app_meta': {},
                 'platform': platform,
             }
-            # search sub directories for appIds
-            appIds = find_paths(
-                metrics_dir, lambda x: RegexPattern.appId.match(x), return_directories=True
-            )
-            appIds = [Path(p).name for p in appIds]
-            if len(appIds) == 0:
+            # search sub directories for App IDs
+            app_ids = [p.name for p in Path(metrics_dir).iterdir() if p.is_dir()]
+            if len(app_ids) == 0:
                 logger.warning(f'Skipping empty metrics directory: {metrics_dir}')
             else:
                 try:
-                    for appId in appIds:
+                    for app_id in app_ids:
                         # create dummy app_meta, assuming CPU and scale factor of 1 (for inference)
                         datasets[dataset_name]['app_meta'].update(
-                            {appId: {'runType': 'CPU', 'scaleFactor': 1}}
+                            {app_id: {'runType': 'CPU', 'scaleFactor': 1}}
                         )
-                        # update the dataset_name for each appId
-                        default_preds_df.loc[default_preds_df['appId'] == appId, 'dataset_name'] = dataset_name
+                        # update the dataset_name for each App ID
+                        default_preds_df.loc[default_preds_df['appId'] == app_id, 'dataset_name'] = dataset_name
                     logger.info(f'Loading dataset {dataset_name}')
                     metrics_df = load_profiles(
                         datasets=datasets,
