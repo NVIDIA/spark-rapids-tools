@@ -39,9 +39,8 @@ import org.apache.spark.sql.rapids.tool.util.{RuntimeUtil, ToolsTimer}
 class Benchmark(
     name: String,
     valuesPerIteration: Long,
-    minNumIters: Int = 2,
-    warmupTime: FiniteDuration = 2.seconds,
-    minTime: FiniteDuration = 2.seconds,
+    minNumIters: Int,
+    warmUpIterations: Int,
     outputPerIteration: Boolean = false,
     output: Option[OutputStream] = None) {
   import Benchmark._
@@ -121,16 +120,16 @@ class Benchmark(
    */
   def measure(num: Long, overrideNumIters: Int)(f: ToolsTimer => Unit): Result = {
     System.gc()  // ensures garbage from previous cases don't impact this one
-    val warmupDeadline = warmupTime.fromNow
-    while (!warmupDeadline.isOverdue) {
+    var wi = 0
+    while (wi < warmUpIterations) {
       f(new ToolsTimer(-1))
+      wi += 1
     }
     val minIters = if (overrideNumIters != 0) overrideNumIters else minNumIters
-    val minDuration = if (overrideNumIters != 0) 0 else minTime.toNanos
     val runTimes = ArrayBuffer[Long]()
     var totalTime = 0L
     var i = 0
-    while (i < minIters || totalTime < minDuration) {
+    while (i < minIters) {
       val timer = new ToolsTimer(i)
       f(timer)
       val runTime = timer.totalTime()
