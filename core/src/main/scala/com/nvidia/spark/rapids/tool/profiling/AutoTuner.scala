@@ -1108,7 +1108,7 @@ class AutoTuner(
       }
       // this needs to happen before any of the other recommendations as they are based on
       // the instance type
-      gpuClusterRecommendation = getGPURecommendedInstanceType
+      getGPURecommendedInstanceType
       configureClusterPropDefaults
       // Makes recommendations based on information extracted from the AppInfoProvider
       filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
@@ -1121,9 +1121,7 @@ class AutoTuner(
         case (property, value) => appendRecommendation(property, value)
       }
     }
-
     recommendFromDriverLogs()
-
     (toRecommendationsProfileResult, toCommentProfileResult)
   }
 

@@ -529,14 +529,8 @@ class DataprocCluster(ClusterBase):
         render_args = super()._set_render_args_create_template()
         cluster_config = self.get_cluster_configuration()
         render_args['IMAGE'] = self.get_image_version()
-        #if cluster_config.get('additionalConfig'):
-        #    if cluster_config.get('additionalConfig').get('localSsd'):
         render_args['LOCAL_SSD'] = cluster_config.get('additionalConfig').get('localSsd')
-
-        #if cluster_config.get('gpuInfo'):
-        #    if cluster_config.get('gpuInfo').get('device'):
         render_args['GPU_DEVICE'] = cluster_config.get('gpuInfo').get('device')
-
         render_args['GPU_PER_WORKER'] = cluster_config.get('gpuInfo').get('gpuPerWorker')
         return render_args
 
@@ -563,6 +557,7 @@ class DataprocCluster(ClusterBase):
             }
             cluster_config.update(additional_config)
         elif gpu_per_machine == 0:
+            # TODO - need to fix the gpuPerWorker here!!!!
             recommended_device = 'nvidia-tesla-t4'
             if gpu_device:
                 recommended_device = gpu_device_hash.get(gpu_device)
