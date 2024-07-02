@@ -55,9 +55,11 @@ object PlatformNames {
 case class InstanceInfo(cores: Int, memoryMB: Long, name: String, numGpus: Int)
 
 // This is meant to be temporary mapping to figure out instance type based
-// on just the cores and memory for when the instance type isn't explicitly
-// specified or found in the event log.
+// on the number of GPUs and cores.  Eventually this should be read from files
+// generated based on CSP instance information.
+// format (numGpus, numCores) -> InstanceInfo about that CSP node instance type
 object PlatformInstanceTypes {
+
   val AWS_BY_GPUS_CORES = Map((1, 4) -> InstanceInfo(4, 16 * 1024, "g5.xlarge", 1),
     (1, 8) -> InstanceInfo(8, 32 * 1024, "g5.2xlarge", 1),
     (1, 16) -> InstanceInfo(16, 64 * 1024, "g5.4xlarge", 1),
@@ -110,14 +112,19 @@ object PlatformInstanceTypes {
  * Represents a platform and its associated recommendations.
  *
  * @param gpuDevice Gpu Device present in the platform
+ * @param clusterProperties Cluster Properties passed into the tool as worker info
  */
 abstract class Platform(var gpuDevice: Option[GpuDevice],
     val clusterProperties: Option[ClusterProperties]) extends Logging {
   val platformName: String
   val defaultGpuDevice: GpuDevice
   var clusterInfoFromEventLog: Option[ExistingClusterInfo] = None
-  var gpuNodeInstanceInfo: Option[InstanceInfo] = None
+  // instance information for the gpu node type we will use to run with
+  var recommendedNodeInstanceInfo: Option[InstanceInfo] = None
+  // overall final recommended cluster configuration
   var recommendedClusterInfo: Option[RecommendedClusterInfo] = None
+  // the number of GPUs to use, this might be updated as we handle different
+  // cases
   var numGpus: Int = 1
 
   // This function allow us to have one gpu type used by the auto
@@ -255,7 +262,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
               // need to specify
               0L
             } else {
-              // any special ones for specific CSPs?
               0L
             }
         }
@@ -270,7 +276,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       clusterProperties.get.gpu.getCount
     } else {
       // assume using 1 GPU per node unless specified
-      gpuNodeInstanceInfo.map(_.numGpus).getOrElse(1)
+      recommendedNodeInstanceInfo.map(_.numGpus).getOrElse(1)
     }
     math.max(1, gpus)
   }
@@ -285,8 +291,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     }
   }
 
-
-    def getNumExecutorInstances(sparkProperties: Map[String, String]): Int = {
+  def getNumExecutorInstances(sparkProperties: Map[String, String]): Int = {
     val execInstFromProps = sparkProperties.get("spark.executor.instances")
     if (clusterProperties.isDefined) {
       val numWorkers = Math.max(1, clusterProperties.get.system.numWorkers)
@@ -308,15 +313,10 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     // use those are the target cluster. Even though this is going to be wrong in many
     // cases. Ideally we change this in the future.
     if (clusterProperties.isDefined) {
-      // if can't get real event log based info then use what the user passes in
       StringUtils.convertToMB(clusterProperties.get.system.getMemory)
-      // try to use the ones from event log for now first
     } else if (clusterInfoFromEventLog.isDefined) {
-      val numExecutorsPerNode = if (clusterInfoFromEventLog.isDefined) {
-        clusterInfoFromEventLog.get.numExecsPerNode.toLong
-      } else {
-        1L
-      }
+      val numExecutorsPerNode = clusterInfoFromEventLog.map(_.numExecsPerNode)
+        .getOrElse(1).toLong
       val heapMemMB = clusterInfoFromEventLog.get.executorHeapMemory
       val overheadMemMB = getExecutorOverheadMemoryMB(sparkProperties)
       val memPerNodeCalc = (heapMemMB + overheadMemMB) * numExecutorsPerNode
@@ -362,16 +362,9 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def maxGpusSupported: Int = 1
 
   /**
-   * Attempts to get the cores and memory for the node instance type being used.
-   */
-  def getInstanceResources(sparkProperties: Map[String, String]): Option[InstanceInfo] = None
-
-  /**
    * Attempts to get the instance type based on the core and gpu requirements.
    */
   def getInstanceByResources(cores:Int, numGpus: Int): Option[InstanceInfo] = None
-
-  def getCPUInstanceType(sparkProperties: Map[String, String]): Option[String] = None
 
   /**
    * Attempts to get the GPU recommendation for node configuration.
@@ -384,7 +377,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     val numExecsPerNode = clusterInfoFromEventLog.map(_.numExecsPerNode).getOrElse(1)
     val gpusToUse =
       Math.max(this.numGpus, Math.min(numExecsPerNode, maxGpusSupported))
-    // TODO - should we set this.numGpus?
+    // update the global numGpus based on the instance type we are using
+    this.numGpus = gpusToUse
     val nodeCores = if (clusterProperties.isDefined) {
       // TODO:
       // I guess the assumption here is 1 executor per node - or we need to look this up
@@ -403,11 +397,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
         "inferred from the event log!")
       0
     }
-
-    // TODO - deal with instance not defined - on prem and maybe no matches - need
-    // recommendation!!!!
-    // TODO - do we want to do this if the user specifically pass in the cluster information
-    // probably not as it will break that functionality!!!
     val instanceInfoOpt = getInstanceByResources(nodeCores, gpusToUse)
     val finalInstanceInfo = if (instanceInfoOpt.isEmpty) {
       val execCores = if (clusterInfoFromEventLog.isDefined) {
@@ -454,7 +443,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       val numGpus = finalInstanceInfo.map(_.numGpus).getOrElse(1)
       recommendedClusterInfo = Some(RecommendedClusterInfo(vendor, coresPerExec,
         numExecs, numNodes, numGpus, instanceName))
-      gpuNodeInstanceInfo = finalInstanceInfo
+      recommendedNodeInstanceInfo = finalInstanceInfo
       recommendedClusterInfo
     } else {
       None
@@ -502,11 +491,6 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
   override val platformName: String =  PlatformNames.DATABRICKS_AWS
   override val defaultGpuDevice: GpuDevice = A10GGpu
 
-  override def getCPUInstanceType(
-      sparkProperties: Map[String, String]): Option[String] = {
-    sparkProperties.get(DatabricksParseHelper.PROP_WORKER_TYPE_ID_KEY)
-  }
-
   override def getInstanceByResources(
       cores: Int, numGpus: Int): Option[InstanceInfo] = {
     val exactInstance = PlatformInstanceTypes.AWS_BY_GPUS_CORES.get((numGpus, cores))
@@ -531,13 +515,9 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
 class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties])
   extends DatabricksPlatform(gpuDevice, clusterProperties) {
-  override val platformName: String =  PlatformNames.DATABRICKS_AZURE
-  override def maxGpusSupported: Int = 4
+  override val platformName: String = PlatformNames.DATABRICKS_AZURE
 
-  override def getCPUInstanceType(
-      sparkProperties: Map[String, String]): Option[String] = {
-    sparkProperties.get(DatabricksParseHelper.PROP_WORKER_TYPE_ID_KEY)
-  }
+  override def maxGpusSupported: Int = 4
 
   override def getInstanceByResources(
       cores: Int, numGpus: Int): Option[InstanceInfo] = {
@@ -558,31 +538,6 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
       exactInstance
     }
   }
-
-  /*
-  override def getInstanceResources(
-      sparkProperties: Map[String, String]): Option[InstanceInfo] = {
-    val executorInstance = getGPUInstanceTypeRecommendation(sparkProperties)
-    if (executorInstance.isDefined) {
-      val STANDARD_NC_NODE_REGEX = """Standard_NC(\d{1,2})r*""".r
-      val STANDARD_NC_V3_NODE_REGEX = """Standard_NC(\d{1,2})s_v3""".r
-      val STANDARD_NCAS_T4_V3_NODE_REGEX = """Standard_NC(\d{1,2})as_T4_v3""".r
-      executorInstance.get match {
-        case STANDARD_NC_NODE_REGEX(a) =>
-          PlatformInstanceTypes.AZURE_NC.get(a)
-        case STANDARD_NC_V3_NODE_REGEX(a) =>
-          PlatformInstanceTypes.AZURE_NC_V3.get(a)
-        case STANDARD_NCAS_T4_V3_NODE_REGEX(a) =>
-          PlatformInstanceTypes.AZURE_NCAS_T4_V3.get(a)
-        case _ => None
-      }
-    } else {
-      None
-    }
-  }
-
-   */
-
 }
 
 class DataprocPlatform(gpuDevice: Option[GpuDevice],

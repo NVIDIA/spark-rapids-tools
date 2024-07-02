@@ -56,7 +56,6 @@ case class TunerContext (
       appIndex: Int = 1,
       dsInfo: Seq[DataSourceProfileResult]): Option[TuningResult] = {
     val rawAggMetrics = QualSparkMetricsAnalyzer.getAggRawMetrics(appInfo, appIndex)
-    logWarning("Tom tune application!")
     QualificationAutoTuner(appInfo, appAggStats, this, rawAggMetrics, dsInfo).collect {
       case qualTuner =>
         Try {
@@ -78,8 +77,7 @@ object TunerContext extends Logging {
       hadoopConf: Option[Configuration] = None): Option[TunerContext] = {
     Try {
       val hConf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf())
-      TunerContext(platform, workerInfoPath,
-        outputRootDir, hConf)
+      TunerContext(platform, workerInfoPath, outputRootDir, hConf)
     } match {
       case Success(c) => Some(c)
       case Failure(e) =>

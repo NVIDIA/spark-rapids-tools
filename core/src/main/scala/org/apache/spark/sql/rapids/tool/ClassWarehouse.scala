@@ -41,18 +41,6 @@ class ExecutorInfoClass(val executorId: String, _addTime: Long) {
     var resourceProfileId = ResourceProfile.DEFAULT_RESOURCE_PROFILE_ID
 }
 
-/**
- * @param vendor
- * @param coresPerExecutor
- * @param numExecsPerNode
- * @param numExecutorNodes
- * @param executorHeapMemory
- * @param executorInstance
- * @param driverInstance
- * @param driverHost
- * @param clusterId
- * @param clusterName
- */
 case class ExistingClusterInfo(
     vendor: String,
     coresPerExecutor: Int,

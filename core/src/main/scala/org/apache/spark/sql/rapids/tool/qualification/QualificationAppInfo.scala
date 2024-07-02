@@ -634,8 +634,6 @@ class QualificationAppInfo(
         eventLogInfo.map(_.eventLog.toString), pluginTypeChecker.platform.clusterInfoFromEventLog,
         None)
 
-      logWarning("cluster summary is: " + clusterSummary)
-
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
         notSupportFormatAndTypesString, getAllReadFileFormats, writeFormat,
@@ -867,7 +865,6 @@ class QualificationAppInfo(
       case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
     }
     // TODO - any conditions we need to check for spark.executor.cores?
-    logWarning("build cluster info " + activeExecInfo)
     if (activeExecInfo.nonEmpty) {
       val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
       if (coresPerExecutor.toSet.size != 1) {

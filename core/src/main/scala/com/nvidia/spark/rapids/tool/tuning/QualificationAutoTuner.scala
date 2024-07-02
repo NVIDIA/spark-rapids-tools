@@ -90,7 +90,6 @@ object QualificationAutoTuner extends Logging {
       rawAggMetrics: AggRawMetricsResult,
       dsInfo: Seq[DataSourceProfileResult]): Option[QualificationAutoTuner] = {
     Try {
-      logWarning("in create qual auto tuner")
       val qualInfoProvider: QualAppSummaryInfoProvider =
         AppSummaryInfoBaseProvider.fromQualAppInfo(appInfo, appAggStats, rawAggMetrics, dsInfo)
           .asInstanceOf[QualAppSummaryInfoProvider]

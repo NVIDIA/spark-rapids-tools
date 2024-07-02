@@ -91,8 +91,6 @@ abstract class AppBase(
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
 
-  // var clusterInfo: Option[ClusterInfo] = None
-
   // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
   // won't be defined for running applications
   def getEventLogPath: String = {

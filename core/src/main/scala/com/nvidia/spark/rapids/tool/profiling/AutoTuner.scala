@@ -352,7 +352,6 @@ class AutoTuner(
   private val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
-  var gpuClusterRecommendation: Option[RecommendedClusterInfo] = None
 
   private def isCalculationEnabled(prop: String) : Boolean = {
     !limitedLogicRecommendations.contains(prop)
@@ -399,7 +398,6 @@ class AutoTuner(
    */
   def appendRecommendation(key: String, value: Int): Unit = {
     if (value > 0) {
-      logWarning(s"appending $key wiht value $value")
       appendRecommendation(key: String, s"$value")
     }
   }
@@ -430,7 +428,6 @@ class AutoTuner(
   def getGPURecommendedInstanceType: Option[RecommendedClusterInfo] = {
     val gpuClusterRec = platform.getGPUInstanceTypeRecommendation(getAllProperties.toMap)
     // set the number of executor instance config
-    logWarning("gpu recommendation instance: " + gpuClusterRec)
     if (gpuClusterRec.isDefined) {
       appendRecommendation("spark.executor.cores", gpuClusterRec.get.coresPerExecutor)
       if (gpuClusterRec.get.numExecutors > 0) {
@@ -453,7 +450,6 @@ class AutoTuner(
    * Recommendation for 'spark.task.resource.gpu.amount' based on num of cpu cores.
    */
   def calcTaskGPUAmount: Double = {
-    // TODO - what to use if cluster info from event log???
     val numExecutorCores = calcNumExecutorCores
     // can never be 0 since numExecutorCores has to be at least 1
     1.0 / numExecutorCores
@@ -473,7 +469,7 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   private def calcAvailableMemPerExec(): Double = {
-    val memMBPerNode = platform.gpuNodeInstanceInfo.map(_.memoryMB).getOrElse(0L)
+    val memMBPerNode = platform.recommendedNodeInstanceInfo.map(_.memoryMB).getOrElse(0L)
     val gpusPerExec = platform.getNumGPUsPerNode
     Math.max(1, memMBPerNode / gpusPerExec)
   }
@@ -669,7 +665,6 @@ class AutoTuner(
       appendRecommendation("spark.rapids.sql.format.parquet.multithreaded.combine.waitTime", 1000)
     } else {
       val numThreads = (numExecutorCores * 2).toInt
-      logWarning("numThread is: " + numThreads)
       appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
         Math.max(20, numThreads).toInt)
       if (platform.isPlatformCSP) {
@@ -1064,21 +1059,6 @@ class AutoTuner(
     clusterProps.toString
   }
 
-  /**
-   * Add default comments for missing properties except the ones
-   * which should be skipped.
-   */
- /* private def addDefaultComments(): Unit = {
-    commentsForMissingProps.foreach {
-      case (key, value) =>
-        if (!skippedRecommendations.contains(key)) {
-          appendComment(value)
-        }
-    }
-  }
-
-  */
-
   private def toCommentProfileResult: Seq[RecommendedCommentResult] = {
     comments.map(RecommendedCommentResult).sortBy(_.comment)
   }
@@ -1126,6 +1106,8 @@ class AutoTuner(
           .foreach(platform.setGpuDevice)
         platform.setNumGpus(clusterProps.gpu.getCount)
       }
+      // this needs to happen before any of the other recommendations as they are based on
+      // the instance type
       gpuClusterRecommendation = getGPURecommendedInstanceType
       configureClusterPropDefaults
       // Makes recommendations based on information extracted from the AppInfoProvider
@@ -1133,10 +1115,6 @@ class AutoTuner(
       recommendPluginProps
       calculateJobLevelRecommendations()
       calculateClusterLevelRecommendations()
-
-      // TODO - ANY any cases just defaults now?
-      // add all default comments
-      //addDefaultComments()
 
       // add all platform specific recommendations
       platform.recommendationsToInclude.foreach {
@@ -1362,7 +1340,6 @@ object AutoTuner extends Logging {
   ): AutoTuner = {
     try {
       val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
-      logWarning("Tom cluster propers is: " + clusterPropsOpt)
       new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()), singleAppProvider, platform,
         driverInfoProvider)
     } catch {
