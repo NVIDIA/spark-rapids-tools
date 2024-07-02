@@ -20,7 +20,7 @@ import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
 import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSQLTaskInputSizes, AppInfoSqlTaskAggMetricsVisitor, ApplicationSummaryInfo, DataSourceProfileResult, SingleAppSummaryInfoProvider}
 import com.nvidia.spark.rapids.tool.tuning.QualAppSummaryInfoProvider
 
-import org.apache.spark.sql.rapids.tool.{ClusterSummary, ToolUtils}
+import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
 
 /**
@@ -55,7 +55,6 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getShuffleStagesWithPosSpilling: Set[Long] = Set()
   override def getShuffleSkewStages: Set[Long] = Set()
   override def getRapidsJars: Seq[String] = Seq()
-  override def getClusterInfo: Option[ClusterSummary] = None
   override def getDistinctLocationPct: Double = 0.0
   override def getRedundantReadSize: Long = 0
 }

@@ -21,7 +21,6 @@ import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
 import com.nvidia.spark.rapids.tool.profiling.DataSourceProfileResult
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.ClusterSummary
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
 
 /**
@@ -39,7 +38,6 @@ class QualAppSummaryInfoProvider(
     val dsInfo: Seq[DataSourceProfileResult]) extends AppSummaryInfoBaseProvider with Logging{
   private lazy val distinctLocations = dsInfo.groupBy(_.location)
 
-  override def getClusterInfo: Option[ClusterSummary] = appAggStats.map(_.clusterSummary)
   override def isAppInfoAvailable = true
   private def findPropertyInternal(
       key: String, props: collection.Map[String, String]): Option[String] = {
@@ -47,7 +45,6 @@ class QualAppSummaryInfoProvider(
   }
 
   override def getAllProperties: Map[String, String] = {
-    logWarning("get all props TOM: " + appInfo.sparkProperties.get("spark.executor.instances"))
     appInfo.sparkProperties
   }
 
