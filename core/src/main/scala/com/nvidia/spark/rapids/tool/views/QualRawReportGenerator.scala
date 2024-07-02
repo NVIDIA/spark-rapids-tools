@@ -75,6 +75,9 @@ object QualRawReportGenerator {
       pWriter.write(QualExecutorView.getLabel, QualExecutorView.getRawView(Seq(app)))
       pWriter.write(QualAppJobView.getLabel, QualAppJobView.getRawView(Seq(app)))
       generateSQLProcessingView(pWriter, sqlPlanAnalyzer)
+      pWriter.write(QualStageMetricView.getLabel,
+        QualStageMetricView.getRawViewFromSqlProcessor(sqlPlanAnalyzer),
+        Some(QualStageMetricView.getDescription))
       pWriter.write(RapidsQualPropertiesView.getLabel,
         RapidsQualPropertiesView.getRawView(Seq(app)),
         Some(RapidsQualPropertiesView.getDescription))

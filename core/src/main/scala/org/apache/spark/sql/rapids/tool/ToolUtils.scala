@@ -43,6 +43,8 @@ object ToolUtils extends Logging {
     "spark.repl.local.jars")
   val RAPIDS_JAR_REGEX = "(.*rapids-4-spark.*jar)|(.*cudf.*jar)".r
 
+  val GpuPrefix: String = "gpu"
+
   // Add more entries to this lookup table as necessary.
   // There is no need to list all supported versions.
   private val lookupVersions = Map(
