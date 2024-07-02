@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.analysis.ProfAppIndexMapperTrait
+import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait}
 import com.nvidia.spark.rapids.tool.profiling.AccumProfileResults
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -42,5 +42,17 @@ object ProfStageMetricView extends AppStageMetricsViewTrait with ProfAppIndexMap
         app.planMetricProcessor.generateStageLevelAccums()
       case _ => Seq.empty
     }
+  }
+}
+
+object QualStageMetricView extends AppStageMetricsViewTrait with ProfAppIndexMapperTrait {
+  // Keep for the following refactor to customize the view based on the app type (Qual/Prof)
+  override def getRawView(app: AppBase, index: Int): Seq[AccumProfileResults] = {
+    Seq.empty
+  }
+
+  def getRawViewFromSqlProcessor(
+      sqlAnalyzer: AppSQLPlanAnalyzer): Seq[AccumProfileResults] = {
+    sortView(sqlAnalyzer.generateStageLevelAccums())
   }
 }

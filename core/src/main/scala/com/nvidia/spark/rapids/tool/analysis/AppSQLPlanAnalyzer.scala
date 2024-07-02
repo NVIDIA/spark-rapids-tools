@@ -357,7 +357,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   def generateStageLevelAccums(): Seq[AccumProfileResults] = {
 
     def computeStatistics(updates: Seq[Long]): Option[StatisticsMetrics] = {
-      if (updates.isEmpty) {
+      // drop the metrics if there are no values or if all the values are 0
+      if (updates.isEmpty || updates.forall(_ == 0)) {
         None
       } else if (updates.length == 1) {
         Some(StatisticsMetrics(0L, 0L, 0L, updates.sum))
