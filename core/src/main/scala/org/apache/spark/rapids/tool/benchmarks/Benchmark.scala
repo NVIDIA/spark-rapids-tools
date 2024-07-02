@@ -20,7 +20,7 @@ import java.io.{OutputStream, PrintStream}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.duration.{DurationInt, FiniteDuration, NANOSECONDS}
+import scala.concurrent.duration.NANOSECONDS
 
 import org.apache.commons.io.output.TeeOutputStream
 
