@@ -195,6 +195,7 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice)
 class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC_SL
   override val defaultGpuDevice: GpuDevice = L4Gpu
+  override val defaultGpuForSpeedupFactor: GpuDevice = L4Gpu
   override def isPlatformCSP: Boolean = true
 }
 
