@@ -51,9 +51,7 @@ object PlatformNames {
   )
 }
 
-case class GPUNodeConfigRecommendation(numExecutors: Int, numNodes: Int,
-    instanceInfo: Option[InstanceInfo])
-
+// resource information and name of the CSP instance types
 case class InstanceInfo(cores: Int, memoryMB: Long, name: String, numGpus: Int)
 
 // This is meant to be temporary mapping to figure out instance type based
@@ -118,20 +116,9 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   val platformName: String
   val defaultGpuDevice: GpuDevice
   var clusterInfoFromEventLog: Option[ExistingClusterInfo] = None
-  private var gpuNodeConfigRecommendation: Option[GPUNodeConfigRecommendation] = None
+  var gpuNodeInstanceInfo: Option[InstanceInfo] = None
   var recommendedClusterInfo: Option[RecommendedClusterInfo] = None
   var numGpus: Int = 1
-
-  def setRecommendedClusterInfo(coresPerExec: Int): Unit = {
-    val vendor = clusterInfoFromEventLog.map(_.vendor).getOrElse("")
-    val numExecs = gpuNodeConfigRecommendation.map(_.numExecutors).getOrElse(1)
-    val numExecNodes = gpuNodeConfigRecommendation.map(_.numNodes).getOrElse(1)
-    val instanceName = gpuNodeConfigRecommendation.flatMap(_.instanceInfo.map(_.name)).getOrElse("")
-    val numGpus = gpuNodeConfigRecommendation.flatMap(_.instanceInfo.map(_.numGpus)).getOrElse(1)
-    recommendedClusterInfo = Some(RecommendedClusterInfo(vendor, coresPerExec,
-      numExecs, numExecNodes,  numGpus, instanceName))
-    logDebug("Recommended cluster info is: " + recommendedClusterInfo)
-  }
 
   // This function allow us to have one gpu type used by the auto
   // tuner recommendations but have a different GPU used for speedup
@@ -279,12 +266,13 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 
   def getNumGPUsPerNode(): Int = {
-    if (clusterProperties.isDefined) {
-      math.max(1, clusterProperties.get.gpu.getCount)
+    val gpus = if (clusterProperties.isDefined) {
+      clusterProperties.get.gpu.getCount
     } else {
       // assume using 1 GPU per node unless specified
-      1
+      gpuNodeInstanceInfo.map(_.numGpus).getOrElse(1)
     }
+    math.max(1, gpus)
   }
 
   def getExistingNumNodes(): Int = {
@@ -389,7 +377,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    * Attempts to get the GPU recommendation for node configuration.
    */
   def getGPUInstanceTypeRecommendation(
-      sparkProperties: Map[String, String]): Option[GPUNodeConfigRecommendation] = {
+      sparkProperties: Map[String, String]): Option[RecommendedClusterInfo] = {
     val initialNumExecInstances = getNumExecutorInstances(sparkProperties)
     // by default the instance type isn't in the configs so we infer it based on
     // cores and number of gpus
@@ -454,10 +442,20 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       (initialNumExecInstances, numExistingNodes * numGpusLeft)
     }
 
+    val coresPerExec = if (finalInstanceInfo.isDefined) {
+      finalInstanceInfo.get.cores / finalInstanceInfo.get.numGpus
+    } else {
+      1
+    }
+
     if (numExecs > 0) {
-      val recToReturn = Some(GPUNodeConfigRecommendation(numExecs, numNodes, finalInstanceInfo))
-      gpuNodeConfigRecommendation = recToReturn
-      recToReturn
+      val vendor = clusterInfoFromEventLog.map(_.vendor).getOrElse("")
+      val instanceName = finalInstanceInfo.map(_.name).getOrElse("")
+      val numGpus = finalInstanceInfo.map(_.numGpus).getOrElse(1)
+      recommendedClusterInfo = Some(RecommendedClusterInfo(vendor, coresPerExec,
+        numExecs, numNodes, numGpus, instanceName))
+      gpuNodeInstanceInfo = finalInstanceInfo
+      recommendedClusterInfo
     } else {
       None
     }
