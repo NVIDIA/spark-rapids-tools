@@ -24,22 +24,22 @@ class BenchmarkArgs(arguments: Seq[String]) extends ScallopConf(arguments) {
 Benchmarker class for running various benchmarks.
     """)
 
-  val iterations: ScallopOption[Int] = opt[Int](name = "iterations", short = 'i', default = Some(5),
+  val iterations: ScallopOption[Int] = opt[Int](short = 'i', default = Some(5),
     descr = "Total iterations to run excluding warmup (for avg time calculation)." +
       " Default is 5 iterations", validate = _ > 0)
-  val warmupIterations: ScallopOption[Int] = opt[Int](name = "warmupIterations", short = 'w' ,
+  val warmupIterations: ScallopOption[Int] = opt[Int](short = 'w' ,
     default = Some(3), descr = "Total number of warmup iterations to run. Can take " +
       "any input >=0. Warm up is important for benchmarking to ensure initial " +
       "JVM operations do not skew the result ( classloading etc. )", validate = _ >= 0)
-  val outputDirectory: ScallopOption[String] = opt[String](name = "outputDirectory", short = 'o',
+  val outputDirectory: ScallopOption[String] = opt[String](short = 'o',
     default = Some("."), descr = "Base output directory for benchmark results. " +
       "Default is current directory. The final output will go into a subdirectory called" +
       " rapids-tools-benchmark. It will override any directory with the same name")
-  val outputFormat: ScallopOption[String] = opt[String](name = "outputFormat", short = 'f',
+  val outputFormat: ScallopOption[String] = opt[String](short = 'f',
     default = Some("text"), descr = "Output format for the benchmark results. For text" +
       " the result output will be tabular. In case of json , the results" +
       "will be JSON formatted. Currently supported formats are text, json")
-  val extraArgs: ScallopOption[String] = opt[String](name = "extraArgs" , short = 'a',
+  val extraArgs: ScallopOption[String] = opt[String](short = 'a',
     required = false,
     descr = "Extra arguments to pass to the benchmark.These arguments will be sent to the " +
       "benchmark class. The format is space separated arguments. For example " +
