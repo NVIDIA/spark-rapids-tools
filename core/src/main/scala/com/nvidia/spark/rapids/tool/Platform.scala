@@ -130,7 +130,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     val numGpus = gpuNodeConfigRecommendation.flatMap(_.instanceInfo.map(_.numGpus)).getOrElse(1)
     recommendedClusterInfo = Some(RecommendedClusterInfo(vendor, coresPerExec,
       numExecs, numExecNodes,  numGpus, instanceName))
-    logWarning("recommend cluster info is: " + recommendedClusterInfo)
+    logDebug("Recommended cluster info is: " + recommendedClusterInfo)
   }
 
   // This function allow us to have one gpu type used by the auto
@@ -302,16 +302,11 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     val execInstFromProps = sparkProperties.get("spark.executor.instances")
     if (clusterProperties.isDefined) {
       val numWorkers = Math.max(1, clusterProperties.get.system.numWorkers)
-      logWarning("num instances is " + numGpus + " numworksr: "
-        + clusterProperties.get.system.numWorkers)
       this.numGpus * numWorkers
     } else if (execInstFromProps.isDefined) {
-      logWarning("Tom using spark.executor.instances")
       execInstFromProps.get.toInt
     } else if (clusterInfoFromEventLog.isDefined) {
       val clusterInfo = clusterInfoFromEventLog.get
-      logWarning("Tom using eventlog 11")
-      logWarning("num instances is: " + clusterInfo.numExecutorNodes * clusterInfo.numExecsPerNode)
       clusterInfo.numExecutorNodes * clusterInfo.numExecsPerNode
     } else {
       // not sure so don't set it
@@ -319,57 +314,16 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     }
   }
 
-  /*
-  def getNumCoresPerNode(): Int = {
-    if (clusterProperties.isDefined) {
-      logWarning("getNumCoresPerNode using the cluster props")
-      clusterProperties.get.system.getNumCores
-    } else if (clusterInfoFromEventLog.isDefined) {
-      if (clusterInfoFromEventLog.get.instanceInfo.isDefined) {
-        logWarning("getNumCoresPerNode using eventlog information clusterinfo from eventlog")
-        clusterInfoFromEventLog.get.instanceInfo.get.cores
-      } else {
-        val clusterInfo = clusterInfoFromEventLog.get
-        logWarning(s"getNumCoresPerNode using eventlog information no clusterinfo from eventlog " +
-          s"${clusterInfo.numExecsPerNode }")
-        // this assumes this job filled an entire node, which may not be true on
-        // a multiple tenant cluster
-        val nodeCores = clusterInfo.coresPerExecutor * clusterInfo.numExecsPerNode
-        val instanceInfo = getPlatformInstanceInfoFromResources(nodeCores, None)
-        if (!instanceInfo.isDefined) {
-          // we either miscalculated cores or we don't have a node type of the same size
-          logWarning(s"Number of cores per node was calculated as: ${nodeCores} but " +
-            "we don't have an instance mapping for that!")
-          // TODO - find closest instance
-          nodeCores
-        } else {
-          nodeCores
-        }
-      }
-    } else {
-      // use executor cores - or don't recommend???
-      0
-    }
-  }
-  */
-
-
   // figure out memory MB per node when we don't have the specific instance information
   def getMemoryMBPerNode(sparkProperties: Map[String, String]): Long = {
     // To keep the previous behavior we first check if cluster properties are defined and
     // use those are the target cluster. Even though this is going to be wrong in many
     // cases. Ideally we change this in the future.
     if (clusterProperties.isDefined) {
-      logWarning("Tom using cluster properties mem ")
-
       // if can't get real event log based info then use what the user passes in
-      // TODO - make this configurable to override event log
-      logWarning("TOM using cluster properties: " + clusterProperties.get.system.getMemory)
       StringUtils.convertToMB(clusterProperties.get.system.getMemory)
       // try to use the ones from event log for now first
     } else if (clusterInfoFromEventLog.isDefined) {
-      logWarning("Tom using eventlog mem ")
-
       val numExecutorsPerNode = if (clusterInfoFromEventLog.isDefined) {
         clusterInfoFromEventLog.get.numExecsPerNode.toLong
       } else {
@@ -377,13 +331,9 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       }
       val heapMemMB = clusterInfoFromEventLog.get.executorHeapMemory
       val overheadMemMB = getExecutorOverheadMemoryMB(sparkProperties)
-      logWarning("TOM using cluster info execsper node: " + numExecutorsPerNode +
-        "overhead: " + overheadMemMB + " heap : " + heapMemMB)
-
       val memPerNodeCalc = (heapMemMB + overheadMemMB) * numExecutorsPerNode
       memPerNodeCalc
     } else {
-      logWarning("TOM using 0")
       // we don't know
       0L
     }
@@ -406,7 +356,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       numExecutorNodes: Int,
       sparkProperties: Map[String, String],
       systemProperties: Map[String, String]): ExistingClusterInfo = {
-    logWarning(s"cores $coresPerExecutor execspernode $execsPerNode num execs $numExecutorNodes")
     clusterInfoFromEventLog = Some(createClusterInfo(coresPerExecutor, execsPerNode,
       numExecutorNodes, sparkProperties, systemProperties))
     clusterInfoFromEventLog.get
@@ -449,15 +398,12 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       Math.max(this.numGpus, Math.min(numExecsPerNode, maxGpusSupported))
     // TODO - should we set this.numGpus?
     val nodeCores = if (clusterProperties.isDefined) {
-      logWarning("getNumCoresPerNode using the cluster props")
       // TODO:
       // I guess the assumption here is 1 executor per node - or we need to look this up
       // since not in the cluster definition, either way this is number cores per node
       clusterProperties.get.system.getNumCores
     } else if (clusterInfoFromEventLog.isDefined) {
       val clusterInfo = clusterInfoFromEventLog.get
-      logWarning(s"getNumCoresPerNode using eventlog information no clusterinfo from eventlog " +
-        s"${clusterInfo.numExecsPerNode}")
       // this assumes this job filled an entire node, which may not be true on
       // a multiple tenant cluster. If the number of executors ran per node would
       // require multiple GPUs per node check to see if this platform supports it.
@@ -501,13 +447,10 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     val (numExecs, numNodes) = if (finalInstanceInfo.get.numGpus >= numExecsPerNode) {
       // TODO - really if instance has more GPUs we should calculate the other way to recommend less
       // nodes but leave that open for now
-      logWarning("num gpus big enough don't change")
       (initialNumExecInstances, numExistingNodes)
     } else {
       // just flatten to use 1 but we should really see if multiples
       val numGpusLeft = numExecsPerNode / finalInstanceInfo.get.numGpus
-      logWarning("num gpus big enough change nodes: " + numExistingNodes +
-        " gpusToUse: " + gpusToUse + " ")
       (initialNumExecInstances, numExistingNodes * numGpusLeft)
     }
 
@@ -519,16 +462,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       None
     }
   }
-
-  /*
-  /**
-   * Based on the resources passed in, determine what the closest instance is and return
-   * its size.
-   */
-  def getPlatformInstanceInfoFromResources(cores: Int,
-      memoryMB: Option[Long]): Option[InstanceInfo] = None
-
-   */
 }
 
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
@@ -595,29 +528,6 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
       exactInstance
     }
   }
-
-  /*
-  override def getInstanceResources(
-      sparkProperties: Map[String, String]): Option[InstanceInfo] = {
-    val executorInstance = getGPUInstanceTypeRecommendation(sparkProperties)
-    logWarning("executor instance is: " + executorInstance)
-    if (executorInstance.isDefined) {
-      val NODE_REGEX = """[a-z0-9]*\.(\d{1,2}xlarge)""".r
-      val nodeSizeMatch = NODE_REGEX.findFirstMatchIn(executorInstance.get).get
-      if (nodeSizeMatch.subgroups.size >= 1) {
-        val nodeSize = nodeSizeMatch.group(1)
-        logWarning("node size is: " + nodeSize)
-        // remove the xlarge suffix to lookup by cores
-        PlatformInstanceTypes.AWS_BY_TYPE.get(nodeSize.replace("xlarge", ""))
-      } else {
-        logWarning("couldn't match node size")
-        None
-      }
-    } else {
-      None
-    }
-  }
-   */
 }
 
 class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
@@ -686,55 +596,23 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
 
   override def getInstanceByResources(
       cores: Int, numGpus: Int): Option[InstanceInfo] = {
-    logWarning("Dataproc getInstanceByResources cores: " + cores + " gpus: " + numGpus)
     val exactInstance = PlatformInstanceTypes.DATAPROC_BY_GPUS_CORES.get((numGpus, cores))
     if (exactInstance.isEmpty) {
       // try to find the closest
       val enoughGpus = PlatformInstanceTypes.DATAPROC_BY_GPUS_CORES.filterKeys { gpuCores =>
         gpuCores._1 >= numGpus && gpuCores._2 >= cores
       }
-      // Dataproc allows for configurable number of GPUs per node, have to take that into account
-
-      logWarning("Dataproc  enough is: " + enoughGpus)
-
       if (enoughGpus.isEmpty) {
         None
       } else {
         // add the gpus and cores to get a minimum value that matched.
         val res = enoughGpus.keys.minBy(x => x._1 + x._2)
-        val inst = enoughGpus.get(res)
-        logWarning("Dataproc instance rec is: " + inst)
-        inst
+        enoughGpus.get(res)
       }
     } else {
       exactInstance
     }
   }
-
-  /*
-  override def getPlatformInstanceInfoFromResources(cores: Int,
-      memoryMB: Option[Long]): Option[InstanceInfo] = {
-    val instanceType = PlatformInstanceTypes.DATAPROC.get(cores.toString)
-    if (instanceType.isDefined) {
-      if (memoryMB.isDefined) {
-        // make sure memory size within 75%
-        if (instanceType.get.memoryMB >= (memoryMB.get * .75)) {
-          instanceType
-        } else {
-          // look for bigger size, we know it doubles in size but probably find
-          // better algo
-          // skip checking memory after this
-          PlatformInstanceTypes.DATAPROC.get(cores.toString * 2)
-        }
-      } else {
-        instanceType
-      }
-    } else {
-      None
-    }
-  }
-
-   */
 }
 
 class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice],
@@ -792,71 +670,6 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
       exactInstance
     }
   }
-
-  /*
-  override def getPlatformInstanceInfoFromResources(cores: Int,
-      memoryMB: Option[Long]): Option[InstanceInfo] = {
-    logWarning("EMR getPlatformInstanceInfoFromResources cores: " + cores)
-    val instanceType = PlatformInstanceTypes.AWS_BY_GPUS_CORES.get(cores.toString)
-    logWarning("EMR getPlatformInstanceInfoFromResources instanceType: " + instanceType)
-
-    if (instanceType.isDefined) {
-      if (memoryMB.isDefined) {
-        // make sure memory size within 75%
-        if (instanceType.get.memoryMB >= (memoryMB.get * .75)) {
-          instanceType
-        } else {
-          logWarning("getPlatformInstanceInfoFromResources try to get bigger")
-          // look for bigger size, we know it doubles in size but probably find
-          // better algo
-          // skip checking memory after this
-          PlatformInstanceTypes.DATAPROC.get(cores.toString * 2)
-        }
-      } else {
-        instanceType
-      }
-    } else {
-      None
-    }
-  }
-
-   */
-  /*
-  override def getNumCoresPerNode(): Int = {
-    if (clusterProperties.isDefined) {
-      logWarning("getNumCoresPerNode using the cluster props")
-      clusterProperties.get.system.getNumCores
-    } else if (clusterInfoFromEventLog.isDefined) {
-      if (clusterInfoFromEventLog.get.instanceInfo.isDefined) {
-        logWarning("getNumCoresPerNode using eventlog information clusterinfo from eventlog")
-        clusterInfoFromEventLog.get.instanceInfo.get.cores
-      } else {
-        val clusterInfo = clusterInfoFromEventLog.get
-        logWarning(s"getNumCoresPerNode using eventlog information no clusterinfo from eventlog " +
-          s"${clusterInfo.numExecsPerNode}")
-        // this assumes this job filled an entire node, which may not be true on
-        // a multiple tenant cluster
-        // since we can't add arbitrary GPUs to a node keep the executor cores the same
-        // but then add more nodes
-        val nodeCores = clusterInfo.coresPerExecutor
-        val instanceInfo = getPlatformInstanceInfoFromResources(nodeCores, None)
-        if (!instanceInfo.isDefined) {
-          // we either miscalculated cores or we don't have a node type of the same size
-          logWarning(s"Number of cores per node was calculated as: ${nodeCores} but " +
-            "we don't have an instance mapping for that!")
-          // TODO - find closest instance
-          nodeCores
-        } else {
-          nodeCores
-        }
-      }
-    } else {
-      // use executor cores - or don't recommend???
-      0
-    }
-  }
-
-   */
 }
 
 class OnPremPlatform(gpuDevice: Option[GpuDevice],
