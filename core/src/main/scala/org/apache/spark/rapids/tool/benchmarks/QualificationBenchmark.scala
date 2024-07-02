@@ -19,14 +19,14 @@ package org.apache.spark.rapids.tool.benchmarks
 import com.nvidia.spark.rapids.tool.qualification.QualificationArgs
 import com.nvidia.spark.rapids.tool.qualification.QualificationMain.mainInternal
 
-/*
-  * This class is used to run the QualificationMain class as a benchmark.
-  * This can be used as a reference to write any benchmark class
-  * Usage -
-  * 1. Override the runBenchmarkSuite method
-  * 2. Write the benchmark code in the runBenchmark method passing relevant arguments
-  * 3. Write benchmarked code inside
-  */
+/**
+ * This class is used to run the QualificationMain class as a benchmark.
+ * This can be used as a reference to write any benchmark class
+ * Usage -
+ * 1. Override the runBenchmarkSuite method
+ * 2. Write the benchmark code in the runBenchmark method passing relevant arguments
+ * 3. Write benchmarked code inside
+ */
 object QualificationBenchmark extends BenchmarkBase {
   override def runBenchmarkSuite(iterations: Int,
     warmUpIterations: Int,

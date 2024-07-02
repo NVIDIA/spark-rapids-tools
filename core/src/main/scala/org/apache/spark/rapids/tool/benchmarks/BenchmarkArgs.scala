@@ -45,5 +45,4 @@ Benchmarker class for running various benchmarks.
       "benchmark class. The format is space separated arguments. For example " +
       "--output-directory /tmp --per-sql /tmp/eventlogs")
   verify()
-
 }

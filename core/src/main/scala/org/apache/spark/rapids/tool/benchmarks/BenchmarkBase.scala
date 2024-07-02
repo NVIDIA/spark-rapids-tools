@@ -53,8 +53,8 @@ abstract class BenchmarkBase {
 
   def main(args: Array[String]): Unit = {
 
-    val conf = new BenchmarkArgs(args)
-    val dirRoot = conf.outputDirectory().stripSuffix("/")
+    val benchArgs = new BenchmarkArgs(args)
+    val dirRoot = benchArgs.outputDirectory().stripSuffix("/")
     val resultFileName = "results.txt"
     val dir = new File(s"$dirRoot/$prefix/")
     if (!dir.exists()) {
@@ -65,10 +65,10 @@ abstract class BenchmarkBase {
       file.createNewFile()
     }
     output = Some(new FileOutputStream(file))
-    runBenchmarkSuite(conf.iterations(),
-      conf.warmupIterations(),
-      conf.outputFormat(),
-      conf.extraArgs().split("\\s+").filter(_.nonEmpty))
+    runBenchmarkSuite(benchArgs.iterations(),
+      benchArgs.warmupIterations(),
+      benchArgs.outputFormat(),
+      benchArgs.extraArgs().split("\\s+").filter(_.nonEmpty))
     output.foreach { o =>
       if (o != null) {
         o.close()
