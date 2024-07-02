@@ -1121,6 +1121,7 @@ class Qualification(RapidsJarTool):
             self.logger.info('Inferred Cluster but cpu node already set %s', self.ctxt.get_ctxt('cpuClusterProxy'))
             return
 
+        self.logger.info("going to infer cpu cluster! %s", cluster_info_df)
         # Infer the CPU cluster from the cluster information
         cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(cluster_info_df)
         if cpu_cluster_obj is None:
@@ -1144,16 +1145,16 @@ class Qualification(RapidsJarTool):
     def __infer_cluster_for_auto_tuning(self, cluster_info_df: pd.DataFrame):
         # if the user passed in the cpu cluster property, use that but we still want to try to infer the gpu
         # cluster to use
-        if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
-            self.logger.info('auto tuning Inferred Cluster but cpu node already set %s gpu cluster is %s',
-                             self.ctxt.get_ctxt('cpuClusterProxy'), self.ctxt.get_ctxt('gpuClusterProxy'))
+        #if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
+        #    self.logger.info('auto tuning Inferred Cluster but cpu node already set %s gpu cluster is %s',
+        #                     self.ctxt.get_ctxt('cpuClusterProxy'), self.ctxt.get_ctxt('gpuClusterProxy'))
             # here we want to just infer the gpu cluster from the cpu cluster passed in
-
-            return
+        #    return
 
         cpu_cluster_dict = {}
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
         for index, row in cluster_info_df.iterrows():
+            self.logger.info('auto tuning Inferred skip cpu set index %s row %s', index, row)
             single_cluster_df = cluster_info_df.iloc[[index]]
 
             # TODO - test executor instance picked up if there

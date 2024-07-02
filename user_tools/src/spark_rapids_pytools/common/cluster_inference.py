@@ -46,19 +46,30 @@ class ClusterInference:
         # If driver instance is not set, use the default value from platform configurations
         if pd.isna(driver_instance):
             driver_instance = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
-        num_executor_nodes = cluster_info_df.get('Num Executor Nodes')
-        executor_instance = cluster_info_df.get('Executor Instance')
-        if pd.isna(executor_instance):
-            # If executor instance is not set, use the default value based on the number of cores
-            cores_per_executor = cluster_info_df.get('Cores Per Executor')
-            execs_per_node = cluster_info_df.get('Num Executors Per Node')
-            total_cores_per_node = execs_per_node * cores_per_executor
-            # TODO - need to account for number of GPUs per executor
-            executor_instance = self.platform.get_matching_executor_instance(total_cores_per_node)
+        # first try to read the Recommended setting and if its not available fall back to the CPU inference
+        executor_instance = cluster_info_df.get('Recommended Executor Instance')
+        self.logger.info('infer cluster executor instance rec is %s', executor_instance)
+        if (pd.notna(executor_instance)):
+            self.logger.info('GPU infer cluster executor instance rec is %s', executor_instance)
+            num_executor_nodes = cluster_info_df.get('Recommended Num Executor Nodes')
+            # TODO - print some of these for user
+            rec_cores_per_executor = cluster_info_df.get('Recommended Cores Per Executor')
+            rec_execs = cluster_info_df.get('Recommended Num Executors')
+            rec_gpus = cluster_info_df.get('Recommended Num GPUs Per Node')
+        else:
+            num_executor_nodes = cluster_info_df.get('Num Executor Nodes')
+            executor_instance = cluster_info_df.get('Executor Instance')
             if pd.isna(executor_instance):
-                self.logger.info('Unable to infer CPU cluster. No matching executor instance found for vCPUs = %s',
-                                 total_cores_per_node)
-                return None
+                # If executor instance is not set, use the default value based on the number of cores
+                cores_per_executor = cluster_info_df.get('Cores Per Executor')
+                execs_per_node = cluster_info_df.get('Num Executors Per Node')
+                total_cores_per_node = execs_per_node * cores_per_executor
+                # TODO - need to account for number of GPUs per executor
+                executor_instance = self.platform.get_matching_executor_instance(total_cores_per_node)
+                if pd.isna(executor_instance):
+                    self.logger.info('Unable to infer CPU cluster. No matching executor instance found for vCPUs = %s',
+                                     total_cores_per_node)
+                    return None
         return {
             'DRIVER_INSTANCE': f'"{driver_instance}"',
             'NUM_DRIVER_NODES': num_driver_nodes,

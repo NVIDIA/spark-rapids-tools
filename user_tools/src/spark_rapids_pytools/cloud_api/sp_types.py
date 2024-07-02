@@ -1111,7 +1111,8 @@ class ClusterBase(ClusterGetAccessor):
                     if anode.instance_type not in mc_map:
                         self.cli.logger.warn('Tom nodes 3 %s', anode.instance_type)
                         best_mc_match = anode.find_best_cpu_conversion(supported_gpus)
-                        mc_map.update({anode.instance_type: best_mc_match})
+                        self.cli.logger.warn('Tom nodes 3 match %s', best_mc_match)
+                    mc_map.update({anode.instance_type: best_mc_match})
         return mc_map
 
     def get_all_spark_properties(self) -> dict:
