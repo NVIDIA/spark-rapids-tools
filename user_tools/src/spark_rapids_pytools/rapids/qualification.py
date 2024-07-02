@@ -237,7 +237,6 @@ class Qualification(RapidsJarTool):
         Qualification tool processes extra arguments:
         1. filter out applications.
         """
-        self.logger.info('Qualification tool processing the arguments TOM')
         super()._process_rapids_args()
 
     def _process_cpu_cluster_args(self, offline_cluster_opts: dict = None):
@@ -255,12 +254,9 @@ class Qualification(RapidsJarTool):
                 worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                self.logger.warning('Tom worker info 4 %s ', gpu_info)
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
                 num_cpus = sys_info.num_cpus
                 cpu_mem = sys_info.cpu_mem
-                self.logger.info('cpu memory is  %s', cpu_mem)
-                self.logger.info('cpu cores is  %s', num_cpus)
 
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.warning(
@@ -270,10 +266,8 @@ class Qualification(RapidsJarTool):
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
         cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
         if gpu_cluster_arg:
-            self.logger.warning("TOM 3")
             gpu_cluster_obj = self._create_migration_cluster('GPU', gpu_cluster_arg)
         else:
-            self.logger.warning("TOM 4")
             gpu_cluster_obj = None
             if cpu_cluster:
                 # Convert the CPU instances to support gpu. Otherwise, gpuCluster is not set
@@ -301,19 +295,15 @@ class Qualification(RapidsJarTool):
     # on a per application basis and was explicitly copied to not have to deal with
     # changing the cost savings flow at the same time.
     def _process_gpu_cluster_args_for_auto_tuner(self, offline_cluster_opts: dict = None) -> dict:
-        self.logger.warning("TOM 1")
         def _process_gpu_cluster_worker_node():
             try:
                 worker_node = gpu_cluster_obj.get_worker_node()
                 worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                self.logger.warning('Tom worker info 4 %s ', gpu_info)
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
                 num_cpus = sys_info.num_cpus
                 cpu_mem = sys_info.cpu_mem
-                self.logger.info('cpu memory is  %s', cpu_mem)
-                self.logger.info('cpu cores is  %s', num_cpus)
 
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.warning(
@@ -344,7 +334,6 @@ class Qualification(RapidsJarTool):
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
         enable_savings_flag = self.wrapper_options.get('savingsCalculations', True)
         if enable_savings_flag:
-            self.logger.warning("TOM 12")
             self._process_cpu_cluster_args(offline_cluster_opts)
             if self.ctxt.get_ctxt('cpuClusterProxy') is None:
                 # if no cpu-cluster is defined, then we are not supposed to run cost calculations
@@ -1061,7 +1050,6 @@ class Qualification(RapidsJarTool):
             if len(cluster_info_df) > 0:
                 self.__infer_cluster_and_update_savings(cluster_info_df)
                 self.__infer_cluster_for_auto_tuning(cluster_info_df)
-                self.logger.warn("Tom cpu cluster per app %s", self.ctxt.get_ctxt('cpuClusterInfoPerApp'))
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Unable to process cluster information. Cost savings will be disabled. '
                               'Reason - %s:%s', type(e).__name__, e)

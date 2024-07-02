@@ -1104,14 +1104,10 @@ class ClusterBase(ClusterGetAccessor):
                 self.cli.logger.debug('Skip converting Master nodes')
             else:
                 for anode in node_list:
-                    self.cli.logger.warn('Tom nodes 1')
                     if anode.instance_type in supported_gpus:
-                        self.cli.logger.warn('Tom nodes 2 %s', anode.instance_type)
                         continue
                     if anode.instance_type not in mc_map:
-                        self.cli.logger.warn('Tom nodes 3 %s', anode.instance_type)
                         best_mc_match = anode.find_best_cpu_conversion(supported_gpus)
-                        self.cli.logger.warn('Tom nodes 3 match %s', best_mc_match)
                     mc_map.update({anode.instance_type: best_mc_match})
         return mc_map
 
