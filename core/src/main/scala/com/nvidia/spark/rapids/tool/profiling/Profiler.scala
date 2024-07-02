@@ -472,7 +472,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         combineProps("rapids", appsSum).sortBy(_.key),
         appsSum.flatMap(_.rapidsJar).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlMetrics).sortBy(_.appIndex),
-        appsSum.flatMap(_.gpuMetrics).sortBy(_.appIndex),
+        appsSum.flatMap(_.stageMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.jobAggMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.stageAggMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlTaskAggMetrics).sortBy(_.appIndex),
@@ -515,7 +515,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some(ProfRapidsJarView.getDescription))
       profileOutputWriter.write(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
         Some(ProfSQLPlanMetricsView.getDescription))
-      profileOutputWriter.write(ProfStageMetricView.getLabel, app.gpuMetrics,
+      profileOutputWriter.write(ProfStageMetricView.getLabel, app.stageMetrics,
         Some(ProfStageMetricView.getDescription))
       profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
         Some(ProfSQLCodeGenView.getDescription))

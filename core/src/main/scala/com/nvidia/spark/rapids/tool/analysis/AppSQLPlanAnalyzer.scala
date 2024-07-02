@@ -353,7 +353,6 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    *
    * @return a sequence of AccumProfileResults
    */
-
   def generateStageLevelAccums(): Seq[AccumProfileResults] = {
 
     def computeStatistics(updates: Seq[Long]): Option[StatisticsMetrics] = {
