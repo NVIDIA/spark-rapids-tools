@@ -31,7 +31,10 @@ abstract class BenchmarkBase {
    * Implementations of this method are supposed to use the wrapper method `runBenchmark`
    * for each benchmark scenario.
    */
-  def runBenchmarkSuite(mainArgs: Array[String]): Unit
+  def runBenchmarkSuite(iterations: Int,
+      warmUpIterations: Int,
+      outputFormat: String,
+      mainArgs: Array[String]): Unit
 
   final def runBenchmark(benchmarkName: String)(func: => Any): Unit = {
     val separator = "=" * 96
@@ -49,8 +52,9 @@ abstract class BenchmarkBase {
   def afterAll(): Unit = {}
 
   def main(args: Array[String]): Unit = {
-    // TODO: get the dirRoot from the arguments instead
-    val dirRoot = ""
+
+    val benchArgs = new BenchmarkArgs(args)
+    val dirRoot = benchArgs.outputDirectory().stripSuffix("/")
     val resultFileName = "results.txt"
     val dir = new File(s"$dirRoot/$prefix/")
     if (!dir.exists()) {
@@ -61,7 +65,10 @@ abstract class BenchmarkBase {
       file.createNewFile()
     }
     output = Some(new FileOutputStream(file))
-    runBenchmarkSuite(args)
+    runBenchmarkSuite(benchArgs.iterations(),
+      benchArgs.warmupIterations(),
+      benchArgs.outputFormat(),
+      benchArgs.extraArgs().split("\\s+").filter(_.nonEmpty))
     output.foreach { o =>
       if (o != null) {
         o.close()
