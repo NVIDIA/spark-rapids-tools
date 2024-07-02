@@ -24,7 +24,7 @@ import org.apache.spark.sql.rapids.tool.annotation.Since
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
 trait AppStageMetricsViewTrait extends ViewableTrait[AccumProfileResults] {
-  override def getLabel: String = "Stage Level All Metrics for Application"
+  override def getLabel: String = "Stage Level All Metrics"
   override def getDescription: String = "Stage Level Metrics"
 
   override def sortView(
