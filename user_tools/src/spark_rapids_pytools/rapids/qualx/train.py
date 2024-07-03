@@ -37,6 +37,7 @@ class Train(QualXTool):
     dataset: str = None
     model: str = None
     n_trials: int = None
+    base_model: str = None
 
     name = 'train'
 
@@ -45,7 +46,13 @@ class Train(QualXTool):
         Runs the QualX train tool, saves the trained model and training results.
         """
         try:
-            train(dataset=self.dataset, model=self.model, output_dir=self.output_folder, n_trials=self.n_trials)
+            train(
+                dataset=self.dataset,
+                model=self.model,
+                output_dir=self.output_folder,
+                n_trials=self.n_trials,
+                base_model=self.base_model,
+            )
             self.logger.info('Training completed successfully.')
             self.logger.info('Trained XGBoost model is saved at: %s', self.model)
             self.logger.info('Training results are generated at: %s', self.output_folder)

@@ -652,6 +652,7 @@ class TrainUserArgModel(AbsToolUserArgModel):
     dataset: str = None
     model: Optional[str] = None
     n_trials: Optional[int] = None
+    base_model: Optional[str] = None
 
     def build_tools_args(self) -> dict:
         runtime_platform = CspEnv.fromstring(self.platform)
@@ -661,5 +662,6 @@ class TrainUserArgModel(AbsToolUserArgModel):
             'model': self.model,
             'output_folder': self.output_folder,
             'n_trials': self.n_trials,
+            'base_model': self.base_model,
             'platformOpts': {},
         }
