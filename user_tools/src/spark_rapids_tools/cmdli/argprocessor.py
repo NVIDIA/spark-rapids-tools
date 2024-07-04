@@ -107,8 +107,6 @@ class AbsToolUserArgModel:
     })
     logger: ClassVar[Logger] = None
     tool_name: ClassVar[str] = None
-    cli_class: ClassVar[str] = None
-    cli_name: ClassVar[str] = None
 
     @classmethod
     def create_tool_args(cls, tool_name: str, *args: Any, cli_class: str = 'ToolsCLI',
@@ -117,13 +115,11 @@ class AbsToolUserArgModel:
         try:
             impl_entry = user_arg_validation_registry.get(tool_name)
             impl_class = impl_entry.validator_class
-            impl_class.cli_class = cli_class
-            impl_class.cli_name = cli_name
             new_obj = impl_class(*args, **kwargs)
             return new_obj.build_tools_args()
         except (ValidationError, PydanticCustomError) as e:
             impl_class.logger.error('Validation err: %s\n', e)
-            dump_tool_usage(impl_class.cli_class, impl_class.cli_name, impl_class.tool_name)
+            dump_tool_usage(cli_class, cli_name, impl_class.tool_name)
         return None
 
     def get_eventlogs(self) -> Optional[str]:

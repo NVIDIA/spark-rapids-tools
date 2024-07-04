@@ -180,18 +180,17 @@ class DBAzureCMDDriver(CMDDriverBase):
         for instance in raw_instance_descriptions.props:
             if not instance['capabilities']:
                 continue
-            instance_content = {'VCpuInfo': {'DefaultVCpus': -1}, 'MemoryInfo': {}, 'GpuInfo': {}}
+            instance_content = {}
             gpu_count = 0
             for elem in instance['capabilities']:
                 if elem['name'] == 'vCPUs':
-                    instance_content['VCpuInfo']['DefaultVCpus'] = int(elem['value'])
+                    instance_content['DefaultVCpus'] = int(elem['value'])
                 elif elem['name'] == 'MemoryGB':
-                    instance_content['MemoryInfo'] = {'SizeInMiB': int(float(elem['value']) * 1024)}
+                    instance_content['MemoryInMB'] = int(float(elem['value']) * 1024)
                 elif elem['name'] == 'GPUs':
                     gpu_count = int(elem['value'])
             if gpu_count > 0:
-                gpu_info = {'Name': '', 'Manufacturer': '', 'Count': gpu_count, 'MemoryInfo': {}}
-                instance_content['GpuInfo']['GPUs'] = [gpu_info]
+                instance_content['GpuInfo'] = [{'Count': gpu_count}]
             processed_instance_descriptions[instance['name']] = instance_content
         return processed_instance_descriptions
 

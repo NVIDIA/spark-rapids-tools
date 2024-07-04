@@ -614,6 +614,19 @@ class CMDDriverBase:
     def generate_instance_description(self, fpath: str) -> None:
         """
         Generates CSP instance type descriptions and store them in a json file.
+        Json file entry example ('GpuInfo' is optional):
+          {
+            "instance_name": {
+              "DefaultVCpus": 000,
+              "MemoryInMB": 000,
+              "GpuInfo": [
+                {
+                  "Name": gpu_name,
+                  "Count": 000
+                }
+              ]
+            }
+          }
         :param fpath: the output json file path.
         :return:
         """

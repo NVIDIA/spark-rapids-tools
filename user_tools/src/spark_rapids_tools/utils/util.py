@@ -118,10 +118,7 @@ def gen_app_banner(mode: str = '') -> str:
     :return: a string representing the banner of the user tools including the version
     """
 
-    tool_mode_note = '                '
-    if mode != '':
-        tool_mode_note = f'{mode} CMD '
-
+    tool_mode_note = '' if mode == '' else f'{mode} CMD'
     c_ver = spark_rapids_pytools.__version__
     return rf"""
 
@@ -139,7 +136,7 @@ def gen_app_banner(mode: str = '') -> str:
 *     \____/____/\___/_/       /_/  \____/\____/_/____/            *
 *                                                                  *
 *                                      Version. {c_ver}            *
-*                                      {tool_mode_note}            *
+*{'':>38}{tool_mode_note:<28}*
 *                                                                  *
 * NVIDIA Corporation                                               *
 * spark-rapids-support@nvidia.com                                  *

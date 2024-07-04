@@ -254,12 +254,12 @@ class EMRCMDDriver(CMDDriverBase):
         raw_instances_descriptions = JSONPropertiesContainer(prop_arg=instance_descriptions, file_load=False)
         for instance in raw_instances_descriptions.get_value('InstanceTypes'):
             instance_content = {}
-            v_cpus = instance.get('VCpuInfo', {}).get('DefaultVCpus', -1)
-            instance_content['VCpuInfo'] = {'DefaultVCpus': int(v_cpus)}
-            instance_content['MemoryInfo'] = instance.get('MemoryInfo', {})
-            instance_content['GpuInfo'] = instance.get('GpuInfo', {})
-            # remove entry to keep json output consistent with other CSPs
-            instance_content['GpuInfo'].pop('TotalGpuMemoryInMiB', None)
+            instance_content['DefaultVCpus'] = int(instance.get('VCpuInfo', {}).get('DefaultVCpus', -1))
+            instance_content['MemoryInMB'] = int(instance.get('MemoryInfo', {}).get('SizeInMiB', -1))
+            if 'GpuInfo' in instance:
+                gpu_name = instance['GpuInfo']['Gpus'][0]['Name']
+                gpu_count = int(instance['GpuInfo']['Gpus'][0]['Count'])
+                instance_content['GpuInfo'] = [{'Name': gpu_name, 'Count': gpu_count}]
             processed_instance_descriptions[instance.get('InstanceType')] = instance_content
         return processed_instance_descriptions
 

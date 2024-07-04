@@ -292,29 +292,27 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
         return cmd
 
     def _process_instance_description(self, instance_descriptions: str) -> dict:
-        def extract_gpu_info(gpu_description: str) -> [str, str]:
-            gpu_description_list = gpu_description.split('-')
-            gpu_manufacturer = gpu_description_list[0] if len(gpu_description_list) > 1 else ''
-            gpu_name = gpu_description_list[0]
-            for elem in gpu_description_list[1:]:
+        def extract_gpu_name(gpu_description: str) -> str:
+            gpu_name = ''
+            for elem in gpu_description.split('-'):
                 if is_valid_gpu_device(elem):
                     gpu_name = elem
                     break
-            return gpu_name.upper(), gpu_manufacturer.upper()
+            return gpu_name.upper()
 
         processed_instance_descriptions = {}
         raw_instances_descriptions = JSONPropertiesContainer(prop_arg=instance_descriptions, file_load=False)
         for instance in raw_instances_descriptions.props:
-            instance_content = {'MemoryInfo': {}, 'GpuInfo': {}}
-            instance_content['VCpuInfo'] = {'DefaultVCpus': int(instance.get('guestCpus', -1))}
-            instance_content['MemoryInfo']['SizeInMiB'] = instance.get('memoryMb', -1)
+            instance_content = {}
+            instance_content['DefaultVCpus'] = int(instance.get('guestCpus', -1))
+            instance_content['MemoryInMB'] = int(instance.get('memoryMb', -1))
             if 'accelerators' in instance:
                 raw_accelerator_info = instance['accelerators'][0]
-                gpu_count = int(raw_accelerator_info.get('guestAcceleratorCount', -1))
-                gpu_name, gpu_manufacturer = extract_gpu_info(raw_accelerator_info.get('guestAcceleratorType'))
-                gpu_info = {'Name': gpu_name, 'Manufacturer': gpu_manufacturer, 'Count': gpu_count,
-                            'MemoryInfo': {}}
-                instance_content['GpuInfo']['GPUs'] = [gpu_info]
+                gpu_name = extract_gpu_name(raw_accelerator_info.get('guestAcceleratorType'))
+                if gpu_name != '':
+                    gpu_count = int(raw_accelerator_info.get('guestAcceleratorCount', -1))
+                    gpu_info = {'Name': gpu_name, 'Count': gpu_count}
+                    instance_content['GpuInfo'] = [gpu_info]
             processed_instance_descriptions[instance.get('name')] = instance_content
         return processed_instance_descriptions
 
