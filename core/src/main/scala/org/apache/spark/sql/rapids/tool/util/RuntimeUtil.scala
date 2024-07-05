@@ -68,7 +68,7 @@ object RuntimeUtil extends Logging {
   def getJVMOSInfo: Map[String, String] = {
     Map(
       "jvm.name" -> System.getProperty("java.vm.name"),
-      "jvm.version" -> System.getProperty("java.vm.version"),
+      "jvm.version" -> System.getProperty("java.version"),
       "os.name" -> System.getProperty("os.name"),
       "os.version" -> System.getProperty("os.version")
     )
