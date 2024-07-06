@@ -24,7 +24,7 @@ dependencies = [
     "importlib-resources==5.10.2",
     "requests==2.32.2",
     "packaging==23.0",
-    "certifi==2023.7.22",
+    "certifi==2024.7.4",
     "idna==3.7",
     "urllib3==1.26.18",
     "beautifulsoup4==4.11.2"
