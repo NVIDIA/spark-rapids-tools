@@ -184,7 +184,7 @@ class DBAzureCMDDriver(CMDDriverBase):
             gpu_count = 0
             for elem in instance['capabilities']:
                 if elem['name'] == 'vCPUs':
-                    instance_content['DefaultVCpus'] = int(elem['value'])
+                    instance_content['VCpuCount'] = int(elem['value'])
                 elif elem['name'] == 'MemoryGB':
                     instance_content['MemoryInMB'] = int(float(elem['value']) * 1024)
                 elif elem['name'] == 'GPUs':

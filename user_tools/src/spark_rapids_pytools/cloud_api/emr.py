@@ -254,7 +254,7 @@ class EMRCMDDriver(CMDDriverBase):
         raw_instances_descriptions = JSONPropertiesContainer(prop_arg=instance_descriptions, file_load=False)
         for instance in raw_instances_descriptions.get_value('InstanceTypes'):
             instance_content = {}
-            instance_content['DefaultVCpus'] = int(instance.get('VCpuInfo', {}).get('DefaultVCpus', -1))
+            instance_content['VCpuCount'] = int(instance.get('VCpuInfo', {}).get('DefaultVCpus', -1))
             instance_content['MemoryInMB'] = int(instance.get('MemoryInfo', {}).get('SizeInMiB', -1))
             if 'GpuInfo' in instance:
                 gpu_name = instance['GpuInfo']['Gpus'][0]['Name']

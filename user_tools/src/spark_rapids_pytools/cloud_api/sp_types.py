@@ -617,7 +617,7 @@ class CMDDriverBase:
         Json file entry example ('GpuInfo' is optional):
           {
             "instance_name": {
-              "DefaultVCpus": 000,
+              "VCpuCount": 000,
               "MemoryInMB": 000,
               "GpuInfo": [
                 {

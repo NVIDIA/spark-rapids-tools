@@ -304,7 +304,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
         raw_instances_descriptions = JSONPropertiesContainer(prop_arg=instance_descriptions, file_load=False)
         for instance in raw_instances_descriptions.props:
             instance_content = {}
-            instance_content['DefaultVCpus'] = int(instance.get('guestCpus', -1))
+            instance_content['VCpuCount'] = int(instance.get('guestCpus', -1))
             instance_content['MemoryInMB'] = int(instance.get('memoryMb', -1))
             if 'accelerators' in instance:
                 raw_accelerator_info = instance['accelerators'][0]
