@@ -21,8 +21,9 @@ import java.io.{File, FileOutputStream, OutputStream}
 /**
  * This code is mostly copied from org.apache.spark.benchmark.BenchmarkBase
  *
- * A base class for generate benchmark results to a file.
- * For JDK9+, JDK major version number is added to the file names to distinguish the results.
+ * A base class for generating benchmark results to a file.
+ * For JDK9+, JDK major version number is added to the result file to distinguish
+ * the generated results.
  */
 abstract class BenchmarkBase {
   var output: Option[OutputStream] = None
@@ -34,7 +35,7 @@ abstract class BenchmarkBase {
   def runBenchmarkSuite(iterations: Int,
       warmUpIterations: Int,
       outputFormat: String,
-      mainArgs: Array[String]): Unit
+      extraArgs: Array[String]): Unit
 
   final def runBenchmark(benchmarkName: String)(func: => Any): Unit = {
     val separator = "=" * 96

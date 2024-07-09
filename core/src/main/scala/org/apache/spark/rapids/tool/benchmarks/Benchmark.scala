@@ -86,7 +86,6 @@ class Benchmark(
    */
   def run(): Unit = {
     require(benchmarks.nonEmpty)
-    // scalastyle:off
     println("-" * 80)
     println("Running benchmark: " + name)
     println("-" * 80)
@@ -98,7 +97,6 @@ class Benchmark(
     println
 
     val firstBest = results.head.bestMs
-    // The results are going to be processor specific so it is useful to include that.
     val jvmInfo = RuntimeUtil.getJVMOSInfo
     out.printf(s"%-26s :   %s \n","JVM Name", jvmInfo("jvm.name"))
     out.printf(s"%-26s :   %s \n","Java Version", jvmInfo("jvm.version"))
@@ -151,18 +149,14 @@ class Benchmark(
       gcCounts += memoryTracker.getTotalGCCount
       gcTimes += memoryTracker.getTotalGCTime
       if (outputPerIteration) {
-        // scalastyle:off
         println("*"*80)
         println(s"Iteration $i took ${NANOSECONDS.toMicros(runTime)} microseconds")
         println("*"*80)
-        // scalastyle:on
       }
     }
-    // scalastyle:off
     println("*"*80)
     println(s"  Stopped after $minIters iterations, ${NANOSECONDS.toMillis(runTimes.sum)} ms")
     println("*"*80)
-    // scalastyle:on
     assert(runTimes.nonEmpty)
     val bestRuntime = runTimes.min
     val avgRuntime = runTimes.sum / runTimes.size
