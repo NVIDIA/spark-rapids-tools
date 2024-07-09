@@ -124,20 +124,28 @@ def get_dataset_platforms(dataset: str) -> Tuple[List[str], str]:
     dataset: str
         Path to datasets directory, datasets/platform directory, or datasets/platform/dataset.json file.
     """
+    supported_platforms = [
+        'databricks-aws',
+        'databricks-azure',
+        'dataproc',
+        'emr',
+        'onprem'
+    ]
+
     splits = Path(dataset).parts
-    platform = splits[-1]
-    if platform.endswith('.json'):
-        # dataset JSON, assume parent dir is platform
+    basename = splits[-1]
+    if basename.endswith('.json'):
+        # dataset JSON
         platforms = [splits[-2]]
         dataset_base = os.path.join(*splits[:-2])
-    elif platform == 'datasets':
-        # all datasets, assume directory contains platforms
+    elif basename in supported_platforms:
+        # platform directory
+        platforms = [basename]
+        dataset_base = os.path.join(*splits[:-1])
+    else:
+        # datasets directory
         platforms = os.listdir(dataset)
         dataset_base = dataset
-    else:
-        # default, last component is platform
-        platforms = [platform]
-        dataset_base = os.path.join(*splits[:-1])
     return platforms, dataset_base
 
 
@@ -205,8 +213,7 @@ def load_plugin(plugin_path: str) -> types.ModuleType:
         logger.info(f'Successfully loaded plugin: {plugin_path}')
         return module
     else:
-        logger.warning(f'Failed to load plugin: {plugin_path}')
-        return None
+        raise FileNotFoundError(f'Plugin not found: {plugin_path}')
 
 
 def random_string(length: int) -> str:

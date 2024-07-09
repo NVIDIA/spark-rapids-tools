@@ -43,6 +43,7 @@ from spark_rapids_tools.tools.qualx.util import (
     get_cache_dir,
     get_logger,
     get_dataset_platforms,
+    load_plugin,
     print_summary,
     print_speedup_summary,
     run_qualification_tool,
@@ -194,7 +195,7 @@ def _predict(
             else 'raw'
         )
         logger.info(f'Predicting dataset ({filter_str}): {dataset}')
-        features, feature_cols, label_col = extract_model_features(input_df, split_fn)
+        features, feature_cols, label_col = extract_model_features(input_df, [split_fn])
         # note: dataset name is already stored in the 'appName' field
         try:
             results = predict_model(xgb_model, features, feature_cols, label_col)
@@ -374,6 +375,7 @@ def train(
     model: Optional[str] = 'xgb_model.json',
     output_dir: Optional[str] = 'train',
     n_trials: Optional[int] = 200,
+    base_model: Optional[str] = None,
 ):
     """Train an XGBoost model.
 
@@ -387,6 +389,8 @@ def train(
         Path to save the trained XGBoost model.
     n_trials:
         Number of trials for hyperparameter search.
+    base_model:
+        Path to an existing pre-trained model to continue training from.
     """
     datasets, profile_df = load_datasets(dataset)
     dataset_list = sorted(list(datasets.keys()))
@@ -399,13 +403,41 @@ def train(
             f'Training data contained datasets: {profile_datasets}, expected: {dataset_list}.'
         )
 
-    features, feature_cols, label_col = extract_model_features(profile_df, split_nds)
-    xgb_model = train_model(features, feature_cols, label_col, n_trials=n_trials)
+    split_functions = [split_nds]
+    for ds_name, ds_meta in datasets.items():
+        if 'split_function' in ds_meta:
+            plugin_path = ds_meta['split_function']
+            logger.info(f'Using split function for {ds_name} dataset from plugin: {plugin_path}')
+            plugin = load_plugin(plugin_path)
+            split_functions.append(plugin.split_function)
 
-    # save model
+    features, feature_cols, label_col = extract_model_features(profile_df, split_functions)
+
+    xgb_base_model = None
+    if base_model:
+        if os.path.exists(base_model):
+            logger.info(f'Fine-tuning on base model from: {base_model}')
+            xgb_base_model = xgb.Booster()
+            xgb_base_model.load_model(base_model)
+            base_model_cfg = base_model + '.cfg'
+            if os.path.exists(base_model_cfg):
+                with open(base_model + '.cfg', 'r') as f:
+                    cfg = f.read()
+                xgb_base_model.load_config(cfg)
+            else:
+                raise ValueError(f'Existing model config not found: {base_model_cfg}')
+            feature_cols = xgb_base_model.feature_names   # align features to base model
+        else:
+            raise ValueError(f'Existing model not found for fine-tuning: {base_model}')
+    xgb_model = train_model(features, feature_cols, label_col, n_trials=n_trials, base_model=xgb_base_model)
+
+    # save model and params
     ensure_directory(model, parent=True)
     logger.info(f'Saving model to: {model}')
     xgb_model.save_model(model)
+    cfg = xgb_model.save_config()
+    with open(model + '.cfg', 'w') as f:
+        f.write(cfg)
 
     ensure_directory(output_dir)
     compute_feature_importance(xgb_model, features, feature_cols, output_dir)
@@ -642,13 +674,21 @@ def evaluate(
     qual_dir = f'{platform_cache}/qual'
     ensure_directory(qual_dir)
 
+    split_fn = None
     quals = os.listdir(qual_dir)
     for ds_name, ds_meta in datasets.items():
         if ds_name not in quals:
+            # run qual tool if needed
             eventlogs = ds_meta['eventlogs']
             for eventlog in eventlogs:
                 eventlog = os.path.expandvars(eventlog)
                 run_qualification_tool(platform, eventlog, f'{qual_dir}/{ds_name}')
+        if 'split_function' in ds_meta:
+            # get split_function from plugin
+            plugin_path = ds_meta['split_function']
+            logger.info(f'Using split function for {ds_name} dataset from plugin: {plugin_path}')
+            plugin = load_plugin(plugin_path)
+            split_fn = plugin.split_function
 
     logger.info('Loading qualification tool CSV files.')
     node_level_supp, qualtool_output, qual_sql_preds, _ = _get_qual_data(qual_dir)
@@ -661,7 +701,9 @@ def evaluate(
     if profile_df.empty:
         raise ValueError(f'Warning: No profile data found for {dataset}')
 
-    split_fn = split_all_test if 'test' in dataset_name else split_nds
+    if not split_fn:
+        # use default split_fn if not specified
+        split_fn = split_all_test if 'test' in dataset_name else split_nds
 
     # raw predictions on unfiltered data
     raw_sql, raw_app = _predict(
