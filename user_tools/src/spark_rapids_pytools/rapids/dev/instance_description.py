@@ -29,6 +29,7 @@ class InstanceDescription(RapidsTool):
     """Wrapper layer around Generate_Instance_Description Tool."""
 
     name = 'instance_description'
+    instance_file = ''  # local absolute path of the instance description file
 
     def _connect_to_execution_cluster(self) -> None:
         pass
@@ -55,8 +56,9 @@ class InstanceDescription(RapidsTool):
             self.output_folder = Utils.get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
         # make sure that output_folder is being absolute
         self.output_folder = FSUtil.get_abs_path(self.output_folder)
-        self.logger.debug('Root directory of local storage is set as: %s', self.output_folder)
+        FSUtil.make_dirs(self.output_folder)
+        self.instance_file = f'{self.output_folder}/{self.platform_type}-instance-catalog.json'
+        self.logger.debug('Instance description output will be saved in: %s', self.instance_file)
 
     def _run_rapids_tool(self) -> None:
-        instance_file = f'{self.output_folder}/{self.platform_type}-instance-catalog.json'
-        self.ctxt.platform.cli.generate_instance_description(instance_file)
+        self.ctxt.platform.cli.generate_instance_description(self.instance_file)
