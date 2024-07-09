@@ -151,7 +151,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
       shuffleStagesWithPosSpilling, shuffleSkewStages)
   }
-/*
+
   test("verify 3.2.0+ auto conf setting") {
     val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(32), Some("122880MiB"), Some(0))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
@@ -1469,7 +1469,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
   }
-*/
+
   def generateRecommendationsForRapidsJars(rapidsJars: Seq[String]): String = {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
@@ -1492,7 +1492,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val (properties, comments) = autoTuner.getRecommendedProperties()
     Profiler.getAutoTunerResultsAsString(properties, comments)
   }
-/*
+
   test("Multiple RAPIDS jars trigger a comment") {
     // 1. The Autotuner should warn the users that they have multiple jars defined in the classPath
     // 2. Compare the output
@@ -1529,7 +1529,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val autoTunerOutput = generateRecommendationsForRapidsJars(rapidsJarsArr)
     assert(expectedResults == autoTunerOutput)
   }
-*/
+
   test("Recommend upgrading to the latest plugin release") {
     // 1. Pull the latest release from mvn.
     // 2. The Autotuner should warn the users that they are using an older release
