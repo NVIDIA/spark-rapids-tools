@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
+import scala.util.control.NonFatal
+
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
 import com.nvidia.spark.rapids.tool.tuning.TunerContext
 
@@ -66,8 +68,8 @@ object QualificationMain extends Logging {
     val platform = try {
       PlatformFactory.createInstance(appArgs.platform())
     } catch {
-      case ie: Exception =>
-        logError("Error creating the platform", ie)
+      case NonFatal(e) =>
+        logError("Error creating the platform", e)
         return (1, Seq[QualificationSummaryInfo]())
     }
 
