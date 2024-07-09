@@ -1133,11 +1133,11 @@ class Qualification(RapidsJarTool):
     def __infer_cluster_for_auto_tuning(self, cluster_info_df: pd.DataFrame):
         # if the user passed in the cpu cluster property, use that but we still want to try to infer the gpu
         # cluster to use
-        #if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
-        #    self.logger.info('auto tuning Inferred Cluster but cpu node already set %s gpu cluster is %s',
-        #                     self.ctxt.get_ctxt('cpuClusterProxy'), self.ctxt.get_ctxt('gpuClusterProxy'))
+        if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
+            self.logger.info('auto tuning Inferred Cluster but cpu node already set %s gpu cluster is %s',
+                             self.ctxt.get_ctxt('cpuClusterProxy'), self.ctxt.get_ctxt('gpuClusterProxy'))
             # here we want to just infer the gpu cluster from the cpu cluster passed in
-        #    return
+            return
 
         cpu_cluster_dict = {}
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})

@@ -77,7 +77,7 @@ object PlatformInstanceTypes {
   )
 
   // dataproc and dataproc-gke
-  // -1 numGpus means it is flexible. Google supports 1, 2, or 4 Gpus of most types
+  // Google supports 1, 2, or 4 Gpus of most types
   // added to n1-standard boxes. You may be able to add 8 v100's but we
   // are going to ignore that.
   val DATAPROC_BY_GPUS_CORES = Map(
@@ -123,8 +123,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   var recommendedNodeInstanceInfo: Option[InstanceInfo] = None
   // overall final recommended cluster configuration
   var recommendedClusterInfo: Option[RecommendedClusterInfo] = None
-  // the number of GPUs to use, this might be updated as we handle different
-  // cases
+  // the number of GPUs to use, this might be updated as we handle different cases
   var numGpus: Int = 1
 
   // This function allow us to have one gpu type used by the auto
@@ -380,11 +379,13 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     // update the global numGpus based on the instance type we are using
     this.numGpus = gpusToUse
     val nodeCores = if (clusterProperties.isDefined) {
+      logInfo("Using the cluster properties passed in.")
       // TODO:
       // I guess the assumption here is 1 executor per node - or we need to look this up
       // since not in the cluster definition, either way this is number cores per node
       clusterProperties.get.system.getNumCores
     } else if (clusterInfoFromEventLog.isDefined) {
+      logInfo("Using the cluster information from the event log.")
       val clusterInfo = clusterInfoFromEventLog.get
       // this assumes this job filled an entire node, which may not be true on
       // a multiple tenant cluster. If the number of executors ran per node would
@@ -402,6 +403,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       val execCores = if (clusterInfoFromEventLog.isDefined) {
         clusterInfoFromEventLog.get.coresPerExecutor
       } else {
+        logWarning("cluster information from event log is missing, executor cores set to 0!")
         0
       }
       val nodeMemMB = getMemoryMBPerNode(sparkProperties)
@@ -446,6 +448,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       recommendedNodeInstanceInfo = finalInstanceInfo
       recommendedClusterInfo
     } else {
+      logWarning("No executors so the recommended cluster and node instance information" +
+        " is not set!")
       None
     }
   }

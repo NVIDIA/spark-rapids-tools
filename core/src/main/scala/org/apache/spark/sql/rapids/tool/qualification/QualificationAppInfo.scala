@@ -877,6 +877,7 @@ class QualificationAppInfo(
     } else {
       // if no executors do we want to qualify at all?  maybe not, else we could look at
       // properties like spark.executor.cores
+      logWarning("Active executor info is empty!")
     }
   }
 

@@ -427,6 +427,7 @@ class AutoTuner(
    */
   def getGPURecommendedInstanceType: Option[RecommendedClusterInfo] = {
     val gpuClusterRec = platform.getGPUInstanceTypeRecommendation(getAllProperties.toMap)
+    logWarning("gpu cluster rec is: " + gpuClusterRec)
     // set the number of executor instance config
     if (gpuClusterRec.isDefined) {
       appendRecommendation("spark.executor.cores", gpuClusterRec.get.coresPerExecutor)
@@ -471,7 +472,7 @@ class AutoTuner(
   private def calcAvailableMemPerExec(): Double = {
     val memMBPerNode = platform.recommendedNodeInstanceInfo.map(_.memoryMB).getOrElse(0L)
     val gpusPerExec = platform.getNumGPUsPerNode
-    Math.max(1, memMBPerNode / gpusPerExec)
+    Math.max(0, memMBPerNode / gpusPerExec)
   }
 
   /**
@@ -540,6 +541,8 @@ class AutoTuner(
       // for that
       // calculate minimum heap size
       val minExecHeapMem = MIN_HEAP_PER_CORE_MB * numExecutorCores
+      logWarning(s"container mem is: $containerMem minoverhead is $minOverhead minexecheapmem" +
+        s" is $minExecHeapMem")
       if ((containerMem - minOverhead) < minExecHeapMem) {
         // For now just throw so we don't get any tunings and its obvious to user this isn't a good
         // setup. In the future we may just recommend them to use larger nodes. This would be more
@@ -628,6 +631,7 @@ class AutoTuner(
     // if on a CSP using blob store recommend more threads for certain sizes. This is based on
     // testing on customer jobs on Databricks
     // didn't test with > 16 thread so leave those as numExecutorCores
+    // TODO - do we need to append a comment for these?
     if (numExecutorCores < 4) {
       // leave as defaults - should we reduce less then default of 20? need more testing
     } else if (numExecutorCores >= 4 && numExecutorCores < 16) {
@@ -645,6 +649,7 @@ class AutoTuner(
 
   private def configureMultiThreadedReaders(numExecutorCores: Int,
       setMaxBytesInFlight: Boolean): Unit = {
+    // TODO - do we need to append a comment for these?
     if (numExecutorCores < 4) {
       appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
         Math.max(20, numExecutorCores))
@@ -680,29 +685,36 @@ class AutoTuner(
 
 
   def calculateClusterLevelRecommendations(): Unit = {
-    val execCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
-    appendRecommendation("spark.task.resource.gpu.amount", calcTaskGPUAmount)
-    appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
-      calcGpuConcTasks().toInt)
-    val availableMemPerExec = calcAvailableMemPerExec()
-    val shouldSetMaxBytesInFlight = if (availableMemPerExec > 0.0) {
-      val availableMemPerExecExpr = () => availableMemPerExec
-      val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCores)
-      val executorHeapExpr = () => executorHeap
-      val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
-        calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr)
-      appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
-      addRecommendationForMemoryOverhead(s"$memoryOverhead")
-      appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
-      setMaxBytesInFlight
+    if (platform.recommendedClusterInfo.isDefined) {
+      val execCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
+      appendRecommendation("spark.task.resource.gpu.amount", calcTaskGPUAmount)
+      appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
+        calcGpuConcTasks().toInt)
+      val availableMemPerExec = calcAvailableMemPerExec()
+      val shouldSetMaxBytesInFlight = if (availableMemPerExec > 0.0) {
+        val availableMemPerExecExpr = () => availableMemPerExec
+        val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCores)
+        val executorHeapExpr = () => executorHeap
+        val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
+          calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr)
+        appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
+        addRecommendationForMemoryOverhead(s"$memoryOverhead")
+        appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
+        setMaxBytesInFlight
+      } else {
+        logInfo("Available memory per exec is not specified")
+        addMissingMemoryComments()
+        false
+      }
+      configureShuffleReaderWriterNumThreads(execCores)
+      configureMultiThreadedReaders(execCores, shouldSetMaxBytesInFlight)
+      recommendAQEProperties()
     } else {
-      false
+      logWarning("adding default comments")
+      addDefaultComments()
     }
-    configureShuffleReaderWriterNumThreads(execCores)
-    configureMultiThreadedReaders(execCores, shouldSetMaxBytesInFlight)
     appendRecommendation("spark.rapids.sql.batchSizeBytes", BATCH_SIZE_BYTES)
     appendRecommendation("spark.locality.wait", 0)
-    recommendAQEProperties()
   }
 
   def calculateJobLevelRecommendations(): Unit = {
@@ -744,12 +756,7 @@ class AutoTuner(
    * to default values. For each default value, a comment is added to the [[comments]].
    */
   def configureClusterPropDefaults: Unit = {
-    if (clusterProps.system.isEmpty) {
-      if (!clusterProps.isEmpty) {
-        appendComment(
-          s"Worker system information not provided.")
-      }
-    } else {
+    if (!clusterProps.system.isEmpty) {
       if (clusterProps.system.isMissingInfo) {
         clusterProps.system.setMissingFields().foreach(m => appendComment(m))
       }
@@ -791,9 +798,11 @@ class AutoTuner(
             val numCoresPerExec = calcNumExecutorCores
             val numExecutorsPerWorker = clusterProps.gpu.getCount
             val numWorkers = clusterProps.system.getNumWorkers
-            val total = numWorkers * numExecutorsPerWorker * numCoresPerExec
-            appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum",
-              total.toString)
+            if (numExecutorsPerWorker != 0 && numWorkers != 0) {
+              val total = numWorkers * numExecutorsPerWorker * numCoresPerExec
+              appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum",
+                total.toString)
+            }
           }
         }
       case None =>
@@ -1016,6 +1025,7 @@ class AutoTuner(
    * Analyzes unsupported driver logs and generates recommendations for configuration properties.
    */
   private def recommendFromDriverLogs(): Unit = {
+    logWarning("Recommendations from Driver logs " + recommendationsFromDriverLogs.mkString(","))
     // Iterate through unsupported operators' reasons and check for matching properties
     driverInfoProvider.getUnsupportedOperators.map(_.reason).foreach { operatorReason =>
       recommendationsFromDriverLogs.collect {
@@ -1057,6 +1067,30 @@ class AutoTuner(
 
   def convertClusterPropsToString(): String = {
     clusterProps.toString
+  }
+
+  /**
+   * Add default comments for missing properties except the ones
+   * which should be skipped.
+   */
+  private def addDefaultComments(): Unit = {
+    appendComment("Could not infer the cluster configuration, recommendations " +
+      "are generated using default values!")
+    commentsForMissingProps.foreach {
+      case (key, value) =>
+        if (!skippedRecommendations.contains(key)) {
+          appendComment(value)
+        }
+    }
+  }
+
+  private def addMissingMemoryComments(): Unit = {
+    commentsForMissingMemoryProps.foreach {
+      case (key, value) =>
+        if (!skippedRecommendations.contains(key)) {
+          appendComment(value)
+        }
+    }
   }
 
   private def toCommentProfileResult: Seq[RecommendedCommentResult] = {
