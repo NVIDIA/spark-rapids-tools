@@ -102,7 +102,8 @@ class Benchmark(
     out.printf(s"%-26s :   %s \n","Java Version", jvmInfo("jvm.version"))
     out.printf(s"%-26s :   %s \n","OS Name", jvmInfo("os.name"))
     out.printf(s"%-26s :   %s \n","OS Version", jvmInfo("os.version"))
-    out.printf(s"%-26s :   %s MB \n","MaxHeapMemory", (Runtime.getRuntime.maxMemory()/1024/1024).toString)
+    out.printf(s"%-26s :   %s MB \n","MaxHeapMemory",
+      (Runtime.getRuntime.maxMemory()/1024/1024).toString)
     out.printf(s"%-26s :   %s \n","Total Warm Up Iterations", warmUpIterations.toString)
     out.printf(s"%-26s :   %s \n \n","Total Runtime Iterations", minNumIters.toString)
     val nameLen = Math.max(40, Math.max(name.length, benchmarks.map(_.name.length).max))
