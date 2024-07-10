@@ -39,10 +39,10 @@ Benchmarker class for running various benchmarks.
     default = Some("text"), descr = "Output format for the benchmark results. For text" +
       " the result output will be tabular. In case of json , the results" +
       "will be JSON formatted. Currently supported formats are text, json")
-  val inputArgs: ScallopOption[String] = opt[String](short = 'a',
+  val inputArgs: ScallopOption[String] = opt[String](short = 'i',
     required = false,
-    descr = "Input arguments to pass to the benchmark suite. The usage is relevant in cases of " +
-      "common arguments across benchmark. The format is space separated arguments. For example " +
+    descr = "Input arguments to pass to the benchmark suite. Used as common arguments across " +
+      "benchmarks. The format is space separated arguments. For example " +
       "--output-directory /tmp --per-sql /tmp/eventlogs")
   verify()
 }
