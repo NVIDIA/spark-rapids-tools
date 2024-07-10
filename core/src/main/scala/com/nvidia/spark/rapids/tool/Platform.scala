@@ -62,7 +62,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   // factors since we don't have speedup factors for all combinations of
   // platforms and GPUs. We expect speedup factor usage to be going away
   // so this is less of an issue.
-  def defaultGpuForSpeedupFactor: GpuDevice = getGpuOrDefault
+  def defaultGpuForSpeedupFactor: GpuDevice = defaultGpuDevice
 
   /**
    * Recommendations to be excluded from the list of recommendations.
@@ -151,7 +151,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
 
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val defaultGpuDevice: GpuDevice = T4Gpu
-  override val defaultGpuForSpeedupFactor: GpuDevice = T4Gpu
   override def isPlatformCSP: Boolean = true
 
   // note that Databricks generally sets the spark.executor.memory for the user.  Our
@@ -188,14 +187,12 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice]) extends DatabricksPl
 class DataprocPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC
   override val defaultGpuDevice: GpuDevice = T4Gpu
-  override val defaultGpuForSpeedupFactor: GpuDevice = T4Gpu
   override def isPlatformCSP: Boolean = true
 }
 
 class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform(gpuDevice) {
   override val platformName: String =  PlatformNames.DATAPROC_SL
   override val defaultGpuDevice: GpuDevice = L4Gpu
-  override val defaultGpuForSpeedupFactor: GpuDevice = L4Gpu
   override def isPlatformCSP: Boolean = true
 }
 
@@ -207,7 +204,6 @@ class DataprocGkePlatform(gpuDevice: Option[GpuDevice]) extends DataprocPlatform
 class EmrPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val platformName: String =  PlatformNames.EMR
   override val defaultGpuDevice: GpuDevice = A10GGpu
-  override val defaultGpuForSpeedupFactor: GpuDevice = A10GGpu
   override def isPlatformCSP: Boolean = true
 
   override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
@@ -287,7 +283,8 @@ object PlatformFactory extends Logging {
     val gpuDevice = gpuName.flatMap(GpuDevice.createInstance)
     // case when gpu name is detected but not in device map
     if (gpuName.isDefined && gpuDevice.isEmpty) {
-      throw new IllegalArgumentException(s"Unsupprted GPU device: ${gpuName.get}")
+      throw new IllegalArgumentException(s"Unsupported GPU device: ${gpuName.get}. " +
+          s"Supported GPU devices are: ${GpuDevice.deviceMap.keys.mkString(", ")}.")
     }
     val platform = createPlatformInstance(platformName, gpuDevice)
     logInfo(s"Using platform: $platform")
