@@ -51,7 +51,8 @@ object PlatformNames {
   )
 }
 
-// resource information and name of the CSP instance types
+// resource information and name of the CSP instance types, or for onprem its
+// the executor information since we can't recommend node types
 case class InstanceInfo(cores: Int, memoryMB: Long, name: String, numGpus: Int)
 
 // This is meant to be temporary mapping to figure out instance type based
@@ -118,6 +119,10 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     val clusterProperties: Option[ClusterProperties]) extends Logging {
   val platformName: String
   val defaultGpuDevice: GpuDevice
+
+  // these aren't ideal being that they vars but for to minimize changes and
+  // keep backwards compatibility we put them here for now and hopefully
+  // in future we can refactor
   var clusterInfoFromEventLog: Option[ExistingClusterInfo] = None
   // instance information for the gpu node type we will use to run with
   var recommendedNodeInstanceInfo: Option[InstanceInfo] = None
