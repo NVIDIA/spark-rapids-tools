@@ -31,7 +31,10 @@ object SingleThreadedQualToolBenchmark extends BenchmarkBase {
   override def runBenchmarkSuite(iterations: Int,
     warmUpIterations: Int,
     outputFormat: String,
-    extraArgs: Array[String]): Unit = {
+    inputArgs: Array[String]): Unit = {
+    // Currently the input arguments are assumed to be common across cases
+    // This will be improved in a follow up PR to enable passing as a config
+    // file with argument support for different cases
     runBenchmark("Benchmark_Per_SQL_Arg_Qualification") {
       val benchmarker =
         new Benchmark(
@@ -40,7 +43,7 @@ object SingleThreadedQualToolBenchmark extends BenchmarkBase {
           outputPerIteration = true,
           warmUpIterations = warmUpIterations,
           minNumIters = iterations)
-      val (prefix, suffix) = extraArgs.splitAt(extraArgs.length - 1)
+      val (prefix, suffix) = inputArgs.splitAt(inputArgs.length - 1)
       benchmarker.addCase("Enable_Per_SQL_Arg_Qualification") { _ =>
         mainInternal(new QualificationArgs(prefix :+ "--per-sql" :+ "--num-threads"
           :+ "1" :+ suffix.head),

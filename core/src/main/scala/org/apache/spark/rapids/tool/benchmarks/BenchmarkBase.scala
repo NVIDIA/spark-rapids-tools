@@ -35,7 +35,7 @@ abstract class BenchmarkBase {
   def runBenchmarkSuite(iterations: Int,
       warmUpIterations: Int,
       outputFormat: String,
-      extraArgs: Array[String]): Unit
+      inputArgs: Array[String]): Unit
 
   final def runBenchmark(benchmarkName: String)(func: => Any): Unit = {
     val separator = "=" * 96
@@ -69,7 +69,7 @@ abstract class BenchmarkBase {
     runBenchmarkSuite(benchArgs.iterations(),
       benchArgs.warmupIterations(),
       benchArgs.outputFormat(),
-      benchArgs.extraArgs().split("\\s+").filter(_.nonEmpty))
+      benchArgs.inputArgs().split("\\s+").filter(_.nonEmpty))
     output.foreach { o =>
       if (o != null) {
         o.close()
