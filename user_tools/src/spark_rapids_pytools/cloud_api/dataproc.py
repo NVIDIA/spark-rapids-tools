@@ -557,7 +557,8 @@ class DataprocCluster(ClusterBase):
             }
             cluster_config.update(additional_config)
         elif gpu_per_machine == 0:
-            # TODO - need to fix the gpuPerWorker here!!!!
+            # TODO - we should make this smarter about gpuPerWorker
+            # recommended device should match the scala code for Dataproc platform
             recommended_device = 'nvidia-tesla-t4'
             if gpu_device:
                 recommended_device = gpu_device_hash.get(gpu_device)
@@ -565,7 +566,7 @@ class DataprocCluster(ClusterBase):
             additional_config = {
                 'gpuInfo': {
                     'device': recommended_device,
-                    'gpuPerWorker': 2
+                    'gpuPerWorker': 1
                 },
                 'additionalConfig': {
                     'localSsd': 2

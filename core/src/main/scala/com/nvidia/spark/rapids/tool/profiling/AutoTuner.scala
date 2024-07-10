@@ -427,7 +427,6 @@ class AutoTuner(
    */
   def getGPURecommendedInstanceType: Option[RecommendedClusterInfo] = {
     val gpuClusterRec = platform.getGPUInstanceTypeRecommendation(getAllProperties.toMap)
-    logWarning("gpu cluster rec is: " + gpuClusterRec)
     // set the number of executor instance config
     if (gpuClusterRec.isDefined) {
       appendRecommendation("spark.executor.cores", gpuClusterRec.get.coresPerExecutor)
@@ -541,8 +540,6 @@ class AutoTuner(
       // for that
       // calculate minimum heap size
       val minExecHeapMem = MIN_HEAP_PER_CORE_MB * numExecutorCores
-      logWarning(s"container mem is: $containerMem minoverhead is $minOverhead minexecheapmem" +
-        s" is $minExecHeapMem")
       if ((containerMem - minOverhead) < minExecHeapMem) {
         // For now just throw so we don't get any tunings and its obvious to user this isn't a good
         // setup. In the future we may just recommend them to use larger nodes. This would be more
@@ -710,7 +707,6 @@ class AutoTuner(
       configureMultiThreadedReaders(execCores, shouldSetMaxBytesInFlight)
       recommendAQEProperties()
     } else {
-      logWarning("adding default comments")
       addDefaultComments()
     }
     appendRecommendation("spark.rapids.sql.batchSizeBytes", BATCH_SIZE_BYTES)
@@ -1025,7 +1021,6 @@ class AutoTuner(
    * Analyzes unsupported driver logs and generates recommendations for configuration properties.
    */
   private def recommendFromDriverLogs(): Unit = {
-    logWarning("Recommendations from Driver logs " + recommendationsFromDriverLogs.mkString(","))
     // Iterate through unsupported operators' reasons and check for matching properties
     driverInfoProvider.getUnsupportedOperators.map(_.reason).foreach { operatorReason =>
       recommendationsFromDriverLogs.collect {

@@ -373,19 +373,27 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     val initialNumExecInstances = getNumExecutorInstances(sparkProperties)
     // by default the instance type isn't in the configs so we infer it based on
     // cores and number of gpus
-    val numExecsPerNode = clusterInfoFromEventLog.map(_.numExecsPerNode).getOrElse(1)
+
+    // If the cluster properties were specified make sure to use those and not
+    // the eventlog inference. This is broken in my mind but is backwards compatible,
+    // or maybe use number gpus per node?
+    val numExecsPerNode = if (clusterProperties.isEmpty) {
+      clusterInfoFromEventLog.map(_.numExecsPerNode).getOrElse(1)
+    } else {
+      1
+    }
     val gpusToUse =
       Math.max(this.numGpus, Math.min(numExecsPerNode, maxGpusSupported))
     // update the global numGpus based on the instance type we are using
     this.numGpus = gpusToUse
     val nodeCores = if (clusterProperties.isDefined) {
-      logInfo("Using the cluster properties passed in.")
+      logDebug("Using the cluster properties passed in.")
       // TODO:
       // I guess the assumption here is 1 executor per node - or we need to look this up
       // since not in the cluster definition, either way this is number cores per node
       clusterProperties.get.system.getNumCores
     } else if (clusterInfoFromEventLog.isDefined) {
-      logInfo("Using the cluster information from the event log.")
+      logDebug("Using the cluster information from the event log.")
       val clusterInfo = clusterInfoFromEventLog.get
       // this assumes this job filled an entire node, which may not be true on
       // a multiple tenant cluster. If the number of executors ran per node would
@@ -406,12 +414,27 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
         logWarning("cluster information from event log is missing, executor cores set to 0!")
         0
       }
+      val numExecsPerNode = if (clusterInfoFromEventLog.isDefined) {
+        clusterInfoFromEventLog.get.numExecsPerNode
+      } else {
+        1
+      }
+      // Since this is supposed to be the node instance info cores * num executors per node
+      val nodeCoresToUse = execCores * gpusToUse
       val nodeMemMB = getMemoryMBPerNode(sparkProperties)
-      // could be on prem or didn't match any instances we have for that CSP
-      Some(InstanceInfo(execCores, nodeMemMB, "onprem", 1))
+      // We have to see if we are changing the recommended node setup based on the
+      // number of gpus available. If we do we have to make  sure to adjust both
+      // cores and memory.
+      val ratioExecs = Math.max(1, numExecsPerNode / gpusToUse)
+      val execMem = nodeMemMB / ratioExecs
+      logDebug(s"Creating instance info execCores $execCores execMem $execMem ratio " +
+        s"$ratioExecs numExecsPerNode $numExecsPerNode gpusToUse $gpusToUse")
+      // here we change instanceInfo to be executor because its on prem and we can't
+      // recommend node type
+      Some(InstanceInfo(nodeCoresToUse, execMem, "onprem", 1))
     } else if (clusterProperties.isDefined) {
       val info = instanceInfoOpt.get
-      // make sure that instanceInfo matches the cluster properites else change
+      // make sure that instanceInfo matches the cluster properties else change
       val clusterPropMemMB = StringUtils.convertToMB(clusterProperties.get.system.getMemory)
       if (info.cores == nodeCores && info.memoryMB == clusterPropMemMB) {
         instanceInfoOpt
@@ -422,10 +445,10 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       instanceInfoOpt
     }
     val numExistingNodes = getExistingNumNodes
-    // check if instance type supports that number of gpus, if not we add extra exectuors
+    // check if instance type supports that number of gpus, if not we add extra executors
     val (numExecs, numNodes) = if (finalInstanceInfo.get.numGpus >= numExecsPerNode) {
-      // TODO - really if instance has more GPUs we should calculate the other way to recommend less
-      // nodes but leave that open for now
+      // TODO - really if instance has more GPUs we should calculate the other way to
+      // recommend less nodes but leave that open for now
       (initialNumExecInstances, numExistingNodes)
     } else {
       // just flatten to use 1 but we should really see if multiples
