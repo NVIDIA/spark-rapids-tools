@@ -25,7 +25,7 @@ import com.nvidia.spark.rapids.tool.qualification.QualificationMain.mainInternal
  * Usage -
  * 1. Override the runBenchmarkSuite method
  * 2. Write the benchmark code in the runBenchmark method passing relevant arguments
- * 3. Write benchmarked code inside
+ * 3. Define cases and invoke the function to be benchmarked with input arguments
  */
 object SingleThreadedQualToolBenchmark extends BenchmarkBase {
   override def runBenchmarkSuite(inputArgs: Array[String]): Unit = {

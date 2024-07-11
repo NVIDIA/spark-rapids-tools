@@ -18,8 +18,6 @@ package org.apache.spark.rapids.tool.benchmarks
 
 import java.io.{File, FileOutputStream, PrintStream}
 
-import scala.collection.mutable
-
 import org.apache.commons.io.output.TeeOutputStream
 
 import org.apache.spark.sql.rapids.tool.util.RuntimeUtil
@@ -68,7 +66,7 @@ abstract class BenchmarkBase {
     // Getting correct output stream
     val printStream = output.getOrElse(System.out)
     // Running the underlying benchmark
-    val results: mutable.ArrayBuffer[Benchmark.Result] = benchmark.get.run()
+    val results: Seq[Benchmark.Result] = benchmark.get.run()
     // Generating the output report
     val firstBest = results.head.bestMs
     val nameLen = Math.max(40, results.map(_.caseName.length).max)
