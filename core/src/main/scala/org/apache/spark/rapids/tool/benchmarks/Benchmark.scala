@@ -40,7 +40,6 @@ class Benchmark(
   import Benchmark._
 
   val benchmarks: mutable.ArrayBuffer[Case] = mutable.ArrayBuffer.empty[Benchmark.Case]
-  private val separator = "-" * 80
 
   /**
    * Adds a case to run when run() is called. The given function will be run for several
@@ -76,12 +75,13 @@ class Benchmark(
    */
   def run(): Seq[Result] = {
     require(benchmarks.nonEmpty)
+    val separator = "-" * 80
     println(separator)
     println("Running benchmark: " + name)
     println(separator)
     val results = benchmarks.map { c =>
       println("  RUNNING CASE : " + c.name)
-      println("-" * 80)
+      println(separator)
       measure(c.name, c.numIters)(c.fn)
     }
     println
