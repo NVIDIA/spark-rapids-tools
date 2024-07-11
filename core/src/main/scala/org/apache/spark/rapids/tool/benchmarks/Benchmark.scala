@@ -94,6 +94,7 @@ class Benchmark(
    */
   def measure(name: String, overrideNumIters: Int)(f: ToolsTimer => Unit): Result = {
     System.gc()  // ensures garbage from previous cases don't impact this one
+    val separator = "-" * 80
     for (wi <- 0 until warmUpIterations) {
       f(new ToolsTimer(-1))
     }
@@ -111,14 +112,14 @@ class Benchmark(
       gcCounts += memoryTracker.getTotalGCCount
       gcTimes += memoryTracker.getTotalGCTime
       if (outputPerIteration) {
-        println("*"*80)
+        println(separator)
         println(s"Iteration $i took ${NANOSECONDS.toMicros(runTime)} microseconds")
-        println("*"*80)
+        println(separator)
       }
     }
-    println("*"*80)
+    println(separator)
     println(s"  Stopped after $minIters iterations, ${NANOSECONDS.toMillis(runTimes.sum)} ms")
-    println("*"*80)
+    println(separator)
     assert(runTimes.nonEmpty)
     val bestRuntime = runTimes.min
     val avgRuntime = runTimes.sum / runTimes.size
