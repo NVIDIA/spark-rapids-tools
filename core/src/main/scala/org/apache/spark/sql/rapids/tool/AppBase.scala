@@ -308,7 +308,7 @@ abstract class AppBase(
   def checkMetadataForReadSchema(
       sqlPlanInfoGraph: SqlPlanInfoGraphEntry): ArrayBuffer[DataSourceCase] = {
     // check if planInfo has ReadSchema
-    val allMetaWithSchema = AppBase.getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
+    val allMetaWithSchema = AppBase.getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo
     val allNodes = sqlPlanInfoGraph.sparkPlanGraph.allNodes
     val results = ArrayBuffer[DataSourceCase]()
 

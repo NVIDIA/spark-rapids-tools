@@ -41,6 +41,9 @@ class ExecutorInfoClass(val executorId: String, _addTime: Long) {
     var resourceProfileId = ResourceProfile.DEFAULT_RESOURCE_PROFILE_ID
 }
 
+// Information about the cluster used with to run the application we
+// are qulafying or profiling. This is compared to what we might recommend
+// for a cluster.
 case class ExistingClusterInfo(
     vendor: String,
     coresPerExecutor: Int,

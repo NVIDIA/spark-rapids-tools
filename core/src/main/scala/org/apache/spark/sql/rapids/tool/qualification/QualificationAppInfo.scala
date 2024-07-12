@@ -842,12 +842,10 @@ class QualificationAppInfo(
   }
 
   /**
-   * Builds cluster information based on executor nodes.
+   * Builds cluster information based on executor nodes and sets it in the
+   * platform so that it can be used later.
    * If executor nodes exist, calculates the number of hosts and total cores,
    * and extracts executor and driver instance types (databricks only)
-   *
-   * @return Cluster information including vendor, cores, number of nodes and maybe
-   *         instance types, driver host, cluster id and cluster name.
    */
   override def buildClusterInfo: Unit = {
     // TODO: Handle dynamic allocation when determining the number of nodes.
@@ -864,7 +862,6 @@ class QualificationAppInfo(
     val activeExecInfo = executorIdToInfo.values.collect {
       case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
     }
-    // TODO - any conditions we need to check for spark.executor.cores?
     if (activeExecInfo.nonEmpty) {
       val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
       if (coresPerExecutor.toSet.size != 1) {
@@ -877,7 +874,7 @@ class QualificationAppInfo(
     } else {
       // if no executors do we want to qualify at all?  maybe not, else we could look at
       // properties like spark.executor.cores
-      logWarning("Active executor info is empty!")
+      logWarning("Active executor info is empty so can't build existing cluster information!")
     }
   }
 

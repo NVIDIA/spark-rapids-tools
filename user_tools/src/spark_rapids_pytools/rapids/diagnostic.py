@@ -153,7 +153,9 @@ class Diagnostic(RapidsTool):
 
         # Cleanup unused work dir
         work_dir = FSUtil.build_path(output_path, self.ctxt.get_local_work_dir())
-        #FSUtil.remove_path(work_dir, fail_ok=True)
+        # TODO - would be nice to have option to not remove this directory
+        # until then the below remove_path can be commented out during debugging
+        FSUtil.remove_path(work_dir, fail_ok=True)
 
         # Save cluster info
         self.logger.info('Saving cluster info.')

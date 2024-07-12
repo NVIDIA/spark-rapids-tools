@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
 
-from logging import Logger
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
@@ -28,7 +27,7 @@ from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo, 
 from spark_rapids_pytools.common.cluster_inference import ClusterInference
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import ToolLogging, Utils, TemplateGenerator
+from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, QualEstimationModel
@@ -56,9 +55,6 @@ class QualificationSummary:
     filter_apps_count: int = field(default=0, init=False)
     conversion_items: dict = field(default_factory=dict)
     auto_tuning_path: str = None
-
-    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster'), init=False)
-
 
     def _get_total_durations(self) -> int:
         if not self.is_empty():
@@ -148,6 +144,8 @@ class QualificationSummary:
                 full_tunings_file = "Doesn't exist, see the stdout for errors"
                 gpu_tunings_file = "Doesn't exist, see the stdout for errors"
 
+            # 'all' is a special indication that all the applications need to use this same nod
+            # recommendation vs the recommendations being per application
             if ('all' in self.conversion_items):
                 print_result = self.df_result
                 print_result['Qualified Node Recommendation'] = self.conversion_items['all']
@@ -237,6 +235,7 @@ class Qualification(RapidsJarTool):
         Qualification tool processes extra arguments:
         1. filter out applications.
         """
+        self.logger.info('Qualification tool processing the arguments')
         super()._process_rapids_args()
 
     def _process_cpu_cluster_args(self, offline_cluster_opts: dict = None):
@@ -244,7 +243,6 @@ class Qualification(RapidsJarTool):
         cpu_cluster_arg = offline_cluster_opts.get('cpuCluster')
         if cpu_cluster_arg is not None:
             cpu_cluster_obj = self._create_migration_cluster('CPU', cpu_cluster_arg)
-            self.logger.info('cpu args Cluster cpu node %s', cpu_cluster_obj)
             self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
@@ -255,8 +253,6 @@ class Qualification(RapidsJarTool):
                 sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
-                num_cpus = sys_info.num_cpus
-                cpu_mem = sys_info.cpu_mem
 
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.warning(
@@ -302,8 +298,6 @@ class Qualification(RapidsJarTool):
                 sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
                 worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
-                num_cpus = sys_info.num_cpus
-                cpu_mem = sys_info.cpu_mem
 
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.warning(
@@ -317,7 +311,6 @@ class Qualification(RapidsJarTool):
             gpu_cluster_obj = None
             cpu_cluster_info_per_app = self.ctxt.get_ctxt('cpuClusterInfoPerApp')
             for app_id in cpu_cluster_info_per_app:
-                self.logger.info("app id: %s cpu cluster info %s", app_id, cpu_cluster_info_per_app)
                 cpu_cluster_info = cpu_cluster_info_per_app[app_id]
                 if cpu_cluster_info:
                     # Convert the CPU instances to support gpu. Otherwise, gpuCluster is not set
@@ -798,7 +791,7 @@ class Qualification(RapidsJarTool):
         {
             "clusterName": "1234-5678-test",
             "sourceCluster": {"driverInstance": "m6gd.xlarge", "executorInstance": "m6gd.2xlarge", "numExecutors": 2 },
-            "targetCluster": {"driverInstance": "m6gd.xlarge", "executorInstanc": "g5.2xlarge", "numExecutors": 2 }
+            "targetCluster": {"driverInstance": "m6gd.xlarge", "executorInstance": "g5.2xlarge", "numExecutors": 2 }
         }
         """
         cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
@@ -905,6 +898,7 @@ class Qualification(RapidsJarTool):
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
         filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
 
+        # TODO 
         conversion_items_summary = {}
         if self.ctxt.get_ctxt('cpuClusterProxy'):
             cpu_cluster_info = self.ctxt.get_ctxt('cpuClusterProxy')
@@ -968,10 +962,9 @@ class Qualification(RapidsJarTool):
             if filter_top_candidate_enabled:
                 # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
                 #  This should be refactored along with entire filter apps logic to use more object-oriented design.
-                top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'tomTest'))
+                top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
                 filtered_apps = top_candidates_obj.filter_apps(raw_df)
                 result_df = top_candidates_obj.prepare_output(filtered_apps)
-                self.logger.warning('after filter apps %s' + ','.join(list(result_df.columns.values)))
                 # squeeze the header titles if enabled
                 return Utilities.squeeze_df_header(result_df, header_width) if squeeze_header_enabled else result_df
 
@@ -1014,8 +1007,6 @@ class Qualification(RapidsJarTool):
                                                         f'Duration{time_unit}', regex=False)
             # squeeze the header titles if enabled
             return Utilities.squeeze_df_header(df_row, header_width) if squeeze_header_enabled else df_row
-
-        ### end process output stdout
 
         if not self._evaluate_rapids_jar_tool_output_exist():
             return
@@ -1108,15 +1099,14 @@ class Qualification(RapidsJarTool):
             self.logger.info('Inferred Cluster but cpu node already set %s', self.ctxt.get_ctxt('cpuClusterProxy'))
             return
 
-        self.logger.info("going to infer cpu cluster! %s", cluster_info_df)
         # Infer the CPU cluster from the cluster information
         cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(cluster_info_df)
         if cpu_cluster_obj is None:
             return
 
-         # Log the inferred cluster information and set the context
+        # Log the inferred cluster information and set the context
         self._log_inferred_cluster_info(cpu_cluster_obj)
-        #self.logger.info('Inferred Cluster cpu node %s', cpu_cluster_obj)
+        self.logger.info('Inferred Cluster cpu node %s', cpu_cluster_obj)
         self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
         # Process gpu cluster arguments and update savings calculations flag
@@ -1141,7 +1131,6 @@ class Qualification(RapidsJarTool):
         cpu_cluster_dict = {}
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
         for index, row in cluster_info_df.iterrows():
-            self.logger.info('auto tuning Inferred skip cpu set index %s row %s', index, row)
             single_cluster_df = cluster_info_df.iloc[[index]]
 
             # TODO - test executor instance picked up if there
@@ -1158,7 +1147,6 @@ class Qualification(RapidsJarTool):
         # Process gpu cluster arguments and update savings calculations flag
         gpu_cluster_dict = self._process_gpu_cluster_args_for_auto_tuner(offline_cluster_opts)
         self.ctxt.set_ctxt('gpuClusterInfoPerApp', gpu_cluster_dict)
-
 
     def _log_inferred_cluster_info(self, cpu_cluster_obj):
         master_node = cpu_cluster_obj.get_master_node()

@@ -193,8 +193,8 @@ class RapidsTool(object):
     def _delete_local_dep_folder(self):
         # clean_up the local dependency folder
         local_dep_folder = self.ctxt.get_local_work_dir()
-        #if self.ctxt.platform.storage.resource_exists(local_dep_folder):
-            #self.ctxt.platform.storage.remove_resource(local_dep_folder)
+        if self.ctxt.platform.storage.resource_exists(local_dep_folder):
+            self.ctxt.platform.storage.remove_resource(local_dep_folder)
 
     def _delete_remote_dep_folder(self):
         # clean up the remote dep folder first
@@ -344,9 +344,6 @@ class RapidsTool(object):
         gpu_mem = worker_info.gpu_info.gpu_mem
         num_cpus = worker_info.sys_info.num_cpus
         cpu_mem = worker_info.sys_info.cpu_mem
-        self.logger.info('cpu emmory is  %s', cpu_mem)
-        self.logger.info('cpu cores is  %s', num_cpus)
-
 
         config_path = Utils.resource_path('cluster-configs.yaml')
         constants = YAMLPropertiesContainer(prop_arg=config_path).get_value('clusterConfigs', 'constants')
@@ -611,7 +608,6 @@ class RapidsJarTool(RapidsTool):
                         'memory': f'{worker_hw_info.sys_info.cpu_mem}MiB',
                         'numWorkers': cluster_ob.get_workers_count()
                 }
-
 
             if worker_hw_info.gpu_info:
                 worker_info['gpu'] = {

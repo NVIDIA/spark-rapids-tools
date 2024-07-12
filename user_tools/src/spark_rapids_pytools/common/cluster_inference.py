@@ -46,13 +46,12 @@ class ClusterInference:
         # If driver instance is not set, use the default value from platform configurations
         if pd.isna(driver_instance):
             driver_instance = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
-        # first try to read the Recommended setting and if its not available fall back to the CPU inference
+        # first try to read the Recommended setting from the scala tool side and if its not available fall back
+        # to the CPU inference done on the python side
         executor_instance = cluster_info_df.get('Recommended Executor Instance')
-        self.logger.info('infer cluster executor instance rec is %s', executor_instance)
         if (pd.notna(executor_instance)):
-            self.logger.info('GPU infer cluster executor instance rec is %s', executor_instance)
+            self.logger.debug('GPU infer cluster executor instance rec is %s', executor_instance)
             num_executor_nodes = cluster_info_df.get('Recommended Num Executor Nodes')
-            # TODO - print some of these for user
             rec_cores_per_executor = cluster_info_df.get('Recommended Cores Per Executor')
             rec_execs = cluster_info_df.get('Recommended Num Executors')
             rec_gpus = cluster_info_df.get('Recommended Num GPUs Per Node')

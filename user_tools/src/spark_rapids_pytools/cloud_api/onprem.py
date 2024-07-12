@@ -167,7 +167,6 @@ class OnPremNode(ClusterNode):
         self.construct_hw_info(cli=cli, sys_info=sys_info)
 
     def _pull_sys_info(self, cli=None) -> SysInfo:
-        self.logger.info('TOM onprem sys info')
         cpu_mem = self.props.get_value('memory')
         cpu_mem = cpu_mem.replace('MiB', '')
         num_cpus = self.props.get_value('numCores')

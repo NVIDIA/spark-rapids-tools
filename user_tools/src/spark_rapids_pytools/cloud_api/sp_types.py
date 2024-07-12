@@ -147,7 +147,6 @@ class ClusterNode:
     props: AbstractPropertiesContainer = field(default=None, init=False)
     mc_props: AbstractPropertiesContainer = field(default=None, init=False)
     hw_info: NodeHWInfo = field(default=None, init=False)
-    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster'), init=False)
 
     def set_fields_from_dict(self, field_values: dict = None):
         if field_values is not None:
@@ -1108,7 +1107,7 @@ class ClusterBase(ClusterGetAccessor):
                         continue
                     if anode.instance_type not in mc_map:
                         best_mc_match = anode.find_best_cpu_conversion(supported_gpus)
-                    mc_map.update({anode.instance_type: best_mc_match})
+                        mc_map.update({anode.instance_type: best_mc_match})
         return mc_map
 
     def get_all_spark_properties(self) -> dict:

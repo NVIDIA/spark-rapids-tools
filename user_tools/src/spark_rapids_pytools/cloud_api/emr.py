@@ -386,7 +386,6 @@ class EMRCluster(ClusterBase):
             else:
                 # convert the instance_type
                 new_instance_type = mc_type_map.get(curr_group.instance_type, curr_group.instance_type)
-
                 if new_instance_type == curr_group.instance_type:
                     new_inst_grp = curr_group
                 else:

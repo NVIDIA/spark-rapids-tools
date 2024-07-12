@@ -506,7 +506,6 @@ class DataprocCluster(ClusterBase):
             SparkNodeType.WORKER: new_worker_nodes,
             SparkNodeType.MASTER: orig_cluster.nodes.get(SparkNodeType.MASTER)
         }
-
         if bool(mc_type_map):
             # update the platform notes
             self.platform.update_ctxt_notes('nodeConversions', mc_type_map)
