@@ -673,7 +673,7 @@ class InstanceDescriptionUserArgModel(AbsToolUserArgModel):
     Represents the arguments to run the generate_instance_description tool.
     """
     target_platform: str = None
-    accepted_platforms = ['dataproc', 'emr', 'databricks_azure']
+    accepted_platforms = ['dataproc', 'emr', 'databricks-azure']
 
     def validate_platform(self) -> None:
         if self.target_platform not in self.accepted_platforms:
@@ -684,7 +684,7 @@ class InstanceDescriptionUserArgModel(AbsToolUserArgModel):
     def build_tools_args(self) -> dict:
         self.validate_platform()
         return {
-            'targetPlatform': self.target_platform,
+            'targetPlatform': CspEnv(self.target_platform),
             'output_folder': self.output_folder,
             'platformOpts': {},
         }
