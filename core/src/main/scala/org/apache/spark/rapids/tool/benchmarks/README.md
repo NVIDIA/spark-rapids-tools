@@ -1,6 +1,6 @@
 # Benchmarking Tools
 
-This package contains the relevant classes to write and run benchmarks for `RAPIDS TOOLS` for Apache Spark.
+This package contains the relevant classes to write and run benchmarks for `SPARK RAPIDS TOOLS` for Apache Spark.
 
 ## Writing a benchmark -
 * Extend `BenchmarkBase` and override the `runBenchmarkSuite` function
@@ -28,11 +28,11 @@ org.apache.spark.rapids.tool.benchmarks.SingleThreadedQualToolBenchmark \
 
 #### Running the Benchmark class using tools jar
 ```shell
-java -cp $RAPIDS_TOOLS_JAR:$SPARK_HOME/jars/* \
+java -cp $SPARK_RAPIDS_TOOLS_JAR:$SPARK_HOME/jars/* \
 org.apache.spark.rapids.tool.benchmarks.SingleThreadedQualToolBenchmark \
 -i 3 -w 3 -a " $EVENT_LOGS_DIR"
 ```
-* `$RAPIDS_TOOLS_JAR` : Path to the rapids tools jar
+* `$SPARK_RAPIDS_TOOLS_JAR` : Path to the spark rapids tools jar
 * `$EVENT_LOGS_DIR` : Path to the event logs directory
 
 #### NOTES
