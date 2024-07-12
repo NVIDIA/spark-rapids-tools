@@ -21,6 +21,7 @@ import pandas as pd
 import traceback
 import xgboost as xgb
 from pathlib import Path
+from spark_rapids_tools import CspPath
 from spark_rapids_tools.tools.qualx.preprocess import (
     load_datasets,
     load_profiles,
@@ -52,26 +53,44 @@ from spark_rapids_tools.tools.qualx.util import (
 )
 from spark_rapids_pytools.common.utilities import Utils
 from tabulate import tabulate
-from xgboost.core import XGBoostError
+from xgboost.core import XGBoostError, Booster
 
 logger = get_logger(__name__)
 
 
-def _get_model(platform: str, model: Optional[str]):
-    if not model:
+def _get_model(platform: str,
+               model: Optional[str] = None,
+               custom_model_file: Optional[str] = None) -> Booster:
+    """
+    Load the XGBoost model from the specified path or use the pre-trained model for the platform.
+    The custom_model_file has a precedence over the other input options. If it is undefined, the
+    model and finally the platform will be used to define the path of the model file.
+    :param platform: name of the platform used to define the path of the pre-trained model.
+                     The platform should match a JSON file in the resources directory.
+    :param model: Pretrained model. It is a JSON file name already existing in the resources directory.
+    :param custom_model_file: A custom model file path that is not defined in the resources directory.
+    :return: xgb.Booster loading the model file.
+    """
+    model_path = None
+    if custom_model_file is not None:
+        # try custom-model file set by the user
+        if not CspPath.is_file_path(custom_model_file,
+                                    extensions=['json'],
+                                    raise_on_error=False):
+            raise ValueError(
+                f'Custom model file [{custom_model_file}] is invalid. Please specify a valid JSON file. ')
+        # TODO: If the path is remote, we need to copy it locally in order to successfully
+        #       load it with xgboost.
+        model_path = Path(CspPath(custom_model_file).no_prefix)
+    elif model is None:
         # try pre-trained model for platform
         model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
-        if not model_path.exists():
-            raise ValueError(
-                f'Platform {platform} does not have a pre-trained model, please specify --model or choose another '
-                f'platform.'
-            )
     else:
         # try pre-trained model first
         model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{model}.json'))
-        if not model_path.exists():
-            model_path = model
-
+    if not model_path.exists():
+        raise ValueError(f'Platform {model_path} does not have a pre-trained model, '
+                         'please specify --model or choose another platform.')
     logger.info(f'Loading model from: {model_path}')
     xgb_model = xgb.Booster()
     xgb_model.load_model(model_path)
@@ -445,14 +464,16 @@ def train(
 
 
 def predict(
-    platform: str,
-    qual: str,
-    output_info: dict,
-    *,
-    model: Optional[str] = None,
-    qualtool_filter: Optional[str] = 'stage',
-) -> pd.DataFrame:
-    xgb_model = _get_model(platform, model)
+        platform: str,
+        qual: str,
+        output_info: dict,
+        *,
+        custom_model_file: Optional[str] = None,
+        model: Optional[str] = None,
+        qualtool_filter: Optional[str] = 'stage') -> pd.DataFrame:
+    """Predict GPU speedup given CPU logs."""
+
+    xgb_model = _get_model(platform, model=model, custom_model_file=custom_model_file)
     node_level_supp, qualtool_output, _, qual_metrics = _get_qual_data(qual)
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.

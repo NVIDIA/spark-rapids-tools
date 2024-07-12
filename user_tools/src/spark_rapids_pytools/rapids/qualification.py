@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
+
 import json
 from dataclasses import dataclass, field
 from math import ceil
@@ -318,21 +319,11 @@ class Qualification(RapidsJarTool):
 
     def _process_estimation_model_args(self):
         # set the estimation model
-        estimation_model_str = self.wrapper_options.get('estimationModel')
-        if estimation_model_str is not None:
-            selected_estimation_model = QualEstimationModel.fromstring(estimation_model_str)
-            if selected_estimation_model is None:
-                selected_estimation_model = QualEstimationModel.get_default()
-                available_models = [qual_model.value for qual_model in QualEstimationModel]
-                self.logger.warning(
-                    'Invalid argument estimation_model=%s.\n\t'
-                    'Accepted options are: [%s].\n\t'
-                    'Falling-back to default estimation model: %s',
-                    estimation_model_str, Utils.gen_joined_str(' | ', available_models),
-                    selected_estimation_model.value)
-        else:
-            selected_estimation_model = QualEstimationModel.get_default()
-        self.ctxt.set_ctxt('estimationModel', selected_estimation_model)
+        estimation_model_args = self.wrapper_options.get('estimationModelArgs')
+        if estimation_model_args is None or not estimation_model_args:
+            selected_model = QualEstimationModel.get_default()
+            estimation_model_args = QualEstimationModel.create_default_model_args(selected_model)
+        self.ctxt.set_ctxt('estimationModelArgs', estimation_model_args)
 
     def _process_external_pricing_args(self):
         cpu_cluster_price = self.wrapper_options.get('cpuClusterPrice')
@@ -903,9 +894,10 @@ class Qualification(RapidsJarTool):
         self.ctxt.logger.debug('Rapids CSV summary file is located as: %s', rapids_summary_file)
         df = pd.read_csv(rapids_summary_file)
         # 1. Operations related to XGboost modelling
-        if self.ctxt.get_ctxt('estimationModel') == QualEstimationModel.XGBOOST:
+        if self.ctxt.get_ctxt('estimationModelArgs')['xgboostEnabled']:
             try:
-                df = self.__update_apps_with_prediction_info(df)
+                df = self.__update_apps_with_prediction_info(df,
+                                                             self.ctxt.get_ctxt('estimationModelArgs'))
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.error('Unable to use XGBoost estimation model for speed ups. '
                                   'Falling-back to default model. Reason - %s:%s', type(e).__name__, e)
@@ -1037,7 +1029,9 @@ class Qualification(RapidsJarTool):
             entry['path'] = path
         return files_info
 
-    def __update_apps_with_prediction_info(self, all_apps: pd.DataFrame) -> pd.DataFrame:
+    def __update_apps_with_prediction_info(self,
+                                           all_apps: pd.DataFrame,
+                                           estimation_model_args: dict) -> pd.DataFrame:
         """
         Executes the prediction model, merges prediction data into the apps df, and applies transformations
         based on the prediction model's output and specified mappings.
@@ -1047,7 +1041,8 @@ class Qualification(RapidsJarTool):
         qual_output_dir = self.ctxt.get_local('outputFolder')
         output_info = self.__build_prediction_output_files_info()
         predictions_df = predict(platform=model_name, qual=qual_output_dir,
-                                 output_info=output_info)
+                                 output_info=output_info,
+                                 custom_model_file=estimation_model_args['customModelFile'])
 
         if predictions_df.empty:
             return all_apps
