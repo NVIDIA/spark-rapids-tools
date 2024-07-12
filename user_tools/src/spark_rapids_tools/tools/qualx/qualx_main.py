@@ -900,6 +900,32 @@ def evaluate(
     return
 
 
+def evaluate_summary(
+    evaluate: str,
+    *,
+    score: str = 'dMAPE',
+    split: str = 'test',
+):
+    """
+    Compute
+    Parameters
+    ----------
+    evaluate: str
+        Path to evaluation results directory.
+    score: str
+        Type of score to compare: 'MAPE', 'wMAPE', or 'dMAPE' (default).
+    split: str
+        Dataset split to compare: 'test' (default), 'train', or 'all'.
+    """
+    summary_df, _ = _read_platform_scores(evaluate, score, split)
+    print(tabulate(summary_df, headers='keys', tablefmt='psql', floatfmt='.4f'))
+    summary_path = f'{evaluate}/summary.csv'
+    logger.info(f'Writing per-platform {score} scores for \'{split}\' split to: {summary_path}')
+    summary_df.to_csv(summary_path)
+
+    return
+
+
 def compare(
     previous: str,
     current: str,
@@ -984,6 +1010,7 @@ def entrypoint():
         "train": train,
         "predict": __predict_cli,
         "evaluate": evaluate,
+        "evaluate_summary": evaluate_summary,
         "compare": compare,
     }
     fire.Fire(cmds)
