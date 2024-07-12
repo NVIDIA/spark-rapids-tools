@@ -254,6 +254,10 @@ object EventUtils extends Logging {
                 case z: ClassNotFoundException if z.getMessage != null =>
                   // Avoid reporting missing classes more than once to reduce the noise in the logs
                   reportMissingEventClass(z.getMessage)
+                  if (z.getMessage.contains("SparkRapidsBuildInfoEvent")) {
+                    logWarning(s"event: ${z.getMessage}")
+                    logWarning(line)
+                  }
                 case t: Throwable =>
                   // We do not want to swallow unknown exceptions so that we can handle later
                   logError(s"Unknown exception while parsing an event", t)
@@ -274,5 +278,10 @@ object EventUtils extends Logging {
         }
         None
     }
+  }
+
+  private def extractSparkRapidsBuildInfo(event: String) {
+    val jsonMap = parse(event).extract[Map[String, Any]]
+    val sparkRapidsInfo = jsonMap("sparkRapidsBuildInfo").asInstanceOf[Map[String, String]]
   }
 }
