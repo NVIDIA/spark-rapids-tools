@@ -35,19 +35,19 @@ class ToolTextFileWriter(
     finalLocationText: String,
     hadoopConf: Option[Configuration] = None) extends Logging {
 
-  private val textOutputPath = s"$finalOutputDir/$logFileName"
+  private val textOutputLoc = s"$finalOutputDir/$logFileName"
 
-  def getFileOutputPath: Path = new Path(textOutputPath)
+  def getFileOutputPath: Path = new Path(textOutputLoc)
 
   // The Hadoop LocalFileSystem (r1.0.4) has known issues with syncing (HADOOP-7844).
   // Therefore, for local files, use FileOutputStream instead.
   // this overwrites existing path
   private var utf8Writer: Option[BufferedWriter] = {
     try {
-      Some(FSUtils.getUTF8BufferedWriter(textOutputPath, hadoopConf))
+      Some(FSUtils.getUTF8BufferedWriter(textOutputLoc, hadoopConf))
     } catch {
       case NonFatal(e) =>
-        logError(s"Failed to open output path [$textOutputPath] for writing", e)
+        logError(s"Failed to open output path [$textOutputLoc] for writing", e)
         None
     }
   }
@@ -70,7 +70,8 @@ class ToolTextFileWriter(
     // No need to close the outputStream.
     // Java should handle nested streams automatically.
     utf8Writer.foreach { writer =>
-      logInfo(s"$finalLocationText output location: $textOutputPath")
+      logInfo(s"$finalLocationText output location: $textOutputLoc")
+      writer.flush()
       writer.close()
     }
     utf8Writer = None

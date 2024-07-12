@@ -42,12 +42,12 @@ object FSUtils {
     }
   }
 
-  def getOutputStream(outputPath: String, hadoopConf: Configuration): FSDataOutputStream = {
-    val dfsPath = new Path(outputPath)
+  private def getOutputStream(outputLoc: String, hadoopConf: Configuration): FSDataOutputStream = {
+    val dfsPath = new Path(outputLoc)
     getOutputStream(dfsPath, hadoopConf)
   }
 
-  def getOutputStream(dfsPath: Path, hadoopConf: Configuration): FSDataOutputStream = {
+  private def getOutputStream(dfsPath: Path, hadoopConf: Configuration): FSDataOutputStream = {
     val dfs = getFSForPath(dfsPath, hadoopConf)
     val uri = dfsPath.toUri
     val defaultFs = FileSystem.getDefaultUri(hadoopConf).getScheme
@@ -63,9 +63,9 @@ object FSUtils {
     outputStream
   }
 
-  def getUTF8BufferedWriter(outputPath: String,
+  def getUTF8BufferedWriter(outputLoc: String,
       hadoopConf: Option[Configuration]): BufferedWriter = {
-    val outStream = getOutputStream(outputPath, hadoopConf.getOrElse(new Configuration()))
+    val outStream = getOutputStream(outputLoc, hadoopConf.getOrElse(new Configuration()))
     new BufferedWriter(new OutputStreamWriter(outStream, StandardCharsets.UTF_8))
   }
 }
