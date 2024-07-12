@@ -177,6 +177,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
             tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo)
           }
           if (qualSumInfo.isDefined) {
+            // add the recommend cluster info into the summary
             val tempSummary = qualSumInfo.get
             val newClusterSummary = tempSummary.clusterSummary.copy(
               recommendedClusterInfo = pluginTypeChecker.platform.recommendedClusterInfo)

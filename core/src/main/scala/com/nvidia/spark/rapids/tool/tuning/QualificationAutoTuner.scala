@@ -32,7 +32,7 @@ import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, Qua
  * @param tunerContext Container which holds the arguments passed to the AutoTuner execution
  */
 class QualificationAutoTuner(val appInfoProvider: QualAppSummaryInfoProvider,
-    val tunerContext: TunerContext) extends Logging {
+    val tunerContext: TunerContext) {
 
   // When enabled, the profiler recommendations should only include updated settings.
   private val filterByUpdatedPropsEnabled: Boolean = false

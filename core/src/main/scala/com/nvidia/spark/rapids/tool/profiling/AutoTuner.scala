@@ -35,7 +35,7 @@ import org.yaml.snakeyaml.constructor.{Constructor, ConstructorException}
 import org.yaml.snakeyaml.representer.Representer
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.{RecommendedClusterInfo, ToolUtils}
+import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.util.{StringUtils, WebCrawlerUtil}
 
 /**
@@ -422,25 +422,20 @@ class AutoTuner(
   }
 
   /**
-   * Get the recommended instance type to use when possible.
+   * Try to figure out the recommended instance type to use and set
+   * the executor cores and instances based on that instance type.
    * Returns None if the platform doesn't support specific instance types.
    */
-  def getGPURecommendedInstanceType: Option[RecommendedClusterInfo] = {
+  def configureGPURecommendedInstanceType: Unit = {
     val gpuClusterRec = platform.getGPUInstanceTypeRecommendation(getAllProperties.toMap)
-    // set the number of executor instance config
     if (gpuClusterRec.isDefined) {
       appendRecommendation("spark.executor.cores", gpuClusterRec.get.coresPerExecutor)
       if (gpuClusterRec.get.numExecutors > 0) {
         appendRecommendation("spark.executor.instances", gpuClusterRec.get.numExecutors)
       }
     }
-    gpuClusterRec
   }
 
-  /**
-   * Recommendation for 'spark.executor.cores' based on number of cpu cores and gpus.
-   * Assumption - cluster properties were updated to have a default values if missing.
-   */
   def calcNumExecutorCores: Int = {
     val executorCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
     Math.max(1, executorCores)
@@ -628,7 +623,6 @@ class AutoTuner(
     // if on a CSP using blob store recommend more threads for certain sizes. This is based on
     // testing on customer jobs on Databricks
     // didn't test with > 16 thread so leave those as numExecutorCores
-    // TODO - do we need to append a comment for these?
     if (numExecutorCores < 4) {
       // leave as defaults - should we reduce less then default of 20? need more testing
     } else if (numExecutorCores >= 4 && numExecutorCores < 16) {
@@ -644,9 +638,10 @@ class AutoTuner(
     }
   }
 
+  // Currently only applies many configs for CSPs where we have an idea what network/disk
+  // configuration is like. On prem we don't know so don't set these for now.
   private def configureMultiThreadedReaders(numExecutorCores: Int,
       setMaxBytesInFlight: Boolean): Unit = {
-    // TODO - do we need to append a comment for these?
     if (numExecutorCores < 4) {
       appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
         Math.max(20, numExecutorCores))
@@ -682,6 +677,8 @@ class AutoTuner(
 
 
   def calculateClusterLevelRecommendations(): Unit = {
+    // only if we were able to figure out a node type to recommend do we make
+    // specific recommendations
     if (platform.recommendedClusterInfo.isDefined) {
       val execCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
       appendRecommendation("spark.task.resource.gpu.amount", calcTaskGPUAmount)
@@ -1135,9 +1132,10 @@ class AutoTuner(
           .foreach(platform.setGpuDevice)
         platform.setNumGpus(clusterProps.gpu.getCount)
       }
-      // this needs to happen before any of the other recommendations as they are based on
+      // configured GPU recommended instance type NEEDS to happen before any of the other
+      // recommendations as they are based on
       // the instance type
-      getGPURecommendedInstanceType
+      configureGPURecommendedInstanceType
       configureClusterPropDefaults
       // Makes recommendations based on information extracted from the AppInfoProvider
       filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps

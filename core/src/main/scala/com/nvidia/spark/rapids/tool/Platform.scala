@@ -120,9 +120,9 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   val platformName: String
   val defaultGpuDevice: GpuDevice
 
-  // these aren't ideal being that they vars but for to minimize changes and
+  // It's not deal to use vars here but to minimize changes and
   // keep backwards compatibility we put them here for now and hopefully
-  // in future we can refactor
+  // in future we can refactor.
   var clusterInfoFromEventLog: Option[ExistingClusterInfo] = None
   // instance information for the gpu node type we will use to run with
   var recommendedNodeInstanceInfo: Option[InstanceInfo] = None
@@ -285,7 +285,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     math.max(1, gpus)
   }
 
-  def getExistingNumNodes(): Int = {
+  // Get the number of nodes that were used in the source cluster.
+  def getSourceNumNodes(): Int = {
     if (clusterProperties.isDefined) {
       Math.max(1, clusterProperties.get.system.numWorkers)
     } else if (clusterInfoFromEventLog.isDefined) {
@@ -295,6 +296,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     }
   }
 
+  // we want to keep the number of executors used between runs the same
   def getNumExecutorInstances(sparkProperties: Map[String, String]): Int = {
     val execInstFromProps = sparkProperties.get("spark.executor.instances")
     if (clusterProperties.isDefined) {
@@ -313,9 +315,10 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
 
   // figure out memory MB per node when we don't have the specific instance information
   def getMemoryMBPerNode(sparkProperties: Map[String, String]): Long = {
-    // To keep the previous behavior we first check if cluster properties are defined and
-    // use those are the target cluster. Even though this is going to be wrong in many
-    // cases. Ideally we change this in the future.
+    // To keep backwards compatibility, we first check if cluster properties are defined and
+    // use those as the source cluster. This is going to be wrong in many
+    // cases if the eventlogs passed in are not all actually run on the same cluster
+    // shape. Ideally we change this in the future.
     if (clusterProperties.isDefined) {
       StringUtils.convertToMB(clusterProperties.get.system.getMemory)
     } else if (clusterInfoFromEventLog.isDefined) {
@@ -323,8 +326,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
         .getOrElse(1).toLong
       val heapMemMB = clusterInfoFromEventLog.get.executorHeapMemory
       val overheadMemMB = getExecutorOverheadMemoryMB(sparkProperties)
-      val memPerNodeCalc = (heapMemMB + overheadMemMB) * numExecutorsPerNode
-      memPerNodeCalc
+      (heapMemMB + overheadMemMB) * numExecutorsPerNode
     } else {
       // we don't know
       0L
@@ -343,14 +345,14 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 
   // set the cluster information for this platform based on what we found in the
+  // eventlog
   def configureClusterInfoFromEventLog(coresPerExecutor: Int,
       execsPerNode: Int,
       numExecutorNodes: Int,
       sparkProperties: Map[String, String],
-      systemProperties: Map[String, String]): ExistingClusterInfo = {
+      systemProperties: Map[String, String]): Unit = {
     clusterInfoFromEventLog = Some(createClusterInfo(coresPerExecutor, execsPerNode,
       numExecutorNodes, sparkProperties, systemProperties))
-    clusterInfoFromEventLog.get
   }
 
   override def toString: String = {
@@ -363,6 +365,9 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   def isPlatformCSP: Boolean = false
 
+  /**
+   * The maximum number of Gpus any instance in this platform supports.
+   */
   def maxGpusSupported: Int = 1
 
   /**
@@ -371,17 +376,14 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def getInstanceByResources(cores:Int, numGpus: Int): Option[InstanceInfo] = None
 
   /**
-   * Attempts to get the GPU recommendation for node configuration.
+   * Recommend a GPU Instance type to use for this application.
    */
   def getGPUInstanceTypeRecommendation(
       sparkProperties: Map[String, String]): Option[RecommendedClusterInfo] = {
     val initialNumExecInstances = getNumExecutorInstances(sparkProperties)
-    // by default the instance type isn't in the configs so we infer it based on
-    // cores and number of gpus
-
     // If the cluster properties were specified make sure to use those and not
     // the eventlog inference. This is broken in my mind but is backwards compatible,
-    // or maybe use number gpus per node?
+    // or maybe use number gpus per node as an improvement.
     val numExecsPerNode = if (clusterProperties.isEmpty) {
       clusterInfoFromEventLog.map(_.numExecsPerNode).getOrElse(1)
     } else {
@@ -393,7 +395,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     this.numGpus = gpusToUse
     val nodeCores = if (clusterProperties.isDefined) {
       logDebug("Using the cluster properties passed in.")
-      // TODO:
       // I guess the assumption here is 1 executor per node - or we need to look this up
       // since not in the cluster definition, either way this is number cores per node
       clusterProperties.get.system.getNumCores
@@ -413,6 +414,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     }
     val instanceInfoOpt = getInstanceByResources(nodeCores, gpusToUse)
     val finalInstanceInfo = if (instanceInfoOpt.isEmpty) {
+      // if the instance info isn't found, like onprem or some platform we don't know about
       val execCores = if (clusterInfoFromEventLog.isDefined) {
         clusterInfoFromEventLog.get.coresPerExecutor
       } else {
@@ -424,18 +426,18 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       } else {
         1
       }
-      // Since this is supposed to be the node instance info cores * num executors per node
       val nodeCoresToUse = execCores * gpusToUse
       val nodeMemMB = getMemoryMBPerNode(sparkProperties)
-      // We have to see if we are changing the recommended node setup based on the
-      // number of gpus available. If we do we have to make  sure to adjust both
-      // cores and memory.
+      // It's possible if a cpu run was used, it could run with multiple executors, but
+      // if the platform doesn't support multiple GPUs per node then we could recommend
+      // different number of nodes. We have to take this into account for cores and memory
+      // calculations.
       val ratioExecs = Math.max(1, numExecsPerNode / gpusToUse)
       val execMem = nodeMemMB / ratioExecs
       logDebug(s"Creating instance info execCores $execCores execMem $execMem ratio " +
         s"$ratioExecs numExecsPerNode $numExecsPerNode gpusToUse $gpusToUse")
-      // here we change instanceInfo to be executor because its on prem and we can't
-      // recommend node type
+      // here we change instanceInfo to be executor because assumption is it's on prem and we
+      // don't know how to recommend node type
       Some(InstanceInfo(nodeCoresToUse, execMem, "onprem", 1))
     } else if (clusterProperties.isDefined) {
       val info = instanceInfoOpt.get
@@ -449,7 +451,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     } else {
       instanceInfoOpt
     }
-    val numExistingNodes = getExistingNumNodes
+    val numExistingNodes = getSourceNumNodes
     // check if instance type supports that number of gpus, if not we add extra executors
     val (numExecs, numNodes) = if (finalInstanceInfo.get.numGpus >= numExecsPerNode) {
       // TODO - really if instance has more GPUs we should calculate the other way to
@@ -460,13 +462,11 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       val numGpusLeft = numExecsPerNode / finalInstanceInfo.get.numGpus
       (initialNumExecInstances, numExistingNodes * numGpusLeft)
     }
-
     val coresPerExec = if (finalInstanceInfo.isDefined) {
       finalInstanceInfo.get.cores / finalInstanceInfo.get.numGpus
     } else {
       1
     }
-
     if (numExecs > 0) {
       val vendor = clusterInfoFromEventLog.map(_.vendor).getOrElse("")
       val instanceName = finalInstanceInfo.map(_.name).getOrElse("")
@@ -721,6 +721,7 @@ object PlatformFactory extends Logging {
    * Creates an instance of `Platform` based on the specified platform key.
    *
    * @param platformKey The key identifying the platform. Defaults to `PlatformNames.DEFAULT`.
+   * @param clusterProperties Optional cluster properties if the user specified them.
    */
   def createInstance(platformKey: String = PlatformNames.DEFAULT,
       clusterProperties: Option[ClusterProperties] = None): Platform = {
