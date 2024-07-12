@@ -23,8 +23,9 @@ java -cp $CLASSPATH \
 org.apache.spark.rapids.tool.benchmarks.SingleThreadedQualToolBenchmark \
 -i 3 -w 3 -a " --output-directory output eventlogs"
 ```
-`CLASSPATH` should include the path relative to the Benchmarking class being passed. 
-Refer to the example below for the same.
+`CLASSPATH` should be the path relative to which the Benchmarking class being passed. 
+Below examples, classpath contains the tool jar relative to which the Benchmarking class is passed
+with the package name ( org.apache.spark.rapids.tool.benchmarks.SingleThreadedQualToolBenchmark ).
 
 #### Running the Benchmark class using tools jar
 ```shell
