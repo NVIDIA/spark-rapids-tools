@@ -126,8 +126,8 @@ class QualificationSummary:
                     if FSUtil.resource_exists(abs_path):  # check if the file exists
                         report_content.append(f'    - {output_comment}: {abs_path}')
 
-            full_tunings_file = self.df_result['App ID'] + ".conf"
-            gpu_tunings_file = self.df_result['App ID'] + ".log"
+            full_tunings_file = self.df_result['App ID'] + '.conf'
+            gpu_tunings_file = self.df_result['App ID'] + '.log'
 
             # check to see if the tuning are actually there, assume if one tuning file is there,
             # the other will be as well.
@@ -145,7 +145,7 @@ class QualificationSummary:
 
             # 'all' is a special indication that all the applications need to use this same nod
             # recommendation vs the recommendations being per application
-            if ('all' in self.conversion_items):
+            if 'all' in self.conversion_items:
                 print_result = self.df_result
                 print_result['Qualified Node Recommendation'] = self.conversion_items['all']
             else:
@@ -172,10 +172,10 @@ class QualificationSummary:
             report_content.append(f'{app_name} tool found no records to show.')
 
         if (self.filter_apps_count > 0):
-            report_content.append(f'* Config Recommendations can be found in {self.auto_tuning_path}')
-            report_content.append(f'** Estimated GPU Speedup Category assumes the user is using the node type '
+            report_content.append('* Config Recommendations can be found in {self.auto_tuning_path}')
+            report_content.append('** Estimated GPU Speedup Category assumes the user is using the node type '
                                   'recommended and config recommendations with the same size cluster as was used '
-                                  f'with the CPU side.')
+                                  'with the CPU side.')
 
         report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
         report_content.append(tabulate(self.__generate_report_summary(), colalign=('left', 'right')))
@@ -313,7 +313,8 @@ class Qualification(RapidsJarTool):
                 cpu_cluster_info = cpu_cluster_info_per_app[app_id]
                 if cpu_cluster_info:
                     # Convert the CPU instances to support gpu. Otherwise, gpuCluster is not set
-                    self.logger.info('Creating GPU cluster by converting the CPU cluster instances to GPU supported types')
+                    self.logger.info(
+                        'Creating GPU cluster by converting the CPU cluster instances to GPU supported types')
                     gpu_cluster_obj = self.ctxt.platform.migrate_cluster_to_gpu(cpu_cluster_info)
                     _process_gpu_cluster_worker_node()
                     gpu_cluster_info_dict[app_id] = gpu_cluster_obj
@@ -903,9 +904,9 @@ class Qualification(RapidsJarTool):
             gpu_cluster_info = self.ctxt.get_ctxt('gpuClusterProxy')
             if cpu_cluster_info is not None and gpu_cluster_info is not None:
                 if cpu_cluster_info.get_worker_node().instance_type == gpu_cluster_info.get_worker_node().instance_type:
-                    conversion_items_summary["all"] = cpu_cluster_info.get_worker_node().instance_type
+                    conversion_items_summary['all'] = cpu_cluster_info.get_worker_node().instance_type
                 else:
-                    conversion_items_summary["all"] = cpu_cluster_info.get_worker_node().instance_type + ' to ' \
+                    conversion_items_summary['all'] = cpu_cluster_info.get_worker_node().instance_type + ' to ' \
                                                        + gpu_cluster_info.get_worker_node().instance_type
             else:
                 conversion_items_summary["all"] = cpu_cluster_info.get_worker_node().instance_type
@@ -917,11 +918,13 @@ class Qualification(RapidsJarTool):
                 cpu_cluster_info = cpu_cluster_info_per_app[app_id]
                 gpu_cluster_info = gpu_cluster_info_per_app[app_id]
                 if cpu_cluster_info is not None and gpu_cluster_info is not None:
-                    if cpu_cluster_info.get_worker_node().instance_type == gpu_cluster_info.get_worker_node().instance_type:
-                        conversion_items_summary[app_id] = cpu_cluster_info.get_worker_node().instance_type
+                    cpu_instance_type = cpu_cluster_info.get_worker_node().instance_type
+                    gpu_instance_type = gpu_cluster_info.get_worker_node().instance_type
+                    if cpu_instance_type == gpu_instance_type
+                        conversion_items_summary[app_id] = cpu_instance_type
                     else:
-                        conversion_items_summary[app_id] = cpu_cluster_info.get_worker_node().instance_type + ' to '\
-                                                           + gpu_cluster_info.get_worker_node().instance_type
+                        conversion_items_summary[app_id] = cpu_instance_type + ' to '\
+                                                           + gpu_instance_type
 
         rapids_output_dir = self.ctxt.get_rapids_output_folder()
         tunings_dir = FSUtil.build_path(rapids_output_dir,

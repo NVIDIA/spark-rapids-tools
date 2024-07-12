@@ -49,7 +49,7 @@ class ClusterInference:
         # first try to read the Recommended setting from the scala tool side and if its not available fall back
         # to the CPU inference done on the python side
         executor_instance = cluster_info_df.get('Recommended Executor Instance')
-        if (pd.notna(executor_instance)):
+        if pd.notna(executor_instance):
             self.logger.debug('GPU infer cluster executor instance rec is %s', executor_instance)
             num_executor_nodes = cluster_info_df.get('Recommended Num Executor Nodes')
         else:

@@ -1234,7 +1234,7 @@ object AutoTuner extends Logging {
   val commentsForMissingMemoryProps: Map[String, String] = Map(
     "spark.executor.memory" ->
       "'spark.executor.memory' should be set to at least 2GB/core.",
-    "spark.rapids.memory.pinnedPool.size" ->
+    "spark.rapids.memory.pinnedPool.size" ->:
       s"'spark.rapids.memory.pinnedPool.size' should be set to ${DEF_PINNED_MEMORY_MB}m.")
 
   val commentsForMissingProps: Map[String, String] = Map(
