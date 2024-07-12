@@ -324,7 +324,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                 # N1 + T4 GPUs
                 if 1 <= instance_info['VCpuCount'] <= 48:
                     t4_gpu_info = {'Name': 'T4', 'Count': [1, 2, 4]}
-                else:  # 48 < instance_info['VCpuCount'] <= 96
+                else:  # 48 < VCpuCount <= 96
                     t4_gpu_info = {'Name': 'T4', 'Count': [4]}
                 instance_info['GpuInfo'].append(t4_gpu_info)
                 # N1 + P4 GPUs
@@ -332,7 +332,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                     p4_gpu_info = {'Name': 'P4', 'Count': [1, 2, 4]}
                 elif 24 < instance_info['VCpuCount'] <= 48:
                     p4_gpu_info = {'Name': 'P4', 'Count': [2, 4]}
-                else:  # 48 < instance_info['VCpuCount'] <= 96
+                else:  # 48 < VCpuCount <= 96
                     p4_gpu_info = {'Name': 'P4', 'Count': [4]}
                 instance_info['GpuInfo'].append(p4_gpu_info)
                 # N1 + V100 GPUs
@@ -342,7 +342,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                     v100_gpu_info = {'Name': 'V100', 'Count': [2, 4, 8]}
                 elif 24 < instance_info['VCpuCount'] <= 48:
                     v100_gpu_info = {'Name': 'V100', 'Count': [4, 8]}
-                else:  # 48 < instance_info['VCpuCount'] <= 96
+                else:  # 48 < VCpuCount <= 96
                     v100_gpu_info = {'Name': 'V100', 'Count': [8]}
                 instance_info['GpuInfo'].append(v100_gpu_info)
                 # N1 + P100 GPUs
@@ -350,7 +350,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                     p100_gpu_info = {'Name': 'P100', 'Count': [1, 2, 4]}
                 elif 16 < instance_info['VCpuCount'] <= 32:
                     p100_gpu_info = {'Name': 'P100', 'Count': [2, 4]}
-                else:  # 32 < instance_info['VCpuCount'] <= 96
+                else:  # 32 < VCpuCount <= 96
                     p100_gpu_info = {'Name': 'P100', 'Count': [4]}
                 instance_info['GpuInfo'].append(p100_gpu_info)
         return processed_instance_descriptions
