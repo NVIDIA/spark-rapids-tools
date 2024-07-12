@@ -129,6 +129,10 @@ case class ExecInfo(
     stages = stageIDs
   }
 
+  def appendToStages(stageIDs: Set[Int]): Unit = {
+    stages ++= stageIDs
+  }
+
   def setShouldRemove(value: Boolean): Unit = {
     shouldRemove ||= value
   }

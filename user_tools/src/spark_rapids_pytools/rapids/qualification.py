@@ -1021,8 +1021,8 @@ class Qualification(RapidsJarTool):
             try:
                 df = self.__update_apps_with_prediction_info(df)
             except Exception as e:  # pylint: disable=broad-except
-                self.logger.warning('Unable to use XGBoost estimation model for speed ups. '
-                                    'Falling-back to default model. Reason - %s:%s', type(e).__name__, e)
+                self.logger.error('Unable to use XGBoost estimation model for speed ups. '
+                                  'Falling-back to default model. Reason - %s:%s', type(e).__name__, e)
         estimation_model_col = self.ctxt.get_value('local', 'output', 'predictionModel',
                                                    'updateResult', 'estimationModelColumn')
         if estimation_model_col not in df:

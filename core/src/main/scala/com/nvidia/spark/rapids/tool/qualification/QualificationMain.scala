@@ -16,8 +16,10 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterProps
+import scala.util.control.NonFatal
+
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
+import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterProps
 import com.nvidia.spark.rapids.tool.tuning.TunerContext
 
 import org.apache.spark.internal.Logging
@@ -68,8 +70,8 @@ object QualificationMain extends Logging {
       val clusterPropsOpt = loadClusterProps(appArgs.workerInfo())
       PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
     } catch {
-      case ie: IllegalStateException =>
-        logError("Error creating the platform", ie)
+      case NonFatal(e) =>
+        logError("Error creating the platform", e)
         return (1, Seq[QualificationSummaryInfo]())
     }
 

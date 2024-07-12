@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from typing import Callable, Optional, List, Tuple
 import numpy as np
 import pandas as pd
@@ -21,7 +22,7 @@ import xgboost as xgb
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
 from spark_rapids_tools.tools.qualx.util import get_logger, INTERMEDIATE_DATA_ENABLED
 from tabulate import tabulate
-from xgboost import XGBModel
+from xgboost import Booster, XGBModel
 # Import optional packages
 try:
     import optuna
@@ -60,6 +61,7 @@ def train(
     feature_cols: List[str],
     label_col: str,
     n_trials: int = 200,
+    base_model: Optional[Booster] = None,
 ) -> XGBModel:
     """Train model on preprocessed data."""
     if 'split' not in cpu_aug_tbl.columns:
@@ -77,7 +79,7 @@ def train(
         drop=True
     )
     if cpu_aug_tbl.shape[0] < original_num_rows:
-        logger.warn(
+        logger.warning(
             f'Removed {original_num_rows - cpu_aug_tbl.shape[0]} rows with NaN label values'
         )
 
@@ -101,28 +103,43 @@ def train(
     y_tune = cpu_aug_tbl.loc[cpu_aug_tbl['split'] != 'test', label_col]
     dtune = xgb.DMatrix(X_tune, y_tune)
 
-    best_params = tune_hyperparameters(X_tune, y_tune, n_trials)
-    logger.info(best_params)
+    if base_model:
+        # use hyper-parameters from base model (w/ modifications to learning rate and num trees)
+        xgb_params = {}
+        cfg = json.loads(base_model.save_config())
+        train_params = cfg['learner']['gradient_booster']['tree_train_param']
+        xgb_params['eta'] = float(train_params['eta']) / 10.0     # decrease learning rate
+        xgb_params['gamma'] = float(train_params['gamma'])
+        xgb_params['max_depth'] = int(train_params['max_depth'])
+        xgb_params['min_child_weight'] = int(train_params['min_child_weight'])
+        xgb_params['subsample'] = float(train_params['subsample'])
+        n_estimators = cfg['learner']['gradient_booster']['gbtree_model_param']['num_trees']
+        n_estimators = int(float(n_estimators) * 1.1)              # increase n_estimators
+    else:
+        # use optuna hyper-parameter tuning
+        best_params = tune_hyperparameters(X_tune, y_tune, n_trials)
+        logger.info(best_params)
 
-    # train model w/ best hyperparameters using data splits
-    base_params = {
-        'random_state': 0,
-        'objective': 'reg:squarederror',
-        'eval_metric': ['mae', 'mape'],  # applied to eval_set/test_data if provided
-        'booster': 'gbtree',
-    }
-    xgb_params = {**base_params, **best_params}
-    xgb_params.pop('n_estimators')
+        # train model w/ best hyperparameters using data splits
+        base_params = {
+            'random_state': 0,
+            'objective': 'reg:squarederror',
+            'eval_metric': ['mae', 'mape'],  # applied to eval_set/test_data if provided
+            'booster': 'gbtree',
+        }
+        xgb_params = {**base_params, **best_params}
+        n_estimators = xgb_params.pop('n_estimators')
 
     # train model
     evals_result = {}
     xgb_model = xgb.train(
         xgb_params,
         dtrain=dtune,
-        num_boost_round=best_params['n_estimators'],
+        num_boost_round=n_estimators,
         evals=[(dtrain, 'train'), (dval, 'val')],
         verbose_eval=50,
         evals_result=evals_result,
+        xgb_model=base_model,
     )
     return xgb_model
 
@@ -142,7 +159,7 @@ def predict(
     if missing:
         raise ValueError(f'Input is missing model features: {missing}')
     if extra:
-        logger.warn(f'Input had extra features not present in model: {extra}')
+        logger.warning(f'Input had extra features not present in model: {extra}')
 
     X = cpu_aug_tbl[model_features]
     y = cpu_aug_tbl[label_col] if label_col else None
@@ -207,12 +224,12 @@ def predict(
 
 
 def extract_model_features(
-    df: pd.DataFrame, split_fn: Callable[[pd.DataFrame], pd.DataFrame] = None
+    df: pd.DataFrame, split_fn: List[Callable[[pd.DataFrame], pd.DataFrame]] = []
 ) -> Tuple[pd.DataFrame, List[str], str]:
     """Extract model features from raw features."""
     missing = expected_raw_features - set(df.columns)
     if missing:
-        logger.warn(f'Input dataframe is missing expected raw features: {missing}')
+        logger.warning(f'Input dataframe is missing expected raw features: {missing}')
 
     if FILTER_SPILLS:
         df = df[
@@ -234,7 +251,7 @@ def extract_model_features(
     gpu_aug_tbl = df[df['runType'] == 'GPU']
     if gpu_aug_tbl.shape[0] > 0:
         if gpu_aug_tbl.shape[0] != cpu_aug_tbl.shape[0]:
-            logger.warn(
+            logger.warning(
                 'Number of GPU rows ({}) does not match number of CPU rows ({})'.format(
                     gpu_aug_tbl.shape[0], cpu_aug_tbl.shape[0]
                 )
@@ -262,7 +279,7 @@ def extract_model_features(
         if (
             num_na / num_rows > 0.05
         ):  # arbitrary threshold, misaligned sqlIDs still may 'match' most of the time
-            logger.warn(
+            logger.warning(
                 f'Percentage of NaN GPU durations is high: {num_na} / {num_rows}  Per-sql actual speedups may be inaccurate.'
             )
 
@@ -299,12 +316,12 @@ def extract_model_features(
         raise ValueError(f'Input data is missing model features: {missing}')
     if extra:
         # remove extra columns
-        logger.warn(f'Input data has extra features (removed): {extra}')
+        logger.warning(f'Input data has extra features (removed): {extra}')
         feature_cols = [c for c in feature_cols if c not in extra]
 
     # add train/val/test split column, if split function provided
-    if split_fn:
-        cpu_aug_tbl = split_fn(cpu_aug_tbl)
+    for fn in split_fn:
+        cpu_aug_tbl = fn(cpu_aug_tbl)
 
     return cpu_aug_tbl, feature_cols, label_col
 

@@ -69,7 +69,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
 
                 Skipping this argument requires that the cluster argument points to a valid
                 cluster name on the CSP.
-        :param cluster: Name or ID (for databricks platforms) of cluster or path to cluster-properties.
+        :param cluster: The CPU cluster on which the Spark application(s) were executed.
+               Name or ID (for databricks platforms) of cluster or path to cluster-properties.
         :param platform: defines one of the following "onprem", "emr", "dataproc", "dataproc-gke",
                "databricks-aws", and "databricks-azure".
         :param target_platform: Cost savings and speedup recommendation for comparable cluster in
@@ -257,7 +258,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
               dataset: str = None,
               model: str = None,
               output_folder: str = None,
-              n_trials: int = 200):
+              n_trials: int = 200,
+              base_model: str = None):
         """The train cmd trains an XGBoost model on the input data to estimate the speedup of a
          Spark CPU application.
 
@@ -265,6 +267,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param model: Path to save the trained XGBoost model.
         :param output_folder: Path to store the output.
         :param n_trials: Number of trials for hyperparameter search.
+        :param base_model: Path to pre-trained XGBoost model to continue training from.
         """
         # Since train is an internal tool with frequent output, we enable debug mode by default
         ToolLogging.enable_debug_mode()
@@ -275,13 +278,15 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                           dataset=dataset,
                                                           model=model,
                                                           output_folder=output_folder,
-                                                          n_trials=n_trials)
+                                                          n_trials=n_trials,
+                                                          base_model=base_model)
 
         tool_obj = Train(platform_type=train_args['runtimePlatform'],
                          dataset=dataset,
                          model=model,
                          output_folder=output_folder,
                          n_trials=n_trials,
+                         base_model=base_model,
                          wrapper_options=train_args)
         tool_obj.launch()
 

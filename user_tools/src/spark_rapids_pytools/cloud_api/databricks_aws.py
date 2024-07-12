@@ -27,7 +27,7 @@ from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase, ClusterBase, 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterState, SparkNodeType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import Utils
-from spark_rapids_pytools.pricing.databricks_pricing import DatabricksPriceProvider
+from spark_rapids_pytools.pricing.databricks_aws_pricing import DatabricksAWSPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
@@ -78,8 +78,8 @@ class DBAWSPlatform(EMRPlatform):
             pricing_config = JSONPropertiesContainer(prop_arg=raw_pricing_config, file_load=False)
         else:
             pricing_config: JSONPropertiesContainer = None
-        databricks_price_provider = DatabricksPriceProvider(region=self.cli.get_region(),
-                                                            pricing_configs={'databricks': pricing_config})
+        databricks_price_provider = DatabricksAWSPriceProvider(region=self.cli.get_region(),
+                                                               pricing_configs={'databricks-aws': pricing_config})
         saving_estimator = DBAWSSavingsEstimator(price_provider=databricks_price_provider,
                                                  reshaped_cluster=reshaped_cluster,
                                                  source_cluster=source_cluster,
@@ -332,20 +332,12 @@ class DBAWSSavingsEstimator(SavingsEstimator):
     A class that calculates the savings based on a Databricks-AWS price provider
     """
 
-    def __calculate_ec2_cost(self, cluster: ClusterGetAccessor) -> float:
-        res = 0.0
+    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor) -> float:
+        total_cost = 0.0
         for node_type in [SparkNodeType.MASTER, SparkNodeType.WORKER]:
             instance_type = cluster.get_node_instance_type(node_type)
             nodes_cnt = cluster.get_nodes_cnt(node_type)
-            ec2_cost = self.price_provider.catalogs['aws'].get_value('ec2', instance_type)
-            res += ec2_cost * nodes_cnt
-        return res
-
-    def _get_cost_per_cluster(self, cluster: ClusterGetAccessor):
-        dbu_cost = 0.0
-        for node_type in [SparkNodeType.MASTER, SparkNodeType.WORKER]:
-            instance_type = cluster.get_node_instance_type(node_type)
-            nodes_cnt = cluster.get_nodes_cnt(node_type)
-            cost = self.price_provider.get_instance_price(instance=instance_type)
-            dbu_cost += cost * nodes_cnt
-        return self.__calculate_ec2_cost(cluster) + dbu_cost
+            ec2_cost = self.price_provider.catalogs['aws'].get_value('ec2', instance_type) * nodes_cnt
+            dbu_cost = self.price_provider.catalogs['databricks-aws'].get_value(instance_type)
+            total_cost += ec2_cost + dbu_cost
+        return total_cost
