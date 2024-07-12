@@ -226,6 +226,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val autoTuner = AutoTuner.buildAutoTuner("non-existing.yaml", getGpuAppMockInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
@@ -257,6 +258,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |  If the Spark RAPIDS jar is being bundled with your Spark
           |  distribution, this step is not needed.
           |""".stripMargin
+    // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
   }
 
