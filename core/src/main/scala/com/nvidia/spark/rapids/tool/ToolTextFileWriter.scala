@@ -15,15 +15,16 @@
  */
 package com.nvidia.spark.rapids.tool
 
-import java.io.FileOutputStream
+import java.io.BufferedWriter
 import java.util.Properties
 
+import scala.util.control.NonFatal
+
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, FSDataOutputStream, Path}
-import org.apache.hadoop.fs.permission.FsPermission
+import org.apache.hadoop.fs.Path
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
+import org.apache.spark.sql.rapids.tool.util.FSUtils
 
 /**
  * Class for writing local files, allows writing to distributed file systems.
@@ -34,55 +35,44 @@ class ToolTextFileWriter(
     finalLocationText: String,
     hadoopConf: Option[Configuration] = None) extends Logging {
 
-  // use same as Spark event log writer
-  val LOG_FILE_PERMISSIONS = new FsPermission(Integer.parseInt("660", 8).toShort)
-  val LOG_FOLDER_PERMISSIONS = new FsPermission(Integer.parseInt("770", 8).toShort)
-  private val textOutputPath = new Path(s"$finalOutputDir/$logFileName")
-  private val hadoopConfToUse = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf)
+  private val textOutputPath = s"$finalOutputDir/$logFileName"
 
-  private val defaultFs = FileSystem.getDefaultUri(hadoopConfToUse).getScheme
-  private val isDefaultLocal = defaultFs == null || defaultFs == "file"
-  private val uri = textOutputPath.toUri
-
-  def getFileOutputPath: Path = textOutputPath
+  def getFileOutputPath: Path = new Path(textOutputPath)
 
   // The Hadoop LocalFileSystem (r1.0.4) has known issues with syncing (HADOOP-7844).
   // Therefore, for local files, use FileOutputStream instead.
   // this overwrites existing path
-  private var outFile: Option[FSDataOutputStream] = {
-    val fs = FileSystem.get(uri, hadoopConfToUse)
-    val outStream = if ((isDefaultLocal && uri.getScheme == null) || uri.getScheme == "file") {
-      FileSystem.mkdirs(fs, new Path(finalOutputDir), LOG_FOLDER_PERMISSIONS)
-      Some(new FSDataOutputStream(new FileOutputStream(uri.getPath), null))
-    } else {
-      Some(fs.create(textOutputPath))
+  private var utf8Writer: Option[BufferedWriter] = {
+    try {
+      Some(FSUtils.getUTF8BufferedWriter(textOutputPath, hadoopConf))
+    } catch {
+      case NonFatal(e) =>
+        logError(s"Failed to open output path [$textOutputPath] for writing", e)
+        None
     }
-    fs.setPermission(textOutputPath, LOG_FILE_PERMISSIONS)
-    outStream
   }
 
   def write(stringToWrite: String): Unit = {
-    outFile.foreach(_.writeBytes(stringToWrite))
+    utf8Writer.foreach(_.write(stringToWrite))
   }
 
   def writeProperties(props: Properties, comment: String): Unit = {
-    outFile.foreach(props.store(_, comment))
+    utf8Writer.foreach(props.store(_, comment))
   }
 
   def flush(): Unit = {
-    outFile.foreach { file =>
-      file.flush()
-      file.hflush()
+    utf8Writer.foreach { writer =>
+      writer.flush()
     }
   }
 
   def close(): Unit = {
-    outFile.foreach { file =>
+    // No need to close the outputStream.
+    // Java should handle nested streams automatically.
+    utf8Writer.foreach { writer =>
       logInfo(s"$finalLocationText output location: $textOutputPath")
-      file.flush()
-      file.hflush()
-      file.close()
-      outFile = None
+      writer.close()
     }
+    utf8Writer = None
   }
 }
