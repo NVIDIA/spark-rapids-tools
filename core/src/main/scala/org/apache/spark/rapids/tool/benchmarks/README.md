@@ -19,13 +19,12 @@ Use the java command to run the created benchmark class with the following suppo
 
 #### Running the Benchmark class directly
 ```shell
-java -cp $CLASSPATH \
+java -cp $CLASSPATH:$SPARK_HOME/jars/* \
 org.apache.spark.rapids.tool.benchmarks.SingleThreadedQualToolBenchmark \
--i 3 -w 3 -a " --output-directory output eventlogs"
+-i 3 -w 3 -a " $EVENT_LOGS_DIR"
 ```
-`CLASSPATH` should be the path relative to which the Benchmarking class being passed. 
-Below examples, classpath contains the tool jar relative to which the Benchmarking class is passed
-with the package name ( org.apache.spark.rapids.tool.benchmarks.SingleThreadedQualToolBenchmark ).
+* `$CLASSPATH` : Path to the compiled class directory. Ex - `<repo>/target/*`
+* `$EVENT_LOGS_DIR` : Path to the event logs directory
 
 #### Running the Benchmark class using tools jar
 ```shell
@@ -34,5 +33,7 @@ org.apache.spark.rapids.tool.benchmarks.SingleThreadedQualToolBenchmark \
 -i 3 -w 3 -a " $EVENT_LOGS_DIR"
 ```
 * `$RAPIDS_TOOLS_JAR` : Path to the rapids tools jar
-* `$SPARK_HOME/jars/*` : Include the `SPARK` jars in the classpath in case benchmarking `QUALIFICATION/PROFILING` tool 
 * `$EVENT_LOGS_DIR` : Path to the event logs directory
+
+#### NOTES
+* `$SPARK_HOME/jars/*` : Include the `SPARK` jars in the classpath in case benchmarking `QUALIFICATION/PROFILING` tool 
