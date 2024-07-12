@@ -336,10 +336,8 @@ class EstimationModelArgProcessor(AbsToolUserArgModel):
         return ArgValueCase.UNDEFINED
 
     def build_tools_args(self) -> dict:
-        if self.p_args['toolArgs']['estimationModel'] == QualEstimationModel.XGBOOST:
-            self.p_args['toolArgs']['xgboostEnabled'] = True
-        else:
-            self.p_args['toolArgs']['xgboostEnabled'] = False
+        xgboost_enabled = self.p_args['toolArgs']['estimationModel'] == QualEstimationModel.XGBOOST
+        self.p_args['toolArgs']['xgboostEnabled'] = xgboost_enabled
         return self.p_args['toolArgs']
 
 
@@ -721,11 +719,17 @@ class PredictUserArgModel(AbsToolUserArgModel):
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
 
     def build_tools_args(self) -> dict:
+        if self.estimation_model_args is None or not self.estimation_model_args:
+            def_model = QualEstimationModel.XGBOOST
+            self.p_args['toolArgs']['estimationModelArgs'] = QualEstimationModel.create_default_model_args(def_model)
+        else:
+            self.p_args['toolArgs']['estimationModelArgs'] = self.estimation_model_args
         return {
             'runtimePlatform': self.platform,
             'qual_output': self.qual_output,
             'prof_output': self.prof_output,
             'output_folder': self.output_folder,
+            'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
             'platformOpts': {}
         }
 

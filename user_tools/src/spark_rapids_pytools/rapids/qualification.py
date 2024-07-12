@@ -1042,7 +1042,7 @@ class Qualification(RapidsJarTool):
         output_info = self.__build_prediction_output_files_info()
         predictions_df = predict(platform=model_name, qual=qual_output_dir,
                                  output_info=output_info,
-                                 custom_model_file=estimation_model_args['customModelFile'])
+                                 model=estimation_model_args['customModelFile'])
 
         if predictions_df.empty:
             return all_apps
