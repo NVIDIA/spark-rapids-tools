@@ -62,7 +62,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
   // factors since we don't have speedup factors for all combinations of
   // platforms and GPUs. We expect speedup factor usage to be going away
   // so this is less of an issue.
-  def defaultGpuForSpeedupFactor: GpuDevice = getGpuOrDefault
+  def defaultGpuForSpeedupFactor: GpuDevice = defaultGpuDevice
 
   /**
    * Recommendations to be excluded from the list of recommendations.
@@ -113,11 +113,14 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
     s"operatorsScore-$platformName-$getGpuOrDefaultForSpeedupFactors.csv"
   }
 
+  def getDefaultOperatorScoreFile: String = {
+    s"operatorsScore-$platformName-$defaultGpuForSpeedupFactor.csv"
+  }
+
   final def getGpuOrDefault: GpuDevice = gpuDevice.getOrElse(defaultGpuDevice)
 
   final def getGpuOrDefaultForSpeedupFactors: GpuDevice =
     gpuDevice.getOrElse(defaultGpuForSpeedupFactor)
-
 
   final def setGpuDevice(gpuDevice: GpuDevice): Unit = {
     this.gpuDevice = Some(gpuDevice)
@@ -148,7 +151,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice]) {
 
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice]) extends Platform(gpuDevice) {
   override val defaultGpuDevice: GpuDevice = T4Gpu
-
   override def isPlatformCSP: Boolean = true
 
   // note that Databricks generally sets the spark.executor.memory for the user.  Our
@@ -279,6 +281,11 @@ object PlatformFactory extends Logging {
   def createInstance(platformKey: String = PlatformNames.DEFAULT): Platform = {
     val (platformName, gpuName) = extractPlatformGpuName(platformKey)
     val gpuDevice = gpuName.flatMap(GpuDevice.createInstance)
+    // case when gpu name is detected but not in device map
+    if (gpuName.isDefined && gpuDevice.isEmpty) {
+      throw new IllegalArgumentException(s"Unsupported GPU device: ${gpuName.get}. " +
+          s"Supported GPU devices are: ${GpuDevice.deviceMap.keys.mkString(", ")}.")
+    }
     val platform = createPlatformInstance(platformName, gpuDevice)
     logInfo(s"Using platform: $platform")
     platform

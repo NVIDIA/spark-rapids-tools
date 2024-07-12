@@ -128,3 +128,20 @@ Once satisfied with the model, we can just overwrite an existing pre-trained mod
 cp onprem.json user_tools/src/spark_rapids_pytools/resources/qualx/models/xgboost
 ```
 
+### Fine-tuning / Incremental Training
+
+To continue training an existing pre-trained model on new data, just set up the new dataset per above and then
+reference the existing base model when training:
+```bash
+spark_rapids train \
+--dataset datasets \
+--model onprem.json \
+--base_model user_tools/src/spark_rapids_pytools/resources/qualx/models/xgboost/onprem.json \
+--output_folder train_output
+```
+
+Evaluate the new model's performance, and when ready, overwrite the existing pre-trained model to use it as a
+drop-in replacement:
+```bash
+cp onprem.json user_tools/src/spark_rapids_pytools/resources/qualx/models/xgboost
+```

@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.analysis
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, DataSourceCase, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
@@ -341,6 +341,58 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         None
       }
     }
+  }
+
+  /**
+   * Generate the stage level metrics for the SQL plan including GPU metrics if applicable.
+   * Along with Spark defined metrics, below is the list of GPU metrics that are collected if they
+   * are present in the eventlog:
+   * gpuSemaphoreWait, gpuRetryCount, gpuSplitAndRetryCount, gpuRetryBlockTime,
+   * gpuRetryComputationTime, gpuSpillToHostTime, gpuSpillToDiskTime, gpuReadSpillFromHostTime,
+   * gpuReadSpillFromDiskTime
+   *
+   * @return a sequence of AccumProfileResults
+   */
+  def generateStageLevelAccums(): Seq[AccumProfileResults] = {
+
+    def computeStatistics(updates: Seq[Long]): Option[StatisticsMetrics] = {
+      // drop the metrics if there are no values
+      if (updates.isEmpty) {
+        None
+      } else if (updates.length == 1) {
+        Some(StatisticsMetrics(0L, 0L, 0L, updates.sum))
+      } else {
+        Some(StatisticsMetrics(
+          min = updates.head,
+          med = updates(updates.size / 2),
+          max = updates.last,
+          total = updates.sum
+        ))
+      }
+    }
+
+    // Process taskStageAccumMap to get all the accumulators
+    val stageLevelAccums = app.taskStageAccumMap.values.flatten
+    val groupedByAccumulatorId = stageLevelAccums.groupBy(_.accumulatorId)
+    groupedByAccumulatorId.flatMap { case (accumulatorId, accums) =>
+      // Extract and sort the update values, defaulting to 0 if not present
+      val sortedUpdates = accums.flatMap(_.update).toSeq.sorted
+
+      // Compute the statistics for the accumulator if applicable
+      computeStatistics(sortedUpdates).map { stats =>
+        val sampleAccum = accums.head
+        AccumProfileResults(
+          appIndex = appIndex,
+          stageId = sampleAccum.stageId.toString,
+          accumulatorId = accumulatorId,
+          name = sampleAccum.name.getOrElse("Unknown"),
+          min = stats.min,
+          median = stats.med,
+          max = stats.max,
+          total = stats.total
+        )
+      }
+    }.toSeq
   }
 }
 
