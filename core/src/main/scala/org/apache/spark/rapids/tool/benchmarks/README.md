@@ -23,7 +23,7 @@ java -cp $CLASSPATH:$SPARK_HOME/jars/* \
 org.apache.spark.rapids.tool.benchmarks.SingleThreadedQualToolBenchmark \
 -i 3 -w 3 -a " $EVENT_LOGS_DIR"
 ```
-* `$CLASSPATH` : Path to the compiled class directory. Ex - `<SPARK_TOOLS_REPO_PATH>/core/target/*`
+* `$CLASSPATH` : Path to the compiled class directory. Ex - `<SPARK_RAPIDS_TOOLS_REPO_PATH>/core/target/*`
 * `$EVENT_LOGS_DIR` : Path to the event logs directory
 
 #### Running the Benchmark class using tools jar
