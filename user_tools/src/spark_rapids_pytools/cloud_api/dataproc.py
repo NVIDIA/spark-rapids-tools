@@ -314,6 +314,45 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                     gpu_info = {'Name': gpu_name, 'Count': gpu_count}
                     instance_content['GpuInfo'] = [gpu_info]
             processed_instance_descriptions[instance.get('name')] = instance_content
+
+        # for Dataproc, some instance types can attach customized GPU devices
+        # Ref: https://cloud.google.com/compute/docs/gpus#n1-gpus
+        for instance_name, instance_info in processed_instance_descriptions.items():
+            if instance_name.startswith('n1-standard'):
+                if 'GpuInfo' not in instance_info:
+                    instance_info['GpuInfo'] = []
+                # N1 + T4 GPUs
+                if 1 <= instance_info['VCpuCount'] <= 48:
+                    t4_gpu_info = {'Name': 'T4', 'Count': [1, 2, 4]}
+                elif 48 < instance_info['VCpuCount'] <= 96:
+                    t4_gpu_info = {'Name': 'T4', 'Count': [4]}
+                instance_info['GpuInfo'].append(t4_gpu_info)
+                # N1 + P4 GPUs
+                if 1 <= instance_info['VCpuCount'] <= 24:
+                    p4_gpu_info = {'Name': 'P4', 'Count': [1, 2, 4]}
+                elif 24 < instance_info['VCpuCount'] <= 48:
+                    p4_gpu_info = {'Name': 'P4', 'Count': [2, 4]}
+                elif 48 < instance_info['VCpuCount'] <= 96:
+                    p4_gpu_info = {'Name': 'P4', 'Count': [4]}
+                instance_info['GpuInfo'].append(p4_gpu_info)
+                # N1 + V100 GPUs
+                if 1 <= instance_info['VCpuCount'] <= 12:
+                    v100_gpu_info = {'Name': 'V100', 'Count': [1, 2, 4, 8]}
+                elif 12 < instance_info['VCpuCount'] <= 24:
+                    v100_gpu_info = {'Name': 'V100', 'Count': [2, 4, 8]}
+                elif 24 < instance_info['VCpuCount'] <= 48:
+                    v100_gpu_info = {'Name': 'V100', 'Count': [4, 8]}
+                elif 48 < instance_info['VCpuCount'] <= 96:
+                    v100_gpu_info = {'Name': 'V100', 'Count': [8]}
+                instance_info['GpuInfo'].append(v100_gpu_info)
+                # N1 + P100 GPUs
+                if 1 <= instance_info['VCpuCount'] <= 16:
+                    p100_gpu_info = {'Name': 'P100', 'Count': [1, 2, 4]}
+                elif 16 < instance_info['VCpuCount'] <= 32:
+                    p100_gpu_info = {'Name': 'P100', 'Count': [2, 4]}
+                elif 32 < instance_info['VCpuCount'] <= 96:
+                    p100_gpu_info = {'Name': 'P100', 'Count': [4]}
+                instance_info['GpuInfo'].append(p100_gpu_info)
         return processed_instance_descriptions
 
     def get_instance_description_cli_params(self) -> list:
