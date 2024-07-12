@@ -52,9 +52,6 @@ class ClusterInference:
         if (pd.notna(executor_instance)):
             self.logger.debug('GPU infer cluster executor instance rec is %s', executor_instance)
             num_executor_nodes = cluster_info_df.get('Recommended Num Executor Nodes')
-            rec_cores_per_executor = cluster_info_df.get('Recommended Cores Per Executor')
-            rec_execs = cluster_info_df.get('Recommended Num Executors')
-            rec_gpus = cluster_info_df.get('Recommended Num GPUs Per Node')
         else:
             num_executor_nodes = cluster_info_df.get('Num Executor Nodes')
             executor_instance = cluster_info_df.get('Executor Instance')

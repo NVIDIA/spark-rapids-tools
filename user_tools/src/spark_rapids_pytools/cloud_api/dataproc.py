@@ -341,7 +341,7 @@ class DataprocNode(ClusterNode):
             accelerator_arr = self.props.get_value_silent('accelerators')
         except Exception as e:  # pylint: disable=broad-except
             accelerator_arr = None
-            
+
         if not accelerator_arr:
             return None
 

@@ -14,7 +14,6 @@
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 import json
-import textwrap
 from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
@@ -175,7 +174,7 @@ class QualificationSummary:
         if (self.filter_apps_count > 0):
             report_content.append(f'* Config Recommendations can be found in {self.auto_tuning_path}')
             report_content.append(f'** Estimated GPU Speedup Category assumes the user is using the node type '
-                                  f'recommended and config recommendations with the same size cluster as was used '
+                                  'recommended and config recommendations with the same size cluster as was used '
                                   f'with the CPU side.')
 
         report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
@@ -898,7 +897,6 @@ class Qualification(RapidsJarTool):
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
         filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
 
-        # TODO 
         conversion_items_summary = {}
         if self.ctxt.get_ctxt('cpuClusterProxy'):
             cpu_cluster_info = self.ctxt.get_ctxt('cpuClusterProxy')
@@ -919,7 +917,6 @@ class Qualification(RapidsJarTool):
                 cpu_cluster_info = cpu_cluster_info_per_app[app_id]
                 gpu_cluster_info = gpu_cluster_info_per_app[app_id]
                 if cpu_cluster_info is not None and gpu_cluster_info is not None:
-                    self.logger.info("src is %s target is %s", cpu_cluster_info.get_worker_node(), gpu_cluster_info.get_worker_node())
                     if cpu_cluster_info.get_worker_node().instance_type == gpu_cluster_info.get_worker_node().instance_type:
                         conversion_items_summary[app_id] = cpu_cluster_info.get_worker_node().instance_type
                     else:
@@ -1114,7 +1111,6 @@ class Qualification(RapidsJarTool):
         enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
         self._set_savings_calculations_flag(enable_savings_flag)
 
-
     # this function is a lot like __infer_cluster_and_update_savings but handles clusters
     # on a per application basis and was explicitly copied to not have to deal with
     # changing the cost savings flow at the same time. Ideally in the future they
@@ -1125,9 +1121,7 @@ class Qualification(RapidsJarTool):
         if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
             self.logger.info('auto tuning Inferred Cluster but cpu node already set %s gpu cluster is %s',
                              self.ctxt.get_ctxt('cpuClusterProxy'), self.ctxt.get_ctxt('gpuClusterProxy'))
-            # here we want to just infer the gpu cluster from the cpu cluster passed in
             return
-
         cpu_cluster_dict = {}
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
         for index, row in cluster_info_df.iterrows():
@@ -1138,7 +1132,6 @@ class Qualification(RapidsJarTool):
             cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(single_cluster_df)
             if cpu_cluster_obj is None:
                 return
-
             cpu_cluster_dict[row['App ID']] = cpu_cluster_obj
             # Log the inferred cluster information and set the context
             self._log_inferred_cluster_info(cpu_cluster_obj)
