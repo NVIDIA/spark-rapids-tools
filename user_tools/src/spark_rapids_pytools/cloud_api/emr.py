@@ -259,7 +259,7 @@ class EMRCMDDriver(CMDDriverBase):
             if 'GpuInfo' in instance:
                 gpu_name = instance['GpuInfo']['Gpus'][0]['Name']
                 gpu_count = int(instance['GpuInfo']['Gpus'][0]['Count'])
-                instance_content['GpuInfo'] = [{'Name': gpu_name, 'Count': gpu_count}]
+                instance_content['GpuInfo'] = [{'Name': gpu_name, 'Count': [gpu_count]}]
             processed_instance_descriptions[instance.get('InstanceType')] = instance_content
         return processed_instance_descriptions
 

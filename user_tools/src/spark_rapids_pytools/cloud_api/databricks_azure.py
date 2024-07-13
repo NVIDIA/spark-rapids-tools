@@ -190,7 +190,7 @@ class DBAzureCMDDriver(CMDDriverBase):
                 elif elem['name'] == 'GPUs':
                     gpu_count = int(elem['value'])
             if gpu_count > 0:
-                instance_content['GpuInfo'] = [{'Count': gpu_count}]
+                instance_content['GpuInfo'] = [{'Count': [gpu_count]}]
             processed_instance_descriptions[instance['name']] = instance_content
         return processed_instance_descriptions
 

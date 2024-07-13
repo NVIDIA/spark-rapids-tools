@@ -311,7 +311,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                 gpu_name = extract_gpu_name(raw_accelerator_info.get('guestAcceleratorType'))
                 if gpu_name != '':
                     gpu_count = int(raw_accelerator_info.get('guestAcceleratorCount', -1))
-                    gpu_info = {'Name': gpu_name, 'Count': gpu_count}
+                    gpu_info = {'Name': gpu_name, 'Count': [gpu_count]}
                     instance_content['GpuInfo'] = [gpu_info]
             processed_instance_descriptions[instance.get('name')] = instance_content
 
