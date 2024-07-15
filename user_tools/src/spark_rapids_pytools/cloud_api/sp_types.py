@@ -622,7 +622,9 @@ class CMDDriverBase:
               "GpuInfo": [
                 {
                   "Name": gpu_name,
-                  "Count": 000
+                  "Count": [
+                    000
+                  ]
                 }
               ]
             }
