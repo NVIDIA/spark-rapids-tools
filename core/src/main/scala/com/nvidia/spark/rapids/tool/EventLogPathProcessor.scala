@@ -21,6 +21,7 @@ import java.time.LocalDateTime
 import java.util.zip.ZipOutputStream
 
 import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import scala.util.control.NonFatal
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileContext, FileStatus, FileSystem, Path, PathFilter}
@@ -29,6 +30,7 @@ import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.util.FSUtils
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 sealed trait EventLogInfo {
   def eventLog: Path
@@ -37,6 +39,12 @@ sealed trait EventLogInfo {
 case class ApacheSparkEventLog(override val eventLog: Path) extends EventLogInfo
 case class DatabricksEventLog(override val eventLog: Path) extends EventLogInfo
 
+case class FailedEventLog(override val eventLog: Path,
+                          private val reason: String) extends EventLogInfo {
+  def getReason: String = {
+    StringUtils.renderStr(reason, doEscapeMetaCharacters = true, maxLength = 0)
+  }
+}
 
 object EventLogPathProcessor extends Logging {
   // Apache Spark event log prefixes
@@ -125,7 +133,8 @@ object EventLogPathProcessor extends Logging {
     processedLogs.toList
   }
 
-  def getEventLogInfo(pathString: String, hadoopConf: Configuration): Map[EventLogInfo, Long] = {
+  def getEventLogInfo(pathString: String,
+                      hadoopConf: Configuration): Map[EventLogInfo, Option[Long]] = {
     val inputPath = new Path(pathString)
     try {
       // Note that some cloud storage APIs may throw FileNotFoundException when the pathPrefix
@@ -147,15 +156,17 @@ object EventLogPathProcessor extends Logging {
             "Skipping this file."
         }
         logWarning(msg)
-        Map.empty[EventLogInfo, Long]
+        // Return an empty map as this is a skip due to unsupported file type, not an exception.
+        // Returning FailedEventLog would clutter the status report with unnecessary entries.
+        Map.empty[EventLogInfo, Option[Long]]
       } else if (fileStatus.isDirectory && isEventLogDir(fileStatus)) {
         // either event logDir v2 directory or regular event log
         val info = ApacheSparkEventLog(fileStatus.getPath).asInstanceOf[EventLogInfo]
-        Map(info -> fileStatus.getModificationTime)
+        Map(info -> Some(fileStatus.getModificationTime))
       } else if (fileStatus.isDirectory &&
         isDatabricksEventLogDir(fileStatus, fs)) {
         val dbinfo = DatabricksEventLog(fileStatus.getPath).asInstanceOf[EventLogInfo]
-        Map(dbinfo -> fileStatus.getModificationTime)
+        Map(dbinfo -> Some(fileStatus.getModificationTime))
       } else {
         // assume either single event log or directory with event logs in it, we don't
         // support nested dirs, so if event log dir within another one we skip it
@@ -179,19 +190,21 @@ object EventLogPathProcessor extends Logging {
         }
         logsSupported.map { s =>
           if (s.isFile || (s.isDirectory && isEventLogDir(s.getPath().getName()))) {
-            (ApacheSparkEventLog(s.getPath).asInstanceOf[EventLogInfo] -> s.getModificationTime)
+            (ApacheSparkEventLog(s.getPath).asInstanceOf[EventLogInfo]
+              -> Some(s.getModificationTime))
           } else {
-            (DatabricksEventLog(s.getPath).asInstanceOf[EventLogInfo] -> s.getModificationTime)
+            (DatabricksEventLog(s.getPath).asInstanceOf[EventLogInfo]
+              -> Some(s.getModificationTime))
           }
         }.toMap
       }
     } catch {
-      case _: FileNotFoundException =>
+      case fnfEx: FileNotFoundException =>
         logWarning(s"$pathString not found, skipping!")
-        Map.empty[EventLogInfo, Long]
-      case e: Exception =>
+        Map(FailedEventLog(new Path(pathString), fnfEx.getMessage) -> None)
+      case NonFatal(e) =>
         logWarning(s"Unexpected exception occurred reading $pathString, skipping!", e)
-        Map.empty[EventLogInfo, Long]
+        Map(FailedEventLog(new Path(pathString), e.getMessage) -> None)
     }
   }
 
@@ -226,10 +239,15 @@ object EventLogPathProcessor extends Logging {
       val filteredInfo = filterNLogs.get.split("-")
       val numberofEventLogs = filteredInfo(0).toInt
       val criteria = filteredInfo(1)
+      // Before filtering based on user criteria, remove the failed event logs
+      // (i.e. logs without timestamp) from the list.
+      val validMatchedLogs = matchedLogs.collect {
+        case (info, Some(ts)) => info -> ts
+      }
       val matched = if (criteria.equals("newest")) {
-        LinkedHashMap(matchedLogs.toSeq.sortWith(_._2 > _._2): _*)
+        LinkedHashMap(validMatchedLogs.toSeq.sortWith(_._2 > _._2): _*)
       } else if (criteria.equals("oldest")) {
-        LinkedHashMap(matchedLogs.toSeq.sortWith(_._2 < _._2): _*)
+        LinkedHashMap(validMatchedLogs.toSeq.sortWith(_._2 < _._2): _*)
       } else {
         logError("Criteria should be either newest-filesystem or oldest-filesystem")
         Map.empty[EventLogInfo, Long]
