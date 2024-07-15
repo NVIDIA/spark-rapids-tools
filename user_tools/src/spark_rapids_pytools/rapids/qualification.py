@@ -172,7 +172,7 @@ class QualificationSummary:
             report_content.append(f'{app_name} tool found no records to show.')
 
         if self.filter_apps_count > 0:
-            report_content.append('* Config Recommendations can be found in {self.auto_tuning_path}')
+            report_content.append(f'* Config Recommendations can be found in {self.auto_tuning_path}')
             report_content.append('** Estimated GPU Speedup Category assumes the user is using the node type '
                                   'recommended and config recommendations with the same size cluster as was used '
                                   'with the CPU side.')
