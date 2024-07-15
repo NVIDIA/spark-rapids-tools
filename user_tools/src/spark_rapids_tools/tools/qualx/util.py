@@ -14,6 +14,7 @@
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import glob
+import importlib
 import logging
 import os
 import re
@@ -23,6 +24,7 @@ import string
 import subprocess
 import numpy as np
 import pandas as pd
+import types
 from datetime import datetime, timezone
 from pathlib import Path
 from tabulate import tabulate
@@ -122,20 +124,28 @@ def get_dataset_platforms(dataset: str) -> Tuple[List[str], str]:
     dataset: str
         Path to datasets directory, datasets/platform directory, or datasets/platform/dataset.json file.
     """
+    supported_platforms = [
+        'databricks-aws',
+        'databricks-azure',
+        'dataproc',
+        'emr',
+        'onprem'
+    ]
+
     splits = Path(dataset).parts
-    platform = splits[-1]
-    if platform.endswith('.json'):
-        # dataset JSON, assume parent dir is platform
+    basename = splits[-1]
+    if basename.endswith('.json'):
+        # dataset JSON
         platforms = [splits[-2]]
         dataset_base = os.path.join(*splits[:-2])
-    elif platform == 'datasets':
-        # all datasets, assume directory contains platforms
+    elif basename in supported_platforms:
+        # platform directory
+        platforms = [basename]
+        dataset_base = os.path.join(*splits[:-1])
+    else:
+        # datasets directory
         platforms = os.listdir(dataset)
         dataset_base = dataset
-    else:
-        # default, last component is platform
-        platforms = [platform]
-        dataset_base = os.path.join(*splits[:-1])
     return platforms, dataset_base
 
 
@@ -185,6 +195,27 @@ def compute_accuracy(
     return scores
 
 
+def load_plugin(plugin_path: str) -> types.ModuleType:
+    """Dynamically load plugin modules with helper functions for dataset-specific code.
+
+    Supported APIs:
+
+    def load_profiles_hook(df: pd.DataFrame) -> pd.DataFrame:
+        # add dataset-specific modifications
+        return df
+    """
+    plugin_path = os.path.expandvars(plugin_path)
+    plugin_name = Path(plugin_path).name.split('.')[0]
+    if os.path.exists(plugin_path):
+        spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        logger.info(f'Successfully loaded plugin: {plugin_path}')
+        return module
+    else:
+        raise FileNotFoundError(f'Plugin not found: {plugin_path}')
+
+
 def random_string(length: int) -> str:
     """Return a random hexadecimal string of a specified length."""
     return ''.join(secrets.choice(string.hexdigits) for _ in range(length))
@@ -210,7 +241,7 @@ def run_profiler_tool(platform: str, eventlog: str, output_dir: str):
             # f'spark_rapids_user_tools {platform} profiling --csv --eventlogs {log} --local_folder {output}'
             'java -Xmx64g -cp $SPARK_RAPIDS_TOOLS_JAR:$SPARK_HOME/jars/*:$SPARK_HOME/assembly/target/scala-2.12/jars/* '
             'com.nvidia.spark.rapids.tool.profiling.ProfileMain '
-            f'--platform {platform} --csv -o {output} {log}'
+            f'--platform {platform} --csv --output-sql-ids-aligned -o {output} {log}'
         )
         cmds.append(cmd)
     run_commands(cmds)

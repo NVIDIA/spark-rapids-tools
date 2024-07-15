@@ -18,7 +18,7 @@
 import fire
 
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
-from spark_rapids_tools.enums import QualGpuClusterReshapeType, CspEnv
+from spark_rapids_tools.enums import QualGpuClusterReshapeType, CspEnv, QualEstimationModel
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.qualx.prediction import Prediction
@@ -43,6 +43,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       output_folder: str = None,
                       filter_apps: str = None,
                       estimation_model: str = None,
+                      custom_model_file: str = None,
                       tools_jar: str = None,
                       cpu_cluster_price: float = None,
                       estimated_gpu_cluster_price: float = None,
@@ -54,7 +55,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       jvm_heap_size: int = None,
                       jvm_threads: int = None,
                       verbose: bool = None,
-                      **rapids_options):
+                      **rapids_options) -> None:
         """The Qualification cmd provides estimated running costs and speedups by migrating Apache
         Spark applications to GPU accelerated clusters.
 
@@ -69,7 +70,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
 
                 Skipping this argument requires that the cluster argument points to a valid
                 cluster name on the CSP.
-        :param cluster: Name or ID (for databricks platforms) of cluster or path to cluster-properties.
+        :param cluster: The CPU cluster on which the Spark application(s) were executed.
+               Name or ID (for databricks platforms) of cluster or path to cluster-properties.
         :param platform: defines one of the following "onprem", "emr", "dataproc", "dataproc-gke",
                "databricks-aws", and "databricks-azure".
         :param target_platform: Cost savings and speedup recommendation for comparable cluster in
@@ -96,6 +98,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                It accepts one of the following:
                "xgboost": An XGBoost model for GPU duration estimation. Set by default
                "speedups": It uses a simple static estimated speedup per operator.
+        :param custom_model_file: An optional Path to a custom XGBoost model file. The path is a local filesystem,
+                or remote cloud storage url.
+                Requires that "estimation_model" is set to "xgboost".
         :param cpu_cluster_price: the CPU cluster hourly price provided by the user.
         :param estimated_gpu_cluster_price: the GPU cluster hourly price provided by the user.
         :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
@@ -130,6 +135,15 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         if verbose:
             ToolLogging.enable_debug_mode()
         init_environment('qual')
+        estimation_arg_valid = {
+            'toolName': 'qualification',
+            'validatorName': 'estimation_model_args'
+        }
+        estimation_model_args = AbsToolUserArgModel.create_tool_args(estimation_arg_valid,
+                                                                     estimation_model=estimation_model,
+                                                                     custom_model_file=custom_model_file)
+        if estimation_model_args is None:
+            return None
         qual_args = AbsToolUserArgModel.create_tool_args('qualification',
                                                          eventlogs=eventlogs,
                                                          cluster=cluster,
@@ -140,7 +154,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          jvm_heap_size=jvm_heap_size,
                                                          jvm_threads=jvm_threads,
                                                          filter_apps=filter_apps,
-                                                         estimation_model=estimation_model,
+                                                         estimation_model_args=estimation_model_args,
                                                          cpu_cluster_price=cpu_cluster_price,
                                                          estimated_gpu_cluster_price=estimated_gpu_cluster_price,
                                                          cpu_discount=cpu_discount,
@@ -153,6 +167,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                             wrapper_options=qual_args,
                                             rapids_options=rapids_options)
             tool_obj.launch()
+        return None
 
     def profiling(self,
                   eventlogs: str = None,
@@ -225,14 +240,17 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
     def prediction(self,
                    qual_output: str = None,
                    output_folder: str = None,
-                   platform: str = 'onprem'):
+                   custom_model_file: str = None,
+                   platform: str = 'onprem') -> None:
         """The prediction cmd takes existing qualification tool output and runs the
         estimation model in the qualification tools for GPU speedups.
 
-        :param qual_output: path to the directory which contains the qualification tool output. E.g. user should
+        :param qual_output: path to the directory, which contains the qualification tool output. E.g. user should
                             specify the parent directory $WORK_DIR where $WORK_DIR/rapids_4_spark_qualification_output
                             exists.
         :param output_folder: path to store the output.
+        :param custom_model_file: An optional Path to a custom XGBoost model file. The path is a local filesystem,
+                or remote cloud storage url.
         :param platform: defines one of the following "onprem", "dataproc", "databricks-aws",
                          and "databricks-azure", default to "onprem".
         """
@@ -240,11 +258,20 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         ToolLogging.enable_debug_mode()
 
         init_environment('pred')
-
+        estimation_arg_valid = {
+            'toolName': 'prediction',
+            'validatorName': 'estimation_model_args'
+        }
+        estimation_model_args = AbsToolUserArgModel.create_tool_args(estimation_arg_valid,
+                                                                     estimation_model=QualEstimationModel.XGBOOST,
+                                                                     custom_model_file=custom_model_file)
+        if estimation_model_args is None:
+            return None
         predict_args = AbsToolUserArgModel.create_tool_args('prediction',
                                                             platform=platform,
                                                             qual_output=qual_output,
-                                                            output_folder=output_folder)
+                                                            output_folder=output_folder,
+                                                            estimation_model_args=estimation_model_args)
 
         if predict_args:
             tool_obj = Prediction(platform_type=predict_args['runtimePlatform'],
@@ -252,12 +279,14 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                   output_folder=predict_args['output_folder'],
                                   wrapper_options=predict_args)
             tool_obj.launch()
+        return None
 
     def train(self,
               dataset: str = None,
               model: str = None,
               output_folder: str = None,
-              n_trials: int = 200):
+              n_trials: int = 200,
+              base_model: str = None):
         """The train cmd trains an XGBoost model on the input data to estimate the speedup of a
          Spark CPU application.
 
@@ -265,6 +294,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param model: Path to save the trained XGBoost model.
         :param output_folder: Path to store the output.
         :param n_trials: Number of trials for hyperparameter search.
+        :param base_model: Path to pre-trained XGBoost model to continue training from.
         """
         # Since train is an internal tool with frequent output, we enable debug mode by default
         ToolLogging.enable_debug_mode()
@@ -275,13 +305,15 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                           dataset=dataset,
                                                           model=model,
                                                           output_folder=output_folder,
-                                                          n_trials=n_trials)
+                                                          n_trials=n_trials,
+                                                          base_model=base_model)
 
         tool_obj = Train(platform_type=train_args['runtimePlatform'],
                          dataset=dataset,
                          model=model,
                          output_folder=output_folder,
                          n_trials=n_trials,
+                         base_model=base_model,
                          wrapper_options=train_args)
         tool_obj.launch()
 

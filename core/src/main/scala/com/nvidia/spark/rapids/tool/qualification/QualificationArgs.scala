@@ -142,9 +142,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Applications which a particular user has submitted." )
   val htmlReport : ScallopOption[Boolean] =
     toggle("html-report",
-      default = Some(true),
+      default = Some(false),
       prefix = "no-",
-      descrYes = "Generates an HTML Report. Enabled by default.",
+      descrYes = "Generates an HTML Report. Disabled by default.",
       descrNo = "Disables generating the HTML report.")
   val perSql : ScallopOption[Boolean] =
     opt[Boolean](required = false,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,17 @@
 
 package com.nvidia.spark.rapids.tool.util
 
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
 import scala.concurrent.duration._
+import scala.io.Source
 import scala.xml.XML
 
+import com.nvidia.spark.rapids.tool.profiling.{ProfileOutputWriter, ProfileResult}
 import org.scalatest.FunSuite
-import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, not}
+import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal, not}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.AccumulableInfo
@@ -194,5 +197,59 @@ class ToolUtilsSuite extends FunSuite with Logging {
     val result = EventUtils.buildTaskStageAccumFromAccumInfo(accumWithDuration, 1, 1, None).get
     result.update.get shouldBe 100
     result.value.get shouldBe (59 * 1000 + 200)
+  }
+
+  test("output non-english characters") {
+    val nonEnglishString = "你好"
+    TrampolineUtil.withTempDir { tempDir =>
+      val filePrefix = "non-english"
+      val tableHeader = "Non-English"
+      val textFilePath = s"${tempDir.getAbsolutePath}/${filePrefix}.log"
+      val csvFilePath = s"${tempDir.getAbsolutePath}/${filePrefix}.csv"
+      val profOutputWriter =
+        new ProfileOutputWriter(tempDir.getAbsolutePath, filePrefix, 1000, outputCSV = true)
+      val profResults = Seq(
+        MockProfileResults("appID-0", 1, nonEnglishString, Seq(1, 2, 3).mkString(","))
+      )
+      try {
+        profOutputWriter.write(tableHeader, profResults)
+      } finally {
+        profOutputWriter.close()
+      }
+      val csvFile = new File(csvFilePath)
+      val textFile = new File(textFilePath)
+      assert(csvFile.exists())
+      assert(textFile.exists())
+      val expectedCSVFileContent =
+        s"""appID,appIndex,nonEnglishField,parentIDs
+           |appID-0,1,"你好","1,2,3"""".stripMargin
+      val expectedTXTContent =
+        s"""
+           |Non-English:
+           |+-------+--------+---------------+---------+
+           ||appID  |appIndex|nonEnglishField|parentIDs|
+           |+-------+--------+---------------+---------+
+           ||appID-0|1       |你好           |1,2,3    |
+           |+-------+--------+---------------+---------+""".stripMargin
+      val actualCSVContent: String = Source.fromFile(csvFilePath).getLines.mkString("\n")
+      val actualTXTContent: String = Source.fromFile(textFilePath).getLines.mkString("\n")
+      actualCSVContent should equal (expectedCSVFileContent)
+      actualTXTContent should equal (expectedTXTContent)
+    }
+  }
+
+  case class MockProfileResults(appID: String, appIndex: Int, nonEnglishField: String,
+      parentIDs: String) extends ProfileResult {
+    override val outputHeaders: Seq[String] = Seq("appID", "appIndex", "nonEnglishField",
+      "parentIDs")
+
+    override def convertToSeq: Seq[String] = {
+      Seq(appID, appIndex.toString, nonEnglishField, parentIDs)
+    }
+
+    override def convertToCSVSeq: Seq[String] = {
+      Seq(appID, appIndex.toString, StringUtils.reformatCSVString(nonEnglishField),
+        StringUtils.reformatCSVString(parentIDs))
+    }
   }
 }

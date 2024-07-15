@@ -27,6 +27,7 @@ from spark_rapids_tools.tools.qualx.util import (
     get_cache_dir,
     get_logger,
     get_dataset_platforms,
+    load_plugin,
     run_profiler_tool, log_fallback,
 )
 
@@ -34,26 +35,6 @@ PREPROCESSED_FILE = 'preprocessed.parquet'
 
 logger = get_logger(__name__)
 
-# determing if a containing stage or sqlID is fully supported
-unsupported_overrides = [
-    'AdaptiveSparkPlan',
-    'AppendDataExecV1',
-    'AtomicReplaceTableAsSelect',
-    'BroadcastNestedLoopJoin',
-    'ColumnarToRow',
-    'CommandResult',
-    'DeltaInvariantChecker',
-    'Execute AddJarsCommand',
-    'Execute MergeIntoCommandEdge',
-    'OverwriteByExpressionExecV1',
-    'ResultQueryStage',
-    'Scan ExistingRDD',
-    'Scan ExistingRDD Delta Table',
-    'Scan ExistingRDD mergeMaterializedSource',
-    'SortMergeJoin(skew=true)',
-    'Subquery',
-    'TableCacheQueryStage',
-]
 # expected features for dataframe produced by preprocessing
 expected_raw_features = \
     {
@@ -224,9 +205,12 @@ def load_datasets(
             )
             profile_df = pd.read_parquet(f'{platform_cache}/{PREPROCESSED_FILE}')
             if ignore_test:
-                # remove any 'test' datasets from preprocessed data
+                # remove any 'test' datasets from cached data by filtering
+                # only appNames found in datasets structure
                 dataset_keys = list(datasets.keys())
-                profile_df = profile_df.loc[profile_df['appName'].isin(dataset_keys)]
+                profile_df['appName_base'] = profile_df['appName'].str.split(':').str[0]
+                profile_df = profile_df.loc[profile_df['appName_base'].isin(dataset_keys)]
+                profile_df.drop(columns='appName_base', inplace=True)
         else:
             # otherwise, check for cached profiler output
             profile_dir = f'{platform_cache}/profile'
@@ -253,7 +237,7 @@ def load_datasets(
 
     # sanity check
     if ds_count != len(all_datasets):
-        logger.warn(
+        logger.warning(
             f'Duplicate dataset key detected, got {len(all_datasets)} datasets, but read {ds_count} datasets.'
         )
 
@@ -270,6 +254,7 @@ def load_profiles(
     """Load dataset profiler CSV files as a pd.DataFrame."""
 
     def infer_app_meta(eventlogs: List[str]) -> Mapping[str, Mapping]:
+        """Given a list of paths to eventlogs, infer the app_meta from the path for each appId."""
         eventlog_list = [find_eventlogs(os.path.expandvars(e)) for e in eventlogs]
         eventlog_list = list(chain(*eventlog_list))
         app_meta = {}
@@ -277,14 +262,15 @@ def load_profiles(
             parts = Path(e).parts
             appId = parts[-1]
             runType = parts[-2].upper()
-            description = parts[-4]
+            jobName = parts[-4]
             app_meta[appId] = {
+                'jobName': jobName,
                 'runType': runType,
-                'description': description,
                 'scaleFactor': 1,
             }
         return app_meta
 
+    plugins = []
     all_raw_features = []
     # get list of csv files from each profile
     for ds_name, ds_meta in datasets.items():
@@ -292,6 +278,8 @@ def load_profiles(
         app_meta = ds_meta.get('app_meta', None)
         platform = ds_meta.get('platform', 'onprem')
         scalefactor_meta = ds_meta.get('scaleFactorFromSqlIDRank', None)
+        if 'load_profiles_hook' in ds_meta:
+            plugins.append(ds_meta['load_profiles_hook'])
 
         if not app_meta:
             # if no 'app_meta' key provided, infer app_meta from directory structure of eventlogs
@@ -358,28 +346,37 @@ def load_profiles(
                 app_scales = toc[['appId', 'scaleFactor']].drop_duplicates()
                 raw_features = raw_features.merge(app_scales, on='appId')
 
-            # override description from app_meta (if available)
-            if 'description' in app_meta[list(app_meta.keys())[0]]:
-                app_desc = {
-                    appId: meta['description']
+            # add jobName to appName from app_meta (if available)
+            if 'jobName' in app_meta[list(app_meta.keys())[0]]:
+                app_job = {
+                    appId: meta['jobName']
                     for appId, meta in app_meta.items()
-                    if 'description' in meta
+                    if 'jobName' in meta
                 }
-                raw_features['description'] = raw_features['appId'].map(app_desc)
-                # append also to appName to allow joining cpu and gpu logs at the app level
+                raw_features['jobName'] = raw_features['appId'].map(app_job)
+                # append jobName to appName to allow joining cpu and gpu logs at the app level
                 raw_features['appName'] = (
-                    raw_features['appName'] + '_' + raw_features['description']
+                    raw_features['appName'] + ':' + raw_features['jobName']
                 )
+                raw_features.drop(columns=['jobName'], inplace=True)
 
             # add platform from app_meta
             raw_features[f'platform_{platform}'] = 1
             raw_features = impute(raw_features)
             all_raw_features.append(raw_features)
-    return (
+
+    profile_df =  (
         pd.concat(all_raw_features).reset_index(drop=True)
         if all_raw_features
         else pd.DataFrame()
     )
+
+    # run any plugin hooks on profile_df
+    for p in plugins:
+        plugin = load_plugin(p)
+        profile_df = plugin.load_profiles_hook(profile_df)
+
+    return profile_df
 
 
 def extract_raw_features(
@@ -715,7 +712,7 @@ def impute(full_tbl: pd.DataFrame) -> pd.DataFrame:
         missing = sorted(expected_raw_features - actual_features)
         extra = sorted(actual_features - expected_raw_features)
         if missing:
-            logger.warn(f'Imputing missing features: {missing}')
+            logger.warning(f'Imputing missing features: {missing}')
             for col in missing:
                 if col != 'fraction_supported':
                     full_tbl[col] = 0
@@ -723,7 +720,7 @@ def impute(full_tbl: pd.DataFrame) -> pd.DataFrame:
                     full_tbl[col] = 1.0
 
         if extra:
-            logger.warn(f'Removing extra features: {extra}')
+            logger.warning(f'Removing extra features: {extra}')
             full_tbl = full_tbl.drop(columns=extra)
 
         # one last check after modifications (update expected_raw_features if needed)
@@ -757,7 +754,7 @@ def load_csv_files(
             )
         except Exception:
             if warn_on_error or abort_on_error:
-                logger.warn(f'Failed to load {tb_name} for {app_id}.')
+                logger.warning(f'Failed to load {tb_name} for {app_id}.')
             if abort_on_error:
                 raise ScanTblError()
             out = pd.DataFrame()
@@ -993,7 +990,7 @@ def load_csv_files(
             )
 
         if sqls_to_drop:
-            logger.warn(
+            logger.warning(
                 f'Ignoring sqlIDs {sqls_to_drop} due to excessive failed/cancelled stage duration.'
             )
 
@@ -1074,12 +1071,12 @@ def load_csv_files(
             aborted_sql_ids = set()
 
         if aborted_sql_ids:
-            logger.warn(f'Ignoring sqlIDs {aborted_sql_ids} due to aborted jobs.')
+            logger.warning(f'Ignoring sqlIDs {aborted_sql_ids} due to aborted jobs.')
 
         sqls_to_drop = sqls_to_drop.union(aborted_sql_ids)
 
         if sqls_to_drop:
-            logger.warn(
+            logger.warning(
                 f'Ignoring a total of {len(sqls_to_drop)} sqlIDs due to stage/job failures.'
             )
             app_info_mg = app_info_mg.loc[~app_info_mg.sqlID.isin(sqls_to_drop)]
@@ -1110,14 +1107,16 @@ def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
     to aggregate features and durations only over supported stages.
     """
     node_level_supp = None
+
+    def __isIgnoreNoPerf(action: str) -> bool:
+        return action == 'IgnoreNoPerf'
+
     if qtool_execs:
         exec_info = pd.concat([pd.read_csv(f) for f in qtool_execs])
         node_level_supp = exec_info.copy()
         node_level_supp['Exec Is Supported'] = (
             node_level_supp['Exec Is Supported']
-            | node_level_supp['Exec Name'].apply(
-                lambda x: any([x.startswith(nm) for nm in unsupported_overrides])
-            )
+            | node_level_supp['Action'].apply(__isIgnoreNoPerf)
             | node_level_supp['Exec Name'].apply(
                 lambda x: x.startswith('WholeStageCodegen')
             )
