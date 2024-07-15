@@ -21,6 +21,7 @@ import pandas as pd
 import traceback
 import xgboost as xgb
 from pathlib import Path
+from spark_rapids_tools import CspPath
 from spark_rapids_tools.tools.qualx.preprocess import (
     load_datasets,
     load_profiles,
@@ -52,26 +53,46 @@ from spark_rapids_tools.tools.qualx.util import (
 )
 from spark_rapids_pytools.common.utilities import Utils
 from tabulate import tabulate
-from xgboost.core import XGBoostError
+from xgboost.core import XGBoostError, Booster
 
 logger = get_logger(__name__)
 
 
-def _get_model(platform: str, model: Optional[str]):
-    if not model:
-        # try pre-trained model for platform
-        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
-        if not model_path.exists():
-            raise ValueError(
-                f'Platform {platform} does not have a pre-trained model, please specify --model or choose another '
-                f'platform.'
-            )
+def _get_model(platform: str,
+               model: Optional[str] = None) -> Booster:
+    """
+    Load the XGBoost model from the specified path or use the pre-trained model for the platform.
+    The "model" has a precedence over the other input options. If it is undefined, this function checks
+    if it is a valid path or a string literal that represents a model name.
+    Finally the platform will be used to define the path of the model file if the model is not defined.
+    :param platform: name of the platform used to define the path of the pre-trained model.
+                     The platform should match a JSON file in the "resources" directory.
+    :param model: Either a file or a pre-trained model name. If the input is a string literal that
+                 cannot be a file path, then it is assumed that the file is located under the
+                 resources directory.
+    :return: xgb.Booster loading the model file.
+    """
+    if model is not None:
+        if CspPath.is_file_path(model, raise_on_error=False):
+            # "model" is actually represents a file path
+            # check that it is valid json file
+            if not CspPath.is_file_path(model,
+                                        extensions=['json'],
+                                        raise_on_error=False):
+                raise ValueError(
+                    f'Custom model file [{model}] is invalid. Please specify a valid JSON file.')
+            # TODO: If the path is remote, we need to copy it locally in order to successfully
+            #       load it with xgboost.
+            model_path = Path(CspPath(model).no_prefix)
+        else:
+            # try pre-trained model first
+            model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{model}.json'))
     else:
-        # try pre-trained model first
-        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{model}.json'))
-        if not model_path.exists():
-            model_path = model
-
+        # use the platform to define the path of the pre-trained model
+        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
+    if not model_path.exists():
+        raise ValueError(f'Platform [{model_path}] does not have a pre-trained model, '
+                         'please specify --model or choose another platform.')
     logger.info(f'Loading model from: {model_path}')
     xgb_model = xgb.Booster()
     xgb_model.load_model(model_path)
@@ -445,14 +466,15 @@ def train(
 
 
 def predict(
-    platform: str,
-    qual: str,
-    output_info: dict,
-    *,
-    model: Optional[str] = None,
-    qualtool_filter: Optional[str] = 'stage',
-) -> pd.DataFrame:
-    xgb_model = _get_model(platform, model)
+        platform: str,
+        qual: str,
+        output_info: dict,
+        *,
+        model: Optional[str] = None,
+        qualtool_filter: Optional[str] = 'stage') -> pd.DataFrame:
+    """Predict GPU speedup given CPU logs."""
+
+    xgb_model = _get_model(platform, model=model)
     node_level_supp, qualtool_output, _, qual_metrics = _get_qual_data(qual)
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.
