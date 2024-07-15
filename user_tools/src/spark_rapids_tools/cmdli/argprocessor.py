@@ -109,8 +109,8 @@ class AbsToolUserArgModel:
     validator_name: ClassVar[str] = None
 
     @classmethod
-    def create_tool_args(cls, validator_arg: Union[str, dict],
-                         *args: Any, **kwargs: Any) -> Optional[dict]:
+    def create_tool_args(cls, validator_arg: Union[str, dict], *args: Any, cli_class: str = 'ToolsCLI',
+                         cli_name: str = 'spark_rapids', **kwargs: Any) -> Optional[dict]:
         """
         A factory method to create the tool arguments based on the validator argument.
         :param validator_arg: Union type to accept either a dictionary or a string. This is required
@@ -134,7 +134,7 @@ class AbsToolUserArgModel:
             return new_obj.build_tools_args()
         except (ValidationError, PydanticCustomError) as e:
             impl_class.logger.error('Validation err: %s\n', e)
-            dump_tool_usage(tool_name)
+            dump_tool_usage(cli_class, cli_name, tool_name)
         return None
 
     def get_eventlogs(self) -> Optional[str]:
@@ -754,5 +754,29 @@ class TrainUserArgModel(AbsToolUserArgModel):
             'output_folder': self.output_folder,
             'n_trials': self.n_trials,
             'base_model': self.base_model,
+            'platformOpts': {},
+        }
+
+
+@dataclass
+@register_tool_arg_validator('generate_instance_description')
+class InstanceDescriptionUserArgModel(AbsToolUserArgModel):
+    """
+    Represents the arguments to run the generate_instance_description tool.
+    """
+    target_platform: str = None
+    accepted_platforms = ['dataproc', 'emr', 'databricks-azure']
+
+    def validate_platform(self) -> None:
+        if self.target_platform not in self.accepted_platforms:
+            raise PydanticCustomError('invalid_argument',
+                                      f'Platform \'{self.target_platform}\' is not in ' +
+                                      f'accepted platform list: {self.accepted_platforms}.')
+
+    def build_tools_args(self) -> dict:
+        self.validate_platform()
+        return {
+            'targetPlatform': CspEnv(self.target_platform),
+            'output_folder': self.output_folder,
             'platformOpts': {},
         }
