@@ -721,9 +721,22 @@ class AutoTuner(
     recommendFileCache()
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
+    recommendKyroSerializerSetting()
     recommendGCProperty()
     recommendClassPathEntries()
     recommendSystemProperties()
+  }
+
+  // if the user set the serializer to use Kryo, make sure we recommend using the GPU version
+  // of it.
+  def recommendKyroSerializerSetting(): Unit = {
+      getPropertyValue("spark.serializer") match {
+        case Some(f) if f.contains("org.apache.spark.serializer.KryoSerializer") =>
+          appendRecommendation("spark.kryo.registrator",
+            "com.nvidia.spark.rapids.GpuKryoRegistrator")
+        case None =>
+          // do nothing
+      }
   }
 
   def getShuffleManagerClassName() : Option[String] = {
