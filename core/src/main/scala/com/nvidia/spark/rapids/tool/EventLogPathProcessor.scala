@@ -29,6 +29,7 @@ import org.apache.hadoop.fs.{FileContext, FileStatus, FileSystem, Path, PathFilt
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.util.FSUtils
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 sealed trait EventLogInfo {
@@ -138,7 +139,7 @@ object EventLogPathProcessor extends Logging {
     try {
       // Note that some cloud storage APIs may throw FileNotFoundException when the pathPrefix
       // (i.e., bucketName) is not visible to the current configuration instance.
-      val fs = inputPath.getFileSystem(hadoopConf)
+      val fs = FSUtils.getFSForPath(inputPath, hadoopConf)
       val fileStatus = fs.getFileStatus(inputPath)
       val filePath = fileStatus.getPath()
       val fileName = filePath.getName()

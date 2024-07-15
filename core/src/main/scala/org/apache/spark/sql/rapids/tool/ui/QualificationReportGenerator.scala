@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,13 @@ import java.nio.file.{Files, FileSystems, Paths}
 
 import scala.collection.JavaConverters.mapAsJavaMapConverter
 
-import org.apache.hadoop.fs.{FileSystem, FSDataOutputStream, Path}
+import org.apache.hadoop.fs.{FSDataOutputStream, Path}
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.QualificationSummaryInfo
+import org.apache.spark.sql.rapids.tool.util.FSUtils.getFSForPath
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.util.Utils
 
@@ -37,7 +38,7 @@ class QualificationReportGenerator(outputDir: String,
   implicit val formats = DefaultFormats
 
   val outputWorkPath = new Path(outputDir)
-  lazy val fs = Some(FileSystem.get(outputWorkPath.toUri, RapidsToolsConfUtil.newHadoopConf))
+  lazy val fs = Some(getFSForPath(outputWorkPath, RapidsToolsConfUtil.newHadoopConf))
 
   def launch(): Unit = {
     val uiRootPath = getPathForResource(RAPIDS_UI_ASSETS_DIR)
@@ -66,7 +67,7 @@ class QualificationReportGenerator(outputDir: String,
     // Serializing the entire list of sums may stress the memory.
     // Serializing one record at a time is slower but it would reduce the memory peak consumption.
     val outputPath = new Path(outputWorkPath, RAPIDS_UI_JS_DATA)
-    val mainIndexPath =new Path(outputWorkPath,  RAPIDS_UI_INDEX_PATH)
+    val mainIndexPath = new Path(outputWorkPath,  RAPIDS_UI_INDEX_PATH)
     logInfo(s"Generating UI data in ${mainIndexPath.toUri}")
     val fileHeader =
       s"""
