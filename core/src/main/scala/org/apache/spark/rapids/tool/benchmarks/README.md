@@ -19,11 +19,12 @@ Use the java command to run the created benchmark class with the following suppo
 
 #### Running the Benchmark class directly
 ```shell
-java -cp $CLASSPATH:$SPARK_HOME/jars/* \
+java -cp $CLASSPATH:$SPARK_HOME/jars/*:$MAVEN-ARTIFACT-JAR \
 org.apache.spark.rapids.tool.benchmarks.SingleThreadedQualToolBenchmark \
 -i 3 -w 3 -a " $EVENT_LOGS_DIR"
 ```
 * `$CLASSPATH` : Path to the compiled class directory. Ex - `<SPARK_RAPIDS_TOOLS_REPO_PATH>/core/target/*`
+* `$MAVEN-ARTIFACT-JAR` : Path to maven-artifact jar. Download jar from [here](https://mvnrepository.com/artifact/org.apache.maven/maven-artifact/3.9.0)
 * `$EVENT_LOGS_DIR` : Path to the event logs directory
 
 #### Running the Benchmark class using tools jar
