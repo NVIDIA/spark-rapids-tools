@@ -159,7 +159,7 @@ class ClusterNode:
         pass
 
     def _pull_and_set_mc_props(self, cli=None):
-        instances_description = cli.exec_platform_describe_node_instance(self) if cli else None
+        instances_description = cli.describe_node_instance(self.instance_type) if cli else None
         self.mc_props = JSONPropertiesContainer(prop_arg=instances_description, file_load=False)
 
     def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
@@ -293,7 +293,9 @@ class CMDDriverBase:
     timeout: int = 0
     env_vars: dict = field(default_factory=dict, init=False)
     logger: Logger = None
+    # To deprecate
     instance_descriptions_cache: dict = field(default_factory=dict, init=False)
+    instance_descriptions: JSONPropertiesContainer = field(default=None, init=False)
 
     def get_env_var(self, key: str):
         return self.env_vars.get(key)
@@ -517,6 +519,7 @@ class CMDDriverBase:
         """
         return (node.instance_type,)
 
+    # To deprecate
     def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
         """
         Given a node, execute platform CLI to pull the properties of the instance type running on
@@ -527,6 +530,7 @@ class CMDDriverBase:
         cmd_params = self._build_platform_describe_node_instance(node=node)
         return self.run_sys_cmd(cmd_params)
 
+    # To deprecate
     def exec_platform_describe_node_instance(self, node: ClusterNode):
         """
         Returns the instance type description of the cluster node. If the description
@@ -537,6 +541,18 @@ class CMDDriverBase:
             # Cache the instance description
             self.instance_descriptions_cache[key] = self._exec_platform_describe_node_instance(node)
         return self.instance_descriptions_cache[key]
+
+    def init_instance_descriptions(self) -> None:
+        platform = self.cloud_ctxt['platformType']
+        instance_description_file_path = Utils.resource_path(f'{platform}-instance-catalog.json')
+        self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
+
+    def describe_node_instance(self, instance_type: str) -> str:
+        try:
+            return self.instance_descriptions.get_value(instance_type)
+        except Exception as e:
+            self.logger.error("Encountered exception when retrieving instance description:", e)
+            return ''
 
     def _build_platform_list_cluster(self,
                                      cluster,
@@ -640,6 +656,7 @@ class CMDDriverBase:
 
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.cmd_driver')
+        self.init_instance_descriptions()
 
 
 @dataclass
