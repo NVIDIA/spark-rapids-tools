@@ -143,7 +143,9 @@ class QualificationSummary:
                 full_tunings_file = "Doesn't exist, see the stdout for errors"
                 gpu_tunings_file = "Doesn't exist, see the stdout for errors"
 
-            # 'all' is a special indication that all the applications need to use this same nod
+
+
+            # 'all' is a special indication that all the applications need to use this same node
             # recommendation vs the recommendations being per application
             if 'all' in self.conversion_items:
                 print_result = self.df_result
@@ -903,11 +905,12 @@ class Qualification(RapidsJarTool):
             cpu_cluster_info = self.ctxt.get_ctxt('cpuClusterProxy')
             gpu_cluster_info = self.ctxt.get_ctxt('gpuClusterProxy')
             if cpu_cluster_info is not None and gpu_cluster_info is not None:
-                if cpu_cluster_info.get_worker_node().instance_type == gpu_cluster_info.get_worker_node().instance_type:
-                    conversion_items_summary['all'] = cpu_cluster_info.get_worker_node().instance_type
+                cpu_instance_type = cpu_cluster_info.get_worker_node().instance_type
+                gpu_instance_type = gpu_cluster_info.get_worker_node().instance_type
+                if cpu_instance_type == gpu_instance_type:
+                    conversion_items_summary['all'] = cpu_instance_type
                 else:
-                    conversion_items_summary['all'] = cpu_cluster_info.get_worker_node().instance_type + ' to ' \
-                                                       + gpu_cluster_info.get_worker_node().instance_type
+                    conversion_items_summary['all'] = cpu_instance_type + ' to ' + gpu_instance_type
             else:
                 conversion_items_summary['all'] = cpu_cluster_info.get_worker_node().instance_type
 
@@ -965,6 +968,10 @@ class Qualification(RapidsJarTool):
                 top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
                 filtered_apps = top_candidates_obj.filter_apps(raw_df)
                 result_df = top_candidates_obj.prepare_output(filtered_apps)
+                # this is a bit weird since hardcoding but we don't want this to have ** for csv output
+                if 'Estimated GPU Speedup Category' in result_df:
+                    result_df.rename(columns={'Estimated GPU Speedup Category': 'Estimated GPU Speedup Category**'},
+                        inplace=True)
                 # squeeze the header titles if enabled
                 return Utilities.squeeze_df_header(result_df, header_width) if squeeze_header_enabled else result_df
 
@@ -1106,7 +1113,6 @@ class Qualification(RapidsJarTool):
 
         # Log the inferred cluster information and set the context
         self._log_inferred_cluster_info(cpu_cluster_obj)
-        self.logger.info('Inferred Cluster cpu node %s', cpu_cluster_obj)
         self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
         # Process gpu cluster arguments and update savings calculations flag
