@@ -1192,9 +1192,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("ParseUrl is supported except that for parse_url_query") {
-    // parse_url(*,QUERY,*) should cause the project to be unsupported
-    // the expression will appear in the unsupportedExpression summary
+  test("ParseUrl is supported") {
     TrampolineUtil.withTempDir { parquetoutputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
@@ -1218,7 +1216,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         }
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projects = allExecInfo.filter(_.exec.contains("Project"))
-        assertSizeAndNotSupported(1, projects)
+        assertSizeAndSupported(1, projects)
       }
     }
   }
