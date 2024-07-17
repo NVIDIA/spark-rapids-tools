@@ -365,6 +365,14 @@ object SQLPlanParser extends Logging {
     //  We do not want them to appear as independent expressions.
     "structfield", "structtype")
 
+  // As RAPIDS plugin rev 2b09372, it only supports parse_url(*,HOST|PROTOCOL|QUERY|PATH[,*]).
+  // the following partToExtract parse_url(*,REF|FILE|AUTHORITY|USERINFO[,*]) are not supported
+  val unsupportedParseURLParts = Set("FILE", "REF", "AUTHORITY", "USERINFO")
+  // define a pattern to identify whether a certain string contains the unsupported extractParts of
+  // the parse_url
+  val regExParseURLPart =
+    s"(?i)parse_url\\(.*,\\s*(${unsupportedParseURLParts.mkString("|")})(?:\\s*,.*)*\\)".r
+
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
    * of a specific node.
@@ -650,14 +658,53 @@ object SQLPlanParser extends Logging {
     funcName
   }
 
+  // This method aims at doing some common processing to an expression before
+  // we start parsing it. For example, some special handling is required for some functions.
+  def processSpecialFunctions(expr: String): String = {
+    // For parse_url, we only support parse_url(*,HOST|PROTOCOL|QUERY|PATH[,*]).
+    // So we want to be able to define that parse_url(*,REF|FILE|AUTHORITY|USERINFO[,*])
+    // is not supported.
+
+    // The following regex uses forward references to find matches for parse_url(*)
+    // we need to use forward references because otherwise multiple occurrences will be matched
+    // only once.
+    // https://stackoverflow.com/questions/47162098/is-it-possible-to-match-nested-brackets-with-a-
+    // regex-without-using-recursion-or/47162099#47162099
+    // example parse_url:
+    // Project [url_col#7, parse_url(url_col#7, HOST, false) AS HOST#9,
+    //          parse_url(url_col#7, QUERY, false) AS QUERY#10]
+    val parseURLPattern = ("parse_url(?=\\()(?:(?=.*?\\((?!.*?\\1)(.*\\)(?!.*\\2).*))(?=.*?\\)" +
+      "(?!.*?\\2)(.*)).)+?.*?(?=\\1)[^(]*(?=\\2$)").r
+    val allMatches = parseURLPattern.findAllMatchIn(expr)
+    if (allMatches.nonEmpty) {
+      var newExpr = expr
+      allMatches.foreach { parse_call =>
+        // iterate on all matches replacing parse_url by parse_url_{parttoextract} if any
+        // note that we do replaceFirst because we want to map 1-to-1 and the order does
+        // not matter here.
+        val matched = parse_call.matched
+        val extractPart = regExParseURLPart.findFirstMatchIn(matched).map(_.group(1))
+        if (extractPart.isDefined) {
+          val replacedParseClass =
+            matched.replaceFirst("parse_url\\(", s"parse_url_${extractPart.get.toLowerCase}(")
+          newExpr = newExpr.replace(matched, replacedParseClass)
+        }
+      }
+      newExpr
+    } else {
+      expr
+    }
+  }
+
   private def getAllFunctionNames(regPattern: Regex, expr: String,
       groupInd: Int = 1, isAggr: Boolean = true): Set[String] = {
     // Returns all matches in an expression. This can be used when the SQL expression is not
     // tokenized.
+    val newExpr = processSpecialFunctions(expr)
 
     // first get all the functionNames
     val exprss =
-      regPattern.findAllMatchIn(expr).map(_.group(groupInd)).toSet
+      regPattern.findAllMatchIn(newExpr).map(_.group(groupInd)).toSet
 
     // For aggregate expressions we want to process the results to remove the prefix
     // DB: remove the "^partial_" and "^finalmerge_" prefixes

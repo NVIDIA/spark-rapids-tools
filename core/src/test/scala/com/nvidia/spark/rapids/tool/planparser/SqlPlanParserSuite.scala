@@ -25,7 +25,7 @@ import scala.util.control.NonFatal
 import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.qualification._
-import org.scalatest.Matchers.{be, convertToAnyShouldWrapper}
+import org.scalatest.Matchers.{be, contain, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.{DataFrame, TrampolineUtil}
@@ -1193,6 +1193,34 @@ class SQLPlanParserSuite extends BaseTestSuite {
   }
 
   test("ParseUrl is supported") {
+    // Verify that each partToExtract expression causes the parse_url to be renamed.
+    SQLPlanParser.unsupportedParseURLParts.foreach { part =>
+      val partLC = part.toLowerCase
+      val a1 = SQLPlanParser.processSpecialFunctions(s"parse_url(test1, $part, cast(test))")
+      val a2 = SQLPlanParser.processSpecialFunctions(s"parse_url(test1, $partLC, cast(test))")
+      val a3 = SQLPlanParser.processSpecialFunctions(s"parse_url(test1, $part)")
+      val a4 = SQLPlanParser.processSpecialFunctions(s"parse_url(test1, $partLC)")
+      a1 shouldEqual s"parse_url_$partLC(test1, $part, cast(test))"
+      a2 shouldEqual s"parse_url_$partLC(test1, $partLC, cast(test))"
+      a3 shouldEqual s"parse_url_$partLC(test1, $part)"
+      a4 shouldEqual s"parse_url_$partLC(test1, $partLC)"
+    }
+    // verify that having the keywords in different argument does not affect the correctness
+    val a5 = SQLPlanParser.processSpecialFunctions("parse_url(AUTHORITY, ANY_PART, query)")
+    a5 shouldEqual "parse_url(AUTHORITY, ANY_PART, query)"
+    // verify multiple calls
+    val a6 = SQLPlanParser.processSpecialFunctions(
+      "parse_url(AUTHORITY, ANY_PART, query), parse_url(AUTHORITY, REF, query), " +
+        "parse_url(AUTHORITY, FILE, query)")
+    a6 shouldEqual "parse_url(AUTHORITY, ANY_PART, query), parse_url_ref(AUTHORITY, REF, query), " +
+      "parse_url_file(AUTHORITY, FILE, query)"
+    // verify nested. Note it does not matter the order as long as we get it right
+    val a7 = SQLPlanParser.processSpecialFunctions(
+      "parse_url(parse_url(AUTHORITY, ANY_PART, query), REF, query)")
+    val a8 = SQLPlanParser.processSpecialFunctions(
+      "parse_url(parse_url(AUTHORITY, REF, query), ANY_PART, query)")
+    a7 shouldEqual "parse_url_ref(parse_url(AUTHORITY, ANY_PART, query), REF, query)"
+    a8 shouldEqual "parse_url_ref(parse_url(AUTHORITY, REF, query), ANY_PART, query)"
     TrampolineUtil.withTempDir { parquetoutputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
@@ -1205,7 +1233,8 @@ class SQLPlanParserSuite extends BaseTestSuite {
           df1.write.parquet(s"$parquetoutputLoc/testparse")
           val df2 = spark.read.parquet(s"$parquetoutputLoc/testparse")
           df2.selectExpr("*", "parse_url(`url_col`, 'HOST') as HOST",
-            "parse_url(`url_col`,'QUERY') as QUERY")
+            "parse_url(`url_col`,'QUERY') as QUERY", "parse_url(`url_col`, 'REF') as REF",
+            "parse_url(`url_col`,'USERINFO') as NOT_QUERY")
         }
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)
@@ -1216,7 +1245,9 @@ class SQLPlanParserSuite extends BaseTestSuite {
         }
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projects = allExecInfo.filter(_.exec.contains("Project"))
-        assertSizeAndSupported(1, projects)
+        assertSizeAndNotSupported(1, projects)
+        val expectedExprss = Seq("parse_url_ref", "parse_url_userinfo")
+        projects(0).unsupportedExprs.map(_.exprName) should contain theSameElementsAs expectedExprss
       }
     }
   }
