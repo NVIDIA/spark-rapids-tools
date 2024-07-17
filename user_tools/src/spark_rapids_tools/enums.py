@@ -168,3 +168,17 @@ class QualEstimationModel(EnumeratedType):
     @classmethod
     def get_default(cls):
         return cls.XGBOOST
+
+    @classmethod
+    def create_default_model_args(cls, model_type: str) -> dict:
+        """
+        Giving a estimation-model, it sets the default arguments for the model.
+        This is useful to avoid duplicating code all over the place.
+        :param model_type: the instance of the estimation-model
+        :return: a dictionary with the default arguments for the estimationModel
+        """
+        return {
+            'estimationModel': model_type,
+            'xgboostEnabled': model_type == QualEstimationModel.XGBOOST,
+            'customModelFile': None,
+        }

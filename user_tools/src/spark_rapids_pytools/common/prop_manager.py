@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,6 +44,14 @@ def convert_dict_to_camel_case(dic: dict):
         else:
             res[to_camel_case(key)] = value
     return res
+
+
+def get_gpu_device_list() -> list:
+    return ['T4', 'V100', 'K80', 'A100', 'P100', 'A10', 'A10G', 'P4', 'L4', 'H100']
+
+
+def is_valid_gpu_device(val) -> bool:
+    return val.upper() in get_gpu_device_list()
 
 
 @dataclass
