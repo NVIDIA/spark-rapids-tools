@@ -323,7 +323,7 @@ class Qualification(RapidsJarTool):
 
         return gpu_cluster_info_dict
 
-    # process single GPU cluster specified by the user
+    # process a single cluster specified by the user
     def _process_offline_cluster_args(self):
         # read the wrapper option defined by the spark_rapids cmd if any.
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
@@ -334,6 +334,10 @@ class Qualification(RapidsJarTool):
                 # if no cpu-cluster is defined, then we are not supposed to run cost calculations
                 enable_savings_flag = False
 
+        # Previously lots of things were tied to the cost savings flag and only ran when that was
+        # enabled. Here we want to keep backwards compatibility but we also still want to run
+        # the auto tuner if cost savings aren't enabled. To run the auto tuner we need to try to
+        # infer the GPU cluster all the time.
         gpu_cluster_enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
         if enable_savings_flag:
             if self.ctxt.get_ctxt('cpuClusterProxy') is not None:
@@ -901,9 +905,9 @@ class Qualification(RapidsJarTool):
         filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
 
         conversion_items_summary = {}
-        if self.ctxt.get_ctxt('cpuClusterProxy'):
-            cpu_cluster_info = self.ctxt.get_ctxt('cpuClusterProxy')
-            gpu_cluster_info = self.ctxt.get_ctxt('gpuClusterProxy')
+        cpu_cluster_info = self.ctxt.get_ctxt('cpuClusterProxy')
+        gpu_cluster_info = self.ctxt.get_ctxt('gpuClusterProxy')
+        if cpu_cluster_info:
             if cpu_cluster_info is not None and gpu_cluster_info is not None:
                 cpu_instance_type = cpu_cluster_info.get_worker_node().instance_type
                 gpu_instance_type = gpu_cluster_info.get_worker_node().instance_type
@@ -1103,7 +1107,7 @@ class Qualification(RapidsJarTool):
         """
         # we actually want to use the inferred version over what user passed if possible
         if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
-            self.logger.info('Inferred Cluster but cpu node already set %s', self.ctxt.get_ctxt('cpuClusterProxy'))
+            self.logger.info('Inferred Cluster but cpu node was already set')
             return
 
         # Infer the CPU cluster from the cluster information
@@ -1128,8 +1132,7 @@ class Qualification(RapidsJarTool):
         # if the user passed in the cpu cluster property, use that but we still want to try to infer the gpu
         # cluster to use
         if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
-            self.logger.info('auto tuning Inferred Cluster but cpu node already set %s gpu cluster is %s',
-                             self.ctxt.get_ctxt('cpuClusterProxy'), self.ctxt.get_ctxt('gpuClusterProxy'))
+            self.logger.info('auto tuning inferred Cluster but cpu node was already set')
             return
         cpu_cluster_dict = {}
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
