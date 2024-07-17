@@ -21,7 +21,7 @@ import shap
 import xgboost as xgb
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
 from spark_rapids_tools.tools.qualx.util import get_logger
-from xgboost import Booster, XGBModel
+from xgboost import Booster
 # Import optional packages
 try:
     import optuna
@@ -61,7 +61,7 @@ def train(
     label_col: str,
     n_trials: int = 200,
     base_model: Optional[Booster] = None,
-) -> XGBModel:
+) -> Booster:
     """Train model on preprocessed data."""
     if 'split' not in cpu_aug_tbl.columns:
         raise ValueError(

@@ -20,6 +20,14 @@ Arguments:
 - prof_output: Path to a directory containing profiling tool output.
 - output_folder: Path to store the output.
 
+Output files:
+- prediction.csv: per-application speedup predictions.
+- xgboost_predictions/per_sql.csv: per-sql speedup predictions.
+- xgboost_predictions/per_app.csv: raw (unformatted) per-application speedup predictions.
+- xgboost_predictions/features.csv: feature values used as input to model prediction.
+- xgboost_predictions/feature_importance.csv: shapley feature importance values for prediction dataset.
+- xgboost_predictions/shap_values: per-sql shapley values for prediction dataset.
+
 ### Training
 
 To train an XGBoost model on a specific dataset, follow these steps below. Refer to [Getting Started](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/README.md#getting-started) section for installing the required dependencies for training.

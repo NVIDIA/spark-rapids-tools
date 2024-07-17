@@ -85,7 +85,7 @@ def _get_model_path(platform: str, model: Optional[str]):
         model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
         if not model_path.exists():
             raise ValueError(f'Platform [{platform}] does not have a pre-trained model, '
-                            'please specify --model or choose another platform.')
+                             'please specify --model or choose another platform.')
     return model_path
 
 
@@ -1087,14 +1087,23 @@ def shap(platform: str, prediction_output: str, index: int, model: Optional[str]
     """Print a SHAP waterfall of features and their SHAP value contributions to the overall prediction for
     a specific index (sqlID) in the shap_values.csv file produced by prediction.
 
-    The final prediction is calculated by adding the base (expected) value of the model with the sum of
-    the SHAP values, where the base value is the average output of the model across the entire training dataset.
-
-    Notes:
-    - The SHAP prediction currently represents `log(speedup)`, so the speedup prediction is calculated
-    as `exp(shap_prediction)`.
-    - The speedup prediction only applies to the supported stages/durations, so the final per-sqlID prediction
-    is computed from the speedup prediction on the supported durations combined with the unsupported duration.
+    Output description:
+    - features are listed in order of importance (absolute value of `shap_value`), similar to a SHAP waterfall plot.
+    - `model_rank` shows the feature importance rank on the training set.
+    - `model_shap_value` shows the feature shap_value on the training set.
+    - `train_[mean|std|min|max]` show the mean, standard deviation, min and max values of the feature in the
+    training set.
+    - `train_[25%|50%|75%]` show the feature value at the respective percentile in the training set.
+    - `feature_value` shows the value of the feature used in prediction (for the indexed row/sqlID).
+    - `out_of_range` indicates if the `feature_value` used in prediction was outside of the range of values seen in
+    the training set.
+    - `Shap base value` is the model's average prediction across the entire training set.
+    - `Shap values sum` is the sum of the `shap_value` column for this indexed instance.
+    - `Shap prediction` is the sum of `Shap base value` and `Shap values sum`, representing the model's predicted value.
+    - `exp(prediction)` is the exponential of `Shap prediction`, which represents the predicted speedup
+    (since the XGBoost model currently predicts `log(speedup)`).
+    - the predicted speedup (which should match `y_pred` in `per_sql.csv`) is applied to the "supported" durations
+    and combined with the unsupported" durations to produce a final per-sql speedup (`speedup_pred` in `per_sql.csv`).
 
     Parameters
     ----------
