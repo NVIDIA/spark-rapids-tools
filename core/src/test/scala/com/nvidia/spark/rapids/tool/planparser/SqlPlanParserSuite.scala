@@ -1304,7 +1304,10 @@ class SQLPlanParserSuite extends BaseTestSuite {
         Array("substr", "In", "Or", "GreaterThan"),
       // test the operator is at the beginning of expression and not followed by space
       "NOT(isnotnull(d_moy))" ->
-        Array("Not", "isnotnull")
+        Array("Not", "isnotnull"),
+      // test the shiftright operator(since spark-4.0)
+      "((isnotnull(d_year#498) AND isnotnull(d_moy#500)) AND (d_year#498 >> 1) >= 100)" ->
+        Array("isnotnull", "And", "GreaterThanOrEqual", "ShiftRight")
     )
     // scalastyle:on line.size.limit
     for ((condExpr, expectedExpression) <- expressionsMap) {
