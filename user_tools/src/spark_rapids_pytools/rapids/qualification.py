@@ -248,11 +248,12 @@ class Qualification(RapidsJarTool):
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
         def _process_gpu_cluster_worker_node():
             try:
-                worker_node = gpu_cluster_obj.get_worker_node()
-                worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
+                if gpu_cluster_obj:
+                    worker_node = gpu_cluster_obj.get_worker_node()
+                    worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                    sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                    gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                    worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
 
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.warning(
@@ -794,18 +795,19 @@ class Qualification(RapidsJarTool):
         if cpu_cluster is None or gpu_cluster is None:
             self.logger.warning('Cannot generate the cluster recommendation report because the cluster information is '
                                 'not available.')
-        try:
-            cpu_cluster_info = cpu_cluster.get_cluster_configuration()
-            gpu_cluster_info = gpu_cluster.get_cluster_configuration()
-            cluster_shape_recommendation = [{
-                'clusterName': cpu_cluster.get_name(),
-                'sourceCluster': cpu_cluster_info,
-                'targetCluster': gpu_cluster_info
-            }]
-            self.ctxt.set_ctxt('clusterShapeRecommendation', cluster_shape_recommendation)
-        except Exception as e:  # pylint: disable=broad-except
-            self.logger.error('Error generating the cluster recommendation report. '
-                              'Reason - %s:%s', type(e).__name__, e)
+        else:
+            try:
+                cpu_cluster_info = cpu_cluster.get_cluster_configuration()
+                gpu_cluster_info = gpu_cluster.get_cluster_configuration()
+                cluster_shape_recommendation = [{
+                    'clusterName': cpu_cluster.get_name(),
+                    'sourceCluster': cpu_cluster_info,
+                    'targetCluster': gpu_cluster_info
+                }]
+                self.ctxt.set_ctxt('clusterShapeRecommendation', cluster_shape_recommendation)
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.error('Error generating the cluster recommendation report. '
+                                  'Reason - %s:%s', type(e).__name__, e)
 
     def __write_cluster_recommendation_report(self, output_file: str):
         """
