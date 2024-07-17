@@ -144,8 +144,6 @@ class QualificationSummary:
                 full_tunings_file = "Doesn't exist, see the stdout for errors"
                 gpu_tunings_file = "Doesn't exist, see the stdout for errors"
 
-
-
             # 'all' is a special indication that all the applications need to use this same node
             # recommendation vs the recommendations being per application
             if 'all' in self.conversion_items:
@@ -966,7 +964,7 @@ class Qualification(RapidsJarTool):
                 # this is a bit weird since hardcoding but we don't want this to have ** for csv output
                 if 'Estimated GPU Speedup Category' in result_df:
                     result_df.rename(columns={'Estimated GPU Speedup Category': 'Estimated GPU Speedup Category**'},
-                        inplace=True)
+                                     inplace=True)
                 # squeeze the header titles if enabled
                 return Utilities.squeeze_df_header(result_df, header_width) if squeeze_header_enabled else result_df
 
