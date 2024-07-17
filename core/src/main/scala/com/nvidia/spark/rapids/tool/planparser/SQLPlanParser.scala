@@ -365,6 +365,14 @@ object SQLPlanParser extends Logging {
     //  We do not want them to appear as independent expressions.
     "structfield", "structtype")
 
+  // As RAPIDS plugin rev 2b09372, it only supports parse_url(*,HOST|PROTOCOL|QUERY|PATH[,*]).
+  // the following partToExtract parse_url(*,REF|FILE|AUTHORITY|USERINFO[,*]) are not supported
+  val unsupportedParseURLParts = Set("FILE", "REF", "AUTHORITY", "USERINFO")
+  // define a pattern to identify whether a certain string contains the unsupported extractParts of
+  // the parse_url
+  val regExParseURLPart =
+    s"(?i)parse_url\\(.*,\\s*(${unsupportedParseURLParts.mkString("|")})(?:\\s*,.*)*\\)".r
+
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
    * of a specific node.
@@ -652,9 +660,10 @@ object SQLPlanParser extends Logging {
 
   // This method aims at doing some common processing to an expression before
   // we start parsing it. For example, some special handling is required for some functions.
-  private def processSpecialFunctions(expr: String): String = {
-    // For parse_url, we only support parse_url(*,Host,*); parse_url(*,Protocol,*)
-    // So we want to be able to define that parse_url(*,QUERY,*) is not supported.
+  def processSpecialFunctions(expr: String): String = {
+    // For parse_url, we only support parse_url(*,HOST|PROTOCOL|QUERY|PATH[,*]).
+    // So we want to be able to define that parse_url(*,REF|FILE|AUTHORITY|USERINFO[,*])
+    // is not supported.
 
     // The following regex uses forward references to find matches for parse_url(*)
     // we need to use forward references because otherwise multiple occurrences will be matched
@@ -666,16 +675,25 @@ object SQLPlanParser extends Logging {
     //          parse_url(url_col#7, QUERY, false) AS QUERY#10]
     val parseURLPattern = ("parse_url(?=\\()(?:(?=.*?\\((?!.*?\\1)(.*\\)(?!.*\\2).*))(?=.*?\\)" +
       "(?!.*?\\2)(.*)).)+?.*?(?=\\1)[^(]*(?=\\2$)").r
-    var newExpr = expr
-    parseURLPattern.findAllMatchIn(expr).foreach { parse_call =>
-      // iterate on all matches replacing parse_url by parse_url_query
-      // note that we do replaceFirst because we want to map 1-to-1 and the order does
-      // not matter here.
-      if (parse_call.matched.matches("parse_url\\(.*,\\s*(?i)query\\s*,.*\\)")) {
-        newExpr = newExpr.replaceFirst("parse_url\\(", "parse_url_query(")
+    val allMatches = parseURLPattern.findAllMatchIn(expr)
+    if (allMatches.nonEmpty) {
+      var newExpr = expr
+      allMatches.foreach { parse_call =>
+        // iterate on all matches replacing parse_url by parse_url_{parttoextract} if any
+        // note that we do replaceFirst because we want to map 1-to-1 and the order does
+        // not matter here.
+        val matched = parse_call.matched
+        val extractPart = regExParseURLPart.findFirstMatchIn(matched).map(_.group(1))
+        if (extractPart.isDefined) {
+          val replacedParseClass =
+            matched.replaceFirst("parse_url\\(", s"parse_url_${extractPart.get.toLowerCase}(")
+          newExpr = newExpr.replace(matched, replacedParseClass)
+        }
       }
+      newExpr
+    } else {
+      expr
     }
-    newExpr
   }
 
   private def getAllFunctionNames(regPattern: Regex, expr: String,
