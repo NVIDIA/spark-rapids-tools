@@ -16,6 +16,7 @@ from typing import Callable, List, Optional
 import fire
 import glob
 import json
+import numpy as np
 import os
 import pandas as pd
 import traceback
@@ -32,7 +33,7 @@ from spark_rapids_tools.tools.qualx.preprocess import (
 )
 from spark_rapids_tools.tools.qualx.model import (
     extract_model_features,
-    compute_feature_importance,
+    compute_shapley_values,
     split_nds,
     split_all_test,
 )
@@ -58,6 +59,36 @@ from xgboost.core import XGBoostError, Booster
 logger = get_logger(__name__)
 
 
+def _get_model_path(platform: str, model: Optional[str]):
+    if model is not None:
+        # if "model" is provided
+        if CspPath.is_file_path(model, raise_on_error=False):
+            # and "model" is actually represents a file path
+            # check that it is valid json file
+            if not CspPath.is_file_path(model,
+                                        extensions=['json'],
+                                        raise_on_error=False):
+                raise ValueError(
+                    f'Custom model file [{model}] is invalid. Please specify a valid JSON file.')
+            # TODO: If the path is remote, we need to copy it locally in order to successfully
+            #       load it with xgboost.
+            model_path = Path(CspPath(model).no_prefix)
+            if not model_path.exists():
+                raise FileNotFoundError(f'Model JSON file not found: {model_path}')
+        else:
+            # otherwise, try loading pre-trained model by "short name", e.g. "onprem"
+            model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{model}.json'))
+            if not model_path.exists():
+                raise FileNotFoundError(f'Model JSON file for {model} not found at: {model_path}')
+    else:
+        # if "model" not provided, try loading pre-trained model by "platform"
+        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
+        if not model_path.exists():
+            raise ValueError(f'Platform [{platform}] does not have a pre-trained model, '
+                             'please specify --model or choose another platform.')
+    return model_path
+
+
 def _get_model(platform: str,
                model: Optional[str] = None) -> Booster:
     """
@@ -72,27 +103,7 @@ def _get_model(platform: str,
                  resources directory.
     :return: xgb.Booster loading the model file.
     """
-    if model is not None:
-        if CspPath.is_file_path(model, raise_on_error=False):
-            # "model" is actually represents a file path
-            # check that it is valid json file
-            if not CspPath.is_file_path(model,
-                                        extensions=['json'],
-                                        raise_on_error=False):
-                raise ValueError(
-                    f'Custom model file [{model}] is invalid. Please specify a valid JSON file.')
-            # TODO: If the path is remote, we need to copy it locally in order to successfully
-            #       load it with xgboost.
-            model_path = Path(CspPath(model).no_prefix)
-        else:
-            # try pre-trained model first
-            model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{model}.json'))
-    else:
-        # use the platform to define the path of the pre-trained model
-        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
-    if not model_path.exists():
-        raise ValueError(f'Platform [{model_path}] does not have a pre-trained model, '
-                         'please specify --model or choose another platform.')
+    model_path = _get_model_path(platform, model)
     logger.info(f'Loading model from: {model_path}')
     xgb_model = xgb.Booster()
     xgb_model.load_model(model_path)
@@ -440,9 +451,9 @@ def train(
             logger.info(f'Fine-tuning on base model from: {base_model}')
             xgb_base_model = xgb.Booster()
             xgb_base_model.load_model(base_model)
-            base_model_cfg = base_model + '.cfg'
+            base_model_cfg = Path(base_model).with_suffix('.cfg')
             if os.path.exists(base_model_cfg):
-                with open(base_model + '.cfg', 'r') as f:
+                with open(base_model_cfg, 'r') as f:
                     cfg = f.read()
                 xgb_base_model.load_config(cfg)
             else:
@@ -457,11 +468,32 @@ def train(
     logger.info(f'Saving model to: {model}')
     xgb_model.save_model(model)
     cfg = xgb_model.save_config()
-    with open(model + '.cfg', 'w') as f:
+    base_model_cfg = Path(model).with_suffix('.cfg')
+    with open(base_model_cfg, 'w') as f:
         f.write(cfg)
 
     ensure_directory(output_dir)
-    compute_feature_importance(xgb_model, features, feature_cols, output_dir)
+
+    for split in ['train', 'test']:
+        features_split = features[feature_cols].loc[features['split'] == split]
+        if features_split.empty:
+            continue
+
+        feature_importance, _ = compute_shapley_values(xgb_model, features_split)
+        feature_cols = feature_importance.feature.values
+        feature_stats = features_split[feature_cols].describe().transpose().drop(columns='count')
+        feature_stats = feature_stats.reset_index().rename(columns={'index': 'feature'})
+
+        feature_importance = feature_importance.merge(feature_stats, how='left', on='feature')
+        feature_importance.to_csv(f'{output_dir}/shap_{split}.csv')
+        if split == 'train':
+            # save training shap values and feature distribution metrics with model
+            metrics_file = Path(model).with_suffix('.metrics')
+            feature_importance.to_csv(metrics_file)
+
+        print(f'Shapley feature importance and statistics ({split}):')
+        print(tabulate(feature_importance, headers='keys', tablefmt='psql', floatfmt='.2f'))
+
     return
 
 
@@ -547,12 +579,29 @@ def predict(
             )
             logger.info(f'Predicting dataset ({filter_str}): {dataset}')
             features, feature_cols, label_col = extract_model_features(input_df)
+
+            # save features for troubleshooting
+            output_file = output_info['features']['path']
+            logger.info('Writing features to: %s', output_file)
+            features.to_csv(output_file, index=False)
+
             # note: dataset name is already stored in the 'appName' field
             try:
-                per_sql_summary = predict_model(xgb_model, features, feature_cols, label_col, output_info)
+                per_sql_summary = predict_model(xgb_model, features, feature_cols, label_col)
+
+                # compute and save shapley values
+                if output_info:
+                    feature_importance, shapley_values = compute_shapley_values(xgb_model, features)
+
+                    output_file = output_info['featureImportance']['path']
+                    logger.info('Writing shapley feature importances to: %s', output_file)
+                    feature_importance.to_csv(output_file)
+
+                    output_file = output_info['shapValues']['path']
+                    logger.info('Writing shapley values to: {output_file}')
+                    shapley_values.to_csv(output_file, index=False)
+
                 # compute per-app speedups
-                # _compute_summary takes only one arg
-                # summary = _compute_summary(results, qual_preds)
                 summary = _compute_summary(per_sql_summary)
                 # combine calculated summary with default predictions for missing apps
                 per_app_summary = _add_entries_for_missing_apps(filtered_default_preds, summary)
@@ -589,9 +638,10 @@ def predict(
 
 def __predict_cli(
     platform: str,
-    eventlogs: str,
     output_dir: str,
     *,
+    eventlogs: Optional[str] = None,
+    qual_output: Optional[str] = None,
     model: Optional[str] = None,
     qualtool_filter: Optional[str] = 'stage',
 ):
@@ -608,10 +658,12 @@ def __predict_cli(
     platform: str
         Name of platform for spark_rapids_user_tools, e.g. `onprem`, `dataproc`, etc.  This will
         be used as the model name, if --model is not provided.
-    eventlogs: str
-        Path to a single event log, or a directory containing multiple event logs.
     output_dir:
         Path to save predictions as CSV files.
+    eventlogs: str
+        Path to a single event log, or a directory containing multiple event logs.
+    qual_output: str
+        Path to qualification tool output.
     model: str
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
@@ -620,19 +672,26 @@ def __predict_cli(
         output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
     """
     # Note this function is for internal usage only. `spark_rapids predict` cmd is the public interface.
+    assert eventlogs or qual_output, 'Please specify either --eventlogs or --qual_output.'
 
     # Construct output paths
     ensure_directory(output_dir)
 
-    if not any([f.startswith('qual_') for f in os.listdir(output_dir)]):
-        # run qual tool if no existing qual output found
-        run_qualification_tool(platform, eventlogs, output_dir)
-    qual = output_dir
+    if eventlogs:
+        # --eventlogs takes priority over --qual_output
+        if not any([f.startswith('qual_') for f in os.listdir(output_dir)]):
+            # run qual tool if no existing qual output found
+            run_qualification_tool(platform, eventlogs, output_dir)
+        qual = output_dir
+    else:
+        qual = qual_output
 
     output_info = {
         'perSql': {'path': os.path.join(output_dir, 'per_sql.csv')},
         'perApp': {'path': os.path.join(output_dir, 'per_app.csv')},
         'shapValues': {'path': os.path.join(output_dir, 'shap_values.csv')},
+        'features': {'path': os.path.join(output_dir, 'features.csv')},
+        'featureImportance': {'path': os.path.join(output_dir, 'feature_importance.csv')},
     }
 
     predict(
@@ -1021,22 +1080,159 @@ def compare(
     if added:
         logger.warning(f'New datasets added, comparisons may be skewed: added={added}')
 
+    return
+
+
+def shap(platform: str, prediction_output: str, index: int, model: Optional[str] = None):
+    """Print a SHAP waterfall of features and their SHAP value contributions to the overall prediction for
+    a specific index (sqlID) in the shap_values.csv file produced by prediction.
+
+    Output description:
+    - features are listed in order of importance (absolute value of `shap_value`), similar to a SHAP waterfall plot.
+    - `model_rank` shows the feature importance rank on the training set.
+    - `model_shap_value` shows the feature shap_value on the training set.
+    - `train_[mean|std|min|max]` show the mean, standard deviation, min and max values of the feature in the
+    training set.
+    - `train_[25%|50%|75%]` show the feature value at the respective percentile in the training set.
+    - `feature_value` shows the value of the feature used in prediction (for the indexed row/sqlID).
+    - `out_of_range` indicates if the `feature_value` used in prediction was outside of the range of values seen in
+    the training set.
+    - `Shap base value` is the model's average prediction across the entire training set.
+    - `Shap values sum` is the sum of the `shap_value` column for this indexed instance.
+    - `Shap prediction` is the sum of `Shap base value` and `Shap values sum`, representing the model's predicted value.
+    - `exp(prediction)` is the exponential of `Shap prediction`, which represents the predicted speedup
+    (since the XGBoost model currently predicts `log(speedup)`).
+    - the predicted speedup (which should match `y_pred` in `per_sql.csv`) is applied to the "supported" durations
+    and combined with the unsupported" durations to produce a final per-sql speedup (`speedup_pred` in `per_sql.csv`).
+
+    Parameters
+    ----------
+    platform: str
+        Platform used during prediction.
+    prediction_output: str
+        Path to prediction output directory containing predictions.csv and xgboost_predictions folder.
+    index: int
+        Index of row/instance in shap_values.csv file to isolate for shap waterfall.
+    model: Optional[str]
+        Path to XGBoost model used in prediction.
+    """
+    # get model shap values w/ feature distribution metrics
+    model_json_path = _get_model_path(platform, model)
+    model_shap_path = Path(model_json_path).with_suffix('.metrics')
+    if os.path.exists(model_shap_path):
+        logger.info('Reading model metrics from: %s', model_shap_path)
+        model_shap_df = pd.read_csv(model_shap_path, index_col=0)
+        model_shap_df = model_shap_df.reset_index().rename(
+            columns={'index': 'model_rank', 'shap_value': 'model_shap_value'}
+        )
+        model_col_names = {
+            c: 'train_' + c
+            for c in model_shap_df.columns
+            if c not in ['feature', 'model_rank', 'model_shap_value']
+        }
+        model_shap_df = model_shap_df.rename(columns=model_col_names)
+    else:
+        logger.info('No model metrics found for: %s', model_json_path)
+        model_shap_df = pd.DataFrame()
+
+    # get prediction shap values and isolate specific instance
+    prediction_paths = find_paths(f'{prediction_output}', lambda f: f == 'shap_values.csv')
+    if len(prediction_paths) == 1:
+        prediction_dir = Path(prediction_paths[0]).parent
+    elif len(prediction_paths) > 1:
+        raise ValueError(f'Found multiple prediction.csv files in: {prediction_output}')
+    else:
+        raise FileNotFoundError(f'File: prediction.csv not found in: {prediction_output}')
+
+    df = pd.read_csv(os.path.join(prediction_dir, 'shap_values.csv'))
+    instance_shap = df.iloc[index]
+
+    # extract the SHAP expected/base value of the model
+    expected_value = instance_shap['expected_value']
+
+    # convert instance to dataframe where rows are features
+    instance_shap_df = (
+        instance_shap.drop('expected_value')
+        .to_frame(name='shap_value')
+        .reset_index()
+        .rename(columns={'index': 'feature'})
+    )
+
+    # get features used in prediction and isolate specific instance
+    df = pd.read_csv(os.path.join(prediction_dir, 'features.csv'))
+    instance_features = df.iloc[index]
+
+    # convert instance to dataframe where rows are features
+    instance_features_df = (
+        instance_features.to_frame(name='feature_value')
+        .reset_index()
+        .rename(columns={'index': 'feature'})
+    )
+
+    # merge instance shap dataframe w/ model metrics (if available)
+    if not model_shap_df.empty:
+        instance_shap_df = instance_shap_df.merge(model_shap_df, how='left', on='feature')
+
+    # merge instance shap dataframe w/ prediction features
+    instance_shap_df = instance_shap_df.merge(instance_features_df, how='left', on='feature')
+
+    # add out-of-range indicator (if model metrics available)
+    if not model_shap_df.empty:
+        instance_shap_df['out_of_range'] = (instance_shap_df['feature_value'] < instance_shap_df['train_min']) | (
+            instance_shap_df['feature_value'] > instance_shap_df['train_max']
+        )
+
+    # sort by absolute value of shap_value
+    instance_shap_df = instance_shap_df.sort_values('shap_value', ascending=False, key=abs)
+    instance_shap_df.reset_index(drop=True, inplace=True)
+
+    formats = {
+        'feature': '',
+        'shap_value': '0.4f',
+        'model_rank': '',
+        'model_shap_value': '0.4f',
+        'train_mean': '0.1e',
+        'train_std': '0.1e',
+        'train_min': '0.1e',
+        'train_25%': '0.1e',
+        'train_50%': '0.1e',
+        'train_75%': '0.1e',
+        'train_max': '0.1e',
+        'feature_value': '0.1e',
+        'out_of_range': '',
+    }
+    format_list = [''] + [formats[col] for col in instance_shap_df.columns]  # index + cols
+
+    # print instance shap values w/ model metrics
+    print(tabulate(instance_shap_df, headers='keys', tablefmt='psql', floatfmt=format_list))
+
+    # print shap prediction and final prediction
+    shap_sum = instance_shap_df.shap_value.sum()
+    prediction = expected_value + shap_sum
+    print(f'Shap base value: {expected_value:.4f}')
+    print(f'Shap values sum: {shap_sum:.4f}')
+    print(f'Shap prediction: {prediction:.4f}')
+    print(f'exp(prediction): {np.exp(prediction):.4f}')
+
+    return
+
 
 def entrypoint():
     """
     These are commands are intended for internal usage only.
     """
     cmds = {
-        "models": models,
-        "preprocess": preprocess,
-        "train": train,
-        "predict": __predict_cli,
-        "evaluate": evaluate,
-        "evaluate_summary": evaluate_summary,
-        "compare": compare,
+        'models': models,
+        'preprocess': preprocess,
+        'train': train,
+        'predict': __predict_cli,
+        'evaluate': evaluate,
+        'evaluate_summary': evaluate_summary,
+        'compare': compare,
+        'shap': shap,
     }
     fire.Fire(cmds)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     entrypoint()
