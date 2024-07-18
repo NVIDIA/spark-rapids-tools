@@ -70,8 +70,10 @@ class EMRPlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = S3StorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
-        return EMRCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
+        return EMRCluster(self, is_inferred=is_inferred, is_props_file=is_props_file).\
+            set_connection(cluster_id=cluster, props=props)
 
     def migrate_cluster_to_gpu(self, orig_cluster):
         """
@@ -305,6 +307,10 @@ class EMRNode(ClusterNode):
     """
     ec2_instance: Ec2Instance = field(default=None, init=False)
 
+    def _pull_and_set_mc_props(self, cli=None):
+        instances_description = cli.describe_node_instance(self.instance_type) if cli else None
+        self.mc_props = JSONPropertiesContainer(prop_arg=instances_description, file_load=False)
+
     def _set_fields_from_props(self):
         self.name = self.ec2_instance.dns_name
         self.instance_type = self.ec2_instance.group.instance_type
@@ -455,13 +461,18 @@ class EMRCluster(ClusterBase):
         def process_cluster_group_list(inst_groups: list) -> list:
             instance_group_list = []
             for inst_grp in inst_groups:
+                parsed_state = ClusterState.UNKNOWN
+                try:
+                    parsed_state = ClusterState.fromstring(inst_grp['Status']['State'])
+                except Exception:  # pylint: disable=broad-except
+                    self.logger.info('Unable to get cluster state, setting to \'UNKNOWN\'.')
                 inst_group = InstanceGroup(
                     id=inst_grp['Id'],
                     instance_type=inst_grp['InstanceType'],
                     count=inst_grp['RequestedInstanceCount'],
                     market=inst_grp['Market'],
                     group_type=inst_grp['InstanceGroupType'],
-                    state=ClusterState.fromstring(inst_grp['Status']['State'])
+                    state=parsed_state
                 )
                 instance_group_list.append(inst_group)
             return instance_group_list
@@ -471,15 +482,19 @@ class EMRCluster(ClusterBase):
         self.instance_groups = process_cluster_group_list(inst_grps)
         self.ec2_instances = []
         for curr_group in self.instance_groups:
-            for _ in range(curr_group.count):
-                ec2_instance = Ec2Instance(
-                    id='',
-                    ec2_instance_id='',
-                    dns_name='',
-                    group=curr_group,
-                    state=curr_group.state
-                )
-                self.ec2_instances.append(ec2_instance)
+            if self.is_props_file:
+                for _ in range(curr_group.count):
+                    ec2_instance = Ec2Instance(
+                        id='',
+                        ec2_instance_id='',
+                        dns_name='',
+                        group=curr_group,
+                        state=curr_group.state
+                    )
+                    self.ec2_instances.append(ec2_instance)
+            else:
+                instances_list = self.__create_ec2_list_by_group(curr_group)
+                self.ec2_instances.extend(instances_list)
         self.nodes = self.__create_node_from_instances()
 
     def _set_fields_from_props(self):

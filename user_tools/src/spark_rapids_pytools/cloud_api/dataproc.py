@@ -82,7 +82,8 @@ class DataprocPlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = GStorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
         return DataprocCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
     def set_offline_cluster(self, cluster_args: dict = None):

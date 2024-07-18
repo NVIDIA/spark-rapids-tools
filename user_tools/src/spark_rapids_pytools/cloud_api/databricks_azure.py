@@ -52,7 +52,8 @@ class DBAzurePlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = AzureStorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
         return DatabricksAzureCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
     def set_offline_cluster(self, cluster_args: dict = None):
@@ -243,9 +244,9 @@ class DatabricksAzureNode(ClusterNode):
         self.name = self.props.get_value_silent('public_dns')
 
     def _pull_sys_info(self, cli=None) -> SysInfo:
-        cpu_mem = self.mc_props.get_value('MemoryInfo', 'SizeInMiB')
+        cpu_mem = self.mc_props.get_value('MemoryInMB')
         # TODO: should we use DefaultVCpus or DefaultCores
-        num_cpus = self.mc_props.get_value('VCpuInfo', 'DefaultVCpus')
+        num_cpus = self.mc_props.get_value('VCpuCount')
 
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 

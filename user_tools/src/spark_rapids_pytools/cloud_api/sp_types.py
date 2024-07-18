@@ -159,7 +159,7 @@ class ClusterNode:
         pass
 
     def _pull_and_set_mc_props(self, cli=None):
-        instances_description = cli.describe_node_instance(self.instance_type) if cli else None
+        instances_description = cli.exec_platform_describe_node_instance(self) if cli else None
         self.mc_props = JSONPropertiesContainer(prop_arg=instances_description, file_load=False)
 
     def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
@@ -548,11 +548,10 @@ class CMDDriverBase:
         self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
     def describe_node_instance(self, instance_type: str) -> str:
-        try:
-            return self.instance_descriptions.get_value(instance_type)
-        except Exception as e:
-            self.logger.error("Encountered exception when retrieving instance description:", e)
-            return ''
+        instance_info = self.instance_descriptions.get_value(instance_type)
+        if instance_info is None:
+            raise RuntimeError(f'Instance type {instance_type} is not found in catalog.')
+        return instance_info
 
     def _build_platform_list_cluster(self,
                                      cluster,
@@ -865,7 +864,8 @@ class PlatformBase:
     def _construct_cluster_from_props(self,
                                       cluster: str,
                                       props: str = None,
-                                      is_inferred: bool = False):
+                                      is_inferred: bool = False,
+                                      is_props_file: bool = False):
         raise NotImplementedError
 
     def set_offline_cluster(self, cluster_args: dict = None):
@@ -875,7 +875,8 @@ class PlatformBase:
         cluster = cluster_prop.get_value_silent('cluster_id')
         return self._construct_cluster_from_props(cluster=cluster,
                                                   props=json.dumps(cluster_prop.props),
-                                                  is_inferred=is_inferred)
+                                                  is_inferred=is_inferred,
+                                                  is_props_file=True)
 
     def load_cluster_by_prop_file(self, cluster_prop_path: str):
         prop_container = JSONPropertiesContainer(prop_arg=cluster_prop_path)
@@ -978,6 +979,7 @@ class ClusterBase(ClusterGetAccessor):
     props: AbstractPropertiesContainer = field(default=None, init=False)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster'), init=False)
     is_inferred: bool = field(default=False, init=True)
+    is_props_file: bool = field(default=False, init=True)  # indicates if the cluster is loaded from properties file
 
     @staticmethod
     def _verify_workers_exist(has_no_workers_cb: Callable[[], bool]):

@@ -57,7 +57,7 @@ dependencies = [
     # used for retrieving available memory on the host
     "psutil==5.9.8"
 ]
-dynamic=["entry-points", "version"]
+dynamic=["version"]
 
 [project.scripts]
 spark_rapids_user_tools = "spark_rapids_pytools.wrapper:main"

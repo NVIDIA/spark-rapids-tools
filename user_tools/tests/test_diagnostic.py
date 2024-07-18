@@ -53,8 +53,8 @@ class TestInfoCollect:
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
             'dataproc': 13,
-            'emr': 12,
-            'databricks-aws': 9,
+            'emr': 10,
+            'databricks-aws': 7,
             'databricks-azure': 7
         }
 
@@ -77,8 +77,8 @@ class TestInfoCollect:
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
             'dataproc': 13,
-            'emr': 12,
-            'databricks-aws': 9,
+            'emr': 10,
+            'databricks-aws': 7,
             'databricks-azure': 7
         }
 
@@ -104,8 +104,8 @@ class TestInfoCollect:
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
             'dataproc': 7,
-            'emr': 6,
-            'databricks-aws': 3,
+            'emr': 4,
+            'databricks-aws': 1,
             'databricks-azure': 1
         }
 
@@ -131,8 +131,8 @@ class TestInfoCollect:
         return_values.reverse()
         expected_syscmd_calls = {
             'dataproc': 8,
-            'emr': 7,
-            'databricks-aws': 4,
+            'emr': 6,
+            'databricks-aws': 2,
             'databricks-azure': 2
         }
 
@@ -161,8 +161,8 @@ class TestInfoCollect:
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
             'dataproc': 13,
-            'emr': 12,
-            'databricks-aws': 9,
+            'emr': 10,
+            'databricks-aws': 7,
             'databricks-azure': 7
         }
 
@@ -196,8 +196,8 @@ class TestInfoCollect:
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
             'dataproc': 13,
-            'emr': 12,
-            'databricks-aws': 9,
+            'emr': 10,
+            'databricks-aws': 7,
             'databricks-azure': 7
         }
 
@@ -222,8 +222,8 @@ class TestInfoCollect:
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
             'dataproc': 7,
-            'emr': 6,
-            'databricks-aws': 3,
+            'emr': 2,
+            'databricks-aws': 1,
             'databricks-azure': 1
         }
 

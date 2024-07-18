@@ -52,8 +52,10 @@ class DBAWSPlatform(EMRPlatform):
     def _install_storage_driver(self):
         self.storage = S3StorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
-        return DatabricksCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
+        return DatabricksCluster(self, is_inferred=is_inferred, is_props_file=is_props_file).\
+            set_connection(cluster_id=cluster, props=props)
 
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
@@ -187,7 +189,7 @@ class DBAWSCMDDriver(CMDDriverBase):
         return json.dumps(instance_descriptions.get_value('InstanceTypes')[0])
 
     def init_instance_descriptions(self) -> None:
-        instance_description_file_path = Utils.resource_path(f'emr-instance-catalog.json')
+        instance_description_file_path = Utils.resource_path('emr-instance-catalog.json')
         self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
 
