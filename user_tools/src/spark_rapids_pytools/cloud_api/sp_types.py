@@ -543,9 +543,7 @@ class CMDDriverBase:
         return self.instance_descriptions_cache[key]
 
     def init_instance_descriptions(self) -> None:
-        platform = self.cloud_ctxt['platformType']
-        instance_description_file_path = Utils.resource_path(f'{platform}-instance-catalog.json')
-        self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
+        pass
 
     def describe_node_instance(self, instance_type: str) -> str:
         instance_info = self.instance_descriptions.get_value(instance_type)
