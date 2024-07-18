@@ -149,6 +149,9 @@ class QualificationSummary:
             if 'all' in self.conversion_items:
                 print_result = self.df_result
                 print_result['Qualified Node Recommendation'] = self.conversion_items['all']
+            elif not self.conversion_items:
+                print_result = self.df_result
+                print_result['Qualified Node Recommendation'] = 'Not Available'
             else:
                 # add the per app node conversions
                 conversion_column_dict = {'App ID': list(self.conversion_items.keys()),
