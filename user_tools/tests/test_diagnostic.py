@@ -131,7 +131,7 @@ class TestInfoCollect:
         return_values.reverse()
         expected_syscmd_calls = {
             'dataproc': 8,
-            'emr': 6,
+            'emr': 5,
             'databricks-aws': 2,
             'databricks-azure': 2
         }
