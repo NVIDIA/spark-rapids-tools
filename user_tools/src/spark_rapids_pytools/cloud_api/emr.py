@@ -270,7 +270,7 @@ class EMRCMDDriver(CMDDriverBase):
         return ['aws ec2 describe-instance-types', '--region', f'{self.get_region()}']
 
     def init_instance_descriptions(self) -> None:
-        platform = self.cloud_ctxt['platformType']
+        platform = CspEnv.pretty_print(self.cloud_ctxt['platformType'])
         instance_description_file_path = Utils.resource_path(f'{platform}-instance-catalog.json')
         self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
