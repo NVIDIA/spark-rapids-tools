@@ -28,7 +28,6 @@ then
         INVALID_FILES+=($(grep -L --exclude={core/src/test/resources/*,*.csv} "Copyright (c) $YEAR" $f))
     done
 fi
-echo "$INVALID_FILES"
 
 if [ -n "$INVALID_FILES" ]; then
     echo "Found new files with incorrect headers:"
