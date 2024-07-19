@@ -735,7 +735,11 @@ class AutoTuner(
           val registratorToUse = if (getPropertyValue("spark.kryo.registrator").isDefined) {
             // need to append our GpuKryoRegistrator to existing ones
             val existingRegistrars = getPropertyValue("spark.kryo.registrator")
-            "com.nvidia.spark.rapids.GpuKryoRegistrator" + "," + existingRegistrars.get
+            if (!existingRegistrars.get.isEmpty) {
+              "com.nvidia.spark.rapids.GpuKryoRegistrator" + "," + existingRegistrars.get
+            } else {
+              "com.nvidia.spark.rapids.GpuKryoRegistrator"
+            }
           } else {
             "com.nvidia.spark.rapids.GpuKryoRegistrator"
           }
