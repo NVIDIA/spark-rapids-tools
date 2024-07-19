@@ -34,19 +34,19 @@ Run `mvn help:all-profiles` to list supported Spark versions.
 
 ### Setting up an Integrated Development Environment
 
-Before proceeding with importing spark-rapids into IDEA or switching to a different Spark release
-profile, execute the install phase with the corresponding `buildver`, e.g. for Spark 3.4.0:
+Before proceeding with importing spark-rapids-tools into IDEA or switching to a different Spark release
+profile, execute the install phase with the corresponding `buildver`, e.g. for Spark 3.5.0:
 
 ##### Manual Maven Install for a target Spark build
 
 ```bash
- mvn clean install -Dbuildver=340 -Dmaven.scaladoc.skip -DskipTests
+ mvn clean install -Dbuildver=350 -Dmaven.scaladoc.skip -DskipTests
 ```
 
 ##### Importing the project
 
 To start working with the project in IDEA is as easy as importing the project as a Maven project.
-Select the profile used in the mvn command above, e.g. `spark340` for Spark 3.4.0.
+Select the profile used in the mvn command above, e.g. `spark350` for Spark 3.5.0.
 
 The tools project follows the same coding style guidelines as the Apache Spark
 project.  For IntelliJ IDEA users, an example `idea-code-style-settings.xml` is available in the
