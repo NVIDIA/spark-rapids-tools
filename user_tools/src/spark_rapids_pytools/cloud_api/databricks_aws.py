@@ -191,7 +191,7 @@ class DBAWSCMDDriver(CMDDriverBase):
 
     def init_instance_descriptions(self) -> None:
         instance_description_file_path = Utils.resource_path('emr-instance-catalog.json')
-        self.logger.info(f'Loading instance descriptiond from cached file: {instance_description_file_path}')
+        self.logger.info('Loading instance descriptions from file: %s', instance_description_file_path)
         self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
 

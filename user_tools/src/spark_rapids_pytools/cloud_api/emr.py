@@ -273,7 +273,7 @@ class EMRCMDDriver(CMDDriverBase):
     def init_instance_descriptions(self) -> None:
         platform = CspEnv.pretty_print(self.cloud_ctxt['platformType'])
         instance_description_file_path = Utils.resource_path(f'{platform}-instance-catalog.json')
-        self.logger.info(f'Loading instance descriptiond from cached file: {instance_description_file_path}')
+        self.logger.info('Loading instance descriptions from file: %s', instance_description_file_path)
         self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
 
