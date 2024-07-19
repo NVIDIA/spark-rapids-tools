@@ -9,6 +9,8 @@ toolOutput:
       fileName: rapids_4_spark_qualification_output_unsupportedOperators.csv
     clusterInformation:
       fileName: rapids_4_spark_qualification_output_cluster_information.csv
+    tunings:
+      subFolder: tuning
     summaryReport:
       fileName: rapids_4_spark_qualification_output.csv
       columns:
@@ -238,6 +240,9 @@ local:
         - 'App ID'
         - 'App Name'
         - 'Estimated GPU Speedup Category'
+        - 'Qualified Node Recommendation'
+        - 'Full Cluster Config Recommendations*'
+        - 'GPU Config Recommendation Breakdown*'
       eligibleCategories:
         - 'Small'
         - 'Medium'

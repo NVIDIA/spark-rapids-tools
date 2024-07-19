@@ -173,7 +173,12 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
             tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo)
           }
           if (qualSumInfo.isDefined) {
-            allApps.add(qualSumInfo.get)
+            // add the recommend cluster info into the summary
+            val tempSummary = qualSumInfo.get
+            val newClusterSummary = tempSummary.clusterSummary.copy(
+              recommendedClusterInfo = pluginTypeChecker.platform.recommendedClusterInfo)
+            val newQualSummary = tempSummary.copy(clusterSummary = newClusterSummary)
+            allApps.add(newQualSummary)
             progressBar.foreach(_.reportSuccessfulProcess())
             val endTime = System.currentTimeMillis()
             SuccessAppResult(pathStr, app.appId,
