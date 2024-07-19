@@ -81,7 +81,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       threadPool.shutdownNow()
     }
     progressBar.foreach(_.finishAll())
-    // generate metadata
+
+    // generate runtime metadata
     generateRuntimeReport()
     val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
     // sort order and limit only applies to the report summary text file,

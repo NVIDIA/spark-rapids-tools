@@ -68,7 +68,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
    * what else we can do in parallel.
    */
   def profile(eventLogInfos: Seq[EventLogInfo]): Unit = {
-    generateRuntimeReport()
+    // generateRuntimeReport()
     if (enablePB && eventLogInfos.nonEmpty) { // total count to start the PB cannot be 0
       progressBar = Some(new ConsoleProgressBar("Profile Tool", eventLogInfos.length))
     }
@@ -132,6 +132,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
     progressBar.foreach(_.finishAll())
     
+    // generate metadata
+    generateRuntimeReport()
     // Write status reports for all event logs to a CSV file
     val reportResults = generateStatusResults(appStatusReporter.asScala.values.toSeq)
     ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir)
