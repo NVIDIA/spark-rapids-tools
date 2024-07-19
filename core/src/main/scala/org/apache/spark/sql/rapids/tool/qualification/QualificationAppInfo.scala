@@ -27,7 +27,7 @@ import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
-import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterInfo, ClusterSummary, FailureApp, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterSummary, FailureApp, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
 import org.apache.spark.sql.rapids.tool.store.StageModel
 
@@ -631,7 +631,8 @@ class QualificationAppInfo(
         mlFuncReportInfo.mlWallClockDur, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
 
       val clusterSummary = ClusterSummary(info.appName, appId,
-        eventLogInfo.map(_.eventLog.toString), clusterInfo)
+        eventLogInfo.map(_.eventLog.toString), pluginTypeChecker.platform.clusterInfoFromEventLog,
+        None)
 
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
@@ -841,14 +842,12 @@ class QualificationAppInfo(
   }
 
   /**
-   * Builds cluster information based on executor nodes.
+   * Builds cluster information based on executor nodes and sets it in the
+   * platform so that it can be used later.
    * If executor nodes exist, calculates the number of hosts and total cores,
    * and extracts executor and driver instance types (databricks only)
-   *
-   * @return Cluster information including vendor, cores, number of nodes and maybe
-   *         instance types, driver host, cluster id and cluster name.
    */
-  override def buildClusterInfo: Option[ClusterInfo] = {
+  override def buildClusterInfo: Unit = {
     // TODO: Handle dynamic allocation when determining the number of nodes.
     sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
       if (value.toBoolean) {
@@ -856,6 +855,7 @@ class QualificationAppInfo(
           s"Cluster information may be inaccurate.")
       }
     }
+    // try to figure out number of executors per node based on the executor info
     // Group by host name, find max executors per host
     val execsPerNodeList = executorIdToInfo.values.groupBy(_.host).mapValues(_.size).values
     val numExecsPerNode = execsPerNodeList.reduceOption(_ max _).getOrElse(0)
@@ -869,16 +869,18 @@ class QualificationAppInfo(
           s"Using maximum value.")
       }
       // Create cluster information based on platform type
-      Some(pluginTypeChecker.platform.createClusterInfo(coresPerExecutor.max, numExecsPerNode,
-        activeHosts.toSet.size, sparkProperties, systemProperties))
+      pluginTypeChecker.platform.configureClusterInfoFromEventLog(coresPerExecutor.max,
+        numExecsPerNode, activeHosts.toSet.size, sparkProperties, systemProperties)
     } else {
-      None
+      // if no executors do we want to qualify at all?  maybe not, else we could look at
+      // properties like spark.executor.cores
+      logWarning("Active executor info is empty so can't build existing cluster information!")
     }
   }
 
   override def postCompletion(): Unit = {
     super.postCompletion()
-    clusterInfo = buildClusterInfo
+    buildClusterInfo
   }
 }
 

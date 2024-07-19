@@ -25,7 +25,7 @@ from spark_rapids_pytools.cloud_api.gstorage import GStorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CMDDriverBase, \
     ClusterBase, ClusterNode, SysInfo, GpuHWInfo, SparkNodeType, ClusterState, GpuDevice, \
     NodeHWInfo, ClusterGetAccessor
-from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, is_valid_gpu_device
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import SysCmd, Utils
 from spark_rapids_pytools.pricing.dataproc_pricing import DataprocPriceProvider
@@ -291,6 +291,73 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
             cmd.extend(jar_args)
         return cmd
 
+    def _process_instance_description(self, instance_descriptions: str) -> dict:
+        def extract_gpu_name(gpu_description: str) -> str:
+            gpu_name = ''
+            for elem in gpu_description.split('-'):
+                if is_valid_gpu_device(elem):
+                    gpu_name = elem
+                    break
+            return gpu_name.upper()
+
+        processed_instance_descriptions = {}
+        raw_instances_descriptions = JSONPropertiesContainer(prop_arg=instance_descriptions, file_load=False)
+        for instance in raw_instances_descriptions.props:
+            instance_content = {}
+            instance_content['VCpuCount'] = int(instance.get('guestCpus', -1))
+            instance_content['MemoryInMB'] = int(instance.get('memoryMb', -1))
+            if 'accelerators' in instance:
+                raw_accelerator_info = instance['accelerators'][0]
+                gpu_name = extract_gpu_name(raw_accelerator_info.get('guestAcceleratorType'))
+                if gpu_name != '':
+                    gpu_count = int(raw_accelerator_info.get('guestAcceleratorCount', -1))
+                    gpu_info = {'Name': gpu_name, 'Count': [gpu_count]}
+                    instance_content['GpuInfo'] = [gpu_info]
+            processed_instance_descriptions[instance.get('name')] = instance_content
+
+        # for Dataproc, some instance types can attach customized GPU devices
+        # Ref: https://cloud.google.com/compute/docs/gpus#n1-gpus
+        for instance_name, instance_info in processed_instance_descriptions.items():
+            if instance_name.startswith('n1-standard'):
+                if 'GpuInfo' not in instance_info:
+                    instance_info['GpuInfo'] = []
+                # N1 + T4 GPUs
+                if 1 <= instance_info['VCpuCount'] <= 48:
+                    t4_gpu_info = {'Name': 'T4', 'Count': [1, 2, 4]}
+                else:  # 48 < VCpuCount <= 96
+                    t4_gpu_info = {'Name': 'T4', 'Count': [4]}
+                instance_info['GpuInfo'].append(t4_gpu_info)
+                # N1 + P4 GPUs
+                if 1 <= instance_info['VCpuCount'] <= 24:
+                    p4_gpu_info = {'Name': 'P4', 'Count': [1, 2, 4]}
+                elif 24 < instance_info['VCpuCount'] <= 48:
+                    p4_gpu_info = {'Name': 'P4', 'Count': [2, 4]}
+                else:  # 48 < VCpuCount <= 96
+                    p4_gpu_info = {'Name': 'P4', 'Count': [4]}
+                instance_info['GpuInfo'].append(p4_gpu_info)
+                # N1 + V100 GPUs
+                if 1 <= instance_info['VCpuCount'] <= 12:
+                    v100_gpu_info = {'Name': 'V100', 'Count': [1, 2, 4, 8]}
+                elif 12 < instance_info['VCpuCount'] <= 24:
+                    v100_gpu_info = {'Name': 'V100', 'Count': [2, 4, 8]}
+                elif 24 < instance_info['VCpuCount'] <= 48:
+                    v100_gpu_info = {'Name': 'V100', 'Count': [4, 8]}
+                else:  # 48 < VCpuCount <= 96
+                    v100_gpu_info = {'Name': 'V100', 'Count': [8]}
+                instance_info['GpuInfo'].append(v100_gpu_info)
+                # N1 + P100 GPUs
+                if 1 <= instance_info['VCpuCount'] <= 16:
+                    p100_gpu_info = {'Name': 'P100', 'Count': [1, 2, 4]}
+                elif 16 < instance_info['VCpuCount'] <= 32:
+                    p100_gpu_info = {'Name': 'P100', 'Count': [2, 4]}
+                else:  # 32 < VCpuCount <= 96
+                    p100_gpu_info = {'Name': 'P100', 'Count': [4]}
+                instance_info['GpuInfo'].append(p100_gpu_info)
+        return processed_instance_descriptions
+
+    def get_instance_description_cli_params(self) -> list:
+        return ['gcloud compute machine-types list', '--zones', f'{self.get_zone()}']
+
 
 @dataclass
 class DataprocNode(ClusterNode):
@@ -337,7 +404,11 @@ class DataprocNode(ClusterNode):
                 parsing_res.setdefault('gpu_mem', gpu_device.get_gpu_mem()[0])
             return parsing_res
 
-        accelerator_arr = self.props.get_value_silent('accelerators')
+        try:
+            accelerator_arr = self.props.get_value_silent('accelerators')
+        except Exception:  # pylint: disable=broad-except
+            accelerator_arr = None
+
         if not accelerator_arr:
             return None
 
@@ -535,11 +606,12 @@ class DataprocCluster(ClusterBase):
         """
         cluster_config = super().get_cluster_configuration()
         gpu_per_machine, gpu_device = self.get_gpu_per_worker()
+        # Need to handle case this was CPU event log and just make a recommendation
+        gpu_device_hash = {
+            'T4': 'nvidia-tesla-t4',
+            'L4': 'nvidia-l4'
+        }
         if gpu_device and gpu_per_machine > 0:
-            gpu_device_hash = {
-                'T4': 'nvidia-tesla-t4',
-                'L4': 'nvidia-l4'
-            }
             additional_config = {
                 'gpuInfo': {
                     'device': gpu_device_hash.get(gpu_device),
@@ -550,6 +622,24 @@ class DataprocCluster(ClusterBase):
                 }
             }
             cluster_config.update(additional_config)
+        elif gpu_per_machine == 0:
+            # TODO - we should make this smarter about gpuPerWorker
+            # recommended device should match the scala code for Dataproc platform
+            recommended_device = 'nvidia-tesla-t4'
+            if gpu_device:
+                recommended_device = gpu_device_hash.get(gpu_device)
+
+            additional_config = {
+                'gpuInfo': {
+                    'device': recommended_device,
+                    'gpuPerWorker': 1
+                },
+                'additionalConfig': {
+                    'localSsd': 2
+                }
+            }
+            cluster_config.update(additional_config)
+
         return cluster_config
 
     def _generate_node_configuration(self, render_args: dict = None) -> Union[str, dict]:

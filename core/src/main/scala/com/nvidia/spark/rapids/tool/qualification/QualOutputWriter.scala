@@ -462,10 +462,15 @@ object QualOutputWriter {
   val DRIVER_HOST = "Driver Host"
   val CLUSTER_ID_STR = "Cluster Id" // Different from ClusterId used for Databricks Tags
   val CLUSTER_NAME = "Cluster Name"
+  val RECOMMENDED_NUM_GPUS = "Recommended Num GPUs Per Node"
   val NUM_EXECS_PER_NODE = "Num Executors Per Node"
+  val RECOMMENDED_NUM_EXECS = "Recommended Num Executors"
   val NUM_EXEC_NODES = "Num Executor Nodes"
+  val RECOMMENDED_NUM_EXEC_NODES = "Recommended Num Executor Nodes"
   val CORES_PER_EXEC = "Cores Per Executor"
+  val RECOMMENDED_CORES_PER_EXEC = "Recommended Cores Per Executor"
   val EXEC_INSTANCE = "Executor Instance"
+  val RECOMMENDED_EXEC_INSTANCE = "Recommended Executor Instance"
   val DRIVER_INSTANCE = "Driver Instance"
   // Default frequency for jobs with a single instance is 30 times every month (30 days)
   val DEFAULT_JOB_FREQUENCY = 30L
@@ -819,7 +824,9 @@ object QualOutputWriter {
   private def getClusterInfoHeaderStrings: mutable.LinkedHashMap[String, Int] = {
     val headersAndFields = Seq(
       APP_ID_STR, APP_NAME_STR, VENDOR, DRIVER_HOST, CLUSTER_ID_STR, CLUSTER_NAME,
-      EXEC_INSTANCE, DRIVER_INSTANCE, NUM_EXEC_NODES, NUM_EXECS_PER_NODE, CORES_PER_EXEC).map {
+      EXEC_INSTANCE, DRIVER_INSTANCE, NUM_EXEC_NODES, NUM_EXECS_PER_NODE, CORES_PER_EXEC,
+      RECOMMENDED_EXEC_INSTANCE, RECOMMENDED_NUM_EXECS, RECOMMENDED_NUM_EXEC_NODES,
+      RECOMMENDED_CORES_PER_EXEC, RECOMMENDED_NUM_GPUS).map {
       key => (key, key.length)
     }
     mutable.LinkedHashMap(headersAndFields: _*)
@@ -833,6 +840,7 @@ object QualOutputWriter {
       reformatCSV: Boolean = true): Seq[String] = {
     val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
     val clusterInfo = sumInfo.clusterSummary.clusterInfo
+    val recClusterInfo = sumInfo.clusterSummary.recommendedClusterInfo
 
     // Wrapper function around reformatCSVFunc() to handle optional fields and
     // reduce redundancy
@@ -850,7 +858,17 @@ object QualOutputWriter {
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverInstance), DRIVER_INSTANCE),
       refactorCSVFuncWithOption(clusterInfo.map(_.numExecutorNodes.toString), NUM_EXEC_NODES),
       refactorCSVFuncWithOption(clusterInfo.map(_.numExecsPerNode.toString), NUM_EXECS_PER_NODE),
-      refactorCSVFuncWithOption(clusterInfo.map(_.coresPerExecutor.toString), CORES_PER_EXEC)
+      refactorCSVFuncWithOption(clusterInfo.map(_.coresPerExecutor.toString), CORES_PER_EXEC),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.executorInstance.toString),
+        RECOMMENDED_EXEC_INSTANCE),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.numExecutors.toString),
+        RECOMMENDED_NUM_EXECS),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.numExecutorNodes.toString),
+        RECOMMENDED_NUM_EXEC_NODES),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.coresPerExecutor.toString),
+        RECOMMENDED_CORES_PER_EXEC),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.numGpus.toString), RECOMMENDED_NUM_GPUS)
+
     )
     constructOutputRow(data, delimiter, prettyPrint) :: Nil
   }

@@ -60,8 +60,15 @@ class Prediction(QualXTool):
         """
         try:
             output_info = self.__prepare_prediction_output_info()
-            df = predict(platform=self.platform_type.map_to_java_arg(), qual=self.qual_output,
-                         output_info=output_info)
+            estimation_model_args = self.wrapper_options.get('estimationModelArgs')
+            if estimation_model_args is not None and estimation_model_args:
+                custom_model_file = estimation_model_args['customModelFile']
+            else:
+                custom_model_file = None
+            df = predict(platform=self.platform_type.map_to_java_arg(),
+                         qual=self.qual_output,
+                         output_info=output_info,
+                         model=custom_model_file)
             if not df.empty:
                 print_summary(df)
                 print_speedup_summary(df)

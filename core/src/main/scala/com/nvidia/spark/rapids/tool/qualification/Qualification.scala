@@ -16,12 +16,11 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
+import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 
 import scala.collection.JavaConverters._
 
-import com.nvidia.spark.rapids.ThreadFactoryBuilder
-import com.nvidia.spark.rapids.tool.EventLogInfo
+import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, ToolBase}
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import com.nvidia.spark.rapids.tool.tuning.TunerContext
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
@@ -38,24 +37,14 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     printStdout: Boolean, uiEnabled: Boolean, enablePB: Boolean,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean,
     penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
-    clusterReport: Boolean) extends RuntimeReporter {
+    clusterReport: Boolean) extends ToolBase(timeout) {
 
+  override val simpleName: String = "qualTool"
+  override val outputDir = s"$outputPath/rapids_4_spark_qualification_output"
   private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
 
-  // default is 24 hours
-  private val waitTimeInSec = timeout.getOrElse(60 * 60 * 24L)
+  override def getNumThreads: Int = nThreads
 
-  private val threadFactory = new ThreadFactoryBuilder()
-    .setDaemon(true).setNameFormat("qualTool" + "-%d").build()
-  logInfo(s"Threadpool size is $nThreads")
-  private val threadPool = Executors.newFixedThreadPool(nThreads, threadFactory)
-    .asInstanceOf[ThreadPoolExecutor]
-
-  private var progressBar: Option[ConsoleProgressBar] = None
-  // Store application status reports indexed by event log path.
-  private val appStatusReporter = new ConcurrentHashMap[String, AppResult]
-
-  override val outputDir = s"$outputPath/rapids_4_spark_qualification_output"
   private class QualifyThread(path: EventLogInfo) extends Runnable {
     def run: Unit = qualifyApp(path, hadoopConf)
   }
@@ -148,6 +137,13 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       hadoopConf: Configuration): Unit = {
     val pathStr = path.eventLog.toString
     try {
+      // Early handling of failed event logs
+      path match {
+        case failedEventLog: FailedEventLog =>
+          handleFailedEventLogs(failedEventLog)
+          return
+        case _ => // No action needed for other cases
+      }
       val startTime = System.currentTimeMillis()
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
         reportSqlLevel, mlOpsEnabled, penalizeTransitions)
@@ -178,7 +174,12 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
             tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo)
           }
           if (qualSumInfo.isDefined) {
-            allApps.add(qualSumInfo.get)
+            // add the recommend cluster info into the summary
+            val tempSummary = qualSumInfo.get
+            val newClusterSummary = tempSummary.clusterSummary.copy(
+              recommendedClusterInfo = pluginTypeChecker.platform.recommendedClusterInfo)
+            val newQualSummary = tempSummary.copy(clusterSummary = newClusterSummary)
+            allApps.add(newQualSummary)
             progressBar.foreach(_.reportSuccessfulProcess())
             val endTime = System.currentTimeMillis()
             SuccessAppResult(pathStr, app.appId,
