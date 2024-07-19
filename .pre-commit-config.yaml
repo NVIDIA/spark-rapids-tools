@@ -21,8 +21,6 @@ repos:
         language: script
         pass_filenames: true
         verbose: true
-  - repo: local
-    hooks:
       - id: auto-copyrighter
         name: Update copyright year
         entry: scripts/auto-copyrighter.sh
