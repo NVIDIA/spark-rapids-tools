@@ -131,9 +131,22 @@ local:
           heuristics:
             name: 'heuristics_info.csv'
             outputComment: "Heuristics information"
-          clusterShapeRecommendation:
-            name: cluster_shape_recommendation.json
-            outputComment: "Cluster shape recommendation report"
+      summaryMetadata:
+        name: qualification_summary_metadata.json
+        outputComment: "Metadata for the summary report"
+        columns:
+          - 'App ID'
+          - 'App Name'
+          - 'Recommended Cluster'
+          - 'Estimated GPU Speedup Category'
+          - 'Full Cluster Config Recommendations*'
+          - 'GPU Config Recommendation Breakdown*'
+      configRecommendations:
+        name: 'rapids_4_spark_qualification_output/tuning'
+        outputComment: "Config Recommendations"
+        columns:
+          - 'Full Cluster Config Recommendations*'
+          - 'GPU Config Recommendation Breakdown*'
     costColumns:
       - 'Savings Based Recommendation'
       - 'Estimated App Cost'

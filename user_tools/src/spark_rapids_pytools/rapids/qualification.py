@@ -13,7 +13,6 @@
 # limitations under the License.
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
-
 import json
 from dataclasses import dataclass, field
 from math import ceil
@@ -31,6 +30,7 @@ from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, QualEstimationModel
+from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
 from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.speedup_category import SpeedupCategory
@@ -127,41 +127,7 @@ class QualificationSummary:
                     if FSUtil.resource_exists(abs_path):  # check if the file exists
                         report_content.append(f'    - {output_comment}: {abs_path}')
 
-            full_tunings_file = self.df_result['App ID'] + '.conf'
-            gpu_tunings_file = self.df_result['App ID'] + '.log'
-
-            # check to see if the tuning are actually there, assume if one tuning file is there,
-            # the other will be as well.
-            tunings_abs_path = FSUtil.get_abs_path(self.auto_tuning_path)
-            if FSUtil.resource_exists(tunings_abs_path):  # check if the file exists
-                for index, file in gpu_tunings_file.items():
-                    full_tunings_path = self.auto_tuning_path + '/' + file
-                    abs_path = FSUtil.get_abs_path(full_tunings_path)
-                    if not FSUtil.resource_exists(abs_path):  # check if the file exists
-                        gpu_tunings_file.at[index] = "Doesn't exist, see log"
-                        full_tunings_file.at[index] = "Doesn't exist, see log"
-            else:
-                full_tunings_file = "Doesn't exist, see the stdout for errors"
-                gpu_tunings_file = "Doesn't exist, see the stdout for errors"
-
-            # 'all' is a special indication that all the applications need to use this same node
-            # recommendation vs the recommendations being per application
-            if 'all' in self.conversion_items:
-                print_result = self.df_result
-                print_result['Qualified Node Recommendation'] = self.conversion_items['all']
-            elif not self.conversion_items:
-                print_result = self.df_result
-                print_result['Qualified Node Recommendation'] = 'Not Available'
-            else:
-                # add the per app node conversions
-                conversion_column_dict = {'App ID': list(self.conversion_items.keys()),
-                                          'Qualified Node Recommendation': list(self.conversion_items.values())}
-                conversion_df = pd.DataFrame.from_dict(conversion_column_dict)
-                print_result = pd.merge(self.df_result, conversion_df, on=['App ID'], how='left')
-
-            print_result['Full Cluster Config Recommendations*'] = full_tunings_file
-            print_result['GPU Config Recommendation Breakdown*'] = gpu_tunings_file
-            pretty_df = df_pprinter(print_result)
+            pretty_df = df_pprinter(self.df_result)
             self.filter_apps_count = len(pretty_df)
             if pretty_df.empty:
                 # the results were reduced to no rows because of the filters
@@ -176,10 +142,9 @@ class QualificationSummary:
             report_content.append(f'{app_name} tool found no records to show.')
 
         if self.filter_apps_count > 0:
-            report_content.append(f'* Config Recommendations can be found in {self.auto_tuning_path}')
-            report_content.append('** Estimated GPU Speedup Category assumes the user is using the node type '
-                                  'recommended and config recommendations with the same size cluster as was used '
-                                  'with the CPU side.')
+            self.comments.append('\'Estimated GPU Speedup Category\' assumes the user is using the node type '
+                                 'recommended and config recommendations with the same size cluster as was used '
+                                 'with the CPU side.')
 
         report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
         report_content.append(tabulate(self.__generate_report_summary(), colalign=('left', 'right')))
@@ -277,7 +242,6 @@ class Qualification(RapidsJarTool):
         self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster_obj)
 
         _process_gpu_cluster_worker_node()
-        self.__generate_cluster_recommendation_report()
         if cpu_cluster and cpu_cluster.is_inferred:
             # If the CPU cluster is inferred, we skip the auto-tuner as it is called after the Qualification tool.
             return gpu_cluster_obj is not None
@@ -589,7 +553,7 @@ class Qualification(RapidsJarTool):
 
         return subset_data
 
-    def __generate_mc_types_conversion_report(self):
+    def __generate_mc_types_conversion_report(self):  # pylint: disable=unused-private-member
         report_content = []
         if bool(self.ctxt.platform.ctxt['notes']):
             # get the converted instance types
@@ -784,58 +748,15 @@ class Qualification(RapidsJarTool):
             self.logger.error('Error computing cost savings. Reason - %s: %s. Skipping!', type(e).__name__, e)
         return app_df_set
 
-    def __generate_cluster_recommendation_report(self):
-        """
-        Generate the cluster shape recommendation as:
-        {
-            "clusterName": "1234-5678-test",
-            "sourceCluster": {"driverInstance": "m6gd.xlarge", "executorInstance": "m6gd.2xlarge", "numExecutors": 2 },
-            "targetCluster": {"driverInstance": "m6gd.xlarge", "executorInstance": "g5.2xlarge", "numExecutors": 2 }
-        }
-        """
-        cpu_cluster = self.ctxt.get_ctxt('cpuClusterProxy')
-        gpu_cluster = self.ctxt.get_ctxt('gpuClusterProxy')
-        if cpu_cluster is None or gpu_cluster is None:
-            self.logger.warning('Cannot generate the cluster recommendation report because the cluster information is '
-                                'not available.')
-        else:
-            try:
-                cpu_cluster_info = cpu_cluster.get_cluster_configuration()
-                gpu_cluster_info = gpu_cluster.get_cluster_configuration()
-                cluster_shape_recommendation = [{
-                    'clusterName': cpu_cluster.get_name(),
-                    'sourceCluster': cpu_cluster_info,
-                    'targetCluster': gpu_cluster_info
-                }]
-                self.ctxt.set_ctxt('clusterShapeRecommendation', cluster_shape_recommendation)
-            except Exception as e:  # pylint: disable=broad-except
-                self.logger.error('Error generating the cluster recommendation report. '
-                                  'Reason - %s:%s', type(e).__name__, e)
-
-    def __write_cluster_recommendation_report(self, output_file: str):
-        """
-        Write the cluster shape recommendation as a JSON file.
-        """
-        cluster_recommendation = self.ctxt.get_ctxt('clusterShapeRecommendation')
-        if cluster_recommendation and output_file:
-            try:
-                with open(output_file, 'w', encoding='UTF-8') as f:
-                    json.dump(cluster_recommendation, f, indent=2)
-            except Exception as e:  # pylint: disable=broad-except
-                self.logger.error('Error writing the cluster recommendation report to %s. '
-                                  'Reason - %s:%s', output_file, type(e).__name__, e)
-
     def __build_global_report_summary(self,
                                       all_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
                                       output_files_raw: dict) -> QualificationSummary:
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
-            return QualificationSummary(comments=self.__generate_mc_types_conversion_report())
+            return QualificationSummary()
 
         output_files_info = JSONPropertiesContainer(output_files_raw, file_load=False)
-        self.__write_cluster_recommendation_report(output_files_info.get_value('intermediateOutput', 'files',
-                                                                               'clusterShapeRecommendation', 'path'))
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
                                                                               'unsupportedOperators'))
         # Calculate unsupported operators stage duration before grouping
@@ -897,50 +818,19 @@ class Qualification(RapidsJarTool):
                 self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
                 apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
         filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
-
-        conversion_items_summary = {}
-        cpu_cluster_info = self.ctxt.get_ctxt('cpuClusterProxy')
-        gpu_cluster_info = self.ctxt.get_ctxt('gpuClusterProxy')
-        if cpu_cluster_info:
-            if cpu_cluster_info is not None and gpu_cluster_info is not None:
-                cpu_instance_type = cpu_cluster_info.get_worker_node().instance_type
-                gpu_instance_type = gpu_cluster_info.get_worker_node().instance_type
-                if cpu_instance_type == gpu_instance_type:
-                    conversion_items_summary['all'] = cpu_instance_type
-                else:
-                    conversion_items_summary['all'] = cpu_instance_type + ' to ' + gpu_instance_type
-            else:
-                conversion_items_summary['all'] = cpu_cluster_info.get_worker_node().instance_type
-
-        gpu_cluster_info_per_app = self.ctxt.get_ctxt('gpuClusterInfoPerApp')
-        cpu_cluster_info_per_app = self.ctxt.get_ctxt('cpuClusterInfoPerApp')
-        if cpu_cluster_info_per_app is not None:
-            for app_id in cpu_cluster_info_per_app:
-                cpu_cluster_info = cpu_cluster_info_per_app[app_id]
-                gpu_cluster_info = gpu_cluster_info_per_app[app_id]
-                if cpu_cluster_info is not None and gpu_cluster_info is not None:
-                    cpu_instance_type = cpu_cluster_info.get_worker_node().instance_type
-                    gpu_instance_type = gpu_cluster_info.get_worker_node().instance_type
-                    if cpu_instance_type == gpu_instance_type:
-                        conversion_items_summary[app_id] = cpu_instance_type
-                    else:
-                        conversion_items_summary[app_id] = cpu_instance_type + ' to '\
-                                                           + gpu_instance_type
-
-        rapids_output_dir = self.ctxt.get_rapids_output_folder()
-        tunings_dir = FSUtil.build_path(rapids_output_dir,
-                                        self.ctxt.get_value('toolOutput', 'csv', 'tunings', 'subFolder'))
-
+        # Add columns for cluster configuration recommendations and tuning configurations to the processed_apps.
+        recommender = ClusterConfigRecommender(self.ctxt)
+        df_final_result = recommender.add_cluster_and_tuning_recommendations(df_final_result)
+        # Write the summary metadata
+        self._write_summary_metadata(df_final_result, output_files_info.get_value('summaryMetadata'),
+                                     output_files_info.get_value('configRecommendations'))
         return QualificationSummary(comments=report_comments,
                                     all_apps=apps_grouped_df,
                                     recommended_apps=recommended_apps,
                                     savings_report_flag=launch_savings_calc,
                                     df_result=df_final_result,
                                     irrelevant_speedups=speedups_irrelevant_flag,
-                                    sections_generators=[self.__generate_mc_types_conversion_report],
-                                    top_candidates_flag=filter_top_candidate_enabled,
-                                    conversion_items=conversion_items_summary,
-                                    auto_tuning_path=tunings_dir)
+                                    top_candidates_flag=filter_top_candidate_enabled)
 
     def _process_output(self):
         def process_df_for_stdout(raw_df):
@@ -1137,8 +1027,9 @@ class Qualification(RapidsJarTool):
             # TODO - test executor instance picked up if there
             # Infer the CPU cluster from the cluster information
             cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(single_cluster_df)
+            # Continue cluster inference for next app
             if cpu_cluster_obj is None:
-                return
+                continue
             cpu_cluster_dict[row['App ID']] = cpu_cluster_obj
             # Log the inferred cluster information and set the context
             self._log_inferred_cluster_info(cpu_cluster_obj)
@@ -1226,6 +1117,33 @@ class Qualification(RapidsJarTool):
         # We need to be careful about other columns that depend on remapped columns
         result_df['Estimated GPU Time Saved'] = result_df['App Duration'] - result_df['Estimated GPU Duration']
         return result_df.drop(columns=result_info['subsetColumns'])
+
+    def _write_summary_metadata(self, tools_processed_apps: pd.DataFrame,
+                                metadata_file_info: dict, config_recommendations_dir_info: dict) -> None:
+        """
+        Write the summary metadata to a JSON file.
+        :param tools_processed_apps: Processed applications from tools
+        :param metadata_file_info: Metadata file information
+        :param config_recommendations_dir_info: Configuration recommendations directory information
+        """
+        summary_metadata_df = tools_processed_apps[metadata_file_info.get('columns')].copy()
+        if not summary_metadata_df.empty:
+            try:
+                # 1. prepend parent dir to the config recommendations columns (only for the JSON file, not stdout)
+                parent_dir = config_recommendations_dir_info.get('path')
+                for col in config_recommendations_dir_info.get('columns'):
+                    if col in summary_metadata_df.columns:
+                        summary_metadata_df[col] = summary_metadata_df[col].apply(
+                            lambda conf_file: FSUtil.build_path(parent_dir, conf_file))
+
+                # 2. convert column names to camel case for JSON file writing
+                summary_metadata_df.rename(columns=Utilities.convert_to_camel_case, inplace=True)
+                summary_metadata_dict = summary_metadata_df.to_dict(orient='records')
+                with open(metadata_file_info.get('path'), 'w', encoding='UTF-8') as f:
+                    json.dump(summary_metadata_dict, f, indent=2)
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.error('Error writing the summary metadata report. Reason - %s:%s',
+                                  type(e).__name__, e)
 
 
 @dataclass
