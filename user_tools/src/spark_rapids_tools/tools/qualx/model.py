@@ -20,9 +20,8 @@ import random
 import shap
 import xgboost as xgb
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
-from spark_rapids_tools.tools.qualx.util import get_logger, INTERMEDIATE_DATA_ENABLED
-from tabulate import tabulate
-from xgboost import Booster, XGBModel
+from spark_rapids_tools.tools.qualx.util import get_logger
+from xgboost import Booster
 # Import optional packages
 try:
     import optuna
@@ -62,7 +61,7 @@ def train(
     label_col: str,
     n_trials: int = 200,
     base_model: Optional[Booster] = None,
-) -> XGBModel:
+) -> Booster:
     """Train model on preprocessed data."""
     if 'split' not in cpu_aug_tbl.columns:
         raise ValueError(
@@ -149,7 +148,6 @@ def predict(
     cpu_aug_tbl: pd.DataFrame,
     feature_cols: List[str],
     label_col: str,
-    output_info: Optional[dict] = None,
 ) -> pd.DataFrame:
     """Use model to predict on feature data."""
     model_features = xgb_model.feature_names
@@ -166,11 +164,6 @@ def predict(
 
     dmat = xgb.DMatrix(X)
     y_pred = xgb_model.predict(dmat)
-
-    # compute SHAPley values for the model
-    if output_info:
-        shap_values_output_file = output_info['shapValues']['path']
-        compute_shapley_values(xgb_model, X, feature_cols, shap_values_output_file)
 
     if LOG_LABEL:
         y_pred = np.exp(y_pred)
@@ -326,43 +319,6 @@ def extract_model_features(
     return cpu_aug_tbl, feature_cols, label_col
 
 
-def compute_feature_importance(xgb_model, features, feature_cols, output_dir):
-    pd.set_option('display.max_rows', None)
-
-    # feature importance
-    print('XGBoost feature importance:')
-    feature_importance = xgb_model.get_score(importance_type='gain')
-    importance_df = (
-        pd.DataFrame(feature_importance, index=[0]).transpose().reset_index()
-    )
-    importance_df.columns = ['feature', 'importance']
-    importance_df = importance_df.sort_values(
-        'importance', ascending=False
-    ).reset_index(drop=True)
-    importance_df.to_csv(f'{output_dir}/feature_importance.csv')
-    print(tabulate(importance_df, headers='keys', tablefmt='psql', floatfmt='.2f'))
-
-    # shapley values for train/test data
-    explainer = shap.TreeExplainer(xgb_model)
-    for split in ['train', 'test']:
-        features_split = features[feature_cols].loc[features['split'] == split]
-        if features_split.empty:
-            continue
-
-        shap_values = explainer.shap_values(features_split)
-        shap_vals = np.abs(shap_values).mean(axis=0)
-        shap_df = pd.DataFrame(
-            list(zip(feature_cols, shap_vals)), columns=['feature', 'shap_value']
-        )
-        shap_df = shap_df.sort_values(by=['shap_value'], ascending=False).reset_index(
-            drop=True
-        )
-        shap_df.to_csv(f'{output_dir}/shap_{split}.csv')
-
-        print(f'Shapley values ({split}):')
-        print(tabulate(shap_df, headers='keys', tablefmt='psql', floatfmt='.2f'))
-
-
 def split_random(
     cpu_aug_tbl: pd.DataFrame, seed: int = 0, val_pct: float = 0.2
 ) -> pd.DataFrame:
@@ -452,23 +408,30 @@ def tune_hyperparameters(X, y, n_trials: int = 200) -> dict:
     return optuna_search.best_params_
 
 
-def compute_shapley_values(
-        xgb_model: xgb.Booster,
-        x_dim: pd.DataFrame,
-        feature_cols: List[str],
-        output_file: str):
+def compute_shapley_values(xgb_model: xgb.Booster, features: pd.DataFrame):
     """
-    Compute SHAPley values for the model.
+    Compute Shapley values for the model given an input dataframe.
+
+    Returns two dataframes representing:
+    - feature importances
+    - raw shapley values (per row of input dataframe)
     """
     pd.set_option('display.max_rows', None)
     explainer = shap.TreeExplainer(xgb_model)
-    shap_values = explainer.shap_values(x_dim)
+    feature_cols = xgb_model.feature_names
+    shap_values = explainer.shap_values(features[feature_cols])
+
+    # raw shap values per row (w/ expected value of model)
+    shap_values_df = pd.DataFrame(shap_values, columns=feature_cols)
+    shap_values_df['expected_value'] = explainer.expected_value
+
+    # feature importance
     shap_vals = np.abs(shap_values).mean(axis=0)
-    feature_importance = pd.DataFrame(
+    feature_importance_df = pd.DataFrame(
         list(zip(feature_cols, shap_vals)), columns=['feature', 'shap_value']
     )
-    feature_importance.sort_values(by=['shap_value'], ascending=False, inplace=True)
-    logger.info('Writing SHAPley values to: %s', output_file)
-    feature_importance.to_csv(output_file, index=False)
-    if INTERMEDIATE_DATA_ENABLED:
-        logger.info('Feature importance (SHAPley values)\n %s', feature_importance)
+    feature_importance_df = feature_importance_df.sort_values(
+        by=['shap_value'], ascending=False
+    ).reset_index(drop=True)
+
+    return feature_importance_df, shap_values_df

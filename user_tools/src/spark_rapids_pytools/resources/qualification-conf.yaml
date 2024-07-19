@@ -305,12 +305,16 @@ local:
     predictionModel:
       outputDirectory: 'xgboost_predictions'
       files:
+        features:
+          name: 'features.csv'
         perSql:
           name: 'per_sql.csv'
         perApp:
           name: 'per_app.csv'
         shapValues:
           name: 'shap_values.csv'
+        featureImportance:
+          name: 'feature_importance.csv'
       updateResult:
         subsetColumns:
           - 'appId'
