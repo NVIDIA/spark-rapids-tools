@@ -70,6 +70,15 @@ object RuntimeReportGenerator extends Logging {
     // Add the Spark version used in runtime.
     // Note that it is different from the Spark version used in the build.
     buildProps.setProperty("runtime.spark.version", ToolUtils.sparkRuntimeVersion)
+    if (!ToolUtils.sparkRapidsRuntimeVersion.isEmpty) {
+      buildProps.setProperty("runtime.sparkRapids.version", ToolUtils.sparkRapidsRuntimeVersion.get)
+    }
+    if (!ToolUtils.jniRuntimeVersion.isEmpty) {
+      buildProps.setProperty("runtime.sparkRapidsJNI.version", ToolUtils.jniRuntimeVersion.get)
+    }
+    if (!ToolUtils.cudfRuntimeVersion.isEmpty) {
+      buildProps.setProperty("runtime.sparkRapidsCUDF.version", ToolUtils.cudfRuntimeVersion.get)
+    }
     val reportWriter = new ToolTextFileWriter(outputDir, REPORT_FILE_NAME, REPORT_LABEL, hadoopConf)
     try {
       reportWriter.writeProperties(buildProps, REPORT_LABEL)

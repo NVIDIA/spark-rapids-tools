@@ -23,11 +23,13 @@ import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.profiling.TaskStageAccumCase
+import org.json4s._
 import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart
+import org.apache.spark.sql.rapids.tool.ToolUtils
 
 /**
  * Utility containing the implementation of helpers used for parsing data from event.
@@ -254,9 +256,9 @@ object EventUtils extends Logging {
                 case z: ClassNotFoundException if z.getMessage != null =>
                   // Avoid reporting missing classes more than once to reduce the noise in the logs
                   reportMissingEventClass(z.getMessage)
-                  if (z.getMessage.contains("SparkRapidsBuildInfoEvent")) {
-                    logWarning(s"event: ${z.getMessage}")
-                    logWarning(line)
+                  // Handle SparkRapidsBuildInfoEvent to get spark-rapids related runtime versions
+                  if (z.getMessage == "com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent") {
+                    processSparkRapidsBuildInfo(line)
                   }
                 case t: Throwable =>
                   // We do not want to swallow unknown exceptions so that we can handle later
@@ -280,8 +282,14 @@ object EventUtils extends Logging {
     }
   }
 
-  private def extractSparkRapidsBuildInfo(event: String) {
+  private def processSparkRapidsBuildInfo(event: String) {
+    implicit val formats: Formats = DefaultFormats
     val jsonMap = parse(event).extract[Map[String, Any]]
     val sparkRapidsInfo = jsonMap("sparkRapidsBuildInfo").asInstanceOf[Map[String, String]]
+    ToolUtils.sparkRapidsRuntimeVersion = Some(sparkRapidsInfo("version"))
+    val jniInfo = jsonMap("sparkRapidsJniBuildInfo").asInstanceOf[Map[String, String]]
+    ToolUtils.jniRuntimeVersion = Some(jniInfo("version"))
+    val cudfInfo = jsonMap("cudfBuildInfo").asInstanceOf[Map[String, String]]
+    ToolUtils.cudfRuntimeVersion = Some(cudfInfo("version"))
   }
 }
