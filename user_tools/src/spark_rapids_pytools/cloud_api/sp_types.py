@@ -293,7 +293,7 @@ class CMDDriverBase:
     timeout: int = 0
     env_vars: dict = field(default_factory=dict, init=False)
     logger: Logger = None
-    # To deprecate
+    # TODO: to be deprecated
     instance_descriptions_cache: dict = field(default_factory=dict, init=False)
     instance_descriptions: JSONPropertiesContainer = field(default=None, init=False)
 
@@ -508,6 +508,7 @@ class CMDDriverBase:
         del args  # Unused by super method.
         return ''
 
+    # TODO: to be deprecated
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         del node  # Unused by super method.
         return []
@@ -519,7 +520,7 @@ class CMDDriverBase:
         """
         return (node.instance_type,)
 
-    # To deprecate
+    # TODO: to be deprecated
     def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
         """
         Given a node, execute platform CLI to pull the properties of the instance type running on
@@ -530,7 +531,7 @@ class CMDDriverBase:
         cmd_params = self._build_platform_describe_node_instance(node=node)
         return self.run_sys_cmd(cmd_params)
 
-    # To deprecate
+    # TODO: to be deprecated
     def exec_platform_describe_node_instance(self, node: ClusterNode):
         """
         Returns the instance type description of the cluster node. If the description

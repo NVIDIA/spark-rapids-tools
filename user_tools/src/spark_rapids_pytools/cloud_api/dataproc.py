@@ -184,6 +184,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                     incorrect_envs.append(f'Property {prop_entry} is not set.')
         return incorrect_envs
 
+    # TODO: to be deprecated
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['gcloud',
                       'compute',

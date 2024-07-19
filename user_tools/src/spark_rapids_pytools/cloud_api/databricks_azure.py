@@ -198,6 +198,7 @@ class DBAzureCMDDriver(CMDDriverBase):
     def get_instance_description_cli_params(self):
         return ['az vm list-skus', '--location', f'{self.get_region()}']
 
+    # TODO: to be deprecated
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         pass
 

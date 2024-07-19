@@ -169,6 +169,7 @@ class DBAWSCMDDriver(CMDDriverBase):
                        dest]
         return Utils.gen_joined_str(' ', prefix_args)
 
+    # TODO: to be deprecated
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',
                       '--region', f'{self.get_region()}',
@@ -181,7 +182,7 @@ class DBAWSCMDDriver(CMDDriverBase):
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
-    # To deprecate
+    # TODO: to be deprecated
     def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
         raw_instance_descriptions = super()._exec_platform_describe_node_instance(node)
         instance_descriptions = JSONPropertiesContainer(raw_instance_descriptions, file_load=False)
@@ -190,6 +191,7 @@ class DBAWSCMDDriver(CMDDriverBase):
 
     def init_instance_descriptions(self) -> None:
         instance_description_file_path = Utils.resource_path('emr-instance-catalog.json')
+        self.logger.info(f'Loading instance descriptiond from cached file: {instance_description_file_path}')
         self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
 

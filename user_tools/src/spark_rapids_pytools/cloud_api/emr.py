@@ -199,6 +199,7 @@ class EMRCMDDriver(CMDDriverBase):
                        dest]
         return Utils.gen_joined_str(' ', prefix_args)
 
+    # TODO: to be deprecated
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',
                       '--region', f'{self.get_region()}',
@@ -242,7 +243,7 @@ class EMRCMDDriver(CMDDriverBase):
         describe_cmd = f'aws emr describe-cluster --cluster-id {cluster_id}'
         return self.run_sys_cmd(describe_cmd)
 
-    # To deprecate
+    # TODO: to be deprecated
     def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
         raw_instance_descriptions = super()._exec_platform_describe_node_instance(node)
         instance_descriptions = JSONPropertiesContainer(raw_instance_descriptions, file_load=False)
@@ -272,6 +273,7 @@ class EMRCMDDriver(CMDDriverBase):
     def init_instance_descriptions(self) -> None:
         platform = CspEnv.pretty_print(self.cloud_ctxt['platformType'])
         instance_description_file_path = Utils.resource_path(f'{platform}-instance-catalog.json')
+        self.logger.info(f'Loading instance descriptiond from cached file: {instance_description_file_path}')
         self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
 
@@ -356,7 +358,6 @@ class EMRCluster(ClusterBase):
             _, new_props = self.props.props.popitem()
             self.props.props = new_props
 
-    # To deprecate
     def __create_ec2_list_by_group(self, group_arg):
         if isinstance(group_arg, InstanceGroup):
             group_obj = group_arg
