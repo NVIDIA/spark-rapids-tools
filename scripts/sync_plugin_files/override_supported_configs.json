@@ -252,6 +252,28 @@
           "value": "`bloom_filter_agg`"
         }
       ]
+    },
+    {
+      "Expression": "HiveHash",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "SQL Func",
+          "value": "`hive-hash`"
+        }
+      ]
+    },
+    {
+      "Expression": "HiveHash",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "SQL Func",
+          "value": "`hive-hash`"
+        }
+      ]
     }
   ]
 }

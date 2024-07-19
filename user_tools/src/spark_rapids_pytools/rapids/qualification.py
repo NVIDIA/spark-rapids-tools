@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
+
 import json
 from dataclasses import dataclass, field
 from math import ceil
@@ -143,11 +144,14 @@ class QualificationSummary:
                 full_tunings_file = "Doesn't exist, see the stdout for errors"
                 gpu_tunings_file = "Doesn't exist, see the stdout for errors"
 
-            # 'all' is a special indication that all the applications need to use this same nod
+            # 'all' is a special indication that all the applications need to use this same node
             # recommendation vs the recommendations being per application
             if 'all' in self.conversion_items:
                 print_result = self.df_result
                 print_result['Qualified Node Recommendation'] = self.conversion_items['all']
+            elif not self.conversion_items:
+                print_result = self.df_result
+                print_result['Qualified Node Recommendation'] = 'Not Available'
             else:
                 # add the per app node conversions
                 conversion_column_dict = {'App ID': list(self.conversion_items.keys()),
@@ -247,11 +251,12 @@ class Qualification(RapidsJarTool):
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
         def _process_gpu_cluster_worker_node():
             try:
-                worker_node = gpu_cluster_obj.get_worker_node()
-                worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
-                worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
+                if gpu_cluster_obj:
+                    worker_node = gpu_cluster_obj.get_worker_node()
+                    worker_node._pull_and_set_mc_props(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                    sys_info = worker_node._pull_sys_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                    gpu_info = worker_node._pull_gpu_hw_info(cli=self.ctxt.platform.cli)  # pylint: disable=protected-access
+                    worker_node.hw_info = NodeHWInfo(sys_info=sys_info, gpu_info=gpu_info)
 
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.warning(
@@ -321,7 +326,7 @@ class Qualification(RapidsJarTool):
 
         return gpu_cluster_info_dict
 
-    # process single GPU cluster specified by the user
+    # process a single cluster specified by the user
     def _process_offline_cluster_args(self):
         # read the wrapper option defined by the spark_rapids cmd if any.
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
@@ -332,6 +337,10 @@ class Qualification(RapidsJarTool):
                 # if no cpu-cluster is defined, then we are not supposed to run cost calculations
                 enable_savings_flag = False
 
+        # Previously lots of things were tied to the cost savings flag and only ran when that was
+        # enabled. Here we want to keep backwards compatibility but we also still want to run
+        # the auto tuner if cost savings aren't enabled. To run the auto tuner we need to try to
+        # infer the GPU cluster all the time.
         gpu_cluster_enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
         if enable_savings_flag:
             if self.ctxt.get_ctxt('cpuClusterProxy') is not None:
@@ -397,21 +406,11 @@ class Qualification(RapidsJarTool):
 
     def _process_estimation_model_args(self):
         # set the estimation model
-        estimation_model_str = self.wrapper_options.get('estimationModel')
-        if estimation_model_str is not None:
-            selected_estimation_model = QualEstimationModel.fromstring(estimation_model_str)
-            if selected_estimation_model is None:
-                selected_estimation_model = QualEstimationModel.get_default()
-                available_models = [qual_model.value for qual_model in QualEstimationModel]
-                self.logger.warning(
-                    'Invalid argument estimation_model=%s.\n\t'
-                    'Accepted options are: [%s].\n\t'
-                    'Falling-back to default estimation model: %s',
-                    estimation_model_str, Utils.gen_joined_str(' | ', available_models),
-                    selected_estimation_model.value)
-        else:
-            selected_estimation_model = QualEstimationModel.get_default()
-        self.ctxt.set_ctxt('estimationModel', selected_estimation_model)
+        estimation_model_args = self.wrapper_options.get('estimationModelArgs')
+        if estimation_model_args is None or not estimation_model_args:
+            selected_model = QualEstimationModel.get_default()
+            estimation_model_args = QualEstimationModel.create_default_model_args(selected_model)
+        self.ctxt.set_ctxt('estimationModelArgs', estimation_model_args)
 
     def _process_external_pricing_args(self):
         cpu_cluster_price = self.wrapper_options.get('cpuClusterPrice')
@@ -799,18 +798,19 @@ class Qualification(RapidsJarTool):
         if cpu_cluster is None or gpu_cluster is None:
             self.logger.warning('Cannot generate the cluster recommendation report because the cluster information is '
                                 'not available.')
-        try:
-            cpu_cluster_info = cpu_cluster.get_cluster_configuration()
-            gpu_cluster_info = gpu_cluster.get_cluster_configuration()
-            cluster_shape_recommendation = [{
-                'clusterName': cpu_cluster.get_name(),
-                'sourceCluster': cpu_cluster_info,
-                'targetCluster': gpu_cluster_info
-            }]
-            self.ctxt.set_ctxt('clusterShapeRecommendation', cluster_shape_recommendation)
-        except Exception as e:  # pylint: disable=broad-except
-            self.logger.error('Error generating the cluster recommendation report. '
-                              'Reason - %s:%s', type(e).__name__, e)
+        else:
+            try:
+                cpu_cluster_info = cpu_cluster.get_cluster_configuration()
+                gpu_cluster_info = gpu_cluster.get_cluster_configuration()
+                cluster_shape_recommendation = [{
+                    'clusterName': cpu_cluster.get_name(),
+                    'sourceCluster': cpu_cluster_info,
+                    'targetCluster': gpu_cluster_info
+                }]
+                self.ctxt.set_ctxt('clusterShapeRecommendation', cluster_shape_recommendation)
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.error('Error generating the cluster recommendation report. '
+                                  'Reason - %s:%s', type(e).__name__, e)
 
     def __write_cluster_recommendation_report(self, output_file: str):
         """
@@ -899,15 +899,16 @@ class Qualification(RapidsJarTool):
         filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
 
         conversion_items_summary = {}
-        if self.ctxt.get_ctxt('cpuClusterProxy'):
-            cpu_cluster_info = self.ctxt.get_ctxt('cpuClusterProxy')
-            gpu_cluster_info = self.ctxt.get_ctxt('gpuClusterProxy')
+        cpu_cluster_info = self.ctxt.get_ctxt('cpuClusterProxy')
+        gpu_cluster_info = self.ctxt.get_ctxt('gpuClusterProxy')
+        if cpu_cluster_info:
             if cpu_cluster_info is not None and gpu_cluster_info is not None:
-                if cpu_cluster_info.get_worker_node().instance_type == gpu_cluster_info.get_worker_node().instance_type:
-                    conversion_items_summary['all'] = cpu_cluster_info.get_worker_node().instance_type
+                cpu_instance_type = cpu_cluster_info.get_worker_node().instance_type
+                gpu_instance_type = gpu_cluster_info.get_worker_node().instance_type
+                if cpu_instance_type == gpu_instance_type:
+                    conversion_items_summary['all'] = cpu_instance_type
                 else:
-                    conversion_items_summary['all'] = cpu_cluster_info.get_worker_node().instance_type + ' to ' \
-                                                       + gpu_cluster_info.get_worker_node().instance_type
+                    conversion_items_summary['all'] = cpu_instance_type + ' to ' + gpu_instance_type
             else:
                 conversion_items_summary['all'] = cpu_cluster_info.get_worker_node().instance_type
 
@@ -965,6 +966,10 @@ class Qualification(RapidsJarTool):
                 top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
                 filtered_apps = top_candidates_obj.filter_apps(raw_df)
                 result_df = top_candidates_obj.prepare_output(filtered_apps)
+                # this is a bit weird since hardcoding but we don't want this to have ** for csv output
+                if 'Estimated GPU Speedup Category' in result_df:
+                    result_df.rename(columns={'Estimated GPU Speedup Category': 'Estimated GPU Speedup Category**'},
+                                     inplace=True)
                 # squeeze the header titles if enabled
                 return Utilities.squeeze_df_header(result_df, header_width) if squeeze_header_enabled else result_df
 
@@ -1017,9 +1022,10 @@ class Qualification(RapidsJarTool):
         self.ctxt.logger.debug('Rapids CSV summary file is located as: %s', rapids_summary_file)
         df = pd.read_csv(rapids_summary_file)
         # 1. Operations related to XGboost modelling
-        if self.ctxt.get_ctxt('estimationModel') == QualEstimationModel.XGBOOST:
+        if self.ctxt.get_ctxt('estimationModelArgs')['xgboostEnabled']:
             try:
-                df = self.__update_apps_with_prediction_info(df)
+                df = self.__update_apps_with_prediction_info(df,
+                                                             self.ctxt.get_ctxt('estimationModelArgs'))
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.error('Unable to use XGBoost estimation model for speed ups. '
                                   'Falling-back to default model. Reason - %s:%s', type(e).__name__, e)
@@ -1096,7 +1102,7 @@ class Qualification(RapidsJarTool):
         """
         # we actually want to use the inferred version over what user passed if possible
         if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
-            self.logger.info('Inferred Cluster but cpu node already set %s', self.ctxt.get_ctxt('cpuClusterProxy'))
+            self.logger.info('Inferred Cluster but cpu node was already set')
             return
 
         # Infer the CPU cluster from the cluster information
@@ -1106,7 +1112,6 @@ class Qualification(RapidsJarTool):
 
         # Log the inferred cluster information and set the context
         self._log_inferred_cluster_info(cpu_cluster_obj)
-        self.logger.info('Inferred Cluster cpu node %s', cpu_cluster_obj)
         self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
 
         # Process gpu cluster arguments and update savings calculations flag
@@ -1122,8 +1127,7 @@ class Qualification(RapidsJarTool):
         # if the user passed in the cpu cluster property, use that but we still want to try to infer the gpu
         # cluster to use
         if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
-            self.logger.info('auto tuning Inferred Cluster but cpu node already set %s gpu cluster is %s',
-                             self.ctxt.get_ctxt('cpuClusterProxy'), self.ctxt.get_ctxt('gpuClusterProxy'))
+            self.logger.info('auto tuning inferred Cluster but cpu node was already set')
             return
         cpu_cluster_dict = {}
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
@@ -1185,7 +1189,9 @@ class Qualification(RapidsJarTool):
             entry['path'] = path
         return files_info
 
-    def __update_apps_with_prediction_info(self, all_apps: pd.DataFrame) -> pd.DataFrame:
+    def __update_apps_with_prediction_info(self,
+                                           all_apps: pd.DataFrame,
+                                           estimation_model_args: dict) -> pd.DataFrame:
         """
         Executes the prediction model, merges prediction data into the apps df, and applies transformations
         based on the prediction model's output and specified mappings.
@@ -1195,7 +1201,8 @@ class Qualification(RapidsJarTool):
         qual_output_dir = self.ctxt.get_local('outputFolder')
         output_info = self.__build_prediction_output_files_info()
         predictions_df = predict(platform=model_name, qual=qual_output_dir,
-                                 output_info=output_info)
+                                 output_info=output_info,
+                                 model=estimation_model_args['customModelFile'])
 
         if predictions_df.empty:
             return all_apps

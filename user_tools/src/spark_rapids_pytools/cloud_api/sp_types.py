@@ -605,6 +605,39 @@ class CMDDriverBase:
                                              submit_args: dict) -> List[str]:
         raise NotImplementedError
 
+    def _process_instance_description(self, instance_descriptions: str) -> dict:
+        raise NotImplementedError
+
+    def get_instance_description_cli_params(self) -> List[str]:
+        raise NotImplementedError
+
+    def generate_instance_description(self, fpath: str) -> None:
+        """
+        Generates CSP instance type descriptions and store them in a json file.
+        Json file entry example ('GpuInfo' is optional):
+          {
+            "instance_name": {
+              "VCpuCount": 000,
+              "MemoryInMB": 000,
+              "GpuInfo": [
+                {
+                  "Name": gpu_name,
+                  "Count": [
+                    000
+                  ]
+                }
+              ]
+            }
+          }
+        :param fpath: the output json file path.
+        :return:
+        """
+        cmd_params = self.get_instance_description_cli_params()
+        raw_instance_descriptions = self.run_sys_cmd(cmd_params)
+        json_instance_descriptions = self._process_instance_description(raw_instance_descriptions)
+        with open(fpath, 'w', encoding='UTF-8') as output_file:
+            json.dump(json_instance_descriptions, output_file, indent=2)
+
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.cmd_driver')
 
