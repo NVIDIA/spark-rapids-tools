@@ -732,12 +732,14 @@ class AutoTuner(
   def recommendKyroSerializerSetting(): Unit = {
       getPropertyValue("spark.serializer") match {
         case Some(f) if f.contains("org.apache.spark.serializer.KryoSerializer") =>
-          if (getPropertyValue("spark.kryo.registrator").isDefined) {
-            // what do we want to do?
+          val registratorToUse = if (getPropertyValue("spark.kryo.registrator").isDefined) {
+            // need to append our GpuKryoRegistrator to existing ones
+            val existingRegistrars = getPropertyValue("spark.kryo.registrator")
+            "com.nvidia.spark.rapids.GpuKryoRegistrator" + "," + existingRegistrars.get
           } else {
-            appendRecommendation("spark.kryo.registrator",
-              "com.nvidia.spark.rapids.GpuKryoRegistrator")
+            "com.nvidia.spark.rapids.GpuKryoRegistrator"
           }
+          appendRecommendation("spark.kryo.registrator", registratorToUse)
         case None =>
           // do nothing
       }
