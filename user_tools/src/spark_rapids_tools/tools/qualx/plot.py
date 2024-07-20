@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import reduce
+import shap
 import numpy as np
 import pandas as pd
-import shap
 import xgboost as xgb
-from functools import reduce
 # Import optional packages
 try:
     import holoviews as hv
@@ -164,10 +164,9 @@ def plot_shap(model, features, feature_cols, label_col):
     # Initialize
     shap_global_imp_combo_attr = shap_global_imp[remaining_cols].copy()
 
-    for kk in combine_feature_dict.keys():
-        shap_global_imp_combo_attr[kk] = shap_global_imp[combine_feature_dict[kk]].sum()
+    for k, v in combine_feature_dict.items():
+        shap_global_imp_combo_attr[k] = shap_global_imp[v].sum()
 
     shap_global_imp_combo_attr = shap_global_imp_combo_attr.sort_values(ascending=True)
 
     shap_global_imp_combo_attr.plot.barh()
-    shap_global_imp_combo_attr

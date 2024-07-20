@@ -13,14 +13,10 @@
 # limitations under the License.
 
 from typing import Callable, List, Optional
-import fire
 import glob
 import json
-import numpy as np
 import os
-import pandas as pd
 import traceback
-import xgboost as xgb
 from pathlib import Path
 from spark_rapids_tools import CspPath
 from spark_rapids_tools.tools.qualx.preprocess import (
@@ -55,6 +51,11 @@ from spark_rapids_tools.tools.qualx.util import (
 from spark_rapids_pytools.common.utilities import Utils
 from tabulate import tabulate
 from xgboost.core import XGBoostError, Booster
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+import fire
+
 
 logger = get_logger(__name__)
 
@@ -104,7 +105,7 @@ def _get_model(platform: str,
     :return: xgb.Booster loading the model file.
     """
     model_path = _get_model_path(platform, model)
-    logger.info(f'Loading model from: {model_path}')
+    logger.info('Loading model from: %s', model_path)
     xgb_model = xgb.Booster()
     xgb_model.load_model(model_path)
     return xgb_model
@@ -116,7 +117,7 @@ def _get_qual_data(qual: Optional[str]):
 
     # load qual tool execs
     qual_list = find_paths(
-        qual, lambda x: RegexPattern.rapidsQualtool.match(x), return_directories=True
+        qual, RegexPattern.rapidsQualtool.match, return_directories=True
     )
     # load metrics directory from all qualification paths.
     # metrics follow the pattern 'qual_2024xx/rapids_4_spark_qualification_output/raw_metrics'
@@ -226,7 +227,7 @@ def _predict(
             if any(input_df['fraction_supported'] != 1.0)
             else 'raw'
         )
-        logger.info(f'Predicting dataset ({filter_str}): {dataset}')
+        logger.info('Predicting dataset (%s): %s', filter_str, dataset)
         features, feature_cols, label_col = extract_model_features(input_df, [split_fn])
         # note: dataset name is already stored in the 'appName' field
         try:
@@ -281,7 +282,7 @@ def _read_dataset_scores(
             nan_df['model'] + '/' + nan_df['platform'] + '/' + nan_df['dataset']
         )
         keys = list(nan_df['key'].unique())
-        logger.warning(f'Dropped rows w/ NaN values from: {eval_dir}: {keys}')
+        logger.warning('Dropped rows w/ NaN values from: %s: %s', eval_dir, keys)
 
     return df
 
@@ -331,7 +332,7 @@ def _read_platform_scores(
             nan_df['model'] + '/' + nan_df['platform'] + '/' + nan_df['dataset']
         )
         keys = list(nan_df['key'].unique())
-        logger.warning(f'Dropped rows w/ NaN values from: {eval_dir}: {keys}')
+        logger.warning('Dropped rows w/ NaN values from: %s: %s', eval_dir, keys)
 
     # compute accuracy by platform
     scores = {}
@@ -374,7 +375,6 @@ def models():
     ]
     for model in sorted(available_models):
         print(model)
-    return
 
 
 def preprocess(dataset: str):
@@ -395,11 +395,10 @@ def preprocess(dataset: str):
     for platform in platforms:
         preprocessed_data = f'{cache_dir}/{platform}/{PREPROCESSED_FILE}'
         if os.path.exists(preprocessed_data):
-            logger.info(f'Invalidating cached profile_df: {preprocessed_data}')
+            logger.info('Invalidating cached profile_df: %s', preprocessed_data)
             os.remove(preprocessed_data)
 
     load_datasets(dataset, ignore_test=False)
-    return
 
 
 def train(
@@ -427,19 +426,19 @@ def train(
     datasets, profile_df = load_datasets(dataset)
     dataset_list = sorted(list(datasets.keys()))
     profile_datasets = sorted(list(profile_df['appName'].unique()))
-    logger.info(f'Training on: {dataset_list}')
+    logger.info('Training on: %s', dataset_list)
 
     # sanity check
     if set(dataset_list) != set(profile_datasets):
         logger.warning(
-            f'Training data contained datasets: {profile_datasets}, expected: {dataset_list}.'
+            'Training data contained datasets: %s, expected: %s', profile_datasets, dataset_list
         )
 
     split_functions = [split_nds]
     for ds_name, ds_meta in datasets.items():
         if 'split_function' in ds_meta:
             plugin_path = ds_meta['split_function']
-            logger.info(f'Using split function for {ds_name} dataset from plugin: {plugin_path}')
+            logger.info('Using split function for %s dataset from plugin: %s', ds_name, plugin_path)
             plugin = load_plugin(plugin_path)
             split_functions.append(plugin.split_function)
 
@@ -448,12 +447,12 @@ def train(
     xgb_base_model = None
     if base_model:
         if os.path.exists(base_model):
-            logger.info(f'Fine-tuning on base model from: {base_model}')
+            logger.info('Fine-tuning on base model from: %s', base_model)
             xgb_base_model = xgb.Booster()
             xgb_base_model.load_model(base_model)
             base_model_cfg = Path(base_model).with_suffix('.cfg')
             if os.path.exists(base_model_cfg):
-                with open(base_model_cfg, 'r') as f:
+                with open(base_model_cfg, 'r', encoding='utf-8') as f:
                     cfg = f.read()
                 xgb_base_model.load_config(cfg)
             else:
@@ -465,11 +464,11 @@ def train(
 
     # save model and params
     ensure_directory(model, parent=True)
-    logger.info(f'Saving model to: {model}')
+    logger.info('Saving model to: %s', model)
     xgb_model.save_model(model)
     cfg = xgb_model.save_config()
     base_model_cfg = Path(model).with_suffix('.cfg')
-    with open(base_model_cfg, 'w') as f:
+    with open(base_model_cfg, 'w', encoding='utf-8') as f:
         f.write(cfg)
 
     ensure_directory(output_dir)
@@ -493,8 +492,6 @@ def train(
 
         print(f'Shapley feature importance and statistics ({split}):')
         print(tabulate(feature_importance, headers='keys', tablefmt='psql', floatfmt='.2f'))
-
-    return
 
 
 def predict(
@@ -531,7 +528,7 @@ def predict(
             # search sub directories for App IDs
             app_ids = [p.name for p in Path(metrics_dir).iterdir() if p.is_dir()]
             if len(app_ids) == 0:
-                logger.warning(f'Skipping empty metrics directory: {metrics_dir}')
+                logger.warning('Skipping empty metrics directory: %s', metrics_dir)
             else:
                 try:
                     for app_id in app_ids:
@@ -541,7 +538,7 @@ def predict(
                         )
                         # update the dataset_name for each App ID
                         default_preds_df.loc[default_preds_df['appId'] == app_id, 'dataset_name'] = dataset_name
-                    logger.info(f'Loading dataset {dataset_name}')
+                    logger.info('Loading dataset: %s', dataset_name)
                     metrics_df = load_profiles(
                         datasets=datasets,
                         node_level_supp=node_level_supp,
@@ -551,7 +548,7 @@ def predict(
                     processed_dfs[dataset_name] = metrics_df
                 except ScanTblError:
                     # ignore
-                    logger.error(f'Skipping invalid dataset: {dataset_name}')
+                    logger.error('Skipping invalid dataset: %s', dataset_name)
     else:
         logger.warning('Qualification tool metrics are missing. Speedup predictions will be skipped.')
         return pd.DataFrame()
@@ -577,7 +574,7 @@ def predict(
                 and any(input_df['fraction_supported'] != 1.0)
                 else 'raw'
             )
-            logger.info(f'Predicting dataset ({filter_str}): {dataset}')
+            logger.info('Predicting dataset (%s): %s', filter_str, dataset)
             features, feature_cols, label_col = extract_model_features(input_df)
 
             # save features for troubleshooting
@@ -598,7 +595,7 @@ def predict(
                     feature_importance.to_csv(output_file)
 
                     output_file = output_info['shapValues']['path']
-                    logger.info('Writing shapley values to: {output_file}')
+                    logger.info('Writing shapley values to: %s', output_file)
                     shapley_values.to_csv(output_file, index=False)
 
                 # compute per-app speedups
@@ -622,7 +619,7 @@ def predict(
                 logger.error(e)
                 traceback.print_exc(e)
         else:
-            logger.warning(f'Predicted speedup will be 1.0 for dataset: {dataset}. Check logs for details.')
+            logger.warning('Predicted speedup will be 1.0 for dataset: %s. Check logs for details.', dataset)
         # TODO: Writing CSV reports for all datasets to the same location. We should write to separate directories.
         write_csv_reports(per_sql_summary, per_app_summary, output_info)
         dataset_summaries.append(per_app_summary)
@@ -636,7 +633,7 @@ def predict(
     return pd.DataFrame()
 
 
-def __predict_cli(
+def _predict_cli(
     platform: str,
     output_dir: str,
     *,
@@ -679,7 +676,7 @@ def __predict_cli(
 
     if eventlogs:
         # --eventlogs takes priority over --qual_output
-        if not any([f.startswith('qual_') for f in os.listdir(output_dir)]):
+        if not any(f.startswith('qual_') for f in os.listdir(output_dir)):
             # run qual tool if no existing qual output found
             run_qualification_tool(platform, eventlogs, output_dir)
         qual = output_dir
@@ -736,7 +733,7 @@ def evaluate(
         based on qualtool output.  A sqlID or stage is fully supported if all execs are respectively
         fully supported.
     """
-    with open(dataset, 'r') as f:
+    with open(dataset, 'r', encoding='utf-8') as f:
         datasets = json.load(f)
         for ds_name in datasets.keys():
             datasets[ds_name]['platform'] = platform
@@ -767,7 +764,7 @@ def evaluate(
         if 'split_function' in ds_meta:
             # get split_function from plugin
             plugin_path = ds_meta['split_function']
-            logger.info(f'Using split function for {ds_name} dataset from plugin: {plugin_path}')
+            logger.info('Using split function for %s dataset from plugin: %s', ds_name, plugin_path)
             plugin = load_plugin(plugin_path)
             split_fn = plugin.split_function
 
@@ -831,7 +828,7 @@ def evaluate(
 
     if not raw_app.loc[raw_app.gpu_appDuration.isna()].empty:
         logger.error(
-            f'missing gpu apps: {raw_app.loc[raw_app.gpu_appDuration.isna()].to_markdown()}'
+            'missing gpu apps: %s', raw_app.loc[raw_app.gpu_appDuration.isna()].to_markdown()
         )
         raw_app = raw_app.loc[~raw_app.gpu_appDuration.isna()]
 
@@ -971,18 +968,16 @@ def evaluate(
 
     # write results as CSV
     sql_predictions_path = os.path.join(output_dir, f'{dataset_name}_sql.csv')
-    logger.info(f'Writing per-SQL predictions to: {sql_predictions_path}')
+    logger.info('Writing per-SQL predictions to: %s', sql_predictions_path)
     results_sql.to_csv(sql_predictions_path, index=False, na_rep='nan')
 
     app_predictions_path = os.path.join(output_dir, f'{dataset_name}_app.csv')
-    logger.info(f'Writing per-application predictions to: {app_predictions_path}')
+    logger.info('Writing per-application predictions to: %s', app_predictions_path)
     results_app.to_csv(app_predictions_path, index=False, na_rep='nan')
-
-    return
 
 
 def evaluate_summary(
-    evaluate: str,
+    evaluate: str,  # pylint: disable=W0621
     *,
     score: str = 'dMAPE',
     split: str = 'test',
@@ -1001,10 +996,8 @@ def evaluate_summary(
     summary_df, _ = _read_platform_scores(evaluate, score, split)
     print(tabulate(summary_df, headers='keys', tablefmt='psql', floatfmt='.4f'))
     summary_path = f'{evaluate}/summary.csv'
-    logger.info(f'Writing per-platform {score} scores for \'{split}\' split to: {summary_path}')
+    logger.info('Writing per-platform %s scores for \'%s\' split to: %s', score, split, summary_path)
     summary_df.to_csv(summary_path)
-
-    return
 
 
 def compare(
@@ -1048,7 +1041,7 @@ def compare(
         )
     print(tabulate(compare_df, headers='keys', tablefmt='psql', floatfmt='.4f'))
     comparison_path = f'{current}/comparison_dataset.csv'
-    logger.info(f'Writing dataset evaluation comparison to: {comparison_path}')
+    logger.info('Writing dataset evaluation comparison to: %s', comparison_path)
     compare_df.to_csv(comparison_path)
 
     # compare app MAPE scores per platform
@@ -1072,15 +1065,13 @@ def compare(
         )
     print(tabulate(compare_df, headers='keys', tablefmt='psql', floatfmt='.4f'))
     comparison_path = f'{current}/comparison_platform.csv'
-    logger.info(f'Writing platform evaluation comparison to: {comparison_path}')
+    logger.info('Writing platform evaluation comparison to: %s', comparison_path)
     compare_df.to_csv(comparison_path)
 
     # warn user of any new datasets
     added = curr_datasets - prev_datasets
     if added:
-        logger.warning(f'New datasets added, comparisons may be skewed: added={added}')
-
-    return
+        logger.warning('New datasets added, comparisons may be skewed: added=%s', added)
 
 
 def shap(platform: str, prediction_output: str, index: int, model: Optional[str] = None):
@@ -1214,8 +1205,6 @@ def shap(platform: str, prediction_output: str, index: int, model: Optional[str]
     print(f'Shap prediction: {prediction:.4f}')
     print(f'exp(prediction): {np.exp(prediction):.4f}')
 
-    return
-
 
 def entrypoint():
     """
@@ -1225,7 +1214,7 @@ def entrypoint():
         'models': models,
         'preprocess': preprocess,
         'train': train,
-        'predict': __predict_cli,
+        'predict': _predict_cli,
         'evaluate': evaluate,
         'evaluate_summary': evaluate_summary,
         'compare': compare,
