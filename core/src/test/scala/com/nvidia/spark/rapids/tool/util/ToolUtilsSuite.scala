@@ -17,11 +17,13 @@
 package com.nvidia.spark.rapids.tool.util
 
 import java.io.File
+import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
 import scala.concurrent.duration._
 import scala.io.Source
+import scala.util.Using
 import scala.xml.XML
 
 import com.nvidia.spark.rapids.tool.profiling.{ProfileOutputWriter, ProfileResult}
@@ -199,6 +201,17 @@ class ToolUtilsSuite extends FunSuite with Logging {
     result.value.get shouldBe (59 * 1000 + 200)
   }
 
+  /**
+   * Reads the content of a file as UTF-8 and closes the resources.
+   * @param filePath Path to the file
+   * @return Content of the file as a string
+   */
+  private def readFileContentAsUtf8(filePath: String): String = {
+    Using.resource(Source.fromFile(filePath)(StandardCharsets.UTF_8)) {
+      source => source.getLines().mkString("\n")
+    }
+  }
+
   test("output non-english characters") {
     val nonEnglishString = "你好"
     TrampolineUtil.withTempDir { tempDir =>
@@ -231,8 +244,9 @@ class ToolUtilsSuite extends FunSuite with Logging {
            |+-------+--------+---------------+---------+
            ||appID-0|1       |你好           |1,2,3    |
            |+-------+--------+---------------+---------+""".stripMargin
-      val actualCSVContent: String = Source.fromFile(csvFilePath).getLines.mkString("\n")
-      val actualTXTContent: String = Source.fromFile(textFilePath).getLines.mkString("\n")
+      // Reading the content with UTF-8 encoding and ensuring resources are closed
+      val actualCSVContent = readFileContentAsUtf8(csvFilePath)
+      val actualTXTContent = readFileContentAsUtf8(textFilePath)
       actualCSVContent should equal (expectedCSVFileContent)
       actualTXTContent should equal (expectedTXTContent)
     }
