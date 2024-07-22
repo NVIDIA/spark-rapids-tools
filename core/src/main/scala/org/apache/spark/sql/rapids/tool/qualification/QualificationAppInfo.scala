@@ -749,7 +749,7 @@ class QualificationAppInfo(
   }
 
   private def checkMLOps(appId: Option[String], stageModel: StageModel): Option[MLFunctions] = {
-    val stageInfoDetails = stageModel.sInfo.details
+    val stageInfoDetails = stageModel.getStageDetails
     val mlOps = if (stageInfoDetails.contains(MlOps.sparkml) ||
       stageInfoDetails.contains(MlOps.xgBoost)) {
 
@@ -783,8 +783,8 @@ class QualificationAppInfo(
     }
 
     if (mlOps.nonEmpty) {
-      Some(MLFunctions(appId, stageModel.sId, mlOps,
-        stageModel.getDuration))
+      Some(MLFunctions(appId, stageModel.getStageId, mlOps,
+        stageModel.getStageDuration.getOrElse(0L)))
     } else {
       None
     }

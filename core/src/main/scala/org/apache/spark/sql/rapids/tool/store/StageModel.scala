@@ -28,14 +28,20 @@ import org.apache.spark.sql.rapids.tool.annotation.{Calculated, Since, WallClock
  * @param sInfo Snapshot from the stage info loaded from the eventlog
  */
 @Since("24.02.3")
-class StageModel private(var sInfo: StageInfo) {
+class StageModel private(sInfo: StageInfo) {
 
-  val sId: Int = sInfo.stageId
-  val attemptId: Int = sInfo.attemptNumber()
+  private val sId: Int = sInfo.stageId
+  private val sAttemptId: Int = sInfo.attemptNumber()
+  private val sName: String = sInfo.name
+  private var sNumTasks: Int = sInfo.numTasks
+  private var sDetails: String = sInfo.details
+  private var sSubmissionTime: Option[Long] = sInfo.submissionTime
+  private var sCompletionTime: Option[Long] = sInfo.completionTime
+  private var sFailureReason: Option[String] = sInfo.failureReason
 
   @WallClock
   @Calculated("Calculated as (submissionTime - completionTime)")
-  var duration: Option[Long] = None
+  private var duration: Option[Long] = None
 
   /**
    * Updates the snapshot of Spark's stageInfo to point to the new value and recalculate the
@@ -44,8 +50,11 @@ class StageModel private(var sInfo: StageInfo) {
    * @param newSInfo Spark's StageInfo loaded from StageSubmitted/StageCompleted events.
    */
   private def updateInfo(newSInfo: StageInfo): Unit = {
-    this.sInfo = newSInfo
-    // recalculate duration
+    sNumTasks = newSInfo.numTasks
+    sDetails = newSInfo.details
+    sSubmissionTime = newSInfo.submissionTime
+    sCompletionTime = newSInfo.completionTime
+    sFailureReason = newSInfo.failureReason
     calculateDuration()
   }
 
@@ -55,19 +64,43 @@ class StageModel private(var sInfo: StageInfo) {
    */
   private def calculateDuration(): Unit = {
     duration =
-      ProfileUtils.optionLongMinusOptionLong(sInfo.completionTime, sInfo.submissionTime)
+      ProfileUtils.optionLongMinusOptionLong(sCompletionTime,sSubmissionTime)
   }
 
   def hasFailed: Boolean = {
-    sInfo.failureReason.isDefined
+    sFailureReason.isDefined
   }
 
   def getFailureReason: String = {
-    sInfo.failureReason.getOrElse("")
+    sFailureReason.getOrElse("")
   }
 
-  def getSInfoAccumIds: Iterable[Long] = {
-    sInfo.accumulables.keySet
+  def getStageId: Int = {
+    sId
+  }
+
+  def getStageAttemptId: Int = {
+    sAttemptId
+  }
+
+  def getStageName: String = {
+    sName
+  }
+
+  def getStageNumTasks: Int = {
+    sNumTasks
+  }
+
+  def getStageDetails: String = {
+    sDetails
+  }
+
+  def getStageSubmissionTime: Option[Long] = {
+    sSubmissionTime
+  }
+
+  def getStageCompletionTime: Option[Long] = {
+    sCompletionTime
   }
 
   /**
@@ -77,8 +110,8 @@ class StageModel private(var sInfo: StageInfo) {
    */
   @Calculated
   @WallClock
-  def getDuration: Long = {
-    duration.getOrElse(0L)
+  def getStageDuration: Option[Long] = {
+    duration
   }
 }
 

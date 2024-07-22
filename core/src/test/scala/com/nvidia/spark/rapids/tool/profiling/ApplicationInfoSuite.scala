@@ -98,7 +98,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(firstApp.gpuMode.equals(true))
     assert(firstApp.jobIdToInfo.keys.toSeq.contains(1))
     val stageInfo = firstApp.stageManager.getStage(0, 0)
-    assert(stageInfo.isDefined && stageInfo.get.sInfo.numTasks.equals(1))
+    assert(stageInfo.isDefined && stageInfo.get.getStageNumTasks.equals(1))
     assert(firstApp.stageManager.getStage(2, 0).isDefined)
     assert(firstApp.taskManager.getTasks(firstApp.index, 0).head.successful.equals(true))
     assert(firstApp.taskManager.getTasks(firstApp.index, 0).head.endReason.equals("Success"))
@@ -161,7 +161,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(apps.head.jobIdToInfo.keys.toSeq.contains(0))
     val stage0 = apps.head.stageManager.getStage(0, 0)
     assert(stage0.isDefined)
-    assert(stage0.get.sInfo.numTasks.equals(1))
+    assert(stage0.get.getStageNumTasks.equals(1))
   }
 
   test("test no sql eventlog") {

@@ -77,17 +77,6 @@ class StageModelManager extends Logging {
     sModel
   }
 
-  // Internal method to update the accumulatorMap using the current stage model.
-  private def addAccumIdsToStage(stageModel: StageModel): Unit = {
-    val sInfoAccumIds = stageModel.getSInfoAccumIds
-    if (sInfoAccumIds.nonEmpty) {
-      sInfoAccumIds.foreach { accumId =>
-        val stageIds = accumIdToStageId.getOrElseUpdate(accumId, TreeSet[Int]())
-        accumIdToStageId.put(accumId, stageIds + stageModel.sId)
-      }
-    }
-  }
-
   // Used to retrieve a stage model and does not create a new instance if it does not exist.
   def getStage(stageId: Int, attemptId: Int): Option[StageModel] = {
     stageIdToInfo.get(stageId).flatMap(_.get(attemptId))
@@ -110,7 +99,7 @@ class StageModelManager extends Logging {
   @Calculated("Sum all the WallClockDuration for the given stageId")
   def getDurationById(stageId: Int): Long = {
     stageIdToInfo.get(stageId).map { attempts =>
-      attempts.values.map(_.getDuration).sum
+      attempts.values.map(_.getStageDuration.getOrElse(0L)).sum
     }.getOrElse(0L)
   }
 
@@ -129,8 +118,16 @@ class StageModelManager extends Logging {
    * @return existing or new instance of StageModel with (sInfo.stageId, sInfo.attemptID)
    */
   def addStageInfo(sInfo: StageInfo): StageModel = {
+    // Creating stageModel instance if it does not exist
     val stage = getOrCreateStage(sInfo)
-    addAccumIdsToStage(stage)
+    // Maintaining the mapping between AccumulatorID and Corresponding Stage IDs
+    val sInfoAccumIds = sInfo.accumulables.keySet
+      if (sInfoAccumIds.nonEmpty) {
+        sInfoAccumIds.foreach { accumId =>
+          val stageIds = accumIdToStageId.getOrElseUpdate(accumId, TreeSet[Int]())
+          accumIdToStageId.put(accumId, stageIds + sInfo.stageId)
+        }
+      }
     stage
   }
 
