@@ -16,6 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool.ui
 
+import java.nio.charset.StandardCharsets
 import java.nio.file
 import java.nio.file.{Files, FileSystems, Paths}
 
@@ -98,10 +99,8 @@ class QualificationReportGenerator(outputDir: String,
 
   private def writeAppRecord(appRec: QualificationSummaryInfo,
       outStream: FSDataOutputStream, sep: String =","): Unit = {
-    val sumRec =
-      s"""|\t${Serialization.write(appRec)}$sep
-       """.stripMargin
-    outStream.writeBytes(sumRec)
+    val sumRec = "\t" + Serialization.write(appRec) + sep
+    outStream.write(sumRec.getBytes(StandardCharsets.UTF_8))
   }
 
   def tryCopyAssetFile(srcFilePath: java.nio.file.Path, dstPath: Path) : Unit = {
