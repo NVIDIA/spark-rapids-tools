@@ -47,7 +47,7 @@ class StageModel private(sInfo: StageInfo) {
    * Updates the snapshot of Spark's stageInfo to point to the new value and recalculate the
    * duration. Typically, a new StageInfo object is created with both StageSubmitted/StageCompleted
    * events
-   * @param newSInfo Spark's StageInfo loaded from StageSubmitted/StageCompleted events.
+   * @param newStageInfo Spark's StageInfo loaded from StageSubmitted/StageCompleted events.
    */
   private def updateInfo(newStageInfo: StageInfo): Unit = {
     sNumTasks = newStageInfo.numTasks
