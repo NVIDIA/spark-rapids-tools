@@ -23,7 +23,6 @@ import java.util.Calendar
 
 import scala.concurrent.duration._
 import scala.io.Source
-import scala.util.Using
 import scala.xml.XML
 
 import com.nvidia.spark.rapids.tool.profiling.{ProfileOutputWriter, ProfileResult}
@@ -207,8 +206,11 @@ class ToolUtilsSuite extends FunSuite with Logging {
    * @return Content of the file as a string
    */
   private def readFileContentAsUtf8(filePath: String): String = {
-    Using.resource(Source.fromFile(filePath)(StandardCharsets.UTF_8)) {
-      source => source.getLines().mkString("\n")
+    val source = Source.fromFile(filePath)(StandardCharsets.UTF_8)
+    try {
+      source.getLines().mkString("\n")
+    } finally {
+      source.close()
     }
   }
 
