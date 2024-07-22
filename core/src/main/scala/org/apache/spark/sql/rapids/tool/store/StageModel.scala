@@ -49,12 +49,12 @@ class StageModel private(sInfo: StageInfo) {
    * events
    * @param newSInfo Spark's StageInfo loaded from StageSubmitted/StageCompleted events.
    */
-  private def updateInfo(newSInfo: StageInfo): Unit = {
-    sNumTasks = newSInfo.numTasks
-    sDetails = newSInfo.details
-    sSubmissionTime = newSInfo.submissionTime
-    sCompletionTime = newSInfo.completionTime
-    sFailureReason = newSInfo.failureReason
+  private def updateInfo(newStageInfo: StageInfo): Unit = {
+    sNumTasks = newStageInfo.numTasks
+    sDetails = newStageInfo.details
+    sSubmissionTime = newStageInfo.submissionTime
+    sCompletionTime = newStageInfo.completionTime
+    sFailureReason = newStageInfo.failureReason
     calculateDuration()
   }
 
