@@ -15,6 +15,12 @@
 repos:
   - repo: local
     hooks:
+      - id: header-check
+        name: Header check
+        entry: scripts/header-check.sh
+        language: script
+        pass_filenames: true
+        verbose: true
       - id: auto-copyrighter
         name: Update copyright year
         entry: scripts/auto-copyrighter.sh
@@ -27,4 +33,8 @@ repos:
       - id: check-added-large-files
         name: Check for file over 2.0MiB
         args: ['--maxkb=2000', '--enforce-all']
-
+      - id: trailing-whitespace
+        name: trim trailing white spaces preserving md files
+        args: ['--markdown-linebreak-ext=md']
+      - id: end-of-file-fixer
+        name: Ensure files end with a single newline
