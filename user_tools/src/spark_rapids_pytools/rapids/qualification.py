@@ -33,6 +33,7 @@ from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, QualEstimationModel
 from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
+from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
 from spark_rapids_tools.tools.speedup_category import SpeedupCategory
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
@@ -750,6 +751,23 @@ class Qualification(RapidsJarTool):
                                                                                'clusterShapeRecommendation', 'path'))
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
                                                                               'unsupportedOperators'))
+        rapids_output_dir = self.ctxt.get_rapids_output_folder()
+        unsupported_ops_file_path = FSUtil.build_path(rapids_output_dir,
+                                                      self.ctxt.get_value('toolOutput', 'csv',
+                                                                          'unsupportedOperatorsReport',
+                                                                          'fileName'))
+        stages_info_file = FSUtil.build_path(rapids_output_dir,
+                                             self.ctxt.get_value('toolOutput', 'csv',
+                                                                 'stagesInformation', 'fileName'))
+
+        # Generate the statistics report
+        stats_report = SparkQualificationStats(
+            unsupported_operators_file=unsupported_ops_file_path,
+            stages_file=stages_info_file,
+            output_file=output_files_info.get_value('statistics', 'path')
+        )
+        stats_report.report_qualification_stats()
+
         # Calculate unsupported operators stage duration before grouping
         all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
         apps_pruned_df = self.__remap_columns_and_prune(all_apps)
