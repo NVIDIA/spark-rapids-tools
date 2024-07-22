@@ -55,7 +55,8 @@ class DataprocGkePlatform(DataprocPlatform):
     def _construct_cli_object(self) -> CMDDriverBase:
         return DataprocGkeCMDDriver(timeout=0, cloud_ctxt=self.ctxt)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
         return DataprocGkeCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
     def migrate_cluster_to_gpu(self, orig_cluster):

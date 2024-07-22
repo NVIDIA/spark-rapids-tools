@@ -1,0 +1,3566 @@
+{
+  "r6a.metal": {
+    "VCpuCount": 192,
+    "MemoryInMB": 1572864
+  },
+  "r6a.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "c6id.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "trn1.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "inf2.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 786432
+  },
+  "r6in.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "r7a.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "r7iz.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "c6in.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "c5n.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 21504
+  },
+  "r8g.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "t2.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "r6i.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r7a.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "m5dn.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "c7a.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 2048
+  },
+  "r6in.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "x2gd.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 524288
+  },
+  "r3.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 15360
+  },
+  "m5zn.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "m7i.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "r6g.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "t4g.nano": {
+    "VCpuCount": 2,
+    "MemoryInMB": 512
+  },
+  "m6id.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "m5d.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "r6id.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "c7i.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "i3en.3xlarge": {
+    "VCpuCount": 12,
+    "MemoryInMB": 98304
+  },
+  "r8g.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "r8g.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "mac2-m2.metal": {
+    "VCpuCount": 8,
+    "MemoryInMB": 24576
+  },
+  "r7iz.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "x2iezn.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 524288
+  },
+  "m5d.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "r6gd.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "c7g.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "i3en.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "r6a.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "m7gd.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "c6i.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "m7gd.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "m7g.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "m4.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "c3.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 61440
+  },
+  "r8g.metal-24xl": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "r5a.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "c6in.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "m5n.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "g3.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 499712,
+    "GpuInfo": [
+      {
+        "Name": "M60",
+        "Count": [
+          4
+        ]
+      }
+    ]
+  },
+  "m5a.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "c7a.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "r5.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "c5d.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "m6gd.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "m7gd.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "c7gn.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "c5ad.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "c6gd.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "x1e.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 249856
+  },
+  "m5ad.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "r5n.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "r5a.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "m2.4xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 70041
+  },
+  "m7i.metal-24xl": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "im4gn.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "m6gd.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "is4gen.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 24576
+  },
+  "r6gd.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 8192
+  },
+  "c7gd.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 2048
+  },
+  "m6gd.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "r6g.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "c6gn.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "m6idn.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "d3en.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "m5a.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "m5.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "x1e.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 999424
+  },
+  "c7gn.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "x2iedn.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 262144
+  },
+  "r6idn.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "g5.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536,
+    "GpuInfo": [
+      {
+        "Name": "A10G",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "f1.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 124928
+  },
+  "i3en.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "c6a.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "t1.micro": {
+    "VCpuCount": 1,
+    "MemoryInMB": 627
+  },
+  "is4gen.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 98304
+  },
+  "c3.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 3840
+  },
+  "c6a.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "i4i.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "g6.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216,
+    "GpuInfo": [
+      {
+        "Name": "L4",
+        "Count": [
+          4
+        ]
+      }
+    ]
+  },
+  "m6id.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "m6a.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "r7a.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r5dn.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "c4.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 30720
+  },
+  "r6g.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 8192
+  },
+  "r7iz.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "x2gd.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 1048576
+  },
+  "c6i.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 262144
+  },
+  "g5.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768,
+    "GpuInfo": [
+      {
+        "Name": "A10G",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "im4gn.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "m5dn.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "z1d.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "r6in.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "i2.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 62464
+  },
+  "r5b.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "r5ad.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "r6gd.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r7iz.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r3.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 249856
+  },
+  "m6i.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "trn1.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "c6gn.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "r6idn.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r7a.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "r8g.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "m5a.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "c5.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "c7g.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "c7a.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "m5zn.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "c6i.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "r6id.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "c6in.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "m6a.metal": {
+    "VCpuCount": 192,
+    "MemoryInMB": 786432
+  },
+  "m6in.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "m6i.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "r7gd.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r4.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 499712
+  },
+  "d2.8xlarge": {
+    "VCpuCount": 36,
+    "MemoryInMB": 249856
+  },
+  "c7gn.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "m6in.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "c6i.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "r7iz.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "m6gd.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 4096
+  },
+  "r7g.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 8192
+  },
+  "m7i.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "m6id.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "r5a.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "m6idn.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "x2iedn.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 131072
+  },
+  "t3a.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "r8g.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 8192
+  },
+  "c4.8xlarge": {
+    "VCpuCount": 36,
+    "MemoryInMB": 61440
+  },
+  "r6id.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "c7g.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "r6id.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "c6id.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "x2idn.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 1572864
+  },
+  "m7a.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "m5ad.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "m5zn.6xlarge": {
+    "VCpuCount": 24,
+    "MemoryInMB": 98304
+  },
+  "c6i.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "m7i-flex.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "c6g.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "m5dn.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "m6id.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "r6idn.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "c5n.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 5376
+  },
+  "x1e.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 3997696
+  },
+  "m5.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "trn1n.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "i4g.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "c7i.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "x2iezn.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 1048576
+  },
+  "c7gn.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "r7a.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "m5ad.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "m5.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "i4i.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "r6idn.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "m6a.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "m7i.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "c6a.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 262144
+  },
+  "m7g.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "t3.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "x1.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 999424
+  },
+  "r7i.metal-48xl": {
+    "VCpuCount": 192,
+    "MemoryInMB": 1572864
+  },
+  "m6idn.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "i4g.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r6id.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "im4gn.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "a1.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 2048
+  },
+  "r6gd.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "d3en.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "r5ad.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "inf1.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "c7a.metal-48xl": {
+    "VCpuCount": 192,
+    "MemoryInMB": 393216
+  },
+  "inf2.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "m7i.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "r6g.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "c5d.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "m6g.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "r6idn.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "c5ad.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "r5ad.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "c6a.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 393216
+  },
+  "g4dn.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          8
+        ]
+      }
+    ]
+  },
+  "c5ad.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "r7gd.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "c5ad.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "m4.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "c1.xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 7168
+  },
+  "g4ad.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072,
+    "GpuInfo": [
+      {
+        "Name": "Radeon Pro V520",
+        "Count": [
+          2
+        ]
+      }
+    ]
+  },
+  "x2gd.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 262144
+  },
+  "m5ad.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "x2iedn.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 4194304
+  },
+  "c7a.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "r6g.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "t2.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "h1.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "m6i.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "r6a.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "g5g.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384,
+    "GpuInfo": [
+      {
+        "Name": "T4g",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "r5b.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "c6id.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "c5n.9xlarge": {
+    "VCpuCount": 36,
+    "MemoryInMB": 98304
+  },
+  "c6g.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "mac2.metal": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "c6g.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "m6in.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "m7a.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "g5.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216,
+    "GpuInfo": [
+      {
+        "Name": "A10G",
+        "Count": [
+          4
+        ]
+      }
+    ]
+  },
+  "m5d.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "c6i.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "c5a.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "m5d.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "r7a.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 8192
+  },
+  "c5.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "g3.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 249856,
+    "GpuInfo": [
+      {
+        "Name": "M60",
+        "Count": [
+          2
+        ]
+      }
+    ]
+  },
+  "t4g.medium": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "r5b.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "c7a.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "t3.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "m5dn.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "r7iz.metal-16xl": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "r7gd.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "g4dn.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          4
+        ]
+      }
+    ]
+  },
+  "p3.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 62464,
+    "GpuInfo": [
+      {
+        "Name": "V100",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "m5.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "r7g.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "c6gn.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "c5n.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 43008
+  },
+  "c7i.metal-24xl": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "i4i.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "d2.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 62464
+  },
+  "c6id.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "u7i-12tb.224xlarge": {
+    "VCpuCount": 896,
+    "MemoryInMB": 12582912
+  },
+  "r7i.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "r5a.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "r6gd.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "m7a.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "m5ad.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "t4g.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "r6i.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "i4g.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "c6gn.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "t3.medium": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "c6i.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "g6.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072,
+    "GpuInfo": [
+      {
+        "Name": "L4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "c6in.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "m6in.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "m6gd.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "c7gd.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "p2.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 499712,
+    "GpuInfo": [
+      {
+        "Name": "K80",
+        "Count": [
+          8
+        ]
+      }
+    ]
+  },
+  "r5a.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "r6in.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "r5.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "r7g.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "m5d.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "r6i.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "c5d.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "g6.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 786432,
+    "GpuInfo": [
+      {
+        "Name": "L4",
+        "Count": [
+          8
+        ]
+      }
+    ]
+  },
+  "c4.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 3840
+  },
+  "c5a.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "m7gd.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "m6g.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "t3a.small": {
+    "VCpuCount": 2,
+    "MemoryInMB": 2048
+  },
+  "m7g.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "i4i.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "z1d.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "c7a.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "a1.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "r5n.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "r6a.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "m5n.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "u-3tb1.56xlarge": {
+    "VCpuCount": 224,
+    "MemoryInMB": 3145728
+  },
+  "c5a.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "c5ad.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "m5.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "m2.2xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 35020
+  },
+  "g4ad.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536,
+    "GpuInfo": [
+      {
+        "Name": "Radeon Pro V520",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "inf2.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "m7g.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "m5dn.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "g4ad.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768,
+    "GpuInfo": [
+      {
+        "Name": "Radeon Pro V520",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "r6a.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "d3.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "c7g.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "t3.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "x2gd.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 16384
+  },
+  "c6in.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "m1.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 15360
+  },
+  "m6gd.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "c5a.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "m7a.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 4096
+  },
+  "r7i.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "m6i.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "g5.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608,
+    "GpuInfo": [
+      {
+        "Name": "A10G",
+        "Count": [
+          4
+        ]
+      }
+    ]
+  },
+  "x2gd.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 1048576
+  },
+  "m5n.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "u7in-24tb.224xlarge": {
+    "VCpuCount": 896,
+    "MemoryInMB": 25165824
+  },
+  "r7g.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r7i.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "i4g.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "inf1.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "r5n.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "u7in-16tb.224xlarge": {
+    "VCpuCount": 896,
+    "MemoryInMB": 16777216
+  },
+  "c5d.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "m6g.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "c6gd.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "t3a.medium": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "c7a.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "c7i.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "i4g.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "r5b.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "c6gn.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 2048
+  },
+  "r6id.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "c5a.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "g5g.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072,
+    "GpuInfo": [
+      {
+        "Name": "T4g",
+        "Count": [
+          2
+        ]
+      }
+    ]
+  },
+  "r5dn.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "a1.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "c7i.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "m7gd.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "m7gd.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "r5a.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "r5.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "c6a.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "c6in.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "r5b.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "u-6tb1.56xlarge": {
+    "VCpuCount": 224,
+    "MemoryInMB": 6291456
+  },
+  "d3en.6xlarge": {
+    "VCpuCount": 24,
+    "MemoryInMB": 98304
+  },
+  "m4.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "c6g.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "r5d.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "g3.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 124928,
+    "GpuInfo": [
+      {
+        "Name": "M60",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "r8g.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 1572864
+  },
+  "m6in.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "mac1.metal": {
+    "VCpuCount": 12,
+    "MemoryInMB": 32768
+  },
+  "m5zn.3xlarge": {
+    "VCpuCount": 12,
+    "MemoryInMB": 49152
+  },
+  "m6idn.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "c5d.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "c1.medium": {
+    "VCpuCount": 2,
+    "MemoryInMB": 1740
+  },
+  "r7gd.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 8192
+  },
+  "r6g.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "c7i.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "r6gd.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "c7gd.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "r6a.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 1572864
+  },
+  "t2.micro": {
+    "VCpuCount": 1,
+    "MemoryInMB": 1024
+  },
+  "r5dn.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "r5b.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "r6id.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "r3.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 62464
+  },
+  "m6i.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "c7i.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "m6idn.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "m5n.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "d3.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "x2gd.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 131072
+  },
+  "c6gd.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "u-12tb1.112xlarge": {
+    "VCpuCount": 448,
+    "MemoryInMB": 12582912
+  },
+  "r5.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "m6a.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "d3.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "m3.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 15360
+  },
+  "h1.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "m7g.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "r5b.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "m7gd.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 4096
+  },
+  "c6a.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "c3.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 7680
+  },
+  "r5dn.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "d3en.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "c7gd.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "p4d.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 1179648,
+    "GpuInfo": [
+      {
+        "Name": "A100",
+        "Count": [
+          8
+        ]
+      }
+    ]
+  },
+  "m7i.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 786432
+  },
+  "r5d.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "r5.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "r7i.metal-24xl": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "vt1.3xlarge": {
+    "VCpuCount": 12,
+    "MemoryInMB": 24576
+  },
+  "c5.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "x2gd.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 65536
+  },
+  "inf1.6xlarge": {
+    "VCpuCount": 24,
+    "MemoryInMB": 49152
+  },
+  "r5ad.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "vt1.6xlarge": {
+    "VCpuCount": 24,
+    "MemoryInMB": 49152
+  },
+  "r3.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 124928
+  },
+  "r5d.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r7i.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "i4i.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "c7i.metal-48xl": {
+    "VCpuCount": 192,
+    "MemoryInMB": 393216
+  },
+  "c7gn.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "c5ad.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "c6a.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "m7a.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "is4gen.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 49152
+  },
+  "c6a.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "x2idn.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 1048576
+  },
+  "c5.9xlarge": {
+    "VCpuCount": 36,
+    "MemoryInMB": 73728
+  },
+  "x2gd.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 786432
+  },
+  "m5n.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "u-6tb1.112xlarge": {
+    "VCpuCount": 448,
+    "MemoryInMB": 6291456
+  },
+  "g5.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144,
+    "GpuInfo": [
+      {
+        "Name": "A10G",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "r7a.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "m7a.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 786432
+  },
+  "r7gd.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "m6in.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "r3.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 31232
+  },
+  "t3.nano": {
+    "VCpuCount": 2,
+    "MemoryInMB": 512
+  },
+  "r4.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 31232
+  },
+  "a1.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "c6in.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "m6i.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "c7a.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "g5g.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536,
+    "GpuInfo": [
+      {
+        "Name": "T4g",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "a1.metal": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "r5.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "c6id.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 262144
+  },
+  "r5d.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "i2.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 31232
+  },
+  "t3.micro": {
+    "VCpuCount": 2,
+    "MemoryInMB": 1024
+  },
+  "r5d.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "r7g.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "m6g.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "i4i.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "c4.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 7680
+  },
+  "c5a.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "m5n.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "c5n.18xlarge": {
+    "VCpuCount": 72,
+    "MemoryInMB": 196608
+  },
+  "m5zn.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "r7gd.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "r7iz.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "t4g.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "m5ad.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "r6in.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "m7i-flex.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "c5d.18xlarge": {
+    "VCpuCount": 72,
+    "MemoryInMB": 147456
+  },
+  "m6id.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "p5.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 2097152,
+    "GpuInfo": [
+      {
+        "Name": "H100",
+        "Count": [
+          8
+        ]
+      }
+    ]
+  },
+  "c7a.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "m7g.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "m6i.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "m5zn.metal": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "u-24tb1.112xlarge": {
+    "VCpuCount": 448,
+    "MemoryInMB": 25165824
+  },
+  "r5n.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "x2iedn.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 524288
+  },
+  "m6idn.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "r5d.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "m6g.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "t4g.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "r5ad.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "i4g.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "r5d.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "h1.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "r7gd.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "r6in.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "m6id.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "m5d.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "r7i.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r6idn.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "r6i.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "r7g.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "c5.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "r4.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 62464
+  },
+  "r6a.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "r7a.metal-48xl": {
+    "VCpuCount": 192,
+    "MemoryInMB": 1572864
+  },
+  "c6a.metal": {
+    "VCpuCount": 192,
+    "MemoryInMB": 393216
+  },
+  "m5a.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "x2iezn.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 1572864
+  },
+  "m4.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "x2idn.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 2097152
+  },
+  "c5.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "r8g.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "i3.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 31232
+  },
+  "r5n.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "r6idn.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "m5.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "m7a.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "m5dn.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "m7a.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "c7g.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "t4g.small": {
+    "VCpuCount": 2,
+    "MemoryInMB": 2048
+  },
+  "c4.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 15360
+  },
+  "c7g.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 2048
+  },
+  "r7gd.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "m6a.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "m7gd.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "g5g.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072,
+    "GpuInfo": [
+      {
+        "Name": "T4g",
+        "Count": [
+          2
+        ]
+      }
+    ]
+  },
+  "h1.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "t4g.micro": {
+    "VCpuCount": 2,
+    "MemoryInMB": 1024
+  },
+  "r6idn.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "m5.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "m6in.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "m5.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "r8g.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r5d.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "m4.10xlarge": {
+    "VCpuCount": 40,
+    "MemoryInMB": 163840
+  },
+  "z1d.metal": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "r6in.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "m7g.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "m5ad.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "r7a.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "inf2.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "r5n.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "c7a.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 393216
+  },
+  "im4gn.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "m5dn.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "m7a.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "c5.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "t3a.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "r5dn.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "g6.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608,
+    "GpuInfo": [
+      {
+        "Name": "L4",
+        "Count": [
+          4
+        ]
+      }
+    ]
+  },
+  "r6gd.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "c5d.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "m5n.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "r5ad.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "mac2-m1ultra.metal": {
+    "VCpuCount": 20,
+    "MemoryInMB": 131072
+  },
+  "g5.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384,
+    "GpuInfo": [
+      {
+        "Name": "A10G",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "x2idn.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 2097152
+  },
+  "c7g.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "m4.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "r6id.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "m6gd.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "r6idn.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "x2iezn.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 262144
+  },
+  "c5.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "t2.medium": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "m6g.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "r6a.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "x2gd.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 32768
+  },
+  "c5d.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "m6idn.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "c6id.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "r5.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "c6in.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 262144
+  },
+  "c7gd.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "m5.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "r6id.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "c7gd.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "r6a.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "m6idn.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "m3.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 30720
+  },
+  "a1.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "m6g.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "x1e.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 1998848
+  },
+  "c6gn.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "mac2-m2pro.metal": {
+    "VCpuCount": 12,
+    "MemoryInMB": 32768
+  },
+  "m5zn.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "c7gd.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "c6in.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "r6i.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "c3.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 30720
+  },
+  "r6in.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "g6.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768,
+    "GpuInfo": [
+      {
+        "Name": "L4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "c7g.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "c7gd.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "m7i.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "r5b.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "r5.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "m5dn.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "r5dn.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "i2.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 124928
+  },
+  "c3.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 15360
+  },
+  "m5d.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "m6id.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "i3.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 249856
+  },
+  "x2iedn.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 2097152
+  },
+  "z1d.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "i3.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 15616
+  },
+  "z1d.6xlarge": {
+    "VCpuCount": 24,
+    "MemoryInMB": 196608
+  },
+  "m5dn.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "z1d.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "r6id.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "r5ad.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r6i.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "is4gen.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 12288
+  },
+  "c7a.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 262144
+  },
+  "m6in.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "g6.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384,
+    "GpuInfo": [
+      {
+        "Name": "L4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "c6gn.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "g4dn.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "c6id.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 262144
+  },
+  "m7g.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "g6.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144,
+    "GpuInfo": [
+      {
+        "Name": "L4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "i2.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 249856
+  },
+  "c5n.metal": {
+    "VCpuCount": 72,
+    "MemoryInMB": 196608
+  },
+  "r6gd.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "r8g.metal-48xl": {
+    "VCpuCount": 192,
+    "MemoryInMB": 1572864
+  },
+  "m5d.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "r7i.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "i3en.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "c6gn.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "r5ad.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "c5a.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "t2.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "c6g.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 2048
+  },
+  "dl1.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432,
+    "GpuInfo": [
+      {
+        "Name": "Gaudi HL-205",
+        "Count": [
+          8
+        ]
+      }
+    ]
+  },
+  "x1e.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 499712
+  },
+  "p2.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 62464,
+    "GpuInfo": [
+      {
+        "Name": "K80",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "m6gd.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "t3a.nano": {
+    "VCpuCount": 2,
+    "MemoryInMB": 512
+  },
+  "im4gn.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "c6i.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "i4i.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "r7i.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 1572864
+  },
+  "d3.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "g4ad.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144,
+    "GpuInfo": [
+      {
+        "Name": "Radeon Pro V520",
+        "Count": [
+          4
+        ]
+      }
+    ]
+  },
+  "r7g.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "m6in.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "r7a.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "r5a.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "i3en.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "c7gn.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "i3en.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "m6idn.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "c6i.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 262144
+  },
+  "r7a.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "m7g.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 4096
+  },
+  "c7i.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "r5a.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "r5b.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "r5.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "x1e.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 124928
+  },
+  "r6g.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "c7i.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "g5.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072,
+    "GpuInfo": [
+      {
+        "Name": "A10G",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "g4dn.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "r6a.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "m3.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 7680
+  },
+  "m5ad.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 262144
+  },
+  "m6a.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "x2iezn.metal": {
+    "VCpuCount": 48,
+    "MemoryInMB": 1572864
+  },
+  "gr6.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072,
+    "GpuInfo": [
+      {
+        "Name": "L4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "m7a.metal-48xl": {
+    "VCpuCount": 192,
+    "MemoryInMB": 786432
+  },
+  "t2.small": {
+    "VCpuCount": 1,
+    "MemoryInMB": 2048
+  },
+  "x2iedn.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 3145728
+  },
+  "m3.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 3840
+  },
+  "m5n.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "d2.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 124928
+  },
+  "vt1.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "c6a.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "g6.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536,
+    "GpuInfo": [
+      {
+        "Name": "L4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "is4gen.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 6144
+  },
+  "c7g.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "p2.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 749568,
+    "GpuInfo": [
+      {
+        "Name": "K80",
+        "Count": [
+          16
+        ]
+      }
+    ]
+  },
+  "c6gd.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "r6idn.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "r5dn.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "m6id.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "r4.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 15616
+  },
+  "t3.small": {
+    "VCpuCount": 2,
+    "MemoryInMB": 2048
+  },
+  "r6g.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "m6i.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "c6g.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "c6id.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "g3s.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 31232,
+    "GpuInfo": [
+      {
+        "Name": "M60",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "gr6.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144,
+    "GpuInfo": [
+      {
+        "Name": "L4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "x1.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1998848
+  },
+  "c6gd.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 2048
+  },
+  "c6gd.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "c5ad.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "m5a.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "m7i.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "m5n.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "r4.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 249856
+  },
+  "m7a.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "r7i.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "i3.metal": {
+    "VCpuCount": 72,
+    "MemoryInMB": 524288
+  },
+  "i4i.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "r6g.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r7iz.metal-32xl": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "r5d.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "r5dn.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "m6idn.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "r7gd.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "r6i.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 1048576
+  },
+  "c7gn.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "p3.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 499712,
+    "GpuInfo": [
+      {
+        "Name": "V100",
+        "Count": [
+          8
+        ]
+      }
+    ]
+  },
+  "r8g.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "c7gn.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "i4i.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "dl2q.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "i3.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 499712
+  },
+  "m6a.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "c5ad.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "x2iezn.6xlarge": {
+    "VCpuCount": 24,
+    "MemoryInMB": 786432
+  },
+  "inf1.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
+  "m7i-flex.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "r5n.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "im4gn.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "m6a.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 786432
+  },
+  "m5d.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "r7i.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "m6g.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 4096
+  },
+  "c7gn.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 2048
+  },
+  "m7i-flex.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "c6i.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "m7a.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "u7in-32tb.224xlarge": {
+    "VCpuCount": 896,
+    "MemoryInMB": 33554432
+  },
+  "d3en.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "m6i.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "c6g.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "m6a.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 524288
+  },
+  "r5n.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "is4gen.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 196608
+  },
+  "i3en.6xlarge": {
+    "VCpuCount": 24,
+    "MemoryInMB": 196608
+  },
+  "m6id.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "d3en.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "r4.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 124928
+  },
+  "m5a.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "g4ad.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384,
+    "GpuInfo": [
+      {
+        "Name": "Radeon Pro V520",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "m7i.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536
+  },
+  "c5.18xlarge": {
+    "VCpuCount": 72,
+    "MemoryInMB": 147456
+  },
+  "z1d.3xlarge": {
+    "VCpuCount": 12,
+    "MemoryInMB": 98304
+  },
+  "c5n.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 10752
+  },
+  "m7i-flex.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "i3.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 124928
+  },
+  "c6a.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "t3a.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 16384
+  },
+  "x2iedn.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 1048576
+  },
+  "c6id.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "m6gd.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "m6i.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "r7g.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "p3.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 249856,
+    "GpuInfo": [
+      {
+        "Name": "V100",
+        "Count": [
+          4
+        ]
+      }
+    ]
+  },
+  "c6g.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "d2.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 31232
+  },
+  "m5a.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "r6i.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "r7g.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 524288
+  },
+  "m7i.metal-48xl": {
+    "VCpuCount": 192,
+    "MemoryInMB": 786432
+  },
+  "r6in.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 32768
+  },
+  "r6i.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "c6gd.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "i4i.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "t2.nano": {
+    "VCpuCount": 1,
+    "MemoryInMB": 512
+  },
+  "c5a.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "m6g.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "t3a.micro": {
+    "VCpuCount": 2,
+    "MemoryInMB": 1024
+  },
+  "r7a.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 1572864
+  },
+  "u-9tb1.112xlarge": {
+    "VCpuCount": 448,
+    "MemoryInMB": 9437184
+  },
+  "c6id.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "m5a.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 393216
+  },
+  "r7iz.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "m6a.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "i3.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 62464
+  },
+  "c7i.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 393216
+  },
+  "x2iedn.32xlarge": {
+    "VCpuCount": 128,
+    "MemoryInMB": 4194304
+  },
+  "r8g.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 262144
+  },
+  "g4dn.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "u-18tb1.112xlarge": {
+    "VCpuCount": 448,
+    "MemoryInMB": 18874368
+  },
+  "m1.medium": {
+    "VCpuCount": 1,
+    "MemoryInMB": 3788
+  },
+  "g4dn.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 65536,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "r6gd.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 393216
+  },
+  "c6gd.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "c6in.metal": {
+    "VCpuCount": 128,
+    "MemoryInMB": 262144
+  },
+  "g5.48xlarge": {
+    "VCpuCount": 192,
+    "MemoryInMB": 786432,
+    "GpuInfo": [
+      {
+        "Name": "A10G",
+        "Count": [
+          8
+        ]
+      }
+    ]
+  },
+  "m6a.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "g5g.xlarge": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192,
+    "GpuInfo": [
+      {
+        "Name": "T4g",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "f1.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 249856
+  },
+  "r6in.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "c5d.9xlarge": {
+    "VCpuCount": 36,
+    "MemoryInMB": 73728
+  },
+  "f1.16xlarge": {
+    "VCpuCount": 64,
+    "MemoryInMB": 999424
+  },
+  "r5dn.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "m7gd.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 32768
+  },
+  "i3en.metal": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432
+  },
+  "g5g.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768,
+    "GpuInfo": [
+      {
+        "Name": "T4g",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "r6i.2xlarge": {
+    "VCpuCount": 8,
+    "MemoryInMB": 65536
+  },
+  "m7i.12xlarge": {
+    "VCpuCount": 48,
+    "MemoryInMB": 196608
+  },
+  "m2.xlarge": {
+    "VCpuCount": 2,
+    "MemoryInMB": 17510
+  },
+  "r7iz.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 131072
+  },
+  "m6id.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 8192
+  },
+  "m6in.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072
+  },
+  "c6g.metal": {
+    "VCpuCount": 64,
+    "MemoryInMB": 131072
+  },
+  "p3dn.24xlarge": {
+    "VCpuCount": 96,
+    "MemoryInMB": 786432,
+    "GpuInfo": [
+      {
+        "Name": "V100",
+        "Count": [
+          8
+        ]
+      }
+    ]
+  },
+  "g4dn.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 131072,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1
+        ]
+      }
+    ]
+  },
+  "c6gd.8xlarge": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "m1.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 7680
+  },
+  "m1.small": {
+    "VCpuCount": 1,
+    "MemoryInMB": 1740
+  },
+  "r5n.large": {
+    "VCpuCount": 2,
+    "MemoryInMB": 16384
+  },
+  "c7gd.4xlarge": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  }
+}

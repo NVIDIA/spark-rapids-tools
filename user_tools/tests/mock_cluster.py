@@ -120,39 +120,6 @@ mock_live_cluster = {
                 },
             }]
         }),
-        # aws ec2 describe-instance-types --region us-west-2 --instance-types m5a.12xlarge
-        json.dumps({
-            "InstanceTypes": [{
-                "VCpuInfo": {
-                    "DefaultVCpus": 48,
-                },
-                "MemoryInfo": {
-                    "SizeInMiB": 196608,
-                },
-            }]
-        }),
-        # aws ec2 describe-instance-types --region us-west-2 --instance-types g4dn.12xlarge
-        json.dumps({
-            "InstanceTypes": [{
-                "VCpuInfo": {
-                    "DefaultVCpus": 48,
-                },
-                "MemoryInfo": {
-                    "SizeInMiB": 196608,
-                },
-                "GpuInfo": {
-                    "Gpus": [{
-                        "Name": "T4",
-                        "Manufacturer": "NVIDIA",
-                        "Count": 4,
-                        "MemoryInfo": {
-                            "SizeInMiB": 16384,
-                        },
-                    }],
-                    "TotalGpuMemoryInMiB": 65536,
-                },
-            }]
-        }),
     ],
 
     "databricks-aws": [
@@ -180,39 +147,6 @@ mock_live_cluster = {
             "state": "RUNNING",
             "num_workers": 1
         }),
-        # aws ec2 describe-instance-types --region us-west-2 --instance-types m5a.12xlarge
-        json.dumps({
-            "InstanceTypes": [{
-                "VCpuInfo": {
-                    "DefaultVCpus": 48,
-                },
-                "MemoryInfo": {
-                    "SizeInMiB": 196608,
-                },
-            }]
-        }),
-        # aws ec2 describe-instance-types --region us-west-2 --instance-types g4dn.12xlarge
-        json.dumps({
-            "InstanceTypes": [{
-                "VCpuInfo": {
-                    "DefaultVCpus": 48,
-                },
-                "MemoryInfo": {
-                    "SizeInMiB": 196608,
-                },
-                "GpuInfo": {
-                    "Gpus": [{
-                        "Name": "T4",
-                        "Manufacturer": "NVIDIA",
-                        "Count": 4,
-                        "MemoryInfo": {
-                            "SizeInMiB": 16384,
-                        },
-                    }],
-                    "TotalGpuMemoryInMiB": 65536,
-                },
-            }]
-        })
     ],
 
     "databricks-azure": [
