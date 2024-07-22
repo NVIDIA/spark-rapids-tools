@@ -33,11 +33,18 @@ class Train(QualXTool):
         Path to save the trained XGBoost model.
     n_trials:
         Number of trials for hyperparameter search.
+    base_model:
+        Path to pre-trained model to continue training from.
+    features_csv:
+        Path to a folder containing one or more features.csv files.  These files are produced during prediction,
+        and must be manually edited to provide a label column (Duration_speedup) and value.
     """
+
     dataset: str = None
     model: str = None
     n_trials: int = None
     base_model: str = None
+    features_csv: str = None
 
     name = 'train'
 
@@ -52,6 +59,7 @@ class Train(QualXTool):
                 output_dir=self.output_folder,
                 n_trials=self.n_trials,
                 base_model=self.base_model,
+                features_csv=self.features_csv,
             )
             self.logger.info('Training completed successfully.')
             self.logger.info('Trained XGBoost model is saved at: %s', self.model)
