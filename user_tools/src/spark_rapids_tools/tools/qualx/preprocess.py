@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Any, List, Mapping, Optional, Tuple
 import json
 import glob
-import numpy as np
 import os
+import numpy as np
 import pandas as pd
 from spark_rapids_tools.tools.qualx.util import (
     ensure_directory,
@@ -174,9 +174,11 @@ def load_datasets(
 
     cache_dir = get_cache_dir()
     if ignore_test:
-        filter_fn = lambda f: f.endswith('.json') and 'test' not in f
+        def filter_fn(f):
+            return f.endswith('.json') and 'test' not in f
     else:
-        filter_fn = lambda f: f.endswith('.json')
+        def filter_fn(f):
+            return f.endswith('.json')
 
     ds_count = 0
     all_datasets = {}
@@ -186,7 +188,7 @@ def load_datasets(
         datasets = {}
         json_files = find_paths(f'{dataset_base}/{platform}', filter_fn)
         for json_file in json_files:
-            with open(json_file, 'r') as f:
+            with open(json_file, 'r', encoding='utf-8') as f:
                 ds = json.load(f)
                 ds_count += len(ds)
                 for ds_name in ds.keys():
@@ -201,7 +203,7 @@ def load_datasets(
         if os.path.isfile(f'{platform_cache}/{PREPROCESSED_FILE}'):
             # load preprocessed input, if cached
             logger.info(
-                f'Using cached profile_df: {platform_cache}/{PREPROCESSED_FILE}'
+                'Using cached profile_df: %s/%s', platform_cache, PREPROCESSED_FILE
             )
             profile_df = pd.read_parquet(f'{platform_cache}/{PREPROCESSED_FILE}')
             if ignore_test:
@@ -238,7 +240,9 @@ def load_datasets(
     # sanity check
     if ds_count != len(all_datasets):
         logger.warning(
-            f'Duplicate dataset key detected, got {len(all_datasets)} datasets, but read {ds_count} datasets.'
+            'Duplicate dataset key detected, got %d datasets, but read %d datasets.',
+            len(all_datasets),
+            ds_count
         )
 
     return all_datasets, profile_df
@@ -324,46 +328,46 @@ def load_profiles(
 
         if not toc_list:
             raise ValueError(f'No CSV files found for: {ds_name}')
+
+        toc = pd.concat(toc_list)
+        raw_features = extract_raw_features(toc, node_level_supp, qualtool_filter, qualtool_output)
+        if raw_features.empty:
+            continue
+        # add scaleFactor from toc or from sqlID ordering within queries grouped by query name and app
+        if scalefactor_meta:
+            raw_features['scaleFactorIndex'] = (
+                raw_features.groupby(['description', 'appId'])['sqlID']
+                .rank()
+                .astype('int')
+            )
+            raw_features['scaleFactor'] = (
+                raw_features['scaleFactorIndex']
+                .astype('string')
+                .map(scalefactor_meta)
+            )
+            raw_features = raw_features.drop(columns=['scaleFactorIndex'])
         else:
-            toc = pd.concat(toc_list)
-            raw_features = extract_raw_features(toc, node_level_supp, qualtool_filter, qualtool_output)
-            if raw_features.empty:
-                continue
-            # add scaleFactor from toc or from sqlID ordering within queries grouped by query name and app
-            if scalefactor_meta:
-                raw_features['scaleFactorIndex'] = (
-                    raw_features.groupby(['description', 'appId'])['sqlID']
-                    .rank()
-                    .astype('int')
-                )
-                raw_features['scaleFactor'] = (
-                    raw_features['scaleFactorIndex']
-                    .astype('string')
-                    .map(scalefactor_meta)
-                )
-                raw_features = raw_features.drop(columns=['scaleFactorIndex'])
-            else:
-                app_scales = toc[['appId', 'scaleFactor']].drop_duplicates()
-                raw_features = raw_features.merge(app_scales, on='appId')
+            app_scales = toc[['appId', 'scaleFactor']].drop_duplicates()
+            raw_features = raw_features.merge(app_scales, on='appId')
 
-            # add jobName to appName from app_meta (if available)
-            if 'jobName' in app_meta[list(app_meta.keys())[0]]:
-                app_job = {
-                    appId: meta['jobName']
-                    for appId, meta in app_meta.items()
-                    if 'jobName' in meta
-                }
-                raw_features['jobName'] = raw_features['appId'].map(app_job)
-                # append jobName to appName to allow joining cpu and gpu logs at the app level
-                raw_features['appName'] = (
-                    raw_features['appName'] + ':' + raw_features['jobName']
-                )
-                raw_features.drop(columns=['jobName'], inplace=True)
+        # add jobName to appName from app_meta (if available)
+        if 'jobName' in app_meta[list(app_meta.keys())[0]]:
+            app_job = {
+                appId: meta['jobName']
+                for appId, meta in app_meta.items()
+                if 'jobName' in meta
+            }
+            raw_features['jobName'] = raw_features['appId'].map(app_job)
+            # append jobName to appName to allow joining cpu and gpu logs at the app level
+            raw_features['appName'] = (
+                raw_features['appName'] + ':' + raw_features['jobName']
+            )
+            raw_features.drop(columns=['jobName'], inplace=True)
 
-            # add platform from app_meta
-            raw_features[f'platform_{platform}'] = 1
-            raw_features = impute(raw_features)
-            all_raw_features.append(raw_features)
+        # add platform from app_meta
+        raw_features[f'platform_{platform}'] = 1
+        raw_features = impute(raw_features)
+        all_raw_features.append(raw_features)
 
     profile_df =  (
         pd.concat(all_raw_features).reset_index(drop=True)
@@ -712,7 +716,7 @@ def impute(full_tbl: pd.DataFrame) -> pd.DataFrame:
         missing = sorted(expected_raw_features - actual_features)
         extra = sorted(actual_features - expected_raw_features)
         if missing:
-            logger.warning(f'Imputing missing features: {missing}')
+            logger.warning('Imputing missing features: %s', missing)
             for col in missing:
                 if col != 'fraction_supported':
                     full_tbl[col] = 0
@@ -720,7 +724,7 @@ def impute(full_tbl: pd.DataFrame) -> pd.DataFrame:
                     full_tbl[col] = 1.0
 
         if extra:
-            logger.warning(f'Removing extra features: {extra}')
+            logger.warning('Removing extra features: %s', extra)
             full_tbl = full_tbl.drop(columns=extra)
 
         # one last check after modifications (update expected_raw_features if needed)
@@ -754,7 +758,7 @@ def load_csv_files(
             )
         except Exception:
             if warn_on_error or abort_on_error:
-                logger.warning(f'Failed to load {tb_name} for {app_id}.')
+                logger.warning('Failed to load %s for %s.', tb_name, app_id)
             if abort_on_error:
                 raise ScanTblError()
             out = pd.DataFrame()
@@ -838,7 +842,6 @@ def load_csv_files(
     # this should remove root sql ids in 3.4.1+
     sql_to_stage = scan_tbl('sql_to_stage_information')
     if not sql_to_stage.empty:
-        sql_to_stage['SQL Nodes(IDs)']
         # try:
         sqls_with_execs = (
             sql_to_stage.loc[sql_to_stage['SQL Nodes(IDs)'].notna()][['sqlID', 'jobID']]
@@ -884,7 +887,8 @@ def load_csv_files(
                     lambda x: str(x).split(',')
                 )
                 sql_ops_metrics = sql_ops_metrics.explode('stageIds')
-                # compute supported stages for use below. TBD.  rename column from 'Exec Is Supported' to 'Stage Is Supported' and change elsewhere
+                # compute supported stages for use below. TBD.
+                # rename column from 'Exec Is Supported' to 'Stage Is Supported' and change elsewhere
                 stages_supp = (
                     sql_ops_metrics.groupby(['appId', 'sqlID', 'stageIds'])[
                         'Exec Is Supported'
@@ -942,7 +946,7 @@ def load_csv_files(
         # TODO: This is a temporary solution to minimize changes in existing code.
         #        We should refactor this once we have updated the code with latest changes.
         job_stage_agg_tbl = pd.concat([job_df, stage_df], ignore_index=True)
-        job_stage_agg_tbl = job_stage_agg_tbl.drop(columns="appIndex")
+        job_stage_agg_tbl = job_stage_agg_tbl.drop(columns='appIndex')
         job_stage_agg_tbl = job_stage_agg_tbl.rename(
             columns={'numTasks': 'numTasks_sum', 'duration_avg': 'duration_mean'}
         )
@@ -990,9 +994,7 @@ def load_csv_files(
             )
 
         if sqls_to_drop:
-            logger.warning(
-                f'Ignoring sqlIDs {sqls_to_drop} due to excessive failed/cancelled stage duration.'
-            )
+            logger.warning('Ignoring sqlIDs %s due to excessive failed/cancelled stage duration.', sqls_to_drop)
 
         if node_level_supp is not None and (qualtool_filter == 'stage'):
             job_stage_agg_tbl = job_stage_agg_tbl[
@@ -1071,13 +1073,13 @@ def load_csv_files(
             aborted_sql_ids = set()
 
         if aborted_sql_ids:
-            logger.warning(f'Ignoring sqlIDs {aborted_sql_ids} due to aborted jobs.')
+            logger.warning('Ignoring sqlIDs %s due to aborted jobs.', aborted_sql_ids)
 
         sqls_to_drop = sqls_to_drop.union(aborted_sql_ids)
 
         if sqls_to_drop:
             logger.warning(
-                f'Ignoring a total of {len(sqls_to_drop)} sqlIDs due to stage/job failures.'
+                'Ignoring a total of %s sqlIDs due to stage/job failures.', len(sqls_to_drop)
             )
             app_info_mg = app_info_mg.loc[~app_info_mg.sqlID.isin(sqls_to_drop)]
 

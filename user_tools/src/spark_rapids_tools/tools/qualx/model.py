@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 from typing import Callable, Optional, List, Tuple
-import numpy as np
-import pandas as pd
+import json
 import random
 import shap
+import numpy as np
+import pandas as pd
 import xgboost as xgb
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
 from spark_rapids_tools.tools.qualx.util import get_logger
@@ -79,7 +79,7 @@ def train(
     )
     if cpu_aug_tbl.shape[0] < original_num_rows:
         logger.warning(
-            f'Removed {original_num_rows - cpu_aug_tbl.shape[0]} rows with NaN label values'
+            'Removed %d rows with NaN label values', original_num_rows - cpu_aug_tbl.shape[0]
         )
 
     # split into train/val/test sets
@@ -157,7 +157,7 @@ def predict(
     if missing:
         raise ValueError(f'Input is missing model features: {missing}')
     if extra:
-        logger.warning(f'Input had extra features not present in model: {extra}')
+        logger.warning('Input had extra features not present in model: %s', extra)
 
     X = cpu_aug_tbl[model_features]
     y = cpu_aug_tbl[label_col] if label_col else None
@@ -222,7 +222,7 @@ def extract_model_features(
     """Extract model features from raw features."""
     missing = expected_raw_features - set(df.columns)
     if missing:
-        logger.warning(f'Input dataframe is missing expected raw features: {missing}')
+        logger.warning('Input dataframe is missing expected raw features: %s', missing)
 
     if FILTER_SPILLS:
         df = df[
@@ -245,9 +245,9 @@ def extract_model_features(
     if gpu_aug_tbl.shape[0] > 0:
         if gpu_aug_tbl.shape[0] != cpu_aug_tbl.shape[0]:
             logger.warning(
-                'Number of GPU rows ({}) does not match number of CPU rows ({})'.format(
-                    gpu_aug_tbl.shape[0], cpu_aug_tbl.shape[0]
-                )
+                'Number of GPU rows (%d) does not match number of CPU rows (%d)',
+                gpu_aug_tbl.shape[0],
+                cpu_aug_tbl.shape[0],
             )
         # train/validation dataset with CPU + GPU runs
         gpu_aug_tbl = gpu_aug_tbl[
@@ -273,7 +273,9 @@ def extract_model_features(
             num_na / num_rows > 0.05
         ):  # arbitrary threshold, misaligned sqlIDs still may 'match' most of the time
             logger.warning(
-                f'Percentage of NaN GPU durations is high: {num_na} / {num_rows}  Per-sql actual speedups may be inaccurate.'
+                'Percentage of NaN GPU durations is high: %d / %d. Per-sql actual speedups may be inaccurate.',
+                num_na,
+                num_rows,
             )
 
         # calculate Duration_speedup
@@ -289,8 +291,8 @@ def extract_model_features(
         label_col = None
 
     # add aggregations for time features
-    # time_cols = ['executorCPUTime', 'executorDeserializeTime', 'executorDeserializeCPUTime', 'executorRunTime', 'gettingResultTime',
-    #     'jvmGCTime', 'resultSerializationTime', 'sr_fetchWaitTime', 'sw_writeTime']
+    # time_cols = ['executorCPUTime', 'executorDeserializeTime', 'executorDeserializeCPUTime', 'executorRunTime',
+    #     'gettingResultTime', 'jvmGCTime', 'resultSerializationTime', 'sr_fetchWaitTime', 'sw_writeTime']
     # time_agg_cols = [cc + '_sum' for cc in time_cols]
     # time_ratio_cols = [cc for cc in cpu_aug_tbl.columns if cc.endswith('TimeRatio')]
 
@@ -309,7 +311,7 @@ def extract_model_features(
         raise ValueError(f'Input data is missing model features: {missing}')
     if extra:
         # remove extra columns
-        logger.warning(f'Input data has extra features (removed): {extra}')
+        logger.warning('Input data has extra features (removed): %s', extra)
         feature_cols = [c for c in feature_cols if c not in extra]
 
     # add train/val/test split column, if split function provided
