@@ -16,8 +16,10 @@
 
 package org.apache.spark.sql.rapids.tool.util
 
-import java.io.{BufferedWriter, FileOutputStream, OutputStreamWriter}
+import java.io.{BufferedWriter, File, FileOutputStream, InputStream, OutputStreamWriter}
 import java.nio.charset.StandardCharsets
+
+import scala.io.{BufferedSource, Source}
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataOutputStream, LocalFileSystem, Path}
@@ -68,4 +70,53 @@ object FSUtils {
     val outStream = getOutputStream(outputLoc, hadoopConf.getOrElse(new Configuration()))
     new BufferedWriter(new OutputStreamWriter(outStream, StandardCharsets.UTF_8))
   }
+
+  /**
+   * Reads the content of a file as UTF-8 and closes the resources.
+   */
+  def readFileContentAsUTF8(filePath: String, delim: String = "\n"): String = {
+    val source = UTF8Source.fromFile(filePath)
+    try {
+      source.getLines().mkString(delim)
+    } finally {
+      source.close()
+    }
+  }
 }
+
+// scalastyle:off regex.source.from
+/**
+ * Wrapper object for creating a BufferedSource object for reading a file as UTF-8.
+ * Any additional methods for reading files using the `Source` class should be implemented
+ * in this object to avoid encoding issues. This is also enforced by the scalastyle rule.
+ */
+object UTF8Source {
+  /**
+   * Creates a BufferedSource object for reading a file as UTF-8.
+   */
+  def fromFile(filePath: String): BufferedSource = {
+    Source.fromFile(filePath)(StandardCharsets.UTF_8)
+  }
+
+  /**
+   * Creates a BufferedSource object for reading a file as UTF-8 from a java.io.File.
+   */
+  def fromFile(file: File): BufferedSource = {
+    Source.fromFile(file)(StandardCharsets.UTF_8)
+  }
+
+  /**
+   * Creates a BufferedSource object for reading a file as UTF-8 from the resources.
+   */
+  def fromResource(filePath: String): BufferedSource = {
+    Source.fromResource(filePath)(StandardCharsets.UTF_8)
+  }
+
+  /**
+   * Creates a BufferedSource object for reading a file as UTF-8 from an InputStream.
+   */
+  def fromInputStream(inputStream: InputStream): BufferedSource = {
+    Source.fromInputStream(inputStream)(StandardCharsets.UTF_8)
+  }
+}
+// scalastyle:on regex.source.from

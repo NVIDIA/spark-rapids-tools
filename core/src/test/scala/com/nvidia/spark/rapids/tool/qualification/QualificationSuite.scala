@@ -20,7 +20,6 @@ import java.io.{File, PrintWriter}
 import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-import scala.io.Source
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -36,7 +35,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, to_json, udf}
 import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterSummary, ExistingClusterInfo, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo, RunningQualificationEventProcessor}
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, UTF8Source}
 import org.apache.spark.sql.types._
 
 // drop the fields that won't go to DataFrame without encoders
@@ -288,7 +287,7 @@ class QualificationSuite extends BaseTestSuite {
         s"${outpath.getAbsolutePath}/$qualOutputPrefix/${qualOutputPrefix}_status.csv")
 
       val filename = s"$outpath/$qualOutputPrefix/$qualOutputPrefix.log"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toArray
         // 4 lines of header and footer
@@ -325,7 +324,7 @@ class QualificationSuite extends BaseTestSuite {
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.log"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toArray
         // 4 lines of header and footer
@@ -338,7 +337,7 @@ class QualificationSuite extends BaseTestSuite {
       }
       val persqlFileName = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output_persql.log"
-      val persqlInputSource = Source.fromFile(persqlFileName)
+      val persqlInputSource = UTF8Source.fromFile(persqlFileName)
       try {
         val lines = persqlInputSource.getLines.toArray
         // 4 lines of header and footer
@@ -377,7 +376,7 @@ class QualificationSuite extends BaseTestSuite {
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.log"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines
         // 4 lines of header and footer, limit is 2
@@ -387,7 +386,7 @@ class QualificationSuite extends BaseTestSuite {
       }
       val persqlFileName = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output_persql.log"
-      val persqlInputSource = Source.fromFile(persqlFileName)
+      val persqlInputSource = UTF8Source.fromFile(persqlFileName)
       try {
         val lines = persqlInputSource.getLines
         // 4 lines of header and footer, limit is 2
@@ -413,7 +412,7 @@ class QualificationSuite extends BaseTestSuite {
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.csv"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toSeq
         // 1 for header, 1 for values
@@ -447,7 +446,7 @@ class QualificationSuite extends BaseTestSuite {
         s"${outpath.getAbsolutePath}/$qualOutputPrefix/${qualOutputPrefix}_status.csv")
 
       val filename = s"$outpath/$qualOutputPrefix/$qualOutputPrefix.csv"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toSeq
         // 1 for header, Event log not parsed since it is from GPU run.
@@ -495,7 +494,7 @@ class QualificationSuite extends BaseTestSuite {
       val brokenEvLog = new File(s"$eventLogDir/brokenevent.inprogress")
       val pwList = Array(new PrintWriter(unfinishedLog), new PrintWriter(incompleteLog),
         new PrintWriter(brokenEvLog))
-      val bufferedSource = Source.fromFile(eventLog)
+      val bufferedSource = UTF8Source.fromFile(eventLog)
       try {
         val allEventLines = bufferedSource.getLines.toList
         // the following val will contain the last two lines of the eventlog
@@ -1246,7 +1245,7 @@ class QualificationSuite extends BaseTestSuite {
           val filename = s"$outpath/rapids_4_spark_qualification_output/" +
               s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
 
-          val inputSource = Source.fromFile(filename)
+          val inputSource = UTF8Source.fromFile(filename)
           try {
             val lines = inputSource.getLines.toArray
             val expr = ".*to_json.*"
@@ -1386,7 +1385,7 @@ class QualificationSuite extends BaseTestSuite {
           " (SELECT  * from tableB as r where l.age=r.age and l.score <= r.score)")
       }
       // validate that the eventlog contains ExistenceJoin and BroadcastHashJoin
-      val reader = Source.fromFile(eventLog).mkString
+      val reader = FSUtils.readFileContentAsUTF8(eventLog)
       assert(reader.contains("ExistenceJoin"))
       assert(reader.contains("BroadcastHashJoin"))
 
@@ -1555,7 +1554,7 @@ class QualificationSuite extends BaseTestSuite {
           // Next, we check that the content of the unsupportedOps has no entry for "hive".
           val unsupportedOpsCSV = s"$outpath/rapids_4_spark_qualification_output/" +
             s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
-          val inputSource = Source.fromFile(unsupportedOpsCSV)
+          val inputSource = UTF8Source.fromFile(unsupportedOpsCSV)
           try {
             val unsupportedRows = inputSource.getLines.toSeq
             assert(unsupportedRows.head.contains(

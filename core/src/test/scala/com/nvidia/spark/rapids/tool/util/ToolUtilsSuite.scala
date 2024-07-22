@@ -17,12 +17,10 @@
 package com.nvidia.spark.rapids.tool.util
 
 import java.io.File
-import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
 import scala.concurrent.duration._
-import scala.io.Source
 import scala.xml.XML
 
 import com.nvidia.spark.rapids.tool.profiling.{ProfileOutputWriter, ProfileResult}
@@ -32,7 +30,7 @@ import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal, not}
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.sql.TrampolineUtil
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, FSUtils, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
 
 
 class ToolUtilsSuite extends FunSuite with Logging {
@@ -200,20 +198,6 @@ class ToolUtilsSuite extends FunSuite with Logging {
     result.value.get shouldBe (59 * 1000 + 200)
   }
 
-  /**
-   * Reads the content of a file as UTF-8 and closes the resources.
-   * @param filePath Path to the file
-   * @return Content of the file as a string
-   */
-  private def readFileContentAsUtf8(filePath: String): String = {
-    val source = Source.fromFile(filePath)(StandardCharsets.UTF_8)
-    try {
-      source.getLines().mkString("\n")
-    } finally {
-      source.close()
-    }
-  }
-
   test("output non-english characters") {
     val nonEnglishString = "你好"
     TrampolineUtil.withTempDir { tempDir =>
@@ -246,9 +230,8 @@ class ToolUtilsSuite extends FunSuite with Logging {
            |+-------+--------+---------------+---------+
            ||appID-0|1       |你好           |1,2,3    |
            |+-------+--------+---------------+---------+""".stripMargin
-      // Reading the content with UTF-8 encoding and ensuring resources are closed
-      val actualCSVContent = readFileContentAsUtf8(csvFilePath)
-      val actualTXTContent = readFileContentAsUtf8(textFilePath)
+      val actualCSVContent = FSUtils.readFileContentAsUTF8(csvFilePath)
+      val actualTXTContent = FSUtils.readFileContentAsUTF8(textFilePath)
       actualCSVContent should equal (expectedCSVFileContent)
       actualTXTContent should equal (expectedTXTContent)
     }

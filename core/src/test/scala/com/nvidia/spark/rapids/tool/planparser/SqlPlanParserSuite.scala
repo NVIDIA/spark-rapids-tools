@@ -19,7 +19,6 @@ package com.nvidia.spark.rapids.tool.planparser
 import java.io.{File, PrintWriter}
 
 import scala.collection.mutable
-import scala.io.Source
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.BaseTestSuite
@@ -34,7 +33,7 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
-import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, ToolsPlanGraph}
+import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
 
 class SQLPlanParserSuite extends BaseTestSuite {
 
@@ -118,7 +117,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
       // create a temporary file to write the modified events
       val faultyEventlog = new File(s"$eventLogDir/faulty_eventlog")
       val pWriter = new PrintWriter(faultyEventlog)
-      val bufferedSource = Source.fromFile(eventLog)
+      val bufferedSource = UTF8Source.fromFile(eventLog)
       try {
         bufferedSource.getLines.map( l =>
           if (l.contains("SparkListenerSQLExecutionStart")) {

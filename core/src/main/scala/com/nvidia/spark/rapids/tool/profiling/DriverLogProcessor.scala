@@ -16,9 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import scala.io.Source
-
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
 trait DriverLogInfoProvider {
   def getUnsupportedOperators: Seq[DriverLogUnsupportedOperators] = Seq.empty
@@ -40,7 +39,7 @@ class DriverLogProcessor(logPath: String)
   lazy val unsupportedOps = processDriverLog()
   override def getUnsupportedOperators = unsupportedOps
   private def processDriverLog(): Seq[DriverLogUnsupportedOperators] = {
-    val source = Source.fromFile(logPath)
+    val source = UTF8Source.fromFile(logPath)
     // Create a map to store the counts for each operator and reason
     var countsMap = Map[(String, String), Int]().withDefaultValue(0)
     try {

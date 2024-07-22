@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.qualification
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
-import scala.io.{BufferedSource, Source}
+import scala.io.BufferedSource
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory}
@@ -26,6 +26,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.UnsupportedExpr
+import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
 object OpSuppLevel extends Enumeration {
   case class OpSuppLevelVal(label: String, support: Boolean,
@@ -107,14 +108,14 @@ class PluginTypeChecker(val platform: Platform = PlatformFactory.createInstance(
 
   // for testing purposes only
   def setPluginDataSourceFile(filePath: String): Unit = {
-    val source = Source.fromFile(filePath)
+    val source = UTF8Source.fromFile(filePath)
     val (readFormatsAndTypesTest, writeFormatsTest) = readSupportedTypesForPlugin(source)
     readFormatsAndTypes = readFormatsAndTypesTest
     writeFormats = writeFormatsTest
   }
 
   def setOperatorScore(filePath: String): Unit = {
-    val source = Source.fromFile(filePath)
+    val source = UTF8Source.fromFile(filePath)
     supportedOperatorsScore = readOperators(source, "score", true).map(x => (x._1, x._2.toDouble))
   }
 
@@ -126,14 +127,14 @@ class PluginTypeChecker(val platform: Platform = PlatformFactory.createInstance(
         logInfo(s"Trying to read operators scores with platform: $platform")
         val file = platform.getOperatorScoreFile
         try {
-          val source = Source.fromResource(file)
+          val source = UTF8Source.fromResource(file)
           readOperators(source, "score", true).map(x => (x._1, x._2.toDouble))
         } catch {
           case NonFatal(_) =>
             val defaultFile = platform.getDefaultOperatorScoreFile
             logWarning(s"Unable to read operator scores from file: $file. " +
                 s"Using default operator scores file: $defaultFile.")
-            val source = Source.fromResource(defaultFile)
+            val source = UTF8Source.fromResource(defaultFile)
             readOperators(source, "score", true).map(x => (x._1, x._2.toDouble))
         }
       case Some(file) =>
@@ -152,12 +153,12 @@ class PluginTypeChecker(val platform: Platform = PlatformFactory.createInstance(
   }
 
   private def readSupportedExecs: Map[String, String] = {
-    val source = Source.fromResource(SUPPORTED_EXECS_FILE)
+    val source = UTF8Source.fromResource(SUPPORTED_EXECS_FILE)
     readOperators(source, "execs", true)
   }
 
   private def readSupportedExprs: Map[String, String] = {
-    val source = Source.fromResource(SUPPORTED_EXPRS_FILE)
+    val source = UTF8Source.fromResource(SUPPORTED_EXPRS_FILE)
     // Some SQL function names have backquotes(`) around their names,
     // so we remove them before saving.
     readOperators(source, "exprs", true).map(
@@ -165,9 +166,9 @@ class PluginTypeChecker(val platform: Platform = PlatformFactory.createInstance(
   }
 
   def readUnsupportedOpsByDefaultReasons: Map[String, String] = {
-    val execsSource = Source.fromResource(SUPPORTED_EXECS_FILE)
+    val execsSource = UTF8Source.fromResource(SUPPORTED_EXECS_FILE)
     val unsupportedExecsBydefault = readOperators(execsSource, "execs", false)
-    val exprsSource = Source.fromResource(SUPPORTED_EXPRS_FILE)
+    val exprsSource = UTF8Source.fromResource(SUPPORTED_EXPRS_FILE)
     val unsupportedExprsByDefault = readOperators(exprsSource, "exprs", false).map(
       x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ",""), x._2))
     unsupportedExecsBydefault ++ unsupportedExprsByDefault
@@ -175,7 +176,7 @@ class PluginTypeChecker(val platform: Platform = PlatformFactory.createInstance(
 
   private def readSupportedTypesForPlugin: (
       Map[String, Map[String, Seq[String]]], ArrayBuffer[String]) = {
-    val source = Source.fromResource(DEFAULT_DS_FILE)
+    val source = UTF8Source.fromResource(DEFAULT_DS_FILE)
     readSupportedTypesForPlugin(source)
   }
 

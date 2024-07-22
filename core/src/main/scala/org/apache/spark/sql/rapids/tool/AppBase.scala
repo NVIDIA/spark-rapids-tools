@@ -20,7 +20,6 @@ import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, Map, SortedMap}
-import scala.io.{Codec, Source}
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
@@ -35,7 +34,7 @@ import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.store.{StageModel, StageModelManager, TaskModelManager}
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
 import org.apache.spark.util.Utils
 
 abstract class AppBase(
@@ -261,7 +260,7 @@ abstract class AppBase(
           val runtimeGetFromJsonMethod = EventUtils.getEventFromJsonMethod
           reader.listEventLogFiles.foreach { file =>
             Utils.tryWithResource(openEventLogInternal(file.getPath, fs)) { in =>
-              Source.fromInputStream(in)(Codec.UTF8).getLines().find { line =>
+              UTF8Source.fromInputStream(in).getLines().find { line =>
                 // Using find as foreach with conditional to exit early if we are done.
                 // Do NOT use a while loop as it is much much slower.
                 totalNumEvents += 1
