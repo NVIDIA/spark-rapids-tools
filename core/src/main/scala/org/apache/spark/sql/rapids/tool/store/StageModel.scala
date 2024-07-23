@@ -33,6 +33,12 @@ class StageModel private(sInfo: StageInfo) {
 
   var stageInfo: StageInfo = initStageInfo(sInfo)
 
+  /**
+   * This method create a new StageInfo object from the incoming StageInfo object.
+   * after trimming it down to contain only the necessary fields.
+   * @param newStageInfo
+   * @return a new StageInfo object with the necessary fields.
+   */
   private def initStageInfo(newStageInfo: StageInfo): StageInfo = {
     val stubStage = new StageInfo(
       stageId = newStageInfo.stageId,
