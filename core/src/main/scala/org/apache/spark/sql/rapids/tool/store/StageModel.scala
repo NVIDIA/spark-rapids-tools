@@ -31,7 +31,8 @@ import org.apache.spark.sql.rapids.tool.annotation.{Calculated, Since, WallClock
 @Since("24.02.3")
 class StageModel private(sInfo: StageInfo) {
 
-  var stageInfo: StageInfo = initStageInfo(sInfo)
+  var stageInfo: StageInfo = _
+  updateInfo(sInfo)
 
   /**
    * This method create a new StageInfo object from the incoming StageInfo object.
