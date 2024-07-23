@@ -19,8 +19,6 @@ package org.apache.spark.sql.rapids.tool.util
 import java.io.FileNotFoundException
 import java.util.Properties
 
-import scala.io.Source
-
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -95,7 +93,7 @@ object RapidsToolsConfUtil extends Logging {
       case null => // return empty properties if the file cannot be loaded
         logError("Cannot load properties from file", new FileNotFoundException(fileName))
       case stream =>
-        props.load(Source.fromInputStream(stream).bufferedReader())
+        props.load(UTF8Source.fromInputStream(stream).bufferedReader())
     }
     props
   }

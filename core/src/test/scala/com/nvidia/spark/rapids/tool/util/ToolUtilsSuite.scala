@@ -21,7 +21,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 
 import scala.concurrent.duration._
-import scala.io.Source
 import scala.xml.XML
 
 import com.nvidia.spark.rapids.tool.profiling.{ProfileOutputWriter, ProfileResult}
@@ -31,7 +30,7 @@ import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal, not}
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.sql.TrampolineUtil
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, FSUtils, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
 
 
 class ToolUtilsSuite extends FunSuite with Logging {
@@ -231,8 +230,8 @@ class ToolUtilsSuite extends FunSuite with Logging {
            |+-------+--------+---------------+---------+
            ||appID-0|1       |你好           |1,2,3    |
            |+-------+--------+---------------+---------+""".stripMargin
-      val actualCSVContent: String = Source.fromFile(csvFilePath).getLines.mkString("\n")
-      val actualTXTContent: String = Source.fromFile(textFilePath).getLines.mkString("\n")
+      val actualCSVContent = FSUtils.readFileContentAsUTF8(csvFilePath)
+      val actualTXTContent = FSUtils.readFileContentAsUTF8(textFilePath)
       actualCSVContent should equal (expectedCSVFileContent)
       actualTXTContent should equal (expectedTXTContent)
     }
