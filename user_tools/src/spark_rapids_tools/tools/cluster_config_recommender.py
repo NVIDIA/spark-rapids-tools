@@ -30,11 +30,13 @@ class ClusterRecommendationInfo:
     """
     Dataclass to hold the recommended cluster and the qualified node recommendation.
     """
+    source_cluster_config: dict = field(default_factory=dict)
     recommended_cluster_config: dict = field(default_factory=dict)
     qualified_node_recommendation: str = 'Not Available'
 
     def to_dict(self) -> dict:
         return {
+            'Source Cluster': self.source_cluster_config,
             'Recommended Cluster': self.recommended_cluster_config,
             'Qualified Node Recommendation': self.qualified_node_recommendation
         }
@@ -78,6 +80,7 @@ class ClusterConfigRecommender:
         Helper method to determine the conversion summary between CPU and GPU instance types.
         Generate the cluster shape recommendation as:
         {
+          'Source Cluster': {'driverInstance': 'm6.xlarge', 'executorInstance': 'm6.xlarge', 'numExecutors': 2 }
           'Recommended Cluster': {'driverInstance': 'm6.xlarge', 'executorInstance': 'g5.2xlarge', 'numExecutors': 2 }
           'Qualified Node Recommendation': 'm6.xlarge to g5.2xlarge'
         }
@@ -93,7 +96,10 @@ class ClusterConfigRecommender:
             if cpu_instance_type != gpu_instance_type:
                 recommended_cluster = gpu_cluster
                 conversion_str = f'{cpu_instance_type} to {gpu_instance_type}'
-        return ClusterRecommendationInfo(recommended_cluster.get_cluster_configuration(), conversion_str)
+        return ClusterRecommendationInfo(
+            cpu_cluster.get_cluster_configuration(),
+            recommended_cluster.get_cluster_configuration(),
+            conversion_str)
 
     def _get_cluster_conversion_summary(self) -> dict:
         """

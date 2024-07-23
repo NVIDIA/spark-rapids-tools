@@ -143,6 +143,7 @@ local:
         columns:
           - 'App ID'
           - 'App Name'
+          - 'Source Cluster'
           - 'Recommended Cluster'
           - 'Estimated GPU Speedup Category'
           - 'Full Cluster Config Recommendations*'
