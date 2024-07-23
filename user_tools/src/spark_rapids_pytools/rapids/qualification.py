@@ -488,8 +488,9 @@ class Qualification(RapidsJarTool):
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 
-    def __is_savings_calc_enabled(self):
-        return self.ctxt.get_ctxt('enableSavingsCalculations')
+    def __is_savings_calc_enabled(self) -> bool:
+        cost_savings_func_flag = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'costSavingsSettings')
+        return cost_savings_func_flag and self.ctxt.get_ctxt('enableSavingsCalculations')
 
     def __get_recommended_apps(self, all_rows, selected_cols=None) -> pd.DataFrame:
         speed_up_col = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport',
@@ -866,7 +867,7 @@ class Qualification(RapidsJarTool):
         target_platform = self.ctxt.get_ctxt('targetPlatform')
         if target_platform is not None:
             pricing_config = self.ctxt.platform.configs.get_value_silent('csp_pricing')
-        if pricing_config is None:
+        if pricing_config is None and self.__is_savings_calc_enabled():
             # OnPrem platform doesn't have pricing information. We do not calculate cost savings for
             # OnPrem platform if the target_platform is not specified.
             self.logger.warning('The pricing configuration for the given platform is not defined.\n\t'
