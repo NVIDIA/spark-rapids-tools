@@ -28,8 +28,9 @@ trait AppFailedStageViewTrait extends ViewableTrait[FailedStagesProfileResults] 
 
   override def getRawView(app: AppBase, index: Int): Seq[FailedStagesProfileResults] = {
     app.stageManager.getFailedStages.map { fsm =>
-      FailedStagesProfileResults(index, fsm.getStageId, fsm.getStageAttemptId,
-        fsm.getStageName, fsm.getStageNumTasks,
+      FailedStagesProfileResults(index, fsm.stageInfo.stageId,
+        fsm.stageInfo.attemptNumber(),
+        fsm.stageInfo.name, fsm.stageInfo.numTasks,
         StringUtils.renderStr(fsm.getFailureReason, doEscapeMetaCharacters = false, maxLength = 0))
     }.toSeq
   }

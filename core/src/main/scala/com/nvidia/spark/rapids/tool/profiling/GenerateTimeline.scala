@@ -346,10 +346,10 @@ object GenerateTimeline {
     }
 
     val stageInfo = app.stageManager.getAllStages.map { case sm =>
-      val stageId = sm.getStageId
-      val submissionTime = sm.getStageSubmissionTime.get
-      val completionTime = sm.getStageCompletionTime.get
-      val duration = sm.getStageDuration.getOrElse(0L)
+      val stageId = sm.stageInfo.stageId
+      val submissionTime = sm.stageInfo.submissionTime.get
+      val completionTime = sm.stageInfo.completionTime.get
+      val duration = sm.getDuration
       minStartTime = Math.min(minStartTime, submissionTime)
       maxEndTime = Math.max(maxEndTime, completionTime)
       new TimelineStageInfo(stageId, submissionTime, completionTime, duration)

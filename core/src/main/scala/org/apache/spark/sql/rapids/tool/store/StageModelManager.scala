@@ -99,7 +99,7 @@ class StageModelManager extends Logging {
   @Calculated("Sum all the WallClockDuration for the given stageId")
   def getDurationById(stageId: Int): Long = {
     stageIdToInfo.get(stageId).map { attempts =>
-      attempts.values.map(_.getStageDuration.getOrElse(0L)).sum
+      attempts.values.map(_.getDuration).sum
     }.getOrElse(0L)
   }
 
