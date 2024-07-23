@@ -451,7 +451,7 @@ def train(
     if features_csv:
         if not Path(features_csv).exists():
             raise FileNotFoundError(f'Features directory not found: {features_csv}')
-        features_csv_files = glob.glob(f'{features_csv}/**/*.csv')
+        features_csv_files = glob.glob(f'{features_csv}/**/*.csv', recursive=True)
         df = pd.concat([pd.read_csv(f) for f in features_csv_files])
         if df[label_col].isnull().any():
             raise ValueError(
