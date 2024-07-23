@@ -252,7 +252,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param custom_model_file: An optional Path to a custom XGBoost model file. The path is a local filesystem,
                 or remote cloud storage url.
         :param platform: defines one of the following "onprem", "dataproc", "databricks-aws",
-                         and "databricks-azure", default to "onprem".
+                         and "databricks-azure", "emr", default to "onprem".
         """
         # Since prediction is an internal tool with frequent output, we enable debug mode by default
         ToolLogging.enable_debug_mode()
@@ -287,7 +287,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
               output_folder: str = None,
               n_trials: int = 200,
               base_model: str = None,
-              features_csv: str = None):
+              features_csv_dir: str = None):
         """The train cmd trains an XGBoost model on the input data to estimate the speedup of a
          Spark CPU application.
 
@@ -296,9 +296,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param output_folder: Path to store the output.
         :param n_trials: Number of trials for hyperparameter search.
         :param base_model: Path to pre-trained XGBoost model to continue training from.
-        :param features_csv: Path to a folder containing one or more features.csv files.  These files are produced
-                             during prediction, and must be manually edited to provide a label column
-                             (Duration_speedup) and value.
+        :param features_csv_dir: Path to a folder containing one or more features.csv files.  These files are
+                                 produced during prediction, and must be manually edited to provide a label column
+                                 (Duration_speedup) and value.
         """
         # Since train is an internal tool with frequent output, we enable debug mode by default
         ToolLogging.enable_debug_mode()
@@ -311,7 +311,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                           output_folder=output_folder,
                                                           n_trials=n_trials,
                                                           base_model=base_model,
-                                                          features_csv=features_csv)
+                                                          features_csv_dir=features_csv_dir)
 
         tool_obj = Train(platform_type=train_args['runtimePlatform'],
                          dataset=dataset,
@@ -319,7 +319,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                          output_folder=output_folder,
                          n_trials=n_trials,
                          base_model=base_model,
-                         features_csv=features_csv,
+                         features_csv_dir=features_csv_dir,
                          wrapper_options=train_args)
         tool_obj.launch()
 

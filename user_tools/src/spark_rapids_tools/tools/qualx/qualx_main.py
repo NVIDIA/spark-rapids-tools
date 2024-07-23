@@ -407,7 +407,7 @@ def train(
     output_dir: Optional[str] = 'train',
     n_trials: Optional[int] = 200,
     base_model: Optional[str] = None,
-    features_csv: Optional[str] = None,
+    features_csv_dir: Optional[str] = None,
 ):
     """Train an XGBoost model.
 
@@ -423,8 +423,8 @@ def train(
         Number of trials for hyperparameter search.
     base_model:
         Path to an existing pre-trained model to continue training from.
-    features_csv:
-        Path to a folder containing one or more features.csv files.  These files are produced during prediction,
+    features_csv_dir:
+        Path to a directory containing one or more features.csv files.  These files are produced during prediction,
         and must be manually edited to provide a label column (Duration_speedup) and value.
     """
     datasets, profile_df = load_datasets(dataset)
@@ -448,10 +448,10 @@ def train(
 
     features, feature_cols, label_col = extract_model_features(profile_df, split_functions)
 
-    if features_csv:
-        if not Path(features_csv).exists():
-            raise FileNotFoundError(f'Features directory not found: {features_csv}')
-        features_csv_files = glob.glob(f'{features_csv}/**/*.csv', recursive=True)
+    if features_csv_dir:
+        if not Path(features_csv_dir).exists():
+            raise FileNotFoundError(f'Features directory not found: {features_csv_dir}')
+        features_csv_files = glob.glob(f'{features_csv_dir}/**/*.csv', recursive=True)
         df = pd.concat([pd.read_csv(f) for f in features_csv_files])
         if df[label_col].isnull().any():
             raise ValueError(
@@ -460,7 +460,7 @@ def train(
             )
         df['split'] = 'train'
         logger.info(
-            'Concatenating %s row(s) of additional features to training set from: %s', len(df), features_csv
+            'Concatenating %s row(s) of additional features to training set from: %s', len(df), features_csv_dir
         )
         features = pd.concat([features, df])
 
