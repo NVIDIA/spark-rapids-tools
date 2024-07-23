@@ -489,7 +489,7 @@ class Qualification(RapidsJarTool):
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 
     def __is_savings_calc_enabled(self) -> bool:
-        cost_savings_func_flag = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'costSavingsSettings')
+        cost_savings_func_flag = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'costSavingsSettings', 'enabled')
         return cost_savings_func_flag and self.ctxt.get_ctxt('enableSavingsCalculations')
 
     def __get_recommended_apps(self, all_rows, selected_cols=None) -> pd.DataFrame:
