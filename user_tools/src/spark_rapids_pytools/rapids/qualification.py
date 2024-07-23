@@ -14,6 +14,7 @@
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 import json
+import re
 from dataclasses import dataclass, field
 from math import ceil
 from typing import Any, List, Callable
@@ -24,7 +25,7 @@ from tabulate import tabulate
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo, SparkNodeType
 from spark_rapids_pytools.common.cluster_inference import ClusterInference
-from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
+from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, convert_dict_to_camel_case
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -1129,16 +1130,19 @@ class Qualification(RapidsJarTool):
         summary_metadata_df = tools_processed_apps[metadata_file_info.get('columns')].copy()
         if not summary_metadata_df.empty:
             try:
-                # 1. prepend parent dir to the config recommendations columns (only for the JSON file, not stdout)
+                # 1. Prepend parent dir to the config recommendations columns (only for the JSON file, not stdout)
                 parent_dir = config_recommendations_dir_info.get('path')
                 for col in config_recommendations_dir_info.get('columns'):
                     if col in summary_metadata_df.columns:
                         summary_metadata_df[col] = summary_metadata_df[col].apply(
                             lambda conf_file: FSUtil.build_path(parent_dir, conf_file))
 
-                # 2. convert column names to camel case for JSON file writing
-                summary_metadata_df.rename(columns=Utilities.convert_to_camel_case, inplace=True)
-                summary_metadata_dict = summary_metadata_df.to_dict(orient='records')
+                # 2. Convert column names to camel case for JSON file writing
+                # First, remove any non-alphanumeric characters from column names and convert to lowercase
+                summary_metadata_df.rename(columns=lambda x: re.sub(r'[^a-z\s]', '', x.lower()), inplace=True)
+                # Then, convert df to dict with camel case keys
+                summary_metadata_dict = convert_dict_to_camel_case(summary_metadata_df.to_dict(orient='records'),
+                                                                   delim=' ')
                 with open(metadata_file_info.get('path'), 'w', encoding='UTF-8') as f:
                     json.dump(summary_metadata_dict, f, indent=2)
             except Exception as e:  # pylint: disable=broad-except

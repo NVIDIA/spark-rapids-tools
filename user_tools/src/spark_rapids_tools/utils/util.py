@@ -323,16 +323,3 @@ class Utilities:
             num_bytes /= 1024.0
             i += 1
         return f'{num_bytes:.2f} {size_units[i]}'
-
-    @classmethod
-    def convert_to_camel_case(cls, input_str: str) -> str:
-        """
-        Convert a string with spaces and special characters to camel case.
-        Eg,
-          'My Col Name' -> 'myColName'
-          'my col name**' -> 'myColName'
-        """
-        words = re.sub(r'[^a-zA-Z\s]', '', input_str).split()
-        if not words:
-            return ''
-        return words[0].lower() + ''.join(word.title() for word in words[1:])
