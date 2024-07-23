@@ -25,7 +25,14 @@ if [ -n "$NEW_FILES" ]
 then
     for f in $NEW_FILES; do
         echo "Checking new file: $f"
-        INVALID_FILES+=($(grep -L --exclude={core/src/test/resources/*,user_tools/src/spark_rapids_pytools/resources/*,*.csv} "Copyright (c) $YEAR" $f))
+	INVALID_FILES+=($(grep -L --exclude={ \
+            core/src/main/resources/*,\
+            core/src/test/resources/*,\
+	    user_tools/src/spark_rapids_pytools/resources/*,\
+	    user_tools/docs/resources/*,\
+	    user_tools/tests/spark_rapids_tools_ut/resources/*,\
+	    *.csv \
+	} "Copyright (c) $YEAR" $f))
     done
 fi
 
