@@ -28,7 +28,6 @@ toolOutput:
         - SQL Stage Durations Sum
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
-        - Speed Up Estimation Model
       mapColumns:
         Recommendation: 'Speedup Based Recommendation'
       recommendations:
@@ -320,7 +319,6 @@ local:
           - 'appId'
           - 'speedup'
           - 'appDuration_pred'
-        estimationModelColumn: 'Speed Up Estimation Model'
         remapColumns:
           - srcCol: 'speedup'
             dstCol: 'Estimated GPU Speedup'
