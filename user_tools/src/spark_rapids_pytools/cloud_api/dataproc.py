@@ -15,6 +15,7 @@
 
 """Implementation specific to Dataproc"""
 
+from collections import defaultdict
 import json
 from dataclasses import dataclass, field
 from typing import Any, List, Union
@@ -55,22 +56,30 @@ class DataprocPlatform(PlatformBase):
                                                           'confProperties',
                                                           'propertiesMap')
         if properties_map_arr:
-            config_cmd_prefix = ['gcloud', 'config', 'get']
-            for prop_entry in properties_map_arr:
-                prop_entry_key = prop_entry.get('propKey')
-                if self.ctxt.get(prop_entry_key):
-                    # Skip if the property already set
-                    continue
-                prop_cmd = config_cmd_prefix[:]
-                section_entry = prop_entry.get('section')
-                prop_cmd.append(f'{section_entry}/{prop_entry_key}')
-                cmd_args = {
-                    'cmd': prop_cmd,
-                }
-                prop_cmd_obj = SysCmd().build(cmd_args)
-                prop_cmd_res = prop_cmd_obj.exec()
-                if prop_cmd_res:
-                    self.ctxt.update({prop_entry_key: prop_cmd_res})
+            # We support multiple CLI configurations, the following two dictionaries map
+            # config sections to the corresponding property keys to be set, and config file name respectively
+            config_section_keys = defaultdict(list)  # config section: keys
+            config_section_file = {}  # config section: config file
+            for prop_elem in properties_map_arr:
+                if prop_elem.get('confProperty') in remaining_props:
+                    config_section = prop_elem.get('section').strip('_')
+                    # The property uses the default value which is '_cliConfigFile_'
+                    config_file = prop_elem.get('configFileProp', '_cliConfigFile_').strip('_')
+                    config_section_keys[config_section].append(prop_elem.get('propKey'))
+                    if config_section not in config_section_file:
+                        config_section_file[config_section] = config_file
+            loaded_conf_dict = {}
+            for config_section in config_section_keys:
+                loaded_conf_dict = \
+                    self._load_props_from_sdk_conf_file(keyList=config_section_keys[config_section],
+                                                        configFile=config_section_file[config_section],
+                                                        sectionKey=config_section)
+                if loaded_conf_dict:
+                    self.ctxt.update(loaded_conf_dict)
+            # If the property key is not already set, below code attempts to set the property
+            # using an environment variable. This is a fallback mechanism to populate configuration
+            # properties from the environment if they are not already set in the
+            # loaded configuration.
             for prop_entry in properties_map_arr:
                 prop_entry_key = prop_entry.get('propKey')
                 # set it using environment variable if possible
@@ -360,12 +369,22 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
     def get_instance_description_cli_params(self) -> list:
         return ['gcloud compute machine-types list', '--zones', f'{self.get_zone()}']
 
+    def init_instance_descriptions(self) -> None:
+        platform = CspEnv.pretty_print(self.cloud_ctxt['platformType'])
+        instance_description_file_path = Utils.resource_path(f'{platform}-instance-catalog.json')
+        self.logger.info('Loading instance descriptions from file: %s', instance_description_file_path)
+        self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
+
 
 @dataclass
 class DataprocNode(ClusterNode):
     """Implementation of Dataproc cluster node."""
 
     zone: str = field(default=None, init=False)
+
+    def _pull_and_set_mc_props(self, cli=None):
+        instances_description = cli.describe_node_instance(self.instance_type) if cli else None
+        self.mc_props = JSONPropertiesContainer(prop_arg=instances_description, file_load=False)
 
     @staticmethod
     def __extract_info_from_value(conf_val: str):
@@ -429,8 +448,8 @@ class DataprocNode(ClusterNode):
                              gpu_mem=gpu_configs.get('gpu_mem'))
 
     def _pull_sys_info(self, cli=None) -> SysInfo:
-        cpu_mem = self.mc_props.get_value('memoryMb')
-        num_cpus = self.mc_props.get_value('guestCpus')
+        cpu_mem = self.mc_props.get_value('MemoryInMB')
+        num_cpus = self.mc_props.get_value('VCpuCount')
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
     def _set_fields_from_props(self):
