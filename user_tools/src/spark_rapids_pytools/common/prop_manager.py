@@ -18,14 +18,14 @@ import json
 from dataclasses import field, dataclass
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Union
 
 import yaml
 
 from spark_rapids_tools import get_elem_from_dict, get_elem_non_safe
 
 
-def convert_dict_to_camel_case(dic: dict | list, delim: str = '_') -> object:
+def convert_dict_to_camel_case(dic: Union[dict, list], delim: str = '_') -> object:
     """
     Given a dictionary with underscore keys. This method converts the keys to a camelcase.
     Example, gce_cluster_config -> gceClusterConfig
