@@ -35,8 +35,8 @@ class StageModel private(sInfo: StageInfo) {
   updateInfo(sInfo)
 
   /**
-   * This method create a new StageInfo object from the incoming StageInfo object.
-   * after trimming it down to contain only the necessary fields.
+   * Creates a new StageInfo object by extractingand copying
+   * only the necessary fields from the given StageInfo object.
    * @param newStageInfo
    * @return a new StageInfo object with the necessary fields.
    */
