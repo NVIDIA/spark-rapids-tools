@@ -1030,11 +1030,6 @@ class Qualification(RapidsJarTool):
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.error('Unable to use XGBoost estimation model for speed ups. '
                                   'Falling-back to default model. Reason - %s:%s', type(e).__name__, e)
-        estimation_model_col = self.ctxt.get_value('local', 'output', 'predictionModel',
-                                                   'updateResult', 'estimationModelColumn')
-        if estimation_model_col not in df:
-            # Create the estimation model column as SPEEDUPS if there were no predictions or failure.
-            df[estimation_model_col] = QualEstimationModel.tostring(QualEstimationModel.SPEEDUPS)
 
         # 2. Operations related to cluster information
         try:
@@ -1212,12 +1207,6 @@ class Qualification(RapidsJarTool):
         # Merge with a left join to include all rows from all apps and relevant rows from model predictions
         result_df = pd.merge(all_apps, predictions_df[result_info['subsetColumns']],
                              how='left', left_on='App ID', right_on='appId')
-        # Create a estimation model column based on the model used for calculating speedups
-        result_df[result_info['estimationModelColumn']] = np.where(
-            result_df['speedup'].isna(),
-            QualEstimationModel.tostring(QualEstimationModel.SPEEDUPS),
-            QualEstimationModel.tostring(QualEstimationModel.XGBOOST)
-        )
         # Update columns in all apps with values from corresponding XGBoost columns,
         # falling back to existing values in all apps when XGBoost values are NA.
         for remap_column in result_info['remapColumns']:
