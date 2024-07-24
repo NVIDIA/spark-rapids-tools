@@ -20,7 +20,6 @@ import java.io.{File, PrintWriter}
 import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-import scala.io.Source
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -34,9 +33,9 @@ import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, to_json, udf}
-import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterInfo, ClusterSummary, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterSummary, ExistingClusterInfo, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo, RunningQualificationEventProcessor}
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, UTF8Source}
 import org.apache.spark.sql.types._
 
 // drop the fields that won't go to DataFrame without encoders
@@ -288,7 +287,7 @@ class QualificationSuite extends BaseTestSuite {
         s"${outpath.getAbsolutePath}/$qualOutputPrefix/${qualOutputPrefix}_status.csv")
 
       val filename = s"$outpath/$qualOutputPrefix/$qualOutputPrefix.log"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toArray
         // 4 lines of header and footer
@@ -325,7 +324,7 @@ class QualificationSuite extends BaseTestSuite {
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.log"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toArray
         // 4 lines of header and footer
@@ -338,7 +337,7 @@ class QualificationSuite extends BaseTestSuite {
       }
       val persqlFileName = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output_persql.log"
-      val persqlInputSource = Source.fromFile(persqlFileName)
+      val persqlInputSource = UTF8Source.fromFile(persqlFileName)
       try {
         val lines = persqlInputSource.getLines.toArray
         // 4 lines of header and footer
@@ -377,7 +376,7 @@ class QualificationSuite extends BaseTestSuite {
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.log"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines
         // 4 lines of header and footer, limit is 2
@@ -387,7 +386,7 @@ class QualificationSuite extends BaseTestSuite {
       }
       val persqlFileName = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output_persql.log"
-      val persqlInputSource = Source.fromFile(persqlFileName)
+      val persqlInputSource = UTF8Source.fromFile(persqlFileName)
       try {
         val lines = persqlInputSource.getLines
         // 4 lines of header and footer, limit is 2
@@ -413,7 +412,7 @@ class QualificationSuite extends BaseTestSuite {
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.csv"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toSeq
         // 1 for header, 1 for values
@@ -447,7 +446,7 @@ class QualificationSuite extends BaseTestSuite {
         s"${outpath.getAbsolutePath}/$qualOutputPrefix/${qualOutputPrefix}_status.csv")
 
       val filename = s"$outpath/$qualOutputPrefix/$qualOutputPrefix.csv"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toSeq
         // 1 for header, Event log not parsed since it is from GPU run.
@@ -495,7 +494,7 @@ class QualificationSuite extends BaseTestSuite {
       val brokenEvLog = new File(s"$eventLogDir/brokenevent.inprogress")
       val pwList = Array(new PrintWriter(unfinishedLog), new PrintWriter(incompleteLog),
         new PrintWriter(brokenEvLog))
-      val bufferedSource = Source.fromFile(eventLog)
+      val bufferedSource = UTF8Source.fromFile(eventLog)
       try {
         val allEventLines = bufferedSource.getLines.toList
         // the following val will contain the last two lines of the eventlog
@@ -1246,7 +1245,7 @@ class QualificationSuite extends BaseTestSuite {
           val filename = s"$outpath/rapids_4_spark_qualification_output/" +
               s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
 
-          val inputSource = Source.fromFile(filename)
+          val inputSource = UTF8Source.fromFile(filename)
           try {
             val lines = inputSource.getLines.toArray
             val expr = ".*to_json.*"
@@ -1386,7 +1385,7 @@ class QualificationSuite extends BaseTestSuite {
           " (SELECT  * from tableB as r where l.age=r.age and l.score <= r.score)")
       }
       // validate that the eventlog contains ExistenceJoin and BroadcastHashJoin
-      val reader = Source.fromFile(eventLog).mkString
+      val reader = FSUtils.readFileContentAsUTF8(eventLog)
       assert(reader.contains("ExistenceJoin"))
       assert(reader.contains("BroadcastHashJoin"))
 
@@ -1555,7 +1554,7 @@ class QualificationSuite extends BaseTestSuite {
           // Next, we check that the content of the unsupportedOps has no entry for "hive".
           val unsupportedOpsCSV = s"$outpath/rapids_4_spark_qualification_output/" +
             s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
-          val inputSource = Source.fromFile(unsupportedOpsCSV)
+          val inputSource = UTF8Source.fromFile(unsupportedOpsCSV)
           try {
             val unsupportedRows = inputSource.getLines.toSeq
             assert(unsupportedRows.head.contains(
@@ -1571,12 +1570,12 @@ class QualificationSuite extends BaseTestSuite {
 
   // Expected results as a map of event log -> cluster info.
   // scalastyle:off line.size.limit
-  val expectedClusterInfoMap: Seq[(String, Option[ClusterInfo])] = Seq(
-    "eventlog_2nodes_8cores" -> // 2 nodes, each with 1 executor having 8 cores.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 8, 1, 2,
+  val expectedClusterInfoMap: Seq[(String, Option[ExistingClusterInfo])] = Seq(
+    "eventlog_2nodes_8cores" -> // 2 executor nodes with 8 cores.
+      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 8, 1, 2, 0L,
         None, None, Some("10.10.10.100"), None, None)),
     "eventlog_3nodes_12cores_multiple_executors" -> // 3 nodes, each with 2 executors having 12 cores.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 2, 3,
+      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 12, 2, 3, 0L,
         None, None, Some("10.59.184.210"), None, None)),
     // TODO: Currently we do not handle dynamic allocation while calculating number of nodes. For
     //  calculating nodes, we look at unique active hosts at the end of application. In this test
@@ -1584,13 +1583,13 @@ class QualificationSuite extends BaseTestSuite {
     //  removed. In the end, only 1 executor was active on 1 node. This test case should be updated
     //  once we handle dynamic allocation.
     "eventlog_4nodes_8cores_dynamic_alloc" -> // 4 nodes, each with 2 executor having 8 cores, with dynamic allocation.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 8, 2, 1,
+      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 8, 2, 1, 0L,
         None, None, Some("test-cpu-cluster-m"), None, None)),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 nodes with varying cores: 8, 12, and 8, each with 1 executor.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 1, 3,
+      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 12, 1, 3, 0L,
         None, None, Some("10.10.10.100"), None, None)),
     "eventlog_3nodes_12cores_exec_removed" -> // 2 nodes, each with 1 executor having 12 cores, 1 executor removed.
-      Some(ClusterInfo(PlatformNames.DEFAULT, 12, 1, 2,
+      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 12, 1, 2, 0L,
         None, None, Some("10.10.10.100"), None, None)),
     "eventlog_driver_only" -> None // Event log with driver only
   )
@@ -1604,37 +1603,40 @@ class QualificationSuite extends BaseTestSuite {
   }
 
   // Expected results as a map of platform -> cluster info.
-  val expectedPlatformClusterInfoMap: Seq[(String, ClusterInfo)] = Seq(
+  val expectedPlatformClusterInfoMap: Seq[(String, ExistingClusterInfo)] = Seq(
     PlatformNames.DATABRICKS_AWS ->
-      ClusterInfo(PlatformNames.DATABRICKS_AWS, 8, 1, 2,
+      ExistingClusterInfo(PlatformNames.DATABRICKS_AWS, 8, 1, 2, 0L,
         Some("m6gd.2xlarge"),
         Some("m6gd.2xlarge"),
         Some("10.10.10.100"),
         Some("1212-214324-test"),
         Some("test-db-aws-cluster")),
     PlatformNames.DATABRICKS_AZURE ->
-      ClusterInfo(PlatformNames.DATABRICKS_AZURE, 8, 1, 2,
+      ExistingClusterInfo(PlatformNames.DATABRICKS_AZURE, 8, 1, 2, 0L,
         Some("Standard_E8ds_v4"),
         Some("Standard_E8ds_v4"),
         Some("10.10.10.100"),
         Some("1212-214324-test"),
         Some("test-db-azure-cluster")),
     PlatformNames.DATAPROC ->
-      ClusterInfo(PlatformNames.DATAPROC, 8, 1, 2,
+      ExistingClusterInfo(PlatformNames.DATAPROC, 8, 1, 2,
+        0L,
         None,
         None,
         Some("dataproc-test-m.c.internal"),
         None,
         None),
     PlatformNames.EMR ->
-      ClusterInfo(PlatformNames.EMR, 8, 1, 2,
+      ExistingClusterInfo(PlatformNames.EMR, 8, 1, 2,
+        0L,
         None,
         None,
         Some("10.10.10.100"),
         Some("j-123AB678XY321"),
         None),
     PlatformNames.ONPREM ->
-      ClusterInfo(PlatformNames.ONPREM, 8, 1, 2,
+      ExistingClusterInfo(PlatformNames.ONPREM, 8, 1, 2,
+        0L,
         None,
         None,
         Some("10.10.10.100"),
@@ -1653,7 +1655,7 @@ class QualificationSuite extends BaseTestSuite {
    * Runs the qualification tool and verifies cluster information against expected values.
    */
   private def runQualificationAndTestClusterInfo(eventlogPath: String, platform: String,
-      expectedClusterInfo: Option[ClusterInfo]): Unit = {
+      expectedClusterInfo: Option[ExistingClusterInfo]): Unit = {
     TrampolineUtil.withTempDir { outPath =>
       val baseArgs = Array("--output-directory", outPath.getAbsolutePath, "--platform", platform)
       val appArgs = new QualificationArgs(baseArgs :+ eventlogPath)

@@ -13,13 +13,10 @@
 # limitations under the License.
 
 from typing import Callable, List, Optional
-import fire
 import glob
 import json
 import os
-import pandas as pd
 import traceback
-import xgboost as xgb
 from pathlib import Path
 from spark_rapids_tools import CspPath
 from spark_rapids_tools.tools.qualx.preprocess import (
@@ -32,7 +29,7 @@ from spark_rapids_tools.tools.qualx.preprocess import (
 )
 from spark_rapids_tools.tools.qualx.model import (
     extract_model_features,
-    compute_feature_importance,
+    compute_shapley_values,
     split_nds,
     split_all_test,
 )
@@ -54,8 +51,43 @@ from spark_rapids_tools.tools.qualx.util import (
 from spark_rapids_pytools.common.utilities import Utils
 from tabulate import tabulate
 from xgboost.core import XGBoostError, Booster
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+import fire
+
 
 logger = get_logger(__name__)
+
+
+def _get_model_path(platform: str, model: Optional[str]):
+    if model is not None:
+        # if "model" is provided
+        if CspPath.is_file_path(model, raise_on_error=False):
+            # and "model" is actually represents a file path
+            # check that it is valid json file
+            if not CspPath.is_file_path(model,
+                                        extensions=['json'],
+                                        raise_on_error=False):
+                raise ValueError(
+                    f'Custom model file [{model}] is invalid. Please specify a valid JSON file.')
+            # TODO: If the path is remote, we need to copy it locally in order to successfully
+            #       load it with xgboost.
+            model_path = Path(CspPath(model).no_prefix)
+            if not model_path.exists():
+                raise FileNotFoundError(f'Model JSON file not found: {model_path}')
+        else:
+            # otherwise, try loading pre-trained model by "short name", e.g. "onprem"
+            model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{model}.json'))
+            if not model_path.exists():
+                raise FileNotFoundError(f'Model JSON file for {model} not found at: {model_path}')
+    else:
+        # if "model" not provided, try loading pre-trained model by "platform"
+        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
+        if not model_path.exists():
+            raise ValueError(f'Platform [{platform}] does not have a pre-trained model, '
+                             'please specify --model or choose another platform.')
+    return model_path
 
 
 def _get_model(platform: str,
@@ -72,28 +104,8 @@ def _get_model(platform: str,
                  resources directory.
     :return: xgb.Booster loading the model file.
     """
-    if model is not None:
-        if CspPath.is_file_path(model, raise_on_error=False):
-            # "model" is actually represents a file path
-            # check that it is valid json file
-            if not CspPath.is_file_path(model,
-                                        extensions=['json'],
-                                        raise_on_error=False):
-                raise ValueError(
-                    f'Custom model file [{model}] is invalid. Please specify a valid JSON file.')
-            # TODO: If the path is remote, we need to copy it locally in order to successfully
-            #       load it with xgboost.
-            model_path = Path(CspPath(model).no_prefix)
-        else:
-            # try pre-trained model first
-            model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{model}.json'))
-    else:
-        # use the platform to define the path of the pre-trained model
-        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
-    if not model_path.exists():
-        raise ValueError(f'Platform [{model_path}] does not have a pre-trained model, '
-                         'please specify --model or choose another platform.')
-    logger.info(f'Loading model from: {model_path}')
+    model_path = _get_model_path(platform, model)
+    logger.info('Loading model from: %s', model_path)
     xgb_model = xgb.Booster()
     xgb_model.load_model(model_path)
     return xgb_model
@@ -105,7 +117,7 @@ def _get_qual_data(qual: Optional[str]):
 
     # load qual tool execs
     qual_list = find_paths(
-        qual, lambda x: RegexPattern.rapidsQualtool.match(x), return_directories=True
+        qual, RegexPattern.rapidsQualtool.match, return_directories=True
     )
     # load metrics directory from all qualification paths.
     # metrics follow the pattern 'qual_2024xx/rapids_4_spark_qualification_output/raw_metrics'
@@ -215,7 +227,7 @@ def _predict(
             if any(input_df['fraction_supported'] != 1.0)
             else 'raw'
         )
-        logger.info(f'Predicting dataset ({filter_str}): {dataset}')
+        logger.info('Predicting dataset (%s): %s', filter_str, dataset)
         features, feature_cols, label_col = extract_model_features(input_df, [split_fn])
         # note: dataset name is already stored in the 'appName' field
         try:
@@ -270,7 +282,7 @@ def _read_dataset_scores(
             nan_df['model'] + '/' + nan_df['platform'] + '/' + nan_df['dataset']
         )
         keys = list(nan_df['key'].unique())
-        logger.warning(f'Dropped rows w/ NaN values from: {eval_dir}: {keys}')
+        logger.warning('Dropped rows w/ NaN values from: %s: %s', eval_dir, keys)
 
     return df
 
@@ -320,7 +332,7 @@ def _read_platform_scores(
             nan_df['model'] + '/' + nan_df['platform'] + '/' + nan_df['dataset']
         )
         keys = list(nan_df['key'].unique())
-        logger.warning(f'Dropped rows w/ NaN values from: {eval_dir}: {keys}')
+        logger.warning('Dropped rows w/ NaN values from: %s: %s', eval_dir, keys)
 
     # compute accuracy by platform
     scores = {}
@@ -363,7 +375,6 @@ def models():
     ]
     for model in sorted(available_models):
         print(model)
-    return
 
 
 def preprocess(dataset: str):
@@ -384,11 +395,10 @@ def preprocess(dataset: str):
     for platform in platforms:
         preprocessed_data = f'{cache_dir}/{platform}/{PREPROCESSED_FILE}'
         if os.path.exists(preprocessed_data):
-            logger.info(f'Invalidating cached profile_df: {preprocessed_data}')
+            logger.info('Invalidating cached profile_df: %s', preprocessed_data)
             os.remove(preprocessed_data)
 
     load_datasets(dataset, ignore_test=False)
-    return
 
 
 def train(
@@ -397,6 +407,7 @@ def train(
     output_dir: Optional[str] = 'train',
     n_trials: Optional[int] = 200,
     base_model: Optional[str] = None,
+    features_csv_dir: Optional[str] = None,
 ):
     """Train an XGBoost model.
 
@@ -412,37 +423,56 @@ def train(
         Number of trials for hyperparameter search.
     base_model:
         Path to an existing pre-trained model to continue training from.
+    features_csv_dir:
+        Path to a directory containing one or more features.csv files.  These files are produced during prediction,
+        and must be manually edited to provide a label column (Duration_speedup) and value.
     """
     datasets, profile_df = load_datasets(dataset)
     dataset_list = sorted(list(datasets.keys()))
     profile_datasets = sorted(list(profile_df['appName'].unique()))
-    logger.info(f'Training on: {dataset_list}')
+    logger.info('Training on: %s', dataset_list)
 
     # sanity check
     if set(dataset_list) != set(profile_datasets):
         logger.warning(
-            f'Training data contained datasets: {profile_datasets}, expected: {dataset_list}.'
+            'Training data contained datasets: %s, expected: %s', profile_datasets, dataset_list
         )
 
     split_functions = [split_nds]
     for ds_name, ds_meta in datasets.items():
         if 'split_function' in ds_meta:
             plugin_path = ds_meta['split_function']
-            logger.info(f'Using split function for {ds_name} dataset from plugin: {plugin_path}')
+            logger.info('Using split function for %s dataset from plugin: %s', ds_name, plugin_path)
             plugin = load_plugin(plugin_path)
             split_functions.append(plugin.split_function)
 
     features, feature_cols, label_col = extract_model_features(profile_df, split_functions)
 
+    if features_csv_dir:
+        if not Path(features_csv_dir).exists():
+            raise FileNotFoundError(f'Features directory not found: {features_csv_dir}')
+        features_csv_files = glob.glob(f'{features_csv_dir}/**/*.csv', recursive=True)
+        df = pd.concat([pd.read_csv(f) for f in features_csv_files])
+        if df[label_col].isnull().any():
+            raise ValueError(
+                'Additional features contained an empty/null label, '
+                f'please add a label column ({label_col}) and value.'
+            )
+        df['split'] = 'train'
+        logger.info(
+            'Concatenating %s row(s) of additional features to training set from: %s', len(df), features_csv_dir
+        )
+        features = pd.concat([features, df])
+
     xgb_base_model = None
     if base_model:
         if os.path.exists(base_model):
-            logger.info(f'Fine-tuning on base model from: {base_model}')
+            logger.info('Fine-tuning on base model from: %s', base_model)
             xgb_base_model = xgb.Booster()
             xgb_base_model.load_model(base_model)
-            base_model_cfg = base_model + '.cfg'
+            base_model_cfg = Path(base_model).with_suffix('.cfg')
             if os.path.exists(base_model_cfg):
-                with open(base_model + '.cfg', 'r') as f:
+                with open(base_model_cfg, 'r', encoding='utf-8') as f:
                     cfg = f.read()
                 xgb_base_model.load_config(cfg)
             else:
@@ -454,15 +484,34 @@ def train(
 
     # save model and params
     ensure_directory(model, parent=True)
-    logger.info(f'Saving model to: {model}')
+    logger.info('Saving model to: %s', model)
     xgb_model.save_model(model)
     cfg = xgb_model.save_config()
-    with open(model + '.cfg', 'w') as f:
+    base_model_cfg = Path(model).with_suffix('.cfg')
+    with open(base_model_cfg, 'w', encoding='utf-8') as f:
         f.write(cfg)
 
     ensure_directory(output_dir)
-    compute_feature_importance(xgb_model, features, feature_cols, output_dir)
-    return
+
+    for split in ['train', 'test']:
+        features_split = features[feature_cols].loc[features['split'] == split]
+        if features_split.empty:
+            continue
+
+        feature_importance, _ = compute_shapley_values(xgb_model, features_split)
+        feature_cols = feature_importance.feature.values
+        feature_stats = features_split[feature_cols].describe().transpose().drop(columns='count')
+        feature_stats = feature_stats.reset_index().rename(columns={'index': 'feature'})
+
+        feature_importance = feature_importance.merge(feature_stats, how='left', on='feature')
+        feature_importance.to_csv(f'{output_dir}/shap_{split}.csv')
+        if split == 'train':
+            # save training shap values and feature distribution metrics with model
+            metrics_file = Path(model).with_suffix('.metrics')
+            feature_importance.to_csv(metrics_file)
+
+        print(f'Shapley feature importance and statistics ({split}):')
+        print(tabulate(feature_importance, headers='keys', tablefmt='psql', floatfmt='.2f'))
 
 
 def predict(
@@ -499,7 +548,7 @@ def predict(
             # search sub directories for App IDs
             app_ids = [p.name for p in Path(metrics_dir).iterdir() if p.is_dir()]
             if len(app_ids) == 0:
-                logger.warning(f'Skipping empty metrics directory: {metrics_dir}')
+                logger.warning('Skipping empty metrics directory: %s', metrics_dir)
             else:
                 try:
                     for app_id in app_ids:
@@ -509,7 +558,7 @@ def predict(
                         )
                         # update the dataset_name for each App ID
                         default_preds_df.loc[default_preds_df['appId'] == app_id, 'dataset_name'] = dataset_name
-                    logger.info(f'Loading dataset {dataset_name}')
+                    logger.info('Loading dataset: %s', dataset_name)
                     metrics_df = load_profiles(
                         datasets=datasets,
                         node_level_supp=node_level_supp,
@@ -519,7 +568,7 @@ def predict(
                     processed_dfs[dataset_name] = metrics_df
                 except ScanTblError:
                     # ignore
-                    logger.error(f'Skipping invalid dataset: {dataset_name}')
+                    logger.error('Skipping invalid dataset: %s', dataset_name)
     else:
         logger.warning('Qualification tool metrics are missing. Speedup predictions will be skipped.')
         return pd.DataFrame()
@@ -545,14 +594,31 @@ def predict(
                 and any(input_df['fraction_supported'] != 1.0)
                 else 'raw'
             )
-            logger.info(f'Predicting dataset ({filter_str}): {dataset}')
+            logger.info('Predicting dataset (%s): %s', filter_str, dataset)
             features, feature_cols, label_col = extract_model_features(input_df)
+
+            # save features for troubleshooting
+            output_file = output_info['features']['path']
+            logger.info('Writing features to: %s', output_file)
+            features.to_csv(output_file, index=False)
+
             # note: dataset name is already stored in the 'appName' field
             try:
-                per_sql_summary = predict_model(xgb_model, features, feature_cols, label_col, output_info)
+                per_sql_summary = predict_model(xgb_model, features, feature_cols, label_col)
+
+                # compute and save shapley values
+                if output_info:
+                    feature_importance, shapley_values = compute_shapley_values(xgb_model, features)
+
+                    output_file = output_info['featureImportance']['path']
+                    logger.info('Writing shapley feature importances to: %s', output_file)
+                    feature_importance.to_csv(output_file)
+
+                    output_file = output_info['shapValues']['path']
+                    logger.info('Writing shapley values to: %s', output_file)
+                    shapley_values.to_csv(output_file, index=False)
+
                 # compute per-app speedups
-                # _compute_summary takes only one arg
-                # summary = _compute_summary(results, qual_preds)
                 summary = _compute_summary(per_sql_summary)
                 # combine calculated summary with default predictions for missing apps
                 per_app_summary = _add_entries_for_missing_apps(filtered_default_preds, summary)
@@ -573,7 +639,7 @@ def predict(
                 logger.error(e)
                 traceback.print_exc(e)
         else:
-            logger.warning(f'Predicted speedup will be 1.0 for dataset: {dataset}. Check logs for details.')
+            logger.warning('Predicted speedup will be 1.0 for dataset: %s. Check logs for details.', dataset)
         # TODO: Writing CSV reports for all datasets to the same location. We should write to separate directories.
         write_csv_reports(per_sql_summary, per_app_summary, output_info)
         dataset_summaries.append(per_app_summary)
@@ -587,11 +653,12 @@ def predict(
     return pd.DataFrame()
 
 
-def __predict_cli(
+def _predict_cli(
     platform: str,
-    eventlogs: str,
     output_dir: str,
     *,
+    eventlogs: Optional[str] = None,
+    qual_output: Optional[str] = None,
     model: Optional[str] = None,
     qualtool_filter: Optional[str] = 'stage',
 ):
@@ -608,10 +675,12 @@ def __predict_cli(
     platform: str
         Name of platform for spark_rapids_user_tools, e.g. `onprem`, `dataproc`, etc.  This will
         be used as the model name, if --model is not provided.
-    eventlogs: str
-        Path to a single event log, or a directory containing multiple event logs.
     output_dir:
         Path to save predictions as CSV files.
+    eventlogs: str
+        Path to a single event log, or a directory containing multiple event logs.
+    qual_output: str
+        Path to qualification tool output.
     model: str
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
@@ -620,19 +689,26 @@ def __predict_cli(
         output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
     """
     # Note this function is for internal usage only. `spark_rapids predict` cmd is the public interface.
+    assert eventlogs or qual_output, 'Please specify either --eventlogs or --qual_output.'
 
     # Construct output paths
     ensure_directory(output_dir)
 
-    if not any([f.startswith('qual_') for f in os.listdir(output_dir)]):
-        # run qual tool if no existing qual output found
-        run_qualification_tool(platform, eventlogs, output_dir)
-    qual = output_dir
+    if eventlogs:
+        # --eventlogs takes priority over --qual_output
+        if not any(f.startswith('qual_') for f in os.listdir(output_dir)):
+            # run qual tool if no existing qual output found
+            run_qualification_tool(platform, eventlogs, output_dir)
+        qual = output_dir
+    else:
+        qual = qual_output
 
     output_info = {
         'perSql': {'path': os.path.join(output_dir, 'per_sql.csv')},
         'perApp': {'path': os.path.join(output_dir, 'per_app.csv')},
         'shapValues': {'path': os.path.join(output_dir, 'shap_values.csv')},
+        'features': {'path': os.path.join(output_dir, 'features.csv')},
+        'featureImportance': {'path': os.path.join(output_dir, 'feature_importance.csv')},
     }
 
     predict(
@@ -677,7 +753,7 @@ def evaluate(
         based on qualtool output.  A sqlID or stage is fully supported if all execs are respectively
         fully supported.
     """
-    with open(dataset, 'r') as f:
+    with open(dataset, 'r', encoding='utf-8') as f:
         datasets = json.load(f)
         for ds_name in datasets.keys():
             datasets[ds_name]['platform'] = platform
@@ -708,7 +784,7 @@ def evaluate(
         if 'split_function' in ds_meta:
             # get split_function from plugin
             plugin_path = ds_meta['split_function']
-            logger.info(f'Using split function for {ds_name} dataset from plugin: {plugin_path}')
+            logger.info('Using split function for %s dataset from plugin: %s', ds_name, plugin_path)
             plugin = load_plugin(plugin_path)
             split_fn = plugin.split_function
 
@@ -772,7 +848,7 @@ def evaluate(
 
     if not raw_app.loc[raw_app.gpu_appDuration.isna()].empty:
         logger.error(
-            f'missing gpu apps: {raw_app.loc[raw_app.gpu_appDuration.isna()].to_markdown()}'
+            'missing gpu apps: %s', raw_app.loc[raw_app.gpu_appDuration.isna()].to_markdown()
         )
         raw_app = raw_app.loc[~raw_app.gpu_appDuration.isna()]
 
@@ -912,18 +988,16 @@ def evaluate(
 
     # write results as CSV
     sql_predictions_path = os.path.join(output_dir, f'{dataset_name}_sql.csv')
-    logger.info(f'Writing per-SQL predictions to: {sql_predictions_path}')
+    logger.info('Writing per-SQL predictions to: %s', sql_predictions_path)
     results_sql.to_csv(sql_predictions_path, index=False, na_rep='nan')
 
     app_predictions_path = os.path.join(output_dir, f'{dataset_name}_app.csv')
-    logger.info(f'Writing per-application predictions to: {app_predictions_path}')
+    logger.info('Writing per-application predictions to: %s', app_predictions_path)
     results_app.to_csv(app_predictions_path, index=False, na_rep='nan')
-
-    return
 
 
 def evaluate_summary(
-    evaluate: str,
+    evaluate: str,  # pylint: disable=W0621
     *,
     score: str = 'dMAPE',
     split: str = 'test',
@@ -942,10 +1016,8 @@ def evaluate_summary(
     summary_df, _ = _read_platform_scores(evaluate, score, split)
     print(tabulate(summary_df, headers='keys', tablefmt='psql', floatfmt='.4f'))
     summary_path = f'{evaluate}/summary.csv'
-    logger.info(f'Writing per-platform {score} scores for \'{split}\' split to: {summary_path}')
+    logger.info('Writing per-platform %s scores for \'%s\' split to: %s', score, split, summary_path)
     summary_df.to_csv(summary_path)
-
-    return
 
 
 def compare(
@@ -989,7 +1061,7 @@ def compare(
         )
     print(tabulate(compare_df, headers='keys', tablefmt='psql', floatfmt='.4f'))
     comparison_path = f'{current}/comparison_dataset.csv'
-    logger.info(f'Writing dataset evaluation comparison to: {comparison_path}')
+    logger.info('Writing dataset evaluation comparison to: %s', comparison_path)
     compare_df.to_csv(comparison_path)
 
     # compare app MAPE scores per platform
@@ -1013,13 +1085,145 @@ def compare(
         )
     print(tabulate(compare_df, headers='keys', tablefmt='psql', floatfmt='.4f'))
     comparison_path = f'{current}/comparison_platform.csv'
-    logger.info(f'Writing platform evaluation comparison to: {comparison_path}')
+    logger.info('Writing platform evaluation comparison to: %s', comparison_path)
     compare_df.to_csv(comparison_path)
 
     # warn user of any new datasets
     added = curr_datasets - prev_datasets
     if added:
-        logger.warning(f'New datasets added, comparisons may be skewed: added={added}')
+        logger.warning('New datasets added, comparisons may be skewed: added=%s', added)
+
+
+def shap(platform: str, prediction_output: str, index: int, model: Optional[str] = None):
+    """Print a SHAP waterfall of features and their SHAP value contributions to the overall prediction for
+    a specific index (sqlID) in the shap_values.csv file produced by prediction.
+
+    Output description:
+    - features are listed in order of importance (absolute value of `shap_value`), similar to a SHAP waterfall plot.
+    - `model_rank` shows the feature importance rank on the training set.
+    - `model_shap_value` shows the feature shap_value on the training set.
+    - `train_[mean|std|min|max]` show the mean, standard deviation, min and max values of the feature in the
+    training set.
+    - `train_[25%|50%|75%]` show the feature value at the respective percentile in the training set.
+    - `feature_value` shows the value of the feature used in prediction (for the indexed row/sqlID).
+    - `out_of_range` indicates if the `feature_value` used in prediction was outside of the range of values seen in
+    the training set.
+    - `Shap base value` is the model's average prediction across the entire training set.
+    - `Shap values sum` is the sum of the `shap_value` column for this indexed instance.
+    - `Shap prediction` is the sum of `Shap base value` and `Shap values sum`, representing the model's predicted value.
+    - `exp(prediction)` is the exponential of `Shap prediction`, which represents the predicted speedup
+    (since the XGBoost model currently predicts `log(speedup)`).
+    - the predicted speedup (which should match `y_pred` in `per_sql.csv`) is applied to the "supported" durations
+    and combined with the unsupported" durations to produce a final per-sql speedup (`speedup_pred` in `per_sql.csv`).
+
+    Parameters
+    ----------
+    platform: str
+        Platform used during prediction.
+    prediction_output: str
+        Path to prediction output directory containing predictions.csv and xgboost_predictions folder.
+    index: int
+        Index of row/instance in shap_values.csv file to isolate for shap waterfall.
+    model: Optional[str]
+        Path to XGBoost model used in prediction.
+    """
+    # get model shap values w/ feature distribution metrics
+    model_json_path = _get_model_path(platform, model)
+    model_shap_path = Path(model_json_path).with_suffix('.metrics')
+    if os.path.exists(model_shap_path):
+        logger.info('Reading model metrics from: %s', model_shap_path)
+        model_shap_df = pd.read_csv(model_shap_path, index_col=0)
+        model_shap_df = model_shap_df.reset_index().rename(
+            columns={'index': 'model_rank', 'shap_value': 'model_shap_value'}
+        )
+        model_col_names = {
+            c: 'train_' + c
+            for c in model_shap_df.columns
+            if c not in ['feature', 'model_rank', 'model_shap_value']
+        }
+        model_shap_df = model_shap_df.rename(columns=model_col_names)
+    else:
+        logger.info('No model metrics found for: %s', model_json_path)
+        model_shap_df = pd.DataFrame()
+
+    # get prediction shap values and isolate specific instance
+    prediction_paths = find_paths(f'{prediction_output}', lambda f: f == 'shap_values.csv')
+    if len(prediction_paths) == 1:
+        prediction_dir = Path(prediction_paths[0]).parent
+    elif len(prediction_paths) > 1:
+        raise ValueError(f'Found multiple prediction.csv files in: {prediction_output}')
+    else:
+        raise FileNotFoundError(f'File: prediction.csv not found in: {prediction_output}')
+
+    df = pd.read_csv(os.path.join(prediction_dir, 'shap_values.csv'))
+    instance_shap = df.iloc[index]
+
+    # extract the SHAP expected/base value of the model
+    expected_value = instance_shap['expected_value']
+
+    # convert instance to dataframe where rows are features
+    instance_shap_df = (
+        instance_shap.drop('expected_value')
+        .to_frame(name='shap_value')
+        .reset_index()
+        .rename(columns={'index': 'feature'})
+    )
+
+    # get features used in prediction and isolate specific instance
+    df = pd.read_csv(os.path.join(prediction_dir, 'features.csv'))
+    instance_features = df.iloc[index]
+
+    # convert instance to dataframe where rows are features
+    instance_features_df = (
+        instance_features.to_frame(name='feature_value')
+        .reset_index()
+        .rename(columns={'index': 'feature'})
+    )
+
+    # merge instance shap dataframe w/ model metrics (if available)
+    if not model_shap_df.empty:
+        instance_shap_df = instance_shap_df.merge(model_shap_df, how='left', on='feature')
+
+    # merge instance shap dataframe w/ prediction features
+    instance_shap_df = instance_shap_df.merge(instance_features_df, how='left', on='feature')
+
+    # add out-of-range indicator (if model metrics available)
+    if not model_shap_df.empty:
+        instance_shap_df['out_of_range'] = (instance_shap_df['feature_value'] < instance_shap_df['train_min']) | (
+            instance_shap_df['feature_value'] > instance_shap_df['train_max']
+        )
+
+    # sort by absolute value of shap_value
+    instance_shap_df = instance_shap_df.sort_values('shap_value', ascending=False, key=abs)
+    instance_shap_df.reset_index(drop=True, inplace=True)
+
+    formats = {
+        'feature': '',
+        'shap_value': '0.4f',
+        'model_rank': '',
+        'model_shap_value': '0.4f',
+        'train_mean': '0.1e',
+        'train_std': '0.1e',
+        'train_min': '0.1e',
+        'train_25%': '0.1e',
+        'train_50%': '0.1e',
+        'train_75%': '0.1e',
+        'train_max': '0.1e',
+        'feature_value': '0.1e',
+        'out_of_range': '',
+    }
+    format_list = [''] + [formats[col] for col in instance_shap_df.columns]  # index + cols
+
+    # print instance shap values w/ model metrics
+    print(tabulate(instance_shap_df, headers='keys', tablefmt='psql', floatfmt=format_list))
+
+    # print shap prediction and final prediction
+    shap_sum = instance_shap_df.shap_value.sum()
+    prediction = expected_value + shap_sum
+    print(f'Shap base value: {expected_value:.4f}')
+    print(f'Shap values sum: {shap_sum:.4f}')
+    print(f'Shap prediction: {prediction:.4f}')
+    print(f'exp(prediction): {np.exp(prediction):.4f}')
 
 
 def entrypoint():
@@ -1027,16 +1231,17 @@ def entrypoint():
     These are commands are intended for internal usage only.
     """
     cmds = {
-        "models": models,
-        "preprocess": preprocess,
-        "train": train,
-        "predict": __predict_cli,
-        "evaluate": evaluate,
-        "evaluate_summary": evaluate_summary,
-        "compare": compare,
+        'models': models,
+        'preprocess': preprocess,
+        'train': train,
+        'predict': _predict_cli,
+        'evaluate': evaluate,
+        'evaluate_summary': evaluate_summary,
+        'compare': compare,
+        'shap': shap,
     }
     fire.Fire(cmds)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     entrypoint()

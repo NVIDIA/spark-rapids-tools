@@ -82,7 +82,8 @@ class DataprocPlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = GStorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
         return DataprocCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
     def set_offline_cluster(self, cluster_args: dict = None):
@@ -183,6 +184,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                     incorrect_envs.append(f'Property {prop_entry} is not set.')
         return incorrect_envs
 
+    # TODO: to be deprecated
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['gcloud',
                       'compute',
@@ -404,7 +406,11 @@ class DataprocNode(ClusterNode):
                 parsing_res.setdefault('gpu_mem', gpu_device.get_gpu_mem()[0])
             return parsing_res
 
-        accelerator_arr = self.props.get_value_silent('accelerators')
+        try:
+            accelerator_arr = self.props.get_value_silent('accelerators')
+        except Exception:  # pylint: disable=broad-except
+            accelerator_arr = None
+
         if not accelerator_arr:
             return None
 
@@ -602,11 +608,12 @@ class DataprocCluster(ClusterBase):
         """
         cluster_config = super().get_cluster_configuration()
         gpu_per_machine, gpu_device = self.get_gpu_per_worker()
+        # Need to handle case this was CPU event log and just make a recommendation
+        gpu_device_hash = {
+            'T4': 'nvidia-tesla-t4',
+            'L4': 'nvidia-l4'
+        }
         if gpu_device and gpu_per_machine > 0:
-            gpu_device_hash = {
-                'T4': 'nvidia-tesla-t4',
-                'L4': 'nvidia-l4'
-            }
             additional_config = {
                 'gpuInfo': {
                     'device': gpu_device_hash.get(gpu_device),
@@ -617,6 +624,24 @@ class DataprocCluster(ClusterBase):
                 }
             }
             cluster_config.update(additional_config)
+        elif gpu_per_machine == 0:
+            # TODO - we should make this smarter about gpuPerWorker
+            # recommended device should match the scala code for Dataproc platform
+            recommended_device = 'nvidia-tesla-t4'
+            if gpu_device:
+                recommended_device = gpu_device_hash.get(gpu_device)
+
+            additional_config = {
+                'gpuInfo': {
+                    'device': recommended_device,
+                    'gpuPerWorker': 1
+                },
+                'additionalConfig': {
+                    'localSsd': 2
+                }
+            }
+            cluster_config.update(additional_config)
+
         return cluster_config
 
     def _generate_node_configuration(self, render_args: dict = None) -> Union[str, dict]:

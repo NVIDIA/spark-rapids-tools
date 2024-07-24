@@ -12,22 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, List, Tuple
 import glob
 import importlib
 import logging
 import os
 import re
-from typing import Dict, List, Tuple
 import secrets
 import string
-import subprocess
-import numpy as np
-import pandas as pd
 import types
+import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from tabulate import tabulate
+import numpy as np
+import pandas as pd
 
 INTERMEDIATE_DATA_ENABLED = False
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -65,12 +65,12 @@ def ensure_directory(path, parent=False):
     os.makedirs(ensure_path, exist_ok=True)
 
 
-def find_paths(dir, filter_fn=None, return_directories=False):
+def find_paths(directory, filter_fn=None, return_directories=False):
     """Find all files or subdirectories in a directory that match a filter function.
 
     Parameters
     ----------
-    dir: str
+    directory: str
         Path to directory to search.
     filter_fn: Callable
         Filter function that selects files/directories.
@@ -78,8 +78,8 @@ def find_paths(dir, filter_fn=None, return_directories=False):
         If true, returns matching directories, otherwise returns matching files
     """
     paths = []
-    if dir and os.path.isdir(dir):
-        for root, dirs, files in os.walk(dir):
+    if directory and os.path.isdir(directory):
+        for root, dirs, files in os.walk(directory):
             if return_directories:
                 filtered_dirs = filter(filter_fn, dirs)
                 paths.extend([os.path.join(root, dir) for dir in filtered_dirs])
@@ -94,7 +94,7 @@ def find_eventlogs(path) -> List[str]:
     if '*' in path:
         # handle paths w/ glob patterns
         eventlogs = [os.path.join(path, f) for f in glob.glob(path, recursive=True)]
-    elif Path(path).is_dir:
+    elif Path(path).is_dir():
         # find all 'eventlog' files in directory
         eventlogs = find_paths(path, lambda f: f == 'eventlog')
         if eventlogs:
@@ -206,14 +206,14 @@ def load_plugin(plugin_path: str) -> types.ModuleType:
     """
     plugin_path = os.path.expandvars(plugin_path)
     plugin_name = Path(plugin_path).name.split('.')[0]
-    if os.path.exists(plugin_path):
-        spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        logger.info(f'Successfully loaded plugin: {plugin_path}')
-        return module
-    else:
+    if not os.path.exists(plugin_path):
         raise FileNotFoundError(f'Plugin not found: {plugin_path}')
+
+    spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    logger.info('Successfully loaded plugin: %s', plugin_path)
+    return module
 
 
 def random_string(length: int) -> str:
@@ -224,8 +224,8 @@ def random_string(length: int) -> str:
 def run_profiler_tool(platform: str, eventlog: str, output_dir: str):
     ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
     output = f'{output_dir}/prof_{ts}'
-    logger.info(f'Running profiling on: {eventlog}')
-    logger.info(f'Saving output to: {output_dir}')
+    logger.info('Running profiling on: %s', eventlog)
+    logger.info('Saving output to: %s', output_dir)
 
     cmds = []
     eventlogs = find_eventlogs(eventlog)
@@ -249,8 +249,8 @@ def run_profiler_tool(platform: str, eventlog: str, output_dir: str):
 
 def run_qualification_tool(platform: str, eventlog: str, output_dir: str):
     ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
-    logger.info(f'Running qualification on: {eventlog}')
-    logger.info(f'Saving output to: {output_dir}')
+    logger.info('Running qualification on: %s', eventlog)
+    logger.info('Saving output to: %s', output_dir)
 
     cmds = []
     eventlogs = find_eventlogs(eventlog)
@@ -261,7 +261,8 @@ def run_qualification_tool(platform: str, eventlog: str, output_dir: str):
         suffix = random_string(6)
         output = f'{output_dir}/qual_{ts}_{suffix}'
         cmd = (
-            # f'spark_rapids_user_tools {platform} qualification --csv --per-sql --eventlogs {log} --local_folder {output}'
+            # f'spark_rapids_user_tools {platform} qualification --csv
+            # --per-sql --eventlogs {log} --local_folder {output}'
             'java -Xmx32g -cp $SPARK_RAPIDS_TOOLS_JAR:$SPARK_HOME/jars/*:$SPARK_HOME/assembly/target/scala-2.12/jars/* '
             'com.nvidia.spark.rapids.tool.qualification.QualificationMain '
             f'--platform {platform} --per-sql -o {output} {log}'
@@ -276,9 +277,9 @@ def run_commands(commands: List[str], workers: int = 8):
         return
 
     def run_command(command: str):
-        logger.debug(f'Command started: {command}')
+        logger.debug('Command started: %s', command)
         result = subprocess.run(
-            command, shell=True, env=os.environ, capture_output=True, text=True
+            command, shell=True, env=os.environ, capture_output=True, text=True, check=False
         )
         return result
 
@@ -292,11 +293,11 @@ def run_commands(commands: List[str], workers: int = 8):
             command = futures[future]
             try:
                 result = future.result()
-                logger.debug(f'Command completed: {command}')
+                logger.debug('Command completed: %s', command)
                 logger.info(result.stdout)
                 logger.info(result.stderr)
             except Exception as e:
-                logger.error(f'Command failed: {command}')
+                logger.error('Command failed: %s', command)
                 logger.error(e)
 
 
@@ -327,17 +328,17 @@ def print_summary(summary):
 
 def print_speedup_summary(dataset_summary: pd.DataFrame):
     overall_speedup = (
-            dataset_summary["appDuration"].sum()
-            / dataset_summary["appDuration_pred"].sum()
+            dataset_summary['appDuration'].sum()
+            / dataset_summary['appDuration_pred'].sum()
     )
     total_applications = dataset_summary.shape[0]
     summary = {
-        "Total applications": total_applications,
-        "Overall estimated speedup": overall_speedup,
+        'Total applications': total_applications,
+        'Overall estimated speedup': overall_speedup,
     }
     summary_df = pd.DataFrame(summary, index=[0]).transpose()
-    print("\nReport Summary:")
-    print(tabulate(summary_df, colalign=("left", "right")))
+    print('\nReport Summary:')
+    print(tabulate(summary_df, colalign=('left', 'right')))
     print()
 
 
@@ -365,18 +366,18 @@ def write_csv_reports(per_sql: pd.DataFrame, per_app: pd.DataFrame, output_info:
     try:
         if per_sql is not None:
             sql_predictions_path = output_info['perSql']['path']
-            logger.info(f'Writing per-SQL predictions to: {sql_predictions_path}')
+            logger.info('Writing per-SQL predictions to: %s', sql_predictions_path)
             per_sql.to_csv(sql_predictions_path, index=False)
     except Exception as e:
-        logger.error(f'Error writing per-SQL predictions. Reason: {e}')
+        logger.error('Error writing per-SQL predictions. Reason: %s', e)
 
     try:
         if per_app is not None:
             app_predictions_path = output_info['perApp']['path']
-            logger.info(f'Writing per-application predictions to: {app_predictions_path}')
+            logger.info('Writing per-application predictions to: %s', app_predictions_path)
             per_app.to_csv(app_predictions_path, index=False)
     except Exception as e:
-        logger.error(f'Error writing per-app predictions. Reason: {e}')
+        logger.error('Error writing per-app predictions. Reason: %s', e)
 
 
 def log_fallback(logger_obj: logging.Logger, app_ids: List[str], fallback_reason: str):

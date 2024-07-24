@@ -46,7 +46,6 @@ class SparkQualificationStats:
     def load_data(self):
         try:
             self.logger.info('Loading data from CSV files...')
-            # Read the CSV files into pandas DataFrames
             self.unsupported_operators_df = pd.read_csv(self.unsupported_operators_file)
             self.stages_df = pd.read_csv(self.stages_file)
 
@@ -68,7 +67,6 @@ class SparkQualificationStats:
             merged_df = pd.merge(self.unsupported_operators_df, self.stages_df,
                                  on=['App ID', 'Stage ID'])
 
-            # # Calculate the percentage of stage duration
             agg_unsupported_df = (merged_df.groupby(['App ID', 'SQL ID', 'Unsupported Operator']).agg(
                 Count=('Unsupported Operator', 'size'),
                 Impacted_Stage_Duration=('Stage Duration', 'sum'),
@@ -80,10 +78,7 @@ class SparkQualificationStats:
                     (agg_unsupported_df['Impacted_Stage_Duration'] /
                      agg_unsupported_df['App_Duration']) * 100)
 
-            # Add the Supported column
-            agg_unsupported_df['Supported(Boolean)'] = False
-
-            # Rename columns to match the desired schema
+            agg_unsupported_df['Supported'] = False
             final_df = agg_unsupported_df.rename(columns={
                 'App ID': 'AppId',
                 'SQL ID': 'SQLID',
@@ -91,13 +86,12 @@ class SparkQualificationStats:
                 'Impacted_Stage_Duration': 'Impacted Stage duration',
                 'Stage_Task_Duration': 'Stage Task Exec Duration(Seconds)',
                 '% of Stage Duration': '% of Stage Duration',
-                'Supported': 'Supported(Boolean)'
+                'Supported': 'Supported'
             })
 
-            # Select the final columns
             final_df = final_df[
                 ['AppId', 'SQLID', 'Operator_Name', 'Count', 'Stage Task Exec Duration(Seconds)',
-                 'Impacted Stage duration', '% of Stage Duration', 'Supported(Boolean)']]
+                 'Impacted Stage duration', '% of Stage Duration', 'Supported']]
             self.result_df = final_df
             self.logger.info('Merging dataframes completed.')
         except Exception as e:  # pylint: disable=broad-except

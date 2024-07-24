@@ -11,6 +11,8 @@ toolOutput:
       fileName: rapids_4_spark_qualification_output_cluster_information.csv
     stagesInformation:
       fileName: rapids_4_spark_qualification_output_stages.csv
+    tunings:
+      subFolder: tuning
     summaryReport:
       fileName: rapids_4_spark_qualification_output.csv
       columns:
@@ -28,7 +30,6 @@ toolOutput:
         - SQL Stage Durations Sum
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
-        - Speed Up Estimation Model
       mapColumns:
         Recommendation: 'Speedup Based Recommendation'
       recommendations:
@@ -86,6 +87,8 @@ sparkRapids:
     defaults:
       gpuClusterRecommendation:
         defaultRecommendation: 'MATCH'
+      costSavingsSettings: #temporrary settings to control the code behavior until the cost savings feature is fully removed
+        enabled: false
     toolOptions:
       - all
       - any
@@ -243,6 +246,9 @@ local:
         - 'App ID'
         - 'App Name'
         - 'Estimated GPU Speedup Category'
+        - 'Qualified Node Recommendation'
+        - 'Full Cluster Config Recommendations*'
+        - 'GPU Config Recommendation Breakdown*'
       eligibleCategories:
         - 'Small'
         - 'Medium'
@@ -305,18 +311,21 @@ local:
     predictionModel:
       outputDirectory: 'xgboost_predictions'
       files:
+        features:
+          name: 'features.csv'
         perSql:
           name: 'per_sql.csv'
         perApp:
           name: 'per_app.csv'
         shapValues:
           name: 'shap_values.csv'
+        featureImportance:
+          name: 'feature_importance.csv'
       updateResult:
         subsetColumns:
           - 'appId'
           - 'speedup'
           - 'appDuration_pred'
-        estimationModelColumn: 'Speed Up Estimation Model'
         remapColumns:
           - srcCol: 'speedup'
             dstCol: 'Estimated GPU Speedup'

@@ -50,7 +50,8 @@ class OnPremPlatform(PlatformBase):
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return OnPremLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
         if self.platform is not None:
             onprem_cluster = OnPremCluster(self, is_inferred=is_inferred).set_connection(
                 cluster_id=cluster, props=props)

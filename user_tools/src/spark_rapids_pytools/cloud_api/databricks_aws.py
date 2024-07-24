@@ -52,8 +52,10 @@ class DBAWSPlatform(EMRPlatform):
     def _install_storage_driver(self):
         self.storage = S3StorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
-        return DatabricksCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
+        return DatabricksCluster(self, is_inferred=is_inferred, is_props_file=is_props_file).\
+            set_connection(cluster_id=cluster, props=props)
 
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
@@ -167,6 +169,7 @@ class DBAWSCMDDriver(CMDDriverBase):
                        dest]
         return Utils.gen_joined_str(' ', prefix_args)
 
+    # TODO: to be deprecated
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         cmd_params = ['aws ec2 describe-instance-types',
                       '--region', f'{self.get_region()}',
@@ -179,11 +182,17 @@ class DBAWSCMDDriver(CMDDriverBase):
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
+    # TODO: to be deprecated
     def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
         raw_instance_descriptions = super()._exec_platform_describe_node_instance(node)
         instance_descriptions = JSONPropertiesContainer(raw_instance_descriptions, file_load=False)
         # Return the instance description of node type. Convert to valid JSON string for type matching.
         return json.dumps(instance_descriptions.get_value('InstanceTypes')[0])
+
+    def init_instance_descriptions(self) -> None:
+        instance_description_file_path = Utils.resource_path('emr-instance-catalog.json')
+        self.logger.info('Loading instance descriptions from file: %s', instance_description_file_path)
+        self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
 
 @dataclass

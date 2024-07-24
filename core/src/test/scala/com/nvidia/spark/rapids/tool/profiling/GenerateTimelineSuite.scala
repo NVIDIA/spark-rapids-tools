@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,12 @@ package com.nvidia.spark.rapids.tool.profiling
 
 import java.io.File
 
-import scala.io.Source
-
 import com.nvidia.spark.rapids.tool.ToolTestUtils
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
+import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
 class GenerateTimelineSuite extends FunSuite with BeforeAndAfterAll with Logging {
 
@@ -71,7 +70,7 @@ class GenerateTimelineSuite extends FunSuite with BeforeAndAfterAll with Logging
         // with each test
         for (file <- outputDirs) {
           assert(file.getAbsolutePath.endsWith(".svg"))
-          val source = Source.fromFile(file)
+          val source = UTF8Source.fromFile(file)
           try {
             val lines = source.getLines().toArray
             stageZeroCount += lines.count(_.contains("STAGE 0"))
