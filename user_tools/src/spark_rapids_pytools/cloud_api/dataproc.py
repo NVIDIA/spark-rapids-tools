@@ -56,7 +56,7 @@ class DataprocPlatform(PlatformBase):
                                                           'confProperties',
                                                           'propertiesMap')
         if properties_map_arr:
-            # We support multiple CLI configurations, the following two dictionaries map
+            # We support multiple gcloud CLI configurations, the following two dictionaries map
             # config sections to the corresponding property keys to be set, and config file name respectively
             config_section_keys = defaultdict(list)  # config section: keys
             config_section_file = {}  # config section: config file
