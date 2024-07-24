@@ -19,20 +19,27 @@
 readonly NEW_FILES=$(git diff --diff-filter=ACRTU --cached --name-only)
 readonly YEAR=$(date +%Y)
 INVALID_FILES=()
+GREP_EXCLUDE_OPTIONS=()
 IFS=$'\n'
 
-if [ -n "$NEW_FILES" ]
-then
+EXCLUDE_PATTERNS=(
+    "core/src/main/resources/*"
+    "core/src/test/resources/*"
+    "user_tools/src/spark_rapids_pytools/resources/*"
+    "user_tools/docs/resources/*"
+    "user_tools/tests/spark_rapids_tools_ut/resources/*"
+    "*.csv"
+    )
+
+# Create the grep exclude options (--exclude=*csv --exclude=core/src/test/resources/*)
+for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+    GREP_EXCLUDE_OPTIONS+=("--exclude=$pattern")
+done
+
+if [ -n "$NEW_FILES" ]; then
     for f in $NEW_FILES; do
         echo "Checking new file: $f"
-	INVALID_FILES+=($(grep -L --exclude={ \
-            core/src/main/resources/*,\
-            core/src/test/resources/*,\
-	    user_tools/src/spark_rapids_pytools/resources/*,\
-	    user_tools/docs/resources/*,\
-	    user_tools/tests/spark_rapids_tools_ut/resources/*,\
-	    *.csv \
-	} "Copyright (c) $YEAR" $f))
+        INVALID_FILES+=($(grep -L "${GREP_EXCLUDE_OPTIONS[@]}" "Copyright (c) $YEAR" "$f"))
     done
 fi
 
