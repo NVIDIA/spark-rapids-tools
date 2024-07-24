@@ -28,7 +28,7 @@ from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CMDDriverBase,
     NodeHWInfo, ClusterGetAccessor
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, is_valid_gpu_device
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import SysCmd, Utils
+from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.dataproc_pricing import DataprocPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
