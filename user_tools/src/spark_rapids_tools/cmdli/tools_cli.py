@@ -44,8 +44,6 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       filter_apps: str = None,
                       custom_model_file: str = None,
                       tools_jar: str = None,
-                      gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
-                          QualGpuClusterReshapeType.get_default()),
                       jvm_heap_size: int = None,
                       jvm_threads: int = None,
                       verbose: bool = None,
@@ -87,13 +85,6 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param custom_model_file: An optional Path to a custom XGBoost model file. The path is a local filesystem,
                 or remote cloud storage url.
                 Requires that "estimation_model" is set to "xgboost".
-        :param gpu_cluster_recommendation: The type of GPU cluster recommendation to generate.
-                Requires "Cluster".
-
-                It accepts one of the following:
-                "MATCH": keep GPU cluster same number of nodes as CPU cluster;
-                "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
-                "JOB": recommend optimal GPU cluster by cost per job
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
                 Default is calculated based on a function of the total memory of the host.
         :param jvm_threads: Number of thread to use for parallel processing on the eventlogs batch.
@@ -132,8 +123,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          jvm_heap_size=jvm_heap_size,
                                                          jvm_threads=jvm_threads,
                                                          filter_apps=filter_apps,
-                                                         estimation_model_args=estimation_model_args,
-                                                         gpu_cluster_recommendation=gpu_cluster_recommendation)
+                                                         estimation_model_args=QualGpuClusterReshapeType.get_default())
         if qual_args:
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
                                             output_folder=qual_args['outputFolder'],

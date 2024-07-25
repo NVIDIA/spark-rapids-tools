@@ -42,6 +42,7 @@ toolOutput:
             - 'Strongly Recommended'
             - 'Recommended'
       groupColumns:
+         enabled: false
          keys:
            - Vendor
            - Driver Host
