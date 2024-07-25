@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.views
 
+import scala.collection.Seq
+
 import com.nvidia.spark.rapids.tool.analysis.{ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, SQLAccumProfileResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
@@ -71,8 +73,28 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
     }
   }
 
+  def getRawView(
+      apps: Seq[AppBase],
+      appSqlAccums: Seq[SQLAccumProfileResults]): Seq[DataSourceProfileResult] = {
+    val allRows = zipAppsWithIndex(apps).flatMap { case (app, index) =>
+      getRawView(app, index, appSqlAccums)
+    }
+    if (allRows.isEmpty) {
+      allRows
+    } else {
+      sortView(allRows)
+    }
+  }
+
   def getRawView(app: AppBase, index: Int): Seq[DataSourceProfileResult] = {
     val appSqlAccums = getSQLAccums(app, index)
+    getRawView(app, index, appSqlAccums)
+  }
+
+  def getRawView(
+      app: AppBase,
+      index: Int,
+      appSqlAccums: Seq[SQLAccumProfileResults]): Seq[DataSourceProfileResult] = {
     // Filter appSqlAccums to get only required metrics
     val dataSourceMetrics = appSqlAccums.filter(
       sqlAccum => sqlAccum.name.contains(IoMetrics.BUFFER_TIME_LABEL)

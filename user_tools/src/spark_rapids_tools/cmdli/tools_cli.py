@@ -59,7 +59,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         """The Qualification cmd provides estimated running costs and speedups by migrating Apache
         Spark applications to GPU accelerated clusters.
 
-        The Qualification cmd analyzes Spark eventlogs generated from  CPU based Spark applications to
+        The Qualification cmd analyzes Spark eventlogs generated from CPU based Spark applications to
         help quantify the expected acceleration and costs savings of migrating a Spark application or
         query to GPU.
         The cmd will process each app individually, but will group apps with the same name into the
