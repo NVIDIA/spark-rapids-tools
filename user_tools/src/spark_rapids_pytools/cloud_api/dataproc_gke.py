@@ -25,6 +25,7 @@ from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase, \
     SparkNodeType, ClusterGetAccessor
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.pricing.dataproc_gke_pricing import DataprocGkePriceProvider
 from spark_rapids_tools import CspEnv
 
@@ -187,6 +188,11 @@ class DataprocGkeCluster(DataprocCluster):
             SparkNodeType.WORKER: executor_nodes,
             SparkNodeType.MASTER: driver_nodes[0]
         }
+
+    def generate_create_script(self) -> str:
+        template_path = Utils.resource_path('templates/dataproc-create_gpu_cluster_script.ms')
+        render_args = self._set_render_args_create_template()
+        return TemplateGenerator.render_template_file(template_path, render_args)
 
 
 @dataclass
