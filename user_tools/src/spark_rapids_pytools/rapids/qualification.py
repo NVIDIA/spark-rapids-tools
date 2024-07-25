@@ -295,7 +295,8 @@ class Qualification(RapidsJarTool):
     def _process_offline_cluster_args(self):
         # read the wrapper option defined by the spark_rapids cmd if any.
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
-        enable_savings_flag = self.wrapper_options.get('savingsCalculations', True)
+        cost_savings_func_flag = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'costSavingsSettings', 'enabled')
+        enable_savings_flag = self.wrapper_options.get('savingsCalculations', cost_savings_func_flag)
         if enable_savings_flag:
             self._process_cpu_cluster_args(offline_cluster_opts)
             if self.ctxt.get_ctxt('cpuClusterProxy') is None:
@@ -319,14 +320,6 @@ class Qualification(RapidsJarTool):
         if not enable_flag:
             self.logger.info('Savings estimates are disabled because the cluster-information is '
                              'not provided.')
-            # revisit the filtering-apps flag
-            if self.ctxt.get_ctxt('filterApps') == QualFilterApp.SAVINGS:
-                # When no cost calculations, the filters should be revisited
-                # set it to none
-                new_filter = QualFilterApp.ALL
-                self.logger.info('Filtering criteria `filter_apps` will be reset to %s because savings '
-                                 'estimates are disabled', QualFilterApp.tostring(new_filter))
-                self.ctxt.set_ctxt('filterApps', new_filter)
 
     def __process_gpu_cluster_recommendation(self, arg_val: str):
         available_types = [filter_enum.value for filter_enum in QualGpuClusterReshapeType]
@@ -358,15 +351,6 @@ class Qualification(RapidsJarTool):
                 'Falling-back to default filter: %s',
                 arg_val, Utils.gen_joined_str(' | ', available_filters),
                 QualFilterApp.tostring(selected_filter))
-
-        if self.__recommendation_is_non_standard():
-            # SpeedupFilter cannot be applied with the current cluster_gpu_recommendation
-            if selected_filter == QualFilterApp.SPEEDUPS:
-                self.logger.info('Cannot apply Filter argument filter_apps=%s with the selected '
-                                 'gpu_cluster_shape recommendation. Setting the filter to %s',
-                                 QualFilterApp.tostring(selected_filter),
-                                 QualFilterApp.tostring(QualFilterApp.get_default()))
-                selected_filter = QualFilterApp.get_default()
         self.ctxt.set_ctxt('filterApps', selected_filter)
 
     def _process_estimation_model_args(self):
@@ -376,46 +360,6 @@ class Qualification(RapidsJarTool):
             selected_model = QualEstimationModel.get_default()
             estimation_model_args = QualEstimationModel.create_default_model_args(selected_model)
         self.ctxt.set_ctxt('estimationModelArgs', estimation_model_args)
-
-    def _process_external_pricing_args(self):
-        cpu_cluster_price = self.wrapper_options.get('cpuClusterPrice')
-        estimated_gpu_cluster_price = self.wrapper_options.get('estimatedGpuClusterPrice')
-        self.ctxt.set_ctxt('source_cost', cpu_cluster_price)
-        self.ctxt.set_ctxt('target_cost', estimated_gpu_cluster_price)
-
-    def _process_price_discount_args(self):
-        def check_discount_percentage(discount_type: str, discount_value: int):
-            if discount_value < 0 or discount_value > 100:
-                self.logger.error('%s is out of range [0, 100]', discount_type)
-                raise RuntimeError(f'Invalid arguments. {discount_type} = {discount_value} is an invalid '
-                                   'percentage.')
-
-        raw_cpu_discount = self.wrapper_options.get('cpuDiscount')
-        raw_gpu_discount = self.wrapper_options.get('gpuDiscount')
-        raw_global_discount = self.wrapper_options.get('globalDiscount')
-        if raw_global_discount is not None and (raw_cpu_discount is not None or raw_gpu_discount is not None):
-            self.logger.error('Setting both global_discount and either cpu_discount or '
-                              'gpu_discount is inconsistent.')
-            raise RuntimeError('Invalid arguments. If global_discount is specified, no additional '
-                               'discount arguments (cpu_discount or gpu_discount) should be set.')
-        try:
-            cpu_discount = int(raw_cpu_discount) if raw_cpu_discount is not None else 0
-            gpu_discount = int(raw_gpu_discount) if raw_gpu_discount is not None else 0
-            global_discount = int(raw_global_discount) if raw_global_discount is not None else 0
-        except Exception as ex:
-            self.logger.error('Discount arguments have incorrect type.')
-            raise RuntimeError('Invalid arguments. Discount arguments cannot be converted to integer.') from ex
-
-        check_discount_percentage('cpu_discount', cpu_discount)
-        check_discount_percentage('gpu_discount', gpu_discount)
-        check_discount_percentage('global_discount', global_discount)
-
-        if global_discount != 0:
-            self.ctxt.set_ctxt('cpu_discount', global_discount)
-            self.ctxt.set_ctxt('gpu_discount', global_discount)
-        else:
-            self.ctxt.set_ctxt('cpu_discount', cpu_discount)
-            self.ctxt.set_ctxt('gpu_discount', gpu_discount)
 
     def _process_custom_args(self):
         """
@@ -448,8 +392,6 @@ class Qualification(RapidsJarTool):
         self._process_estimation_model_args()
         self._process_offline_cluster_args()
         self._process_eventlogs_args()
-        self._process_external_pricing_args()
-        self._process_price_discount_args()
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 
@@ -846,8 +788,6 @@ class Qualification(RapidsJarTool):
             selected_cols = self.ctxt.get_value('local', 'output', 'summaryColumns',
                                                 f'savingsReportEnabled{str(savings_report_enabled)}')
             # check if any filters apply
-            filter_recommendation_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SPEEDUPS
-            filter_pos_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.SAVINGS
             filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
             squeeze_header_enabled = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'compactWidth')
             header_width = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'columnWidth')
@@ -873,25 +813,9 @@ class Qualification(RapidsJarTool):
                                                           self.ctxt.get_ctxt('gpuClusterShapeRecommendation'))
                 # update the selected columns
                 selected_cols = list(raw_df.columns)
-            # filter by recommendations if enabled
-            if filter_recommendation_enabled:
-                df_row = self.__get_recommended_apps(raw_df, selected_cols)
-            else:
-                df_row = raw_df.loc[:, selected_cols]
+            df_row = raw_df.loc[:, selected_cols]
             if df_row.empty:
                 return df_row
-            # filter by savings if enabled
-            if filter_pos_enabled:
-                saving_cost_col = self.ctxt.get_value('local', 'output', 'savingRecommendColumn')
-                recommended_vals = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport',
-                                                       'recommendations', 'speedUp',
-                                                       'selectedRecommendations')
-                cost_mask = df_row[saving_cost_col].isin(recommended_vals)
-                df_row = df_row.loc[cost_mask, selected_cols]
-                if df_row.empty:
-                    self.ctxt.set_ctxt('wrapperOutputContent',
-                                       'Found no qualified apps for cost savings.')
-                    return df_row
             time_unit = '(ms)'
             time_from_conf = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'timeUnits')
             if time_from_conf == 's':
