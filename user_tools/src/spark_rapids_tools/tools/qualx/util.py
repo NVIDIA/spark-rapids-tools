@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+""" Utility functions for QualX """
+
+from dataclasses import dataclass
 from typing import Dict, List, Tuple
 import glob
 import importlib
@@ -40,13 +43,14 @@ def get_logger(name: str):
 logger = get_logger(__name__)
 
 
+@dataclass
 class RegexPattern:
-    appId = re.compile(r'^app.*[_-][0-9]+[_-][0-9]+$')
+    app_id = re.compile(r'^app.*[_-][0-9]+[_-][0-9]+$')
     profile = re.compile(r'^prof_[0-9]+_[0-9a-zA-Z]+$')
-    qualtool = re.compile(r'^qual_[0-9]+_[0-9a-zA-Z]+$')
-    rapidsProfile = re.compile(r'rapids_4_spark_profile')
-    rapidsQualtool = re.compile(r'rapids_4_spark_qualification_output')
-    qualToolMetrics = re.compile(r'raw_metrics')
+    qual_tool = re.compile(r'^qual_[0-9]+_[0-9a-zA-Z]+$')
+    rapids_profile = re.compile(r'rapids_4_spark_profile')
+    rapids_qual = re.compile(r'rapids_4_spark_qualification_output')
+    qual_tool_metrics = re.compile(r'raw_metrics')
 
 
 def ensure_directory(path, parent=False):
@@ -79,10 +83,10 @@ def find_paths(directory, filter_fn=None, return_directories=False):
     """
     paths = []
     if directory and os.path.isdir(directory):
-        for root, dirs, files in os.walk(directory):
+        for root, directories, files in os.walk(directory):
             if return_directories:
-                filtered_dirs = filter(filter_fn, dirs)
-                paths.extend([os.path.join(root, dir) for dir in filtered_dirs])
+                filtered_dirs = filter(filter_fn, directories)
+                paths.extend([os.path.join(root, filtered_dir) for filtered_dir in filtered_dirs])
             else:
                 filtered_files = filter(filter_fn, files)
                 paths.extend([os.path.join(root, file) for file in filtered_files])
@@ -102,7 +106,7 @@ def find_eventlogs(path) -> List[str]:
             eventlogs = [Path(p).parent for p in eventlogs]
         else:
             # otherwise, find all 'app-XXXX-YYYY' files
-            eventlogs = find_paths(path, RegexPattern.appId.match(path))
+            eventlogs = find_paths(path, RegexPattern.app_id.match(path))
             if not eventlogs:
                 raise ValueError(f'No event logs found in: {path}')
     else:
@@ -223,7 +227,6 @@ def random_string(length: int) -> str:
 
 def run_profiler_tool(platform: str, eventlog: str, output_dir: str):
     ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
-    output = f'{output_dir}/prof_{ts}'
     logger.info('Running profiling on: %s', eventlog)
     logger.info('Saving output to: %s', output_dir)
 
@@ -278,10 +281,9 @@ def run_commands(commands: List[str], workers: int = 8):
 
     def run_command(command: str):
         logger.debug('Command started: %s', command)
-        result = subprocess.run(
+        return subprocess.run(
             command, shell=True, env=os.environ, capture_output=True, text=True, check=False
         )
-        return result
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {
@@ -296,7 +298,7 @@ def run_commands(commands: List[str], workers: int = 8):
                 logger.debug('Command completed: %s', command)
                 logger.info(result.stdout)
                 logger.info(result.stderr)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 logger.error('Command failed: %s', command)
                 logger.error(e)
 
@@ -368,7 +370,7 @@ def write_csv_reports(per_sql: pd.DataFrame, per_app: pd.DataFrame, output_info:
             sql_predictions_path = output_info['perSql']['path']
             logger.info('Writing per-SQL predictions to: %s', sql_predictions_path)
             per_sql.to_csv(sql_predictions_path, index=False)
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
         logger.error('Error writing per-SQL predictions. Reason: %s', e)
 
     try:
@@ -376,7 +378,7 @@ def write_csv_reports(per_sql: pd.DataFrame, per_app: pd.DataFrame, output_info:
             app_predictions_path = output_info['perApp']['path']
             logger.info('Writing per-application predictions to: %s', app_predictions_path)
             per_app.to_csv(app_predictions_path, index=False)
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
         logger.error('Error writing per-app predictions. Reason: %s', e)
 
 
