@@ -123,7 +123,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          jvm_heap_size=jvm_heap_size,
                                                          jvm_threads=jvm_threads,
                                                          filter_apps=filter_apps,
-                                                         estimation_model_args=QualGpuClusterReshapeType.get_default())
+                                                         estimation_model_args=estimation_model_args,
+                                                         gpu_cluster_shape=QualGpuClusterReshapeType.get_default())
         if qual_args:
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
                                             output_folder=qual_args['outputFolder'],
