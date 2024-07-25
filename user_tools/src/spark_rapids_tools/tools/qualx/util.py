@@ -15,7 +15,7 @@
 """ Utility functions for QualX """
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Callable
 import glob
 import importlib
 import logging
@@ -36,7 +36,7 @@ INTERMEDIATE_DATA_ENABLED = False
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 
-def get_logger(name: str):
+def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
@@ -53,7 +53,7 @@ class RegexPattern:
     qual_tool_metrics = re.compile(r'raw_metrics')
 
 
-def ensure_directory(path, parent=False):
+def ensure_directory(path: str, parent: bool = False) -> None:
     """Ensure that a directory exists for a given path.
 
     Parameters
@@ -69,7 +69,7 @@ def ensure_directory(path, parent=False):
     os.makedirs(ensure_path, exist_ok=True)
 
 
-def find_paths(directory, filter_fn=None, return_directories=False):
+def find_paths(directory: str, filter_fn: Callable = None, return_directories: bool = False) -> List[str]:
     """Find all files or subdirectories in a directory that match a filter function.
 
     Parameters
@@ -93,7 +93,7 @@ def find_paths(directory, filter_fn=None, return_directories=False):
     return paths
 
 
-def find_eventlogs(path) -> List[str]:
+def find_eventlogs(path: str) -> List[str]:
     """Find all eventlogs given a root directory."""
     if '*' in path:
         # handle paths w/ glob patterns
@@ -116,7 +116,7 @@ def find_eventlogs(path) -> List[str]:
     return eventlogs
 
 
-def get_cache_dir():
+def get_cache_dir() -> str:
     return os.environ.get('QUALX_CACHE_DIR', 'qualx_cache')
 
 
@@ -155,7 +155,7 @@ def get_dataset_platforms(dataset: str) -> Tuple[List[str], str]:
 
 def compute_accuracy(
     results: pd.DataFrame, y: str, y_preds: Dict[str, str], weight: str = None
-):
+) -> Dict[str, Dict[str, float]]:
     """Compute accuracy scores on a pandas DataFrame.
 
     Parameters
@@ -225,7 +225,7 @@ def random_string(length: int) -> str:
     return ''.join(secrets.choice(string.hexdigits) for _ in range(length))
 
 
-def run_profiler_tool(platform: str, eventlog: str, output_dir: str):
+def run_profiler_tool(platform: str, eventlog: str, output_dir: str) -> None:
     ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
     logger.info('Running profiling on: %s', eventlog)
     logger.info('Saving output to: %s', output_dir)
@@ -250,7 +250,7 @@ def run_profiler_tool(platform: str, eventlog: str, output_dir: str):
     run_commands(cmds)
 
 
-def run_qualification_tool(platform: str, eventlog: str, output_dir: str):
+def run_qualification_tool(platform: str, eventlog: str, output_dir: str) -> None:
     ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
     logger.info('Running qualification on: %s', eventlog)
     logger.info('Saving output to: %s', output_dir)
@@ -274,12 +274,12 @@ def run_qualification_tool(platform: str, eventlog: str, output_dir: str):
     run_commands(cmds)
 
 
-def run_commands(commands: List[str], workers: int = 8):
+def run_commands(commands: List[str], workers: int = 8) -> None:
     """Run a list of commands using a thread pool."""
     if not commands:
         return
 
-    def run_command(command: str):
+    def run_command(command: str) -> subprocess.CompletedProcess:
         logger.debug('Command started: %s', command)
         return subprocess.run(
             command, shell=True, env=os.environ, capture_output=True, text=True, check=False
@@ -303,7 +303,7 @@ def run_commands(commands: List[str], workers: int = 8):
                 logger.error(e)
 
 
-def print_summary(summary):
+def print_summary(summary: pd.DataFrame) -> None:
     # print summary as formatted table
     display_cols = {
         # qualx
@@ -328,7 +328,7 @@ def print_summary(summary):
     print(tabulate(formatted, headers='keys', tablefmt='psql', floatfmt='.2f'))
 
 
-def print_speedup_summary(dataset_summary: pd.DataFrame):
+def print_speedup_summary(dataset_summary: pd.DataFrame) -> None:
     overall_speedup = (
             dataset_summary['appDuration'].sum()
             / dataset_summary['appDuration_pred'].sum()
@@ -361,7 +361,7 @@ def create_row_with_default_speedup(app: pd.Series) -> pd.Series:
     })
 
 
-def write_csv_reports(per_sql: pd.DataFrame, per_app: pd.DataFrame, output_info: dict):
+def write_csv_reports(per_sql: pd.DataFrame, per_app: pd.DataFrame, output_info: dict) -> None:
     """
     Write per-SQL and per-application predictions to CSV files
     """
@@ -382,7 +382,7 @@ def write_csv_reports(per_sql: pd.DataFrame, per_app: pd.DataFrame, output_info:
         logger.error('Error writing per-app predictions. Reason: %s', e)
 
 
-def log_fallback(logger_obj: logging.Logger, app_ids: List[str], fallback_reason: str):
+def log_fallback(logger_obj: logging.Logger, app_ids: List[str], fallback_reason: str) -> None:
     """
     Log a warning message for a fallback during preprocessing.
     This function expects logger object to log the source module of the warning.

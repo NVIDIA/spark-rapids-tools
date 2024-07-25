@@ -36,13 +36,13 @@ except ImportError:
 hv.extension('bokeh')
 
 
-def plot_predictions(results, title='prediction vs. actual', xlim=None, ylim=None):
+def plot_predictions(results, title='prediction vs. actual', x_lim=None, y_lim=None):
     """Plot prediction vs. actual."""
     plt.figure()
-    if xlim:
-        plt.xlim(xlim)
-    if ylim:
-        plt.ylim(ylim)
+    if x_lim:
+        plt.xlim(x_lim)
+    if y_lim:
+        plt.ylim(y_lim)
 
     # Plot predictions:
     g = sns.regplot(x='y', y='y_pred', data=results)

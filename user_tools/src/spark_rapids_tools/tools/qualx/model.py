@@ -416,7 +416,7 @@ def tune_hyperparameters(x, y, n_trials: int = 200) -> dict:
     return optuna_search.best_params_
 
 
-def compute_shapley_values(xgb_model: xgb.Booster, features: pd.DataFrame):
+def compute_shapley_values(xgb_model: xgb.Booster, features: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Compute Shapley values for the model given an input dataframe.
 

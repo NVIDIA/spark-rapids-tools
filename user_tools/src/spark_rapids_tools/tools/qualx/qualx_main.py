@@ -63,7 +63,7 @@ from spark_rapids_pytools.common.utilities import Utils
 logger = get_logger(__name__)
 
 
-def _get_model_path(platform: str, model: Optional[str]):
+def _get_model_path(platform: str, model: Optional[str]) -> Path:
     if model is not None:
         # if "model" is provided
         if CspPath.is_file_path(model, raise_on_error=False):
@@ -114,9 +114,14 @@ def _get_model(platform: str,
     return xgb_model
 
 
-def _get_qual_data(qual: Optional[str]):
+def _get_qual_data(qual: Optional[str]) -> Tuple[
+    Optional[pd.DataFrame],
+    Optional[pd.DataFrame],
+    Optional[pd.DataFrame],
+    List[str]
+]:
     if not qual:
-        return None, None, None, None
+        return None, None, None, []
 
     # load qual tool execs
     qual_list = find_paths(
@@ -223,7 +228,7 @@ def _predict(
     *,
     split_fn: Callable[[pd.DataFrame], pd.DataFrame] = None,
     qual_tool_filter: Optional[str] = 'stage',
-):
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     results = pd.DataFrame()
     summary = pd.DataFrame()
     if not input_df.empty:
@@ -413,7 +418,7 @@ def train(
     n_trials: Optional[int] = 200,
     base_model: Optional[str] = None,
     features_csv_dir: Optional[str] = None,
-):
+) -> None:
     """Train an XGBoost model.
 
     Train a model on the input data specified by either `--preprocessed` or `--dataset`.
@@ -668,7 +673,7 @@ def _predict_cli(
     qual_output: Optional[str] = None,
     model: Optional[str] = None,
     qual_tool_filter: Optional[str] = 'stage',
-):
+) -> None:
     """Predict GPU speedup given CPU logs.
 
     Predict the speedup of running a Spark application with Spark-RAPIDS on GPUs (vs. CPUs).
@@ -734,7 +739,7 @@ def evaluate(
     *,
     model: Optional[str] = None,
     qual_tool_filter: Optional[str] = 'stage',
-):
+) -> None:
     """Evaluate model predictions against actual GPU speedup.
 
     For training datasets with GPU event logs, this returns the actual GPU speedup along with the
@@ -1008,7 +1013,7 @@ def evaluate_summary(
     *,
     score: str = 'dMAPE',
     split: str = 'test',
-):
+) -> None:
     """
     Compute
     Parameters
@@ -1034,7 +1039,7 @@ def compare(
     score: str = 'dMAPE',
     granularity: str = 'sql',
     split: str = 'all',
-):
+) -> None:
     """Compare evaluation results between versions of code/models.
 
     This will print the delta of scores and also save them as a CSV file into the `current` directory.
@@ -1101,7 +1106,7 @@ def compare(
         logger.warning('New datasets added, comparisons may be skewed: added=%s', added)
 
 
-def shap(platform: str, prediction_output: str, index: int, model: Optional[str] = None):
+def shap(platform: str, prediction_output: str, index: int, model: Optional[str] = None) -> None:
     """Print a SHAP waterfall of features and their SHAP value contributions to the overall prediction for
     a specific index (sqlID) in the shap_values.csv file produced by prediction.
 
@@ -1233,7 +1238,7 @@ def shap(platform: str, prediction_output: str, index: int, model: Optional[str]
     print(f'exp(prediction): {np.exp(prediction):.4f}')
 
 
-def entrypoint():
+def entrypoint() -> None:
     """
     These are commands are intended for internal usage only.
     """
