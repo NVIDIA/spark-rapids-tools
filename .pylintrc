@@ -36,10 +36,6 @@ init-hook='import sys; sys.path.append(".")'
 # Use multiple processes to speed up Pylint.
 jobs=4
 
-# Ignore files or directories which match these regexes.
-ignore=src/spark_rapids_tools/tools/qualx
-
-
 [MESSAGES CONTROL]
 
 # Show all warnings regardless of the confidence levels.
