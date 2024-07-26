@@ -30,35 +30,22 @@ class SparkQualificationStats:
     Encapsulates the logic to generate the Qualification Stats Report.
     """
     logger: Logger = field(default=None, init=False)
-    unsupported_operators_file: str
-    stages_file: str
     output_file: str
-    unsupported_operators_df: pd.DataFrame = field(default=None, init=False)
-    stages_df: pd.DataFrame = field(default=None, init=False)
+    unsupported_operators_df: pd.DataFrame
+    stages_df: pd.DataFrame
+    output_columns: dict
     result_df: pd.DataFrame = field(default=None, init=False)
 
-    def __init__(self, unsupported_operators_file: str, stages_file: str, output_file: str):
-        self.unsupported_operators_file = unsupported_operators_file
-        self.stages_file = stages_file
-        self.output_file = output_file
+    def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.qualification.stats')
 
-    def load_data(self):
+    def read_dataframes(self):
         try:
-            self.logger.info('Loading data from CSV files...')
-            self.unsupported_operators_df = pd.read_csv(self.unsupported_operators_file)
-            self.stages_df = pd.read_csv(self.stages_file)
-
             # Convert durations from milliseconds to seconds
-            self.unsupported_operators_df['Stage Duration'] = (
-                    self.unsupported_operators_df['Stage Duration'] / 1000)
-            self.unsupported_operators_df['App Duration'] = (
-                    self.unsupported_operators_df['App Duration'] / 1000)
-            self.stages_df['Stage Task Duration'] = self.stages_df['Stage Task Duration'] / 1000
-            self.stages_df['Unsupported Task Duration'] = (
-                    self.stages_df['Unsupported Task Duration'] / 1000)
+            self.unsupported_operators_df[['Stage Duration', 'App Duration']] /= 1000
+            self.stages_df[['Stage Task Duration', 'Unsupported Task Duration']] /= 1000
         except Exception as e:  # pylint: disable=broad-except
-            self.logger.error('Error loading data: %s', e)
+            self.logger.error('Error reading dataframe: %s', e)
 
     def merge_dataframes(self):
         try:
@@ -70,37 +57,28 @@ class SparkQualificationStats:
             agg_unsupported_df = (merged_df.groupby(['App ID', 'SQL ID', 'Unsupported Operator']).agg(
                 Count=('Unsupported Operator', 'size'),
                 Impacted_Stage_Duration=('Stage Duration', 'sum'),
-                App_Duration=('App Duration', 'sum'),
+                App_Duration=('App Duration', 'first'),
                 Stage_Task_Duration=('Stage Task Duration', 'sum')
             ).reset_index())
 
             agg_unsupported_df['% of Stage Duration'] = (
                     (agg_unsupported_df['Impacted_Stage_Duration'] /
-                     agg_unsupported_df['App_Duration']) * 100)
+                     agg_unsupported_df['App_Duration']) * 100).round(3)
 
             agg_unsupported_df['Supported'] = False
             final_df = agg_unsupported_df.rename(columns={
-                'App ID': 'AppId',
-                'SQL ID': 'SQLID',
-                'Unsupported Operator': 'Operator_Name',
-                'Impacted_Stage_Duration': 'Impacted Stage duration',
-                'Stage_Task_Duration': 'Stage Task Exec Duration(Seconds)',
-                '% of Stage Duration': '% of Stage Duration',
-                'Supported': 'Supported'
+                'Unsupported Operator': 'Operator Name',
+                'Impacted_Stage_Duration': 'Impacted Stage duration(seconds)',
+                'Stage_Task_Duration': 'Stage Task Exec duration(seconds)'
             })
-
-            final_df = final_df[
-                ['AppId', 'SQLID', 'Operator_Name', 'Count', 'Stage Task Exec Duration(Seconds)',
-                 'Impacted Stage duration', '% of Stage Duration', 'Supported']]
-            self.result_df = final_df
+            self.result_df = final_df[self.output_columns.get('columns')].copy()
             self.logger.info('Merging dataframes completed.')
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Error merging dataframes: %s', e)
-            # raise
 
     def report_qualification_stats(self):
         try:
-            self.load_data()
+            self.read_dataframes()
             self.merge_dataframes()
             self.result_df.to_csv(self.output_file, index=False)
             self.logger.info('Results have been saved to %s', self.output_file)
@@ -109,7 +87,11 @@ class SparkQualificationStats:
 
 
 def main(unsupported_operators_file: str, stages_file: str, output_file: str):
-    stats = SparkQualificationStats(unsupported_operators_file, stages_file, output_file)
+    unsupported_operators_df = pd.read_csv(unsupported_operators_file)
+    stages_df = pd.read_csv(stages_file)
+    stats = SparkQualificationStats(unsupported_operators_df=unsupported_operators_df,
+                                    stages_df=stages_df,
+                                    output_file=output_file)
     stats.report_qualification_stats()
 
 
