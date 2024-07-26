@@ -279,25 +279,8 @@ class Qualification(RapidsJarTool):
     def _process_offline_cluster_args(self) -> None:
         # read the wrapper option defined by the spark_rapids cmd if any.
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
-        cost_savings_func_flag = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'costSavingsSettings', 'enabled')
-        enable_savings_flag = self.wrapper_options.get('savingsCalculations', cost_savings_func_flag)
-        if enable_savings_flag:
-            self._process_cpu_cluster_args(offline_cluster_opts)
-            if self.ctxt.get_ctxt('cpuClusterProxy') is None:
-                # if no cpu-cluster is defined, then we are not supposed to run cost calculations
-                enable_savings_flag = False
-
-        # Previously lots of things were tied to the cost savings flag and only ran when that was
-        # enabled. Here we want to keep backwards compatibility but we also still want to run
-        # the auto tuner if cost savings aren't enabled. To run the auto tuner we need to try to
-        # infer the GPU cluster all the time.
-        gpu_cluster_enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
-        if enable_savings_flag:
-            if self.ctxt.get_ctxt('cpuClusterProxy') is not None:
-                # if no gpu-cluster is defined, then we are not supposed to run cost calculations
-                enable_savings_flag = gpu_cluster_enable_savings_flag
-
-        self._set_savings_calculations_flag(enable_savings_flag)
+        self._process_cpu_cluster_args(offline_cluster_opts)
+        self._process_gpu_cluster_args(offline_cluster_opts)
 
     def _set_savings_calculations_flag(self, enable_flag: bool) -> None:
         self.ctxt.set_ctxt('enableSavingsCalculations', enable_flag)
@@ -621,9 +604,6 @@ class Qualification(RapidsJarTool):
             output_file=output_files_info.get_value('intermediateOutput', 'files', 'heuristics', 'path'))
         apps_pruned_df = heuristics_ob.apply_heuristics(apps_pruned_df)
         speedup_category_ob = SpeedupCategory(self.ctxt.get_value('local', 'output', 'speedupCategories'))
-        # Calculate the speedup category column, send a copy of the dataframe to avoid modifying the original
-        # apps_pruned_result = speedup_category_ob.build_category_column(apps_pruned_df.copy())
-        # apps_pruned_result.to_csv(output_files_info.get_value('full', 'path'), float_format='%.2f')
         # Group the applications and recalculate metrics
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
         apps_grouped_df = speedup_category_ob.build_category_column(apps_grouped_df)
