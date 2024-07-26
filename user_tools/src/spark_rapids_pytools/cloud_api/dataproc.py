@@ -505,9 +505,12 @@ class DataprocCluster(ClusterBase):
             worker_nodes_from_conf = self.props.get_value_silent('config', 'workerConfig', 'instanceNames')
             instance_names_cnt = len(worker_nodes_from_conf) if worker_nodes_from_conf else 0
             if worker_cnt != instance_names_cnt:
-                self.logger.warning('Cluster configuration: `instanceNames` count %d does not '
-                                    'match the `numInstances` value %d. Using generated names.',
-                                    instance_names_cnt, worker_cnt)
+                if not self.is_inferred:
+                    # this warning should be raised only when the cluster is not inferred, i.e. user has provided the
+                    # cluster configuration with num_workers explicitly set
+                    self.logger.warning('Cluster configuration: `instanceNames` count %d does not '
+                                        'match the `numInstances` value %d. Using generated names.',
+                                        instance_names_cnt, worker_cnt)
                 worker_nodes_from_conf = self.generate_node_configurations(worker_cnt)
             # create workers array
             for worker_node in worker_nodes_from_conf:

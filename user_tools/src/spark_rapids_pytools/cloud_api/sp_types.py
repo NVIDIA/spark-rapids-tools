@@ -1259,6 +1259,15 @@ class ClusterBase(ClusterGetAccessor):
         node_config = self._generate_node_configuration(render_args)
         return [node_config for _ in range(num_executors)]
 
+    def get_cluster_shape_str(self) -> str:
+        """
+        Returns a string representation of the cluster shape.
+        """
+        master_node = self.get_master_node().instance_type
+        executor_node = self.get_worker_node(0).instance_type
+        num_executors = self.get_nodes_cnt(SparkNodeType.WORKER)
+        return f'<Driver: {master_node}, Executor: {num_executors} X {executor_node}>'
+
 
 @dataclass
 class ClusterReshape(ClusterGetAccessor):
