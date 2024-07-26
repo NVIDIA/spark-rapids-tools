@@ -17,14 +17,14 @@ import json
 import re
 from dataclasses import dataclass, field
 from math import ceil
-from typing import Any, List, Callable, Optional
+from typing import Any, List, Callable, Optional, Dict
 
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo, SparkNodeType
-from spark_rapids_pytools.common.cluster_inference import ClusterInference
+from spark_rapids_pytools.cloud_api.sp_types import ClusterReshape, NodeHWInfo, ClusterBase
+from spark_rapids_pytools.common.cluster_inference import ClusterInference, ClusterType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, convert_dict_to_camel_case
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
@@ -137,7 +137,7 @@ class QualificationSummary:
             report_content.append(f'{app_name} tool found no records to show.')
 
         if self.filter_apps_count > 0:
-            self.comments.append('\'Estimated GPU Speedup Category\' assumes the user is using the node type '
+            self.comments.append('**Estimated GPU Speedup Category assumes the user is using the node type '
                                  'recommended and config recommendations with the same size cluster as was used '
                                  'with the CPU side.')
 
@@ -713,8 +713,7 @@ class Qualification(RapidsJarTool):
             # info columns, even if `cluster_info_df` is empty.
             df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
             if len(cluster_info_df) > 0:
-                self.__infer_cluster_and_update_savings(cluster_info_df)
-                self.__infer_cluster_for_auto_tuning(cluster_info_df)
+                self._infer_clusters_for_apps(cluster_info_df)
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Unable to process cluster information. Cost savings will be disabled. '
                               'Reason - %s:%s', type(e).__name__, e)
@@ -764,68 +763,46 @@ class Qualification(RapidsJarTool):
         rapids_threads_args = self._get_rapids_threads_count(self.name)
         return ['--per-sql'] + rapids_threads_args + self._create_autotuner_rapids_args()
 
-    def __infer_cluster_and_update_savings(self, cluster_info_df: pd.DataFrame):
+    def _infer_cluster_per_app(self, cluster_info_df: pd.DataFrame,
+                               cluster_type: ClusterType) -> Dict[str, Optional[ClusterBase]]:
         """
-        Update savings if CPU cluster can be inferred and corresponding GPU cluster can be defined.
-        :param cluster_info_df: Parsed cluster information.
+        Infers clusters for each app in the DataFrame and returns a dictionary of Cluster objects.
+
+        :param cluster_info_df: DataFrame containing cluster information for each app.
+        :param cluster_type: The type of cluster to infer.
+        :return: A dictionary where the key is the app ID and the value is the inferred Cluster object.
         """
-        # we actually want to use the inferred version over what user passed if possible
-        if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
-            self.logger.info('Inferred Cluster but cpu node was already set')
-            return
+        cluster_inference_obj = ClusterInference(platform=self.ctxt.platform, cluster_type=cluster_type)
+        return {
+            row['App ID']: cluster_inference_obj.infer_cluster(cluster_info_df.iloc[[index]])
+            for index, row in cluster_info_df.iterrows()
+        }
 
-        # Infer the CPU cluster from the cluster information
-        cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(cluster_info_df)
-        if cpu_cluster_obj is None:
-            return
-
-        # Log the inferred cluster information and set the context
-        self._log_inferred_cluster_info(cpu_cluster_obj)
-        self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
-
-        # Process gpu cluster arguments and update savings calculations flag
-        offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
-        enable_savings_flag = self._process_gpu_cluster_args(offline_cluster_opts)
-        self._set_savings_calculations_flag(enable_savings_flag)
-
-    # this function is a lot like __infer_cluster_and_update_savings but handles clusters
-    # on a per application basis and was explicitly copied to not have to deal with
-    # changing the cost savings flow at the same time. Ideally in the future they
-    # get combined back together.
-    def __infer_cluster_for_auto_tuning(self, cluster_info_df: pd.DataFrame):
+    def _infer_clusters_for_apps(self, cluster_info_df: pd.DataFrame) -> None:
+        """
+        Infer CPU and GPU clusters for each app in the DataFrame and set the inferred clusters in the context.
+        """
         # if the user passed in the cpu cluster property, use that but we still want to try to infer the gpu
         # cluster to use
         if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
-            self.logger.info('auto tuning inferred Cluster but cpu node was already set')
+            self.logger.info('CPU cluster is already set. Skipping cluster inference.')
             return
-        cpu_cluster_dict = {}
-        offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
-        for index, row in cluster_info_df.iterrows():
-            single_cluster_df = cluster_info_df.iloc[[index]]
-
-            # TODO - test executor instance picked up if there
-            # Infer the CPU cluster from the cluster information
-            cpu_cluster_obj = ClusterInference(platform=self.ctxt.platform).infer_cpu_cluster(single_cluster_df)
-            # Continue cluster inference for next app
-            if cpu_cluster_obj is None:
-                continue
-            cpu_cluster_dict[row['App ID']] = cpu_cluster_obj
-            # Log the inferred cluster information and set the context
-            self._log_inferred_cluster_info(cpu_cluster_obj)
-
-        self.ctxt.set_ctxt('cpuClusterInfoPerApp', cpu_cluster_dict)
-        # Process gpu cluster arguments and update savings calculations flag
-        gpu_cluster_dict = self._process_gpu_cluster_args_for_auto_tuner(offline_cluster_opts)
-        self.ctxt.set_ctxt('gpuClusterInfoPerApp', gpu_cluster_dict)
-
-    def _log_inferred_cluster_info(self, cpu_cluster_obj):
-        master_node = cpu_cluster_obj.get_master_node()
-        executor_node = cpu_cluster_obj.get_worker_node(0)
-        num_executors = cpu_cluster_obj.get_nodes_cnt(SparkNodeType.WORKER)
-        self.logger.info('Inferred Cluster => Driver: %s, Executor: %s X %s',
-                         master_node.instance_type,
-                         num_executors,
-                         executor_node.instance_type)
+        cpu_cluster_cols = self.ctxt.get_value('local', 'output', 'clusterInference', 'cpuClusterColumns')
+        gpu_cluster_cols = self.ctxt.get_value('local', 'output', 'clusterInference', 'gpuClusterColumns')
+        # ==  Infer CPU clusters per app ==
+        # Drop GPU/Recommended columns to infer the CPU cluster information
+        cpu_cluster_df = cluster_info_df.drop(columns=gpu_cluster_cols, errors='ignore')
+        cpu_clusters_per_app = self._infer_cluster_per_app(cpu_cluster_df, ClusterType.CPU)
+        self.ctxt.set_ctxt('cpuClusterInfoPerApp', cpu_clusters_per_app)
+        # ==  Infer GPU clusters per app ==
+        # Drop CPU columns to infer the GPU cluster information
+        gpu_cluster_df = cluster_info_df.drop(columns=cpu_cluster_cols, errors='ignore')
+        # Rename GPU columns to drop the 'Recommended' prefix
+        gpu_cluster_df.rename(columns=dict(zip(gpu_cluster_cols, cpu_cluster_cols)), inplace=True)
+        # Assumption: num executors per node will be same as num gpus per node
+        gpu_cluster_df['Num Executors Per Node'] = cluster_info_df['Recommended Num GPUs Per Node']
+        gpu_clusters_per_app = self._infer_cluster_per_app(gpu_cluster_df, ClusterType.GPU)
+        self.ctxt.set_ctxt('gpuClusterInfoPerApp', gpu_clusters_per_app)
 
     def __build_output_files_info(self) -> dict:
         """

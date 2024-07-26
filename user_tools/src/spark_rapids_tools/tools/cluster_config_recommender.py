@@ -17,12 +17,14 @@
 from functools import partial
 from dataclasses import dataclass, field
 from typing import Optional
+from logging import Logger
 
 import pandas as pd
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
+from spark_rapids_pytools.common.utilities import ToolLogging
 
 
 @dataclass
@@ -72,10 +74,11 @@ class ClusterConfigRecommender:
     Class for recommending cluster shape and tuning configurations for processed apps.
     """
     ctxt: ToolContext = field(default=None, init=True)
+    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster_recommender'), init=False)
 
     @classmethod
-    def _get_instance_type_conversion(cls, cpu_cluster: ClusterBase,
-                                      gpu_cluster: ClusterBase) -> Optional[ClusterRecommendationInfo]:
+    def _get_instance_type_conversion(cls, cpu_cluster: Optional[ClusterBase],
+                                      gpu_cluster: Optional[ClusterBase]) -> Optional[ClusterRecommendationInfo]:
         """
         Helper method to determine the conversion summary between CPU and GPU instance types.
         Generate the cluster shape recommendation as:
@@ -85,21 +88,22 @@ class ClusterConfigRecommender:
           'Qualified Node Recommendation': 'm6.xlarge to g5.2xlarge'
         }
         """
-        if not cpu_cluster:
+        # Return None if no GPU cluster is available.
+        # If no CPU cluster is available, we can still recommend based on the inferred GPU cluster in the Scala tool.
+        if not gpu_cluster:
             return None
 
-        cpu_instance_type = cpu_cluster.get_worker_node().instance_type
-        recommended_cluster = cpu_cluster
-        conversion_str = cpu_instance_type
-        if gpu_cluster:
-            gpu_instance_type = gpu_cluster.get_worker_node().instance_type
+        gpu_instance_type = gpu_cluster.get_worker_node().instance_type
+        recommended_cluster_config = gpu_cluster.get_cluster_configuration()
+        conversion_str = gpu_instance_type
+        source_cluster_config = {}
+
+        if cpu_cluster:
+            source_cluster_config = cpu_cluster.get_cluster_configuration()
+            cpu_instance_type = cpu_cluster.get_worker_node().instance_type
             if cpu_instance_type != gpu_instance_type:
-                recommended_cluster = gpu_cluster
                 conversion_str = f'{cpu_instance_type} to {gpu_instance_type}'
-        return ClusterRecommendationInfo(
-            cpu_cluster.get_cluster_configuration(),
-            recommended_cluster.get_cluster_configuration(),
-            conversion_str)
+        return ClusterRecommendationInfo(source_cluster_config, recommended_cluster_config, conversion_str)
 
     def _get_cluster_conversion_summary(self) -> dict:
         """
@@ -114,6 +118,7 @@ class ClusterConfigRecommender:
         gpu_cluster_info = self.ctxt.get_ctxt('gpuClusterProxy')
         conversion_summary_all = self._get_instance_type_conversion(cpu_cluster_info, gpu_cluster_info)
         if conversion_summary_all:
+            self._log_cluster_conversion(cpu_cluster_info, gpu_cluster_info)
             cluster_conversion_summary['all'] = conversion_summary_all.to_dict()
 
         # Summary for each app
@@ -125,6 +130,7 @@ class ClusterConfigRecommender:
                 gpu_info = gpu_cluster_info_per_app.get(app_id)
                 conversion_summary = self._get_instance_type_conversion(cpu_info, gpu_info)
                 if conversion_summary:
+                    self._log_cluster_conversion(cpu_info, gpu_info, app_id)
                     cluster_conversion_summary[app_id] = conversion_summary.to_dict()
 
         return cluster_conversion_summary
@@ -181,10 +187,25 @@ class ClusterConfigRecommender:
         for col, replacement in ClusterRecommendationInfo.get_default_dict().items():
             # Using partial to avoid closure issues with lambda in apply()
             fill_na_fn = partial(lambda x, def_val: def_val if pd.isna(x) else x, def_val=replacement)
-            result_df[col] = result_df.get(col, pd.Series()).apply(fill_na_fn)
+            col_dtype = 'str' if isinstance(replacement, str) else 'object'
+            result_df[col] = result_df.get(col, pd.Series(dtype=col_dtype)).apply(fill_na_fn)
 
         # 2. Add tuning configuration recommendations to all apps
         tuning_recommendation_summary = self._get_tuning_summary(result_df)
         for col, val in tuning_recommendation_summary.to_dict().items():
             result_df[col] = val
         return result_df
+
+    def _log_cluster_conversion(self, cpu_cluster: Optional[ClusterBase], gpu_cluster: Optional[ClusterBase],
+                                app_id: Optional[str] = None) -> None:
+        """
+        Log the cluster conversion summary
+        """
+        cpu_cluster_str = cpu_cluster.get_cluster_shape_str() if cpu_cluster else 'N/A'
+        gpu_cluster_str = gpu_cluster.get_cluster_shape_str() if gpu_cluster else 'N/A'
+        conversion_log_msg = f'CPU cluster: {cpu_cluster_str}; Recommended GPU cluster: {gpu_cluster_str}'
+        if cpu_cluster and cpu_cluster.is_inferred:  # If cluster is inferred, add it to the log message
+            conversion_log_msg = f'Inferred {conversion_log_msg}'
+        if app_id:  # If app_id is provided, add it to the log message
+            conversion_log_msg = f'For App ID: {app_id}, {conversion_log_msg}'
+        self.logger.info(conversion_log_msg)
