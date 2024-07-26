@@ -43,7 +43,7 @@
     "//description": "Define the metadata related to the system, prerequisites, and configurations",
     "envParams": ["credentialFile", "deployMode"],
     "//initialConfigList": "represents the list of the configurations that need to be loaded first",
-    "initialConfigList": ["credentialFile"],
+    "initialConfigList": ["credentialFile", "cliConfigFile"],
     "//loadedConfigProps": "list of properties read by the configParser",
     "loadedConfigProps": ["region", "zone", "project"],
     "cliConfig": {
@@ -52,6 +52,11 @@
           "envVariableKey": "GOOGLE_APPLICATION_CREDENTIALS",
           "confProperty": "credentialFile",
           "defaultValue": "~/.config/gcloud/application_default_credentials.json"
+        },
+        {
+          "envVariableKey": "GCLOUD_CONFIG_FILE",
+          "confProperty": "cliConfigFile",
+          "defaultValue": "~/.config/gcloud/configurations/config_default"
         },
         {
           "envVariableKey": "CLOUDSDK_DATAPROC_REGION",

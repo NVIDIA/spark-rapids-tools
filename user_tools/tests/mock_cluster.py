@@ -17,9 +17,6 @@ import json
 
 mock_live_cluster = {
     "dataproc": [
-        "us-central1",          # gcloud config get compute/region
-        "us-central1-a",        # gcloud config get compute/zone
-        "dataproc-project-id",  # gcloud config get core/project
         # gcloud dataproc clusters describe test-cluster --format json --region us-central1
         json.dumps({
             "clusterUuid": "11111111-1111-1111-1111-111111111111",
@@ -49,20 +46,10 @@ mock_live_cluster = {
                 "state": "RUNNING",
             },
         }),
-        # gcloud compute machine-types describe n1-standard-8 --format json --zone us-central1-a
-        json.dumps({
-            "guestCpus": 8,
-            "memoryMb": 30720,
-        }),
         # gcloud compute accelerator-types describe nvidia-tesla-t4 --format json --zone us-central1-a
         json.dumps({
             "description": "NVIDIA T4",
-        }),
-        # gcloud compute machine-types describe n1-standard-2 --format json --zone us-central1-a
-        json.dumps({
-            "guestCpus": 2,
-            "memoryMb": 7680,
-        }),
+        })
     ],
 
     "emr": [
