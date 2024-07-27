@@ -248,9 +248,12 @@ class DatabricksCluster(ClusterBase):
         # construct worker nodes info when cluster is inactive
         executors_cnt = len(worker_nodes_from_conf) if worker_nodes_from_conf else 0
         if num_workers != executors_cnt:
-            self.logger.warning('Cluster configuration: `executors` count %d does not match the '
-                                '`num_workers` value %d. Using generated names.', executors_cnt,
-                                num_workers)
+            if not self.is_inferred:
+                # this warning should be raised only when the cluster is not inferred, i.e. user has provided the
+                # cluster configuration with num_workers explicitly set
+                self.logger.warning('Cluster configuration: `executors` count %d does not match the '
+                                    '`num_workers` value %d. Using the `num_workers` value.', executors_cnt,
+                                    num_workers)
             worker_nodes_from_conf = self.generate_node_configurations(num_workers)
         if num_workers == 0 and self.props.get_value('node_type_id') is None:
             # if there are no worker nodes and no node_type_id, then we cannot proceed

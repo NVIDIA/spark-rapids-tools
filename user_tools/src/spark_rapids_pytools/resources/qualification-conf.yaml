@@ -44,6 +44,7 @@ toolOutput:
             - 'Strongly Recommended'
             - 'Recommended'
       groupColumns:
+         enabled: false
          keys:
            - Vendor
            - Driver Host
@@ -148,7 +149,7 @@ local:
             outputComment: "Heuristics information"
       configRecommendations:
         name: 'rapids_4_spark_qualification_output/tuning'
-        outputComment: "Cluster config recommendations"
+        outputComment: "*Cluster config recommendations"
         columns:
           - 'Full Cluster Config Recommendations*'
           - 'GPU Config Recommendation Breakdown*'
@@ -354,6 +355,16 @@ local:
             dstCol: 'Estimated GPU Speedup'
           - srcCol: 'appDuration_pred'
             dstCol: 'Estimated GPU Duration'
+    clusterInference:
+      cpuClusterColumns:
+        - 'Num Executor Nodes'
+        - 'Executor Instance'
+        - 'Cores Per Executor'
+      gpuClusterColumns:
+        - 'Recommended Num Executor Nodes'
+        - 'Recommended Executor Instance'
+        - 'Recommended Cores Per Executor'
+
 platform:
   shortName: 'qual'
   outputDir: qual-tool-output

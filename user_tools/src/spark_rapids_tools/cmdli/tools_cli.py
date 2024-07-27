@@ -42,16 +42,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       target_platform: str = None,
                       output_folder: str = None,
                       filter_apps: str = None,
-                      estimation_model: str = None,
                       custom_model_file: str = None,
                       tools_jar: str = None,
-                      cpu_cluster_price: float = None,
-                      estimated_gpu_cluster_price: float = None,
-                      cpu_discount: int = None,
-                      gpu_discount: int = None,
-                      global_discount: int = None,
-                      gpu_cluster_recommendation: str = QualGpuClusterReshapeType.tostring(
-                          QualGpuClusterReshapeType.get_default()),
                       jvm_heap_size: int = None,
                       jvm_threads: int = None,
                       verbose: bool = None,
@@ -85,37 +77,14 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 or remote cloud storage url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
                 from maven repository.
         :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
-                is one of the following (ALL, SPEEDUPS, SAVINGS, TOP_CANDIDATES).
-                Requires "Cluster".
+                is one of the following (ALL, TOP_CANDIDATES).
 
                 Note that this filter does not affect the CSV report.
-                "ALL" means no filter applied. "SPEEDUPS" lists all the apps that are either
-                'Recommended', or 'Strongly Recommended' based on speedups. "SAVINGS"
-                lists all the apps that have positive estimated GPU savings except for the apps that
-                are "Not Applicable". "TOP_CANDIDATES" lists all apps that have unsupported operators
+                "ALL" means no filter applied. "TOP_CANDIDATES" lists all apps that have unsupported operators
                 stage duration less than 25% of app duration and speedups greater than 1.3x.
-        :param estimation_model: Model used to calculate the estimated GPU duration and cost savings.
-               It accepts one of the following:
-               "xgboost": An XGBoost model for GPU duration estimation. Set by default
-               "speedups": It uses a simple static estimated speedup per operator.
         :param custom_model_file: An optional Path to a custom XGBoost model file. The path is a local filesystem,
                 or remote cloud storage url.
                 Requires that "estimation_model" is set to "xgboost".
-        :param cpu_cluster_price: the CPU cluster hourly price provided by the user.
-        :param estimated_gpu_cluster_price: the GPU cluster hourly price provided by the user.
-        :param cpu_discount: A percent discount for the cpu cluster cost in the form of an integer value
-                (e.g. 30 for 30% discount).
-        :param gpu_discount: A percent discount for the gpu cluster cost in the form of an integer value
-                (e.g. 30 for 30% discount).
-        :param global_discount: A percent discount for both the cpu and gpu cluster costs in the form of an
-                integer value (e.g. 30 for 30% discount).
-        :param gpu_cluster_recommendation: The type of GPU cluster recommendation to generate.
-                Requires "Cluster".
-
-                It accepts one of the following:
-                "MATCH": keep GPU cluster same number of nodes as CPU cluster;
-                "CLUSTER": recommend optimal GPU cluster by cost for entire cluster;
-                "JOB": recommend optimal GPU cluster by cost per job
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
                 Default is calculated based on a function of the total memory of the host.
         :param jvm_threads: Number of thread to use for parallel processing on the eventlogs batch.
@@ -140,7 +109,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
             'validatorName': 'estimation_model_args'
         }
         estimation_model_args = AbsToolUserArgModel.create_tool_args(estimation_arg_valid,
-                                                                     estimation_model=estimation_model,
+                                                                     estimation_model=None,
                                                                      custom_model_file=custom_model_file)
         if estimation_model_args is None:
             return None
@@ -155,12 +124,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          jvm_threads=jvm_threads,
                                                          filter_apps=filter_apps,
                                                          estimation_model_args=estimation_model_args,
-                                                         cpu_cluster_price=cpu_cluster_price,
-                                                         estimated_gpu_cluster_price=estimated_gpu_cluster_price,
-                                                         cpu_discount=cpu_discount,
-                                                         gpu_discount=gpu_discount,
-                                                         global_discount=global_discount,
-                                                         gpu_cluster_recommendation=gpu_cluster_recommendation)
+                                                         gpu_cluster_shape=QualGpuClusterReshapeType.get_default())
         if qual_args:
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
                                             output_folder=qual_args['outputFolder'],

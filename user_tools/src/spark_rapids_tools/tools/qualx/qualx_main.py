@@ -12,12 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, List, Optional
+""" Main module for QualX related commands """
+
+from typing import Callable, List, Optional, Tuple, Set
 import glob
 import json
 import os
 import traceback
 from pathlib import Path
+from tabulate import tabulate
+from xgboost.core import XGBoostError, Booster
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+import fire
+
 from spark_rapids_tools import CspPath
 from spark_rapids_tools.tools.qualx.preprocess import (
     load_datasets,
@@ -49,18 +58,12 @@ from spark_rapids_tools.tools.qualx.util import (
     INTERMEDIATE_DATA_ENABLED, create_row_with_default_speedup, write_csv_reports
 )
 from spark_rapids_pytools.common.utilities import Utils
-from tabulate import tabulate
-from xgboost.core import XGBoostError, Booster
-import numpy as np
-import pandas as pd
-import xgboost as xgb
-import fire
 
 
 logger = get_logger(__name__)
 
 
-def _get_model_path(platform: str, model: Optional[str]):
+def _get_model_path(platform: str, model: Optional[str]) -> Path:
     if model is not None:
         # if "model" is provided
         if CspPath.is_file_path(model, raise_on_error=False):
@@ -96,7 +99,7 @@ def _get_model(platform: str,
     Load the XGBoost model from the specified path or use the pre-trained model for the platform.
     The "model" has a precedence over the other input options. If it is undefined, this function checks
     if it is a valid path or a string literal that represents a model name.
-    Finally the platform will be used to define the path of the model file if the model is not defined.
+    Finally, the platform will be used to define the path of the model file if the model is not defined.
     :param platform: name of the platform used to define the path of the pre-trained model.
                      The platform should match a JSON file in the "resources" directory.
     :param model: Either a file or a pre-trained model name. If the input is a string literal that
@@ -111,20 +114,25 @@ def _get_model(platform: str,
     return xgb_model
 
 
-def _get_qual_data(qual: Optional[str]):
+def _get_qual_data(qual: Optional[str]) -> Tuple[
+    Optional[pd.DataFrame],
+    Optional[pd.DataFrame],
+    Optional[pd.DataFrame],
+    List[str]
+]:
     if not qual:
-        return None, None, None, None
+        return None, None, None, []
 
     # load qual tool execs
     qual_list = find_paths(
-        qual, RegexPattern.rapidsQualtool.match, return_directories=True
+        qual, RegexPattern.rapids_qual.match, return_directories=True
     )
     # load metrics directory from all qualification paths.
     # metrics follow the pattern 'qual_2024xx/rapids_4_spark_qualification_output/raw_metrics'
     qual_metrics = [
         path
         for q in qual_list
-        for path in find_paths(q, RegexPattern.qualToolMetrics.match, return_directories=True)
+        for path in find_paths(q, RegexPattern.qual_tool_metrics.match, return_directories=True)
     ]
     qual_execs = [
         os.path.join(
@@ -152,7 +160,7 @@ def _get_qual_data(qual: Optional[str]):
     return node_level_supp, qualtool_output, qual_sql_preds, qual_metrics
 
 
-def _compute_summary(results):
+def _compute_summary(results: pd.DataFrame) -> pd.DataFrame:
     # summarize speedups per appId
     result_cols = [
         # qualx
@@ -168,7 +176,7 @@ def _compute_summary(results):
     cols = [col for col in result_cols if col in results.columns]
     # compute per-app stats
     group_by_cols = ['appName', 'appId', 'appDuration', 'scaleFactor']
-    summary = (
+    summary: pd.DataFrame = (
         results[cols]
         .groupby(group_by_cols)
         .agg(
@@ -219,11 +227,13 @@ def _predict(
     input_df: pd.DataFrame,
     *,
     split_fn: Callable[[pd.DataFrame], pd.DataFrame] = None,
-    qualtool_filter: Optional[str] = 'stage',
-):
+    qual_tool_filter: Optional[str] = 'stage',
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    results = pd.DataFrame()
+    summary = pd.DataFrame()
     if not input_df.empty:
         filter_str = (
-            f'with {qualtool_filter} filtering'
+            f'with {qual_tool_filter} filtering'
             if any(input_df['fraction_supported'] != 1.0)
             else 'raw'
         )
@@ -241,10 +251,10 @@ def _predict(
         except XGBoostError as e:
             # ignore and continue
             logger.error(e)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             # ignore and continue
             logger.error(e)
-            traceback.print_exc(e)
+            traceback.print_exc()
     return results, summary
 
 
@@ -288,8 +298,8 @@ def _read_dataset_scores(
 
 
 def _read_platform_scores(
-    eval_dir: str, score: str, split: str, dataset_filter: List[str] = []
-) -> pd.DataFrame:
+    eval_dir: str, score: str, split: str, dataset_filter: List[str] = None
+) -> Tuple[pd.DataFrame, Set[str]]:
     """Load accuracy scores per platform.
 
     Per-app predictions are aggregated by platform to produce the scores.
@@ -365,7 +375,7 @@ def _add_entries_for_missing_apps(all_default_preds: pd.DataFrame, summary_df: p
     return pd.concat([summary_df, missing_apps], ignore_index=True)
 
 
-def models():
+def models() -> None:
     """Show available pre-trained models."""
     available_models = [
         model.replace('.json', '')
@@ -377,7 +387,7 @@ def models():
         print(model)
 
 
-def preprocess(dataset: str):
+def preprocess(dataset: str) -> None:
     """Extract raw features from profiler logs.
 
     Extract raw features from one or more profiler logs and save the resulting dataframe as a
@@ -408,7 +418,7 @@ def train(
     n_trials: Optional[int] = 200,
     base_model: Optional[str] = None,
     features_csv_dir: Optional[str] = None,
-):
+) -> None:
     """Train an XGBoost model.
 
     Train a model on the input data specified by either `--preprocessed` or `--dataset`.
@@ -419,6 +429,8 @@ def train(
         Path to a folder containing one or more dataset JSON files.
     model:
         Path to save the trained XGBoost model.
+    output_dir:
+        Path to save the output files, e.g. SHAP values, feature importance.
     n_trials:
         Number of trials for hyperparameter search.
     base_model:
@@ -520,14 +532,14 @@ def predict(
         output_info: dict,
         *,
         model: Optional[str] = None,
-        qualtool_filter: Optional[str] = 'stage') -> pd.DataFrame:
+        qual_tool_filter: Optional[str] = 'stage') -> pd.DataFrame:
     """Predict GPU speedup given CPU logs."""
 
     xgb_model = _get_model(platform, model=model)
-    node_level_supp, qualtool_output, _, qual_metrics = _get_qual_data(qual)
+    node_level_supp, qual_tool_output, _, qual_metrics = _get_qual_data(qual)
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.
-    default_preds_df = qualtool_output.apply(create_row_with_default_speedup, axis=1)
+    default_preds_df = qual_tool_output.apply(create_row_with_default_speedup, axis=1)
     # add a column for dataset names to associate apps with datasets.
     default_preds_df['dataset_name'] = None
 
@@ -545,7 +557,7 @@ def predict(
                 'app_meta': {},
                 'platform': platform,
             }
-            # search sub directories for App IDs
+            # search subdirectories for App IDs
             app_ids = [p.name for p in Path(metrics_dir).iterdir() if p.is_dir()]
             if len(app_ids) == 0:
                 logger.warning('Skipping empty metrics directory: %s', metrics_dir)
@@ -562,8 +574,8 @@ def predict(
                     metrics_df = load_profiles(
                         datasets=datasets,
                         node_level_supp=node_level_supp,
-                        qualtool_filter=qualtool_filter,
-                        qualtool_output=qualtool_output
+                        qual_tool_filter=qual_tool_filter,
+                        qual_tool_output=qual_tool_output
                     )
                     processed_dfs[dataset_name] = metrics_df
                 except ScanTblError:
@@ -589,7 +601,7 @@ def predict(
         per_sql_summary = None
         if not input_df.empty:
             filter_str = (
-                f'with {qualtool_filter} filtering'
+                f'with {qual_tool_filter} filtering'
                 if node_level_supp is not None
                 and any(input_df['fraction_supported'] != 1.0)
                 else 'raw'
@@ -634,10 +646,10 @@ def predict(
             except XGBoostError as e:
                 # ignore and continue
                 logger.error(e)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 # ignore and continue
                 logger.error(e)
-                traceback.print_exc(e)
+                traceback.print_exc()
         else:
             logger.warning('Predicted speedup will be 1.0 for dataset: %s. Check logs for details.', dataset)
         # TODO: Writing CSV reports for all datasets to the same location. We should write to separate directories.
@@ -660,8 +672,8 @@ def _predict_cli(
     eventlogs: Optional[str] = None,
     qual_output: Optional[str] = None,
     model: Optional[str] = None,
-    qualtool_filter: Optional[str] = 'stage',
-):
+    qual_tool_filter: Optional[str] = 'stage',
+) -> None:
     """Predict GPU speedup given CPU logs.
 
     Predict the speedup of running a Spark application with Spark-RAPIDS on GPUs (vs. CPUs).
@@ -684,8 +696,8 @@ def _predict_cli(
     model: str
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
-    qualtool_filter: str
-        Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages, based on qualtool
+    qual_tool_filter: str
+        Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages, based on qual tool
         output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
     """
     # Note this function is for internal usage only. `spark_rapids predict` cmd is the public interface.
@@ -716,7 +728,7 @@ def _predict_cli(
         output_info=output_info,
         qual=qual,
         model=model,
-        qualtool_filter=qualtool_filter,
+        qual_tool_filter=qual_tool_filter,
     )
 
 
@@ -726,13 +738,13 @@ def evaluate(
     output_dir: str,
     *,
     model: Optional[str] = None,
-    qualtool_filter: Optional[str] = 'stage',
-):
+    qual_tool_filter: Optional[str] = 'stage',
+) -> None:
     """Evaluate model predictions against actual GPU speedup.
 
     For training datasets with GPU event logs, this returns the actual GPU speedup along with the
     predictions of:
-    - Q: qualtool
+    - Q: qual tool
     - QX: qualx (raw)
     - QXS: qualx (stage filtered)
 
@@ -748,9 +760,9 @@ def evaluate(
     model: str
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
-    qualtool_filter: str
+    qual_tool_filter: str
         Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages,
-        based on qualtool output.  A sqlID or stage is fully supported if all execs are respectively
+        based on qual tool output.  A sqlID or stage is fully supported if all execs are respectively
         fully supported.
     """
     with open(dataset, 'r', encoding='utf-8') as f:
@@ -789,12 +801,12 @@ def evaluate(
             split_fn = plugin.split_function
 
     logger.info('Loading qualification tool CSV files.')
-    node_level_supp, qualtool_output, qual_sql_preds, _ = _get_qual_data(qual_dir)
+    node_level_supp, qual_tool_output, qual_sql_preds, _ = _get_qual_data(qual_dir)
 
     logger.info('Loading profiler tool CSV files.')
     profile_df = load_profiles(datasets, profile_dir)  # w/ GPU rows
     filtered_profile_df = load_profiles(
-        datasets, profile_dir, node_level_supp, qualtool_filter, qualtool_output
+        datasets, profile_dir, node_level_supp, qual_tool_filter, qual_tool_output
     )  # w/o GPU rows
     if profile_df.empty:
         raise ValueError(f'Warning: No profile data found for {dataset}')
@@ -809,7 +821,7 @@ def evaluate(
         dataset_name,
         profile_df,
         split_fn=split_fn,
-        qualtool_filter=qualtool_filter,
+        qual_tool_filter=qual_tool_filter,
     )
     # join raw app data with app level gpu ground truth
     app_durations = (
@@ -861,7 +873,7 @@ def evaluate(
         dataset_name,
         filtered_profile_df,
         split_fn=split_fn,
-        qualtool_filter=qualtool_filter,
+        qual_tool_filter=qual_tool_filter,
     )
 
     # merge results and join w/ qual_preds
@@ -937,7 +949,7 @@ def evaluate(
         how='left',
     )
     results_app = results_app.merge(
-        qualtool_output[['App ID', 'Estimated GPU Speedup']],
+        qual_tool_output[['App ID', 'Estimated GPU Speedup']],
         left_on='appId',
         right_on='App ID',
         how='left',
@@ -1001,7 +1013,7 @@ def evaluate_summary(
     *,
     score: str = 'dMAPE',
     split: str = 'test',
-):
+) -> None:
     """
     Compute
     Parameters
@@ -1027,7 +1039,7 @@ def compare(
     score: str = 'dMAPE',
     granularity: str = 'sql',
     split: str = 'all',
-):
+) -> None:
     """Compare evaluation results between versions of code/models.
 
     This will print the delta of scores and also save them as a CSV file into the `current` directory.
@@ -1053,7 +1065,7 @@ def compare(
         curr_df,
         how='right',
         on=['model', 'platform', 'dataset', 'granularity', 'split', 'score'],
-        suffixes=['_prev', None],
+        suffixes=('_prev', None),
     )
     for score_type in ['Q', 'QX', 'QXS']:
         compare_df[f'{score_type}_delta'] = (
@@ -1070,14 +1082,14 @@ def compare(
     # for added datasets, warn after printing table for more visibility
     curr_df, curr_datasets = _read_platform_scores(current, score, split)
     prev_df, prev_datasets = _read_platform_scores(
-        previous, score, split, curr_datasets
+        previous, score, split, list(curr_datasets)
     )
 
     compare_df = prev_df.merge(
         curr_df,
         how='right',
         on=['model', 'platform'],
-        suffixes=['_prev', None],
+        suffixes=('_prev', None),
     )
     for score_type in ['Q', 'QX', 'QXS']:
         compare_df[f'{score_type}_delta'] = (
@@ -1094,7 +1106,7 @@ def compare(
         logger.warning('New datasets added, comparisons may be skewed: added=%s', added)
 
 
-def shap(platform: str, prediction_output: str, index: int, model: Optional[str] = None):
+def shap(platform: str, prediction_output: str, index: int, model: Optional[str] = None) -> None:
     """Print a SHAP waterfall of features and their SHAP value contributions to the overall prediction for
     a specific index (sqlID) in the shap_values.csv file produced by prediction.
 
@@ -1226,7 +1238,7 @@ def shap(platform: str, prediction_output: str, index: int, model: Optional[str]
     print(f'exp(prediction): {np.exp(prediction):.4f}')
 
 
-def entrypoint():
+def entrypoint() -> None:
     """
     These are commands are intended for internal usage only.
     """

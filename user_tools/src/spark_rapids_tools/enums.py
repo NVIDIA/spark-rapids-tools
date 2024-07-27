@@ -111,8 +111,6 @@ class CspEnv(EnumeratedType):
 
 class QualFilterApp(EnumeratedType):
     """Values used to filter out the applications in the qualification report"""
-    SAVINGS = 'savings'
-    SPEEDUPS = 'speedups'
     TOP_CANDIDATES = 'top_candidates'
     ALL = 'all'
 
