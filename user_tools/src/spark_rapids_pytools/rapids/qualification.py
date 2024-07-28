@@ -595,19 +595,8 @@ class Qualification(RapidsJarTool):
         output_files_info = JSONPropertiesContainer(output_files_raw, file_load=False)
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
                                                                               'unsupportedOperators'))
-        rapids_output_dir = self.ctxt.get_rapids_output_folder()
-        stages_info_file = FSUtil.build_path(rapids_output_dir,
-                                             self.ctxt.get_value('toolOutput', 'csv',
-                                                                 'stagesInformation', 'fileName'))
-        stages_df = pd.read_csv(stages_info_file)
-
         # Generate the statistics report
-        stats_report = SparkQualificationStats(
-            unsupported_operators_df=unsupported_ops_df,
-            stages_df=stages_df,
-            output_file=output_files_info.get_value('statistics', 'path'),
-            output_columns=output_files_info.get_value('statistics')
-        )
+        stats_report = SparkQualificationStats(ctxt=self.ctxt)
         stats_report.report_qualification_stats()
 
         # Calculate unsupported operators stage duration before grouping

@@ -21,7 +21,9 @@ from logging import Logger
 import pandas as pd
 import fire
 
+from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 
 
 @dataclass
@@ -30,11 +32,12 @@ class SparkQualificationStats:
     Encapsulates the logic to generate the Qualification Stats Report.
     """
     logger: Logger = field(default=None, init=False)
-    output_file: str
-    unsupported_operators_df: pd.DataFrame
-    stages_df: pd.DataFrame
-    output_columns: dict
+    output_file: str = field(default=None, init=False)
+    unsupported_operators_df: pd.DataFrame = field(default=None, init=False)
+    stages_df: pd.DataFrame = field(default=None, init=False)
+    output_columns: dict = field(default=None, init=False)
     result_df: pd.DataFrame = field(default=None, init=False)
+    ctxt: ToolContext = field(default=None, init=True)
 
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.qualification.stats')
@@ -46,6 +49,29 @@ class SparkQualificationStats:
             self.stages_df[['Stage Task Duration', 'Unsupported Task Duration']] /= 1000
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Error reading dataframe: %s', e)
+
+    def read_csv_files(self):
+        try:
+            self.logger.info('Reading CSV files...')
+            rapids_output_dir = self.ctxt.get_rapids_output_folder()
+
+            unsupported_operator_report_file= self.ctxt.get_value('toolOutput', 'csv', 'unsupportedOperatorsReport', 'fileName')
+            rapids_unsupported_operators_file = FSUtil.build_path(
+                rapids_output_dir, unsupported_operator_report_file)
+            self.unsupported_operators_df = pd.read_csv(rapids_unsupported_operators_file)
+
+            stages_report_file = self.ctxt.get_value('toolOutput', 'csv', 'stagesInformation', 'fileName')
+            rapids_stages_file = FSUtil.build_path(rapids_output_dir, stages_report_file)
+            self.stages_df = pd.read_csv(rapids_stages_file)
+
+            outputfile_path = self.ctxt.get_value('local', 'output', 'files', 'statistics', 'name')
+            self.output_file = FSUtil.build_path(self.ctxt.get_output_folder(), outputfile_path)
+
+            self.output_columns = self.ctxt.get_value(
+                'local', 'output', 'files', 'statistics')
+            self.logger.info('Reading CSV files completed.')
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Error reading CSV files: %s', e)
 
     def merge_dataframes(self):
         try:
@@ -78,6 +104,7 @@ class SparkQualificationStats:
 
     def report_qualification_stats(self):
         try:
+            self.read_csv_files()
             self.read_dataframes()
             self.merge_dataframes()
             self.result_df.to_csv(self.output_file, index=False)
@@ -86,14 +113,14 @@ class SparkQualificationStats:
             self.logger.error('Error running analysis: %s', e)
 
 
-def main(unsupported_operators_file: str, stages_file: str, output_file: str):
-    unsupported_operators_df = pd.read_csv(unsupported_operators_file)
-    stages_df = pd.read_csv(stages_file)
-    stats = SparkQualificationStats(unsupported_operators_df=unsupported_operators_df,
-                                    stages_df=stages_df,
-                                    output_file=output_file)
-    stats.report_qualification_stats()
-
-
-if __name__ == '__main__':
-    fire.Fire(main)
+# def main(unsupported_operators_file: str, stages_file: str, output_file: str):
+#     unsupported_operators_df = pd.read_csv(unsupported_operators_file)
+#     stages_df = pd.read_csv(stages_file)
+#     stats = SparkQualificationStats(unsupported_operators_df=unsupported_operators_df,
+#                                     stages_df=stages_df,
+#                                     output_file=output_file)
+#     stats.report_qualification_stats()
+#
+#
+# if __name__ == '__main__':
+#     fire.Fire(main)
