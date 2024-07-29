@@ -1225,7 +1225,7 @@ class ClusterBase(ClusterGetAccessor):
         return {
             'driverInstance': self.get_master_node().instance_type,
             'executorInstance': self.get_worker_node().instance_type,
-            'numExecutors': self.get_workers_count(),
+            'numExecutorNodes': self.get_workers_count(),
         }
 
     def generate_create_script(self) -> str:
@@ -1265,8 +1265,8 @@ class ClusterBase(ClusterGetAccessor):
         """
         master_node = self.get_master_node().instance_type
         executor_node = self.get_worker_node(0).instance_type
-        num_executors = self.get_nodes_cnt(SparkNodeType.WORKER)
-        return f'<Driver: {master_node}, Executor: {num_executors} X {executor_node}>'
+        num_executor_nodes = self.get_nodes_cnt(SparkNodeType.WORKER)
+        return f'<Driver: {master_node}, Executor: {num_executor_nodes} X {executor_node}>'
 
 
 @dataclass
