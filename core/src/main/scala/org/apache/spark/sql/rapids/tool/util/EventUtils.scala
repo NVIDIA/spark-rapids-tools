@@ -116,7 +116,7 @@ object EventUtils extends Logging {
    * @return valid parsed long of the content or the duration
    */
   @throws[NullPointerException]
-  private def parseAccumFieldToLong(data: Any): Option[Long] = {
+  def parseAccumFieldToLong(data: Any): Option[Long] = {
     val strData = data.toString
     try {
       Some(strData.toLong)
