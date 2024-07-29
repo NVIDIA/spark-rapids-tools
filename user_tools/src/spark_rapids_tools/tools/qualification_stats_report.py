@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from logging import Logger
 
 import pandas as pd
-import fire
 
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging
@@ -32,50 +31,50 @@ class SparkQualificationStats:
     Encapsulates the logic to generate the Qualification Stats Report.
     """
     logger: Logger = field(default=None, init=False)
-    output_file: str = field(default=None, init=False)
     unsupported_operators_df: pd.DataFrame = field(default=None, init=False)
     stages_df: pd.DataFrame = field(default=None, init=False)
-    output_columns: dict = field(default=None, init=False)
     result_df: pd.DataFrame = field(default=None, init=False)
+    output_columns: dict = field(default=None, init=False)
+    output_file: str = field(default=None, init=False)
+    qual_output: str = field(default=None, init=True)
     ctxt: ToolContext = field(default=None, init=True)
 
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.qualification.stats')
+        self.output_columns = self.ctxt.get_value('local', 'output', 'files', 'statistics')
 
-    def read_dataframes(self):
+    def read_csv_files(self):
+        try:
+            self.logger.info('Reading CSV files...')
+            if self.qual_output is None:
+                qual_output_dir = self.ctxt.get_rapids_output_folder()
+            else:
+                qual_output_dir = self.qual_output
+
+            unsupported_operator_report_file = self.ctxt.get_value(
+                'toolOutput', 'csv', 'unsupportedOperatorsReport', 'fileName')
+            rapids_unsupported_operators_file = FSUtil.build_path(
+                qual_output_dir, unsupported_operator_report_file)
+            self.unsupported_operators_df = pd.read_csv(rapids_unsupported_operators_file)
+
+            stages_report_file = self.ctxt.get_value('toolOutput', 'csv', 'stagesInformation', 'fileName')
+            rapids_stages_file = FSUtil.build_path(qual_output_dir, stages_report_file)
+            self.stages_df = pd.read_csv(rapids_stages_file)
+            self.logger.info('Reading CSV files completed.')
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Error reading CSV files: %s', e)
+
+    def convert_durations(self):
         try:
             # Convert durations from milliseconds to seconds
             self.unsupported_operators_df[['Stage Duration', 'App Duration']] /= 1000
             self.stages_df[['Stage Task Duration', 'Unsupported Task Duration']] /= 1000
         except Exception as e:  # pylint: disable=broad-except
-            self.logger.error('Error reading dataframe: %s', e)
-
-    def read_csv_files(self):
-        try:
-            self.logger.info('Reading CSV files...')
-            rapids_output_dir = self.ctxt.get_rapids_output_folder()
-
-            unsupported_operator_report_file= self.ctxt.get_value('toolOutput', 'csv', 'unsupportedOperatorsReport', 'fileName')
-            rapids_unsupported_operators_file = FSUtil.build_path(
-                rapids_output_dir, unsupported_operator_report_file)
-            self.unsupported_operators_df = pd.read_csv(rapids_unsupported_operators_file)
-
-            stages_report_file = self.ctxt.get_value('toolOutput', 'csv', 'stagesInformation', 'fileName')
-            rapids_stages_file = FSUtil.build_path(rapids_output_dir, stages_report_file)
-            self.stages_df = pd.read_csv(rapids_stages_file)
-
-            outputfile_path = self.ctxt.get_value('local', 'output', 'files', 'statistics', 'name')
-            self.output_file = FSUtil.build_path(self.ctxt.get_output_folder(), outputfile_path)
-
-            self.output_columns = self.ctxt.get_value(
-                'local', 'output', 'files', 'statistics')
-            self.logger.info('Reading CSV files completed.')
-        except Exception as e:  # pylint: disable=broad-except
-            self.logger.error('Error reading CSV files: %s', e)
+            self.logger.error('Error while converting durations to seconds: %s', e)
 
     def merge_dataframes(self):
         try:
-            self.logger.info('Merging dataframes...')
+            self.logger.info('Merging dataframes to get stats...')
             # Merge unsupported_operators_df with stages_df on App ID and Stage ID
             merged_df = pd.merge(self.unsupported_operators_df, self.stages_df,
                                  on=['App ID', 'Stage ID'])
@@ -98,29 +97,28 @@ class SparkQualificationStats:
                 'Stage_Task_Duration': 'Stage Task Exec duration(seconds)'
             })
             self.result_df = final_df[self.output_columns.get('columns')].copy()
-            self.logger.info('Merging dataframes completed.')
+            self.logger.info('Merging stats dataframes completed.')
         except Exception as e:  # pylint: disable=broad-except
-            self.logger.error('Error merging dataframes: %s', e)
+            self.logger.error('Error merging stats dataframes: %s', e)
+
+    def write_results(self):
+        try:
+            self.logger.info('Writing stats results...')
+            result_output_dir = self.ctxt.get_output_folder()
+            outputfile_path = self.ctxt.get_value('local', 'output', 'files', 'statistics', 'name')
+            self.output_file = FSUtil.build_path(result_output_dir, outputfile_path)
+            self.result_df.to_csv(self.output_file, index=False)
+            self.logger.info('Writing stats results completed.')
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Error writing stats results: %s', e)
 
     def report_qualification_stats(self):
         try:
             self.read_csv_files()
-            self.read_dataframes()
+            self.convert_durations()
             self.merge_dataframes()
+            self.write_results()
             self.result_df.to_csv(self.output_file, index=False)
             self.logger.info('Results have been saved to %s', self.output_file)
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Error running analysis: %s', e)
-
-
-# def main(unsupported_operators_file: str, stages_file: str, output_file: str):
-#     unsupported_operators_df = pd.read_csv(unsupported_operators_file)
-#     stages_df = pd.read_csv(stages_file)
-#     stats = SparkQualificationStats(unsupported_operators_df=unsupported_operators_df,
-#                                     stages_df=stages_df,
-#                                     output_file=output_file)
-#     stats.report_qualification_stats()
-#
-#
-# if __name__ == '__main__':
-#     fire.Fire(main)

@@ -24,6 +24,7 @@ from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.qualx.prediction import Prediction
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
+from spark_rapids_pytools.rapids.qualification_stats import SparkQualStats
 from spark_rapids_pytools.rapids.qualx.train import Train
 
 
@@ -285,6 +286,33 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                          base_model=base_model,
                          features_csv_dir=features_csv_dir,
                          wrapper_options=train_args)
+        tool_obj.launch()
+
+    def stats(self,
+              config_path: str = None,
+              output_folder: str = None,
+              qual_output: str = None):
+        """The stats cmd generates statistics from the qualification tool output.
+        :param config_path: Path to the configuration file.
+        :param output_folder: Path to store the output.
+        :param qual_output: path to the directory, which contains the qualification tool output.
+                            E.g. user should specify the parent directory $WORK_DIR where
+                            $WORK_DIR/rapids_4_spark_qualification_output exists.
+        """
+        ToolLogging.enable_debug_mode()
+        init_environment('stats')
+
+        stats_args = AbsToolUserArgModel.create_tool_args('stats',
+                                                          platform=CspEnv.get_default(),
+                                                          config_path=config_path,
+                                                          output_folder=output_folder,
+                                                          qual_output=qual_output)
+        tool_obj = SparkQualStats(platform_type=stats_args['runtimePlatform'],
+                                  config_path=config_path,
+                                  output_folder=output_folder,
+                                  qual_output=qual_output,
+                                  wrapper_options=stats_args)
+
         tool_obj.launch()
 
 
