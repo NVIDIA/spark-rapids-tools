@@ -35,7 +35,6 @@ class SparkQualificationStats:
     stages_df: pd.DataFrame = field(default=None, init=False)
     result_df: pd.DataFrame = field(default=None, init=False)
     output_columns: dict = field(default=None, init=False)
-    output_file: str = field(default=None, init=False)
     qual_output: str = field(default=None, init=True)
     ctxt: ToolContext = field(default=None, init=True)
 
@@ -106,9 +105,9 @@ class SparkQualificationStats:
             self.logger.info('Writing stats results...')
             result_output_dir = self.ctxt.get_output_folder()
             outputfile_path = self.ctxt.get_value('local', 'output', 'files', 'statistics', 'name')
-            self.output_file = FSUtil.build_path(result_output_dir, outputfile_path)
-            self.result_df.to_csv(self.output_file, index=False)
-            self.logger.info('Writing stats results completed.')
+            output_file = FSUtil.build_path(result_output_dir, outputfile_path)
+            self.result_df.to_csv(output_file, float_format='%.2f', index=False)
+            self.logger.info('Results have been saved to %s', output_file)
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Error writing stats results: %s', e)
 
@@ -118,7 +117,5 @@ class SparkQualificationStats:
             self.convert_durations()
             self.merge_dataframes()
             self.write_results()
-            self.result_df.to_csv(self.output_file, index=False)
-            self.logger.info('Results have been saved to %s', self.output_file)
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Error running analysis: %s', e)

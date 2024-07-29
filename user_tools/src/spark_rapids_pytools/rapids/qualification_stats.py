@@ -16,11 +16,15 @@
 
 from dataclasses import dataclass
 
+import os
+
 from spark_rapids_pytools.cloud_api.sp_types import get_platform
+from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
-from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_pytools.rapids.rapids_tool import RapidsTool
+from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
+from spark_rapids_tools.tools.qualx.util import find_paths, RegexPattern
 
 
 @dataclass
@@ -56,12 +60,31 @@ class SparkQualStats(RapidsTool):
                                 prop_arg=self.config_path,
                                 name=self.name)
 
+    def _process_output_args(self):
+        """
+        Sets the `output_folder`, ensures its creation, and updates the context with the folder path.
+        """
+        self.logger.debug('Processing Output Arguments')
+        if self.output_folder is None:
+            self.output_folder = os.getcwd()
+        self.output_folder = FSUtil.get_abs_path(self.output_folder)
+        exec_dir_name = f'{self.name}_{self.ctxt.uuid}'
+        # It should never happen that the exec_dir_name exists
+        self.output_folder = FSUtil.build_path(self.output_folder, exec_dir_name)
+        FSUtil.make_dirs(self.output_folder, exist_ok=False)
+        self.ctxt.set_local('outputFolder', self.output_folder)
+        self.logger.info('Local output folder is set as: %s', self.output_folder)
+
     def _run_rapids_tool(self):
         """
         Runs the Qualification Stats tool.
         """
         try:
             self.logger.info('Running Qualification Stats tool')
+            if self.qual_output is not None:
+                qual_output_dir = find_paths(self.qual_output, RegexPattern.rapids_qual.match,
+                                             return_directories=True)
+                self.qual_output = qual_output_dir[0] if qual_output_dir else None
             result = SparkQualificationStats(ctxt=self.ctxt, qual_output=self.qual_output)
             result.report_qualification_stats()
             self.logger.info('Qualification Stats tool completed successfully')

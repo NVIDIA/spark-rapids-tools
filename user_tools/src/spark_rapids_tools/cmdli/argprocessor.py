@@ -710,14 +710,15 @@ class TrainUserArgModel(AbsToolUserArgModel):
         }
 
 
+@dataclass
 @register_tool_arg_validator('stats')
 class StatsUserArgModel(AbsToolUserArgModel):
     """
     Represents the arguments collected by the user to run the stats tool.
     """
-    config_path: str = None
-    output_folder: str = None
     qual_output: str = None
+    config_path: Optional[str] = None
+    output_folder: Optional[str] = None
 
     def build_tools_args(self) -> dict:
         return {
