@@ -329,7 +329,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
         # for Dataproc, some instance types can attach customized GPU devices
         # Ref: https://cloud.google.com/compute/docs/gpus#n1-gpus
         for instance_name, instance_info in processed_instance_descriptions.items():
-            if instance_name.startswith('n1-standard'):
+            if instance_name.startswith('n1-'):
                 if 'GpuInfo' not in instance_info:
                     instance_info['GpuInfo'] = []
                 # N1 + T4 GPUs

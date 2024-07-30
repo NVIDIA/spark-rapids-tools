@@ -463,6 +463,38 @@
     "VCpuCount": 90,
     "MemoryInMB": 368640
   },
+  "c4-highcpu-16": {
+    "VCpuCount": 16,
+    "MemoryInMB": 32768
+  },
+  "c4-highcpu-192": {
+    "VCpuCount": 192,
+    "MemoryInMB": 393216
+  },
+  "c4-highcpu-2": {
+    "VCpuCount": 2,
+    "MemoryInMB": 4096
+  },
+  "c4-highcpu-32": {
+    "VCpuCount": 32,
+    "MemoryInMB": 65536
+  },
+  "c4-highcpu-4": {
+    "VCpuCount": 4,
+    "MemoryInMB": 8192
+  },
+  "c4-highcpu-48": {
+    "VCpuCount": 48,
+    "MemoryInMB": 98304
+  },
+  "c4-highcpu-8": {
+    "VCpuCount": 8,
+    "MemoryInMB": 16384
+  },
+  "c4-highcpu-96": {
+    "VCpuCount": 96,
+    "MemoryInMB": 196608
+  },
   "c4-standard-16": {
     "VCpuCount": 16,
     "MemoryInMB": 61440
@@ -749,63 +781,533 @@
   },
   "n1-highcpu-16": {
     "VCpuCount": 16,
-    "MemoryInMB": 14746
+    "MemoryInMB": 14746,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          2,
+          4,
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      }
+    ]
   },
   "n1-highcpu-2": {
     "VCpuCount": 2,
-    "MemoryInMB": 1843
+    "MemoryInMB": 1843,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      }
+    ]
   },
   "n1-highcpu-32": {
     "VCpuCount": 32,
-    "MemoryInMB": 29491
+    "MemoryInMB": 29491,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          4,
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          2,
+          4
+        ]
+      }
+    ]
   },
   "n1-highcpu-4": {
     "VCpuCount": 4,
-    "MemoryInMB": 3686
+    "MemoryInMB": 3686,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      }
+    ]
   },
   "n1-highcpu-64": {
     "VCpuCount": 64,
-    "MemoryInMB": 58982
+    "MemoryInMB": 58982,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          4
+        ]
+      }
+    ]
   },
   "n1-highcpu-8": {
     "VCpuCount": 8,
-    "MemoryInMB": 7373
+    "MemoryInMB": 7373,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      }
+    ]
   },
   "n1-highcpu-96": {
     "VCpuCount": 96,
-    "MemoryInMB": 88474
+    "MemoryInMB": 88474,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          4
+        ]
+      }
+    ]
   },
   "n1-highmem-16": {
     "VCpuCount": 16,
-    "MemoryInMB": 106496
+    "MemoryInMB": 106496,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          2,
+          4,
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      }
+    ]
   },
   "n1-highmem-2": {
     "VCpuCount": 2,
-    "MemoryInMB": 13312
+    "MemoryInMB": 13312,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      }
+    ]
   },
   "n1-highmem-32": {
     "VCpuCount": 32,
-    "MemoryInMB": 212992
+    "MemoryInMB": 212992,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          4,
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          2,
+          4
+        ]
+      }
+    ]
   },
   "n1-highmem-4": {
     "VCpuCount": 4,
-    "MemoryInMB": 26624
+    "MemoryInMB": 26624,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      }
+    ]
   },
   "n1-highmem-64": {
     "VCpuCount": 64,
-    "MemoryInMB": 425984
+    "MemoryInMB": 425984,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          4
+        ]
+      }
+    ]
   },
   "n1-highmem-8": {
     "VCpuCount": 8,
-    "MemoryInMB": 53248
+    "MemoryInMB": 53248,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      }
+    ]
   },
   "n1-highmem-96": {
     "VCpuCount": 96,
-    "MemoryInMB": 638976
+    "MemoryInMB": 638976,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          4
+        ]
+      }
+    ]
   },
   "n1-megamem-96": {
     "VCpuCount": 96,
-    "MemoryInMB": 1468006
+    "MemoryInMB": 1468006,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          4
+        ]
+      }
+    ]
   },
   "n1-standard-1": {
     "VCpuCount": 1,
@@ -1098,15 +1600,97 @@
   },
   "n1-ultramem-160": {
     "VCpuCount": 160,
-    "MemoryInMB": 3936256
+    "MemoryInMB": 3936256,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          4
+        ]
+      }
+    ]
   },
   "n1-ultramem-40": {
     "VCpuCount": 40,
-    "MemoryInMB": 984064
+    "MemoryInMB": 984064,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          1,
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          2,
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          4,
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          4
+        ]
+      }
+    ]
   },
   "n1-ultramem-80": {
     "VCpuCount": 80,
-    "MemoryInMB": 1968128
+    "MemoryInMB": 1968128,
+    "GpuInfo": [
+      {
+        "Name": "T4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "P4",
+        "Count": [
+          4
+        ]
+      },
+      {
+        "Name": "V100",
+        "Count": [
+          8
+        ]
+      },
+      {
+        "Name": "P100",
+        "Count": [
+          4
+        ]
+      }
+    ]
   },
   "n2-highcpu-16": {
     "VCpuCount": 16,
