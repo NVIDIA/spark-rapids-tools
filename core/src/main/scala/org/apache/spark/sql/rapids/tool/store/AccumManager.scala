@@ -18,6 +18,8 @@ package org.apache.spark.sql.rapids.tool.store
 
 import scala.collection.mutable
 
+import com.nvidia.spark.rapids.tool.analysis.StatisticsMetrics
+
 import org.apache.spark.scheduler.AccumulableInfo
 
 class AccumManager {
@@ -42,5 +44,13 @@ class AccumManager {
   def getAccStageIds(id: Long): Set[Int] = {
     // TODO: Does Set.empty allocates memory? or it uses a constant in scala?
     accumInfoMap.get(id).map(_.getStageIds).getOrElse(Set.empty)
+  }
+
+  def calculateAccStats(id: Long): Option[StatisticsMetrics] = {
+    accumInfoMap.get(id).map(_.calculateAccStats)
+  }
+
+  def getMaxStageValue(id: Long): Option[Long] = {
+    accumInfoMap.get(id).map(_.getMaxStageValue.get)
   }
 }

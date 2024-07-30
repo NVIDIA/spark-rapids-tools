@@ -29,6 +29,13 @@ import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
+// Store (min, median, max, total) for a given metric
+case class StatisticsMetrics(min: Long, med:Long, max:Long, total: Long)
+
+object StatisticsMetrics {
+  val ZERO_RECORD: StatisticsMetrics = StatisticsMetrics(0L, 0L, 0L, 0L)
+}
+
 /**
  * This class processes SQL plan to build some information such as: metrics, wholeStage nodes, and
  * connecting operators to nodes. The implementation used to be directly under Profiler's
@@ -264,9 +271,6 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     }
     sqlToStages.toSeq
   }
-
-  // Store (min, median, max, total) for a given metric
-  private case class StatisticsMetrics(min: Long, med:Long, max:Long, total: Long)
 
   def generateSQLAccums(): Seq[SQLAccumProfileResults] = {
     allSQLMetrics.flatMap { metric =>
