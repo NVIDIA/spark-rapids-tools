@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import java.io.File
 import java.security.SecureRandom
 
 import scala.collection.mutable
-import scala.io.Source
 
 import com.nvidia.spark.rapids.tool.ToolTestUtils
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
@@ -27,6 +26,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.ToolUtils
+import org.apache.spark.sql.rapids.tool.util.FSUtils
 
 class GenerateDotSuite extends FunSuite with BeforeAndAfterAll with Logging {
 
@@ -71,9 +71,7 @@ class GenerateDotSuite extends FunSuite with BeforeAndAfterAll with Logging {
         var stageCount = 0
         for (file <- dotDirs) {
           assert(file.getAbsolutePath.endsWith(".dot"))
-          val source = Source.fromFile(file)
-          val dotFileStr = source.mkString
-          source.close()
+          val dotFileStr = FSUtils.readFileContentAsUTF8(file.getAbsolutePath)
           assert(dotFileStr.startsWith("digraph G {"))
           assert(dotFileStr.endsWith("}"))
           val hashAggr = "HashAggregate"

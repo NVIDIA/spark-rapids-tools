@@ -11,6 +11,8 @@ toolOutput:
       fileName: rapids_4_spark_qualification_output_cluster_information.csv
     tunings:
       subFolder: tuning
+    appsStatusReport:
+        fileName: rapids_4_spark_qualification_output_status.csv
     summaryReport:
       fileName: rapids_4_spark_qualification_output.csv
       columns:
@@ -28,7 +30,6 @@ toolOutput:
         - SQL Stage Durations Sum
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
-        - Speed Up Estimation Model
       mapColumns:
         Recommendation: 'Speedup Based Recommendation'
       recommendations:
@@ -43,6 +44,7 @@ toolOutput:
             - 'Strongly Recommended'
             - 'Recommended'
       groupColumns:
+         enabled: false
          keys:
            - Vendor
            - Driver Host
@@ -86,6 +88,8 @@ sparkRapids:
     defaults:
       gpuClusterRecommendation:
         defaultRecommendation: 'MATCH'
+      costSavingsSettings: #temporrary settings to control the code behavior until the cost savings feature is fully removed
+        enabled: false
     toolOptions:
       - all
       - any
@@ -131,9 +135,27 @@ local:
           heuristics:
             name: 'heuristics_info.csv'
             outputComment: "Heuristics information"
-          clusterShapeRecommendation:
-            name: cluster_shape_recommendation.json
-            outputComment: "Cluster shape recommendation report"
+      configRecommendations:
+        name: 'rapids_4_spark_qualification_output/tuning'
+        outputComment: "*Cluster config recommendations"
+        columns:
+          - 'Full Cluster Config Recommendations*'
+          - 'GPU Config Recommendation Breakdown*'
+      summaryMetadata:
+        name: qualification_summary_metadata.json
+        outputComment: "Metadata file with cluster recommendation and tuning details"
+        columns:
+          - 'App ID'
+          - 'App Name'
+          - 'Event Log'
+          - 'Source Cluster'
+          - 'Recommended Cluster'
+          - 'Estimated GPU Speedup Category'
+          - 'Full Cluster Config Recommendations*'
+          - 'GPU Config Recommendation Breakdown*'
+      appsStatusReport:
+        name: 'rapids_4_spark_qualification_output/rapids_4_spark_qualification_output_status.csv'
+        outputComment: "Application status report"
     costColumns:
       - 'Savings Based Recommendation'
       - 'Estimated App Cost'
@@ -320,12 +342,21 @@ local:
           - 'appId'
           - 'speedup'
           - 'appDuration_pred'
-        estimationModelColumn: 'Speed Up Estimation Model'
         remapColumns:
           - srcCol: 'speedup'
             dstCol: 'Estimated GPU Speedup'
           - srcCol: 'appDuration_pred'
             dstCol: 'Estimated GPU Duration'
+    clusterInference:
+      cpuClusterColumns:
+        - 'Num Executor Nodes'
+        - 'Executor Instance'
+        - 'Cores Per Executor'
+      gpuClusterColumns:
+        - 'Recommended Num Executor Nodes'
+        - 'Recommended Executor Instance'
+        - 'Recommended Cores Per Executor'
+
 platform:
   shortName: 'qual'
   outputDir: qual-tool-output

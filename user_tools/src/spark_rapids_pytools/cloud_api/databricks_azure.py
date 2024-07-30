@@ -52,7 +52,8 @@ class DBAzurePlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = AzureStorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
         return DatabricksAzureCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
     def set_offline_cluster(self, cluster_args: dict = None):
@@ -197,6 +198,7 @@ class DBAzureCMDDriver(CMDDriverBase):
     def get_instance_description_cli_params(self):
         return ['az vm list-skus', '--location', f'{self.get_region()}']
 
+    # TODO: to be deprecated
     def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
         pass
 
@@ -209,6 +211,7 @@ class DBAzureCMDDriver(CMDDriverBase):
             return True
         return False
 
+    # TODO: to be deprecated
     def init_instances_description(self) -> str:
         cache_dir = Utils.get_rapids_tools_env('CACHE_FOLDER')
         fpath = FSUtil.build_path(cache_dir, 'azure-instances-catalog.json')
@@ -219,6 +222,7 @@ class DBAzureCMDDriver(CMDDriverBase):
             self.logger.info('The Azure instance type descriptions catalog is loaded from the cache')
         return fpath
 
+    # TODO: to be deprecated
     def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
         instance_descriptions = JSONPropertiesContainer(self.init_instances_description())
         # Return the instance description of node type. Convert to valid JSON string for type matching.
@@ -232,6 +236,12 @@ class DBAzureCMDDriver(CMDDriverBase):
             return self.env_vars.get('location')
         return self.env_vars.get('region')
 
+    def init_instance_descriptions(self) -> None:
+        platform = CspEnv.pretty_print(self.cloud_ctxt['platformType'])
+        instance_description_file_path = Utils.resource_path(f'{platform}-instance-catalog.json')
+        self.logger.info('Loading instance descriptions from file: %s', instance_description_file_path)
+        self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
+
 
 @dataclass
 class DatabricksAzureNode(ClusterNode):
@@ -243,9 +253,8 @@ class DatabricksAzureNode(ClusterNode):
         self.name = self.props.get_value_silent('public_dns')
 
     def _pull_sys_info(self, cli=None) -> SysInfo:
-        cpu_mem = self.mc_props.get_value('MemoryInfo', 'SizeInMiB')
-        # TODO: should we use DefaultVCpus or DefaultCores
-        num_cpus = self.mc_props.get_value('VCpuInfo', 'DefaultVCpus')
+        cpu_mem = self.mc_props.get_value('MemoryInMB')
+        num_cpus = self.mc_props.get_value('VCpuCount')
 
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
@@ -260,6 +269,10 @@ class DatabricksAzureNode(ClusterNode):
         return GpuHWInfo(num_gpus=gpu_instance['Count'],
                          gpu_device=gpu_device,
                          gpu_mem=gpu_instance['MemoryInfo']['SizeInMiB'])
+
+    def _pull_and_set_mc_props(self, cli=None):
+        instances_description = cli.describe_node_instance(self.instance_type) if cli else None
+        self.mc_props = JSONPropertiesContainer(prop_arg=instances_description, file_load=False)
 
 
 @dataclass
@@ -305,9 +318,12 @@ class DatabricksAzureCluster(ClusterBase):
         # construct worker nodes info when cluster is inactive
         executors_cnt = len(worker_nodes_from_conf) if worker_nodes_from_conf else 0
         if num_workers != executors_cnt:
-            self.logger.warning('Cluster configuration: `executors` count %d does not match the '
-                                '`num_workers` value %d. Using generated names.', executors_cnt,
-                                num_workers)
+            if not self.is_inferred:
+                # this warning should be raised only when the cluster is not inferred, i.e. user has provided the
+                # cluster configuration with num_workers explicitly set
+                self.logger.warning('Cluster configuration: `executors` count %d does not match the '
+                                    '`num_workers` value %d. Using generated names.', executors_cnt,
+                                    num_workers)
             worker_nodes_from_conf = self.generate_node_configurations(num_workers)
         if num_workers == 0 and self.props.get_value('node_type_id') is None:
             # if there are no worker nodes and no node_type_id, then we cannot proceed

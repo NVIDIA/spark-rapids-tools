@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+""" Utility functions for preprocessing for QualX """
+
 from itertools import chain
 from pathlib import Path
-from typing import Any, List, Mapping, Optional, Tuple
+from typing import Any, List, Mapping, Optional, Tuple, Dict
 import json
 import glob
-import numpy as np
 import os
+import numpy as np
 import pandas as pd
 from spark_rapids_tools.tools.qualx.util import (
     ensure_directory,
@@ -169,14 +171,18 @@ def load_datasets(
     ----------
     dataset:
         Path to a folder containing one or more dataset JSON files.
+    ignore_test:
+        If True, ignore datasets with 'test' in the name.
     """
     platforms, dataset_base = get_dataset_platforms(dataset)
 
     cache_dir = get_cache_dir()
     if ignore_test:
-        filter_fn = lambda f: f.endswith('.json') and 'test' not in f
+        def filter_fn(f):
+            return f.endswith('.json') and 'test' not in f
     else:
-        filter_fn = lambda f: f.endswith('.json')
+        def filter_fn(f):
+            return f.endswith('.json')
 
     ds_count = 0
     all_datasets = {}
@@ -186,8 +192,8 @@ def load_datasets(
         datasets = {}
         json_files = find_paths(f'{dataset_base}/{platform}', filter_fn)
         for json_file in json_files:
-            with open(json_file, 'r') as f:
-                ds = json.load(f)
+            with open(json_file, 'r', encoding='utf-8') as file:
+                ds = json.load(file)
                 ds_count += len(ds)
                 for ds_name in ds.keys():
                     # inject platform into dataset metadata
@@ -201,7 +207,7 @@ def load_datasets(
         if os.path.isfile(f'{platform_cache}/{PREPROCESSED_FILE}'):
             # load preprocessed input, if cached
             logger.info(
-                f'Using cached profile_df: {platform_cache}/{PREPROCESSED_FILE}'
+                'Using cached profile_df: %s/%s', platform_cache, PREPROCESSED_FILE
             )
             profile_df = pd.read_parquet(f'{platform_cache}/{PREPROCESSED_FILE}')
             if ignore_test:
@@ -238,7 +244,9 @@ def load_datasets(
     # sanity check
     if ds_count != len(all_datasets):
         logger.warning(
-            f'Duplicate dataset key detected, got {len(all_datasets)} datasets, but read {ds_count} datasets.'
+            'Duplicate dataset key detected, got %d datasets, but read %d datasets.',
+            len(all_datasets),
+            ds_count
         )
 
     return all_datasets, profile_df
@@ -248,8 +256,8 @@ def load_profiles(
     datasets: Mapping[str, Mapping],
     profile_dir: Optional[str] = None,
     node_level_supp: Optional[pd.DataFrame] = None,
-    qualtool_filter: Optional[str] = None,
-    qualtool_output: Optional[pd.DataFrame] = None,
+    qual_tool_filter: Optional[str] = None,
+    qual_tool_output: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     """Load dataset profiler CSV files as a pd.DataFrame."""
 
@@ -257,18 +265,18 @@ def load_profiles(
         """Given a list of paths to eventlogs, infer the app_meta from the path for each appId."""
         eventlog_list = [find_eventlogs(os.path.expandvars(e)) for e in eventlogs]
         eventlog_list = list(chain(*eventlog_list))
-        app_meta = {}
+        app_meta_inner = {}
         for e in eventlog_list:
             parts = Path(e).parts
-            appId = parts[-1]
-            runType = parts[-2].upper()
-            jobName = parts[-4]
-            app_meta[appId] = {
-                'jobName': jobName,
-                'runType': runType,
+            app_id_inner = parts[-1]
+            run_type = parts[-2].upper()
+            job_name = parts[-4]
+            app_meta_inner[app_id_inner] = {
+                'jobName': job_name,
+                'runType': run_type,
                 'scaleFactor': 1,
             }
-        return app_meta
+        return app_meta_inner
 
     plugins = []
     all_raw_features = []
@@ -277,7 +285,7 @@ def load_profiles(
         toc_list = []
         app_meta = ds_meta.get('app_meta', None)
         platform = ds_meta.get('platform', 'onprem')
-        scalefactor_meta = ds_meta.get('scaleFactorFromSqlIDRank', None)
+        scale_factor_meta = ds_meta.get('scaleFactorFromSqlIDRank', None)
         if 'load_profiles_hook' in ds_meta:
             plugins.append(ds_meta['load_profiles_hook'])
 
@@ -293,16 +301,16 @@ def load_profiles(
             logger.error('No profiles provided or profile_dir specified.')
             continue
         elif 'query_per_app' in ds_name:
-            # don't return list of profile paths, since we'll glob by appId pattern later
+            # don't return list of profile paths, since we'll search by appId pattern later
             profile_paths = [f'{profile_dir}/{ds_name}']
         else:
             profile_paths = glob.glob(f'{profile_dir}/{ds_name}/*')
         for path in profile_paths:
-            for appId in app_meta.keys():
-                if appId == 'default':
+            for app_id in app_meta.keys():
+                if app_id == 'default':
                     csv_files = glob.glob(f'{path}/**/*.csv', recursive=True)
                 else:
-                    csv_files = glob.glob(f'{path}/**/{appId}/*.csv', recursive=True)
+                    csv_files = glob.glob(f'{path}/**/{app_id}/*.csv', recursive=True)
                 if csv_files:
                     tmp = pd.DataFrame({'filepath': csv_files})
                     fp_split = tmp['filepath'].str.split(r'/')
@@ -310,62 +318,62 @@ def load_profiles(
                     tmp['appId'] = fp_split.str[-2]
                     tmp['table_name'] = fp_split.str[-1].str[:-4]
                     tmp['runType'] = (
-                        app_meta[appId]['runType']
-                        if appId in app_meta
+                        app_meta[app_id]['runType']
+                        if app_id in app_meta
                         else app_meta['default']['runType']
                     )
-                    if not scalefactor_meta:
+                    if not scale_factor_meta:
                         tmp['scaleFactor'] = (
-                            app_meta[appId]['scaleFactor']
-                            if appId in app_meta
+                            app_meta[app_id]['scaleFactor']
+                            if app_id in app_meta
                             else app_meta['default']['scaleFactor']
                         )
                     toc_list.append(tmp)
 
         if not toc_list:
             raise ValueError(f'No CSV files found for: {ds_name}')
+
+        toc = pd.concat(toc_list)
+        raw_features = extract_raw_features(toc, node_level_supp, qual_tool_filter, qual_tool_output)
+        if raw_features.empty:
+            continue
+        # add scaleFactor from toc or from sqlID ordering within queries grouped by query name and app
+        if scale_factor_meta:
+            raw_features['scaleFactorIndex'] = (
+                raw_features.groupby(['description', 'appId'])['sqlID']
+                .rank()
+                .astype('int')
+            )
+            raw_features['scaleFactor'] = (
+                raw_features['scaleFactorIndex']
+                .astype('string')
+                .map(scale_factor_meta)
+            )
+            raw_features = raw_features.drop(columns=['scaleFactorIndex'])
         else:
-            toc = pd.concat(toc_list)
-            raw_features = extract_raw_features(toc, node_level_supp, qualtool_filter, qualtool_output)
-            if raw_features.empty:
-                continue
-            # add scaleFactor from toc or from sqlID ordering within queries grouped by query name and app
-            if scalefactor_meta:
-                raw_features['scaleFactorIndex'] = (
-                    raw_features.groupby(['description', 'appId'])['sqlID']
-                    .rank()
-                    .astype('int')
-                )
-                raw_features['scaleFactor'] = (
-                    raw_features['scaleFactorIndex']
-                    .astype('string')
-                    .map(scalefactor_meta)
-                )
-                raw_features = raw_features.drop(columns=['scaleFactorIndex'])
-            else:
-                app_scales = toc[['appId', 'scaleFactor']].drop_duplicates()
-                raw_features = raw_features.merge(app_scales, on='appId')
+            app_scales = toc[['appId', 'scaleFactor']].drop_duplicates()
+            raw_features = raw_features.merge(app_scales, on='appId')
 
-            # add jobName to appName from app_meta (if available)
-            if 'jobName' in app_meta[list(app_meta.keys())[0]]:
-                app_job = {
-                    appId: meta['jobName']
-                    for appId, meta in app_meta.items()
-                    if 'jobName' in meta
-                }
-                raw_features['jobName'] = raw_features['appId'].map(app_job)
-                # append jobName to appName to allow joining cpu and gpu logs at the app level
-                raw_features['appName'] = (
-                    raw_features['appName'] + ':' + raw_features['jobName']
-                )
-                raw_features.drop(columns=['jobName'], inplace=True)
+        # add jobName to appName from app_meta (if available)
+        if 'jobName' in app_meta[list(app_meta.keys())[0]]:
+            app_job = {
+                app_id: meta['jobName']
+                for app_id, meta in app_meta.items()
+                if 'jobName' in meta
+            }
+            raw_features['jobName'] = raw_features['appId'].map(app_job)
+            # append jobName to appName to allow joining cpu and gpu logs at the app level
+            raw_features['appName'] = (
+                raw_features['appName'] + ':' + raw_features['jobName']
+            )
+            raw_features.drop(columns=['jobName'], inplace=True)
 
-            # add platform from app_meta
-            raw_features[f'platform_{platform}'] = 1
-            raw_features = impute(raw_features)
-            all_raw_features.append(raw_features)
+        # add platform from app_meta
+        raw_features[f'platform_{platform}'] = 1
+        raw_features = impute(raw_features)
+        all_raw_features.append(raw_features)
 
-    profile_df =  (
+    profile_df = (
         pd.concat(all_raw_features).reset_index(drop=True)
         if all_raw_features
         else pd.DataFrame()
@@ -388,15 +396,15 @@ def extract_raw_features(
     """Given a pandas dataframe of CSV files, extract raw features into a single dataframe keyed by (appId, sqlID)."""
     # read all tables per appId
     unique_app_ids = toc['appId'].unique()
-    appId_tables = [
-        load_csv_files(toc, appId, node_level_supp, qualtool_filter, qualtool_output)
-        for appId in unique_app_ids
+    app_id_tables = [
+        load_csv_files(toc, app_id, node_level_supp, qualtool_filter, qualtool_output)
+        for app_id in unique_app_ids
     ]
 
     def combine_tables(table_name: str) -> pd.DataFrame:
         """Combine csv tables (by name) across all appIds."""
         merged = pd.concat(
-            [appId_tables[i][table_name] for i in range(len(appId_tables))]
+            [app_data[table_name] for app_data in app_id_tables if table_name in app_data]
         )
         return merged
 
@@ -405,7 +413,7 @@ def extract_raw_features(
 
     # job_map_tbl = combine_tables('job_map_tbl')
     job_stage_agg_tbl = combine_tables('job_stage_agg_tbl')
-    wholestage_tbl = combine_tables('wholestage_tbl')
+    whole_stage_tbl = combine_tables('wholestage_tbl')
     # feature tables that must be non-empty
     features_tables = [
         (app_tbl, 'application_information'),
@@ -424,9 +432,9 @@ def extract_raw_features(
     app_tbl[app_int_dtypes] = app_tbl[app_int_dtypes].fillna(0).astype(int)
 
     # normalize timings from ns to ms
-    nsTiming_mask = ops_tbl['metricType'] == 'nsTiming'
-    ops_tbl.loc[nsTiming_mask, 'max'] = (
-        ops_tbl.loc[nsTiming_mask, 'max'] / 1e6
+    ns_timing_mask = ops_tbl['metricType'] == 'nsTiming'
+    ops_tbl.loc[ns_timing_mask, 'max'] = (
+        ops_tbl.loc[ns_timing_mask, 'max'] / 1e6
     ).astype(np.int64)
     ops_tbl.loc[ops_tbl['metricType'] == 'nsTiming', 'metricType'] = 'timing'
 
@@ -437,11 +445,11 @@ def extract_raw_features(
 
     # format WholeStageCodegen for merging
     try:
-        wholestage_tbl_filter = wholestage_tbl[
+        whole_stage_tbl_filter = whole_stage_tbl[
             ['appId', 'sqlID', 'nodeID', 'Child Node']
         ].rename(columns={'Child Node': 'nodeName'})
-    except Exception:
-        wholestage_tbl_filter = pd.DataFrame()
+    except Exception:  # pylint: disable=broad-except
+        whole_stage_tbl_filter = pd.DataFrame()
 
     # remove WholeStageCodegen from original ops table and replace with constituent ops
     ops_tbl_filter = ops_tbl[ops_tbl['nodeName'] != 'WholeStageCodegen']
@@ -450,7 +458,7 @@ def extract_raw_features(
         .first()
         .reset_index()
     )
-    sql_ops_counter = pd.concat([ops_tbl_filter, wholestage_tbl_filter])
+    sql_ops_counter = pd.concat([ops_tbl_filter, whole_stage_tbl_filter])
 
     # normalize sqlOp labels w/ variable suffixes
     # note: have to do this after unpacking WholeStageCodegen ops
@@ -504,8 +512,6 @@ def extract_raw_features(
         if sql_job_agg_tbl.empty:
             log_fallback(logger, unique_app_ids, fallback_reason='No fully supported stages found')
             return pd.DataFrame()
-    else:
-        sql_job_agg_tbl = job_stage_agg_tbl
 
     # aggregate using reduce ops, recomputing duration_mean
     sql_job_agg_tbl = job_stage_agg_tbl.groupby(
@@ -712,7 +718,7 @@ def impute(full_tbl: pd.DataFrame) -> pd.DataFrame:
         missing = sorted(expected_raw_features - actual_features)
         extra = sorted(actual_features - expected_raw_features)
         if missing:
-            logger.warning(f'Imputing missing features: {missing}')
+            logger.warning('Imputing missing features: %s', missing)
             for col in missing:
                 if col != 'fraction_supported':
                     full_tbl[col] = 0
@@ -720,7 +726,7 @@ def impute(full_tbl: pd.DataFrame) -> pd.DataFrame:
                     full_tbl[col] = 1.0
 
         if extra:
-            logger.warning(f'Removing extra features: {extra}')
+            logger.warning('Removing extra features: %s', extra)
             full_tbl = full_tbl.drop(columns=extra)
 
         # one last check after modifications (update expected_raw_features if needed)
@@ -739,7 +745,7 @@ def load_csv_files(
     node_level_supp: Optional[pd.DataFrame],
     qualtool_filter: Optional[str],
     qualtool_output: Optional[pd.DataFrame],
-) -> List[Mapping[str, pd.DataFrame]]:
+) -> Dict[str, pd.DataFrame]:
     """
     Load profiler CSV files into memory.
     """
@@ -748,17 +754,17 @@ def load_csv_files(
         tb_name: str, abort_on_error: bool = False, warn_on_error: bool = True
     ) -> pd.DataFrame:
         try:
-            out = pd.read_csv(
+            scan_result = pd.read_csv(
                 sgl_app[sgl_app['table_name'] == tb_name]['filepath'].iloc[0],
                 encoding_errors='replace',
             )
-        except Exception:
+        except Exception as ex:  # pylint: disable=broad-except
             if warn_on_error or abort_on_error:
-                logger.warning(f'Failed to load {tb_name} for {app_id}.')
+                logger.warning('Failed to load %s for %s.', tb_name, app_id)
             if abort_on_error:
-                raise ScanTblError()
-            out = pd.DataFrame()
-        return out
+                raise ScanTblError() from ex
+            scan_result = pd.DataFrame()
+        return scan_result
 
     # Merge summary tables within each appId:
     sgl_app = toc[toc['appId'] == app_id]
@@ -778,16 +784,16 @@ def load_csv_files(
 
     # Allow user-provided 'test_name' as 'appName'
     # appName = app_info['appName'].iloc[0]
-    appName = sgl_app['test_name'].iloc[0]
+    app_name = sgl_app['test_name'].iloc[0]
 
     if not app_info.empty:
-        app_info['appName'] = appName
+        app_info['appName'] = app_name
         app_info['sparkVersion'].fillna('Unknown', inplace=True)
 
     # Get jar versions:
-    cudfVersion = '-'
-    rapids4sparkVersion = '-'
-    bmRunnerVersion = '-'
+    cudf_version = '-'
+    rapids_4_spark_version = '-'
+    bm_runner_version = '-'
 
     jars_tbl = scan_tbl('rapids_accelerator_jar_and_cudf_jar', warn_on_error=False)
     if not jars_tbl.empty:
@@ -796,18 +802,18 @@ def load_csv_files(
         # Parse cudfVersion, rapids4sparkVersion, bmRunnerVersion:
         for jar in jars_list:
             if jar.startswith('cudf'):
-                cudfVersion = jar
+                cudf_version = jar
 
             if jar.startswith('rapids-4-spark_'):
-                rapids4sparkVersion = jar
+                rapids_4_spark_version = jar
 
             if jar.startswith('rapids-4-spark-benchmarks_'):
-                bmRunnerVersion = jar
+                bm_runner_version = jar
 
     if not app_info.empty:
-        app_info['cudfVersion'] = cudfVersion
-        app_info['rapids4sparkVersion'] = rapids4sparkVersion
-        app_info['bmRunnerVersion'] = bmRunnerVersion
+        app_info['cudfVersion'] = cudf_version
+        app_info['rapids4sparkVersion'] = rapids_4_spark_version
+        app_info['bmRunnerVersion'] = bm_runner_version
 
     spark_props = scan_tbl('spark_properties')
     if not spark_props.empty:
@@ -838,7 +844,6 @@ def load_csv_files(
     # this should remove root sql ids in 3.4.1+
     sql_to_stage = scan_tbl('sql_to_stage_information')
     if not sql_to_stage.empty:
-        sql_to_stage['SQL Nodes(IDs)']
         # try:
         sqls_with_execs = (
             sql_to_stage.loc[sql_to_stage['SQL Nodes(IDs)'].notna()][['sqlID', 'jobID']]
@@ -865,10 +870,11 @@ def load_csv_files(
 
     # Update sql_plan_metrics_for_application table:
     sql_ops_metrics = scan_tbl('sql_plan_metrics_for_application')
+    stages_supp = pd.DataFrame(columns=['appId', 'sqlID', 'stageIds'])
     if not sql_ops_metrics.empty and not app_info.empty:
         sql_ops_metrics = sql_ops_metrics.drop(columns='appIndex')
         sql_ops_metrics['appId'] = app_info['appId'].iloc[0].strip()
-        sql_ops_metrics['appName'] = appName
+        sql_ops_metrics['appName'] = app_name
         if node_level_supp is not None:
             if qualtool_filter == 'stage':
                 sql_ops_metrics = sql_ops_metrics.merge(
@@ -884,7 +890,8 @@ def load_csv_files(
                     lambda x: str(x).split(',')
                 )
                 sql_ops_metrics = sql_ops_metrics.explode('stageIds')
-                # compute supported stages for use below. TBD.  rename column from 'Exec Is Supported' to 'Stage Is Supported' and change elsewhere
+                # compute supported stages for use below. TBD.
+                # rename column from 'Exec Is Supported' to 'Stage Is Supported' and change elsewhere
                 stages_supp = (
                     sql_ops_metrics.groupby(['appId', 'sqlID', 'stageIds'])[
                         'Exec Is Supported'
@@ -903,7 +910,7 @@ def load_csv_files(
                 sql_ops_metrics = sql_ops_metrics.loc[
                     sql_ops_metrics['Exec Is Supported']
                 ].drop(columns=['Exec Is Supported'])
-            else:  # qualtool_filter_by = 'sqlId'
+            else:  # qual_tool_filter_by = 'sqlId'
                 sql_level_supp = (
                     node_level_supp.groupby(['App ID', 'SQL ID'])['Exec Is Supported']
                     .agg('all')
@@ -919,12 +926,8 @@ def load_csv_files(
                 sql_app_metrics = sql_app_metrics.drop(
                     columns=['Exec Is Supported', 'App ID', 'SQL ID']
                 )
-    else:
-        if node_level_supp is not None:
-            stages_supp = pd.DataFrame(columns=['appId', 'sqlID', 'stageIds'])
-            sql_level_supp = pd.DataFrame(columns=['App ID', 'SQL ID'])
 
-    # sqlids to drop due to failures meeting below criteria
+    # sql ids to drop due to failures meeting below criteria
     sqls_to_drop = set()
 
     # Load job+stage level agg metrics:
@@ -942,17 +945,17 @@ def load_csv_files(
         # TODO: This is a temporary solution to minimize changes in existing code.
         #        We should refactor this once we have updated the code with latest changes.
         job_stage_agg_tbl = pd.concat([job_df, stage_df], ignore_index=True)
-        job_stage_agg_tbl = job_stage_agg_tbl.drop(columns="appIndex")
+        job_stage_agg_tbl = job_stage_agg_tbl.drop(columns='appIndex')
         job_stage_agg_tbl = job_stage_agg_tbl.rename(
             columns={'numTasks': 'numTasks_sum', 'duration_avg': 'duration_mean'}
         )
         job_stage_agg_tbl['appId'] = app_info['appId'].iloc[0]
-        job_stage_agg_tbl['appName'] = appName
+        job_stage_agg_tbl['appName'] = app_name
 
         # Only need job level aggs for now since one-to-many relationships between stageID and sqlID.
         job_stage_agg_tbl['js_type'] = job_stage_agg_tbl['ID'].str.split('_').str[0]
 
-        # mark for removal from modeling sqlids that have failed stage time > 10% total stage time
+        # mark for removal from modeling sql ids that have failed stage time > 10% total stage time
         allowed_failed_duration_fraction = 0.10
         stage_agg_tbl = job_stage_agg_tbl.loc[
             job_stage_agg_tbl.js_type == 'stage'
@@ -990,9 +993,7 @@ def load_csv_files(
             )
 
         if sqls_to_drop:
-            logger.warning(
-                f'Ignoring sqlIDs {sqls_to_drop} due to excessive failed/cancelled stage duration.'
-            )
+            logger.warning('Ignoring sqlIDs %s due to excessive failed/cancelled stage duration.', sqls_to_drop)
 
         if node_level_supp is not None and (qualtool_filter == 'stage'):
             job_stage_agg_tbl = job_stage_agg_tbl[
@@ -1000,7 +1001,7 @@ def load_csv_files(
             ]
             job_stage_agg_tbl['ID'] = (
                 job_stage_agg_tbl['ID']
-                .apply(lambda id: int(id.split('_')[1]))
+                .apply(lambda row_id: int(row_id.split('_')[1]))
                 .astype(int)
             )
             job_stage_agg_tbl['appId'] = job_stage_agg_tbl['appId'].astype(str)
@@ -1027,11 +1028,11 @@ def load_csv_files(
         job_stage_agg_tbl['hasSqlID'] = job_stage_agg_tbl['sqlID'] != -1
         job_stage_agg_tbl = job_stage_agg_tbl.drop(columns=['ID', 'js_type'])
 
-    # Load wholestage operator info:
+    # Load whole stage operator info:
 
-    wholestage_tbl = scan_tbl('wholestagecodegen_mapping', warn_on_error=False)
-    if not wholestage_tbl.empty:
-        wholestage_tbl['appId'] = app_info['appId'].iloc[0]
+    whole_stage_tbl = scan_tbl('wholestagecodegen_mapping', warn_on_error=False)
+    if not whole_stage_tbl.empty:
+        whole_stage_tbl['appId'] = app_info['appId'].iloc[0]
 
     # Merge certain tables:
     if not any(
@@ -1071,13 +1072,13 @@ def load_csv_files(
             aborted_sql_ids = set()
 
         if aborted_sql_ids:
-            logger.warning(f'Ignoring sqlIDs {aborted_sql_ids} due to aborted jobs.')
+            logger.warning('Ignoring sqlIDs %s due to aborted jobs.', aborted_sql_ids)
 
         sqls_to_drop = sqls_to_drop.union(aborted_sql_ids)
 
         if sqls_to_drop:
             logger.warning(
-                f'Ignoring a total of {len(sqls_to_drop)} sqlIDs due to stage/job failures.'
+                'Ignoring a total of %s sqlIDs due to stage/job failures.', len(sqls_to_drop)
             )
             app_info_mg = app_info_mg.loc[~app_info_mg.sqlID.isin(sqls_to_drop)]
 
@@ -1094,7 +1095,7 @@ def load_csv_files(
         'spark_props_tbl': spark_props,
         'job_map_tbl': job_map_tbl,
         'job_stage_agg_tbl': job_stage_agg_tbl,
-        'wholestage_tbl': wholestage_tbl,
+        'wholestage_tbl': whole_stage_tbl,
         'ds_tbl': ds_tbl,
     }
 
@@ -1108,7 +1109,7 @@ def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
     """
     node_level_supp = None
 
-    def __isIgnoreNoPerf(action: str) -> bool:
+    def _is_ignore_no_perf(action: str) -> bool:
         return action == 'IgnoreNoPerf'
 
     if qtool_execs:
@@ -1116,7 +1117,7 @@ def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
         node_level_supp = exec_info.copy()
         node_level_supp['Exec Is Supported'] = (
             node_level_supp['Exec Is Supported']
-            | node_level_supp['Action'].apply(__isIgnoreNoPerf)
+            | node_level_supp['Action'].apply(_is_ignore_no_perf)
             | node_level_supp['Exec Name'].apply(
                 lambda x: x.startswith('WholeStageCodegen')
             )

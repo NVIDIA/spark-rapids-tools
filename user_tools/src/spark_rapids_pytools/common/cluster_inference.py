@@ -15,7 +15,7 @@
 """This module provides functionality for cluster inference"""
 
 from dataclasses import dataclass, field
-
+from enum import Enum
 from typing import Optional
 from logging import Logger
 
@@ -26,17 +26,29 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging
 
 
+class ClusterType(Enum):
+    """
+    Enum for cluster types
+    """
+    CPU = 'CPU'
+    GPU = 'GPU'
+
+    def __str__(self):
+        return self.value
+
+
 @dataclass
 class ClusterInference:
     """
-    Class for inferring cluster information and constructing CPU clusters.
+    Class for inferring cluster information and constructing CPU or GPU clusters.
 
     :param platform: The platform on which the cluster inference is performed.
     """
     platform: PlatformBase = field(default=None, init=True)
+    cluster_type: ClusterType = field(default=ClusterType.CPU, init=True)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster_inference'), init=False)
 
-    def get_cluster_template_args(self, cluster_info_df: pd.Series) -> Optional[dict]:
+    def _get_cluster_template_args(self, cluster_info_df: pd.Series) -> Optional[dict]:
         """
         Extract information about drivers and executors from input json
         """
@@ -46,48 +58,51 @@ class ClusterInference:
         # If driver instance is not set, use the default value from platform configurations
         if pd.isna(driver_instance):
             driver_instance = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
-        # first try to read the Recommended setting from the scala tool side and if its not available fall back
-        # to the CPU inference done on the python side
-        executor_instance = cluster_info_df.get('Recommended Executor Instance')
-        if pd.notna(executor_instance):
-            self.logger.debug('GPU infer cluster executor instance rec is %s', executor_instance)
-            num_executor_nodes = cluster_info_df.get('Recommended Num Executor Nodes')
-        else:
-            num_executor_nodes = cluster_info_df.get('Num Executor Nodes')
-            executor_instance = cluster_info_df.get('Executor Instance')
+        num_executor_nodes = cluster_info_df.get('Num Executor Nodes')
+        executor_instance = cluster_info_df.get('Executor Instance')
+        if pd.isna(executor_instance):
+            # If executor instance is not set, use the default value based on the number of cores
+            cores_per_executor = cluster_info_df.get('Cores Per Executor')
+            execs_per_node = cluster_info_df.get('Num Executors Per Node')
+            total_cores_per_node = execs_per_node * cores_per_executor
+            if pd.isna(total_cores_per_node):
+                self.logger.info('For App ID: %s, Unable to infer %s cluster. Reason - Total cores per node cannot'
+                                 ' be determined.', cluster_info_df['App ID'], self.cluster_type)
+                return None
+            # TODO - need to account for number of GPUs per executor
+            executor_instance = self.platform.get_matching_executor_instance(total_cores_per_node)
             if pd.isna(executor_instance):
-                # If executor instance is not set, use the default value based on the number of cores
-                cores_per_executor = cluster_info_df.get('Cores Per Executor')
-                execs_per_node = cluster_info_df.get('Num Executors Per Node')
-                total_cores_per_node = execs_per_node * cores_per_executor
-                # TODO - need to account for number of GPUs per executor
-                executor_instance = self.platform.get_matching_executor_instance(total_cores_per_node)
-                if pd.isna(executor_instance):
-                    self.logger.info('Unable to infer CPU cluster. No matching executor instance found for vCPUs = %s',
-                                     total_cores_per_node)
-                    return None
+                self.logger.info('For App ID: %s, Unable to infer %s cluster. Reason - No matching executor instance '
+                                 'found for num cores = %d', cluster_info_df['App ID'], self.cluster_type,
+                                 total_cores_per_node)
+                return None
         return {
             'DRIVER_INSTANCE': f'"{driver_instance}"',
-            'NUM_DRIVER_NODES': num_driver_nodes,
+            'NUM_DRIVER_NODES': int(num_driver_nodes),
             'EXECUTOR_INSTANCE': f'"{executor_instance}"',
-            'NUM_EXECUTOR_NODES': num_executor_nodes
+            'NUM_EXECUTOR_NODES': int(num_executor_nodes)
         }
 
-    def infer_cpu_cluster(self, cluster_info_df: pd.DataFrame) -> Optional[ClusterBase]:
+    def infer_cluster(self, cluster_info_df: pd.DataFrame) -> Optional[ClusterBase]:
         """
-        Infer CPU cluster configuration based on json input and return the constructed cluster object.
+        Infer CPU or GPU cluster configuration based input cluster df and return the constructed cluster object.
         """
-        if len(cluster_info_df) != 1:
-            self.logger.info('Cannot infer CPU cluster from event logs. Only single cluster is supported.')
-            return None
+        try:
+            if len(cluster_info_df) != 1:
+                self.logger.info('Cannot infer %s cluster from event logs. Only single cluster is supported.',
+                                 self.cluster_type)
+                return None
 
-        # Extract cluster information from parsed logs. Above check ensures df contains single row.
-        cluster_template_args = self.get_cluster_template_args(cluster_info_df.iloc[0])
-        if cluster_template_args is None:
+            # Extract cluster information from parsed logs. Above check ensures df contains single row.
+            cluster_template_args = self._get_cluster_template_args(cluster_info_df.iloc[0])
+            if cluster_template_args is None:
+                return None
+            # Construct cluster configuration using platform-specific logic
+            cluster_conf = self.platform.generate_cluster_configuration(cluster_template_args)
+            if cluster_conf is None:
+                return None
+            cluster_props_new = JSONPropertiesContainer(cluster_conf, file_load=False)
+            return self.platform.load_cluster_by_prop(cluster_props_new, is_inferred=True)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Error while inferring cluster: %s', str(e))
             return None
-        # Construct cluster configuration using platform-specific logic
-        cluster_conf = self.platform.generate_cluster_configuration(cluster_template_args)
-        if cluster_conf is None:
-            return None
-        cluster_props_new = JSONPropertiesContainer(cluster_conf, file_load=False)
-        return self.platform.load_cluster_by_prop(cluster_props_new, is_inferred=True)

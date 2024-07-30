@@ -117,7 +117,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
     }
     progressBar.foreach(_.finishAll())
-    
+
     // Write status reports for all event logs to a CSV file
     val reportResults = generateStatusResults(appStatusReporter.asScala.values.toSeq)
     ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir)
@@ -316,12 +316,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val collect = new CollectInformation(apps)
     val appInfo = collect.getAppInfo
     val appLogPath = collect.getAppLogPath
-    val dsInfo = collect.getDataSourceInfo
     val rapidsProps = collect.getRapidsProperties
     val sparkProps = collect.getSparkProperties
     val systemProps = collect.getSystemProperties
     val rapidsJar = collect.getRapidsJARInfo
     val sqlMetrics = collect.getSQLPlanMetrics
+    val dsInfo = collect.getDataSourceInfo(sqlMetrics)
     val stageMetrics = collect.getStageLevelMetrics
     val wholeStage = collect.getWholeStageCodeGenMapping
     // for compare mode we just add in extra tables for matching across applications

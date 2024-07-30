@@ -249,7 +249,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       val stagesInJob = app.stageManager.getStagesByIds(stages)
       stagesInJob.map { sModel =>
         val nodeIds = sqlPlanNodeIdToStageIds.filter { case (_, v) =>
-          v.contains(sModel.sId)
+          v.contains(sModel.stageInfo.stageId)
         }.keys.toSeq
         val nodeNames = app.sqlPlans.get(j.sqlID.get).map { planInfo =>
           val nodes = ToolsPlanGraph(planInfo).allNodes
@@ -258,8 +258,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           }
           validNodes.map(n => s"${n.name}(${n.id.toString})")
         }.getOrElse(Seq.empty)
-        SQLStageInfoProfileResult(appIndex, j.sqlID.get, jobId, sModel.sId,
-          sModel.attemptId, sModel.duration, nodeNames)
+        SQLStageInfoProfileResult(appIndex, j.sqlID.get, jobId, sModel.stageInfo.stageId,
+          sModel.stageInfo.attemptNumber(), sModel.duration, nodeNames)
       }
     }
     sqlToStages.toSeq

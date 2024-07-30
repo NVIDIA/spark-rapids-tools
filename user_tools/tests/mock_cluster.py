@@ -17,9 +17,6 @@ import json
 
 mock_live_cluster = {
     "dataproc": [
-        "us-central1",          # gcloud config get compute/region
-        "us-central1-a",        # gcloud config get compute/zone
-        "dataproc-project-id",  # gcloud config get core/project
         # gcloud dataproc clusters describe test-cluster --format json --region us-central1
         json.dumps({
             "clusterUuid": "11111111-1111-1111-1111-111111111111",
@@ -49,20 +46,10 @@ mock_live_cluster = {
                 "state": "RUNNING",
             },
         }),
-        # gcloud compute machine-types describe n1-standard-8 --format json --zone us-central1-a
-        json.dumps({
-            "guestCpus": 8,
-            "memoryMb": 30720,
-        }),
         # gcloud compute accelerator-types describe nvidia-tesla-t4 --format json --zone us-central1-a
         json.dumps({
             "description": "NVIDIA T4",
-        }),
-        # gcloud compute machine-types describe n1-standard-2 --format json --zone us-central1-a
-        json.dumps({
-            "guestCpus": 2,
-            "memoryMb": 7680,
-        }),
+        })
     ],
 
     "emr": [
@@ -120,39 +107,6 @@ mock_live_cluster = {
                 },
             }]
         }),
-        # aws ec2 describe-instance-types --region us-west-2 --instance-types m5a.12xlarge
-        json.dumps({
-            "InstanceTypes": [{
-                "VCpuInfo": {
-                    "DefaultVCpus": 48,
-                },
-                "MemoryInfo": {
-                    "SizeInMiB": 196608,
-                },
-            }]
-        }),
-        # aws ec2 describe-instance-types --region us-west-2 --instance-types g4dn.12xlarge
-        json.dumps({
-            "InstanceTypes": [{
-                "VCpuInfo": {
-                    "DefaultVCpus": 48,
-                },
-                "MemoryInfo": {
-                    "SizeInMiB": 196608,
-                },
-                "GpuInfo": {
-                    "Gpus": [{
-                        "Name": "T4",
-                        "Manufacturer": "NVIDIA",
-                        "Count": 4,
-                        "MemoryInfo": {
-                            "SizeInMiB": 16384,
-                        },
-                    }],
-                    "TotalGpuMemoryInMiB": 65536,
-                },
-            }]
-        }),
     ],
 
     "databricks-aws": [
@@ -180,39 +134,6 @@ mock_live_cluster = {
             "state": "RUNNING",
             "num_workers": 1
         }),
-        # aws ec2 describe-instance-types --region us-west-2 --instance-types m5a.12xlarge
-        json.dumps({
-            "InstanceTypes": [{
-                "VCpuInfo": {
-                    "DefaultVCpus": 48,
-                },
-                "MemoryInfo": {
-                    "SizeInMiB": 196608,
-                },
-            }]
-        }),
-        # aws ec2 describe-instance-types --region us-west-2 --instance-types g4dn.12xlarge
-        json.dumps({
-            "InstanceTypes": [{
-                "VCpuInfo": {
-                    "DefaultVCpus": 48,
-                },
-                "MemoryInfo": {
-                    "SizeInMiB": 196608,
-                },
-                "GpuInfo": {
-                    "Gpus": [{
-                        "Name": "T4",
-                        "Manufacturer": "NVIDIA",
-                        "Count": 4,
-                        "MemoryInfo": {
-                            "SizeInMiB": 16384,
-                        },
-                    }],
-                    "TotalGpuMemoryInMiB": 65536,
-                },
-            }]
-        })
     ],
 
     "databricks-azure": [
