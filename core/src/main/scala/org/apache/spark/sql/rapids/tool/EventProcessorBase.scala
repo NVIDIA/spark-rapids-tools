@@ -361,6 +361,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
             ArrayBuffer[TaskStageAccumCase]())
           arrBuf += thisMetric
         }
+        app.accumManager.addAccToTask(event.stageId, event.taskInfo.taskId, res)
       } catch {
         case NonFatal(e) =>
           logWarning("Exception when parsing accumulables on task-completed "
@@ -475,6 +476,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
             ArrayBuffer[TaskStageAccumCase]())
           arrBuf += thisMetric
         }
+        app.accumManager.addAccToStage(event.stageInfo.stageId, accumInfo)
       } catch {
         case NonFatal(e) =>
           logWarning("Exception when parsing accumulables on stage-completed " +

@@ -33,7 +33,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.store.{StageModel, StageModelManager, TaskModelManager}
+import org.apache.spark.sql.rapids.tool.store.{AccumManager, StageModel, StageModelManager, TaskModelManager}
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
 import org.apache.spark.util.Utils
 
@@ -81,6 +81,7 @@ abstract class AppBase(
   // accum id to task stage accum info
   var taskStageAccumMap: HashMap[Long, ArrayBuffer[TaskStageAccumCase]] =
     HashMap[Long, ArrayBuffer[TaskStageAccumCase]]()
+  lazy val accumManager: AccumManager = new AccumManager()
 
   lazy val stageManager: StageModelManager = new StageModelManager()
   // Container that manages TaskIno including SparkMetrics.
@@ -282,7 +283,7 @@ abstract class AppBase(
   private val UDFRegex = ".*UDF.*"
 
   private val potentialIssuesRegexMap = Map(
-    UDFRegex -> "UDF", 
+    UDFRegex -> "UDF",
     ".*current_timestamp\\(.*\\).*" -> "TIMEZONE current_timestamp()",
     ".*to_timestamp\\(.*\\).*" -> "TIMEZONE to_timestamp()",
     ".*hour\\(.*\\).*" -> "TIMEZONE hour()",

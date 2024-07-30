@@ -220,7 +220,7 @@ case class ExecInfo(
 object ExecInfo {
   // Used to create an execInfo without recalculating the dataSet or Udf.
   // This is helpful when we know that node description may contain some patterns that can be
-  // mistakenly identified as UDFs 
+  // mistakenly identified as UDFs
   def createExecNoNode(sqlID: Long,
       exec: String,
       expr: String,
@@ -444,6 +444,7 @@ object SQLPlanParser extends Logging {
   def getStagesInSQLNode(node: SparkPlanGraphNode, app: AppBase): Set[Int] = {
     val nodeAccums = node.metrics.map(_.accumulatorId)
     nodeAccums.flatMap { nodeAccumId =>
+      // val res = app.accumManager.getAccStageIds(nodeAccumId)
       app.stageManager.getStagesIdsByAccumId(nodeAccumId)
     }.toSet
   }
