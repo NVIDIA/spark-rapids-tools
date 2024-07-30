@@ -16,7 +16,7 @@
 
 from functools import partial
 from dataclasses import dataclass, field
-from typing import Optional, Dict, List, Union
+from typing import Optional, Dict, Union
 from logging import Logger
 
 import pandas as pd
