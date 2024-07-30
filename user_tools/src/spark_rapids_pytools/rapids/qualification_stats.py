@@ -48,7 +48,7 @@ class SparkQualStats(RapidsTool):
 
     name = 'stats'
 
-    def _init_ctxt(self):
+    def _init_ctxt(self) -> None:
         """
         Initialize the tool context, reusing qualification configurations.
         TODO: This should be refactor to use it's own conf file if not provided by the user.
@@ -60,7 +60,7 @@ class SparkQualStats(RapidsTool):
                                 prop_arg=self.config_path,
                                 name=self.name)
 
-    def _process_output_args(self):
+    def _process_output_args(self) -> None:
         """
         Sets the `output_folder`, ensures its creation, and updates the context with the folder path.
         """
@@ -75,7 +75,7 @@ class SparkQualStats(RapidsTool):
         self.ctxt.set_local('outputFolder', self.output_folder)
         self.logger.info('Local output folder is set as: %s', self.output_folder)
 
-    def _run_rapids_tool(self):
+    def _run_rapids_tool(self) -> None:
         """
         Runs the Qualification Stats tool.
         """
@@ -93,11 +93,11 @@ class SparkQualStats(RapidsTool):
             self.logger.error('Error running Qualification Stats tool %s', e)
             raise
 
-    def _collect_result(self):
+    def _collect_result(self) -> None:
         pass
 
-    def _archive_phase(self):
+    def _archive_phase(self) -> None:
         pass
 
-    def _finalize(self):
+    def _finalize(self) -> None:
         pass
