@@ -2445,7 +2445,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
           |--conf spark.executor.instances=20
           |--conf spark.executor.memory=16384m
           |--conf spark.executor.memoryOverhead=11878m
-          |--conf spark.kryo.registrator=com.nvidia.spark.rapids.GpuKryoRegistrator,org.apache.SomeRegistrator,org.apache.SomeOtherRegistrator
+          |--conf spark.kryo.registrator=org.apache.SomeRegistrator,org.apache.SomeOtherRegistrator,com.nvidia.spark.rapids.GpuKryoRegistrator
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
