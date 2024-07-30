@@ -889,9 +889,10 @@ class Qualification(RapidsJarTool):
         :param metadata_file_info: Metadata file information
         :param config_recommendations_dir_info: Configuration recommendations directory information
         """
-        summary_metadata_df = tools_processed_apps[metadata_file_info.get('columns')].copy()
-        if not summary_metadata_df.empty:
+        if not tools_processed_apps.empty:
             try:
+                valid_cols = Utilities.get_valid_df_columns(metadata_file_info.get('columns'), tools_processed_apps)
+                summary_metadata_df = tools_processed_apps[valid_cols].copy()
                 # 1. Prepend parent dir to the config recommendations columns (only for the JSON file, not stdout)
                 parent_dir = config_recommendations_dir_info.get('path')
                 for col in config_recommendations_dir_info.get('columns'):
@@ -910,6 +911,8 @@ class Qualification(RapidsJarTool):
             except Exception as e:  # pylint: disable=broad-except
                 self.logger.error('Error writing the summary metadata report. Reason - %s:%s',
                                   type(e).__name__, e)
+        else:
+            self.logger.warning('No applications to write to the summary metadata report.')
 
     def _read_qualification_output_file(self, report_name_key: str, file_format_key: str = 'csv') -> pd.DataFrame:
         """

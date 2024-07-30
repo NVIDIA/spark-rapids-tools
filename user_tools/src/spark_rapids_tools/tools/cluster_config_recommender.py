@@ -124,7 +124,7 @@ class ClusterConfigRecommender:
         # Summary for each app
         cpu_cluster_info_per_app = self.ctxt.get_ctxt('cpuClusterInfoPerApp')
         gpu_cluster_info_per_app = self.ctxt.get_ctxt('gpuClusterInfoPerApp')
-        if cpu_cluster_info_per_app:
+        if cpu_cluster_info_per_app and gpu_cluster_info_per_app:
             for app_id in cpu_cluster_info_per_app:
                 cpu_info = cpu_cluster_info_per_app.get(app_id)
                 gpu_info = gpu_cluster_info_per_app.get(app_id)
@@ -161,40 +161,48 @@ class ClusterConfigRecommender:
             return TuningRecommendationInfo(full_tunings_file, gpu_tunings_file)
         return TuningRecommendationInfo.get_default(missing_msg, tools_processed_apps.shape[0])
 
-    def add_cluster_and_tuning_recommendations(self, tools_processed_apps: pd.DataFrame):
+    def add_cluster_and_tuning_recommendations(self, tools_processed_apps: pd.DataFrame) -> pd.DataFrame:
         """
         Adds columns for cluster configuration recommendations and tuning configurations to the processed apps.
         """
         if tools_processed_apps.empty:
             return tools_processed_apps
 
-        result_df = tools_processed_apps.copy()
-        # 1a. Add cluster conversion recommendations to apps
-        cluster_conversion_summary = self._get_cluster_conversion_summary()
-        # 'all' is a special indication that all the applications need to use this same node
-        # recommendation vs the recommendations being per application
-        if 'all' in cluster_conversion_summary:
-            # Add cluster conversion columns to all apps
-            for col, val in cluster_conversion_summary['all'].items():
-                result_df[col] = [val] * result_df.shape[0]
-        elif len(cluster_conversion_summary) > 0:
-            # Add the per-app node conversions
-            conversion_df = pd.DataFrame.from_dict(cluster_conversion_summary, orient='index').reset_index()
-            conversion_df.rename(columns={'index': 'App ID'}, inplace=True)
-            result_df = pd.merge(tools_processed_apps, conversion_df, on=['App ID'], how='left')
+        try:
+            result_df = tools_processed_apps.copy()
+            # 1a. Add cluster conversion recommendations to apps
+            cluster_conversion_summary = self._get_cluster_conversion_summary()
+            # 'all' is a special indication that all the applications need to use this same node
+            # recommendation vs the recommendations being per application
+            if 'all' in cluster_conversion_summary:
+                # Add cluster conversion columns to all apps
+                for col, val in cluster_conversion_summary['all'].items():
+                    result_df[col] = [val] * result_df.shape[0]
+            elif len(cluster_conversion_summary) > 0:
+                # Add the per-app node conversions
+                conversion_df = pd.DataFrame.from_dict(cluster_conversion_summary, orient='index').reset_index()
+                conversion_df.rename(columns={'index': 'App ID'}, inplace=True)
+                result_df = pd.merge(tools_processed_apps, conversion_df, on=['App ID'], how='left')
 
-        # 1b. Fill in the missing values of the cluster conversion columns with default values
-        for col, replacement in ClusterRecommendationInfo.get_default_dict().items():
-            # Using partial to avoid closure issues with lambda in apply()
-            fill_na_fn = partial(lambda x, def_val: def_val if pd.isna(x) else x, def_val=replacement)
-            col_dtype = 'str' if isinstance(replacement, str) else 'object'
-            result_df[col] = result_df.get(col, pd.Series(dtype=col_dtype)).apply(fill_na_fn)
+            # 1b. Fill in the missing values of the cluster conversion columns with default values
+            for col, replacement in ClusterRecommendationInfo.get_default_dict().items():
+                # Using partial to avoid closure issues with lambda in apply()
+                fill_na_fn = partial(lambda x, def_val: def_val if pd.isna(x) else x, def_val=replacement)
+                col_dtype = 'str' if isinstance(replacement, str) else 'object'
+                if col not in result_df:
+                    # Add the column if it doesn't exist and fill it with NA
+                    result_df[col] = pd.Series([pd.NA] * len(result_df), dtype=col_dtype)
+                result_df[col] = result_df[col].apply(fill_na_fn)
 
-        # 2. Add tuning configuration recommendations to all apps
-        tuning_recommendation_summary = self._get_tuning_summary(result_df)
-        for col, val in tuning_recommendation_summary.to_dict().items():
-            result_df[col] = val
-        return result_df
+            # 2. Add tuning configuration recommendations to all apps
+            tuning_recommendation_summary = self._get_tuning_summary(result_df)
+            for col, val in tuning_recommendation_summary.to_dict().items():
+                result_df[col] = val
+            return result_df
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.warning('Error while adding cluster and tuning recommendations. Reason - %s:%s',
+                                type(e).__name__, e)
+            return tools_processed_apps
 
     def _log_cluster_conversion(self, cpu_cluster: Optional[ClusterBase], gpu_cluster: Optional[ClusterBase],
                                 app_id: Optional[str] = None) -> None:
