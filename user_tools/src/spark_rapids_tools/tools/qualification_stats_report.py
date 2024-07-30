@@ -38,11 +38,11 @@ class SparkQualificationStats:
     qual_output: str = field(default=None, init=True)
     ctxt: ToolContext = field(default=None, init=True)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.qualification.stats')
         self.output_columns = self.ctxt.get_value('local', 'output', 'files', 'statistics')
 
-    def read_csv_files(self):
+    def _read_csv_files(self) -> None:
         self.logger.info('Reading CSV files...')
         if self.qual_output is None:
             qual_output_dir = self.ctxt.get_rapids_output_folder()
@@ -61,12 +61,12 @@ class SparkQualificationStats:
         self.stages_df = pd.read_csv(rapids_stages_file)
         self.logger.info('Reading CSV files completed.')
 
-    def convert_durations(self):
+    def _convert_durations(self) -> None:
         # Convert durations from milliseconds to seconds
         self.unsupported_operators_df[['Stage Duration', 'App Duration']] /= 1000
         self.stages_df[['Stage Task Duration', 'Unsupported Task Duration']] /= 1000
 
-    def merge_dataframes(self):
+    def _merge_dataframes(self) -> None:
         self.logger.info('Merging dataframes to get stats...')
         # Merge unsupported_operators_df with stages_df on App ID and Stage ID
         merged_df = pd.merge(self.unsupported_operators_df, self.stages_df,
@@ -92,7 +92,7 @@ class SparkQualificationStats:
         self.result_df = final_df[self.output_columns.get('columns')].copy()
         self.logger.info('Merging stats dataframes completed.')
 
-    def write_results(self):
+    def _write_results(self) -> None:
         self.logger.info('Writing stats results...')
         result_output_dir = self.ctxt.get_output_folder()
         outputfile_path = self.ctxt.get_value('local', 'output', 'files', 'statistics', 'name')
@@ -100,12 +100,13 @@ class SparkQualificationStats:
         self.result_df.to_csv(output_file, float_format='%.2f', index=False)
         self.logger.info('Results have been saved to %s', output_file)
 
-    def report_qualification_stats(self):
-        try:
-            self.read_csv_files()
-            self.convert_durations()
-            self.merge_dataframes()
-            self.write_results()
-        except Exception as e:  # pylint: disable=broad-except
-            self.logger.error('Error occurred while reporting qualification stats : %s', e)
-            raise
+    def report_qualification_stats(self) -> None:
+        """
+        Reports qualification stats by reading qual tool output CSV files
+
+        If an error occurs, the caller should handle the exception.
+        """
+        self._read_csv_files()
+        self._convert_durations()
+        self._merge_dataframes()
+        self._write_results()

@@ -84,12 +84,14 @@ class SparkQualStats(RapidsTool):
             if self.qual_output is not None:
                 qual_output_dir = find_paths(self.qual_output, RegexPattern.rapids_qual.match,
                                              return_directories=True)
-                self.qual_output = qual_output_dir[0] if qual_output_dir else None
+                if qual_output_dir:
+                    self.qual_output = qual_output_dir[0]
             result = SparkQualificationStats(ctxt=self.ctxt, qual_output=self.qual_output)
             result.report_qualification_stats()
             self.logger.info('Qualification Stats tool completed successfully')
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Error running Qualification Stats tool %s', e)
+            raise
 
     def _collect_result(self):
         pass
