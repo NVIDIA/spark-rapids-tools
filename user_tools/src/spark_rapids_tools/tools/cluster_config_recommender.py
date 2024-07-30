@@ -83,11 +83,11 @@ class ClusterConfigRecommender:
         Helper method to determine the conversion summary between CPU and GPU instance types.
         Generate the cluster shape recommendation as:
         {
-          'Source Cluster': {'driverInstance': 'm6.xlarge', 'executorInstance': 'm6.xlarge', 'numExecutorNodes': 2 }
-          'Recommended Cluster': {'driverInstance': 'm6.xlarge', 'executorInstance': 'g5.2xlarge', 'numExecutorNodes': 2 }
+          'Source Cluster': {'driverInstance': 'm6.xlarge', 'executorInstance': 'm6.xlarge', 'numExecutors': 2 }
+          'Recommended Cluster': {'driverInstance': 'm6.xlarge', 'executorInstance': 'g5.2xlarge', 'numExecutors': 2 }
           'Qualified Node Recommendation': 'm6.xlarge to g5.2xlarge'
         }
-        """  # pylint: disable=line-too-long
+        """
         # Return None if no GPU cluster is available.
         # If no CPU cluster is available, we can still recommend based on the inferred GPU cluster in the Scala tool.
         if not gpu_cluster:
