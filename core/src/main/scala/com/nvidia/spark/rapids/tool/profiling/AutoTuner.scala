@@ -721,7 +721,7 @@ class AutoTuner(
     recommendFileCache()
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
-    recommendKyroSerializerSetting()
+    recommendKryoSerializerSetting()
     recommendGCProperty()
     recommendClassPathEntries()
     recommendSystemProperties()
@@ -729,7 +729,7 @@ class AutoTuner(
 
   // if the user set the serializer to use Kryo, make sure we recommend using the GPU version
   // of it.
-  def recommendKyroSerializerSetting(): Unit = {
+  def recommendKryoSerializerSetting(): Unit = {
       getPropertyValue("spark.serializer") match {
         case Some(f) if f.contains("org.apache.spark.serializer.KryoSerializer") =>
           val existingRegistrars = getPropertyValue("spark.kryo.registrator")
