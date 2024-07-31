@@ -1568,29 +1568,46 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
+//  case class ExistingClusterInfo(
+  //    vendor: String,
+  //    coresPerExecutor: Int,
+  //    numExecsPerNode: Int,
+  //    numWorkerNodes: Int,
+  //    executorHeapMemory: Long,
+  //    driverNodeType: Option[String] = None,
+  //    workerNodeType: Option[String] = None,
+  //    driverHost: Option[String] = None,
+  //    clusterId: Option[String] = None,
+  //    clusterName: Option[String] = None) extends ClusterInfo
+
   // Expected results as a map of event log -> cluster info.
   // scalastyle:off line.size.limit
   val expectedClusterInfoMap: Seq[(String, Option[ExistingClusterInfo])] = Seq(
     "eventlog_2nodes_8cores" -> // 2 executor nodes with 8 cores.
-      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 8, 1, 2, 0L,
-        None, None, Some("10.10.10.100"), None, None)),
+      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
+        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+        driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_multiple_executors" -> // 3 nodes, each with 2 executors having 12 cores.
-      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 12, 2, 3, 0L,
-        None, None, Some("10.59.184.210"), None, None)),
+      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+        numExecsPerNode = 2, numWorkerNodes = 3, executorHeapMemory = 0L,
+        driverHost = Some("10.59.184.210"))),
     // TODO: Currently we do not handle dynamic allocation while calculating number of nodes. For
     //  calculating nodes, we look at unique active hosts at the end of application. In this test
     //  case, the application used all 4 nodes initially (8 executors total), and then 7 executors were
     //  removed. In the end, only 1 executor was active on 1 node. This test case should be updated
     //  once we handle dynamic allocation.
     "eventlog_4nodes_8cores_dynamic_alloc" -> // 4 nodes, each with 2 executor having 8 cores, with dynamic allocation.
-      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 8, 2, 1, 0L,
-        None, None, Some("test-cpu-cluster-m"), None, None)),
+      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
+        numExecsPerNode = 2, numWorkerNodes = 1, executorHeapMemory = 0L,
+        driverHost = Some("test-cpu-cluster-m"))),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 nodes with varying cores: 8, 12, and 8, each with 1 executor.
-      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 12, 1, 3, 0L,
-        None, None, Some("10.10.10.100"), None, None)),
+      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+        numExecsPerNode = 1, numWorkerNodes = 3, executorHeapMemory = 0L,
+        driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_exec_removed" -> // 2 nodes, each with 1 executor having 12 cores, 1 executor removed.
-      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 12, 1, 2, 0L,
-        None, None, Some("10.10.10.100"), None, None)),
+      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+        driverHost = Some("10.10.10.100"))),
     "eventlog_driver_only" -> None // Event log with driver only
   )
   // scalastyle:on line.size.limit
@@ -1605,44 +1622,35 @@ class QualificationSuite extends BaseTestSuite {
   // Expected results as a map of platform -> cluster info.
   val expectedPlatformClusterInfoMap: Seq[(String, ExistingClusterInfo)] = Seq(
     PlatformNames.DATABRICKS_AWS ->
-      ExistingClusterInfo(PlatformNames.DATABRICKS_AWS, 8, 1, 2, 0L,
-        Some("m6gd.2xlarge"),
-        Some("m6gd.2xlarge"),
-        Some("10.10.10.100"),
-        Some("1212-214324-test"),
-        Some("test-db-aws-cluster")),
+        ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AWS, coresPerExecutor = 8,
+          numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+          driverNodeType = Some("m6gd.2xlarge"),
+          workerNodeType = Some("m6gd.2xlarge"),
+          driverHost = Some("10.10.10.100"),
+          clusterId = Some("1212-214324-test"),
+          clusterName = Some("test-db-aws-cluster")),
     PlatformNames.DATABRICKS_AZURE ->
-      ExistingClusterInfo(PlatformNames.DATABRICKS_AZURE, 8, 1, 2, 0L,
-        Some("Standard_E8ds_v4"),
-        Some("Standard_E8ds_v4"),
-        Some("10.10.10.100"),
-        Some("1212-214324-test"),
-        Some("test-db-azure-cluster")),
+      ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AZURE, coresPerExecutor = 8,
+        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+        driverNodeType = Some("Standard_E8ds_v4"),
+        workerNodeType = Some("Standard_E8ds_v4"),
+        driverHost = Some("10.10.10.100"),
+        clusterId = Some("1212-214324-test"),
+        clusterName = Some("test-db-azure-cluster")),
     PlatformNames.DATAPROC ->
-      ExistingClusterInfo(PlatformNames.DATAPROC, 8, 1, 2,
-        0L,
-        None,
-        None,
-        Some("dataproc-test-m.c.internal"),
-        None,
-        None),
+      ExistingClusterInfo(vendor = PlatformNames.DATAPROC, coresPerExecutor = 8,
+        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+        driverHost = Some("dataproc-test-m.c.internal")),
     PlatformNames.EMR ->
-      ExistingClusterInfo(PlatformNames.EMR, 8, 1, 2,
-        0L,
-        None,
-        None,
-        Some("10.10.10.100"),
-        Some("j-123AB678XY321"),
-        None),
+      ExistingClusterInfo(vendor = PlatformNames.EMR, coresPerExecutor = 8,
+        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+        driverHost = Some("10.10.10.100"),
+        clusterId = Some("j-123AB678XY321")),
     PlatformNames.ONPREM ->
-      ExistingClusterInfo(PlatformNames.ONPREM, 8, 1, 2,
-        0L,
-        None,
-        None,
-        Some("10.10.10.100"),
-        None,
-        None)
-  )
+      ExistingClusterInfo(vendor = PlatformNames.ONPREM, coresPerExecutor = 8,
+        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+        driverHost = Some("10.10.10.100"))
+      )
 
   expectedPlatformClusterInfoMap.foreach { case (platform, expectedClusterInfo) =>
     test(s"test cluster information JSON for platform - $platform ") {
