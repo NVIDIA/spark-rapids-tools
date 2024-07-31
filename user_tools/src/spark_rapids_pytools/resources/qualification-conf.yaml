@@ -137,7 +137,6 @@ local:
             outputComment: "Heuristics information"
       configRecommendations:
         name: 'rapids_4_spark_qualification_output/tuning'
-        outputComment: "*Cluster config recommendations"
         columns:
           - 'Full Cluster Config Recommendations*'
           - 'GPU Config Recommendation Breakdown*'

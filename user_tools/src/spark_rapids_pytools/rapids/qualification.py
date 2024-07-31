@@ -50,6 +50,7 @@ class QualificationSummary:
     filter_apps_count: int = field(default=0, init=False)  # Count after applying console filters (top candidates)
     top_candidates_flag: bool = False
     comments: Any = None
+    config_recommendations_path: str = field(default='N/A', init=True)
     sections_generators: List[Callable] = field(default_factory=lambda: [])
 
     def _get_total_durations(self) -> int:
@@ -130,10 +131,13 @@ class QualificationSummary:
         else:
             report_content.append(f'\n{app_name} tool found no successful applications to process.')
 
-        if self.filter_apps_count > 0:
-            self.comments.append('**Estimated GPU Speedup Category assumes the user is using the node type '
-                                 'recommended and config recommendations with the same size cluster as was used '
-                                 'with the CPU side.')
+        # 'Config Recommendations' and 'Estimated GPU Speedup Category' columns are available only in top candidates
+        if self.top_candidates_flag and self.filter_apps_count > 0:
+            if FSUtil.resource_exists(self.config_recommendations_path):
+                report_content.append(f'* Config Recommendations can be found in {self.config_recommendations_path}.')
+            report_content.append('** Estimated GPU Speedup Category assumes the user is using the node type '
+                                  'recommended and config recommendations with the same size cluster as was used '
+                                  'with the CPU side.')
 
         report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
         report_content.append(tabulate(self.__generate_report_summary(), colalign=('left', 'right')))
@@ -647,13 +651,15 @@ class Qualification(RapidsJarTool):
         df_final_result = pd.merge(df_final_result, total_apps[['Event Log', 'AppID']],
                                    left_on='App ID', right_on='AppID')
         # Write the summary metadata
-        self._write_summary_metadata(df_final_result, output_files_info.get_value('summaryMetadata'),
-                                     output_files_info.get_value('configRecommendations'))
+        summary_metadata_info = output_files_info.get_value('summaryMetadata')
+        config_recommendations_info = output_files_info.get_value('configRecommendations')
+        self._write_summary_metadata(df_final_result, summary_metadata_info, config_recommendations_info)
         return QualificationSummary(total_apps=total_apps,
                                     tools_processed_apps=df_final_result,
                                     recommended_apps=recommended_apps,
                                     top_candidates_flag=filter_top_candidate_enabled,
-                                    comments=report_comments)
+                                    comments=report_comments,
+                                    config_recommendations_path=config_recommendations_info.get('path'))
 
     def _process_output(self) -> None:
         def process_df_for_stdout(raw_df):
