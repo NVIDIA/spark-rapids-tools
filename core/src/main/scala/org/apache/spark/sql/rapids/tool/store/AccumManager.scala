@@ -46,8 +46,12 @@ class AccumManager {
     accumInfoMap.get(id).map(_.getStageIds).getOrElse(Set.empty)
   }
 
+  def removeAccumInfo(id: Long): Option[AccumInfo] = {
+    accumInfoMap.remove(id)
+  }
+
   def calculateAccStats(id: Long): Option[StatisticsMetrics] = {
-    accumInfoMap.get(id).map(_.calculateAccStats)
+    accumInfoMap.get(id).map(_.calculateAccStats())
   }
 
   def getMaxStageValue(id: Long): Option[Long] = {

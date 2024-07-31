@@ -355,12 +355,6 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     // Parse task accumulables
     for (res <- event.taskInfo.accumulables) {
       try {
-        EventUtils.buildTaskStageAccumFromAccumInfo(res,
-          event.stageId, event.stageAttemptId, Some(event.taskInfo.taskId)).foreach { thisMetric =>
-          val arrBuf = app.taskStageAccumMap.getOrElseUpdate(res.id,
-            ArrayBuffer[TaskStageAccumCase]())
-          arrBuf += thisMetric
-        }
         app.accumManager.addAccToTask(event.stageId, event.taskInfo.taskId, res)
       } catch {
         case NonFatal(e) =>
@@ -470,12 +464,6 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     for (res <- event.stageInfo.accumulables) {
       try {
         val accumInfo = res._2
-        EventUtils.buildTaskStageAccumFromAccumInfo(accumInfo,
-          event.stageInfo.stageId, event.stageInfo.attemptNumber()).foreach { thisMetric =>
-          val arrBuf = app.taskStageAccumMap.getOrElseUpdate(accumInfo.id,
-            ArrayBuffer[TaskStageAccumCase]())
-          arrBuf += thisMetric
-        }
         app.accumManager.addAccToStage(event.stageInfo.stageId, accumInfo)
       } catch {
         case NonFatal(e) =>

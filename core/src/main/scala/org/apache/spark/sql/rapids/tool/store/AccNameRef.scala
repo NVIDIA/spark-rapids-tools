@@ -26,8 +26,12 @@ case class AccNameRef(value: String) {
 
 object AccNameRef {
   val EMPTY_ACC_NAME_REF: AccNameRef = new AccNameRef("N/A")
-  val namesTable: ConcurrentHashMap[String, AccNameRef] =
-    new ConcurrentHashMap[String, AccNameRef]()
+  val namesTable: ConcurrentHashMap[String, AccNameRef] = {
+    val initMap = new ConcurrentHashMap[String, AccNameRef]()
+    initMap.put("gpuSemaphoreWait", fromString("gpuSemaphoreWait"))
+    initMap
+  }
+
   def internAccName(name: Option[String]): AccNameRef = {
     name match {
       case Some(n) =>

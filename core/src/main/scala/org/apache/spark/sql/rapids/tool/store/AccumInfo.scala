@@ -25,9 +25,9 @@ import org.apache.spark.sql.rapids.tool.util.EventUtils.parseAccumFieldToLong
 
 class AccumInfo(val infoRef: AccMetaRef) {
   // TODO: Should we use sorted maps for stageIDs and taskIds?
-  private val taskUpdatesMap: mutable.HashMap[Long, Long] =
+  val taskUpdatesMap: mutable.HashMap[Long, Long] =
     new mutable.HashMap[Long, Long]()
-  private val stageValuesMap: mutable.HashMap[Int, Long] =
+  val stageValuesMap: mutable.HashMap[Int, Long] =
     new mutable.HashMap[Int, Long]()
 
   def addAccToStage(stageId: Int,
@@ -46,7 +46,7 @@ class AccumInfo(val infoRef: AccMetaRef) {
   def addAccToTask(stageId: Int, taskId: Long, accumulableInfo: AccumulableInfo): Unit = {
     val update = accumulableInfo.update.flatMap(parseAccumFieldToLong)
     // we have to update the stageMap if the stageId does not exist in the map
-    var updateStageFlag = !taskUpdatesMap.contains(stageId)
+    var updateStageFlag = !stageValuesMap.contains(stageId)
     // TODO: Task can update an accum multiple times. Should account for that case.
     update match {
       case Some(v) =>

@@ -274,41 +274,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
 
   def generateSQLAccums(): Seq[SQLAccumProfileResults] = {
     allSQLMetrics.flatMap { metric =>
-      val jobsForSql = app.jobIdToInfo.filter { case (_, jc) =>
-        // Avoid getOrElse to reduce memory allocations
-        jc.sqlID.isDefined && jc.sqlID.get == metric.sqlID
-      }
-      val stageIdsForSQL = jobsForSql.flatMap(_._2.stageIds).toSet
-      val accumsOpt = app.taskStageAccumMap.get(metric.accumulatorId)
-      val taskMax = accumsOpt match {
-        case Some(accums) =>
-          val filtered = accums.filter { a =>
-            stageIdsForSQL.contains(a.stageId)
-          }
-          // If metricType is size, average or timing, we want to read field `update` value
-          // to get the min, median, max, and total. Otherwise, we want to use field `value`.
-          if (SQLMetricsStats.hasStats(metric.metricType)) {
-            val accumValues = filtered.map(_.update.getOrElse(0L)).sortWith(_ < _)
-            if (accumValues.isEmpty) {
-              None
-            }
-            else if (accumValues.length <= 1) {
-              Some(StatisticsMetrics(0L, 0L, 0L, accumValues.sum))
-            } else {
-              Some(StatisticsMetrics(accumValues(0), accumValues(accumValues.size / 2),
-                accumValues(accumValues.size - 1), accumValues.sum))
-            }
-          } else {
-            val accumValues = filtered.map(_.value.getOrElse(0L))
-            if (accumValues.isEmpty) {
-              None
-            } else {
-              Some(StatisticsMetrics(0L, 0L, 0L, accumValues.max))
-            }
-          }
-        case None => None
-      }
-
+      val accumTaskStats = app.accumManager.calculateAccStats(metric.accumulatorId)
       // local mode driver gets updates
       val driverAccumsOpt = app.driverAccumMap.get(metric.accumulatorId)
       val driverMax = driverAccumsOpt match {
@@ -329,8 +295,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           None
       }
 
-      if (taskMax.isDefined || driverMax.isDefined) {
-        val taskInfo = taskMax.getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
+      if (accumTaskStats.isDefined || driverMax.isDefined) {
+        val taskInfo = accumTaskStats.getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
         val driverInfo = driverMax.getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
 
         val max = Math.max(taskInfo.max, driverInfo.max)
@@ -358,45 +324,21 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * @return a sequence of AccumProfileResults
    */
   def generateStageLevelAccums(): Seq[AccumProfileResults] = {
-
-    def computeStatistics(updates: Seq[Long]): Option[StatisticsMetrics] = {
-      // drop the metrics if there are no values
-      if (updates.isEmpty) {
-        None
-      } else if (updates.length == 1) {
-        Some(StatisticsMetrics(0L, 0L, 0L, updates.sum))
-      } else {
-        Some(StatisticsMetrics(
-          min = updates.head,
-          med = updates(updates.size / 2),
-          max = updates.last,
-          total = updates.sum
-        ))
-      }
-    }
-
-    // Process taskStageAccumMap to get all the accumulators
-    val stageLevelAccums = app.taskStageAccumMap.values.flatten
-    val groupedByAccumulatorId = stageLevelAccums.groupBy(_.accumulatorId)
-    groupedByAccumulatorId.flatMap { case (accumulatorId, accums) =>
-      // Extract and sort the update values, defaulting to 0 if not present
-      val sortedUpdates = accums.flatMap(_.update).toSeq.sorted
-
-      // Compute the statistics for the accumulator if applicable
-      computeStatistics(sortedUpdates).map { stats =>
-        val sampleAccum = accums.head
-        AccumProfileResults(
-          appIndex = appIndex,
-          stageId = sampleAccum.stageId.toString,
-          accumulatorId = accumulatorId,
-          name = sampleAccum.name.getOrElse("Unknown"),
-          min = stats.min,
-          median = stats.med,
-          max = stats.max,
-          total = stats.total
-        )
-      }
-    }.toSeq
+    app.accumManager.accumInfoMap.map( entry => {
+      val accumId = entry._1
+      val accumInfo = entry._2
+      val accumStats = app.accumManager.calculateAccStats(accumId)
+      AccumProfileResults(
+        appIndex = appIndex,
+        stageId = accumInfo.stageValuesMap.keySet.head.toString,
+        accumulatorId = accumId,
+        name = accumInfo.infoRef.name.value,
+        min = accumStats.map(_.min).getOrElse(0L),
+        median = accumStats.map(_.med).getOrElse(0L),
+        max = accumStats.map(_.max).getOrElse(0L),
+        total = accumStats.map(_.total).getOrElse(0L)
+      )
+    }).toSeq
   }
 }
 

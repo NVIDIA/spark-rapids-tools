@@ -79,8 +79,6 @@ abstract class AppBase(
   var sqlPlanMetricsAdaptive: ArrayBuffer[SQLPlanMetricsCase] = ArrayBuffer[SQLPlanMetricsCase]()
 
   // accum id to task stage accum info
-  var taskStageAccumMap: HashMap[Long, ArrayBuffer[TaskStageAccumCase]] =
-    HashMap[Long, ArrayBuffer[TaskStageAccumCase]]()
   lazy val accumManager: AccumManager = new AccumManager()
 
   lazy val stageManager: StageModelManager = new StageModelManager()
@@ -181,7 +179,7 @@ abstract class AppBase(
   }
 
   def cleanupAccumId(accId: Long): Unit = {
-    taskStageAccumMap.remove(accId)
+    accumManager.removeAccumInfo(accId)
     driverAccumMap.remove(accId)
     stageManager.removeAccumulatorId(accId)
   }
