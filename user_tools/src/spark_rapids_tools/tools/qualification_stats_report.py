@@ -85,7 +85,7 @@ class SparkQualificationStats:
 
         agg_unsupported_df['Supported'] = False
         final_df = agg_unsupported_df.rename(columns={
-            'Unsupported Operator': 'Operator Name',
+            'Unsupported Operator': 'Operator',
             'Impacted_Stage_Duration': 'Impacted Stage duration(seconds)',
             'Stage_Task_Duration': 'Stage Task Exec duration(seconds)'
         })

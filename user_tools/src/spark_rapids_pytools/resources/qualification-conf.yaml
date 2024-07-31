@@ -133,7 +133,7 @@ local:
         columns:
           - 'App ID'
           - 'SQL ID'
-          - 'Operator Name'
+          - 'Operator'
           - 'Count'
           - 'Stage Task Exec duration(seconds)'
           - 'Impacted Stage duration(seconds)'

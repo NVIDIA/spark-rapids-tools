@@ -596,8 +596,11 @@ class Qualification(RapidsJarTool):
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
                                                                               'unsupportedOperators'))
         # Generate the statistics report
-        stats_report = SparkQualificationStats(ctxt=self.ctxt)
-        stats_report.report_qualification_stats()
+        try:
+            stats_report = SparkQualificationStats(ctxt=self.ctxt)
+            stats_report.report_qualification_stats()
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Failed to generate the statistics report: %s', e)
 
         # Calculate unsupported operators stage duration before grouping
         all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
