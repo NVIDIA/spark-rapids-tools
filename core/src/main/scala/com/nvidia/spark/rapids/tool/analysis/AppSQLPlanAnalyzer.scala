@@ -324,19 +324,20 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * @return a sequence of AccumProfileResults
    */
   def generateStageLevelAccums(): Seq[AccumProfileResults] = {
-    app.accumManager.accumInfoMap.map( entry => {
-      val accumId = entry._1
-      val accumInfo = entry._2
+    app.accumManager.accumInfoMap.map( accumMapEntry => {
+      val accumId = accumMapEntry._1
+      val accumInfo = accumMapEntry._2
       val accumStats = app.accumManager.calculateAccStats(accumId)
+        .getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
       AccumProfileResults(
         appIndex = appIndex,
         stageId = accumInfo.stageValuesMap.keySet.head.toString,
         accumulatorId = accumId,
         name = accumInfo.infoRef.name.value,
-        min = accumStats.map(_.min).getOrElse(0L),
-        median = accumStats.map(_.med).getOrElse(0L),
-        max = accumStats.map(_.max).getOrElse(0L),
-        total = accumStats.map(_.total).getOrElse(0L)
+        min = accumStats.min,
+        median = accumStats.med,
+        max = accumStats.max,
+        total = accumStats.total
       )
     }).toSeq
   }

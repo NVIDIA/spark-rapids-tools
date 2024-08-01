@@ -33,42 +33,32 @@ class AccumInfo(val infoRef: AccMetaRef) {
   def addAccToStage(stageId: Int,
       accumulableInfo: AccumulableInfo,
       update: Option[Long] = None): Unit = {
-    val value = accumulableInfo.value.flatMap(parseAccumFieldToLong)
+    val parsedValue = accumulableInfo.value.flatMap(parseAccumFieldToLong)
     val existingValue = stageValuesMap.getOrElse(stageId, 0L)
-    value match {
-      case Some(v) =>
-        // This assert prevents out of order events to be processed
-        assert( v >= existingValue,
-          s"Stage $stageId: Out of order events detected.")
-        stageValuesMap.put(stageId, v)
-      case _ =>
-        val incomingUpdate = update.getOrElse(0L)
-        assert( incomingUpdate >= existingValue,
-          s"Stage $stageId: Out of order events detected.")
-        // this case is for metrics that are not parsed as long
-        // We track the accumId to stageId and taskId mapping
-        stageValuesMap.put(stageId, incomingUpdate)
+    val incomingValue = parsedValue match {
+      case Some(v) => v
+      case _ => update.getOrElse(0L)
     }
+    stageValuesMap.put(stageId, Math.max(existingValue, incomingValue))
   }
 
   def addAccToTask(stageId: Int, taskId: Long, accumulableInfo: AccumulableInfo): Unit = {
-    val update = accumulableInfo.update.flatMap(parseAccumFieldToLong)
+    val parsedUpdateValue = accumulableInfo.update.flatMap(parseAccumFieldToLong)
     // we have to update the stageMap if the stageId does not exist in the map
     var updateStageFlag = !stageValuesMap.contains(stageId)
-    // TODO: Task can update an accum multiple times. Should account for that case.
     // This is for cases where same task updates the same accum multiple times
-    val existingUpdate = taskUpdatesMap.getOrElse(taskId, 0L)
-    update match {
+    val existingUpdateValue = taskUpdatesMap.getOrElse(taskId, 0L)
+    parsedUpdateValue match {
       case Some(v) =>
-        taskUpdatesMap.put(taskId, v + existingUpdate)
+        taskUpdatesMap.put(taskId, v + existingUpdateValue)
         // update teh stage if the task's update is non-zero
         updateStageFlag ||= v != 0
       case None =>
-        taskUpdatesMap.put(taskId, existingUpdate)
+        taskUpdatesMap.put(taskId, existingUpdateValue)
     }
     // update the stage value map if necessary
     if (updateStageFlag) {
-      addAccToStage(stageId, accumulableInfo, update.map(_ + existingUpdate))
+      addAccToStage(stageId, accumulableInfo, parsedUpdateValue)
     }
   }
 
