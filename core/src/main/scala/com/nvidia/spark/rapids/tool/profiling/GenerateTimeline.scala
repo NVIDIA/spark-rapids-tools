@@ -280,7 +280,7 @@ object GenerateTimeline {
 
     val semMetricsMs = app.accumManager.accumInfoMap.flatMap{
         case (_,accumInfo: AccumInfo)
-            if accumInfo.infoRef.name == AccNameRef.namesTable.get("gpuSemaphoreWait") =>
+            if accumInfo.infoRef.name == AccNameRef.NAMES_TABLE.get("gpuSemaphoreWait") =>
             Some(accumInfo.taskUpdatesMap.values.sum)
         case _ => None
       }.sum
