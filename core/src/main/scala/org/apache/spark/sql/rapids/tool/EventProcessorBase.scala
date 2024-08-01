@@ -19,7 +19,7 @@ package org.apache.spark.sql.rapids.tool
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ProfileUtils, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ProfileUtils, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
