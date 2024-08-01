@@ -17,7 +17,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, List, Union
+from typing import Any, List, Union, Optional
 
 from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob
@@ -163,12 +163,12 @@ class DataprocPlatform(PlatformBase):
                 gpu_scopes[prof_name] = NodeHWInfo(sys_info=sys_info_obj, gpu_info=gpu_info_obj)
         return gpu_scopes
 
-    def get_matching_executor_instance(self, cores_per_executor):
-        executors_from_config = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
+    def get_matching_worker_node_type(self, total_cores: int) -> Optional[str]:
+        node_types_from_config = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
         # TODO: Currently only single series is supported. Change this to a loop when using multiple series.
-        series_name, unit_info = list(executors_from_config.items())[0]
-        if cores_per_executor in unit_info['vCPUs']:
-            return f'{series_name}-{cores_per_executor}'
+        series_name, unit_info = list(node_types_from_config.items())[0]
+        if total_cores in unit_info['vCPUs']:
+            return f'{series_name}-{total_cores}'
         return None
 
     def generate_cluster_configuration(self, render_args: dict):

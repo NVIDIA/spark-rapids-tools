@@ -36,10 +36,15 @@ class ClusterRecommendationInfo:
     recommended_cluster_config: dict = field(default_factory=dict)
     qualified_node_recommendation: str = 'Not Available'
 
+    def _cluster_info_to_dict(self) -> Dict[str, dict]:
+        return {
+            'sourceCluster': self.source_cluster_config,
+            'recommendedCluster': self.recommended_cluster_config
+        }
+
     def to_dict(self) -> Dict[str, Union[dict, str]]:
         return {
-            'Source Cluster': self.source_cluster_config,
-            'Recommended Cluster': self.recommended_cluster_config,
+            'Cluster Info': self._cluster_info_to_dict(),
             'Qualified Node Recommendation': self.qualified_node_recommendation
         }
 
@@ -83,11 +88,13 @@ class ClusterConfigRecommender:
         Helper method to determine the conversion summary between CPU and GPU instance types.
         Generate the cluster shape recommendation as:
         {
-          'Source Cluster': {'driverInstance': 'm6.xlarge', 'executorInstance': 'm6.xlarge', 'numExecutors': 2 }
-          'Recommended Cluster': {'driverInstance': 'm6.xlarge', 'executorInstance': 'g5.2xlarge', 'numExecutors': 2 }
+          'Cluster Info': {
+             'sourceCluster': {'driverNodeType': 'm6.xlarge', 'workerNodeType': 'm6.xlarge', 'numWorkerNodes': 2 }
+             'recommendedCluster': {'driverNodeType': 'm6.xlarge', 'workerNodeType': 'g5.2xlarge', 'numWorkerNodes': 2 }
+           },
           'Qualified Node Recommendation': 'm6.xlarge to g5.2xlarge'
         }
-        """
+        """  # pylint: disable=line-too-long
         # Return None if no GPU cluster is available.
         # If no CPU cluster is available, we can still recommend based on the inferred GPU cluster in the Scala tool.
         if not gpu_cluster:

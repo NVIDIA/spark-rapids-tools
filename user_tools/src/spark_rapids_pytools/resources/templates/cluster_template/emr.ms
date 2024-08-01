@@ -14,15 +14,15 @@
 	      "Name": "CORE",
 	      "Market": "ON_DEMAND",
 	      "InstanceGroupType": "CORE",
-	      "InstanceType": {{{ EXECUTOR_INSTANCE }}},
-	      "RequestedInstanceCount": {{ NUM_EXECUTOR_NODES }}
+	      "InstanceType": {{{ WORKER_NODE_TYPE }}},
+	      "RequestedInstanceCount": {{ NUM_WORKER_NODES }}
 	    },
 	    {
 	      "Id": "ig-123456789012d",
 	      "Name": "MASTER",
 	      "Market": "ON_DEMAND",
 	      "InstanceGroupType": "MASTER",
-	      "InstanceType": {{{ DRIVER_INSTANCE }}},
+	      "InstanceType": {{{ DRIVER_NODE_TYPE }}},
 	      "RequestedInstanceCount": {{ NUM_DRIVER_NODES }}
 	    }
 	  ],
