@@ -88,7 +88,7 @@ object GenerateDot {
     val accumSummary = accums.map { a =>
       Seq(a.sqlID, a.accumulatorId, a.total)
     }
-    val accumIdToStageId = app.stageManager.getAccumToSingleStage()
+    val accumIdToStageId = app.accumManager.getAccumSingleStage
     val formatter = java.text.NumberFormat.getIntegerInstance
     val stageIdToStageMetrics = app.taskManager.stageAttemptToTasks.collect { case (stageId, _) =>
       val tasks = app.taskManager.getAllTasksStageAttempt(stageId)

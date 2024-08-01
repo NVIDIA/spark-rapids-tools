@@ -16,9 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-case class AccMetaRef(id: Long, name: AccNameRef) {
-
-}
+case class AccMetaRef(id: Long, name: AccNameRef)
 
 object AccMetaRef {
   def apply(id: Long, name: Option[String]): AccMetaRef =

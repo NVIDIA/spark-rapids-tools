@@ -181,7 +181,6 @@ abstract class AppBase(
   def cleanupAccumId(accId: Long): Unit = {
     accumManager.removeAccumInfo(accId)
     driverAccumMap.remove(accId)
-    stageManager.removeAccumulatorId(accId)
   }
 
   def cleanupStages(stageIds: Set[Int]): Unit = {

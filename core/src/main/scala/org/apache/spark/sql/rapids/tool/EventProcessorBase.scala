@@ -349,9 +349,6 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       app: T,
       event: SparkListenerTaskEnd): Unit = {
     // TODO: this implementation needs to be updated to use attemptID
-    // Update the map between accumulators and stages
-    app.stageManager.addAccumIdToStage(
-      event.stageId, event.taskInfo.accumulables.map(_.id))
     // Parse task accumulables
     for (res <- event.taskInfo.accumulables) {
       try {

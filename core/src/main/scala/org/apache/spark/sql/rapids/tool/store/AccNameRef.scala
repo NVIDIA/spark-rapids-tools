@@ -20,9 +20,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import org.apache.spark.sql.rapids.tool.util.EventUtils.normalizeMetricName
 
-case class AccNameRef(value: String) {
-
-}
+case class AccNameRef(value: String)
 
 object AccNameRef {
   val EMPTY_ACC_NAME_REF: AccNameRef = new AccNameRef("N/A")

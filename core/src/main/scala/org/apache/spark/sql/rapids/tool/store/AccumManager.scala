@@ -16,7 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-import scala.collection.mutable
+import scala.collection.{mutable, Map}
 
 import com.nvidia.spark.rapids.tool.analysis.StatisticsMetrics
 
@@ -45,6 +45,13 @@ class AccumManager {
     // TODO: Does Set.empty allocates memory? or it uses a constant in scala?
     accumInfoMap.get(id).map(_.getStageIds).getOrElse(Set.empty)
   }
+
+  def getAccumSingleStage: Map[Long, Int] = {
+    accumInfoMap.map { case (id, accInfo) =>
+      (id, accInfo.getMinStageId)
+    }.toMap
+  }
+
 
   def removeAccumInfo(id: Long): Option[AccumInfo] = {
     accumInfoMap.remove(id)
