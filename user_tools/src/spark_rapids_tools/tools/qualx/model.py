@@ -368,7 +368,7 @@ def split_nds(
 ) -> pd.DataFrame:
     if holdout_queries is None:
         holdout_queries = holdout_nds_queries
-    is_test = (cpu_aug_tbl['appName'].str.startswith('nds')) & (
+    is_test = (cpu_aug_tbl['appName'].str.startswith('nds_')) & (
         cpu_aug_tbl['description'].isin(holdout_queries)
     )
     cpu_aug_tbl.loc[is_test, 'split'] = 'test'

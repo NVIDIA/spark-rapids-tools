@@ -506,7 +506,10 @@ def train(
     ensure_directory(output_dir)
 
     for split in ['train', 'test']:
-        features_split = features[feature_cols].loc[features['split'] == split]
+        if split == 'train':
+            features_split = features[feature_cols].loc[features['split'].isin(['train', 'val'])]
+        else:
+            features_split = features[feature_cols].loc[features['split'] == split]
         if features_split.empty:
             continue
 
