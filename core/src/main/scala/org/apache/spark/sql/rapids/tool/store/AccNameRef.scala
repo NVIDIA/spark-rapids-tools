@@ -23,7 +23,7 @@ import org.apache.spark.sql.rapids.tool.util.EventUtils.normalizeMetricName
 case class AccNameRef(value: String)
 
 object AccNameRef {
-  val EMPTY_ACC_NAME_REF: AccNameRef = new AccNameRef("N/A")
+  private val EMPTY_ACC_NAME_REF: AccNameRef = new AccNameRef("N/A")
   val NAMES_TABLE: ConcurrentHashMap[String, AccNameRef] = {
     val initMap = new ConcurrentHashMap[String, AccNameRef]()
     initMap.put("gpuSemaphoreWait", fromString("gpuSemaphoreWait"))
@@ -38,6 +38,7 @@ object AccNameRef {
         AccNameRef.EMPTY_ACC_NAME_REF
     }
   }
+
   def fromString(value: String): AccNameRef =
     new AccNameRef(normalizeMetricName(value))
 }
