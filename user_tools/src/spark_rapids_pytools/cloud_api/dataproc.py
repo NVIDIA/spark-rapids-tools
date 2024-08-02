@@ -16,7 +16,6 @@
 """Implementation specific to Dataproc"""
 
 from collections import defaultdict
-import json
 from dataclasses import dataclass, field
 from typing import Any, List, Union
 
@@ -395,57 +394,51 @@ class DataprocNode(ClusterNode):
         return conf_val
 
     def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
-        # https://cloud.google.com/compute/docs/gpus
-        # the gpu info is not included in the instance type
-        # we need to:
-        # 1- get the accelerator of the node if any
-        #    "gcloud compute accelerator-types describe nvidia-tesla-a100 --zone=us-central1-a"
-        # 2- Read the description flag to determine the memory size. (applies for A100)
-        #    If it is not included, then load the gpu-memory from a lookup table
-        def parse_accelerator_description(raw_description: str) -> dict:
-            parsing_res = {}
-            descr_json = json.loads(raw_description)
-            description_field = descr_json.get('description')
-            field_components = description_field.split()
-            # filter out non-used tokens
-            dumped_tokens = ['NVIDIA', 'Tesla']
-            final_entries = [entry.lower() for entry in field_components if entry not in dumped_tokens]
-            gpu_device: GpuDevice = None
-            for token_entry in final_entries:
-                if 'GB' in token_entry:
-                    # this is the memory value
-                    memory_in_gb_str = token_entry.removesuffix('GB')
-                    gpu_mem = 1024 * int(memory_in_gb_str)
-                    parsing_res.setdefault('gpu_mem', gpu_mem)
-                else:
-                    gpu_device = GpuDevice.fromstring(token_entry)
-                    parsing_res.setdefault('gpu_device', gpu_device)
-            if 'gpu_mem' not in parsing_res:
-                # get the GPU memory size from lookup
-                parsing_res.setdefault('gpu_mem', gpu_device.get_gpu_mem()[0])
-            return parsing_res
-
-        try:
-            accelerator_arr = self.props.get_value_silent('accelerators')
-        except Exception:  # pylint: disable=broad-except
-            accelerator_arr = None
-
-        if not accelerator_arr:
+        # gcloud GPU machines: https://cloud.google.com/compute/docs/gpus
+        def get_gpu_device(accelerator_name: str) -> GpuDevice:
+            """
+            return the GPU device given a accelerator full name (e.g. nvidia-tesla-t4)
+            """
+            accelerator_name_arr = accelerator_name.split('-')
+            for elem in accelerator_name_arr:
+                if GpuDevice.fromstring(elem) is not None:
+                    return GpuDevice.fromstring(elem)
             return None
 
+        # check if GPU info is already set
+        if self.hw_info and self.hw_info.gpu_info:
+            return self.hw_info.gpu_info
+
+        # node has no 'accelerators' info, need to pull GPU info from instance catalog
+        if self.props is None or self.props.get_value_silent('accelerators') is None:
+            if self.instance_type.startswith('n1') or self.mc_props is None or \
+                    self.mc_props.get_value_silent('GpuInfo') is None:
+                # TODO: for n1-series, it can attach different type or number of GPU device
+                # GPU info is only accurate when 'accelerators' is set, return None as default
+                return None
+            gpu_configs = self.mc_props.get_value('GpuInfo')[0]
+            num_gpus = gpu_configs['Count'][0]
+            gpu_device = GpuDevice.fromstring(gpu_configs['Name'])
+            gpu_mem = gpu_device.get_gpu_mem()[0]
+            return GpuHWInfo(num_gpus=num_gpus,
+                             gpu_device=gpu_device,
+                             gpu_mem=gpu_mem)
+
+        accelerator_arr = self.props.get_value('accelerators')
         for defined_acc in accelerator_arr:
             # TODO: if the accelerator_arr has other non-gpu ones, then we need to loop until we
             #       find the gpu accelerators
-            gpu_configs = {'num_gpus': int(defined_acc.get('acceleratorCount'))}
             accelerator_type = defined_acc.get('acceleratorTypeUri') or defined_acc.get('acceleratorType')
-            gpu_device_type = self.__extract_info_from_value(accelerator_type)
-            gpu_description = cli.exec_platform_describe_accelerator(accelerator_type=gpu_device_type,
-                                                                     cmd_args=None)
-            extra_gpu_info = parse_accelerator_description(gpu_description)
-            gpu_configs.update(extra_gpu_info)
-            return GpuHWInfo(num_gpus=gpu_configs.get('num_gpus'),
-                             gpu_device=gpu_configs.get('gpu_device'),
-                             gpu_mem=gpu_configs.get('gpu_mem'))
+            accelerator_full_name = self.__extract_info_from_value(accelerator_type)
+            gpu_device = get_gpu_device(accelerator_full_name)
+            if gpu_device is None:
+                continue
+            num_gpus = int(defined_acc.get('acceleratorCount'))
+            gpu_mem = gpu_device.get_gpu_mem()[0]
+            return GpuHWInfo(num_gpus=num_gpus,
+                             gpu_device=gpu_device,
+                             gpu_mem=gpu_mem)
+        return None
 
     def _pull_sys_info(self, cli=None) -> SysInfo:
         cpu_mem = self.mc_props.get_value('MemoryInMB')
