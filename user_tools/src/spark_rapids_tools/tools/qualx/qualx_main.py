@@ -39,8 +39,8 @@ from spark_rapids_tools.tools.qualx.preprocess import (
 from spark_rapids_tools.tools.qualx.model import (
     extract_model_features,
     compute_shapley_values,
-    split_nds,
     split_all_test,
+    split_train_val,
 )
 from spark_rapids_tools.tools.qualx.model import train as train_model, predict as predict_model
 from spark_rapids_tools.tools.qualx.util import (
@@ -450,7 +450,7 @@ def train(
             'Training data contained datasets: %s, expected: %s', profile_datasets, dataset_list
         )
 
-    split_functions = [split_nds]
+    split_functions = [split_train_val]
     for ds_name, ds_meta in datasets.items():
         if 'split_function' in ds_meta:
             plugin_path = ds_meta['split_function']
@@ -506,7 +506,10 @@ def train(
     ensure_directory(output_dir)
 
     for split in ['train', 'test']:
-        features_split = features[feature_cols].loc[features['split'] == split]
+        if split == 'train':
+            features_split = features[feature_cols].loc[features['split'].isin(['train', 'val'])]
+        else:
+            features_split = features[feature_cols].loc[features['split'] == split]
         if features_split.empty:
             continue
 
@@ -813,7 +816,7 @@ def evaluate(
 
     if not split_fn:
         # use default split_fn if not specified
-        split_fn = split_all_test if 'test' in dataset_name else split_nds
+        split_fn = split_all_test if 'test' in dataset_name else split_train_val
 
     # raw predictions on unfiltered data
     raw_sql, raw_app = _predict(

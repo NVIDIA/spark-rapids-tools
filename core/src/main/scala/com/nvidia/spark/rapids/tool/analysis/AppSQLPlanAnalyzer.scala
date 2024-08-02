@@ -66,6 +66,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   /**
    * Connects Operators to Stages using AccumulatorIDs.
    * TODO: This function can be fused in the visitNode function to avoid the extra iteration.
+   *
    * @param cb function that creates a SparkPlanGraph. This can be used as a cacheHolder for the
    *           object created to be used later.
    */
@@ -87,7 +88,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * Both Qual/Prof analysis.
    * For Qual apps, the app.sqlIDtoProblematic won't be set because it is done later during the
    * aggregation phase.
-   * @param sqlId the SQL ID being analyzed
+   *
+   * @param sqlId             the SQL ID being analyzed
    * @param potentialProblems a set of strings that represent the potential problems found in the
    *                          SQL plan.
    */
@@ -119,26 +121,26 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * 1- allSQLMetrics: a list of SQLMetricInfoCase
    * 2- wholeStage: a list of WholeStageCodeGenResults
    * 3- unsupportedSQLPlan: a list of UnsupportedSQLPlan that contains the SQL ID, node ID,
-   *    node name.
-   *    TODO: Consider handling the construction of this list in a different way for the
-   *         Qualification
+   * node name.
+   * TODO: Consider handling the construction of this list in a different way for the
+   * Qualification
    * 4- sqlPlanNodeIdToStageIds: A map between (SQL ID, Node ID) and the set of stage IDs
    *
    * It has the following effect on the visitor object:
    * 1- It updates the sqlIsDsOrRDD argument to True when the visited node is an RDD or Dataset.
    * 2- If the SQLID is an RDD, the potentialProblems is cleared because once SQL is marked as RDD,
-   *    all the other problems are ignored. Note that we need to set that flag only once to True
-   *    for the given SQLID.
+   * all the other problems are ignored. Note that we need to set that flag only once to True
+   * for the given SQLID.
    * 3- It appends the current node's potential problems to the SQLID problems only if the SQL is
-   *    visitor.sqlIsDsOrRDD is False. Otherwise, it is kind of redundant to keep checking for
-   *    potential problems for every node when they get to be ignored.
+   * visitor.sqlIsDsOrRDD is False. Otherwise, it is kind of redundant to keep checking for
+   * potential problems for every node when they get to be ignored.
    *
    * It has the following effect on the app object:
    * 1- it updates dataSourceInfo with V2 and V1 data sources
    * 2- it updates sqlIDtoProblematic the map between SQL ID and potential problems
- *
+   *
    * @param visitor the visitor context defined per SQLPlan
-   * @param node the node being currently visited.
+   * @param node    the node being currently visited.
    */
   protected def visitNode(visitor: SQLPlanVisitorContext,
       node: SparkPlanGraphNode): Unit = {
@@ -161,7 +163,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     if (nodeIsDsOrRDD) {
       // we want to report every node that is an RDD
       val thisPlan = UnsupportedSQLPlan(visitor.sqlPIGEntry.sqlID, node.id, node.name, node.desc,
-          "Contains Dataset or RDD")
+        "Contains Dataset or RDD")
       unsupportedSQLPlan += thisPlan
       // If one node is RDD, the Sql should be set too
       if (!visitor.sqlIsDsOrRDD) { // We need to set the flag only once for the given sqlID
@@ -324,23 +326,46 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * @return a sequence of AccumProfileResults
    */
   def generateStageLevelAccums(): Seq[AccumProfileResults] = {
-    app.accumManager.accumInfoMap.map( accumMapEntry => {
+    def computeStatistics(taskUpdates: Seq[Long]): Option[StatisticsMetrics] = {
+      if (taskUpdates.isEmpty) {
+        None
+      } else {
+        val min = taskUpdates.min
+        val max = taskUpdates.max
+        val sum = taskUpdates.sum
+        val median = if (taskUpdates.size % 2 == 0) {
+          val mid = taskUpdates.size / 2
+          (taskUpdates(mid) + taskUpdates(mid - 1)) / 2
+        } else {
+          taskUpdates(taskUpdates.size / 2)
+        }
+        Some(StatisticsMetrics(min, median, max, sum))
+      }
+    }
+
+    app.accumManager.accumInfoMap.flatMap{ accumMapEntry =>
       val accumId = accumMapEntry._1
       val accumInfo = accumMapEntry._2
-      val accumStats = app.accumManager.calculateAccStats(accumId)
-        .getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
-      AccumProfileResults(
-        appIndex = appIndex,
-        stageId = accumInfo.stageValuesMap.keySet.head.toString,
-        accumulatorId = accumId,
-        name = accumInfo.infoRef.name.value,
-        min = accumStats.min,
-        median = accumStats.med,
-        max = accumStats.max,
-        total = accumStats.total
-      )
-    }).toSeq
-  }
+      accumInfo.stageValuesMap.keySet.flatMap( stageId => {
+        val tasks = app.taskManager.getAllTasksStageAttempt(stageId)
+        val taskUpdatesSorted = tasks.map( task => {
+          accumInfo.taskUpdatesMap.getOrElse(task.taskId, 0L)
+        }).toSeq.sorted
+        computeStatistics(taskUpdatesSorted).map { stats =>
+          AccumProfileResults(
+            appIndex,
+            stageId,
+            accumId,
+            accumInfo.infoRef.name.value,
+            min = stats.min,
+            median = stats.med,
+            max = stats.max,
+            total = stats.total
+          )
+        }
+      })
+    }
+  }.toSeq
 }
 
 object AppSQLPlanAnalyzer {

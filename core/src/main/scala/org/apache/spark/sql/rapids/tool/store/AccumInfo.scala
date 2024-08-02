@@ -53,7 +53,7 @@ class AccumInfo(val infoRef: AccMetaRef) {
   def addAccToTask(stageId: Int, taskId: Long, accumulableInfo: AccumulableInfo): Unit = {
     val parsedUpdateValue = accumulableInfo.update.flatMap(parseAccumFieldToLong)
     // we have to update the stageMap if the stageId does not exist in the map
-    var updateStageFlag = !stageValuesMap.contains(stageId)
+    val updateStageFlag = !stageValuesMap.contains(stageId)
     // This is for cases where same task updates the same accum multiple times
     val existingUpdateValue = taskUpdatesMap.getOrElse(taskId, 0L)
     parsedUpdateValue match {
