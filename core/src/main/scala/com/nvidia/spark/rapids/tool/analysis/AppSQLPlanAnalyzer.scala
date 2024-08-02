@@ -373,17 +373,18 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
 
     // Process taskStageAccumMap to get all the accumulators
     val stageLevelAccums = app.taskStageAccumMap.values.flatten
-    val groupedByAccumulatorId = stageLevelAccums.groupBy(_.accumulatorId)
-    groupedByAccumulatorId.flatMap { case (accumulatorId, accums) =>
-      // Extract and sort the update values, defaulting to 0 if not present
-      val sortedUpdates = accums.flatMap(_.update).toSeq.sorted
+    val groupedByStageAndAccumulatorId = stageLevelAccums.groupBy(
+      task => (task.stageId, task.accumulatorId))
+    // Extract and sort the update values, defaulting to 0 if not present
+    groupedByStageAndAccumulatorId.flatMap { case ((stageId, accumulatorId), accums) =>
+    val sortedUpdates = accums.flatMap(_.update).toSeq.sorted
 
       // Compute the statistics for the accumulator if applicable
       computeStatistics(sortedUpdates).map { stats =>
         val sampleAccum = accums.head
         AccumProfileResults(
           appIndex = appIndex,
-          stageId = sampleAccum.stageId.toString,
+          stageId = stageId.toString,
           accumulatorId = accumulatorId,
           name = sampleAccum.name.getOrElse("Unknown"),
           min = stats.min,
