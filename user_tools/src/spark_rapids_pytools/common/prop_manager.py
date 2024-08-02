@@ -60,7 +60,7 @@ class AbstractPropertiesContainer(object):
     """
     An abstract class that loads properties (dictionary).
     """
-    prop_arg: str
+    prop_arg: Union[str, dict]
     file_load: bool = True
     props: Any = field(default=None, init=False)
 

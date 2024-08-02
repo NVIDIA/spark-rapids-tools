@@ -13,6 +13,8 @@ toolOutput:
       fileName: rapids_4_spark_qualification_output_stages.csv
     tunings:
       subFolder: tuning
+    appsStatusReport:
+        fileName: rapids_4_spark_qualification_output_status.csv
     summaryReport:
       fileName: rapids_4_spark_qualification_output.csv
       columns:
@@ -149,7 +151,6 @@ local:
             outputComment: "Heuristics information"
       configRecommendations:
         name: 'rapids_4_spark_qualification_output/tuning'
-        outputComment: "*Cluster config recommendations"
         columns:
           - 'Full Cluster Config Recommendations*'
           - 'GPU Config Recommendation Breakdown*'
@@ -159,11 +160,15 @@ local:
         columns:
           - 'App ID'
           - 'App Name'
+          - 'Event Log'
           - 'Source Cluster'
           - 'Recommended Cluster'
           - 'Estimated GPU Speedup Category'
           - 'Full Cluster Config Recommendations*'
           - 'GPU Config Recommendation Breakdown*'
+      appsStatusReport:
+        name: 'rapids_4_spark_qualification_output/rapids_4_spark_qualification_output_status.csv'
+        outputComment: "Application status report"
     costColumns:
       - 'Savings Based Recommendation'
       - 'Estimated App Cost'

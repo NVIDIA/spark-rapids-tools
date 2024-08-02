@@ -20,7 +20,7 @@ import java.io.FileNotFoundException
 import java.time.LocalDateTime
 import java.util.zip.ZipOutputStream
 
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import scala.collection.mutable.LinkedHashMap
 import scala.util.control.NonFatal
 
 import org.apache.hadoop.conf.Configuration
@@ -102,23 +102,27 @@ object EventLogPathProcessor extends Logging {
     (dbLogFiles.size > 1)
   }
 
-  // If the user provides wildcard in the eventlogs, then the path processor needs
-  // to process the path as a pattern. Otherwise, HDFS throws an exception mistakenly that
-  // no such file exists.
-  // Once the glob path is checked, the list of eventlogs is the result of the flattenMap
-  // of all the processed files.
+  /**
+   * If the user provides wildcard in the eventlogs, then the path processor needs
+   * to process the path as a pattern. Otherwise, HDFS throws an exception mistakenly that
+   * no such file exists.
+   * Once the glob path is checked, the list of eventlogs is the result of the flattenMap
+   * of all the processed files.
+   *
+   * @return List of (rawPath, List[processedPaths])
+   */
   private def processWildcardsLogs(eventLogsPaths: List[String],
-      hadoopConf: Configuration): List[String] = {
-    val processedLogs = ListBuffer[String]()
-    eventLogsPaths.foreach { rawPath =>
+      hadoopConf: Configuration): List[(String, List[String])] = {
+    eventLogsPaths.map { rawPath =>
       if (!rawPath.contains("*")) {
-        processedLogs += rawPath
+        (rawPath, List(rawPath))
       } else {
         try {
           val globPath = new Path(rawPath)
           val fileContext = FileContext.getFileContext(globPath.toUri(), hadoopConf)
           val fileStatuses = fileContext.util().globStatus(globPath)
-          processedLogs ++= fileStatuses.map(_.getPath.toString)
+          val paths = fileStatuses.map(_.getPath.toString).toList
+          (rawPath, paths)
         } catch {
           case _ : Throwable =>
             // Do not fail in this block.
@@ -126,11 +130,10 @@ object EventLogPathProcessor extends Logging {
             // processing the file.
             // This will make handling errors more consistent during the processing of the analysis
             logWarning(s"Processing pathLog with wildCard has failed: $rawPath")
-            processedLogs += rawPath
+            (rawPath, List.empty)
         }
       }
     }
-    processedLogs.toList
   }
 
   def getEventLogInfo(pathString: String,
@@ -226,7 +229,13 @@ object EventLogPathProcessor extends Logging {
       eventLogsPaths: List[String],
       hadoopConf: Configuration): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
     val logsPathNoWildCards = processWildcardsLogs(eventLogsPaths, hadoopConf)
-    val logsWithTimestamp = logsPathNoWildCards.flatMap(getEventLogInfo(_, hadoopConf)).toMap
+    val logsWithTimestamp = logsPathNoWildCards.flatMap {
+      case (rawPath, processedPaths) if processedPaths.isEmpty =>
+        // If no event logs are found in the path after wildcard expansion, return a failed event
+        Map(FailedEventLog(new Path(rawPath), s"No event logs found in $rawPath") -> None)
+      case (_, processedPaths) =>
+        processedPaths.flatMap(getEventLogInfo(_, hadoopConf))
+    }.toMap
 
     logDebug("Paths after stringToPath: " + logsWithTimestamp)
     // Filter the event logs to be processed based on the criteria. If it is not provided in the

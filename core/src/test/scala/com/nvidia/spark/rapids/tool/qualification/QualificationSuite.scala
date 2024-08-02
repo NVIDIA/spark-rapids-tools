@@ -150,12 +150,11 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  private def runQualificationTest(eventLogs: Array[String], expectFileName: String,
+  private def runQualificationTest(eventLogs: Array[String], expectFileName: String = "",
       shouldReturnEmpty: Boolean = false, expectPerSqlFileName: Option[String] = None,
-      expectedStatus: Option[StatusReportCounts] = None) = {
+      expectedStatus: Option[StatusReportCounts] = None): Unit = {
     TrampolineUtil.withTempDir { outpath =>
       val qualOutputPrefix = "rapids_4_spark_qualification_output"
-      val resultExpectation = new File(expRoot, expectFileName)
       val outputArgs = Array(
         "--output-directory",
         outpath.getAbsolutePath())
@@ -183,7 +182,8 @@ class QualificationSuite extends BaseTestSuite {
 
       if (shouldReturnEmpty) {
         assert(appSum.head.estimatedInfo.sqlDfDuration == 0.0)
-      } else {
+      } else if (expectFileName.nonEmpty) {
+        val resultExpectation = new File(expRoot, expectFileName)
         val dfExpect = readExpectedFile(resultExpectation)
         assert(!dfQual.isEmpty)
         ToolTestUtils.compareDataFrames(dfQual, dfExpect)
@@ -621,12 +621,12 @@ class QualificationSuite extends BaseTestSuite {
 
   test("test eventlog with no jobs") {
     val logFiles = Array(s"$logDir/empty_eventlog")
-    runQualificationTest(logFiles, "", shouldReturnEmpty=true)
+    runQualificationTest(logFiles, shouldReturnEmpty=true)
   }
 
   test("test eventlog with rdd only jobs") {
     val logFiles = Array(s"$logDir/rdd_only_eventlog")
-    runQualificationTest(logFiles, "", shouldReturnEmpty=true)
+    runQualificationTest(logFiles, shouldReturnEmpty=true)
   }
 
   test("test truncated log file 1") {
@@ -1357,7 +1357,7 @@ class QualificationSuite extends BaseTestSuite {
         val (exit, sumInfo@_) =
           QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
-  
+
         // the code above that runs the Spark query stops the Sparksession
         // so create a new one to read in the csv file
         createSparkSession()
@@ -1367,7 +1367,7 @@ class QualificationSuite extends BaseTestSuite {
           s"rapids_4_spark_qualification_output.csv"
         val outputActual = readExpectedFile(new File(outputResults))
         assert(outputActual.collect().size == 1)
-        assert(outputActual.select("Potential Problems").first.getString(0) == 
+        assert(outputActual.select("Potential Problems").first.getString(0) ==
           "TIMEZONE hour():TIMEZONE current_timestamp():TIMEZONE to_timestamp():TIMEZONE second()")
       }
     }
@@ -1696,6 +1696,33 @@ class QualificationSuite extends BaseTestSuite {
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
       assert(!new File(outputResultFile).exists())
     }
+  }
+
+  test("test status report generation for wildcard event log") {
+    val logFiles = Array(
+      s"$logDir/cluster_information/eventlog_3node*") // correct wildcard event log with 3 matches
+    // Status counts: 3 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+    val expectedStatus = Some(StatusReportCounts(3, 0, 0, 0))
+    runQualificationTest(logFiles, expectedStatus = expectedStatus)
+  }
+
+  test("test status report generation for incorrect wildcard event logs") {
+    val logFiles = Array(
+      s"$logDir/cluster_information/eventlog_xxxx*",  // incorrect wildcard event log
+      s"$logDir/cluster_information/eventlog_yyyy*")  // incorrect wildcard event log
+    // Status counts: 0 SUCCESS, 2 FAILURE, 0 SKIPPED, 0 UNKNOWN
+    val expectedStatus = Some(StatusReportCounts(0, 2, 0, 0))
+    runQualificationTest(logFiles, expectedStatus = expectedStatus)
+  }
+
+  test("test status report generation for mixed event log") {
+    val logFiles = Array(
+      s"$logDir/nds_q86_test",                        // correct event log
+      s"$logDir/cluster_information/eventlog_2node*", // correct wildcard event log with 1 match
+      s"$logDir/cluster_information/eventlog_xxxx*")  // incorrect wildcard event log
+    // Status counts: 2 SUCCESS, 1 FAILURE, 0 SKIPPED, 0 UNKNOWN
+    val expectedStatus = Some(StatusReportCounts(2, 1, 0, 0))
+    runQualificationTest(logFiles, expectedStatus = expectedStatus)
   }
 }
 
