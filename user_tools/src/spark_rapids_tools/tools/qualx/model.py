@@ -52,21 +52,6 @@ ignored_features = {
     'sqlID'
 }
 
-# queries to hold out for NDS evaluation
-holdout_nds_queries = [
-    'query2',
-    'query24_part1',
-    'query24_part2',
-    'query28',
-    'query47',
-    'query56',
-    'query66',
-    'query75',
-    'query83',
-    'query93',
-    'query99',
-]
-
 expected_model_features = expected_raw_features - ignored_features
 
 
@@ -355,30 +340,27 @@ def split_random(
     return cpu_aug_tbl
 
 
-def split_all_test(cpu_aug_tbl: pd.DataFrame) -> pd.DataFrame:
-    cpu_aug_tbl['split'] = 'test'
-    return cpu_aug_tbl
+def split_train_val(cpu_aug_tbl: pd.DataFrame, seed: int = 0, val_pct: float = 0.2,) -> pd.DataFrame:
+    """Sets all rows without a split value to 'train'."""
+    if 'split' in cpu_aug_tbl.columns:
+        # if 'split' already present, just modify the NaN rows
+        indices = cpu_aug_tbl.index[cpu_aug_tbl['split'].isna()].tolist()
+    else:
+        # otherwise, modify all rows
+        indices = cpu_aug_tbl.index.tolist()
 
-
-def split_nds(
-    cpu_aug_tbl: pd.DataFrame,
-    seed: int = 0,
-    val_pct: float = 0.2,
-    holdout_queries: List[str] = None,
-) -> pd.DataFrame:
-    if holdout_queries is None:
-        holdout_queries = holdout_nds_queries
-    is_test = (cpu_aug_tbl['appName'].str.startswith('nds_')) & (
-        cpu_aug_tbl['description'].isin(holdout_queries)
-    )
-    cpu_aug_tbl.loc[is_test, 'split'] = 'test'
-    indices = cpu_aug_tbl.index[~is_test].tolist()
     num_rows = len(indices)
     random.Random(seed).shuffle(indices)
 
     # Split remaining rows into train/val sets
     cpu_aug_tbl.loc[indices[0: int(val_pct * num_rows)], 'split'] = 'val'
     cpu_aug_tbl.loc[indices[int(val_pct * num_rows):], 'split'] = 'train'
+    return cpu_aug_tbl
+
+
+def split_all_test(cpu_aug_tbl: pd.DataFrame) -> pd.DataFrame:
+    """Sets all rows to 'test' split."""
+    cpu_aug_tbl['split'] = 'test'
     return cpu_aug_tbl
 
 
