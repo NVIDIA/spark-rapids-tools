@@ -384,7 +384,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         val sampleAccum = accums.head
         AccumProfileResults(
           appIndex = appIndex,
-          stageId = stageId.toString,
+          stageId = stageId,
           accumulatorId = accumulatorId,
           name = sampleAccum.name.getOrElse("Unknown"),
           min = stats.min,
