@@ -20,6 +20,11 @@ import java.util.concurrent.ConcurrentHashMap
 
 import org.apache.spark.sql.rapids.tool.util.EventUtils.normalizeMetricName
 
+/**
+ * Accumulator Name Reference
+ * This maintains references to all accumulator names
+ * @param value
+ */
 case class AccNameRef(value: String)
 
 object AccNameRef {

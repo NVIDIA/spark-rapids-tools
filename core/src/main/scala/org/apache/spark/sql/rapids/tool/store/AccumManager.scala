@@ -22,12 +22,16 @@ import com.nvidia.spark.rapids.tool.analysis.StatisticsMetrics
 
 import org.apache.spark.scheduler.AccumulableInfo
 
+/**
+ * A class that manages all accumulables -
+ * maintains a map of accumulable id to AccumInfo
+ */
 class AccumManager {
   val accumInfoMap: mutable.HashMap[Long, AccumInfo] = {
     new mutable.HashMap[Long, AccumInfo]()
   }
 
-  def getOrCreateAccumInfo(id: Long, name: Option[String]): AccumInfo = {
+  private def getOrCreateAccumInfo(id: Long, name: Option[String]): AccumInfo = {
     accumInfoMap.getOrElseUpdate(id, new AccumInfo(AccMetaRef(id, name)))
   }
 
@@ -51,7 +55,6 @@ class AccumManager {
       (id, accInfo.getMinStageId)
     }.toMap
   }
-
 
   def removeAccumInfo(id: Long): Option[AccumInfo] = {
     accumInfoMap.remove(id)

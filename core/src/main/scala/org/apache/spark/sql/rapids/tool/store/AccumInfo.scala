@@ -23,6 +23,14 @@ import com.nvidia.spark.rapids.tool.analysis.StatisticsMetrics
 import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.sql.rapids.tool.util.EventUtils.parseAccumFieldToLong
 
+/**
+ * Maintains the accumulator information for a single accumulator
+ * This maintains following information:
+ * 1. Task updates for the accumulator - a map of all taskIds and their update values
+ * 2. Stage values for the accumulator - a map of all stageIds and their total values
+ * 3. AccumMetaRef for the accumulator - a reference to the Meta information
+ * @param infoRef - AccumMetaRef for the accumulator
+ */
 class AccumInfo(val infoRef: AccMetaRef) {
   // TODO: Should we use sorted maps for stageIDs and taskIds?
   val taskUpdatesMap: mutable.HashMap[Long, Long] =
@@ -51,8 +59,6 @@ class AccumInfo(val infoRef: AccMetaRef) {
     parsedUpdateValue match {
       case Some(v) =>
         taskUpdatesMap.put(taskId, v + existingUpdateValue)
-        // update teh stage if the task's update is non-zero
-        updateStageFlag ||= v != 0
       case None =>
         taskUpdatesMap.put(taskId, existingUpdateValue)
     }
