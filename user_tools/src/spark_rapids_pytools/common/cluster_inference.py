@@ -21,7 +21,7 @@ from logging import Logger
 
 import pandas as pd
 
-from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, GpuDevice
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging
 
@@ -76,12 +76,22 @@ class ClusterInference:
                                  'found for num cores = %d', cluster_info_df['App ID'], self.cluster_type,
                                  total_cores_per_node)
                 return None
-        return {
+        cluster_prop = {
             'DRIVER_NODE_TYPE': f'"{driver_node_type}"',
             'NUM_DRIVER_NODES': int(num_driver_nodes),
             'WORKER_NODE_TYPE': f'"{worker_node_type}"',
             'NUM_WORKER_NODES': int(num_worker_nodes)
         }
+        # If cluster type is GPU, include GPU properties (if available)
+        if self.cluster_type == ClusterType.GPU:
+            recommended_num_gpus = cluster_info_df.get('Recommended Num GPUs Per Node', 0)
+            recommended_gpu_device = GpuDevice(cluster_info_df.get('Recommended GPU Device'))
+            # Lookup GPU name from the GPU device based on platform
+            gpu_name = self.platform.lookup_gpu_device_name(recommended_gpu_device)
+            if gpu_name and recommended_num_gpus > 0:
+                cluster_prop['GPU_NAME'] = f'"{gpu_name}"'
+                cluster_prop['NUM_GPUS'] = int(recommended_num_gpus)
+        return cluster_prop
 
     def infer_cluster(self, cluster_info_df: pd.DataFrame) -> Optional[ClusterBase]:
         """

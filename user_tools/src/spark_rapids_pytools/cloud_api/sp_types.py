@@ -960,6 +960,14 @@ class PlatformBase:
         template_path = Utils.resource_path(f'templates/cluster_template/{CspEnv.pretty_print(self.type_id)}.ms')
         return TemplateGenerator.render_template_file(template_path, render_args)
 
+    @classmethod
+    def lookup_gpu_device_name(cls, gpu_device: GpuDevice) -> Optional[str]:
+        """
+        Lookup the GPU name from the GPU device based on the platform. This should be overridden by subclasses
+        for platforms that have different GPU names.
+        """
+        return GpuDevice.tostring(gpu_device)
+
 
 @dataclass
 class ClusterBase(ClusterGetAccessor):

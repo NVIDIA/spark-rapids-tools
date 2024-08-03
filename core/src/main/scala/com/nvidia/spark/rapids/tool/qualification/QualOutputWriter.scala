@@ -463,6 +463,7 @@ object QualOutputWriter {
   val CLUSTER_ID_STR = "Cluster Id" // Different from ClusterId used for Databricks Tags
   val CLUSTER_NAME = "Cluster Name"
   val RECOMMENDED_NUM_GPUS = "Recommended Num GPUs Per Node"
+  val RECOMMENDED_GPU_DEVICE = "Recommended GPU Device"
   val NUM_EXECS_PER_NODE = "Num Executors Per Node"
   val RECOMMENDED_NUM_EXECS = "Recommended Num Executors"
   val NUM_WORKER_NODES = "Num Worker Nodes"
@@ -826,7 +827,7 @@ object QualOutputWriter {
       APP_ID_STR, APP_NAME_STR, VENDOR, DRIVER_HOST, CLUSTER_ID_STR, CLUSTER_NAME,
       WORKER_NODE_TYPE, DRIVER_NODE_TYPE, NUM_WORKER_NODES, NUM_EXECS_PER_NODE, CORES_PER_EXEC,
       RECOMMENDED_WORKER_NODE_TYPE, RECOMMENDED_NUM_EXECS, RECOMMENDED_NUM_WORKER_NODES,
-      RECOMMENDED_CORES_PER_EXEC, RECOMMENDED_NUM_GPUS).map {
+      RECOMMENDED_CORES_PER_EXEC, RECOMMENDED_GPU_DEVICE, RECOMMENDED_NUM_GPUS).map {
       key => (key, key.length)
     }
     mutable.LinkedHashMap(headersAndFields: _*)
@@ -867,6 +868,7 @@ object QualOutputWriter {
         RECOMMENDED_NUM_WORKER_NODES),
       refactorCSVFuncWithOption(recClusterInfo.map(_.coresPerExecutor.toString),
         RECOMMENDED_CORES_PER_EXEC),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.gpuDevice), RECOMMENDED_GPU_DEVICE),
       refactorCSVFuncWithOption(recClusterInfo.map(_.numGpus.toString), RECOMMENDED_NUM_GPUS)
 
     )

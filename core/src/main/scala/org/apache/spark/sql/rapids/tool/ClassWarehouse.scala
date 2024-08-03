@@ -71,6 +71,7 @@ case class RecommendedClusterInfo(
     numWorkerNodes: Int,
     numGpus: Int,
     numExecutors: Int,
+    gpuDevice: String,
     driverNodeType: Option[String] = None,
     workerNodeType: Option[String] = None) extends ClusterInfo {
     // The number of executors per node is the same as the number of GPUs
