@@ -21,6 +21,7 @@ from logging import Logger
 
 import pandas as pd
 
+from spark_rapids_pytools.cloud_api.onprem import OnPremPlatform
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, GpuDevice
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging
@@ -54,34 +55,40 @@ class ClusterInference:
         """
         # Currently we support only single driver node for all CSPs
         num_driver_nodes = 1
-        driver_node_type = cluster_info_df.get('Driver Node Type')
-        # If driver instance is not set, use the default value from platform configurations
-        if pd.isna(driver_node_type):
-            driver_node_type = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
         num_worker_nodes = cluster_info_df.get('Num Worker Nodes')
-        worker_node_type = cluster_info_df.get('Worker Node Type')
-        if pd.isna(worker_node_type):
-            # If worker instance is not set, use the default value based on the number of cores
-            cores_per_executor = cluster_info_df.get('Cores Per Executor')
-            execs_per_node = cluster_info_df.get('Num Executors Per Node')
-            total_cores_per_node = execs_per_node * cores_per_executor
-            if pd.isna(total_cores_per_node):
-                self.logger.info('For App ID: %s, Unable to infer %s cluster. Reason - Total cores per node cannot'
-                                 ' be determined.', cluster_info_df['App ID'], self.cluster_type)
-                return None
-            # TODO - need to account for number of GPUs per executor
-            worker_node_type = self.platform.get_matching_worker_node_type(total_cores_per_node)
-            if worker_node_type is None:
-                self.logger.info('For App ID: %s, Unable to infer %s cluster. Reason - No matching worker node '
-                                 'found for num cores = %d', cluster_info_df['App ID'], self.cluster_type,
-                                 total_cores_per_node)
-                return None
-        cluster_prop = {
-            'DRIVER_NODE_TYPE': f'"{driver_node_type}"',
-            'NUM_DRIVER_NODES': int(num_driver_nodes),
-            'WORKER_NODE_TYPE': f'"{worker_node_type}"',
-            'NUM_WORKER_NODES': int(num_worker_nodes)
-        }
+        cores_per_executor = cluster_info_df.get('Cores Per Executor')
+        execs_per_node = cluster_info_df.get('Num Executors Per Node')
+        total_cores_per_node = execs_per_node * cores_per_executor
+        if isinstance(self.platform, OnPremPlatform):
+            cluster_prop = {
+                'NUM_WORKER_NODES': int(num_worker_nodes),
+                'NUM_WORKER_CORES': int(total_cores_per_node)
+            }
+        else:
+            driver_node_type = cluster_info_df.get('Driver Node Type')
+            # If driver instance is not set, use the default value from platform configurations
+            if pd.isna(driver_node_type):
+                driver_node_type = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
+            worker_node_type = cluster_info_df.get('Worker Node Type')
+            if pd.isna(worker_node_type):
+                # If worker instance is not set, use the default value based on the number of cores
+                if pd.isna(total_cores_per_node):
+                    self.logger.info('For App ID: %s, Unable to infer %s cluster. Reason - Total cores per node cannot'
+                                     ' be determined.', cluster_info_df['App ID'], self.cluster_type)
+                    return None
+                # TODO - need to account for number of GPUs per executor
+                worker_node_type = self.platform.get_matching_worker_node_type(total_cores_per_node)
+                if worker_node_type is None:
+                    self.logger.info('For App ID: %s, Unable to infer %s cluster. Reason - No matching worker node '
+                                     'found for num cores = %d', cluster_info_df['App ID'], self.cluster_type,
+                                     total_cores_per_node)
+                    return None
+            cluster_prop = {
+                'DRIVER_NODE_TYPE': f'"{driver_node_type}"',
+                'NUM_DRIVER_NODES': int(num_driver_nodes),
+                'WORKER_NODE_TYPE': f'"{worker_node_type}"',
+                'NUM_WORKER_NODES': int(num_worker_nodes)
+            }
         # If cluster type is GPU, include GPU properties (if available)
         if self.cluster_type == ClusterType.GPU:
             recommended_num_gpus = cluster_info_df.get('Recommended Num GPUs Per Node', 0)

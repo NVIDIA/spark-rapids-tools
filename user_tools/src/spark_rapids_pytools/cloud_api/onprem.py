@@ -37,8 +37,7 @@ class OnPremPlatform(PlatformBase):
 
     def __post_init__(self):
         self.type_id = CspEnv.ONPREM
-        self.platform = self.ctxt_args.get('targetPlatform')
-        self.cluster_inference_supported = False
+        self.cluster_inference_supported = True
         super().__post_init__()
 
     def _construct_cli_object(self):
@@ -52,11 +51,7 @@ class OnPremPlatform(PlatformBase):
 
     def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
                                       is_props_file: bool = False):
-        if self.platform is not None:
-            onprem_cluster = OnPremCluster(self, is_inferred=is_inferred).set_connection(
-                cluster_id=cluster, props=props)
-            return onprem_cluster
-        return None
+        return OnPremCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
     def _construct_cluster_config(self, cluster_info: dict, default_config: dict):
         raise NotImplementedError
@@ -163,15 +158,17 @@ class OnPremLocalRapidsJob(RapidsLocalJob):
 class OnPremNode(ClusterNode):
     """Implementation of Onprem cluster node."""
 
-    def fetch_and_set_hw_info(self, cli=None):
-        sys_info = self._pull_sys_info(cli)
-        self.construct_hw_info(cli=cli, sys_info=sys_info)
-
     def _pull_sys_info(self, cli=None) -> SysInfo:
         cpu_mem = self.props.get_value('memory')
         cpu_mem = cpu_mem.replace('MiB', '')
         num_cpus = self.props.get_value('numCores')
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
+
+    def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
+        num_gpus = self.props.get_value('gpuInfo', 'count')
+        gpu_device = GpuDevice(self.props.get_value('gpuInfo', 'name'))
+        gpu_mem = gpu_device.get_gpu_mem()[0]
+        return GpuHWInfo(num_gpus=num_gpus, gpu_mem=gpu_mem, gpu_device=gpu_device)
 
     def _get_dataproc_nearest_cpu_cores(self, num_cores):
         if num_cores == 1:
@@ -207,7 +204,7 @@ class OnPremNode(ClusterNode):
         if self.platform_name is not None:
             self.instance_type = self._get_instance_type(self.platform_name)
 
-    def _pull_gpu_hw_info(self, cli=None) -> None:
+    def _pull_and_set_mc_props(self, cli=None):
         pass
 
 
@@ -294,6 +291,28 @@ class OnPremCluster(ClusterBase):
 
     def get_image_version(self) -> str:
         pass
+
+    def get_cluster_configuration(self) -> dict:
+        """
+        Overrides to provide the cluster configuration which is specific to OnPrem.
+        """
+        cluster_config = {
+            'driverNodeType': 'Not Applicable',
+            'workerNodeType': 'Not Applicable',
+            'numWorkerNodes': self.get_workers_count(),
+        }
+        gpu_per_machine, gpu_device_str = self.get_gpu_per_worker()
+        gpu_name = self.platform.lookup_gpu_device_name(GpuDevice(gpu_device_str))
+        # Need to handle case this was CPU event log and just make a recommendation
+        if gpu_name and gpu_per_machine > 0:
+            additional_config = {
+                'gpuInfo': {
+                    'device': gpu_name,
+                    'gpuPerWorker': gpu_per_machine
+                }
+            }
+            cluster_config.update(additional_config)
+        return cluster_config
 
 
 @dataclass
