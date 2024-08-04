@@ -16,7 +16,7 @@
 """Implementation specific to OnPrem"""
 
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, List, Optional
 
 from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob
@@ -164,8 +164,10 @@ class OnPremNode(ClusterNode):
         num_cpus = self.props.get_value('numCores')
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
-    def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
-        num_gpus = self.props.get_value('gpuInfo', 'count')
+    def _pull_gpu_hw_info(self, cli=None) -> Optional[GpuHWInfo]:
+        num_gpus = self.props.get_value_silent('gpuInfo', 'count')
+        if not num_gpus:
+            return None
         gpu_device = GpuDevice(self.props.get_value('gpuInfo', 'name'))
         gpu_mem = gpu_device.get_gpu_mem()[0]
         return GpuHWInfo(num_gpus=num_gpus, gpu_mem=gpu_mem, gpu_device=gpu_device)
@@ -296,23 +298,26 @@ class OnPremCluster(ClusterBase):
         """
         Overrides to provide the cluster configuration which is specific to OnPrem.
         """
-        cluster_config = {
-            'driverNodeType': 'Not Applicable',
-            'workerNodeType': 'Not Applicable',
-            'numWorkerNodes': self.get_workers_count(),
-        }
-        gpu_per_machine, gpu_device_str = self.get_gpu_per_worker()
-        gpu_name = self.platform.lookup_gpu_device_name(GpuDevice(gpu_device_str))
-        # Need to handle case this was CPU event log and just make a recommendation
-        if gpu_name and gpu_per_machine > 0:
-            additional_config = {
-                'gpuInfo': {
-                    'device': gpu_name,
-                    'gpuPerWorker': gpu_per_machine
-                }
-            }
-            cluster_config.update(additional_config)
+        cluster_config = self._get_cluster_configuration(driver_node_type='N/A',
+                                                         worker_node_type='N/A',
+                                                         num_worker_nodes=self.get_nodes_cnt(SparkNodeType.WORKER))
+        # If the cluster is GPU cluster, we need to add the GPU configuration
+        if self.is_gpu_cluster():
+            gpu_config = self._get_gpu_configuration()
+            cluster_config.update(gpu_config)
         return cluster_config
+
+    def get_worker_conversion_str(self) -> str:
+        """
+        Overrides to provide the worker conversion string which is specific to OnPrem.
+        Example: '2 workers (1 L4 each)'
+        """
+        num_workers = self.get_workers_count()
+        workers_plural = '' if num_workers == 1 else 's'
+        worker_conversion_str = f'{num_workers} worker{workers_plural}'
+        if self.is_gpu_cluster():
+            worker_conversion_str += f' {self._get_gpu_conversion_str()}'
+        return worker_conversion_str
 
 
 @dataclass

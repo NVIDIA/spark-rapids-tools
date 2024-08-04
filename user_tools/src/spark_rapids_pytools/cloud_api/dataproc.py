@@ -17,7 +17,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, List, Union, Optional
+from typing import Any, List, Union, Optional, Dict
 
 from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob
@@ -178,12 +178,11 @@ class DataprocPlatform(PlatformBase):
         return super().generate_cluster_configuration(render_args)
 
     @classmethod
-    def lookup_gpu_device_name(cls, gpu_device: GpuDevice) -> Optional[str]:
-        gpu_device_hash = {
-            't4': 'nvidia-tesla-t4',
-            'l4': 'nvidia-l4'
+    def _gpu_device_name_lookup_map(cls) -> Dict[GpuDevice, str]:
+        return {
+            GpuDevice.T4: 'nvidia-tesla-t4',
+            GpuDevice.L4: 'nvidia-l4'
         }
-        return gpu_device_hash.get(gpu_device.lower())
 
 
 @dataclass
@@ -401,7 +400,7 @@ class DataprocNode(ClusterNode):
         # this is a value
         return conf_val
 
-    def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
+    def _pull_gpu_hw_info(self, cli=None) -> Optional[GpuHWInfo]:
         # gcloud GPU machines: https://cloud.google.com/compute/docs/gpus
         def get_gpu_device(accelerator_name: str) -> GpuDevice:
             """
@@ -630,21 +629,24 @@ class DataprocCluster(ClusterBase):
         Overrides to provide the cluster configuration which is specific to Dataproc.
         """
         cluster_config = super().get_cluster_configuration()
-        gpu_per_machine, gpu_device_str = self.get_gpu_per_worker()
-        gpu_name = self.platform.lookup_gpu_device_name(GpuDevice(gpu_device_str))
-        # Need to handle case this was CPU event log and just make a recommendation
-        if gpu_name and gpu_per_machine > 0:
-            additional_config = {
-                'gpuInfo': {
-                    'device': gpu_name,
-                    'gpuPerWorker': gpu_per_machine
-                },
-                'additionalConfig': {
-                    'localSsd': 2
-                }
-            }
-            cluster_config.update(additional_config)
+        # If the cluster is GPU cluster, we need to add the GPU configuration
+        if self.is_gpu_cluster():
+            gpu_config = self._get_gpu_configuration()
+            cluster_config.update(gpu_config)
+            ssd_config = self._get_ssd_configuration()
+            cluster_config.update(ssd_config)
         return cluster_config
+
+    @classmethod
+    def _get_ssd_configuration(cls) -> dict:
+        """
+        TODO: We should recommend correct number of SSDs instead a fixed number.
+        """
+        return {
+            'ssdInfo': {
+                'numLocalSsds': 2
+            }
+        }
 
     def _generate_node_configuration(self, render_args: dict = None) -> Union[str, dict]:
         """
@@ -652,6 +654,13 @@ class DataprocCluster(ClusterBase):
         in case of Dataproc.
         """
         return 'test-node-e'
+
+    def get_worker_conversion_str(self) -> str:
+        worker_conversion_str = super().get_worker_conversion_str()
+        if self.is_gpu_cluster():
+            gpu_str = self._get_gpu_conversion_str()
+            return f'{worker_conversion_str} {gpu_str}'
+        return worker_conversion_str
 
 
 @dataclass

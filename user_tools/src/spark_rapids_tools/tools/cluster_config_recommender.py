@@ -31,12 +31,12 @@ from spark_rapids_tools import CspEnv
 @dataclass
 class ClusterRecommendationInfo:
     """
-    Dataclass to hold the recommended cluster and the qualified node recommendation.
+    Dataclass to hold the recommended cluster and the qualified cluster recommendation.
     """
     platform: str = field(default=CspEnv.get_default(), init=True)
     source_cluster_config: dict = field(default_factory=dict)
     recommended_cluster_config: dict = field(default_factory=dict)
-    qualified_node_recommendation: str = 'Not Available'
+    qualified_cluster_recommendation: str = 'Not Available'
 
     def _cluster_info_to_dict(self) -> Dict[str, dict]:
         """
@@ -52,7 +52,7 @@ class ClusterRecommendationInfo:
     def to_dict(self) -> Dict[str, Union[dict, str]]:
         return {
             'Cluster Info': self._cluster_info_to_dict(),
-            'Qualified Node Recommendation': self.qualified_node_recommendation
+            'Qualified Cluster Recommendation': self.qualified_cluster_recommendation
         }
 
     @classmethod
@@ -99,7 +99,7 @@ class ClusterConfigRecommender:
              'sourceCluster': {'driverNodeType': 'm6.xlarge', 'workerNodeType': 'm6.xlarge', 'numWorkerNodes': 2 }
              'recommendedCluster': {'driverNodeType': 'm6.xlarge', 'workerNodeType': 'g5.2xlarge', 'numWorkerNodes': 2 }
            },
-          'Qualified Node Recommendation': 'm6.xlarge to g5.2xlarge'
+          'Qualified Cluster Recommendation': '2 x g5.2xlarge'
         }
         """  # pylint: disable=line-too-long
         # Return None if no GPU cluster is available.
@@ -107,18 +107,12 @@ class ClusterConfigRecommender:
         if not gpu_cluster:
             return None
 
-        gpu_instance_type = gpu_cluster.get_worker_node().instance_type
-        recommended_cluster_config = gpu_cluster.get_cluster_configuration()
-        conversion_str = gpu_instance_type
-        source_cluster_config = {}
         platform = gpu_cluster.platform.get_platform_name()
+        cpu_cluster_config = cpu_cluster.get_cluster_configuration() if cpu_cluster else {}
+        gpu_cluster_config = gpu_cluster.get_cluster_configuration()
+        gpu_conversion_str = gpu_cluster.get_worker_conversion_str()
 
-        if cpu_cluster:
-            source_cluster_config = cpu_cluster.get_cluster_configuration()
-            cpu_instance_type = cpu_cluster.get_worker_node().instance_type
-            if cpu_instance_type != gpu_instance_type:
-                conversion_str = f'{cpu_instance_type} to {gpu_instance_type}'
-        return ClusterRecommendationInfo(platform, source_cluster_config, recommended_cluster_config, conversion_str)
+        return ClusterRecommendationInfo(platform, cpu_cluster_config, gpu_cluster_config, gpu_conversion_str)
 
     def _get_cluster_conversion_summary(self) -> Dict[str, ClusterRecommendationInfo]:
         """
@@ -133,7 +127,6 @@ class ClusterConfigRecommender:
         gpu_cluster_info = self.ctxt.get_ctxt('gpuClusterProxy')
         conversion_summary_all = self._get_instance_type_conversion(cpu_cluster_info, gpu_cluster_info)
         if conversion_summary_all:
-            self._log_cluster_conversion(cpu_cluster_info, gpu_cluster_info)
             cluster_conversion_summary['all'] = conversion_summary_all
 
         # Summary for each app
@@ -145,7 +138,6 @@ class ClusterConfigRecommender:
                 gpu_info = gpu_cluster_info_per_app.get(app_id)
                 conversion_summary = self._get_instance_type_conversion(cpu_info, gpu_info)
                 if conversion_summary:
-                    self._log_cluster_conversion(cpu_info, gpu_info, app_id)
                     cluster_conversion_summary[app_id] = conversion_summary
 
         return cluster_conversion_summary
@@ -221,17 +213,3 @@ class ClusterConfigRecommender:
             self.logger.warning('Error while adding cluster and tuning recommendations. Reason - %s:%s',
                                 type(e).__name__, e)
             return tools_processed_apps
-
-    def _log_cluster_conversion(self, cpu_cluster: Optional[ClusterBase], gpu_cluster: Optional[ClusterBase],
-                                app_id: Optional[str] = None) -> None:
-        """
-        Log the cluster conversion summary
-        """
-        cpu_cluster_str = cpu_cluster.get_cluster_shape_str() if cpu_cluster else 'N/A'
-        gpu_cluster_str = gpu_cluster.get_cluster_shape_str() if gpu_cluster else 'N/A'
-        conversion_log_msg = f'CPU cluster: {cpu_cluster_str}; Recommended GPU cluster: {gpu_cluster_str}'
-        if cpu_cluster and cpu_cluster.is_inferred:  # If cluster is inferred, add it to the log message
-            conversion_log_msg = f'Inferred {conversion_log_msg}'
-        if app_id:  # If app_id is provided, add it to the log message
-            conversion_log_msg = f'For App ID: {app_id}, {conversion_log_msg}'
-        self.logger.info(conversion_log_msg)

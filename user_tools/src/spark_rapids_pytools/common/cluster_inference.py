@@ -21,10 +21,10 @@ from logging import Logger
 
 import pandas as pd
 
-from spark_rapids_pytools.cloud_api.onprem import OnPremPlatform
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, GpuDevice
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_tools import CspEnv
 
 
 class ClusterType(Enum):
@@ -49,22 +49,46 @@ class ClusterInference:
     cluster_type: ClusterType = field(default=ClusterType.CPU, init=True)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster_inference'), init=False)
 
+    def _get_gpu_cluster_template_args(self, cluster_info_df: pd.Series) -> dict:
+        """
+        Extract GPU cluster properties from input json
+        :param cluster_info_df: DataFrame containing cluster information
+        """
+        recommended_num_gpus = cluster_info_df.get('Recommended Num GPUs Per Node', 0)
+        recommended_gpu_device = GpuDevice(cluster_info_df.get('Recommended GPU Device'))
+        # Lookup GPU name from the GPU device based on platform
+        gpu_name = self.platform.lookup_gpu_device_name(recommended_gpu_device)
+        if gpu_name and recommended_num_gpus > 0:
+            return {
+                'GPU_NAME': f'"{gpu_name}"',
+                'NUM_GPUS': int(recommended_num_gpus)
+            }
+        return {}
+
+    def _log_inference_failure(self, app_id: str, reason: str) -> None:
+        self.logger.info(f'For App ID: {app_id}, Unable to infer {self.cluster_type} cluster. Reason - {reason}')
+
     def _get_cluster_template_args(self, cluster_info_df: pd.Series) -> Optional[dict]:
         """
-        Extract information about drivers and workers from input json
+        Extract information about drivers and workers from input dataframe and return the template arguments
         """
         # Currently we support only single driver node for all CSPs
         num_driver_nodes = 1
+        app_id = cluster_info_df.get('App ID')
         num_worker_nodes = cluster_info_df.get('Num Worker Nodes')
         cores_per_executor = cluster_info_df.get('Cores Per Executor')
         execs_per_node = cluster_info_df.get('Num Executors Per Node')
         total_cores_per_node = execs_per_node * cores_per_executor
-        if isinstance(self.platform, OnPremPlatform):
-            cluster_prop = {
-                'NUM_WORKER_NODES': int(num_worker_nodes),
-                'NUM_WORKER_CORES': int(total_cores_per_node)
-            }
+        # 1. Construct template arguments based on raw cluster information and platform
+        cluster_prop = {
+            'NUM_DRIVER_NODES': int(num_driver_nodes),
+            'NUM_WORKER_NODES': int(num_worker_nodes),
+        }
+        if self.platform.get_platform_name() == CspEnv.ONPREM:
+            # For on-prem, we need to include number of cores per worker node
+            cluster_prop['NUM_WORKER_CORES'] = int(total_cores_per_node)
         else:
+            # For CSPs, we need to include node types
             driver_node_type = cluster_info_df.get('Driver Node Type')
             # If driver instance is not set, use the default value from platform configurations
             if pd.isna(driver_node_type):
@@ -73,31 +97,22 @@ class ClusterInference:
             if pd.isna(worker_node_type):
                 # If worker instance is not set, use the default value based on the number of cores
                 if pd.isna(total_cores_per_node):
-                    self.logger.info('For App ID: %s, Unable to infer %s cluster. Reason - Total cores per node cannot'
-                                     ' be determined.', cluster_info_df['App ID'], self.cluster_type)
+                    self._log_inference_failure(app_id, 'Total cores per node cannot be determined.')
                     return None
                 # TODO - need to account for number of GPUs per executor
                 worker_node_type = self.platform.get_matching_worker_node_type(total_cores_per_node)
                 if worker_node_type is None:
-                    self.logger.info('For App ID: %s, Unable to infer %s cluster. Reason - No matching worker node '
-                                     'found for num cores = %d', cluster_info_df['App ID'], self.cluster_type,
-                                     total_cores_per_node)
+                    self._log_inference_failure(app_id, f'No matching worker node '
+                                                        f'found for num cores = {total_cores_per_node}')
                     return None
-            cluster_prop = {
+            cluster_prop.update({
                 'DRIVER_NODE_TYPE': f'"{driver_node_type}"',
-                'NUM_DRIVER_NODES': int(num_driver_nodes),
                 'WORKER_NODE_TYPE': f'"{worker_node_type}"',
-                'NUM_WORKER_NODES': int(num_worker_nodes)
-            }
-        # If cluster type is GPU, include GPU properties (if available)
+            })
+        # 2. Now, if cluster type is GPU, include GPU properties
         if self.cluster_type == ClusterType.GPU:
-            recommended_num_gpus = cluster_info_df.get('Recommended Num GPUs Per Node', 0)
-            recommended_gpu_device = GpuDevice(cluster_info_df.get('Recommended GPU Device'))
-            # Lookup GPU name from the GPU device based on platform
-            gpu_name = self.platform.lookup_gpu_device_name(recommended_gpu_device)
-            if gpu_name and recommended_num_gpus > 0:
-                cluster_prop['GPU_NAME'] = f'"{gpu_name}"'
-                cluster_prop['NUM_GPUS'] = int(recommended_num_gpus)
+            gpu_cluster_prop = self._get_gpu_cluster_template_args(cluster_info_df)
+            cluster_prop.update(gpu_cluster_prop)
         return cluster_prop
 
     def infer_cluster(self, cluster_info_df: pd.DataFrame) -> Optional[ClusterBase]:
