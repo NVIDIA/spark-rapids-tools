@@ -426,7 +426,7 @@ class AutoTuner(
    * the executor cores and instances based on that instance type.
    * Returns None if the platform doesn't support specific instance types.
    */
-  def configureGPURecommendedInstanceType: Unit = {
+  private def configureGPURecommendedInstanceType(): Unit = {
     val gpuClusterRec = platform.getGPUInstanceTypeRecommendation(getAllProperties.toMap)
     if (gpuClusterRec.isDefined) {
       appendRecommendation("spark.executor.cores", gpuClusterRec.get.coresPerExecutor)

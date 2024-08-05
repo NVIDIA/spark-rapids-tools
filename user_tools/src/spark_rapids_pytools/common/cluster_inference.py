@@ -50,18 +50,18 @@ class ClusterInference:
 
     def _get_cluster_template_args(self, cluster_info_df: pd.Series) -> Optional[dict]:
         """
-        Extract information about drivers and executors from input json
+        Extract information about drivers and workers from input json
         """
         # Currently we support only single driver node for all CSPs
         num_driver_nodes = 1
-        driver_instance = cluster_info_df.get('Driver Instance')
+        driver_node_type = cluster_info_df.get('Driver Node Type')
         # If driver instance is not set, use the default value from platform configurations
-        if pd.isna(driver_instance):
-            driver_instance = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
-        num_executor_nodes = cluster_info_df.get('Num Executor Nodes')
-        executor_instance = cluster_info_df.get('Executor Instance')
-        if pd.isna(executor_instance):
-            # If executor instance is not set, use the default value based on the number of cores
+        if pd.isna(driver_node_type):
+            driver_node_type = self.platform.configs.get_value('clusterInference', 'defaultCpuInstances', 'driver')
+        num_worker_nodes = cluster_info_df.get('Num Worker Nodes')
+        worker_node_type = cluster_info_df.get('Worker Node Type')
+        if pd.isna(worker_node_type):
+            # If worker instance is not set, use the default value based on the number of cores
             cores_per_executor = cluster_info_df.get('Cores Per Executor')
             execs_per_node = cluster_info_df.get('Num Executors Per Node')
             total_cores_per_node = execs_per_node * cores_per_executor
@@ -70,17 +70,17 @@ class ClusterInference:
                                  ' be determined.', cluster_info_df['App ID'], self.cluster_type)
                 return None
             # TODO - need to account for number of GPUs per executor
-            executor_instance = self.platform.get_matching_executor_instance(total_cores_per_node)
-            if pd.isna(executor_instance):
-                self.logger.info('For App ID: %s, Unable to infer %s cluster. Reason - No matching executor instance '
+            worker_node_type = self.platform.get_matching_worker_node_type(total_cores_per_node)
+            if worker_node_type is None:
+                self.logger.info('For App ID: %s, Unable to infer %s cluster. Reason - No matching worker node '
                                  'found for num cores = %d', cluster_info_df['App ID'], self.cluster_type,
                                  total_cores_per_node)
                 return None
         return {
-            'DRIVER_INSTANCE': f'"{driver_instance}"',
+            'DRIVER_NODE_TYPE': f'"{driver_node_type}"',
             'NUM_DRIVER_NODES': int(num_driver_nodes),
-            'EXECUTOR_INSTANCE': f'"{executor_instance}"',
-            'NUM_EXECUTOR_NODES': int(num_executor_nodes)
+            'WORKER_NODE_TYPE': f'"{worker_node_type}"',
+            'NUM_WORKER_NODES': int(num_worker_nodes)
         }
 
     def infer_cluster(self, cluster_info_df: pd.DataFrame) -> Optional[ClusterBase]:
