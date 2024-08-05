@@ -18,7 +18,10 @@ package org.apache.spark.sql.rapids.tool.store
 
 import java.util.concurrent.ConcurrentHashMap
 
+import scala.collection.mutable
+
 import org.apache.spark.sql.rapids.tool.util.EventUtils.normalizeMetricName
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
  * Accumulator Name Reference
@@ -29,18 +32,28 @@ case class AccNameRef(value: String)
 
 object AccNameRef {
   private val EMPTY_ACC_NAME_REF: AccNameRef = new AccNameRef("N/A")
+  private val CSV_SUPPORTED_NAME_MAP: mutable.WeakHashMap[AccNameRef, String] =
+    mutable.WeakHashMap()
   val NAMES_TABLE: ConcurrentHashMap[String, AccNameRef] = {
     val initMap = new ConcurrentHashMap[String, AccNameRef]()
     initMap.put("gpuSemaphoreWait", fromString("gpuSemaphoreWait"))
     initMap
   }
 
-  def internAccName(name: Option[String]): AccNameRef = {
+  def getInternalAccName(name: Option[String]): AccNameRef = {
     name match {
       case Some(n) =>
         NAMES_TABLE.computeIfAbsent(n, AccNameRef.fromString)
       case _ =>
         AccNameRef.EMPTY_ACC_NAME_REF
+    }
+  }
+
+  def getCSVSupportedAccumName(accNameRef: AccNameRef): String = {
+    synchronized{
+      CSV_SUPPORTED_NAME_MAP.getOrElseUpdate(accNameRef, {
+        StringUtils.reformatCSVString(accNameRef.value)
+      })
     }
   }
 

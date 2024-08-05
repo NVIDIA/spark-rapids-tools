@@ -19,6 +19,8 @@ package com.nvidia.spark.rapids.tool.profiling
 import scala.collection.Map
 
 import org.apache.spark.resource.{ExecutorResourceRequest, TaskResourceRequest}
+import org.apache.spark.sql.rapids.tool.store.AccMetaRef
+import org.apache.spark.sql.rapids.tool.store.AccNameRef.getCSVSupportedAccumName
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
@@ -219,20 +221,20 @@ case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
   }
 }
 
-case class AccumProfileResults(appIndex: Int, stageId: Int, accumulatorId: Long,  name: String,
+case class AccumProfileResults(appIndex: Int, stageId: Int, accumMetaRef: AccMetaRef,
     min: Long, median: Long, max: Long, total: Long) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "stageId", "accumulatorId", "name", "min",
     "median", "max", "total")
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, stageId.toString, accumulatorId.toString, name, min.toString,
-      median.toString, max.toString, total.toString)
+    Seq(appIndex.toString, stageId.toString, accumMetaRef.id.toString, accumMetaRef.name.value,
+      min.toString, median.toString, max.toString, total.toString)
   }
 
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, stageId.toString, accumulatorId.toString,
-      StringUtils.reformatCSVString(name), min.toString, median.toString, max.toString,
-      total.toString)
+    Seq(appIndex.toString, stageId.toString, accumMetaRef.id.toString,
+      getCSVSupportedAccumName(accumMetaRef.name), min.toString,
+      median.toString, max.toString, total.toString)
   }
 }
 

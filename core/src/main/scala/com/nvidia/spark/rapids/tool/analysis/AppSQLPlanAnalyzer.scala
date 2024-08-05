@@ -344,7 +344,6 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     }
 
     app.accumManager.accumInfoMap.flatMap{ accumMapEntry =>
-      val accumId = accumMapEntry._1
       val accumInfo = accumMapEntry._2
       accumInfo.stageValuesMap.keySet.flatMap( stageId => {
         val tasks = app.taskManager.getAllTasksStageAttempt(stageId)
@@ -355,8 +354,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           AccumProfileResults(
             appIndex,
             stageId,
-            accumId,
-            accumInfo.infoRef.name.value,
+            accumInfo.infoRef,
             min = stats.min,
             median = stats.med,
             max = stats.max,

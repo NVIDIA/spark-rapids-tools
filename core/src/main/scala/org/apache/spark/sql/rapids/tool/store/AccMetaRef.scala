@@ -26,5 +26,5 @@ case class AccMetaRef(id: Long, name: AccNameRef)
 
 object AccMetaRef {
   def apply(id: Long, name: Option[String]): AccMetaRef =
-    new AccMetaRef(id, AccNameRef.internAccName(name))
+    new AccMetaRef(id, AccNameRef.getInternalAccName(name))
 }
