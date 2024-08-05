@@ -1568,18 +1568,6 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-//  case class ExistingClusterInfo(
-  //    vendor: String,
-  //    coresPerExecutor: Int,
-  //    numExecsPerNode: Int,
-  //    numWorkerNodes: Int,
-  //    executorHeapMemory: Long,
-  //    driverNodeType: Option[String] = None,
-  //    workerNodeType: Option[String] = None,
-  //    driverHost: Option[String] = None,
-  //    clusterId: Option[String] = None,
-  //    clusterName: Option[String] = None) extends ClusterInfo
-
   // Expected results as a map of event log -> cluster info.
   // scalastyle:off line.size.limit
   val expectedClusterInfoMap: Seq[(String, Option[ExistingClusterInfo])] = Seq(
@@ -1622,33 +1610,48 @@ class QualificationSuite extends BaseTestSuite {
   // Expected results as a map of platform -> cluster info.
   val expectedPlatformClusterInfoMap: Seq[(String, ExistingClusterInfo)] = Seq(
     PlatformNames.DATABRICKS_AWS ->
-        ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AWS, coresPerExecutor = 8,
-          numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+        ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AWS,
+          coresPerExecutor = 8,
+          numExecsPerNode = 1,
+          numWorkerNodes = 2,
+          executorHeapMemory = 0L,
           driverNodeType = Some("m6gd.2xlarge"),
           workerNodeType = Some("m6gd.2xlarge"),
           driverHost = Some("10.10.10.100"),
           clusterId = Some("1212-214324-test"),
           clusterName = Some("test-db-aws-cluster")),
     PlatformNames.DATABRICKS_AZURE ->
-      ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AZURE, coresPerExecutor = 8,
-        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+      ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AZURE,
+        coresPerExecutor = 8,
+        numExecsPerNode = 1,
+        numWorkerNodes = 2,
+        executorHeapMemory = 0L,
         driverNodeType = Some("Standard_E8ds_v4"),
         workerNodeType = Some("Standard_E8ds_v4"),
         driverHost = Some("10.10.10.100"),
         clusterId = Some("1212-214324-test"),
         clusterName = Some("test-db-azure-cluster")),
     PlatformNames.DATAPROC ->
-      ExistingClusterInfo(vendor = PlatformNames.DATAPROC, coresPerExecutor = 8,
-        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+      ExistingClusterInfo(vendor = PlatformNames.DATAPROC,
+        coresPerExecutor = 8,
+        numExecsPerNode = 1,
+        numWorkerNodes = 2,
+        executorHeapMemory = 0L,
         driverHost = Some("dataproc-test-m.c.internal")),
     PlatformNames.EMR ->
-      ExistingClusterInfo(vendor = PlatformNames.EMR, coresPerExecutor = 8,
-        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+      ExistingClusterInfo(vendor = PlatformNames.EMR,
+        coresPerExecutor = 8,
+        numExecsPerNode = 1,
+        numWorkerNodes = 2,
+        executorHeapMemory = 0L,
         driverHost = Some("10.10.10.100"),
         clusterId = Some("j-123AB678XY321")),
     PlatformNames.ONPREM ->
-      ExistingClusterInfo(vendor = PlatformNames.ONPREM, coresPerExecutor = 8,
-        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+      ExistingClusterInfo(vendor = PlatformNames.ONPREM,
+        coresPerExecutor = 8,
+        numExecsPerNode = 1,
+        numWorkerNodes = 2,
+        executorHeapMemory = 0L,
         driverHost = Some("10.10.10.100"))
       )
 

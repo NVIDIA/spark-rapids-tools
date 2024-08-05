@@ -25,6 +25,7 @@ from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_tools import CspEnv
 
 
 @dataclass
@@ -32,12 +33,18 @@ class ClusterRecommendationInfo:
     """
     Dataclass to hold the recommended cluster and the qualified node recommendation.
     """
+    platform: str = field(default=CspEnv.get_default(), init=True)
     source_cluster_config: dict = field(default_factory=dict)
     recommended_cluster_config: dict = field(default_factory=dict)
     qualified_node_recommendation: str = 'Not Available'
 
     def _cluster_info_to_dict(self) -> Dict[str, dict]:
+        """
+        Returns the cluster info as a dictionary. Since this will be a value of a column, the keys are in
+        camelCase to match the JSON format.
+        """
         return {
+            'platform': self.platform,
             'sourceCluster': self.source_cluster_config,
             'recommendedCluster': self.recommended_cluster_config
         }
@@ -104,13 +111,14 @@ class ClusterConfigRecommender:
         recommended_cluster_config = gpu_cluster.get_cluster_configuration()
         conversion_str = gpu_instance_type
         source_cluster_config = {}
+        platform = gpu_cluster.platform.get_platform_name()
 
         if cpu_cluster:
             source_cluster_config = cpu_cluster.get_cluster_configuration()
             cpu_instance_type = cpu_cluster.get_worker_node().instance_type
             if cpu_instance_type != gpu_instance_type:
                 conversion_str = f'{cpu_instance_type} to {gpu_instance_type}'
-        return ClusterRecommendationInfo(source_cluster_config, recommended_cluster_config, conversion_str)
+        return ClusterRecommendationInfo(platform, source_cluster_config, recommended_cluster_config, conversion_str)
 
     def _get_cluster_conversion_summary(self) -> Dict[str, ClusterRecommendationInfo]:
         """
