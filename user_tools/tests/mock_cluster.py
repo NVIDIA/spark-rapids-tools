@@ -45,10 +45,6 @@ mock_live_cluster = {
             "status": {
                 "state": "RUNNING",
             },
-        }),
-        # gcloud compute accelerator-types describe nvidia-tesla-t4 --format json --zone us-central1-a
-        json.dumps({
-            "description": "NVIDIA T4",
         })
     ],
 

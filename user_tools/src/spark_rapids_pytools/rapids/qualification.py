@@ -658,10 +658,10 @@ class Qualification(RapidsJarTool):
         # Merge the total_apps with the processed_apps to get the Event Log
         df_final_result = pd.merge(df_final_result, total_apps[['Event Log', 'AppID']],
                                    left_on='App ID', right_on='AppID')
-        # Write the summary metadata
-        summary_metadata_info = output_files_info.get_value('summaryMetadata')
+        # Write the app metadata
+        app_metadata_info = output_files_info.get_value('appMetadata')
         config_recommendations_info = output_files_info.get_value('configRecommendations')
-        self._write_summary_metadata(df_final_result, summary_metadata_info, config_recommendations_info)
+        self._write_app_metadata(df_final_result, app_metadata_info, config_recommendations_info)
         return QualificationSummary(total_apps=total_apps,
                                     tools_processed_apps=df_final_result,
                                     recommended_apps=recommended_apps,
@@ -895,10 +895,10 @@ class Qualification(RapidsJarTool):
         result_df['Estimated GPU Time Saved'] = result_df['App Duration'] - result_df['Estimated GPU Duration']
         return result_df.drop(columns=result_info['subsetColumns'])
 
-    def _write_summary_metadata(self, tools_processed_apps: pd.DataFrame,
-                                metadata_file_info: dict, config_recommendations_dir_info: dict) -> None:
+    def _write_app_metadata(self, tools_processed_apps: pd.DataFrame,
+                            metadata_file_info: dict, config_recommendations_dir_info: dict) -> None:
         """
-        Write the summary metadata to a JSON file.
+        Write the metadata for apps to a JSON file.
         :param tools_processed_apps: Processed applications from tools
         :param metadata_file_info: Metadata file information
         :param config_recommendations_dir_info: Configuration recommendations directory information
@@ -906,27 +906,32 @@ class Qualification(RapidsJarTool):
         if not tools_processed_apps.empty:
             try:
                 valid_cols = Utilities.get_valid_df_columns(metadata_file_info.get('columns'), tools_processed_apps)
-                summary_metadata_df = tools_processed_apps[valid_cols].copy()
+                app_metadata_df = tools_processed_apps[valid_cols].copy()
                 # 1. Prepend parent dir to the config recommendations columns (only for the JSON file, not stdout)
                 parent_dir = config_recommendations_dir_info.get('path')
+
+                # Helper function to prepend the parent directory to the config file
+                def _prepend_parent_dir(conf_file: str) -> str:
+                    conf_file_full = FSUtil.build_path(parent_dir, conf_file)
+                    return conf_file_full if FSUtil.resource_exists(conf_file_full) else ''
+
                 for col in config_recommendations_dir_info.get('columns'):
-                    if col in summary_metadata_df.columns:
-                        summary_metadata_df[col] = summary_metadata_df[col].apply(
-                            lambda conf_file: FSUtil.build_path(parent_dir, conf_file))
+                    if col in app_metadata_df.columns:
+                        app_metadata_df[col] = app_metadata_df[col].apply(_prepend_parent_dir)
 
                 # 2. Convert column names to camel case for JSON file writing
                 # First, remove any non-alphanumeric characters from column names and convert to lowercase
-                summary_metadata_df.rename(columns=lambda x: re.sub(r'[^a-z\s]', '', x.lower()), inplace=True)
+                app_metadata_df.rename(columns=lambda x: re.sub(r'[^a-z\s]', '', x.lower()), inplace=True)
                 # Then, convert df to dict with camel case keys
-                summary_metadata_dict = convert_dict_to_camel_case(summary_metadata_df.to_dict(orient='records'),
-                                                                   delim=' ')
+                app_metadata_dict = convert_dict_to_camel_case(app_metadata_df.to_dict(orient='records'),
+                                                               delim=' ')
                 with open(metadata_file_info.get('path'), 'w', encoding='UTF-8') as f:
-                    json.dump(summary_metadata_dict, f, indent=2)
+                    json.dump(app_metadata_dict, f, indent=2)
             except Exception as e:  # pylint: disable=broad-except
-                self.logger.error('Error writing the summary metadata report. Reason - %s:%s',
+                self.logger.error('Error writing the app metadata report. Reason - %s:%s',
                                   type(e).__name__, e)
         else:
-            self.logger.warning('No applications to write to the summary metadata report.')
+            self.logger.warning('No applications to write to the metadata report.')
 
     def _read_qualification_output_file(self, report_name_key: str, file_format_key: str = 'csv') -> pd.DataFrame:
         """

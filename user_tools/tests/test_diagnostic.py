@@ -52,7 +52,7 @@ class TestInfoCollect:
     def test_info_collect(self, build_mock, cloud, capsys):
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
-            'dataproc': 8,
+            'dataproc': 7,
             'emr': 10,
             'databricks-aws': 7,
             'databricks-azure': 7
@@ -76,7 +76,7 @@ class TestInfoCollect:
     def test_thread_num(self, build_mock, cloud, capsys):
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
-            'dataproc': 8,
+            'dataproc': 7,
             'emr': 10,
             'databricks-aws': 7,
             'databricks-azure': 7
@@ -103,7 +103,7 @@ class TestInfoCollect:
     def test_invalid_thread_num(self, build_mock, cloud, thread_num, capsys):
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
-            'dataproc': 2,
+            'dataproc': 1,
             'emr': 4,
             'databricks-aws': 1,
             'databricks-azure': 1
@@ -160,7 +160,7 @@ class TestInfoCollect:
     def test_download_failed(self, build_mock, cloud, capsys):
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
-            'dataproc': 8,
+            'dataproc': 7,
             'emr': 10,
             'databricks-aws': 7,
             'databricks-azure': 7
@@ -195,7 +195,7 @@ class TestInfoCollect:
     def test_auto_confirm(self, build_mock, cloud, user_input, capsys):
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
-            'dataproc': 8,
+            'dataproc': 7,
             'emr': 10,
             'databricks-aws': 7,
             'databricks-azure': 7

@@ -20,7 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from typing import Type, Any, List, Callable, Union
+from typing import Type, Any, List, Callable, Union, Optional
 
 from spark_rapids_tools import EnumeratedType, CspEnv
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
@@ -949,9 +949,9 @@ class PlatformBase:
     def get_footer_message(self) -> str:
         return 'To support acceleration with T4 GPUs, switch the worker node instance types'
 
-    def get_matching_executor_instance(self, cores_per_executor):
-        default_instances = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
-        return next((instance['name'] for instance in default_instances if instance['vCPUs'] == cores_per_executor),
+    def get_matching_worker_node_type(self, total_cores: int) -> Optional[str]:
+        node_types_from_config = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
+        return next((node_type['name'] for node_type in node_types_from_config if node_type['vCPUs'] == total_cores),
                     None)
 
     def generate_cluster_configuration(self, render_args: dict):
@@ -1213,9 +1213,9 @@ class ClusterBase(ClusterGetAccessor):
             'CLUSTER_NAME': self.get_name(),
             'REGION': self.region,
             'ZONE': self.zone,
-            'MASTER_MACHINE': cluster_config.get('driverInstance'),
-            'WORKERS_COUNT': cluster_config.get('numExecutors'),
-            'WORKERS_MACHINE': cluster_config.get('executorInstance')
+            'MASTER_MACHINE': cluster_config.get('driverNodeType'),
+            'WORKERS_COUNT': cluster_config.get('numWorkerNodes'),
+            'WORKERS_MACHINE': cluster_config.get('workerNodeType')
         }
 
     def get_cluster_configuration(self) -> dict:
@@ -1223,9 +1223,9 @@ class ClusterBase(ClusterGetAccessor):
         Returns a dictionary containing the configuration of the cluster
         """
         return {
-            'driverInstance': self.get_master_node().instance_type,
-            'executorInstance': self.get_worker_node().instance_type,
-            'numExecutors': self.get_workers_count(),
+            'driverNodeType': self.get_master_node().instance_type,
+            'workerNodeType': self.get_worker_node().instance_type,
+            'numWorkerNodes': self.get_workers_count(),
         }
 
     def generate_create_script(self) -> str:
@@ -1263,10 +1263,10 @@ class ClusterBase(ClusterGetAccessor):
         """
         Returns a string representation of the cluster shape.
         """
-        master_node = self.get_master_node().instance_type
-        executor_node = self.get_worker_node(0).instance_type
-        num_executors = self.get_nodes_cnt(SparkNodeType.WORKER)
-        return f'<Driver: {master_node}, Executor: {num_executors} X {executor_node}>'
+        driver_node_type = self.get_master_node().instance_type
+        worker_node_type = self.get_worker_node(0).instance_type
+        num_workers = self.get_nodes_cnt(SparkNodeType.WORKER)
+        return f'<Driver: {driver_node_type}, Worker: {num_workers} X {worker_node_type}>'
 
 
 @dataclass
