@@ -11,6 +11,8 @@ toolOutput:
       fileName: rapids_4_spark_qualification_output_cluster_information.csv
     stagesInformation:
       fileName: rapids_4_spark_qualification_output_stages.csv
+    execsInformation:
+      fileName: rapids_4_spark_qualification_output_execs.csv
     tunings:
       subFolder: tuning
     appsStatusReport:
@@ -137,9 +139,9 @@ local:
           - 'SQL ID'
           - 'Operator'
           - 'Count'
-          - 'Stage Task Exec duration(seconds)'
-          - 'Impacted Stage duration(seconds)'
-          - '% of Stage Duration'
+          - 'Stage Task Exec Duration(s)'
+          - 'Total SQL Duration(s)'
+          - '% of Total SQL Duration'
           - 'Supported'
       intermediateOutput:
         name: 'intermediate_output'
