@@ -1,9 +1,5 @@
 {
   "config": {
-    "masterConfig": {
-      "numCores": 2,
-      "memory": "7680MiB"
-    },
     "workerConfig": {
 {{# GPU_NAME }}
     "gpuInfo": {
@@ -12,7 +8,6 @@
     },
 {{/ GPU_NAME }}
       "numCores": {{ NUM_WORKER_CORES }},
-      "memory": "7680MiB",
       "numWorkers": {{ NUM_WORKER_NODES }}
     }
   }

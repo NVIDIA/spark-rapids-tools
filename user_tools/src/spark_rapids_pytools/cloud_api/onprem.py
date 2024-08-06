@@ -159,8 +159,9 @@ class OnPremNode(ClusterNode):
     """Implementation of Onprem cluster node."""
 
     def _pull_sys_info(self, cli=None) -> SysInfo:
-        cpu_mem = self.props.get_value('memory')
-        cpu_mem = cpu_mem.replace('MiB', '')
+        # We do not use cpu memory information for any recommendations in on-prem. Hence, it can be optional.
+        cpu_mem = self.props.get_value_silent('memory')
+        cpu_mem = cpu_mem.replace('MiB', '') if cpu_mem else None
         num_cpus = self.props.get_value('numCores')
         return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
@@ -233,17 +234,19 @@ class OnPremCluster(ClusterBase):
                 # TODO for optimization, we should set HW props for 1 worker
                 worker.fetch_and_set_hw_info(self.cli)
                 worker_nodes.append(worker)
-        raw_master_props = self.props.get_value('config', 'masterConfig')
-        master_props = {
-            'name': 'master',
-            'props': JSONPropertiesContainer(prop_arg=raw_master_props, file_load=False),
-            # set the node zone based on the wrapper defined zone
-            'zone': self.zone,
-            'platform_name': self.platform.get_platform_name()
-        }
-
-        master_node = OnPremNode.create_master_node().set_fields_from_dict(master_props)
-        master_node.fetch_and_set_hw_info(self.cli)
+        raw_master_props = self.props.get_value_silent('config', 'masterConfig')
+        master_node = None
+        # master/driver node configuration is optional for on-prem
+        if raw_master_props:
+            master_props = {
+                'name': 'master',
+                'props': JSONPropertiesContainer(prop_arg=raw_master_props, file_load=False),
+                # set the node zone based on the wrapper defined zone
+                'zone': self.zone,
+                'platform_name': self.platform.get_platform_name()
+            }
+            master_node = OnPremNode.create_master_node().set_fields_from_dict(master_props)
+            master_node.fetch_and_set_hw_info(self.cli)
         self.nodes = {
             SparkNodeType.WORKER: worker_nodes,
             SparkNodeType.MASTER: master_node
