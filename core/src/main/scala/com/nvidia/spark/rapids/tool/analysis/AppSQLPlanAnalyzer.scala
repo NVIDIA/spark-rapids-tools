@@ -325,12 +325,12 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         val stageTaskIds = app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet
         // get the task updates that belong to that stage
         val taskUpatesSubset =
-          accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq
+          accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
         if (taskUpatesSubset.isEmpty) {
           None
         } else {
-          val min = taskUpatesSubset.min
-          val max = taskUpatesSubset.max
+          val min = taskUpatesSubset.head
+          val max = taskUpatesSubset.last
           val sum = taskUpatesSubset.sum
           val median = if (taskUpatesSubset.size % 2 == 0) {
             val mid = taskUpatesSubset.size / 2
