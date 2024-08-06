@@ -29,13 +29,6 @@ import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
-// Store (min, median, max, total) for a given metric
-case class StatisticsMetrics(min: Long, med:Long, max:Long, total: Long)
-
-object StatisticsMetrics {
-  val ZERO_RECORD: StatisticsMetrics = StatisticsMetrics(0L, 0L, 0L, 0L)
-}
-
 /**
  * This class processes SQL plan to build some information such as: metrics, wholeStage nodes, and
  * connecting operators to nodes. The implementation used to be directly under Profiler's
@@ -298,8 +291,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       }
 
       if (accumTaskStats.isDefined || driverMax.isDefined) {
-        val taskInfo = accumTaskStats.getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
-        val driverInfo = driverMax.getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
+        val taskInfo = accumTaskStats.getOrElse(StatisticsMetrics.ZERO_RECORD)
+        val driverInfo = driverMax.getOrElse(StatisticsMetrics.ZERO_RECORD)
 
         val max = Math.max(taskInfo.max, driverInfo.max)
         val min = Math.max(taskInfo.min, driverInfo.min)
@@ -326,40 +319,33 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * @return a sequence of AccumProfileResults
    */
   def generateStageLevelAccums(): Seq[AccumProfileResults] = {
-    def computeStatistics(taskUpdates: Seq[Long]): Option[StatisticsMetrics] = {
-      if (taskUpdates.isEmpty) {
-        None
-      } else {
-        val min = taskUpdates.min
-        val max = taskUpdates.max
-        val sum = taskUpdates.sum
-        val median = if (taskUpdates.size % 2 == 0) {
-          val mid = taskUpdates.size / 2
-          (taskUpdates(mid) + taskUpdates(mid - 1)) / 2
-        } else {
-          taskUpdates(taskUpdates.size / 2)
-        }
-        Some(StatisticsMetrics(min, median, max, sum))
-      }
-    }
-
-    app.accumManager.accumInfoMap.flatMap{ accumMapEntry =>
+    app.accumManager.accumInfoMap.flatMap { accumMapEntry =>
       val accumInfo = accumMapEntry._2
       accumInfo.stageValuesMap.keySet.flatMap( stageId => {
-        val tasks = app.taskManager.getAllTasksStageAttempt(stageId)
-        val taskUpdatesSorted = tasks.map( task => {
-          accumInfo.taskUpdatesMap.getOrElse(task.taskId, 0L)
-        }).toSeq.sorted
-        computeStatistics(taskUpdatesSorted).map { stats =>
-          AccumProfileResults(
+        val stageTaskIds = app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet
+        // get the task updates that belong to that stage
+        val taskUpatesSubset =
+          accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq
+        if (taskUpatesSubset.isEmpty) {
+          None
+        } else {
+          val min = taskUpatesSubset.min
+          val max = taskUpatesSubset.max
+          val sum = taskUpatesSubset.sum
+          val median = if (taskUpatesSubset.size % 2 == 0) {
+            val mid = taskUpatesSubset.size / 2
+            (taskUpatesSubset(mid) + taskUpatesSubset(mid - 1)) / 2
+          } else {
+            taskUpatesSubset(taskUpatesSubset.size / 2)
+          }
+          Some(AccumProfileResults(
             appIndex,
             stageId,
             accumInfo.infoRef,
-            min = stats.min,
-            median = stats.med,
-            max = stats.max,
-            total = stats.total
-          )
+            min = min,
+            median = median,
+            max = max,
+            total = sum))
         }
       })
     }

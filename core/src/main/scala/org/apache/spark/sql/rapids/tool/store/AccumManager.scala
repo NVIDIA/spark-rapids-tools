@@ -23,7 +23,7 @@ import com.nvidia.spark.rapids.tool.analysis.StatisticsMetrics
 import org.apache.spark.scheduler.AccumulableInfo
 
 /**
- * A class that manages all accumulables -
+ * A class that manages task/stage accumulables -
  * maintains a map of accumulable id to AccumInfo
  */
 class AccumManager {
@@ -46,7 +46,6 @@ class AccumManager {
   }
 
   def getAccStageIds(id: Long): Set[Int] = {
-    // TODO: Does Set.empty allocates memory? or it uses a constant in scala?
     accumInfoMap.get(id).map(_.getStageIds).getOrElse(Set.empty)
   }
 

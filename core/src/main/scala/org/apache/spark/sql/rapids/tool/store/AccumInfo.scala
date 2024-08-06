@@ -32,16 +32,30 @@ import org.apache.spark.sql.rapids.tool.util.EventUtils.parseAccumFieldToLong
  * @param infoRef - AccumMetaRef for the accumulator
  */
 class AccumInfo(val infoRef: AccMetaRef) {
-  // TODO: Should we use sorted maps for stageIDs and taskIds?
+  // TODO: use sorted maps for stageIDs and taskIds?
   val taskUpdatesMap: mutable.HashMap[Long, Long] =
     new mutable.HashMap[Long, Long]()
   val stageValuesMap: mutable.HashMap[Int, Long] =
     new mutable.HashMap[Int, Long]()
 
+  /**
+   * Add accumulable to a stage while:
+   * 1- handling StageCompleted event.
+   * 2- handling taskEnd event, we want to make sure that there is an entry that maps the stage to
+   *    the accumulable. The reason is that we want to keep track of the stageIDs in case their
+   *    stageCompleted has never been triggered. It is common case for incomplete eventlogs.
+   * @param stageId the stageId pulled from the StageCompleted/TaskEnd event
+   * @param accumulableInfo the accumulableInfo from the StageCompleted/TaskEnd event
+   * @param update optional long that represents the task update value in case the call was
+   *               triggered by a taskEnd event and the mapo between stage-Acc has not been
+   *               established yet.
+   */
   def addAccToStage(stageId: Int,
       accumulableInfo: AccumulableInfo,
       update: Option[Long] = None): Unit = {
     val parsedValue = accumulableInfo.value.flatMap(parseAccumFieldToLong)
+    // in case there is an out of order event, the value showing up later could be
+    // lower-than the previous value. In that case we should take the maximum.
     val existingValue = stageValuesMap.getOrElse(stageId, 0L)
     val incomingValue = parsedValue match {
       case Some(v) => v
@@ -50,9 +64,16 @@ class AccumInfo(val infoRef: AccMetaRef) {
     stageValuesMap.put(stageId, Math.max(existingValue, incomingValue))
   }
 
+  /**
+   * Add accumulable to a task while handling TaskEnd event.
+   * This can propagate a call to addAccToStage if the stageId does not exist in the stageValuesMap
+   * @param stageId the stageId pulled from the TaskEnd event
+   * @param taskId the taskId pulled from the TaskEnd event
+   * @param accumulableInfo the accumulableInfo from the TaskEnd event
+   */
   def addAccToTask(stageId: Int, taskId: Long, accumulableInfo: AccumulableInfo): Unit = {
     val parsedUpdateValue = accumulableInfo.update.flatMap(parseAccumFieldToLong)
-    // we have to update the stageMap if the stageId does not exist in the map
+    // we need to update the stageMap if the stageId does not exist in the map
     val updateStageFlag = !stageValuesMap.contains(stageId)
     // This is for cases where same task updates the same accum multiple times
     val existingUpdateValue = taskUpdatesMap.getOrElse(taskId, 0L)

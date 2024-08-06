@@ -14,19 +14,13 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.rapids.tool.store
+package com.nvidia.spark.rapids.tool.analysis
 
-/**
- * Accumulator Meta Reference
- * This maintains the reference to the metadata associated with an accumulable
- * @param id - Accumulable id
- * @param name - Reference to the accumulator name
- */
-case class AccMetaRef(id: Long, name: AccNameRef) {
-  def getName(): String = name.value
-}
+// Store (min, median, max, total) for a given metric
+case class StatisticsMetrics(min: Long, med:Long, max:Long, total: Long)
 
-object AccMetaRef {
-  def apply(id: Long, name: Option[String]): AccMetaRef =
-    new AccMetaRef(id, AccNameRef.getInternalAccName(name))
+object StatisticsMetrics {
+  // a static variable used to represent zero-statistics instead of allocating a dummy record
+  // on every calculation.
+  val ZERO_RECORD: StatisticsMetrics = StatisticsMetrics(0L, 0L, 0L, 0L)
 }
