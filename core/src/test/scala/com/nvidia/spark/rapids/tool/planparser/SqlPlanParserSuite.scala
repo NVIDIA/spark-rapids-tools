@@ -962,7 +962,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("get_json_object is not supported by default in Project with RAPIDS 24.06") {
+  test("get_json_object is supported by default in Project with RAPIDS 24.10") {
     TrampolineUtil.withTempDir { parquetoutputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
@@ -985,7 +985,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         }
         val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projectExprs = execInfo.filter(_.exec == "Project")
-        assertSizeAndNotSupported(1, projectExprs)
+        assertSizeAndSupported(1, projectExprs)
       }
     }
   }
