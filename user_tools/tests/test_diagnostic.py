@@ -22,7 +22,6 @@ import pytest  # pylint: disable=import-error
 from cli_test_helpers import ArgvContext, EnvironContext  # pylint: disable=import-error
 
 from spark_rapids_pytools import wrapper
-from .spark_rapids_tools_ut import conftest
 from .mock_cluster import mock_live_cluster
 
 
@@ -240,20 +239,3 @@ class TestInfoCollect:
 
         assert 'User canceled the operation' in stderr
         assert 'Raised an error in phase [Process-Arguments]' in stderr
-
-    @pytest.fixture(scope='function', autouse=True)
-    def mock_databricks_azure_instance_description(self, cloud, monkeypatch):
-        """
-        Mock `init_instances_description()` for Databricks Azure tests to return a test JSON file path.
-        This is needed to avoid creating an actual azure-instance-catalog.json file in the `CACHE_FOLDER`.
-        """
-        def mock_init_instances_description(_):
-            resource_dir = conftest.get_test_resources_path()
-            test_azure_catalog_file = 'cluster/databricks/test-azure-instances-catalog.json'
-            return os.path.join(resource_dir, test_azure_catalog_file)
-
-        if cloud == 'databricks-azure':
-            monkeypatch.setattr(
-                'spark_rapids_pytools.cloud_api.databricks_azure.DBAzureCMDDriver.init_instances_description',
-                mock_init_instances_description
-            )

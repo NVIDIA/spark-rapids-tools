@@ -169,25 +169,8 @@ class DBAWSCMDDriver(CMDDriverBase):
                        dest]
         return Utils.gen_joined_str(' ', prefix_args)
 
-    # TODO: to be deprecated
-    def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
-        cmd_params = ['aws ec2 describe-instance-types',
-                      '--region', f'{self.get_region()}',
-                      '--instance-types', f'{node.instance_type}']
-        return cmd_params
-
-    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
-        return node.instance_type, self.get_region()
-
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
-
-    # TODO: to be deprecated
-    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
-        raw_instance_descriptions = super()._exec_platform_describe_node_instance(node)
-        instance_descriptions = JSONPropertiesContainer(raw_instance_descriptions, file_load=False)
-        # Return the instance description of node type. Convert to valid JSON string for type matching.
-        return json.dumps(instance_descriptions.get_value('InstanceTypes')[0])
 
     def init_instance_descriptions(self) -> None:
         instance_description_file_path = Utils.resource_path('emr-instance-catalog.json')

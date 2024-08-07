@@ -199,20 +199,6 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                     incorrect_envs.append(f'Property {prop_entry} is not set.')
         return incorrect_envs
 
-    # TODO: to be deprecated
-    def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
-        cmd_params = ['gcloud',
-                      'compute',
-                      'machine-types',
-                      'describe',
-                      f'{node.instance_type}',
-                      '--zone',
-                      f'{node.zone}']
-        return cmd_params
-
-    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
-        return node.instance_type, node.zone
-
     def _build_platform_list_cluster(self,
                                      cluster,
                                      query_args: dict = None) -> list:
@@ -375,22 +361,12 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
     def get_instance_description_cli_params(self) -> list:
         return ['gcloud compute machine-types list', '--zones', f'{self.get_zone()}']
 
-    def init_instance_descriptions(self) -> None:
-        platform = CspEnv.pretty_print(self.cloud_ctxt['platformType'])
-        instance_description_file_path = Utils.resource_path(f'{platform}-instance-catalog.json')
-        self.logger.info('Loading instance descriptions from file: %s', instance_description_file_path)
-        self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
-
 
 @dataclass
 class DataprocNode(ClusterNode):
     """Implementation of Dataproc cluster node."""
 
     zone: str = field(default=None, init=False)
-
-    def _pull_and_set_mc_props(self, cli=None):
-        instances_description = cli.describe_node_instance(self.instance_type) if cli else None
-        self.mc_props = JSONPropertiesContainer(prop_arg=instances_description, file_load=False)
 
     @staticmethod
     def __extract_info_from_value(conf_val: str):
@@ -446,11 +422,6 @@ class DataprocNode(ClusterNode):
                              gpu_device=gpu_device,
                              gpu_mem=gpu_mem)
         return None
-
-    def _pull_sys_info(self, cli=None) -> SysInfo:
-        cpu_mem = self.mc_props.get_value('MemoryInMB')
-        num_cpus = self.mc_props.get_value('VCpuCount')
-        return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
     def _set_fields_from_props(self):
         # set the machine type

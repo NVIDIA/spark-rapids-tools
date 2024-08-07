@@ -159,14 +159,16 @@ class ClusterNode:
         pass
 
     def _pull_and_set_mc_props(self, cli=None):
-        instances_description = cli.exec_platform_describe_node_instance(self) if cli else None
+        instances_description = cli.describe_node_instance(self.instance_type) if cli else None
         self.mc_props = JSONPropertiesContainer(prop_arg=instances_description, file_load=False)
 
     def _pull_gpu_hw_info(self, cli=None) -> Optional[GpuHWInfo]:
         raise NotImplementedError
 
-    def _pull_sys_info(self, cli=None) -> SysInfo:
-        raise NotImplementedError
+    def _pull_sys_info(self) -> SysInfo:
+        cpu_mem = self.mc_props.get_value('MemoryInMB')
+        num_cpus = self.mc_props.get_value('VCpuCount')
+        return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
     def get_name(self) -> str:
         return self.name
@@ -181,7 +183,7 @@ class ClusterNode:
 
     def fetch_and_set_hw_info(self, cli=None):
         self._pull_and_set_mc_props(cli)
-        sys_info = self._pull_sys_info(cli)
+        sys_info = self._pull_sys_info()
         try:
             # if a node has no gpu, then it is expected that setting the gpu info fails
             gpu_info = self._pull_gpu_hw_info(cli)
@@ -293,8 +295,6 @@ class CMDDriverBase:
     timeout: int = 0
     env_vars: dict = field(default_factory=dict, init=False)
     logger: Logger = None
-    # TODO: to be deprecated
-    instance_descriptions_cache: dict = field(default_factory=dict, init=False)
     instance_descriptions: JSONPropertiesContainer = field(default=None, init=False)
 
     def get_env_var(self, key: str):
@@ -508,43 +508,14 @@ class CMDDriverBase:
         del args  # Unused by super method.
         return ''
 
-    # TODO: to be deprecated
-    def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
-        del node  # Unused by super method.
-        return []
-
-    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
-        """
-        Generates a cache key from the node's instance type for accessing the instance description cache.
-        This default implementation should be overridden by subclasses that require additional fields.
-        """
-        return (node.instance_type,)
-
-    # TODO: to be deprecated
-    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
-        """
-        Given a node, execute platform CLI to pull the properties of the instance type running on
-        that node
-        :param node: object representing cluster component
-        :return: string containing the properties of the machine. The string could be in json or yaml format.
-        """
-        cmd_params = self._build_platform_describe_node_instance(node=node)
-        return self.run_sys_cmd(cmd_params)
-
-    # TODO: to be deprecated
-    def exec_platform_describe_node_instance(self, node: ClusterNode):
-        """
-        Returns the instance type description of the cluster node. If the description
-        is not cached, it executes a platform specific command to fetch and cache it.
-        """
-        key = self._get_instance_description_cache_key(node)
-        if key not in self.instance_descriptions_cache:
-            # Cache the instance description
-            self.instance_descriptions_cache[key] = self._exec_platform_describe_node_instance(node)
-        return self.instance_descriptions_cache[key]
-
     def init_instance_descriptions(self) -> None:
-        pass
+        """
+        Load instance description file from resources based on platform type.
+        """
+        platform = CspEnv.pretty_print(self.cloud_ctxt['platformType'])
+        instance_description_file_path = Utils.resource_path(f'{platform}-instance-catalog.json')
+        self.logger.info('Loading instance descriptions from file: %s', instance_description_file_path)
+        self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
     def describe_node_instance(self, instance_type: str) -> str:
         instance_info = self.instance_descriptions.get_value(instance_type)
