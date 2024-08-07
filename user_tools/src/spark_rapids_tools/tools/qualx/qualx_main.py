@@ -543,129 +543,105 @@ def predict(
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.
     default_preds_df = qual_tool_output.apply(create_row_with_default_speedup, axis=1)
-    # add a column for dataset names to associate apps with datasets.
-    default_preds_df['dataset_name'] = None
 
-    # if qualification metrics are provided, load metrics and apply filtering
-    processed_dfs = {}
-    if len(qual_metrics) > 0:
-        for metrics_dir in qual_metrics:
-            datasets = {}
-            # add metrics directory to datasets
-            # metrics follow the pattern 'qual_2024xx/rapids_4_spark_qualification_output/raw_metrics'
-            # use grandparent directory as dataset name 'qual_2024xxxx'
-            dataset_name = Path(metrics_dir).parent.parent.name
-            datasets[dataset_name] = {
-                'profiles': [metrics_dir],
-                'app_meta': {},
-                'platform': platform,
-            }
-            # search subdirectories for App IDs
-            app_ids = [p.name for p in Path(metrics_dir).iterdir() if p.is_dir()]
-            if len(app_ids) == 0:
-                logger.warning('Skipping empty metrics directory: %s', metrics_dir)
-            else:
-                try:
-                    for app_id in app_ids:
-                        # create dummy app_meta, assuming CPU and scale factor of 1 (for inference)
-                        datasets[dataset_name]['app_meta'].update(
-                            {app_id: {'runType': 'CPU', 'scaleFactor': 1}}
-                        )
-                        # update the dataset_name for each App ID
-                        default_preds_df.loc[default_preds_df['appId'] == app_id, 'dataset_name'] = dataset_name
-                    logger.info('Loading dataset: %s', dataset_name)
-                    metrics_df = load_profiles(
-                        datasets=datasets,
-                        node_level_supp=node_level_supp,
-                        qual_tool_filter=qual_tool_filter,
-                        qual_tool_output=qual_tool_output
-                    )
-                    processed_dfs[dataset_name] = metrics_df
-                except ScanTblError:
-                    # ignore
-                    logger.error('Skipping invalid dataset: %s', dataset_name)
-    else:
+    if len(qual_metrics) == 0:
         logger.warning('Qualification tool metrics are missing. Speedup predictions will be skipped.')
         return pd.DataFrame()
 
-    if not processed_dfs:
+    # construct mapping of appIds to appNames (qual directories)
+    app_id_name_map = {}
+    for metrics_dir in qual_metrics:
+        # metrics follow the pattern 'qual_2024xx/rapids_4_spark_qualification_output/raw_metrics'
+        # use grandparent directory as dataset name 'qual_2024xxxx'
+        app_name = Path(metrics_dir).parent.parent.name
+        # search subdirectories for App IDs
+        app_ids = [p.name for p in Path(metrics_dir).iterdir() if p.is_dir()]
+        if len(app_ids) == 0:
+            logger.warning('Skipping empty metrics directory: %s', metrics_dir)
+        for app_id in app_ids:
+            app_id_name_map[app_id] = app_name
+
+    # if qualification metrics are provided, load metrics and apply filtering
+    datasets = {}                       # create a dummy dataset
+    dataset_name = Path(qual).name      # use qual directory name as dataset name
+    datasets[dataset_name] = {
+        'profiles': qual_metrics,
+        'app_meta': {'default': {'runType': 'CPU', 'scaleFactor': 1}},
+        'platform': platform,
+    }
+
+    profile_df = pd.DataFrame()
+    try:
+        logger.info('Loading dataset: %s', dataset_name)
+        profile_df = load_profiles(
+            datasets=datasets,
+            node_level_supp=node_level_supp,
+            qual_tool_filter=qual_tool_filter,
+            qual_tool_output=qual_tool_output
+        )
+    except ScanTblError:
+        # ignore
+        logger.error('Skipping invalid dataset: %s', dataset_name)
+
+    if profile_df.empty:
         # this is an error condition, and we should not fall back to the default predictions.
         raise ValueError('Data preprocessing resulted in an empty dataset. Speedup predictions will be skipped.')
 
-    # predict on each input dataset
-    dataset_summaries = []
-    for dataset, input_df in processed_dfs.items():
-        dataset_name = Path(dataset).name
-        # filter default predictions for the current dataset and drop the dataset_name column
-        filtered_default_preds = default_preds_df[default_preds_df['dataset_name'] == dataset_name].copy()
-        filtered_default_preds.drop(columns=['dataset_name'], inplace=True)
-        # use default predictions if no input data is available
-        per_app_summary = filtered_default_preds
-        per_sql_summary = None
-        if not input_df.empty:
-            filter_str = (
-                f'with {qual_tool_filter} filtering'
-                if node_level_supp is not None
-                and any(input_df['fraction_supported'] != 1.0)
-                else 'raw'
-            )
-            logger.info('Predicting dataset (%s): %s', filter_str, dataset)
-            features, feature_cols, label_col = extract_model_features(input_df)
+    filter_str = (
+        f'with {qual_tool_filter} filtering'
+        if node_level_supp is not None and any(profile_df['fraction_supported'] != 1.0)
+        else 'raw'
+    )
+    logger.info('Predicting dataset (%s): %s', filter_str, dataset_name)
+    features, feature_cols, label_col = extract_model_features(profile_df)
 
+    per_sql_summary = None
+    per_app_summary = None
+    try:
+        per_sql_summary = predict_model(xgb_model, features, feature_cols, label_col)
+
+        # save features, feature importance, and shapley values per dataset name
+        if output_info:
             # save features for troubleshooting
             output_file = output_info['features']['path']
             logger.info('Writing features to: %s', output_file)
             features.to_csv(output_file, index=False)
 
-            # note: dataset name is already stored in the 'appName' field
-            try:
-                per_sql_summary = predict_model(xgb_model, features, feature_cols, label_col)
+            feature_importance, shapley_values = compute_shapley_values(xgb_model, features)
 
-                # compute and save shapley values
-                if output_info:
-                    feature_importance, shapley_values = compute_shapley_values(xgb_model, features)
+            output_file = output_info['featureImportance']['path']
+            logger.info('Writing shapley feature importances to: %s', output_file)
+            feature_importance.to_csv(output_file)
 
-                    output_file = output_info['featureImportance']['path']
-                    logger.info('Writing shapley feature importances to: %s', output_file)
-                    feature_importance.to_csv(output_file)
+            output_file = output_info['shapValues']['path']
+            logger.info('Writing shapley values to: %s', output_file)
+            shapley_values.to_csv(output_file, index=False)
 
-                    output_file = output_info['shapValues']['path']
-                    logger.info('Writing shapley values to: %s', output_file)
-                    shapley_values.to_csv(output_file, index=False)
-
-                # compute per-app speedups
-                summary = _compute_summary(per_sql_summary)
-                # combine calculated summary with default predictions for missing apps
-                per_app_summary = _add_entries_for_missing_apps(filtered_default_preds, summary)
-                if INTERMEDIATE_DATA_ENABLED:
-                    print_summary(per_app_summary)
-
-                # compute speedup for the entire dataset
-                dataset_speedup = (
-                    per_app_summary['appDuration'].sum() / per_app_summary['appDuration_pred'].sum()
-                )
-                if INTERMEDIATE_DATA_ENABLED:
-                    print(f'Dataset estimated speedup: {dataset_speedup:.2f}')
-            except XGBoostError as e:
-                # ignore and continue
-                logger.error(e)
-            except Exception as e:  # pylint: disable=broad-except
-                # ignore and continue
-                logger.error(e)
-                traceback.print_exc()
-        else:
-            logger.warning('Predicted speedup will be 1.0 for dataset: %s. Check logs for details.', dataset)
-        # TODO: Writing CSV reports for all datasets to the same location. We should write to separate directories.
-        write_csv_reports(per_sql_summary, per_app_summary, output_info)
-        dataset_summaries.append(per_app_summary)
-
-    if dataset_summaries:
-        # show summary stats across all datasets
-        dataset_summary = pd.concat(dataset_summaries)
+        # compute per-app speedups
+        summary = _compute_summary(per_sql_summary)
+        # combine calculated summary with default predictions for missing apps
+        per_app_summary = _add_entries_for_missing_apps(default_preds_df, summary)
+        # map appName to the parent qual dir
+        per_app_summary['appName'] = per_app_summary['appId'].map(app_id_name_map)
         if INTERMEDIATE_DATA_ENABLED:
-            print_speedup_summary(dataset_summary)
-        return dataset_summary
-    return pd.DataFrame()
+            print_summary(per_app_summary)
+            # compute speedup for the entire dataset
+            dataset_speedup = (
+                per_app_summary['appDuration'].sum() / per_app_summary['appDuration_pred'].sum()
+            )
+            print(f'Dataset estimated speedup: {dataset_speedup:.2f}')
+    except XGBoostError as e:
+        # ignore and continue
+        logger.error(e)
+    except Exception as e:  # pylint: disable=broad-except
+        # ignore and continue
+        logger.error(e)
+        traceback.print_exc()
+
+    write_csv_reports(per_sql_summary, per_app_summary, output_info)
+    if INTERMEDIATE_DATA_ENABLED:
+        print_speedup_summary(per_app_summary)
+    return per_app_summary
 
 
 def _predict_cli(
@@ -1162,13 +1138,13 @@ def shap(platform: str, prediction_output: str, index: int, model: Optional[str]
         model_shap_df = pd.DataFrame()
 
     # get prediction shap values and isolate specific instance
-    prediction_paths = find_paths(f'{prediction_output}', lambda f: f == 'shap_values.csv')
+    prediction_paths = find_paths(prediction_output, lambda f: f == 'shap_values.csv')
     if len(prediction_paths) == 1:
         prediction_dir = Path(prediction_paths[0]).parent
     elif len(prediction_paths) > 1:
-        raise ValueError(f'Found multiple prediction.csv files in: {prediction_output}')
+        raise ValueError(f'Found multiple shap_values.csv files in: {prediction_output}')
     else:
-        raise FileNotFoundError(f'File: prediction.csv not found in: {prediction_output}')
+        raise FileNotFoundError(f'File: shap_values.csv not found in: {prediction_output}')
 
     df = pd.read_csv(os.path.join(prediction_dir, 'shap_values.csv'))
     instance_shap = df.iloc[index]
