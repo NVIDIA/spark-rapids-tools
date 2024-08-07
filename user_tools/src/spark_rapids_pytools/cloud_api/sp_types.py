@@ -1314,10 +1314,10 @@ class ClusterBase(ClusterGetAccessor):
     def _get_gpu_conversion_str(self) -> str:
         """
         Returns a string representing the GPU configuration.
-        Example: '(with 2 T4)'
+        Example: '(1 L4 each)'
         """
         gpu_per_machine, gpu_device_str = self.get_gpu_per_worker()
-        return f'(with {gpu_per_machine} {gpu_device_str})'
+        return f'({gpu_per_machine} {gpu_device_str} each)'
 
 
 @dataclass
