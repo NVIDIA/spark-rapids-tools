@@ -46,9 +46,8 @@ class QualificationSummary:
     """
     total_apps: pd.DataFrame = field(init=True)  # Total apps, including failed or skipped
     tools_processed_apps: pd.DataFrame = None  # Apps after tools processing and heuristic filtering
-    recommended_apps: pd.DataFrame = None  # Apps recommended by legacy speedups. TODO: Should use QualX
-    filter_apps_count: int = field(default=0, init=False)  # Count after applying console filters (top candidates)
     top_candidates_flag: bool = False
+    filter_apps_count: int = field(default=0, init=False)  # Count after applying console filters (top candidates)
     comments: Any = None
     config_recommendations_path: str = field(default='N/A', init=True)
     sections_generators: List[Callable] = field(default_factory=lambda: [])
@@ -83,7 +82,7 @@ class QualificationSummary:
 
     def _get_stats_recommended_apps(self) -> int:
         if self._has_gpu_recommendation():
-            return len(self.recommended_apps)
+            return len(self.filter_apps_count)
         return 0
 
     def _has_apps(self) -> bool:
@@ -93,13 +92,13 @@ class QualificationSummary:
         return self.tools_processed_apps is not None and not self.tools_processed_apps.empty
 
     def _has_gpu_recommendation(self) -> bool:
-        return self.recommended_apps is not None and not self.recommended_apps.empty
+        return self.filter_apps_count > 0
 
     def generate_report(self,
                         app_name: str,
                         wrapper_output_files_info: dict,
                         csp_report_provider: Callable[[], List[str]] = lambda: [],
-                        df_pprinter: Any = None,
+                        df_pprinter: Callable[[pd.DataFrame], TopCandidates] = lambda: None,
                         output_pprinter: Any = None) -> list:
         report_content = []
         if not self._has_apps():
@@ -117,15 +116,16 @@ class QualificationSummary:
         if self._get_stats_success_apps() > 0:
             if self._has_tools_processed_apps():
                 # TODO: Rename function to indicate the returned df includes filtered applications
-                pretty_df = df_pprinter(self.tools_processed_apps)
-                self.filter_apps_count = len(pretty_df)
-                if pretty_df.empty:
+                pretty_df_obj = df_pprinter(self.tools_processed_apps)
+                self.filter_apps_count = pretty_df_obj.get_filtered_apps_count()
+                if self.filter_apps_count == 0 and pretty_df_obj.filter_enabled:
                     # the results were reduced to no rows because of the filters
                     report_content.append(
                         f'\n{app_name} tool found no qualified applications after applying the filters.\n'
                         f'See the CSV file for full report or disable the filters.')
                 else:
-                    report_content.append(tabulate(pretty_df, headers='keys', tablefmt='psql', floatfmt='.2f'))
+                    report_content.append(tabulate(pretty_df_obj.prepare_output(),
+                                                   headers='keys', tablefmt='psql', floatfmt='.2f'))
             else:
                 report_content.append(f'\n{app_name} tool found no recommendations for GPU.')
         else:
@@ -157,25 +157,9 @@ class QualificationSummary:
         return report_content
 
     def __generate_report_summary(self):
-        def format_float(x: float) -> str:
-            return f'{x:.2f}'
-
         report_summary = [['Total applications', self._get_stats_total_apps()],
-                          ['Processed applications', self._get_stats_success_apps()]]
-        if self.top_candidates_flag:
-            report_summary.append(['Top candidates', self.filter_apps_count])
-        else:
-            # TODO: this should be updated to use recommendations from QualX instead of the legacy speedups column
-            recommended_apps_count = self._get_stats_recommended_apps()
-            report_summary.append(['Recommended applications', recommended_apps_count])
-            if recommended_apps_count > 0:
-                # if there are no RAPIDS candidates, do not display the estimated speedup or cost savings row in console
-                overall_speedup = 0.0
-                total_apps_durations = self._get_total_durations()
-                total_gpu_durations = self._get_total_gpu_durations()
-                if total_gpu_durations > 0:
-                    overall_speedup = total_apps_durations / total_gpu_durations
-                report_summary.append(['Overall estimated speedup', format_float(overall_speedup)])
+                          ['Processed applications', self._get_stats_success_apps()],
+                          ['Top candidates', self.filter_apps_count]]
         return report_summary
 
     @classmethod
@@ -377,21 +361,6 @@ class Qualification(RapidsJarTool):
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 
-    def __is_savings_calc_enabled(self) -> bool:
-        cost_savings_func_flag = self.ctxt.get_value('sparkRapids', 'cli', 'defaults', 'costSavingsSettings', 'enabled')
-        return cost_savings_func_flag and self.ctxt.get_ctxt('enableSavingsCalculations')
-
-    def __get_recommended_apps(self, all_rows, selected_cols=None) -> pd.DataFrame:
-        # TODO: This function should be updated to use speed ups from QualX instead of the legacy speed ups column
-        speed_up_col = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport',
-                                           'recommendations', 'speedUp', 'columnName')
-        recommended_vals = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport',
-                                               'recommendations', 'speedUp', 'selectedRecommendations')
-        mask = all_rows[speed_up_col].isin(recommended_vals)
-        if selected_cols is None:
-            return all_rows.loc[mask]
-        return all_rows.loc[mask, selected_cols]
-
     def __remap_columns_and_prune(self, all_rows) -> pd.DataFrame:
         cols_subset = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'columns')
         # for backward compatibility, filter out non-existing columns
@@ -449,37 +418,6 @@ class Qualification(RapidsJarTool):
             100.0
         )
         return result_df, notes
-
-    def __remap_cols_for_shape_type(self,
-                                    data_set: pd.DataFrame,
-                                    initial_cols_set: List[str],
-                                    reshape_type: QualGpuClusterReshapeType) -> pd.DataFrame:
-        cols_conf = self.ctxt.get_value('local', 'output', 'processDFProps',
-                                        'clusterShapeCols', 'colsPerShapeType',
-                                        QualGpuClusterReshapeType.tostring(reshape_type))
-        deleted_cols = cols_conf.get('excludeColumns')
-        cols_map = cols_conf.get('mapColumns')
-        appended_cols = cols_conf.get('appendColumns')
-        if deleted_cols:
-            new_cols = [col for col in initial_cols_set if col not in deleted_cols]
-        else:
-            new_cols = initial_cols_set[:]
-        if appended_cols:
-            for col_conf in appended_cols:
-                col_name = col_conf.get('columnName')
-                col_ind = col_conf.get('index')
-                if col_ind < 0 or col_ind >= len(new_cols):
-                    new_cols.append(col_name)
-                else:
-                    new_cols.insert(col_ind, col_name)
-        subset_data = data_set.loc[:, new_cols]
-        if cols_map:
-            for col_rename in cols_map:
-                subset_data.columns = subset_data.columns.str.replace(col_rename,
-                                                                      cols_map.get(col_rename),
-                                                                      regex=False)
-
-        return subset_data
 
     def __generate_mc_types_conversion_report(self) -> list:  # pylint: disable=unused-private-member
         report_content = []
@@ -607,11 +545,11 @@ class Qualification(RapidsJarTool):
                                       total_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
                                       output_files_raw: dict) -> QualificationSummary:
-        filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
+        filter_toc_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(total_apps=total_apps,
-                                        top_candidates_flag=filter_top_candidate_enabled)
+                                        top_candidates_flag=filter_toc_enabled)
 
         output_files_info = JSONPropertiesContainer(output_files_raw, file_load=False)
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
@@ -629,21 +567,16 @@ class Qualification(RapidsJarTool):
         # Group the applications and recalculate metrics
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
         apps_grouped_df = speedup_category_ob.build_category_column(apps_grouped_df)
-        recommended_apps = self.__get_recommended_apps(apps_grouped_df)
         reshaped_notes = self.__generate_cluster_shape_report()
         report_comments = [group_notes] if group_notes else []
         if reshaped_notes:
             report_comments.append(reshaped_notes)
 
-        apps_reshaped_df, _ = self.__apply_gpu_cluster_reshape(apps_grouped_df)
+        df_final_result, _ = self.__apply_gpu_cluster_reshape(apps_grouped_df)
         csv_out = output_files_info.get_value('summary', 'path')
-        df_final_result = apps_reshaped_df
-        if not apps_reshaped_df.empty:
-            # Do not include estimated job frequency in csv file
-            apps_reshaped_df = apps_reshaped_df.drop(columns=['Estimated Job Frequency (monthly)'])
+        if not df_final_result.empty:
             self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
-            apps_reshaped_df.to_csv(csv_out, float_format='%.2f')
-        filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
+            df_final_result.to_csv(csv_out, float_format='%.2f')
         # Add columns for cluster configuration recommendations and tuning configurations to the processed_apps.
         recommender = ClusterConfigRecommender(self.ctxt)
         df_final_result = recommender.add_cluster_and_tuning_recommendations(df_final_result)
@@ -656,63 +589,31 @@ class Qualification(RapidsJarTool):
         self._write_app_metadata(df_final_result, app_metadata_info, config_recommendations_info)
         return QualificationSummary(total_apps=total_apps,
                                     tools_processed_apps=df_final_result,
-                                    recommended_apps=recommended_apps,
-                                    top_candidates_flag=filter_top_candidate_enabled,
+                                    top_candidates_flag=filter_toc_enabled,
                                     comments=report_comments,
                                     config_recommendations_path=config_recommendations_info.get('path'))
 
     def _process_output(self) -> None:
-        def process_df_for_stdout(raw_df):
+        def process_df_for_stdout(raw_df: pd.DataFrame) -> TopCandidates:
             """
             process the dataframe to be more readable on the stdout
             1- convert time durations to second
             2- shorten headers
             """
-            savings_report_enabled = self.__is_savings_calc_enabled()
             # summary columns depend on the type of the generated report
-            selected_cols = self.ctxt.get_value('local', 'output', 'summaryColumns',
-                                                f'savingsReportEnabled{str(savings_report_enabled)}')
             # check if any filters apply
-            filter_top_candidate_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
+            filter_toc_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
             squeeze_header_enabled = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'compactWidth')
-            header_width = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'columnWidth')
-
-            if filter_top_candidate_enabled:
-                # TODO: Ideally we should create instance of TopCandidates as class variable using the filter apps flag.
-                #  This should be refactored along with entire filter apps logic to use more object-oriented design.
-                top_candidates_obj = TopCandidates(self.ctxt.get_value('local', 'output', 'topCandidates'))
-                filtered_apps = top_candidates_obj.filter_apps(raw_df)
-                result_df = top_candidates_obj.prepare_output(filtered_apps)
-                # this is a bit weird since hardcoding but we don't want this to have ** for csv output
-                if 'Estimated GPU Speedup Category' in result_df:
-                    result_df.rename(columns={'Estimated GPU Speedup Category': 'Estimated GPU Speedup Category**'},
-                                     inplace=True)
-                # squeeze the header titles if enabled
-                return Utilities.squeeze_df_header(result_df, header_width) if squeeze_header_enabled else result_df
-
-            if self.__recommendation_is_non_standard():
-                # During processing of arguments phase, we verified that the filter does not conflict
-                # with the shape recommendation
-                raw_df = self.__remap_cols_for_shape_type(raw_df,
-                                                          selected_cols,
-                                                          self.ctxt.get_ctxt('gpuClusterShapeRecommendation'))
-                # update the selected columns
-                selected_cols = list(raw_df.columns)
-            df_row = raw_df.loc[:, selected_cols]
-            if df_row.empty:
-                return df_row
-            time_unit = '(ms)'
-            time_from_conf = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'timeUnits')
-            if time_from_conf == 's':
-                time_unit = '(s)'
-                # convert to seconds
-                for column in df_row[[col for col in df_row.columns if 'Duration' in col]]:
-                    df_row[column] = df_row[column].div(1000).round(2)
-            # change the header to include time unit
-            df_row.columns = df_row.columns.str.replace('Duration',
-                                                        f'Duration{time_unit}', regex=False)
-            # squeeze the header titles if enabled
-            return Utilities.squeeze_df_header(df_row, header_width) if squeeze_header_enabled else df_row
+            if squeeze_header_enabled:
+                header_width = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'columnWidth')
+            else:
+                header_width = 0
+            view_dic = self.ctxt.get_value('local', 'output', 'topCandidates')
+            top_candidates_obj = TopCandidates(props=view_dic,
+                                               filter_enabled=filter_toc_enabled,
+                                               all_apps=raw_df,
+                                               header_width=header_width)
+            return top_candidates_obj
 
         if not self._evaluate_rapids_jar_tool_output_exist():
             return

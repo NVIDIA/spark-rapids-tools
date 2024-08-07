@@ -22,22 +22,20 @@ toolOutput:
         - Cluster Name
         - App Name
         - App ID
-        - Recommendation
         - Estimated GPU Speedup
         - Estimated GPU Duration
         - App Duration
-        - Estimated Job Frequency (monthly)
         - SQL Stage Durations Sum
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
       mapColumns:
-        Recommendation: 'Speedup Based Recommendation'
       recommendations:
         speedUp:
-          columnName: 'Speedup Based Recommendation'
+          columnName: 'Estimated GPU Speedup Category'
           selectedRecommendations:
-            - 'Strongly Recommended'
-            - 'Recommended'
+            - 'Large'
+            - 'Medium'
+            - 'Small'
         savings:
           columnName: 'Savings Based Recommendation'
           selectedRecommendations:
@@ -162,13 +160,11 @@ local:
       - 'Estimated Job Frequency (monthly)'
       - 'Annual Cost Savings'
     savingColumn: 'Estimated GPU Savings(%)'
-    speedupRecommendColumn: 'Speedup Based Recommendation'
     savingRecommendColumn: 'Savings Based Recommendation'
     summaryColumns: #columns to be displayed on the stdout as part of the final report
       savingsReportEnabledTrue: #columns with savings estimates enabled
         - 'App ID'
         - 'App Name'
-        - 'Speedup Based Recommendation'
         - 'Savings Based Recommendation'
         - 'App Duration'
         - 'Estimated GPU Duration'
@@ -177,7 +173,6 @@ local:
       savingsReportEnabledFalse: #columns with savings estimates disabled
         - 'App ID'
         - 'App Name'
-        - 'Speedup Based Recommendation'
         - 'App Duration'
         - 'Estimated GPU Duration'
         - 'Estimated GPU Speedup'
