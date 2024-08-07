@@ -23,7 +23,7 @@ import scala.reflect.runtime.universe._
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphEdge, SparkPlanGraphNode, SQLPlanMetric}
-import org.apache.spark.sql.rapids.tool.store.AccNameRef
+import org.apache.spark.sql.rapids.tool.store.AccumNameRef
 
 class DBReflectionEntry[T](mirror: Mirror, className: String, paramsSize: Option[Int] = None) {
   // Get the class symbol
@@ -213,7 +213,7 @@ object ToolsPlanGraph {
   private def constructSQLPlanMetric(name: String,
       accumulatorId: Long,
       metricType: String): SQLPlanMetric = {
-    val accNameRef = AccNameRef.getInternalAccName(Some(name))
+    val accNameRef = AccumNameRef.getOrCreateAccumNameRef(name)
     try {
       SQLPlanMetric(accNameRef.value, accumulatorId, metricType)
     } catch {

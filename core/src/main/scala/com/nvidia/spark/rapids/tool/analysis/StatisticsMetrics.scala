@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.analysis
 
 // Store (min, median, max, total) for a given metric
-case class StatisticsMetrics(min: Long, med:Long, max:Long, total: Long)
+case class StatisticsMetrics(min: Long, med: Long, max: Long, total: Long)
 
 object StatisticsMetrics {
   // a static variable used to represent zero-statistics instead of allocating a dummy record

@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import scala.collection.Map
 
 import org.apache.spark.resource.{ExecutorResourceRequest, TaskResourceRequest}
-import org.apache.spark.sql.rapids.tool.store.AccMetaRef
+import org.apache.spark.sql.rapids.tool.store.AccumMetaRef
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
@@ -220,7 +220,7 @@ case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
   }
 }
 
-case class AccumProfileResults(appIndex: Int, stageId: Int, accMetaRef: AccMetaRef,
+case class AccumProfileResults(appIndex: Int, stageId: Int, accMetaRef: AccumMetaRef,
     min: Long, median: Long, max: Long, total: Long) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "stageId", "accumulatorId", "name", "min",
     "median", "max", "total")

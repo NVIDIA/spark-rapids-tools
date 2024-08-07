@@ -31,7 +31,7 @@ import org.apache.spark.sql.rapids.tool.util.EventUtils.parseAccumFieldToLong
  * 3. AccumMetaRef for the accumulator - a reference to the Meta information
  * @param infoRef - AccumMetaRef for the accumulator
  */
-class AccumInfo(val infoRef: AccMetaRef) {
+class AccumInfo(val infoRef: AccumMetaRef) {
   // TODO: use sorted maps for stageIDs and taskIds?
   val taskUpdatesMap: mutable.HashMap[Long, Long] =
     new mutable.HashMap[Long, Long]()
@@ -47,10 +47,10 @@ class AccumInfo(val infoRef: AccMetaRef) {
    * @param stageId the stageId pulled from the StageCompleted/TaskEnd event
    * @param accumulableInfo the accumulableInfo from the StageCompleted/TaskEnd event
    * @param update optional long that represents the task update value in case the call was
-   *               triggered by a taskEnd event and the mapo between stage-Acc has not been
+   *               triggered by a taskEnd event and the map between stage-Acc has not been
    *               established yet.
    */
-  def addAccToStage(stageId: Int,
+  def addAccumToStage(stageId: Int,
       accumulableInfo: AccumulableInfo,
       update: Option[Long] = None): Unit = {
     val parsedValue = accumulableInfo.value.flatMap(parseAccumFieldToLong)
@@ -71,7 +71,7 @@ class AccumInfo(val infoRef: AccMetaRef) {
    * @param taskId the taskId pulled from the TaskEnd event
    * @param accumulableInfo the accumulableInfo from the TaskEnd event
    */
-  def addAccToTask(stageId: Int, taskId: Long, accumulableInfo: AccumulableInfo): Unit = {
+  def addAccumToTask(stageId: Int, taskId: Long, accumulableInfo: AccumulableInfo): Unit = {
     val parsedUpdateValue = accumulableInfo.update.flatMap(parseAccumFieldToLong)
     // we need to update the stageMap if the stageId does not exist in the map
     val updateStageFlag = !stageValuesMap.contains(stageId)
@@ -85,7 +85,7 @@ class AccumInfo(val infoRef: AccMetaRef) {
     }
     // update the stage value map if necessary
     if (updateStageFlag) {
-      addAccToStage(stageId, accumulableInfo, parsedUpdateValue)
+      addAccumToStage(stageId, accumulableInfo, parsedUpdateValue)
     }
   }
 
@@ -94,7 +94,7 @@ class AccumInfo(val infoRef: AccMetaRef) {
   }
 
   def getMinStageId: Int = {
-      stageValuesMap.keys.min
+    stageValuesMap.keys.min
   }
 
   def calculateAccStats(): StatisticsMetrics = {

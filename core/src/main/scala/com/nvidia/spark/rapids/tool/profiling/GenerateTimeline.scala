@@ -21,7 +21,7 @@ import scala.collection.mutable.ArrayBuffer
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
-import org.apache.spark.sql.rapids.tool.store.{AccNameRef, AccumInfo}
+import org.apache.spark.sql.rapids.tool.store.{AccumInfo, AccumNameRef}
 
 abstract class TimelineTiming(
     val startTime: Long,
@@ -278,9 +278,9 @@ object GenerateTimeline {
       .flatMap(app.accumManager.accumInfoMap.get)
       .flatMap(_.taskUpdatesMap.values).sum
 
-    val semMetricsMs = app.accumManager.accumInfoMap.flatMap{
+    val semMetricsMs = app.accumManager.accumInfoMap.flatMap {
         case (_,accumInfo: AccumInfo)
-            if accumInfo.infoRef.name == AccNameRef.NAMES_TABLE.get("gpuSemaphoreWait") =>
+            if accumInfo.infoRef.name == AccumNameRef.NAMES_TABLE.get("gpuSemaphoreWait") =>
             Some(accumInfo.taskUpdatesMap.values.sum)
         case _ => None
       }.sum

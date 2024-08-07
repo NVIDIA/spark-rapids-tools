@@ -22,11 +22,11 @@ package org.apache.spark.sql.rapids.tool.store
  * @param id - Accumulable id
  * @param name - Reference to the accumulator name
  */
-case class AccMetaRef(id: Long, name: AccNameRef) {
+case class AccumMetaRef(id: Long, name: AccumNameRef) {
   def getName(): String = name.value
 }
 
-object AccMetaRef {
-  def apply(id: Long, name: Option[String]): AccMetaRef =
-    new AccMetaRef(id, AccNameRef.getInternalAccName(name))
+object AccumMetaRef {
+  def apply(id: Long, name: Option[String]): AccumMetaRef =
+    new AccumMetaRef(id, AccumNameRef.getOrCreateAccumNameRef(name))
 }
