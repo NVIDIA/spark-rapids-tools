@@ -29,18 +29,6 @@ toolOutput:
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
       mapColumns:
-      recommendations:
-        speedUp:
-          columnName: 'Estimated GPU Speedup Category'
-          selectedRecommendations:
-            - 'Large'
-            - 'Medium'
-            - 'Small'
-        savings:
-          columnName: 'Savings Based Recommendation'
-          selectedRecommendations:
-            - 'Strongly Recommended'
-            - 'Recommended'
       groupColumns:
          enabled: false
          keys:

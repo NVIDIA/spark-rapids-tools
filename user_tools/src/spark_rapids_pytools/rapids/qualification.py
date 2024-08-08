@@ -46,31 +46,10 @@ class QualificationSummary:
     """
     total_apps: pd.DataFrame = field(init=True)  # Total apps, including failed or skipped
     tools_processed_apps: pd.DataFrame = None  # Apps after tools processing and heuristic filtering
-    top_candidates_flag: bool = False
     filter_apps_count: int = field(default=0, init=False)  # Count after applying console filters (top candidates)
     comments: Any = None
     config_recommendations_path: str = field(default='N/A', init=True)
     sections_generators: List[Callable] = field(default_factory=lambda: [])
-
-    def _get_total_durations(self) -> int:
-        if self._has_tools_processed_apps():
-            return self.tools_processed_apps['App Duration'].sum()
-        return 0
-
-    def _get_total_gpu_durations(self) -> int:
-        if self._has_tools_processed_apps():
-            return self.tools_processed_apps['Estimated GPU Duration'].sum()
-        return 0
-
-    def _get_stats_total_cost(self) -> float:
-        if self._has_tools_processed_apps() and 'Estimated App Cost' in self.tools_processed_apps.columns:
-            return self.tools_processed_apps['Estimated App Cost'].sum()
-        return 0.0
-
-    def _get_stats_total_gpu_cost(self) -> float:
-        if self._has_tools_processed_apps() and 'Estimated GPU Cost' in self.tools_processed_apps.columns:
-            return self.tools_processed_apps['Estimated GPU Cost'].sum()
-        return 0.0
 
     def _get_stats_total_apps(self) -> int:
         return len(self.total_apps)
@@ -78,11 +57,6 @@ class QualificationSummary:
     def _get_stats_success_apps(self) -> int:
         if self._has_apps():
             return len(self.total_apps[self.total_apps['Status'] == 'SUCCESS'])
-        return 0
-
-    def _get_stats_recommended_apps(self) -> int:
-        if self._has_gpu_recommendation():
-            return len(self.filter_apps_count)
         return 0
 
     def _has_apps(self) -> bool:
@@ -131,8 +105,9 @@ class QualificationSummary:
         else:
             report_content.append(f'\n{app_name} tool found no successful applications to process.')
 
-        # 'Config Recommendations' and 'Estimated GPU Speedup Category' columns are available only in top candidates
-        if self.top_candidates_flag and self.filter_apps_count > 0:
+        # 'Config Recommendations' and 'Estimated GPU Speedup Category' columns are available only if there are any
+        # recommended apps.
+        if self._has_gpu_recommendation():
             if FSUtil.resource_exists(self.config_recommendations_path):
                 report_content.append(f'* Config Recommendations can be found in {self.config_recommendations_path}.')
             report_content.append('** Estimated GPU Speedup Category assumes the user is using the node type '
@@ -545,11 +520,9 @@ class Qualification(RapidsJarTool):
                                       total_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
                                       output_files_raw: dict) -> QualificationSummary:
-        filter_toc_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
-            return QualificationSummary(total_apps=total_apps,
-                                        top_candidates_flag=filter_toc_enabled)
+            return QualificationSummary(total_apps=total_apps)
 
         output_files_info = JSONPropertiesContainer(output_files_raw, file_load=False)
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
@@ -589,7 +562,6 @@ class Qualification(RapidsJarTool):
         self._write_app_metadata(df_final_result, app_metadata_info, config_recommendations_info)
         return QualificationSummary(total_apps=total_apps,
                                     tools_processed_apps=df_final_result,
-                                    top_candidates_flag=filter_toc_enabled,
                                     comments=report_comments,
                                     config_recommendations_path=config_recommendations_info.get('path'))
 
