@@ -569,6 +569,8 @@ def predict(
             qual_tool_filter=qual_tool_filter,
             qual_tool_output=qual_tool_output
         )
+        # reset appName to original
+        profile_df['appName'] = profile_df['appId'].map(app_id_name_map)
     except ScanTblError:
         # ignore
         logger.error('Skipping invalid dataset: %s', dataset_name)
@@ -611,8 +613,6 @@ def predict(
         summary = _compute_summary(per_sql_summary)
         # combine calculated summary with default predictions for missing apps
         per_app_summary = _add_entries_for_missing_apps(default_preds_df, summary)
-        # reset appName to original
-        per_app_summary['appName'] = per_app_summary['appId'].map(app_id_name_map)
         if INTERMEDIATE_DATA_ENABLED:
             print_summary(per_app_summary)
             # compute speedup for the entire dataset
