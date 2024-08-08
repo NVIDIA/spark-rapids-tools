@@ -26,6 +26,7 @@ import time
 from dataclasses import dataclass, field
 from logging import Logger
 from shutil import make_archive, which
+import tempfile
 from typing import Callable, Any
 
 import chevron
@@ -228,6 +229,24 @@ class ToolLogging:
             fh.setFormatter(formatter)
             logger.addHandler(fh)
         return logger
+
+    @classmethod
+    def modify_log4j_properties(cls, file_path: str, new_log_file_path: str) -> str:
+        timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+        new_log_file_with_timestamp = f'{new_log_file_path}/core_tools_log_{timestamp}.log'
+        with open(file_path, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+
+        with (tempfile.NamedTemporaryFile(delete=False, mode='w+', suffix='.properties')
+              as temp_file):
+            temp_file_path = temp_file.name
+            for line in lines:
+                # print(f'Line: {line}')
+                if line.startswith('log4j.appender.FILE.File='):
+                    temp_file.write(f'log4j.appender.FILE.File={new_log_file_with_timestamp}\n')
+                else:
+                    temp_file.write(line)
+        return temp_file_path
 
 
 class TemplateGenerator:
