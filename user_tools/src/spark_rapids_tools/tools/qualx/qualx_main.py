@@ -548,18 +548,8 @@ def predict(
         logger.warning('Qualification tool metrics are missing. Speedup predictions will be skipped.')
         return pd.DataFrame()
 
-    # construct mapping of appIds to appNames (qual directories)
-    app_id_name_map = {}
-    for metrics_dir in qual_metrics:
-        # metrics follow the pattern 'qual_2024xx/rapids_4_spark_qualification_output/raw_metrics'
-        # use grandparent directory as dataset name 'qual_2024xxxx'
-        app_name = Path(metrics_dir).parent.parent.name
-        # search subdirectories for App IDs
-        app_ids = [p.name for p in Path(metrics_dir).iterdir() if p.is_dir()]
-        if len(app_ids) == 0:
-            logger.warning('Skipping empty metrics directory: %s', metrics_dir)
-        for app_id in app_ids:
-            app_id_name_map[app_id] = app_name
+    # construct mapping of appIds to original appNames
+    app_id_name_map = default_preds_df.set_index('appId')['appName'].to_dict()
 
     # if qualification metrics are provided, load metrics and apply filtering
     datasets = {}                       # create a dummy dataset
@@ -621,7 +611,7 @@ def predict(
         summary = _compute_summary(per_sql_summary)
         # combine calculated summary with default predictions for missing apps
         per_app_summary = _add_entries_for_missing_apps(default_preds_df, summary)
-        # map appName to the parent qual dir
+        # reset appName to original
         per_app_summary['appName'] = per_app_summary['appId'].map(app_id_name_map)
         if INTERMEDIATE_DATA_ENABLED:
             print_summary(per_app_summary)
