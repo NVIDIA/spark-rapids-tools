@@ -369,7 +369,7 @@ def write_csv_reports(per_sql: pd.DataFrame, per_app: pd.DataFrame, output_info:
         if per_sql is not None:
             sql_predictions_path = output_info['perSql']['path']
             logger.info('Writing per-SQL predictions to: %s', sql_predictions_path)
-            per_sql.to_csv(sql_predictions_path, index=False)
+            per_sql.to_csv(sql_predictions_path)
     except Exception as e:  # pylint: disable=broad-except
         logger.error('Error writing per-SQL predictions. Reason: %s', e)
 
@@ -377,7 +377,7 @@ def write_csv_reports(per_sql: pd.DataFrame, per_app: pd.DataFrame, output_info:
         if per_app is not None:
             app_predictions_path = output_info['perApp']['path']
             logger.info('Writing per-application predictions to: %s', app_predictions_path)
-            per_app.to_csv(app_predictions_path, index=False)
+            per_app.to_csv(app_predictions_path)
     except Exception as e:  # pylint: disable=broad-except
         logger.error('Error writing per-app predictions. Reason: %s', e)
 
