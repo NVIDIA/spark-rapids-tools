@@ -158,7 +158,7 @@ class OnPremLocalRapidsJob(RapidsLocalJob):
 class OnPremNode(ClusterNode):
     """Implementation of Onprem cluster node."""
 
-    def _pull_sys_info(self, cli=None) -> SysInfo:
+    def _pull_sys_info(self) -> SysInfo:
         # We do not use cpu memory information for any recommendations in on-prem. Hence, it can be optional.
         cpu_mem = self.props.get_value_silent('memory')
         cpu_mem = cpu_mem.replace('MiB', '') if cpu_mem else None
