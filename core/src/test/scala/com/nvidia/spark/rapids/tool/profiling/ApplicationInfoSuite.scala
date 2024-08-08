@@ -246,7 +246,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         // So the result will have 6 rows in total since we are reporting stage level metrics.
         assert(stageLevelResults.size == 6)
         // gpu metrics
-        val gpuSemaphoreWait = stageLevelResults.find(_.name == "gpuSemaphoreWait")
+        val gpuSemaphoreWait = stageLevelResults.find(_.accMetaRef.getName() == "gpuSemaphoreWait")
         assert(gpuSemaphoreWait.isDefined)
       }
     }
