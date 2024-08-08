@@ -293,7 +293,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     if (clusterProperties.isDefined) {
       Math.max(1, clusterProperties.get.system.numWorkers)
     } else if (clusterInfoFromEventLog.isDefined) {
-      clusterInfoFromEventLog.get.numExecutorNodes
+      clusterInfoFromEventLog.get.numWorkerNodes
     } else {
       1
     }
@@ -309,7 +309,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       execInstFromProps.get.toInt
     } else if (clusterInfoFromEventLog.isDefined) {
       val clusterInfo = clusterInfoFromEventLog.get
-      clusterInfo.numExecutorNodes * clusterInfo.numExecsPerNode
+      clusterInfo.numWorkerNodes * clusterInfo.numExecsPerNode
     } else {
       // not sure so don't set it
       0
@@ -338,12 +338,12 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
 
   def createClusterInfo(coresPerExecutor: Int,
       numExecsPerNode: Int,
-      numExecutorNodes: Int,
+      numWorkerNodes: Int,
       sparkProperties: Map[String, String],
       systemProperties: Map[String, String]): ExistingClusterInfo = {
     val driverHost = sparkProperties.get("spark.driver.host")
     val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
-    ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecutorNodes,
+    ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numWorkerNodes,
       executorHeapMem, driverHost = driverHost)
   }
 
@@ -474,8 +474,9 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       val vendor = clusterInfoFromEventLog.map(_.vendor).getOrElse("")
       val instanceName = finalInstanceInfo.map(_.name).getOrElse("")
       val numGpus = finalInstanceInfo.map(_.numGpus).getOrElse(1)
+      // Num of executors per node is the number of GPUs
       recommendedClusterInfo = Some(RecommendedClusterInfo(vendor, coresPerExec,
-        numExecs, numNodes, numGpus, instanceName))
+        numNodes, numGpus, numExecs, workerNodeType = Some(instanceName)))
       recommendedNodeInstanceInfo = finalInstanceInfo
       recommendedClusterInfo
     } else {
@@ -503,18 +504,17 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
 
   override def createClusterInfo(coresPerExecutor: Int,
       numExecsPerNode: Int,
-      numExecutorNodes: Int,
+      numWorkerNodes: Int,
       sparkProperties: Map[String, String],
       systemProperties: Map[String, String]): ExistingClusterInfo = {
-    val executorInstance = sparkProperties.get(DatabricksParseHelper.PROP_WORKER_TYPE_ID_KEY)
-    val driverInstance = sparkProperties.get(DatabricksParseHelper.PROP_DRIVER_TYPE_ID_KEY)
+    val workerNodeType = sparkProperties.get(DatabricksParseHelper.PROP_WORKER_TYPE_ID_KEY)
+    val driverNodeType = sparkProperties.get(DatabricksParseHelper.PROP_DRIVER_TYPE_ID_KEY)
     val clusterId = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY)
     val driverHost = sparkProperties.get("spark.driver.host")
     val clusterName = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY)
     val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
-    ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecutorNodes,
-      executorHeapMem, executorInstance, driverInstance,
-      driverHost, clusterId, clusterName)
+    ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numWorkerNodes,
+      executorHeapMem, driverNodeType, workerNodeType, driverHost, clusterId, clusterName)
   }
 }
 
@@ -628,13 +628,13 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
 
   override def createClusterInfo(coresPerExecutor: Int,
       numExecsPerNode: Int,
-      numExecutorNodes: Int,
+      numWorkerNodes: Int,
       sparkProperties: Map[String, String],
       systemProperties: Map[String, String]): ExistingClusterInfo = {
     val clusterId = systemProperties.get("EMR_CLUSTER_ID")
     val driverHost = sparkProperties.get("spark.driver.host")
     val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
-    ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecutorNodes,
+    ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numWorkerNodes,
       executorHeapMem, clusterId = clusterId, driverHost = driverHost)
   }
 

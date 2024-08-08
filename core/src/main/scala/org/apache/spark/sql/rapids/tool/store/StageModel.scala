@@ -35,25 +35,12 @@ class StageModel private(sInfo: StageInfo) {
   updateInfo(sInfo)
 
   /**
-   * Creates a new StageInfo object by extractingand copying
-   * only the necessary fields from the given StageInfo object.
    * @param newStageInfo
-   * @return a new StageInfo object with the necessary fields.
+   * @return a new StageInfo object.
+   * TODO: https://github.com/NVIDIA/spark-rapids-tools/issues/1260
    */
   private def initStageInfo(newStageInfo: StageInfo): StageInfo = {
-    val stubStage = new StageInfo(
-      stageId = newStageInfo.stageId,
-      attemptId = newStageInfo.attemptNumber(),
-      name = newStageInfo.name,
-      numTasks = newStageInfo.numTasks,
-      rddInfos = Seq.empty,
-      parentIds = newStageInfo.parentIds,
-      details = newStageInfo.details,
-      resourceProfileId = newStageInfo.resourceProfileId)
-    stubStage.completionTime = newStageInfo.completionTime
-    stubStage.submissionTime = newStageInfo.submissionTime
-    stubStage.failureReason = newStageInfo.failureReason
-    stubStage
+    newStageInfo
   }
 
   @WallClock
@@ -67,6 +54,7 @@ class StageModel private(sInfo: StageInfo) {
    * @param newStageInfo Spark's StageInfo loaded from StageSubmitted/StageCompleted events.
    */
   private def updateInfo(newStageInfo: StageInfo): Unit = {
+    // TODO issue: https://github.com/NVIDIA/spark-rapids-tools/issues/1260
     stageInfo = initStageInfo(newStageInfo)
     calculateDuration()
   }
@@ -129,5 +117,3 @@ object StageModel {
     sModel
   }
 }
-
-

@@ -29,7 +29,7 @@ trait AppStageMetricsViewTrait extends ViewableTrait[AccumProfileResults] {
 
   override def sortView(
       rows: Seq[AccumProfileResults]): Seq[AccumProfileResults] = {
-    rows.sortBy(cols => (cols.appIndex, cols.stageId, cols.accumulatorId))
+    rows.sortBy(cols => (cols.appIndex, cols.stageId, cols.accMetaRef.id))
   }
 }
 

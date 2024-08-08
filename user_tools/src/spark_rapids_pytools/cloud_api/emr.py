@@ -23,8 +23,7 @@ from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.emr_job import EmrLocalRapidsJob
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, \
-    ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice, \
-    ClusterGetAccessor
+    ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, GpuDevice, ClusterGetAccessor
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, \
     AbstractPropertiesContainer
 from spark_rapids_pytools.common.utilities import Utils
@@ -199,16 +198,6 @@ class EMRCMDDriver(CMDDriverBase):
                        dest]
         return Utils.gen_joined_str(' ', prefix_args)
 
-    # TODO: to be deprecated
-    def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
-        cmd_params = ['aws ec2 describe-instance-types',
-                      '--region', f'{self.get_region()}',
-                      '--instance-types', f'{node.instance_type}']
-        return cmd_params
-
-    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
-        return node.instance_type, self.get_region()
-
     def get_zone(self) -> str:
         describe_cmd = ['aws ec2 describe-availability-zones',
                         '--region', f'{self.get_region()}']
@@ -243,13 +232,6 @@ class EMRCMDDriver(CMDDriverBase):
         describe_cmd = f'aws emr describe-cluster --cluster-id {cluster_id}'
         return self.run_sys_cmd(describe_cmd)
 
-    # TODO: to be deprecated
-    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
-        raw_instance_descriptions = super()._exec_platform_describe_node_instance(node)
-        instance_descriptions = JSONPropertiesContainer(raw_instance_descriptions, file_load=False)
-        # Return the instance description of node type. Convert to valid JSON string for type matching.
-        return json.dumps(instance_descriptions.get_value('InstanceTypes')[0])
-
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
@@ -269,12 +251,6 @@ class EMRCMDDriver(CMDDriverBase):
 
     def get_instance_description_cli_params(self):
         return ['aws ec2 describe-instance-types', '--region', f'{self.get_region()}']
-
-    def init_instance_descriptions(self) -> None:
-        platform = CspEnv.pretty_print(self.cloud_ctxt['platformType'])
-        instance_description_file_path = Utils.resource_path(f'{platform}-instance-catalog.json')
-        self.logger.info('Loading instance descriptions from file: %s', instance_description_file_path)
-        self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
 
 @dataclass
@@ -314,18 +290,9 @@ class EMRNode(ClusterNode):
     """
     ec2_instance: Ec2Instance = field(default=None, init=False)
 
-    def _pull_and_set_mc_props(self, cli=None):
-        instances_description = cli.describe_node_instance(self.instance_type) if cli else None
-        self.mc_props = JSONPropertiesContainer(prop_arg=instances_description, file_load=False)
-
     def _set_fields_from_props(self):
         self.name = self.ec2_instance.dns_name
         self.instance_type = self.ec2_instance.group.instance_type
-
-    def _pull_sys_info(self, cli=None) -> SysInfo:
-        cpu_mem = self.mc_props.get_value('MemoryInMB')
-        num_cpus = self.mc_props.get_value('VCpuCount')
-        return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
     def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo or None:
         raw_gpus = self.mc_props.get_value_silent('GpuInfo')

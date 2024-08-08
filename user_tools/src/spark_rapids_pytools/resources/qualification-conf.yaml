@@ -140,15 +140,14 @@ local:
         columns:
           - 'Full Cluster Config Recommendations*'
           - 'GPU Config Recommendation Breakdown*'
-      summaryMetadata:
-        name: qualification_summary_metadata.json
+      appMetadata:
+        name: app_metadata.json
         outputComment: "Metadata file with cluster recommendation and tuning details"
         columns:
           - 'App ID'
           - 'App Name'
           - 'Event Log'
-          - 'Source Cluster'
-          - 'Recommended Cluster'
+          - 'Cluster Info'
           - 'Estimated GPU Speedup Category'
           - 'Full Cluster Config Recommendations*'
           - 'GPU Config Recommendation Breakdown*'
@@ -348,12 +347,12 @@ local:
             dstCol: 'Estimated GPU Duration'
     clusterInference:
       cpuClusterColumns:
-        - 'Num Executor Nodes'
-        - 'Executor Instance'
+        - 'Num Worker Nodes'
+        - 'Worker Node Type'
         - 'Cores Per Executor'
       gpuClusterColumns:
-        - 'Recommended Num Executor Nodes'
-        - 'Recommended Executor Instance'
+        - 'Recommended Num Worker Nodes'
+        - 'Recommended Worker Node Type'
         - 'Recommended Cores Per Executor'
 
 platform:

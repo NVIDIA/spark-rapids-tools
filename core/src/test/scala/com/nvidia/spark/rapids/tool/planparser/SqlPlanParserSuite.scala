@@ -962,7 +962,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("get_json_object is not supported by default in Project with RAPIDS 24.06") {
+  test("get_json_object is supported by default in Project with RAPIDS 24.10") {
     TrampolineUtil.withTempDir { parquetoutputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
@@ -985,7 +985,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         }
         val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projectExprs = execInfo.filter(_.exec == "Project")
-        assertSizeAndNotSupported(1, projectExprs)
+        assertSizeAndSupported(1, projectExprs)
       }
     }
   }
@@ -1301,6 +1301,37 @@ class SQLPlanParserSuite extends BaseTestSuite {
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val hashAggregate = execInfo.filter(_.exec == "HashAggregate")
       assertSizeAndSupported(2, hashAggregate)
+    }
+  }
+
+  test("map_from_arrays is supported in ProjectExec") {
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ProjectExprsSupported") { spark =>
+          import spark.implicits._
+          val df1 = Seq((Array("a", "b", "c"), Array(1, 2, 3)),
+            (Array("x", "y", "z"), Array(10, 20, 30))).toDF("keys", "values")
+          // write df1 to parquet to transform LocalTableScan to ProjectExec
+          df1.write.parquet(s"$parquetoutputLoc/testtext")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+          // map_from_arrays should be part of ProjectExec
+          df2.select(map_from_arrays(df2("keys"), df2("values")).as("map"))
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 1)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        val allChildren = wholeStages.flatMap(_.children).flatten
+        val projects = allChildren.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projects)
+      }
     }
   }
 

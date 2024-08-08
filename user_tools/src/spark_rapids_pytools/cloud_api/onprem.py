@@ -164,10 +164,10 @@ class OnPremNode(ClusterNode):
     """Implementation of Onprem cluster node."""
 
     def fetch_and_set_hw_info(self, cli=None):
-        sys_info = self._pull_sys_info(cli)
+        sys_info = self._pull_sys_info()
         self.construct_hw_info(cli=cli, sys_info=sys_info)
 
-    def _pull_sys_info(self, cli=None) -> SysInfo:
+    def _pull_sys_info(self) -> SysInfo:
         cpu_mem = self.props.get_value('memory')
         cpu_mem = cpu_mem.replace('MiB', '')
         num_cpus = self.props.get_value('numCores')
