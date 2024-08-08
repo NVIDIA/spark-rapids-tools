@@ -237,11 +237,10 @@ class ToolLogging:
         with open(file_path, 'r', encoding='utf-8') as file:
             lines = file.readlines()
 
-        with (tempfile.NamedTemporaryFile(delete=False, mode='w+', suffix='.properties')
-              as temp_file):
+        with tempfile.NamedTemporaryFile(
+                delete=False, mode='w+', suffix='.properties') as temp_file:
             temp_file_path = temp_file.name
             for line in lines:
-                # print(f'Line: {line}')
                 if line.startswith('log4j.appender.FILE.File='):
                     temp_file.write(f'log4j.appender.FILE.File={new_log_file_with_timestamp}\n')
                 else:
