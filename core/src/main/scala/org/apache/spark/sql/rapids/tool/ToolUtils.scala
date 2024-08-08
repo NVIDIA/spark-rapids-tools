@@ -485,3 +485,6 @@ case class FailureApp(
     status: String,
     message: String
 )
+
+class SparkRapidsBuildInfo(buildInfo: string) {
+}

@@ -35,7 +35,7 @@ import org.apache.spark.sql.rapids.tool.util._
 class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean)
   extends ToolBase(appArgs.timeout.toOption) {
 
-  override val  simpleName: String = "profileTool"
+  override val simpleName: String = "profileTool"
   override val outputDir: String = appArgs.outputDirectory().stripSuffix("/") +
     s"/${Profiler.SUBDIR}"
   private val numOutputRows = appArgs.numOutputRows.getOrElse(1000)
@@ -43,6 +43,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private val outputCombined: Boolean = appArgs.combined()
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
+  private val sparkRapidsBuildInfo: SparkRapidsBuildInfo = None
 
   override def getNumThreads: Int = appArgs.numThreads.getOrElse(
     Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
@@ -54,7 +55,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
    * what else we can do in parallel.
    */
   def profile(eventLogInfos: Seq[EventLogInfo]): Unit = {
-    // generateRuntimeReport()
+    generateRuntimeReport()
     if (enablePB && eventLogInfos.nonEmpty) { // total count to start the PB cannot be 0
       progressBar = Some(new ConsoleProgressBar("Profile Tool", eventLogInfos.length))
     }
@@ -117,9 +118,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
     }
     progressBar.foreach(_.finishAll())
-    
-    // generate metadata
-    generateRuntimeReport()
+
     // Write status reports for all event logs to a CSV file
     val reportResults = generateStatusResults(appStatusReporter.asScala.values.toSeq)
     ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir)

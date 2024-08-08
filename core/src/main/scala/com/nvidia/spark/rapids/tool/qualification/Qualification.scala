@@ -53,6 +53,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     if (enablePB && allPaths.nonEmpty) { // total count to start the PB cannot be 0
       progressBar = Some(new ConsoleProgressBar("Qual Tool", allPaths.length))
     }
+    // generate metadata
+    generateRuntimeReport()
 
     allPaths.foreach { path =>
       try {
@@ -71,8 +73,6 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     }
     progressBar.foreach(_.finishAll())
 
-    // generate runtime metadata
-    generateRuntimeReport()
     val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
     // sort order and limit only applies to the report summary text file,
     // the csv file we write the entire data in descending order
