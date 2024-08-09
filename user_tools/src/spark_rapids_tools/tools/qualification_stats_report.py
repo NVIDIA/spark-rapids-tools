@@ -29,6 +29,27 @@ from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 class SparkQualificationStats:
     """
     Encapsulates the logic to generate the Qualification Stats Report.
+
+    This class processes qualification tool output csv files to produce a report that includes
+    critical metrics such as the duration and count of each operator, and whether the operator
+    is supported or unsupported on RAPIDS Accelerator. Statistics are aggregated at the
+    SQL ID level, and it is provided for the operators which has stage ID mapping.
+
+    Qualification Stats Report include:
+    - Operator-Level Statistics: Detailed stats for each operator used in the Spark application,
+      the number of occurrences, the stage task duration of which the operator is part of,
+      total SQL task duration of which the operator is part of and whether the operator
+      is supported to run on RAPIDS Accelerator for Spark plugin.
+    - Supported vs. Unsupported Operators: The report clearly differentiates between operators
+      that can benefit from GPU acceleration and those that cannot, providing insight into
+      potential performance bottlenecks.
+
+App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of TotalSQL. Supported
+ 1       1        Filter      2       70                230                30.43         True
+ 1       1       Project      3       110               230                47.82         False
+ 1       1       Project      1       50                230                21.73         True
+ 1       1         Sort       3       170               230                73.91         True
+ 1       3    HashAggregate   1       100               100                100.00        False
     """
     logger: Logger = field(default=None, init=False)
     unsupported_operators_df: pd.DataFrame = field(default=None, init=False)
@@ -68,7 +89,6 @@ class SparkQualificationStats:
 
     def _convert_durations(self) -> None:
         # Convert durations from milliseconds to seconds
-        self.unsupported_operators_df[['Stage Duration', 'App Duration']] /= 1000
         self.stages_df[['Stage Task Duration', 'Unsupported Task Duration']] /= 1000
 
     def _preprocess_dataframes(self) -> None:
@@ -82,8 +102,10 @@ class SparkQualificationStats:
         # Split 'Exec Stages' and explode the list into separate rows so that the stageID
         # from this dataframe can be matched with the stageID of stages dataframe
         self.execs_df['Exec Stages'] = self.execs_df['Exec Stages'].str.split(':')
-        self.execs_df = self.execs_df.explode('Exec Stages').dropna(subset=['Exec Stages'])
-        self.execs_df['Exec Stages'] = self.execs_df['Exec Stages'].astype(int)
+        self.execs_df = (self.execs_df.explode('Exec Stages').
+                         dropna(subset=['Exec Stages']).
+                         rename(columns={'Exec Stages': 'Stage ID'}))
+        self.execs_df['Stage ID'] = self.execs_df['Stage ID'].astype(int)
 
         # Remove duplicate 'Stage ID' rows and rename some columns so that join on dataframes
         # can be done easily
@@ -99,21 +121,35 @@ class SparkQualificationStats:
         self._preprocess_dataframes()
 
         # Merge execs_df with stages_df
-        merged_df = self.execs_df.merge(self.stages_df, left_on=['App ID', 'Exec Stages'],
-                                        right_on=['App ID', 'Stage ID'], how='left')
+        merged_df = self.execs_df.merge(self.stages_df, on=['App ID', 'Stage ID'], how='inner')
 
-        # Merge with unsupported_operators_df to find unsupported operations
-        merged_df = merged_df.merge(self.unsupported_operators_df,
-                                    on=['App ID', 'SQL ID', 'Stage ID', 'Operator'],
-                                    how='left', indicator=True)
-        merged_df['Supported'] = merged_df['_merge'] == 'left_only'
-        merged_df.drop(columns=['_merge', 'Exec Stages'], inplace=True)
+        # Count occurrences in unsupported_df and exec_df
+        unsupported_count = (self.unsupported_operators_df.
+                             groupby(['App ID', 'SQL ID', 'Stage ID', 'Operator']).
+                             size().reset_index(name='Unsupported Count'))
+        exec_count = (merged_df.
+                      groupby(['App ID', 'SQL ID', 'Stage ID', 'Operator']).
+                      size().reset_index(name='Exec Count'))
+
+        # Get the number of unsupported count per operator, per stage so that we can mark
+        # the operator as supported or unsupported later
+        merged_df = merged_df.merge(
+            unsupported_count,
+            on=['App ID', 'SQL ID', 'Stage ID', 'Operator'], how='left')
+        merged_df = merged_df.merge(exec_count,
+                                    on=['App ID', 'SQL ID', 'Stage ID', 'Operator'], how='left')
+        merged_df['Unsupported Count'] = merged_df['Unsupported Count'].fillna(0).astype(int)
+        merged_df['cumulcount'] = (merged_df.
+                                   groupby(['App ID', 'SQL ID', 'Stage ID', 'Operator']).cumcount())
+
+        # Set Supported to False where cumulcount(cumulative count) is less than Unsupported Count
+        merged_df['Supported'] = merged_df['cumulcount'] >= merged_df['Unsupported Count']
+        merged_df.drop(columns=['Unsupported Count', 'Exec Count', 'cumulcount'], inplace=True)
 
         # Calculate total duration by summing unique stages per SQLID
         total_duration_df = merged_df.drop_duplicates(subset=['App ID', 'SQL ID', 'Stage ID']) \
             .groupby(['App ID', 'SQL ID'])['StageTaskDuration'] \
-            .sum().reset_index().rename(columns={'StageTaskDuration': 'TotalSQLDuration'})
-
+            .sum().reset_index().rename(columns={'StageTaskDuration': 'TotalSQLTaskDuration'})
         merged_df = merged_df.merge(total_duration_df, on=['App ID', 'SQL ID'], how='left')
 
         # Mark unique stage task durations
@@ -122,7 +158,6 @@ class SparkQualificationStats:
         merged_df['Adjusted StageTaskDuration'] = (merged_df['StageTaskDuration'] *
                                                    merged_df['Unique StageTaskDuration'])
 
-        # Aggregate data
         final_df = merged_df.groupby(['App ID', 'SQL ID', 'Operator', 'Supported']).agg({
             'Adjusted StageTaskDuration': 'sum',
             'Stage ID': 'count'
@@ -131,13 +166,13 @@ class SparkQualificationStats:
 
         # Merge total duration and calculate percentage
         final_df = final_df.merge(total_duration_df, on=['App ID', 'SQL ID'], how='left')
-        final_df['% of Total SQL Duration'] = (
-                final_df['StageTaskDuration'] / final_df['TotalSQLDuration'] * 100)
+        final_df['% of Total SQL Task Duration'] = (
+                final_df['StageTaskDuration'] / final_df['TotalSQLTaskDuration'] * 100)
 
         # Rename columns
         final_df.rename(columns={
             'StageTaskDuration': 'Stage Task Exec Duration(s)',
-            'TotalSQLDuration': 'Total SQL Duration(s)'
+            'TotalSQLTaskDuration': 'Total SQL Task Duration(s)'
         }, inplace=True)
         self.result_df = final_df[self.output_columns.get('columns')].copy()
         self.logger.info('Merging stats dataframes completed.')

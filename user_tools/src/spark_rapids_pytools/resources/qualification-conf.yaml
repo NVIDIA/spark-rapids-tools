@@ -140,8 +140,8 @@ local:
           - 'Operator'
           - 'Count'
           - 'Stage Task Exec Duration(s)'
-          - 'Total SQL Duration(s)'
-          - '% of Total SQL Duration'
+          - 'Total SQL Task Duration(s)'
+          - '% of Total SQL Task Duration'
           - 'Supported'
       intermediateOutput:
         name: 'intermediate_output'
