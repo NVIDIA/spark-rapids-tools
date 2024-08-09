@@ -1275,14 +1275,18 @@ class ClusterBase(ClusterGetAccessor):
         node_config = self._generate_node_configuration(render_args)
         return [node_config for _ in range(num_executors)]
 
-    def get_worker_conversion_str(self) -> str:
+    def get_worker_conversion_str(self, include_gpu: bool = False) -> str:
         """
         Returns a string representing the worker node configuration.
-        Example: '2 x n1-standard-4'
+        Example: '2 x g5.2xlarge'
         """
         num_workers = self.get_workers_count()
         worker_node_type = self.get_worker_node().instance_type
-        return f'{num_workers} x {worker_node_type}'
+        worker_conversion_str = f'{num_workers} x {worker_node_type}'
+        if include_gpu and self.is_gpu_cluster():
+            gpu_str = self._get_gpu_conversion_str()
+            return f'{worker_conversion_str} {gpu_str}'
+        return worker_conversion_str
 
     def _get_gpu_conversion_str(self) -> str:
         """

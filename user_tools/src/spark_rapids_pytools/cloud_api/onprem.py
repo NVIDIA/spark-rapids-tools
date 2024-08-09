@@ -173,39 +173,16 @@ class OnPremNode(ClusterNode):
         gpu_mem = gpu_device.get_gpu_mem()[0]
         return GpuHWInfo(num_gpus=num_gpus, gpu_mem=gpu_mem, gpu_device=gpu_device)
 
-    def _get_dataproc_nearest_cpu_cores(self, num_cores):
-        if num_cores == 1:
-            cpu_cores = 1
-        elif num_cores == 2:
-            cpu_cores = 2
-        elif 3 <= num_cores <= 4:
-            cpu_cores = 4
-        elif 5 <= num_cores <= 8:
-            cpu_cores = 8
-        elif 9 <= num_cores <= 16:
-            cpu_cores = 16
-        elif 17 <= num_cores <= 32:
-            cpu_cores = 32
-        elif 33 <= num_cores <= 64:
-            cpu_cores = 64
-        else:
-            cpu_cores = 96
-        return cpu_cores
-
-    def _get_instance_type(self, platform_name=None):
-        instance_type = None
-        if platform_name == 'dataproc':
-            cpu_cores = self.props.get_value('numCores')
-            cpu_cores = self._get_dataproc_nearest_cpu_cores(cpu_cores)
-            instance_type = 'n1-standard-' + str(cpu_cores)
-        return instance_type
+    def _get_instance_type(self) -> str:
+        cpu_cores = self.props.get_value('numCores')
+        plural_suffix = '' if cpu_cores == 1 else 's'
+        return f'Node with {cpu_cores} vCPU{plural_suffix}'
 
     def _set_fields_from_props(self):
         # set the machine type
         if not self.props:
             return
-        if self.platform_name is not None:
-            self.instance_type = self._get_instance_type(self.platform_name)
+        self.instance_type = self._get_instance_type()
 
     def _pull_and_set_mc_props(self, cli=None) -> None:
         pass
@@ -301,8 +278,10 @@ class OnPremCluster(ClusterBase):
         """
         Overrides to provide the cluster configuration which is specific to OnPrem.
         """
-        cluster_config = self._get_cluster_configuration(driver_node_type='N/A',
-                                                         worker_node_type='N/A',
+        # Driver/Master node type may not be present for OnPrem
+        driver_node_type = self.get_master_node().instance_type if self.get_master_node() else 'N/A'
+        cluster_config = self._get_cluster_configuration(driver_node_type=driver_node_type,
+                                                         worker_node_type=self.get_worker_node().instance_type,
                                                          num_worker_nodes=self.get_nodes_cnt(SparkNodeType.WORKER))
         # If the cluster is GPU cluster, we need to add the GPU configuration
         if self.is_gpu_cluster():
@@ -310,17 +289,12 @@ class OnPremCluster(ClusterBase):
             cluster_config.update(gpu_config)
         return cluster_config
 
-    def get_worker_conversion_str(self) -> str:
+    def get_worker_conversion_str(self, include_gpu: bool = True) -> str:
         """
         Overrides to provide the worker conversion string which is specific to OnPrem.
-        Example: '2 workers (1 L4 each)'
+        Example: '16 x Node with 16 vCPUs (1 L4 each)'
         """
-        num_workers = self.get_workers_count()
-        workers_plural = '' if num_workers == 1 else 's'
-        worker_conversion_str = f'{num_workers} worker{workers_plural}'
-        if self.is_gpu_cluster():
-            worker_conversion_str += f' {self._get_gpu_conversion_str()}'
-        return worker_conversion_str
+        return super().get_worker_conversion_str(include_gpu)
 
 
 @dataclass

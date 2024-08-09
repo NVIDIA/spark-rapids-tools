@@ -626,12 +626,12 @@ class DataprocCluster(ClusterBase):
         """
         return 'test-node-e'
 
-    def get_worker_conversion_str(self) -> str:
-        worker_conversion_str = super().get_worker_conversion_str()
-        if self.is_gpu_cluster():
-            gpu_str = self._get_gpu_conversion_str()
-            return f'{worker_conversion_str} {gpu_str}'
-        return worker_conversion_str
+    def get_worker_conversion_str(self, include_gpu: bool = True) -> str:
+        """
+        Overrides to provide the worker conversion string which is specific to Dataproc.
+        Example: '2 x n1-standard-32 (4 T4 each)'
+        """
+        return super().get_worker_conversion_str(include_gpu)
 
 
 @dataclass
