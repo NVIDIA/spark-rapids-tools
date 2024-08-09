@@ -17,7 +17,10 @@
 from dataclasses import dataclass, field
 
 import pandas as pd
+from tabulate import tabulate
 
+from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_tools.utils import Utilities
 
 
@@ -26,23 +29,27 @@ class TopCandidates:
     """
     Encapsulates the logic to get top candidates from the Qualification report.
     """
-    props: dict = field(default_factory=dict, init=True)
-    filter_enabled: bool = field(default=True, init=True)
-    all_apps: pd.DataFrame = field(default=None, init=True)
-    header_width: int = field(default=0, init=True)
-    filtered_apps: pd.DataFrame = field(default=None, init=False)
+    props: dict = field(init=True)
+    total_apps: pd.DataFrame = field(init=True)  # Total apps, including failed or skipped
+    tools_processed_apps: pd.DataFrame = field(init=True)  # Apps after tools processing and heuristic filtering
+    filtered_apps: pd.DataFrame = field(default_factory=pd.DataFrame, init=False)  # Apps after applying filters
+    filter_enabled: bool = field(default=False, init=False)
 
     def __post_init__(self) -> None:
         # Filter applications based on categories
-        category_col_name = self.props.get('categoryColumnName')
-        eligible_categories = self.props.get('eligibleCategories')
-        self.filtered_apps = self.all_apps[self.all_apps[category_col_name].isin(eligible_categories)]
+        self.filter_enabled = self.props.get('filterEnabled', True)
+        self._filter_apps()
 
-    def get_all_apps_count(self) -> int:
-        """
-        Returns the count of all applications
-        """
-        return len(self.all_apps)
+    def _has_tools_processed_apps(self) -> bool:
+        return not self.tools_processed_apps.empty
+
+    def _get_total_apps_count(self) -> int:
+        return len(self.total_apps)
+
+    def _get_successful_apps_count(self) -> int:
+        if self._get_total_apps_count() > 0:
+            return len(self.total_apps[self.total_apps['Status'] == 'SUCCESS'])
+        return 0
 
     def get_filtered_apps_count(self) -> int:
         """
@@ -50,31 +57,99 @@ class TopCandidates:
         """
         return len(self.filtered_apps)
 
-    def prepare_output(self) -> pd.DataFrame:
+    def _filter_apps(self) -> None:
         """
-        Generic method to transform applications for the output
+        Filters the applications based on the eligible categories (Small/Medium/Large)
         """
-        if self.filter_enabled:
-            res_df = self._prepare_output_internal(self.filtered_apps)
-        else:
-            res_df = self._prepare_output_internal(self.all_apps)
-        if self.header_width == 0:
-            return res_df
-        # squeeze the header titles if enabled
-        return Utilities.squeeze_df_header(res_df, self.header_width)
+        if not self._has_tools_processed_apps():
+            self.filtered_apps = pd.DataFrame(columns=self.tools_processed_apps.columns)
+            return
 
-    def _prepare_output_internal(self, apps_df: pd.DataFrame) -> pd.DataFrame:
+        category_col_name = self.props.get('categoryColumnName')
+        eligible_categories = self.props.get('eligibleCategories')
+        filter_condition = self.tools_processed_apps[category_col_name].isin(eligible_categories)
+        self.filtered_apps = self.tools_processed_apps[filter_condition]
+
+    def _generate_output_table(self, output_df: pd.DataFrame) -> str:
         """
-        Generic method to transform applications for the output
+        Generic method to generate the output table from the output dataframe
+        """
+        res_df = self._generate_output_table_internal(output_df)
+        # squeeze the header titles if enabled
+        squeeze_header_enabled = self.props.get('summaryReport', {}).get('compactWidth', False)
+        header_width = self.props.get('summaryReport', {}).get('columnWidth', 0) if squeeze_header_enabled else 0
+        formatted_df = Utilities.squeeze_df_header(res_df, header_width) if header_width > 0 else res_df
+        return tabulate(formatted_df, headers='keys', tablefmt='psql', floatfmt='.2f')
+
+    def _generate_output_table_internal(self, output_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Internal implementation to prepare the output table. This can be overridden by the child classes.
         """
         output_columns = self.props.get('outputColumns')
         sorting_columns = self.props.get('sortingColumns')
-        valid_output_columns = list(apps_df.columns.intersection(output_columns))
-        valid_sorting_columns = list(apps_df.columns.intersection(sorting_columns))
+        valid_output_columns = list(output_df.columns.intersection(output_columns))
+        valid_sorting_columns = list(output_df.columns.intersection(sorting_columns))
         # Sort columns and select output columns
-        res_df = apps_df.sort_values(by=valid_sorting_columns, ascending=False)[valid_output_columns]
-        # this is a bit weird since hardcoding but we don't want this to have ** for csv output
+        res_df = output_df.sort_values(by=valid_sorting_columns, ascending=False)[valid_output_columns]
+        # this is a bit weird since hardcoding, but we don't want this to have ** for csv output
         if 'Estimated GPU Speedup Category' in res_df:
             res_df.rename(columns={'Estimated GPU Speedup Category': 'Estimated GPU Speedup Category**'},
                           inplace=True)
         return res_df
+
+    def _pre_check_app_processing_status(self, app_name: str) -> (bool, str):
+        """
+        Checks the application processing status and returns comments based on the results.
+        """
+        if not self._has_tools_processed_apps():
+            return False, f'\n{app_name} tool found no recommendations for GPU.'
+        if self._get_successful_apps_count() == 0:
+            return False, f'\n{app_name} tool found no successful applications to process.'
+        if self.filter_enabled and self.get_filtered_apps_count() == 0:
+            return False, (f'\n{app_name} tool found no qualified applications after applying the filters.'
+                           f'\nSee the CSV file for the full report or disable the filters.')
+        return True, ''
+
+    def _generate_footnotes(self) -> list:
+        """
+        Fills in footnotes for the applications
+        """
+        # 'Config Recommendations' and 'Estimated GPU Speedup Category' columns are available only if there are any
+        # recommended apps.
+        config_recommendations_path = self.props.get('configRecommendationsPath')
+        footnotes = []
+        if FSUtil.resource_exists(config_recommendations_path):
+            footnotes.append(f'* Config Recommendations can be found in {config_recommendations_path}.')
+        footnotes.append('** Estimated GPU Speedup Category assumes the user is using the node type recommended '
+                         'and config recommendations with the same size cluster as was used with the CPU side.')
+        return footnotes
+
+    def _generate_apps_count_summary(self) -> list:
+        """
+        Returns a list of counts for total applications, processed applications, and top candidates
+        """
+        return [['Total applications', self._get_total_apps_count()],
+                ['Processed applications', self._get_successful_apps_count()],
+                ['Top candidates', self.get_filtered_apps_count()]]
+
+    def generate_summary(self, app_name: str) -> list:
+        """
+        Generates the summary as:
+            - Pre-checks the application processing status and provides comments
+            - If pre-checks are successful:
+                - Generates the output table
+                - Adds footnotes
+            - Generates a table with the counts of total applications, processed applications, and top candidates
+        """
+        report_content = []
+        pre_check_status, pre_check_msg = self._pre_check_app_processing_status(app_name)
+        if pre_check_status:
+            # If pre-checks are successful, generate the table and add footnotes
+            output_df = self.filtered_apps if self.filter_enabled else self.tools_processed_apps
+            report_content.append(self._generate_output_table(output_df))
+            report_content.extend(self._generate_footnotes())
+        else:
+            report_content.append(pre_check_msg)
+        report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
+        report_content.append(tabulate(self._generate_apps_count_summary(), colalign=('left', 'right')))
+        return report_content

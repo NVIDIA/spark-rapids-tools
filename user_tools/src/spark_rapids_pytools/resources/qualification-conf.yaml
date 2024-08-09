@@ -54,11 +54,6 @@ toolOutput:
         - Cluster Id
         - Cluster Name
         - App Name
-  stdout:
-    summaryReport:
-      compactWidth: true
-      timeUnits: 's'
-      columnWidth: 14
 sparkRapids:
   mvnUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
   repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
@@ -257,6 +252,10 @@ local:
         - 'App ID'
         - 'App Name'
         - 'App Duration'
+      summaryReport:
+        compactWidth: true
+        timeUnits: 's'
+        columnWidth: 14
     speedupCategories:
       speedupColumnName: 'Estimated GPU Speedup'
       categoryColumnName: 'Estimated GPU Speedup Category'

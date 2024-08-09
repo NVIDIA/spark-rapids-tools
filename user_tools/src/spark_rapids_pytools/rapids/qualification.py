@@ -45,25 +45,13 @@ class QualificationSummary:
     Encapsulates the logic to organize Qualification report.
     """
     total_apps: pd.DataFrame = field(init=True)  # Total apps, including failed or skipped
-    tools_processed_apps: pd.DataFrame = None  # Apps after tools processing and heuristic filtering
+    tools_processed_apps: pd.DataFrame = field(init=True)  # Apps after tools processing and heuristic filtering
     filter_apps_count: int = field(default=0, init=False)  # Count after applying console filters (top candidates)
     comments: Any = None
-    config_recommendations_path: str = field(default='N/A', init=True)
     sections_generators: List[Callable] = field(default_factory=lambda: [])
-
-    def _get_stats_total_apps(self) -> int:
-        return len(self.total_apps)
-
-    def _get_stats_success_apps(self) -> int:
-        if self._has_apps():
-            return len(self.total_apps[self.total_apps['Status'] == 'SUCCESS'])
-        return 0
 
     def _has_apps(self) -> bool:
         return self.total_apps is not None and not self.total_apps.empty
-
-    def _has_tools_processed_apps(self) -> bool:
-        return self.tools_processed_apps is not None and not self.tools_processed_apps.empty
 
     def _has_gpu_recommendation(self) -> bool:
         return self.filter_apps_count > 0
@@ -72,7 +60,7 @@ class QualificationSummary:
                         app_name: str,
                         wrapper_output_files_info: dict,
                         csp_report_provider: Callable[[], List[str]] = lambda: [],
-                        df_pprinter: Callable[[pd.DataFrame], TopCandidates] = lambda: None,
+                        stdout_table_pprinter: Callable[[pd.DataFrame, pd.DataFrame], TopCandidates] = lambda: None,
                         output_pprinter: Any = None) -> list:
         report_content = []
         if not self._has_apps():
@@ -87,42 +75,12 @@ class QualificationSummary:
 
         # Output files comments should be generated even if there are no apps to show
         self._generate_output_files_comments(wrapper_output_files_info, report_content)
-        if self._get_stats_success_apps() > 0:
-            if self._has_tools_processed_apps():
-                # TODO: Rename function to indicate the returned df includes filtered applications
-                pretty_df_obj = df_pprinter(self.tools_processed_apps)
-                self.filter_apps_count = pretty_df_obj.get_filtered_apps_count()
-                if self.filter_apps_count == 0 and pretty_df_obj.filter_enabled:
-                    # the results were reduced to no rows because of the filters
-                    report_content.append(
-                        f'\n{app_name} tool found no qualified applications after applying the filters.\n'
-                        f'See the CSV file for full report or disable the filters.')
-                else:
-                    report_content.append(tabulate(pretty_df_obj.prepare_output(),
-                                                   headers='keys', tablefmt='psql', floatfmt='.2f'))
-            else:
-                report_content.append(f'\n{app_name} tool found no recommendations for GPU.')
-        else:
-            report_content.append(f'\n{app_name} tool found no successful applications to process.')
-
-        # 'Config Recommendations' and 'Estimated GPU Speedup Category' columns are available only if there are any
-        # recommended apps.
-        if self._has_gpu_recommendation():
-            if FSUtil.resource_exists(self.config_recommendations_path):
-                report_content.append(f'* Config Recommendations can be found in {self.config_recommendations_path}.')
-            report_content.append('** Estimated GPU Speedup Category assumes the user is using the node type '
-                                  'recommended and config recommendations with the same size cluster as was used '
-                                  'with the CPU side.')
-
-        report_content.append(Utils.gen_report_sec_header('Report Summary', hrule=False))
-        report_content.append(tabulate(self.__generate_report_summary(), colalign=('left', 'right')))
+        table_pprinter_obj = stdout_table_pprinter(self.total_apps, self.tools_processed_apps)
+        report_content.extend(table_pprinter_obj.generate_summary(app_name))
+        self.filter_apps_count = table_pprinter_obj.get_filtered_apps_count()
         if self.comments:
             report_content.append(Utils.gen_report_sec_header('Notes'))
             report_content.extend(f' - {line}' for line in self.comments)
-        if self.sections_generators:
-            for section_generator in self.sections_generators:
-                if section_generator:
-                    report_content.append(Utils.gen_multiline_str(section_generator()))
         if self._has_gpu_recommendation():
             csp_report = csp_report_provider()
             if csp_report:
@@ -130,12 +88,6 @@ class QualificationSummary:
         # append an empty line at the end of the report
         report_content.append('')
         return report_content
-
-    def __generate_report_summary(self):
-        report_summary = [['Total applications', self._get_stats_total_apps()],
-                          ['Processed applications', self._get_stats_success_apps()],
-                          ['Top candidates', self.filter_apps_count]]
-        return report_summary
 
     @classmethod
     def _generate_output_files_comments(cls, output_files_info: dict, report_content: list) -> None:
@@ -519,12 +471,11 @@ class Qualification(RapidsJarTool):
                                       all_apps: pd.DataFrame,
                                       total_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
-                                      output_files_raw: dict) -> QualificationSummary:
+                                      output_files_info: JSONPropertiesContainer) -> QualificationSummary:
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
-            return QualificationSummary(total_apps=total_apps)
+            return QualificationSummary(total_apps=total_apps, tools_processed_apps=all_apps)
 
-        output_files_info = JSONPropertiesContainer(output_files_raw, file_load=False)
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
                                                                               'unsupportedOperators'))
         # Calculate unsupported operators stage duration before grouping
@@ -562,30 +513,23 @@ class Qualification(RapidsJarTool):
         self._write_app_metadata(df_final_result, app_metadata_info, config_recommendations_info)
         return QualificationSummary(total_apps=total_apps,
                                     tools_processed_apps=df_final_result,
-                                    comments=report_comments,
-                                    config_recommendations_path=config_recommendations_info.get('path'))
+                                    comments=report_comments)
 
     def _process_output(self) -> None:
-        def process_df_for_stdout(raw_df: pd.DataFrame) -> TopCandidates:
+        output_files_info = self.__build_output_files_info()
+
+        def create_stdout_table_pprinter(total_apps: pd.DataFrame,
+                                         tools_processed_apps: pd.DataFrame) -> TopCandidates:
             """
-            process the dataframe to be more readable on the stdout
-            1- convert time durations to second
-            2- shorten headers
+            Creates a `TopCandidates` object. This will be used for generating a table report with the given DataFrames.
+            This method can be extended to return a different object for different stdout table formats.
             """
-            # summary columns depend on the type of the generated report
-            # check if any filters apply
-            filter_toc_enabled = self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES
-            squeeze_header_enabled = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'compactWidth')
-            if squeeze_header_enabled:
-                header_width = self.ctxt.get_value('toolOutput', 'stdout', 'summaryReport', 'columnWidth')
-            else:
-                header_width = 0
             view_dic = self.ctxt.get_value('local', 'output', 'topCandidates')
-            top_candidates_obj = TopCandidates(props=view_dic,
-                                               filter_enabled=filter_toc_enabled,
-                                               all_apps=raw_df,
-                                               header_width=header_width)
-            return top_candidates_obj
+            view_dic.update({
+                'filterEnabled': self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES,
+                'configRecommendationsPath': output_files_info.get_value('configRecommendations', 'path')
+            })
+            return TopCandidates(props=view_dic, total_apps=total_apps, tools_processed_apps=tools_processed_apps)
 
         if not self._evaluate_rapids_jar_tool_output_exist():
             return
@@ -617,12 +561,11 @@ class Qualification(RapidsJarTool):
         apps_status_df = self._read_qualification_output_file('appsStatusReport')
 
         # 4. Operations related to output
-        output_files_info = self.__build_output_files_info()
         report_gen = self.__build_global_report_summary(df, apps_status_df, unsupported_ops_df, output_files_info)
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
-                                                    wrapper_output_files_info=output_files_info,
+                                                    wrapper_output_files_info=output_files_info.props,
                                                     csp_report_provider=self._generate_platform_report_sections,
-                                                    df_pprinter=process_df_for_stdout,
+                                                    stdout_table_pprinter=create_stdout_table_pprinter,
                                                     output_pprinter=self._report_tool_full_location)
         self.ctxt.set_ctxt('wrapperOutputContent', summary_report)
 
@@ -696,13 +639,14 @@ class Qualification(RapidsJarTool):
         gpu_clusters_per_app = self._infer_cluster_per_app(gpu_cluster_df, ClusterType.GPU)
         self.ctxt.set_ctxt('gpuClusterInfoPerApp', gpu_clusters_per_app)
 
-    def __build_output_files_info(self) -> dict:
+    def __build_output_files_info(self) -> JSONPropertiesContainer:
         """
         Build the full output path for the output files.
         """
         files_info = self.ctxt.get_value('local', 'output', 'files')
         output_folder = self.ctxt.get_output_folder()
-        return self.__update_files_info_with_paths(files_info, output_folder)
+        output_files_raw = self.__update_files_info_with_paths(files_info, output_folder)
+        return JSONPropertiesContainer(output_files_raw, file_load=False)
 
     def __build_prediction_output_files_info(self) -> dict:
         """
