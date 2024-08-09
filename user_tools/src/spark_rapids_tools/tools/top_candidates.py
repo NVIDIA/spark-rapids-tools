@@ -101,10 +101,10 @@ class TopCandidates:
         """
         Checks the application processing status and returns comments based on the results.
         """
-        if not self._has_tools_processed_apps():
-            return False, f'\n{app_name} tool found no recommendations for GPU.'
+        # Check #1: If there are no successful applications from JAR processing
         if self._get_successful_apps_count() == 0:
             return False, f'\n{app_name} tool found no successful applications to process.'
+        # Check #2: If filter is enabled and there are no qualified applications after applying the filters
         if self.filter_enabled and self.get_filtered_apps_count() == 0:
             return False, (f'\n{app_name} tool found no qualified applications after applying the filters.'
                            f'\nSee the CSV file for the full report or disable the filters.')
