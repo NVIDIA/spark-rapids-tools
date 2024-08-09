@@ -615,7 +615,7 @@ class DataprocCluster(ClusterBase):
         """
         return {
             'ssdInfo': {
-                'numLocalSsds': 2
+                'ssdPerWorker': 2
             }
         }
 

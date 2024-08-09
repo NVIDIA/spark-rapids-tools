@@ -158,7 +158,7 @@ class ClusterNode:
     def _set_fields_from_props(self):
         pass
 
-    def _pull_and_set_mc_props(self, cli=None):
+    def _pull_and_set_mc_props(self, cli=None) -> None:
         instances_description = cli.describe_node_instance(self.instance_type) if cli else None
         self.mc_props = JSONPropertiesContainer(prop_arg=instances_description, file_load=False)
 

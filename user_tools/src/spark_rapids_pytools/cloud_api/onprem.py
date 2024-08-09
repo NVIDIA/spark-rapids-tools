@@ -207,7 +207,7 @@ class OnPremNode(ClusterNode):
         if self.platform_name is not None:
             self.instance_type = self._get_instance_type(self.platform_name)
 
-    def _pull_and_set_mc_props(self, cli=None):
+    def _pull_and_set_mc_props(self, cli=None) -> None:
         pass
 
 
