@@ -253,7 +253,6 @@ object EventLogPathProcessor extends Logging {
 
     val filteredLogs = if ((filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) ||
       maxEventLogSize.isDefined) {
-      logWarning("in filtering")
       val validMatchedLogs = matchedLogs.collect {
         case (info, Some(ts)) => info -> ts
       }
@@ -265,12 +264,7 @@ object EventLogPathProcessor extends Logging {
           // size is assumed to be mb
           StringUtils.convertMemorySizeToBytes(maxEventLogSize.get + "m")
         }
-        logWarning("in filtering filteredBySize" + maxSizeInBytes + " logs: " + validMatchedLogs)
-
-        val foo = validMatchedLogs.filter(info => info._2.size <= maxSizeInBytes)
-        logWarning("after logs: " + foo)
-
-        foo
+        validMatchedLogs.filter(info => info._2.size <= maxSizeInBytes)
       } else {
         validMatchedLogs
       }
