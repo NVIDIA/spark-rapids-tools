@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import scala.collection.Map
 
 import org.apache.spark.resource.{ExecutorResourceRequest, TaskResourceRequest}
+import org.apache.spark.sql.rapids.tool.store.AccumMetaRef
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
@@ -219,20 +220,20 @@ case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
   }
 }
 
-case class AccumProfileResults(appIndex: Int, stageId: Int, accumulatorId: Long,  name: String,
+case class AccumProfileResults(appIndex: Int, stageId: Int, accMetaRef: AccumMetaRef,
     min: Long, median: Long, max: Long, total: Long) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "stageId", "accumulatorId", "name", "min",
     "median", "max", "total")
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, stageId.toString, accumulatorId.toString, name, min.toString,
-      median.toString, max.toString, total.toString)
+    Seq(appIndex.toString, stageId.toString, accMetaRef.id.toString, accMetaRef.getName(),
+      min.toString, median.toString, max.toString, total.toString)
   }
 
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, stageId.toString, accumulatorId.toString,
-      StringUtils.reformatCSVString(name), min.toString, median.toString, max.toString,
-      total.toString)
+    Seq(appIndex.toString, stageId.toString, accMetaRef.id.toString,
+      accMetaRef.name.csvValue, min.toString,
+      median.toString, max.toString, total.toString)
   }
 }
 
@@ -356,18 +357,6 @@ case class DriverAccumCase(
     sqlID: Long,
     accumulatorId: Long,
     value: Long)
-
-case class TaskStageAccumCase(
-    stageId: Int,
-    attemptId: Int,
-    taskId: Option[Long],
-    accumulatorId: Long,
-    name: Option[String],
-    // The total accumulated so far for all tasks
-    value: Option[Long],
-    // The amount for this particular task/update
-    update: Option[Long],
-    isInternal: Boolean)
 
 case class UnsupportedSQLPlan(sqlID: Long, nodeID: Long, nodeName: String,
     nodeDesc: String, reason: String)

@@ -19,7 +19,7 @@ package org.apache.spark.sql.rapids.tool
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ProfileUtils, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ProfileUtils, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
@@ -349,18 +349,10 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       app: T,
       event: SparkListenerTaskEnd): Unit = {
     // TODO: this implementation needs to be updated to use attemptID
-    // Update the map between accumulators and stages
-    app.stageManager.addAccumIdToStage(
-      event.stageId, event.taskInfo.accumulables.map(_.id))
     // Parse task accumulables
     for (res <- event.taskInfo.accumulables) {
       try {
-        EventUtils.buildTaskStageAccumFromAccumInfo(res,
-          event.stageId, event.stageAttemptId, Some(event.taskInfo.taskId)).foreach { thisMetric =>
-          val arrBuf = app.taskStageAccumMap.getOrElseUpdate(res.id,
-            ArrayBuffer[TaskStageAccumCase]())
-          arrBuf += thisMetric
-        }
+        app.accumManager.addAccToTask(event.stageId, event.taskInfo.taskId, res)
       } catch {
         case NonFatal(e) =>
           logWarning("Exception when parsing accumulables on task-completed "
@@ -469,12 +461,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     for (res <- event.stageInfo.accumulables) {
       try {
         val accumInfo = res._2
-        EventUtils.buildTaskStageAccumFromAccumInfo(accumInfo,
-          event.stageInfo.stageId, event.stageInfo.attemptNumber()).foreach { thisMetric =>
-          val arrBuf = app.taskStageAccumMap.getOrElseUpdate(accumInfo.id,
-            ArrayBuffer[TaskStageAccumCase]())
-          arrBuf += thisMetric
-        }
+        app.accumManager.addAccToStage(event.stageInfo.stageId, accumInfo)
       } catch {
         case NonFatal(e) =>
           logWarning("Exception when parsing accumulables on stage-completed " +

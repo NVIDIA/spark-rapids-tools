@@ -28,9 +28,8 @@ import org.scalatest.FunSuite
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal, not}
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.sql.TrampolineUtil
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, FSUtils, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
 
 
 class ToolUtilsSuite extends FunSuite with Logging {
@@ -170,32 +169,6 @@ class ToolUtilsSuite extends FunSuite with Logging {
     StringUtils.parseFromDurationToLongOption(timeBrokenMinutesAsString) should not be 'defined
     // test random string won't cause any exceptions
     StringUtils.parseFromDurationToLongOption("Hello Worlds") should not be 'defined
-  }
-
-  test("parse Accumulable fields") {
-    val problematicAccum =
-      AccumulableInfo(100, Some("problematicAccum"), Some(Array()), Some(None), true, true, None)
-    EventUtils.buildTaskStageAccumFromAccumInfo(
-      problematicAccum, 1, 1, None) should not be 'defined
-    // test successful value field
-    val accumWithValue =
-      AccumulableInfo(100, Some("successAccum"), Some(None), Some(1000), true, true, None)
-    EventUtils.buildTaskStageAccumFromAccumInfo(
-      accumWithValue, 1, 1, None).get.value.get shouldBe 1000
-    // test successful update field
-    val accumWithUpdate =
-      AccumulableInfo(100, Some("successAccum"), Some(1000), Some(None), true, true, None)
-    EventUtils.buildTaskStageAccumFromAccumInfo(
-      accumWithUpdate, 1, 1, None).get.update.get shouldBe 1000
-    // test successful parse of durations
-    val updateField = "0:00:00.100"
-    val valueField = "0:00:59.200"
-    val accumWithDuration =
-      AccumulableInfo(100, Some("successAccum"),
-        Some(updateField), Some(valueField), true, true, None)
-    val result = EventUtils.buildTaskStageAccumFromAccumInfo(accumWithDuration, 1, 1, None).get
-    result.update.get shouldBe 100
-    result.value.get shouldBe (59 * 1000 + 200)
   }
 
   test("output non-english characters") {
