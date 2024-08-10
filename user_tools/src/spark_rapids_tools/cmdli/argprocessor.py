@@ -448,7 +448,6 @@ class QualifyUserArgModel(ToolUserArgModel):
     """
     target_platform: Optional[CspEnv] = None
     filter_apps: Optional[QualFilterApp] = None
-    gpu_cluster_recommendation: Optional[QualGpuClusterReshapeType] = None
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
 
     def init_tool_args(self) -> None:
@@ -460,11 +459,6 @@ class QualifyUserArgModel(ToolUserArgModel):
             self.p_args['toolArgs']['filterApps'] = QualFilterApp.get_default()
         else:
             self.p_args['toolArgs']['filterApps'] = self.filter_apps
-        # check the reshapeType argument
-        if self.gpu_cluster_recommendation is None:
-            self.p_args['toolArgs']['gpuClusterRecommendation'] = QualGpuClusterReshapeType.get_default()
-        else:
-            self.p_args['toolArgs']['gpuClusterRecommendation'] = self.gpu_cluster_recommendation
         # Check the estimationModel argument
         # This assumes that the EstimationModelArgProcessor was used to process the arguments before
         # constructing this validator.
@@ -532,7 +526,6 @@ class QualifyUserArgModel(ToolUserArgModel):
             'eventlogs': self.eventlogs,
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
-            'gpuClusterRecommendation': self.p_args['toolArgs']['gpuClusterRecommendation'],
             'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs']
         }
         return wrapped_args

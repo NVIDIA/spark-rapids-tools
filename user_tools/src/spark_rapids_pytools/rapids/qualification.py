@@ -37,7 +37,7 @@ from spark_rapids_tools.tools.qualification_stats_report import SparkQualificati
 from spark_rapids_tools.tools.speedup_category import SpeedupCategory
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
-from spark_rapids_tools.utils.util import Utilities
+from spark_rapids_tools.utils.util import Utilities, deprecated
 
 
 @dataclass
@@ -127,7 +127,14 @@ class Qualification(RapidsJarTool):
         if cpu_cluster_arg is not None:
             cpu_cluster_obj = self._create_migration_cluster('CPU', cpu_cluster_arg)
             self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
+            if cpu_cluster_obj and self.ctxt.get_rapids_auto_tuner_enabled():
+                # Generate Autotuner input file for the Qualification
+                # Note that we do not call the `_calculate_spark_settings(worker_node_hw_info)` method here
+                # because the Qualification tool does not need to calculate the recommended Spark settings
+                # as it will be part of the generated Autotuner output file.
+                self._generate_autotuner_input_from_cluster(cpu_cluster_obj)
 
+    @deprecated
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
         def _process_gpu_cluster_worker_node():
             try:
@@ -173,6 +180,7 @@ class Qualification(RapidsJarTool):
     # this function is a lot like _process_gpu_cluster_args but handles clusters
     # on a per application basis and was explicitly copied to not have to deal with
     # changing the cost savings flow at the same time.
+    @deprecated
     def _process_gpu_cluster_args_for_auto_tuner(self, offline_cluster_opts: dict = None) -> dict:
         def _process_gpu_cluster_worker_node():
             try:
@@ -210,12 +218,13 @@ class Qualification(RapidsJarTool):
         # read the wrapper option defined by the spark_rapids cmd if any.
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
         self._process_cpu_cluster_args(offline_cluster_opts)
-        self._process_gpu_cluster_args(offline_cluster_opts)
 
+    @deprecated
     def _set_savings_calculations_flag(self, enable_flag: bool) -> None:
         self.ctxt.set_ctxt('enableSavingsCalculations', enable_flag)
 
-    def __process_gpu_cluster_recommendation(self, arg_val: str) -> None:
+    @deprecated
+    def __process_gpu_cluster_recommendation(self, arg_val: str) -> None:  # pylint: disable=unused-private-member
         available_types = [filter_enum.value for filter_enum in QualGpuClusterReshapeType]
         default_recommendation_txt = self.ctxt.get_value('sparkRapids', 'cli', 'defaults',
                                                          'gpuClusterRecommendation',
@@ -281,7 +290,6 @@ class Qualification(RapidsJarTool):
         self.ctxt.set_ctxt('gpuDevice', gpu_device)
         self.ctxt.set_ctxt('cuda', cuda)
         # we need to process each argument to verify it is valid. otherwise, we may crash late
-        self.__process_gpu_cluster_recommendation(self.wrapper_options.get('gpuClusterRecommendation'))
         self.__process_filter_args(self.wrapper_options.get('filterApps'))
         self._process_estimation_model_args()
         self._process_offline_cluster_args()
@@ -390,12 +398,14 @@ class Qualification(RapidsJarTool):
             return Utils.gen_multiline_str(self.ctxt.platform.ctxt['notes'].get('clusterShape'))
         return None
 
+    @deprecated
     def __recommendation_is_non_standard(self):
         cluster_shape_type = self.ctxt.get_ctxt('gpuClusterShapeRecommendation')
         if cluster_shape_type:
             return cluster_shape_type != QualGpuClusterReshapeType.get_default()
         return False
 
+    @deprecated
     def __apply_non_standard_gpu_shape(self,
                                        all_apps: pd.DataFrame,
                                        cluster_workers_cnt: int,
@@ -456,7 +466,9 @@ class Qualification(RapidsJarTool):
             return all_apps, False
         return update_cols_with_new_shape(all_apps, cluster_workers_cnt), True
 
+    @deprecated
     def __apply_gpu_cluster_reshape(self, all_apps: pd.DataFrame) -> (pd.DataFrame, bool):
+        # pylint: disable=unused-private-member
         gpu_reshape_type = self.ctxt.get_ctxt('gpuClusterShapeRecommendation')
         gpu_cluster = ClusterReshape(self.ctxt.get_ctxt('gpuClusterProxy'))
         per_row_flag = False
@@ -498,13 +510,12 @@ class Qualification(RapidsJarTool):
         speedup_category_ob = SpeedupCategory(self.ctxt.get_value('local', 'output', 'speedupCategories'))
         # Group the applications and recalculate metrics
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
-        apps_grouped_df = speedup_category_ob.build_category_column(apps_grouped_df)
+        df_final_result = speedup_category_ob.build_category_column(apps_grouped_df)
         reshaped_notes = self.__generate_cluster_shape_report()
         report_comments = [group_notes] if group_notes else []
         if reshaped_notes:
             report_comments.append(reshaped_notes)
 
-        df_final_result, _ = self.__apply_gpu_cluster_reshape(apps_grouped_df)
         csv_out = output_files_info.get_value('summary', 'path')
         if not df_final_result.empty:
             self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
@@ -625,10 +636,10 @@ class Qualification(RapidsJarTool):
         """
         Infer CPU and GPU clusters for each app in the DataFrame and set the inferred clusters in the context.
         """
-        # if the user passed in the cpu cluster property, use that but we still want to try to infer the gpu
-        # cluster to use
-        if self.ctxt.get_ctxt('cpuClusterProxy') is not None or not self.ctxt.platform.cluster_inference_supported:
-            self.logger.info('CPU cluster is already set. Skipping cluster inference.')
+        # if cluster inference is not supported, skip the inference
+        if not self.ctxt.platform.cluster_inference_supported:
+            self.logger.info('Cluster inference is not supported for platform: %s',
+                             self.ctxt.platform.get_platform_name())
             return
         cpu_cluster_cols = self.ctxt.get_value('local', 'output', 'clusterInference', 'cpuClusterColumns')
         gpu_cluster_cols = self.ctxt.get_value('local', 'output', 'clusterInference', 'gpuClusterColumns')

@@ -17,6 +17,8 @@
 from enum import Enum, auto
 from typing import Union, cast, Optional, Callable
 
+from spark_rapids_tools.utils.util import deprecated
+
 
 class EnumeratedType(str, Enum):
     """Abstract representation of enumerated values"""
@@ -126,6 +128,7 @@ class QualGpuClusterReshapeType(EnumeratedType):
     JOB = 'job'
 
     @classmethod
+    @deprecated
     def get_default(cls):
         return cls.MATCH
 
