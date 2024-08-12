@@ -33,6 +33,7 @@ from spark_rapids_tools.enums import QualFilterApp, QualGpuClusterReshapeType, Q
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
 from spark_rapids_tools.tools.qualx.qualx_main import predict
+from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
 from spark_rapids_tools.tools.speedup_category import SpeedupCategory
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
@@ -478,6 +479,13 @@ class Qualification(RapidsJarTool):
 
         unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
                                                                               'unsupportedOperators'))
+        # Generate the statistics report
+        try:
+            stats_report = SparkQualificationStats(ctxt=self.ctxt)
+            stats_report.report_qualification_stats()
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Failed to generate the statistics report: %s', e)
+
         # Calculate unsupported operators stage duration before grouping
         all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
         apps_pruned_df = self.__remap_columns_and_prune(all_apps)
