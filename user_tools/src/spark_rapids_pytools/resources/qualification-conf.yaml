@@ -238,7 +238,7 @@ local:
         - 'App ID'
         - 'App Name'
         - 'Estimated GPU Speedup Category'
-        - 'Qualified Node Recommendation'
+        - 'Qualified Cluster Recommendation'
         - 'Full Cluster Config Recommendations*'
         - 'GPU Config Recommendation Breakdown*'
       eligibleCategories:
