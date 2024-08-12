@@ -535,9 +535,10 @@ object AppBase {
         ("unknown", s"Error parsing JSON: ${path.eventLog.toString}")
       case _: IllegalArgumentException =>
         ("unknown", s"Error parsing file: ${path.eventLog.toString}")
-      case _: Exception =>
+      case ue: Exception =>
         // catch all exceptions and skip that file
-        ("unknown", s"Got unexpected exception processing file: ${path.eventLog.toString}")
+        ("unknown", s"Got unexpected exception processing file:" +
+          s"${path.eventLog.toString}. ${ue.getMessage} ")
     }
 
     FailureApp(status, s"${e.getClass.getSimpleName}: $message")
