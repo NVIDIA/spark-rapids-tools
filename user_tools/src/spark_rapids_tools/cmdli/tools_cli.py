@@ -39,7 +39,6 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       eventlogs: str = None,
                       cluster: str = None,
                       platform: str = None,
-                      target_platform: str = None,
                       output_folder: str = None,
                       filter_apps: str = None,
                       custom_model_file: str = None,
@@ -66,12 +65,6 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                Name or ID (for databricks platforms) of cluster or path to cluster-properties.
         :param platform: defines one of the following "onprem", "emr", "dataproc", "dataproc-gke",
                "databricks-aws", and "databricks-azure".
-        :param target_platform: Cost savings and speedup recommendation for comparable cluster in
-                target_platform based on on-premises cluster configuration.
-
-                Currently only `dataproc` is supported for target_platform.
-                If not provided, the final report will be limited to GPU speedups only without
-                cost-savings.
         :param output_folder: path to store the output
         :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem,
                 or remote cloud storage url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
@@ -97,7 +90,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/qualification/jar-usage.html#running-the-qualification-tool-standalone-on-spark-event-logs
         """
         platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
-        target_platform = Utils.get_value_or_pop(target_platform, rapids_options, 't')
+        tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
         output_folder = Utils.get_value_or_pop(output_folder, rapids_options, 'o')
         filter_apps = Utils.get_value_or_pop(filter_apps, rapids_options, 'f')
         verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
@@ -117,7 +110,6 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          eventlogs=eventlogs,
                                                          cluster=cluster,
                                                          platform=platform,
-                                                         target_platform=target_platform,
                                                          output_folder=output_folder,
                                                          tools_jar=tools_jar,
                                                          jvm_heap_size=jvm_heap_size,

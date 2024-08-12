@@ -87,12 +87,6 @@ class ClusterState(EnumeratedType):
     UNKNOWN = 'unknown'
 
 
-class TargetPlatform(EnumeratedType):
-    """Determine CostSavings for target platform based on OnPrem cluster configuration"""
-    DATAPROC = 'dataproc'
-    NONE = None
-
-
 class SparkNodeType(EnumeratedType):
     """
     Node type from Spark perspective. We either have a master node or a worker node.

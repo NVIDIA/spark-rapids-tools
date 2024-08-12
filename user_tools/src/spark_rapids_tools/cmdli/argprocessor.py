@@ -446,7 +446,6 @@ class QualifyUserArgModel(ToolUserArgModel):
     Represents the arguments collected by the user to run the qualification tool.
     This is used as doing preliminary validation against some of the common pattern
     """
-    target_platform: Optional[CspEnv] = None
     filter_apps: Optional[QualFilterApp] = None
     gpu_cluster_recommendation: Optional[QualGpuClusterReshapeType] = None
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
@@ -454,7 +453,6 @@ class QualifyUserArgModel(ToolUserArgModel):
     def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
         self.p_args['toolArgs']['savingsCalculations'] = False
-        self.p_args['toolArgs']['targetPlatform'] = self.target_platform
         # check the filter_apps argument
         if self.filter_apps is None:
             self.p_args['toolArgs']['filterApps'] = QualFilterApp.get_default()
@@ -487,22 +485,6 @@ class QualifyUserArgModel(ToolUserArgModel):
         # At this point, if the platform is still none, then we can set it to the default value
         # which is the onPrem platform.
         runtime_platform = self.get_or_set_platform()
-        # check the targetPlatform argument
-        if self.p_args['toolArgs']['targetPlatform']:
-            equivalent_pricing_list = runtime_platform.get_equivalent_pricing_platform()
-            if not equivalent_pricing_list:
-                # no target_platform for that runtime environment
-                self.logger.info(
-                    'Argument target_platform does not support the current cluster [%s]', runtime_platform)
-                self.p_args['toolArgs']['targetPlatform'] = None
-            else:
-                if not self.p_args['toolArgs']['targetPlatform'] in equivalent_pricing_list:
-                    target_platform = self.p_args['toolArgs']['targetPlatform']
-                    raise PydanticCustomError(
-                        'invalid_argument',
-                        f'The platform [{target_platform}] is currently '
-                        f'not supported to calculate savings from [{runtime_platform}] cluster\n  Error:')
-
         # process JVM arguments
         self.process_jvm_args()
 
@@ -512,9 +494,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             'outputFolder': self.output_folder,
             'platformOpts': {
                 'credentialFile': None,
-                'deployMode': DeployMode.LOCAL,
-                # used to be sent to the scala core java cmd
-                'targetPlatform': self.p_args['toolArgs']['targetPlatform']
+                'deployMode': DeployMode.LOCAL
             },
             'migrationClustersProps': {
                 'cpuCluster': self.cluster,
