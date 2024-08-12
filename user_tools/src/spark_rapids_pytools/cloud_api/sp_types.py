@@ -519,7 +519,6 @@ class CMDDriverBase:
             self.logger.info('Loading instance descriptions from file: %s', instance_description_file_path)
             self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
-
     def describe_node_instance(self, instance_type: str) -> str:
         instance_info = self.instance_descriptions.get_value(instance_type)
         if instance_info is None:
