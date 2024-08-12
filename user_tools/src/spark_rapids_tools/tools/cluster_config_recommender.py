@@ -122,14 +122,6 @@ class ClusterConfigRecommender:
         ii. '<app_id>' -> `ClusterRecommendationInfo`  for each app
         """
         cluster_conversion_summary = {}
-        # Summary for all instances
-        cpu_cluster_info = self.ctxt.get_ctxt('cpuClusterProxy')
-        gpu_cluster_info = self.ctxt.get_ctxt('gpuClusterProxy')
-        conversion_summary_all = self._get_instance_type_conversion(cpu_cluster_info, gpu_cluster_info)
-        if conversion_summary_all:
-            cluster_conversion_summary['all'] = conversion_summary_all
-
-        # Summary for each app
         cpu_cluster_info_per_app = self.ctxt.get_ctxt('cpuClusterInfoPerApp')
         gpu_cluster_info_per_app = self.ctxt.get_ctxt('gpuClusterInfoPerApp')
         if cpu_cluster_info_per_app and gpu_cluster_info_per_app:
@@ -181,12 +173,7 @@ class ClusterConfigRecommender:
             cluster_conversion_summary = self._get_cluster_conversion_summary()
             # 'all' is a special indication that all the applications need to use this same node
             # recommendation vs the recommendations being per application
-            if 'all' in cluster_conversion_summary:
-                # Add cluster conversion columns to all apps
-                conversion_summary_flattened = cluster_conversion_summary['all'].to_dict()
-                for col, conversion_val in conversion_summary_flattened.items():  # type: str, Union[dict, str]
-                    result_df[col] = [conversion_val] * result_df.shape[0]
-            elif len(cluster_conversion_summary) > 0:
+            if len(cluster_conversion_summary) > 0:
                 # Add the per-app node conversions
                 conversion_summary_flattened = {k: v.to_dict() for k, v in cluster_conversion_summary.items()}
                 conversion_df = pd.DataFrame.from_dict(conversion_summary_flattened, orient='index').reset_index()

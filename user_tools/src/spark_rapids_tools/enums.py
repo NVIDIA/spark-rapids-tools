@@ -119,17 +119,6 @@ class QualFilterApp(EnumeratedType):
         return cls.TOP_CANDIDATES
 
 
-class QualGpuClusterReshapeType(EnumeratedType):
-    """Values used to filter out the applications in the qualification report"""
-    MATCH = 'match'
-    CLUSTER = 'cluster'
-    JOB = 'job'
-
-    @classmethod
-    def get_default(cls):
-        return cls.MATCH
-
-
 class ConditionOperator(EnumeratedType):
     """Enum representing comparison operators for conditions."""
     EQUAL = auto()

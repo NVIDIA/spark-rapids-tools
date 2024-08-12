@@ -18,7 +18,7 @@
 import fire
 
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
-from spark_rapids_tools.enums import QualGpuClusterReshapeType, CspEnv, QualEstimationModel
+from spark_rapids_tools.enums import CspEnv, QualEstimationModel
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.qualx.prediction import Prediction
@@ -115,8 +115,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          jvm_heap_size=jvm_heap_size,
                                                          jvm_threads=jvm_threads,
                                                          filter_apps=filter_apps,
-                                                         estimation_model_args=estimation_model_args,
-                                                         gpu_cluster_shape=QualGpuClusterReshapeType.get_default())
+                                                         estimation_model_args=estimation_model_args)
         if qual_args:
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
                                             output_folder=qual_args['outputFolder'],
