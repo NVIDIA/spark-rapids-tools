@@ -264,7 +264,10 @@ object EventLogPathProcessor extends Logging {
           // size is assumed to be mb
           StringUtils.convertMemorySizeToBytes(maxEventLogSize.get + "m")
         }
-        validMatchedLogs.filter(info => info._2.size <= maxSizeInBytes)
+        val (matched, filtered) = validMatchedLogs.partition(info => info._2.size <= maxSizeInBytes)
+        logInfo(s"Filtering eventlogs by size, max size is ${maxSizeInBytes}b. The logs filtered " +
+          s"out include: ${filtered.keys.map(_.eventLog.toString).mkString(",")}")
+        matched
       } else {
         validMatchedLogs
       }
@@ -274,7 +277,6 @@ object EventLogPathProcessor extends Logging {
         val criteria = filteredInfo(1)
         // Before filtering based on user criteria, remove the failed event logs
         // (i.e. logs without timestamp) from the list.
-
         val matched = if (criteria.equals("newest")) {
           LinkedHashMap(filteredBySize.toSeq.sortWith(_._2.timestamp > _._2.timestamp): _*)
         } else if (criteria.equals("oldest")) {
