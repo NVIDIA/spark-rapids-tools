@@ -27,7 +27,6 @@ from pydantic_core import PydanticCustomError
 
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
-from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
 from spark_rapids_tools.cloud import ClientCluster
 from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
 from ..enums import QualFilterApp, CspEnv, QualEstimationModel

@@ -18,7 +18,7 @@
 import fire
 
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
-from spark_rapids_tools.enums import QualGpuClusterReshapeType, CspEnv, QualEstimationModel
+from spark_rapids_tools.enums import CspEnv, QualEstimationModel
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.qualx.prediction import Prediction
