@@ -232,8 +232,7 @@ class ToolLogging:
 
     @classmethod
     def modify_log4j_properties(cls, file_path: str, new_log_file_path: str) -> str:
-        timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-        new_log_file_with_timestamp = f'{new_log_file_path}/core_tools_log_{timestamp}.log'
+        new_log_file_with_timestamp = f'{new_log_file_path}/rapids_4_spark_core_tools.log'
         with open(file_path, 'r', encoding='utf-8') as file:
             lines = file.readlines()
 
