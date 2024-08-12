@@ -17,6 +17,7 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import java.io.File
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths, StandardOpenOption}
 
 import scala.collection.mutable.ArrayBuffer
@@ -97,7 +98,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(firstApp.gpuMode.equals(true))
     assert(firstApp.jobIdToInfo.keys.toSeq.contains(1))
     val stageInfo = firstApp.stageManager.getStage(0, 0)
-    assert(stageInfo.isDefined && stageInfo.get.sInfo.numTasks.equals(1))
+    assert(stageInfo.isDefined && stageInfo.get.stageInfo.numTasks.equals(1))
     assert(firstApp.stageManager.getStage(2, 0).isDefined)
     assert(firstApp.taskManager.getTasks(firstApp.index, 0).head.successful.equals(true))
     assert(firstApp.taskManager.getTasks(firstApp.index, 0).head.endReason.equals("Success"))
@@ -160,7 +161,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(apps.head.jobIdToInfo.keys.toSeq.contains(0))
     val stage0 = apps.head.stageManager.getStage(0, 0)
     assert(stage0.isDefined)
-    assert(stage0.get.sInfo.numTasks.equals(1))
+    assert(stage0.get.stageInfo.numTasks.equals(1))
   }
 
   test("test no sql eventlog") {
@@ -200,6 +201,55 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     val df = sqlMetricsWithDelim.toDF
     val dfExpect = ToolTestUtils.readExpectationCSV(sparkSession, resultExpectation.getPath())
     ToolTestUtils.compareDataFrames(df, dfExpect)
+  }
+
+  test("test GpuMetrics in eventlog") {
+    TrampolineUtil.withTempDir { outputDir =>
+      TrampolineUtil.withTempDir { tmpEventLogDir =>
+        val eventLogFilePath = Paths.get(tmpEventLogDir.getAbsolutePath, "gpu_metrics_eventlog")
+        // scalastyle:off line.size.limit
+        val eventLogContent =
+          """{"Event":"SparkListenerLogStart","Spark Version":"3.2.1"}
+            |{"Event":"SparkListenerApplicationStart","App Name":"GPUMetrics", "App ID":"local-16261043003", "Timestamp":123456, "User":"User1"}
+            |{"Event":"SparkListenerTaskEnd","Stage ID":10,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":5073,"Index":5054,"Attempt":0,"Partition ID":5054,"Launch Time":1712248533994,"Executor ID":"100","Host":"10.154.65.143","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253284920,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.492","Value":"03:13:31.359","Internal":false,"Count Failed Values":true},{"ID":1018,"Name":"gpuSpillToHostTime","Update":"00:00:00.845","Value":"00:29:39.521","Internal":false,"Count Failed Values":true},{"ID":1016,"Name":"gpuSplitAndRetryCount","Update":"1","Value":"2","Internal":false,"Count Failed Values":true}]}}
+            |{"Event":"SparkListenerTaskEnd","Stage ID":10,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":2913,"Index":2894,"Attempt":0,"Partition ID":2894,"Launch Time":1712248532696,"Executor ID":"24","Host":"10.154.65.135","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253285639,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.758","Value":"03:13:32.117","Internal":false,"Count Failed Values":true},{"ID":1015,"Name":"gpuReadSpillFromDiskTime","Update":"00:00:02.599","Value":"00:33:37.153","Internal":false,"Count Failed Values":true},{"ID":1018,"Name":"gpuSpillToHostTime","Update":"00:00:00.845","Value":"00:29:39.521","Internal":false,"Count Failed Values":true}]}}
+            |{"Event":"SparkListenerTaskEnd","Stage ID":11,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":2045,"Index":2026,"Attempt":0,"Partition ID":2026,"Launch Time":1712248530708,"Executor ID":"84","Host":"10.154.65.233","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253285667,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.003","Value":"03:13:32.120","Internal":false,"Count Failed Values":true},{"ID":1015,"Name":"gpuReadSpillFromDiskTime","Update":"00:00:00.955","Value":"00:33:38.108","Internal":false,"Count Failed Values":true}]}}""".stripMargin
+        // scalastyle:on line.size.limit
+        Files.write(eventLogFilePath, eventLogContent.getBytes(StandardCharsets.UTF_8))
+
+        val profileArgs = Array(
+          "--output-directory", outputDir.getAbsolutePath,
+          eventLogFilePath.toString
+        )
+
+        val appArgs = new ProfileArgs(profileArgs)
+        val (exit, _) = ProfileMain.mainInternal(appArgs)
+        assert(exit == 0)
+
+        val apps = ArrayBuffer[ApplicationInfo]()
+        var index = 1
+
+        val eventLogPaths = appArgs.eventlog()
+        eventLogPaths.foreach { path =>
+          val eventLogInfo = EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1
+          apps += new ApplicationInfo(hadoopConf, eventLogInfo, index)
+          index += 1
+        }
+        assert(apps.size == 1)
+
+        val collect = new CollectInformation(apps)
+        val stageLevelResults = collect.getStageLevelMetrics
+
+        // Sample eventlog has 4 gpu metrics - gpuSemaphoreWait, gpuReadSpillFromDiskTime
+        // gpuSpillToHostTime, gpuSplitAndRetryCount. But gpuSemaphoreWait and
+        // gpuReadSpillFromDiskTime metrics are updated in 2 stages(stage 10 and 11).
+        // So the result will have 6 rows in total since we are reporting stage level metrics.
+        assert(stageLevelResults.size == 6)
+        // gpu metrics
+        val gpuSemaphoreWait = stageLevelResults.find(_.accMetaRef.getName() == "gpuSemaphoreWait")
+        assert(gpuSemaphoreWait.isDefined)
+      }
+    }
   }
 
   test("test printSQLPlans") {
@@ -790,7 +840,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 19)
+      assert(dotDirs.length === 20)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -824,7 +874,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 15)
+      assert(dotDirs.length === 16)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -861,7 +911,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 19)
+      assert(dotDirs.length === 20)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -898,7 +948,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 17)
+      assert(dotDirs.length === 18)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly

@@ -462,11 +462,17 @@ object QualOutputWriter {
   val DRIVER_HOST = "Driver Host"
   val CLUSTER_ID_STR = "Cluster Id" // Different from ClusterId used for Databricks Tags
   val CLUSTER_NAME = "Cluster Name"
+  val RECOMMENDED_NUM_GPUS = "Recommended Num GPUs Per Node"
+  val RECOMMENDED_GPU_DEVICE = "Recommended GPU Device"
   val NUM_EXECS_PER_NODE = "Num Executors Per Node"
-  val NUM_EXEC_NODES = "Num Executor Nodes"
+  val RECOMMENDED_NUM_EXECS = "Recommended Num Executors"
+  val NUM_WORKER_NODES = "Num Worker Nodes"
+  val RECOMMENDED_NUM_WORKER_NODES = "Recommended Num Worker Nodes"
   val CORES_PER_EXEC = "Cores Per Executor"
-  val EXEC_INSTANCE = "Executor Instance"
-  val DRIVER_INSTANCE = "Driver Instance"
+  val RECOMMENDED_CORES_PER_EXEC = "Recommended Cores Per Executor"
+  val WORKER_NODE_TYPE = "Worker Node Type"
+  val RECOMMENDED_WORKER_NODE_TYPE = "Recommended Worker Node Type"
+  val DRIVER_NODE_TYPE = "Driver Node Type"
   // Default frequency for jobs with a single instance is 30 times every month (30 days)
   val DEFAULT_JOB_FREQUENCY = 30L
 
@@ -762,11 +768,10 @@ object QualOutputWriter {
 
   private def formatSQLDescription(sqlDesc: String, maxSQLDescLength: Int,
       delimiter: String): String = {
-    val escapedMetaStr = ToolUtils.escapeMetaCharacters(sqlDesc).trim()
-    val sqlDescTruncated = escapedMetaStr.substring(0,
-      Math.min(maxSQLDescLength, escapedMetaStr.length))
+    val escapedMetaStr =
+      StringUtils.renderStr(sqlDesc, doEscapeMetaCharacters = true, maxLength = maxSQLDescLength)
     // should be a one for one replacement so length wouldn't be affected by this
-    replaceDelimiter(sqlDescTruncated, delimiter)
+    replaceDelimiter(escapedMetaStr, delimiter)
   }
 
   def constructPerSqlSummaryInfo(
@@ -820,7 +825,9 @@ object QualOutputWriter {
   private def getClusterInfoHeaderStrings: mutable.LinkedHashMap[String, Int] = {
     val headersAndFields = Seq(
       APP_ID_STR, APP_NAME_STR, VENDOR, DRIVER_HOST, CLUSTER_ID_STR, CLUSTER_NAME,
-      EXEC_INSTANCE, DRIVER_INSTANCE, NUM_EXEC_NODES, NUM_EXECS_PER_NODE, CORES_PER_EXEC).map {
+      WORKER_NODE_TYPE, DRIVER_NODE_TYPE, NUM_WORKER_NODES, NUM_EXECS_PER_NODE, CORES_PER_EXEC,
+      RECOMMENDED_WORKER_NODE_TYPE, RECOMMENDED_NUM_EXECS, RECOMMENDED_NUM_WORKER_NODES,
+      RECOMMENDED_CORES_PER_EXEC, RECOMMENDED_GPU_DEVICE, RECOMMENDED_NUM_GPUS).map {
       key => (key, key.length)
     }
     mutable.LinkedHashMap(headersAndFields: _*)
@@ -834,6 +841,7 @@ object QualOutputWriter {
       reformatCSV: Boolean = true): Seq[String] = {
     val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
     val clusterInfo = sumInfo.clusterSummary.clusterInfo
+    val recClusterInfo = sumInfo.clusterSummary.recommendedClusterInfo
 
     // Wrapper function around reformatCSVFunc() to handle optional fields and
     // reduce redundancy
@@ -847,11 +855,22 @@ object QualOutputWriter {
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverHost), DRIVER_HOST),
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.clusterId), CLUSTER_ID_STR),
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.clusterName), CLUSTER_NAME),
-      refactorCSVFuncWithOption(clusterInfo.flatMap(_.executorInstance), EXEC_INSTANCE),
-      refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverInstance), DRIVER_INSTANCE),
-      refactorCSVFuncWithOption(clusterInfo.map(_.numExecutorNodes.toString), NUM_EXEC_NODES),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.workerNodeType), WORKER_NODE_TYPE),
+      refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverNodeType), DRIVER_NODE_TYPE),
+      refactorCSVFuncWithOption(clusterInfo.map(_.numWorkerNodes.toString), NUM_WORKER_NODES),
       refactorCSVFuncWithOption(clusterInfo.map(_.numExecsPerNode.toString), NUM_EXECS_PER_NODE),
-      refactorCSVFuncWithOption(clusterInfo.map(_.coresPerExecutor.toString), CORES_PER_EXEC)
+      refactorCSVFuncWithOption(clusterInfo.map(_.coresPerExecutor.toString), CORES_PER_EXEC),
+      refactorCSVFuncWithOption(recClusterInfo.flatMap(_.workerNodeType),
+        RECOMMENDED_WORKER_NODE_TYPE),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.numExecutors.toString),
+        RECOMMENDED_NUM_EXECS),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.numWorkerNodes.toString),
+        RECOMMENDED_NUM_WORKER_NODES),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.coresPerExecutor.toString),
+        RECOMMENDED_CORES_PER_EXEC),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.gpuDevice), RECOMMENDED_GPU_DEVICE),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.numGpus.toString), RECOMMENDED_NUM_GPUS)
+
     )
     constructOutputRow(data, delimiter, prettyPrint) :: Nil
   }

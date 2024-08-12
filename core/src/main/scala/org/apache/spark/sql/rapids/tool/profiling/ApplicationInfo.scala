@@ -206,7 +206,7 @@ class ApplicationInfo(
   override def postCompletion(): Unit = {
     // finally aggregate the Info
     super.postCompletion()
-    clusterInfo = buildClusterInfo
+    buildClusterInfo
   }
 
   override def guestimateAppEndTimeCB(): () => Option[Long] = {

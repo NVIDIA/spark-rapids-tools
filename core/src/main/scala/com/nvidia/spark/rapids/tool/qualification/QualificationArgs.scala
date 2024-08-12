@@ -88,6 +88,13 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Filter event logs whose application start occurred within the past specified " +
         "time period. Valid time periods are min(minute),h(hours),d(days),w(weeks)," +
         "m(months). If a period is not specified it defaults to days.")
+  val maxEventLogSize: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "Process only application event logs whose size is less than or equal to the size " +
+        "specified. Valid units of size are b(bytes),k(kilobytes),m(megabytes),g(gigabytes). " +
+        "If no units are specified, the size is assumed to be m. Note, this does not support " +
+        "event log rolling which puts multiple event logs for the same application into a " +
+        "single directory.")
   val matchEventLogs: ScallopOption[String] =
     opt[String](required = false,
       descr = "Filter event logs whose filenames contain the input string. Filesystem " +
@@ -142,9 +149,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Applications which a particular user has submitted." )
   val htmlReport : ScallopOption[Boolean] =
     toggle("html-report",
-      default = Some(true),
+      default = Some(false),
       prefix = "no-",
-      descrYes = "Generates an HTML Report. Enabled by default.",
+      descrYes = "Generates an HTML Report. Disabled by default.",
       descrNo = "Disables generating the HTML report.")
   val perSql : ScallopOption[Boolean] =
     opt[Boolean](required = false,

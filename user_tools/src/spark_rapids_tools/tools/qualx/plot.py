@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+""" Plotting functions for QualX model evaluation"""
+
+from functools import reduce
+import shap
 import numpy as np
 import pandas as pd
-import shap
 import xgboost as xgb
-from functools import reduce
 # Import optional packages
 try:
     import holoviews as hv
@@ -34,13 +36,13 @@ except ImportError:
 hv.extension('bokeh')
 
 
-def plot_predictions(results, title='prediction vs. actual', xlim=None, ylim=None):
-    """Plot predictions vs. actuals."""
+def plot_predictions(results, title='prediction vs. actual', x_lim=None, y_lim=None):
+    """Plot prediction vs. actual."""
     plt.figure()
-    if xlim:
-        plt.xlim(xlim)
-    if ylim:
-        plt.ylim(ylim)
+    if x_lim:
+        plt.xlim(x_lim)
+    if y_lim:
+        plt.ylim(y_lim)
 
     # Plot predictions:
     g = sns.regplot(x='y', y='y_pred', data=results)
@@ -110,18 +112,18 @@ def plot_hv_errors(results):
 
 
 def plot_shap(model, features, feature_cols, label_col):
-    X_train = features.loc[features['split'] == 'train', feature_cols]
+    x_train = features.loc[features['split'] == 'train', feature_cols]
     y_train = features.loc[features['split'] == 'train', label_col]
-    dtrain = xgb.DMatrix(X_train, y_train)
+    d_train = xgb.DMatrix(x_train, y_train)
 
     explainer = shap.TreeExplainer(model)
-    shap_values = explainer(dtrain)  # Outputs object
+    shap_values = explainer(d_train)  # Outputs object
 
     # SHAP global feature importance:
-    shap.summary_plot(shap_values, X_train, plot_type='bar')
+    shap.summary_plot(shap_values, x_train, plot_type='bar')
 
     # SHAP violin plots shows phase of SHAP values:
-    shap.summary_plot(shap_values, X_train, plot_type='layered_violin')
+    shap.summary_plot(shap_values, x_train, plot_type='layered_violin')
 
     shap_values_df = pd.DataFrame(shap_values.values, columns=feature_cols)
 
@@ -164,10 +166,9 @@ def plot_shap(model, features, feature_cols, label_col):
     # Initialize
     shap_global_imp_combo_attr = shap_global_imp[remaining_cols].copy()
 
-    for kk in combine_feature_dict.keys():
-        shap_global_imp_combo_attr[kk] = shap_global_imp[combine_feature_dict[kk]].sum()
+    for k, v in combine_feature_dict.items():
+        shap_global_imp_combo_attr[k] = shap_global_imp[v].sum()
 
     shap_global_imp_combo_attr = shap_global_imp_combo_attr.sort_values(ascending=True)
 
     shap_global_imp_combo_attr.plot.barh()
-    shap_global_imp_combo_attr

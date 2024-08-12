@@ -32,9 +32,9 @@ dependencies = [
     "importlib-resources==5.10.2",
     "requests==2.31.0",
     "packaging>=23.0",
-    "certifi==2023.7.22",
+    "certifi==2024.7.4",
     "idna==3.4",
-    "urllib3==1.26.14",
+    "urllib3==1.26.19",
     "beautifulsoup4==4.11.2",
     "pygments==2.15.0",
     # used to apply validator on objects and models
@@ -62,6 +62,7 @@ dynamic=["entry-points", "version"]
 [project.scripts]
 spark_rapids_user_tools = "spark_rapids_pytools.wrapper:main"
 spark_rapids = "spark_rapids_tools.cmdli.tools_cli:main"
+spark_rapids_dev = "spark_rapids_tools.cmdli.dev_cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

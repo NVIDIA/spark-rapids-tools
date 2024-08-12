@@ -111,25 +111,12 @@ class CspEnv(EnumeratedType):
 
 class QualFilterApp(EnumeratedType):
     """Values used to filter out the applications in the qualification report"""
-    SAVINGS = 'savings'
-    SPEEDUPS = 'speedups'
     TOP_CANDIDATES = 'top_candidates'
     ALL = 'all'
 
     @classmethod
     def get_default(cls):
         return cls.TOP_CANDIDATES
-
-
-class QualGpuClusterReshapeType(EnumeratedType):
-    """Values used to filter out the applications in the qualification report"""
-    MATCH = 'match'
-    CLUSTER = 'cluster'
-    JOB = 'job'
-
-    @classmethod
-    def get_default(cls):
-        return cls.MATCH
 
 
 class ConditionOperator(EnumeratedType):
@@ -168,3 +155,17 @@ class QualEstimationModel(EnumeratedType):
     @classmethod
     def get_default(cls):
         return cls.XGBOOST
+
+    @classmethod
+    def create_default_model_args(cls, model_type: str) -> dict:
+        """
+        Giving a estimation-model, it sets the default arguments for the model.
+        This is useful to avoid duplicating code all over the place.
+        :param model_type: the instance of the estimation-model
+        :return: a dictionary with the default arguments for the estimationModel
+        """
+        return {
+            'estimationModel': model_type,
+            'xgboostEnabled': model_type == QualEstimationModel.XGBOOST,
+            'customModelFile': None,
+        }

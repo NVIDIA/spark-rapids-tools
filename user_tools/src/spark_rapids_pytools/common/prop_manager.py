@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,32 +18,41 @@ import json
 from dataclasses import field, dataclass
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Union
 
 import yaml
 
 from spark_rapids_tools import get_elem_from_dict, get_elem_non_safe
 
 
-def convert_dict_to_camel_case(dic: dict):
+def convert_dict_to_camel_case(dic: Union[dict, list], delim: str = '_') -> object:
     """
     Given a dictionary with underscore keys. This method converts the keys to a camelcase.
     Example, gce_cluster_config -> gceClusterConfig
     :param dic: the dictionary to be converted
+    :param delim: the delimiter used in the keys
     :return: a dictionary where all the keys are camelcase.
     """
     def to_camel_case(word: str) -> str:
-        return word.split('_')[0] + ''.join(x.capitalize() or '_' for x in word.split('_')[1:])
+        return word.split(delim)[0] + ''.join(x.capitalize() or delim for x in word.split(delim)[1:])
 
     if isinstance(dic, list):
-        return [convert_dict_to_camel_case(i) if isinstance(i, (dict, list)) else i for i in dic]
+        return [convert_dict_to_camel_case(i, delim) if isinstance(i, (dict, list)) else i for i in dic]
     res = {}
     for key, value in dic.items():
         if isinstance(value, (dict, list)):
-            res[to_camel_case(key)] = convert_dict_to_camel_case(value)
+            res[to_camel_case(key)] = convert_dict_to_camel_case(value, delim)
         else:
             res[to_camel_case(key)] = value
     return res
+
+
+def get_gpu_device_list() -> list:
+    return ['T4', 'V100', 'K80', 'A100', 'P100', 'A10', 'A10G', 'P4', 'L4', 'H100']
+
+
+def is_valid_gpu_device(val) -> bool:
+    return val.upper() in get_gpu_device_list()
 
 
 @dataclass
@@ -51,7 +60,7 @@ class AbstractPropertiesContainer(object):
     """
     An abstract class that loads properties (dictionary).
     """
-    prop_arg: str
+    prop_arg: Union[str, dict]
     file_load: bool = True
     props: Any = field(default=None, init=False)
 

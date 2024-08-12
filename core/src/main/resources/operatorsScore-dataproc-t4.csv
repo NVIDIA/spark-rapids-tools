@@ -287,3 +287,5 @@ AQEShuffleReadExec,4.88
 CheckOverflowInTableInsert,4.88
 ArrayFilter,1.5
 BoundReference,1.5
+HiveHash,1.5
+MapFromArrays,1.5

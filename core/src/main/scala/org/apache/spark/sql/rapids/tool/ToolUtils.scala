@@ -48,7 +48,8 @@ object ToolUtils extends Logging {
   private val lookupVersions = Map(
     "311" -> new ComparableVersion("3.1.1"), // default build version
     "320" -> new ComparableVersion("3.2.0"), // introduced reusedExchange
-    "331" -> new ComparableVersion("3.3.1"), // used to check for memoryOverheadFactor
+    "330" -> new ComparableVersion("3.3.0"), // used to check for memoryOverheadFactor
+    "331" -> new ComparableVersion("3.3.1"),
     "340" -> new ComparableVersion("3.4.0"),  // introduces jsonProtocolChanges
     "350" -> new ComparableVersion("3.5.0")  // introduces windowGroupLimit
   )
@@ -84,6 +85,10 @@ object ToolUtils extends Logging {
 
   def isSpark320OrLater(sparkVersion: String = sparkRuntimeVersion): Boolean = {
     compareToSparkVersion(sparkVersion, "320") >= 0
+  }
+
+  def isSpark330OrLater(sparkVersion: String = sparkRuntimeVersion): Boolean = {
+    compareToSparkVersion(sparkVersion, "330") >= 0
   }
 
   def isSpark331OrLater(sparkVersion: String = sparkRuntimeVersion): Boolean = {
@@ -144,16 +149,6 @@ object ToolUtils extends Logging {
   def truncateDoubleToTwoDecimal(valNum: Double): Double = {
     // floor is applied after multiplying by 100. This keeps the number "as is" up-to two decimal.
     math.floor(valNum * 100) / 100
-  }
-
-  def escapeMetaCharacters(str: String): String = {
-    str.replaceAll("\n", "\\\\n")
-      .replaceAll("\r", "\\\\r")
-      .replaceAll("\t", "\\\\t")
-      .replaceAll("\f", "\\\\f")
-      .replaceAll("\b", "\\\\b")
-      .replaceAll("\u000B", "\\\\v")
-      .replaceAll("\u0007", "\\\\a")
   }
 
   /**

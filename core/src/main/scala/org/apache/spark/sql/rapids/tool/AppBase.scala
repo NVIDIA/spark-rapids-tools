@@ -20,12 +20,11 @@ import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, Map, SortedMap}
-import scala.io.{Codec, Source}
 
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
-import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DataSourceCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase, TaskStageAccumCase}
+import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DataSourceCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -34,8 +33,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.store.{StageModel, StageModelManager, TaskModelManager}
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph}
+import org.apache.spark.sql.rapids.tool.store.{AccumManager, StageModel, StageModelManager, TaskModelManager}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
 import org.apache.spark.util.Utils
 
 abstract class AppBase(
@@ -80,8 +79,7 @@ abstract class AppBase(
   var sqlPlanMetricsAdaptive: ArrayBuffer[SQLPlanMetricsCase] = ArrayBuffer[SQLPlanMetricsCase]()
 
   // accum id to task stage accum info
-  var taskStageAccumMap: HashMap[Long, ArrayBuffer[TaskStageAccumCase]] =
-    HashMap[Long, ArrayBuffer[TaskStageAccumCase]]()
+  lazy val accumManager: AccumManager = new AccumManager()
 
   lazy val stageManager: StageModelManager = new StageModelManager()
   // Container that manages TaskIno including SparkMetrics.
@@ -90,8 +88,6 @@ abstract class AppBase(
 
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
-
-  var clusterInfo: Option[ClusterInfo] = None
 
   // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
   // won't be defined for running applications
@@ -183,9 +179,8 @@ abstract class AppBase(
   }
 
   def cleanupAccumId(accId: Long): Unit = {
-    taskStageAccumMap.remove(accId)
+    accumManager.removeAccumInfo(accId)
     driverAccumMap.remove(accId)
-    stageManager.removeAccumulatorId(accId)
   }
 
   def cleanupStages(stageIds: Set[Int]): Unit = {
@@ -263,7 +258,7 @@ abstract class AppBase(
           val runtimeGetFromJsonMethod = EventUtils.getEventFromJsonMethod
           reader.listEventLogFiles.foreach { file =>
             Utils.tryWithResource(openEventLogInternal(file.getPath, fs)) { in =>
-              Source.fromInputStream(in)(Codec.UTF8).getLines().find { line =>
+              UTF8Source.fromInputStream(in).getLines().find { line =>
                 // Using find as foreach with conditional to exit early if we are done.
                 // Do NOT use a while loop as it is much much slower.
                 totalNumEvents += 1
@@ -285,7 +280,7 @@ abstract class AppBase(
   private val UDFRegex = ".*UDF.*"
 
   private val potentialIssuesRegexMap = Map(
-    UDFRegex -> "UDF", 
+    UDFRegex -> "UDF",
     ".*current_timestamp\\(.*\\).*" -> "TIMEZONE current_timestamp()",
     ".*to_timestamp\\(.*\\).*" -> "TIMEZONE to_timestamp()",
     ".*hour\\(.*\\).*" -> "TIMEZONE hour()",
@@ -303,13 +298,8 @@ abstract class AppBase(
    * Builds cluster information based on executor nodes.
    * If executor nodes exist, calculates the number of hosts and total cores,
    * and extracts executor and driver instance types (databricks only)
-   *
-   * @return Cluster information including vendor, cores, number of nodes and maybe
-   *         instance types, driver host, cluster id and cluster name.
    */
-  protected def buildClusterInfo: Option[ClusterInfo] = {
-    None
-  }
+  protected def buildClusterInfo: Unit = {}
 
   // The ReadSchema metadata is only in the eventlog for DataSource V1 readers
   def checkMetadataForReadSchema(

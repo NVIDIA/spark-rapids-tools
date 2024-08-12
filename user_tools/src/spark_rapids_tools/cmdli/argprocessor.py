@@ -19,17 +19,16 @@ from collections import defaultdict
 from enum import IntEnum
 from functools import partial
 from logging import Logger
-from typing import Optional, Any, ClassVar, Callable, Type, Dict
+from typing import Optional, Any, ClassVar, Callable, Type, Dict, Union
 
 from pydantic import model_validator, ValidationError
 from pydantic.dataclasses import dataclass
 from pydantic_core import PydanticCustomError
 
-from spark_rapids_tools.cloud import ClientCluster
-from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
 from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging
-from spark_rapids_pytools.rapids.qualification import QualGpuClusterReshapeType
+from spark_rapids_tools.cloud import ClientCluster
+from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
 from ..enums import QualFilterApp, CspEnv, QualEstimationModel
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
@@ -77,11 +76,11 @@ class UserArgValidatorImpl:  # pylint: disable=too-few-public-methods
 user_arg_validation_registry: Dict[str, UserArgValidatorImpl] = defaultdict(UserArgValidatorImpl)
 
 
-def register_tool_arg_validator(tool_name: str) -> Callable:
+def register_tool_arg_validator(validator_key: str) -> Callable:
     def decorator(cls: type) -> type:
-        cls.tool_name = tool_name
-        user_arg_validation_registry[tool_name].name = tool_name
-        user_arg_validation_registry[tool_name].validator_class = cls
+        cls.validator_name = validator_key
+        user_arg_validation_registry[validator_key].name = validator_key
+        user_arg_validation_registry[validator_key].validator_class = cls
         return cls
     return decorator
 
@@ -106,19 +105,35 @@ class AbsToolUserArgModel:
         'toolArgs': {}
     })
     logger: ClassVar[Logger] = None
-    tool_name: ClassVar[str] = None
+    validator_name: ClassVar[str] = None
 
     @classmethod
-    def create_tool_args(cls, tool_name: str, *args: Any, **kwargs: Any) -> Optional[dict]:
+    def create_tool_args(cls, validator_arg: Union[str, dict], *args: Any, cli_class: str = 'ToolsCLI',
+                         cli_name: str = 'spark_rapids', **kwargs: Any) -> Optional[dict]:
+        """
+        A factory method to create the tool arguments based on the validator argument.
+        :param validator_arg: Union type to accept either a dictionary or a string. This is required
+                              because some validators such as the estimationModel can be used within
+                              the context of different tools.
+        :param args: to be passed to the actual validator class
+        :param kwargs: to be passed to the actual validator class
+        :return: the processed arguments or None if the validation fails.
+        """
+        if isinstance(validator_arg, dict):
+            tool_name = validator_arg.get('toolName')
+            validator_name = validator_arg.get('validatorName')
+        else:
+            tool_name = validator_arg
+            validator_name = validator_arg
         cls.logger = ToolLogging.get_and_setup_logger('spark_rapids_tools.argparser')
         try:
-            impl_entry = user_arg_validation_registry.get(tool_name)
+            impl_entry = user_arg_validation_registry.get(validator_name)
             impl_class = impl_entry.validator_class
             new_obj = impl_class(*args, **kwargs)
             return new_obj.build_tools_args()
         except (ValidationError, PydanticCustomError) as e:
             impl_class.logger.error('Validation err: %s\n', e)
-            dump_tool_usage(impl_class.tool_name)
+            dump_tool_usage(cli_class, cli_name, tool_name)
         return None
 
     def get_eventlogs(self) -> Optional[str]:
@@ -212,19 +227,19 @@ class AbsToolUserArgModel:
             self.argv_cases.append(self.determine_cluster_arg_type())
         self.argv_cases.extend(self.init_extra_arg_cases())
 
-    def define_invalid_arg_cases(self):
+    def define_invalid_arg_cases(self) -> None:
         pass
 
-    def define_detection_cases(self):
+    def define_detection_cases(self) -> None:
         pass
 
-    def define_extra_arg_cases(self):
+    def define_extra_arg_cases(self) -> None:
         pass
 
     def build_tools_args(self) -> dict:
         pass
 
-    def apply_arg_cases(self, cases_list: list):
+    def apply_arg_cases(self, cases_list: list) -> None:
         for curr_cases in cases_list:
             for case_key, case_value in curr_cases.items():
                 if any(ArgValueCase.array_equal(self.argv_cases, case_i) for case_i in case_value['cases']):
@@ -232,10 +247,10 @@ class AbsToolUserArgModel:
                     self.logger.info('...applying argument case: %s', case_key)
                     case_value['callable']()
 
-    def apply_all_arg_cases(self):
+    def apply_all_arg_cases(self) -> None:
         self.apply_arg_cases([self.rejected, self.detected, self.extra])
 
-    def validate_arguments(self):
+    def validate_arguments(self) -> None:
         self.init_tool_args()
         self.init_arg_cases()
         self.define_invalid_arg_cases()
@@ -252,11 +267,77 @@ class AbsToolUserArgModel:
         self.post_platform_assignment_validation()
         return runtime_platform
 
-    def post_platform_assignment_validation(self):
+    def post_platform_assignment_validation(self) -> None:
         # Update argv_cases to reflect the platform
         self.argv_cases[0] = ArgValueCase.VALUE_A
         # Any validation post platform assignment should be done here
         self.apply_arg_cases([self.rejected, self.extra])
+
+
+@dataclass
+@register_tool_arg_validator('estimation_model_args')
+class EstimationModelArgProcessor(AbsToolUserArgModel):
+    """
+    Class to validate the arguments of the EstimationModel
+    """
+    estimation_model: Optional[QualEstimationModel] = None
+    custom_model_file: Optional[str] = None
+
+    def init_tool_args(self) -> None:
+        if self.estimation_model is None:
+            self.p_args['toolArgs']['estimationModel'] = QualEstimationModel.get_default()
+        else:
+            self.p_args['toolArgs']['estimationModel'] = self.estimation_model
+
+    def init_arg_cases(self):
+        # currently, the estimation model is set to XGBOOST by default.
+        # so, we should not have undefined case
+        self.argv_cases.append(ArgValueCase.VALUE_A)
+        self.argv_cases.append(self.validate_custom_file_arg_is_valid())
+
+    @model_validator(mode='after')
+    def validate_arg_cases(self) -> 'EstimationModelArgProcessor':
+        # shortcircuit to fail early
+        self.validate_arguments()
+        return self
+
+    def validate_custom_model_on_valid_model(self) -> None:
+        # custom model file is valid iff estimationModel is xgboost
+        selected_model = self.p_args['toolArgs']['estimationModel']
+        if selected_model != QualEstimationModel.XGBOOST:
+            raise PydanticCustomError(
+                'invalid_argument',
+                'Cannot set custom estimation model when the estimation_model argument '
+                f'is set to [{selected_model}]. Only valid for [{QualEstimationModel.XGBOOST}].')
+
+    def define_invalid_arg_cases(self) -> None:
+        super().define_invalid_arg_cases()
+        self.rejected['Custom model file is valid only with XGBOOST estimation model'] = {
+            'valid': False,
+            'callable': partial(self.validate_custom_model_on_valid_model),
+            'cases': [
+                [ArgValueCase.VALUE_A, ArgValueCase.VALUE_B]
+            ]
+        }
+
+    def validate_custom_file_arg_is_valid(self) -> ArgValueCase:
+        # only json files are accepted
+        self.p_args['toolArgs']['customModelFile'] = self.custom_model_file
+        if self.custom_model_file is not None:
+            if not CspPath.is_file_path(self.custom_model_file,
+                                        extensions=['json'],
+                                        raise_on_error=False):
+                raise PydanticCustomError(
+                    'custom_model_file',
+                    f'model file path {self.custom_model_file} is not valid. '
+                    'It is expected to be a valid JSON file.\n  Error:')
+            return ArgValueCase.VALUE_B
+        return ArgValueCase.UNDEFINED
+
+    def build_tools_args(self) -> dict:
+        xgboost_enabled = self.p_args['toolArgs']['estimationModel'] == QualEstimationModel.XGBOOST
+        self.p_args['toolArgs']['xgboostEnabled'] = xgboost_enabled
+        return self.p_args['toolArgs']
 
 
 @dataclass
@@ -269,10 +350,10 @@ class ToolUserArgModel(AbsToolUserArgModel):
     jvm_heap_size: Optional[int] = None
     jvm_threads: Optional[int] = None
 
-    def is_concurrent_submission(self):
+    def is_concurrent_submission(self) -> bool:
         return False
 
-    def process_jvm_args(self):
+    def process_jvm_args(self) -> None:
         # JDK8 uses parallel-GC by default. Set the GC algorithm to G1GC
         self.p_args['toolArgs']['jvmGC'] = '+UseG1GC'
         jvm_heap = self.jvm_heap_size
@@ -293,7 +374,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
             return [ArgValueCase.UNDEFINED]
         return [ArgValueCase.VALUE_A]
 
-    def define_invalid_arg_cases(self):
+    def define_invalid_arg_cases(self) -> None:
         super().define_invalid_arg_cases()
         self.define_rejected_missing_eventlogs()
         self.rejected['Cluster By Name Without Platform Hints'] = {
@@ -328,7 +409,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
             ]
         }
 
-    def define_rejected_missing_eventlogs(self):
+    def define_rejected_missing_eventlogs(self) -> None:
         self.rejected['Missing Eventlogs'] = {
             'valid': False,
             'callable': partial(self.raise_validation_exception,
@@ -339,7 +420,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
             ]
         }
 
-    def define_detection_cases(self):
+    def define_detection_cases(self) -> None:
         self.detected['Define Platform from Cluster Properties file'] = {
             'valid': True,
             'callable': partial(self.detect_platform_from_cluster_prop),
@@ -364,62 +445,25 @@ class QualifyUserArgModel(ToolUserArgModel):
     Represents the arguments collected by the user to run the qualification tool.
     This is used as doing preliminary validation against some of the common pattern
     """
-    target_platform: Optional[CspEnv] = None
     filter_apps: Optional[QualFilterApp] = None
-    gpu_cluster_recommendation: Optional[QualGpuClusterReshapeType] = None
-    estimation_model: Optional[QualEstimationModel] = None
-    cpu_cluster_price: Optional[float] = None
-    estimated_gpu_cluster_price: Optional[float] = None
-    cpu_discount: Optional[int] = None
-    gpu_discount: Optional[int] = None
-    global_discount: Optional[int] = None
+    estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
 
-    def init_tool_args(self):
+    def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
-        self.p_args['toolArgs']['savingsCalculations'] = True
-        self.p_args['toolArgs']['targetPlatform'] = self.target_platform
-        self.p_args['toolArgs']['cpuClusterPrice'] = self.cpu_cluster_price
-        self.p_args['toolArgs']['estimatedGpuClusterPrice'] = self.estimated_gpu_cluster_price
-        self.p_args['toolArgs']['cpuDiscount'] = self.cpu_discount
-        self.p_args['toolArgs']['gpuDiscount'] = self.gpu_discount
-        self.p_args['toolArgs']['globalDiscount'] = self.global_discount
+        self.p_args['toolArgs']['savingsCalculations'] = False
         # check the filter_apps argument
         if self.filter_apps is None:
             self.p_args['toolArgs']['filterApps'] = QualFilterApp.get_default()
         else:
             self.p_args['toolArgs']['filterApps'] = self.filter_apps
-        # check the reshapeType argument
-        if self.gpu_cluster_recommendation is None:
-            self.p_args['toolArgs']['gpuClusterRecommendation'] = QualGpuClusterReshapeType.get_default()
+        # Check the estimationModel argument
+        # This assumes that the EstimationModelArgProcessor was used to process the arguments before
+        # constructing this validator.
+        if self.estimation_model_args is None or not self.estimation_model_args:
+            def_model = QualEstimationModel.get_default()
+            self.p_args['toolArgs']['estimationModelArgs'] = QualEstimationModel.create_default_model_args(def_model)
         else:
-            self.p_args['toolArgs']['gpuClusterRecommendation'] = self.gpu_cluster_recommendation
-
-        # check the estimationModel argument
-        if self.estimation_model is None:
-            self.p_args['toolArgs']['estimationModel'] = QualEstimationModel.get_default()
-        else:
-            self.p_args['toolArgs']['estimationModel'] = self.estimation_model
-
-    def define_extra_arg_cases(self):
-        self.extra['Disable CostSavings'] = {
-            'valid': True,
-            'callable': partial(self.disable_savings_calculations),
-            'cases': [
-                [ArgValueCase.IGNORE, ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A]
-            ]
-        }
-
-    def _reset_savings_flags(self, reason_msg: Optional[str] = None):
-        self.p_args['toolArgs']['savingsCalculations'] = False
-        if self.p_args['toolArgs']['filterApps'] == QualFilterApp.SAVINGS:
-            # we cannot use QualFilterApp.SAVINGS if savingsCalculations is disabled.
-            self.p_args['toolArgs']['filterApps'] = QualFilterApp.SPEEDUPS
-        if reason_msg:
-            self.logger.info('Cost saving is disabled: %s', reason_msg)
-
-    def disable_savings_calculations(self):
-        self._reset_savings_flags(reason_msg='Cluster\'s information is missing.')
-        self.p_args['toolArgs']['targetPlatform'] = None
+            self.p_args['toolArgs']['estimationModelArgs'] = self.estimation_model_args
 
     @model_validator(mode='after')
     def validate_arg_cases(self) -> 'QualifyUserArgModel':
@@ -427,41 +471,13 @@ class QualifyUserArgModel(ToolUserArgModel):
         self.validate_arguments()
         return self
 
-    def is_concurrent_submission(self):
-        return self.p_args['toolArgs']['estimationModel'] != QualEstimationModel.SPEEDUPS
+    def is_concurrent_submission(self) -> bool:
+        return self.p_args['toolArgs']['estimationModelArgs']['xgboostEnabled']
 
     def build_tools_args(self) -> dict:
         # At this point, if the platform is still none, then we can set it to the default value
         # which is the onPrem platform.
         runtime_platform = self.get_or_set_platform()
-        # check the targetPlatform argument
-        if self.p_args['toolArgs']['targetPlatform']:
-            equivalent_pricing_list = runtime_platform.get_equivalent_pricing_platform()
-            if not equivalent_pricing_list:
-                # no target_platform for that runtime environment
-                self.logger.info(
-                    'Argument target_platform does not support the current cluster [%s]', runtime_platform)
-                self.p_args['toolArgs']['targetPlatform'] = None
-            else:
-                if not self.p_args['toolArgs']['targetPlatform'] in equivalent_pricing_list:
-                    target_platform = self.p_args['toolArgs']['targetPlatform']
-                    raise PydanticCustomError(
-                        'invalid_argument',
-                        f'The platform [{target_platform}] is currently '
-                        f'not supported to calculate savings from [{runtime_platform}] cluster\n  Error:')
-        else:
-            # target platform is not set, then we disable cost savings if the runtime platform if
-            # onprem
-            if CspEnv.requires_pricing_map(runtime_platform):
-                self._reset_savings_flags(reason_msg=f'Platform [{runtime_platform}] requires '
-                                                     '"target_platform" argument to generate cost savings')
-
-        # check the filter_apps argument
-        if not self.p_args['toolArgs']['savingsCalculations']:
-            # if savingsCalculations is disabled, we cannot use savings filter
-            if self.p_args['toolArgs']['filterApps'] == QualFilterApp.SAVINGS:
-                self.p_args['toolArgs']['filterApps'] = QualFilterApp.SPEEDUPS
-
         # process JVM arguments
         self.process_jvm_args()
 
@@ -471,9 +487,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             'outputFolder': self.output_folder,
             'platformOpts': {
                 'credentialFile': None,
-                'deployMode': DeployMode.LOCAL,
-                # used to be sent to the scala core java cmd
-                'targetPlatform': self.p_args['toolArgs']['targetPlatform']
+                'deployMode': DeployMode.LOCAL
             },
             'migrationClustersProps': {
                 'cpuCluster': self.cluster,
@@ -491,15 +505,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             'eventlogs': self.eventlogs,
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
-            'gpuClusterRecommendation': self.p_args['toolArgs']['gpuClusterRecommendation'],
-            'estimationModel': self.p_args['toolArgs']['estimationModel'],
-            # used to initialize the pricing information
-            'targetPlatform': self.p_args['toolArgs']['targetPlatform'],
-            'cpuClusterPrice': self.p_args['toolArgs']['cpuClusterPrice'],
-            'estimatedGpuClusterPrice': self.p_args['toolArgs']['estimatedGpuClusterPrice'],
-            'cpuDiscount': self.p_args['toolArgs']['cpuDiscount'],
-            'gpuDiscount': self.p_args['toolArgs']['gpuDiscount'],
-            'globalDiscount': self.p_args['toolArgs']['globalDiscount']
+            'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs']
         }
         return wrapped_args
 
@@ -523,7 +529,7 @@ class ProfileUserArgModel(ToolUserArgModel):
                 self.p_args['toolArgs']['autotuner'] = self.cluster
         return cluster_case
 
-    def init_driverlog_argument(self):
+    def init_driverlog_argument(self) -> None:
         if self.driverlog is None:
             self.p_args['toolArgs']['driverlog'] = None
         else:
@@ -540,12 +546,12 @@ class ProfileUserArgModel(ToolUserArgModel):
                     f'Driver log file path cannot be a web URL path: {self.driverlog}\n  Error:')
             self.p_args['toolArgs']['driverlog'] = self.driverlog
 
-    def init_tool_args(self):
+    def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
         self.p_args['toolArgs']['autotuner'] = None
         self.init_driverlog_argument()
 
-    def define_invalid_arg_cases(self):
+    def define_invalid_arg_cases(self) -> None:
         super().define_invalid_arg_cases()
         self.rejected['Autotuner requires eventlogs'] = {
             'valid': False,
@@ -556,11 +562,11 @@ class ProfileUserArgModel(ToolUserArgModel):
             ]
         }
 
-    def define_rejected_missing_eventlogs(self):
+    def define_rejected_missing_eventlogs(self) -> None:
         if self.p_args['toolArgs']['driverlog'] is None:
             super().define_rejected_missing_eventlogs()
 
-    def define_detection_cases(self):
+    def define_detection_cases(self) -> None:
         super().define_detection_cases()
         # append the case when the autotuner input
         self.detected['Define Platform based on Eventlogs prefix']['cases'].append(
@@ -632,13 +638,20 @@ class PredictUserArgModel(AbsToolUserArgModel):
     """
     qual_output: str = None
     prof_output: str = None
+    estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
 
     def build_tools_args(self) -> dict:
+        if self.estimation_model_args is None or not self.estimation_model_args:
+            def_model = QualEstimationModel.XGBOOST
+            self.p_args['toolArgs']['estimationModelArgs'] = QualEstimationModel.create_default_model_args(def_model)
+        else:
+            self.p_args['toolArgs']['estimationModelArgs'] = self.estimation_model_args
         return {
             'runtimePlatform': self.platform,
             'qual_output': self.qual_output,
             'prof_output': self.prof_output,
             'output_folder': self.output_folder,
+            'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
             'platformOpts': {}
         }
 
@@ -652,6 +665,8 @@ class TrainUserArgModel(AbsToolUserArgModel):
     dataset: str = None
     model: Optional[str] = None
     n_trials: Optional[int] = None
+    base_model: Optional[str] = None
+    features_csv_dir: Optional[str] = None
 
     def build_tools_args(self) -> dict:
         runtime_platform = CspEnv.fromstring(self.platform)
@@ -661,5 +676,51 @@ class TrainUserArgModel(AbsToolUserArgModel):
             'model': self.model,
             'output_folder': self.output_folder,
             'n_trials': self.n_trials,
+            'base_model': self.base_model,
+            'features_csv_dir': self.features_csv_dir,
+            'platformOpts': {},
+        }
+
+
+@dataclass
+@register_tool_arg_validator('stats')
+class StatsUserArgModel(AbsToolUserArgModel):
+    """
+    Represents the arguments collected by the user to run the stats tool.
+    """
+    qual_output: str = None
+    config_path: Optional[str] = None
+    output_folder: Optional[str] = None
+
+    def build_tools_args(self) -> dict:
+        return {
+            'runtimePlatform': self.platform,
+            'config_path': self.config_path,
+            'output_folder': self.output_folder,
+            'qual_output': self.qual_output,
+            'platformOpts': {}
+        }
+
+
+@dataclass
+@register_tool_arg_validator('generate_instance_description')
+class InstanceDescriptionUserArgModel(AbsToolUserArgModel):
+    """
+    Represents the arguments to run the generate_instance_description tool.
+    """
+    target_platform: str = None
+    accepted_platforms = ['dataproc', 'emr', 'databricks-azure']
+
+    def validate_platform(self) -> None:
+        if self.target_platform not in self.accepted_platforms:
+            raise PydanticCustomError('invalid_argument',
+                                      f'Platform \'{self.target_platform}\' is not in ' +
+                                      f'accepted platform list: {self.accepted_platforms}.')
+
+    def build_tools_args(self) -> dict:
+        self.validate_platform()
+        return {
+            'targetPlatform': CspEnv(self.target_platform),
+            'output_folder': self.output_folder,
             'platformOpts': {},
         }

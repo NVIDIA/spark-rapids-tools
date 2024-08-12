@@ -50,6 +50,11 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfDataSourceView.getRawView(apps)
   }
 
+  def getDataSourceInfo(
+      cachedSqlAccum: Seq[SQLAccumProfileResults]): Seq[DataSourceProfileResult] = {
+    ProfDataSourceView.getRawView(apps, cachedSqlAccum)
+  }
+
   // get executor related information
   def getExecutorInfo: Seq[ExecutorInfoProfileResult] = {
     ProfExecutorView.getRawView(apps)
@@ -84,6 +89,11 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfSQLPlanMetricsView.getRawView(apps)
   }
 
+  // Print all Stage level Metrics
+  def getStageLevelMetrics: Seq[AccumProfileResults] = {
+    ProfStageMetricView.getRawView(apps)
+  }
+
   /**
    * This function is meant to clean up Delta log execs so that you could align
    * SQL ids between CPU and GPU eventlogs. It attempts to remove any delta log
@@ -100,6 +110,12 @@ object CollectInformation extends Logging {
   def generateSQLAccums(apps: Seq[ApplicationInfo]): Seq[SQLAccumProfileResults] = {
     apps.flatMap { app =>
       app.planMetricProcessor.generateSQLAccums()
+    }
+  }
+
+  def generateStageLevelAccums(apps: Seq[ApplicationInfo]): Seq[AccumProfileResults] = {
+    apps.flatMap { app =>
+      app.planMetricProcessor.generateStageLevelAccums()
     }
   }
 

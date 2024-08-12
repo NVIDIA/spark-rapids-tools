@@ -20,7 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from typing import Type, Any, List, Callable, Union
+from typing import Type, Any, List, Callable, Union, Optional, final, Dict
 
 from spark_rapids_tools import EnumeratedType, CspEnv
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
@@ -85,12 +85,6 @@ class ClusterState(EnumeratedType):
     STOPPED = 'stopped'
     OFFLINE = 'offline'
     UNKNOWN = 'unknown'
-
-
-class TargetPlatform(EnumeratedType):
-    """Determine CostSavings for target platform based on OnPrem cluster configuration"""
-    DATAPROC = 'dataproc'
-    NONE = None
 
 
 class SparkNodeType(EnumeratedType):
@@ -158,15 +152,17 @@ class ClusterNode:
     def _set_fields_from_props(self):
         pass
 
-    def _pull_and_set_mc_props(self, cli=None):
-        instances_description = cli.exec_platform_describe_node_instance(self) if cli else None
+    def _pull_and_set_mc_props(self, cli=None) -> None:
+        instances_description = cli.describe_node_instance(self.instance_type) if cli else None
         self.mc_props = JSONPropertiesContainer(prop_arg=instances_description, file_load=False)
 
-    def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
+    def _pull_gpu_hw_info(self, cli=None) -> Optional[GpuHWInfo]:
         raise NotImplementedError
 
-    def _pull_sys_info(self, cli=None) -> SysInfo:
-        raise NotImplementedError
+    def _pull_sys_info(self) -> SysInfo:
+        cpu_mem = self.mc_props.get_value('MemoryInMB')
+        num_cpus = self.mc_props.get_value('VCpuCount')
+        return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
     def get_name(self) -> str:
         return self.name
@@ -181,7 +177,7 @@ class ClusterNode:
 
     def fetch_and_set_hw_info(self, cli=None):
         self._pull_and_set_mc_props(cli)
-        sys_info = self._pull_sys_info(cli)
+        sys_info = self._pull_sys_info()
         try:
             # if a node has no gpu, then it is expected that setting the gpu info fails
             gpu_info = self._pull_gpu_hw_info(cli)
@@ -293,7 +289,7 @@ class CMDDriverBase:
     timeout: int = 0
     env_vars: dict = field(default_factory=dict, init=False)
     logger: Logger = None
-    instance_descriptions_cache: dict = field(default_factory=dict, init=False)
+    instance_descriptions: JSONPropertiesContainer = field(default=None, init=False)
 
     def get_env_var(self, key: str):
         return self.env_vars.get(key)
@@ -506,37 +502,22 @@ class CMDDriverBase:
         del args  # Unused by super method.
         return ''
 
-    def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
-        del node  # Unused by super method.
-        return []
+    def init_instance_descriptions(self) -> None:
+        """
+        Load instance description file from resources based on platform type.
+        """
+        platform = CspEnv.pretty_print(self.cloud_ctxt['platformType'])
+        if platform != CspEnv.ONPREM:
+            # we do not have instance descriptions for on-prem
+            instance_description_file_path = Utils.resource_path(f'{platform}-instance-catalog.json')
+            self.logger.info('Loading instance descriptions from file: %s', instance_description_file_path)
+            self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
-    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
-        """
-        Generates a cache key from the node's instance type for accessing the instance description cache.
-        This default implementation should be overridden by subclasses that require additional fields.
-        """
-        return (node.instance_type,)
-
-    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
-        """
-        Given a node, execute platform CLI to pull the properties of the instance type running on
-        that node
-        :param node: object representing cluster component
-        :return: string containing the properties of the machine. The string could be in json or yaml format.
-        """
-        cmd_params = self._build_platform_describe_node_instance(node=node)
-        return self.run_sys_cmd(cmd_params)
-
-    def exec_platform_describe_node_instance(self, node: ClusterNode):
-        """
-        Returns the instance type description of the cluster node. If the description
-        is not cached, it executes a platform specific command to fetch and cache it.
-        """
-        key = self._get_instance_description_cache_key(node)
-        if key not in self.instance_descriptions_cache:
-            # Cache the instance description
-            self.instance_descriptions_cache[key] = self._exec_platform_describe_node_instance(node)
-        return self.instance_descriptions_cache[key]
+    def describe_node_instance(self, instance_type: str) -> str:
+        instance_info = self.instance_descriptions.get_value(instance_type)
+        if instance_info is None:
+            raise RuntimeError(f'Instance type {instance_type} is not found in catalog.')
+        return instance_info
 
     def _build_platform_list_cluster(self,
                                      cluster,
@@ -605,8 +586,42 @@ class CMDDriverBase:
                                              submit_args: dict) -> List[str]:
         raise NotImplementedError
 
+    def _process_instance_description(self, instance_descriptions: str) -> dict:
+        raise NotImplementedError
+
+    def get_instance_description_cli_params(self) -> List[str]:
+        raise NotImplementedError
+
+    def generate_instance_description(self, fpath: str) -> None:
+        """
+        Generates CSP instance type descriptions and store them in a json file.
+        Json file entry example ('GpuInfo' is optional):
+          {
+            "instance_name": {
+              "VCpuCount": 000,
+              "MemoryInMB": 000,
+              "GpuInfo": [
+                {
+                  "Name": gpu_name,
+                  "Count": [
+                    000
+                  ]
+                }
+              ]
+            }
+          }
+        :param fpath: the output json file path.
+        :return:
+        """
+        cmd_params = self.get_instance_description_cli_params()
+        raw_instance_descriptions = self.run_sys_cmd(cmd_params)
+        json_instance_descriptions = self._process_instance_description(raw_instance_descriptions)
+        with open(fpath, 'w', encoding='UTF-8') as output_file:
+            json.dump(json_instance_descriptions, output_file, indent=2)
+
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.cmd_driver')
+        self.init_instance_descriptions()
 
 
 @dataclass
@@ -815,7 +830,8 @@ class PlatformBase:
     def _construct_cluster_from_props(self,
                                       cluster: str,
                                       props: str = None,
-                                      is_inferred: bool = False):
+                                      is_inferred: bool = False,
+                                      is_props_file: bool = False):
         raise NotImplementedError
 
     def set_offline_cluster(self, cluster_args: dict = None):
@@ -825,7 +841,8 @@ class PlatformBase:
         cluster = cluster_prop.get_value_silent('cluster_id')
         return self._construct_cluster_from_props(cluster=cluster,
                                                   props=json.dumps(cluster_prop.props),
-                                                  is_inferred=is_inferred)
+                                                  is_inferred=is_inferred,
+                                                  is_props_file=True)
 
     def load_cluster_by_prop_file(self, cluster_prop_path: str):
         prop_container = JSONPropertiesContainer(prop_arg=cluster_prop_path)
@@ -899,9 +916,9 @@ class PlatformBase:
     def get_footer_message(self) -> str:
         return 'To support acceleration with T4 GPUs, switch the worker node instance types'
 
-    def get_matching_executor_instance(self, cores_per_executor):
-        default_instances = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
-        return next((instance['name'] for instance in default_instances if instance['vCPUs'] == cores_per_executor),
+    def get_matching_worker_node_type(self, total_cores: int) -> Optional[str]:
+        node_types_from_config = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
+        return next((node_type['name'] for node_type in node_types_from_config if node_type['vCPUs'] == total_cores),
                     None)
 
     def generate_cluster_configuration(self, render_args: dict):
@@ -909,6 +926,24 @@ class PlatformBase:
             return None
         template_path = Utils.resource_path(f'templates/cluster_template/{CspEnv.pretty_print(self.type_id)}.ms')
         return TemplateGenerator.render_template_file(template_path, render_args)
+
+    @classmethod
+    def _gpu_device_name_lookup_map(cls) -> Dict[GpuDevice, str]:
+        """
+        Returns a dictionary mapping GPU device names to the platform-specific GPU device names.
+        This should be overridden by subclasses.
+        """
+        return {}
+
+    @final
+    def lookup_gpu_device_name(self, gpu_device: GpuDevice) -> Optional[str]:
+        """
+        Lookup the GPU name from the GPU device based on the platform. Define the lookup map
+        in `_gpu_device_name_lookup_map`.
+        """
+        gpu_device_str = GpuDevice.tostring(gpu_device)
+        lookup_map = self._gpu_device_name_lookup_map()
+        return lookup_map.get(gpu_device, gpu_device_str)
 
 
 @dataclass
@@ -928,6 +963,7 @@ class ClusterBase(ClusterGetAccessor):
     props: AbstractPropertiesContainer = field(default=None, init=False)
     logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.cluster'), init=False)
     is_inferred: bool = field(default=False, init=True)
+    is_props_file: bool = field(default=False, init=True)  # indicates if the cluster is loaded from properties file
 
     @staticmethod
     def _verify_workers_exist(has_no_workers_cb: Callable[[], bool]):
@@ -1004,6 +1040,9 @@ class ClusterBase(ClusterGetAccessor):
 
     def is_cluster_running(self) -> bool:
         return self.state == ClusterState.RUNNING
+
+    def is_gpu_cluster(self) -> bool:
+        return self.get_gpu_per_worker()[0] > 0
 
     def get_eventlogs_from_config(self) -> List[str]:
         res_arr = []
@@ -1162,20 +1201,42 @@ class ClusterBase(ClusterGetAccessor):
             'CLUSTER_NAME': self.get_name(),
             'REGION': self.region,
             'ZONE': self.zone,
-            'MASTER_MACHINE': cluster_config.get('driverInstance'),
-            'WORKERS_COUNT': cluster_config.get('numExecutors'),
-            'WORKERS_MACHINE': cluster_config.get('executorInstance')
+            'MASTER_MACHINE': cluster_config.get('driverNodeType'),
+            'WORKERS_COUNT': cluster_config.get('numWorkerNodes'),
+            'WORKERS_MACHINE': cluster_config.get('workerNodeType')
+        }
+
+    @classmethod
+    def _get_cluster_configuration(cls, driver_node_type: str, worker_node_type: str, num_worker_nodes: int) -> dict:
+        return {
+            'driverNodeType': driver_node_type,
+            'workerNodeType': worker_node_type,
+            'numWorkerNodes': num_worker_nodes
         }
 
     def get_cluster_configuration(self) -> dict:
         """
         Returns a dictionary containing the configuration of the cluster
         """
-        return {
-            'driverInstance': self.get_master_node().instance_type,
-            'executorInstance': self.get_worker_node().instance_type,
-            'numExecutors': self.get_workers_count(),
-        }
+        return self._get_cluster_configuration(driver_node_type=self.get_master_node().instance_type,
+                                               worker_node_type=self.get_worker_node().instance_type,
+                                               num_worker_nodes=self.get_nodes_cnt(SparkNodeType.WORKER))
+
+    def _get_gpu_configuration(self) -> dict:
+        """
+        Returns a dictionary containing the GPU configuration of the cluster
+        """
+        gpu_per_machine, gpu_device_str = self.get_gpu_per_worker()
+        gpu_name = self.platform.lookup_gpu_device_name(GpuDevice(gpu_device_str))
+        # Need to handle case this was CPU event log and just make a recommendation
+        if gpu_name and gpu_per_machine > 0:
+            return {
+                'gpuInfo': {
+                    'device': gpu_name,
+                    'gpuPerWorker': gpu_per_machine
+                }
+            }
+        return {}
 
     def generate_create_script(self) -> str:
         platform_name = CspEnv.pretty_print(self.platform.type_id)
@@ -1207,6 +1268,27 @@ class ClusterBase(ClusterGetAccessor):
         """
         node_config = self._generate_node_configuration(render_args)
         return [node_config for _ in range(num_executors)]
+
+    def get_worker_conversion_str(self, include_gpu: bool = False) -> str:
+        """
+        Returns a string representing the worker node configuration.
+        Example: '2 x g5.2xlarge'
+        """
+        num_workers = self.get_workers_count()
+        worker_node_type = self.get_worker_node().instance_type
+        worker_conversion_str = f'{num_workers} x {worker_node_type}'
+        if include_gpu and self.is_gpu_cluster():
+            gpu_str = self._get_gpu_conversion_str()
+            return f'{worker_conversion_str} {gpu_str}'
+        return worker_conversion_str
+
+    def _get_gpu_conversion_str(self) -> str:
+        """
+        Returns a string representing the GPU configuration.
+        Example: '(1 L4 each)'
+        """
+        gpu_per_machine, gpu_device_str = self.get_gpu_per_worker()
+        return f'({gpu_per_machine} {gpu_device_str} each)'
 
 
 @dataclass

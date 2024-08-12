@@ -19,12 +19,12 @@ package com.nvidia.spark.rapids.tool.analysis
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceCase, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, DataSourceCase, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
-import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SQLMetricsStats, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
+import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
@@ -59,6 +59,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   /**
    * Connects Operators to Stages using AccumulatorIDs.
    * TODO: This function can be fused in the visitNode function to avoid the extra iteration.
+   *
    * @param cb function that creates a SparkPlanGraph. This can be used as a cacheHolder for the
    *           object created to be used later.
    */
@@ -80,7 +81,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * Both Qual/Prof analysis.
    * For Qual apps, the app.sqlIDtoProblematic won't be set because it is done later during the
    * aggregation phase.
-   * @param sqlId the SQL ID being analyzed
+   *
+   * @param sqlId             the SQL ID being analyzed
    * @param potentialProblems a set of strings that represent the potential problems found in the
    *                          SQL plan.
    */
@@ -112,26 +114,26 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * 1- allSQLMetrics: a list of SQLMetricInfoCase
    * 2- wholeStage: a list of WholeStageCodeGenResults
    * 3- unsupportedSQLPlan: a list of UnsupportedSQLPlan that contains the SQL ID, node ID,
-   *    node name.
-   *    TODO: Consider handling the construction of this list in a different way for the
-   *         Qualification
+   * node name.
+   * TODO: Consider handling the construction of this list in a different way for the
+   * Qualification
    * 4- sqlPlanNodeIdToStageIds: A map between (SQL ID, Node ID) and the set of stage IDs
    *
    * It has the following effect on the visitor object:
    * 1- It updates the sqlIsDsOrRDD argument to True when the visited node is an RDD or Dataset.
    * 2- If the SQLID is an RDD, the potentialProblems is cleared because once SQL is marked as RDD,
-   *    all the other problems are ignored. Note that we need to set that flag only once to True
-   *    for the given SQLID.
+   * all the other problems are ignored. Note that we need to set that flag only once to True
+   * for the given SQLID.
    * 3- It appends the current node's potential problems to the SQLID problems only if the SQL is
-   *    visitor.sqlIsDsOrRDD is False. Otherwise, it is kind of redundant to keep checking for
-   *    potential problems for every node when they get to be ignored.
+   * visitor.sqlIsDsOrRDD is False. Otherwise, it is kind of redundant to keep checking for
+   * potential problems for every node when they get to be ignored.
    *
    * It has the following effect on the app object:
    * 1- it updates dataSourceInfo with V2 and V1 data sources
    * 2- it updates sqlIDtoProblematic the map between SQL ID and potential problems
- *
+   *
    * @param visitor the visitor context defined per SQLPlan
-   * @param node the node being currently visited.
+   * @param node    the node being currently visited.
    */
   protected def visitNode(visitor: SQLPlanVisitorContext,
       node: SparkPlanGraphNode): Unit = {
@@ -154,7 +156,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     if (nodeIsDsOrRDD) {
       // we want to report every node that is an RDD
       val thisPlan = UnsupportedSQLPlan(visitor.sqlPIGEntry.sqlID, node.id, node.name, node.desc,
-          "Contains Dataset or RDD")
+        "Contains Dataset or RDD")
       unsupportedSQLPlan += thisPlan
       // If one node is RDD, the Sql should be set too
       if (!visitor.sqlIsDsOrRDD) { // We need to set the flag only once for the given sqlID
@@ -249,7 +251,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       val stagesInJob = app.stageManager.getStagesByIds(stages)
       stagesInJob.map { sModel =>
         val nodeIds = sqlPlanNodeIdToStageIds.filter { case (_, v) =>
-          v.contains(sModel.sId)
+          v.contains(sModel.stageInfo.stageId)
         }.keys.toSeq
         val nodeNames = app.sqlPlans.get(j.sqlID.get).map { planInfo =>
           val nodes = ToolsPlanGraph(planInfo).allNodes
@@ -258,53 +260,16 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           }
           validNodes.map(n => s"${n.name}(${n.id.toString})")
         }.getOrElse(Seq.empty)
-        SQLStageInfoProfileResult(appIndex, j.sqlID.get, jobId, sModel.sId,
-          sModel.attemptId, sModel.duration, nodeNames)
+        SQLStageInfoProfileResult(appIndex, j.sqlID.get, jobId, sModel.stageInfo.stageId,
+          sModel.stageInfo.attemptNumber(), sModel.duration, nodeNames)
       }
     }
     sqlToStages.toSeq
   }
 
-  // Store (min, median, max, total) for a given metric
-  private case class StatisticsMetrics(min: Long, med:Long, max:Long, total: Long)
-
   def generateSQLAccums(): Seq[SQLAccumProfileResults] = {
     allSQLMetrics.flatMap { metric =>
-      val jobsForSql = app.jobIdToInfo.filter { case (_, jc) =>
-        // Avoid getOrElse to reduce memory allocations
-        jc.sqlID.isDefined && jc.sqlID.get == metric.sqlID
-      }
-      val stageIdsForSQL = jobsForSql.flatMap(_._2.stageIds).toSet
-      val accumsOpt = app.taskStageAccumMap.get(metric.accumulatorId)
-      val taskMax = accumsOpt match {
-        case Some(accums) =>
-          val filtered = accums.filter { a =>
-            stageIdsForSQL.contains(a.stageId)
-          }
-          // If metricType is size, average or timing, we want to read field `update` value
-          // to get the min, median, max, and total. Otherwise, we want to use field `value`.
-          if (SQLMetricsStats.hasStats(metric.metricType)) {
-            val accumValues = filtered.map(_.update.getOrElse(0L)).sortWith(_ < _)
-            if (accumValues.isEmpty) {
-              None
-            }
-            else if (accumValues.length <= 1) {
-              Some(StatisticsMetrics(0L, 0L, 0L, accumValues.sum))
-            } else {
-              Some(StatisticsMetrics(accumValues(0), accumValues(accumValues.size / 2),
-                accumValues(accumValues.size - 1), accumValues.sum))
-            }
-          } else {
-            val accumValues = filtered.map(_.value.getOrElse(0L))
-            if (accumValues.isEmpty) {
-              None
-            } else {
-              Some(StatisticsMetrics(0L, 0L, 0L, accumValues.max))
-            }
-          }
-        case None => None
-      }
-
+      val accumTaskStats = app.accumManager.calculateAccStats(metric.accumulatorId)
       // local mode driver gets updates
       val driverAccumsOpt = app.driverAccumMap.get(metric.accumulatorId)
       val driverMax = driverAccumsOpt match {
@@ -325,9 +290,9 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           None
       }
 
-      if (taskMax.isDefined || driverMax.isDefined) {
-        val taskInfo = taskMax.getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
-        val driverInfo = driverMax.getOrElse(StatisticsMetrics(0L, 0L, 0L, 0L))
+      if (accumTaskStats.isDefined || driverMax.isDefined) {
+        val taskInfo = accumTaskStats.getOrElse(StatisticsMetrics.ZERO_RECORD)
+        val driverInfo = driverMax.getOrElse(StatisticsMetrics.ZERO_RECORD)
 
         val max = Math.max(taskInfo.max, driverInfo.max)
         val min = Math.max(taskInfo.min, driverInfo.min)
@@ -342,6 +307,49 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       }
     }
   }
+
+  /**
+   * Generate the stage level metrics for the SQL plan including GPU metrics if applicable.
+   * Along with Spark defined metrics, below is the list of GPU metrics that are collected if they
+   * are present in the eventlog:
+   * gpuSemaphoreWait, gpuRetryCount, gpuSplitAndRetryCount, gpuRetryBlockTime,
+   * gpuRetryComputationTime, gpuSpillToHostTime, gpuSpillToDiskTime, gpuReadSpillFromHostTime,
+   * gpuReadSpillFromDiskTime
+   *
+   * @return a sequence of AccumProfileResults
+   */
+  def generateStageLevelAccums(): Seq[AccumProfileResults] = {
+    app.accumManager.accumInfoMap.flatMap { accumMapEntry =>
+      val accumInfo = accumMapEntry._2
+      accumInfo.stageValuesMap.keySet.flatMap( stageId => {
+        val stageTaskIds = app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet
+        // get the task updates that belong to that stage
+        val taskUpatesSubset =
+          accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
+        if (taskUpatesSubset.isEmpty) {
+          None
+        } else {
+          val min = taskUpatesSubset.head
+          val max = taskUpatesSubset.last
+          val sum = taskUpatesSubset.sum
+          val median = if (taskUpatesSubset.size % 2 == 0) {
+            val mid = taskUpatesSubset.size / 2
+            (taskUpatesSubset(mid) + taskUpatesSubset(mid - 1)) / 2
+          } else {
+            taskUpatesSubset(taskUpatesSubset.size / 2)
+          }
+          Some(AccumProfileResults(
+            appIndex,
+            stageId,
+            accumInfo.infoRef,
+            min = min,
+            median = median,
+            max = max,
+            total = sum))
+        }
+      })
+    }
+  }.toSeq
 }
 
 object AppSQLPlanAnalyzer {

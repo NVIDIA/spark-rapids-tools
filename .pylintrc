@@ -36,10 +36,6 @@ init-hook='import sys; sys.path.append(".")'
 # Use multiple processes to speed up Pylint.
 jobs=4
 
-# Ignore files or directories which match these regexes.
-ignore=src/spark_rapids_tools/tools/qualx
-
-
 [MESSAGES CONTROL]
 
 # Show all warnings regardless of the confidence levels.
@@ -86,6 +82,8 @@ disable=
         #       W0107: Used when a "pass" statement that can be avoided is encountered.
         #unnecessary-pass,
         broad-exception-raised,
+        #Disable the Unreachable-code since pylint 2.4 generates too many false-positives
+        unreachable
 
 
 # Set max of arguments for function / method the line below if "too-many-arguments" is allowed. Default: 5

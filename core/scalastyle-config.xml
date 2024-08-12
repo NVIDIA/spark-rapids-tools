@@ -1,5 +1,5 @@
 <!--
-  Copyright (c) 2023, NVIDIA CORPORATION. All Rights Reserved.
+  Copyright (c) 2023-2024, NVIDIA CORPORATION. All Rights Reserved.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -102,6 +102,14 @@ You can also disable only one rule, by specifying its rule id, as specified in:
             <parameter name="regex">(?m)^(\s*)/[*][*].*$(\r|)\n^\1  [*]</parameter>
         </parameters>
         <customMessage>Use Javadoc style indentation for multiline comments</customMessage>
+    </check>
+
+    <check customId="regex.source.from" level="error" class="org.scalastyle.file.RegexChecker"
+           enabled="true">
+        <parameters>
+            <parameter name="regex">(?&lt;!UTF8)Source\.from</parameter>
+        </parameters>
+        <customMessage>Use UTF8Source.from instead of Source.from</customMessage>
     </check>
 
     <!-- ================================================================================ -->

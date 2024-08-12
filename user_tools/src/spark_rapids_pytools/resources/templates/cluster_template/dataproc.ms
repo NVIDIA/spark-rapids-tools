@@ -9,12 +9,20 @@
       "instanceNames": [
         "test-node-d"
       ],
-      "machineTypeUri": {{{ DRIVER_INSTANCE }}},
+      "machineTypeUri": {{{ DRIVER_NODE_TYPE }}},
       "numInstances": {{ NUM_DRIVER_NODES }}
     },
     "workerConfig": {
-      "machineTypeUri": {{{ EXECUTOR_INSTANCE }}},
-      "numInstances": {{ NUM_EXECUTOR_NODES }}
+{{# GPU_NAME }}
+      "accelerators": [
+        {
+          "acceleratorCount": {{ NUM_GPUS }},
+          "acceleratorTypeUri": {{{ GPU_NAME }}}
+        }
+      ],
+{{/ GPU_NAME }}
+      "machineTypeUri": {{{ WORKER_NODE_TYPE }}},
+      "numInstances": {{ NUM_WORKER_NODES }}
     },
     "softwareConfig": {
         "imageVersion": {{{ IMAGE }}}

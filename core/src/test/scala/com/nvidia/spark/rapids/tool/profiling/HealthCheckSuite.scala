@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.scalatest.FunSuite
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.rapids.tool.profiling._
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 class HealthCheckSuite extends FunSuite {
 
@@ -60,7 +61,8 @@ class HealthCheckSuite extends FunSuite {
       // the end reason gets the delimiter changed when writing to CSV so to compare properly
       // change it to be the same here
       val failedWithDelimiter = failedTasks.map { t =>
-        val delimited = ProfileUtils.replaceDelimiter(t.endReason, ProfileOutputWriter.CSVDelimiter)
+        val delimited = StringUtils.renderStr(t.endReason, doEscapeMetaCharacters = true,
+          maxLength = 0)
         t.copy(endReason = delimited)
       }
       import sparkSession.implicits._
@@ -71,7 +73,11 @@ class HealthCheckSuite extends FunSuite {
         ToolTestUtils.readExpectationCSV(sparkSession, tasksResultExpectation.getPath())
       ToolTestUtils.compareDataFrames(taskAccums, tasksDfExpect)
 
-      val failedStages = healthCheck.getFailedStages
+      val failedStages = healthCheck.getFailedStages.map { s =>
+        val rendered = StringUtils.renderStr(s.endReason, doEscapeMetaCharacters = true,
+          maxLength = 0)
+        s.copy(endReason = rendered)
+      }
       val stageAccums = failedStages.toDF
       val stagesResultExpectation =
         new File(expRoot, "stages_failure_eventlog_expectation.csv")

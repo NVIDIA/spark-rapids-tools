@@ -17,19 +17,21 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
-import com.nvidia.spark.rapids.tool.profiling.{FailedStagesProfileResults, ProfileUtils, SQLStageInfoProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{FailedStagesProfileResults, SQLStageInfoProfileResult}
 
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 trait AppFailedStageViewTrait extends ViewableTrait[FailedStagesProfileResults] {
   override def getLabel: String = "Failed Stages"
 
   override def getRawView(app: AppBase, index: Int): Seq[FailedStagesProfileResults] = {
     app.stageManager.getFailedStages.map { fsm =>
-      val failureStr = fsm.getFailureReason
-      FailedStagesProfileResults(index, fsm.sId, fsm.attemptId,
-        fsm.sInfo.name, fsm.sInfo.numTasks, ProfileUtils.truncateFailureStr(failureStr))
+      FailedStagesProfileResults(index, fsm.stageInfo.stageId,
+        fsm.stageInfo.attemptNumber(),
+        fsm.stageInfo.name, fsm.stageInfo.numTasks,
+        StringUtils.renderStr(fsm.getFailureReason, doEscapeMetaCharacters = false, maxLength = 0))
     }.toSeq
   }
 

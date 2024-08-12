@@ -19,13 +19,12 @@ package com.nvidia.spark.rapids.tool.planparser
 import java.io.{File, PrintWriter}
 
 import scala.collection.mutable
-import scala.io.Source
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.qualification._
-import org.scalatest.Matchers.{be, convertToAnyShouldWrapper}
+import org.scalatest.Matchers.{be, contain, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
 
 import org.apache.spark.sql.{DataFrame, TrampolineUtil}
@@ -34,7 +33,7 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
-import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, ToolsPlanGraph}
+import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
 
 class SQLPlanParserSuite extends BaseTestSuite {
 
@@ -118,7 +117,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
       // create a temporary file to write the modified events
       val faultyEventlog = new File(s"$eventLogDir/faulty_eventlog")
       val pWriter = new PrintWriter(faultyEventlog)
-      val bufferedSource = Source.fromFile(eventLog)
+      val bufferedSource = UTF8Source.fromFile(eventLog)
       try {
         bufferedSource.getLines.map( l =>
           if (l.contains("SparkListenerSQLExecutionStart")) {
@@ -963,7 +962,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("get_json_object is not supported by default in Project with RAPIDS 24.06") {
+  test("get_json_object is supported by default in Project with RAPIDS 24.10") {
     TrampolineUtil.withTempDir { parquetoutputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
@@ -986,7 +985,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         }
         val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projectExprs = execInfo.filter(_.exec == "Project")
-        assertSizeAndNotSupported(1, projectExprs)
+        assertSizeAndSupported(1, projectExprs)
       }
     }
   }
@@ -1192,9 +1191,35 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("ParseUrl is supported except that for parse_url_query") {
-    // parse_url(*,QUERY,*) should cause the project to be unsupported
-    // the expression will appear in the unsupportedExpression summary
+  test("ParseUrl is supported") {
+    // Verify that each partToExtract expression causes the parse_url to be renamed.
+    SQLPlanParser.unsupportedParseURLParts.foreach { part =>
+      val partLC = part.toLowerCase
+      val a1 = SQLPlanParser.processSpecialFunctions(s"parse_url(test1, $part, cast(test))")
+      val a2 = SQLPlanParser.processSpecialFunctions(s"parse_url(test1, $partLC, cast(test))")
+      val a3 = SQLPlanParser.processSpecialFunctions(s"parse_url(test1, $part)")
+      val a4 = SQLPlanParser.processSpecialFunctions(s"parse_url(test1, $partLC)")
+      a1 shouldEqual s"parse_url_$partLC(test1, $part, cast(test))"
+      a2 shouldEqual s"parse_url_$partLC(test1, $partLC, cast(test))"
+      a3 shouldEqual s"parse_url_$partLC(test1, $part)"
+      a4 shouldEqual s"parse_url_$partLC(test1, $partLC)"
+    }
+    // verify that having the keywords in different argument does not affect the correctness
+    val a5 = SQLPlanParser.processSpecialFunctions("parse_url(AUTHORITY, ANY_PART, query)")
+    a5 shouldEqual "parse_url(AUTHORITY, ANY_PART, query)"
+    // verify multiple calls
+    val a6 = SQLPlanParser.processSpecialFunctions(
+      "parse_url(AUTHORITY, ANY_PART, query), parse_url(AUTHORITY, REF, query), " +
+        "parse_url(AUTHORITY, FILE, query)")
+    a6 shouldEqual "parse_url(AUTHORITY, ANY_PART, query), parse_url_ref(AUTHORITY, REF, query), " +
+      "parse_url_file(AUTHORITY, FILE, query)"
+    // verify nested. Note it does not matter the order as long as we get it right
+    val a7 = SQLPlanParser.processSpecialFunctions(
+      "parse_url(parse_url(AUTHORITY, ANY_PART, query), REF, query)")
+    val a8 = SQLPlanParser.processSpecialFunctions(
+      "parse_url(parse_url(AUTHORITY, REF, query), ANY_PART, query)")
+    a7 shouldEqual "parse_url_ref(parse_url(AUTHORITY, ANY_PART, query), REF, query)"
+    a8 shouldEqual "parse_url_ref(parse_url(AUTHORITY, REF, query), ANY_PART, query)"
     TrampolineUtil.withTempDir { parquetoutputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
@@ -1207,7 +1232,8 @@ class SQLPlanParserSuite extends BaseTestSuite {
           df1.write.parquet(s"$parquetoutputLoc/testparse")
           val df2 = spark.read.parquet(s"$parquetoutputLoc/testparse")
           df2.selectExpr("*", "parse_url(`url_col`, 'HOST') as HOST",
-            "parse_url(`url_col`,'QUERY') as QUERY")
+            "parse_url(`url_col`,'QUERY') as QUERY", "parse_url(`url_col`, 'REF') as REF",
+            "parse_url(`url_col`,'USERINFO') as NOT_QUERY")
         }
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)
@@ -1219,6 +1245,8 @@ class SQLPlanParserSuite extends BaseTestSuite {
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projects = allExecInfo.filter(_.exec.contains("Project"))
         assertSizeAndNotSupported(1, projects)
+        val expectedExprss = Seq("parse_url_ref", "parse_url_userinfo")
+        projects(0).unsupportedExprs.map(_.exprName) should contain theSameElementsAs expectedExprss
       }
     }
   }
@@ -1276,6 +1304,37 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
+  test("map_from_arrays is supported in ProjectExec") {
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ProjectExprsSupported") { spark =>
+          import spark.implicits._
+          val df1 = Seq((Array("a", "b", "c"), Array(1, 2, 3)),
+            (Array("x", "y", "z"), Array(10, 20, 30))).toDF("keys", "values")
+          // write df1 to parquet to transform LocalTableScan to ProjectExec
+          df1.write.parquet(s"$parquetoutputLoc/testtext")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+          // map_from_arrays should be part of ProjectExec
+          df2.select(map_from_arrays(df2("keys"), df2("values")).as("map"))
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 1)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        val allChildren = wholeStages.flatMap(_.children).flatten
+        val projects = allChildren.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projects)
+      }
+    }
+  }
+
   test("Parsing Conditional Expressions") {
     // scalastyle:off line.size.limit
     val expressionsMap: mutable.HashMap[String, Array[String]] = mutable.HashMap(
@@ -1304,7 +1363,10 @@ class SQLPlanParserSuite extends BaseTestSuite {
         Array("substr", "In", "Or", "GreaterThan"),
       // test the operator is at the beginning of expression and not followed by space
       "NOT(isnotnull(d_moy))" ->
-        Array("Not", "isnotnull")
+        Array("Not", "isnotnull"),
+      // test the shiftright operator(since spark-4.0)
+      "((isnotnull(d_year#498) AND isnotnull(d_moy#500)) AND (d_year#498 >> 1) >= 100)" ->
+        Array("isnotnull", "And", "GreaterThanOrEqual", "ShiftRight")
     )
     // scalastyle:on line.size.limit
     for ((condExpr, expectedExpression) <- expressionsMap) {

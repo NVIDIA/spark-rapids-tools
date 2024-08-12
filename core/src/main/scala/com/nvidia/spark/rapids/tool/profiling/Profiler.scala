@@ -16,14 +16,14 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
+import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.ThreadFactoryBuilder
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, PlatformFactory, ToolBase}
+import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterProps
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
@@ -33,33 +33,19 @@ import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
 
 class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean)
-  extends RuntimeReporter {
+  extends ToolBase(appArgs.timeout.toOption) {
 
-  private val nThreads = appArgs.numThreads.getOrElse(
-    Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
-  private val timeout = appArgs.timeout.toOption
-  private val waitTimeInSec = timeout.getOrElse(60 * 60 * 24L)
-
-  private val threadFactory = new ThreadFactoryBuilder()
-    .setDaemon(true).setNameFormat("profileTool" + "-%d").build()
-  private val threadPool = Executors.newFixedThreadPool(nThreads, threadFactory)
-    .asInstanceOf[ThreadPoolExecutor]
+  override val  simpleName: String = "profileTool"
+  override val outputDir: String = appArgs.outputDirectory().stripSuffix("/") +
+    s"/${Profiler.SUBDIR}"
   private val numOutputRows = appArgs.numOutputRows.getOrElse(1000)
-
   private val outputCSV: Boolean = appArgs.csv()
   private val outputCombined: Boolean = appArgs.combined()
-
   private val useAutoTuner: Boolean = appArgs.autoTuner()
-  private var progressBar: Option[ConsoleProgressBar] = None
-  // Store application status reports indexed by event log path.
-  private val appStatusReporter = new ConcurrentHashMap[String, AppResult]
-
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
 
-  override val outputDir = appArgs.outputDirectory().stripSuffix("/") +
-    s"/${Profiler.SUBDIR}"
-
-  logInfo(s"Threadpool size is $nThreads")
+  override def getNumThreads: Int = appArgs.numThreads.getOrElse(
+    Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
 
   /**
    * Profiles application according to the mode requested. The main difference in processing for
@@ -131,7 +117,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
     }
     progressBar.foreach(_.finishAll())
-    
+
     // Write status reports for all event logs to a CSV file
     val reportResults = generateStatusResults(appStatusReporter.asScala.values.toSeq)
     ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir)
@@ -166,6 +152,13 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       processSuccessApp: ApplicationInfo => Unit): Unit = {
     val pathStr = path.eventLog.toString
     try {
+      // Early handling of failed event logs
+      path match {
+        case failedEventLog: FailedEventLog =>
+          handleFailedEventLogs(failedEventLog)
+          return
+        case _ => // No action needed for other cases
+      }
       val startTime = System.currentTimeMillis()
       val appOpt = createApp(path, index, hadoopConf)
       val profAppResult = appOpt match {
@@ -323,12 +316,13 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val collect = new CollectInformation(apps)
     val appInfo = collect.getAppInfo
     val appLogPath = collect.getAppLogPath
-    val dsInfo = collect.getDataSourceInfo
     val rapidsProps = collect.getRapidsProperties
     val sparkProps = collect.getSparkProperties
     val systemProps = collect.getSystemProperties
     val rapidsJar = collect.getRapidsJARInfo
     val sqlMetrics = collect.getSQLPlanMetrics
+    val dsInfo = collect.getDataSourceInfo(sqlMetrics)
+    val stageMetrics = collect.getStageLevelMetrics
     val wholeStage = collect.getWholeStageCodeGenMapping
     // for compare mode we just add in extra tables for matching across applications
     // the rest of the tables simply list all applications specified
@@ -392,7 +386,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     logInfo(s"Took ${endTime - startTime}ms to Process [${appInfo.head.appId}]")
     (ApplicationSummaryInfo(appInfo, dsInfo,
       collect.getExecutorInfo, collect.getJobInfo, rapidsProps,
-      rapidsJar, sqlMetrics, analysis.jobAggs, analysis.stageAggs,
+      rapidsJar, sqlMetrics, stageMetrics, analysis.jobAggs, analysis.stageAggs,
       analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
@@ -414,8 +408,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       val appInfoProvider = AppSummaryInfoBaseProvider.fromAppInfo(appInfo)
       val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
       val platform = appArgs.platform()
+      val clusterPropsOpt = loadClusterProps(workerInfoPath)
       val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(workerInfoPath, appInfoProvider,
-        PlatformFactory.createInstance(platform), driverInfoProvider)
+        PlatformFactory.createInstance(platform, clusterPropsOpt), driverInfoProvider)
 
       // The autotuner allows skipping some properties,
       // e.g., getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
@@ -471,6 +466,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         combineProps("rapids", appsSum).sortBy(_.key),
         appsSum.flatMap(_.rapidsJar).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlMetrics).sortBy(_.appIndex),
+        appsSum.flatMap(_.stageMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.jobAggMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.stageAggMetrics).sortBy(_.appIndex),
         appsSum.flatMap(_.sqlTaskAggMetrics).sortBy(_.appIndex),
@@ -513,6 +509,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some(ProfRapidsJarView.getDescription))
       profileOutputWriter.write(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
         Some(ProfSQLPlanMetricsView.getDescription))
+      profileOutputWriter.write(ProfStageMetricView.getLabel, app.stageMetrics,
+        Some(ProfStageMetricView.getDescription))
       profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
         Some(ProfSQLCodeGenView.getDescription))
       comparedRes.foreach { compareSum =>

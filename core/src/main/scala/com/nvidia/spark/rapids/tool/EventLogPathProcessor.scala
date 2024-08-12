@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@ import java.io.FileNotFoundException
 import java.time.LocalDateTime
 import java.util.zip.ZipOutputStream
 
-import scala.collection.mutable.{LinkedHashMap, ListBuffer}
+import scala.collection.mutable.LinkedHashMap
+import scala.util.control.NonFatal
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileContext, FileStatus, FileSystem, Path, PathFilter}
@@ -28,14 +29,24 @@ import org.apache.hadoop.fs.{FileContext, FileStatus, FileSystem, Path, PathFilt
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.util.FSUtils
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 sealed trait EventLogInfo {
   def eventLog: Path
 }
 
+case class EventLogFileSystemInfo(timestamp: Long, size: Long)
+
 case class ApacheSparkEventLog(override val eventLog: Path) extends EventLogInfo
 case class DatabricksEventLog(override val eventLog: Path) extends EventLogInfo
 
+case class FailedEventLog(override val eventLog: Path,
+                          private val reason: String) extends EventLogInfo {
+  def getReason: String = {
+    StringUtils.renderStr(reason, doEscapeMetaCharacters = true, maxLength = 0)
+  }
+}
 
 object EventLogPathProcessor extends Logging {
   // Apache Spark event log prefixes
@@ -93,23 +104,27 @@ object EventLogPathProcessor extends Logging {
     (dbLogFiles.size > 1)
   }
 
-  // If the user provides wildcard in the eventlogs, then the path processor needs
-  // to process the path as a pattern. Otherwise, HDFS throws an exception mistakenly that
-  // no such file exists.
-  // Once the glob path is checked, the list of eventlogs is the result of the flattenMap
-  // of all the processed files.
+  /**
+   * If the user provides wildcard in the eventlogs, then the path processor needs
+   * to process the path as a pattern. Otherwise, HDFS throws an exception mistakenly that
+   * no such file exists.
+   * Once the glob path is checked, the list of eventlogs is the result of the flattenMap
+   * of all the processed files.
+   *
+   * @return List of (rawPath, List[processedPaths])
+   */
   private def processWildcardsLogs(eventLogsPaths: List[String],
-      hadoopConf: Configuration): List[String] = {
-    val processedLogs = ListBuffer[String]()
-    eventLogsPaths.foreach { rawPath =>
+      hadoopConf: Configuration): List[(String, List[String])] = {
+    eventLogsPaths.map { rawPath =>
       if (!rawPath.contains("*")) {
-        processedLogs += rawPath
+        (rawPath, List(rawPath))
       } else {
         try {
           val globPath = new Path(rawPath)
           val fileContext = FileContext.getFileContext(globPath.toUri(), hadoopConf)
           val fileStatuses = fileContext.util().globStatus(globPath)
-          processedLogs ++= fileStatuses.map(_.getPath.toString)
+          val paths = fileStatuses.map(_.getPath.toString).toList
+          (rawPath, paths)
         } catch {
           case _ : Throwable =>
             // Do not fail in this block.
@@ -117,19 +132,19 @@ object EventLogPathProcessor extends Logging {
             // processing the file.
             // This will make handling errors more consistent during the processing of the analysis
             logWarning(s"Processing pathLog with wildCard has failed: $rawPath")
-            processedLogs += rawPath
+            (rawPath, List.empty)
         }
       }
     }
-    processedLogs.toList
   }
 
-  def getEventLogInfo(pathString: String, hadoopConf: Configuration): Map[EventLogInfo, Long] = {
+  def getEventLogInfo(pathString: String,
+      hadoopConf: Configuration): Map[EventLogInfo, Option[EventLogFileSystemInfo]] = {
     val inputPath = new Path(pathString)
     try {
       // Note that some cloud storage APIs may throw FileNotFoundException when the pathPrefix
       // (i.e., bucketName) is not visible to the current configuration instance.
-      val fs = inputPath.getFileSystem(hadoopConf)
+      val fs = FSUtils.getFSForPath(inputPath, hadoopConf)
       val fileStatus = fs.getFileStatus(inputPath)
       val filePath = fileStatus.getPath()
       val fileName = filePath.getName()
@@ -146,15 +161,21 @@ object EventLogPathProcessor extends Logging {
             "Skipping this file."
         }
         logWarning(msg)
-        Map.empty[EventLogInfo, Long]
+        // Return an empty map as this is a skip due to unsupported file type, not an exception.
+        // Returning FailedEventLog would clutter the status report with unnecessary entries.
+        Map.empty[EventLogInfo, Option[EventLogFileSystemInfo]]
       } else if (fileStatus.isDirectory && isEventLogDir(fileStatus)) {
         // either event logDir v2 directory or regular event log
         val info = ApacheSparkEventLog(fileStatus.getPath).asInstanceOf[EventLogInfo]
-        Map(info -> fileStatus.getModificationTime)
+        // TODO - need to handle size of files in directory, for now document its not supported
+        Map(info ->
+          Some(EventLogFileSystemInfo(fileStatus.getModificationTime, fileStatus.getLen)))
       } else if (fileStatus.isDirectory &&
         isDatabricksEventLogDir(fileStatus, fs)) {
         val dbinfo = DatabricksEventLog(fileStatus.getPath).asInstanceOf[EventLogInfo]
-        Map(dbinfo -> fileStatus.getModificationTime)
+        // TODO - need to handle size of files in directory, for now document its not supported
+        Map(dbinfo ->
+          Some(EventLogFileSystemInfo(fileStatus.getModificationTime, fileStatus.getLen)))
       } else {
         // assume either single event log or directory with event logs in it, we don't
         // support nested dirs, so if event log dir within another one we skip it
@@ -178,19 +199,21 @@ object EventLogPathProcessor extends Logging {
         }
         logsSupported.map { s =>
           if (s.isFile || (s.isDirectory && isEventLogDir(s.getPath().getName()))) {
-            (ApacheSparkEventLog(s.getPath).asInstanceOf[EventLogInfo] -> s.getModificationTime)
+            (ApacheSparkEventLog(s.getPath).asInstanceOf[EventLogInfo]
+              -> Some(EventLogFileSystemInfo(s.getModificationTime, s.getLen)))
           } else {
-            (DatabricksEventLog(s.getPath).asInstanceOf[EventLogInfo] -> s.getModificationTime)
+            (DatabricksEventLog(s.getPath).asInstanceOf[EventLogInfo]
+              -> Some(EventLogFileSystemInfo(s.getModificationTime, s.getLen)))
           }
         }.toMap
       }
     } catch {
-      case _: FileNotFoundException =>
+      case fnfEx: FileNotFoundException =>
         logWarning(s"$pathString not found, skipping!")
-        Map.empty[EventLogInfo, Long]
-      case e: Exception =>
+        Map(FailedEventLog(new Path(pathString), fnfEx.getMessage) -> None)
+      case NonFatal(e) =>
         logWarning(s"Unexpected exception occurred reading $pathString, skipping!", e)
-        Map.empty[EventLogInfo, Long]
+        Map(FailedEventLog(new Path(pathString), e.getMessage) -> None)
     }
   }
 
@@ -210,9 +233,16 @@ object EventLogPathProcessor extends Logging {
       filterNLogs: Option[String],
       matchlogs: Option[String],
       eventLogsPaths: List[String],
-      hadoopConf: Configuration): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
+      hadoopConf: Configuration,
+      maxEventLogSize: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
     val logsPathNoWildCards = processWildcardsLogs(eventLogsPaths, hadoopConf)
-    val logsWithTimestamp = logsPathNoWildCards.flatMap(getEventLogInfo(_, hadoopConf)).toMap
+    val logsWithTimestamp = logsPathNoWildCards.flatMap {
+      case (rawPath, processedPaths) if processedPaths.isEmpty =>
+        // If no event logs are found in the path after wildcard expansion, return a failed event
+        Map(FailedEventLog(new Path(rawPath), s"No event logs found in $rawPath") -> None)
+      case (_, processedPaths) =>
+        processedPaths.flatMap(getEventLogInfo(_, hadoopConf))
+    }.toMap
 
     logDebug("Paths after stringToPath: " + logsWithTimestamp)
     // Filter the event logs to be processed based on the criteria. If it is not provided in the
@@ -221,19 +251,44 @@ object EventLogPathProcessor extends Logging {
       logsWithTimestamp.filterKeys(_.eventLog.getName.contains(strMatch))
     }.getOrElse(logsWithTimestamp)
 
-    val filteredLogs = if (filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) {
-      val filteredInfo = filterNLogs.get.split("-")
-      val numberofEventLogs = filteredInfo(0).toInt
-      val criteria = filteredInfo(1)
-      val matched = if (criteria.equals("newest")) {
-        LinkedHashMap(matchedLogs.toSeq.sortWith(_._2 > _._2): _*)
-      } else if (criteria.equals("oldest")) {
-        LinkedHashMap(matchedLogs.toSeq.sortWith(_._2 < _._2): _*)
-      } else {
-        logError("Criteria should be either newest-filesystem or oldest-filesystem")
-        Map.empty[EventLogInfo, Long]
+    val filteredLogs = if ((filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) ||
+      maxEventLogSize.isDefined) {
+      val validMatchedLogs = matchedLogs.collect {
+        case (info, Some(ts)) => info -> ts
       }
-      matched.take(numberofEventLogs)
+      val filteredBySize = if (maxEventLogSize.isDefined) {
+        val maxSizeInBytes = if (StringUtils.isMemorySize(maxEventLogSize.get)) {
+          // if it is memory return the bytes unit
+          StringUtils.convertMemorySizeToBytes(maxEventLogSize.get)
+        } else {
+          // size is assumed to be mb
+          StringUtils.convertMemorySizeToBytes(maxEventLogSize.get + "m")
+        }
+        val (matched, filtered) = validMatchedLogs.partition(info => info._2.size <= maxSizeInBytes)
+        logInfo(s"Filtering eventlogs by size, max size is ${maxSizeInBytes}b. The logs filtered " +
+          s"out include: ${filtered.keys.map(_.eventLog.toString).mkString(",")}")
+        matched
+      } else {
+        validMatchedLogs
+      }
+      if (filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) {
+        val filteredInfo = filterNLogs.get.split("-")
+        val numberofEventLogs = filteredInfo(0).toInt
+        val criteria = filteredInfo(1)
+        // Before filtering based on user criteria, remove the failed event logs
+        // (i.e. logs without timestamp) from the list.
+        val matched = if (criteria.equals("newest")) {
+          LinkedHashMap(filteredBySize.toSeq.sortWith(_._2.timestamp > _._2.timestamp): _*)
+        } else if (criteria.equals("oldest")) {
+          LinkedHashMap(filteredBySize.toSeq.sortWith(_._2.timestamp < _._2.timestamp): _*)
+        } else {
+          logError("Criteria should be either newest-filesystem or oldest-filesystem")
+          Map.empty[EventLogInfo, Long]
+        }
+        matched.take(numberofEventLogs)
+      } else {
+        filteredBySize
+      }
     } else {
       matchedLogs
     }

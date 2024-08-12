@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{AggRawMetricsResult, AppSQLPlanAnalyzer, QualSparkMetricsAnalyzer}
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, ProfileOutputWriter, ProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, ProfileOutputWriter, ProfileResult, SQLAccumProfileResults}
 
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 
@@ -47,15 +47,18 @@ object QualRawReportGenerator {
   }
 
   private def generateSQLProcessingView(
-      pWriter: ProfileOutputWriter, sqlPlanAnalyzer: AppSQLPlanAnalyzer): Unit = {
+      pWriter: ProfileOutputWriter,
+      sqlPlanAnalyzer: AppSQLPlanAnalyzer): Seq[SQLAccumProfileResults] = {
     pWriter.write(QualSQLToStageView.getLabel,
       QualSQLToStageView.getRawViewFromSqlProcessor(sqlPlanAnalyzer))
+    val sqlPlanMetrics = QualSQLPlanMetricsView.getRawViewFromSqlProcessor(sqlPlanAnalyzer)
     pWriter.write(QualSQLPlanMetricsView.getLabel,
-      QualSQLPlanMetricsView.getRawViewFromSqlProcessor(sqlPlanAnalyzer),
+      sqlPlanMetrics,
       Some(QualSQLPlanMetricsView.getDescription))
     pWriter.write(QualSQLCodeGenView.getLabel,
       QualSQLCodeGenView.getRawViewFromSqlProcessor(sqlPlanAnalyzer),
       Some(QualSQLCodeGenView.getDescription))
+    sqlPlanMetrics
   }
 
   def generateRawMetricQualViewAndGetDataSourceInfo(
@@ -64,17 +67,21 @@ object QualRawReportGenerator {
       appIndex: Int = 1): Seq[DataSourceProfileResult] = {
     val metricsDirectory = s"$rootDir/raw_metrics/${app.appId}"
     val sqlPlanAnalyzer = AppSQLPlanAnalyzer(app, appIndex)
-    val dataSourceInfo = QualDataSourceView.getRawView(Seq(app))
+    var dataSourceInfo: Seq[DataSourceProfileResult] = Seq.empty
     val pWriter =
       new ProfileOutputWriter(metricsDirectory, "profile", 10000000, outputCSV = true)
     try {
       pWriter.writeText("### A. Information Collected ###")
       pWriter.write(QualInformationView.getLabel, QualInformationView.getRawView(Seq(app)))
       pWriter.write(QualLogPathView.getLabel, QualLogPathView.getRawView(Seq(app)))
+      val sqlPlanMetricsResults = generateSQLProcessingView(pWriter, sqlPlanAnalyzer)
+      dataSourceInfo = QualDataSourceView.getRawView(Seq(app), sqlPlanMetricsResults)
       pWriter.write(QualDataSourceView.getLabel, dataSourceInfo)
       pWriter.write(QualExecutorView.getLabel, QualExecutorView.getRawView(Seq(app)))
       pWriter.write(QualAppJobView.getLabel, QualAppJobView.getRawView(Seq(app)))
-      generateSQLProcessingView(pWriter, sqlPlanAnalyzer)
+      pWriter.write(QualStageMetricView.getLabel,
+        QualStageMetricView.getRawViewFromSqlProcessor(sqlPlanAnalyzer),
+        Some(QualStageMetricView.getDescription))
       pWriter.write(RapidsQualPropertiesView.getLabel,
         RapidsQualPropertiesView.getRawView(Seq(app)),
         Some(RapidsQualPropertiesView.getDescription))

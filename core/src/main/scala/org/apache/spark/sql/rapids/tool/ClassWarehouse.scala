@@ -41,19 +41,46 @@ class ExecutorInfoClass(val executorId: String, _addTime: Long) {
     var resourceProfileId = ResourceProfile.DEFAULT_RESOURCE_PROFILE_ID
 }
 
-case class ClusterInfo(
+sealed trait ClusterInfo {
+    def vendor: String
+    def coresPerExecutor: Int
+    def numExecsPerNode: Int
+    def numWorkerNodes: Int
+    def driverNodeType: Option[String]
+    def workerNodeType: Option[String]
+}
+
+// Information about the cluster used with to run the application we
+// are qualifying or profiling. This is compared to what we might recommend
+// for a cluster.
+case class ExistingClusterInfo(
     vendor: String,
     coresPerExecutor: Int,
     numExecsPerNode: Int,
-    numExecutorNodes: Int,
-    executorInstance: Option[String] = None,
-    driverInstance: Option[String] = None,
+    numWorkerNodes: Int,
+    executorHeapMemory: Long,
+    driverNodeType: Option[String] = None,
+    workerNodeType: Option[String] = None,
     driverHost: Option[String] = None,
     clusterId: Option[String] = None,
-    clusterName: Option[String] = None)
+    clusterName: Option[String] = None) extends ClusterInfo
+
+case class RecommendedClusterInfo(
+    vendor: String,
+    coresPerExecutor: Int,
+    numWorkerNodes: Int,
+    numGpus: Int,
+    numExecutors: Int,
+    gpuDevice: String,
+    driverNodeType: Option[String] = None,
+    workerNodeType: Option[String] = None) extends ClusterInfo {
+    // The number of executors per node is the same as the number of GPUs
+    def numExecsPerNode: Int = numGpus
+}
 
 case class ClusterSummary(
     appName: String,
     appId: String,
     eventLogPath: Option[String],
-    clusterInfo: Option[ClusterInfo])
+    clusterInfo: Option[ExistingClusterInfo],
+    recommendedClusterInfo: Option[RecommendedClusterInfo])

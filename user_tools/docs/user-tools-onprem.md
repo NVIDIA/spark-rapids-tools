@@ -17,7 +17,7 @@ The tool currently only supports event logs stored on local path. The remote out
 
 ### 2.Install the package
 
-- Install `spark-rapids-user-tools` with python [3.8, 3.10] using:
+- Install `spark-rapids-user-tools` with python [3.8, 3.11] using:
   - pip:  `pip install spark-rapids-user-tools`
   - wheel-file: `pip install <wheel-file>`
   - from source: `pip install -e .`
