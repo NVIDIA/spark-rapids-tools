@@ -71,8 +71,6 @@ sparkRapids:
     cudaVersion: '11.5'
   cli:
     defaults:
-      gpuClusterRecommendation:
-        defaultRecommendation: 'MATCH'
       costSavingsSettings: #temporrary settings to control the code behavior until the cost savings feature is fully removed
         enabled: false
     toolOptions:
