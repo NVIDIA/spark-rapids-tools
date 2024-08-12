@@ -275,8 +275,6 @@ class Qualification(RapidsJarTool):
         cuda_arg = self.wrapper_options.get('cuda')
         if cuda_arg is not None:
             cuda = cuda_arg
-        target_platform = self.wrapper_options.get('targetPlatform')
-        self.ctxt.set_ctxt('targetPlatform', target_platform)
         self.ctxt.set_ctxt('gpuPerMachine', gpu_per_machine)
         self.ctxt.set_ctxt('gpuDevice', gpu_device)
         self.ctxt.set_ctxt('cuda', cuda)
