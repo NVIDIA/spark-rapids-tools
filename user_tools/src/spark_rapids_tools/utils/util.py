@@ -13,8 +13,7 @@
 # limitations under the License.
 
 """Utility and helper methods"""
-import functools
-import warnings
+
 import os
 import pathlib
 import re
@@ -25,7 +24,7 @@ import urllib
 import xml.etree.ElementTree as elem_tree
 from functools import reduce
 from operator import getitem
-from typing import Any, Optional, ClassVar, Callable
+from typing import Any, Optional, ClassVar
 
 import certifi
 import fire
@@ -172,19 +171,6 @@ def init_environment(short_name: str):
     print(Utils.gen_report_sec_header('Application Logs'))
     print(f'Location: {log_file}')
     print('In case of any errors, please share the log file with the Spark RAPIDS team.\n')
-
-
-def deprecated(func: Callable) -> Callable:
-    """
-    This is a decorator which can be used to mark functions as deprecated.
-    """
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        warn_msg = (f'WARNING: The function \'{func.__name__}\' in \'{func.__module__}\' is deprecated and '
-                    f'will be removed in future releases.')
-        warnings.warn(warn_msg, DeprecationWarning, stacklevel=2)
-        return func(*args, **kwargs)
-    return wrapper
 
 
 class Utilities:

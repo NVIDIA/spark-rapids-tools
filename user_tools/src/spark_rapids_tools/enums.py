@@ -17,8 +17,6 @@
 from enum import Enum, auto
 from typing import Union, cast, Optional, Callable
 
-from spark_rapids_tools.utils.util import deprecated
-
 
 class EnumeratedType(str, Enum):
     """Abstract representation of enumerated values"""
@@ -119,18 +117,6 @@ class QualFilterApp(EnumeratedType):
     @classmethod
     def get_default(cls):
         return cls.TOP_CANDIDATES
-
-
-class QualGpuClusterReshapeType(EnumeratedType):
-    """Values used to filter out the applications in the qualification report"""
-    MATCH = 'match'
-    CLUSTER = 'cluster'
-    JOB = 'job'
-
-    @classmethod
-    @deprecated
-    def get_default(cls):
-        return cls.MATCH
 
 
 class ConditionOperator(EnumeratedType):
