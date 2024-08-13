@@ -476,7 +476,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       val numGpus = finalInstanceInfo.map(_.numGpus).getOrElse(1)
       // Num of executors per node is the number of GPUs
       recommendedClusterInfo = Some(RecommendedClusterInfo(vendor, coresPerExec,
-        numNodes, numGpus, numExecs, workerNodeType = Some(instanceName)))
+        numNodes, numGpus, numExecs, gpuDevice = getGpuOrDefault.toString,
+        workerNodeType = Some(instanceName)))
       recommendedNodeInstanceInfo = finalInstanceInfo
       recommendedClusterInfo
     } else {
