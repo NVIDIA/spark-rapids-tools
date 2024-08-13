@@ -1,6 +1,91 @@
 
 <br/>
 
+## Release [v24.08.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.08.0)
+Generated on 2024-08-13
+### User Tools
+
+- Remove calculation of gpu cluster recommendation from python tool when cluster argument is passed ([#1278](https://github.com/NVIDIA/spark-rapids-tools/pull/1278))
+- Remove unused argument `--target_platform` in Python Tool ([#1279](https://github.com/NVIDIA/spark-rapids-tools/pull/1279))
+- Qualification tool: Add output stats file for Execs(operators) ([#1225](https://github.com/NVIDIA/spark-rapids-tools/pull/1225))
+- Include GPU information in the cluster recommendation for Dataproc and OnPrem ([#1265](https://github.com/NVIDIA/spark-rapids-tools/pull/1265))
+- Remove speedup based recommendation column from qual_summary csv ([#1268](https://github.com/NVIDIA/spark-rapids-tools/pull/1268))
+- Fix prediction CSV files for multiple qual directories ([#1267](https://github.com/NVIDIA/spark-rapids-tools/pull/1267))
+- Clean up tools after removing CLI dependency ([#1256](https://github.com/NVIDIA/spark-rapids-tools/pull/1256))
+- Rename cluster shape columns to use 'worker' prefix in the output files and rename metadata file ([#1258](https://github.com/NVIDIA/spark-rapids-tools/pull/1258))
+- Remove CLI dependency in Dataproc `_pull_gpu_hw_info` implementation ([#1245](https://github.com/NVIDIA/spark-rapids-tools/pull/1245))
+- Replace split_nds with split_train_val ([#1252](https://github.com/NVIDIA/spark-rapids-tools/pull/1252))
+- Update xgboost models and metrics ([#1244](https://github.com/NVIDIA/spark-rapids-tools/pull/1244))
+- Add footnotes for config recommendations and speedup category in top candidate view ([#1243](https://github.com/NVIDIA/spark-rapids-tools/pull/1243))
+- [BUG] Update Dataproc instance catalog for n1 series GPU info ([#1242](https://github.com/NVIDIA/spark-rapids-tools/pull/1242))
+- Improvements in Cluster Config Recommender  ([#1241](https://github.com/NVIDIA/spark-rapids-tools/pull/1241))
+- Improve console output from python tool for failed/gpu/photon event logs ([#1235](https://github.com/NVIDIA/spark-rapids-tools/pull/1235))
+- [FEA] Generate and use instance description file for Databricks-Azure platform ([#1232](https://github.com/NVIDIA/spark-rapids-tools/pull/1232))
+- Remove arguments related to cost-savings ([#1230](https://github.com/NVIDIA/spark-rapids-tools/pull/1230))
+- Updated models for latest databricks-aws datasets ([#1231](https://github.com/NVIDIA/spark-rapids-tools/pull/1231))
+- Refactor QualX for Linter and Test Compatibility  ([#1228](https://github.com/NVIDIA/spark-rapids-tools/pull/1228))
+- Generate summary metadata file and fix node recommendation in python  ([#1216](https://github.com/NVIDIA/spark-rapids-tools/pull/1216))
+- [FEA] Remove gcloud CLI dependency for Dataproc platform ([#1223](https://github.com/NVIDIA/spark-rapids-tools/pull/1223))
+- Updated models for latest dataproc eventlogs ([#1226](https://github.com/NVIDIA/spark-rapids-tools/pull/1226))
+- Remove estimation-model column from qualification summary ([#1220](https://github.com/NVIDIA/spark-rapids-tools/pull/1220))
+- Add option to add features.csv files to training set ([#1212](https://github.com/NVIDIA/spark-rapids-tools/pull/1212))
+- Disable cost saving functionality ([#1218](https://github.com/NVIDIA/spark-rapids-tools/pull/1218))
+- [FEA] Remove CLI dependency for EMR and Databricks-AWS platforms in user tool ([#1196](https://github.com/NVIDIA/spark-rapids-tools/pull/1196))
+- Fix some basic pylint errors in qualx code ([#1210](https://github.com/NVIDIA/spark-rapids-tools/pull/1210))
+- Qual tool tuning rec based on CPU event log coherently recommend tunings and node setup and infer cluster from eventlog ([#1188](https://github.com/NVIDIA/spark-rapids-tools/pull/1188))
+- Add shap command to internal CLI for debugging ([#1197](https://github.com/NVIDIA/spark-rapids-tools/pull/1197))
+- Add internal CLI to generate instance descriptions for CSPs ([#1137](https://github.com/NVIDIA/spark-rapids-tools/pull/1137))
+- [FEA] Support custom XGBoost model file via user tools CLI ([#1184](https://github.com/NVIDIA/spark-rapids-tools/pull/1184))
+- Updated models for new training data ([#1186](https://github.com/NVIDIA/spark-rapids-tools/pull/1186))
+- Add evaluate_summary command to internal CLI ([#1185](https://github.com/NVIDIA/spark-rapids-tools/pull/1185))
+- [DOC] Fix broken link to qualX docs and update python prerequisites ([#1180](https://github.com/NVIDIA/spark-rapids-tools/pull/1180))
+- Bump to certifi-2024.7.4 and urllib3-1.26.19 ([#1173](https://github.com/NVIDIA/spark-rapids-tools/pull/1173))
+- Disable UI-HTML report by default in Qualification tool ([#1168](https://github.com/NVIDIA/spark-rapids-tools/pull/1168))
+- Fix parsing App IDs inside metrics directory in QualX ([#1167](https://github.com/NVIDIA/spark-rapids-tools/pull/1167))
+- Refactor Databricks-AWS Qual tool to cache and process pricing info from DB website ([#1141](https://github.com/NVIDIA/spark-rapids-tools/pull/1141))
+- Add plugin mechanism for dataset-specific preprocessing in qualx ([#1148](https://github.com/NVIDIA/spark-rapids-tools/pull/1148))
+- Unsupported op logic should read action column from qual's output ([#1150](https://github.com/NVIDIA/spark-rapids-tools/pull/1150))
+- Update qualx readme for training ([#1140](https://github.com/NVIDIA/spark-rapids-tools/pull/1140))
+- Disable pylint-unreachable code in tox.ini ([#1145](https://github.com/NVIDIA/spark-rapids-tools/pull/1145))
+
+### Core
+
+- Include GPU information in the cluster recommendation for Dataproc and OnPrem ([#1265](https://github.com/NVIDIA/spark-rapids-tools/pull/1265))
+- [TASK] Optimize the storage of accumulables in core tools ([#1263](https://github.com/NVIDIA/spark-rapids-tools/pull/1263))
+- Sync GetJsonObject support with Rapids-Plugin ([#1266](https://github.com/NVIDIA/spark-rapids-tools/pull/1266))
+-  Do not create new StageInfo object ([#1261](https://github.com/NVIDIA/spark-rapids-tools/pull/1261))
+- [FEA] Add support for `map_from_arrays` in qualification tools ([#1248](https://github.com/NVIDIA/spark-rapids-tools/pull/1248))
+- Rename cluster shape columns to use 'worker' prefix in the output files and rename metadata file ([#1258](https://github.com/NVIDIA/spark-rapids-tools/pull/1258))
+- Fix stage level metrics output csv file ([#1251](https://github.com/NVIDIA/spark-rapids-tools/pull/1251))
+- Handle event logs with wildcards in status report generation ([#1237](https://github.com/NVIDIA/spark-rapids-tools/pull/1237))
+- Fix duplicate records in DataSourceInfo report ([#1227](https://github.com/NVIDIA/spark-rapids-tools/pull/1227))
+- Reduce memory footprint of stageInfo ([#1222](https://github.com/NVIDIA/spark-rapids-tools/pull/1222))
+- Ensure UTF-8 encoding for reading non-english characters ([#1211](https://github.com/NVIDIA/spark-rapids-tools/pull/1211))
+- Sync plugin support for hash-hive and shift operators ([#1198](https://github.com/NVIDIA/spark-rapids-tools/pull/1198))
+- Sync-up the support of parse_url in qualification tool ([#1195](https://github.com/NVIDIA/spark-rapids-tools/pull/1195))
+- Include status information for failed event logs in core tool ([#1187](https://github.com/NVIDIA/spark-rapids-tools/pull/1187))
+- [FEA] Adding Benchmarking classes to evaluate core tools performance ([#1169](https://github.com/NVIDIA/spark-rapids-tools/pull/1169))
+- [BUG] Fix handling of non-english characters in tools output files ([#1189](https://github.com/NVIDIA/spark-rapids-tools/pull/1189))
+- [Bug] Fix java Qual tool handling of `--platform` argument ([#1161](https://github.com/NVIDIA/spark-rapids-tools/pull/1161))
+- Add all stage metrics to tools output ([#1151](https://github.com/NVIDIA/spark-rapids-tools/pull/1151))
+- Follow-up 1142: remove TODO line ([#1146](https://github.com/NVIDIA/spark-rapids-tools/pull/1146))
+- Mark wholestageCodeGen as shouldRemove when child nodes are removed ([#1142](https://github.com/NVIDIA/spark-rapids-tools/pull/1142))
+- [FEA] Display full failure messages in failed CSV files ([#1135](https://github.com/NVIDIA/spark-rapids-tools/pull/1135))
+
+### Miscellaneous
+
+- Qualification tool: Add option to filter event logs for a maximum file system size ([#1275](https://github.com/NVIDIA/spark-rapids-tools/pull/1275))
+- Qualification tool should print Kryo related recommendations  ([#1204](https://github.com/NVIDIA/spark-rapids-tools/pull/1204))
+- Fix header check script to exclude files ([#1224](https://github.com/NVIDIA/spark-rapids-tools/pull/1224))
+- Update header check script for pre-commit hooks ([#1219](https://github.com/NVIDIA/spark-rapids-tools/pull/1219))
+- Follow-up 1189: handle non-english characters in data-output.js ([#1208](https://github.com/NVIDIA/spark-rapids-tools/pull/1208))
+- Update pre-commit hooks to check for headers and white-spaces ([#1205](https://github.com/NVIDIA/spark-rapids-tools/pull/1205))
+- user-tools:Update --help for cluster argument ([#1178](https://github.com/NVIDIA/spark-rapids-tools/pull/1178))
+- Support fine-tuning models ([#1174](https://github.com/NVIDIA/spark-rapids-tools/pull/1174))
+
+
+<br/>
+
 ## Release [v24.06.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.06.1)
 Generated on 2024-06-18
 ### User Tools
