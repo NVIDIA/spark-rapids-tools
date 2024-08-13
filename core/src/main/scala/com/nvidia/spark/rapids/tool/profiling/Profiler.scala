@@ -43,7 +43,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private val outputCombined: Boolean = appArgs.combined()
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
-  private val sparkRapidsBuildInfo: SparkRapidsBuildInfo = None
 
   override def getNumThreads: Int = appArgs.numThreads.getOrElse(
     Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
@@ -325,6 +324,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val sqlMetrics = collect.getSQLPlanMetrics
     val stageMetrics = collect.getStageLevelMetrics
     val wholeStage = collect.getWholeStageCodeGenMapping
+    val sparkRapidsBuildInfo = collect.getSparkRapidsInfo
     // for compare mode we just add in extra tables for matching across applications
     // the rest of the tables simply list all applications specified
     val compareRes = if (appArgs.compare()) {
@@ -391,7 +391,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
-      appLogPath, analysis.ioAggs, systemProps, sqlIdAlign), compareRes)
+      appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo), compareRes)
   }
 
   /**
@@ -486,7 +486,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         appsSum.flatMap(_.appLogPath).sortBy(_.appIndex),
         appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex),
         combineProps("system", appsSum).sortBy(_.key),
-        appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex)
+        appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex),
+        appsSum.flatMap(_.sparkRapidsBuildInfo)
       )
       Seq(reduced)
     } else {
@@ -550,6 +551,11 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         val (properties, comments) = runAutoTuner(Some(app))
         profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
+      }
+
+      val sparkRapidsInfo: String = app.sparkRapidsBuildInfo.map(_.buildInfo).mkString(", ")
+      if (sparkRapidsInfo != "") {
+        profileOutputWriter.writeJsonFile("Spark Rapids Build Info", sparkRapidsInfo)
       }
     }
   }

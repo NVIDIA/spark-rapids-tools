@@ -91,6 +91,8 @@ abstract class AppBase(
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
 
+  var sparkRapidsBuildInfo: SparkRapidsBuildInfo = new SparkRapidsBuildInfo("")
+
   // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
   // won't be defined for running applications
   def getEventLogPath: String = {
@@ -222,6 +224,8 @@ abstract class AppBase(
 
   def processEvent(event: SparkListenerEvent): Boolean
 
+  def processSparkRapidsBuildEvent(event: SparkRapidsBuildInfo): Boolean
+
   private def openEventLogInternal(log: Path, fs: FileSystem): InputStream = {
     EventLogFileWriter.codecName(log) match {
       case c if c.isDefined && c.get.equals("gz") =>
@@ -266,7 +270,8 @@ abstract class AppBase(
                 // Do NOT use a while loop as it is much much slower.
                 totalNumEvents += 1
                 runtimeGetFromJsonMethod.apply(line) match {
-                  case Some(e) => processEvent(e)
+                  case Some(Left(e)) => processEvent(e)
+                  case Some(Right(e)) => processSparkRapidsBuildEvent(e)
                   case None => false
                 }
               }

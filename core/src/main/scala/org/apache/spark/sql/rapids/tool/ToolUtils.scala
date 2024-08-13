@@ -486,5 +486,5 @@ case class FailureApp(
     message: String
 )
 
-class SparkRapidsBuildInfo(buildInfo: string) {
+class SparkRapidsBuildInfo(var buildInfo: String) {
 }

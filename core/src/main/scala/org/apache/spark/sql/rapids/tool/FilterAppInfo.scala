@@ -57,5 +57,10 @@ class FilterAppInfo(
     }
   }
 
+  override def processSparkRapidsBuildEvent(event: SparkRapidsBuildInfo): Boolean = {
+    this.sparkRapidsBuildInfo = event
+    false
+  }
+
   processEvents()
 }

@@ -23,6 +23,7 @@ import com.nvidia.spark.rapids.tool.views._
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.SparkRapidsBuildInfo
 
 case class StageMetrics(numTasks: Int, duration: String)
 
@@ -97,6 +98,10 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
    */
   def getSQLCleanAndAligned: Seq[SQLCleanAndAlignIdsProfileResult] = {
     ProfSQLPlanAlignedView.getRawView(apps)
+  }
+
+  def getSparkRapidsInfo: Seq[SparkRapidsBuildInfo] = {
+    apps.map(_.sparkRapidsBuildInfo)
   }
 }
 

@@ -29,7 +29,7 @@ import org.json4s.jackson.JsonMethods.parse
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart
-import org.apache.spark.sql.rapids.tool.ToolUtils
+import org.apache.spark.sql.rapids.tool.SparkRapidsBuildInfo
 
 /**
  * Utility containing the implementation of helpers used for parsing data from event.
@@ -230,16 +230,17 @@ object EventUtils extends Logging {
     m
   }
 
-  lazy val getEventFromJsonMethod:
-    String => Option[org.apache.spark.scheduler.SparkListenerEvent] = {
+  lazy val getEventFromJsonMethod: String =>
+    Option[Either[org.apache.spark.scheduler.SparkListenerEvent, SparkRapidsBuildInfo]] = {
     // At this point, the method is already defined.
     // Note that the Exception handling is moved within the method to make it easier
     // to isolate the exception reason.
     (line: String) => Try {
       runtimeEventFromJsonMethod.apply(line)
     } match {
-      case Success(i) => Some(i)
+      case Success(i) => Some(Left(i))
       case Failure(e) =>
+        var res: Option[Either[org.apache.spark.scheduler.SparkListenerEvent, SparkRapidsBuildInfo]] = None
         e match {
           case i: InvocationTargetException =>
             val targetEx = i.getTargetException
@@ -254,11 +255,12 @@ object EventUtils extends Logging {
                   // malformed
                   handleEventJsonParseEx(k)
                 case z: ClassNotFoundException if z.getMessage != null =>
-                  // Avoid reporting missing classes more than once to reduce the noise in the logs
-                  reportMissingEventClass(z.getMessage)
                   // Handle SparkRapidsBuildInfoEvent to get spark-rapids related runtime versions
                   if (z.getMessage == "com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent") {
-                    processSparkRapidsBuildInfo(line)
+                    res = Some(Right(new SparkRapidsBuildInfo(line)))
+                  } else {
+                    // Avoid reporting missing classes more than once to reduce the noise in the logs
+                    reportMissingEventClass(z.getMessage)
                   }
                 case t: Throwable =>
                   // We do not want to swallow unknown exceptions so that we can handle later
@@ -278,18 +280,7 @@ object EventUtils extends Logging {
             // log is malformed
             handleEventJsonParseEx(k)
         }
-        None
+        res
     }
-  }
-
-  private def processSparkRapidsBuildInfo(event: String) {
-    implicit val formats: Formats = DefaultFormats
-    val jsonMap = parse(event).extract[Map[String, Any]]
-    val sparkRapidsInfo = jsonMap("sparkRapidsBuildInfo").asInstanceOf[Map[String, String]]
-    ToolUtils.sparkRapidsRuntimeVersion = Some(sparkRapidsInfo("version"))
-    val jniInfo = jsonMap("sparkRapidsJniBuildInfo").asInstanceOf[Map[String, String]]
-    ToolUtils.jniRuntimeVersion = Some(jniInfo("version"))
-    val cudfInfo = jsonMap("cudfBuildInfo").asInstanceOf[Map[String, String]]
-    ToolUtils.cudfRuntimeVersion = Some(cudfInfo("version"))
   }
 }
