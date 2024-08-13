@@ -25,9 +25,9 @@ Set up a Python environment with a version between 3.8 and 3.11
     $ python -m venv .venv
     $ source .venv/bin/activate
     ```
-2. Install spark-rapids-user-tools 
+2. Install spark-rapids-user-tools
     - Using released package.
-      
+
       ```sh
       $ pip install spark-rapids-user-tools
       ```
@@ -36,7 +36,7 @@ Set up a Python environment with a version between 3.8 and 3.11
       ```sh
       $ pip install -e .
       ```
-      
+
       Note:
       - To install dependencies required for running unit tests, use the optional `test` parameter: `pip install -e '.[test]'`
       - To install dependencies required for QualX training, use the optional `qualx` parameter `pip install -e '.[qualx]'`
@@ -65,7 +65,7 @@ Set up a Python environment similar to the steps above.
    ```sh
    $> ./build.sh
    ```
- 
+
 3. **Fat Mode:** Similar to `fat jar` in Java, this mode solves the problem when web access is not
    available to download resources having Url-paths (http/https).  
    The command builds the tools jar file and downloads the necessary dependencies and packages them
@@ -74,7 +74,15 @@ Set up a Python environment similar to the steps above.
    ```sh
    $> ./build.sh fat
    ```
- 
+
+## Logging Configuration
+
+The core tools project uses Log4j for logging. Default log level is set to INFO.
+You can configure logging settings in the `log4j.properties` file located in the
+`src/spark_rapids_pytools/resources/dev/resources/dev` directory.
+To change the logging level, modify the `log4j.rootLogger` property.
+Possible levels include `DEBUG`, `INFO`, `WARN`, `ERROR`.
+
 ## Usage and supported platforms
 
 Please refer to [spark-rapids-user-tools guide](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/index.md) for details on how to use the tools

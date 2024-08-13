@@ -74,13 +74,15 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
 
   // write the text summary report
   def writeTextReport(sums: Seq[QualificationSummaryInfo], estSums: Seq[EstimatedSummaryInfo],
-      numOutputRows: Int) : Unit = {
-    val textFileWriter = new ToolTextFileWriter(outputDir, s"${QualOutputWriter.LOGFILE_NAME}.log",
-      "Summary Report", hadoopConf)
-    try {
-      writeTextReport(textFileWriter, sums, estSums, numOutputRows)
-    } finally {
-      textFileWriter.close()
+      numOutputRows: Int, prettyPrint: Boolean = false) : Unit = {
+    if (prettyPrint) {
+      val textFileWriter = new ToolTextFileWriter(outputDir,
+        s"${QualOutputWriter.LOGFILE_NAME}.log", "Summary Report", hadoopConf)
+      try {
+        writeTextReport(textFileWriter, sums, estSums, numOutputRows)
+      } finally {
+        textFileWriter.close()
+      }
     }
   }
 
@@ -245,14 +247,16 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
   }
 
   def writePerSqlTextReport(sums: Seq[QualificationSummaryInfo], numOutputRows: Int,
-      maxSQLDescLength: Int) : Unit = {
-    val textFileWriter = new ToolTextFileWriter(outputDir,
-      s"${QualOutputWriter.LOGFILE_NAME}_persql.log",
-      "Per SQL Summary Report", hadoopConf)
-    try {
-      writePerSqlTextSummary(textFileWriter, sums, numOutputRows, maxSQLDescLength)
-    } finally {
-      textFileWriter.close()
+      maxSQLDescLength: Int, prettyPrint: Boolean = false): Unit = {
+    if (prettyPrint) {
+      val textFileWriter = new ToolTextFileWriter(outputDir,
+        s"${QualOutputWriter.LOGFILE_NAME}_persql.log",
+        "Per SQL Summary Report", hadoopConf)
+      try {
+        writePerSqlTextSummary(textFileWriter, sums, numOutputRows, maxSQLDescLength)
+      } finally {
+        textFileWriter.close()
+      }
     }
   }
 

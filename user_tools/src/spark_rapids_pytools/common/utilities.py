@@ -231,9 +231,9 @@ class ToolLogging:
         return logger
 
     @classmethod
-    def modify_log4j_properties(cls, file_path: str, new_log_file_path: str) -> str:
-        new_log_file_with_timestamp = f'{new_log_file_path}/rapids_4_spark_core_tools.log'
-        with open(file_path, 'r', encoding='utf-8') as file:
+    def modify_log4j_properties(cls, prop_file_path: str, new_log_file_path: str) -> str:
+        new_log_file = f'{new_log_file_path}/rapids_4_spark_tools_jar.log'
+        with open(prop_file_path, 'r', encoding='utf-8') as file:
             lines = file.readlines()
 
         with tempfile.NamedTemporaryFile(
@@ -241,7 +241,7 @@ class ToolLogging:
             temp_file_path = temp_file.name
             for line in lines:
                 if line.startswith('log4j.appender.FILE.File='):
-                    temp_file.write(f'log4j.appender.FILE.File={new_log_file_with_timestamp}\n')
+                    temp_file.write(f'log4j.appender.FILE.File={new_log_file}\n')
                 else:
                     temp_file.write(line)
         return temp_file_path
