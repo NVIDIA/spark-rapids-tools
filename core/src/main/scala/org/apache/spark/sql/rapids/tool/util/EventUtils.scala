@@ -240,7 +240,8 @@ object EventUtils extends Logging {
     } match {
       case Success(i) => Some(Left(i))
       case Failure(e) =>
-        var res: Option[Either[org.apache.spark.scheduler.SparkListenerEvent, SparkRapidsBuildInfo]] = None
+        var res: Option[Either[org.apache.spark.scheduler.SparkListenerEvent, SparkRapidsBuildInfo]]
+          = None
         e match {
           case i: InvocationTargetException =>
             val targetEx = i.getTargetException
@@ -259,7 +260,7 @@ object EventUtils extends Logging {
                   if (z.getMessage == "com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent") {
                     res = Some(Right(new SparkRapidsBuildInfo(line)))
                   } else {
-                    // Avoid reporting missing classes more than once to reduce the noise in the logs
+                    // Avoid reporting missing classes more than once to reduce noise in the logs
                     reportMissingEventClass(z.getMessage)
                   }
                 case t: Throwable =>

@@ -22,8 +22,8 @@ import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import com.nvidia.spark.rapids.tool.views._
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.SparkRapidsBuildInfo
+import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
 case class StageMetrics(numTasks: Int, duration: String)
 
