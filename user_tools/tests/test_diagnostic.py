@@ -22,7 +22,6 @@ import pytest  # pylint: disable=import-error
 from cli_test_helpers import ArgvContext, EnvironContext  # pylint: disable=import-error
 
 from spark_rapids_pytools import wrapper
-from .spark_rapids_tools_ut import conftest
 from .mock_cluster import mock_live_cluster
 
 
@@ -52,9 +51,9 @@ class TestInfoCollect:
     def test_info_collect(self, build_mock, cloud, capsys):
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
-            'dataproc': 13,
-            'emr': 12,
-            'databricks-aws': 9,
+            'dataproc': 7,
+            'emr': 10,
+            'databricks-aws': 7,
             'databricks-azure': 7
         }
 
@@ -76,9 +75,9 @@ class TestInfoCollect:
     def test_thread_num(self, build_mock, cloud, capsys):
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
-            'dataproc': 13,
-            'emr': 12,
-            'databricks-aws': 9,
+            'dataproc': 7,
+            'emr': 10,
+            'databricks-aws': 7,
             'databricks-azure': 7
         }
 
@@ -103,9 +102,9 @@ class TestInfoCollect:
     def test_invalid_thread_num(self, build_mock, cloud, thread_num, capsys):
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
-            'dataproc': 7,
-            'emr': 6,
-            'databricks-aws': 3,
+            'dataproc': 1,
+            'emr': 4,
+            'databricks-aws': 1,
             'databricks-azure': 1
         }
 
@@ -130,9 +129,9 @@ class TestInfoCollect:
         return_values = mock_live_cluster[cloud].copy()
         return_values.reverse()
         expected_syscmd_calls = {
-            'dataproc': 8,
-            'emr': 7,
-            'databricks-aws': 4,
+            'dataproc': 1,
+            'emr': 5,
+            'databricks-aws': 2,
             'databricks-azure': 2
         }
 
@@ -160,9 +159,9 @@ class TestInfoCollect:
     def test_download_failed(self, build_mock, cloud, capsys):
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
-            'dataproc': 13,
-            'emr': 12,
-            'databricks-aws': 9,
+            'dataproc': 7,
+            'emr': 10,
+            'databricks-aws': 7,
             'databricks-azure': 7
         }
 
@@ -195,9 +194,9 @@ class TestInfoCollect:
     def test_auto_confirm(self, build_mock, cloud, user_input, capsys):
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
-            'dataproc': 13,
-            'emr': 12,
-            'databricks-aws': 9,
+            'dataproc': 7,
+            'emr': 10,
+            'databricks-aws': 7,
             'databricks-azure': 7
         }
 
@@ -221,9 +220,9 @@ class TestInfoCollect:
     def test_cancel_confirm(self, build_mock, cloud, user_input, capsys):
         return_values = mock_live_cluster[cloud].copy()
         expected_syscmd_calls = {
-            'dataproc': 7,
-            'emr': 6,
-            'databricks-aws': 3,
+            'dataproc': 1,
+            'emr': 2,
+            'databricks-aws': 1,
             'databricks-azure': 1
         }
 
@@ -240,20 +239,3 @@ class TestInfoCollect:
 
         assert 'User canceled the operation' in stderr
         assert 'Raised an error in phase [Process-Arguments]' in stderr
-
-    @pytest.fixture(scope='function', autouse=True)
-    def mock_databricks_azure_instance_description(self, cloud, monkeypatch):
-        """
-        Mock `init_instances_description()` for Databricks Azure tests to return a test JSON file path.
-        This is needed to avoid creating an actual azure-instance-catalog.json file in the `CACHE_FOLDER`.
-        """
-        def mock_init_instances_description(_):
-            resource_dir = conftest.get_test_resources_path()
-            test_azure_catalog_file = 'cluster/databricks/test-azure-instances-catalog.json'
-            return os.path.join(resource_dir, test_azure_catalog_file)
-
-        if cloud == 'databricks-azure':
-            monkeypatch.setattr(
-                'spark_rapids_pytools.cloud_api.databricks_azure.DBAzureCMDDriver.init_instances_description',
-                mock_init_instances_description
-            )

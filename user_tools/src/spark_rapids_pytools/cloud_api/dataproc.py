@@ -15,9 +15,9 @@
 
 """Implementation specific to Dataproc"""
 
-import json
+from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, List, Union
+from typing import Any, List, Union, Optional, Dict
 
 from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob
@@ -27,7 +27,7 @@ from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, CMDDriverBase,
     NodeHWInfo, ClusterGetAccessor
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, is_valid_gpu_device
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import SysCmd, Utils
+from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.dataproc_pricing import DataprocPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
@@ -55,22 +55,30 @@ class DataprocPlatform(PlatformBase):
                                                           'confProperties',
                                                           'propertiesMap')
         if properties_map_arr:
-            config_cmd_prefix = ['gcloud', 'config', 'get']
-            for prop_entry in properties_map_arr:
-                prop_entry_key = prop_entry.get('propKey')
-                if self.ctxt.get(prop_entry_key):
-                    # Skip if the property already set
-                    continue
-                prop_cmd = config_cmd_prefix[:]
-                section_entry = prop_entry.get('section')
-                prop_cmd.append(f'{section_entry}/{prop_entry_key}')
-                cmd_args = {
-                    'cmd': prop_cmd,
-                }
-                prop_cmd_obj = SysCmd().build(cmd_args)
-                prop_cmd_res = prop_cmd_obj.exec()
-                if prop_cmd_res:
-                    self.ctxt.update({prop_entry_key: prop_cmd_res})
+            # We support multiple gcloud CLI configurations, the following two dictionaries map
+            # config sections to the corresponding property keys to be set, and config file name respectively
+            config_section_keys = defaultdict(list)  # config section: keys
+            config_section_file = {}  # config section: config file
+            for prop_elem in properties_map_arr:
+                if prop_elem.get('confProperty') in remaining_props:
+                    config_section = prop_elem.get('section').strip('_')
+                    # The property uses the default value which is '_cliConfigFile_'
+                    config_file = prop_elem.get('configFileProp', '_cliConfigFile_').strip('_')
+                    config_section_keys[config_section].append(prop_elem.get('propKey'))
+                    if config_section not in config_section_file:
+                        config_section_file[config_section] = config_file
+            loaded_conf_dict = {}
+            for config_section in config_section_keys:
+                loaded_conf_dict = \
+                    self._load_props_from_sdk_conf_file(keyList=config_section_keys[config_section],
+                                                        configFile=config_section_file[config_section],
+                                                        sectionKey=config_section)
+                if loaded_conf_dict:
+                    self.ctxt.update(loaded_conf_dict)
+            # If the property key is not already set, below code attempts to set the property
+            # using an environment variable. This is a fallback mechanism to populate configuration
+            # properties from the environment if they are not already set in the
+            # loaded configuration.
             for prop_entry in properties_map_arr:
                 prop_entry_key = prop_entry.get('propKey')
                 # set it using environment variable if possible
@@ -82,7 +90,8 @@ class DataprocPlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = GStorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
         return DataprocCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
     def set_offline_cluster(self, cluster_args: dict = None):
@@ -154,12 +163,12 @@ class DataprocPlatform(PlatformBase):
                 gpu_scopes[prof_name] = NodeHWInfo(sys_info=sys_info_obj, gpu_info=gpu_info_obj)
         return gpu_scopes
 
-    def get_matching_executor_instance(self, cores_per_executor):
-        executors_from_config = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
+    def get_matching_worker_node_type(self, total_cores: int) -> Optional[str]:
+        node_types_from_config = self.configs.get_value('clusterInference', 'defaultCpuInstances', 'executor')
         # TODO: Currently only single series is supported. Change this to a loop when using multiple series.
-        series_name, unit_info = list(executors_from_config.items())[0]
-        if cores_per_executor in unit_info['vCPUs']:
-            return f'{series_name}-{cores_per_executor}'
+        series_name, unit_info = list(node_types_from_config.items())[0]
+        if total_cores in unit_info['vCPUs']:
+            return f'{series_name}-{total_cores}'
         return None
 
     def generate_cluster_configuration(self, render_args: dict):
@@ -167,6 +176,13 @@ class DataprocPlatform(PlatformBase):
         render_args['IMAGE'] = f'"{image_version}"'
         render_args['ZONE'] = f'"{self.cli.get_zone()}"'
         return super().generate_cluster_configuration(render_args)
+
+    @classmethod
+    def _gpu_device_name_lookup_map(cls) -> Dict[GpuDevice, str]:
+        return {
+            GpuDevice.T4: 'nvidia-tesla-t4',
+            GpuDevice.L4: 'nvidia-l4'
+        }
 
 
 @dataclass
@@ -182,19 +198,6 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
                 if prop_value is None:
                     incorrect_envs.append(f'Property {prop_entry} is not set.')
         return incorrect_envs
-
-    def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
-        cmd_params = ['gcloud',
-                      'compute',
-                      'machine-types',
-                      'describe',
-                      f'{node.instance_type}',
-                      '--zone',
-                      f'{node.zone}']
-        return cmd_params
-
-    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
-        return node.instance_type, node.zone
 
     def _build_platform_list_cluster(self,
                                      cluster,
@@ -318,7 +321,7 @@ class DataprocCMDDriver(CMDDriverBase):  # pylint: disable=abstract-method
         # for Dataproc, some instance types can attach customized GPU devices
         # Ref: https://cloud.google.com/compute/docs/gpus#n1-gpus
         for instance_name, instance_info in processed_instance_descriptions.items():
-            if instance_name.startswith('n1-standard'):
+            if instance_name.startswith('n1-'):
                 if 'GpuInfo' not in instance_info:
                     instance_info['GpuInfo'] = []
                 # N1 + T4 GPUs
@@ -373,63 +376,52 @@ class DataprocNode(ClusterNode):
         # this is a value
         return conf_val
 
-    def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo:
-        # https://cloud.google.com/compute/docs/gpus
-        # the gpu info is not included in the instance type
-        # we need to:
-        # 1- get the accelerator of the node if any
-        #    "gcloud compute accelerator-types describe nvidia-tesla-a100 --zone=us-central1-a"
-        # 2- Read the description flag to determine the memory size. (applies for A100)
-        #    If it is not included, then load the gpu-memory from a lookup table
-        def parse_accelerator_description(raw_description: str) -> dict:
-            parsing_res = {}
-            descr_json = json.loads(raw_description)
-            description_field = descr_json.get('description')
-            field_components = description_field.split()
-            # filter out non-used tokens
-            dumped_tokens = ['NVIDIA', 'Tesla']
-            final_entries = [entry.lower() for entry in field_components if entry not in dumped_tokens]
-            gpu_device: GpuDevice = None
-            for token_entry in final_entries:
-                if 'GB' in token_entry:
-                    # this is the memory value
-                    memory_in_gb_str = token_entry.removesuffix('GB')
-                    gpu_mem = 1024 * int(memory_in_gb_str)
-                    parsing_res.setdefault('gpu_mem', gpu_mem)
-                else:
-                    gpu_device = GpuDevice.fromstring(token_entry)
-                    parsing_res.setdefault('gpu_device', gpu_device)
-            if 'gpu_mem' not in parsing_res:
-                # get the GPU memory size from lookup
-                parsing_res.setdefault('gpu_mem', gpu_device.get_gpu_mem()[0])
-            return parsing_res
-
-        try:
-            accelerator_arr = self.props.get_value_silent('accelerators')
-        except Exception:  # pylint: disable=broad-except
-            accelerator_arr = None
-
-        if not accelerator_arr:
+    def _pull_gpu_hw_info(self, cli=None) -> Optional[GpuHWInfo]:
+        # gcloud GPU machines: https://cloud.google.com/compute/docs/gpus
+        def get_gpu_device(accelerator_name: str) -> GpuDevice:
+            """
+            return the GPU device given a accelerator full name (e.g. nvidia-tesla-t4)
+            """
+            accelerator_name_arr = accelerator_name.split('-')
+            for elem in accelerator_name_arr:
+                if GpuDevice.fromstring(elem) is not None:
+                    return GpuDevice.fromstring(elem)
             return None
 
+        # check if GPU info is already set
+        if self.hw_info and self.hw_info.gpu_info:
+            return self.hw_info.gpu_info
+
+        # node has no 'accelerators' info, need to pull GPU info from instance catalog
+        if self.props is None or self.props.get_value_silent('accelerators') is None:
+            if self.instance_type.startswith('n1') or self.mc_props is None or \
+                    self.mc_props.get_value_silent('GpuInfo') is None:
+                # TODO: for n1-series, it can attach different type or number of GPU device
+                # GPU info is only accurate when 'accelerators' is set, return None as default
+                return None
+            gpu_configs = self.mc_props.get_value('GpuInfo')[0]
+            num_gpus = gpu_configs['Count'][0]
+            gpu_device = GpuDevice.fromstring(gpu_configs['Name'])
+            gpu_mem = gpu_device.get_gpu_mem()[0]
+            return GpuHWInfo(num_gpus=num_gpus,
+                             gpu_device=gpu_device,
+                             gpu_mem=gpu_mem)
+
+        accelerator_arr = self.props.get_value('accelerators')
         for defined_acc in accelerator_arr:
             # TODO: if the accelerator_arr has other non-gpu ones, then we need to loop until we
             #       find the gpu accelerators
-            gpu_configs = {'num_gpus': int(defined_acc.get('acceleratorCount'))}
             accelerator_type = defined_acc.get('acceleratorTypeUri') or defined_acc.get('acceleratorType')
-            gpu_device_type = self.__extract_info_from_value(accelerator_type)
-            gpu_description = cli.exec_platform_describe_accelerator(accelerator_type=gpu_device_type,
-                                                                     cmd_args=None)
-            extra_gpu_info = parse_accelerator_description(gpu_description)
-            gpu_configs.update(extra_gpu_info)
-            return GpuHWInfo(num_gpus=gpu_configs.get('num_gpus'),
-                             gpu_device=gpu_configs.get('gpu_device'),
-                             gpu_mem=gpu_configs.get('gpu_mem'))
-
-    def _pull_sys_info(self, cli=None) -> SysInfo:
-        cpu_mem = self.mc_props.get_value('memoryMb')
-        num_cpus = self.mc_props.get_value('guestCpus')
-        return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
+            accelerator_full_name = self.__extract_info_from_value(accelerator_type)
+            gpu_device = get_gpu_device(accelerator_full_name)
+            if gpu_device is None:
+                continue
+            num_gpus = int(defined_acc.get('acceleratorCount'))
+            gpu_mem = gpu_device.get_gpu_mem()[0]
+            return GpuHWInfo(num_gpus=num_gpus,
+                             gpu_device=gpu_device,
+                             gpu_mem=gpu_mem)
+        return None
 
     def _set_fields_from_props(self):
         # set the machine type
@@ -484,9 +476,12 @@ class DataprocCluster(ClusterBase):
             worker_nodes_from_conf = self.props.get_value_silent('config', 'workerConfig', 'instanceNames')
             instance_names_cnt = len(worker_nodes_from_conf) if worker_nodes_from_conf else 0
             if worker_cnt != instance_names_cnt:
-                self.logger.warning('Cluster configuration: `instanceNames` count %d does not '
-                                    'match the `numInstances` value %d. Using generated names.',
-                                    instance_names_cnt, worker_cnt)
+                if not self.is_inferred:
+                    # this warning should be raised only when the cluster is not inferred, i.e. user has provided the
+                    # cluster configuration with num_workers explicitly set
+                    self.logger.warning('Cluster configuration: `instanceNames` count %d does not '
+                                        'match the `numInstances` value %d. Using generated names.',
+                                        instance_names_cnt, worker_cnt)
                 worker_nodes_from_conf = self.generate_node_configurations(worker_cnt)
             # create workers array
             for worker_node in worker_nodes_from_conf:
@@ -605,42 +600,24 @@ class DataprocCluster(ClusterBase):
         Overrides to provide the cluster configuration which is specific to Dataproc.
         """
         cluster_config = super().get_cluster_configuration()
-        gpu_per_machine, gpu_device = self.get_gpu_per_worker()
-        # Need to handle case this was CPU event log and just make a recommendation
-        gpu_device_hash = {
-            'T4': 'nvidia-tesla-t4',
-            'L4': 'nvidia-l4'
-        }
-        if gpu_device and gpu_per_machine > 0:
-            additional_config = {
-                'gpuInfo': {
-                    'device': gpu_device_hash.get(gpu_device),
-                    'gpuPerWorker': gpu_per_machine
-                },
-                'additionalConfig': {
-                    'localSsd': 2
-                }
-            }
-            cluster_config.update(additional_config)
-        elif gpu_per_machine == 0:
-            # TODO - we should make this smarter about gpuPerWorker
-            # recommended device should match the scala code for Dataproc platform
-            recommended_device = 'nvidia-tesla-t4'
-            if gpu_device:
-                recommended_device = gpu_device_hash.get(gpu_device)
-
-            additional_config = {
-                'gpuInfo': {
-                    'device': recommended_device,
-                    'gpuPerWorker': 1
-                },
-                'additionalConfig': {
-                    'localSsd': 2
-                }
-            }
-            cluster_config.update(additional_config)
-
+        # If the cluster is GPU cluster, we need to add the GPU configuration
+        if self.is_gpu_cluster():
+            gpu_config = self._get_gpu_configuration()
+            cluster_config.update(gpu_config)
+            ssd_config = self._get_ssd_configuration()
+            cluster_config.update(ssd_config)
         return cluster_config
+
+    @classmethod
+    def _get_ssd_configuration(cls) -> dict:
+        """
+        TODO: We should recommend correct number of SSDs instead a fixed number.
+        """
+        return {
+            'ssdInfo': {
+                'ssdPerWorker': 2
+            }
+        }
 
     def _generate_node_configuration(self, render_args: dict = None) -> Union[str, dict]:
         """
@@ -648,6 +625,13 @@ class DataprocCluster(ClusterBase):
         in case of Dataproc.
         """
         return 'test-node-e'
+
+    def get_worker_conversion_str(self, include_gpu: bool = True) -> str:
+        """
+        Overrides to provide the worker conversion string which is specific to Dataproc.
+        Example: '2 x n1-standard-32 (4 T4 each)'
+        """
+        return super().get_worker_conversion_str(include_gpu)
 
 
 @dataclass

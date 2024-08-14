@@ -51,6 +51,11 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfDataSourceView.getRawView(apps)
   }
 
+  def getDataSourceInfo(
+      cachedSqlAccum: Seq[SQLAccumProfileResults]): Seq[DataSourceProfileResult] = {
+    ProfDataSourceView.getRawView(apps, cachedSqlAccum)
+  }
+
   // get executor related information
   def getExecutorInfo: Seq[ExecutorInfoProfileResult] = {
     ProfExecutorView.getRawView(apps)

@@ -23,8 +23,7 @@ from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.emr_job import EmrLocalRapidsJob
 from spark_rapids_pytools.cloud_api.s3storage import S3StorageDriver
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, CMDDriverBase, \
-    ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, SysInfo, GpuDevice, \
-    ClusterGetAccessor
+    ClusterState, SparkNodeType, ClusterNode, GpuHWInfo, GpuDevice, ClusterGetAccessor
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, \
     AbstractPropertiesContainer
 from spark_rapids_pytools.common.utilities import Utils
@@ -70,8 +69,10 @@ class EMRPlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = S3StorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
-        return EMRCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
+        return EMRCluster(self, is_inferred=is_inferred, is_props_file=is_props_file).\
+            set_connection(cluster_id=cluster, props=props)
 
     def migrate_cluster_to_gpu(self, orig_cluster):
         """
@@ -197,15 +198,6 @@ class EMRCMDDriver(CMDDriverBase):
                        dest]
         return Utils.gen_joined_str(' ', prefix_args)
 
-    def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
-        cmd_params = ['aws ec2 describe-instance-types',
-                      '--region', f'{self.get_region()}',
-                      '--instance-types', f'{node.instance_type}']
-        return cmd_params
-
-    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
-        return node.instance_type, self.get_region()
-
     def get_zone(self) -> str:
         describe_cmd = ['aws ec2 describe-availability-zones',
                         '--region', f'{self.get_region()}']
@@ -240,12 +232,6 @@ class EMRCMDDriver(CMDDriverBase):
         describe_cmd = f'aws emr describe-cluster --cluster-id {cluster_id}'
         return self.run_sys_cmd(describe_cmd)
 
-    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
-        raw_instance_descriptions = super()._exec_platform_describe_node_instance(node)
-        instance_descriptions = JSONPropertiesContainer(raw_instance_descriptions, file_load=False)
-        # Return the instance description of node type. Convert to valid JSON string for type matching.
-        return json.dumps(instance_descriptions.get_value('InstanceTypes')[0])
-
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
@@ -278,6 +264,7 @@ class InstanceGroup:
     market: str  # ON_DEMAND OR ON_SPOT
     group_type: str  # Master, TASK, or CORE
     spark_grp_type: SparkNodeType = field(default=None, init=False)  # map the group_type to Spark type.
+    state: ClusterState  # RUNNING, TERMINATED..etc.
 
     def __post_init__(self):
         self.spark_grp_type = EMRPlatform.get_spark_node_type_fromstring(self.group_type)
@@ -307,24 +294,15 @@ class EMRNode(ClusterNode):
         self.name = self.ec2_instance.dns_name
         self.instance_type = self.ec2_instance.group.instance_type
 
-    def _pull_sys_info(self, cli=None) -> SysInfo:
-        cpu_mem = self.mc_props.get_value('MemoryInfo', 'SizeInMiB')
-        # TODO: should we use DefaultVCpus or DefaultCores
-        num_cpus = self.mc_props.get_value('VCpuInfo', 'DefaultVCpus')
-        return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
-
     def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo or None:
         raw_gpus = self.mc_props.get_value_silent('GpuInfo')
-        if raw_gpus is None:
+        if raw_gpus is None or len(raw_gpus) == 0:
             return None
         # TODO: we assume all gpus of the same type
-        raw_gpu_arr = raw_gpus.get('Gpus')
-        if raw_gpu_arr is None:
-            return None
-        raw_gpu = raw_gpu_arr[0]
+        raw_gpu = raw_gpus[0]
         gpu_device = GpuDevice.fromstring(raw_gpu['Name'])
-        gpu_cnt = raw_gpu['Count']
-        gpu_mem = raw_gpu['MemoryInfo']['SizeInMiB']
+        gpu_cnt = raw_gpu['Count'][0]  # gpu count is a list
+        gpu_mem = GpuDevice.get_gpu_mem(gpu_device)
         return GpuHWInfo(num_gpus=gpu_cnt,
                          gpu_device=gpu_device,
                          gpu_mem=gpu_mem)
@@ -411,7 +389,8 @@ class EMRCluster(ClusterBase):
                         instance_type=new_instance_type,
                         count=curr_group.count,
                         market=curr_group.market,
-                        group_type=curr_group.group_type)
+                        group_type=curr_group.group_type,
+                        state=ClusterState.UNKNOWN)
                 group_cache.update({new_inst_grp.id: new_inst_grp})
             self.instance_groups.append(new_inst_grp)
         # convert the instances
@@ -455,12 +434,18 @@ class EMRCluster(ClusterBase):
         def process_cluster_group_list(inst_groups: list) -> list:
             instance_group_list = []
             for inst_grp in inst_groups:
+                parsed_state = ClusterState.UNKNOWN
+                try:
+                    parsed_state = ClusterState.fromstring(inst_grp['Status']['State'])
+                except Exception:  # pylint: disable=broad-except
+                    self.logger.info('Unable to get cluster state, setting to \'UNKNOWN\'.')
                 inst_group = InstanceGroup(
                     id=inst_grp['Id'],
                     instance_type=inst_grp['InstanceType'],
                     count=inst_grp['RequestedInstanceCount'],
                     market=inst_grp['Market'],
                     group_type=inst_grp['InstanceGroupType'],
+                    state=parsed_state
                 )
                 instance_group_list.append(inst_group)
             return instance_group_list
@@ -470,8 +455,19 @@ class EMRCluster(ClusterBase):
         self.instance_groups = process_cluster_group_list(inst_grps)
         self.ec2_instances = []
         for curr_group in self.instance_groups:
-            instances_list = self.__create_ec2_list_by_group(curr_group)
-            self.ec2_instances.extend(instances_list)
+            if self.is_props_file:
+                for _ in range(curr_group.count):
+                    ec2_instance = Ec2Instance(
+                        id='',
+                        ec2_instance_id='',
+                        dns_name='',
+                        group=curr_group,
+                        state=curr_group.state
+                    )
+                    self.ec2_instances.append(ec2_instance)
+            else:
+                instances_list = self.__create_ec2_list_by_group(curr_group)
+                self.ec2_instances.extend(instances_list)
         self.nodes = self.__create_node_from_instances()
 
     def _set_fields_from_props(self):

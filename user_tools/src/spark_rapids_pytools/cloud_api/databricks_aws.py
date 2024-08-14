@@ -52,8 +52,10 @@ class DBAWSPlatform(EMRPlatform):
     def _install_storage_driver(self):
         self.storage = S3StorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
-        return DatabricksCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
+        return DatabricksCluster(self, is_inferred=is_inferred, is_props_file=is_props_file).\
+            set_connection(cluster_id=cluster, props=props)
 
     def set_offline_cluster(self, cluster_args: dict = None):
         pass
@@ -167,23 +169,13 @@ class DBAWSCMDDriver(CMDDriverBase):
                        dest]
         return Utils.gen_joined_str(' ', prefix_args)
 
-    def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
-        cmd_params = ['aws ec2 describe-instance-types',
-                      '--region', f'{self.get_region()}',
-                      '--instance-types', f'{node.instance_type}']
-        return cmd_params
-
-    def _get_instance_description_cache_key(self, node: ClusterNode) -> tuple:
-        return node.instance_type, self.get_region()
-
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
-    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
-        raw_instance_descriptions = super()._exec_platform_describe_node_instance(node)
-        instance_descriptions = JSONPropertiesContainer(raw_instance_descriptions, file_load=False)
-        # Return the instance description of node type. Convert to valid JSON string for type matching.
-        return json.dumps(instance_descriptions.get_value('InstanceTypes')[0])
+    def init_instance_descriptions(self) -> None:
+        instance_description_file_path = Utils.resource_path('emr-instance-catalog.json')
+        self.logger.info('Loading instance descriptions from file: %s', instance_description_file_path)
+        self.instance_descriptions = JSONPropertiesContainer(instance_description_file_path)
 
 
 @dataclass
@@ -239,9 +231,12 @@ class DatabricksCluster(ClusterBase):
         # construct worker nodes info when cluster is inactive
         executors_cnt = len(worker_nodes_from_conf) if worker_nodes_from_conf else 0
         if num_workers != executors_cnt:
-            self.logger.warning('Cluster configuration: `executors` count %d does not match the '
-                                '`num_workers` value %d. Using generated names.', executors_cnt,
-                                num_workers)
+            if not self.is_inferred:
+                # this warning should be raised only when the cluster is not inferred, i.e. user has provided the
+                # cluster configuration with num_workers explicitly set
+                self.logger.warning('Cluster configuration: `executors` count %d does not match the '
+                                    '`num_workers` value %d. Using the `num_workers` value.', executors_cnt,
+                                    num_workers)
             worker_nodes_from_conf = self.generate_node_configurations(num_workers)
         if num_workers == 0 and self.props.get_value('node_type_id') is None:
             # if there are no worker nodes and no node_type_id, then we cannot proceed

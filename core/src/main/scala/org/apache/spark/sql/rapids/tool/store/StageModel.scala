@@ -27,11 +27,21 @@ import org.apache.spark.sql.rapids.tool.annotation.{Calculated, Since, WallClock
  *
  * @param sInfo Snapshot from the stage info loaded from the eventlog
  */
-@Since("24.02.3")
-class StageModel private(var sInfo: StageInfo) {
 
-  val sId: Int = sInfo.stageId
-  val attemptId: Int = sInfo.attemptNumber()
+@Since("24.02.3")
+class StageModel private(sInfo: StageInfo) {
+
+  var stageInfo: StageInfo = _
+  updateInfo(sInfo)
+
+  /**
+   * @param newStageInfo
+   * @return a new StageInfo object.
+   * TODO: https://github.com/NVIDIA/spark-rapids-tools/issues/1260
+   */
+  private def initStageInfo(newStageInfo: StageInfo): StageInfo = {
+    newStageInfo
+  }
 
   @WallClock
   @Calculated("Calculated as (submissionTime - completionTime)")
@@ -41,11 +51,11 @@ class StageModel private(var sInfo: StageInfo) {
    * Updates the snapshot of Spark's stageInfo to point to the new value and recalculate the
    * duration. Typically, a new StageInfo object is created with both StageSubmitted/StageCompleted
    * events
-   * @param newSInfo Spark's StageInfo loaded from StageSubmitted/StageCompleted events.
+   * @param newStageInfo Spark's StageInfo loaded from StageSubmitted/StageCompleted events.
    */
-  private def updateInfo(newSInfo: StageInfo): Unit = {
-    this.sInfo = newSInfo
-    // recalculate duration
+  private def updateInfo(newStageInfo: StageInfo): Unit = {
+    // TODO issue: https://github.com/NVIDIA/spark-rapids-tools/issues/1260
+    stageInfo = initStageInfo(newStageInfo)
     calculateDuration()
   }
 
@@ -55,19 +65,15 @@ class StageModel private(var sInfo: StageInfo) {
    */
   private def calculateDuration(): Unit = {
     duration =
-      ProfileUtils.optionLongMinusOptionLong(sInfo.completionTime, sInfo.submissionTime)
+      ProfileUtils.optionLongMinusOptionLong(stageInfo.completionTime, stageInfo.submissionTime)
   }
 
   def hasFailed: Boolean = {
-    sInfo.failureReason.isDefined
+    stageInfo.failureReason.isDefined
   }
 
   def getFailureReason: String = {
-    sInfo.failureReason.getOrElse("")
-  }
-
-  def getSInfoAccumIds: Iterable[Long] = {
-    sInfo.accumulables.keySet
+    stageInfo.failureReason.getOrElse("")
   }
 
   /**
@@ -102,12 +108,12 @@ object StageModel {
    *         updating its sInfo and duration fields.
    */
   def apply(stageInfo: StageInfo, stageModel: Option[StageModel]): StageModel = {
-    val sModel = stageModel.getOrElse(new StageModel(stageInfo))
-    // Initialization code used to update the duration based on the StageInfo captured from Spark's
-    // eventlog
-    sModel.updateInfo(stageInfo)
+    val sModel = stageModel match {
+      case Some(existingStageModel) =>
+        existingStageModel.updateInfo(stageInfo)
+        existingStageModel
+      case None => new StageModel(stageInfo)
+    }
     sModel
   }
 }
-
-

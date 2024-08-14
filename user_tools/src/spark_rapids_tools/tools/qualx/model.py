@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
+""" Model training and prediction functions for QualX """
+
 from typing import Callable, Optional, List, Tuple
-import numpy as np
-import pandas as pd
+import json
 import random
 import shap
+import numpy as np
+import pandas as pd
 import xgboost as xgb
+from xgboost import Booster
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
 from spark_rapids_tools.tools.qualx.util import get_logger
-from xgboost import Booster
 # Import optional packages
 try:
     import optuna
@@ -35,22 +37,20 @@ LOG_LABEL = True  # use log(y) as target
 
 
 # non-training features (and labels)
-ignored_features = set(
-    [
-        'appDuration',
-        'appId',
-        'appName',
-        'description',
-        'Duration',
-        'fraction_supported',
-        'jobStartTime_min',
-        'pluginEnabled',
-        'runType',
-        'scaleFactor',
-        'sparkVersion',
-        'sqlID',
-    ]
-)
+ignored_features = {
+    'appDuration',
+    'appId',
+    'appName',
+    'description',
+    'Duration',
+    'fraction_supported',
+    'jobStartTime_min',
+    'pluginEnabled',
+    'runType',
+    'scaleFactor',
+    'sparkVersion',
+    'sqlID'
+}
 
 expected_model_features = expected_raw_features - ignored_features
 
@@ -79,31 +79,31 @@ def train(
     )
     if cpu_aug_tbl.shape[0] < original_num_rows:
         logger.warning(
-            f'Removed {original_num_rows - cpu_aug_tbl.shape[0]} rows with NaN label values'
+            'Removed %d rows with NaN label values', original_num_rows - cpu_aug_tbl.shape[0]
         )
 
     # split into train/val/test sets
-    X_train = cpu_aug_tbl.loc[cpu_aug_tbl['split'] == 'train', feature_cols]
+    x_train = cpu_aug_tbl.loc[cpu_aug_tbl['split'] == 'train', feature_cols]
     y_train = cpu_aug_tbl.loc[cpu_aug_tbl['split'] == 'train', label_col]
-    dtrain = xgb.DMatrix(X_train, y_train)
+    d_train = xgb.DMatrix(x_train, y_train)
 
-    X_val = cpu_aug_tbl.loc[cpu_aug_tbl['split'] == 'val', feature_cols]
+    x_val = cpu_aug_tbl.loc[cpu_aug_tbl['split'] == 'val', feature_cols]
     y_val = cpu_aug_tbl.loc[cpu_aug_tbl['split'] == 'val', label_col]
-    dval = xgb.DMatrix(X_val, y_val)
+    d_val = xgb.DMatrix(x_val, y_val)
 
     # dtest should be held out of all train/val steps
     # X_test = cpu_aug_tbl.loc[cpu_aug_tbl['split']=='test', feature_cols]
     # y_test = cpu_aug_tbl.loc[cpu_aug_tbl['split']=='test', label_col]
     # dtest = xgb.DMatrix(X_test, y_test)
 
-    # tune hyperparamters on full dataset
+    # tune hyperparameters on full dataset
     cpu_aug_tbl = cpu_aug_tbl.sort_values('description').reset_index(drop=True)
-    X_tune = cpu_aug_tbl.loc[cpu_aug_tbl['split'] != 'test', feature_cols]
+    x_tune = cpu_aug_tbl.loc[cpu_aug_tbl['split'] != 'test', feature_cols]
     y_tune = cpu_aug_tbl.loc[cpu_aug_tbl['split'] != 'test', label_col]
-    dtune = xgb.DMatrix(X_tune, y_tune)
+    d_tune = xgb.DMatrix(x_tune, y_tune)
 
     if base_model:
-        # use hyper-parameters from base model (w/ modifications to learning rate and num trees)
+        # use hyperparameters from base model (w/ modifications to learning rate and num trees)
         xgb_params = {}
         cfg = json.loads(base_model.save_config())
         train_params = cfg['learner']['gradient_booster']['tree_train_param']
@@ -116,10 +116,10 @@ def train(
         n_estimators = int(float(n_estimators) * 1.1)              # increase n_estimators
     else:
         # use optuna hyper-parameter tuning
-        best_params = tune_hyperparameters(X_tune, y_tune, n_trials)
+        best_params = tune_hyperparameters(x_tune, y_tune, n_trials)
         logger.info(best_params)
 
-        # train model w/ best hyperparameters using data splits
+        # train model w/ the best hyperparameters using data splits
         base_params = {
             'random_state': 0,
             'objective': 'reg:squarederror',
@@ -133,9 +133,9 @@ def train(
     evals_result = {}
     xgb_model = xgb.train(
         xgb_params,
-        dtrain=dtune,
+        dtrain=d_tune,
         num_boost_round=n_estimators,
-        evals=[(dtrain, 'train'), (dval, 'val')],
+        evals=[(d_train, 'train'), (d_val, 'val')],
         verbose_eval=50,
         evals_result=evals_result,
         xgb_model=base_model,
@@ -157,13 +157,13 @@ def predict(
     if missing:
         raise ValueError(f'Input is missing model features: {missing}')
     if extra:
-        logger.warning(f'Input had extra features not present in model: {extra}')
+        logger.warning('Input had extra features not present in model: %s', extra)
 
-    X = cpu_aug_tbl[model_features]
+    x = cpu_aug_tbl[model_features]
     y = cpu_aug_tbl[label_col] if label_col else None
 
-    dmat = xgb.DMatrix(X)
-    y_pred = xgb_model.predict(dmat)
+    d_mat = xgb.DMatrix(x)
+    y_pred = xgb_model.predict(d_mat)
 
     if LOG_LABEL:
         y_pred = np.exp(y_pred)
@@ -198,7 +198,7 @@ def predict(
         results_df['gpuDuration'] = results_df['Duration'] / results_df['y']
         results_df['gpuDuration'] = np.floor(results_df['gpuDuration'])
 
-    # adjust raw predictions with stage/sqlID filtering of unsupporteds
+    # adjust raw predictions with stage/sqlID filtering of unsupported ops
     results_df['Duration_pred'] = results_df['Duration'] * (
         1.0
         - results_df['fraction_supported']
@@ -217,12 +217,12 @@ def predict(
 
 
 def extract_model_features(
-    df: pd.DataFrame, split_fn: List[Callable[[pd.DataFrame], pd.DataFrame]] = []
+    df: pd.DataFrame, split_fn: List[Callable[[pd.DataFrame], pd.DataFrame]] = None
 ) -> Tuple[pd.DataFrame, List[str], str]:
     """Extract model features from raw features."""
     missing = expected_raw_features - set(df.columns)
     if missing:
-        logger.warning(f'Input dataframe is missing expected raw features: {missing}')
+        logger.warning('Input dataframe is missing expected raw features: %s', missing)
 
     if FILTER_SPILLS:
         df = df[
@@ -245,9 +245,9 @@ def extract_model_features(
     if gpu_aug_tbl.shape[0] > 0:
         if gpu_aug_tbl.shape[0] != cpu_aug_tbl.shape[0]:
             logger.warning(
-                'Number of GPU rows ({}) does not match number of CPU rows ({})'.format(
-                    gpu_aug_tbl.shape[0], cpu_aug_tbl.shape[0]
-                )
+                'Number of GPU rows (%d) does not match number of CPU rows (%d)',
+                gpu_aug_tbl.shape[0],
+                cpu_aug_tbl.shape[0],
             )
         # train/validation dataset with CPU + GPU runs
         gpu_aug_tbl = gpu_aug_tbl[
@@ -273,7 +273,9 @@ def extract_model_features(
             num_na / num_rows > 0.05
         ):  # arbitrary threshold, misaligned sqlIDs still may 'match' most of the time
             logger.warning(
-                f'Percentage of NaN GPU durations is high: {num_na} / {num_rows}  Per-sql actual speedups may be inaccurate.'
+                'Percentage of NaN GPU durations is high: %d / %d. Per-sql actual speedups may be inaccurate.',
+                num_na,
+                num_rows,
             )
 
         # calculate Duration_speedup
@@ -289,8 +291,8 @@ def extract_model_features(
         label_col = None
 
     # add aggregations for time features
-    # time_cols = ['executorCPUTime', 'executorDeserializeTime', 'executorDeserializeCPUTime', 'executorRunTime', 'gettingResultTime',
-    #     'jvmGCTime', 'resultSerializationTime', 'sr_fetchWaitTime', 'sw_writeTime']
+    # time_cols = ['executorCPUTime', 'executorDeserializeTime', 'executorDeserializeCPUTime', 'executorRunTime',
+    #     'gettingResultTime', 'jvmGCTime', 'resultSerializationTime', 'sr_fetchWaitTime', 'sw_writeTime']
     # time_agg_cols = [cc + '_sum' for cc in time_cols]
     # time_ratio_cols = [cc for cc in cpu_aug_tbl.columns if cc.endswith('TimeRatio')]
 
@@ -309,12 +311,13 @@ def extract_model_features(
         raise ValueError(f'Input data is missing model features: {missing}')
     if extra:
         # remove extra columns
-        logger.warning(f'Input data has extra features (removed): {extra}')
+        logger.warning('Input data has extra features (removed): %s', extra)
         feature_cols = [c for c in feature_cols if c not in extra]
 
     # add train/val/test split column, if split function provided
-    for fn in split_fn:
-        cpu_aug_tbl = fn(cpu_aug_tbl)
+    if split_fn:
+        for fn in split_fn:
+            cpu_aug_tbl = fn(cpu_aug_tbl)
 
     return cpu_aug_tbl, feature_cols, label_col
 
@@ -328,53 +331,40 @@ def split_random(
     indices = list(range(num_rows))
     random.Random(seed).shuffle(indices)
 
-    cpu_aug_tbl.loc[indices[0 : int(test_pct * num_rows)], 'split'] = 'test'
+    cpu_aug_tbl.loc[indices[0: int(test_pct * num_rows)], 'split'] = 'test'
     cpu_aug_tbl.loc[
-        indices[int(test_pct * num_rows) : int((test_pct + val_pct) * num_rows)],
+        indices[int(test_pct * num_rows): int((test_pct + val_pct) * num_rows)],
         'split',
     ] = 'val'
-    cpu_aug_tbl.loc[indices[int((test_pct + val_pct) * num_rows) :], 'split'] = 'train'
+    cpu_aug_tbl.loc[indices[int((test_pct + val_pct) * num_rows):], 'split'] = 'train'
     return cpu_aug_tbl
 
 
-def split_all_test(cpu_aug_tbl: pd.DataFrame) -> pd.DataFrame:
-    cpu_aug_tbl['split'] = 'test'
-    return cpu_aug_tbl
+def split_train_val(cpu_aug_tbl: pd.DataFrame, seed: int = 0, val_pct: float = 0.2,) -> pd.DataFrame:
+    """Sets all rows without a split value to 'train'."""
+    if 'split' in cpu_aug_tbl.columns:
+        # if 'split' already present, just modify the NaN rows
+        indices = cpu_aug_tbl.index[cpu_aug_tbl['split'].isna()].tolist()
+    else:
+        # otherwise, modify all rows
+        indices = cpu_aug_tbl.index.tolist()
 
-
-def split_nds(
-    cpu_aug_tbl: pd.DataFrame,
-    seed: int = 0,
-    val_pct: float = 0.2,
-    holdout_queries: List[str] = [
-        'query2',
-        'query24_part1',
-        'query24_part2',
-        'query28',
-        'query47',
-        'query56',
-        'query66',
-        'query75',
-        'query83',
-        'query93',
-        'query99',
-    ],
-) -> pd.DataFrame:
-    is_test = (cpu_aug_tbl['appName'].str.startswith('nds')) & (
-        cpu_aug_tbl['description'].isin(holdout_queries)
-    )
-    cpu_aug_tbl.loc[is_test, 'split'] = 'test'
-    indices = cpu_aug_tbl.index[~is_test].tolist()
     num_rows = len(indices)
     random.Random(seed).shuffle(indices)
 
     # Split remaining rows into train/val sets
-    cpu_aug_tbl.loc[indices[0 : int(val_pct * num_rows)], 'split'] = 'val'
-    cpu_aug_tbl.loc[indices[int(val_pct * num_rows) :], 'split'] = 'train'
+    cpu_aug_tbl.loc[indices[0: int(val_pct * num_rows)], 'split'] = 'val'
+    cpu_aug_tbl.loc[indices[int(val_pct * num_rows):], 'split'] = 'train'
     return cpu_aug_tbl
 
 
-def tune_hyperparameters(X, y, n_trials: int = 200) -> dict:
+def split_all_test(cpu_aug_tbl: pd.DataFrame) -> pd.DataFrame:
+    """Sets all rows to 'test' split."""
+    cpu_aug_tbl['split'] = 'test'
+    return cpu_aug_tbl
+
+
+def tune_hyperparameters(x, y, n_trials: int = 200) -> dict:
     # use full training set for hyperparameter search
 
     xgb_tmp = xgb.XGBRegressor(objective='reg:squarederror')
@@ -403,17 +393,17 @@ def tune_hyperparameters(X, y, n_trials: int = 200) -> dict:
     )
 
     # run the search
-    optuna_search.fit(X, y)
+    optuna_search.fit(x, y)
 
     return optuna_search.best_params_
 
 
-def compute_shapley_values(xgb_model: xgb.Booster, features: pd.DataFrame):
+def compute_shapley_values(xgb_model: xgb.Booster, features: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Compute Shapley values for the model given an input dataframe.
 
     Returns two dataframes representing:
-    - feature importances
+    - feature importance
     - raw shapley values (per row of input dataframe)
     """
     pd.set_option('display.max_rows', None)

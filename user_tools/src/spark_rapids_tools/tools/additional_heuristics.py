@@ -49,7 +49,7 @@ class AdditionalHeuristics:
         """
         qual_metrics = find_paths(
             self.tools_output_dir,
-            RegexPattern.qualToolMetrics.match,
+            RegexPattern.qual_tool_metrics.match,
             return_directories=True,
         )
         if len(qual_metrics) == 0:

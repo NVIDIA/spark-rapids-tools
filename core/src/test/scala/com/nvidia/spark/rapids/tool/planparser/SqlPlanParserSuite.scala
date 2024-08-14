@@ -19,7 +19,6 @@ package com.nvidia.spark.rapids.tool.planparser
 import java.io.{File, PrintWriter}
 
 import scala.collection.mutable
-import scala.io.Source
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.BaseTestSuite
@@ -34,7 +33,7 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
-import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, ToolsPlanGraph}
+import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
 
 class SQLPlanParserSuite extends BaseTestSuite {
 
@@ -118,7 +117,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
       // create a temporary file to write the modified events
       val faultyEventlog = new File(s"$eventLogDir/faulty_eventlog")
       val pWriter = new PrintWriter(faultyEventlog)
-      val bufferedSource = Source.fromFile(eventLog)
+      val bufferedSource = UTF8Source.fromFile(eventLog)
       try {
         bufferedSource.getLines.map( l =>
           if (l.contains("SparkListenerSQLExecutionStart")) {
@@ -963,7 +962,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
     }
   }
 
-  test("get_json_object is not supported by default in Project with RAPIDS 24.06") {
+  test("get_json_object is supported by default in Project with RAPIDS 24.10") {
     TrampolineUtil.withTempDir { parquetoutputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
@@ -986,7 +985,7 @@ class SQLPlanParserSuite extends BaseTestSuite {
         }
         val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projectExprs = execInfo.filter(_.exec == "Project")
-        assertSizeAndNotSupported(1, projectExprs)
+        assertSizeAndSupported(1, projectExprs)
       }
     }
   }
@@ -1302,6 +1301,37 @@ class SQLPlanParserSuite extends BaseTestSuite {
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val hashAggregate = execInfo.filter(_.exec == "HashAggregate")
       assertSizeAndSupported(2, hashAggregate)
+    }
+  }
+
+  test("map_from_arrays is supported in ProjectExec") {
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ProjectExprsSupported") { spark =>
+          import spark.implicits._
+          val df1 = Seq((Array("a", "b", "c"), Array(1, 2, 3)),
+            (Array("x", "y", "z"), Array(10, 20, 30))).toDF("keys", "values")
+          // write df1 to parquet to transform LocalTableScan to ProjectExec
+          df1.write.parquet(s"$parquetoutputLoc/testtext")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+          // map_from_arrays should be part of ProjectExec
+          df2.select(map_from_arrays(df2("keys"), df2("values")).as("map"))
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 1)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        val allChildren = wholeStages.flatMap(_.children).flatten
+        val projects = allChildren.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projects)
+      }
     }
   }
 

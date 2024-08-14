@@ -16,8 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-import scala.collection.{mutable, Map}
-import scala.collection.immutable.{SortedSet, TreeSet}
+import scala.collection.mutable
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.StageInfo
@@ -46,13 +45,6 @@ class StageModelManager extends Logging {
   private val stageIdToInfo: mutable.SortedMap[Int, mutable.SortedMap[Int, StageModel]] =
     mutable.SortedMap[Int, mutable.SortedMap[Int, StageModel]]()
 
-  // Holds the mapping between AccumulatorIDs to Stages (1-to-N)
-  // [Long: AccumId -> SortedSet[Int: StageId]]
-  // Note that we keep it as primitive type in case we receive a stageID that does not exist
-  // in the stageIdToInfo map.
-  private val accumIdToStageId: mutable.HashMap[Long, SortedSet[Int]] =
-    new mutable.HashMap[Long, SortedSet[Int]]()
-
   /**
    * Returns all StageModels that have been created as a result of handling
    * StageSubmitted/StageCompleted-events. This includes stages with multiple attempts.
@@ -75,17 +67,6 @@ class StageModelManager extends Logging {
     val sModel = StageModel(stageInfo, currentAttempts.get(stageInfo.attemptNumber()))
     currentAttempts.put(stageInfo.attemptNumber(), sModel)
     sModel
-  }
-
-  // Internal method to update the accumulatorMap using the current stage model.
-  private def addAccumIdsToStage(stageModel: StageModel): Unit = {
-    val sInfoAccumIds = stageModel.getSInfoAccumIds
-    if (sInfoAccumIds.nonEmpty) {
-      sInfoAccumIds.foreach { accumId =>
-        val stageIds = accumIdToStageId.getOrElseUpdate(accumId, TreeSet[Int]())
-        accumIdToStageId.put(accumId, stageIds + stageModel.sId)
-      }
-    }
   }
 
   // Used to retrieve a stage model and does not create a new instance if it does not exist.
@@ -130,37 +111,6 @@ class StageModelManager extends Logging {
    */
   def addStageInfo(sInfo: StageInfo): StageModel = {
     val stage = getOrCreateStage(sInfo)
-    addAccumIdsToStage(stage)
     stage
-  }
-
-  /**
-   * Returns a mapping between AccumulatorID and a single stageId (1-to-1) by taking the head of
-   * the list.
-   * That getter is used as a temporary hack to avoid callers that expect a 1-to-1 mapping between
-   * accumulators and stages. i.e., GenerateDot.writeDotGraph expects a 1-to-1 mapping but it is
-   * rarely used for now.
-   *
-   * @return a Map of AccumulatorID to StageId
-   */
-  def getAccumToSingleStage(): Map[Long, Int] = {
-    accumIdToStageId.map { case (accumId, stageIds) =>
-      accumId -> stageIds.head
-    }.toMap
-  }
-
-  def addAccumIdToStage(stageId: Int, accumIds: Iterable[Long]): Unit = {
-    accumIds.foreach { accumId =>
-      val stageIds = accumIdToStageId.getOrElseUpdate(accumId, TreeSet[Int]())
-      accumIdToStageId.put(accumId, stageIds + stageId)
-    }
-  }
-
-  def getStagesIdsByAccumId(accumId: Long): Iterable[Int] = {
-    accumIdToStageId.getOrElse(accumId, TreeSet[Int]())
-  }
-
-  def removeAccumulatorId(accId: Long): Unit = {
-    accumIdToStageId.remove(accId)
   }
 }

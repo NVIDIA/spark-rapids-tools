@@ -27,7 +27,6 @@ import org.json4s._
 import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart
 import org.apache.spark.sql.rapids.tool.SparkRapidsBuildInfo
 
@@ -118,7 +117,7 @@ object EventUtils extends Logging {
    * @return valid parsed long of the content or the duration
    */
   @throws[NullPointerException]
-  private def parseAccumFieldToLong(data: Any): Option[Long] = {
+  def parseAccumFieldToLong(data: Any): Option[Long] = {
     val strData = data.toString
     try {
       Some(strData.toLong)
@@ -127,44 +126,6 @@ object EventUtils extends Logging {
         StringUtils.parseFromDurationToLongOption(strData)
       case NonFatal(_) =>
         None
-    }
-  }
-
-  /**
-   * Given AccumulableInfo object, this method tries to parse value/update fields into long.
-   * It is common to have one of those two fields set to None. That's why, we are not skipping the
-   * entire accumulable if one of those fields fail to parse.
-   *
-   * @param accuInfo object of AccumulableInfo to be processed
-   * @param stageId the tageId to which the metric belongs
-   * @param attemptId the ID of the current execution
-   * @param taskId the task-id to which the metric belongs , if any.
-   * @return option(TaskStageAccumCase) if art least one of the two fields can be parsed to Long.
-   */
-  def buildTaskStageAccumFromAccumInfo(accuInfo: AccumulableInfo,
-      stageId: Int, attemptId: Int, taskId: Option[Long] = None): Option[TaskStageAccumCase] = {
-    val value = accuInfo.value.flatMap(parseAccumFieldToLong)
-    val update = accuInfo.update.flatMap(parseAccumFieldToLong)
-    if (!(value.isDefined || update.isDefined)) {
-      // We could not get any valid number from both value/update
-      if (log.isDebugEnabled()) {
-        if ((accuInfo.value.isDefined && value.isEmpty) ||
-          (accuInfo.update.isDefined && update.isEmpty)) {
-          // in this case we failed to parse
-          logDebug(s"Failed to parse accumulable for stageId=$stageId, taskId=$taskId." +
-            s"The problematic accumulable is: $accuInfo")
-        }
-      }
-      // No need to return a new object to save memory consumption
-      None
-    } else {
-      val accumName = accuInfo.name match {
-        case Some(name) => Some(normalizeMetricName(name))
-        case _ => accuInfo.name
-      }
-      Some(TaskStageAccumCase(
-        stageId, attemptId,
-        taskId, accuInfo.id, accumName, value, update, accuInfo.internal))
     }
   }
 

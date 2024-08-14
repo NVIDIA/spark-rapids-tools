@@ -326,12 +326,13 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
     // TODO: this has stage attempts. we should handle different attempts
     app.stageManager.getAllStages.foreach { sm =>
       // TODO: Should we only consider successful tasks?
-      val tasksInStage = app.taskManager.getTasks(sm.sId, sm.attemptId)
+      val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
+        sm.stageInfo.attemptNumber())
       // count duplicate task attempts
       val numAttempts = tasksInStage.size
       val (durSum, durMax, durMin, durAvg) = AppSparkMetricsAnalyzer.getDurations(tasksInStage)
       val stageRow = StageAggTaskMetricsProfileResult(index,
-        sm.sId,
+        sm.stageInfo.stageId,
         numAttempts,  // TODO: why is this numAttempts and not numTasks?
         sm.duration,
         tasksInStage.map(_.diskBytesSpilled).sum,
@@ -363,7 +364,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         tasksInStage.map(_.sw_recordsWritten).sum,
         tasksInStage.map(_.sw_writeTime).sum
       )
-      stageLevelSparkMetrics(index).put(sm.sId, stageRow)
+      stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
     }
   }
 }

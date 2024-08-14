@@ -316,12 +316,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val collect = new CollectInformation(apps)
     val appInfo = collect.getAppInfo
     val appLogPath = collect.getAppLogPath
-    val dsInfo = collect.getDataSourceInfo
     val rapidsProps = collect.getRapidsProperties
     val sparkProps = collect.getSparkProperties
     val systemProps = collect.getSystemProperties
     val rapidsJar = collect.getRapidsJARInfo
     val sqlMetrics = collect.getSQLPlanMetrics
+    val dsInfo = collect.getDataSourceInfo(sqlMetrics)
     val stageMetrics = collect.getStageLevelMetrics
     val wholeStage = collect.getWholeStageCodeGenMapping
     val sparkRapidsBuildInfo = collect.getSparkRapidsInfo

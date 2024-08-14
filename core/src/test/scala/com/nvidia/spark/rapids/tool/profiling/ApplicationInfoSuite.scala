@@ -98,7 +98,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(firstApp.gpuMode.equals(true))
     assert(firstApp.jobIdToInfo.keys.toSeq.contains(1))
     val stageInfo = firstApp.stageManager.getStage(0, 0)
-    assert(stageInfo.isDefined && stageInfo.get.sInfo.numTasks.equals(1))
+    assert(stageInfo.isDefined && stageInfo.get.stageInfo.numTasks.equals(1))
     assert(firstApp.stageManager.getStage(2, 0).isDefined)
     assert(firstApp.taskManager.getTasks(firstApp.index, 0).head.successful.equals(true))
     assert(firstApp.taskManager.getTasks(firstApp.index, 0).head.endReason.equals("Success"))
@@ -161,7 +161,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(apps.head.jobIdToInfo.keys.toSeq.contains(0))
     val stage0 = apps.head.stageManager.getStage(0, 0)
     assert(stage0.isDefined)
-    assert(stage0.get.sInfo.numTasks.equals(1))
+    assert(stage0.get.stageInfo.numTasks.equals(1))
   }
 
   test("test no sql eventlog") {
@@ -211,7 +211,9 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         val eventLogContent =
           """{"Event":"SparkListenerLogStart","Spark Version":"3.2.1"}
             |{"Event":"SparkListenerApplicationStart","App Name":"GPUMetrics", "App ID":"local-16261043003", "Timestamp":123456, "User":"User1"}
-            |{"Event":"SparkListenerTaskEnd","Stage ID":10,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":5073,"Index":5054,"Attempt":0,"Partition ID":5054,"Launch Time":1712248533994,"Executor ID":"100","Host":"10.154.65.143","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253284920,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.492","Value":"03:13:31.359","Internal":false,"Count Failed Values":true},{"ID":1018,"Name":"gpuSpillToHostTime","Update":"00:00:00.845","Value":"00:29:39.521","Internal":false,"Count Failed Values":true},{"ID":1016,"Name":"gpuSplitAndRetryCount","Update":"1","Value":"2","Internal":false,"Count Failed Values":true}]}}""".stripMargin
+            |{"Event":"SparkListenerTaskEnd","Stage ID":10,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":5073,"Index":5054,"Attempt":0,"Partition ID":5054,"Launch Time":1712248533994,"Executor ID":"100","Host":"10.154.65.143","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253284920,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.492","Value":"03:13:31.359","Internal":false,"Count Failed Values":true},{"ID":1018,"Name":"gpuSpillToHostTime","Update":"00:00:00.845","Value":"00:29:39.521","Internal":false,"Count Failed Values":true},{"ID":1016,"Name":"gpuSplitAndRetryCount","Update":"1","Value":"2","Internal":false,"Count Failed Values":true}]}}
+            |{"Event":"SparkListenerTaskEnd","Stage ID":10,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":2913,"Index":2894,"Attempt":0,"Partition ID":2894,"Launch Time":1712248532696,"Executor ID":"24","Host":"10.154.65.135","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253285639,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.758","Value":"03:13:32.117","Internal":false,"Count Failed Values":true},{"ID":1015,"Name":"gpuReadSpillFromDiskTime","Update":"00:00:02.599","Value":"00:33:37.153","Internal":false,"Count Failed Values":true},{"ID":1018,"Name":"gpuSpillToHostTime","Update":"00:00:00.845","Value":"00:29:39.521","Internal":false,"Count Failed Values":true}]}}
+            |{"Event":"SparkListenerTaskEnd","Stage ID":11,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":2045,"Index":2026,"Attempt":0,"Partition ID":2026,"Launch Time":1712248530708,"Executor ID":"84","Host":"10.154.65.233","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253285667,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.003","Value":"03:13:32.120","Internal":false,"Count Failed Values":true},{"ID":1015,"Name":"gpuReadSpillFromDiskTime","Update":"00:00:00.955","Value":"00:33:38.108","Internal":false,"Count Failed Values":true}]}}""".stripMargin
         // scalastyle:on line.size.limit
         Files.write(eventLogFilePath, eventLogContent.getBytes(StandardCharsets.UTF_8))
 
@@ -236,12 +238,15 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         assert(apps.size == 1)
 
         val collect = new CollectInformation(apps)
-        val gpuMetrics = collect.getStageLevelMetrics
+        val stageLevelResults = collect.getStageLevelMetrics
 
-        // Sample eventlog has 3 gpu metrics, gpuSemaphoreWait,
-        // gpuSpillToHostTime, gpuSplitAndRetryCount
-        assert(gpuMetrics.size == 3)
-        val gpuSemaphoreWait = gpuMetrics.find(_.name == "gpuSemaphoreWait")
+        // Sample eventlog has 4 gpu metrics - gpuSemaphoreWait, gpuReadSpillFromDiskTime
+        // gpuSpillToHostTime, gpuSplitAndRetryCount. But gpuSemaphoreWait and
+        // gpuReadSpillFromDiskTime metrics are updated in 2 stages(stage 10 and 11).
+        // So the result will have 6 rows in total since we are reporting stage level metrics.
+        assert(stageLevelResults.size == 6)
+        // gpu metrics
+        val gpuSemaphoreWait = stageLevelResults.find(_.accMetaRef.getName() == "gpuSemaphoreWait")
         assert(gpuSemaphoreWait.isDefined)
       }
     }

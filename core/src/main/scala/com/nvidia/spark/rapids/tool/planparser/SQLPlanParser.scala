@@ -220,7 +220,7 @@ case class ExecInfo(
 object ExecInfo {
   // Used to create an execInfo without recalculating the dataSet or Udf.
   // This is helpful when we know that node description may contain some patterns that can be
-  // mistakenly identified as UDFs 
+  // mistakenly identified as UDFs
   def createExecNoNode(sqlID: Long,
       exec: String,
       expr: String,
@@ -443,9 +443,7 @@ object SQLPlanParser extends Logging {
 
   def getStagesInSQLNode(node: SparkPlanGraphNode, app: AppBase): Set[Int] = {
     val nodeAccums = node.metrics.map(_.accumulatorId)
-    nodeAccums.flatMap { nodeAccumId =>
-      app.stageManager.getStagesIdsByAccumId(nodeAccumId)
-    }.toSet
+    nodeAccums.flatMap(app.accumManager.getAccStageIds).toSet
   }
 
   // Set containing execs that refers to other expressions. We need this to be a list to allow
@@ -613,15 +611,10 @@ object SQLPlanParser extends Logging {
    * the duration.
    */
   def getTotalDuration(accumId: Option[Long], app: AppBase): Option[Long] = {
-    val taskForAccum = accumId.flatMap(id => app.taskStageAccumMap.get(id))
-      .getOrElse(ArrayBuffer.empty)
-    val accumValues = taskForAccum.map(_.value.getOrElse(0L))
-    val maxDuration = if (accumValues.isEmpty) {
-      None
-    } else {
-      Some(accumValues.max)
+    accumId match {
+      case Some(x) => app.accumManager.getMaxStageValue(x)
+      case _ => None
     }
-    maxDuration
   }
 
   def getDriverTotalDuration(accumId: Option[Long], app: AppBase): Option[Long] = {

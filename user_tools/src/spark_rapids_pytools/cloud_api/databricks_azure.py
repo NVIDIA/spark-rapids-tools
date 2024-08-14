@@ -14,9 +14,7 @@
 
 """Implementation specific to DATABRICKS_AZURE"""
 
-import datetime
 import json
-import os
 from dataclasses import dataclass, field
 from typing import Any, List
 
@@ -26,7 +24,6 @@ from spark_rapids_pytools.cloud_api.databricks_azure_job import DBAzureLocalRapi
 from spark_rapids_pytools.cloud_api.sp_types import CMDDriverBase, ClusterBase, ClusterNode, \
     PlatformBase, SysInfo, GpuHWInfo, ClusterState, SparkNodeType, ClusterGetAccessor, NodeHWInfo, GpuDevice
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
-from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.pricing.databricks_azure_pricing import DatabricksAzurePriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
@@ -52,7 +49,8 @@ class DBAzurePlatform(PlatformBase):
     def _install_storage_driver(self):
         self.storage = AzureStorageDriver(self.cli)
 
-    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False):
+    def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
+                                      is_props_file: bool = False):
         return DatabricksAzureCluster(self, is_inferred=is_inferred).set_connection(cluster_id=cluster, props=props)
 
     def set_offline_cluster(self, cluster_args: dict = None):
@@ -110,8 +108,6 @@ class DBAzureCMDDriver(CMDDriverBase):
     """Represents the command interface that will be used by DATABRICKS_AZURE"""
 
     configs: JSONPropertiesContainer = None
-    cache_expiration_secs: int = field(default=604800, init=False)  # update the file once a week
-    # logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.databricks.azure'), init=False)
 
     def _list_inconsistent_configurations(self) -> list:
         incorrect_envs = super()._list_inconsistent_configurations()
@@ -197,33 +193,6 @@ class DBAzureCMDDriver(CMDDriverBase):
     def get_instance_description_cli_params(self):
         return ['az vm list-skus', '--location', f'{self.get_region()}']
 
-    def _build_platform_describe_node_instance(self, node: ClusterNode) -> list:
-        pass
-
-    def _caches_expired(self, cache_file) -> bool:
-        if not os.path.exists(cache_file):
-            return True
-        modified_time = os.path.getmtime(cache_file)
-        diff_time = int(datetime.datetime.now().timestamp() - modified_time)
-        if diff_time > self.cache_expiration_secs:
-            return True
-        return False
-
-    def init_instances_description(self) -> str:
-        cache_dir = Utils.get_rapids_tools_env('CACHE_FOLDER')
-        fpath = FSUtil.build_path(cache_dir, 'azure-instances-catalog.json')
-        if self._caches_expired(fpath):
-            self.logger.info('Downloading the Azure instance type descriptions catalog')
-            self.generate_instance_description(fpath)
-        else:
-            self.logger.info('The Azure instance type descriptions catalog is loaded from the cache')
-        return fpath
-
-    def _exec_platform_describe_node_instance(self, node: ClusterNode) -> str:
-        instance_descriptions = JSONPropertiesContainer(self.init_instances_description())
-        # Return the instance description of node type. Convert to valid JSON string for type matching.
-        return json.dumps(instance_descriptions.get_value_silent(node.instance_type))
-
     def get_submit_spark_job_cmd_for_cluster(self, cluster_name: str, submit_args: dict) -> List[str]:
         raise NotImplementedError
 
@@ -241,13 +210,6 @@ class DatabricksAzureNode(ClusterNode):
 
     def _set_fields_from_props(self):
         self.name = self.props.get_value_silent('public_dns')
-
-    def _pull_sys_info(self, cli=None) -> SysInfo:
-        cpu_mem = self.mc_props.get_value('MemoryInfo', 'SizeInMiB')
-        # TODO: should we use DefaultVCpus or DefaultCores
-        num_cpus = self.mc_props.get_value('VCpuInfo', 'DefaultVCpus')
-
-        return SysInfo(num_cpus=num_cpus, cpu_mem=cpu_mem)
 
     def _pull_gpu_hw_info(self, cli=None) -> GpuHWInfo or None:
         gpu_info = cli.configs.get_value('gpuConfigs', 'user-tools', 'supportedGpuInstances')
@@ -305,9 +267,12 @@ class DatabricksAzureCluster(ClusterBase):
         # construct worker nodes info when cluster is inactive
         executors_cnt = len(worker_nodes_from_conf) if worker_nodes_from_conf else 0
         if num_workers != executors_cnt:
-            self.logger.warning('Cluster configuration: `executors` count %d does not match the '
-                                '`num_workers` value %d. Using generated names.', executors_cnt,
-                                num_workers)
+            if not self.is_inferred:
+                # this warning should be raised only when the cluster is not inferred, i.e. user has provided the
+                # cluster configuration with num_workers explicitly set
+                self.logger.warning('Cluster configuration: `executors` count %d does not match the '
+                                    '`num_workers` value %d. Using generated names.', executors_cnt,
+                                    num_workers)
             worker_nodes_from_conf = self.generate_node_configurations(num_workers)
         if num_workers == 0 and self.props.get_value('node_type_id') is None:
             # if there are no worker nodes and no node_type_id, then we cannot proceed

@@ -21,7 +21,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 
 import scala.concurrent.duration._
-import scala.io.Source
 import scala.xml.XML
 
 import com.nvidia.spark.rapids.tool.profiling.{ProfileOutputWriter, ProfileResult}
@@ -29,9 +28,8 @@ import org.scalatest.FunSuite
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal, not}
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.sql.TrampolineUtil
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
 
 
 class ToolUtilsSuite extends FunSuite with Logging {
@@ -173,32 +171,6 @@ class ToolUtilsSuite extends FunSuite with Logging {
     StringUtils.parseFromDurationToLongOption("Hello Worlds") should not be 'defined
   }
 
-  test("parse Accumulable fields") {
-    val problematicAccum =
-      AccumulableInfo(100, Some("problematicAccum"), Some(Array()), Some(None), true, true, None)
-    EventUtils.buildTaskStageAccumFromAccumInfo(
-      problematicAccum, 1, 1, None) should not be 'defined
-    // test successful value field
-    val accumWithValue =
-      AccumulableInfo(100, Some("successAccum"), Some(None), Some(1000), true, true, None)
-    EventUtils.buildTaskStageAccumFromAccumInfo(
-      accumWithValue, 1, 1, None).get.value.get shouldBe 1000
-    // test successful update field
-    val accumWithUpdate =
-      AccumulableInfo(100, Some("successAccum"), Some(1000), Some(None), true, true, None)
-    EventUtils.buildTaskStageAccumFromAccumInfo(
-      accumWithUpdate, 1, 1, None).get.update.get shouldBe 1000
-    // test successful parse of durations
-    val updateField = "0:00:00.100"
-    val valueField = "0:00:59.200"
-    val accumWithDuration =
-      AccumulableInfo(100, Some("successAccum"),
-        Some(updateField), Some(valueField), true, true, None)
-    val result = EventUtils.buildTaskStageAccumFromAccumInfo(accumWithDuration, 1, 1, None).get
-    result.update.get shouldBe 100
-    result.value.get shouldBe (59 * 1000 + 200)
-  }
-
   test("output non-english characters") {
     val nonEnglishString = "你好"
     TrampolineUtil.withTempDir { tempDir =>
@@ -231,8 +203,8 @@ class ToolUtilsSuite extends FunSuite with Logging {
            |+-------+--------+---------------+---------+
            ||appID-0|1       |你好           |1,2,3    |
            |+-------+--------+---------------+---------+""".stripMargin
-      val actualCSVContent: String = Source.fromFile(csvFilePath).getLines.mkString("\n")
-      val actualTXTContent: String = Source.fromFile(textFilePath).getLines.mkString("\n")
+      val actualCSVContent = FSUtils.readFileContentAsUTF8(csvFilePath)
+      val actualTXTContent = FSUtils.readFileContentAsUTF8(textFilePath)
       actualCSVContent should equal (expectedCSVFileContent)
       actualTXTContent should equal (expectedTXTContent)
     }

@@ -20,7 +20,6 @@ import java.io.{File, PrintWriter}
 import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-import scala.io.Source
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -36,7 +35,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, to_json, udf}
 import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterSummary, ExistingClusterInfo, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo, RunningQualificationEventProcessor}
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, UTF8Source}
 import org.apache.spark.sql.types._
 
 // drop the fields that won't go to DataFrame without encoders
@@ -151,12 +150,11 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  private def runQualificationTest(eventLogs: Array[String], expectFileName: String,
+  private def runQualificationTest(eventLogs: Array[String], expectFileName: String = "",
       shouldReturnEmpty: Boolean = false, expectPerSqlFileName: Option[String] = None,
-      expectedStatus: Option[StatusReportCounts] = None) = {
+      expectedStatus: Option[StatusReportCounts] = None): Unit = {
     TrampolineUtil.withTempDir { outpath =>
       val qualOutputPrefix = "rapids_4_spark_qualification_output"
-      val resultExpectation = new File(expRoot, expectFileName)
       val outputArgs = Array(
         "--output-directory",
         outpath.getAbsolutePath())
@@ -184,7 +182,8 @@ class QualificationSuite extends BaseTestSuite {
 
       if (shouldReturnEmpty) {
         assert(appSum.head.estimatedInfo.sqlDfDuration == 0.0)
-      } else {
+      } else if (expectFileName.nonEmpty) {
+        val resultExpectation = new File(expRoot, expectFileName)
         val dfExpect = readExpectedFile(resultExpectation)
         assert(!dfQual.isEmpty)
         ToolTestUtils.compareDataFrames(dfQual, dfExpect)
@@ -288,7 +287,7 @@ class QualificationSuite extends BaseTestSuite {
         s"${outpath.getAbsolutePath}/$qualOutputPrefix/${qualOutputPrefix}_status.csv")
 
       val filename = s"$outpath/$qualOutputPrefix/$qualOutputPrefix.log"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toArray
         // 4 lines of header and footer
@@ -325,7 +324,7 @@ class QualificationSuite extends BaseTestSuite {
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.log"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toArray
         // 4 lines of header and footer
@@ -338,7 +337,7 @@ class QualificationSuite extends BaseTestSuite {
       }
       val persqlFileName = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output_persql.log"
-      val persqlInputSource = Source.fromFile(persqlFileName)
+      val persqlInputSource = UTF8Source.fromFile(persqlFileName)
       try {
         val lines = persqlInputSource.getLines.toArray
         // 4 lines of header and footer
@@ -377,7 +376,7 @@ class QualificationSuite extends BaseTestSuite {
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.log"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines
         // 4 lines of header and footer, limit is 2
@@ -387,7 +386,7 @@ class QualificationSuite extends BaseTestSuite {
       }
       val persqlFileName = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output_persql.log"
-      val persqlInputSource = Source.fromFile(persqlFileName)
+      val persqlInputSource = UTF8Source.fromFile(persqlFileName)
       try {
         val lines = persqlInputSource.getLines
         // 4 lines of header and footer, limit is 2
@@ -413,7 +412,7 @@ class QualificationSuite extends BaseTestSuite {
 
       val filename = s"$outpath/rapids_4_spark_qualification_output/" +
         s"rapids_4_spark_qualification_output.csv"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toSeq
         // 1 for header, 1 for values
@@ -447,7 +446,7 @@ class QualificationSuite extends BaseTestSuite {
         s"${outpath.getAbsolutePath}/$qualOutputPrefix/${qualOutputPrefix}_status.csv")
 
       val filename = s"$outpath/$qualOutputPrefix/$qualOutputPrefix.csv"
-      val inputSource = Source.fromFile(filename)
+      val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toSeq
         // 1 for header, Event log not parsed since it is from GPU run.
@@ -495,7 +494,7 @@ class QualificationSuite extends BaseTestSuite {
       val brokenEvLog = new File(s"$eventLogDir/brokenevent.inprogress")
       val pwList = Array(new PrintWriter(unfinishedLog), new PrintWriter(incompleteLog),
         new PrintWriter(brokenEvLog))
-      val bufferedSource = Source.fromFile(eventLog)
+      val bufferedSource = UTF8Source.fromFile(eventLog)
       try {
         val allEventLines = bufferedSource.getLines.toList
         // the following val will contain the last two lines of the eventlog
@@ -622,12 +621,12 @@ class QualificationSuite extends BaseTestSuite {
 
   test("test eventlog with no jobs") {
     val logFiles = Array(s"$logDir/empty_eventlog")
-    runQualificationTest(logFiles, "", shouldReturnEmpty=true)
+    runQualificationTest(logFiles, shouldReturnEmpty=true)
   }
 
   test("test eventlog with rdd only jobs") {
     val logFiles = Array(s"$logDir/rdd_only_eventlog")
-    runQualificationTest(logFiles, "", shouldReturnEmpty=true)
+    runQualificationTest(logFiles, shouldReturnEmpty=true)
   }
 
   test("test truncated log file 1") {
@@ -1246,7 +1245,7 @@ class QualificationSuite extends BaseTestSuite {
           val filename = s"$outpath/rapids_4_spark_qualification_output/" +
               s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
 
-          val inputSource = Source.fromFile(filename)
+          val inputSource = UTF8Source.fromFile(filename)
           try {
             val lines = inputSource.getLines.toArray
             val expr = ".*to_json.*"
@@ -1358,7 +1357,7 @@ class QualificationSuite extends BaseTestSuite {
         val (exit, sumInfo@_) =
           QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
-  
+
         // the code above that runs the Spark query stops the Sparksession
         // so create a new one to read in the csv file
         createSparkSession()
@@ -1368,7 +1367,7 @@ class QualificationSuite extends BaseTestSuite {
           s"rapids_4_spark_qualification_output.csv"
         val outputActual = readExpectedFile(new File(outputResults))
         assert(outputActual.collect().size == 1)
-        assert(outputActual.select("Potential Problems").first.getString(0) == 
+        assert(outputActual.select("Potential Problems").first.getString(0) ==
           "TIMEZONE hour():TIMEZONE current_timestamp():TIMEZONE to_timestamp():TIMEZONE second()")
       }
     }
@@ -1386,7 +1385,7 @@ class QualificationSuite extends BaseTestSuite {
           " (SELECT  * from tableB as r where l.age=r.age and l.score <= r.score)")
       }
       // validate that the eventlog contains ExistenceJoin and BroadcastHashJoin
-      val reader = Source.fromFile(eventLog).mkString
+      val reader = FSUtils.readFileContentAsUTF8(eventLog)
       assert(reader.contains("ExistenceJoin"))
       assert(reader.contains("BroadcastHashJoin"))
 
@@ -1555,7 +1554,7 @@ class QualificationSuite extends BaseTestSuite {
           // Next, we check that the content of the unsupportedOps has no entry for "hive".
           val unsupportedOpsCSV = s"$outpath/rapids_4_spark_qualification_output/" +
             s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
-          val inputSource = Source.fromFile(unsupportedOpsCSV)
+          val inputSource = UTF8Source.fromFile(unsupportedOpsCSV)
           try {
             val unsupportedRows = inputSource.getLines.toSeq
             assert(unsupportedRows.head.contains(
@@ -1573,25 +1572,30 @@ class QualificationSuite extends BaseTestSuite {
   // scalastyle:off line.size.limit
   val expectedClusterInfoMap: Seq[(String, Option[ExistingClusterInfo])] = Seq(
     "eventlog_2nodes_8cores" -> // 2 executor nodes with 8 cores.
-      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 8, 1, 2, 0L,
-        None, None, Some("10.10.10.100"), None, None)),
+      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
+        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+        driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_multiple_executors" -> // 3 nodes, each with 2 executors having 12 cores.
-      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 12, 2, 3, 0L,
-        None, None, Some("10.59.184.210"), None, None)),
+      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+        numExecsPerNode = 2, numWorkerNodes = 3, executorHeapMemory = 0L,
+        driverHost = Some("10.59.184.210"))),
     // TODO: Currently we do not handle dynamic allocation while calculating number of nodes. For
     //  calculating nodes, we look at unique active hosts at the end of application. In this test
     //  case, the application used all 4 nodes initially (8 executors total), and then 7 executors were
     //  removed. In the end, only 1 executor was active on 1 node. This test case should be updated
     //  once we handle dynamic allocation.
     "eventlog_4nodes_8cores_dynamic_alloc" -> // 4 nodes, each with 2 executor having 8 cores, with dynamic allocation.
-      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 8, 2, 1, 0L,
-        None, None, Some("test-cpu-cluster-m"), None, None)),
+      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
+        numExecsPerNode = 2, numWorkerNodes = 1, executorHeapMemory = 0L,
+        driverHost = Some("test-cpu-cluster-m"))),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 nodes with varying cores: 8, 12, and 8, each with 1 executor.
-      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 12, 1, 3, 0L,
-        None, None, Some("10.10.10.100"), None, None)),
+      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+        numExecsPerNode = 1, numWorkerNodes = 3, executorHeapMemory = 0L,
+        driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_exec_removed" -> // 2 nodes, each with 1 executor having 12 cores, 1 executor removed.
-      Some(ExistingClusterInfo(PlatformNames.DEFAULT, 12, 1, 2, 0L,
-        None, None, Some("10.10.10.100"), None, None)),
+      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
+        driverHost = Some("10.10.10.100"))),
     "eventlog_driver_only" -> None // Event log with driver only
   )
   // scalastyle:on line.size.limit
@@ -1606,44 +1610,50 @@ class QualificationSuite extends BaseTestSuite {
   // Expected results as a map of platform -> cluster info.
   val expectedPlatformClusterInfoMap: Seq[(String, ExistingClusterInfo)] = Seq(
     PlatformNames.DATABRICKS_AWS ->
-      ExistingClusterInfo(PlatformNames.DATABRICKS_AWS, 8, 1, 2, 0L,
-        Some("m6gd.2xlarge"),
-        Some("m6gd.2xlarge"),
-        Some("10.10.10.100"),
-        Some("1212-214324-test"),
-        Some("test-db-aws-cluster")),
+        ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AWS,
+          coresPerExecutor = 8,
+          numExecsPerNode = 1,
+          numWorkerNodes = 2,
+          executorHeapMemory = 0L,
+          driverNodeType = Some("m6gd.2xlarge"),
+          workerNodeType = Some("m6gd.2xlarge"),
+          driverHost = Some("10.10.10.100"),
+          clusterId = Some("1212-214324-test"),
+          clusterName = Some("test-db-aws-cluster")),
     PlatformNames.DATABRICKS_AZURE ->
-      ExistingClusterInfo(PlatformNames.DATABRICKS_AZURE, 8, 1, 2, 0L,
-        Some("Standard_E8ds_v4"),
-        Some("Standard_E8ds_v4"),
-        Some("10.10.10.100"),
-        Some("1212-214324-test"),
-        Some("test-db-azure-cluster")),
+      ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AZURE,
+        coresPerExecutor = 8,
+        numExecsPerNode = 1,
+        numWorkerNodes = 2,
+        executorHeapMemory = 0L,
+        driverNodeType = Some("Standard_E8ds_v4"),
+        workerNodeType = Some("Standard_E8ds_v4"),
+        driverHost = Some("10.10.10.100"),
+        clusterId = Some("1212-214324-test"),
+        clusterName = Some("test-db-azure-cluster")),
     PlatformNames.DATAPROC ->
-      ExistingClusterInfo(PlatformNames.DATAPROC, 8, 1, 2,
-        0L,
-        None,
-        None,
-        Some("dataproc-test-m.c.internal"),
-        None,
-        None),
+      ExistingClusterInfo(vendor = PlatformNames.DATAPROC,
+        coresPerExecutor = 8,
+        numExecsPerNode = 1,
+        numWorkerNodes = 2,
+        executorHeapMemory = 0L,
+        driverHost = Some("dataproc-test-m.c.internal")),
     PlatformNames.EMR ->
-      ExistingClusterInfo(PlatformNames.EMR, 8, 1, 2,
-        0L,
-        None,
-        None,
-        Some("10.10.10.100"),
-        Some("j-123AB678XY321"),
-        None),
+      ExistingClusterInfo(vendor = PlatformNames.EMR,
+        coresPerExecutor = 8,
+        numExecsPerNode = 1,
+        numWorkerNodes = 2,
+        executorHeapMemory = 0L,
+        driverHost = Some("10.10.10.100"),
+        clusterId = Some("j-123AB678XY321")),
     PlatformNames.ONPREM ->
-      ExistingClusterInfo(PlatformNames.ONPREM, 8, 1, 2,
-        0L,
-        None,
-        None,
-        Some("10.10.10.100"),
-        None,
-        None)
-  )
+      ExistingClusterInfo(vendor = PlatformNames.ONPREM,
+        coresPerExecutor = 8,
+        numExecsPerNode = 1,
+        numWorkerNodes = 2,
+        executorHeapMemory = 0L,
+        driverHost = Some("10.10.10.100"))
+      )
 
   expectedPlatformClusterInfoMap.foreach { case (platform, expectedClusterInfo) =>
     test(s"test cluster information JSON for platform - $platform ") {
@@ -1697,6 +1707,33 @@ class QualificationSuite extends BaseTestSuite {
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
       assert(!new File(outputResultFile).exists())
     }
+  }
+
+  test("test status report generation for wildcard event log") {
+    val logFiles = Array(
+      s"$logDir/cluster_information/eventlog_3node*") // correct wildcard event log with 3 matches
+    // Status counts: 3 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+    val expectedStatus = Some(StatusReportCounts(3, 0, 0, 0))
+    runQualificationTest(logFiles, expectedStatus = expectedStatus)
+  }
+
+  test("test status report generation for incorrect wildcard event logs") {
+    val logFiles = Array(
+      s"$logDir/cluster_information/eventlog_xxxx*",  // incorrect wildcard event log
+      s"$logDir/cluster_information/eventlog_yyyy*")  // incorrect wildcard event log
+    // Status counts: 0 SUCCESS, 2 FAILURE, 0 SKIPPED, 0 UNKNOWN
+    val expectedStatus = Some(StatusReportCounts(0, 2, 0, 0))
+    runQualificationTest(logFiles, expectedStatus = expectedStatus)
+  }
+
+  test("test status report generation for mixed event log") {
+    val logFiles = Array(
+      s"$logDir/nds_q86_test",                        // correct event log
+      s"$logDir/cluster_information/eventlog_2node*", // correct wildcard event log with 1 match
+      s"$logDir/cluster_information/eventlog_xxxx*")  // incorrect wildcard event log
+    // Status counts: 2 SUCCESS, 1 FAILURE, 0 SKIPPED, 0 UNKNOWN
+    val expectedStatus = Some(StatusReportCounts(2, 1, 0, 0))
+    runQualificationTest(logFiles, expectedStatus = expectedStatus)
   }
 }
 
