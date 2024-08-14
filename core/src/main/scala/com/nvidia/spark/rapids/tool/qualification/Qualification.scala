@@ -72,7 +72,6 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       threadPool.shutdownNow()
     }
     progressBar.foreach(_.finishAll())
-
     val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
     // sort order and limit only applies to the report summary text file,
     // the csv file we write the entire data in descending order
