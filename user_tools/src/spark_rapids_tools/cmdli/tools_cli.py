@@ -77,7 +77,6 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 stage duration less than 25% of app duration and speedups greater than 1.3x.
         :param custom_model_file: An optional Path to a custom XGBoost model file. The path is a local filesystem,
                 or remote cloud storage url.
-                Requires that "estimation_model" is set to "xgboost".
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
                 Default is calculated based on a function of the total memory of the host.
         :param jvm_threads: Number of thread to use for parallel processing on the eventlogs batch.
