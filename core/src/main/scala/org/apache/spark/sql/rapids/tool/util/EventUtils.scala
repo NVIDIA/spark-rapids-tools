@@ -22,8 +22,6 @@ import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.tool.profiling.TaskStageAccumCase
-import org.json4s._
 import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.Logging
