@@ -48,7 +48,7 @@ RAPIDS variables have a naming pattern `RAPIDS_USER_TOOLS_*`:
   - `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY`: specifies the location of a local directory that the RAPIDS-cli uses to
     generate the output. The wrapper CLI arguments override that environment variable
     (`local_folder` for Qualification).
-  
+
 ## Qualification command
 
 ### Local deployment
@@ -107,7 +107,7 @@ A typical workflow to successfully run the `qualification` command in local mode
    export EVENTLOGS=gs://LOGS_BUCKET/eventlogs/
    export CLUSTER_NAME=my-dataproc-cpu-cluster
    export REMOTE_FOLDER=gs://OUT_BUCKET/wrapper_output
-   
+
    spark_rapids_user_tools dataproc qualification \
       --eventlogs $EVENTLOGS \
       --cpu_cluster $CLUSTER_NAME \
@@ -169,16 +169,6 @@ The command creates a directory with UUID that contains the following:
     3 directories, 9 files
 
     ```
-
-#### TCO calculator
-
-In the `qualification_summary.csv` output file, you will see two additional columns appended:
-`Estimated Job Frequency (monthly)` and `Annual Cost Savings`.  
-These new columns are to be used as part of a TCO calculator to see the long-term benefit of using
-Spark RAPIDS with your applications.  
-A GSheet template with instructions can be found at here: [link](https://docs.google.com/spreadsheets/d/1CslQHTwxHEDTlAP4lcrOzbSrmucvn8z4iFlJo6EAhxs/edit#gid=1607726286).  
-Make a copy of the GSheet template and then follow the instructions listed in the `Instructions` tab.
-
 
 ## Profiling command
 
@@ -282,7 +272,7 @@ A cluster property is still accessible if one of the following conditions applie
        export EVENTLOGS=gs://LOGS_BUCKET/eventlogs/
        export CLUSTER_NAME=my-dataproc-gpu-cluster
        export REMOTE_FOLDER=gs://OUT_BUCKET/wrapper_output
-       
+
        spark_rapids_user_tools dataproc profiling \
           --eventlogs $EVENTLOGS \
           --gpu_cluster $CLUSTER_NAME \
@@ -308,7 +298,7 @@ A cluster property is still accessible if one of the following conditions applie
 In this scenario, users can write down a simple yaml file to describe the shape of the worker nodes.  
 This case is relevant to the following plans:
 1. Users who might want to experiment with different configurations before deciding on the final
-   cluster shape. 
+   cluster shape.
 2. Users who have no access to the properties of the cluster.
 
 The CLI is triggered by providing the location where the yaml file is stored `--worker_info $WORKER_INFO_PATH`
