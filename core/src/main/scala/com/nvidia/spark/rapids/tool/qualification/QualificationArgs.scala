@@ -88,6 +88,13 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Filter event logs whose application start occurred within the past specified " +
         "time period. Valid time periods are min(minute),h(hours),d(days),w(weeks)," +
         "m(months). If a period is not specified it defaults to days.")
+  val minEventLogSize: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "Process only application event logs whose size is greater than the size " +
+        "specified. Valid units of size are b(bytes),k(kilobytes),m(megabytes),g(gigabytes). " +
+        "If no units are specified, the size is assumed to be m. Note, this does not support " +
+        "event log rolling which puts multiple event logs for the same application into a " +
+        "single directory.")
   val maxEventLogSize: ScallopOption[String] =
     opt[String](required = false,
       descr = "Process only application event logs whose size is less than or equal to the size " +

@@ -234,7 +234,8 @@ object EventLogPathProcessor extends Logging {
       matchlogs: Option[String],
       eventLogsPaths: List[String],
       hadoopConf: Configuration,
-      maxEventLogSize: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
+      maxEventLogSize: Option[String] = None,
+      minEventLogSize: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
     val logsPathNoWildCards = processWildcardsLogs(eventLogsPaths, hadoopConf)
     val logsWithTimestamp = logsPathNoWildCards.flatMap {
       case (rawPath, processedPaths) if processedPaths.isEmpty =>
@@ -252,11 +253,26 @@ object EventLogPathProcessor extends Logging {
     }.getOrElse(logsWithTimestamp)
 
     val filteredLogs = if ((filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) ||
-      maxEventLogSize.isDefined) {
+      maxEventLogSize.isDefined || minEventLogSize.isDefined) {
       val validMatchedLogs = matchedLogs.collect {
         case (info, Some(ts)) => info -> ts
       }
-      val filteredBySize = if (maxEventLogSize.isDefined) {
+      val filteredByMinSize = if (minEventLogSize.isDefined) {
+        val minSizeInBytes = if (StringUtils.isMemorySize(minEventLogSize.get)) {
+          // if it is memory return the bytes unit
+          StringUtils.convertMemorySizeToBytes(minEventLogSize.get)
+        } else {
+          // size is assumed to be mb
+          StringUtils.convertMemorySizeToBytes(minEventLogSize.get + "m")
+        }
+        val (matched, filtered) = validMatchedLogs.partition(info => info._2.size > minSizeInBytes)
+        logInfo(s"Filtering eventlogs by size, minimum size is ${minSizeInBytes}b. The logs " +
+          s"filtered out include: ${filtered.keys.map(_.eventLog.toString).mkString(",")}")
+        matched
+      } else {
+        validMatchedLogs
+      }
+      val filteredByMaxSize = if (maxEventLogSize.isDefined) {
         val maxSizeInBytes = if (StringUtils.isMemorySize(maxEventLogSize.get)) {
           // if it is memory return the bytes unit
           StringUtils.convertMemorySizeToBytes(maxEventLogSize.get)
@@ -264,12 +280,13 @@ object EventLogPathProcessor extends Logging {
           // size is assumed to be mb
           StringUtils.convertMemorySizeToBytes(maxEventLogSize.get + "m")
         }
-        val (matched, filtered) = validMatchedLogs.partition(info => info._2.size <= maxSizeInBytes)
+        val (matched, filtered) =
+          filteredByMinSize.partition(info => info._2.size <= maxSizeInBytes)
         logInfo(s"Filtering eventlogs by size, max size is ${maxSizeInBytes}b. The logs filtered " +
           s"out include: ${filtered.keys.map(_.eventLog.toString).mkString(",")}")
         matched
       } else {
-        validMatchedLogs
+        filteredByMinSize
       }
       if (filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) {
         val filteredInfo = filterNLogs.get.split("-")
@@ -278,16 +295,16 @@ object EventLogPathProcessor extends Logging {
         // Before filtering based on user criteria, remove the failed event logs
         // (i.e. logs without timestamp) from the list.
         val matched = if (criteria.equals("newest")) {
-          LinkedHashMap(filteredBySize.toSeq.sortWith(_._2.timestamp > _._2.timestamp): _*)
+          LinkedHashMap(filteredByMaxSize.toSeq.sortWith(_._2.timestamp > _._2.timestamp): _*)
         } else if (criteria.equals("oldest")) {
-          LinkedHashMap(filteredBySize.toSeq.sortWith(_._2.timestamp < _._2.timestamp): _*)
+          LinkedHashMap(filteredByMaxSize.toSeq.sortWith(_._2.timestamp < _._2.timestamp): _*)
         } else {
           logError("Criteria should be either newest-filesystem or oldest-filesystem")
           Map.empty[EventLogInfo, Long]
         }
         matched.take(numberofEventLogs)
       } else {
-        filteredBySize
+        filteredByMaxSize
       }
     } else {
       matchedLogs
