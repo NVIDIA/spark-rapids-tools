@@ -161,7 +161,7 @@ class RapidsTool(object):
             # 3- process submission arguments
             self._process_job_submission_args()
         except Exception as ex:  # pylint: disable=broad-except
-            self.logger.error('Failed to download dependencies %s', ex)
+            self.logger.error('Failed in processing arguments')
             raise ex
 
     @phase_banner('Initialization')
@@ -404,7 +404,7 @@ class RapidsJarTool(RapidsTool):
                                                                     fail_ok=False,
                                                                     create_dir=True)
         except Exception as e:    # pylint: disable=broad-except
-             self.logger.exception("error processing jar %s", tools_jar_url)
+             self.logger.exception("Exception occurred downloading jar %s", tools_jar_url)
              raise e
 
         self.logger.info('RAPIDS accelerator tools jar is downloaded to work_dir %s', jar_path)
