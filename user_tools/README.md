@@ -79,7 +79,8 @@ Set up a Python environment similar to the steps above.
 
 The core tools project uses Log4j for logging. Default log level is set to INFO.
 You can configure logging settings in the `log4j.properties` file located in the
-`src/spark_rapids_pytools/resources/dev/resources/dev` directory.
+`src/spark_rapids_pytools/resources/dev/` directory. This is applicable when
+you clone the project and build it from source.
 To change the logging level, modify the `log4j.rootLogger` property.
 Possible levels include `DEBUG`, `INFO`, `WARN`, `ERROR`.
 

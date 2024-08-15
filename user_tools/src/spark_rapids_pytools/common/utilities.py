@@ -232,7 +232,25 @@ class ToolLogging:
 
     @classmethod
     def modify_log4j_properties(cls, prop_file_path: str, new_log_file_path: str) -> str:
-        new_log_file = f'{new_log_file_path}/rapids_4_spark_tools_jar.log'
+        """
+        Modifies the log file path in a log4j properties file to redirect logging output to a new location.
+
+        This method reads an existing log4j.properties file and alters the log file path specified
+        for the FILE appender. The modified properties file is saved to a temporary file,
+        which is returned to the caller to be used as the new log4j configuration. This temporary file
+        is deleted after the java process is completed.
+
+        :param prop_file_path: The file path to the original log4j.properties file. This file
+                               should contain configurations for the log4j logging utility.
+        :param new_log_file_path: The base output directory where the new log file will be created.
+                                  The actual log file named 'rapids_4_spark_qualification_stderr.log'
+                                  will be placed in this directory.
+
+        :return str: The file path to the temporary modified log4j.properties file.
+                     This temporary file retains the modifications and can be accessed until
+                     explicitly deleted after the java process is completed.
+        """
+        new_log_file = f'{new_log_file_path}/rapids_4_spark_qualification_stderr.log'
         with open(prop_file_path, 'r', encoding='utf-8') as file:
             lines = file.readlines()
 
