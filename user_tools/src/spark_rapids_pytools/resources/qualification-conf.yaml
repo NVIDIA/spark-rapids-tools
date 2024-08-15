@@ -85,6 +85,7 @@ sparkRapids:
       - no-html-report
       - m
       - match-event-logs
+      - min-event-log-size
       - max-event-log-size
       - max-sql-desc-length
       - ml-functions

@@ -95,6 +95,13 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
         "If no units are specified, the size is assumed to be m. Note, this does not support " +
         "event log rolling which puts multiple event logs for the same application into a " +
         "single directory.")
+  val minEventLogSize: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "Process only application event logs whose size is greater than or equal to the " +
+        "size specified. Valid units of size are " +
+        "b(bytes),k(kilobytes),m(megabytes),g(gigabytes). If no units are specified, the " +
+        "size is assumed to be m. Note, this does not support event log rolling which puts " +
+        "multiple event logs for the same application into a single directory.")
   val matchEventLogs: ScallopOption[String] =
     opt[String](required = false,
       descr = "Filter event logs whose filenames contain the input string. Filesystem " +
