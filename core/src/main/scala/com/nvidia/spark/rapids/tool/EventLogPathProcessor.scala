@@ -265,7 +265,7 @@ object EventLogPathProcessor extends Logging {
           // size is assumed to be mb
           StringUtils.convertMemorySizeToBytes(minEventLogSize.get + "m")
         }
-        val (matched, filtered) = validMatchedLogs.partition(info => info._2.size > minSizeInBytes)
+        val (matched, filtered) = validMatchedLogs.partition(info => info._2.size >= minSizeInBytes)
         logInfo(s"Filtering eventlogs by size, minimum size is ${minSizeInBytes}b. The logs " +
           s"filtered out include: ${filtered.keys.map(_.eventLog.toString).mkString(",")}")
         matched
