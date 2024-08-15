@@ -104,7 +104,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkRapidsBuildEvent(event: SparkRapidsBuildInfo): Unit = {
     logDebug("Processing event: " + event.getClass)
-    app.sparkRapidsBuildInfo= event
+    app.sparkRapidsBuildInfo = event
   }
 
   def doSparkListenerResourceProfileAddedReflect(

@@ -17,6 +17,8 @@ package com.nvidia.spark.rapids.tool.profiling
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import org.apache.commons.lang3.StringUtils
+import org.json4s._
+import org.json4s.jackson.JsonMethods.{parse, pretty, render}
 
 
 class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: Int,
@@ -54,8 +56,9 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
     val fileName = headerText.replace(" ", "_").toLowerCase
     val csvWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
     try {
-      val prettyJsonString = ProfileOutputWriter.formatJsonString(content)
-      csvWriter.write(prettyJsonString + "\n")
+      val json: JValue = parse(content)
+      val formattedJsonString = pretty(render(json))
+      csvWriter.write(formattedJsonString + "\n")
     } finally {
       csvWriter.close()
     }
@@ -209,42 +212,5 @@ object ProfileOutputWriter {
     }
 
     sb.toString()
-  }
-
-  /**
-   * Format an input string as pretty JSON
-   */
-  def formatJsonString(json: String, indentSize: Int = 2): String = {
-    val indent = " " * indentSize
-    val result = new StringBuilder()
-    var level = 0
-    var inString = false
-
-    def newLine() = result.append("\n").append(indent * level)
-
-    json.foreach { char =>
-      char match {
-        case '{' | '[' if !inString =>
-          result.append(char)
-          level += 1
-          newLine()
-        case '}' | ']' if !inString =>
-          level -= 1
-          newLine()
-          result.append(char)
-        case ',' if !inString =>
-          result.append(char)
-          newLine()
-        case ':' if !inString =>
-          result.append(char + " ")
-        case '"' =>
-          inString = !inString
-          result.append(char)
-        case _ =>
-          result.append(char)
-      }
-    }
-
-    result.toString()
   }
 }
