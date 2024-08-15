@@ -24,9 +24,10 @@ import shutil
 import ssl
 import subprocess
 import urllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from itertools import islice
+from logging import Logger
 from shutil import rmtree
 from typing import List
 
@@ -35,7 +36,7 @@ from fastcore.all import urlsave
 from fastprogress.fastprogress import progress_bar
 
 from spark_rapids_pytools.common.exceptions import StorageException
-from spark_rapids_pytools.common.utilities import Utils, SysCmd
+from spark_rapids_pytools.common.utilities import ToolLogging, Utils, SysCmd
 
 
 class FSUtil:
@@ -284,6 +285,7 @@ class StorageDriver:
     """
     Wrapper to interface with archiving command, such as copying/moving/listing files.
     """
+    logger: Logger = field(default=ToolLogging.get_and_setup_logger('rapids.tools.fsutil'), init=False)
 
     def resource_exists(self, src) -> bool:
         return os.path.exists(src)
@@ -301,7 +303,11 @@ class StorageDriver:
         """
         if src.startswith('http'):
             # this is url resource
-            return FSUtil.download_from_url(src, dest)
+            try:
+                return FSUtil.download_from_url(src, dest)
+            except Exception as store_ex:
+                self.logger.error('Failed to download remote resource src: %s', src)
+                raise store_ex
         # this is a folder-to-folder download
         return FSUtil.copy_resource(src, dest)
 
@@ -323,7 +329,8 @@ class StorageDriver:
             if create_dir:
                 FSUtil.make_dirs(abs_dest)
             return self._download_remote_resource(src, abs_dest)
-        except StorageException as store_ex:
+        except Exception as store_ex:
+            self.logger.error('Failed to download resources, src: %s', src)
             if not fail_ok:
                 raise store_ex
             return None

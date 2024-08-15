@@ -151,14 +151,18 @@ class RapidsTool(object):
 
     @phase_banner('Process-Arguments')
     def _process_arguments(self):
-        # 0- process the output location
-        self._process_output_args()
-        # 1- process any arguments to be passed to the RAPIDS tool
-        self._process_rapids_args()
-        # 2- we need to process the arguments of the CLI
-        self._process_custom_args()
-        # 3- process submission arguments
-        self._process_job_submission_args()
+        try:
+            # 0- process the output location
+            self._process_output_args()
+            # 1- process any arguments to be passed to the RAPIDS tool
+            self._process_rapids_args()
+            # 2- we need to process the arguments of the CLI
+            self._process_custom_args()
+            # 3- process submission arguments
+            self._process_job_submission_args()
+        except Exception as ex:  # pylint: disable=broad-except
+            self.logger.error('Failed to download dependencies %s', ex)
+            raise ex
 
     @phase_banner('Initialization')
     def _init_tool(self):
@@ -387,14 +391,22 @@ class RapidsJarTool(RapidsTool):
     """
 
     def _process_jar_arg(self):
+        jar_path = ""
         tools_jar_url = self.wrapper_options.get('toolsJar')
-        if tools_jar_url is None:
-            tools_jar_url = self.ctxt.get_rapids_jar_url()
-        # download the jar
-        jar_path = self.ctxt.platform.storage.download_resource(tools_jar_url,
-                                                                self.ctxt.get_local_work_dir(),
-                                                                fail_ok=False,
-                                                                create_dir=True)
+        try:
+            tools_jar_url = None
+            if tools_jar_url is None:
+                tools_jar_url = self.ctxt.get_rapids_jar_url()
+            # download the jar
+            self.logger.info('Downloading the tools jars %s', tools_jar_url)
+            jar_path = self.ctxt.platform.storage.download_resource(tools_jar_url,
+                                                                    self.ctxt.get_local_work_dir(),
+                                                                    fail_ok=False,
+                                                                    create_dir=True)
+        except Exception as e:    # pylint: disable=broad-except
+             self.logger.exception("error processing jar %s", tools_jar_url)
+             raise e
+
         self.logger.info('RAPIDS accelerator tools jar is downloaded to work_dir %s', jar_path)
         # get the jar file name
         jar_file_name = FSUtil.get_resource_name(jar_path)
