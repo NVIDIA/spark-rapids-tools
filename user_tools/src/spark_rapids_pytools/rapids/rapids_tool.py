@@ -391,7 +391,7 @@ class RapidsJarTool(RapidsTool):
     """
 
     def _process_jar_arg(self):
-        jar_path = ""
+        jar_path = ''
         tools_jar_url = self.wrapper_options.get('toolsJar')
         try:
             tools_jar_url = None
@@ -404,8 +404,8 @@ class RapidsJarTool(RapidsTool):
                                                                     fail_ok=False,
                                                                     create_dir=True)
         except Exception as e:    # pylint: disable=broad-except
-             self.logger.exception("Exception occurred downloading jar %s", tools_jar_url)
-             raise e
+            self.logger.exception('Exception occurred downloading jar %s', tools_jar_url)
+            raise e
 
         self.logger.info('RAPIDS accelerator tools jar is downloaded to work_dir %s', jar_path)
         # get the jar file name
