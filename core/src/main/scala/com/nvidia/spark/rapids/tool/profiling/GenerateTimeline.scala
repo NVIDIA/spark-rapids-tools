@@ -333,14 +333,18 @@ object GenerateTimeline {
         new TimelineStageInfo(stageId, start, end, end-start)
     }
 
-    val stageInfo = app.stageManager.getAllStages.map { case sm =>
-      val stageId = sm.stageInfo.stageId
-      val submissionTime = sm.stageInfo.submissionTime.get
-      val completionTime = sm.stageInfo.completionTime.get
-      val duration = sm.getDuration
-      minStartTime = Math.min(minStartTime, submissionTime)
-      maxEndTime = Math.max(maxEndTime, completionTime)
-      new TimelineStageInfo(stageId, submissionTime, completionTime, duration)
+    val stageInfo = app.stageManager.getAllStages.flatMap { case sm =>
+      if (sm.stageInfo.completionTime.isDefined) {
+        val stageId = sm.stageInfo.stageId
+        val submissionTime = sm.stageInfo.submissionTime.get
+        val completionTime = sm.stageInfo.completionTime.get
+        val duration = sm.getDuration
+        minStartTime = Math.min(minStartTime, submissionTime)
+        maxEndTime = Math.max(maxEndTime, completionTime)
+        Some(new TimelineStageInfo(stageId, submissionTime, completionTime, duration))
+      } else {
+        None
+      }
     }
 
     val execHostToSlots = execHostToTaskList.map {
