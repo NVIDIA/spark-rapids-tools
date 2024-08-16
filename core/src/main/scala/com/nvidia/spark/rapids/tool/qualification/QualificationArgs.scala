@@ -119,6 +119,14 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[Int](required = false,
       descr = "Number of thread to use for parallel processing. The default is the " +
         "number of cores on host divided by 4.")
+  val newermt: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "Only process event logs whose filesystem time stamp is newer the the time " +
+        "specific. Valid format is yyyy-MM-dd hh:mm:ss.")
+  val oldermt: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "Only process event logs whose filesystem start time stamp is older the the time " +
+        "specific. Valid format is yyyy-MM-dd hh:mm:ss.")
   val reportReadSchema: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Whether to output the read formats and datatypes to the CSV file. This can " +
@@ -218,6 +226,16 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     case time if (AppFilterImpl.parseAppTimePeriod(time) > 0L) => Right(Unit)
     case _ => Left("Time period specified, must be greater than 0 and valid periods " +
       "are min(minute),h(hours),d(days),w(weeks),m(months).")
+  }
+
+  validate(newermt) {
+    case dateTime if (AppFilterImpl.parseDateTimePeriod(dateTime).isDefined) => Right(Unit)
+    case _ => Left("Time period specified must be format yyyy-MM-dd hh:mm:ss.")
+  }
+
+  validate(oldermt) {
+    case dateTime if (AppFilterImpl.parseDateTimePeriod(dateTime).isDefined) => Right(Unit)
+    case _ => Left("Time period specified must be format yyyy-MM-dd hh:mm:ss")
   }
 
   /**

@@ -90,7 +90,9 @@ sparkRapids:
       - max-sql-desc-length
       - ml-functions
       - n
+      - newermt
       - num-output-rows
+      - oldermt
       - order
       - r
       - report-read-schema
