@@ -394,7 +394,6 @@ class RapidsJarTool(RapidsTool):
         jar_path = ''
         tools_jar_url = self.wrapper_options.get('toolsJar')
         try:
-            tools_jar_url = None
             if tools_jar_url is None:
                 tools_jar_url = self.ctxt.get_rapids_jar_url()
             # download the jar
