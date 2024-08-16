@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 """Abstract representation of a wrapper Job"""
 
+import os
 from dataclasses import dataclass, field
 from logging import Logger
 from typing import List
@@ -98,14 +99,26 @@ class RapidsJob:
             stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
             self.logger.info('%s job output:%s', self.get_platform_name(), stdout_str)
 
+    def _cleanup_temp_log4j_files(self) -> None:
+        """Cleanup temporary log4j file created during the job execution"""
+        tmp_file = self.exec_ctxt.get_local('tmp_log4j')
+        try:
+            os.remove(tmp_file)
+            self.logger.info('Temporary log4j properties file removed: %s', tmp_file)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Error removing temporary log4j properties file: %s', e)
+
     def run_job(self):
         self.logger.info('Prepare job submission command')
         cmd_args = self._build_submission_cmd()
         self.logger.info('Running the Rapids Job...')
-        job_output = self._submit_job(cmd_args)
-        if not ToolLogging.is_debug_mode_enabled():
-            # we check the debug level because we do not want the output to be displayed twice
-            self._print_job_output(job_output)
+        try:
+            job_output = self._submit_job(cmd_args)
+            if not ToolLogging.is_debug_mode_enabled():
+                # we check the debug level because we do not want the output to be displayed twice
+                self._print_job_output(job_output)
+        finally:
+            self._cleanup_temp_log4j_files()
         return job_output
 
 
@@ -129,6 +142,11 @@ class RapidsLocalJob(RapidsJob):
         if jvm_args is not None:
             for jvm_k, jvm_arg in jvm_args.items():
                 if jvm_k.startswith('D'):
+                    if jvm_k == 'Dlog4j.configuration':
+                        rapids_output_folder = self.exec_ctxt.get_rapids_output_folder()
+                        jvm_arg = ToolLogging.modify_log4j_properties(
+                            jvm_arg, f'{rapids_output_folder}')
+                        self.exec_ctxt.set_local('tmp_log4j', jvm_arg)
                     val = f'-{jvm_k}={jvm_arg}'
                 else:
                     val = f'-{jvm_k}'

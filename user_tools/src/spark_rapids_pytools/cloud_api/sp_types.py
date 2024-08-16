@@ -566,6 +566,9 @@ class CMDDriverBase:
         if jvm_gc_type is not None:
             xgc_key = f'XX:{jvm_gc_type}'
             res['jvmArgs'].update({xgc_key: ''})
+        log4j_config_path = submit_args.get('Dlog4j.configuration')
+        if log4j_config_path is not None:
+            res['jvmArgs'].update({'Dlog4j.configuration': log4j_config_path})
 
         rapids_configs = self.get_rapids_job_configs(self.cloud_ctxt.get('deployMode'))
         if not rapids_configs:
