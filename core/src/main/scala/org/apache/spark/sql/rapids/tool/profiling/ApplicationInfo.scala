@@ -26,7 +26,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.metric.SQLMetricInfo
-import org.apache.spark.sql.rapids.tool.{AppBase, SparkRapidsBuildInfo}
+import org.apache.spark.sql.rapids.tool.AppBase
 
 
 class SparkPlanInfoWithStage(
@@ -200,11 +200,6 @@ class ApplicationInfo(
 
   override def processEvent(event: SparkListenerEvent): Boolean = {
     eventProcessor.processAnyEvent(event)
-    false
-  }
-
-  override def processSparkRapidsBuildEvent(event: SparkRapidsBuildInfo): Boolean = {
-    eventProcessor.doSparkRapidsBuildEvent(event)
     false
   }
 

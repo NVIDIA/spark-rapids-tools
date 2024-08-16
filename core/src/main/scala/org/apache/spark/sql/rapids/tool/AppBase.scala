@@ -19,8 +19,10 @@ package org.apache.spark.sql.rapids.tool
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
+import scala.collection.immutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, Map, SortedMap}
 
+import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
@@ -89,7 +91,8 @@ abstract class AppBase(
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
 
-  var sparkRapidsBuildInfo: SparkRapidsBuildInfo = new SparkRapidsBuildInfo("")
+  var sparkRapidsBuildInfo: SparkRapidsBuildInfoEvent = SparkRapidsBuildInfoEvent(immutable.Map(),
+    immutable.Map(), immutable.Map(), immutable.Map())
 
   // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
   // won't be defined for running applications
@@ -221,8 +224,6 @@ abstract class AppBase(
 
   def processEvent(event: SparkListenerEvent): Boolean
 
-  def processSparkRapidsBuildEvent(event: SparkRapidsBuildInfo): Boolean
-
   private def openEventLogInternal(log: Path, fs: FileSystem): InputStream = {
     EventLogFileWriter.codecName(log) match {
       case c if c.isDefined && c.get.equals("gz") =>
@@ -267,8 +268,7 @@ abstract class AppBase(
                 // Do NOT use a while loop as it is much much slower.
                 totalNumEvents += 1
                 runtimeGetFromJsonMethod.apply(line) match {
-                  case Some(Left(e)) => processEvent(e)
-                  case Some(Right(e)) => processSparkRapidsBuildEvent(e)
+                  case Some(e) => processEvent(e)
                   case None => false
                 }
               }

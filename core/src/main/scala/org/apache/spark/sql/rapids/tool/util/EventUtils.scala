@@ -26,7 +26,6 @@ import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart
-import org.apache.spark.sql.rapids.tool.SparkRapidsBuildInfo
 
 /**
  * Utility containing the implementation of helpers used for parsing data from event.
@@ -189,18 +188,17 @@ object EventUtils extends Logging {
     m
   }
 
-  lazy val getEventFromJsonMethod: String =>
-    Option[Either[org.apache.spark.scheduler.SparkListenerEvent, SparkRapidsBuildInfo]] = {
+  lazy val getEventFromJsonMethod:
+    String => Option[org.apache.spark.scheduler.SparkListenerEvent] = {
     // At this point, the method is already defined.
     // Note that the Exception handling is moved within the method to make it easier
     // to isolate the exception reason.
     (line: String) => Try {
       runtimeEventFromJsonMethod.apply(line)
     } match {
-      case Success(i) => Some(Left(i))
+      case Success(i) =>
+        Some(i)
       case Failure(e) =>
-        var res: Option[Either[org.apache.spark.scheduler.SparkListenerEvent, SparkRapidsBuildInfo]]
-          = None
         e match {
           case i: InvocationTargetException =>
             val targetEx = i.getTargetException
@@ -215,13 +213,8 @@ object EventUtils extends Logging {
                   // malformed
                   handleEventJsonParseEx(k)
                 case z: ClassNotFoundException if z.getMessage != null =>
-                  // Handle SparkRapidsBuildInfoEvent to get spark-rapids related runtime versions
-                  if (z.getMessage == "com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent") {
-                    res = Some(Right(new SparkRapidsBuildInfo(line)))
-                  } else {
-                    // Avoid reporting missing classes more than once to reduce noise in the logs
-                    reportMissingEventClass(z.getMessage)
-                  }
+                  // Avoid reporting missing classes more than once to reduce noise in the logs
+                  reportMissingEventClass(z.getMessage)
                 case t: Throwable =>
                   // We do not want to swallow unknown exceptions so that we can handle later
                   logError(s"Unknown exception while parsing an event", t)
@@ -240,7 +233,7 @@ object EventUtils extends Logging {
             // log is malformed
             handleEventJsonParseEx(k)
         }
-        res
+        None
     }
   }
 }

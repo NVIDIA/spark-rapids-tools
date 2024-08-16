@@ -16,9 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
+import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.AppSummaryInfoBaseProvider
-
-import org.apache.spark.sql.rapids.tool.SparkRapidsBuildInfo
 
 case class ApplicationSummaryInfo(
     appInfo: Seq[AppInfoProfileResults],
@@ -48,7 +47,7 @@ case class ApplicationSummaryInfo(
     ioMetrics: Seq[IOAnalysisProfileResult],
     sysProps: Seq[RapidsPropertyProfileResult],
     sqlCleanedAlignedIds: Seq[SQLCleanAndAlignIdsProfileResult],
-    sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfo])
+    sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent])
 
 trait AppInfoPropertyGetter {
   // returns all the properties (i.e., spark)

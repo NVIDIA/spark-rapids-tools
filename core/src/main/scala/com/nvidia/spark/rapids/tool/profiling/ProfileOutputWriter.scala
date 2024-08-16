@@ -15,14 +15,18 @@
  */
 package com.nvidia.spark.rapids.tool.profiling
 
+import org.json4s.DefaultFormats
+import org.json4s.jackson.Serialization
+
+import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import org.apache.commons.lang3.StringUtils
-import org.json4s._
-import org.json4s.jackson.JsonMethods.{parse, pretty, render}
 
 
 class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: Int,
     outputCSV: Boolean = false) {
+
+  implicit val formats: DefaultFormats.type = DefaultFormats
 
   private val textFileWriter = new ToolTextFileWriter(outputDir,
     s"$filePrefix.log", "Profile summary")
@@ -52,15 +56,14 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
     }
   }
 
-  def writeJsonFile(headerText: String, content: String): Unit = {
+  def writeSparkRapidsBuildInfo(headerText: String,
+      sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent]): Unit = {
     val fileName = headerText.replace(" ", "_").toLowerCase
-    val csvWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
+    val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
     try {
-      val json: JValue = parse(content)
-      val formattedJsonString = pretty(render(json))
-      csvWriter.write(formattedJsonString + "\n")
+      jsonWriter.write(Serialization.writePretty(sparkRapidsBuildInfo) + "\n")
     } finally {
-      csvWriter.close()
+      jsonWriter.close()
     }
   }
 

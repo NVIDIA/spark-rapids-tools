@@ -19,6 +19,7 @@ package org.apache.spark.sql.rapids.tool
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 
+import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ProfileUtils, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
 
 import org.apache.spark.internal.Logging
@@ -96,15 +97,13 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       case _: StreamingQueryListener.QueryTerminatedEvent =>
         doSparkListenerStreamingQuery(app,
           event.asInstanceOf[StreamingQueryListener.QueryTerminatedEvent])
+      case _: SparkRapidsBuildInfoEvent =>
+        doSparkRapidsBuildInfoEvent(app,
+          event.asInstanceOf[SparkRapidsBuildInfoEvent])
       case _ =>
         val wasResourceProfileAddedEvent = doSparkListenerResourceProfileAddedReflect(app, event)
         if (!wasResourceProfileAddedEvent) doOtherEvent(app, event)
     }
-  }
-
-  def doSparkRapidsBuildEvent(event: SparkRapidsBuildInfo): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    app.sparkRapidsBuildInfo = event
   }
 
   def doSparkListenerResourceProfileAddedReflect(
@@ -197,6 +196,13 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
         metric.accumulatorId, metric.metricType)
     }
     app.sqlPlanMetricsAdaptive ++= metrics
+  }
+
+  def doSparkRapidsBuildInfoEvent(
+      app: T,
+      event: SparkRapidsBuildInfoEvent): Unit  = {
+    logDebug("Processing event: " + event.getClass)
+    app.sparkRapidsBuildInfo = event
   }
 
   override def onOtherEvent(event: SparkListenerEvent): Unit = event match {

@@ -18,11 +18,11 @@ package com.nvidia.spark.rapids.tool.profiling
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
+import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import com.nvidia.spark.rapids.tool.views._
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.SparkRapidsBuildInfo
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
 case class StageMetrics(numTasks: Int, duration: String)
@@ -105,7 +105,7 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfSQLPlanAlignedView.getRawView(apps)
   }
 
-  def getSparkRapidsInfo: Seq[SparkRapidsBuildInfo] = {
+  def getSparkRapidsInfo: Seq[SparkRapidsBuildInfoEvent] = {
     apps.map(_.sparkRapidsBuildInfo)
   }
 }

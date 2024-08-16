@@ -553,10 +553,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
       }
 
-      val sparkRapidsInfo: String = app.sparkRapidsBuildInfo.map(_.buildInfo).mkString(", ")
-      if (sparkRapidsInfo != "") {
-        profileOutputWriter.writeJsonFile("Spark Rapids Build Info", sparkRapidsInfo)
-      }
+      profileOutputWriter.writeSparkRapidsBuildInfo("Spark Rapids Build Info", app.sparkRapidsBuildInfo)
     }
   }
 
