@@ -63,7 +63,7 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
           "Filesystem based filter criteria are:" +
           "100-newest-filesystem (for processing newest 100 event logs based on filesystem " +
           "timestamp). " +
-          "100-oldest-filesystem (for processing oldest 100 event logsbased on filesystem " +
+          "100-oldest-filesystem (for processing oldest 100 event logs based on filesystem " +
           "timestamp).")
   val applicationName: ScallopOption[String] =
     opt[String](required = false,
