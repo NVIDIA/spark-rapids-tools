@@ -20,7 +20,8 @@ import java.io.FileNotFoundException
 import java.time.LocalDateTime
 import java.util.zip.ZipOutputStream
 
-import scala.collection.mutable.LinkedHashMap
+import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap}
 import scala.util.control.NonFatal
 
 import org.apache.hadoop.conf.Configuration
@@ -78,18 +79,12 @@ object EventLogPathProcessor extends Logging {
   val SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER =
     SPARK_SHORT_COMPRESSION_CODEC_NAMES ++ Set("gz")
 
-  // Show a special message if the eventlog is one of the following formats
-  // https://github.com/NVIDIA/spark-rapids-tools/issues/506
-  val EVENTLOGS_IN_PLAIN_TEXT_CODEC_NAMES = Set("log", "txt")
+  // Files having these keywords are not considered as event logs
+  private val LOGFILE_NAMES: Set[String] = Set("stdout", "stderr", "log4j", ".log.")
 
   def eventLogNameFilter(logFile: Path): Boolean = {
     EventLogFileWriter.codecName(logFile)
       .forall(suffix => SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER.contains(suffix))
-  }
-
-  def isPlainTxtFileName(logFile: Path): Boolean = {
-    EventLogFileWriter.codecName(logFile)
-      .forall(suffix => EVENTLOGS_IN_PLAIN_TEXT_CODEC_NAMES.contains(suffix))
   }
 
   // Databricks has the latest events in file named eventlog and then any rolled in format
@@ -101,7 +96,74 @@ object EventLogPathProcessor extends Logging {
         isDBEventLogFile(path.getName)
       }
     })
-    (dbLogFiles.size > 1)
+    dir.isDirectory && dbLogFiles.size > 1
+  }
+
+  private def isLogFile(file: Path): Boolean = {
+    LOGFILE_NAMES.exists(file.getName.contains)
+  }
+
+  /**
+   * Identifies if the input file or directory is a valid event log.
+   * Supports regular event logs, Apache Spark and Databricks event log directories.
+   * Other file types are ignored.
+   *
+   * TODO - Need to handle size of files in directory, for now document its not supported.
+   *        Reference: https://github.com/NVIDIA/spark-rapids-tools/pull/1275
+   *
+   * @param s FileStatus to be identified.
+   * @param fs FileSystem instance for file system operations.
+   * @return Option[EventLogInfo] if valid, None otherwise.
+   */
+  private def identifyEventLog(s: FileStatus, fs: FileSystem): Option[EventLogInfo] = {
+    if (s.isFile && (eventLogNameFilter(s.getPath) && !isLogFile(s.getPath))) {
+      // Regular event log file (compressed or uncompressed, excluding 'log' files).
+      Some(ApacheSparkEventLog(s.getPath))
+    } else if (isEventLogDir(s)) {
+      // Apache Spark event log directory (starting with "eventlog_v2_").
+      Some(ApacheSparkEventLog(s.getPath))
+    } else if (isDatabricksEventLogDir(s, fs)) {
+      // Databricks event log directory (files starting with "eventlog").
+      Some(DatabricksEventLog(s.getPath))
+    } else {
+      // Ignore other types of files.
+      None
+    }
+  }
+
+  /**
+   * Retrieves all event logs from the input path using a breadth-first search.
+   * The search is done iteratively using a queue to avoid stack overflow.
+   *
+   * @param inputPath Root path to search for event logs.
+   * @param fs FileSystem instance for file system operations.
+   * @return List of (EventLogInfo, EventLogFileSystemInfo) tuples.
+   */
+  private def getEventLogInfoRecursive(inputPath: Path,
+      fs: FileSystem): List[(EventLogInfo, EventLogFileSystemInfo)] = {
+    val results = ArrayBuffer[(EventLogInfo, EventLogFileSystemInfo)]()
+    val queue = mutable.Queue[FileStatus]()
+    queue.enqueue(fs.getFileStatus(inputPath))
+    while (queue.nonEmpty) {
+      // Note: currentEntry can be a file, directory, or a symlink.
+      val currentEntry = queue.dequeue()
+      identifyEventLog(currentEntry, fs) match {
+        case Some(eventLogInfo) =>
+          // If currentEntry is an event log (either a file or a directory), add it to the results.
+          results += eventLogInfo -> EventLogFileSystemInfo(
+            currentEntry.getModificationTime, currentEntry.getLen)
+        case None if currentEntry.isDirectory =>
+          // If currentEntry is a directory but not an event log, enqueue its children
+          // for further processing.
+          fs.listStatus(currentEntry.getPath).foreach(queue.enqueue(_))
+        case _ =>
+          // Using a debug log (instead of warn) to avoid excessive logging due to recursive search.
+          val supportedTypes = SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER.mkString(", ")
+          logDebug(s"File: ${currentEntry.getPath} is not a supported file type. " +
+            s"Supported compression types are: $supportedTypes. Skipping this file.")
+      }
+    }
+    results.toList
   }
 
   /**
@@ -121,7 +183,7 @@ object EventLogPathProcessor extends Logging {
       } else {
         try {
           val globPath = new Path(rawPath)
-          val fileContext = FileContext.getFileContext(globPath.toUri(), hadoopConf)
+          val fileContext = FileContext.getFileContext(globPath.toUri, hadoopConf)
           val fileStatuses = fileContext.util().globStatus(globPath)
           val paths = fileStatuses.map(_.getPath.toString).toList
           (rawPath, paths)
@@ -145,68 +207,9 @@ object EventLogPathProcessor extends Logging {
       // Note that some cloud storage APIs may throw FileNotFoundException when the pathPrefix
       // (i.e., bucketName) is not visible to the current configuration instance.
       val fs = FSUtils.getFSForPath(inputPath, hadoopConf)
-      val fileStatus = fs.getFileStatus(inputPath)
-      val filePath = fileStatus.getPath()
-      val fileName = filePath.getName()
-
-      if (fileStatus.isFile() && !eventLogNameFilter(filePath)) {
-        val msg = if (isPlainTxtFileName(filePath)) {
-          // if the file is plain text, we want to show that the filePath without extension
-          // could be supported..
-          s"File: $fileName. Detected a text file. No extension is expected. skipping this file."
-        } else {
-          s"File: $fileName is not a supported file type. " +
-            "Supported compression types are: " +
-            s"${SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER.mkString(", ")}. " +
-            "Skipping this file."
-        }
-        logWarning(msg)
-        // Return an empty map as this is a skip due to unsupported file type, not an exception.
-        // Returning FailedEventLog would clutter the status report with unnecessary entries.
-        Map.empty[EventLogInfo, Option[EventLogFileSystemInfo]]
-      } else if (fileStatus.isDirectory && isEventLogDir(fileStatus)) {
-        // either event logDir v2 directory or regular event log
-        val info = ApacheSparkEventLog(fileStatus.getPath).asInstanceOf[EventLogInfo]
-        // TODO - need to handle size of files in directory, for now document its not supported
-        Map(info ->
-          Some(EventLogFileSystemInfo(fileStatus.getModificationTime, fileStatus.getLen)))
-      } else if (fileStatus.isDirectory &&
-        isDatabricksEventLogDir(fileStatus, fs)) {
-        val dbinfo = DatabricksEventLog(fileStatus.getPath).asInstanceOf[EventLogInfo]
-        // TODO - need to handle size of files in directory, for now document its not supported
-        Map(dbinfo ->
-          Some(EventLogFileSystemInfo(fileStatus.getModificationTime, fileStatus.getLen)))
-      } else {
-        // assume either single event log or directory with event logs in it, we don't
-        // support nested dirs, so if event log dir within another one we skip it
-        val (validLogs, invalidLogs) = fs.listStatus(inputPath).partition(s => {
-            val name = s.getPath().getName()
-            (s.isFile ||
-              (s.isDirectory && (isEventLogDir(name) || isDatabricksEventLogDir(s, fs))))
-          })
-        if (invalidLogs.nonEmpty) {
-          logWarning("Skipping the following directories: " +
-            s"${invalidLogs.map(_.getPath().getName()).mkString(", ")}")
-        }
-        val (logsSupported, unsupport) = validLogs.partition { l =>
-          (l.isFile && eventLogNameFilter(l.getPath())) || l.isDirectory
-        }
-        if (unsupport.nonEmpty) {
-          logWarning(s"Files: ${unsupport.map(_.getPath.getName).mkString(", ")} " +
-            s"have unsupported file types. Supported compression types are: " +
-            s"${SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER.mkString(", ")}. " +
-            "Skipping these files.")
-        }
-        logsSupported.map { s =>
-          if (s.isFile || (s.isDirectory && isEventLogDir(s.getPath().getName()))) {
-            (ApacheSparkEventLog(s.getPath).asInstanceOf[EventLogInfo]
-              -> Some(EventLogFileSystemInfo(s.getModificationTime, s.getLen)))
-          } else {
-            (DatabricksEventLog(s.getPath).asInstanceOf[EventLogInfo]
-              -> Some(EventLogFileSystemInfo(s.getModificationTime, s.getLen)))
-          }
-        }.toMap
-      }
+      getEventLogInfoRecursive(inputPath, fs).map {
+        case (info, sysInfo) => info -> Some(sysInfo)
+      }.toMap
     } catch {
       case fnfEx: FileNotFoundException =>
         logWarning(s"$pathString not found, skipping!")
