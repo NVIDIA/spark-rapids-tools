@@ -292,7 +292,6 @@ object EventLogPathProcessor extends Logging {
       } else {
         filteredByMinSize
       }
-      logInfo("all event logs after filter size: " + filteredByMaxSize)
       // filter by date time range first
       val filteredByDateTime = if (newermt.isDefined || oldermt.isDefined) {
         if (newermt.isDefined && oldermt.isDefined) {
@@ -326,8 +325,6 @@ object EventLogPathProcessor extends Logging {
       } else {
         filteredByMaxSize
       }
-      logInfo("all event logs after filter time: " + filteredByDateTime)
-
       if (filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) {
         val filteredInfo = filterNLogs.get.split("-")
         val numberofEventLogs = filteredInfo(0).toInt
