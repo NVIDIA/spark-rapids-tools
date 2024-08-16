@@ -115,6 +115,11 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Specify the sort order of the report. desc or asc, desc is the default. " +
         "desc (descending) would report applications most likely to be accelerated at the top " +
         "and asc (ascending) would show the least likely to be accelerated at the top.")
+  val noRecursion: ScallopOption[Boolean] =
+    opt[Boolean](required = false,
+      descr = "Set to true to disable recursive search for event logs in the provided " +
+        "directories. Default is false.",
+      default = Some(false))
   val numThreads: ScallopOption[Int] =
     opt[Int](required = false,
       descr = "Number of thread to use for parallel processing. The default is the " +

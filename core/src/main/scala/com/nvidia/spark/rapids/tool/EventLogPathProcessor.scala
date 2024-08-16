@@ -111,9 +111,9 @@ object EventLogPathProcessor extends Logging {
    * TODO - Need to handle size of files in directory, for now document its not supported.
    *        Reference: https://github.com/NVIDIA/spark-rapids-tools/pull/1275
    *
-   * @param s FileStatus to be identified.
-   * @param fs FileSystem instance for file system operations.
-   * @return Option[EventLogInfo] if valid, None otherwise.
+   * @param s   FileStatus to be identified.
+   * @param fs  FileSystem instance for file system operations.
+   * @return    Option[EventLogInfo] if valid, None otherwise.
    */
   private def identifyEventLog(s: FileStatus, fs: FileSystem): Option[EventLogInfo] = {
     if (s.isFile && (eventLogNameFilter(s.getPath) && !isLogFile(s.getPath))) {
@@ -132,15 +132,20 @@ object EventLogPathProcessor extends Logging {
   }
 
   /**
-   * Retrieves all event logs from the input path using a breadth-first search.
-   * The search is done iteratively using a queue to avoid stack overflow.
+   * Retrieves all event logs from the input path.
    *
-   * @param inputPath Root path to search for event logs.
-   * @param fs FileSystem instance for file system operations.
-   * @return List of (EventLogInfo, EventLogFileSystemInfo) tuples.
+   * Note:
+   *   - If the input path is a directory and recursive search is enabled, this function will
+   *     search for event logs in all subdirectories.
+   *   - This is done using a queue to avoid stack overflow.
+   *
+   * @param inputPath               Root path to search for event logs.
+   * @param fs                      FileSystem instance for file system operations.
+   * @param recursiveSearchEnabled  If enabled, search for event logs in all subdirectories.
+   * @return                        List of (EventLogInfo, EventLogFileSystemInfo) tuples.
    */
-  private def getEventLogInfoRecursive(inputPath: Path,
-      fs: FileSystem): List[(EventLogInfo, EventLogFileSystemInfo)] = {
+  private def getEventLogInfoInternal(inputPath: Path, fs: FileSystem,
+      recursiveSearchEnabled: Boolean): List[(EventLogInfo, EventLogFileSystemInfo)] = {
     val results = ArrayBuffer[(EventLogInfo, EventLogFileSystemInfo)]()
     val queue = mutable.Queue[FileStatus]()
     queue.enqueue(fs.getFileStatus(inputPath))
@@ -149,15 +154,16 @@ object EventLogPathProcessor extends Logging {
       val currentEntry = queue.dequeue()
       identifyEventLog(currentEntry, fs) match {
         case Some(eventLogInfo) =>
-          // If currentEntry is an event log (either a file or a directory), add it to the results.
+          // If currentEntry is an event log (either a file or a directory), add it to the results
+          // with its modification time and size.
           results += eventLogInfo -> EventLogFileSystemInfo(
             currentEntry.getModificationTime, currentEntry.getLen)
-        case None if currentEntry.isDirectory =>
-          // If currentEntry is a directory but not an event log, enqueue its children
-          // for further processing.
+        case None if currentEntry.isDirectory && recursiveSearchEnabled =>
+          // If currentEntry is a directory (but not an event log) and recursive search is enabled,
+          // enqueue its children for further processing.
           fs.listStatus(currentEntry.getPath).foreach(queue.enqueue(_))
         case _ =>
-          // Using a debug log (instead of warn) to avoid excessive logging due to recursive search.
+          // Using a debug log (instead of warn) to avoid excessive logging due to recursive nature.
           val supportedTypes = SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER.mkString(", ")
           logDebug(s"File: ${currentEntry.getPath} is not a supported file type. " +
             s"Supported compression types are: $supportedTypes. Skipping this file.")
@@ -200,16 +206,21 @@ object EventLogPathProcessor extends Logging {
     }
   }
 
-  def getEventLogInfo(pathString: String,
-      hadoopConf: Configuration): Map[EventLogInfo, Option[EventLogFileSystemInfo]] = {
+  def getEventLogInfo(pathString: String, hadoopConf: Configuration,
+      recursiveSearchEnabled: Boolean = true): Map[EventLogInfo, Option[EventLogFileSystemInfo]] = {
     val inputPath = new Path(pathString)
     try {
       // Note that some cloud storage APIs may throw FileNotFoundException when the pathPrefix
       // (i.e., bucketName) is not visible to the current configuration instance.
       val fs = FSUtils.getFSForPath(inputPath, hadoopConf)
-      getEventLogInfoRecursive(inputPath, fs).map {
-        case (info, sysInfo) => info -> Some(sysInfo)
-      }.toMap
+      val eventLogInfos = getEventLogInfoInternal(inputPath, fs, recursiveSearchEnabled)
+      if (eventLogInfos.isEmpty) {
+        val message = "No valid event logs found in the path. Check the path or set the " +
+          "log level to DEBUG for more details."
+        Map(FailedEventLog(inputPath, message) -> None)
+      } else {
+        eventLogInfos.toMap.mapValues(Some(_))
+      }
     } catch {
       case fnfEx: FileNotFoundException =>
         logWarning(s"$pathString not found, skipping!")
@@ -224,10 +235,14 @@ object EventLogPathProcessor extends Logging {
    * Function to process event log paths passed in and evaluate which ones are really event
    * logs and filter based on user options.
    *
-   * @param filterNLogs    number of event logs to be selected
-   * @param matchlogs      keyword to match file names in the directory
-   * @param eventLogsPaths Array of event log paths
-   * @param hadoopConf     Hadoop Configuration
+   * @param filterNLogs             Number of event logs to be selected
+   * @param matchlogs               Keyword to match file names in the directory
+   * @param eventLogsPaths          Array of event log paths
+   * @param hadoopConf              Hadoop Configuration
+   * @param recursiveSearchEnabled  If enabled, search for event logs in all subdirectories.
+   * @param maxEventLogSize         Maximum size of event log to be processed
+   * @param minEventLogSize         Minimum size of event log to be processed
+   *
    * @return (Seq[EventLogInfo], Seq[EventLogInfo]) - Tuple indicating paths of event logs in
    *         filesystem. First element contains paths of event logs after applying filters and
    *         second element contains paths of all event logs.
@@ -237,6 +252,7 @@ object EventLogPathProcessor extends Logging {
       matchlogs: Option[String],
       eventLogsPaths: List[String],
       hadoopConf: Configuration,
+      recursiveSearchEnabled: Boolean = true,
       maxEventLogSize: Option[String] = None,
       minEventLogSize: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
     val logsPathNoWildCards = processWildcardsLogs(eventLogsPaths, hadoopConf)
@@ -245,7 +261,7 @@ object EventLogPathProcessor extends Logging {
         // If no event logs are found in the path after wildcard expansion, return a failed event
         Map(FailedEventLog(new Path(rawPath), s"No event logs found in $rawPath") -> None)
       case (_, processedPaths) =>
-        processedPaths.flatMap(getEventLogInfo(_, hadoopConf))
+        processedPaths.flatMap(getEventLogInfo(_, hadoopConf, recursiveSearchEnabled))
     }.toMap
 
     logDebug("Paths after stringToPath: " + logsWithTimestamp)

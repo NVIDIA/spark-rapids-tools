@@ -90,6 +90,7 @@ sparkRapids:
       - max-sql-desc-length
       - ml-functions
       - n
+      - no-recursion
       - num-output-rows
       - order
       - r
