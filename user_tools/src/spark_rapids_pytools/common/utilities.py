@@ -231,7 +231,7 @@ class ToolLogging:
         return logger
 
     @classmethod
-    def modify_log4j_properties(cls, prop_file_path: str, new_log_file_path: str) -> str:
+    def modify_log4j_properties(cls, prop_file_path: str, new_log_dir: str) -> str:
         """
         Modifies the log file path in a log4j properties file to redirect logging output to a new location.
 
@@ -242,7 +242,7 @@ class ToolLogging:
 
         :param prop_file_path: The file path to the original log4j.properties file. This file
                                should contain configurations for the log4j logging utility.
-        :param new_log_file_path: The base output directory where the new log file will be created.
+        :param new_log_dir: The base output directory where the new log file will be created.
                                   The actual log file named 'rapids_4_spark_qualification_stderr.log'
                                   will be placed in this directory.
 
@@ -250,19 +250,18 @@ class ToolLogging:
                      This temporary file retains the modifications and can be accessed until
                      explicitly deleted after the java process is completed.
         """
-        new_log_file = f'{new_log_file_path}/rapids_4_spark_qualification_stderr.log'
+        new_log_file = f'{new_log_dir}/rapids_4_spark_qualification_stderr.log'
         with open(prop_file_path, 'r', encoding='utf-8') as file:
             lines = file.readlines()
 
         with tempfile.NamedTemporaryFile(
                 delete=False, mode='w+', suffix='.properties') as temp_file:
-            temp_file_path = temp_file.name
             for line in lines:
                 if line.startswith('log4j.appender.FILE.File='):
                     temp_file.write(f'log4j.appender.FILE.File={new_log_file}\n')
                 else:
                     temp_file.write(line)
-        return temp_file_path
+        return temp_file.name
 
 
 class TemplateGenerator:

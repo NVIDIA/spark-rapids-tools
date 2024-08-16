@@ -99,15 +99,14 @@ class RapidsJob:
             stdout_str = f'\n\t<STDOUT>\n{std_out_lines}'
             self.logger.info('%s job output:%s', self.get_platform_name(), stdout_str)
 
-    def _cleanup_temp_log4j_files(self):
+    def _cleanup_temp_log4j_files(self) -> None:
         """Cleanup temporary log4j file created during the job execution"""
         tmp_file = self.exec_ctxt.get_local('tmp_log4j')
-        if tmp_file:
-            try:
-                os.remove(tmp_file)
-                self.logger.info('Temporary log4j properties file removed: %s', tmp_file)
-            except Exception as e:  # pylint: disable=broad-except
-                self.logger.error('Error removing temporary log4j properties file: %s', e)
+        try:
+            os.remove(tmp_file)
+            self.logger.info('Temporary log4j properties file removed: %s', tmp_file)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.error('Error removing temporary log4j properties file: %s', e)
 
     def run_job(self):
         self.logger.info('Prepare job submission command')
