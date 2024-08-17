@@ -15,12 +15,11 @@
  */
 package com.nvidia.spark.rapids.tool.profiling
 
-import org.json4s.DefaultFormats
-import org.json4s.jackson.Serialization
-
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import org.apache.commons.lang3.StringUtils
+import org.json4s.DefaultFormats
+import org.json4s.jackson.Serialization
 
 
 class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: Int,

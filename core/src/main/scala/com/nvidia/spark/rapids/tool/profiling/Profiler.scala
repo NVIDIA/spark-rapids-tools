@@ -553,7 +553,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
       }
 
-      profileOutputWriter.writeSparkRapidsBuildInfo("Spark Rapids Build Info", app.sparkRapidsBuildInfo)
+      profileOutputWriter.writeSparkRapidsBuildInfo("Spark Rapids Build Info",
+        app.sparkRapidsBuildInfo)
     }
   }
 
