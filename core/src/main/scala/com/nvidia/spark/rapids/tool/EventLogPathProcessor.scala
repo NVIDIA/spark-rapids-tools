@@ -72,19 +72,29 @@ object EventLogPathProcessor extends Logging {
     status.isFile && isDBEventLogFile(status.getPath.getName)
   }
 
-  // https://github.com/apache/spark/blob/0494dc90af48ce7da0625485a4dc6917a244d580/
-  // core/src/main/scala/org/apache/spark/io/CompressionCodec.scala#L67
+  // scalastyle:off line.size.limit
+  // https://github.com/apache/spark/blob/0494dc90af48ce7da0625485a4dc6917a244d580/core/src/main/scala/org/apache/spark/io/CompressionCodec.scala#L67
+  // scalastyle:on line.size.limit
   val SPARK_SHORT_COMPRESSION_CODEC_NAMES = Set("lz4", "lzf", "snappy", "zstd")
   // Apache Spark ones plus gzip
   val SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER =
     SPARK_SHORT_COMPRESSION_CODEC_NAMES ++ Set("gz")
 
   // Files having these keywords are not considered as event logs
-  private val LOGFILE_NAMES: Set[String] = Set("stdout", "stderr", "log4j", ".log.")
+  private val EXCLUDED_EVENTLOG_NAME_KEYWORDS = Set("stdout", "stderr", "log4j", ".log.")
 
-  def eventLogNameFilter(logFile: Path): Boolean = {
-    EventLogFileWriter.codecName(logFile)
+  /**
+   * Filter to identify valid event log files based on the criteria:
+   *  - File should either not have any suffix or have a supported compression codec suffix
+   *  - File should not contain any of the EXCLUDED_EVENTLOG_NAME_KEYWORDS keywords in its name
+   * @param logFile File to be filtered.
+   * @return        True if the file is a valid event log, false otherwise.
+   */
+  private def eventLogNameFilter(logFile: Path): Boolean = {
+    val hasValidSuffix = EventLogFileWriter.codecName(logFile)
       .forall(suffix => SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER.contains(suffix))
+    val hasExcludedKeyword = EXCLUDED_EVENTLOG_NAME_KEYWORDS.exists(logFile.getName.contains)
+    hasValidSuffix && !hasExcludedKeyword
   }
 
   // Databricks has the latest events in file named eventlog and then any rolled in format
@@ -99,14 +109,8 @@ object EventLogPathProcessor extends Logging {
     dir.isDirectory && dbLogFiles.size > 1
   }
 
-  private def isLogFile(file: Path): Boolean = {
-    LOGFILE_NAMES.exists(file.getName.contains)
-  }
-
   /**
    * Identifies if the input file or directory is a valid event log.
-   * Supports regular event logs, Apache Spark and Databricks event log directories.
-   * Other file types are ignored.
    *
    * TODO - Need to handle size of files in directory, for now document its not supported.
    *        Reference: https://github.com/NVIDIA/spark-rapids-tools/pull/1275
@@ -116,8 +120,8 @@ object EventLogPathProcessor extends Logging {
    * @return    Option[EventLogInfo] if valid, None otherwise.
    */
   private def identifyEventLog(s: FileStatus, fs: FileSystem): Option[EventLogInfo] = {
-    if (s.isFile && (eventLogNameFilter(s.getPath) && !isLogFile(s.getPath))) {
-      // Regular event log file (compressed or uncompressed, excluding 'log' files).
+    if (s.isFile && eventLogNameFilter(s.getPath)) {
+      // Regular event log file. See function `eventLogNameFilter` for criteria.
       Some(ApacheSparkEventLog(s.getPath))
     } else if (isEventLogDir(s)) {
       // Apache Spark event log directory (starting with "eventlog_v2_").
