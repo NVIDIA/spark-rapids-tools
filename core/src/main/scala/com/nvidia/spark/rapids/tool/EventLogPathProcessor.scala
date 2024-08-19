@@ -51,20 +51,19 @@ case class FailedEventLog(override val eventLog: Path,
 
 object EventLogPathProcessor extends Logging {
   // Apache Spark event log prefixes
-  val EVENT_LOG_DIR_NAME_PREFIX = "eventlog_v2_"
-  val EVENT_LOG_FILE_NAME_PREFIX = "events_"
-  val DB_EVENT_LOG_FILE_NAME_PREFIX = "eventlog"
+  private val EVENT_LOG_DIR_NAME_PREFIX = "eventlog_v2_"
+  private val DB_EVENT_LOG_FILE_NAME_PREFIX = "eventlog"
 
-  def isEventLogDir(status: FileStatus): Boolean = {
+  private def isEventLogDir(status: FileStatus): Boolean = {
     status.isDirectory && isEventLogDir(status.getPath.getName)
   }
 
   // This only checks the name of the path
-  def isEventLogDir(path: String): Boolean = {
+  private def isEventLogDir(path: String): Boolean = {
     path.startsWith(EVENT_LOG_DIR_NAME_PREFIX)
   }
 
-  def isDBEventLogFile(fileName: String): Boolean = {
+  private def isDBEventLogFile(fileName: String): Boolean = {
     fileName.startsWith(DB_EVENT_LOG_FILE_NAME_PREFIX)
   }
 
@@ -75,9 +74,9 @@ object EventLogPathProcessor extends Logging {
   // scalastyle:off line.size.limit
   // https://github.com/apache/spark/blob/0494dc90af48ce7da0625485a4dc6917a244d580/core/src/main/scala/org/apache/spark/io/CompressionCodec.scala#L67
   // scalastyle:on line.size.limit
-  val SPARK_SHORT_COMPRESSION_CODEC_NAMES = Set("lz4", "lzf", "snappy", "zstd")
+  private val SPARK_SHORT_COMPRESSION_CODEC_NAMES = Set("lz4", "lzf", "snappy", "zstd")
   // Apache Spark ones plus gzip
-  val SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER =
+  private val SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER =
     SPARK_SHORT_COMPRESSION_CODEC_NAMES ++ Set("gz")
 
   // Files having these keywords are not considered as event logs
@@ -100,8 +99,8 @@ object EventLogPathProcessor extends Logging {
   // Databricks has the latest events in file named eventlog and then any rolled in format
   // eventlog-2021-06-14--20-00.gz, here we assume that if any files start with eventlog
   // then the directory is a Databricks event log directory.
-  def isDatabricksEventLogDir(dir: FileStatus, fs: FileSystem): Boolean = {
-    val dbLogFiles = fs.listStatus(dir.getPath, new PathFilter {
+  private def isDatabricksEventLogDir(dir: FileStatus, fs: FileSystem): Boolean = {
+    lazy val dbLogFiles = fs.listStatus(dir.getPath, new PathFilter {
       override def accept(path: Path): Boolean = {
         isDBEventLogFile(path.getName)
       }
