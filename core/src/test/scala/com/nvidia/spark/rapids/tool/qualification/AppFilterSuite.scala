@@ -245,8 +245,7 @@ class AppFilterSuite extends BaseTestSuite {
     TestEventLogFSAndAppNameInfo("feb02-15",
       AppFilterImpl.parseDateTimePeriod("2024-02-02 15:00:00").get, 3),
     TestEventLogFSAndAppNameInfo("may15-13",
-      AppFilterImpl.parseDateTimePeriod("2024-05-15 13:00:00").get, 4),
-  )
+      AppFilterImpl.parseDateTimePeriod("2024-05-15 13:00:00").get, 4))
 
   test("start and end filesystem both on all") {
     testFileSystemNewerAndOlderTimes(appsWithFsNewOlderToTest, "2024-02-01 00:00:00",
@@ -310,8 +309,10 @@ class AppFilterSuite extends BaseTestSuite {
     }
   }
 
-  private def testFileSystemNewerAndOlderTimes(apps: Array[TestEventLogFSAndAppNameInfo],
-      fsStartTime: String, fsEndTime: String,
+  private def testFileSystemNewerAndOlderTimes(
+      apps: Array[TestEventLogFSAndAppNameInfo],
+      fsStartTime: String,
+      fsEndTime: String,
       expectedFilterSize: Int): Unit = {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { tmpEventLogDir =>
@@ -327,9 +328,10 @@ class AppFilterSuite extends BaseTestSuite {
           new File(elogFile.toString).setLastModified(app.fsTime)
           elogFile.toString
         }
+
         val startingArgs = Array(
           "--output-directory",
-          outpath.getAbsolutePath(),
+          outpath.getAbsolutePath()
         )
         val argsWithOptStart = if (!fsStartTime.isEmpty) {
           startingArgs ++ Array("--fs-start-time", fsStartTime)
@@ -341,7 +343,6 @@ class AppFilterSuite extends BaseTestSuite {
         } else {
           argsWithOptStart
         }
-
         val appArgs = new QualificationArgs(allArgs ++ fileNames)
         val (exit, appSum) = QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
@@ -349,7 +350,6 @@ class AppFilterSuite extends BaseTestSuite {
       }
     }
   }
-
 
   case class TestEventLogFSAndAppInfo(fileName: String, fsTime: Long, appName: String,
     appTime: Long, uniqueId: Int)
