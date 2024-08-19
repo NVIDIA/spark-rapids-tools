@@ -60,12 +60,6 @@ object ToolUtils extends Logging {
     org.apache.spark.SPARK_VERSION
   }
 
-  var sparkRapidsRuntimeVersion: Option[String] = None
-
-  var jniRuntimeVersion: Option[String] = None
-
-  var cudfRuntimeVersion: Option[String] = None
-
   def compareVersions(verA: String, verB: String): Int = {
     Try {
       val verObjA = new ComparableVersion(verA)
