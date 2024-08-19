@@ -245,8 +245,7 @@ object EventLogPathProcessor extends Logging {
    * @param eventLogsPaths          Array of event log paths
    * @param hadoopConf              Hadoop Configuration
    * @param recursiveSearchEnabled  If enabled, search for event logs in all subdirectories.
-   * @param maxEventLogSize         Maximum size of event log to be processed
-   * @param minEventLogSize         Minimum size of event log to be processed
+   *                                Enabled by default.
    *
    * @return (Seq[EventLogInfo], Seq[EventLogInfo]) - Tuple indicating paths of event logs in
    *         filesystem. First element contains paths of event logs after applying filters and
