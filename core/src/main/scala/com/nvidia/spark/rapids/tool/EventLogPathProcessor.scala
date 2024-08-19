@@ -228,8 +228,8 @@ object EventLogPathProcessor extends Logging {
    * @param hadoopConf      Hadoop Configuration
    * @param maxEventLogSize optional maximum event log size as a string
    * @param minEventLogSize optional minimum event log size as a string
-   * @param fsStartTime     filesystem date and time used for selecting event logs newer then this time
-   * @param fsEndTime     filesystem date and time used for selecting event logs older then this time
+   * @param fsStartTime     filesystem date and time for filtering event logs based on start time
+   * @param fsEndTime       filesystem date and time for filtering event logs based on end time
    * @return (Seq[EventLogInfo], Seq[EventLogInfo]) - Tuple indicating paths of event logs in
    *         filesystem. First element contains paths of event logs after applying filters and
    *         second element contains paths of all event logs.
