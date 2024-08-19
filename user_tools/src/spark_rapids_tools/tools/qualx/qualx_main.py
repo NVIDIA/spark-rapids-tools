@@ -229,8 +229,29 @@ def _predict(
     split_fn: Callable[[pd.DataFrame], pd.DataFrame] = None,
     qual_tool_filter: Optional[str] = 'stage',
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    results = pd.DataFrame(columns=['appId', 'appDuration', 'sqlID', 'scaleFactor', 'Duration', 'Duration_supported', 'Duration_pred', 'speedup_pred'])
-    summary = pd.DataFrame(columns=['appId', 'appDuration', 'Duration_pred', 'Duration_supported', 'fraction_supported', 'appDuration_pred', 'speedup'])
+    results = pd.DataFrame(
+        columns=[
+            'appId',
+            'appDuration',
+            'sqlID',
+            'scaleFactor',
+            'Duration',
+            'Duration_supported',
+            'Duration_pred',
+            'speedup_pred',
+        ]
+    )
+    summary = pd.DataFrame(
+        columns=[
+            'appId',
+            'appDuration',
+            'Duration_pred',
+            'Duration_supported',
+            'fraction_supported',
+            'appDuration_pred',
+            'speedup',
+        ]
+    )
     if not input_df.empty:
         filter_str = (
             f'with {qual_tool_filter} filtering'
