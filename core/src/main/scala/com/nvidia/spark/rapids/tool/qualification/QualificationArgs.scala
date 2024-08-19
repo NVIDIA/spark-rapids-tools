@@ -85,7 +85,7 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
           "<Filter2> AND <Filter3>. Default is all=true")
   val startAppTime: ScallopOption[String] =
     opt[String](required = false,
-      descr = "Filter event logs whose application start occurred within the past specified " +
+      descr = "Select event logs whose application start occurred within the past specified " +
         "time period. Valid time periods are min(minute),h(hours),d(days),w(weeks)," +
         "m(months). If a period is not specified it defaults to days.")
   val maxEventLogSize: ScallopOption[String] =
@@ -119,14 +119,14 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[Int](required = false,
       descr = "Number of thread to use for parallel processing. The default is the " +
         "number of cores on host divided by 4.")
-  val newer: ScallopOption[String] =
+  val fsStartTime: ScallopOption[String] =
     opt[String](required = false,
-      descr = "Only process event logs whose filesystem time stamp is newer the the time " +
-        "specific. Valid format is yyyy-MM-dd hh:mm:ss.")
-  val older: ScallopOption[String] =
+      descr = "Select event logs whose filesystem time stamp is newer than or starts on the " +
+        "date/time specified. Valid format is yyyy-MM-dd hh:mm:ss.")
+  val fsEndTime: ScallopOption[String] =
     opt[String](required = false,
-      descr = "Only process event logs whose filesystem start time stamp is older the the time " +
-        "specific. Valid format is yyyy-MM-dd hh:mm:ss.")
+      descr = "Select event logs whose filesystem time stamp is older than or ends on the " +
+        "date/time specified. Valid format is yyyy-MM-dd hh:mm:ss.")
   val reportReadSchema: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Whether to output the read formats and datatypes to the CSV file. This can " +
@@ -228,12 +228,12 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       "are min(minute),h(hours),d(days),w(weeks),m(months).")
   }
 
-  validate(newer) {
+  validate(fsStartTime) {
     case dateTime if (AppFilterImpl.parseDateTimePeriod(dateTime).isDefined) => Right(Unit)
     case _ => Left("Time period specified must be format yyyy-MM-dd hh:mm:ss.")
   }
 
-  validate(older) {
+  validate(fsEndTime) {
     case dateTime if (AppFilterImpl.parseDateTimePeriod(dateTime).isDefined) => Right(Unit)
     case _ => Left("Time period specified must be format yyyy-MM-dd hh:mm:ss")
   }

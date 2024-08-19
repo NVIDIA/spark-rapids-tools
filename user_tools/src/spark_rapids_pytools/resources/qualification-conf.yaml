@@ -80,6 +80,8 @@ sparkRapids:
       - application-name
       - f
       - filter-criteria
+      - fs-end-time
+      - fs-start-time
       - h
       - html-report
       - no-html-report
@@ -90,9 +92,7 @@ sparkRapids:
       - max-sql-desc-length
       - ml-functions
       - n
-      - newermt
       - num-output-rows
-      - oldermt
       - order
       - r
       - report-read-schema

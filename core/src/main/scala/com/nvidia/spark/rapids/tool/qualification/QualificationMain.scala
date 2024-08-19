@@ -89,7 +89,7 @@ object QualificationMain extends Logging {
 
     val (eventLogFsFiltered, allEventLogs) = EventLogPathProcessor.processAllPaths(
       filterN.toOption, matchEventLogs.toOption, eventlogPaths, hadoopConf,
-      maxEventLogSize, minEventLogSize, appArgs.newer.toOption, appArgs.older.toOption)
+      maxEventLogSize, minEventLogSize, appArgs.fsStartTime.toOption, appArgs.fsEndTime.toOption)
 
     val filteredLogs = if (argsContainsAppFilters(appArgs)) {
       val appFilter = new AppFilterImpl(numOutputRows, hadoopConf, timeout, nThreads)
@@ -127,8 +127,8 @@ object QualificationMain extends Logging {
       (filterCriteria.isDefined && filterCriteria.get.endsWith("-filesystem")) ||
       appArgs.maxEventLogSize.toOption.isDefined ||
       appArgs.minEventLogSize.toOption.isDefined ||
-      appArgs.newer.toOption.isDefined ||
-      appArgs.older.toOption.isDefined
+      appArgs.fsStartTime.toOption.isDefined ||
+      appArgs.fsEndTime.toOption.isDefined
   }
 
   def argsContainsAppFilters(appArgs: QualificationArgs): Boolean = {

@@ -237,11 +237,21 @@ class AppFilterSuite extends BaseTestSuite {
     testFileSystemTimeAndStart(appsWithFsToTest, "2-oldest-filesystem", "ndsweeks2", 1)
   }
 
+  private val appsWithFsNewOlderToTest = Array(
+    TestEventLogFSAndAppNameInfo("ndshours18", msHoursAgo(18), 1),
+    TestEventLogFSAndAppNameInfo("ndsweeks2", msWeeksAgo(2), 1),
+    TestEventLogFSAndAppNameInfo("nds86", msDaysAgo(4), 1),
+    TestEventLogFSAndAppNameInfo("nds86", msWeeksAgo(2), 2))
+
+  test("start ane end filesystem both") {
+    testFileSystemNewerAndOlderTimes(appsWithFsNewOlderToTest, "2-oldest-filesystem",
+      "ndsweeks2", 1)
+  }
+
   private def testFileSystemTimeAndStart(apps: Array[TestEventLogFSAndAppNameInfo],
       filterCriteria: String, filterAppName: String, expectedFilterSize: Int): Unit = {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { tmpEventLogDir =>
-
         val fileNames = apps.map { app =>
           val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath,
             s"${app.appName}-${app.uniqueId}-eventlog")
@@ -270,6 +280,41 @@ class AppFilterSuite extends BaseTestSuite {
       }
     }
   }
+
+  private def testFileSystemNewerAndOlderTimes(apps: Array[TestEventLogFSAndAppNameInfo],
+      fsStartTime: String, fsEndTime: String,
+      expectedFilterSize: Int): Unit = {
+    TrampolineUtil.withTempDir { outpath =>
+      TrampolineUtil.withTempDir { tmpEventLogDir =>
+        val fileNames = apps.map { app =>
+          val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath,
+            s"${app.appName}-${app.uniqueId}-eventlog")
+          // scalastyle:off line.size.limit
+          val supText =
+            s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
+               |{"Event":"SparkListenerApplicationStart","App Name":"${app.appName}","App ID":"local-16261043003${app.uniqueId}","Timestamp":1626104299853,"User":"user1"}""".stripMargin
+          // scalastyle:on line.size.limit
+          Files.write(elogFile, supText.getBytes(StandardCharsets.UTF_8))
+          new File(elogFile.toString).setLastModified(app.fsTime)
+          elogFile.toString
+        }
+
+        val allArgs = Array(
+          "--output-directory",
+          outpath.getAbsolutePath(),
+          "--fs-start-time",
+          fsStartTime,
+          "--fs-end-time",
+          fsEndTime
+        )
+        val appArgs = new QualificationArgs(allArgs ++ fileNames)
+        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+        assert(appSum.size == expectedFilterSize)
+      }
+    }
+  }
+
 
   case class TestEventLogFSAndAppInfo(fileName: String, fsTime: Long, appName: String,
     appTime: Long, uniqueId: Int)
