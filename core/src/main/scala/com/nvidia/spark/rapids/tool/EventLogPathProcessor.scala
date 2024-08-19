@@ -237,8 +237,8 @@ object EventLogPathProcessor extends Logging {
       hadoopConf: Configuration,
       maxEventLogSize: Option[String] = None,
       minEventLogSize: Option[String] = None,
-      newermt: Option[String] = None,
-      oldermt: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
+      newer: Option[String] = None,
+      older: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
     val logsPathNoWildCards = processWildcardsLogs(eventLogsPaths, hadoopConf)
     val logsWithTimestamp = logsPathNoWildCards.flatMap {
       case (rawPath, processedPaths) if processedPaths.isEmpty =>
@@ -257,7 +257,7 @@ object EventLogPathProcessor extends Logging {
 
     val filteredLogs = if ((filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) ||
       maxEventLogSize.isDefined || minEventLogSize.isDefined ||
-      newermt.isDefined || oldermt.isDefined) {
+      newer.isDefined || older.isDefined) {
       val validMatchedLogs = matchedLogs.collect {
         case (info, Some(ts)) => info -> ts
       }
@@ -293,31 +293,31 @@ object EventLogPathProcessor extends Logging {
         filteredByMinSize
       }
       // filter by date time range first
-      val filteredByDateTime = if (newermt.isDefined || oldermt.isDefined) {
-        if (newermt.isDefined && oldermt.isDefined) {
-          val newermtMs = AppFilterImpl.parseDateTimePeriod(newermt.get).get
-          val oldermtMs = AppFilterImpl.parseDateTimePeriod(oldermt.get).get
-          logWarning(s"time in ms newer: ${newermtMs} older: ${oldermtMs}")
+      val filteredByDateTime = if (newer.isDefined || older.isDefined) {
+        if (newer.isDefined && older.isDefined) {
+          val newerMs = AppFilterImpl.parseDateTimePeriod(newer.get).get
+          val olderMs = AppFilterImpl.parseDateTimePeriod(older.get).get
+          logWarning(s"time in ms newer: ${newerMs} older: ${olderMs}")
           val (matched, filtered) = filteredByMaxSize.partition { case (_, v) =>
-            (v.timestamp >= newermtMs) && (v.timestamp <= oldermtMs)
+            (v.timestamp > newerMs) && (v.timestamp < olderMs)
           }
-          logInfo(s"Filtered out eventlogs by both newer than time: ${newermt.get} " +
-            s"and older than time: ${oldermt.get}. The logs filtered out include: " +
+          logInfo(s"Filtered out eventlogs by both newer than time: ${newer.get} " +
+            s"and older than time: ${older.get}. The logs filtered out include: " +
             s"${filtered.keys.map(_.eventLog.toString).mkString(",")}")
           matched
-        } else if (newermt.isDefined) {
-          val newermtMs = AppFilterImpl.parseDateTimePeriod(newermt.get).get
+        } else if (newer.isDefined) {
+          val newerMs = AppFilterImpl.parseDateTimePeriod(newer.get).get
           val (matched, filtered) =
-            filteredByMaxSize.partition { case (_, v) => v.timestamp >= newermtMs }
-          logInfo(s"Filtered out eventlogs newer than time: ${newermt.get} " +
+            filteredByMaxSize.partition { case (_, v) => v.timestamp > newerMs }
+          logInfo(s"Filtered out eventlogs newer than time: ${newer.get} " +
             s"The logs filtered out include: " +
             s"${filtered.keys.map(_.eventLog.toString).mkString(",")}")
           matched
         } else {
-          val oldermtMs = AppFilterImpl.parseDateTimePeriod(oldermt.get).get
+          val olderMs = AppFilterImpl.parseDateTimePeriod(older.get).get
           val (matched, filtered) =
-            filteredByMaxSize.partition { case (_, v) => v.timestamp <= oldermtMs }
-          logInfo(s"Filtered out eventlogs older than time: ${oldermt.get} " +
+            filteredByMaxSize.partition { case (_, v) => v.timestamp < olderMs }
+          logInfo(s"Filtered out eventlogs older than time: ${older.get} " +
             s"The logs filtered out include: " +
             s"${filtered.keys.map(_.eventLog.toString).mkString(",")}")
           matched

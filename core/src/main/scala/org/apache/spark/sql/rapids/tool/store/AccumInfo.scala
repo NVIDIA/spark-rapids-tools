@@ -31,7 +31,7 @@ import org.apache.spark.sql.rapids.tool.util.EventUtils.parseAccumFieldToLong
  * 3. AccumMetaRef for the accumulator - a reference to the Meta information
  * @param infoRef - AccumMetaRef for the accumulator
  */
-class AccumInfo(val infoRef: AccumMetaRef) {
+class AccumInfo(val infoRef: AccumMetaRef) extends Serializable {
   // TODO: use sorted maps for stageIDs and taskIds?
   val taskUpdatesMap: mutable.HashMap[Long, Long] =
     new mutable.HashMap[Long, Long]()
