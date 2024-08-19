@@ -162,10 +162,12 @@ object EventLogPathProcessor extends Logging {
           // with its modification time and size.
           results += eventLogInfo -> EventLogFileSystemInfo(
             currentEntry.getModificationTime, currentEntry.getLen)
-        case None if currentEntry.isDirectory && recursiveSearchEnabled =>
-          // If currentEntry is a directory (but not an event log) and recursive search is enabled,
-          // enqueue its children for further processing.
-          fs.listStatus(currentEntry.getPath).foreach(queue.enqueue(_))
+        case None if currentEntry.isDirectory =>
+          // If currentEntry is a directory (but not an event log) enqueue all contained files for
+          // further processing. Include subdirectories only if recursive search is enabled.
+          fs.listStatus(currentEntry.getPath)
+            .filter(child => child.isFile || (child.isDirectory && recursiveSearchEnabled))
+            .foreach(queue.enqueue(_))
         case _ =>
           // Using a debug log (instead of warn) to avoid excessive logging due to recursive nature.
           val supportedTypes = SPARK_SHORT_COMPRESSION_CODEC_NAMES_FOR_FILTER.mkString(", ")
