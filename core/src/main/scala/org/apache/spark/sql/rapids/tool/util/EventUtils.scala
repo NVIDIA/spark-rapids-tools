@@ -196,8 +196,7 @@ object EventUtils extends Logging {
     (line: String) => Try {
       runtimeEventFromJsonMethod.apply(line)
     } match {
-      case Success(i) =>
-        Some(i)
+      case Success(i) => Some(i)
       case Failure(e) =>
         e match {
           case i: InvocationTargetException =>

@@ -1006,4 +1006,57 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     // `ReusedSubquery`, so we expect 7.
     assert(countScanParquet == 7)
   }
+
+  test("test gpu event log with SparkRapidsBuildInfoEvent") {
+    val eventLog = s"$logDir/spark_rapids_build_info_eventlog"
+    val sparkRapidsBuildInfoFile = "spark_rapids_build_info.json"
+    TrampolineUtil.withTempDir { tempDir =>
+      val appArgs = new ProfileArgs(Array(
+        "--csv",
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        eventLog))
+      val (exit, _) = ProfileMain.mainInternal(appArgs)
+      assert(exit == 0)
+
+      val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/local-1720734447737")
+      // assert that a json file was generated
+      val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
+        f.endsWith(".json")
+      })
+      assert(dotDirs.length === 1)
+
+      val expFilePath = s"${expRoot.getAbsolutePath}/$sparkRapidsBuildInfoFile"
+      val actualFilePath = s"${tempSubDir.getAbsolutePath}/$sparkRapidsBuildInfoFile"
+      // assert that the spark rapids build info json file is same as expected
+      ToolTestUtils.compareFiles(expFilePath, actualFilePath)
+    }
+  }
+
+  // TODO: GPU event log run with spark rapids 24.06+ includes SparkRapidsBuildInfoEvent.
+  // Once the test event logs are updated, we should remove this test.
+  test("test gpu event log with no SparkRapidsBuildInfoEvent") {
+    val eventLog = s"$logDir/nds_q66_gpu.zstd"
+    TrampolineUtil.withTempDir { tempDir =>
+      val appArgs = new ProfileArgs(Array(
+        "--csv",
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        eventLog))
+      val (exit, _) = ProfileMain.mainInternal(appArgs)
+      assert(exit == 0)
+
+      val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/application_1701368813061_0008")
+      // assert that a json file was generated
+      val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
+        f.endsWith(".json")
+      })
+      assert(dotDirs.length === 1)
+
+      val expFilePath = s"${expRoot.getAbsolutePath}/spark_rapids_build_info_empty.json"
+      val actualFilePath = s"${tempSubDir.getAbsolutePath}/spark_rapids_build_info.json"
+      // assert that the spark rapids build info json file is same as expected
+      ToolTestUtils.compareFiles(expFilePath, actualFilePath)
+    }
+  }
 }
