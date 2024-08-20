@@ -249,8 +249,10 @@ object EventLogPathProcessor extends Logging {
    *                                Enabled by default.
    * @param maxEventLogSize         Optional maximum event log size as a string
    * @param minEventLogSize         Optional minimum event log size as a string
-   * @param fsStartTime             Filesystem date and time for filtering event logs based on start time
-   * @param fsEndTime               Filesystem date and time for filtering event logs based on end time
+   * @param fsStartTime             Filesystem date and time for filtering event logs based on
+   *                                start time
+   * @param fsEndTime               Filesystem date and time for filtering event logs based on
+   *                                end time
    * @return (Seq[EventLogInfo], Seq[EventLogInfo]) - Tuple indicating paths of event logs in
    *         filesystem. First element contains paths of event logs after applying filters and
    *         second element contains paths of all event logs.
