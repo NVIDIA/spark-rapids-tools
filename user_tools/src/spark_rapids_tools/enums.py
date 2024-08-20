@@ -49,7 +49,7 @@ class EnumeratedType(str, Enum):
         """Return the state object attribute that matches the given value
         :param str value: string to look up
         :return: the state object attribute that matches the string
-        :rtype: str
+        :rtype: EnumeratedType
         """
         attribute = getattr(cls, value.upper(), None)
         if attribute is None:

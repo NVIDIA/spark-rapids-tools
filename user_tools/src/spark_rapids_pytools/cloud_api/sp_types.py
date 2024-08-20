@@ -87,7 +87,7 @@ class ClusterState(EnumeratedType):
     UNKNOWN = 'unknown'
 
     @classmethod
-    def get_default(cls) -> 'ClusterState':
+    def get_default(cls):
         return cls.UNKNOWN
 
 
