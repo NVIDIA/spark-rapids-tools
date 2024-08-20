@@ -436,7 +436,7 @@ class EMRCluster(ClusterBase):
             for inst_grp in inst_groups:
                 try:
                     parsed_state = ClusterState.fromstring(inst_grp['Status']['State'])
-                except ValueError:
+                except (KeyError, ValueError):
                     parsed_state = ClusterState.get_default()
                     self.logger.info(f'Unable to get cluster state, setting to '
                                      f'\'{ClusterState.tostring(parsed_state)}\'.')
