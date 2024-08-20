@@ -384,8 +384,11 @@ class DataprocNode(ClusterNode):
             """
             accelerator_name_arr = accelerator_name.split('-')
             for elem in accelerator_name_arr:
-                if GpuDevice.fromstring(elem) is not None:
+                try:
                     return GpuDevice.fromstring(elem)
+                except ValueError:
+                    # Continue to next entry if the accelerator name is not a valid GPU device
+                    continue
             return None
 
         # check if GPU info is already set
