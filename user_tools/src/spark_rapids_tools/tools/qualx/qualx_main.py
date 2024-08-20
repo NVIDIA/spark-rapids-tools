@@ -229,8 +229,29 @@ def _predict(
     split_fn: Callable[[pd.DataFrame], pd.DataFrame] = None,
     qual_tool_filter: Optional[str] = 'stage',
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    results = pd.DataFrame()
-    summary = pd.DataFrame()
+    results = pd.DataFrame(
+        columns=[
+            'appId',
+            'appDuration',
+            'sqlID',
+            'scaleFactor',
+            'Duration',
+            'Duration_supported',
+            'Duration_pred',
+            'speedup_pred',
+        ]
+    )
+    summary = pd.DataFrame(
+        columns=[
+            'appId',
+            'appDuration',
+            'Duration_pred',
+            'Duration_supported',
+            'fraction_supported',
+            'appDuration_pred',
+            'speedup',
+        ]
+    )
     if not input_df.empty:
         filter_str = (
             f'with {qual_tool_filter} filtering'
@@ -792,7 +813,8 @@ def evaluate(
         split_fn=split_fn,
         qual_tool_filter=qual_tool_filter,
     )
-    # join raw app data with app level gpu ground truth
+
+    # app level ground truth
     app_durations = (
         profile_df.loc[profile_df.runType == 'GPU'][
             ['appName', 'appDuration', 'description', 'scaleFactor']
@@ -803,29 +825,12 @@ def evaluate(
     )
     app_durations = app_durations.rename(columns={'appDuration': 'gpu_appDuration'})
 
-    # handle query per app and regular app differently.
-    # For the former, we need to use query description field to join cpu and gpu data
-    # since appname is the same for all queries/apps in these case.
-
-    raw_app_regular = raw_app.loc[~raw_app.appName.str.contains('query_per_app')]
-    raw_app_q_per_app = raw_app.loc[raw_app.appName.str.contains('query_per_app')]
-    app_durations_regular = app_durations.loc[
-        ~app_durations.appName.str.contains('query_per_app')
-    ][['appName', 'gpu_appDuration', 'scaleFactor']]
-    app_durations_q_per_app = app_durations.loc[
-        app_durations.appName.str.contains('query_per_app')
-    ]
-
-    raw_app_regular = raw_app_regular.merge(
-        app_durations_regular[['appName', 'gpu_appDuration', 'scaleFactor']],
-        on=['appName', 'scaleFactor'],
+    # join raw app data with app level gpu ground truth
+    raw_app = raw_app.merge(
+        app_durations[['appName', 'description', 'scaleFactor', 'gpu_appDuration']],
+        on=['appName', 'description', 'scaleFactor'],
         how='left',
     )
-    raw_app_q_per_app = raw_app_q_per_app.merge(
-        app_durations_q_per_app, on=['appName', 'description', 'scaleFactor'], how='left'
-    )
-
-    raw_app = pd.concat([raw_app_regular, raw_app_q_per_app])
 
     if not raw_app.loc[raw_app.gpu_appDuration.isna()].empty:
         logger.error(

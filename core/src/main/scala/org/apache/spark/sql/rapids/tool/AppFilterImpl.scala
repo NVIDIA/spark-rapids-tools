@@ -16,6 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool
 
+import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
 import java.util.regex.PatternSyntaxException
@@ -289,6 +290,11 @@ object AppFilterImpl {
     } else {
       0L
     }
+  }
+
+  def parseDateTimePeriod(dateTime: String): Option[Long] = {
+    val dFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+    Some(dFormat.parse(dateTime).getTime)
   }
 
   // parse the user provided time period string into ms.

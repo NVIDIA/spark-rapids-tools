@@ -80,6 +80,8 @@ sparkRapids:
       - application-name
       - f
       - filter-criteria
+      - fs-end-time
+      - fs-start-time
       - h
       - html-report
       - no-html-report
