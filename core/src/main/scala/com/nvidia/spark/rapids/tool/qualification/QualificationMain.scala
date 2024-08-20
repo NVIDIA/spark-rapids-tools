@@ -28,7 +28,7 @@ import org.apache.spark.sql.rapids.tool.qualification.QualificationSummaryInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 /**
- * A tool to analyze Spark event logs and determine if 
+ * A tool to analyze Spark event logs and determine if
  * they might be a good fit for running on the GPU.
  */
 object QualificationMain extends Logging {
@@ -66,6 +66,7 @@ object QualificationMain extends Logging {
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
     val mlOpsEnabled = appArgs.mlFunctions.getOrElse(false)
     val penalizeTransitions = appArgs.penalizeTransitions.getOrElse(true)
+    val recursiveSearchEnabled = !appArgs.noRecursion()
 
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf
     val platform = try {
@@ -88,7 +89,7 @@ object QualificationMain extends Logging {
     }
 
     val (eventLogFsFiltered, allEventLogs) = EventLogPathProcessor.processAllPaths(
-      filterN.toOption, matchEventLogs.toOption, eventlogPaths, hadoopConf,
+      filterN.toOption, matchEventLogs.toOption, eventlogPaths, hadoopConf, recursiveSearchEnabled,
       maxEventLogSize, minEventLogSize, appArgs.fsStartTime.toOption, appArgs.fsEndTime.toOption)
 
     val filteredLogs = if (argsContainsAppFilters(appArgs)) {
