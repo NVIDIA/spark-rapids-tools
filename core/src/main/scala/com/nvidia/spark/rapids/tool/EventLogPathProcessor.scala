@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.{FileContext, FileStatus, FileSystem, Path, PathFilt
 
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.AppFilterImpl
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.util.FSUtils
 import org.apache.spark.sql.rapids.tool.util.StringUtils
@@ -221,10 +222,14 @@ object EventLogPathProcessor extends Logging {
    * Function to process event log paths passed in and evaluate which ones are really event
    * logs and filter based on user options.
    *
-   * @param filterNLogs    number of event logs to be selected
-   * @param matchlogs      keyword to match file names in the directory
-   * @param eventLogsPaths Array of event log paths
-   * @param hadoopConf     Hadoop Configuration
+   * @param filterNLogs     number of event logs to be selected
+   * @param matchlogs       keyword to match file names in the directory
+   * @param eventLogsPaths  Array of event log paths
+   * @param hadoopConf      Hadoop Configuration
+   * @param maxEventLogSize optional maximum event log size as a string
+   * @param minEventLogSize optional minimum event log size as a string
+   * @param fsStartTime     filesystem date and time for filtering event logs based on start time
+   * @param fsEndTime       filesystem date and time for filtering event logs based on end time
    * @return (Seq[EventLogInfo], Seq[EventLogInfo]) - Tuple indicating paths of event logs in
    *         filesystem. First element contains paths of event logs after applying filters and
    *         second element contains paths of all event logs.
@@ -235,7 +240,9 @@ object EventLogPathProcessor extends Logging {
       eventLogsPaths: List[String],
       hadoopConf: Configuration,
       maxEventLogSize: Option[String] = None,
-      minEventLogSize: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
+      minEventLogSize: Option[String] = None,
+      fsStartTime: Option[String] = None,
+      fsEndTime: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
     val logsPathNoWildCards = processWildcardsLogs(eventLogsPaths, hadoopConf)
     val logsWithTimestamp = logsPathNoWildCards.flatMap {
       case (rawPath, processedPaths) if processedPaths.isEmpty =>
@@ -253,7 +260,8 @@ object EventLogPathProcessor extends Logging {
     }.getOrElse(logsWithTimestamp)
 
     val filteredLogs = if ((filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) ||
-      maxEventLogSize.isDefined || minEventLogSize.isDefined) {
+      maxEventLogSize.isDefined || minEventLogSize.isDefined ||
+      fsStartTime.isDefined || fsEndTime.isDefined) {
       val validMatchedLogs = matchedLogs.collect {
         case (info, Some(ts)) => info -> ts
       }
@@ -288,6 +296,38 @@ object EventLogPathProcessor extends Logging {
       } else {
         filteredByMinSize
       }
+      // filter by date time range first
+      val filteredByDateTime = if (fsStartTime.isDefined || fsEndTime.isDefined) {
+        if (fsStartTime.isDefined && fsEndTime.isDefined) {
+          val startTimeMs = AppFilterImpl.parseDateTimePeriod(fsStartTime.get).get
+          val endTimeMs = AppFilterImpl.parseDateTimePeriod(fsEndTime.get).get
+          val (matched, filtered) = filteredByMaxSize.partition { case (_, v) =>
+            (v.timestamp >= startTimeMs) && (v.timestamp <= endTimeMs)
+          }
+          logInfo(s"Filtered out event logs based on both fs start time: ${fsStartTime.get} " +
+            s"and fs end time: ${fsEndTime.get}. The logs filtered out include: " +
+            s"${filtered.keys.map(_.eventLog.toString).mkString(",")}")
+          matched
+        } else if (fsStartTime.isDefined) {
+          val startTimeMs = AppFilterImpl.parseDateTimePeriod(fsStartTime.get).get
+          val (matched, filtered) =
+            filteredByMaxSize.partition { case (_, v) => v.timestamp >= startTimeMs }
+          logInfo(s"Filtered out event logs based on fs start time: ${fsStartTime.get} " +
+            s"The logs filtered out include: " +
+            s"${filtered.keys.map(_.eventLog.toString).mkString(",")}")
+          matched
+        } else {
+          val endTimeMs = AppFilterImpl.parseDateTimePeriod(fsEndTime.get).get
+          val (matched, filtered) =
+            filteredByMaxSize.partition { case (_, v) => v.timestamp <= endTimeMs }
+          logInfo(s"Filtered out event logs based on fs end time: ${fsEndTime.get} " +
+            s"The logs filtered out include: " +
+            s"${filtered.keys.map(_.eventLog.toString).mkString(",")}")
+          matched
+        }
+      } else {
+        filteredByMaxSize
+      }
       if (filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) {
         val filteredInfo = filterNLogs.get.split("-")
         val numberofEventLogs = filteredInfo(0).toInt
@@ -295,16 +335,16 @@ object EventLogPathProcessor extends Logging {
         // Before filtering based on user criteria, remove the failed event logs
         // (i.e. logs without timestamp) from the list.
         val matched = if (criteria.equals("newest")) {
-          LinkedHashMap(filteredByMaxSize.toSeq.sortWith(_._2.timestamp > _._2.timestamp): _*)
+          LinkedHashMap(filteredByDateTime.toSeq.sortWith(_._2.timestamp > _._2.timestamp): _*)
         } else if (criteria.equals("oldest")) {
-          LinkedHashMap(filteredByMaxSize.toSeq.sortWith(_._2.timestamp < _._2.timestamp): _*)
+          LinkedHashMap(filteredByDateTime.toSeq.sortWith(_._2.timestamp < _._2.timestamp): _*)
         } else {
           logError("Criteria should be either newest-filesystem or oldest-filesystem")
           Map.empty[EventLogInfo, Long]
         }
         matched.take(numberofEventLogs)
       } else {
-        filteredByMaxSize
+        filteredByDateTime
       }
     } else {
       matchedLogs
