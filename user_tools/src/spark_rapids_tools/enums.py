@@ -15,11 +15,15 @@
 """Enumeration types commonly used through the AS python implementations."""
 
 from enum import Enum, auto
-from typing import Union, cast, Optional, Callable
+from typing import Union, cast, Callable
 
 
 class EnumeratedType(str, Enum):
     """Abstract representation of enumerated values"""
+
+    @classmethod
+    def get_default(cls) -> 'EnumeratedType':
+        pass
 
     # Make enum case-insensitive by overriding the Enum's missing method
     @classmethod
@@ -41,13 +45,16 @@ class EnumeratedType(str, Enum):
         return str(value._value_).upper()  # pylint: disable=protected-access
 
     @classmethod
-    def fromstring(cls, value: str) -> Optional[str]:
+    def fromstring(cls, value: str) -> 'EnumeratedType':
         """Return the state object attribute that matches the given value
         :param str value: string to look up
         :return: the state object attribute that matches the string
         :rtype: str
         """
-        return getattr(cls, value.upper(), None)
+        attribute = getattr(cls, value.upper(), None)
+        if attribute is None:
+            raise ValueError(f'{value} is not a valid {cls.__name__}')
+        return attribute
 
     @classmethod
     def pretty_print(cls, value):

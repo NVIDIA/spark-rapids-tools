@@ -134,7 +134,7 @@ class OnPremPlatform(PlatformBase):
                 # create gpu_info
                 gpu_cnt = calc_num_gpus(gpu_count_criteria, num_cpu)
                 # default memory
-                gpu_device = GpuDevice.get_default_gpu()
+                gpu_device = GpuDevice.get_default()
                 gpu_mem = gpu_device.get_gpu_mem()[0]
                 gpu_info_obj = GpuHWInfo(num_gpus=gpu_cnt, gpu_mem=gpu_mem, gpu_device=gpu_device)
                 gpu_scopes[prof_name] = NodeHWInfo(sys_info=sys_info_obj, gpu_info=gpu_info_obj)
