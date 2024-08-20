@@ -31,6 +31,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.resource.ResourceProfile
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.profiling._
+import org.apache.spark.sql.rapids.tool.util.FSUtils
 
 class ApplicationInfoSuite extends FunSuite with Logging {
 
@@ -1009,7 +1010,6 @@ class ApplicationInfoSuite extends FunSuite with Logging {
 
   test("test gpu event log with SparkRapidsBuildInfoEvent") {
     val eventLog = s"$logDir/spark_rapids_build_info_eventlog"
-    val sparkRapidsBuildInfoFile = "spark_rapids_build_info.json"
     TrampolineUtil.withTempDir { tempDir =>
       val appArgs = new ProfileArgs(Array(
         "--csv",
@@ -1026,10 +1026,48 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       })
       assert(dotDirs.length === 1)
 
-      val expFilePath = s"${expRoot.getAbsolutePath}/$sparkRapidsBuildInfoFile"
-      val actualFilePath = s"${tempSubDir.getAbsolutePath}/$sparkRapidsBuildInfoFile"
+      val actualFilePath = s"${tempSubDir.getAbsolutePath}/spark_rapids_build_info.json"
+      val actualResult = FSUtils.readFileContentAsUTF8(actualFilePath)
+      val expectedResult =
+        s"""|[ {
+            |  "sparkRapidsBuildInfo" : {
+            |    "url" : "https://github.com/NVIDIA/spark-rapids.git",
+            |    "branch" : "HEAD",
+            |    "revision" : "f932a7802bbf31b6205358d1abd7c7b49c8bea3c",
+            |    "version" : "24.06.0",
+            |    "date" : "2024-06-13T19:48:28Z",
+            |    "cudf_version" : "24.06.0",
+            |    "user" : "root"
+            |  },
+            |  "sparkRapidsJniBuildInfo" : {
+            |    "url" : "https://github.com/NVIDIA/spark-rapids-jni.git",
+            |    "branch" : "HEAD",
+            |    "gpu_architectures" : "70;75;80;86;90",
+            |    "revision" : "e9c92a5339437ce0cd72bc384084bd7ee45b37f9",
+            |    "version" : "24.06.0",
+            |    "date" : "2024-06-08T01:21:57Z",
+            |    "user" : "root"
+            |  },
+            |  "cudfBuildInfo" : {
+            |    "url" : "https://github.com/rapidsai/cudf.git",
+            |    "branch" : "HEAD",
+            |    "gpu_architectures" : "70;75;80;86;90",
+            |    "revision" : "7c706cc4004d5feaae92544b3b29a00c64f7ed86",
+            |    "version" : "24.06.0",
+            |    "date" : "2024-06-08T01:21:55Z",
+            |    "user" : "root"
+            |  },
+            |  "sparkRapidsPrivateBuildInfo" : {
+            |    "url" : "https://gitlab-master.nvidia.com/nvspark/spark-rapids-private.git",
+            |    "branch" : "HEAD",
+            |    "revision" : "755b4dd03c753cacb7d141f3b3c8ff9f83888b69",
+            |    "version" : "24.06.0",
+            |    "date" : "2024-06-08T11:44:03Z",
+            |    "user" : "root"
+            |  }
+            |} ]""".stripMargin
       // assert that the spark rapids build info json file is same as expected
-      ToolTestUtils.compareFiles(expFilePath, actualFilePath)
+      assert(actualResult == expectedResult)
     }
   }
 
@@ -1053,10 +1091,17 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       })
       assert(dotDirs.length === 1)
 
-      val expFilePath = s"${expRoot.getAbsolutePath}/spark_rapids_build_info_empty.json"
       val actualFilePath = s"${tempSubDir.getAbsolutePath}/spark_rapids_build_info.json"
+      val actualResult = FSUtils.readFileContentAsUTF8(actualFilePath)
+      val expectedResult =
+        s"""|[ {
+            |  "sparkRapidsBuildInfo" : { },
+            |  "sparkRapidsJniBuildInfo" : { },
+            |  "cudfBuildInfo" : { },
+            |  "sparkRapidsPrivateBuildInfo" : { }
+            |} ]""".stripMargin
       // assert that the spark rapids build info json file is same as expected
-      ToolTestUtils.compareFiles(expFilePath, actualFilePath)
+      assert(actualResult == expectedResult)
     }
   }
 }

@@ -27,7 +27,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
-import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, UTF8Source}
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types._
 
 object ToolTestUtils extends Logging {
@@ -181,22 +181,6 @@ object ToolTestUtils extends Logging {
         countStatus("SKIPPED"),
         countStatus("UNKNOWN"))
       assert(actualStatusReportCount == expStatusReportCount)
-    }
-  }
-
-  /**
-   * Given two file paths, compare if they have the same contents.
-   */
-  def compareFiles(expFilePath: String, actualFilePath: String): Unit = {
-    val sourceExp = UTF8Source.fromFile(expFilePath)
-    val sourceActual = UTF8Source.fromFile(actualFilePath)
-    try {
-      val contentExp = sourceExp.getLines.mkString("\n")
-      val contentActual = sourceActual.getLines.mkString("\n")
-      assert(contentExp == contentActual)
-    } finally {
-      sourceExp.close()
-      sourceActual.close()
     }
   }
 }
