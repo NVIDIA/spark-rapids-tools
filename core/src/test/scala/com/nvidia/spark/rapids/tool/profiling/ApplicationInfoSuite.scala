@@ -1009,17 +1009,28 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   test("test gpu event log with SparkRapidsBuildInfoEvent") {
-    val eventLog = s"$logDir/spark_rapids_build_info_eventlog"
     TrampolineUtil.withTempDir { tempDir =>
+      val eventLogFilePath = Paths.get(tempDir.getAbsolutePath, "test_eventlog")
+      // scalastyle:off line.size.limit
+      val eventLogContent =
+        """{"Event":"SparkListenerLogStart","Spark Version":"3.2.1"}
+          |{"Event":"com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent","sparkRapidsBuildInfo":{"url":"https://github.com/NVIDIA/spark-rapids.git","branch":"HEAD","revision":"f932a7802bbf31b6205358d1abd7c7b49c8bea3c","version":"24.06.0","date":"2024-06-13T19:48:28Z","cudf_version":"24.06.0","user":"root"},"sparkRapidsJniBuildInfo":{"url":"https://github.com/NVIDIA/spark-rapids-jni.git","branch":"HEAD","gpu_architectures":"70;75;80;86;90","revision":"e9c92a5339437ce0cd72bc384084bd7ee45b37f9","version":"24.06.0","date":"2024-06-08T01:21:57Z","user":"root"},"cudfBuildInfo":{"url":"https://github.com/rapidsai/cudf.git","branch":"HEAD","gpu_architectures":"70;75;80;86;90","revision":"7c706cc4004d5feaae92544b3b29a00c64f7ed86","version":"24.06.0","date":"2024-06-08T01:21:55Z","user":"root"},"sparkRapidsPrivateBuildInfo":{"url":"https://gitlab-master.nvidia.com/nvspark/spark-rapids-private.git","branch":"HEAD","revision":"755b4dd03c753cacb7d141f3b3c8ff9f83888b69","version":"24.06.0","date":"2024-06-08T11:44:03Z","user":"root"}}
+          |{"Event":"SparkListenerApplicationStart","App Name":"GPUMetrics", "App ID":"local-16261043003", "Timestamp":123456, "User":"User1"}
+          |{"Event":"SparkListenerTaskEnd","Stage ID":10,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":5073,"Index":5054,"Attempt":0,"Partition ID":5054,"Launch Time":1712248533994,"Executor ID":"100","Host":"10.154.65.143","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253284920,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.492","Value":"03:13:31.359","Internal":false,"Count Failed Values":true},{"ID":1018,"Name":"gpuSpillToHostTime","Update":"00:00:00.845","Value":"00:29:39.521","Internal":false,"Count Failed Values":true},{"ID":1016,"Name":"gpuSplitAndRetryCount","Update":"1","Value":"2","Internal":false,"Count Failed Values":true}]}}
+          |{"Event":"SparkListenerTaskEnd","Stage ID":10,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":2913,"Index":2894,"Attempt":0,"Partition ID":2894,"Launch Time":1712248532696,"Executor ID":"24","Host":"10.154.65.135","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253285639,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.758","Value":"03:13:32.117","Internal":false,"Count Failed Values":true},{"ID":1015,"Name":"gpuReadSpillFromDiskTime","Update":"00:00:02.599","Value":"00:33:37.153","Internal":false,"Count Failed Values":true},{"ID":1018,"Name":"gpuSpillToHostTime","Update":"00:00:00.845","Value":"00:29:39.521","Internal":false,"Count Failed Values":true}]}}
+          |{"Event":"SparkListenerTaskEnd","Stage ID":11,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":2045,"Index":2026,"Attempt":0,"Partition ID":2026,"Launch Time":1712248530708,"Executor ID":"84","Host":"10.154.65.233","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253285667,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.003","Value":"03:13:32.120","Internal":false,"Count Failed Values":true},{"ID":1015,"Name":"gpuReadSpillFromDiskTime","Update":"00:00:00.955","Value":"00:33:38.108","Internal":false,"Count Failed Values":true}]}}""".stripMargin
+      // scalastyle:on line.size.limit
+      Files.write(eventLogFilePath, eventLogContent.getBytes(StandardCharsets.UTF_8))
+
       val appArgs = new ProfileArgs(Array(
         "--csv",
         "--output-directory",
         tempDir.getAbsolutePath,
-        eventLog))
+        eventLogFilePath.toString))
       val (exit, _) = ProfileMain.mainInternal(appArgs)
       assert(exit == 0)
 
-      val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/local-1720734447737")
+      val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/local-16261043003")
       // assert that a json file was generated
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
         f.endsWith(".json")
