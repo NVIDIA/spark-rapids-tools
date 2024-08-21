@@ -16,14 +16,13 @@
 This module defines environment setup and teardown functions for the end-to-end tests using behave.
 """
 
-import configparser
 import os
 import shutil
 import subprocess
 import tempfile
 
 from spark_rapids_tools.utils import Utilities
-from steps.e2e_utils import get_e2e_tests_config_file, get_tools_root_path, get_e2e_tests_resource_path
+from steps.e2e_utils import get_tools_root_path, get_e2e_tests_resource_path
 
 """ Define behave hooks for the tests. These hooks are automatically called by behave. """
 

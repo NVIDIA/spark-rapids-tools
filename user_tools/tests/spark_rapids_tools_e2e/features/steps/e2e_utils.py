@@ -20,6 +20,7 @@ import os
 import subprocess
 from pathlib import Path
 from typing import List
+from urllib.parse import urlparse
 
 
 def run_test(cmd) -> subprocess.CompletedProcess:
@@ -78,8 +79,11 @@ def resolve_event_logs(event_logs: List[str]) -> List[str]:
     Get the full path of the event logs.
     """
     # Base directory can be modified (i.e. separate for local and CICD runs)
-    event_logs_dir = get_local_event_logs_dir()
-    return [os.path.join(event_logs_dir, event_log) for event_log in event_logs]
+    fs = urlparse(event_logs[0]).scheme
+    if not fs or fs == 'file':
+        event_logs_dir = get_local_event_logs_dir()
+        return [os.path.join(event_logs_dir, event_log) for event_log in event_logs]
+    return event_logs
 
 
 def remove_cli_from_path(cli: str) -> None:
@@ -104,3 +108,28 @@ def remove_cli_from_path(cli: str) -> None:
         modified_paths.append(path)
 
     os.environ["PATH"] = ":".join(modified_paths)
+
+def setup_hdfs(should_run: bool):
+    try:
+        hdfs_setup_script = os.path.join(os.environ['SCRIPTS_DIR'], 'hdfs', 'setup_hdfs.sh')
+        hdfs_report_result = subprocess.run([hdfs_setup_script, str(should_run)], capture_output=True, text=True)
+        assert hdfs_report_result.returncode == 0, \
+            f"Failed to start HDFS. \nstderr: {hdfs_report_result.stderr}\n\nstdout: {hdfs_report_result.stdout}"
+        hadoop_home = hdfs_report_result.stdout.splitlines()[-1]
+        hadoop_conf_dir = os.path.join(hadoop_home, 'etc', 'hadoop')
+        assert os.path.exists(hadoop_home), f"HADOOP_HOME: {hadoop_home} does not exist"
+        os.environ['HADOOP_HOME'] = hadoop_home
+        if not should_run:
+            os.environ['HADOOP_CONF_DIR'] = hadoop_conf_dir
+        os.environ['PATH'] = f"{hadoop_home}/bin:{hadoop_home}/sbin:{os.environ['PATH']}"
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to start HDFS.\nstderr: {e.stderr}\n\nstdout: {e.stdout}") from e
+
+def cleanup_hdfs():
+    hdfs_cleanup_script = os.path.join(os.environ['SCRIPTS_DIR'], 'hdfs', 'cleanup_hdfs.sh')
+    try:
+        hdfs_cleanup_result = subprocess.run([hdfs_cleanup_script], capture_output=True, text=True)
+        assert hdfs_cleanup_result.returncode == 0, \
+            f"Failed to stop HDFS.\nstderr: {hdfs_cleanup_result.stderr}\n\nstdout: {hdfs_cleanup_result.stdout}"
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to stop HDFS.\nstderr: {e.stderr}\n\nstdout: {e.stdout}") from e

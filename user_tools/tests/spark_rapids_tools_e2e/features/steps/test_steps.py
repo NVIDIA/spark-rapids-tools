@@ -24,7 +24,7 @@ from typing import Callable
 
 from behave import given, when, then
 
-from e2e_utils import resolve_event_logs, create_spark_rapids_cmd, remove_cli_from_path, run_test
+from e2e_utils import resolve_event_logs, create_spark_rapids_cmd, remove_cli_from_path, run_test, setup_hdfs, cleanup_hdfs
 
 
 def set_after_scenario_fn(context, fn: Callable) -> None:
@@ -76,14 +76,29 @@ def step_start_qualification_tool_crash_thread(context):
 
     set_after_scenario_fn(context, after_scenario_fn)
 
+@given('HDFS is "{status}"')
+def step_setup_hdfs(context, status):
+    cleanup_hdfs()
+    set_after_scenario_fn(context, cleanup_hdfs)
+    should_run = status.lower() == 'running'
+    setup_hdfs(should_run)
+
+@given('HDFS has "{event_logs}" eventlogs')
+def step_hdfs_has_eventlogs(context, event_logs):
+    event_logs_list = resolve_event_logs(event_logs.split(","))
+    hdfs_event_logs_dir = '/'
+    for event_log in event_logs_list:
+        hdfs_copy_cmd = ['hdfs', 'dfs', '-copyFromLocal',  '-f', event_log, hdfs_event_logs_dir]
+        hdfs_copy_status = subprocess.run(hdfs_copy_cmd, capture_output=True)
+        assert hdfs_copy_status.returncode == 0, f"Failed to copy event logs to HDFS. Error: {hdfs_copy_status.stderr}"
 
 @when('spark-rapids tool is executed with "{event_logs}" eventlogs')
 def step_execute_spark_rapids_tool(context, event_logs):
-    event_logs = resolve_event_logs(event_logs.split(","))
+    event_logs_list = resolve_event_logs(event_logs.split(","))
     if hasattr(context, 'platform'):
-        cmd = create_spark_rapids_cmd(event_logs, context.temp_dir, context.platform)
+        cmd = create_spark_rapids_cmd(event_logs_list, context.temp_dir, context.platform)
     else:
-        cmd = create_spark_rapids_cmd(event_logs, context.temp_dir)
+        cmd = create_spark_rapids_cmd(event_logs_list, context.temp_dir)
     context.result = run_test(cmd)
 
 

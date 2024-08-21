@@ -68,3 +68,65 @@ Feature: Spark Rapids Tools End-to-End Behavior
       Qualification. Raised an error in phase [Execution]
       """
     And return code is "1"
+
+
+  @test_id_0010
+  Scenario Outline: Eventlogs are stored in HDFS - Platform specified
+    Given platform is "<platform>"
+    And HDFS is "running"
+    And HDFS has "<eventlog>" eventlogs
+    When spark-rapids tool is executed with "hdfs:///<eventlog>" eventlogs
+    Then stdout contains the following
+      """
+      Processed applications  1
+      """
+    And return code is "0"
+
+    Examples:
+      | platform | eventlog         |
+      | onprem   | test_event_log_1 |
+      | dataproc | test_event_log_1 |
+
+
+  @test_id_0011
+  Scenario Outline: Eventlogs are stored in HDFS - Platform not specified
+    Given HDFS is "running"
+    And HDFS has "<eventlog>" eventlogs
+    When spark-rapids tool is executed with "hdfs:///<eventlog>" eventlogs
+    Then stdout contains the following
+      """
+      Processed applications  1
+      """
+    And return code is "0"
+
+    Examples:
+      | eventlog         |
+      | test_event_log_1 |
+
+  @test_id_0012
+  Scenario Outline: Eventlogs are stored in HDFS - HDFS installed but not running
+    Given HDFS is "not running"
+    When spark-rapids tool is executed with "hdfs:///<eventlog>" eventlogs
+    Then stdout contains the following
+      """
+      Processed applications  0
+      """
+    And return code is "0"
+
+    Examples:
+      | eventlog         |
+      | test_event_log_1 |
+
+  @test_id_0013
+  Scenario Outline: Eventlogs are stored in HDFS - HDFS not installed
+    Given platform is "onprem"
+    When spark-rapids tool is executed with "hdfs:///<eventlog>" eventlogs
+    Then stderr contains the following
+      """
+      Failed to create HadoopFileSystem handler
+      """
+    And return code is "1"
+
+    Examples:
+      | eventlog         |
+      | test_event_log_1 |
