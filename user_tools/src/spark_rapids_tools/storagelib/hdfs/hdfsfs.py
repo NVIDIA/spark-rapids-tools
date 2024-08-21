@@ -13,8 +13,11 @@
 # limitations under the License.
 
 """Wrapper for the Hadoop File system"""
+from typing import Any
 
-from ..cspfs import CspFs, register_fs_class
+from pyarrow.fs import HadoopFileSystem
+
+from ..cspfs import CspFs, register_fs_class, BoundedArrowFsT
 
 
 @register_fs_class("hdfs", "HadoopFileSystem")
@@ -36,3 +39,10 @@ class HdfsFs(CspFs):
     CLASSPATH: must contain the Hadoop jars.
     example to set the export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
     """
+
+    @classmethod
+    def create_fs_handler(cls, *args: Any, **kwargs: Any) -> BoundedArrowFsT:
+        try:
+            return HadoopFileSystem(*(args or ("default",)), **kwargs)
+        except Exception as e:  # pylint: disable=broad-except
+            raise RuntimeError(f"Failed to create HadoopFileSystem handler: {e}") from e
