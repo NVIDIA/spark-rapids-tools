@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from shutil import make_archive, which
 import tempfile
-from typing import Callable, Any
+from typing import Callable, Any, Optional
 
 import chevron
 from packaging.version import Version
@@ -105,7 +105,7 @@ class Utils:
         return f'RAPIDS_USER_TOOLS_{actual_key}'
 
     @classmethod
-    def get_sys_env_var(cls, k: str, def_val=None):
+    def get_sys_env_var(cls, k: str, def_val=None) -> Optional[str]:
         return os.environ.get(k, def_val)
 
     @classmethod

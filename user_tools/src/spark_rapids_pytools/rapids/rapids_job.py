@@ -22,6 +22,8 @@ from typing import List
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
+from spark_rapids_tools.storagelib import LocalPath
+from spark_rapids_tools.utils import Utilities
 
 
 @dataclass
@@ -128,8 +130,19 @@ class RapidsLocalJob(RapidsJob):
     Implementation of a RAPIDS job that runs local on a local machine.
     """
 
-    def _build_classpath(self):
+    def _build_classpath(self) -> List[str]:
         deps_arr = [self.prop_container.get_jar_file()]
+        hadoop_confdir = Utilities.get_hadoop_conf_dir()
+        # append hadoop conf dir if any
+        if hadoop_confdir is not None:
+            try:
+                hadoopconf_path = LocalPath(hadoop_confdir)
+                # verify it is a valid directory
+                if hadoopconf_path.is_dir() and hadoopconf_path.exists():
+                    deps_arr.append(hadoopconf_path.no_prefix)
+            except Exception as e:  # pylint: disable=broad-except  # noqa: E722
+                self.logger.warning('Ignoring HADOOP_CLASSPATH. %s\n\tReason: Error while '
+                                    'adding hadoop conf dir to classpath: %s', hadoop_confdir, e)
         dependencies = self.prop_container.get_value_silent('platformArgs', 'dependencies')
         if dependencies is not None:
             deps_arr.extend(dependencies)

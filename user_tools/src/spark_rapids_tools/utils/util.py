@@ -323,3 +323,17 @@ class Utilities:
             num_bytes /= 1024.0
             i += 1
         return f'{num_bytes:.2f} {size_units[i]}'
+
+    @classmethod
+    def get_hadoop_conf_dir(cls) -> Optional[str]:
+        """
+        Get Hadoop's configuration directory from the environment variables.
+        If not defined, return $HADOOP_HOME/etc/hadoop if HADOOP_HOME is defined.
+        Otherwise, returns None.
+        """
+        hadoop_conf_dir = Utils.get_sys_env_var('HADOOP_CONF_DIR')
+        if hadoop_conf_dir is None:
+            hadoop_home = Utils.get_sys_env_var('HADOOP_HOME')
+            if hadoop_home is not None:
+                hadoop_conf_dir = os.path.join(hadoop_home, 'etc', 'hadoop')
+        return hadoop_conf_dir
