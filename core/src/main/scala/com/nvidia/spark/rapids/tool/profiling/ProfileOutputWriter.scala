@@ -15,12 +15,17 @@
  */
 package com.nvidia.spark.rapids.tool.profiling
 
+import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import org.apache.commons.lang3.StringUtils
+import org.json4s.DefaultFormats
+import org.json4s.jackson.Serialization
 
 
 class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: Int,
     outputCSV: Boolean = false) {
+
+  implicit val formats: DefaultFormats.type = DefaultFormats
 
   private val textFileWriter = new ToolTextFileWriter(outputDir,
     s"$filePrefix.log", "Profile summary")
@@ -47,6 +52,17 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
         case None => messageHeader
       }
       textFileWriter.write(s"No $finalEmptyText Found!\n")
+    }
+  }
+
+  def writeSparkRapidsBuildInfo(headerText: String,
+      sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent]): Unit = {
+    val fileName = headerText.replace(" ", "_").toLowerCase
+    val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
+    try {
+      jsonWriter.write(Serialization.writePretty(sparkRapidsBuildInfo) + "\n")
+    } finally {
+      jsonWriter.close()
     }
   }
 

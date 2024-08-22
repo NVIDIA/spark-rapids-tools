@@ -212,7 +212,7 @@ object EventUtils extends Logging {
                   // malformed
                   handleEventJsonParseEx(k)
                 case z: ClassNotFoundException if z.getMessage != null =>
-                  // Avoid reporting missing classes more than once to reduce the noise in the logs
+                  // Avoid reporting missing classes more than once to reduce noise in the logs
                   reportMissingEventClass(z.getMessage)
                 case t: Throwable =>
                   // We do not want to swallow unknown exceptions so that we can handle later
