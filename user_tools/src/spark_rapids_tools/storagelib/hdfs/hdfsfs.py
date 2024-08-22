@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,11 @@
 
 """Wrapper for the Hadoop File system"""
 
-from ..cspfs import CspFs, register_fs_class
+from typing import Any
+
+from pyarrow.fs import HadoopFileSystem
+
+from ..cspfs import CspFs, register_fs_class, BoundedArrowFsT
 
 
 @register_fs_class("hdfs", "HadoopFileSystem")
@@ -36,3 +40,10 @@ class HdfsFs(CspFs):
     CLASSPATH: must contain the Hadoop jars.
     example to set the export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
     """
+
+    @classmethod
+    def create_fs_handler(cls, *args: Any, **kwargs: Any) -> BoundedArrowFsT:
+        try:
+            return HadoopFileSystem(*(args or ("default",)), **kwargs)
+        except Exception as e:  # pylint: disable=broad-except
+            raise RuntimeError(f"Failed to create HadoopFileSystem handler: {e}") from e
