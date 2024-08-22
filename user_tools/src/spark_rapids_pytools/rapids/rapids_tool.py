@@ -38,6 +38,7 @@ from spark_rapids_pytools.common.utilities import ToolLogging, Utils, ToolsSpinn
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
+from spark_rapids_tools.storagelib import LocalPath
 from spark_rapids_tools.utils import Utilities
 
 
@@ -135,7 +136,13 @@ class RapidsTool(object):
         # make sure that output_folder is being absolute
         if self.output_folder is None:
             self.output_folder = Utils.get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
-        self.output_folder = FSUtil.get_abs_path(self.output_folder)
+        try:
+            output_folder_path = LocalPath(self.output_folder)
+            self.output_folder = output_folder_path.no_prefix
+        except Exception as ex:  # pylint: disable=broad-except
+            self.logger.error('Failed in processing output arguments. Output_folder must be a local directory')
+            raise ex
+        # self.output_folder = FSUtil.get_abs_path(self.output_folder)
         self.logger.debug('Root directory of local storage is set as: %s', self.output_folder)
         self.ctxt.set_local_workdir(self.output_folder)
         self.ctxt.load_prepackaged_resources()

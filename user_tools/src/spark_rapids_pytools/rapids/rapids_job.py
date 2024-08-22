@@ -65,7 +65,10 @@ class RapidsJob:
 
     def _init_fields(self):
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.submit.{self.job_label}')
-        self.output_path = self.prop_container.get_value_silent('outputDirectory')
+        output_directory = self.prop_container.get_value_silent('outputDirectory')
+        if output_directory is not None:
+            # use LocalPath to add the 'file://' prefix to the path
+            self.output_path = str(LocalPath(output_directory))
 
     def __post_init__(self):
         self._init_fields()
