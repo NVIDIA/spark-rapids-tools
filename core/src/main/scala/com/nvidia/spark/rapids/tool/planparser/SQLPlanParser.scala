@@ -863,43 +863,70 @@ object SQLPlanParser extends Logging {
     getAllFunctionNames(functionPrefixPattern, exprStr).toArray
   }
 
-   // This parser is used for BroadcastHashJoin, ShuffledHashJoin and SortMergeJoin
-   def parseEquijoinsExpressions(exprStr: String): (Array[String], Boolean) = {
-     // ShuffledHashJoin [name#11, CEIL(DEPT#12)], [name#28, CEIL(DEPT_ID#27)], Inner, BuildLeft
-     // SortMergeJoin [name#11, CEIL(dept#12)], [name#28, CEIL(dept_id#27)], Inner
-     // BroadcastHashJoin [name#11, CEIL(dept#12)], [name#28, CEIL(dept_id#27)], Inner,
-     // BuildRight, false
-     // BroadcastHashJoin exprString: [i_item_id#56], [i_item_id#56#86], ExistenceJoin(exists#86),
-     // BuildRight
-     val parsedExpressions = ArrayBuffer[String]()
-     // Get all the join expressions and split it with delimiter :: so that it could be used to
-     // parse function names (if present) later.
-     val joinExprs = equiJoinRegexPattern.findAllMatchIn(exprStr).mkString("::")
-     // Get joinType and buildSide(if applicable)
-     val joinParams = equiJoinRegexPattern.replaceAllIn(
-       exprStr, "").split(",").map(_.trim).filter(_.nonEmpty)
-     val joinType = if (joinParams.nonEmpty) {
-       joinParams(0).split("\\(")(0).trim
-     } else {
-       ""
-     }
-     // SortMergeJoin doesn't have buildSide, assign empty string in that case
-     val buildSide = if (joinParams.length > 1) {
-       joinParams(1).trim
-     } else {
-       ""
-     }
-     // Get individual expressions which is later used to get the function names.
-     val expressions = joinExprs.split("::").map(_.trim).map(
-       _.replaceAll("""^\[+|\]+$""", "")).map(_.split(",")).flatten.map(_.trim)
+  private def addFunctionNames(exprs: String, parsedExpressions: ArrayBuffer[String]): Unit = {
+    val functionNames = getAllFunctionNames(functionPrefixPattern, exprs).toArray
+    functionNames.foreach(parsedExpressions += _)
+  }
 
-     expressions.foreach { expr =>
-       val functionName = getFunctionName(functionPattern, expr)
-       functionName.foreach(parsedExpressions += _)
-     }
+  // This parser is used for BroadcastHashJoin, ShuffledHashJoin and SortMergeJoin
+  def parseEquijoinsExpressions(exprStr: String): (Array[String], Boolean) = {
+    // ShuffledHashJoin [name#11, CEIL(DEPT#12)], [name#28, CEIL(DEPT_ID#27)], Inner, BuildLeft
+    // SortMergeJoin [name#11, CEIL(dept#12)], [name#28, CEIL(dept_id#27)], Inner
+    // BroadcastHashJoin [name#11, CEIL(dept#12)], [name#28, CEIL(dept_id#27)], Inner,
+    // BuildRight, false
+    // BroadcastHashJoin exprString: [i_item_id#56], [i_item_id#56#86], ExistenceJoin(exists#86),
+    // BuildRight
+    val parsedExpressions = ArrayBuffer[String]()
+    // Get all the join expressions and split it with delimiter :: so that it could be used to
+    // parse function names (if present) later.
+    val joinExprs = equiJoinRegexPattern.findAllMatchIn(exprStr).mkString("::")
+    // Get joinType and buildSide(if applicable)
+    val joinParams = equiJoinRegexPattern.replaceAllIn(
+      exprStr, "").split(",").map(_.trim).filter(_.nonEmpty)
+    val joinType = if (joinParams.nonEmpty) {
+      joinParams(0).split("\\(")(0).trim
+    } else {
+      ""
+    }
 
-     (parsedExpressions.distinct.toArray, equiJoinSupportedTypes(buildSide, joinType))
-   }
+    // This is to differentiate between SortMergeJoin and other Joins. SortMergeJoin has no
+    // buildSide.
+    val possibleBuildSides = Set(BuildSide.BuildLeft, BuildSide.BuildRight)
+    val buildSide = joinParams.find(possibleBuildSides.contains).getOrElse("")
+    val isSortMergeJoin = buildSide.isEmpty
+
+    val conditionExprs = joinParams.dropWhile(
+      param => possibleBuildSides.contains(param) || param.contains(joinType)).map(_.trim)
+    // Get individual expressions which is later used to get the function names.
+    val colExpressions = joinExprs.split("::").map(_.trim).map(
+      _.replaceAll("""^\[+|\]+$""", "")).map(_.split(",")).flatten.map(_.trim)
+    colExpressions.foreach(expr => addFunctionNames(expr, parsedExpressions))
+    if (conditionExprs.nonEmpty) {
+      conditionExprs.foreach(condition => addFunctionNames(condition, parsedExpressions))
+    }
+    // Check corner cases for SortMergeJoin
+    val isSortMergeSupported = !(isSortMergeJoin &&
+        conditionExprs.nonEmpty && isSMJConditionUnsupported(conditionExprs.mkString(" ")))
+
+    (parsedExpressions.distinct.toArray, equiJoinSupportedTypes(buildSide, joinType)
+        && isSortMergeSupported)
+  }
+
+  def isSMJConditionUnsupported(conditionExprs: String): Boolean = {
+    // TODO: This is a temporary solution to check for unsupported conditions in SMJ.
+    // Remove these checks once below issues are resolved:
+    // https://github.com/NVIDIA/spark-rapids/issues/11213
+    // https://github.com/NVIDIA/spark-rapids/issues/11214
+
+    // Split conditionExprs by logical operators (AND/OR)
+    val conditionFunctions = conditionExprs.split("\\s+(AND|OR)\\s+").map(_.trim)
+    conditionFunctions.exists { condition =>
+      val normalizedCondition = condition.toLowerCase
+      // Check for the specific corner cases that mark the SMJ as not supported
+      (normalizedCondition.contains("cast") && normalizedCondition.contains("as date")) ||
+          (normalizedCondition.contains("lower") && normalizedCondition.contains("in"))
+    }
+  }
 
   def parseNestedLoopJoinExpressions(exprStr: String): (Array[String], Boolean) = {
     // BuildRight, LeftOuter, ((CEIL(cast(id1#1490 as double)) <= cast(id2#1496 as bigint))

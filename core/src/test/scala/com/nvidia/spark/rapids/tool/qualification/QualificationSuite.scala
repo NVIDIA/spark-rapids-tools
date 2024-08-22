@@ -1373,6 +1373,58 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
+  test("test SortMergeJoin corner case not supported on left join") {
+    TrampolineUtil.withTempDir { outParquetFile =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "sortMergeJoin") { spark =>
+          import spark.implicits._
+          val data = Seq(("A", 20, "M", "2024-01-01"),
+            ("B", 25, "M", "2024-12-12"), ("C", 30, "F", "2022-03-04"))
+              .toDF("name", "id", "gender", "dob_str")
+
+          data.write.format("parquet").mode("overwrite").save(outParquetFile.getCanonicalPath)
+          spark.read.parquet(outParquetFile.getCanonicalPath).createOrReplaceTempView("df")
+          spark.conf.set("spark.rapids.sql.hasExtendedYearValues","false")
+          spark.conf.set("spark.sql.autoBroadcastJoinThreshold","1")
+          val res = spark.sql("SELECT COUNT(*) FROM df a LEFT JOIN df b ON " +
+              "lower(a.id) in ('1','2') AND a.name = b.name")
+          res
+        }
+        val reader = FSUtils.readFileContentAsUTF8(eventLog)
+        assert(reader.contains("SortMergeJoin"))
+
+        // run the qualification tool
+        TrampolineUtil.withTempDir { outpath =>
+          val appArgs = new QualificationArgs(Array(
+            "--output-directory",
+            outpath.getAbsolutePath,
+            eventLog))
+
+          val (exit, _) = QualificationMain.mainInternal(appArgs)
+          assert(exit == 0)
+
+          // the code above that runs the Spark query stops the Sparksession
+          // so create a new one to read in the csv file
+          createSparkSession()
+
+          val unsupportedOpsCSV = s"$outpath/rapids_4_spark_qualification_output/" +
+              s"rapids_4_spark_qualification_output_unsupportedOperators.csv"
+          val inputSource = UTF8Source.fromFile(unsupportedOpsCSV)
+          try {
+            val unsupportedRows = inputSource.getLines.toSeq
+            // print unsupportedRows
+            unsupportedRows.foreach(println)
+            // verify that SortMergeJoin is in unsupported operators
+            // if there is lower and IN operator in the left join condition
+            assert(unsupportedRows.exists(_.contains("SortMergeJoin")))
+          } finally {
+            inputSource.close()
+          }
+        }
+      }
+    }
+  }
+
   test("test existence join as supported join type") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "existenceJoin") { spark =>
