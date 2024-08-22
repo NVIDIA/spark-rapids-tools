@@ -142,7 +142,6 @@ class RapidsTool(object):
         except Exception as ex:  # pylint: disable=broad-except
             self.logger.error('Failed in processing output arguments. Output_folder must be a local directory')
             raise ex
-        # self.output_folder = FSUtil.get_abs_path(self.output_folder)
         self.logger.debug('Root directory of local storage is set as: %s', self.output_folder)
         self.ctxt.set_local_workdir(self.output_folder)
         self.ctxt.load_prepackaged_resources()
