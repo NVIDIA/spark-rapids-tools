@@ -895,32 +895,33 @@ object SQLPlanParser extends Logging {
     val buildSide = joinParams.find(possibleBuildSides.contains).getOrElse("")
     val isSortMergeJoin = buildSide.isEmpty
 
-    val conditionExprs = joinParams.dropWhile(
+    val joinCondition = joinParams.dropWhile(
       param => possibleBuildSides.contains(param) || param.contains(joinType)).map(_.trim)
     // Get individual expressions which is later used to get the function names.
     val colExpressions = joinExprs.split("::").map(_.trim).map(
       _.replaceAll("""^\[+|\]+$""", "")).map(_.split(",")).flatten.map(_.trim)
     colExpressions.foreach(expr => addFunctionNames(expr, parsedExpressions))
-    if (conditionExprs.nonEmpty) {
-      conditionExprs.foreach(condition => addFunctionNames(condition, parsedExpressions))
+    if (joinCondition.nonEmpty) {
+      val conditionExprs = parseConditionalExpressions(joinCondition.mkString(" "))
+      conditionExprs.foreach(parsedExpressions += _)
     }
     // Check corner cases for SortMergeJoin
     val isSortMergeSupported = !(isSortMergeJoin &&
-        conditionExprs.nonEmpty && isSMJConditionUnsupported(conditionExprs.mkString(" ")))
+        joinCondition.nonEmpty && isSMJConditionUnsupported(joinCondition.mkString(" ")))
 
     (parsedExpressions.distinct.toArray, equiJoinSupportedTypes(buildSide, joinType)
         && isSortMergeSupported)
   }
 
-  def isSMJConditionUnsupported(conditionExprs: String): Boolean = {
+  def isSMJConditionUnsupported(joinCondition: String): Boolean = {
     // TODO: This is a temporary solution to check for unsupported conditions in SMJ.
     // Remove these checks once below issues are resolved:
     // https://github.com/NVIDIA/spark-rapids/issues/11213
     // https://github.com/NVIDIA/spark-rapids/issues/11214
 
-    // Split conditionExprs by logical operators (AND/OR)
-    val conditionFunctions = conditionExprs.split("\\s+(AND|OR)\\s+").map(_.trim)
-    conditionFunctions.exists { condition =>
+    // Split the joinCondition by logical operators (AND/OR)
+    val conditions = joinCondition.split("\\s+(AND|OR)\\s+").map(_.trim)
+    conditions.exists { condition =>
       val normalizedCondition = condition.toLowerCase
       // Check for the specific corner cases that mark the SMJ as not supported
       (normalizedCondition.contains("cast") && normalizedCondition.contains("as date")) ||
