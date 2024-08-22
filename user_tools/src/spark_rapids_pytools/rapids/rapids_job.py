@@ -17,19 +17,18 @@
 import os
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import List
+from typing import List, Optional
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools.storagelib import LocalPath
-from spark_rapids_tools.utils import Utilities
 
 
 @dataclass
 class RapidsJobPropContainer(JSONPropertiesContainer):
     """
-    Container to manage the properties and arguments needed to submit a job running RAPIDS plugin.
+    Manages properties and arguments needed to running RAPIDS tools.
     """
 
     def _init_fields(self):
@@ -53,7 +52,7 @@ class RapidsJobPropContainer(JSONPropertiesContainer):
 @dataclass
 class RapidsJob:
     """
-    A wrapper class to represent the actual execution of a RAPIDS plugin job on the cloud platform.
+    Represents an actual execution of a RAPIDS-tools job on the cloud platform.
     """
     prop_container: RapidsJobPropContainer
     exec_ctxt: ToolContext
@@ -117,7 +116,7 @@ class RapidsJob:
         try:
             job_output = self._submit_job(cmd_args)
             if not ToolLogging.is_debug_mode_enabled():
-                # we check the debug level because we do not want the output to be displayed twice
+                # we check the debug level because we do not want the output displayed twice.
                 self._print_job_output(job_output)
         finally:
             self._cleanup_temp_log4j_files()
@@ -127,22 +126,55 @@ class RapidsJob:
 @dataclass
 class RapidsLocalJob(RapidsJob):
     """
-    Implementation of a RAPIDS job that runs local on a local machine.
+    Implementation of a RAPIDS job that runs local on a machine.
     """
+
+    def _get_hadoop_classpath(self) -> Optional[str]:
+        """
+        Gets the Hadoop's configuration directory from the environment variables.
+        The first valid directory found is returned in the following order:
+        1. HADOOP_CONF_DIR
+        2. HADOOP_HOME/conf
+        3. HADOOP_HOME/etc/hadoop
+        Otherwise, returns None.
+
+        """
+        hadoop_dir_lookups = {
+            'hadoopConfDir': {
+                'envVar': 'HADOOP_CONF_DIR',
+                'postfix': ''
+            },
+            'hadoopHomeV1': {
+                'envVar': 'HADOOP_HOME',
+                'postfix': '/conf'
+            },
+            'hadoopHomeV2': {
+                'envVar': 'HADOOP_HOME',
+                'postfix': '/etc/hadoop'
+            }
+        }
+        # Iterate on the hadoop_dir_lookups to return the first valid directory found.
+        for dir_key, dir_value in hadoop_dir_lookups.items():
+            env_var_value = Utils.get_sys_env_var(dir_value['envVar'])
+            if env_var_value is not None:
+                postfix = dir_value['postfix']
+                conf_dir = f'{env_var_value}{postfix}'
+                try:
+                    conf_dir_path = LocalPath(conf_dir)
+                    if conf_dir_path.is_dir() and conf_dir_path.exists():
+                        # return the first valid directory found without the URI prefix
+                        return conf_dir_path.no_prefix
+                except Exception as e:  # pylint: disable=broad-except
+                    self.logger.debug(
+                        'Could not build hadoop classpath from %s. Reason: %s', dir_key, e)
+        return None
 
     def _build_classpath(self) -> List[str]:
         deps_arr = [self.prop_container.get_jar_file()]
-        hadoop_confdir = Utilities.get_hadoop_conf_dir()
+        hadoop_cp = self._get_hadoop_classpath()
         # append hadoop conf dir if any
-        if hadoop_confdir is not None:
-            try:
-                hadoopconf_path = LocalPath(hadoop_confdir)
-                # verify it is a valid directory
-                if hadoopconf_path.is_dir() and hadoopconf_path.exists():
-                    deps_arr.append(hadoopconf_path.no_prefix)
-            except Exception as e:  # pylint: disable=broad-except  # noqa: E722
-                self.logger.warning('Ignoring HADOOP_CLASSPATH. %s\n\tReason: Error while '
-                                    'adding hadoop conf dir to classpath: %s', hadoop_confdir, e)
+        if hadoop_cp is not None:
+            deps_arr.append(hadoop_cp)
         dependencies = self.prop_container.get_value_silent('platformArgs', 'dependencies')
         if dependencies is not None:
             deps_arr.extend(dependencies)
