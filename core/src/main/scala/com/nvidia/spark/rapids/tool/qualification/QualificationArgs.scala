@@ -167,12 +167,6 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val userName: ScallopOption[String] =
     opt[String](required = false,
       descr = "Applications which a particular user has submitted." )
-  val htmlReport : ScallopOption[Boolean] =
-    toggle("html-report",
-      default = Some(false),
-      prefix = "no-",
-      descrYes = "Generates an HTML Report. Disabled by default.",
-      descrNo = "Disables generating the HTML report.")
   val perSql : ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Report at the individual SQL query level.")
