@@ -88,6 +88,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 For more details on Qualification tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/qualification/jar-usage.html#running-the-qualification-tool-standalone-on-spark-event-logs
         """
+        eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
         tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
         output_folder = Utils.get_value_or_pop(output_folder, rapids_options, 'o')
@@ -169,7 +170,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         cluster = Utils.get_value_or_pop(cluster, rapids_options, 'c')
         platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
+        driverlog = Utils.get_value_or_pop(driverlog, rapids_options, 'd')
         output_folder = Utils.get_value_or_pop(output_folder, rapids_options, 'o')
+        tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
         verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
         if verbose:
             ToolLogging.enable_debug_mode()
