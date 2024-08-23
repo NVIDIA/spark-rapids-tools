@@ -62,7 +62,6 @@ object QualificationMain extends Logging {
     val timeout = appArgs.timeout.toOption
     val reportReadSchema = appArgs.reportReadSchema.getOrElse(false)
     val order = appArgs.order.getOrElse("desc")
-    val uiEnabled = appArgs.htmlReport.getOrElse(false)
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
     val mlOpsEnabled = appArgs.mlFunctions.getOrElse(false)
     val penalizeTransitions = appArgs.penalizeTransitions.getOrElse(true)
@@ -115,7 +114,7 @@ object QualificationMain extends Logging {
       None
     }
     val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf, timeout,
-      nThreads, order, pluginTypeChecker, reportReadSchema, printStdout, uiEnabled,
+      nThreads, order, pluginTypeChecker, reportReadSchema, printStdout,
       enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled, penalizeTransitions,
       tunerContext, appArgs.clusterReport())
     val res = qual.qualifyApps(filteredLogs)
