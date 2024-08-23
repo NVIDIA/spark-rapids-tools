@@ -18,7 +18,6 @@ This module defines steps to be used by the end-to-end tests using behave.
 
 import os
 import shutil
-import subprocess
 import tempfile
 import threading
 from time import sleep
