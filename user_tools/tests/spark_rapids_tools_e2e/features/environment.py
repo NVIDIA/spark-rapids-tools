@@ -18,13 +18,14 @@ This module defines environment setup and teardown functions for the end-to-end 
 
 import os
 import shutil
-import subprocess
 import tempfile
 
 from spark_rapids_tools.utils import Utilities
-from steps.e2e_utils import get_tools_root_path, get_e2e_tests_resource_path
+from steps.e2e_utils import get_tools_root_path, get_e2e_tests_resource_path, get_logger, run_sys_cmd
 
 """ Define behave hooks for the tests. These hooks are automatically called by behave. """
+
+logger = get_logger()
 
 
 def before_all(context) -> None:
@@ -36,22 +37,24 @@ def before_all(context) -> None:
     _create_python_venv(context)
 
 
-def after_all(context):
+def after_all(context) -> None:
     """
     Clean up the environment after the tests. This function is automatically called after all the tests.
     """
     _clear_environment_variables()
     shutil.rmtree(context.temp_dir)
 
-def before_scenario(context, scenario):
+
+def before_scenario(context, scenario) -> None:
     if "skip" in scenario.effective_tags:
         scenario.skip("Marked with @skip")
         return
 
-def after_scenario(context, scenario):
+
+def after_scenario(context, scenario) -> None:
     """
     Clean up the environment after each scenario. This function is automatically called after each scenario.
-    :return:
+    Steps must set the callback function using set_after_scenario_fn() to perform any cleanup.
     """
     if hasattr(context, 'after_scenario_fn'):
         context.after_scenario_fn()
@@ -61,7 +64,6 @@ def _set_environment_variables(context) -> None:
     """
     Set environment variables needed for the virtual environment setup.
     """
-    # Get the tools version currently being tested
     tools_version = Utilities.get_base_release()
     scala_version = context.config.userdata.get('scala_version')
     venv_name = context.config.userdata.get('venv_name')
@@ -79,16 +81,18 @@ def _set_environment_variables(context) -> None:
 def _create_python_venv(context) -> None:
     """
     Create a Python virtual environment for the tests.
-    :return:
     """
     script_file_name = context.config.userdata.get('setup_script_file')
     script = os.path.join(os.environ['SCRIPTS_DIR'], script_file_name)
     try:
-        print("\nWARNING: Setting up the virtual environment for the tests. This may take a while.")
-        result = subprocess.run([script], text=True, env=os.environ, check=True, capture_output=True)
+        warning_msg = "Setting up the virtual environment for the tests. This may take a while."
+        if os.environ.get('BUILD_JAR') == 'true':
+            warning_msg = f'Building JAR and {warning_msg}'
+        logger.warning(warning_msg)
+        result = run_sys_cmd([script])
         result.check_returncode()
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Failed to create virtual environment. Error: {e.stderr}") from e
+    except Exception as e:  # pylint: disable=broad-except
+        raise RuntimeError(f"Failed to create virtual environment. Reason: {str(e)}") from e
 
 
 def _clear_environment_variables() -> None:

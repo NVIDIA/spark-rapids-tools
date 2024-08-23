@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# check if there are 3 arguments
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <should_run>"
     exit 1

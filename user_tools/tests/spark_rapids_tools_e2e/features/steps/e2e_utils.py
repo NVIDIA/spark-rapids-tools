@@ -16,6 +16,7 @@
 This module defines utility functions used by the end-to-end tests using behave.
 """
 
+import logging
 import os
 import subprocess
 from pathlib import Path
@@ -23,7 +24,7 @@ from typing import List
 from urllib.parse import urlparse
 
 
-def run_test(cmd) -> subprocess.CompletedProcess:
+def run_sys_cmd(cmd: list) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
@@ -45,6 +46,8 @@ def create_spark_rapids_cmd(event_logs: List[str],
         '--filter_apps', filter_apps
     ]
 
+
+# Utility getter functions
 
 def get_tools_root_path() -> str:
     return str(Path(__file__).parents[5])
@@ -76,7 +79,7 @@ def get_tools_jar_file() -> str:
 
 def resolve_event_logs(event_logs: List[str]) -> List[str]:
     """
-    Get the full path of the event logs.
+    Get the full path of the event logs if they are local files.
     """
     # Base directory can be modified (i.e. separate for local and CICD runs)
     fs = urlparse(event_logs[0]).scheme
@@ -86,33 +89,39 @@ def resolve_event_logs(event_logs: List[str]) -> List[str]:
     return event_logs
 
 
-def remove_cli_from_path(cli: str) -> None:
+def replace_cli_with_mock(cli_name: str, temp_dir: str) -> None:
     """
-    Update the PATH environment variable to remove directories containing the specified CLI.
+    Replace the specified CLI in the PATH environment variable with a mock version that simulates the
+    command not being found.
 
-    This function iterates over the directories in the PATH environment variable and removes the directory containing
-    the specified CLI. If the CLI is not found in the directory, the directory is kept in the PATH.
-
-    :param cli: CLI to remove from the PATH.
+    :param cli_name: The name of the CLI command to replace in the PATH.
+    :param temp_dir: The temporary directory where the mock CLI will be created.
     """
-    paths = os.environ["PATH"].split(":")
-    modified_paths = []
-    for path in paths:
-        # Check if the CLI is in the current path
-        if os.path.basename(path) == cli and os.access(path, os.X_OK):
-            continue
-        # Check if the parent directory of the CLI is in the current path
-        cli_path = os.path.join(path, cli)
-        if os.path.exists(cli_path) and os.access(cli_path, os.X_OK):
-            continue
-        modified_paths.append(path)
+    mock_cli_path = os.path.join(temp_dir, cli_name)
+    with open(mock_cli_path, "w") as f:
+        f.write("#!/bin/bash\n")
+        f.write(f"echo '{cli_name}: command not found'\n")
+        f.write("exit 1\n")
+    os.chmod(mock_cli_path, 0o755)
+    os.environ['PATH'] = temp_dir + ":" + os.environ['PATH']
 
-    os.environ["PATH"] = ":".join(modified_paths)
+    # verify the CLI is not in the PATH
+    assert run_sys_cmd([cli_name]).returncode != 0, f"{cli_name} is still in the PATH"
 
-def setup_hdfs(should_run: bool):
+
+def setup_hdfs(should_run: bool) -> None:
+    """
+    Sets up the Hadoop Distributed File System (HDFS) environment.
+
+    Executes a shell script to set up HDFS and configures the environment variables
+    required for HDFS. Depending on the `should_run` parameter, it either starts HDFS or simply
+    configures the environment without starting it.
+    :param should_run: Boolean flag to indicate whether to start HDFS.
+    :return:
+    """
     try:
         hdfs_setup_script = os.path.join(os.environ['SCRIPTS_DIR'], 'hdfs', 'setup_hdfs.sh')
-        hdfs_report_result = subprocess.run([hdfs_setup_script, str(should_run)], capture_output=True, text=True)
+        hdfs_report_result = run_sys_cmd([hdfs_setup_script, str(should_run)])
         assert hdfs_report_result.returncode == 0, \
             f"Failed to start HDFS. \nstderr: {hdfs_report_result.stderr}\n\nstdout: {hdfs_report_result.stdout}"
         hadoop_home = hdfs_report_result.stdout.splitlines()[-1]
@@ -122,14 +131,29 @@ def setup_hdfs(should_run: bool):
         if not should_run:
             os.environ['HADOOP_CONF_DIR'] = hadoop_conf_dir
         os.environ['PATH'] = f"{hadoop_home}/bin:{hadoop_home}/sbin:{os.environ['PATH']}"
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Failed to start HDFS.\nstderr: {e.stderr}\n\nstdout: {e.stdout}") from e
+    except Exception as e:  # pylint: disable=broad-except
+        raise RuntimeError(f"Failed to start HDFS.\nReason: {e}") from e
 
-def cleanup_hdfs():
+
+def cleanup_hdfs() -> None:
+    """
+    Stops the Hadoop Distributed File System (HDFS) and cleans up the environment.
+    """
     hdfs_cleanup_script = os.path.join(os.environ['SCRIPTS_DIR'], 'hdfs', 'cleanup_hdfs.sh')
     try:
-        hdfs_cleanup_result = subprocess.run([hdfs_cleanup_script], capture_output=True, text=True)
+        hdfs_cleanup_result = run_sys_cmd([hdfs_cleanup_script])
         assert hdfs_cleanup_result.returncode == 0, \
             f"Failed to stop HDFS.\nstderr: {hdfs_cleanup_result.stderr}\n\nstdout: {hdfs_cleanup_result.stdout}"
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Failed to stop HDFS.\nstderr: {e.stderr}\n\nstdout: {e.stdout}") from e
+    except Exception as e:  # pylint: disable=broad-except
+        raise RuntimeError(f"Failed to stop HDFS.\nReason: {e}") from e
+
+
+def get_logger() -> logging.Logger:
+    """
+    Create a logger for the module.
+    """
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(levelname)s: %(message)s'
+    )
+    return logging.getLogger(__name__)

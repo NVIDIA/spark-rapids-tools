@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 export hdfs_dir="/tmp/hadoop"
 export hadoop_version="3.3.6"
 export LC_ALL=C
