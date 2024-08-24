@@ -107,10 +107,28 @@ The test warns the user that initial setup may take a few minutes.
   - Download step may take a few minutes.
 - Tests involving HDFS are tagged with `@long_running` and can be skipped using `--tags ~@long_running`
 
-### Other Details
-- Included a tox environment `behave_gh-actions` to run the tests in GitHub Actions.
-  - This excludes `@long_running` tests.
-- Debugging Tests in IDE:
-  - Intellij IDEA: Add Python configuration with module name as `behave` and working directory as the `<repo-root>/user_tools` directory.
-  - VS Code: Define launch configuration (`.vscode/launch.json`) with `"module": "behave"` and `"cwd": "${workspaceFolder}/user_tools"`.
-  - Ensure Python interpreter is set to the virtual environment where the tests are installed.
+### Debugging Tests in IDE:
+
+- Ensure the Python interpreter is set to the correct virtual environment.
+
+**IntelliJ**
+- Add a Python run configuration with module name: `behave` and working directory: `<repo-root>/user_tools`.
+- Add required arguments in `Script parameters` field.
+
+**VS Code**
+- Open or create the `.vscode/launch.json` file. Add the following configuration with required arguments:
+```json
+{
+    "configurations": [
+        {
+            "name": "Python: Spark Rapids Tools E2E Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "behave",
+            "args": [],  
+            "python": "${command:python.interpreterPath}",
+            "cwd": "${workspaceFolder}/user_tools"
+        }
+    ]
+}
+```
