@@ -10,7 +10,7 @@ user_tools/tests/spark_rapids_tools_e2e/
 ├── features                        # Contains test scenarios and environment setup.
 │  ├── environment.py               # Setup and teardown procedures for the tests.
 │  ├── steps                        # Step definitions for the tests.
-│  └── test_cases.feature           # Feature file defining test scenarios.
+│  └── *.feature                    # Feature files defining test scenarios.
 └── resources                       # Resources used in the tests.
     ├── event_logs  
     └── scripts                     # Scripts used in the tests.  
@@ -22,9 +22,9 @@ user_tools/tests/spark_rapids_tools_e2e/
 From the `<repo_root>/user_tools` directory, run the following command to install the required dependencies:
 
 
-```commandline
+```sh
 pip install behave
-or
+# or
 pip install .[tests]
 ```
 
@@ -36,7 +36,7 @@ Tests can be run using 'behave' cmd or using 'tox' cmd.
 
 ```sh
 behave <options>
-or
+# or
 tox -e behave -- <options>
 ```
 
@@ -44,7 +44,7 @@ tox -e behave -- <options>
 
 ```sh
 behave
-or
+# or
 tox -e behave
 ```
 
@@ -54,7 +54,7 @@ tox -e behave
 
 ```sh
 behave --tags <tag>
-or
+# or
 tox -e behave -- --tags <tag>
 ```
 
@@ -62,7 +62,7 @@ tox -e behave -- --tags <tag>
 
 ```sh
 behave --name <scenario_name>
-or
+# or
 tox -e behave -- --name <scenario_name>
 ```
 
@@ -70,7 +70,7 @@ tox -e behave -- --name <scenario_name>
 
 ```sh
 behave --tags ~<tag>
-or
+# or
 tox -e behave -- --tags ~<tag>
 ```
 
@@ -80,7 +80,7 @@ tox -e behave -- --tags ~<tag>
 
 ```sh
 behave -D build_jar=false   # Skip building the Tools jar during setup (default: true)
-or
+# or
 tox -e behave -- -D build_jar=false
 ```
 
