@@ -919,13 +919,16 @@ object SQLPlanParser extends Logging {
     // https://github.com/NVIDIA/spark-rapids/issues/11213
     // https://github.com/NVIDIA/spark-rapids/issues/11214
 
+    // Regular expressions for corner cases that mark the SMJ as not supported
+    val castAsDateRegex = """(?i)\bcast\(\s*.+\s+as\s+date\s*\)""".r
+    val lowerInRegex = """(?i)\blower\(\s*.+\s*\)\s+in\s*(\((?:[^\(\)]*|.*)\)|\bsubquery#\d+\b)""".r
+
     // Split the joinCondition by logical operators (AND/OR)
-    val conditions = joinCondition.split("\\s+(AND|OR)\\s+").map(_.trim)
+    val conditions = joinCondition.split("\\s+(?i)(AND|OR)\\s+").map(_.trim)
     conditions.exists { condition =>
-      val normalizedCondition = condition.toLowerCase
       // Check for the specific corner cases that mark the SMJ as not supported
-      (normalizedCondition.contains("cast") && normalizedCondition.contains("as date")) ||
-          (normalizedCondition.contains("lower") && normalizedCondition.contains("in"))
+      castAsDateRegex.findFirstIn(condition).isDefined ||
+          lowerInRegex.findFirstIn(condition).isDefined
     }
   }
 
