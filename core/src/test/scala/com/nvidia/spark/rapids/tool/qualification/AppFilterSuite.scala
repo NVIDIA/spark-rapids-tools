@@ -237,11 +237,49 @@ class AppFilterSuite extends BaseTestSuite {
     testFileSystemTimeAndStart(appsWithFsToTest, "2-oldest-filesystem", "ndsweeks2", 1)
   }
 
+  private val appsWithFsNewOlderToTest = Array(
+    TestEventLogFSAndAppNameInfo("feb01-00",
+      AppFilterImpl.parseDateTimePeriod("2024-02-01 00:00:00").get, 1),
+    TestEventLogFSAndAppNameInfo("feb02-07",
+      AppFilterImpl.parseDateTimePeriod("2024-02-02 07:12:11").get, 2),
+    TestEventLogFSAndAppNameInfo("feb02-15",
+      AppFilterImpl.parseDateTimePeriod("2024-02-02 15:00:00").get, 3),
+    TestEventLogFSAndAppNameInfo("may15-13",
+      AppFilterImpl.parseDateTimePeriod("2024-05-15 13:00:00").get, 4))
+
+  test("start and end filesystem both on all") {
+    testFileSystemNewerAndOlderTimes(appsWithFsNewOlderToTest, "2024-02-01 00:00:00",
+      "2024-05-15 13:00:00", 4)
+  }
+
+  test("start and end filesystem both on some") {
+    testFileSystemNewerAndOlderTimes(appsWithFsNewOlderToTest, "2024-02-00 10:00:00",
+      "2024-02-02 13:00:00", 2)
+  }
+
+  test("start filesystem some exact") {
+    testFileSystemNewerAndOlderTimes(appsWithFsNewOlderToTest, "2024-02-02 07:12:11",
+      "", 3)
+  }
+
+  test("start filesystem none") {
+    testFileSystemNewerAndOlderTimes(appsWithFsNewOlderToTest, "2024-05-15 15:00:00",
+      "", 0)
+  }
+  test("end filesystem some exact") {
+    testFileSystemNewerAndOlderTimes(appsWithFsNewOlderToTest, "2024-02-02 15:00:00",
+      "", 2)
+  }
+
+  test("end filesystem none") {
+    testFileSystemNewerAndOlderTimes(appsWithFsNewOlderToTest, "",
+      "2024-01-01 00:00:00", 0)
+  }
+
   private def testFileSystemTimeAndStart(apps: Array[TestEventLogFSAndAppNameInfo],
       filterCriteria: String, filterAppName: String, expectedFilterSize: Int): Unit = {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { tmpEventLogDir =>
-
         val fileNames = apps.map { app =>
           val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath,
             s"${app.appName}-${app.uniqueId}-eventlog")
@@ -263,6 +301,48 @@ class AppFilterSuite extends BaseTestSuite {
           "--application-name",
           filterAppName
         )
+        val appArgs = new QualificationArgs(allArgs ++ fileNames)
+        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+        assert(appSum.size == expectedFilterSize)
+      }
+    }
+  }
+
+  private def testFileSystemNewerAndOlderTimes(
+      apps: Array[TestEventLogFSAndAppNameInfo],
+      fsStartTime: String,
+      fsEndTime: String,
+      expectedFilterSize: Int): Unit = {
+    TrampolineUtil.withTempDir { outpath =>
+      TrampolineUtil.withTempDir { tmpEventLogDir =>
+        val fileNames = apps.map { app =>
+          val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath,
+            s"${app.appName}-${app.uniqueId}-eventlog")
+          // scalastyle:off line.size.limit
+          val supText =
+            s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
+               |{"Event":"SparkListenerApplicationStart","App Name":"${app.appName}","App ID":"local-16261043003${app.uniqueId}","Timestamp":1626104299853,"User":"user1"}""".stripMargin
+          // scalastyle:on line.size.limit
+          Files.write(elogFile, supText.getBytes(StandardCharsets.UTF_8))
+          new File(elogFile.toString).setLastModified(app.fsTime)
+          elogFile.toString
+        }
+
+        val startingArgs = Array(
+          "--output-directory",
+          outpath.getAbsolutePath()
+        )
+        val argsWithOptStart = if (!fsStartTime.isEmpty) {
+          startingArgs ++ Array("--fs-start-time", fsStartTime)
+        } else {
+          startingArgs
+        }
+        val allArgs = if (!fsEndTime.isEmpty) {
+          argsWithOptStart ++ Array("--fs-end-time", fsEndTime)
+        } else {
+          argsWithOptStart
+        }
         val appArgs = new QualificationArgs(allArgs ++ fileNames)
         val (exit, appSum) = QualificationMain.mainInternal(appArgs)
         assert(exit == 0)
