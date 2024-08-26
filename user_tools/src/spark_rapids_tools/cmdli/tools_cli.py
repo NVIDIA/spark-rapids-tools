@@ -44,7 +44,6 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       tools_jar: str = None,
                       jvm_heap_size: int = None,
                       jvm_threads: int = None,
-                      profile: str = None,
                       verbose: bool = None,
                       **rapids_options) -> None:
         """The Qualification cmd provides estimated speedups by migrating Apache Spark applications
