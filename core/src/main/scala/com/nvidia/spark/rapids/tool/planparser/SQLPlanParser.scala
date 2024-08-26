@@ -895,19 +895,19 @@ object SQLPlanParser extends Logging {
     val buildSide = joinParams.find(possibleBuildSides.contains).getOrElse("")
     val isSortMergeJoin = buildSide.isEmpty
 
-    val joinCondition = joinParams.dropWhile(
-      param => possibleBuildSides.contains(param) || param.contains(joinType)).map(_.trim)
+    val joinCondition = joinParams.dropWhile(param =>
+          possibleBuildSides.contains(param) || param.contains(joinType)).map(_.trim).mkString(",")
     // Get individual expressions which is later used to get the function names.
     val colExpressions = joinExprs.split("::").map(_.trim).map(
       _.replaceAll("""^\[+|\]+$""", "")).map(_.split(",")).flatten.map(_.trim)
     colExpressions.foreach(expr => addFunctionNames(expr, parsedExpressions))
     if (joinCondition.nonEmpty) {
-      val conditionExprs = parseConditionalExpressions(joinCondition.mkString(" "))
+      val conditionExprs = parseConditionalExpressions(joinCondition)
       conditionExprs.foreach(parsedExpressions += _)
     }
     // Check corner cases for SortMergeJoin
     val isSortMergeSupported = !(isSortMergeJoin &&
-        joinCondition.nonEmpty && isSMJConditionUnsupported(joinCondition.mkString(" ")))
+        joinCondition.nonEmpty && isSMJConditionUnsupported(joinCondition))
 
     (parsedExpressions.distinct.toArray, equiJoinSupportedTypes(buildSide, joinType)
         && isSortMergeSupported)

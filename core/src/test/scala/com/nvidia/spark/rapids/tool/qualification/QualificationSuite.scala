@@ -1373,10 +1373,10 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  test("test SortMergeJoin corner case not supported on left join") {
+  test("test SMJ corner case not supported on left outer join") {
     TrampolineUtil.withTempDir { outParquetFile =>
       TrampolineUtil.withTempDir { eventLogDir =>
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "sortMergeJoin") { spark =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "smjLeftJoin") { spark =>
           import spark.implicits._
           val data = Seq(("A", 20, "M", "2024-01-01"),
             ("B", 25, "M", "2024-12-12"), ("C", 30, "F", "2022-03-04"))
