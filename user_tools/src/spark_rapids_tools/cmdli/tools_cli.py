@@ -28,11 +28,10 @@ from spark_rapids_pytools.rapids.qualx.train import Train
 
 
 class ToolsCLI(object):  # pylint: disable=too-few-public-methods
-    """CLI that provides a runtime environment that simplifies running cost and performance analysis
-    using the RAPIDS Accelerator for Apache Spark.
+    """CLI that provides a runtime environment that simplifies running performance analysis using
+    the RAPIDS Accelerator for Apache Spark.
 
-    A wrapper script to run RAPIDS Accelerator tools (Qualification, and Profiling)
-    locally on the dev machine.
+    A wrapper script to run RAPIDS Accelerator tools locally on the dev machine.
     """
 
     def qualification(self,
@@ -45,14 +44,14 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       tools_jar: str = None,
                       jvm_heap_size: int = None,
                       jvm_threads: int = None,
+                      profile: str = None,
                       verbose: bool = None,
                       **rapids_options) -> None:
-        """The Qualification cmd provides estimated running costs and speedups by migrating Apache
-        Spark applications to GPU accelerated clusters.
+        """The Qualification cmd provides estimated speedups by migrating Apache Spark applications
+        to GPU accelerated clusters.
 
         The Qualification cmd analyzes Spark eventlogs generated from CPU based Spark applications to
-        help quantify the expected acceleration and costs savings of migrating a Spark application or
-        query to GPU.
+        help quantify the expected acceleration of migrating a Spark application or query to GPU.
         The cmd will process each app individually, but will group apps with the same name into the
         same output row after averaging duration metrics accordingly.
 
@@ -63,23 +62,23 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 cluster name on the CSP.
         :param cluster: The CPU cluster on which the Spark application(s) were executed.
                Name or ID (for databricks platforms) of cluster or path to cluster-properties.
-        :param platform: defines one of the following "onprem", "emr", "dataproc", "dataproc-gke",
+        :param platform: Defines one of the following: "onprem", "emr", "dataproc", "dataproc-gke",
                "databricks-aws", and "databricks-azure".
-        :param output_folder: path to store the output
+        :param output_folder: Local or HDFS path to store the output.
         :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem,
                 or remote cloud storage url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
                 from maven repository.
-        :param filter_apps: filtering criteria of the applications listed in the final STDOUT table
-                is one of the following (ALL, TOP_CANDIDATES).
+        :param filter_apps: Filtering criteria of the applications listed in the final STDOUT table,
+                is one of the following ("ALL", "TOP_CANDIDATES").
 
                 Note that this filter does not affect the CSV report.
                 "ALL" means no filter applied. "TOP_CANDIDATES" lists all apps that have unsupported operators
                 stage duration less than 25% of app duration and speedups greater than 1.3x.
-        :param custom_model_file: An optional Path to a custom XGBoost model file. The path is a local filesystem,
+        :param custom_model_file: An optional path to a custom XGBoost model file. The path is a local filesystem,
                 or remote cloud storage url.
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
                 Default is calculated based on a function of the total memory of the host.
-        :param jvm_threads: Number of thread to use for parallel processing on the eventlogs batch.
+        :param jvm_threads: Number of threads to use for parallel processing on the eventlogs batch.
                 Default is calculated as a function of the total number of cores and the heap size on the host.
         :param verbose: True or False to enable verbosity of the script.
         :param rapids_options: A list of valid Qualification tool options.
@@ -135,7 +134,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                   verbose: bool = None,
                   **rapids_options):
         """The Profiling cmd provides information which can be used for debugging and profiling
-        Apache Spark applications running on accelerated GPU cluster.
+        Apache Spark applications running on GPU accelerated clusters.
 
         The Profiling tool analyzes both CPU or GPU generated eventlogs and generates information
         including the Spark version, executor details, properties, etc.
@@ -196,7 +195,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                    output_folder: str = None,
                    custom_model_file: str = None,
                    platform: str = 'onprem') -> None:
-        """The prediction cmd takes existing qualification tool output and runs the
+        """The Prediction cmd takes existing qualification tool output and runs the
         estimation model in the qualification tools for GPU speedups.
 
         :param qual_output: path to the directory, which contains the qualification tool output. E.g. user should
@@ -242,7 +241,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
               n_trials: int = 200,
               base_model: str = None,
               features_csv_dir: str = None):
-        """The train cmd trains an XGBoost model on the input data to estimate the speedup of a
+        """The Train cmd trains an XGBoost model on the input data to estimate the speedup of a
          Spark CPU application.
 
         :param dataset: Path to a folder containing one or more dataset JSON files.
