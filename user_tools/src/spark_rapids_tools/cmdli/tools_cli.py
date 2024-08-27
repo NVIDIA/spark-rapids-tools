@@ -63,17 +63,17 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                Name or ID (for databricks platforms) of cluster or path to cluster-properties.
         :param platform: Defines one of the following: "onprem", "emr", "dataproc", "dataproc-gke",
                "databricks-aws", and "databricks-azure".
-        :param output_folder: Local or HDFS path to store the output.
+        :param output_folder: Local path to store the output.
         :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem,
                 or remote cloud storage url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
                 from maven repository.
         :param filter_apps: Filtering criteria of the applications listed in the final STDOUT table,
-                is one of the following ("ALL", "TOP_CANDIDATES").
+                is one of the following ("ALL", "TOP_CANDIDATES"). Default is "TOP_CANDIDATES".
 
                 Note that this filter does not affect the CSV report.
                 "ALL" means no filter applied. "TOP_CANDIDATES" lists all apps that have unsupported operators
                 stage duration less than 25% of app duration and speedups greater than 1.3x.
-        :param custom_model_file: An optional path to a custom XGBoost model file. The path is a local filesystem,
+        :param custom_model_file: An optional local path to a custom XGBoost model file. The path is a local filesystem,
                 or remote cloud storage url.
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
                 Default is calculated based on a function of the total memory of the host.
