@@ -26,7 +26,7 @@ fi
 
 readonly DEFAULT_CORE_SITE_XML="core-site.xml"
 readonly DEFAULT_HDFS_SITE_XML="hdfs-site.xml"
-readonly CURRENT_FILE_PATH=${0:a}
+readonly CURRENT_FILE_PATH=$(realpath "${0}")
 readonly HDFS_SCRIPTS_DIR=$(dirname "${CURRENT_FILE_PATH}")
 
 load_common_scripts() {

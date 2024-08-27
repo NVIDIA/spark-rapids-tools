@@ -16,7 +16,7 @@
 
 # Usage: ./cleanup_hdfs.sh
 
-readonly CURRENT_FILE_PATH=${0:a}
+readonly CURRENT_FILE_PATH=$(realpath "${0}")
 
 load_common_scripts() {
   local scripts_dir=$(dirname "$(dirname "${CURRENT_FILE_PATH}")")
@@ -30,8 +30,8 @@ stop_hdfs_services() {
         local hadoop_home="${_HDFS_DIR}/hadoop-${HADOOP_VERSION}"
         local hdfs_bin="${hadoop_home}/bin/hdfs"
         [ ! -f "${hdfs_bin}" ] && err "HDFS binary not found at ${hdfs_bin}. However, HDFS services are running."
-        $hdfs_bin --daemon stop namenode
-        $hdfs_bin --daemon stop datanode
+        ${hdfs_bin} --daemon stop namenode
+        ${hdfs_bin} --daemon stop datanode
     else
         echo "HDFS is not running."
     fi
