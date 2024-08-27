@@ -73,8 +73,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 Note that this filter does not affect the CSV report.
                 "ALL" means no filter applied. "TOP_CANDIDATES" lists all apps that have unsupported operators
                 stage duration less than 25% of app duration and speedups greater than 1.3x.
-        :param custom_model_file: An optional local path to a custom XGBoost model file. The path is a local filesystem,
-                or remote cloud storage url.
+        :param custom_model_file: An optional local path to a custom XGBoost model file.
         :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
                 Default is calculated based on a function of the total memory of the host.
         :param jvm_threads: Number of threads to use for parallel processing on the eventlogs batch.
