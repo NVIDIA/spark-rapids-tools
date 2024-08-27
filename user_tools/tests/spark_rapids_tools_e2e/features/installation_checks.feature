@@ -18,7 +18,7 @@ Feature: Tool Installation Checks
   Scenario Outline: Environment has missing CLI and spark_rapids tool processes eventlogs
     Given platform is "<platform>"
     And "<cli>" is not installed
-    When spark-rapids tool is executed with "test_event_log_1,test_event_log_2" eventlogs
+    When spark-rapids tool is executed with "valid_eventlog_1.zstd,valid_eventlog_2.zstd" eventlogs
     Then stdout contains the following
       """
       <expected_stdout>
@@ -36,7 +36,7 @@ Feature: Tool Installation Checks
   @test_id_IC_0002
   Scenario: Environment has missing java
     Given "java" is not installed
-    When spark-rapids tool is executed with "test_event_log_1" eventlogs
+    When spark-rapids tool is executed with "valid_eventlog_1.zstd" eventlogs
     Then stderr contains the following
       """
       RuntimeError: Error invoking CMD

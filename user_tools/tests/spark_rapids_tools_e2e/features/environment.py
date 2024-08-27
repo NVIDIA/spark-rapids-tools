@@ -34,7 +34,7 @@ def before_all(context) -> None:
     """
     context.temp_dir = tempfile.mkdtemp()
     _set_environment_variables(context)
-    _create_python_venv(context)
+    _setup_env(context)
 
 
 def after_all(context) -> None:
@@ -76,11 +76,13 @@ def _set_environment_variables(context) -> None:
     os.environ['TOOLS_JAR_PATH'] = os.path.join(os.environ['TOOLS_DIR'], f'core/target/{jar_filename}')
     os.environ['VENV_DIR'] = os.path.join(context.temp_dir, venv_name)
     os.environ['BUILD_JAR'] = 'true' if build_jar else 'false'
+    os.environ['SPARK_BUILD_VERSION'] = context.config.userdata.get('buildver')
+    os.environ['HADOOP_VERSION'] = context.config.userdata.get('hadoop.version')
 
 
-def _create_python_venv(context) -> None:
+def _setup_env(context) -> None:
     """
-    Create a Python virtual environment for the tests.
+    Build the JAR and set up the virtual environment for the tests.
     """
     script_file_name = context.config.userdata.get('setup_script_file')
     script = os.path.join(os.environ['SCRIPTS_DIR'], script_file_name)

@@ -14,8 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export hdfs_dir="/tmp/hadoop"
-export hadoop_version="3.3.6"
+readonly TOOLS_TMP_DIR="/tmp/spark_rapids_tools"
+readonly _HDFS_DIR="${TOOLS_TMP_DIR}/hadoop"
+export _HDFS_DIR TOOLS_TMP_DIR
 export LC_ALL=C
 
 err() {

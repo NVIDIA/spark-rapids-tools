@@ -14,59 +14,88 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <should_run>"
-    exit 1
+# Usage: ./setup_hdfs.sh [_HDFS_SHOULD_RUN]
+
+_HDFS_SHOULD_RUN="True"
+
+if [ "$#" -eq 1 ]; then
+    _HDFS_SHOULD_RUN=$1
+else
+    echo "_HDFS_SHOULD_RUN is not provided. Defaulting to True."
 fi
 
-SHOULD_RUN=$1
-DEFAULT_CORE_SITE_XML="core-site.xml"
-DEFAULT_HDFS_SITE_XML="hdfs-site.xml"
+readonly DEFAULT_CORE_SITE_XML="core-site.xml"
+readonly DEFAULT_HDFS_SITE_XML="hdfs-site.xml"
+readonly CURRENT_FILE_PATH=${0:a}
+readonly HDFS_SCRIPTS_DIR=$(dirname "${CURRENT_FILE_PATH}")
 
-# Ensure SCRIPTS_DIR is set
-set_scripts_dir() {
-    if [ -z "$SCRIPTS_DIR" ]; then
-        CURRENT_FILE_PATH=$(realpath "${BASH_SOURCE[0]}")
-        SCRIPTS_DIR=$(dirname "$(dirname "$CURRENT_FILE_PATH")")
-    fi
-    HDFS_SCRIPTS_DIR="${SCRIPTS_DIR}/hdfs"
-    source "$HDFS_SCRIPTS_DIR/common.sh"
+load_common_scripts() {
+  local scripts_dir=$(dirname "${HDFS_SCRIPTS_DIR}")
+  source "${scripts_dir}/common.sh"
 }
 
 # Validate environment variables
 validate_env() {
     [ -z "${JAVA_HOME}" ] && err "JAVA_HOME is not set. Please set JAVA_HOME."
+    [ -z "${HADOOP_VERSION}" ] && err "HADOOP_VERSION is not set. Please set HADOOP_VERSION."
 }
 
 # Set up HDFS directories
 setup_hdfs_dirs() {
     echo "Setting up HDFS directories..."
-    export name_node_dir="${hdfs_dir}/namenode"
-    export data_node_dir="${hdfs_dir}/datanode"
-    mkdir -p "${hdfs_dir}" "${name_node_dir}" "${data_node_dir}"
+    readonly NAME_NODE_DIR="${_HDFS_DIR}/namenode"
+    readonly DATA_NODE_DIR="${_HDFS_DIR}/datanode"
+    rm -rf "${_HDFS_DIR}" "${NAME_NODE_DIR}" "${DATA_NODE_DIR}"
+    mkdir -p "${_HDFS_DIR}" "${NAME_NODE_DIR}" "${DATA_NODE_DIR}"
+    export NAME_NODE_DIR DATA_NODE_DIR
 }
 
-# Download and extract Hadoop
+# Function to verify checksum
+verify_checksum() {
+    echo "Verifying checksum..."
+    if [ $# -ne 2 ]; then
+        err "verify_checksum requires two arguments: file and checksum_file."
+    fi
+    local file="$1"
+    local checksum_file="$2"
+    local expected_checksum=$(awk '{print $4}' "${checksum_file}")
+    local actual_checksum=$(shasum -a 512 "${file}" | awk '{print $1}')
+    [ "${expected_checksum}" != "${actual_checksum}" ] && return 1 || return 0
+}
+
+# Function to download and extract Hadoop
 download_and_extract_hadoop() {
     echo "Downloading and extracting Hadoop..."
-    local hadoop_url="https://dlcdn.apache.org/hadoop/common/hadoop-${hadoop_version}/hadoop-${hadoop_version}.tar.gz"
-    local hadoop_tar_file="/tmp/hadoop-${hadoop_version}.tar.gz"
+    local hadoop_url="https://dlcdn.apache.org/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz"
+    local hadoop_tar_file="${TOOLS_TMP_DIR}/hadoop-${HADOOP_VERSION}.tar.gz"
+    local checksum_url="${hadoop_url}.sha512"
+    local checksum_file="${hadoop_tar_file}.sha512"
 
-    if [ ! -f "$hadoop_tar_file" ]; then
-        wget -O "$hadoop_tar_file" "${hadoop_url}" || err "Failed to download Hadoop tarball."
+    if [ ! -f "${hadoop_tar_file}" ]; then
+        wget -O "${hadoop_tar_file}" "${hadoop_url}" || err "Failed to download Hadoop tarball."
     fi
 
-    tar -xzf "$hadoop_tar_file" -C "${hdfs_dir}" || err "Failed to extract Hadoop tarball."
+    # Verify checksum and re-download if needed
+    wget -O "${checksum_file}" "${checksum_url}" || err "Failed to download checksum file."
+    if ! verify_checksum "${hadoop_tar_file}" "${checksum_file}"; then
+        wget -O "${hadoop_tar_file}" "${hadoop_url}" || err "Failed to download Hadoop tarball."
+        if ! verify_checksum "${hadoop_tar_file}" "${checksum_file}"; then
+            err "Checksum verification failed after re-downloading. Exiting..."
+        fi
+    fi
+
+    tar -xzf "${hadoop_tar_file}" -C "${_HDFS_DIR}" || err "Failed to extract Hadoop tarball."
 }
 
 # Configure Hadoop
 configure_hadoop() {
     echo "Configuring Hadoop..."
-    export HADOOP_HOME="${hdfs_dir}/hadoop-${hadoop_version}"
-    export PATH="$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin"
-    export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
-    envsubst < "$HDFS_SCRIPTS_DIR/templates/$DEFAULT_CORE_SITE_XML" > "${HADOOP_HOME}/etc/hadoop/core-site.xml"
-    envsubst < "$HDFS_SCRIPTS_DIR/templates/$DEFAULT_HDFS_SITE_XML" > "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml"
+    readonly HADOOP_HOME="${_HDFS_DIR}/hadoop-${HADOOP_VERSION}"
+    readonly HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
+    export HADOOP_HOME HADOOP_CONF_DIR
+    export PATH="${PATH}:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin"
+    envsubst < "${HDFS_SCRIPTS_DIR}/templates/${DEFAULT_CORE_SITE_XML}" > "${HADOOP_HOME}/etc/hadoop/core-site.xml"
+    envsubst < "${HDFS_SCRIPTS_DIR}/templates/${DEFAULT_HDFS_SITE_XML}" > "${HADOOP_HOME}/etc/hadoop/hdfs-site.xml"
 }
 
 # Format the Namenode
@@ -93,18 +122,17 @@ verify_hdfs_services() {
 }
 
 main() {
-    set_scripts_dir
+    load_common_scripts
     validate_env
-    source "${HDFS_SCRIPTS_DIR}/common.sh"
     setup_hdfs_dirs
     download_and_extract_hadoop
     configure_hadoop
-    if [ "$SHOULD_RUN" = "True" ]; then
+    if [ "${_HDFS_SHOULD_RUN}" = "True" ]; then
       format_namenode
       start_hdfs_services
       verify_hdfs_services
     fi
-    echo "$HADOOP_HOME"
+    echo "${HADOOP_HOME}"
 }
 
 main

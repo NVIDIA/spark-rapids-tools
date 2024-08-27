@@ -25,17 +25,17 @@ Feature: Event Log Processing
     And return code is "0"
 
     Examples:
-      | event_logs                              | expected_stderr                                                                                                       |
-      | test_id_0005_incorrect_event_logs       | process.failure.count = 1;test_id_0005_incorrect_event_logs not found, skipping!                                      |
-      | test_id_0005_gpu                        | process.skipped.count = 1;GpuEventLogException: Cannot parse event logs from GPU run: skipping this file              |
-      | test_id_0005_photon                     | process.skipped.count = 1;PhotonEventLogException: Encountered Databricks Photon event log: skipping this file!       |
-      | test_id_0005_streaming                  | process.skipped.count = 1;StreamingEventLogException: Encountered Spark Structured Streaming Job: skipping this file! |
-      | test_id_0005_incorrect_app_status       | process.NA.count = 1;IncorrectAppStatusException: Application status is incorrect. Missing AppInfo                    |
+      | event_logs                         | expected_stderr                                                                                                       |
+      | invalid_path_eventlog              | process.failure.count = 1;invalid_path_eventlog not found, skipping!                                                  |
+      | gpu_eventlog.zstd                  | process.skipped.count = 1;GpuEventLogException: Cannot parse event logs from GPU run: skipping this file              |
+      | photon_eventlog.zstd               | process.skipped.count = 1;PhotonEventLogException: Encountered Databricks Photon event log: skipping this file!       |
+      | streaming_eventlog.zstd            | process.skipped.count = 1;StreamingEventLogException: Encountered Spark Structured Streaming Job: skipping this file! |
+      | incorrect_app_status_eventlog.zstd | process.NA.count = 1;IncorrectAppStatusException: Application status is incorrect. Missing AppInfo                    |
 
   @test_id_ELP_0002
   Scenario: Qualification tool JAR crashes
     Given thread to crash qualification tool has started
-    When spark-rapids tool is executed with "test_event_log_1" eventlogs
+    When spark-rapids tool is executed with "valid_eventlog_1.zstd,valid_eventlog_2.zstd" eventlogs
     Then stderr contains the following
       """
       Qualification. Raised an error in phase [Execution]

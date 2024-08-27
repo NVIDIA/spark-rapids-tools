@@ -25,7 +25,7 @@ From the `<repo_root>/user_tools` directory, run the following command to instal
 ```sh
 pip install behave
 # or
-pip install .[tests]
+pip install .[test]
 ```
 
 
@@ -51,6 +51,8 @@ tox -e behave
 ### Common Options
 
 **Run Specific Tests by Tag**
+
+See the [Tags Format](#tags-format) section for more information on tags.
 
 ```sh
 behave --tags <tag>
@@ -88,6 +90,15 @@ tox -e behave -- -D build_jar=false
 
 ## Notes
 
+### Tags Format
+Tags are used to uniquely identify test scenarios and are defined in the following format: `@test_id_<feature>_<00xx>`.
+- `<feature>`: Acronym for the feature file being tested. Examples:
+   - `ELP` for `event_log_processing.feature`
+   - `IC` for `installation_checks.feature`
+- `<00xx>`: Unique 4-digit identifier for the test scenario. Examples: `0001`, `0002`.
+
+Tags Example: `@test_id_ELP_0001`, `@test_id_IC_0002`.
+
 ### Initial Setup
 
 The initial setup includes two steps:
@@ -109,11 +120,14 @@ The test warns the user that initial setup may take a few minutes.
 
 ### Debugging Tests in IDE:
 
-- Ensure the Python interpreter is set to the correct virtual environment.
+- Ensure the Python interpreter is set to the correct virtual environment and `JAVA_HOME` is set.
 
 **IntelliJ**
 - Add a Python run configuration with module name: `behave` and working directory: `<repo-root>/user_tools`.
 - Add required arguments in `Script parameters` field.
+
+Sample Run Configuration:
+![resources/debug-behave-intellij.png](resources/debug-behave-intellij.png)
 
 **VS Code**
 - Open or create the `.vscode/launch.json` file. Add the following configuration with required arguments:

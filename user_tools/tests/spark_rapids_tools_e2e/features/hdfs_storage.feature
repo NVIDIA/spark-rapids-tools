@@ -25,9 +25,9 @@ Feature: HDFS Event Log Storage
     And return code is "0"
 
     Examples:
-      | platform | eventlog         |
-      | onprem   | test_event_log_1 |
-      | dataproc | test_event_log_1 |
+      | platform | eventlog              |
+      | onprem   | valid_eventlog_1.zstd |
+      | dataproc | valid_eventlog_1.zstd |
 
   @test_id_HDFS_0002
   Scenario Outline: Eventlogs are stored in HDFS - Platform not specified
@@ -38,8 +38,8 @@ Feature: HDFS Event Log Storage
     And return code is "0"
 
     Examples:
-      | eventlog         |
-      | test_event_log_1 |
+      | eventlog              |
+      | valid_eventlog_1.zstd |
 
   @test_id_HDFS_0003
   Scenario Outline: Eventlogs are stored in HDFS - HDFS installed but not running
@@ -53,8 +53,8 @@ Feature: HDFS Event Log Storage
     And return code is "0"
 
     Examples:
-      | eventlog         |
-      | test_event_log_1 |
+      | eventlog              |
+      | valid_eventlog_1.zstd |
 
   @test_id_HDFS_0004
   Scenario Outline: Eventlogs are stored in HDFS - HDFS not installed, Platform specified
@@ -68,8 +68,8 @@ Feature: HDFS Event Log Storage
     And return code is "0"
 
     Examples:
-      | eventlog         |
-      | test_event_log_1 |
+      | eventlog              |
+      | valid_eventlog_1.zstd |
 
   @test_id_HDFS_0005
   Scenario Outline: Eventlogs are stored in HDFS - HDFS not installed, Platform not specified
@@ -82,5 +82,5 @@ Feature: HDFS Event Log Storage
     And return code is "0"
 
     Examples:
-      | eventlog         |
-      | test_event_log_1 |
+      | eventlog              |
+      | valid_eventlog_1.zstd |

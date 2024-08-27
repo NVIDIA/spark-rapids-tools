@@ -14,22 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set_scripts_dir() {
-    if [ -z "$SCRIPTS_DIR" ]; then
-        CURRENT_FILE_PATH=$(realpath "${BASH_SOURCE[0]}")
-        SCRIPTS_DIR=$(dirname "$(dirname "$CURRENT_FILE_PATH")")
-    fi
-    HDFS_SCRIPTS_DIR="${SCRIPTS_DIR}/hdfs"
-    source "${HDFS_SCRIPTS_DIR}/common.sh"
+# Usage: ./cleanup_hdfs.sh
+
+readonly CURRENT_FILE_PATH=${0:a}
+
+load_common_scripts() {
+  local scripts_dir=$(dirname "$(dirname "${CURRENT_FILE_PATH}")")
+  source "${scripts_dir}/common.sh"
 }
 
 # Stop HDFS services
 stop_hdfs_services() {
     if jps | grep -q "NameNode\|DataNode"; then
         echo "Stopping HDFS..."
-        HADOOP_HOME="${hdfs_dir}/hadoop-${hadoop_version}"
-        hdfs_bin="${HADOOP_HOME}/bin/hdfs"
-        [ ! -f "$hdfs_bin" ] && err "HDFS binary not found at ${hdfs_bin}. However, HDFS services are running."
+        local hadoop_home="${_HDFS_DIR}/hadoop-${HADOOP_VERSION}"
+        local hdfs_bin="${hadoop_home}/bin/hdfs"
+        [ ! -f "${hdfs_bin}" ] && err "HDFS binary not found at ${hdfs_bin}. However, HDFS services are running."
         $hdfs_bin --daemon stop namenode
         $hdfs_bin --daemon stop datanode
     else
@@ -37,17 +37,15 @@ stop_hdfs_services() {
     fi
 }
 
-cleanup_hdfs() {
-    rm -rf "${hdfs_dir}"
-    echo "HDFS has been stopped and cleaned up."
+cleanup_hdfs_dir() {
+    rm -rf "${_HDFS_DIR}"
+    echo "Removed HDFS directories."
 }
 
-# Main function to orchestrate the script
 main() {
-    set_scripts_dir
+    load_common_scripts
     stop_hdfs_services
-    cleanup_hdfs
+    cleanup_hdfs_dir
 }
 
-# Execute the main function
 main

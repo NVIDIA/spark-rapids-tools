@@ -31,6 +31,12 @@ logger = get_logger()
 
 
 def set_after_scenario_fn(context, fn: Callable) -> None:
+    """
+    Set the callback function to be called after each scenario.
+
+    See also:
+         user_tools.tests.spark_rapids_tools_e2e.features.environment.after_scenario()
+    """
     context.after_scenario_fn = fn
 
 
@@ -59,7 +65,6 @@ def _start_qualification_tool_crash_thread_internal(_stop_event: threading.Event
     :param _stop_event: Event to stop the thread
     """
     qual_tool_class_path = 'com.nvidia.spark.rapids.tool.qualification.QualificationMain'
-    os.environ['LC_ALL'] = 'C'
 
     def is_qual_tool_running() -> bool:
         return run_sys_cmd(["pgrep", "-f", f"java.*{qual_tool_class_path}"]).returncode == 0
@@ -68,7 +73,6 @@ def _start_qualification_tool_crash_thread_internal(_stop_event: threading.Event
         sleep(1)
 
     if is_qual_tool_running():
-        sleep(1)
         result = run_sys_cmd(["pkill", "-f", f"java.*{qual_tool_class_path}"])
         assert result.returncode == 0, f"Failed to kill the qualification tool. Error: {result.stderr}"
 

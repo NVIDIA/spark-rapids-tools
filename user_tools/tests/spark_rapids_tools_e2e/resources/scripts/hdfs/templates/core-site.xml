@@ -21,6 +21,6 @@
     </property>
     <property>
         <name>hadoop.tmp.dir</name>
-        <value>${data_node_dir}</value>
+        <value>${DATA_NODE_DIR}</value>
     </property>
 </configuration>

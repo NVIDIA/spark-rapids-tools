@@ -25,11 +25,19 @@ if [ -z "$TOOLS_DIR" ]; then
   err "Please set TOOLS_DIR to the root directory of the spark-rapids-tools repository. Exiting script."
 fi
 
+if [ -z "$SPARK_BUILD_VERSION" ]; then
+  err "Please set SPARK_BUILD_VERSION to the version of Spark used for building Tools JAR. Exiting script."
+fi
+
+if [ -z "$HADOOP_VERSION" ]; then
+  err "Please set HADOOP_VERSION to the version of Hadoop used for building Tools JAR. Exiting script."
+fi
+
 build_jar() {
-  JAR_TOOLS_DIR="$TOOLS_DIR/core"
+  local jar_tools_dir="$TOOLS_DIR/core"
   echo "Building Spark RAPIDS Tools JAR file"
-  pushd "$JAR_TOOLS_DIR"
-  mvn install -DskipTests
+  pushd "$jar_tools_dir"
+  mvn install -DskipTests -Dbuildver="$SPARK_BUILD_VERSION" -Dhadoop.version="$HADOOP_VERSION"
   popd
 }
 
@@ -39,18 +47,18 @@ install_python_package() {
   fi
 
   echo "Setting up Python environment in $VENV_DIR"
-  PYTHON_TOOLS_DIR="$TOOLS_DIR/user_tools"
+  local python_tools_dir="$TOOLS_DIR/user_tools"
   python -m venv "$VENV_DIR"
   source "$VENV_DIR"/bin/activate
 
   echo "Installing Spark RAPIDS Tools Python package"
-  pushd "$PYTHON_TOOLS_DIR"
+  pushd "$python_tools_dir"
   pip install --upgrade pip setuptools wheel > /dev/null
   pip install .
   popd
-  echo "$VENV_DIR"
 }
 
+# Check if the Tools JAR file exists or if the user wants to build it
 if [ ! -f "$TOOLS_JAR_PATH" ] || [ "$BUILD_JAR" = "true" ]; then
   build_jar
 fi
