@@ -388,6 +388,7 @@ case class FormattedQualificationSummaryInfo(
     unSupportedExecs: String,
     unSupportedExprs: String,
     clusterTags: Map[String, String],
+    totalCoreSec: Long,
     estimatedFrequency: Long)
 
 object QualOutputWriter {
@@ -473,6 +474,7 @@ object QualOutputWriter {
   val WORKER_NODE_TYPE = "Worker Node Type"
   val RECOMMENDED_WORKER_NODE_TYPE = "Recommended Worker Node Type"
   val DRIVER_NODE_TYPE = "Driver Node Type"
+  val TOTAL_CORE_SEC = "Total Core Seconds"
   // Default frequency for jobs with a single instance is 30 times every month (30 days)
   val DEFAULT_JOB_FREQUENCY = 30L
 
@@ -655,6 +657,7 @@ object QualOutputWriter {
       APP_DUR_ESTIMATED_STR -> APP_DUR_ESTIMATED_STR.size,
       UNSUPPORTED_EXECS -> UNSUPPORTED_EXECS.size,
       UNSUPPORTED_EXPRS -> UNSUPPORTED_EXPRS.size,
+      TOTAL_CORE_SEC -> TOTAL_CORE_SEC.size,
       ESTIMATED_FREQUENCY -> ESTIMATED_FREQUENCY.size
     )
     if (appInfos.exists(_.clusterTags.nonEmpty)) {
@@ -1135,6 +1138,7 @@ object QualOutputWriter {
       appInfo.unSupportedExecs,
       appInfo.unSupportedExprs,
       appInfo.allClusterTagsMap,
+      appInfo.totalCoreSec,
       appInfo.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY)
     )
   }
@@ -1174,6 +1178,7 @@ object QualOutputWriter {
       appInfo.endDurationEstimated.toString -> headersAndSizes(APP_DUR_ESTIMATED_STR),
       reformatCSVFunc(appInfo.unSupportedExecs) -> headersAndSizes(UNSUPPORTED_EXECS),
       reformatCSVFunc(appInfo.unSupportedExprs) -> headersAndSizes(UNSUPPORTED_EXPRS),
+      appInfo.totalCoreSec.toString -> headersAndSizes(TOTAL_CORE_SEC),
       appInfo.estimatedFrequency.toString -> headersAndSizes(ESTIMATED_FREQUENCY)
     )
 
