@@ -147,15 +147,17 @@ def _get_qual_data(qual: Optional[str]) -> Tuple[
     qual_sql_preds = load_qual_csv(
         qual_list,
         'rapids_4_spark_qualification_output_persql.csv',
-        ['App ID', 'SQL ID', 'Estimated GPU Speedup'],
+        ['App ID', 'SQL ID'],
     )
+    qual_sql_preds['Estimated GPU Speedup'] = 1.0
 
     # load qual tool per-app predictions
     qualtool_output = load_qual_csv(
         qual_list,
         'rapids_4_spark_qualification_output.csv',
-        ['App Name', 'App ID', 'App Duration', 'Estimated GPU Speedup'],
+        ['App Name', 'App ID', 'App Duration'],
     )
+    qualtool_output['Estimated GPU Speedup'] = 1.0
 
     return node_level_supp, qualtool_output, qual_sql_preds, qual_metrics
 

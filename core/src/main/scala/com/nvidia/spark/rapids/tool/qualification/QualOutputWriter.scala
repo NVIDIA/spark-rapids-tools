@@ -31,7 +31,7 @@ import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization
 
 import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.qualification.{EstimatedPerSQLSummaryInfo, EstimatedSummaryInfo, QualificationAppInfo, QualificationSummaryInfo}
+import org.apache.spark.sql.rapids.tool.qualification.{EstimatedPerSQLSummaryInfo, EstimatedSummaryInfo, QualificationSummaryInfo}
 import org.apache.spark.sql.rapids.tool.util._
 
 /**
@@ -362,8 +362,6 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
 case class FormattedQualificationSummaryInfo(
     appName: String,
     appId: String,
-    recommendation: String,
-    estimatedGpuSpeedup: Double,
     estimatedGpuDur: Double,
     estimatedGpuTimeSaved: Double,
     sqlDataframeDuration: Long,
@@ -383,7 +381,6 @@ case class FormattedQualificationSummaryInfo(
     nonSqlTaskDurationAndOverhead: Long,
     unsupportedSQLTaskDuration: Long,
     supportedSQLTaskDuration: Long,
-    taskSpeedupFactor: Double,
     endDurationEstimated: Boolean,
     unSupportedExecs: String,
     unSupportedExprs: String,
@@ -416,9 +413,6 @@ object QualOutputWriter {
   val NONSQL_DUR_STR = "NONSQL Task Duration Plus Overhead"
   val UNSUPPORTED_TASK_DURATION_STR = "Unsupported Task Duration"
   val SUPPORTED_SQL_TASK_DURATION_STR = "Supported SQL DF Task Duration"
-  val SPEEDUP_FACTOR_STR = "Task Speedup Factor"
-  val AVERAGE_SPEEDUP_STR = "Average Speedup Factor"
-  val SPEEDUP_BUCKET_STR = "Recommendation"
   val LONGEST_SQL_DURATION_STR = "Longest SQL Duration"
   val EXEC_STR = "Exec Name"
   val EXPR_STR = "Expression Name"
@@ -432,7 +426,6 @@ object QualOutputWriter {
   val EXEC_CHILDREN_NODE_IDS = "Exec Children Node Ids"
   val GPU_OPPORTUNITY_STR = "GPU Opportunity"
   val ESTIMATED_GPU_DURATION = "Estimated GPU Duration"
-  val ESTIMATED_GPU_SPEEDUP = "Estimated GPU Speedup"
   val ESTIMATED_GPU_TIMESAVED = "Estimated GPU Time Saved"
   val STAGE_ESTIMATED_STR = "Stage Estimated"
   val NUM_TRANSITIONS = "Number of transitions from or to GPU"
@@ -445,9 +438,7 @@ object QualOutputWriter {
   val UNSUPPORTED_TYPE = "Unsupported Type"
   val EXEC_ID = "ExecId"
   val DETAILS = "Details"
-  val NOTES = "Notes"
   private val EXEC_ACTION = "Action"
-  val IGNORE_OPERATOR = "Ignore Operator"
   val RUN_NAME = DatabricksParseHelper.SUB_PROP_RUN_NAME
   val ESTIMATED_FREQUENCY = "Estimated Job Frequency (monthly)"
   val ML_FUNCTIONS = "ML Functions"
@@ -475,11 +466,8 @@ object QualOutputWriter {
   val DRIVER_NODE_TYPE = "Driver Node Type"
   // Default frequency for jobs with a single instance is 30 times every month (30 days)
   val DEFAULT_JOB_FREQUENCY = 30L
-
   val APP_DUR_STR_SIZE: Int = APP_DUR_STR.size
   val SQL_DUR_STR_SIZE: Int = SQL_DUR_STR.size
-  val NON_SQL_TASK_DURATION_SIZE: Int = NON_SQL_TASK_DURATION_STR.size
-  val SPEEDUP_BUCKET_STR_SIZE: Int = QualificationAppInfo.STRONGLY_RECOMMENDED.size
   val LONGEST_SQL_DURATION_STR_SIZE: Int = LONGEST_SQL_DURATION_STR.size
   val GPU_OPPORTUNITY_STR_SIZE: Int = GPU_OPPORTUNITY_STR.size
   val UNSUPPORTED_EXECS_MAX_SIZE: Int = 25
@@ -488,7 +476,6 @@ object QualOutputWriter {
   val CLUSTER_ID_STR_SIZE: Int = CLUSTER_ID.size
   val JOB_ID_STR_SIZE: Int = JOB_ID.size
   val RUN_NAME_STR_SIZE: Int = RUN_NAME.size
-
   val CSV_DELIMITER = ","
   val TEXT_DELIMITER = "|"
 
@@ -623,8 +610,6 @@ object QualOutputWriter {
     val detailedHeadersAndFields = LinkedHashMap[String, Int](
       APP_NAME_STR -> getMaxSizeForHeader(appInfos.map(_.appName.size), APP_NAME_STR),
       APP_ID_STR -> QualOutputWriter.getAppIdSize(appInfos),
-      SPEEDUP_BUCKET_STR -> SPEEDUP_BUCKET_STR_SIZE,
-      ESTIMATED_GPU_SPEEDUP -> ESTIMATED_GPU_SPEEDUP.size,
       ESTIMATED_GPU_DURATION -> ESTIMATED_GPU_DURATION.size,
       ESTIMATED_GPU_TIMESAVED -> ESTIMATED_GPU_TIMESAVED.size,
       SQL_DUR_STR -> SQL_DUR_STR_SIZE,
@@ -651,7 +636,6 @@ object QualOutputWriter {
       NONSQL_DUR_STR -> NONSQL_DUR_STR.size,
       UNSUPPORTED_TASK_DURATION_STR -> UNSUPPORTED_TASK_DURATION_STR.size,
       SUPPORTED_SQL_TASK_DURATION_STR -> SUPPORTED_SQL_TASK_DURATION_STR.size,
-      SPEEDUP_FACTOR_STR -> SPEEDUP_FACTOR_STR.size,
       APP_DUR_ESTIMATED_STR -> APP_DUR_ESTIMATED_STR.size,
       UNSUPPORTED_EXECS -> UNSUPPORTED_EXECS.size,
       UNSUPPORTED_EXPRS -> UNSUPPORTED_EXPRS.size,
@@ -686,9 +670,7 @@ object QualOutputWriter {
       SQL_DUR_STR -> SQL_DUR_STR_SIZE,
       GPU_OPPORTUNITY_STR -> GPU_OPPORTUNITY_STR_SIZE,
       ESTIMATED_GPU_DURATION -> ESTIMATED_GPU_DURATION.size,
-      ESTIMATED_GPU_SPEEDUP -> ESTIMATED_GPU_SPEEDUP.size,
       ESTIMATED_GPU_TIMESAVED -> ESTIMATED_GPU_TIMESAVED.size,
-      SPEEDUP_BUCKET_STR -> SPEEDUP_BUCKET_STR_SIZE,
       UNSUPPORTED_EXECS -> unSupExecMaxSize,
       UNSUPPORTED_EXPRS -> unSupExprMaxSize,
       ESTIMATED_FREQUENCY -> estimatedFrequencyMaxSize
@@ -722,11 +704,8 @@ object QualOutputWriter {
       sumInfo.estimatedInfo.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
       ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuDur) ->
         ESTIMATED_GPU_DURATION.size,
-      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuSpeedup) ->
-        ESTIMATED_GPU_SPEEDUP.size,
       ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuTimeSaved) ->
         ESTIMATED_GPU_TIMESAVED.size,
-      sumInfo.estimatedInfo.recommendation -> SPEEDUP_BUCKET_STR_SIZE,
       sumInfo.estimatedInfo.unsupportedExecs -> unSupExecMaxSize,
       sumInfo.estimatedInfo.unsupportedExprs -> unSupExprMaxSize,
       sumInfo.estimatedFrequency.toString -> estimatedFrequencyMaxSize
@@ -759,9 +738,7 @@ object QualOutputWriter {
       SQL_DUR_STR -> SQL_DUR_STR_SIZE,
       GPU_OPPORTUNITY_STR -> GPU_OPPORTUNITY_STR_SIZE,
       ESTIMATED_GPU_DURATION -> ESTIMATED_GPU_DURATION.size,
-      ESTIMATED_GPU_SPEEDUP -> ESTIMATED_GPU_SPEEDUP.size,
-      ESTIMATED_GPU_TIMESAVED -> ESTIMATED_GPU_TIMESAVED.size,
-      SPEEDUP_BUCKET_STR -> SPEEDUP_BUCKET_STR_SIZE
+      ESTIMATED_GPU_TIMESAVED -> ESTIMATED_GPU_TIMESAVED.size
     )
     detailedHeadersAndFields
   }
@@ -794,11 +771,8 @@ object QualOutputWriter {
       sumInfo.info.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
       sumInfo.info.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
       ToolUtils.formatDoublePrecision(sumInfo.info.estimatedGpuDur) -> ESTIMATED_GPU_DURATION.size,
-      ToolUtils.formatDoublePrecision(sumInfo.info.estimatedGpuSpeedup) ->
-        ESTIMATED_GPU_SPEEDUP.size,
       ToolUtils.formatDoublePrecision(sumInfo.info.estimatedGpuTimeSaved) ->
-        ESTIMATED_GPU_TIMESAVED.size,
-      reformatCSVFunc(sumInfo.info.recommendation) -> SPEEDUP_BUCKET_STR_SIZE
+        ESTIMATED_GPU_TIMESAVED.size
     )
     constructOutputRow(data, delimiter, prettyPrint)
   }
@@ -809,7 +783,6 @@ object QualOutputWriter {
       SQL_ID_STR -> SQL_ID_STR.size,
       EXEC_STR -> EXEC_STR.size,
       EXPR_STR -> EXPR_STR.size,
-      SPEEDUP_FACTOR_STR -> SPEEDUP_FACTOR_STR.size,
       EXEC_DURATION -> EXEC_DURATION.size,
       EXEC_NODEID -> EXEC_NODEID.size,
       EXEC_IS_SUPPORTED -> EXEC_IS_SUPPORTED.size,
@@ -964,7 +937,6 @@ object QualOutputWriter {
       info.sqlID.toString -> headersAndSizes(SQL_ID_STR),
       reformatCSVFunc(info.exec) -> headersAndSizes(EXEC_STR),
       reformatCSVFunc(info.expr) -> headersAndSizes(EXEC_STR),
-      ToolUtils.formatDoublePrecision(info.speedupFactor) -> headersAndSizes(SPEEDUP_FACTOR_STR),
       info.duration.getOrElse(0).toString -> headersAndSizes(EXEC_DURATION),
       info.nodeId.toString -> headersAndSizes(EXEC_NODEID),
       info.isSupported.toString -> headersAndSizes(EXEC_IS_SUPPORTED),
@@ -984,7 +956,6 @@ object QualOutputWriter {
     val detailedHeadersAndFields = LinkedHashMap[String, Int](
       APP_ID_STR -> APP_ID_STR.size,
       STAGE_ID_STR -> STAGE_ID_STR.size,
-      AVERAGE_SPEEDUP_STR -> AVERAGE_SPEEDUP_STR.size,
       STAGE_DUR_STR -> STAGE_DUR_STR.size,
       UNSUPPORTED_TASK_DURATION_STR -> UNSUPPORTED_TASK_DURATION_STR.size,
       STAGE_ESTIMATED_STR -> STAGE_ESTIMATED_STR.size,
@@ -1005,8 +976,6 @@ object QualOutputWriter {
       val data = ListBuffer[(String, Int)](
         reformatCSVFunc(sumInfo.appId) -> headersAndSizes(APP_ID_STR),
         info.stageId.toString -> headersAndSizes(STAGE_ID_STR),
-        ToolUtils.formatDoublePrecision(info.averageSpeedup) ->
-          headersAndSizes(AVERAGE_SPEEDUP_STR),
         info.stageTaskTime.toString -> headersAndSizes(STAGE_DUR_STR),
         info.unsupportedTaskDur.toString -> headersAndSizes(UNSUPPORTED_TASK_DURATION_STR),
         info.estimated.toString -> headersAndSizes(STAGE_ESTIMATED_STR),
@@ -1109,8 +1078,6 @@ object QualOutputWriter {
     FormattedQualificationSummaryInfo(
       appInfo.appName,
       appInfo.appId,
-      appInfo.estimatedInfo.recommendation,
-      ToolUtils.truncateDoubleToTwoDecimal(appInfo.estimatedInfo.estimatedGpuSpeedup),
       ToolUtils.truncateDoubleToTwoDecimal(appInfo.estimatedInfo.estimatedGpuDur),
       ToolUtils.truncateDoubleToTwoDecimal(appInfo.estimatedInfo.estimatedGpuTimeSaved),
       appInfo.estimatedInfo.sqlDfDuration,
@@ -1130,7 +1097,6 @@ object QualOutputWriter {
       appInfo.nonSqlTaskDurationAndOverhead,
       appInfo.unsupportedSQLTaskDuration,
       appInfo.supportedSQLTaskDuration,
-      ToolUtils.truncateDoubleToTwoDecimal(appInfo.taskSpeedupFactor),
       appInfo.endDurationEstimated,
       appInfo.unSupportedExecs,
       appInfo.unSupportedExprs,
@@ -1148,8 +1114,6 @@ object QualOutputWriter {
     val data = ListBuffer[(String, Int)](
       reformatCSVFunc(appInfo.appName) -> headersAndSizes(APP_NAME_STR),
       reformatCSVFunc(appInfo.appId) -> headersAndSizes(APP_ID_STR),
-      reformatCSVFunc(appInfo.recommendation) -> headersAndSizes(SPEEDUP_BUCKET_STR),
-      appInfo.estimatedGpuSpeedup.toString -> ESTIMATED_GPU_SPEEDUP.size,
       appInfo.estimatedGpuDur.toString -> ESTIMATED_GPU_DURATION.size,
       appInfo.estimatedGpuTimeSaved.toString -> ESTIMATED_GPU_TIMESAVED.size,
       appInfo.sqlDataframeDuration.toString -> headersAndSizes(SQL_DUR_STR),
@@ -1170,7 +1134,6 @@ object QualOutputWriter {
       appInfo.nonSqlTaskDurationAndOverhead.toString -> headersAndSizes(NONSQL_DUR_STR),
       appInfo.unsupportedSQLTaskDuration.toString -> headersAndSizes(UNSUPPORTED_TASK_DURATION_STR),
       appInfo.supportedSQLTaskDuration.toString -> headersAndSizes(SUPPORTED_SQL_TASK_DURATION_STR),
-      appInfo.taskSpeedupFactor.toString -> headersAndSizes(SPEEDUP_FACTOR_STR),
       appInfo.endDurationEstimated.toString -> headersAndSizes(APP_DUR_ESTIMATED_STR),
       reformatCSVFunc(appInfo.unSupportedExecs) -> headersAndSizes(UNSUPPORTED_EXECS),
       reformatCSVFunc(appInfo.unSupportedExprs) -> headersAndSizes(UNSUPPORTED_EXPRS),

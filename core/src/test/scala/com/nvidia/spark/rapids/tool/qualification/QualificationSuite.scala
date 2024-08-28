@@ -34,7 +34,7 @@ import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, S
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, to_json, udf}
 import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterSummary, ExistingClusterInfo, ToolUtils}
-import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo, RunningQualificationEventProcessor}
+import org.apache.spark.sql.rapids.tool.qualification.{QualificationSummaryInfo, RunningQualificationEventProcessor}
 import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, UTF8Source}
 import org.apache.spark.sql.types._
 
@@ -42,8 +42,6 @@ import org.apache.spark.sql.types._
 case class TestQualificationSummary(
     appName: String,
     appId: String,
-    recommendation: String,
-    estimatedGpuSpeedup: Double,
     estimatedGpuDur: Double,
     estimatedGpuTimeSaved: Double,
     sqlDataframeDuration: Long,
@@ -62,7 +60,6 @@ case class TestQualificationSummary(
     nonSqlTaskDurationAndOverhead: Long,
     unsupportedSQLTaskDuration: Long,
     supportedSQLTaskDuration: Long,
-    taskSpeedupFactor: Double,
     endDurationEstimated: Boolean,
     unsupportedExecs: String,
     unsupportedExprs: String,
@@ -76,8 +73,6 @@ class QualificationSuite extends BaseTestSuite {
   private val csvDetailedFields = Seq(
     (QualOutputWriter.APP_NAME_STR, StringType),
     (QualOutputWriter.APP_ID_STR, StringType),
-    (QualOutputWriter.SPEEDUP_BUCKET_STR, StringType),
-    (QualOutputWriter.ESTIMATED_GPU_SPEEDUP, DoubleType),
     (QualOutputWriter.ESTIMATED_GPU_DURATION, DoubleType),
     (QualOutputWriter.ESTIMATED_GPU_TIMESAVED, DoubleType),
     (QualOutputWriter.SQL_DUR_STR, LongType),
@@ -96,7 +91,6 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.NONSQL_DUR_STR, LongType),
     (QualOutputWriter.UNSUPPORTED_TASK_DURATION_STR, LongType),
     (QualOutputWriter.SUPPORTED_SQL_TASK_DURATION_STR, LongType),
-    (QualOutputWriter.SPEEDUP_FACTOR_STR, DoubleType),
     (QualOutputWriter.APP_DUR_ESTIMATED_STR, BooleanType),
     (QualOutputWriter.UNSUPPORTED_EXECS, StringType),
     (QualOutputWriter.UNSUPPORTED_EXPRS, StringType),
@@ -111,9 +105,7 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.SQL_DUR_STR, LongType),
     (QualOutputWriter.GPU_OPPORTUNITY_STR, LongType),
     (QualOutputWriter.ESTIMATED_GPU_DURATION, DoubleType),
-    (QualOutputWriter.ESTIMATED_GPU_SPEEDUP, DoubleType),
-    (QualOutputWriter.ESTIMATED_GPU_TIMESAVED, DoubleType),
-    (QualOutputWriter.SPEEDUP_BUCKET_STR, StringType))
+    (QualOutputWriter.ESTIMATED_GPU_TIMESAVED, DoubleType))
 
   val schema = new StructType(csvDetailedFields.map(f => StructField(f._1, f._2, true)).toArray)
   val perSQLSchema = new StructType(csvPerSQLFields.map(f => StructField(f._1, f._2, true)).toArray)
@@ -136,15 +128,14 @@ class QualificationSuite extends BaseTestSuite {
       appSums: Seq[QualificationSummaryInfo]): Seq[TestQualificationSummary] = {
     appSums.map { appInfoRec =>
       val sum = QualOutputWriter.createFormattedQualSummaryInfo(appInfoRec, ",")
-      TestQualificationSummary(sum.appName, sum.appId, sum.recommendation,
-        sum.estimatedGpuSpeedup, sum.estimatedGpuDur,
+      TestQualificationSummary(sum.appName, sum.appId, sum.estimatedGpuDur,
         sum.estimatedGpuTimeSaved, sum.sqlDataframeDuration,
         sum.sqlDataframeTaskDuration, sum.appDuration,
         sum.gpuOpportunity, sum.executorCpuTimePercent, sum.failedSQLIds,
         sum.readFileFormatAndTypesNotSupported, sum.writeDataFormat,
         sum.complexTypes, sum.nestedComplexTypes, sum.potentialProblems, sum.longestSqlDuration,
         sum.sqlStageDurationsSum, sum.nonSqlTaskDurationAndOverhead,
-        sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration, sum.taskSpeedupFactor,
+        sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration,
         sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs,
         sum.estimatedFrequency)
     }
@@ -237,7 +228,7 @@ class QualificationSuite extends BaseTestSuite {
           val allFiles = fs.listStatus(outputDirPath)
           assert(allFiles.size == 6)
           val dfPerSqlActual = readPerSqlFile(new File(csvOutput0))
-          assert(dfPerSqlActual.columns.size == 11)
+          assert(dfPerSqlActual.columns.size == 9)
           val rows = dfPerSqlActual.collect()
           assert(rows.size == 2)
           val firstRow = rows(1)
@@ -250,8 +241,6 @@ class QualificationSuite extends BaseTestSuite {
           val rowsTxt = dfPerSqlActualTxt.collect()
           // have to account for headers
           assert(rowsTxt.size == 6)
-          val headerRowTxt = rowsTxt(1).toString
-          assert(headerRowTxt.contains("Recommendation"))
           val firstValueRow = rowsTxt(3).toString
           assert(firstValueRow.contains("QualificationSuite.scala"))
         }
@@ -1036,7 +1025,7 @@ class QualificationSuite extends BaseTestSuite {
         val dfPerSqlActual = readPerSqlFile(new File(persqlResults))
         // the number of columns actually won't be wrong if sql description is malformatted
         // because spark seems to drop extra column so need more checking
-        assert(dfPerSqlActual.columns.size == 11)
+        assert(dfPerSqlActual.columns.size == 9)
         val rows = dfPerSqlActual.collect()
         assert(rows.size == 3)
         val firstRow = rows(1)
@@ -1175,23 +1164,6 @@ class QualificationSuite extends BaseTestSuite {
           assert(csvDetailedHeader(ind).equals(headersDetailed(ind)))
         }
 
-        // check that recommendation field is relevant to GPU Speed-up
-        // Note that range-check does not apply for NOT-APPLICABLE
-        val speedup =
-          outputActual.select(QualOutputWriter.ESTIMATED_GPU_SPEEDUP).first.getDouble(0)
-        val recommendation =
-          outputActual.select(QualOutputWriter.SPEEDUP_BUCKET_STR).first.getString(0)
-        assert(speedup >= 1.0)
-        if (recommendation != QualificationAppInfo.NOT_APPLICABLE) {
-          if (speedup >= QualificationAppInfo.LOWER_BOUND_STRONGLY_RECOMMENDED) {
-            assert(recommendation == QualificationAppInfo.STRONGLY_RECOMMENDED)
-          } else if (speedup >= QualificationAppInfo.LOWER_BOUND_RECOMMENDED) {
-            assert(recommendation == QualificationAppInfo.RECOMMENDED)
-          } else {
-            assert(recommendation == QualificationAppInfo.NOT_RECOMMENDED)
-          }
-        }
-
         // check numeric fields skipping "Estimated Speed-up" on purpose
         val appDur = outputActual.select(QualOutputWriter.APP_DUR_STR).first.getLong(0)
         for (ind <- 4 until csvDetailedFields.size) {
@@ -1282,19 +1254,17 @@ class QualificationSuite extends BaseTestSuite {
         // just basic testing that line exists and has right separator
         val csvHeader = qualApp.getPerSqlCSVHeader
         assert(csvHeader.contains("App Name,App ID,Root SQL ID,SQL ID,SQL Description," +
-            "SQL DF Duration,GPU Opportunity,Estimated GPU Duration,Estimated GPU Speedup," +
-            "Estimated GPU Time Saved,Recommendation"))
+            "SQL DF Duration,GPU Opportunity,Estimated GPU Duration," +
+            "Estimated GPU Time Saved"))
         val txtHeader = qualApp.getPerSqlTextHeader
         assert(txtHeader.contains("|                              App Name|             App ID|" +
             "Root SQL ID|SQL ID|                                                              " +
             "                       SQL Description|SQL DF Duration|GPU Opportunity|" +
-            "Estimated GPU Duration|Estimated GPU Speedup|Estimated GPU Time Saved|" +
-            "      Recommendation|"))
+            "Estimated GPU Duration|Estimated GPU Time Saved|"))
         val randHeader = qualApp.getPerSqlHeader(";", true, 20)
         assert(randHeader.contains(";                              App Name;             App ID;" +
             "Root SQL ID;SQL ID;     SQL Description;SQL DF Duration;GPU Opportunity;" +
-            "Estimated GPU Duration;Estimated GPU Speedup;Estimated GPU Time Saved;     " +
-            " Recommendation;"))
+            "Estimated GPU Duration;Estimated GPU Time Saved"))
         val allSQLIds = qualApp.getAvailableSqlIDs
         val numSQLIds = allSQLIds.size
         assert(numSQLIds > 0)
