@@ -117,11 +117,10 @@ def _get_model(platform: str,
 def _get_qual_data(qual: Optional[str]) -> Tuple[
     Optional[pd.DataFrame],
     Optional[pd.DataFrame],
-    Optional[pd.DataFrame],
     List[str]
 ]:
     if not qual:
-        return None, None, None, []
+        return None, None, []
 
     # load qual tool execs
     qual_list = find_paths(
@@ -143,23 +142,14 @@ def _get_qual_data(qual: Optional[str]) -> Tuple[
     ]
     node_level_supp = load_qtool_execs(qual_execs)
 
-    # load qual tool per-sql predictions
-    qual_sql_preds = load_qual_csv(
-        qual_list,
-        'rapids_4_spark_qualification_output_persql.csv',
-        ['App ID', 'SQL ID'],
-    )
-    qual_sql_preds['Estimated GPU Speedup'] = 1.0
-
     # load qual tool per-app predictions
     qualtool_output = load_qual_csv(
         qual_list,
         'rapids_4_spark_qualification_output.csv',
         ['App Name', 'App ID', 'App Duration'],
     )
-    qualtool_output['Estimated GPU Speedup'] = 1.0
 
-    return node_level_supp, qualtool_output, qual_sql_preds, qual_metrics
+    return node_level_supp, qualtool_output, qual_metrics
 
 
 def _compute_summary(results: pd.DataFrame) -> pd.DataFrame:
@@ -374,7 +364,7 @@ def _read_platform_scores(
         acc = compute_accuracy(
             group,
             y='Actual speedup',
-            y_preds={'Q': 'Q speedup', 'QX': 'QX speedup', 'QXS': 'QXS speedup'},
+            y_preds={'QX': 'QX speedup', 'QXS': 'QXS speedup'},
             weight='appDuration',
         )
         acc_score = {k: v[score] for k, v in acc.items()}
@@ -562,7 +552,7 @@ def predict(
     """Predict GPU speedup given CPU logs."""
 
     xgb_model = _get_model(platform, model=model)
-    node_level_supp, qual_tool_output, _, qual_metrics = _get_qual_data(qual)
+    node_level_supp, qual_tool_output, qual_metrics = _get_qual_data(qual)
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.
     default_preds_df = qual_tool_output.apply(create_row_with_default_speedup, axis=1)
@@ -736,7 +726,6 @@ def evaluate(
 
     For training datasets with GPU event logs, this returns the actual GPU speedup along with the
     predictions of:
-    - Q: qual tool
     - QX: qualx (raw)
     - QXS: qualx (stage filtered)
 
@@ -793,7 +782,7 @@ def evaluate(
             split_fn = plugin.split_function
 
     logger.info('Loading qualification tool CSV files.')
-    node_level_supp, qual_tool_output, qual_sql_preds, _ = _get_qual_data(qual_dir)
+    node_level_supp, qual_tool_output, _ = _get_qual_data(qual_dir)
 
     logger.info('Loading profiler tool CSV files.')
     profile_df = load_profiles(datasets, profile_dir)  # w/ GPU rows
@@ -887,14 +876,6 @@ def evaluate(
         on=['appId', 'sqlID', 'scaleFactor', 'appDuration', 'Duration'],
         how='left',
     )
-    results_sql = results_sql.merge(
-        qual_sql_preds[['App ID', 'SQL ID', 'Estimated GPU Speedup']],
-        left_on=['appId', 'sqlID'],
-        right_on=['App ID', 'SQL ID'],
-        how='left',
-    ).drop_duplicates()
-    results_sql = results_sql.drop(columns=['App ID', 'SQL ID'])
-    results_sql = results_sql.rename({'Estimated GPU Speedup': 'Q speedup'}, axis=1)
 
     raw_app_cols = {
         'appId': 'appId',
@@ -924,22 +905,14 @@ def evaluate(
         on=['appId', 'appDuration'],
         how='left',
     )
-    results_app = results_app.merge(
-        qual_tool_output[['App ID', 'Estimated GPU Speedup']],
-        left_on='appId',
-        right_on='App ID',
-        how='left',
-    ).drop_duplicates()
-    results_app = results_app.drop(columns=['App ID'])
-    results_app = results_app.rename({'Estimated GPU Speedup': 'Q speedup'}, axis=1)
 
     print(
-        '\nComparison of qualx raw (QX), qualx w/ stage filtering (QXS), and qualtool (Q) predictions:'
+        '\nComparison of qualx raw (QX) and qualx w/ stage filtering (QXS)'
     )
     print(tabulate(results_app, headers='keys', tablefmt='psql', floatfmt='.2f'))
     print()
 
-    # compute mean abs percentage error (MAPE) for each tool (Q, QX, QXS)
+    # compute mean abs percentage error (MAPE) for each tool (QX, QXS)
 
     score_dfs = []
     for granularity, split in [('sql', 'test'), ('sql', 'all'), ('app', 'all')]:
@@ -951,7 +924,7 @@ def evaluate(
         scores = compute_accuracy(
             res,
             'Actual speedup',
-            {'Q': 'Q speedup', 'QX': 'QX speedup', 'QXS': 'QXS speedup'},
+            {'QX': 'QX speedup', 'QXS': 'QXS speedup'},
             'appDuration' if granularity == 'app' else 'Duration',
         )
 
@@ -1043,7 +1016,7 @@ def compare(
         on=['model', 'platform', 'dataset', 'granularity', 'split', 'score'],
         suffixes=('_prev', None),
     )
-    for score_type in ['Q', 'QX', 'QXS']:
+    for score_type in ['QX', 'QXS']:
         compare_df[f'{score_type}_delta'] = (
             compare_df[score_type] - compare_df[f'{score_type}_prev']
         )
@@ -1067,7 +1040,7 @@ def compare(
         on=['model', 'platform'],
         suffixes=('_prev', None),
     )
-    for score_type in ['Q', 'QX', 'QXS']:
+    for score_type in ['QX', 'QXS']:
         compare_df[f'{score_type}_delta'] = (
             compare_df[score_type] - compare_df[f'{score_type}_prev']
         )
