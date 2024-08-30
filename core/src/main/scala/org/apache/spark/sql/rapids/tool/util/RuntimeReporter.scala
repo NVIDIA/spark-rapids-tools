@@ -20,6 +20,7 @@ import com.nvidia.spark.rapids.tool.profiling.AppStatusResult
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.AppAttemptTracker
 
 trait RuntimeReporter extends Logging {
   val outputDir: String
@@ -28,17 +29,34 @@ trait RuntimeReporter extends Logging {
   }
 
   /**
+   * Updates the status of "SUCCESS" applications to "SKIPPED" if newer attempts with
+   * the same appId exist.
+   */
+  private def skipAppsWithOlderAttempts(appStatuses: Seq[AppResult]): Seq[AppResult] = {
+    appStatuses map {
+      case successApp: SuccessAppResult =>
+        if (AppAttemptTracker.isOlderAttemptId(successApp.appId, successApp.attemptId)) {
+          SkippedAppResult.fromAppAttempt(successApp.path, successApp.appId,
+            successApp.attemptId)
+        } else {
+          successApp
+        }
+      case otherApp: AppResult => otherApp
+    }
+  }
+
+  /**
    * For each app status report, generate an AppStatusResult.
    * If appId is empty, convert to "N/A" in the output.
    * @return Seq[AppStatusResult] - Seq[(path, status, appId, message)]
    */
   def generateStatusResults(appStatuses: Seq[AppResult]): Seq[AppStatusResult] = {
-    appStatuses.map {
+    skipAppsWithOlderAttempts(appStatuses).map {
       case FailureAppResult(path, message) =>
         AppStatusResult(path, "FAILURE", "N/A", message)
       case SkippedAppResult(path, message) =>
         AppStatusResult(path, "SKIPPED", "N/A", message)
-      case SuccessAppResult(path, appId, message) =>
+      case SuccessAppResult(path, appId, _, message) =>
         AppStatusResult(path, "SUCCESS", appId, message)
       case UnknownAppResult(path, appId, message) =>
         val finalAppId = if (appId.isEmpty) "N/A" else appId

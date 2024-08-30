@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import scala.collection.JavaConverters._
 
@@ -26,7 +26,7 @@ import com.nvidia.spark.rapids.tool.tuning.TunerContext
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.sql.rapids.tool.FailureApp
+import org.apache.spark.sql.rapids.tool.{AppAttemptTracker, FailureApp}
 import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
@@ -41,7 +41,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
 
   override val simpleName: String = "qualTool"
   override val outputDir = s"$outputPath/rapids_4_spark_qualification_output"
-  private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
+  private val allApps = new ConcurrentHashMap[String, QualificationSummaryInfo]()
 
   override def getNumThreads: Int = nThreads
 
@@ -72,7 +72,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       threadPool.shutdownNow()
     }
     progressBar.foreach(_.finishAll())
-    val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
+    val allAppsSum = estimateAppFrequency(allApps.asScala.values.toSeq)
     // sort order and limit only applies to the report summary text file,
     // the csv file we write the entire data in descending order
     val sortedDescDetailed = sortDescForDetailedReport(allAppsSum)
@@ -177,12 +177,19 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
             val tempSummary = qualSumInfo.get
             val newClusterSummary = tempSummary.clusterSummary.copy(
               recommendedClusterInfo = pluginTypeChecker.platform.recommendedClusterInfo)
-            val newQualSummary = tempSummary.copy(clusterSummary = newClusterSummary)
-            allApps.add(newQualSummary)
-            progressBar.foreach(_.reportSuccessfulProcess())
-            val endTime = System.currentTimeMillis()
-            SuccessAppResult(pathStr, app.appId,
-              s"Took ${endTime - startTime}ms to process")
+            if (AppAttemptTracker.isOlderAttemptId(app.appId, app.attemptId)) {
+              // If the attemptId is an older attemptId, skip this attempt.
+              // This can happen when the user has provided event logs for multiple attempts
+              progressBar.foreach(_.reportSkippedProcess())
+              SkippedAppResult.fromAppAttempt(pathStr, app.appId, app.attemptId)
+            } else {
+              val newQualSummary = tempSummary.copy(clusterSummary = newClusterSummary)
+              allApps.put(app.appId, newQualSummary)
+              progressBar.foreach(_.reportSuccessfulProcess())
+              val endTime = System.currentTimeMillis()
+              SuccessAppResult(pathStr, app.appId, app.attemptId,
+                s"Took ${endTime - startTime}ms to process")
+            }
           } else {
             progressBar.foreach(_.reportUnkownStatusProcess())
             UnknownAppResult(pathStr, app.appId,

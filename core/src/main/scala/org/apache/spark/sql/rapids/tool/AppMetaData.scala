@@ -29,6 +29,7 @@ import org.apache.spark.ui.UIUtils
  * @param sparkUser user who ran the Spark application
  * @param startTime startTime of a Spark application
  * @param endTime endTime of the spark Application
+ * @param attemptId attemptId of the application
  */
 class AppMetaData(
     val eventLogPath: Option[String],
@@ -36,7 +37,8 @@ class AppMetaData(
     val appId: Option[String],
     val sparkUser: String,
     val startTime: Long,
-    var endTime: Option[Long] = None) {
+    var endTime: Option[Long] = None,
+    var attemptId: Int = 1) {
 
   // Calculated as time in ms
   var duration: Option[Long] = _
@@ -74,6 +76,10 @@ class AppMetaData(
   }
 
   def isDurationEstimated: Boolean = durationEstimated
+
+  def setAttemptId(attemptId: Int): Unit = {
+    this.attemptId = attemptId
+  }
 
   // Initialization code:
   // - Calculate the duration based on the constructor argument endTime

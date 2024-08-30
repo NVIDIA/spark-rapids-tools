@@ -1750,6 +1750,35 @@ class QualificationSuite extends BaseTestSuite {
     val expectedStatus = Some(StatusReportCounts(2, 1, 0, 0))
     runQualificationTest(logFiles, expectedStatus = expectedStatus)
   }
+
+  test("process multiple attempts of the same app ID and skip lower attempts") {
+    TrampolineUtil.withTempDir { outPath =>
+      val baseArgs = Array("--output-directory",
+        outPath.getAbsolutePath,
+        s"$logDir/multiple_attempts/*")
+      val appArgs = new QualificationArgs(baseArgs)
+      val (exitCode, result) = QualificationMain.mainInternal(appArgs)
+      assert(exitCode == 0 && result.size == 1,
+        "Qualification tool returned unexpected results.")
+
+      val statusResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
+        s"${QualOutputWriter.LOGFILE_NAME}_status.csv"
+
+      // Verify that the status file contains the expected messages for skipped
+      // attempts (1, 2, 3) and thus only the latest attempt (4) is processed.
+      val statusFileContents = UTF8Source.fromFile(statusResultFile).mkString
+      Seq(1, 2, 3).foreach { attemptId =>
+        val expectedMessage = s"skipping this attempt $attemptId as a newer " +
+          "attemptId is being processed"
+        assert(statusFileContents.contains(expectedMessage),
+          s"Expected message not found in status file: $expectedMessage")
+      }
+
+      // Status counts: 1 SUCCESS, 0 FAILURE, 3 SKIPPED, 0 UNKNOWN
+      val expectedStatusCount = StatusReportCounts(1, 0, 3, 0)
+      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount, statusResultFile)
+    }
+  }
 }
 
 class ToolTestListener extends SparkListener {

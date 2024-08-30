@@ -53,6 +53,8 @@ abstract class AppBase(
     }
   }
 
+  lazy val attemptId: Int = appMetaData.map(_.attemptId).getOrElse(1)
+
   // Store map of executorId to executor info
   val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
   // resourceProfile id to resource profile info
@@ -396,7 +398,20 @@ abstract class AppBase(
     probNotDataset.values.flatten.toSet.toSeq
   }
 
+  /**
+   * Registers the attempt ID for the application and updates the tracker map if the attemptId is
+   * greater than the existing attemptId.
+   */
+  def registerAttemptId(): Unit = {
+    if(isAppMetaDefined) {
+      val currentAttemptId = sparkProperties.getOrElse("spark.app.attempt.id", "1").toInt
+      appMetaData.foreach(_.setAttemptId(currentAttemptId))
+      AppAttemptTracker.registerNewerAttemptId(appId, currentAttemptId)
+    }
+  }
+
   protected def postCompletion(): Unit = {
+    registerAttemptId()
     calculateAppDuration()
   }
 

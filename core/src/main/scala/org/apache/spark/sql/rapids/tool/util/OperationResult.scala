@@ -38,6 +38,7 @@ class AppResult(path: String, message: String) extends Logging {
 case class SuccessAppResult(
     path: String,
     appId: String,
+    attemptId: Int,
     message: String = "") extends AppResult(path, message) {
   override def logMessage(exp: Option[Exception] = None): Unit = {
     logInfo(s"File: $path, Message: $message")
@@ -52,3 +53,10 @@ case class UnknownAppResult(path: String, appId: String, message: String)
 
 case class SkippedAppResult(path: String, message: String)
   extends AppResult(path, message) {}
+
+object SkippedAppResult {
+  def fromAppAttempt(path: String, appId: String, attemptId: Int): SkippedAppResult = {
+    SkippedAppResult(path, s"For App ID '$appId'; skipping this " +
+      s"attempt $attemptId as a newer attemptId is being processed")
+  }
+}
