@@ -94,10 +94,6 @@ abstract class AppBase(
   var sparkRapidsBuildInfo: SparkRapidsBuildInfoEvent = SparkRapidsBuildInfoEvent(immutable.Map(),
     immutable.Map(), immutable.Map(), immutable.Map())
 
-  // core millisec (per executor) is computed as executor duration (ms) multiplied by num of cores
-  // totalCoreMs is the sum of all executor core millisecs
-  var totalCoreMs: Long = 0L
-
   // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
   // won't be defined for running applications
   def getEventLogPath: String = {
@@ -167,7 +163,12 @@ abstract class AppBase(
     }
   }
 
-  def calculateTotalCoreMs(): Unit = {
+  /**
+   * Calculates total core ms which is the sum over executor core ms. Core ms per executor
+   * is computed as executor duration (ms) multiplied by num of cores in the executor.
+   */
+  def calculateTotalCoreMs(): Long = {
+    var totalCoreMs: Long = 0L
     executorIdToInfo.foreach { case(_, eInfo) =>
       val eStartTime = eInfo.addTime.getTime
       var eEndTime = eInfo.removeTime
@@ -183,6 +184,7 @@ abstract class AppBase(
       }
       totalCoreMs += (eEndTime - eStartTime) * eInfo.totalCores
     }
+    totalCoreMs
   }
 
   def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
@@ -420,7 +422,6 @@ abstract class AppBase(
 
   protected def postCompletion(): Unit = {
     calculateAppDuration()
-    calculateTotalCoreMs()
   }
 
   /**
