@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import datetime
 import os
 
 
-def get_version(main=None):
+def get_version(main: str = None) -> str:
     if main is None:
         # pylint: disable=import-outside-toplevel
         from spark_rapids_pytools import VERSION as main
@@ -27,3 +27,17 @@ def get_version(main=None):
     if nightly == '1':
         suffix = '.dev' + datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
     return main + suffix
+
+
+def get_runtime_buildver(buildver_arg: str = None) -> str:
+    """
+    Get the runtime SPARK build_version for the user tools environment.
+    :param buildver_arg: optional argument to specify the build version
+    :return: returns the input argument if it is set.
+       Otherwise, it returns ${RAPIDS_USER_TOOLS_RUNTIME_BUILDVER:-RUNTIME_BUILDVER}.
+    """
+    if buildver_arg is None:
+        # pylint: disable=import-outside-toplevel
+        from spark_rapids_pytools import RUNTIME_BUILDVER
+        return os.environ.get('RAPIDS_USER_TOOLS_RUNTIME_BUILDVER', RUNTIME_BUILDVER)
+    return buildver_arg

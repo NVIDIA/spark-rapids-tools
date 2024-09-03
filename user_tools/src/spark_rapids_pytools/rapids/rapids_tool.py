@@ -25,14 +25,15 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 
 import spark_rapids_pytools
+from spark_rapids_pytools import get_runtime_buildver
 from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
-from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
+from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer, AbstractPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil, FileVerifier
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils, ToolsSpinner
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
@@ -389,6 +390,17 @@ class RapidsTool(object):
         }
         return res
 
+    @classmethod
+    def get_rapids_tools_dependencies(cls, deploy_mode: str, json_props: AbstractPropertiesContainer) -> Optional[list]:
+        """
+        Get the tools dependencies from the platform configuration.
+        """
+        # allow defining default buildver per platform
+        buildver_from_conf = json_props.get_value_silent('dependencies', 'deployMode', deploy_mode, 'activeBuildVer')
+        active_buildver = get_runtime_buildver(buildver_from_conf)
+        depend_arr = json_props.get_value_silent('dependencies', 'deployMode', deploy_mode, active_buildver)
+        return depend_arr
+
 
 @dataclass
 class RapidsJarTool(RapidsTool):
@@ -581,9 +593,7 @@ class RapidsJarTool(RapidsTool):
 
         # TODO: Verify the downloaded file by checking their MD5
         deploy_mode = DeployMode.tostring(self.ctxt.get_deploy_mode())
-        depend_arr = self.ctxt.platform.configs.get_value_silent('dependencies',
-                                                                 'deployMode',
-                                                                 deploy_mode)
+        depend_arr = self.get_rapids_tools_dependencies(deploy_mode, self.ctxt.platform.configs)
         if depend_arr:
             dep_list = cache_all_dependencies(depend_arr)
             if any(dep_item is None for dep_item in dep_list):
@@ -592,6 +602,8 @@ class RapidsJarTool(RapidsTool):
                              Utils.gen_joined_str(join_elem='; ',
                                                   items=dep_list))
             self.ctxt.add_rapids_args('javaDependencies', dep_list)
+        else:
+            self.logger.warning('Dependencies were not found for the current deployment mode')
 
     def _process_rapids_args(self):
         # add a dictionary to hold the rapids arguments

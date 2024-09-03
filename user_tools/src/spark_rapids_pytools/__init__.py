@@ -14,7 +14,10 @@
 
 """init file of the spark_rapids_pytools package."""
 
-from spark_rapids_pytools.build import get_version
+from spark_rapids_pytools.build import get_version, get_runtime_buildver
 
 VERSION = '24.08.1'
+# defines the default runtime build version for the user tools environment
+RUNTIME_BUILDVER = '350'
 __version__ = get_version(VERSION)
+__runtime_buildver__ = get_runtime_buildver()
