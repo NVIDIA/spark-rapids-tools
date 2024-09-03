@@ -302,7 +302,7 @@ class EMRNode(ClusterNode):
         raw_gpu = raw_gpus[0]
         gpu_device = GpuDevice.fromstring(raw_gpu['Name'])
         gpu_cnt = raw_gpu['Count'][0]  # gpu count is a list
-        gpu_mem = GpuDevice.get_gpu_mem(gpu_device)
+        gpu_mem = GpuDevice.get_gpu_mem(gpu_device)[0]  # gpu memory is a list, picking the first one
         return GpuHWInfo(num_gpus=gpu_cnt,
                          gpu_device=gpu_device,
                          gpu_mem=gpu_mem)
@@ -390,7 +390,7 @@ class EMRCluster(ClusterBase):
                         count=curr_group.count,
                         market=curr_group.market,
                         group_type=curr_group.group_type,
-                        state=ClusterState.UNKNOWN)
+                        state=ClusterState.get_default())
                 group_cache.update({new_inst_grp.id: new_inst_grp})
             self.instance_groups.append(new_inst_grp)
         # convert the instances
@@ -434,11 +434,12 @@ class EMRCluster(ClusterBase):
         def process_cluster_group_list(inst_groups: list) -> list:
             instance_group_list = []
             for inst_grp in inst_groups:
-                parsed_state = ClusterState.UNKNOWN
                 try:
                     parsed_state = ClusterState.fromstring(inst_grp['Status']['State'])
-                except Exception:  # pylint: disable=broad-except
-                    self.logger.info('Unable to get cluster state, setting to \'UNKNOWN\'.')
+                except (KeyError, ValueError):
+                    parsed_state = ClusterState.get_default()
+                    self.logger.info(f'Unable to get cluster state, setting to '
+                                     f'\'{ClusterState.tostring(parsed_state)}\'.')
                 inst_group = InstanceGroup(
                     id=inst_grp['Id'],
                     instance_type=inst_grp['InstanceType'],
