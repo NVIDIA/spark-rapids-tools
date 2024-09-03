@@ -1177,6 +1177,7 @@ class QualificationSuite extends BaseTestSuite {
           }
           if (fetched.isDefined) {
             val numValue = fetched.get
+            System.err.println(s"column ${header}: $numValue")
             if (header == "Unsupported Task Duration") {
               // unsupported task duration can be 0
               assert(numValue >= 0)
