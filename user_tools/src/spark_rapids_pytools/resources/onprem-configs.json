@@ -3,7 +3,6 @@
     "deployMode": {
       "LOCAL": {
         "//activeBuildVer": "Define this key in order to set the default buildVer for that platform",
-        "activeBuildVer": "331",
         "350": [
           {
             "name": "Apache Spark",
