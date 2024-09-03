@@ -1188,7 +1188,7 @@ class QualificationSuite extends BaseTestSuite {
               // "SQL DF Duration" and "GPU Opportunity" cannot be larger than App Duration
               assert(numValue >= 0 && numValue <= appDur)
             } else {
-              assert(numValue >= 0)
+              assert(numValue > 0)
             }
           }
         }
