@@ -119,6 +119,11 @@ class ConsoleProgressBar(
     }
   }
 
+  def adjustCounterForMultipleAttempts(): Unit = {
+    successCounter.decrementAndGet()
+    skippedCounter.incrementAndGet()
+  }
+
   def reportSuccessfulProcess(): Unit = {
     successCounter.incrementAndGet()
     totalCounter.incrementAndGet()

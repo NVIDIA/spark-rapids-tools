@@ -17,10 +17,10 @@
 package org.apache.spark.sql.rapids.tool.util
 
 import com.nvidia.spark.rapids.tool.profiling.AppStatusResult
+import com.nvidia.spark.rapids.tool.qualification.AppSubscriber
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.AppAttemptTracker
 
 trait RuntimeReporter extends Logging {
   val outputDir: String
@@ -35,12 +35,10 @@ trait RuntimeReporter extends Logging {
   private def skipAppsWithOlderAttempts(appStatuses: Seq[AppResult]): Seq[AppResult] = {
     appStatuses map {
       case successApp: SuccessAppResult =>
-        if (AppAttemptTracker.isOlderAttemptId(successApp.appId, successApp.attemptId)) {
-          SkippedAppResult.fromAppAttempt(successApp.path, successApp.appId,
-            successApp.attemptId)
-        } else {
+        AppSubscriber.withUnsafeValidAttempt(successApp.appId, successApp.attemptId) { () =>
           successApp
-        }
+        }.getOrElse(SkippedAppResult.fromAppAttempt(successApp.path, successApp.appId,
+          successApp.attemptId))
       case otherApp: AppResult => otherApp
     }
   }

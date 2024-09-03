@@ -27,6 +27,7 @@ import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventL
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DataSourceCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
+import com.nvidia.spark.rapids.tool.qualification.AppSubscriber
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -403,10 +404,10 @@ abstract class AppBase(
    * greater than the existing attemptId.
    */
   def registerAttemptId(): Unit = {
-    if(isAppMetaDefined) {
+    if (isAppMetaDefined) {
       val currentAttemptId = sparkProperties.getOrElse("spark.app.attempt.id", "1").toInt
       appMetaData.foreach(_.setAttemptId(currentAttemptId))
-      AppAttemptTracker.registerNewerAttemptId(appId, currentAttemptId)
+      AppSubscriber.subscribeAppAttempt(appId, currentAttemptId)
     }
   }
 

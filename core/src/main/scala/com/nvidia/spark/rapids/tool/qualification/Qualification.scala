@@ -26,7 +26,7 @@ import com.nvidia.spark.rapids.tool.tuning.TunerContext
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.sql.rapids.tool.{AppAttemptTracker, FailureApp}
+import org.apache.spark.sql.rapids.tool.FailureApp
 import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
@@ -162,33 +162,47 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
           // this is a bit ugly right now to overload writing out the report and returning the
           // DataSource information but this encapsulates the analyzer to keep the memory usage
           // smaller.
-          val dsInfo = QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(
-            outputDir, app, appIndex)
+          val dsInfo =
+            AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
+              QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(
+                outputDir, app, appIndex)
+            }.getOrElse(Seq.empty)
           val qualSumInfo = app.aggregateStats()
-          tunerContext.foreach { tuner =>
-            // Run the autotuner if it is enabled.
-            // Note that we call the autotuner anyway without checking the aggregate results
-            // because the Autotuner can still make some recommendations based on the information
-            // enclosed by the QualificationInfo object
-            tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo)
+          AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
+            tunerContext.foreach { tuner =>
+              // Run the autotuner if it is enabled.
+              // Note that we call the autotuner anyway without checking the aggregate results
+              // because the Autotuner can still make some recommendations based on the information
+              // enclosed by the QualificationInfo object
+              tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo)
+            }
           }
           if (qualSumInfo.isDefined) {
             // add the recommend cluster info into the summary
             val tempSummary = qualSumInfo.get
             val newClusterSummary = tempSummary.clusterSummary.copy(
               recommendedClusterInfo = pluginTypeChecker.platform.recommendedClusterInfo)
-            if (AppAttemptTracker.isOlderAttemptId(app.appId, app.attemptId)) {
-              // If the attemptId is an older attemptId, skip this attempt.
-              // This can happen when the user has provided event logs for multiple attempts
-              progressBar.foreach(_.reportSkippedProcess())
-              SkippedAppResult.fromAppAttempt(pathStr, app.appId, app.attemptId)
-            } else {
+            AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
               val newQualSummary = tempSummary.copy(clusterSummary = newClusterSummary)
-              allApps.put(app.appId, newQualSummary)
+              // check if the app is already in the map
+              if (allApps.containsKey(app.appId)) {
+                // fix the progress bar counts
+                progressBar.foreach(_.adjustCounterForMultipleAttempts())
+                logInfo(s"Removing older app summary for app: ${app.appId} " +
+                  s"before adding the new one with attempt: ${app.attemptId}")
+              }
               progressBar.foreach(_.reportSuccessfulProcess())
+              allApps.put(app.appId, newQualSummary)
               val endTime = System.currentTimeMillis()
               SuccessAppResult(pathStr, app.appId, app.attemptId,
                 s"Took ${endTime - startTime}ms to process")
+            } match {
+              case Some(successfulResult) => successfulResult
+              case _ =>
+                // If the attemptId is an older attemptId, skip this attempt.
+                // This can happen when the user has provided event logs for multiple attempts
+                progressBar.foreach(_.reportSkippedProcess())
+                SkippedAppResult.fromAppAttempt(pathStr, app.appId, app.attemptId)
             }
           } else {
             progressBar.foreach(_.reportUnkownStatusProcess())
