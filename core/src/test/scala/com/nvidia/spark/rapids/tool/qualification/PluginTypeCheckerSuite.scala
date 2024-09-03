@@ -20,7 +20,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 
 import com.nvidia.spark.rapids.tool._
-import com.nvidia.spark.rapids.tool.planparser.DataWritingCommandExecParser
+import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, SQLPlanParser}
 import org.scalatest.FunSuite
 
 import org.apache.spark.internal.Logging
@@ -226,5 +226,21 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
       assert(score == 1.0)
       assert(nsTypes.isEmpty)
     }
+  }
+
+  test("decimalsum -- EMR specific operator is supported") {
+    val checker = new PluginTypeChecker
+    val hashAggregateExpr =
+      """(keys=[l_returnflag#94, l_linestatus#95],
+        |functions=[decimalsum(UnscaledValue(l_quantity#90), DecimalType(21,2)),
+        |decimalsum(UnscaledValue(l_extendedprice#91), DecimalType(21,2)),
+        |sum((l_extendedprice#91 * (1 - l_discount#92))),
+        |sum(((l_extendedprice#91 * (1 - l_discount#92)) * (1 + l_tax#93))),
+        |avg(UnscaledValue(l_quantity#90)), avg(UnscaledValue(l_extendedprice#91)),
+        |avg(UnscaledValue(l_discount#92)), count(1)], 3L])""".stripMargin.replaceAll("\n", "")
+    val expressions = SQLPlanParser.parseAggregateExpressions(hashAggregateExpr)
+    assert(expressions.contains("decimalsum"))
+    val notSupportedExprs = checker.getNotSupportedExprs(expressions)
+    assert(notSupportedExprs.find(_.exprName == "decimalsum").isEmpty)
   }
 }

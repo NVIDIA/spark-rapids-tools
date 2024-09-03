@@ -157,7 +157,7 @@ class DataprocPlatform(PlatformBase):
                 # create gpu_info
                 gpu_cnt = calc_num_gpus(gpu_count_criteria, num_cpu)
                 # default memory
-                gpu_device = GpuDevice.get_default_gpu()
+                gpu_device = GpuDevice.get_default()
                 gpu_mem = gpu_device.get_gpu_mem()[0]
                 gpu_info_obj = GpuHWInfo(num_gpus=gpu_cnt, gpu_mem=gpu_mem, gpu_device=gpu_device)
                 gpu_scopes[prof_name] = NodeHWInfo(sys_info=sys_info_obj, gpu_info=gpu_info_obj)
@@ -378,14 +378,17 @@ class DataprocNode(ClusterNode):
 
     def _pull_gpu_hw_info(self, cli=None) -> Optional[GpuHWInfo]:
         # gcloud GPU machines: https://cloud.google.com/compute/docs/gpus
-        def get_gpu_device(accelerator_name: str) -> GpuDevice:
+        def get_gpu_device(accelerator_name: str) -> Optional[GpuDevice]:
             """
             return the GPU device given a accelerator full name (e.g. nvidia-tesla-t4)
             """
             accelerator_name_arr = accelerator_name.split('-')
             for elem in accelerator_name_arr:
-                if GpuDevice.fromstring(elem) is not None:
+                try:
                     return GpuDevice.fromstring(elem)
+                except ValueError:
+                    # Continue to next entry if the accelerator name is not a valid GPU device
+                    continue
             return None
 
         # check if GPU info is already set

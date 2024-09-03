@@ -80,15 +80,19 @@ sparkRapids:
       - application-name
       - f
       - filter-criteria
+      - fs-end-time
+      - fs-start-time
       - h
       - html-report
       - no-html-report
       - m
       - match-event-logs
+      - min-event-log-size
       - max-event-log-size
       - max-sql-desc-length
       - ml-functions
       - n
+      - no-recursion
       - num-output-rows
       - order
       - r
@@ -306,8 +310,6 @@ local:
           - 'speedup'
           - 'appDuration_pred'
         remapColumns:
-          - srcCol: 'speedup'
-            dstCol: 'Estimated GPU Speedup'
           - srcCol: 'appDuration_pred'
             dstCol: 'Estimated GPU Duration'
     clusterInference:

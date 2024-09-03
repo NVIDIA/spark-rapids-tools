@@ -53,7 +53,7 @@ class GpuDevice(EnumeratedType):
     A10G = 'a10g'
 
     @classmethod
-    def get_default_gpu(cls):
+    def get_default(cls):
         return cls.T4
 
     def get_gpu_mem(self) -> list:
@@ -86,6 +86,10 @@ class ClusterState(EnumeratedType):
     OFFLINE = 'offline'
     UNKNOWN = 'unknown'
 
+    @classmethod
+    def get_default(cls):
+        return cls.UNKNOWN
+
 
 class SparkNodeType(EnumeratedType):
     """
@@ -108,7 +112,7 @@ class SysInfo:
 class GpuHWInfo:
     num_gpus: int = None
     gpu_mem: int = None
-    gpu_device: GpuDevice = GpuDevice.get_default_gpu()
+    gpu_device: GpuDevice = GpuDevice.get_default()
 
     def get_gpu_device_name(self) -> str:
         return GpuDevice.tostring(self.gpu_device)
@@ -250,7 +254,7 @@ class ClusterGetAccessor:
         if gpu_info:
             num_gpus, gpu_device = gpu_info.num_gpus, gpu_info.gpu_device
         else:
-            num_gpus, gpu_device = 0, GpuDevice.get_default_gpu()
+            num_gpus, gpu_device = 0, GpuDevice.get_default()
         return num_gpus, GpuDevice.tostring(gpu_device)
 
     def get_node_instance_type(self, node_type: SparkNodeType) -> str:
@@ -566,6 +570,9 @@ class CMDDriverBase:
         if jvm_gc_type is not None:
             xgc_key = f'XX:{jvm_gc_type}'
             res['jvmArgs'].update({xgc_key: ''})
+        log4j_config_path = submit_args.get('Dlog4j.configuration')
+        if log4j_config_path is not None:
+            res['jvmArgs'].update({'Dlog4j.configuration': log4j_config_path})
 
         rapids_configs = self.get_rapids_job_configs(self.cloud_ctxt.get('deployMode'))
         if not rapids_configs:

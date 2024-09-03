@@ -320,8 +320,6 @@ def print_summary(summary: pd.DataFrame) -> None:
         'gpuDuration': 'Actual GPU\nSQL Duration',
         'appDuration_actual': 'Actual GPU\nApp Duration',
         'speedup_actual': 'Actual GPU\nSpeedup',
-        # qual
-        'Estimated GPU Speedup': 'Estimated Qualtool\nGPU Speedup',
     }
     col_map = {k: v for k, v in display_cols.items() if k in summary.columns}
     formatted = summary[col_map.keys()].rename(col_map, axis=1)

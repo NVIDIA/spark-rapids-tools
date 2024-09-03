@@ -26,7 +26,8 @@ import time
 from dataclasses import dataclass, field
 from logging import Logger
 from shutil import make_archive, which
-from typing import Callable, Any
+import tempfile
+from typing import Callable, Any, Optional
 
 import chevron
 from packaging.version import Version
@@ -104,7 +105,7 @@ class Utils:
         return f'RAPIDS_USER_TOOLS_{actual_key}'
 
     @classmethod
-    def get_sys_env_var(cls, k: str, def_val=None):
+    def get_sys_env_var(cls, k: str, def_val=None) -> Optional[str]:
         return os.environ.get(k, def_val)
 
     @classmethod
@@ -228,6 +229,39 @@ class ToolLogging:
             fh.setFormatter(formatter)
             logger.addHandler(fh)
         return logger
+
+    @classmethod
+    def modify_log4j_properties(cls, prop_file_path: str, new_log_dir: str) -> str:
+        """
+        Modifies the log file path in a log4j properties file to redirect logging output to a new location.
+
+        This method reads an existing log4j.properties file and alters the log file path specified
+        for the FILE appender. The modified properties file is saved to a temporary file,
+        which is returned to the caller to be used as the new log4j configuration. This temporary file
+        is deleted after the java process is completed.
+
+        :param prop_file_path: The file path to the original log4j.properties file. This file
+                               should contain configurations for the log4j logging utility.
+        :param new_log_dir: The base output directory where the new log file will be created.
+                                  The actual log file named 'rapids_4_spark_qualification_stderr.log'
+                                  will be placed in this directory.
+
+        :return str: The file path to the temporary modified log4j.properties file.
+                     This temporary file retains the modifications and can be accessed until
+                     explicitly deleted after the java process is completed.
+        """
+        new_log_file = f'{new_log_dir}/rapids_4_spark_qualification_stderr.log'
+        with open(prop_file_path, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+
+        with tempfile.NamedTemporaryFile(
+                delete=False, mode='w+', suffix='.properties') as temp_file:
+            for line in lines:
+                if line.startswith('log4j.appender.FILE.File='):
+                    temp_file.write(f'log4j.appender.FILE.File={new_log_file}\n')
+                else:
+                    temp_file.write(line)
+        return temp_file.name
 
 
 class TemplateGenerator:

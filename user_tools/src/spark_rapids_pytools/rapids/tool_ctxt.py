@@ -169,6 +169,7 @@ class ToolContext(YAMLPropertiesContainer):
         return self.get_local('depFolder')
 
     def get_rapids_jar_url(self) -> str:
+        self.logger.info('Fetching the Rapids Jar URL')
         # get the version from the package, instead of the yaml file
         # jar_version = self.get_value('sparkRapids', 'version')
         if self.is_fatwheel_mode():
@@ -176,6 +177,7 @@ class ToolContext(YAMLPropertiesContainer):
             matching_files = glob(offline_path_regex)
             if not matching_files:
                 raise FileNotFoundError('In Fat Mode. No matching JAR files found.')
+            self.logger.info('Using jar from wheel file %s', matching_files[0])
             return matching_files[0]
         mvn_base_url = self.get_value('sparkRapids', 'mvnUrl')
         jar_version = Utilities.get_latest_mvn_jar_from_metadata(mvn_base_url)

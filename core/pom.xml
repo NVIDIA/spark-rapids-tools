@@ -23,7 +23,7 @@
     <artifactId>rapids-4-spark-tools_2.12</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
-    <version>24.08.0</version>
+    <version>24.08.1-SNAPSHOT</version>
     <packaging>jar</packaging>
     <url>http://github.com/NVIDIA/spark-rapids-tools</url>
 
@@ -472,10 +472,6 @@
         <scalatest.version>3.0.5</scalatest.version>
         <spark.version.classifier>spark${buildver}</spark.version.classifier>
         <target.classifier>${spark.version.classifier}</target.classifier>
-        <ui.cache.dir>${project.build.directory}/ui-dependencies-cache</ui.cache.dir>
-        <ui.resources.relative>src/main/resources/ui</ui.resources.relative>
-        <ui.resources.dir>${project.basedir}/${ui.resources.relative}</ui.resources.dir>
-        <ui.resources.external.folder>assets</ui.resources.external.folder>
         <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
         <maven.source.plugin.version>3.0.0</maven.source.plugin.version>
         <maven.artifact.version>3.9.0</maven.artifact.version>
@@ -787,40 +783,6 @@
                 <inherited>false</inherited>
                 <executions>
                     <execution>
-                        <id>download-ui-dependencies</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                        <configuration>
-                            <target>
-                                <property name="project.basedir" value="${project.basedir}"/>
-                                <property name="project.build.directory"
-                                          value="${project.build.directory}"/>
-                                <property name="project.cache.dir" value="${ui.cache.dir}"/>
-                                <property name="project.ui.root" value="${ui.resources.dir}"/>
-                                <property name="project.ui.output"
-                                          value="${ui.resources.dir}/${ui.resources.external.folder}"/>
-                                <property name="lib.bootstrap.url"
-                                          value="https://github.com/twbs/bootstrap/releases/download/v4.6.1/bootstrap-4.6.1-dist.zip"/>
-                                <property name="lib.bootstrap.dir" value="bootstrap"/>
-                                <property name="lib.jquery.dir" value="jquery"/>
-                                <property name="lib.jquery.url"
-                                          value="https://github.com/jquery/jquery/archive/refs/tags/3.6.0.zip"/>
-                                <property name="lib.mustache.dir" value="mustache-js"/>
-                                <property name="lib.mustache.url"
-                                          value="https://github.com/janl/mustache.js/archive/refs/tags/v4.1.0.zip"/>
-                                <property name="lib.spur.dir" value="spur"/>
-                                <property name="lib.spur.url"
-                                          value="https://github.com/HackerThemes/spur-template/archive/refs/heads/master.zip"/>
-                                <property name="lib.datatables.url.domain"
-                                          value="https://cdn.datatables.net"/>
-                                <property name="lib.datatables.dir" value="datatables"/>
-                                <ant antfile="${project.basedir}/prepare-ui-libraries.xml"></ant>
-                            </target>
-                        </configuration>
-                    </execution>
-                    <execution>
                         <id>copy-notice</id>
                         <goals>
                             <goal>run</goal>
@@ -886,31 +848,6 @@
                         <version>1.0.0</version>
                     </dependency>
                 </dependencies>
-            </plugin>
-            <plugin>
-                <!-- clean up the qual-ui dependencies from the resources -->
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-clean-plugin</artifactId>
-                <version>${maven.clean.plugin.version}</version>
-                <executions>
-                    <execution>
-                        <id>clean-qual-ui-dependencies</id>
-                        <phase>clean</phase>
-                        <goals>
-                            <goal>clean</goal>
-                        </goals>
-                        <configuration>
-                            <filesets>
-                                <fileset>
-                                    <directory>${ui.resources.relative}</directory>
-                                    <includes>
-                                        <include>${ui.resources.external.folder}/</include>
-                                    </includes>
-                                </fileset>
-                            </filesets>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

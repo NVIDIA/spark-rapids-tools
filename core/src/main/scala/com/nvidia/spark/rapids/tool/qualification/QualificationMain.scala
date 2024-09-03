@@ -28,7 +28,7 @@ import org.apache.spark.sql.rapids.tool.qualification.QualificationSummaryInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 /**
- * A tool to analyze Spark event logs and determine if 
+ * A tool to analyze Spark event logs and determine if
  * they might be a good fit for running on the GPU.
  */
 object QualificationMain extends Logging {
@@ -50,6 +50,7 @@ object QualificationMain extends Logging {
 
     val eventlogPaths = appArgs.eventlog()
     val filterN = appArgs.filterCriteria
+    val minEventLogSize = appArgs.minEventLogSize.toOption
     val maxEventLogSize = appArgs.maxEventLogSize.toOption
     val matchEventLogs = appArgs.matchEventLogs
     val outputDirectory = appArgs.outputDirectory().stripSuffix("/")
@@ -61,10 +62,10 @@ object QualificationMain extends Logging {
     val timeout = appArgs.timeout.toOption
     val reportReadSchema = appArgs.reportReadSchema.getOrElse(false)
     val order = appArgs.order.getOrElse("desc")
-    val uiEnabled = appArgs.htmlReport.getOrElse(false)
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
     val mlOpsEnabled = appArgs.mlFunctions.getOrElse(false)
     val penalizeTransitions = appArgs.penalizeTransitions.getOrElse(true)
+    val recursiveSearchEnabled = !appArgs.noRecursion()
 
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf
     val platform = try {
@@ -87,7 +88,8 @@ object QualificationMain extends Logging {
     }
 
     val (eventLogFsFiltered, allEventLogs) = EventLogPathProcessor.processAllPaths(
-      filterN.toOption, matchEventLogs.toOption, eventlogPaths, hadoopConf, maxEventLogSize)
+      filterN.toOption, matchEventLogs.toOption, eventlogPaths, hadoopConf, recursiveSearchEnabled,
+      maxEventLogSize, minEventLogSize, appArgs.fsStartTime.toOption, appArgs.fsEndTime.toOption)
 
     val filteredLogs = if (argsContainsAppFilters(appArgs)) {
       val appFilter = new AppFilterImpl(numOutputRows, hadoopConf, timeout, nThreads)
@@ -112,7 +114,7 @@ object QualificationMain extends Logging {
       None
     }
     val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf, timeout,
-      nThreads, order, pluginTypeChecker, reportReadSchema, printStdout, uiEnabled,
+      nThreads, order, pluginTypeChecker, reportReadSchema, printStdout,
       enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled, penalizeTransitions,
       tunerContext, appArgs.clusterReport())
     val res = qual.qualifyApps(filteredLogs)
@@ -121,10 +123,12 @@ object QualificationMain extends Logging {
 
   def argsContainsFSFilters(appArgs: QualificationArgs): Boolean = {
     val filterCriteria = appArgs.filterCriteria.toOption
-    val maxEventLogSize = appArgs.maxEventLogSize.toOption
     appArgs.matchEventLogs.isSupplied ||
       (filterCriteria.isDefined && filterCriteria.get.endsWith("-filesystem")) ||
-      maxEventLogSize.isDefined
+      appArgs.maxEventLogSize.toOption.isDefined ||
+      appArgs.minEventLogSize.toOption.isDefined ||
+      appArgs.fsStartTime.toOption.isDefined ||
+      appArgs.fsEndTime.toOption.isDefined
   }
 
   def argsContainsAppFilters(appArgs: QualificationArgs): Boolean = {

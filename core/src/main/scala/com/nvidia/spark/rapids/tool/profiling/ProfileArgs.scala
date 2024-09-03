@@ -77,6 +77,11 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val generateTimeline: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Write an SVG graph out for the full application timeline.")
+  val noRecursion: ScallopOption[Boolean] =
+    opt[Boolean](required = false,
+      descr = "Set to true to disable recursive search for event logs in the provided " +
+        "directories. Default is false.",
+      default = Some(false))
   val numThreads: ScallopOption[Int] =
     opt[Int](required = false,
       descr = "Number of thread to use for parallel processing. The default is the " +

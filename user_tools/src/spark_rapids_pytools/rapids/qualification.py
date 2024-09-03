@@ -141,15 +141,13 @@ class Qualification(RapidsJarTool):
 
     def __process_filter_args(self, arg_val: str) -> None:
         selected_filter = QualFilterApp.fromstring(arg_val)
-        if selected_filter is None:
-            selected_filter = QualFilterApp.get_default()
-            available_filters = [filter_enum.value for filter_enum in QualFilterApp]
-            self.logger.warning(
-                'Invalid argument filter_apps=%s.\n\t'
-                'Accepted options are: [%s].\n\t'
-                'Falling-back to default filter: %s',
-                arg_val, Utils.gen_joined_str(' | ', available_filters),
-                QualFilterApp.tostring(selected_filter))
+        available_filters = [filter_enum.value for filter_enum in QualFilterApp]
+        self.logger.warning(
+            'Invalid argument filter_apps=%s.\n\t'
+            'Accepted options are: [%s].\n\t'
+            'Falling-back to default filter: %s',
+            arg_val, Utils.gen_joined_str(' | ', available_filters),
+            QualFilterApp.tostring(selected_filter))
         self.ctxt.set_ctxt('filterApps', selected_filter)
 
     def _process_estimation_model_args(self) -> None:
@@ -525,15 +523,21 @@ class Qualification(RapidsJarTool):
         # Merge with a left join to include all rows from all apps and relevant rows from model predictions
         result_df = pd.merge(all_apps, predictions_df[result_info['subsetColumns']],
                              how='left', left_on='App ID', right_on='appId')
-        # Update columns in all apps with values from corresponding XGBoost columns,
-        # falling back to existing values in all apps when XGBoost values are NA.
+        # Update columns in all apps with values from corresponding XGBoost columns.
         for remap_column in result_info['remapColumns']:
             src_col, dst_col = remap_column['srcCol'], remap_column['dstCol']
             if src_col in result_df and dst_col in result_df:
-                result_df[dst_col] = result_df[src_col].fillna(result_df[dst_col]).astype(float).round(2)
+                result_df[dst_col] = result_df[src_col]
+        result_df.rename(columns={'speedup': 'Estimated GPU Speedup'},
+                         inplace=True)
+        # if the qualx does not have a speedup value, default to 1.0
+        result_df['Estimated GPU Speedup'].fillna(1.0, inplace=True)
+        # if the qualx does not have a speedup value, default to App Duration
+        result_df['Estimated GPU Duration'].fillna(result_df['App Duration'], inplace=True)
         # We need to be careful about other columns that depend on remapped columns
         result_df['Estimated GPU Time Saved'] = result_df['App Duration'] - result_df['Estimated GPU Duration']
-        return result_df.drop(columns=result_info['subsetColumns'])
+        # drop the subset_cols and ignore the errors in case some columns within the subset got renamed.
+        return result_df.drop(columns=result_info['subsetColumns'], errors='ignore')
 
     def _write_app_metadata(self, tools_processed_apps: pd.DataFrame,
                             metadata_file_info: dict, config_recommendations_dir_info: dict) -> None:

@@ -28,13 +28,13 @@ import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.rapids.tool.FailureApp
 import org.apache.spark.sql.rapids.tool.qualification._
-import org.apache.spark.sql.rapids.tool.ui.{ConsoleProgressBar, QualificationReportGenerator}
+import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
 
 class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     timeout: Option[Long], nThreads: Int, order: String,
     pluginTypeChecker: PluginTypeChecker, reportReadSchema: Boolean,
-    printStdout: Boolean, uiEnabled: Boolean, enablePB: Boolean,
+    printStdout: Boolean, enablePB: Boolean,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean,
     penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
     clusterReport: Boolean) extends ToolBase(timeout) {
@@ -244,9 +244,6 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       } else {
         logWarning(s"Eventlogs doesn't contain any ML functions")
       }
-    }
-    if (uiEnabled) {
-      QualificationReportGenerator.generateDashBoard(outputDir, allAppsSum)
     }
     if (clusterReport) {
       qWriter.writeClusterReport(allAppsSum)

@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.profiling
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 
+import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import com.nvidia.spark.rapids.tool.views._
 
@@ -102,6 +103,10 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
    */
   def getSQLCleanAndAligned: Seq[SQLCleanAndAlignIdsProfileResult] = {
     ProfSQLPlanAlignedView.getRawView(apps)
+  }
+
+  def getSparkRapidsInfo: Seq[SparkRapidsBuildInfoEvent] = {
+    apps.map(_.sparkRapidsBuildInfo)
   }
 }
 
