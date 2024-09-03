@@ -184,6 +184,7 @@ abstract class AppBase(
       }
       totalCoreMs += (eEndTime - eStartTime) * eInfo.totalCores
     }
+    System.err.println(s"totalCoreMs = $totalCoreMs")
     totalCoreMs
   }
 
