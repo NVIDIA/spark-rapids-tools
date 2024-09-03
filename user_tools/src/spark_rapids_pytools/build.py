@@ -32,12 +32,16 @@ def get_version(main: str = None) -> str:
 def get_runtime_buildver(buildver_arg: str = None) -> str:
     """
     Get the runtime SPARK build_version for the user tools environment.
+    Note that the env_var always have precedence over the input argument and the default values
     :param buildver_arg: optional argument to specify the build version
-    :return: returns the input argument if it is set.
-       Otherwise, it returns ${RAPIDS_USER_TOOLS_RUNTIME_BUILDVER:-RUNTIME_BUILDVER}.
+    :return: the first value set in the following order:
+       1- env_var RAPIDS_USER_TOOLS_RUNTIME_BUILDVER
+       2- the input buildver_arg
+       3- default value RUNTIME_BUILDVER
     """
     if buildver_arg is None:
         # pylint: disable=import-outside-toplevel
         from spark_rapids_pytools import RUNTIME_BUILDVER
-        return os.environ.get('RAPIDS_USER_TOOLS_RUNTIME_BUILDVER', RUNTIME_BUILDVER)
-    return buildver_arg
+        buildver_arg = RUNTIME_BUILDVER
+    # the env_var should have precedence because this is the way user can override the default configs
+    return os.environ.get('RAPIDS_USER_TOOLS_RUNTIME_BUILDVER', buildver_arg)
