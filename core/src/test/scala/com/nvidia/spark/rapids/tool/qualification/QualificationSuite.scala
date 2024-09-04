@@ -759,7 +759,7 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  test("test sparkML ") {
+  test("test sparkML") {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val tmpParquet = s"$outpath/mlOpsParquet"
