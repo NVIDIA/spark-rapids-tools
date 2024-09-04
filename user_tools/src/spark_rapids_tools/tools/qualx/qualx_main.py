@@ -582,15 +582,15 @@ def predict(
             qual_tool_filter=qual_tool_filter,
             qual_tool_output=qual_tool_output
         )
+        if profile_df.empty:
+            raise ValueError('Data preprocessing resulted in an empty dataset. Speedup predictions will be skipped.')
         # reset appName to original
         profile_df['appName'] = profile_df['appId'].map(app_id_name_map)
     except ScanTblError:
         # ignore
         logger.error('Skipping invalid dataset: %s', dataset_name)
-
-    if profile_df.empty:
-        # this is an error condition, and we should not fall back to the default predictions.
-        raise ValueError('Data preprocessing resulted in an empty dataset. Speedup predictions will be skipped.')
+    except ValueError:  # pylint: disable=try-except-raise
+        raise
 
     filter_str = (
         f'with {qual_tool_filter} filtering'
