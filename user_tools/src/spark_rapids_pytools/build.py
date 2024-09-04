@@ -35,7 +35,7 @@ def get_runtime_buildver(buildver_arg: str = None) -> str:
     Note that the env_var always have precedence over the input argument and the default values
     :param buildver_arg: optional argument to specify the build version
     :return: the first value set in the following order:
-       1- env_var RAPIDS_USER_TOOLS_RUNTIME_BUILDVER
+       1- env_var RAPIDS_USER_TOOLS_SPARK_DEP_VERSION
        2- the input buildver_arg
        3- default value RUNTIME_BUILDVER
     """
@@ -44,4 +44,4 @@ def get_runtime_buildver(buildver_arg: str = None) -> str:
         from spark_rapids_pytools import RUNTIME_BUILDVER
         buildver_arg = RUNTIME_BUILDVER
     # the env_var should have precedence because this is the way user can override the default configs
-    return os.environ.get('RAPIDS_USER_TOOLS_RUNTIME_BUILDVER', buildver_arg)
+    return os.environ.get('RAPIDS_USER_TOOLS_SPARK_DEP_VERSION', buildver_arg)

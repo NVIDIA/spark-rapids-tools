@@ -399,6 +399,8 @@ class RapidsTool(object):
         buildver_from_conf = json_props.get_value_silent('dependencies', 'deployMode', deploy_mode, 'activeBuildVer')
         active_buildver = get_runtime_buildver(buildver_from_conf)
         depend_arr = json_props.get_value_silent('dependencies', 'deployMode', deploy_mode, active_buildver)
+        if depend_arr is None:
+            raise ValueError(f'Invalid SPARK dependency version [{active_buildver}]')
         return depend_arr
 
 
@@ -602,8 +604,6 @@ class RapidsJarTool(RapidsTool):
                              Utils.gen_joined_str(join_elem='; ',
                                                   items=dep_list))
             self.ctxt.add_rapids_args('javaDependencies', dep_list)
-        else:
-            self.logger.warning('Dependencies were not found for the current deployment mode')
 
     def _process_rapids_args(self):
         # add a dictionary to hold the rapids arguments
