@@ -170,7 +170,7 @@ abstract class AppBase(
   def calculateTotalCoreMs(): Long = {
     var totalCoreMs: Long = 0L
     executorIdToInfo.foreach { case(_, eInfo) =>
-      val eStartTime = eInfo.addTime.getTime
+      val eStartTime = eInfo.addTime
       var eEndTime = eInfo.removeTime
       if (eEndTime == 0L) {
         getAppEndTime match {
