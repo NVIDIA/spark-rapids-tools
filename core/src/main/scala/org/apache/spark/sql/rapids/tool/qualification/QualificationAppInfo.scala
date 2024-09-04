@@ -634,7 +634,8 @@ class QualificationAppInfo(
         eventLogInfo.map(_.eventLog.toString), pluginTypeChecker.platform.clusterInfoFromEventLog,
         None)
 
-      val totalCoreSec = calculateTotalCoreMs() / 1000
+      // round up total core seconds
+      val totalCoreSec = math.ceil(calculateTotalCoreMs().toDouble / 1000).toLong
 
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
