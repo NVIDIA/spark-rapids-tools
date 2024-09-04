@@ -16,7 +16,7 @@
 
 from spark_rapids_pytools.build import get_version, get_runtime_buildver
 
-VERSION = '24.08.1'
+VERSION = '24.08.2'
 # defines the default runtime build version for the user tools environment
 RUNTIME_BUILDVER = '350'
 __version__ = get_version(VERSION)
