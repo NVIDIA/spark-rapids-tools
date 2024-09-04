@@ -33,8 +33,7 @@ from spark_rapids_tools.tools.qualx.preprocess import (
     load_profiles,
     load_qtool_execs,
     load_qual_csv,
-    PREPROCESSED_FILE,
-    ScanTblError
+    PREPROCESSED_FILE
 )
 from spark_rapids_tools.tools.qualx.model import (
     extract_model_features,
@@ -573,24 +572,17 @@ def predict(
         'platform': platform,
     }
 
-    profile_df = pd.DataFrame()
-    try:
-        logger.info('Loading dataset: %s', dataset_name)
-        profile_df = load_profiles(
-            datasets=datasets,
-            node_level_supp=node_level_supp,
-            qual_tool_filter=qual_tool_filter,
-            qual_tool_output=qual_tool_output
-        )
-        if profile_df.empty:
-            raise ValueError('Data preprocessing resulted in an empty dataset. Speedup predictions will be skipped.')
-        # reset appName to original
-        profile_df['appName'] = profile_df['appId'].map(app_id_name_map)
-    except ScanTblError:
-        # ignore
-        logger.error('Skipping invalid dataset: %s', dataset_name)
-    except ValueError:  # pylint: disable=try-except-raise
-        raise
+    logger.info('Loading dataset: %s', dataset_name)
+    profile_df = load_profiles(
+        datasets=datasets,
+        node_level_supp=node_level_supp,
+        qual_tool_filter=qual_tool_filter,
+        qual_tool_output=qual_tool_output
+    )
+    if profile_df.empty:
+        raise ValueError('Data preprocessing resulted in an empty dataset. Speedup predictions will default to 1.0.')
+    # reset appName to original
+    profile_df['appName'] = profile_df['appId'].map(app_id_name_map)
 
     filter_str = (
         f'with {qual_tool_filter} filtering'
