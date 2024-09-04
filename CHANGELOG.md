@@ -1,6 +1,39 @@
 
 <br/>
 
+## Release [v24.08.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.08.1)
+Generated on 2024-09-04
+### User Tools
+
+- [DOC] spark_rapids CLI help cmd still shows cost savings ([#1317](https://github.com/NVIDIA/spark-rapids-tools/pull/1317))
+- Fix Qualification and Profiling tools CLI argument shorthands ([#1312](https://github.com/NVIDIA/spark-rapids-tools/pull/1312))
+- Raise error for enum creation from invalid string values ([#1300](https://github.com/NVIDIA/spark-rapids-tools/pull/1300))
+- Append HADOOP_CONF_DIR to the tools CLASSPATH execution cmd ([#1308](https://github.com/NVIDIA/spark-rapids-tools/pull/1308))
+- Fix key error and cross-join error during qualx evaluate ([#1298](https://github.com/NVIDIA/spark-rapids-tools/pull/1298))
+- Qual tool: Print more useful log messages when failures happen downloading dependencies ([#1292](https://github.com/NVIDIA/spark-rapids-tools/pull/1292))
+- Fix --help text for custom_model_file option ([#1285](https://github.com/NVIDIA/spark-rapids-tools/pull/1285))
+
+### Core
+
+- Remove legacy SpeedupFactor from core output files ([#1318](https://github.com/NVIDIA/spark-rapids-tools/pull/1318))
+- Mark decimalsum as supported in Qualification tool ([#1323](https://github.com/NVIDIA/spark-rapids-tools/pull/1323))
+- Mark SMJ as unsupported operator for corner cases in left join ([#1309](https://github.com/NVIDIA/spark-rapids-tools/pull/1309))
+- Remove arguments and code related to the html-report ([#1311](https://github.com/NVIDIA/spark-rapids-tools/pull/1311))
+- Handle SparkRapidsBuildInfoEvent in GPU event logs ([#1203](https://github.com/NVIDIA/spark-rapids-tools/pull/1203))
+- Enable recursive search for event logs by default and optional `--no-recursion` flag ([#1297](https://github.com/NVIDIA/spark-rapids-tools/pull/1297))
+- Qualification tool support filtering by a filesystem time range ([#1299](https://github.com/NVIDIA/spark-rapids-tools/pull/1299))
+- Skip generating timeline for stages that do not have completion time ([#1290](https://github.com/NVIDIA/spark-rapids-tools/pull/1290))
+- Save core tools logs to output log file ([#1269](https://github.com/NVIDIA/spark-rapids-tools/pull/1269))
+- Qualification tool - Add option to filter by minimum event log size ([#1291](https://github.com/NVIDIA/spark-rapids-tools/pull/1291))
+- Include exception message for unknown app status in core tool ([#1281](https://github.com/NVIDIA/spark-rapids-tools/pull/1281))
+
+### Miscellaneous
+
+- Remove restricted google sheets link and outdated TCO section ([#1289](https://github.com/NVIDIA/spark-rapids-tools/pull/1289))
+
+
+<br/>
+
 ## Release [v24.08.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.08.0)
 Generated on 2024-08-13
 ### User Tools
