@@ -21,10 +21,10 @@
     </property>
     <property>
         <name>dfs.namenode.name.dir</name>
-        <value>file:${NAME_NODE_DIR}</value>
+        <value>file:${E2E_TEST_NAME_NODE_DIR}</value>
     </property>
     <property>
         <name>dfs.datanode.data.dir</name>
-        <value>file:${DATA_NODE_DIR}</value>
+        <value>file:${E2E_TEST_DATA_NODE_DIR}</value>
     </property>
 </configuration>

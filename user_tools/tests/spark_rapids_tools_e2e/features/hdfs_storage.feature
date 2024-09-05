@@ -26,8 +26,8 @@ Feature: HDFS Event Log Storage
 
     Examples:
       | platform | eventlog              |
-      | onprem   | valid_eventlog_1.zstd |
-      | dataproc | valid_eventlog_1.zstd |
+      | onprem   | join_agg_on_yarn_eventlog.zstd |
+      | dataproc | join_agg_on_yarn_eventlog.zstd |
 
   @test_id_HDFS_0002
   Scenario Outline: Eventlogs are stored in HDFS - Platform not specified
@@ -39,7 +39,7 @@ Feature: HDFS Event Log Storage
 
     Examples:
       | eventlog              |
-      | valid_eventlog_1.zstd |
+      | join_agg_on_yarn_eventlog.zstd |
 
   @test_id_HDFS_0003
   Scenario Outline: Eventlogs are stored in HDFS - HDFS installed but not running
@@ -54,11 +54,12 @@ Feature: HDFS Event Log Storage
 
     Examples:
       | eventlog              |
-      | valid_eventlog_1.zstd |
+      | join_agg_on_yarn_eventlog.zstd |
 
   @test_id_HDFS_0004
   Scenario Outline: Eventlogs are stored in HDFS - HDFS not installed, Platform specified
     Given platform is "onprem"
+    And HDFS is "not installed"
     When spark-rapids tool is executed with "hdfs:///<eventlog>" eventlogs
     Then stderr contains the following
       """
@@ -69,10 +70,11 @@ Feature: HDFS Event Log Storage
 
     Examples:
       | eventlog              |
-      | valid_eventlog_1.zstd |
+      | join_agg_on_yarn_eventlog.zstd |
 
   @test_id_HDFS_0005
   Scenario Outline: Eventlogs are stored in HDFS - HDFS not installed, Platform not specified
+    Given HDFS is "not installed"
     When spark-rapids tool is executed with "hdfs:///<eventlog>" eventlogs
     Then stderr contains the following
       """
@@ -83,4 +85,4 @@ Feature: HDFS Event Log Storage
 
     Examples:
       | eventlog              |
-      | valid_eventlog_1.zstd |
+      | join_agg_on_yarn_eventlog.zstd |

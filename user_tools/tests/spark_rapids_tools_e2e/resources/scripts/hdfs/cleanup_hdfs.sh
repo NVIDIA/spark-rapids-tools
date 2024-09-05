@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This script stops any running HDFS services and removes the HDFS directories.
 # Usage: ./cleanup_hdfs.sh
 
 readonly CURRENT_FILE_PATH=$(realpath "${0}")
@@ -27,7 +28,7 @@ load_common_scripts() {
 stop_hdfs_services() {
     if jps | grep -q "NameNode\|DataNode"; then
         echo "Stopping HDFS..."
-        local hadoop_home="${_HDFS_DIR}/hadoop-${HADOOP_VERSION}"
+        local hadoop_home="${E2E_TEST_HDFS_DIR}/hadoop-${E2E_TEST_HADOOP_VERSION}"
         local hdfs_bin="${hadoop_home}/bin/hdfs"
         [ ! -f "${hdfs_bin}" ] && err "HDFS binary not found at ${hdfs_bin}. However, HDFS services are running."
         ${hdfs_bin} --daemon stop namenode
@@ -38,7 +39,7 @@ stop_hdfs_services() {
 }
 
 cleanup_hdfs_dir() {
-    rm -rf "${_HDFS_DIR}"
+    rm -rf "${E2E_TEST_HDFS_DIR}"
     echo "Removed HDFS directories."
 }
 

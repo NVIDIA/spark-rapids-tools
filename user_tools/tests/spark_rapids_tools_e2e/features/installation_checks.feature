@@ -18,25 +18,25 @@ Feature: Tool Installation Checks
   Scenario Outline: Environment has missing CLI and spark_rapids tool processes eventlogs
     Given platform is "<platform>"
     And "<cli>" is not installed
-    When spark-rapids tool is executed with "valid_eventlog_1.zstd,valid_eventlog_2.zstd" eventlogs
+    When spark-rapids tool is executed with "join_agg_on_yarn_eventlog.zstd" eventlogs
     Then stdout contains the following
       """
       <expected_stdout>
       """
-    And processed applications is "2"
+    And processed applications is "1"
     And return code is "0"
 
     Examples:
-      | platform         | cli    | expected_stdout           |
-      | dataproc         | gcloud | 1 x n1-standard-8         |
-      | emr              | aws    | 1 x g5.2xlarge            |
-      | databricks-aws   | aws    | 1 x g5.2xlarge            |
-      | databricks-azure | az     | 1 x Standard_NC8as_T4_v3  |
+      | platform         | cli    | expected_stdout                 |
+      | dataproc         | gcloud | 2 x n1-standard-16 (4 T4 each)  |
+      | emr              | aws    | 10 x g5.xlarge                  |
+      | databricks-aws   | aws    | 10 x g5.xlarge                  |
+      | databricks-azure | az     | 2 x Standard_NC64as_T4_v3       |
 
   @test_id_IC_0002
   Scenario: Environment has missing java
     Given "java" is not installed
-    When spark-rapids tool is executed with "valid_eventlog_1.zstd" eventlogs
+    When spark-rapids tool is executed with "join_agg_on_yarn_eventlog.zstd" eventlogs
     Then stderr contains the following
       """
       RuntimeError: Error invoking CMD

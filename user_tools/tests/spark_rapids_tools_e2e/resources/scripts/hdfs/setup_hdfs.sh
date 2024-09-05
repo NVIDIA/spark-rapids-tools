@@ -14,18 +14,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Usage: ./setup_hdfs.sh [_HDFS_SHOULD_RUN]
+# This script sets up and configures Hadoop HDFS. It optionally starts HDFS services
+# based on the provided HDFS_SHOULD_RUN flag.
+#
+# HDFS Configuration:
+# - Replication factor: 1
+# - Disk Space Quota: 2GB
+# - Temp Directory: /tmp/spark_rapids_tools
+#
+# Usage: ./setup_hdfs.sh --run|--no-run
+# Options:
+#   --run     Run HDFS services (default)
+#   --no-run  Do not run HDFS
 
-_HDFS_SHOULD_RUN="True"
+set -e
 
-if [ "$#" -eq 1 ]; then
-    _HDFS_SHOULD_RUN=$1
-else
-    echo "_HDFS_SHOULD_RUN is not provided. Defaulting to True."
+usage() {
+    echo "Usage: $0 --run|--no-run" >&2
+    echo "Options:"
+    echo "  --run     Run HDFS services (default)" >&2
+    echo "  --no-run  Do not run HDFS" >&2
+    exit 1
+}
+
+if [ $# -eq 0 ]; then
+    usage
 fi
 
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --run)
+            readonly HDFS_SHOULD_RUN=true
+            shift
+            ;;
+        --no-run)
+            readonly HDFS_SHOULD_RUN=false
+            shift
+            ;;
+        *)
+            echo "Invalid option: $1" >&2
+            usage
+            ;;
+    esac
+done
+
+echo "HDFS_SHOULD_RUN: ${HDFS_SHOULD_RUN}"
 readonly DEFAULT_CORE_SITE_XML="core-site.xml"
 readonly DEFAULT_HDFS_SITE_XML="hdfs-site.xml"
+readonly HDFS_SPACE_QUOTA="2g"
 readonly CURRENT_FILE_PATH=$(realpath "${0}")
 readonly HDFS_SCRIPTS_DIR=$(dirname "${CURRENT_FILE_PATH}")
 
@@ -34,20 +71,21 @@ load_common_scripts() {
   source "${scripts_dir}/common.sh"
 }
 
-# Validate environment variables
+# Validate environment variables and dependencies
 validate_env() {
     [ -z "${JAVA_HOME}" ] && err "JAVA_HOME is not set. Please set JAVA_HOME."
-    [ -z "${HADOOP_VERSION}" ] && err "HADOOP_VERSION is not set. Please set HADOOP_VERSION."
+    [ -z "${E2E_TEST_HADOOP_VERSION}" ] && err "E2E_TEST_HADOOP_VERSION is not set. Please set E2E_TEST_HADOOP_VERSION."
+    command -v jps >/dev/null || err "jps is not available. Please install JDK or add JDK bin directory to PATH."
 }
 
 # Set up HDFS directories
 setup_hdfs_dirs() {
     echo "Setting up HDFS directories..."
-    readonly NAME_NODE_DIR="${_HDFS_DIR}/namenode"
-    readonly DATA_NODE_DIR="${_HDFS_DIR}/datanode"
-    rm -rf "${_HDFS_DIR}" "${NAME_NODE_DIR}" "${DATA_NODE_DIR}"
-    mkdir -p "${_HDFS_DIR}" "${NAME_NODE_DIR}" "${DATA_NODE_DIR}"
-    export NAME_NODE_DIR DATA_NODE_DIR
+    readonly E2E_TEST_NAME_NODE_DIR="${E2E_TEST_HDFS_DIR}/namenode"
+    readonly E2E_TEST_DATA_NODE_DIR="${E2E_TEST_HDFS_DIR}/datanode"
+    rm -rf "${E2E_TEST_HDFS_DIR}" "${E2E_TEST_NAME_NODE_DIR}" "${E2E_TEST_DATA_NODE_DIR}"
+    mkdir -p "${E2E_TEST_HDFS_DIR}" "${E2E_TEST_NAME_NODE_DIR}" "${E2E_TEST_DATA_NODE_DIR}"
+    export E2E_TEST_NAME_NODE_DIR E2E_TEST_DATA_NODE_DIR
 }
 
 # Function to verify checksum
@@ -66,8 +104,8 @@ verify_checksum() {
 # Function to download and extract Hadoop
 download_and_extract_hadoop() {
     echo "Downloading and extracting Hadoop..."
-    local hadoop_url="https://dlcdn.apache.org/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz"
-    local hadoop_tar_file="${TOOLS_TMP_DIR}/hadoop-${HADOOP_VERSION}.tar.gz"
+    local hadoop_url="https://dlcdn.apache.org/hadoop/common/hadoop-${E2E_TEST_HADOOP_VERSION}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
+    local hadoop_tar_file="${E2E_TEST_TOOLS_TMP_DIR}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
     local checksum_url="${hadoop_url}.sha512"
     local checksum_file="${hadoop_tar_file}.sha512"
 
@@ -84,13 +122,13 @@ download_and_extract_hadoop() {
         fi
     fi
 
-    tar -xzf "${hadoop_tar_file}" -C "${_HDFS_DIR}" || err "Failed to extract Hadoop tarball."
+    tar -xzf "${hadoop_tar_file}" -C "${E2E_TEST_HDFS_DIR}" || err "Failed to extract Hadoop tarball."
 }
 
 # Configure Hadoop
 configure_hadoop() {
     echo "Configuring Hadoop..."
-    readonly HADOOP_HOME="${_HDFS_DIR}/hadoop-${HADOOP_VERSION}"
+    readonly HADOOP_HOME="${E2E_TEST_HDFS_DIR}/hadoop-${E2E_TEST_HADOOP_VERSION}"
     readonly HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
     export HADOOP_HOME HADOOP_CONF_DIR
     export PATH="${PATH}:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin"
@@ -101,23 +139,24 @@ configure_hadoop() {
 # Format the Namenode
 format_namenode() {
     echo "Formatting the Namenode..."
-    yes | hdfs namenode -format > /dev/null 2>&1  || err "Failed to format Namenode."
+    yes | hdfs namenode -format || err "Failed to format Namenode."
 }
 
 # Start HDFS services
 start_hdfs_services() {
     echo "Starting HDFS services..."
-    hdfs --daemon start namenode || err "Failed to start Namenode."
-    hdfs --daemon start datanode || err "Failed to start Datanode."
+    hdfs --daemon start namenode
+    hdfs --daemon start datanode
 }
 
 # Verify that HDFS services are running
 verify_hdfs_services() {
     echo "Verifying HDFS services..."
-    sleep 5
+    sleep 3
     jps | grep -q "NameNode" || err "Namenode is not running."
     jps | grep -q "DataNode" || err "Datanode is not running."
     hdfs dfs -ls / || err "Failed to list HDFS root directory."
+    hdfs dfsadmin -setSpaceQuota "${HDFS_SPACE_QUOTA}" / || err "Failed to set space quota of ${HDFS_SPACE_QUOTA}"
     hdfs dfsadmin -report || err "Failed to get HDFS report."
 }
 
@@ -127,10 +166,10 @@ main() {
     setup_hdfs_dirs
     download_and_extract_hadoop
     configure_hadoop
-    if [ "${_HDFS_SHOULD_RUN}" = "True" ]; then
+    if [ "${HDFS_SHOULD_RUN}" = true ]; then
       format_namenode
       start_hdfs_services
-      verify_hdfs_services
+      verify_hdfs_services || err "Failed to start HDFS services."
     fi
     echo "${HADOOP_HOME}"
 }

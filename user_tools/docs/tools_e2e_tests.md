@@ -99,9 +99,9 @@ Tags are used to uniquely identify test scenarios and are defined in the followi
 
 Tags Example: `@test_id_ELP_0001`, `@test_id_IC_0002`.
 
-### Initial Setup
+### Built-in Setup Steps
 
-The initial setup includes two steps:
+The tests include the following setup steps:
 
 1. Build Spark Rapids Tools JAR:
     - By default, the JAR is built before running the tests.
@@ -110,15 +110,23 @@ The initial setup includes two steps:
 
 The test warns the user that initial setup may take a few minutes.
 
-### HDFS Setup
+### Built-in HDFS Cluster Setup
 
-- Some of the tests include configuring a local HDFS cluster:
+- Some of the tests include configuring a local HDFS cluster. Step: `HDFS is "{status}"`
 - This step downloads Hadoop binaries and sets up the cluster.
   - The download occurs only once per machine but cluster setup is done for each test run.
   - Download step may take a few minutes.
 - Tests involving HDFS are tagged with `@long_running` and can be skipped using `--tags ~@long_running`
 
-### Debugging Tests in IDE:
+#### Cleanup
+- Step `HDFS is "{status}"` sets an after scenario hook to stop up the HDFS cluster and remove the temporary directories.
+- It does not clean up the Hadoop binaries downloaded during the setup.
+- Cleanup can be done manually using the below script:
+```sh
+<repo_root>/user_tools/tests/spark_rapids_tools_e2e/resources/scripts/hdfs/cleanup_hdfs.sh
+```  
+
+## Debugging Tests in IDE:
 
 - Ensure the Python interpreter is set to the correct virtual environment and `JAVA_HOME` is set.
 
@@ -146,3 +154,8 @@ Sample Run Configuration:
     ]
 }
 ```
+
+
+## Guidelines for Writing Tests
+
+TODO: Add guidelines and conventions for writing tests.

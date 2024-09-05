@@ -35,7 +35,7 @@ Feature: Event Log Processing
   @test_id_ELP_0002
   Scenario: Qualification tool JAR crashes
     Given thread to crash qualification tool has started
-    When spark-rapids tool is executed with "valid_eventlog_1.zstd,valid_eventlog_2.zstd" eventlogs
+    When spark-rapids tool is executed with "join_agg_on_yarn_eventlog.zstd" eventlogs
     Then stderr contains the following
       """
       Qualification. Raised an error in phase [Execution]

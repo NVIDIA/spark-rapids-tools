@@ -21,19 +21,19 @@ import shutil
 import tempfile
 
 from spark_rapids_tools.utils import Utilities
-from steps.e2e_utils import get_tools_root_path, get_e2e_tests_resource_path, get_logger, run_sys_cmd
+from steps.e2e_utils import E2ETestUtils
 
 """ Define behave hooks for the tests. These hooks are automatically called by behave. """
-
-logger = get_logger()
 
 
 def before_all(context) -> None:
     """
     Set up the environment for the tests. This function is automatically called before all the tests.
     """
+    context.logger = E2ETestUtils.get_logger()
     context.temp_dir = tempfile.mkdtemp()
     _set_environment_variables(context)
+    _set_verbose_mode(context)
     _setup_env(context)
 
 
@@ -60,6 +60,14 @@ def after_scenario(context, scenario) -> None:
         context.after_scenario_fn()
 
 
+def _set_verbose_mode(context) -> None:
+    verbose_enabled = getattr(context.config, 'verbose', False)
+    if verbose_enabled:
+        context.config.stdout_capture = False
+        context.config.stderr_capture = False
+    os.environ['E2E_TEST_VERBOSE_MODE'] = str(verbose_enabled).lower()
+
+
 def _set_environment_variables(context) -> None:
     """
     Set environment variables needed for the virtual environment setup.
@@ -71,13 +79,14 @@ def _set_environment_variables(context) -> None:
     build_jar_value = context.config.userdata.get('build_jar')
     build_jar = build_jar_value.lower() in ['true', '1', 'yes']
 
-    os.environ['TOOLS_DIR'] = get_tools_root_path()
-    os.environ['SCRIPTS_DIR'] = os.path.join(get_e2e_tests_resource_path(), 'scripts')
-    os.environ['TOOLS_JAR_PATH'] = os.path.join(os.environ['TOOLS_DIR'], f'core/target/{jar_filename}')
-    os.environ['VENV_DIR'] = os.path.join(context.temp_dir, venv_name)
-    os.environ['BUILD_JAR'] = 'true' if build_jar else 'false'
-    os.environ['SPARK_BUILD_VERSION'] = context.config.userdata.get('buildver')
-    os.environ['HADOOP_VERSION'] = context.config.userdata.get('hadoop.version')
+    os.environ['E2E_TEST_TOOLS_DIR'] = E2ETestUtils.get_tools_root_path()
+    os.environ['E2E_TEST_SCRIPTS_DIR'] = os.path.join(E2ETestUtils.get_e2e_tests_resource_path(), 'scripts')
+    os.environ['E2E_TEST_TOOLS_JAR_PATH'] = os.path.join(os.environ['E2E_TEST_TOOLS_DIR'],
+                                                         f'core/target/{jar_filename}')
+    os.environ['E2E_TEST_VENV_DIR'] = os.path.join(context.temp_dir, venv_name)
+    os.environ['E2E_TEST_BUILD_JAR'] = 'true' if build_jar else 'false'
+    os.environ['E2E_TEST_SPARK_BUILD_VERSION'] = context.config.userdata.get('buildver')
+    os.environ['E2E_TEST_HADOOP_VERSION'] = context.config.userdata.get('hadoop.version')
 
 
 def _setup_env(context) -> None:
@@ -85,14 +94,16 @@ def _setup_env(context) -> None:
     Build the JAR and set up the virtual environment for the tests.
     """
     script_file_name = context.config.userdata.get('setup_script_file')
-    script = os.path.join(os.environ['SCRIPTS_DIR'], script_file_name)
+    script = os.path.join(os.environ['E2E_TEST_SCRIPTS_DIR'], script_file_name)
     try:
         warning_msg = "Setting up the virtual environment for the tests. This may take a while."
         if os.environ.get('BUILD_JAR') == 'true':
             warning_msg = f'Building JAR and {warning_msg}'
-        logger.warning(warning_msg)
-        result = run_sys_cmd([script])
-        result.check_returncode()
+        context.logger.warning(warning_msg)
+        result = E2ETestUtils.run_sys_cmd([script])
+        E2ETestUtils.assert_sys_cmd_return_code(result,
+                                                exp_return_code=0,
+                                                error_msg="Failed to create virtual environment")
     except Exception as e:  # pylint: disable=broad-except
         raise RuntimeError(f"Failed to create virtual environment. Reason: {str(e)}") from e
 
