@@ -86,7 +86,13 @@ behave -D build_jar=false   # Skip building the Tools jar during setup (default:
 tox -e behave -- -D build_jar=false
 ```
 
-
+**Verbose Mode**
+- When verbose mode is enabled, `STDOUT` and `STDERR` from all subprocesses executed during the test run are shown in the console.
+```sh
+behave -v
+# or
+tox -e behave -- -v
+```
 
 ## Notes
 
