@@ -30,7 +30,7 @@ from typing import Any, Callable, Dict, List, Optional
 import yaml
 
 import spark_rapids_pytools
-from spark_rapids_pytools import get_runtime_buildver
+from spark_rapids_pytools import get_spark_dep_version
 from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer, AbstractPropertiesContainer
@@ -397,7 +397,7 @@ class RapidsTool(object):
         """
         # allow defining default buildver per platform
         buildver_from_conf = json_props.get_value_silent('dependencies', 'deployMode', deploy_mode, 'activeBuildVer')
-        active_buildver = get_runtime_buildver(buildver_from_conf)
+        active_buildver = get_spark_dep_version(buildver_from_conf)
         depend_arr = json_props.get_value_silent('dependencies', 'deployMode', deploy_mode, active_buildver)
         if depend_arr is None:
             raise ValueError(f'Invalid SPARK dependency version [{active_buildver}]')
