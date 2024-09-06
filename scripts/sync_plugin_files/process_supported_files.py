@@ -315,7 +315,7 @@ def main(argvs):
     data_source_union_df = unify_all_files(generated_files_dir, "supportedDataSource.csv", ["Format", "Direction"])
     logging.info("Generating the union of plugin supportedExecs.csv files")
     execs_union_df = unify_all_files(generated_files_dir, "supportedExecs.csv", ["Exec", "Params"])
-    logging.info("Generating the union of plugin supportedExecs.csv files")
+    logging.info("Generating the union of plugin supportedExprs.csv files")
     exprs_union_df = unify_all_files(generated_files_dir, "supportedExprs.csv", ["Expression", "Context", "Params"])
 
     # post-process the dataframes to override custom configs
