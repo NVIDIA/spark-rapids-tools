@@ -27,6 +27,7 @@ import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventL
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DataSourceCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
+import com.nvidia.spark.rapids.tool.qualification.AppSubscriber
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -52,6 +53,8 @@ abstract class AppBase(
       case _ => ""
     }
   }
+
+  lazy val attemptId: Int = appMetaData.map(_.attemptId).getOrElse(1)
 
   // Store map of executorId to executor info
   val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
@@ -161,6 +164,31 @@ abstract class AppBase(
     } else {
       None
     }
+  }
+
+  /**
+   * Calculates total core seconds which is the sum over executor core seconds. Executor
+   * core seconds is computed as executor duration (s) multiplied by num of cores.
+   */
+  def calculateTotalCoreSec(): Long = {
+    var totalCoreSec: Double = 0
+    executorIdToInfo.foreach { case(_, eInfo) =>
+      val eStartTime = eInfo.addTime
+      var eEndTime = eInfo.removeTime
+      if (eEndTime == 0L) {
+        getAppEndTime match {
+          case Some(appEndTime) =>
+            eEndTime = appEndTime
+          case None =>
+            logInfo("Unable to find either executor or app end time: " +
+              "setting executor duration to 0")
+            eEndTime = eStartTime
+        }
+      }
+      totalCoreSec += (eEndTime - eStartTime).toDouble / 1000 * eInfo.totalCores
+    }
+    // round up for edge case when total core seconds is in range [0, 1)
+    math.ceil(totalCoreSec).toLong
   }
 
   def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
@@ -396,7 +424,20 @@ abstract class AppBase(
     probNotDataset.values.flatten.toSet.toSeq
   }
 
+  /**
+   * Registers the attempt ID for the application and updates the tracker map if the attemptId is
+   * greater than the existing attemptId.
+   */
+  def registerAttemptId(): Unit = {
+    if (isAppMetaDefined) {
+      val currentAttemptId = sparkProperties.getOrElse("spark.app.attempt.id", "1").toInt
+      appMetaData.foreach(_.setAttemptId(currentAttemptId))
+      AppSubscriber.subscribeAppAttempt(appId, currentAttemptId)
+    }
+  }
+
   protected def postCompletion(): Unit = {
+    registerAttemptId()
     calculateAppDuration()
   }
 

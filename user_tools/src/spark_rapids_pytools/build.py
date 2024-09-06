@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023, NVIDIA CORPORATION.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ import datetime
 import os
 
 
-def get_version(main=None):
+def get_version(main: str = None) -> str:
     if main is None:
         # pylint: disable=import-outside-toplevel
         from spark_rapids_pytools import VERSION as main
@@ -27,3 +27,21 @@ def get_version(main=None):
     if nightly == '1':
         suffix = '.dev' + datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
     return main + suffix
+
+
+def get_spark_dep_version(spark_dep_arg: str = None) -> str:
+    """
+    Get the runtime SPARK build_version for the user tools environment.
+    Note that the env_var always have precedence over the input argument and the default values
+    :param spark_dep_arg: optional argument to specify the build version
+    :return: the first value set in the following order:
+       1- env_var RAPIDS_USER_TOOLS_SPARK_DEP_VERSION
+       2- the input buildver_arg
+       3- default value SPARK_DEV_VERSION
+    """
+    if spark_dep_arg is None:
+        # pylint: disable=import-outside-toplevel
+        from spark_rapids_pytools import SPARK_DEP_VERSION
+        spark_dep_arg = SPARK_DEP_VERSION
+    # the env_var should have precedence because this is the way user can override the default configs
+    return os.environ.get('RAPIDS_USER_TOOLS_SPARK_DEP_VERSION', spark_dep_arg)

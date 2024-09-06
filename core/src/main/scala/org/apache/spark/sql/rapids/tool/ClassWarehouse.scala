@@ -16,8 +16,6 @@
 
 package org.apache.spark.sql.rapids.tool
 
-import java.util.Date
-
 import org.apache.spark.resource.{ResourceInformation, ResourceProfile}
 
 class ExecutorInfoClass(val executorId: String, _addTime: Long) {
@@ -26,7 +24,7 @@ class ExecutorInfoClass(val executorId: String, _addTime: Long) {
     var isActive = true
     var totalCores = 0
 
-    val addTime = new Date(_addTime)
+    val addTime = _addTime
     var removeTime: Long = 0L
     var removeReason: String = null
     var maxMemory = 0L

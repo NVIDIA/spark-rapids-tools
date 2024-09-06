@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import scala.collection.JavaConverters._
 
@@ -41,7 +41,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
 
   override val simpleName: String = "qualTool"
   override val outputDir = s"$outputPath/rapids_4_spark_qualification_output"
-  private val allApps = new ConcurrentLinkedQueue[QualificationSummaryInfo]()
+  private val allApps = new ConcurrentHashMap[String, QualificationSummaryInfo]()
 
   override def getNumThreads: Int = nThreads
 
@@ -72,7 +72,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       threadPool.shutdownNow()
     }
     progressBar.foreach(_.finishAll())
-    val allAppsSum = estimateAppFrequency(allApps.asScala.toSeq)
+    val allAppsSum = estimateAppFrequency(allApps.asScala.values.toSeq)
     // sort order and limit only applies to the report summary text file,
     // the csv file we write the entire data in descending order
     val sortedDescDetailed = sortDescForDetailedReport(allAppsSum)
@@ -162,27 +162,48 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
           // this is a bit ugly right now to overload writing out the report and returning the
           // DataSource information but this encapsulates the analyzer to keep the memory usage
           // smaller.
-          val dsInfo = QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(
-            outputDir, app, appIndex)
+          val dsInfo =
+            AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
+              QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(
+                outputDir, app, appIndex)
+            }.getOrElse(Seq.empty)
           val qualSumInfo = app.aggregateStats()
-          tunerContext.foreach { tuner =>
-            // Run the autotuner if it is enabled.
-            // Note that we call the autotuner anyway without checking the aggregate results
-            // because the Autotuner can still make some recommendations based on the information
-            // enclosed by the QualificationInfo object
-            tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo)
+          AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
+            tunerContext.foreach { tuner =>
+              // Run the autotuner if it is enabled.
+              // Note that we call the autotuner anyway without checking the aggregate results
+              // because the Autotuner can still make some recommendations based on the information
+              // enclosed by the QualificationInfo object
+              tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo)
+            }
           }
           if (qualSumInfo.isDefined) {
             // add the recommend cluster info into the summary
             val tempSummary = qualSumInfo.get
             val newClusterSummary = tempSummary.clusterSummary.copy(
               recommendedClusterInfo = pluginTypeChecker.platform.recommendedClusterInfo)
-            val newQualSummary = tempSummary.copy(clusterSummary = newClusterSummary)
-            allApps.add(newQualSummary)
-            progressBar.foreach(_.reportSuccessfulProcess())
-            val endTime = System.currentTimeMillis()
-            SuccessAppResult(pathStr, app.appId,
-              s"Took ${endTime - startTime}ms to process")
+            AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
+              val newQualSummary = tempSummary.copy(clusterSummary = newClusterSummary)
+              // check if the app is already in the map
+              if (allApps.containsKey(app.appId)) {
+                // fix the progress bar counts
+                progressBar.foreach(_.adjustCounterForMultipleAttempts())
+                logInfo(s"Removing older app summary for app: ${app.appId} " +
+                  s"before adding the new one with attempt: ${app.attemptId}")
+              }
+              progressBar.foreach(_.reportSuccessfulProcess())
+              allApps.put(app.appId, newQualSummary)
+              val endTime = System.currentTimeMillis()
+              SuccessAppResult(pathStr, app.appId, app.attemptId,
+                s"Took ${endTime - startTime}ms to process")
+            } match {
+              case Some(successfulResult) => successfulResult
+              case _ =>
+                // If the attemptId is an older attemptId, skip this attempt.
+                // This can happen when the user has provided event logs for multiple attempts
+                progressBar.foreach(_.reportSkippedProcess())
+                SkippedAppResult.fromAppAttempt(pathStr, app.appId, app.attemptId)
+            }
           } else {
             progressBar.foreach(_.reportUnkownStatusProcess())
             UnknownAppResult(pathStr, app.appId,

@@ -63,7 +63,8 @@ case class TestQualificationSummary(
     endDurationEstimated: Boolean,
     unsupportedExecs: String,
     unsupportedExprs: String,
-    estimatedFrequency: Long)
+    estimatedFrequency: Long,
+    toalCoreSecs: Long)
 
 class QualificationSuite extends BaseTestSuite {
 
@@ -94,7 +95,8 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.APP_DUR_ESTIMATED_STR, BooleanType),
     (QualOutputWriter.UNSUPPORTED_EXECS, StringType),
     (QualOutputWriter.UNSUPPORTED_EXPRS, StringType),
-    (QualOutputWriter.ESTIMATED_FREQUENCY, LongType))
+    (QualOutputWriter.ESTIMATED_FREQUENCY, LongType),
+    (QualOutputWriter.TOTAL_CORE_SEC, LongType))
 
   private val csvPerSQLFields = Seq(
     (QualOutputWriter.APP_NAME_STR, StringType),
@@ -137,7 +139,7 @@ class QualificationSuite extends BaseTestSuite {
         sum.sqlStageDurationsSum, sum.nonSqlTaskDurationAndOverhead,
         sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration,
         sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs,
-        sum.estimatedFrequency)
+        sum.estimatedFrequency, sum.totalCoreSec)
     }
   }
 
@@ -533,11 +535,13 @@ class QualificationSuite extends BaseTestSuite {
       val allArgs = Array(
         "--output-directory",
         outpath.getAbsolutePath())
-
-      val appArgs = new QualificationArgs(allArgs ++ logFiles)
-      val (exit, appSum) = QualificationMain.mainInternal(appArgs)
-      assert(exit == 0)
-      assert(appSum.size == pwList.length + 1)
+      // test qualification one file at a time to avoid merging results as a single app
+      for (logFile <- logFiles) {
+        val appArgs = new QualificationArgs(allArgs ++ Array(logFile))
+        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
+        assert(exit == 0)
+        assert(appSum.size == 1)
+      }
       // test Profiler
       val apps = ToolTestUtils.processProfileApps(logFiles, sparkSession)
       assert(apps.size == pwList.length + 1)
@@ -757,7 +761,7 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  test("test sparkML ") {
+  test("test sparkML") {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val tmpParquet = s"$outpath/mlOpsParquet"
@@ -1749,6 +1753,57 @@ class QualificationSuite extends BaseTestSuite {
     // Status counts: 2 SUCCESS, 1 FAILURE, 0 SKIPPED, 0 UNKNOWN
     val expectedStatus = Some(StatusReportCounts(2, 1, 0, 0))
     runQualificationTest(logFiles, expectedStatus = expectedStatus)
+  }
+
+  test("process multiple attempts of the same app ID and skip lower attempts") {
+    TrampolineUtil.withTempDir { outPath =>
+      val baseArgs = Array("--output-directory",
+        outPath.getAbsolutePath,
+        "-n", "12",
+        s"$logDir/multiple_attempts/*")
+      val appArgs = new QualificationArgs(baseArgs)
+      val (exitCode, result) = QualificationMain.mainInternal(appArgs)
+      assert(exitCode == 0 && result.size == 1,
+        "Qualification tool returned unexpected results.")
+
+      val statusResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
+        s"${QualOutputWriter.LOGFILE_NAME}_status.csv"
+
+      // Verify that the status file contains the expected messages for skipped
+      // attempts (1, 2, 3) and thus only the latest attempt (4) is processed.
+      val statusFileContents = UTF8Source.fromFile(statusResultFile).mkString
+      Seq(1, 2, 3).foreach { attemptId =>
+        val expectedMessage = s"skipping this attempt $attemptId as a newer " +
+          "attemptId is being processed"
+        assert(statusFileContents.contains(expectedMessage),
+          s"Expected message not found in status file: $expectedMessage")
+      }
+
+      // Status counts: 1 SUCCESS, 0 FAILURE, 3 SKIPPED, 0 UNKNOWN
+      val expectedStatusCount = StatusReportCounts(1, 0, 3, 0)
+      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount, statusResultFile)
+    }
+  }
+
+  ignore("process multiple event logs with same app ID and attempt ID: Not supported") {
+    TrampolineUtil.withTempDir { outPath =>
+      val baseArgs = Array("--output-directory",
+        outPath.getAbsolutePath,
+        s"$logDir/eventlog_same_app_id_1.zstd",
+        s"$logDir/eventlog_same_app_id_2.zstd")
+      val appArgs = new QualificationArgs(baseArgs)
+      val (exitCode, result) = QualificationMain.mainInternal(appArgs)
+      assert(exitCode == 0 && result.size == 1,
+        "Qualification tool returned unexpected results.")
+
+      val statusResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
+        s"${QualOutputWriter.LOGFILE_NAME}_status.csv"
+
+      // Only one of the event logs should be processed and the other should be skipped.
+      // Status counts: 1 SUCCESS, 0 FAILURE, 1 SKIPPED, 0 UNKNOWN
+      val expectedStatusCount = StatusReportCounts(1, 0, 1, 0)
+      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount, statusResultFile)
+    }
   }
 }
 

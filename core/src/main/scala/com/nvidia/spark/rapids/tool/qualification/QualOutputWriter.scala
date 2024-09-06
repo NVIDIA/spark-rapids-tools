@@ -385,7 +385,8 @@ case class FormattedQualificationSummaryInfo(
     unSupportedExecs: String,
     unSupportedExprs: String,
     clusterTags: Map[String, String],
-    estimatedFrequency: Long)
+    estimatedFrequency: Long,
+    totalCoreSec: Long)
 
 object QualOutputWriter {
   val NON_SQL_TASK_DURATION_STR = "NonSQL Task Duration"
@@ -464,6 +465,7 @@ object QualOutputWriter {
   val WORKER_NODE_TYPE = "Worker Node Type"
   val RECOMMENDED_WORKER_NODE_TYPE = "Recommended Worker Node Type"
   val DRIVER_NODE_TYPE = "Driver Node Type"
+  val TOTAL_CORE_SEC = "Total Core Seconds"
   // Default frequency for jobs with a single instance is 30 times every month (30 days)
   val DEFAULT_JOB_FREQUENCY = 30L
   val APP_DUR_STR_SIZE: Int = APP_DUR_STR.size
@@ -639,7 +641,8 @@ object QualOutputWriter {
       APP_DUR_ESTIMATED_STR -> APP_DUR_ESTIMATED_STR.size,
       UNSUPPORTED_EXECS -> UNSUPPORTED_EXECS.size,
       UNSUPPORTED_EXPRS -> UNSUPPORTED_EXPRS.size,
-      ESTIMATED_FREQUENCY -> ESTIMATED_FREQUENCY.size
+      ESTIMATED_FREQUENCY -> ESTIMATED_FREQUENCY.size,
+      TOTAL_CORE_SEC -> TOTAL_CORE_SEC.size
     )
     if (appInfos.exists(_.clusterTags.nonEmpty)) {
       detailedHeadersAndFields += (CLUSTER_TAGS -> getMaxSizeForHeader(
@@ -1101,7 +1104,8 @@ object QualOutputWriter {
       appInfo.unSupportedExecs,
       appInfo.unSupportedExprs,
       appInfo.allClusterTagsMap,
-      appInfo.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY)
+      appInfo.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY),
+      appInfo.totalCoreSec
     )
   }
 
@@ -1137,7 +1141,8 @@ object QualOutputWriter {
       appInfo.endDurationEstimated.toString -> headersAndSizes(APP_DUR_ESTIMATED_STR),
       reformatCSVFunc(appInfo.unSupportedExecs) -> headersAndSizes(UNSUPPORTED_EXECS),
       reformatCSVFunc(appInfo.unSupportedExprs) -> headersAndSizes(UNSUPPORTED_EXPRS),
-      appInfo.estimatedFrequency.toString -> headersAndSizes(ESTIMATED_FREQUENCY)
+      appInfo.estimatedFrequency.toString -> headersAndSizes(ESTIMATED_FREQUENCY),
+      appInfo.totalCoreSec.toString -> headersAndSizes(TOTAL_CORE_SEC)
     )
 
     if (appInfo.clusterTags.nonEmpty) {

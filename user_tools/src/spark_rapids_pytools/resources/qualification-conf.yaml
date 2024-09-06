@@ -310,6 +310,8 @@ local:
           - 'speedup'
           - 'appDuration_pred'
         remapColumns:
+          - srcCol: 'speedup'
+            dstCol: 'Estimated GPU Speedup'
           - srcCol: 'appDuration_pred'
             dstCol: 'Estimated GPU Duration'
     clusterInference:
