@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import fire
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
+from spark_rapids_pytools.rapids.rapids_tool import RapidsTool
 from spark_rapids_tools import CspEnv
 from spark_rapids_tools.utils import Utilities
 
@@ -114,7 +115,8 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
             config_file = FSUtil.build_full_path(self.resource_dir,
                                                  f'{platform}{self._configs_suffix}')  # pylint: disable=no-member
             platform_conf = JSONPropertiesContainer(config_file)
-            for dependency in platform_conf.get_value('dependencies', 'deployMode', 'LOCAL'):
+            dependency_list = RapidsTool.get_rapids_tools_dependencies('LOCAL', platform_conf)
+            for dependency in dependency_list:
                 uri = dependency.get('uri')
                 name = FSUtil.get_resource_name(uri)
                 if uri:
