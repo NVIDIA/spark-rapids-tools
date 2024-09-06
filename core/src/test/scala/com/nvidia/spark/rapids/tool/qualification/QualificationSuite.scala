@@ -63,7 +63,8 @@ case class TestQualificationSummary(
     endDurationEstimated: Boolean,
     unsupportedExecs: String,
     unsupportedExprs: String,
-    estimatedFrequency: Long)
+    estimatedFrequency: Long,
+    toalCoreSecs: Long)
 
 class QualificationSuite extends BaseTestSuite {
 
@@ -94,7 +95,8 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.APP_DUR_ESTIMATED_STR, BooleanType),
     (QualOutputWriter.UNSUPPORTED_EXECS, StringType),
     (QualOutputWriter.UNSUPPORTED_EXPRS, StringType),
-    (QualOutputWriter.ESTIMATED_FREQUENCY, LongType))
+    (QualOutputWriter.ESTIMATED_FREQUENCY, LongType),
+    (QualOutputWriter.TOTAL_CORE_SEC, LongType))
 
   private val csvPerSQLFields = Seq(
     (QualOutputWriter.APP_NAME_STR, StringType),
@@ -137,7 +139,7 @@ class QualificationSuite extends BaseTestSuite {
         sum.sqlStageDurationsSum, sum.nonSqlTaskDurationAndOverhead,
         sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration,
         sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs,
-        sum.estimatedFrequency)
+        sum.estimatedFrequency, sum.totalCoreSec)
     }
   }
 
@@ -759,7 +761,7 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  test("test sparkML ") {
+  test("test sparkML") {
     TrampolineUtil.withTempDir { outpath =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val tmpParquet = s"$outpath/mlOpsParquet"

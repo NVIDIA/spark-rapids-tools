@@ -166,6 +166,31 @@ abstract class AppBase(
     }
   }
 
+  /**
+   * Calculates total core seconds which is the sum over executor core seconds. Executor
+   * core seconds is computed as executor duration (s) multiplied by num of cores.
+   */
+  def calculateTotalCoreSec(): Long = {
+    var totalCoreSec: Double = 0
+    executorIdToInfo.foreach { case(_, eInfo) =>
+      val eStartTime = eInfo.addTime
+      var eEndTime = eInfo.removeTime
+      if (eEndTime == 0L) {
+        getAppEndTime match {
+          case Some(appEndTime) =>
+            eEndTime = appEndTime
+          case None =>
+            logInfo("Unable to find either executor or app end time: " +
+              "setting executor duration to 0")
+            eEndTime = eStartTime
+        }
+      }
+      totalCoreSec += (eEndTime - eStartTime).toDouble / 1000 * eInfo.totalCores
+    }
+    // round up for edge case when total core seconds is in range [0, 1)
+    math.ceil(totalCoreSec).toLong
+  }
+
   def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
     executorIdToInfo.getOrElseUpdate(executorId, {
       new ExecutorInfoClass(executorId, addTime)
