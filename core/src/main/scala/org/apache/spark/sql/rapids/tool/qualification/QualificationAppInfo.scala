@@ -634,9 +634,6 @@ class QualificationAppInfo(
         eventLogInfo.map(_.eventLog.toString), pluginTypeChecker.platform.clusterInfoFromEventLog,
         None)
 
-      // round up total core seconds
-      val totalCoreSec = math.ceil(calculateTotalCoreMs().toDouble / 1000).toLong
-
       QualificationSummaryInfo(info.appName, appId, problems,
         executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
         notSupportFormatAndTypesString, getAllReadFileFormats, writeFormat,
@@ -647,7 +644,7 @@ class QualificationAppInfo(
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap,
         mlFuncReportInfo.mlFunctionsAndStageInfo, mlFuncReportInfo.mlTotalStageDurations,
-        unsupportedOpsReason, clusterSummary, totalCoreSec)
+        unsupportedOpsReason, clusterSummary, calculateTotalCoreSec())
     }
   }
 
