@@ -135,6 +135,7 @@ spark_rapids train \
 
 Once satisfied with the model, just supply the path to this model in the `--custom_model_file` argument for prediction.
 
+### Training (Advanced)
 #### Fine-tuning / Incremental Training
 
 To continue training an existing pre-trained model on new data, just set up the new dataset per above and then
@@ -178,3 +179,42 @@ df.to_csv('features/features_with_label.csv', index=False)
 Then, train a custom model with the `--features_csv_dir features` argument.
 
 Once satisfied with the model, just supply the path to this model in the `--custom_model_file` argument for prediction.
+
+#### Dataset-specific Plugins
+
+In certain situations, a dataset may require custom handling.  For these cases, we provide a plugin mechanism
+for custom code that can be attached to that dataset.  The plugin implementation is just a python file that defines
+any of the following functions:
+```python
+import pandas as pd
+
+def load_profiles_hook(profile_df: pd.DataFrame) -> pd.DataFrame:
+    """Custom post processing on the load_profiles dataframe."""
+    # Insert custom code to modify the profile_df as needed.
+    # Note: profile_df contains "raw" features extracted from the Profiler tool's output CSV files.
+    return profile_df
+
+
+def split_function(cpu_aug_tbl: pd.DataFrame) -> pd.DataFrame:
+    """Custom train/test/val split function."""
+    # Insert custom code to set cpu_aug_tbl['split'] to 'train', 'test', or 'val'.
+    # Note: the default split function randomly splits the data by ratios of 60/20/20.
+    return cpu_aug_tbl
+```
+
+In order to use a custom plugin, just reference it in the associated dataset JSON file:
+```
+# datasets/onprem/my_custom_dataset.json
+{
+    "my_custom_dataset": {
+        "eventlogs": [
+            "/path/to/eventlogs"
+        ],
+        "app_meta": {
+            ...
+        },
+        "load_profiles_hook": "/path/to/custom_plugin.py",
+        "split_function": "/path/to/custom_plugin.py"
+    }
+}
+```
