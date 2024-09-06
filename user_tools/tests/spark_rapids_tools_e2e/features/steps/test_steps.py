@@ -27,6 +27,7 @@ from behave import given, when, then
 
 from e2e_utils import E2ETestUtils, HdfsTestUtils, HdfsStatus
 
+logger = E2ETestUtils.get_logger()
 
 def set_after_scenario_fn(context, fn: Callable) -> None:
     """
@@ -102,11 +103,11 @@ def step_setup_hdfs(context, status) -> None:
         return
     if test_hdfs_status == HdfsStatus.RUNNING:
         # Set up HDFS and start it
-        context.logger.warning('Setting up and starting HDFS. This may take a while.')
+        logger.warning('Setting up and starting HDFS. This may take a while.')
         should_run = True
     elif test_hdfs_status == HdfsStatus.NOT_RUNNING:
         # Set up HDFS but do not start it
-        context.logger.warning('Setting up HDFS without starting it. This may take a while.')
+        logger.warning('Setting up HDFS without starting it. This may take a while.')
         should_run = False
     else:
         raise ValueError(f"HDFS status '{status}' is not valid.")

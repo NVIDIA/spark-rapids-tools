@@ -50,8 +50,7 @@ class E2ETestUtils:
     def run_sys_cmd(cls, cmd: list) -> subprocess.CompletedProcess:
         """
         Run a system command and return the result.
-        If verbose mode is enabled by the behave config, print the command and its output (unless
-        verbosity is disabled explicitly by the caller).
+        If verbose mode is enabled by the behave config, print the command and its output
         """
         cmd_result = subprocess.run(cmd, capture_output=True, text=True)
         if cls.is_verbose_mode():

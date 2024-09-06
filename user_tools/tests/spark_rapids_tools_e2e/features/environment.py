@@ -25,12 +25,12 @@ from steps.e2e_utils import E2ETestUtils
 
 """ Define behave hooks for the tests. These hooks are automatically called by behave. """
 
+logger = E2ETestUtils.get_logger()
 
 def before_all(context) -> None:
     """
     Set up the environment for the tests. This function is automatically called before all the tests.
     """
-    context.logger = E2ETestUtils.get_logger()
     context.temp_dir = tempfile.mkdtemp()
     _set_environment_variables(context)
     _set_verbose_mode(context)
@@ -99,7 +99,7 @@ def _setup_env(context) -> None:
         warning_msg = "Setting up the virtual environment for the tests. This may take a while."
         if os.environ.get('BUILD_JAR') == 'true':
             warning_msg = f'Building JAR and {warning_msg}'
-        context.logger.warning(warning_msg)
+        logger.warning(warning_msg)
         result = E2ETestUtils.run_sys_cmd([script])
         E2ETestUtils.assert_sys_cmd_return_code(result,
                                                 exp_return_code=0,
