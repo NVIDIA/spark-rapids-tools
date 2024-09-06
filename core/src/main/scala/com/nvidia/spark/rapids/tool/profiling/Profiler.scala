@@ -175,7 +175,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           processSuccessApp(app)
           progressBar.foreach(_.reportSuccessfulProcess())
           val endTime = System.currentTimeMillis()
-          SuccessAppResult(pathStr, app.appId, s"Took ${endTime - startTime}ms to process")
+          SuccessAppResult(pathStr, app.appId, app.attemptId,
+            s"Took ${endTime - startTime}ms to process")
       }
       // Log the information to the console
       profAppResult.logMessage()

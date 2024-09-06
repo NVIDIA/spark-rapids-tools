@@ -27,6 +27,7 @@ import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventL
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DataSourceCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
+import com.nvidia.spark.rapids.tool.qualification.AppSubscriber
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -52,6 +53,8 @@ abstract class AppBase(
       case _ => ""
     }
   }
+
+  lazy val attemptId: Int = appMetaData.map(_.attemptId).getOrElse(1)
 
   // Store map of executorId to executor info
   val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
@@ -396,7 +399,20 @@ abstract class AppBase(
     probNotDataset.values.flatten.toSet.toSeq
   }
 
+  /**
+   * Registers the attempt ID for the application and updates the tracker map if the attemptId is
+   * greater than the existing attemptId.
+   */
+  def registerAttemptId(): Unit = {
+    if (isAppMetaDefined) {
+      val currentAttemptId = sparkProperties.getOrElse("spark.app.attempt.id", "1").toInt
+      appMetaData.foreach(_.setAttemptId(currentAttemptId))
+      AppSubscriber.subscribeAppAttempt(appId, currentAttemptId)
+    }
+  }
+
   protected def postCompletion(): Unit = {
+    registerAttemptId()
     calculateAppDuration()
   }
 
