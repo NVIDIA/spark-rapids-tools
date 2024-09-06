@@ -29,6 +29,7 @@ from e2e_utils import E2ETestUtils, HdfsTestUtils, HdfsStatus
 
 logger = E2ETestUtils.get_logger()
 
+
 def set_after_scenario_fn(context, fn: Callable) -> None:
     """
     Set the callback function to be called after each scenario.

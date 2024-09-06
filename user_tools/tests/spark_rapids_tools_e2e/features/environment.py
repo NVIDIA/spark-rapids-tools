@@ -27,6 +27,7 @@ from steps.e2e_utils import E2ETestUtils
 
 logger = E2ETestUtils.get_logger()
 
+
 def before_all(context) -> None:
     """
     Set up the environment for the tests. This function is automatically called before all the tests.
