@@ -37,7 +37,7 @@ build_jar() {
   local jar_tools_dir="$E2E_TEST_TOOLS_DIR/core"
   echo "Building Spark RAPIDS Tools JAR file"
   pushd "$jar_tools_dir"
-  mvn install -DskipTests -Dbuildver="$E2E_TEST_SPARK_BUILD_VERSION" -Dhadoop.version="$E2E_TEST_HADOOP_VERSION"
+  mvn package -DskipTests -Dbuildver="$E2E_TEST_SPARK_BUILD_VERSION" -Dhadoop.version="$E2E_TEST_HADOOP_VERSION"
   popd
 }
 

@@ -73,6 +73,7 @@ class E2ETestUtils:
                                 filter_apps: str = 'all') -> List[str]:
         """
         Create the command to run the Spark Rapids qualification tool.
+        TODO: We can add more options to the command as needed.
         """
         return [
             cls.get_spark_rapids_cli(),

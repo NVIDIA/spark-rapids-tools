@@ -6,7 +6,6 @@ dependencies, handling different types of event logs, and interacting with HDFS.
 ## Directory Structure
 ```commandline
 user_tools/tests/spark_rapids_tools_e2e/
-├── behave.ini                      # Configuration file for the `behave` test runner.
 ├── features                        # Contains test scenarios and environment setup.
 │  ├── environment.py               # Setup and teardown procedures for the tests.
 │  ├── steps                        # Step definitions for the tests.
@@ -15,7 +14,7 @@ user_tools/tests/spark_rapids_tools_e2e/
     ├── event_logs  
     └── scripts                     # Scripts used in the tests.  
 ```
-
+Configurations for `behave` tests are defined in `user_tools/tox.ini` file.
 
 ## Setup
 
@@ -123,6 +122,12 @@ The test warns the user that initial setup may take a few minutes.
   - The download occurs only once per machine but cluster setup is done for each test run.
   - Download step may take a few minutes.
 - Tests involving HDFS are tagged with `@long_running` and can be skipped using `--tags ~@long_running`
+
+#### HDFS Configuration:
+- Replication factor: 1
+- Disk Space Quota: 2GB
+- Temp Directory: `/tmp/spark_rapids_tools_e2e_tests`
+   - Temp Directory can be changed using the argument `-D e2e_tests_tmp_dir=<dir_path>` during test run.
 
 #### Cleanup
 - Step `HDFS is "{status}"` sets an after scenario hook to stop up the HDFS cluster and remove the temporary directories.

@@ -88,6 +88,7 @@ def _set_environment_variables(context) -> None:
     os.environ['E2E_TEST_BUILD_JAR'] = 'true' if build_jar else 'false'
     os.environ['E2E_TEST_SPARK_BUILD_VERSION'] = context.config.userdata.get('buildver')
     os.environ['E2E_TEST_HADOOP_VERSION'] = context.config.userdata.get('hadoop.version')
+    os.environ['E2E_TEST_TMP_DIR'] = context.config.userdata.get('e2e_tests_tmp_dir')
 
 
 def _setup_env(context) -> None:

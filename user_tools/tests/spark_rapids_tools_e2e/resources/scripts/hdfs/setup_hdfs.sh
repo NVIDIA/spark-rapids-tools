@@ -20,7 +20,7 @@
 # HDFS Configuration:
 # - Replication factor: 1
 # - Disk Space Quota: 2GB
-# - Temp Directory: /tmp/spark_rapids_tools
+# - Temp Directory: /tmp/spark_rapids_tools_e2e_tests
 #
 # Usage: ./setup_hdfs.sh --run|--no-run
 # Options:
@@ -65,6 +65,8 @@ readonly DEFAULT_HDFS_SITE_XML="hdfs-site.xml"
 readonly HDFS_SPACE_QUOTA="2g"
 readonly CURRENT_FILE_PATH=$(realpath "${0}")
 readonly HDFS_SCRIPTS_DIR=$(dirname "${CURRENT_FILE_PATH}")
+readonly VERIFY_HDFS_SERVICES_MAX_RETRY=3
+readonly VERIFY_HDFS_SERVICES_SLEEP_SEC=5
 
 load_common_scripts() {
   local scripts_dir=$(dirname "${HDFS_SCRIPTS_DIR}")
@@ -75,6 +77,7 @@ load_common_scripts() {
 validate_env() {
     [ -z "${JAVA_HOME}" ] && err "JAVA_HOME is not set. Please set JAVA_HOME."
     [ -z "${E2E_TEST_HADOOP_VERSION}" ] && err "E2E_TEST_HADOOP_VERSION is not set. Please set E2E_TEST_HADOOP_VERSION."
+    [ -z "${E2E_TEST_TMP_DIR}" ] && err "E2E_TEST_TMP_DIR is not set. Please set E2E_TEST_TMP_DIR (e.g. /tmp/spark_rapids_tools_e2e_tests)."
     command -v jps >/dev/null || err "jps is not available. Please install JDK or add JDK bin directory to PATH."
 }
 
@@ -105,7 +108,7 @@ verify_checksum() {
 download_and_extract_hadoop() {
     echo "Downloading and extracting Hadoop..."
     local hadoop_url="https://dlcdn.apache.org/hadoop/common/hadoop-${E2E_TEST_HADOOP_VERSION}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
-    local hadoop_tar_file="${E2E_TEST_TOOLS_TMP_DIR}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
+    local hadoop_tar_file="${E2E_TEST_TMP_DIR}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
     local checksum_url="${hadoop_url}.sha512"
     local checksum_file="${hadoop_tar_file}.sha512"
 
@@ -152,12 +155,27 @@ start_hdfs_services() {
 # Verify that HDFS services are running
 verify_hdfs_services() {
     echo "Verifying HDFS services..."
-    sleep 3
     jps | grep -q "NameNode" || err "Namenode is not running."
     jps | grep -q "DataNode" || err "Datanode is not running."
     hdfs dfs -ls / || err "Failed to list HDFS root directory."
     hdfs dfsadmin -setSpaceQuota "${HDFS_SPACE_QUOTA}" / || err "Failed to set space quota of ${HDFS_SPACE_QUOTA}"
     hdfs dfsadmin -report || err "Failed to get HDFS report."
+}
+
+verify_hdfs_services_with_retry() {
+    local max_retry=$1
+    local count=1
+    while [[ ${count} -le ${max_retry} ]]; do
+        echo "Attempt ${count} of ${max_retry}..."
+        if verify_hdfs_services; then
+            echo "HDFS services are running."
+            return 0
+        fi
+        echo "HDFS services verification failed. Retrying in ${VERIFY_HDFS_SERVICES_SLEEP_SEC} seconds..."
+        sleep ${VERIFY_HDFS_SERVICES_SLEEP_SEC}
+        ((count++))
+    done
+    return 1
 }
 
 main() {
@@ -169,7 +187,7 @@ main() {
     if [ "${HDFS_SHOULD_RUN}" = true ]; then
       format_namenode
       start_hdfs_services
-      verify_hdfs_services || err "Failed to start HDFS services."
+      verify_hdfs_services_with_retry ${VERIFY_HDFS_SERVICES_MAX_RETRY} || err "Failed to start HDFS services after ${VERIFY_HDFS_SERVICES_MAX_RETRY} attempts."
     fi
     echo "${HADOOP_HOME}"
 }

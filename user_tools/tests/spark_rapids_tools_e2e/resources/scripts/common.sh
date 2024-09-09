@@ -14,9 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-readonly E2E_TEST_TOOLS_TMP_DIR="/tmp/spark_rapids_tools"
-readonly E2E_TEST_HDFS_DIR="${E2E_TEST_TOOLS_TMP_DIR}/hadoop"
-export E2E_TEST_HDFS_DIR E2E_TEST_TOOLS_TMP_DIR
+readonly E2E_TEST_HDFS_DIR="${E2E_TEST_TMP_DIR}/hadoop"
+export E2E_TEST_HDFS_DIR E2E_TEST_TMP_DIR
 export LC_ALL=C
 
 err() {
