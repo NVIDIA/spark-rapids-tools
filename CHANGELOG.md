@@ -1,6 +1,30 @@
 
 <br/>
 
+## Release [v24.08.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.08.2)
+Generated on 2024-09-10
+### User Tools
+
+- Add end-to-end behavioural tests for the python CLI ([#1313](https://github.com/NVIDIA/spark-rapids-tools/pull/1313))
+- Add documentation for qualx plugins ([#1337](https://github.com/NVIDIA/spark-rapids-tools/pull/1337))
+- Allow spark dependency to be configured dynamically ([#1326](https://github.com/NVIDIA/spark-rapids-tools/pull/1326))
+- Follow-up 1318: Fix QualX fallback with default speedup and duration columns ([#1330](https://github.com/NVIDIA/spark-rapids-tools/pull/1330))
+- Updated models for EMR NDS-H dataset ([#1331](https://github.com/NVIDIA/spark-rapids-tools/pull/1331))
+
+### Core
+
+- [FEA] Add total core seconds in Qualification core tool output ([#1320](https://github.com/NVIDIA/spark-rapids-tools/pull/1320))
+- Add support to MaxBy and MinBy in Qualification tool ([#1335](https://github.com/NVIDIA/spark-rapids-tools/pull/1335))
+- Add safeguards to prevent older attempts from generating metrics output in Scala Tool ([#1324](https://github.com/NVIDIA/spark-rapids-tools/pull/1324))
+- Sync up DAYTIME and YEARMONTH fields with CSV plugin files ([#1328](https://github.com/NVIDIA/spark-rapids-tools/pull/1328))
+
+### Miscellaneous
+
+- Update signoff usage [skip ci] ([#1332](https://github.com/NVIDIA/spark-rapids-tools/pull/1332))
+
+
+<br/>
+
 ## Release [v24.08.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.08.1)
 Generated on 2024-09-04
 ### User Tools
