@@ -1757,6 +1757,14 @@ class QualificationSuite extends BaseTestSuite {
     runQualificationTest(logFiles, expectedStatus = expectedStatus)
   }
 
+  test("test support for photon event log") {
+    val logFiles = Array(s"$logDir/photon_eventlog.zstd")  // photon event log
+    // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+    val expectedStatus = Some(StatusReportCounts(1, 0, 0, 0))
+    runQualificationTest(logFiles, "photon_eventlog_expectation.csv",
+      expectedStatus = expectedStatus)
+  }
+
   test("process multiple attempts of the same app ID and skip lower attempts") {
     TrampolineUtil.withTempDir { outPath =>
       val baseArgs = Array("--output-directory",
