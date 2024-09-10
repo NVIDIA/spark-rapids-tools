@@ -16,8 +16,8 @@
 
 package org.apache.spark.sql.rapids.tool.util
 
+import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import java.util.concurrent.atomic.AtomicLong
-
 import scala.collection.mutable
 import scala.reflect.runtime.universe._
 
@@ -199,6 +199,7 @@ object ToolsPlanGraph {
   //      This can be achieved by checking for spark properties
   //      spark.databricks.clusterUsageTags.clusterAllTags
   private lazy val dbRuntimeReflection = DBReflectionContainer()
+
   // By default call the Spark constructor. If this fails, we fall back to the DB constructor
   def constructGraphNode(id: Long, name: String, desc: String,
       metrics: collection.Seq[SQLPlanMetric]): SparkPlanGraphNode = {
@@ -272,13 +273,16 @@ object ToolsPlanGraph {
   }
 
   private def buildSparkPlanGraphNode(
-      planInfo: SparkPlanInfo,
+      planInfoRaw: SparkPlanInfo,
       nodeIdGenerator: AtomicLong,
       nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
       edges: mutable.ArrayBuffer[SparkPlanGraphEdge],
       parent: SparkPlanGraphNode,
       subgraph: SparkPlanGraphCluster,
       exchanges: mutable.HashMap[SparkPlanInfo, SparkPlanGraphNode]): Unit = {
+    // Replace Photon node names with Spark node names
+    // TODO: Skip this if app.isPhoton is false
+    val planInfo = DatabricksParseHelper.processPhotonPlan(planInfoRaw).getOrElse(planInfoRaw)
     processPlanInfo(planInfo.nodeName) match {
       case name if name.startsWith("WholeStageCodegen") =>
         val metrics = planInfo.metrics.map { metric =>

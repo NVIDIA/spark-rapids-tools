@@ -17,11 +17,15 @@
 package com.nvidia.spark.rapids.tool.planparser
 
 import scala.util.control.NonFatal
+import scala.util.matching.Regex
 
-import org.json4s.DefaultFormats
+import org.json4s.{DefaultFormats, Formats}
+import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.execution.SparkPlanInfo
+import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
 // Utilities used to handle Databricks and Photon Ops
 object DatabricksParseHelper extends Logging {
@@ -42,6 +46,9 @@ object DatabricksParseHelper extends Logging {
   val SUB_PROP_CLUSTER_ID = "ClusterId"
   val SUB_PROP_JOB_ID = "JobId"
   val SUB_PROP_RUN_NAME = "RunName"
+
+  private val PHOTON_PATTERN: Regex = "Photon[a-zA-Z]*".r
+  private val PHOTON_OPERATOR_MAPPING_FILE = "photonOperatorMapping.json"
   /**
    * Checks if the properties indicate that the application is a Photon app.
    * This ca be checked by looking for keywords in one of the keys defined in PHOTON_SPARK_PROPS
@@ -106,6 +113,43 @@ object DatabricksParseHelper extends Logging {
       case NonFatal(_) =>
         logWarning(s"There was an exception parsing cluster tags string: $clusterTag, skipping")
         Map.empty
+    }
+  }
+
+  /**
+   * Maps the Photon operator names to Spark operator names using a mapping JSON file.
+   */
+  private lazy val photonToSparkMapping: Map[String, String] = {
+    val jsonString = UTF8Source.fromResource(PHOTON_OPERATOR_MAPPING_FILE).mkString
+    val json = JsonMethods.parse(jsonString)
+    // Implicitly define JSON formats for deserialization using DefaultFormats
+    implicit val formats: Formats = DefaultFormats
+    // Extract and deserialize the JValue object into a Map[String, String]
+    // TODO: Instead of only extracting the first value, we should consider extracting all values
+    json.extract[Map[String, List[String]]].mapValues(_.head)
+  }
+
+  /**
+   * Replaces a Photon node name in the SparkPlanInfo object with a corresponding Spark node name,
+   * if a mapping exists.
+   */
+  def processPhotonPlan(planInfo: SparkPlanInfo): Option[SparkPlanInfo] = {
+    // Check if the node name contains a Photon node
+    val photonNodeOpt = PHOTON_PATTERN.findFirstIn(planInfo.nodeName)
+    // Early return if node is not a Photon node
+    if (photonNodeOpt.isEmpty) {
+      return None
+    }
+    // If a Photon node is found, try to map it to a Spark node
+    photonNodeOpt.flatMap(photonToSparkMapping.get).map { sparkNode =>
+      // Create a new SparkPlanInfo object with node name and description replaced
+      // with the Spark node name
+      new SparkPlanInfo(
+        nodeName = sparkNode,
+        simpleString = planInfo.simpleString.replace(planInfo.nodeName, sparkNode),
+        children = planInfo.children,
+        metadata = planInfo.metadata,
+        metrics = planInfo.metrics)
     }
   }
 }

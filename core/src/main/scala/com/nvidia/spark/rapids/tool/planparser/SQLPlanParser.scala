@@ -936,9 +936,16 @@ object SQLPlanParser extends Logging {
     // BuildRight, LeftOuter, ((CEIL(cast(id1#1490 as double)) <= cast(id2#1496 as bigint))
     // AND (cast(id1#1490 as bigint) < CEIL(cast(id2#1496 as double))))
     // Get joinType and buildSide by splitting the input string.
-    val nestedLoopParameters = exprStr.split(",", 3)
-    val buildSide = nestedLoopParameters(0).trim
-    val joinType = nestedLoopParameters(1).trim
+    val nestedLoopParameters = exprStr.split(",", 3).map(_.trim)
+    val (buildSide, joinType) =
+      if(JoinType.allsupportedJoinType.contains(nestedLoopParameters(1))) {
+        // If exprString has the format: BuildRight, Inner
+        (nestedLoopParameters(0).trim, nestedLoopParameters(1).trim)
+      } else {
+        // If exprString has the format: Inner, BuildRight
+        // Note: This format is present in Photon Event logs
+        (nestedLoopParameters(1).trim, nestedLoopParameters(0).trim)
+      }
 
     // Check if condition present on join columns else return empty array
     val parsedExpressions = if (nestedLoopParameters.size > 2) {
