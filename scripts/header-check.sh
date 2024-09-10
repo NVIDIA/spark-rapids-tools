@@ -26,9 +26,10 @@ EXCLUDE_PATTERNS=(
     "core/src/main/resources/*"
     "core/src/test/resources/*"
     "user_tools/src/spark_rapids_pytools/resources/*"
-    "user_tools/docs/resources/*"
+    "user_tools/docs/*"
     "user_tools/tests/spark_rapids_tools_ut/resources/*"
     "*.csv"
+    "*.zstd"
     )
 
 # Create the grep exclude options (--exclude=*csv --exclude=core/src/test/resources/*)
