@@ -386,7 +386,8 @@ case class FormattedQualificationSummaryInfo(
     unSupportedExprs: String,
     clusterTags: Map[String, String],
     estimatedFrequency: Long,
-    totalCoreSec: Long)
+    totalCoreSec: Long,
+    isPhoton: Boolean)
 
 object QualOutputWriter {
   val NON_SQL_TASK_DURATION_STR = "NonSQL Task Duration"
@@ -466,6 +467,7 @@ object QualOutputWriter {
   val RECOMMENDED_WORKER_NODE_TYPE = "Recommended Worker Node Type"
   val DRIVER_NODE_TYPE = "Driver Node Type"
   val TOTAL_CORE_SEC = "Total Core Seconds"
+  val IS_PHOTON = "Photon App"
   // Default frequency for jobs with a single instance is 30 times every month (30 days)
   val DEFAULT_JOB_FREQUENCY = 30L
   val APP_DUR_STR_SIZE: Int = APP_DUR_STR.size
@@ -642,7 +644,8 @@ object QualOutputWriter {
       UNSUPPORTED_EXECS -> UNSUPPORTED_EXECS.size,
       UNSUPPORTED_EXPRS -> UNSUPPORTED_EXPRS.size,
       ESTIMATED_FREQUENCY -> ESTIMATED_FREQUENCY.size,
-      TOTAL_CORE_SEC -> TOTAL_CORE_SEC.size
+      TOTAL_CORE_SEC -> TOTAL_CORE_SEC.size,
+      IS_PHOTON -> IS_PHOTON.length
     )
     if (appInfos.exists(_.clusterTags.nonEmpty)) {
       detailedHeadersAndFields += (CLUSTER_TAGS -> getMaxSizeForHeader(
@@ -1105,7 +1108,8 @@ object QualOutputWriter {
       appInfo.unSupportedExprs,
       appInfo.allClusterTagsMap,
       appInfo.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY),
-      appInfo.totalCoreSec
+      appInfo.totalCoreSec,
+      appInfo.isPhoton
     )
   }
 
@@ -1142,7 +1146,8 @@ object QualOutputWriter {
       reformatCSVFunc(appInfo.unSupportedExecs) -> headersAndSizes(UNSUPPORTED_EXECS),
       reformatCSVFunc(appInfo.unSupportedExprs) -> headersAndSizes(UNSUPPORTED_EXPRS),
       appInfo.estimatedFrequency.toString -> headersAndSizes(ESTIMATED_FREQUENCY),
-      appInfo.totalCoreSec.toString -> headersAndSizes(TOTAL_CORE_SEC)
+      appInfo.totalCoreSec.toString -> headersAndSizes(TOTAL_CORE_SEC),
+      appInfo.isPhoton.toString -> headersAndSizes(IS_PHOTON)
     )
 
     if (appInfo.clusterTags.nonEmpty) {

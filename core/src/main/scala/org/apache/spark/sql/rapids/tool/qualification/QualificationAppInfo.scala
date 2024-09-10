@@ -641,7 +641,7 @@ class QualificationAppInfo(
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap,
         mlFuncReportInfo.mlFunctionsAndStageInfo, mlFuncReportInfo.mlTotalStageDurations,
-        unsupportedOpsReason, clusterSummary, calculateTotalCoreSec())
+        unsupportedOpsReason, clusterSummary, calculateTotalCoreSec(), isPhoton)
     }
   }
 
@@ -985,6 +985,7 @@ case class QualificationSummaryInfo(
     unsupportedOpsReasons: Map[String, String],
     clusterSummary: ClusterSummary,
     totalCoreSec: Long,
+    isPhoton: Boolean,
     estimatedFrequency: Option[Long] = None)
 
 case class StageQualSummaryInfo(
