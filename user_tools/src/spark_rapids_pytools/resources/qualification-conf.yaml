@@ -180,7 +180,7 @@ local:
         - 'Estimated GPU Speedup'
     treeDirectory:
       enabled: true
-      depthLevel: 4
+      depthLevel: 2
       indentation: '    '
       excludedPatterns:
         directories:
@@ -193,6 +193,7 @@ local:
           - '^(\.+).*'
           - '^(\$+).*'
           - '^.+(_\$folder\$)$'
+          - '^rapids_4_spark_qualification_output.*'
     unsupportedOperators:
       mask:
         - operator: 'NOT_EQUAL'
