@@ -36,11 +36,13 @@ class AdditionalHeuristics:
     props: JSONPropertiesContainer = field(default=None, init=False)
     tools_output_dir: str = field(default=None, init=False)
     output_file: str = field(default=None, init=False)
+    qual_summary: pd.DataFrame = field(default=None, init=False)  # Processed apps with total core seconds
 
-    def __init__(self, props: dict, tools_output_dir: str, output_file: str):
+    def __init__(self, props: dict, tools_output_dir: str, output_file: str, qual_summary: pd.DataFrame):
         self.props = JSONPropertiesContainer(props, file_load=False)
         self.tools_output_dir = tools_output_dir
         self.output_file = output_file
+        self.qual_summary = qual_summary
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.{self.__class__.__name__}')
 
     def _apply_heuristics(self, app_ids: list) -> pd.DataFrame:
@@ -68,17 +70,38 @@ class AdditionalHeuristics:
         else:
             for app_id in app_ids:
                 app_id_path = os.path.join(metrics_path, app_id)
+                # Apply heuristics and determine if the application should be skipped.
+                # Note: `should_skip` flag can be a combination of multiple heuristic checks.
+                should_skip = False
                 try:
-                    # Apply heuristics and determine if the application should be skipped.
-                    # Note: `should_skip` flag can be a combination of multiple heuristic checks.
-                    should_skip, reason = self.heuristics_based_on_spills(app_id_path)
+                    should_skip, reason = self.heuristics_based_on_total_core_seconds(app_id)
                 except Exception as e:  # pylint: disable=broad-except
-                    should_skip = False
-                    reason = f'Cannot apply heuristics for qualification. Reason - {type(e).__name__}:{e}'
+                    reason = ' Cannot apply total core seconds heuristics for qualification. Reason - ' + \
+                        f'{type(e).__name__}:{e}.'
+                    self.logger.error(reason)
+                try:
+                    should_skip_spill, reason_spill = self.heuristics_based_on_spills(app_id_path)
+                    should_skip = should_skip or should_skip_spill
+                    reason = reason + reason_spill
+                except Exception as e:  # pylint: disable=broad-except
+                    reason = reason + f' Cannot apply spill heuristics for qualification. Reason - {type(e).__name__}:{e}.'
                     self.logger.error(reason)
                 result_arr.append([app_id, should_skip, reason])
 
         return pd.DataFrame(result_arr, columns=self.props.get_value('resultCols'))
+
+    def heuristics_based_on_total_core_seconds(self, app_id: str) -> (bool, str):
+        """
+        Apply heuristics based on total core seconds to determine if the app can be accelerated on GPU.
+        """
+        # Load app output from qualidication summary dataframe
+        app_qual_output = self.qual_summary[self.qual_summary['App ID'] == app_id]
+        total_core_seconds = app_qual_output['Total Core Seconds'].astype(int).iloc[0]
+        # Threshold is total core seconds of an n1-standard-8 machine running one day
+        total_core_seconds_threshold = self.props.get_value('totalCoreSecBased', 'totalCoreSecThreshold')
+        if total_core_seconds <= total_core_seconds_threshold:
+            return True, f'Skipping due to total core seconds = {total_core_seconds} lower than {total_core_seconds_threshold}.'
+        return False, ''
 
     def heuristics_based_on_spills(self, app_id_path: str) -> (bool, str):
         """
@@ -113,7 +136,7 @@ class AdditionalHeuristics:
         if not relevant_stages_with_spills.empty:
             stages_str = '; '.join(relevant_stages_with_spills['stageId'].astype(str))
             spill_threshold_human_readable = Utilities.bytes_to_human_readable(spill_threshold_bytes)
-            reason = f'Skipping due to spills in stages [{stages_str}] exceeding {spill_threshold_human_readable}'
+            reason = f'Skipping due to spills in stages [{stages_str}] exceeding {spill_threshold_human_readable}.'
             return True, reason
         return False, ''
 

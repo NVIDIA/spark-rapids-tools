@@ -233,8 +233,8 @@ local:
         - 'Medium'
         - 'Large'
       sortingColumns:
-        - 'Estimated GPU Speedup'
-        - 'Unsupported Operators Stage Duration Percent'
+        - 'Speedup Category Order'
+        - 'Total Core Seconds'
       joinColumns:
         - 'App ID'
         - 'App Name'
@@ -275,6 +275,8 @@ local:
         - 'App ID'
         - 'Skip by Heuristics'
         - 'Reason'
+      totalCoreSecBased:
+        totalCoreSecThreshold: 691200
       spillBased:
         stageAggMetrics:
           fileName: 'stage_level_aggregated_task_metrics.csv'

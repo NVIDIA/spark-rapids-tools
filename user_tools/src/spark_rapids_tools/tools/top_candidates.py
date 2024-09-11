@@ -34,6 +34,7 @@ class TopCandidates:
     tools_processed_apps: pd.DataFrame = field(init=True)  # Apps after tools processing and heuristic filtering
     filtered_apps: pd.DataFrame = field(default_factory=pd.DataFrame, init=False)  # Apps after applying filters
     filter_enabled: bool = field(default=False, init=False)
+    qual_summary: pd.DataFrame = field(init=True)  # Processed apps with total core seconds
 
     def __post_init__(self) -> None:
         # Filter applications based on categories
@@ -85,12 +86,22 @@ class TopCandidates:
         """
         Internal implementation to prepare the output table. This can be overridden by the child classes.
         """
+        # Append 'Speedup Category Order' and 'Total Core Seconds' columns to output_df for sorting order
+        # First, we want to sort on speedup category (decs order), so larger speedup categories appear first
+        # Create and append 'Speedup Category Order' column
+        speedup_category_order = ['Not Recommended', 'Small', 'Medium', 'Large']
+        output_df['Speedup Category Order'] = \
+            output_df['Estimated GPU Speedup Category'].map({name: i for i, name in enumerate(speedup_category_order)})
+        # Second, within each speedup category, we want to sort on total core seconds (desc order)
+        output_df = pd.merge(output_df, self.qual_summary[['App ID', 'Total Core Seconds']],
+                             how='left', left_on='App ID', right_on='App ID')
+
+        # Sort columns and select output columns
         output_columns = self.props.get('outputColumns')
         sorting_columns = self.props.get('sortingColumns')
         valid_output_columns = list(output_df.columns.intersection(output_columns))
-        valid_sorting_columns = list(output_df.columns.intersection(sorting_columns))
-        # Sort columns and select output columns
-        res_df = output_df.sort_values(by=valid_sorting_columns, ascending=False)[valid_output_columns]
+        res_df = output_df.sort_values(by=sorting_columns, ascending=False)[valid_output_columns]
+
         # this is a bit weird since hardcoding, but we don't want this to have ** for csv output
         if 'Estimated GPU Speedup Category' in res_df:
             res_df.rename(columns={'Estimated GPU Speedup Category': 'Estimated GPU Speedup Category**'},
