@@ -84,7 +84,8 @@ class AdditionalHeuristics:
                     should_skip = should_skip or should_skip_spill
                     reason = reason + reason_spill
                 except Exception as e:  # pylint: disable=broad-except
-                    reason = reason + f' Cannot apply spill heuristics for qualification. Reason - {type(e).__name__}:{e}.'
+                    reason = reason + ' Cannot apply spill heuristics for qualification. Reason - ' + \
+                        f'{type(e).__name__}:{e}.'
                     self.logger.error(reason)
                 result_arr.append([app_id, should_skip, reason])
 
@@ -100,7 +101,8 @@ class AdditionalHeuristics:
         # Threshold is total core seconds of an n1-standard-8 machine running one day
         total_core_seconds_threshold = self.props.get_value('totalCoreSecBased', 'totalCoreSecThreshold')
         if total_core_seconds <= total_core_seconds_threshold:
-            return True, f'Skipping due to total core seconds = {total_core_seconds} lower than {total_core_seconds_threshold}.'
+            return True, f'Skipping due to total core seconds = {total_core_seconds} lower than ' + \
+                f'{total_core_seconds_threshold}.'
         return False, ''
 
     def heuristics_based_on_spills(self, app_id_path: str) -> (bool, str):

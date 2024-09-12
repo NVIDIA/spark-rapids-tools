@@ -354,7 +354,6 @@ class Qualification(RapidsJarTool):
         qual_summary_file = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'fileName')
         qual_summary_pd = pd.read_csv(os.path.join(self.ctxt.get_rapids_output_folder(), qual_summary_file))
 
-
         def create_stdout_table_pprinter(total_apps: pd.DataFrame,
                                          tools_processed_apps: pd.DataFrame) -> TopCandidates:
             """
