@@ -23,14 +23,14 @@ import org.apache.hadoop.hive.ql.exec.{Description, UDF}
 import org.apache.spark.internal.Logging
 
 @Description(name = "estimate_event_rapids_2_map",
-  value = "_FUNC_(output_path, event_path) ",
+  value = "_FUNC_(output_path, event_path, score_file, enabledML) ",
   extended = "Example:\n  > SELECT estimate_event_rapids(hdfs://..., app_1, hdfs://...)" +
     " - Returns QualificationSummaryInfo map.")
 class EstimateEventRapids2MapUDF extends UDF with Logging {
   def evaluate(outputDir: String, applicationId: String, eventDir: String,
-      scoreFile: String = "onprem"): java.util.Map[String, String] = {
+      scoreFile: String = "onprem", enabledML: Boolean = false): java.util.Map[String, String] = {
     val estimateOutput =
-      EstimateEventRapidsUDF.estimateLog(outputDir, applicationId, eventDir, scoreFile)
+      EstimateEventRapidsUDF.estimateLog(outputDir, applicationId, eventDir, scoreFile, enabledML)
     val firstQualificationSummaryInfo = estimateOutput._2.headOption
     val predictScore = estimateOutput._3
     firstQualificationSummaryInfo.map { q =>
