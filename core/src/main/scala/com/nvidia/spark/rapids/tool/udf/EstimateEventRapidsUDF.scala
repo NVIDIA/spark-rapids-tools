@@ -16,14 +16,13 @@
 
 package com.nvidia.spark.rapids.tool.udf
 
-import java.io.{BufferedReader, InputStreamReader}
+import java.io.{BufferedReader, File, InputStreamReader}
 
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
 import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterProps
 import com.nvidia.spark.rapids.tool.qualification.{PluginTypeChecker, Qualification}
-
 import org.apache.hadoop.hive.ql.exec.{Description, UDF}
 
 import org.apache.spark.internal.Logging
@@ -125,9 +124,14 @@ object EstimateEventRapidsUDF extends Logging {
     in.close()
     proc.waitFor
 
+    val dir = new File(".")
+    // 过滤出以"predict"开头的文件
+    val predictFiles = dir.listFiles.find(_.getName.startsWith("prediction"))
+    assert(predictFiles.nonEmpty, "can not find prediction file")
+
     // read ml output
     var predictScore = "0.0"
-    val filePath = s"./$mlOutput"
+    val filePath = s"./$mlOutput/${predictFiles.head}"
     val source = UTF8Source.fromFile(filePath)
     try {
       for (line <- source.getLines()) {
