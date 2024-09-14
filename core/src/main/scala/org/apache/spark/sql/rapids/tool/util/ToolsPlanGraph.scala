@@ -203,7 +203,7 @@ object ToolsPlanGraph {
   def constructGraphNode(id: Long, name: String, desc: String,
       metrics: collection.Seq[SQLPlanMetric]): SparkPlanGraphNode = {
     try {
-      new SparkPlanGraphNode(id, name, desc, metrics)
+      new SparkPlanGraphNode(id, name, desc, metrics, 0)
     } catch {
       case _: java.lang.NoSuchMethodError =>
         dbRuntimeReflection.constructNode(id, name, desc, metrics)
@@ -229,7 +229,7 @@ object ToolsPlanGraph {
       nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
       metrics: collection.Seq[SQLPlanMetric]): SparkPlanGraphCluster = {
     try {
-      new SparkPlanGraphCluster(id, name, desc, nodes, metrics)
+      new SparkPlanGraphCluster(id, name, desc, nodes, metrics, 0)
     } catch {
       case _: java.lang.NoSuchMethodError =>
         dbRuntimeReflection.constructCluster(id, name, desc, nodes, metrics)

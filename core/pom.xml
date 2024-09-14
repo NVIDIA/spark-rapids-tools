@@ -161,6 +161,21 @@
             </properties>
         </profile>
         <profile>
+            <id>bd321</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>321</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>321</buildver>
+                <spark.version>${bdspark321.version}</spark.version>
+                <delta.core.version>${delta20x.version}</delta.core.version>
+                <hadoop.version>3.3.6</hadoop.version>
+            </properties>
+        </profile>
+        <profile>
             <id>release322</id>
             <activation>
                 <property>
@@ -443,6 +458,7 @@
         <spark314.version>3.1.4-SNAPSHOT</spark314.version>
         <spark320.version>3.2.0</spark320.version>
         <spark321.version>3.2.1</spark321.version>
+        <bdspark321.version>3.2.1-bd1-SNAPSHOT</bdspark321.version>
         <spark322.version>3.2.2</spark322.version>
         <spark323.version>3.2.3</spark323.version>
         <spark324.version>3.2.4</spark324.version>
