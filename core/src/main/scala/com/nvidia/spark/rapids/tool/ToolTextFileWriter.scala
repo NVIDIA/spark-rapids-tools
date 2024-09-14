@@ -45,7 +45,7 @@ class ToolTextFileWriter(
   private var utf8Writer: Option[BufferedWriter] = {
     try {
       // pass hadoopConf to None
-      Some(FSUtils.getUTF8BufferedWriter(textOutputLoc, hadoopConf))
+      Some(FSUtils.getUTF8BufferedWriter(textOutputLoc, None))
     } catch {
       case NonFatal(e) =>
         logError(s"Failed to open output path [$textOutputLoc] for writing", e)
