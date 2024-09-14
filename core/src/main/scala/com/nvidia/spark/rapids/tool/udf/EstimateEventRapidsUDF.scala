@@ -56,7 +56,7 @@ object EstimateEventRapidsUDF extends Logging {
     val order = "desc"
 
     val platform = try {
-      val clusterPropsOpt = loadClusterProps("")
+      val clusterPropsOpt = loadClusterProps("./worker_info.yaml")
       PlatformFactory.createInstance("", clusterPropsOpt)
     } catch {
       case NonFatal(e) =>
