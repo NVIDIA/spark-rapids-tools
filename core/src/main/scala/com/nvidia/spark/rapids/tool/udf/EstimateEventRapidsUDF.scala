@@ -16,17 +16,19 @@
 
 package com.nvidia.spark.rapids.tool.udf
 
+import java.io.{BufferedReader, InputStreamReader}
+
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
 import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterProps
 import com.nvidia.spark.rapids.tool.qualification.{PluginTypeChecker, Qualification}
-import com.nvidia.spark.rapids.tool.qualification.QualificationMain.logError
+
 import org.apache.hadoop.hive.ql.exec.{Description, UDF}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.QualificationSummaryInfo
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
+import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, UTF8Source}
 
 @Description(name = "estimate_event_rapids",
   value = "_FUNC_(output_path, event_path) ",
@@ -34,7 +36,7 @@ import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 class EstimateEventRapidsUDF extends UDF with Logging {
   def evaluate(outputDir: String, applicationId: String, eventDir: String,
       scoreFile: String = "onprem"): Int = {
-    val (exitCode, _) =
+    val (exitCode, _, _) =
       EstimateEventRapidsUDF.estimateLog(outputDir, applicationId, eventDir, scoreFile)
     exitCode
   }
@@ -42,7 +44,8 @@ class EstimateEventRapidsUDF extends UDF with Logging {
 
 object EstimateEventRapidsUDF extends Logging {
   def estimateLog(outputDir: String, applicationId: String, eventDir: String,
-      scoreFile: String = "onprem"): (Int, Seq[QualificationSummaryInfo]) = {
+      scoreFile: String = "onprem",
+      enabledML: Boolean = false): (Int, Seq[QualificationSummaryInfo], String) = {
     val eventPath = eventDir + "/" + applicationId + "_1"
     val outputDirectory = outputDir + "/" + applicationId
     val numOutputRows = 1000
@@ -51,13 +54,6 @@ object EstimateEventRapidsUDF extends Logging {
     val timeout = Option(1200L)
     val nThreads = 1
     val order = "desc"
-    // val pluginTypeChecker = try {
-    //   new PluginTypeChecker("onprem", None)
-    // } catch {
-    //   case ie: IllegalStateException =>
-    //     logError("Error creating the plugin type checker!", ie)
-    //     return (1, Seq[QualificationSummaryInfo]())
-    // }
 
     val platform = try {
       val clusterPropsOpt = loadClusterProps("")
@@ -65,7 +61,7 @@ object EstimateEventRapidsUDF extends Logging {
     } catch {
       case NonFatal(e) =>
         logError("Error creating the platform", e)
-        return (1, Seq[QualificationSummaryInfo]())
+        return (1, Seq[QualificationSummaryInfo](), "")
     }
     val pluginTypeChecker = try {
       new PluginTypeChecker(
@@ -74,25 +70,74 @@ object EstimateEventRapidsUDF extends Logging {
     } catch {
       case ie: IllegalStateException =>
         logError("Error creating the plugin type checker!", ie)
-        return (1, Seq[QualificationSummaryInfo]())
+        return (1, Seq[QualificationSummaryInfo](), "")
     }
 
-    val (eventLogFsFiltered, allEventLogs) = EventLogPathProcessor.processAllPaths(
+    val (eventLogFsFiltered, _) = EventLogPathProcessor.processAllPaths(
       None, None, List(eventPath), hadoopConf)
     val filteredLogs = eventLogFsFiltered
 
     // uiEnabled = false
-    val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf,
-      timeout, nThreads, order, pluginTypeChecker = pluginTypeChecker, reportReadSchema = false,
-      printStdout = false, enablePB = true, reportSqlLevel = false, maxSQLDescLength = 100, mlOpsEnabled = false)
+    val qual = new Qualification(
+      outputPath=outputDirectory,
+      numRows=numOutputRows,
+      hadoopConf=hadoopConf,
+      timeout= timeout,
+      nThreads=nThreads,
+      order=order,
+      pluginTypeChecker=pluginTypeChecker,
+      reportReadSchema=false,
+      printStdout=false,
+      enablePB=true,
+      reportSqlLevel=false,
+      maxSQLDescLength=100,
+      mlOpsEnabled=false,
+      penalizeTransitions=true,
+      tunerContext=None,
+      clusterReport = false
+    )
     try {
-      val res = qual.qualifyApps(filteredLogs)
-      (0, res)
+      val res: Seq[QualificationSummaryInfo] = qual.qualifyApps(filteredLogs)
+      val predictScore = if (enabledML && res.nonEmpty) {
+        // 传python
+        // outputDirectory
+        execMLPredict(outputDirectory)
+      } else ""
+      (0, res, predictScore)
     } catch {
       case NonFatal(e) =>
         logError(s"Error when analyze ${applicationId}, path is ${eventPath}.")
         e.printStackTrace()
-        (1, Seq[QualificationSummaryInfo]())
+        (1, Seq[QualificationSummaryInfo](), "")
     }
+  }
+
+  private def execMLPredict(outputDirectory: String): String = {
+    var proc: Process = null
+    val mlOutput = "ml_qualx_output"
+    val command = "spark_rapids prediction --platform onprem " +
+        s"--qual_output $outputDirectory" +
+        "--output_folder " +
+        s"./$mlOutput"
+    proc = Runtime.getRuntime.exec(command)
+    val in = new BufferedReader(new InputStreamReader(proc.getInputStream))
+    Iterator.continually(in.readLine()).takeWhile(_ != null).foreach(println)
+    in.close()
+    proc.waitFor
+
+    // read ml output
+    var predictScore = "0.0"
+    val filePath = s"./$mlOutput"
+    val source = UTF8Source.fromFile(filePath)
+    try {
+      for (line <- source.getLines()) {
+        if (line.startsWith("Overall estimated speedup")) {
+          predictScore = line.split("\\s+").last
+        }
+      }
+    } finally {
+      source.close()
+    }
+    predictScore
   }
 }

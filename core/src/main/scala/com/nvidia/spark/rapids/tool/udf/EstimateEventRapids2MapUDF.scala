@@ -32,6 +32,7 @@ class EstimateEventRapids2MapUDF extends UDF with Logging {
     val estimateOutput =
       EstimateEventRapidsUDF.estimateLog(outputDir, applicationId, eventDir, scoreFile)
     val firstQualificationSummaryInfo = estimateOutput._2.headOption
+    val predictScore = estimateOutput._3
     firstQualificationSummaryInfo.map { q =>
       val javaMap: util.HashMap[String, String] = new util.HashMap[String, String]()
       javaMap.put("appName", q.appName)
@@ -41,6 +42,7 @@ class EstimateEventRapids2MapUDF extends UDF with Logging {
       javaMap.put("LongestSQLDuration", q.longestSqlDuration.toString)
       javaMap.put("UnsupportedExecs", q.unSupportedExecs)
       javaMap.put("UnsupportedExpressions", q.unSupportedExprs)
+      javaMap.put("PredictSpeedup", predictScore)
       javaMap
     }.getOrElse(new util.HashMap[String, String]())
   }

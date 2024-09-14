@@ -44,6 +44,7 @@ class ToolTextFileWriter(
   // this overwrites existing path
   private var utf8Writer: Option[BufferedWriter] = {
     try {
+      // pass hadoopConf to None
       Some(FSUtils.getUTF8BufferedWriter(textOutputLoc, hadoopConf))
     } catch {
       case NonFatal(e) =>
