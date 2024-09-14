@@ -18,8 +18,10 @@ package com.nvidia.spark.rapids.tool.udf
 
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.tool.EventLogPathProcessor
+import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
+import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterProps
 import com.nvidia.spark.rapids.tool.qualification.{PluginTypeChecker, Qualification}
+import com.nvidia.spark.rapids.tool.qualification.QualificationMain.logError
 import org.apache.hadoop.hive.ql.exec.{Description, UDF}
 
 import org.apache.spark.internal.Logging
@@ -49,8 +51,26 @@ object EstimateEventRapidsUDF extends Logging {
     val timeout = Option(1200L)
     val nThreads = 1
     val order = "desc"
+    // val pluginTypeChecker = try {
+    //   new PluginTypeChecker("onprem", None)
+    // } catch {
+    //   case ie: IllegalStateException =>
+    //     logError("Error creating the plugin type checker!", ie)
+    //     return (1, Seq[QualificationSummaryInfo]())
+    // }
+
+    val platform = try {
+      val clusterPropsOpt = loadClusterProps("")
+      PlatformFactory.createInstance("", clusterPropsOpt)
+    } catch {
+      case NonFatal(e) =>
+        logError("Error creating the platform", e)
+        return (1, Seq[QualificationSummaryInfo]())
+    }
     val pluginTypeChecker = try {
-      new PluginTypeChecker("onprem", None)
+      new PluginTypeChecker(
+        platform,
+        None)
     } catch {
       case ie: IllegalStateException =>
         logError("Error creating the plugin type checker!", ie)
@@ -61,9 +81,10 @@ object EstimateEventRapidsUDF extends Logging {
       None, None, List(eventPath), hadoopConf)
     val filteredLogs = eventLogFsFiltered
 
+    // uiEnabled = false
     val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf,
-      timeout, nThreads, order, pluginTypeChecker, false, false, false,
-      true, false, 100, false, true)
+      timeout, nThreads, order, pluginTypeChecker = pluginTypeChecker, reportReadSchema = false,
+      printStdout = false, enablePB = true, reportSqlLevel = false, maxSQLDescLength = 100, mlOpsEnabled = false)
     try {
       val res = qual.qualifyApps(filteredLogs)
       (0, res)
