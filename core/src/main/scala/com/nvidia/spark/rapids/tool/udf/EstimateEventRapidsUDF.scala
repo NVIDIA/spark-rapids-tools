@@ -46,7 +46,9 @@ object EstimateEventRapidsUDF extends Logging {
       scoreFile: String = "onprem",
       enabledML: Boolean = false): (Int, Seq[QualificationSummaryInfo], String) = {
     val eventPath = eventDir + "/" + applicationId + "_1"
-    val outputDirectory = outputDir + "/" + applicationId
+    val outputDirectory = if (enabledML) {
+      s"tmp_$applicationId"
+    } else outputDir + "/" + applicationId
     val numOutputRows = 1000
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
     // timeout: 20min
@@ -100,7 +102,7 @@ object EstimateEventRapidsUDF extends Logging {
       val predictScore = if (enabledML && res.nonEmpty) {
         // 传python
         // outputDirectory
-        execMLPredict(outputDirectory)
+        execMLPredict(applicationId, outputDirectory)
       } else ""
       (0, res, predictScore)
     } catch {
@@ -111,9 +113,9 @@ object EstimateEventRapidsUDF extends Logging {
     }
   }
 
-  private def execMLPredict(outputDirectory: String): String = {
+  private def execMLPredict(applicationId: String, outputDirectory: String): String = {
     var proc: Process = null
-    val mlOutput = "ml_qualx_output"
+    val mlOutput = s"${applicationId}_pre/ml_qualx_output"
     val command = "spark_rapids prediction --platform onprem " +
         s"--qual_output $outputDirectory" +
         "--output_folder " +
