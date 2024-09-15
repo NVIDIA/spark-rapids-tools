@@ -87,12 +87,11 @@ class TopCandidates:
         Internal implementation to prepare the output table. This can be overridden by the child classes.
         """
         # Append 'Speedup Category Order' and 'Total Core Seconds' columns to output_df for sorting order
-        # First, we want to sort on speedup category (decs order), so larger speedup categories appear first
-        # Create and append 'Speedup Category Order' column
+        # First, sort based on speedup category (decs order). Create and append 'Speedup Category Order' column.
         speedup_category_order = ['Not Recommended', 'Small', 'Medium', 'Large']
         output_df['Speedup Category Order'] = \
             output_df['Estimated GPU Speedup Category'].map({name: i for i, name in enumerate(speedup_category_order)})
-        # Second, within each speedup category, we want to sort on total core seconds (desc order)
+        # Second, within each speedup category, sort based on total core seconds (desc order)
         output_df = pd.merge(output_df, self.qual_summary[['App ID', 'Total Core Seconds']],
                              how='left', left_on='App ID', right_on='App ID')
 

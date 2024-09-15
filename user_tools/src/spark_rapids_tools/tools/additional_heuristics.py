@@ -73,12 +73,14 @@ class AdditionalHeuristics:
                 # Apply heuristics and determine if the application should be skipped.
                 # Note: `should_skip` flag can be a combination of multiple heuristic checks.
                 should_skip = False
+                # 1. Apply heristics based on total core seconds
                 try:
                     should_skip, reason = self.heuristics_based_on_total_core_seconds(app_id)
                 except Exception as e:  # pylint: disable=broad-except
                     reason = ' Cannot apply total core seconds heuristics for qualification. Reason - ' + \
                         f'{type(e).__name__}:{e}.'
                     self.logger.error(reason)
+                # 2. Apply heristics based on spilling
                 try:
                     should_skip_spill, reason_spill = self.heuristics_based_on_spills(app_id_path)
                     should_skip = should_skip or should_skip_spill
@@ -95,7 +97,7 @@ class AdditionalHeuristics:
         """
         Apply heuristics based on total core seconds to determine if the app can be accelerated on GPU.
         """
-        # Load app output from qualidication summary dataframe
+        # Load app total core seconds from qualidication summary dataframe
         app_qual_output = self.qual_summary[self.qual_summary['App ID'] == app_id]
         total_core_seconds = app_qual_output['Total Core Seconds'].astype(int).iloc[0]
         # Threshold is total core seconds of an n1-standard-8 machine running one day
