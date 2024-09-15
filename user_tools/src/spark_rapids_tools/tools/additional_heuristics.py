@@ -100,7 +100,7 @@ class AdditionalHeuristics:
         # Load app total core seconds from qualidication summary dataframe
         app_qual_output = self.qual_summary[self.qual_summary['App ID'] == app_id]
         total_core_seconds = app_qual_output['Total Core Seconds'].astype(int).iloc[0]
-        # Threshold is total core seconds of an n1-standard-8 machine running one day
+        # Threshold is total core seconds of an n1-standard-8 instance running for one day
         total_core_seconds_threshold = self.props.get_value('totalCoreSecBased', 'totalCoreSecThreshold')
         if total_core_seconds <= total_core_seconds_threshold:
             return True, f'Skipping due to total core seconds = {total_core_seconds} lower than ' + \
