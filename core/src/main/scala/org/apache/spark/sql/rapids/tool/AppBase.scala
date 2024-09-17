@@ -358,12 +358,12 @@ abstract class AppBase(
         results += DataSourceCase(
           sqlPlanInfoGraph.sqlID,
           scanNode.head.id,
-          meta.getOrElse("Format", ReadParser.UNKNOWN_METAFIELD),
-          meta.getOrElse("Location", ReadParser.UNKNOWN_METAFIELD),
-          meta.getOrElse("PushedFilters", ReadParser.UNKNOWN_METAFIELD),
+          ReadParser.extractTagFromV1ReadMeta("Format", meta),
+          ReadParser.extractTagFromV1ReadMeta("Location", meta),
+          ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_PUSHED_FILTERS, meta),
           readSchema,
-          meta.getOrElse("DataFilters", ReadParser.UNKNOWN_METAFIELD),
-          meta.getOrElse("PartitionFilters", ReadParser.UNKNOWN_METAFIELD)
+          ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_DATA_FILTERS, meta),
+          ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_PARTITION_FILTERS, meta)
         )
       }
     }

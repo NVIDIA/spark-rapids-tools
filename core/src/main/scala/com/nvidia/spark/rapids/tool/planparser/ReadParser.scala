@@ -107,6 +107,17 @@ object ReadParser extends Logging {
     result
   }
 
+  // Extracts the tag from SparkPlanInfo.metadata Map[String, String].
+  def extractTagFromV1ReadMeta(tag: String, metadata: Map[String, String]): String = {
+    tag match {
+      case METAFIELD_TAG_DATA_FILTERS | METAFIELD_TAG_PUSHED_FILTERS |
+           METAFIELD_TAG_PARTITION_FILTERS =>
+        // Strip off opening and closing brackets to be consistent with other ReadParser methods
+        metadata.getOrElse(tag, UNKNOWN_METAFIELD).stripPrefix("[").stripSuffix("]")
+      case _ => metadata.getOrElse(tag, UNKNOWN_METAFIELD)
+    }
+  }
+
   def parseReadNode(node: SparkPlanGraphNode): ReadMetaData = {
     if (HiveParseHelper.isHiveTableScanNode(node)) {
       HiveParseHelper.parseReadNode(node)
