@@ -23,7 +23,13 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 
-case class ReadMetaData(schema: String, location: String, filters: String, format: String)
+case class ReadMetaData(schema: String, location: String, format: String,
+    tags: Map[String, String] = ReadParser.DEFAULT_METAFIELD_MAP) {
+  // Define properties to access the tags
+  def pushedFilters: String = tags(ReadParser.METAFIELD_TAG_PUSHED_FILTERS)
+  def dataFilters: String = tags(ReadParser.METAFIELD_TAG_DATA_FILTERS)
+  def partitionFilters: String = tags(ReadParser.METAFIELD_TAG_PARTITION_FILTERS)
+}
 
 object ReadParser extends Logging {
   // It was found that some eventlogs could have "NativeScan" instead of "Scan"
@@ -36,6 +42,17 @@ object ReadParser extends Logging {
     "GpuScan",
     "GpuBatchScan",
     "JDBCRelation")
+
+  val METAFIELD_TAG_DATA_FILTERS = "DataFilters"
+  val METAFIELD_TAG_PUSHED_FILTERS = "PushedFilters"
+  val METAFIELD_TAG_PARTITION_FILTERS = "PartitionFilters"
+
+  val UNKNOWN_METAFIELD: String = "unknown"
+  val DEFAULT_METAFIELD_MAP: Map[String, String] = collection.immutable.Map(
+    METAFIELD_TAG_DATA_FILTERS -> UNKNOWN_METAFIELD,
+    METAFIELD_TAG_PUSHED_FILTERS -> UNKNOWN_METAFIELD,
+    METAFIELD_TAG_PARTITION_FILTERS -> UNKNOWN_METAFIELD
+  )
 
   def isScanNode(nodeName: String): Boolean = {
     SCAN_NODE_PREFIXES.exists(nodeName.startsWith(_))
@@ -70,6 +87,26 @@ object ReadParser extends Logging {
     }
   }
 
+  // Used to extract metadata fields from Spark GraphNode’s description.
+  // It is made public for testing purposes. It returns DEFAULT_METAFIELD_MAP if no tags exist.
+  def extractReadTags(value: String): Map[String, String] = {
+    // initialize the results to the default values
+    var result = Map[String, String]() ++ DEFAULT_METAFIELD_MAP
+    // For each meta tag, create a regx that matches the value of the tag until the first
+    // closing bracket or the first ellipsis.
+    val metaFieldRegexMap = result.map { case (k, _) =>
+      (k, s"($k): \\[(.*?)(\\.\\.\\.|\\])".r)
+    }
+    metaFieldRegexMap.foreach { case (k, v) =>
+      v.findFirstMatchIn(value).foreach { m =>
+        // if group(3) is an ellipsis then we should append it to the result.
+        val ellipse = if (m.group(3).equals("...")) "..." else ""
+        result += (k -> s"${m.group(2) + ellipse}")
+      }
+    }
+    result
+  }
+
   def parseReadNode(node: SparkPlanGraphNode): ReadMetaData = {
     if (HiveParseHelper.isHiveTableScanNode(node)) {
       HiveParseHelper.parseReadNode(node)
@@ -97,22 +134,10 @@ object ReadParser extends Logging {
         val JDBCPattern = raw".*JDBCRelation\((.*)\).*".r
         node.name match {
           case JDBCPattern(tableName) => tableName
-          case _ => "unknown"
+          case _ => UNKNOWN_METAFIELD
         }
       } else {
-        "unknown"
-      }
-      val pushedFilterTag = "PushedFilters: "
-      val pushedFilters = if (node.desc.contains(pushedFilterTag)) {
-        val stringWithBrackets = getFieldWithoutTag(node.desc, pushedFilterTag)
-        // Remove prepended [ from the string if exists
-        if (stringWithBrackets.contains("[")) {
-          stringWithBrackets.split("\\[", 2).last.replace("]", "")
-        } else {
-          stringWithBrackets
-        }
-      } else {
-        "unknown"
+        UNKNOWN_METAFIELD
       }
       val formatTag = "Format: "
       val fileFormat = if (node.desc.contains(formatTag)) {
@@ -125,9 +150,9 @@ object ReadParser extends Logging {
       } else if (node.name.contains("JDBCRelation")) {
         "JDBC"
       } else {
-        "unknown"
+        UNKNOWN_METAFIELD
       }
-      ReadMetaData(schema, location, pushedFilters, fileFormat)
+      ReadMetaData(schema, location, fileFormat, tags = extractReadTags(node.desc))
     }
 
   }

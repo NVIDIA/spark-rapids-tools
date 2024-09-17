@@ -358,10 +358,12 @@ abstract class AppBase(
         results += DataSourceCase(
           sqlPlanInfoGraph.sqlID,
           scanNode.head.id,
-          meta.getOrElse("Format", "unknown"),
-          meta.getOrElse("Location", "unknown"),
-          meta.getOrElse("PushedFilters", "unknown"),
-          readSchema
+          meta.getOrElse("Format", ReadParser.UNKNOWN_METAFIELD),
+          meta.getOrElse("Location", ReadParser.UNKNOWN_METAFIELD),
+          meta.getOrElse("PushedFilters", ReadParser.UNKNOWN_METAFIELD),
+          readSchema,
+          meta.getOrElse("DataFilters", ReadParser.UNKNOWN_METAFIELD),
+          meta.getOrElse("PartitionFilters", ReadParser.UNKNOWN_METAFIELD)
         )
       }
     }
@@ -378,8 +380,10 @@ abstract class AppBase(
           hiveScanNode.id,
           scanHiveMeta.format,
           scanHiveMeta.location,
-          scanHiveMeta.filters,
-          scanHiveMeta.schema
+          scanHiveMeta.pushedFilters,
+          scanHiveMeta.schema,
+          scanHiveMeta.dataFilters,
+          scanHiveMeta.partitionFilters
         )
       }
     }
@@ -398,8 +402,10 @@ abstract class AppBase(
         node.id,
         res.format,
         res.location,
-        res.filters,
-        res.schema)
+        res.pushedFilters,
+        res.schema,
+        res.dataFilters,
+        res.partitionFilters)
       dataSourceInfo += dsCase
       Some(dsCase)
     } else {
