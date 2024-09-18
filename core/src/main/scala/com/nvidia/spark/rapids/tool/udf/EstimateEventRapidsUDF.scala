@@ -124,7 +124,7 @@ object EstimateEventRapidsUDF extends Logging {
     in.close()
     proc.waitFor
 
-    val dir = new File(s"./$mlOutputPrefix")
+    val dir = new File(s"./$mlOutput")
     // 过滤出以"predict"开头的文件
     val predictFiles = dir.listFiles.find(_.getName.startsWith("prediction"))
     assert(predictFiles.nonEmpty, "can not find prediction file")
