@@ -112,7 +112,8 @@ object EstimateEventRapidsUDF extends Logging {
 
   private def execMLPredict(applicationId: String, outputDirectory: String): String = {
     var proc: Process = null
-    val mlOutput = s"${applicationId}_pre/ml_qualx_output"
+    val mlOutputPrefix = s"${applicationId}_pre"
+    val mlOutput = s"$mlOutputPrefix/ml_qualx_output"
     val command = "spark_rapids prediction --platform onprem " +
         s"--qual_output $outputDirectory" +
         "--output_folder " +
@@ -123,7 +124,7 @@ object EstimateEventRapidsUDF extends Logging {
     in.close()
     proc.waitFor
 
-    val dir = new File(".")
+    val dir = new File(s"./$mlOutputPrefix")
     // 过滤出以"predict"开头的文件
     val predictFiles = dir.listFiles.find(_.getName.startsWith("prediction"))
     assert(predictFiles.nonEmpty, "can not find prediction file")
