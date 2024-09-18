@@ -113,7 +113,7 @@ object EstimateEventRapidsUDF extends Logging {
   private def execMLPredict(applicationId: String, outputDirectory: String): String = {
     var proc: Process = null
     val mlOutputPrefix = s"${applicationId}_pre"
-    val mlOutput = s"$mlOutputPrefix/ml_qualx_output"
+    val mlOutput = s"ml_qualx_output/$mlOutputPrefix"
     val command = "spark_rapids prediction --platform onprem " +
         s"--qual_output $outputDirectory" +
         "--output_folder " +
@@ -137,6 +137,7 @@ object EstimateEventRapidsUDF extends Logging {
       for (line <- source.getLines()) {
         if (line.startsWith("Overall estimated speedup")) {
           predictScore = line.split("\\s+").last
+          logInfo(s"predict score for $applicationId is $predictScore")
         }
       }
     } finally {
