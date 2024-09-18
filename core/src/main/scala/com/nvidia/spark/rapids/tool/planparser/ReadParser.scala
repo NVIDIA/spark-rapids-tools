@@ -92,8 +92,12 @@ object ReadParser extends Logging {
   def extractReadTags(value: String): Map[String, String] = {
     // initialize the results to the default values
     var result = Map[String, String]() ++ DEFAULT_METAFIELD_MAP
-    // For each meta tag, create a regx that matches the value of the tag until the first
-    // closing bracket or the first ellipsis.
+    // For filter tags in metadata they are in the form of:
+    // - complete form:  "TagName: [foo(arg1, arg2, argn), bar(), field00, fieldn]".
+    // - truncated form ends by ellipsis that can start at any position:
+    //   "TagName: [foo(arg1, arg2, argn), bar(), field00, fieldn...".
+    // To parse the filter tags: for each meta tag, create a regx that matches the value of the tag
+    // until the first closing bracket or the first ellipsis.
     val metaFieldRegexMap = result.map { case (k, _) =>
       (k, s"($k): \\[(.*?)(\\.\\.\\.|\\])".r)
     }
@@ -107,12 +111,17 @@ object ReadParser extends Logging {
     result
   }
 
-  // Extracts the tag from SparkPlanInfo.metadata Map[String, String].
+  /**
+   * Retrieves the tag from SparkPlanInfo.metadata and removes the opening and closing brackets to
+   * ensure consistency with the V2 ReadParser.
+   * @param tag key (example: PushedFilters, DataFilters, and PartitionFilters)
+   * @param metadata SparkPlanInfo.metadata
+   * @return the value extracted from the metadata map or "unknown: if not found.
+   */
   def extractTagFromV1ReadMeta(tag: String, metadata: Map[String, String]): String = {
     tag match {
       case METAFIELD_TAG_DATA_FILTERS | METAFIELD_TAG_PUSHED_FILTERS |
            METAFIELD_TAG_PARTITION_FILTERS =>
-        // Strip off opening and closing brackets to be consistent with other ReadParser methods
         metadata.getOrElse(tag, UNKNOWN_METAFIELD).stripPrefix("[").stripSuffix("]")
       case _ => metadata.getOrElse(tag, UNKNOWN_METAFIELD)
     }
