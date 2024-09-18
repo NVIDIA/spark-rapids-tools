@@ -34,7 +34,6 @@ class ReadParserSuite extends BaseTestSuite {
         |field_10#966L,field_11#967L,field_12#968L,field_13#969L,field_14#970L,field_15#971L,
         |field_16#972L,field_17#973L,field_18#974L,field_19#975L,field_20#976L,field_21#977L,
         |field_22#978L,field_22#979L,... 36 more fields]""".stripMargin.replaceAll("\n", "")
-    // All metrafields exist and terminated by closing brackets
     val allTestScenarios = Seq(
       MetaFieldsTestCase(
         "All the 3 MetaFields are present -- terminated by closing bracket",
