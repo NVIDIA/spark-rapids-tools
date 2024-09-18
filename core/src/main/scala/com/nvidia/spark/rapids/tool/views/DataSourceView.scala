@@ -38,6 +38,8 @@ object IoMetrics {
   val SCAN_TIME_LABEL = "scan time"
   val DATA_SIZE_LABEL = "size of files read"
   val DECODE_TIME_LABEL = "GPU decode time"
+
+  val EMPTY_IO_METRICS: IoMetrics = IoMetrics(0, 0, 0, 0)
 }
 
 trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
@@ -105,15 +107,15 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
     app.dataSourceInfo.map { ds =>
       val sqlIdtoDs = dataSourceMetrics.filter(
         sqlAccum => sqlAccum.sqlID == ds.sqlID && sqlAccum.nodeID == ds.nodeId)
-      if (sqlIdtoDs.nonEmpty) {
-        val ioMetrics = getIoMetrics(sqlIdtoDs)
-        DataSourceProfileResult(index, ds.sqlID, ds.nodeId,
-          ds.format, ioMetrics.bufferTime, ioMetrics.scanTime, ioMetrics.dataSize,
-          ioMetrics.decodeTime, ds.location, ds.pushedFilters, ds.schema)
+      val ioMetrics = if (sqlIdtoDs.nonEmpty) {
+        getIoMetrics(sqlIdtoDs)
       } else {
-        DataSourceProfileResult(index, ds.sqlID, ds.nodeId,
-          ds.format, 0, 0, 0, 0, ds.location, ds.pushedFilters, ds.schema)
+        IoMetrics.EMPTY_IO_METRICS
       }
+      DataSourceProfileResult(index, ds.sqlID, ds.nodeId,
+        ds.format, ioMetrics.bufferTime, ioMetrics.scanTime, ioMetrics.dataSize,
+        ioMetrics.decodeTime, ds.location, ds.pushedFilters, ds.schema, ds.dataFilters,
+        ds.partitionFilters)
     }
   }
 
