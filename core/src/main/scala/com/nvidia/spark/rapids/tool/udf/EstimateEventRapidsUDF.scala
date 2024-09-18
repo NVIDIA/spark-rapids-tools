@@ -46,9 +46,7 @@ object EstimateEventRapidsUDF extends Logging {
       scoreFile: String = "onprem",
       enabledML: Boolean = false): (Int, Seq[QualificationSummaryInfo], String) = {
     val eventPath = eventDir + "/" + applicationId + "_1"
-    val outputDirectory = if (enabledML) {
-      s"tmp_$applicationId"
-    } else outputDir + "/" + applicationId
+    val outputDirectory = outputDir + "/" + applicationId
     val numOutputRows = 1000
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
     // timeout: 20min
@@ -107,8 +105,7 @@ object EstimateEventRapidsUDF extends Logging {
       (0, res, predictScore)
     } catch {
       case NonFatal(e) =>
-        logError(s"Error when analyze ${applicationId}, path is ${eventPath}.")
-        e.printStackTrace()
+        logError(s"Error when analyze ${applicationId}, path is ${eventPath}.", e)
         (1, Seq[QualificationSummaryInfo](), "")
     }
   }
