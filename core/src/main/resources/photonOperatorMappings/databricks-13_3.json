@@ -1,6 +1,6 @@
 {
   "//comments": [
-    "This file contains the mapping between Photon operators and Spark operators.",
+    "This file contains the mapping between Photon operators and Spark operators generated from Databricks Runtime 13.3",
     "Some entries have one-to-many mappings. For example, 'PhotonAgg' can map to either 'HashAggregate', 'SortAggregate', or 'ObjectHashAggregate'.",
     "Currently, only the first mapping in the list is used.",
     "This limitation exists because we cannot differentiate between these operators in the SparkPlan.",

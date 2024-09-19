@@ -51,7 +51,7 @@ object DatabricksParseHelper extends Logging {
   private val PHOTON_PATTERN: Regex = "Photon[a-zA-Z]*".r
   private val PHOTON_OPS_MAPPING_DIR = "photonOperatorMappings"
   // TODO: Create separate mapping file for different Photon/Databricks versions
-  private val DEFAULT_PHOTON_OPS_MAPPING_FILE = "default.json"
+  private val DEFAULT_PHOTON_OPS_MAPPING_FILE = "databricks-13_3.json"
   /**
    * Checks if the properties indicate that the application is a Photon app.
    * This ca be checked by looking for keywords in one of the keys defined in PHOTON_SPARK_PROPS
