@@ -31,8 +31,8 @@ repos:
     rev: v4.0.1
     hooks:
       - id: check-added-large-files
-        name: Check for file over 2.0MiB
-        args: ['--maxkb=2000', '--enforce-all']
+        name: Check for file over 4.0MiB
+        args: ['--maxkb=4000', '--enforce-all']
       - id: trailing-whitespace
         name: trim trailing white spaces preserving md files
         args: ['--markdown-linebreak-ext=md']

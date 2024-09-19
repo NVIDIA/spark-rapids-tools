@@ -21,8 +21,7 @@ import java.io.{File, PrintWriter}
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.BaseTestSuite
-import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.ToolTestUtils
 import com.nvidia.spark.rapids.tool.qualification._
 import org.scalatest.Matchers.{be, contain, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
@@ -32,65 +31,9 @@ import org.apache.spark.sql.execution.ui.SQLPlanMetric
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
-import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, ToolsPlanGraph, UTF8Source}
 
-class SQLPlanParserSuite extends BaseTestSuite {
-
-  private val profileLogDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
-  private val qualLogDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
-
-  private def assertSizeAndNotSupported(size: Int, execs: Seq[ExecInfo],
-      checkDurations: Boolean = true): Unit = {
-    for (t <- Seq(execs)) {
-      assert(t.size == size, t)
-      assert(t.forall(_.speedupFactor == 1), t)
-      assert(t.forall(_.isSupported == false), t)
-      assert(t.forall(_.children.isEmpty), t)
-      if (checkDurations) {
-        assert(t.forall(_.duration.isEmpty), t)
-      }
-    }
-  }
-
-  private def assertSizeAndSupported(size: Int, execs: Seq[ExecInfo],
-    expectedDur: Seq[Option[Long]] = Seq.empty, extraText: String = "",
-      checkDurations: Boolean = true): Unit = {
-    for (t <- Seq(execs)) {
-      assert(t.size == size, s"$extraText $t")
-      assert(t.forall(_.isSupported == true), s"$extraText $t")
-      assert(t.forall(_.children.isEmpty), s"$extraText $t")
-      if (expectedDur.nonEmpty) {
-        val durations = t.map(_.duration)
-        assert(durations.diff(expectedDur).isEmpty,
-          s"$extraText durations differ expected ${expectedDur.mkString(",")} " +
-            s"but got ${durations.mkString(",")}")
-      } else if (checkDurations) {
-        assert(t.forall(_.duration.isEmpty), s"$extraText $t")
-      }
-    }
-  }
-
-  private def createAppFromEventlog(eventLog: String): QualificationAppInfo = {
-    val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
-    val (_, allEventLogs) = EventLogPathProcessor.processAllPaths(
-      None, None, List(eventLog), hadoopConf)
-    val pluginTypeChecker = new PluginTypeChecker()
-    assert(allEventLogs.size == 1)
-    val appResult = QualificationAppInfo.createApp(allEventLogs.head, hadoopConf,
-      pluginTypeChecker, reportSqlLevel = false, mlOpsEnabled = false, penalizeTransitions = true)
-    appResult match {
-      case Right(app) => app
-      case Left(_) => throw new AssertionError("Cannot create application")
-    }
-  }
-
-  private def getAllExecsFromPlan(plans: Seq[PlanInfo]): Seq[ExecInfo] = {
-    val topExecInfo = plans.flatMap(_.execInfo)
-    topExecInfo.flatMap { e =>
-      e.children.getOrElse(Seq.empty) :+ e
-    }
-  }
+class SQLPlanParserSuite extends BasePlanParserSuite {
 
   test("Error parser does not cause entire app to fail") {
     // The purpose of this test is to make sure that the SQLParser won't trigger an exception that
