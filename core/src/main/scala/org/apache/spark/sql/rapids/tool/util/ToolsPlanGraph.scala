@@ -188,6 +188,58 @@ case class DBReflectionContainer() {
 }
 
 /**
+ * Extension of SparkPlanGraphNode to handle Photon nodes.
+ * Note:
+ * - photonName and photonDesc are the name and description of the Photon node
+ * - name and desc are the name and description of the equivalent Spark node
+ */
+class PhotonSparkPlanGraphNode(
+    id: Long,
+    val photonName: String,
+    val photonDesc: String,
+    sparkName: String,
+    sparkDesc: String,
+    metrics: collection.Seq[SQLPlanMetric])
+  extends SparkPlanGraphNode(id, sparkName, sparkDesc, metrics)
+
+object PhotonSparkPlanGraphNode {
+  def apply(id: Long, photonName: String, photonDesc: String,
+            metrics: collection.Seq[SQLPlanMetric]): PhotonSparkPlanGraphNode = {
+    val sparkName = DatabricksParseHelper.mapPhotonToSpark(photonName)
+    val sparkDesc = DatabricksParseHelper.mapPhotonToSpark(photonDesc)
+    new PhotonSparkPlanGraphNode(id, photonName, photonDesc, sparkName, sparkDesc, metrics)
+  }
+}
+
+/**
+ * Extension of SparkPlanGraphCluster to handle Photon nodes that are
+ * mapped to WholeStageCodegen.
+ * Note:
+ * - photonName and photonDesc are the name and description of the Photon node
+ * - name and desc are the name and description of the equivalent Spark node
+ */
+class PhotonSparkPlanGraphCluster(
+    id: Long,
+    val photonName: String,
+    val photonDesc: String,
+    sparkName: String,
+    sparkDesc: String,
+    nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
+    metrics: collection.Seq[SQLPlanMetric])
+  extends SparkPlanGraphCluster(id, sparkName, sparkDesc, nodes, metrics)
+
+object PhotonSparkPlanGraphCluster {
+  def apply(id: Long, photonName: String, photonDesc: String,
+      nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
+      metrics: collection.Seq[SQLPlanMetric]): PhotonSparkPlanGraphCluster = {
+    val sparkName = DatabricksParseHelper.mapPhotonToSpark(photonName)
+    val sparkDesc = DatabricksParseHelper.mapPhotonToSpark(photonDesc)
+    new PhotonSparkPlanGraphCluster(id, photonName, photonDesc, sparkName,
+      sparkDesc, nodes, metrics)
+  }
+}
+
+/**
  * This code is mostly copied from org.apache.spark.sql.execution.ui.SparkPlanGraph
  * with changes to handle GPU nodes. Without this special handle, the default SparkPlanGraph
  * would not be able to recognize reused/exchange nodes leading to duplicating nodes.
@@ -202,9 +254,13 @@ object ToolsPlanGraph {
 
   // By default call the Spark constructor. If this fails, we fall back to the DB constructor
   def constructGraphNode(id: Long, name: String, desc: String,
-      metrics: collection.Seq[SQLPlanMetric]): SparkPlanGraphNode = {
+      metrics: collection.Seq[SQLPlanMetric], isPhotonNode: Boolean = false): SparkPlanGraphNode = {
     try {
-      new SparkPlanGraphNode(id, name, desc, metrics)
+      if (isPhotonNode) {
+        PhotonSparkPlanGraphNode(id, name, desc, metrics)
+      } else {
+        new SparkPlanGraphNode(id, name, desc, metrics)
+      }
     } catch {
       case _: java.lang.NoSuchMethodError =>
         dbRuntimeReflection.constructNode(id, name, desc, metrics)
@@ -224,18 +280,24 @@ object ToolsPlanGraph {
     }
   }
 
-  private def constructCluster(id: Long,
+  def constructCluster(id: Long,
       name: String,
       desc: String,
       nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
-      metrics: collection.Seq[SQLPlanMetric]): SparkPlanGraphCluster = {
+      metrics: collection.Seq[SQLPlanMetric],
+      isPhotonNode: Boolean = false): SparkPlanGraphCluster = {
     try {
-      new SparkPlanGraphCluster(id, name, desc, nodes, metrics)
+      if (isPhotonNode) {
+        PhotonSparkPlanGraphCluster(id, name, desc, nodes, metrics)
+      } else {
+        new SparkPlanGraphCluster(id, name, desc, nodes, metrics)
+      }
     } catch {
       case _: java.lang.NoSuchMethodError =>
         dbRuntimeReflection.constructCluster(id, name, desc, nodes, metrics)
     }
   }
+
   private def constructEdge(fromId: Long, toId: Long): SparkPlanGraphEdge = {
     try {
       SparkPlanGraphEdge(fromId, toId)
@@ -267,22 +329,22 @@ object ToolsPlanGraph {
   private def processPlanInfo(nodeName: String): String = {
     if (nodeName.startsWith("Gpu")) {
       nodeName.replaceFirst("Gpu", "")
+    } else if (DatabricksParseHelper.isPhotonNode(nodeName)) {
+      DatabricksParseHelper.mapPhotonToSpark(nodeName)
     } else {
       nodeName
     }
   }
 
   private def buildSparkPlanGraphNode(
-      planInfoRaw: SparkPlanInfo,
+      planInfo: SparkPlanInfo,
       nodeIdGenerator: AtomicLong,
       nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
       edges: mutable.ArrayBuffer[SparkPlanGraphEdge],
       parent: SparkPlanGraphNode,
       subgraph: SparkPlanGraphCluster,
       exchanges: mutable.HashMap[SparkPlanInfo, SparkPlanGraphNode]): Unit = {
-    // Replace Photon node names with Spark node names
-    // TODO: Skip this if app.isPhoton is false
-    val planInfo = DatabricksParseHelper.processPhotonPlan(planInfoRaw).getOrElse(planInfoRaw)
+    val isPhotonNode = DatabricksParseHelper.isPhotonNode(planInfo.nodeName)
     processPlanInfo(planInfo.nodeName) match {
       case name if name.startsWith("WholeStageCodegen") =>
         val metrics = planInfo.metrics.map { metric =>
@@ -294,7 +356,8 @@ object ToolsPlanGraph {
           planInfo.nodeName,
           planInfo.simpleString,
           mutable.ArrayBuffer[SparkPlanGraphNode](),
-          metrics)
+          metrics,
+          isPhotonNode = isPhotonNode)
         nodes += cluster
 
         buildSparkPlanGraphNode(
@@ -335,7 +398,7 @@ object ToolsPlanGraph {
           constructSQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
         }
         val node = constructGraphNode(nodeIdGenerator.getAndIncrement(),
-          planInfo.nodeName, planInfo.simpleString, metrics)
+          planInfo.nodeName, planInfo.simpleString, metrics, isPhotonNode = isPhotonNode)
         if (subgraph == null) {
           nodes += node
         } else {

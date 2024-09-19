@@ -20,17 +20,29 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 
-case class BroadcastNestedLoopJoinExecParser(
+abstract class BroadcastNestedLoopJoinExecParserBase(
     node: SparkPlanGraphNode,
     checker: PluginTypeChecker,
     sqlID: Long) extends ExecParser {
 
-  val fullExecName = node.name + "Exec"
+  val fullExecName: String = node.name + "Exec"
+
+  protected def extractBuildAndJoinTypes(exprStr: String): (String, String) = {
+    // BuildRight, LeftOuter, ((CEIL(cast(id1#1490 as double)) <= cast(id2#1496 as bigint))
+    // AND (cast(id1#1490 as bigint) < CEIL(cast(id2#1496 as double))))
+    // Get joinType and buildSide by splitting the input string.
+    val nestedLoopParameters = exprStr.split(",", 3)
+    val buildSide = nestedLoopParameters(0).trim
+    val joinType = nestedLoopParameters(1).trim
+    (buildSide, joinType)
+  }
 
   override def parse: ExecInfo = {
     // BroadcastNestedLoopJoin doesn't have duration
     val exprString = node.desc.replaceFirst("BroadcastNestedLoopJoin ", "")
-    val (expressions, supportedJoinType) = SQLPlanParser.parseNestedLoopJoinExpressions(exprString)
+    val (buildSide, joinType) = extractBuildAndJoinTypes(exprString)
+    val (expressions, supportedJoinType) =
+      SQLPlanParser.parseNestedLoopJoinExpressions(exprString, buildSide, joinType)
     val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
     val duration = None
     val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
@@ -43,3 +55,9 @@ case class BroadcastNestedLoopJoinExecParser(
     ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None)
   }
 }
+
+case class BroadcastNestedLoopJoinExecParser(
+    node: SparkPlanGraphNode,
+    checker: PluginTypeChecker,
+    sqlID: Long)
+  extends BroadcastNestedLoopJoinExecParserBase(node, checker, sqlID)
