@@ -1,4 +1,6 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+#!/bin/bash
+
+# Copyright (c) 2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,12 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the spark_rapids_pytools package."""
+readonly E2E_TEST_HDFS_DIR="${E2E_TEST_TMP_DIR}/hadoop"
+export E2E_TEST_HDFS_DIR E2E_TEST_TMP_DIR
+export LC_ALL=C
 
-from spark_rapids_pytools.build import get_version, get_spark_dep_version
-
-VERSION = '24.08.3'
-# defines the default runtime build version for the user tools environment
-SPARK_DEP_VERSION = '350'
-__version__ = get_version(VERSION)
-__spark_dep_version__ = get_spark_dep_version()
+err() {
+    echo "ERROR: $1" >&2
+    exit 1
+}

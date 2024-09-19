@@ -42,6 +42,10 @@ ArrayFilter,S,`filter`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,N
 ArrayIntersect,S,`array_intersect`,None,project,array1,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA
 ArrayIntersect,S,`array_intersect`,None,project,array2,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA
 ArrayIntersect,S,`array_intersect`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA
+ArrayJoin,S,`array_join`,None,project,array,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA
+ArrayJoin,S,`array_join`,None,project,delimiter,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+ArrayJoin,S,`array_join`,None,project,nullReplacement,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+ArrayJoin,S,`array_join`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 ArrayMax,S,`array_max`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA
 ArrayMax,S,`array_max`,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,NS,NS,NS,NA,NS,NS,NA,NA
 ArrayMin,S,`array_min`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA
