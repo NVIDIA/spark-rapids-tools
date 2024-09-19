@@ -86,7 +86,7 @@ class ToolContext(YAMLPropertiesContainer):
     def get_deploy_mode(self) -> Any:
         return self.platform_opts.get('deployMode')
 
-    def is_fatwheel_mode(self) -> bool:
+    def is_fat_wheel_mode(self) -> bool:
         return self.get_ctxt('fatWheelModeEnabled')
 
     def set_ctxt(self, key: str, val: Any):
@@ -189,7 +189,7 @@ class ToolContext(YAMLPropertiesContainer):
         self.logger.info('Fetching the Rapids Jar URL')
         # get the version from the package, instead of the yaml file
         # jar_version = self.get_value('sparkRapids', 'version')
-        if self.is_fatwheel_mode():
+        if self.is_fat_wheel_mode():
             return self._get_tools_jar_in_fat_wheel_mode()
         mvn_base_url = self.get_value('sparkRapids', 'mvnUrl')
         jar_version = Utilities.get_latest_mvn_jar_from_metadata(mvn_base_url)
