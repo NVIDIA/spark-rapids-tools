@@ -322,7 +322,6 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       app: T,
       event: SparkListenerExecutorAdded): Unit = {
     logDebug("Processing event: " + event.getClass)
-    logWarning("executor added " + event.executorId + " at: " + event.time)
     val exec = app.getOrCreateExecutor(event.executorId, event.time)
     exec.host = event.executorInfo.executorHost
     exec.isActive = true
@@ -332,8 +331,6 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     exec.resourceProfileId = rpId
     // make sure addMaxExecutorsIfNeeded is called after added it
     app.updateMaxExecutorsIfNeeded()
-    logWarning("adding executor, name is: " + event.executorId + " app id: " + app.appId +
-      " host is " + event.executorInfo.executorHost)
     app.updateMaxNodesIfNeeded()
   }
 
@@ -345,8 +342,6 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       app: T,
       event: SparkListenerExecutorRemoved): Unit = {
     logDebug("Processing event: " + event.getClass)
-    logWarning("executor removed " + event.executorId + " at: " + event.time)
-
     val exec = app.getOrCreateExecutor(event.executorId, event.time)
     exec.isActive = false
     exec.removeTime = event.time

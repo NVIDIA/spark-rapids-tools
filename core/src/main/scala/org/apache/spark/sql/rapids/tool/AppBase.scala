@@ -219,8 +219,6 @@ abstract class AppBase(
   def updateMaxNodesIfNeeded(): Unit = {
     // make this a set to make it dedup nodes
     val numActiveNodes = executorIdToInfo.values.filter(_.isActive).map(_.host).toSet.size
-    logWarning("max nodes is: " + numActiveNodes + " app id: " + appId + " nodes: " +
-      executorIdToInfo.values.filter(_.isActive).map(_.host).toSet.mkString(","))
     if (numActiveNodes > maxNumNodesRunning) {
       maxNumNodesRunning = numActiveNodes
     }
