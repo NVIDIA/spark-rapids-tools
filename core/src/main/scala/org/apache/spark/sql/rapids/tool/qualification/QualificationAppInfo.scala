@@ -856,7 +856,7 @@ class QualificationAppInfo(
     // Since with dynamic allocation you could end up with more executors on a node then it
     // has slots, just always set numExecsPerNode to -1 when its enabled.
     val dynamicAllocEnabled = Platform.isDynamicAllocationEnabled(sparkProperties)
-    val numExecsPerNode = if (!dynamicAllocEnabled &&
+    val numExecsPerNode = if (!dynamicAllocEnabled && execsPerNodeList.size > 0 &&
       execsPerNodeList.forall(_ == execsPerNodeList.head)) {
       execsPerNodeList.head
     } else {
