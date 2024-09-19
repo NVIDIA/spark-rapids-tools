@@ -46,7 +46,6 @@ import org.apache.spark.sql.rapids.tool.profiling.{ApplicationInfo, SparkPlanInf
 object GenerateDot {
   val GPU_COLOR = "#76b900" // NVIDIA Green
   val CPU_COLOR = "#0071c5"
-  // TODO: Add color for Photon nodes
   val TRANSITION_COLOR = "red"
 
   def formatMetric(m: SQLMetricInfo, value: Long): String = {

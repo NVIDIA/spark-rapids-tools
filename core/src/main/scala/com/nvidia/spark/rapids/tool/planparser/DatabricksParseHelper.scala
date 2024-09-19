@@ -129,7 +129,9 @@ object DatabricksParseHelper extends Logging {
     // Implicitly define JSON formats for deserialization using DefaultFormats
     implicit val formats: Formats = DefaultFormats
     // Extract and deserialize the JValue object into a Map[String, String]
-    // TODO: Instead of only extracting the first value, we should consider extracting all values
+    // TODO: Currently, only the first mapping in the list is used.
+    //       This limitation exists because we cannot differentiate between
+    //       these operators in the SparkPlan.
     json.extract[Map[String, List[String]]].mapValues(_.head)
   }
 
