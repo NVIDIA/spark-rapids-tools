@@ -1592,12 +1592,12 @@ class QualificationSuite extends BaseTestSuite {
   val expectedClusterInfoMap: Seq[(String, Option[ExistingClusterInfo])] = Seq(
     "eventlog_2nodes_8cores" -> // 2 executor nodes with 8 cores.
       Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
-        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
-        driverHost = Some("10.10.10.100"))),
+        numExecsPerNode = 1, numExecutors = 2, numWorkerNodes = 2, executorHeapMemory = 0L,
+        dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_multiple_executors" -> // 3 nodes, each with 2 executors having 12 cores.
       Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
-        numExecsPerNode = 2, numWorkerNodes = 3, executorHeapMemory = 0L,
-        driverHost = Some("10.59.184.210"))),
+        numExecsPerNode = 2, numExecutors = 6, numWorkerNodes = 3, executorHeapMemory = 0L,
+        dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.59.184.210"))),
     // TODO: Currently we do not handle dynamic allocation while calculating number of nodes. For
     //  calculating nodes, we look at unique active hosts at the end of application. In this test
     //  case, the application used all 4 nodes initially (8 executors total), and then 7 executors were
@@ -1605,16 +1605,16 @@ class QualificationSuite extends BaseTestSuite {
     //  once we handle dynamic allocation.
     "eventlog_4nodes_8cores_dynamic_alloc" -> // 4 nodes, each with 2 executor having 8 cores, with dynamic allocation.
       Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
-        numExecsPerNode = 2, numWorkerNodes = 1, executorHeapMemory = 0L,
-        driverHost = Some("test-cpu-cluster-m"))),
+        numExecsPerNode = 2, numExecutors = 2, numWorkerNodes = 1, executorHeapMemory = 0L,
+        dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("test-cpu-cluster-m"))),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 nodes with varying cores: 8, 12, and 8, each with 1 executor.
       Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
-        numExecsPerNode = 1, numWorkerNodes = 3, executorHeapMemory = 0L,
-        driverHost = Some("10.10.10.100"))),
+        numExecsPerNode = 1, numExecutors = 3, numWorkerNodes = 3, executorHeapMemory = 0L,
+        dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_exec_removed" -> // 2 nodes, each with 1 executor having 12 cores, 1 executor removed.
       Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
-        numExecsPerNode = 1, numWorkerNodes = 2, executorHeapMemory = 0L,
-        driverHost = Some("10.10.10.100"))),
+        numExecsPerNode = 1, numExecutors = 2, numWorkerNodes = 2, executorHeapMemory = 0L,
+        dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_driver_only" -> None // Event log with driver only
   )
   // scalastyle:on line.size.limit
@@ -1632,8 +1632,11 @@ class QualificationSuite extends BaseTestSuite {
         ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AWS,
           coresPerExecutor = 8,
           numExecsPerNode = 1,
+          numExecutors = 2,
           numWorkerNodes = 2,
           executorHeapMemory = 0L,
+          dynamicAllocationEnabled = false,
+          "N/A", "N/A", "N/A",
           driverNodeType = Some("m6gd.2xlarge"),
           workerNodeType = Some("m6gd.2xlarge"),
           driverHost = Some("10.10.10.100"),
@@ -1643,8 +1646,11 @@ class QualificationSuite extends BaseTestSuite {
       ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AZURE,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
+        numExecutors = 2,
         numWorkerNodes = 2,
         executorHeapMemory = 0L,
+        dynamicAllocationEnabled = false,
+        "N/A", "N/A", "N/A",
         driverNodeType = Some("Standard_E8ds_v4"),
         workerNodeType = Some("Standard_E8ds_v4"),
         driverHost = Some("10.10.10.100"),
@@ -1654,23 +1660,32 @@ class QualificationSuite extends BaseTestSuite {
       ExistingClusterInfo(vendor = PlatformNames.DATAPROC,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
+        numExecutors = 2,
         numWorkerNodes = 2,
         executorHeapMemory = 0L,
+        dynamicAllocationEnabled = false,
+        "N/A", "N/A", "N/A",
         driverHost = Some("dataproc-test-m.c.internal")),
     PlatformNames.EMR ->
       ExistingClusterInfo(vendor = PlatformNames.EMR,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
+        numExecutors = 2,
         numWorkerNodes = 2,
         executorHeapMemory = 0L,
+        dynamicAllocationEnabled = false,
+        "N/A", "N/A", "N/A",
         driverHost = Some("10.10.10.100"),
         clusterId = Some("j-123AB678XY321")),
     PlatformNames.ONPREM ->
       ExistingClusterInfo(vendor = PlatformNames.ONPREM,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
+        numExecutors = 2,
         numWorkerNodes = 2,
         executorHeapMemory = 0L,
+        dynamicAllocationEnabled = false,
+        "N/A", "N/A", "N/A",
         driverHost = Some("10.10.10.100"))
       )
 

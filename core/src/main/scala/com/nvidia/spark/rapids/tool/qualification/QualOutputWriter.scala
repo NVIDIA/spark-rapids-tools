@@ -451,12 +451,23 @@ object QualOutputWriter {
   val STATUS_REPORT_APP_ID = "AppID"
   val STATUS_REPORT_DESC_STR = "Description"
   val VENDOR = "Vendor"
+  val RECOMMENDED_VENDOR = "Recommended Vendor"
   val DRIVER_HOST = "Driver Host"
   val CLUSTER_ID_STR = "Cluster Id" // Different from ClusterId used for Databricks Tags
   val CLUSTER_NAME = "Cluster Name"
   val RECOMMENDED_NUM_GPUS = "Recommended Num GPUs Per Node"
   val RECOMMENDED_GPU_DEVICE = "Recommended GPU Device"
   val NUM_EXECS_PER_NODE = "Num Executors Per Node"
+  val NUM_EXECS = "Total Num Executors"
+  val EXECUTOR_HEAP_MEMORY = "Executor Heap Memory"
+  val DYN_ALLOC_ENABLED = "Dynamic Allocation Enabled"
+  val DYN_ALLOC_MAX = "Dynamic Allocation Max Executors"
+  val DYN_ALLOC_MIN = "Dynamic Allocation Min Executors"
+  val DYN_ALLOC_INIT = "Dynamic Allocation Initial Executors"
+  val RECOMMENDED_DYN_ALLOC_ENABLED = "Recommended Dynamic Allocation Enabled"
+  val RECOMMENDED_DYN_ALLOC_MAX = "Recommended Dynamic Allocation Max Executors"
+  val RECOMMENDED_DYN_ALLOC_MIN = "Recommended Dynamic Allocation Min Executors"
+  val RECOMMENDED_DYN_ALLOC_INIT = "Recommended Dynamic Allocation Initial Executors"
   val RECOMMENDED_NUM_EXECS = "Recommended Num Executors"
   val NUM_WORKER_NODES = "Num Worker Nodes"
   val RECOMMENDED_NUM_WORKER_NODES = "Recommended Num Worker Nodes"
@@ -800,10 +811,13 @@ object QualOutputWriter {
 
   private def getClusterInfoHeaderStrings: mutable.LinkedHashMap[String, Int] = {
     val headersAndFields = Seq(
-      APP_ID_STR, APP_NAME_STR, VENDOR, DRIVER_HOST, CLUSTER_ID_STR, CLUSTER_NAME,
-      WORKER_NODE_TYPE, DRIVER_NODE_TYPE, NUM_WORKER_NODES, NUM_EXECS_PER_NODE, CORES_PER_EXEC,
-      RECOMMENDED_WORKER_NODE_TYPE, RECOMMENDED_NUM_EXECS, RECOMMENDED_NUM_WORKER_NODES,
-      RECOMMENDED_CORES_PER_EXEC, RECOMMENDED_GPU_DEVICE, RECOMMENDED_NUM_GPUS).map {
+      APP_ID_STR, APP_NAME_STR, STATUS_REPORT_PATH_STR, VENDOR, DRIVER_HOST, CLUSTER_ID_STR,
+      CLUSTER_NAME, WORKER_NODE_TYPE, DRIVER_NODE_TYPE, NUM_WORKER_NODES, NUM_EXECS_PER_NODE,
+      NUM_EXECS, EXECUTOR_HEAP_MEMORY, DYN_ALLOC_ENABLED, DYN_ALLOC_MAX, DYN_ALLOC_MIN,
+      DYN_ALLOC_INIT, CORES_PER_EXEC, RECOMMENDED_WORKER_NODE_TYPE, RECOMMENDED_NUM_EXECS,
+      RECOMMENDED_NUM_WORKER_NODES, RECOMMENDED_CORES_PER_EXEC, RECOMMENDED_GPU_DEVICE,
+      RECOMMENDED_NUM_GPUS, RECOMMENDED_VENDOR, RECOMMENDED_DYN_ALLOC_ENABLED,
+      RECOMMENDED_DYN_ALLOC_MAX, RECOMMENDED_DYN_ALLOC_MIN, RECOMMENDED_DYN_ALLOC_INIT).map {
       key => (key, key.length)
     }
     mutable.LinkedHashMap(headersAndFields: _*)
@@ -827,6 +841,7 @@ object QualOutputWriter {
     val data = ListBuffer(
       refactorCSVFuncWithOption(Some(sumInfo.clusterSummary.appId), APP_ID_STR),
       refactorCSVFuncWithOption(Some(sumInfo.clusterSummary.appName), APP_NAME_STR),
+      refactorCSVFuncWithOption(sumInfo.clusterSummary.eventLogPath, STATUS_REPORT_PATH_STR),
       refactorCSVFuncWithOption(clusterInfo.map(_.vendor), VENDOR),
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverHost), DRIVER_HOST),
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.clusterId), CLUSTER_ID_STR),
@@ -835,6 +850,13 @@ object QualOutputWriter {
       refactorCSVFuncWithOption(clusterInfo.flatMap(_.driverNodeType), DRIVER_NODE_TYPE),
       refactorCSVFuncWithOption(clusterInfo.map(_.numWorkerNodes.toString), NUM_WORKER_NODES),
       refactorCSVFuncWithOption(clusterInfo.map(_.numExecsPerNode.toString), NUM_EXECS_PER_NODE),
+      refactorCSVFuncWithOption(clusterInfo.map(_.numExecutors.toString), NUM_EXECS),
+      refactorCSVFuncWithOption(clusterInfo.map(_.dynamicAllocationEnabled.toString),
+        DYN_ALLOC_ENABLED),
+      refactorCSVFuncWithOption(clusterInfo.map(_.dynamicAllocationMaxExecutors), DYN_ALLOC_MAX),
+      refactorCSVFuncWithOption(clusterInfo.map(_.dynamicAllocationMinExecutors), DYN_ALLOC_MIN),
+      refactorCSVFuncWithOption(clusterInfo.map(_.dynamicAllocationInitialExecutors),
+        DYN_ALLOC_INIT),
       refactorCSVFuncWithOption(clusterInfo.map(_.coresPerExecutor.toString), CORES_PER_EXEC),
       refactorCSVFuncWithOption(recClusterInfo.flatMap(_.workerNodeType),
         RECOMMENDED_WORKER_NODE_TYPE),
@@ -845,8 +867,16 @@ object QualOutputWriter {
       refactorCSVFuncWithOption(recClusterInfo.map(_.coresPerExecutor.toString),
         RECOMMENDED_CORES_PER_EXEC),
       refactorCSVFuncWithOption(recClusterInfo.map(_.gpuDevice), RECOMMENDED_GPU_DEVICE),
-      refactorCSVFuncWithOption(recClusterInfo.map(_.numGpus.toString), RECOMMENDED_NUM_GPUS)
-
+      refactorCSVFuncWithOption(recClusterInfo.map(_.numGpus.toString), RECOMMENDED_NUM_GPUS),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.vendor), RECOMMENDED_VENDOR),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.dynamicAllocationEnabled.toString),
+        RECOMMENDED_DYN_ALLOC_ENABLED),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.dynamicAllocationMaxExecutors),
+        RECOMMENDED_DYN_ALLOC_MAX),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.dynamicAllocationMinExecutors),
+        RECOMMENDED_DYN_ALLOC_MIN),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.dynamicAllocationInitialExecutors),
+        RECOMMENDED_DYN_ALLOC_INIT)
     )
     constructOutputRow(data, delimiter, prettyPrint) :: Nil
   }
