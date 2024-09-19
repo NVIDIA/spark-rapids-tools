@@ -55,7 +55,7 @@ case class ExistingClusterInfo(
     vendor: String,
     coresPerExecutor: Int,
     numExecsPerNode: Int,
-    numExecutors: Int, // note that with dynamic allocation  this is high water mark
+    numExecutors: Int, // note that with dynamic allocation this is high water mark
     numWorkerNodes: Int,
     executorHeapMemory: Long,
     dynamicAllocationEnabled: Boolean,

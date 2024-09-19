@@ -458,7 +458,7 @@ object QualOutputWriter {
   val RECOMMENDED_NUM_GPUS = "Recommended Num GPUs Per Node"
   val RECOMMENDED_GPU_DEVICE = "Recommended GPU Device"
   val NUM_EXECS_PER_NODE = "Num Executors Per Node"
-  val NUM_EXECS = "Total Num Executors"
+  val NUM_EXECS = "Num Executors"
   val EXECUTOR_HEAP_MEMORY = "Executor Heap Memory"
   val DYN_ALLOC_ENABLED = "Dynamic Allocation Enabled"
   val DYN_ALLOC_MAX = "Dynamic Allocation Max Executors"
@@ -851,6 +851,8 @@ object QualOutputWriter {
       refactorCSVFuncWithOption(clusterInfo.map(_.numWorkerNodes.toString), NUM_WORKER_NODES),
       refactorCSVFuncWithOption(clusterInfo.map(_.numExecsPerNode.toString), NUM_EXECS_PER_NODE),
       refactorCSVFuncWithOption(clusterInfo.map(_.numExecutors.toString), NUM_EXECS),
+      refactorCSVFuncWithOption(clusterInfo.map(_.executorHeapMemory.toString),
+        EXECUTOR_HEAP_MEMORY),
       refactorCSVFuncWithOption(clusterInfo.map(_.dynamicAllocationEnabled.toString),
         DYN_ALLOC_ENABLED),
       refactorCSVFuncWithOption(clusterInfo.map(_.dynamicAllocationMaxExecutors), DYN_ALLOC_MAX),
