@@ -19,11 +19,15 @@ package com.nvidia.spark.rapids.tool.udf
 import java.io.{BufferedReader, File, InputStreamReader}
 import java.util
 
-import org.apache.hadoop.hive.ql.exec.UDF
+import org.apache.hadoop.hive.ql.exec.{Description, UDF}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
+@Description(name = "estimate_event_rapids_ml",
+  value = "_FUNC_(applicationId, event_path) ",
+  extended = "Example:\n  > SELECT estimate_event_rapids(app_1, hdfs://...)" +
+      " - Returns rapids-tool ml score.")
 class EstimateEventRapids2MapMLUDF extends UDF with Logging {
 
   private def runProc(command: String): Unit = {
