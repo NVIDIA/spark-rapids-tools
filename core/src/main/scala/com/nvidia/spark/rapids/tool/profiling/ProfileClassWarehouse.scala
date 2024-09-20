@@ -136,22 +136,25 @@ case class RapidsJarProfileResult(appIndex: Int, jar: String)  extends ProfileRe
 
 case class DataSourceProfileResult(appIndex: Int, sqlID: Long, nodeId: Long,
     format: String, buffer_time: Long, scan_time: Long, data_size: Long,
-    decode_time: Long, location: String, pushedFilters: String, schema: String)
+    decode_time: Long, location: String, pushedFilters: String, schema: String,
+    dataFilters: String, partitionFilters: String)
 extends ProfileResult {
   override val outputHeaders =
     Seq("appIndex", "sqlID", "nodeId", "format", "buffer_time", "scan_time", "data_size",
-      "decode_time", "location", "pushedFilters", "schema")
+      "decode_time", "location", "pushedFilters", "schema", "data_filters", "partition_filters")
 
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, sqlID.toString, nodeId.toString, format, buffer_time.toString,
       scan_time.toString, data_size.toString, decode_time.toString,
-      location, pushedFilters, schema)
+      location, pushedFilters, schema, dataFilters, partitionFilters)
   }
   override def convertToCSVSeq: Seq[String] = {
     Seq(appIndex.toString, sqlID.toString, nodeId.toString, StringUtils.reformatCSVString(format),
       buffer_time.toString, scan_time.toString, data_size.toString, decode_time.toString,
       StringUtils.reformatCSVString(location), StringUtils.reformatCSVString(pushedFilters),
-      StringUtils.reformatCSVString(schema))
+      StringUtils.reformatCSVString(schema),
+      StringUtils.reformatCSVString(dataFilters),
+      StringUtils.reformatCSVString(partitionFilters))
   }
 }
 
@@ -367,7 +370,9 @@ case class DataSourceCase(
     format: String,
     location: String,
     pushedFilters: String,
-    schema: String)
+    schema: String,
+    dataFilters: String,
+    partitionFilters: String)
 
 case class FailedTaskProfileResults(appIndex: Int, stageId: Int, stageAttemptId: Int,
     taskId: Long, taskAttemptId: Int, endReason: String) extends ProfileResult {

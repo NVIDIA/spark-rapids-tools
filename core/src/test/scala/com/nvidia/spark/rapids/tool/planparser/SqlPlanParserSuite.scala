@@ -1802,4 +1802,32 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       assertSizeAndSupported(2, hashAggExecs)
     }
   }
+
+  test("array_join is supported") {
+    TrampolineUtil.withTempDir { outputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "arrayjoin") { spark =>
+          import spark.implicits._
+          val df = Seq(
+            (List("a", "b", "c"), List("b", "c")),
+            (List("a", "a"), List("b", "c")),
+            (List("aa"), List("b", "c"))
+          ).toDF("x", "y")
+          df.write.parquet(s"$outputLoc/test_arrayjoin")
+          val df2 = spark.read.parquet(s"$outputLoc/test_arrayjoin")
+          val df3 = df2.withColumn("arr_join", array_join(col("x"), "."))
+          df3
+        }
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val pluginTypeChecker = new PluginTypeChecker()
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val projectExecs = allExecInfo.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projectExecs)
+      }
+    }
+  }
 }

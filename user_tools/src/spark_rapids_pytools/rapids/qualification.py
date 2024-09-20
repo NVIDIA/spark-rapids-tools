@@ -141,13 +141,6 @@ class Qualification(RapidsJarTool):
 
     def __process_filter_args(self, arg_val: str) -> None:
         selected_filter = QualFilterApp.fromstring(arg_val)
-        available_filters = [filter_enum.value for filter_enum in QualFilterApp]
-        self.logger.warning(
-            'Invalid argument filter_apps=%s.\n\t'
-            'Accepted options are: [%s].\n\t'
-            'Falling-back to default filter: %s',
-            arg_val, Utils.gen_joined_str(' | ', available_filters),
-            QualFilterApp.tostring(selected_filter))
         self.ctxt.set_ctxt('filterApps', selected_filter)
 
     def _process_estimation_model_args(self) -> None:
