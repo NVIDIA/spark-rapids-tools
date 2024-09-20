@@ -14,7 +14,6 @@
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
 
-import os
 import json
 import re
 from dataclasses import dataclass, field

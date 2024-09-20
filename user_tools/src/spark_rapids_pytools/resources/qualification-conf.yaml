@@ -236,6 +236,7 @@ local:
       sortingColumns:
         - 'Speedup Category Order'
         - 'Total Core Seconds'
+        - 'Unsupported Operators Stage Duration Percent'
       joinColumns:
         - 'App ID'
         - 'App Name'
