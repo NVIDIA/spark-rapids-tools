@@ -140,9 +140,9 @@ case class DataSourceProfileResult(appIndex: Int, sqlID: Long, version: Int, nod
     dataFilters: String, partitionFilters: String, fromFinalPlan: Boolean)
 extends ProfileResult {
   override val outputHeaders =
-    Seq("appIndex", "sqlID", "version", "nodeId", "format", "buffer_time", "scan_time", "data_size",
-      "decode_time", "location", "pushedFilters", "schema", "data_filters", "partition_filters",
-      "from_final_plan")
+    Seq("appIndex", "sqlID", "sql_plan_version", "nodeId", "format", "buffer_time", "scan_time",
+      "data_size", "decode_time", "location", "pushedFilters", "schema", "data_filters",
+      "partition_filters", "from_final_plan")
 
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, sqlID.toString, version.toString, nodeId.toString, format,

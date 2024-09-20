@@ -40,7 +40,7 @@ class SQLPlanModelManager {
   }
 
   def addNewExecution(id: Long, planInfo: SparkPlanInfo, physicalDescription: String): Unit = {
-    val planModel = sqlPlans.getOrElseUpdate(id, new SQLPlanModel(id))
+    val planModel = sqlPlans.getOrElseUpdate(id, new SQLPlanModelWithDSCaching(id))
     planModel.addPlan(planInfo, physicalDescription)
   }
 
@@ -55,7 +55,7 @@ class SQLPlanModelManager {
   }
 
   def getPhysicalPlans: immutable.Map[Long, String] = {
-    immutable.SortedMap[Long, String]() ++ sqlPlans.mapValues(_.plan.physicalPlanDescription)
+    immutable.SortedMap[Long, String]() ++ sqlPlans.mapValues(_.physicalPlanDesc)
   }
 
   def remove(id: Long): Option[SQLPlanModel] = {
@@ -63,7 +63,7 @@ class SQLPlanModelManager {
   }
 
   def getDataSourcesFromOrigPlans: Iterable[DataSourceRecord] = {
-    sqlPlans.values.flatMap(_.getDataSourcesFromOriAQEPlans)
+    sqlPlans.values.flatMap(_.getDataSourcesFromOrigAQEPlans)
   }
 
   def getPlanInfos: immutable.Map[Long, SparkPlanInfo] = {

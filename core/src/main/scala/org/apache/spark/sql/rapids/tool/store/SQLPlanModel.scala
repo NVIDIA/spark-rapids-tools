@@ -21,32 +21,42 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.sql.execution.SparkPlanInfo
 
 class SQLPlanModel(val id: Long) {
-  val planVersions: ArrayBuffer[SQLPlanVersion] = new ArrayBuffer[SQLPlanVersion]()
+  private val planVersions: ArrayBuffer[SQLPlanVersion] = new ArrayBuffer[SQLPlanVersion]()
   // This is not defined as option() because it should not happen that a SQLPlanModel is defined
   // without adding a plan. This is to cache the value of planVersions.last
   var plan: SQLPlanVersion = _
+  var versionsCount: Int = 0
 
   def planInfo = plan.planInfo
   def physicalPlanDesc = plan.physicalPlanDescription
 
-  private def updateCurrentPlan(newPlan: SQLPlanVersion): Unit = {
+  protected def updatePlanField(newPlan: SQLPlanVersion): Unit = {
     planVersions += newPlan
-    if (planVersions.size > 1) {
-      plan.resetFinalFlag()
+    plan = newPlan
+  }
+
+  protected def resetPreviousPlan(): Unit = {
+    plan.resetFinalFlag()
+  }
+
+  private def updateVersions(newPlan: SQLPlanVersion): Unit = {
+    versionsCount += 1
+    if (versionsCount > 1) {
+      resetPreviousPlan()
     }
-    plan = planVersions.last
+    updatePlanField(newPlan)
   }
 
   def addPlan(planInfo: SparkPlanInfo, physicalPlanDescription: String): Unit = {
-    val planVersion = new SQLPlanVersion(id, planVersions.size, planInfo, physicalPlanDescription)
-    updateCurrentPlan(planVersion)
+    val planVersion = new SQLPlanVersion(id, versionsCount, planInfo, physicalPlanDescription)
+    updateVersions(planVersion)
   }
 
   def getDataSources: Iterable[DataSourceRecord] = {
     plan.getDataSources
   }
 
-  def getDataSourcesFromOriAQEPlans: Iterable[DataSourceRecord] = {
+  def getDataSourcesFromOrigAQEPlans: Iterable[DataSourceRecord] = {
     planVersions.dropRight(1).flatMap(_.getDataSources)
   }
 }
