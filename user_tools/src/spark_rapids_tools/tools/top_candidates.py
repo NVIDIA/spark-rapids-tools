@@ -86,7 +86,7 @@ class TopCandidates:
         Internal implementation to prepare the output table. This can be overridden by the child classes.
         """
         # Creat and append 'Speedup Category Order' column to output_df for sorting order
-        speedup_category_order = ['Not Recommended', 'Small', 'Medium', 'Large']
+        speedup_category_order = self.props.get('noneligibleCategory') + self.props.get('eligibleCategories')
         output_df['Speedup Category Order'] = \
             output_df['Estimated GPU Speedup Category'].map({name: i for i, name in enumerate(speedup_category_order)})
         # Sort columns and select output columns
