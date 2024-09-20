@@ -17,9 +17,8 @@
 package com.nvidia.spark.rapids.tool.udf
 
 import java.io.{BufferedReader, File, InputStreamReader}
-
-import com.nvidia.spark.rapids.tool.udf.EstimateEventRapidsUDF.logInfo
 import java.util
+
 import org.apache.hadoop.hive.ql.exec.UDF
 
 import org.apache.spark.internal.Logging
