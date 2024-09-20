@@ -296,8 +296,7 @@ class Qualification(RapidsJarTool):
                                       all_apps: pd.DataFrame,
                                       total_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
-                                      output_files_info: JSONPropertiesContainer,
-                                      qual_summary_pd: pd.DataFrame) -> QualificationSummary:
+                                      output_files_info: JSONPropertiesContainer) -> QualificationSummary:
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(total_apps=total_apps, tools_processed_apps=all_apps)
@@ -318,8 +317,7 @@ class Qualification(RapidsJarTool):
         heuristics_ob = AdditionalHeuristics(
             props=self.ctxt.get_value('local', 'output', 'additionalHeuristics'),
             tools_output_dir=self.ctxt.get_rapids_output_folder(),
-            output_file=output_files_info.get_value('intermediateOutput', 'files', 'heuristics', 'path'),
-            qual_summary=qual_summary_pd)
+            output_file=output_files_info.get_value('intermediateOutput', 'files', 'heuristics', 'path'))
         apps_pruned_df = heuristics_ob.apply_heuristics(apps_pruned_df)
         speedup_category_ob = SpeedupCategory(self.ctxt.get_value('local', 'output', 'speedupCategories'))
         # Group the applications and recalculate metrics
@@ -350,9 +348,6 @@ class Qualification(RapidsJarTool):
 
     def _process_output(self) -> None:
         output_files_info = self.__build_output_files_info()
-        # summary csv report from java tools which include total core seconds
-        qual_summary_file = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'fileName')
-        qual_summary_pd = pd.read_csv(os.path.join(self.ctxt.get_rapids_output_folder(), qual_summary_file))
 
         def create_stdout_table_pprinter(total_apps: pd.DataFrame,
                                          tools_processed_apps: pd.DataFrame) -> TopCandidates:
@@ -365,8 +360,7 @@ class Qualification(RapidsJarTool):
                 'filterEnabled': self.ctxt.get_ctxt('filterApps') == QualFilterApp.TOP_CANDIDATES,
                 'configRecommendationsPath': output_files_info.get_value('configRecommendations', 'path')
             })
-            return TopCandidates(props=view_dic, total_apps=total_apps, tools_processed_apps=tools_processed_apps,
-                                 qual_summary=qual_summary_pd)
+            return TopCandidates(props=view_dic, total_apps=total_apps, tools_processed_apps=tools_processed_apps)
 
         if not self._evaluate_rapids_jar_tool_output_exist():
             return
@@ -402,8 +396,7 @@ class Qualification(RapidsJarTool):
         apps_status_df = self._read_qualification_output_file('appsStatusReport')
 
         # 4. Operations related to output
-        report_gen = self.__build_global_report_summary(df, apps_status_df, unsupported_ops_df,
-                                                        output_files_info, qual_summary_pd)
+        report_gen = self.__build_global_report_summary(df, apps_status_df, unsupported_ops_df, output_files_info)
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
                                                     wrapper_output_files_info=output_files_info.props,
                                                     csp_report_provider=self._generate_platform_report_sections,
