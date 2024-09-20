@@ -46,6 +46,9 @@ object ReadParser extends Logging {
   val METAFIELD_TAG_DATA_FILTERS = "DataFilters"
   val METAFIELD_TAG_PUSHED_FILTERS = "PushedFilters"
   val METAFIELD_TAG_PARTITION_FILTERS = "PartitionFilters"
+  val METAFIELD_TAG_READ_SCHEMA = "ReadSchema"
+  val METAFIELD_TAG_FORMAT = "Format"
+  val METAFIELD_TAG_LOCATION = "Location"
 
   val UNKNOWN_METAFIELD: String = "unknown"
   val DEFAULT_METAFIELD_MAP: Map[String, String] = collection.immutable.Map(

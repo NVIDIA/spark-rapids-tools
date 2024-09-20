@@ -110,17 +110,14 @@ object GenerateDot {
       list += row(1) -> row(2)
     }
 
-    val sqlPlansMap = app.sqlPlans.map { case (sqlId, sparkPlanInfo) =>
-      sqlId -> ((sparkPlanInfo, app.physicalPlanDescription(sqlId)))
-    }
-    for ((sqlID, (planInfo, physicalPlan)) <- sqlPlansMap) {
+    for (sqlPlan <- app.sqlManager.sqlPlans.values) {
       val dotFileWriter = new ToolTextFileWriter(outputDirectory,
-        s"query-$sqlID.dot", "Dot file")
+        s"query-${sqlPlan.id}.dot", "Dot file")
       try {
-        val metrics = sqlIdToMaxMetric.getOrElse(sqlID, Seq.empty).toMap
+        val metrics = sqlIdToMaxMetric.getOrElse(sqlPlan.id, Seq.empty).toMap
         GenerateDot.writeDotGraph(
-          QueryPlanWithMetrics(SparkPlanInfoWithStage(planInfo, accumIdToStageId), metrics),
-          physicalPlan, stageIdToStageMetrics, dotFileWriter, sqlID, app.appId)
+          QueryPlanWithMetrics(SparkPlanInfoWithStage(sqlPlan.planInfo, accumIdToStageId), metrics),
+          sqlPlan.physicalPlanDesc, stageIdToStageMetrics, dotFileWriter, sqlPlan.id, app.appId)
       } finally {
         dotFileWriter.close()
       }

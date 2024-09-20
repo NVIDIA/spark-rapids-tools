@@ -134,27 +134,28 @@ case class RapidsJarProfileResult(appIndex: Int, jar: String)  extends ProfileRe
   }
 }
 
-case class DataSourceProfileResult(appIndex: Int, sqlID: Long, nodeId: Long,
+case class DataSourceProfileResult(appIndex: Int, sqlID: Long, version: Int, nodeId: Long,
     format: String, buffer_time: Long, scan_time: Long, data_size: Long,
     decode_time: Long, location: String, pushedFilters: String, schema: String,
-    dataFilters: String, partitionFilters: String)
+    dataFilters: String, partitionFilters: String, fromFinalPlan: Boolean)
 extends ProfileResult {
   override val outputHeaders =
-    Seq("appIndex", "sqlID", "nodeId", "format", "buffer_time", "scan_time", "data_size",
-      "decode_time", "location", "pushedFilters", "schema", "data_filters", "partition_filters")
+    Seq("appIndex", "sqlID", "version", "nodeId", "format", "buffer_time", "scan_time", "data_size",
+      "decode_time", "location", "pushedFilters", "schema", "data_filters", "partition_filters",
+      "from_final_plan")
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, nodeId.toString, format, buffer_time.toString,
-      scan_time.toString, data_size.toString, decode_time.toString,
-      location, pushedFilters, schema, dataFilters, partitionFilters)
+    Seq(appIndex.toString, sqlID.toString, version.toString, nodeId.toString, format,
+      buffer_time.toString, scan_time.toString, data_size.toString, decode_time.toString,
+      location, pushedFilters, schema, dataFilters, partitionFilters, fromFinalPlan.toString)
   }
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, nodeId.toString, StringUtils.reformatCSVString(format),
-      buffer_time.toString, scan_time.toString, data_size.toString, decode_time.toString,
-      StringUtils.reformatCSVString(location), StringUtils.reformatCSVString(pushedFilters),
-      StringUtils.reformatCSVString(schema),
-      StringUtils.reformatCSVString(dataFilters),
-      StringUtils.reformatCSVString(partitionFilters))
+    Seq(appIndex.toString, sqlID.toString, version.toString, nodeId.toString,
+      StringUtils.reformatCSVString(format), buffer_time.toString, scan_time.toString,
+      data_size.toString, decode_time.toString, StringUtils.reformatCSVString(location),
+      StringUtils.reformatCSVString(pushedFilters), StringUtils.reformatCSVString(schema),
+      StringUtils.reformatCSVString(dataFilters), StringUtils.reformatCSVString(partitionFilters),
+      fromFinalPlan.toString)
   }
 }
 
@@ -363,16 +364,6 @@ case class DriverAccumCase(
 
 case class UnsupportedSQLPlan(sqlID: Long, nodeID: Long, nodeName: String,
     nodeDesc: String, reason: String)
-
-case class DataSourceCase(
-    sqlID: Long,
-    nodeId: Long,
-    format: String,
-    location: String,
-    pushedFilters: String,
-    schema: String,
-    dataFilters: String,
-    partitionFilters: String)
 
 case class FailedTaskProfileResults(appIndex: Int, stageId: Int, stageAttemptId: Int,
     taskId: Long, taskAttemptId: Int, endReason: String) extends ProfileResult {

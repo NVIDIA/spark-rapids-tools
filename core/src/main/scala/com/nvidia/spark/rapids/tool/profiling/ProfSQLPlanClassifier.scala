@@ -53,8 +53,8 @@ class SQLPlanClassifier(app: ApplicationInfo)
 
   override def visitNode(sqlPlanCtxt: SQLPlanClassifierCtxt, node: ui.SparkPlanGraphNode): Unit = {
     // Check if the node is a delta metadata operation
-    val isDeltaLog = DeltaLakeHelper.isDeltaOpNode(
-      sqlPlanCtxt.sqlPIGEntry, app.physicalPlanDescription(sqlPlanCtxt.getSQLPIGEntry.sqlID), node)
+    val isDeltaLog = DeltaLakeHelper.isDeltaOpNode(sqlPlanCtxt.sqlPIGEntry,
+      app.sqlManager.getPhysicalPlanById(sqlPlanCtxt.getSQLPIGEntry.sqlID).get, node)
     if (isDeltaLog) {
       // if it is a Delta operation, add it to the list of Delta operations nodes
       sqlPlanCtxt.deltaOpsNode += node.id
