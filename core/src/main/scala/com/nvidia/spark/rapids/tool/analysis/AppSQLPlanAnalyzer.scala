@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.analysis
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
-import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, DataSourceCase, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
@@ -27,6 +27,7 @@ import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster,
 import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
+import org.apache.spark.sql.rapids.tool.store.DataSourceRecord
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 /**
@@ -99,7 +100,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   // as RDD or DS.
   protected case class SQLPlanVisitorContext(
       sqlPIGEntry: SqlPlanInfoGraphEntry,
-      sqlDataSources: ArrayBuffer[DataSourceCase] = ArrayBuffer[DataSourceCase](),
+      sqlDataSources: ArrayBuffer[DataSourceRecord] = ArrayBuffer[DataSourceRecord](),
       potentialProblems: LinkedHashSet[String] = LinkedHashSet[String](),
       var sqlIsDsOrRDD: Boolean = false)
 
@@ -253,7 +254,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         val nodeIds = sqlPlanNodeIdToStageIds.filter { case (_, v) =>
           v.contains(sModel.stageInfo.stageId)
         }.keys.toSeq
-        val nodeNames = app.sqlPlans.get(j.sqlID.get).map { planInfo =>
+        val nodeNames = app.sqlManager.applyToPlanInfo(j.sqlID.get) { planInfo =>
           val nodes = ToolsPlanGraph(planInfo).allNodes
           val validNodes = nodes.filter { n =>
             nodeIds.contains((j.sqlID.get, n.id))
