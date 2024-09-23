@@ -46,13 +46,13 @@ class SQLPlanModel(val id: Long) {
   var versionsCount: Int = 0
 
   /**
-   * A shortcut to the planInfo to abstract the insternal details of the SQLPlanVersion.
+   * A shortcut to the planInfo to abstract the internal details of the SQLPlanVersion.
    * @return SparkPlanInfo of the latest version of the plan.
    */
   def planInfo = plan.planInfo
 
   /**
-   * A shortcut to the physicalPlanDescription to abstract the insternal details of the
+   * A shortcut to the physicalPlanDescription to abstract the internal details of the
    * SQLPlanVersion.
    * @return physicalPlanDesc of the latest version of the plan.
    */

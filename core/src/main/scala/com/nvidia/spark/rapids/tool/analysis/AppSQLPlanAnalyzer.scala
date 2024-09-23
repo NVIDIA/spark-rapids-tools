@@ -254,7 +254,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         val nodeIds = sqlPlanNodeIdToStageIds.filter { case (_, v) =>
           v.contains(sModel.stageInfo.stageId)
         }.keys.toSeq
-        val nodeNames =  app.sqlManager.applyToPlanInfo(j.sqlID.get) { planInfo =>
+        val nodeNames = app.sqlManager.applyToPlanInfo(j.sqlID.get) { planInfo =>
           val nodes = ToolsPlanGraph(planInfo).allNodes
           val validNodes = nodes.filter { n =>
             nodeIds.contains((j.sqlID.get, n.id))
