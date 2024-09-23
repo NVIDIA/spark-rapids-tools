@@ -22,6 +22,7 @@ from logging import Logger
 import pandas as pd
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
+from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_tools.tools.qualx.util import find_paths, RegexPattern
 from spark_rapids_tools.utils import Utilities
@@ -96,8 +97,8 @@ class AdditionalHeuristics:
         """
         Apply heuristics based on total core seconds to determine if the app can be accelerated on GPU.
         """
-        # Load app total core seconds from qualidication summary dataframe
-        app_id = app_id_path.split('/')[-1]
+        # Load app total core seconds from qualification summary dataframe
+        app_id = FSUtil.get_resource_name(app_id_path)
         app_qual_output = self.all_apps[self.all_apps['App ID'] == app_id]  # type: ignore
         total_core_seconds = app_qual_output['Total Core Seconds'].astype(int).iloc[0]
         total_core_seconds_threshold = self.props.get_value('totalCoreSecBased', 'totalCoreSecThreshold')
