@@ -18,7 +18,13 @@ package org.apache.spark.sql.rapids.tool.store
 
 import scala.collection.mutable.ArrayBuffer
 
+/**
+ * An extension of SQLPlanModel to only cache the DataSourceRecords from previous plan.
+ * @param sqlId the executionID of the sqlPlan.
+ */
 class SQLPlanModelWithDSCaching(sqlId: Long) extends SQLPlanModel(sqlId) {
+  // List that captures the DSV1Reads of previous PlanInfo versions excluding the most recent one.
+  // This contains only the DataSourceRecords of previous plan excluding the
   private val cachedDataSources: ArrayBuffer[DataSourceRecord] = new ArrayBuffer[DataSourceRecord]()
 
   override def updatePlanField(newPlan: SQLPlanVersion): Unit = {
@@ -26,10 +32,18 @@ class SQLPlanModelWithDSCaching(sqlId: Long) extends SQLPlanModel(sqlId) {
   }
 
   override def resetPreviousPlan(): Unit = {
+    // reset the final flag to initialize the dataSources correctly
     plan.resetFinalFlag()
-    // cache the datasource records from previous plan if any
-    cachedDataSources ++= plan.getDataSources
+    // cache the datasourceV1 records from previous plan if any
+    // TODO: Consider iterating on the node to add DSV2 as well.
+    cachedDataSources ++= plan.getReadDSV1
   }
+
+  /**
+   * Get all the DataSources from the original plans (excludes the most recent version).
+   * Currently, it only gets the DSV1Reads.
+   * @return Iterable of DataSourceRecord
+   */
   override def getDataSourcesFromOrigAQEPlans: Iterable[DataSourceRecord] = {
     cachedDataSources
   }
