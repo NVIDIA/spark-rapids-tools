@@ -25,7 +25,7 @@ import org.apache.spark.sql.execution.SparkPlanInfo
  * A new instance of this class is created while handling SparkListenerSQLExecutionStart event.
  * Note that keeping track of all SQLPlanInfo versions could result in a large memory overhead.
  * See SQLPlanModelWithDSCaching for a more memory efficient version that only captures the
- * DSV1Reads of a planInfo.
+ * DataSourceRecords of a planInfo.
  * Therefore, it is recommended to:
  * 1- Use this class iff you need to keep track of all information inside all versions of a SQLPlan.
  * 2- Do some memory optimizations to reduce the overhead of storing all versions.
@@ -101,16 +101,15 @@ class SQLPlanModel(val id: Long) {
    * @return Iterable of DataSourceRecord
    */
   def getDataSources: Iterable[DataSourceRecord] = {
-    plan.getReadDSV1
+    plan.getAllReadDS
   }
 
   /**
    * Get all the DataSources from the original plans (excludes the most recent version).
-   * Currently, it only gets the DSV1Reads.
    * @return Iterable of DataSourceRecord
    */
   def getDataSourcesFromOrigAQEPlans: Iterable[DataSourceRecord] = {
     // TODO: Consider iterating on the node to add DSV2 as well.
-    planVersions.dropRight(1).flatMap(_.getReadDSV1)
+    planVersions.dropRight(1).flatMap(_.getAllReadDS)
   }
 }

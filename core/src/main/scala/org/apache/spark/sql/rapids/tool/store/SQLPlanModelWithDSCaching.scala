@@ -34,14 +34,12 @@ class SQLPlanModelWithDSCaching(sqlId: Long) extends SQLPlanModel(sqlId) {
   override def resetPreviousPlan(): Unit = {
     // reset the final flag to initialize the dataSources correctly
     plan.resetFinalFlag()
-    // cache the datasourceV1 records from previous plan if any
-    // TODO: Consider iterating on the node to add DSV2 as well.
-    cachedDataSources ++= plan.getReadDSV1
+    // cache the datasource records from previous plan if any
+    cachedDataSources ++= plan.getAllReadDS
   }
 
   /**
    * Get all the DataSources from the original plans (excludes the most recent version).
-   * Currently, it only gets the DSV1Reads.
    * @return Iterable of DataSourceRecord
    */
   override def getDataSourcesFromOrigAQEPlans: Iterable[DataSourceRecord] = {

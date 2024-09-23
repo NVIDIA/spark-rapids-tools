@@ -19,6 +19,7 @@ package org.apache.spark.sql.rapids.tool.store
 import com.nvidia.spark.rapids.tool.planparser.ReadParser
 
 import org.apache.spark.sql.execution.SparkPlanInfo
+import org.apache.spark.sql.execution.ui.SparkPlanGraph
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
@@ -63,16 +64,17 @@ class SQLPlanVersion(
 
   /**
    * This is used to extract the metadata of ReadV1 nodes in Spark Plan Info
+   * @param planGraph planGraph Optional SparkPlanGraph to use. If not provided, it will be created.
    * @return all the read datasources V1 recursively that are read by this plan including.
    */
-  def getReadDSV1: Iterable[DataSourceRecord] = {
-    val planGraph = ToolsPlanGraph(planInfo)
+  def getReadDSV1(planGraph: Option[SparkPlanGraph] = None): Iterable[DataSourceRecord] = {
+    val graph = planGraph.getOrElse(ToolsPlanGraph(planInfo))
     getPlansWithSchema.flatMap { plan =>
       val meta = plan.metadata
       // TODO: Improve the extraction of ReaSchema using RegEx (ReadSchema):\s(.*?)(\.\.\.|,\s|$)
       val readSchema =
         ReadParser.formatSchemaStr(meta.getOrElse(ReadParser.METAFIELD_TAG_READ_SCHEMA, ""))
-      val scanNodes = planGraph.allNodes.filter(ReadParser.isScanNode).filter(node => {
+      val scanNodes = graph.allNodes.filter(ReadParser.isScanNode).filter(node => {
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = AppBase.trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
@@ -93,6 +95,38 @@ class SQLPlanVersion(
         None
       }
     }
+  }
+
+  /**
+   * Get all the DataSources that are read by this plan (V2).
+   * @param planGraph Optional SparkPlanGraph to use. If not provided, it will be created.
+   * @return List of DataSourceRecord for all the V2 DataSources read by this plan.
+   */
+  def getReadDSV2(planGraph: Option[SparkPlanGraph] = None): Iterable[DataSourceRecord] = {
+    val graph = planGraph.getOrElse(ToolsPlanGraph(planInfo))
+    graph.allNodes.filter(ReadParser.isDataSourceV2Node).map { node =>
+      val res = ReadParser.parseReadNode(node)
+      DataSourceRecord(
+        sqlId,
+        version,
+        node.id,
+        res.format,
+        res.location,
+        res.pushedFilters,
+        res.schema,
+        res.dataFilters,
+        res.partitionFilters,
+        fromFinalPlan=isFinal)
+    }
+  }
+
+  /**
+   * Get all the DataSources that are read by this plan (V1 and V1).
+   * @return Iterable of DataSourceRecord
+   */
+  def getAllReadDS: Iterable[DataSourceRecord] = {
+    val planGraph = Option(ToolsPlanGraph(planInfo))
+    getReadDSV1(planGraph) ++ getReadDSV2(planGraph)
   }
 }
 
