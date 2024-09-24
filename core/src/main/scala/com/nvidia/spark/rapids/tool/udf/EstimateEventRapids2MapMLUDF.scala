@@ -30,7 +30,8 @@ import org.apache.spark.sql.rapids.tool.util.UTF8Source
       " - Returns rapids-tool ml score.")
 class EstimateEventRapids2MapMLUDF extends UDF with Logging {
 
-  private def runProc(command: String): Unit = {
+  private def runProc(applicationId: String, command: String): Unit = {
+    logInfo(s"Running rapids-tools for $applicationId: $command")
     val proc = Runtime.getRuntime.exec(command)
     val in = new BufferedReader(new InputStreamReader(proc.getInputStream))
     Iterator.continually(in.readLine()).takeWhile(_ != null).foreach(println)
@@ -67,14 +68,13 @@ class EstimateEventRapids2MapMLUDF extends UDF with Logging {
     val outputFolder = s"file://$outputPrefix/$applicationId"
     val command1 = s"spark_rapids qualification --platform onprem --eventlogs $eventPath " +
         s"--output_folder $outputFolder"
-    logInfo(s"app $applicationId: $command1")
-    runProc(command1)
+    runProc(applicationId, command1)
 
     val mlOutputFolder = s"$outputPrefix/${applicationId}_ml"
     val command2 = "spark_rapids prediction --platform onprem " +
         s"--qual_output ${outputFolder.substring(7)}" +
         s"--output_folder $mlOutputFolder"
-    runProc(command2)
+    runProc(applicationId, command2)
 
     val score = readMlOutput(applicationId, mlOutputFolder)
     val javaMap: util.HashMap[String, String] = new util.HashMap[String, String]()
