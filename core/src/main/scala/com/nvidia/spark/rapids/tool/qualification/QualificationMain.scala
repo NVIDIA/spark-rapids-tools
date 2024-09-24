@@ -68,7 +68,11 @@ object QualificationMain extends Logging {
     val recursiveSearchEnabled = !appArgs.noRecursion()
 
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf
-    val platform = try {
+    // Note we need the platform to get the correct files we use in the PluginTypeChecker.
+    // Here we create one dummy global one just to get those files as the platform should
+    // be the same for all applications but then later we create a per application one for
+    // properly tracking the cluster info and recommended cluster info.
+    val referencePlatform = try {
       val clusterPropsOpt = loadClusterProps(appArgs.workerInfo())
       PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
     } catch {
@@ -79,7 +83,7 @@ object QualificationMain extends Logging {
 
     val pluginTypeChecker = try {
       new PluginTypeChecker(
-        platform,
+        referencePlatform,
         appArgs.speedupFactorFile.toOption)
     } catch {
       case ie: IllegalStateException =>
@@ -109,14 +113,15 @@ object QualificationMain extends Logging {
     }
     // create the AutoTuner context object
     val tunerContext = if (appArgs.autoTuner()) {
-      TunerContext(platform, appArgs.workerInfo(), outputDirectory, Option(hadoopConf))
+      TunerContext(outputDirectory,
+        Option(hadoopConf))
     } else {
       None
     }
     val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf, timeout,
       nThreads, order, pluginTypeChecker, reportReadSchema, printStdout,
       enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled, penalizeTransitions,
-      tunerContext, appArgs.clusterReport())
+      tunerContext, appArgs.clusterReport(), appArgs.platform(), appArgs.workerInfo())
     val res = qual.qualifyApps(filteredLogs)
     (0, res)
   }

@@ -39,7 +39,8 @@ class QualificationAppInfo(
     reportSqlLevel: Boolean,
     val perSqlOnly: Boolean = false,
     mlOpsEnabled: Boolean = false,
-    penalizeTransitions: Boolean = true)
+    penalizeTransitions: Boolean = true,
+    platform: Platform)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
   var lastJobEndTime: Option[Long] = None
@@ -66,7 +67,7 @@ class QualificationAppInfo(
    * any additional properties based on platform.
    */
   override def getRetainedSystemProps: Set[String] =
-    super.getRetainedSystemProps ++ pluginTypeChecker.platform.getRetainedSystemProps
+    super.getRetainedSystemProps ++ platform.getRetainedSystemProps
 
   /**
    * Get the event listener the qualification tool uses to process Spark events.
@@ -631,7 +632,7 @@ class QualificationAppInfo(
         mlFuncReportInfo.mlWallClockDur, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
 
       val clusterSummary = ClusterSummary(info.appName, appId,
-        eventLogInfo.map(_.eventLog.toString), pluginTypeChecker.platform.clusterInfoFromEventLog,
+        eventLogInfo.map(_.eventLog.toString), platform.clusterInfoFromEventLog,
         None)
 
       QualificationSummaryInfo(info.appName, appId, problems,
@@ -869,7 +870,7 @@ class QualificationAppInfo(
           s"Using maximum value.")
       }
       // Create cluster information based on platform type
-      pluginTypeChecker.platform.configureClusterInfoFromEventLog(execCoreCounts.max,
+      platform.configureClusterInfoFromEventLog(execCoreCounts.max,
         numExecsPerNode, maxNumExecutorsRunning, maxNumNodesRunning,
         sparkProperties, systemProperties)
     } else {
@@ -1097,10 +1098,11 @@ object QualificationAppInfo extends Logging {
       pluginTypeChecker: PluginTypeChecker,
       reportSqlLevel: Boolean,
       mlOpsEnabled: Boolean,
-      penalizeTransitions: Boolean): Either[FailureApp, QualificationAppInfo] = {
+      penalizeTransitions: Boolean,
+      platform: Platform): Either[FailureApp, QualificationAppInfo] = {
     try {
       val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
-        reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
+        reportSqlLevel, false, mlOpsEnabled, penalizeTransitions, platform)
       if (!app.isAppMetaDefined) {
         throw IncorrectAppStatusException()
       }
