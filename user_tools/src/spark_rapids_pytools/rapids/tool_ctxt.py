@@ -135,7 +135,7 @@ class ToolContext(YAMLPropertiesContainer):
         self.logger.info('Dependencies are generated locally in local disk as: %s', dep_folder)
         self.logger.info('Local output folder is set as: %s', exec_root_dir)
 
-    def identify_fat_wheel_jar(self, resource_files: List[str]) -> None:
+    def _identify_fat_wheel_jar(self, resource_files: List[str]) -> None:
         """
         Identifies the tools JAR file from resource files in fat wheel mode and sets its name in the context.
         :param resource_files: List of resource files to search for the tools JAR file.
@@ -166,12 +166,12 @@ class ToolContext(YAMLPropertiesContainer):
                 if os.path.isdir(res_path):
                     # this is a directory, copy all the contents to the tmp
                     FSUtil.copy_resource(res_path, self.get_cache_folder())
-                    self.identify_fat_wheel_jar(FSUtil.get_all_files(res_path))
+                    self._identify_fat_wheel_jar(FSUtil.get_all_files(res_path))
                 else:
                     # this is an archived file
                     with tarfile.open(res_path, mode='r:*') as tar_file:
                         tar_file.extractall(self.get_cache_folder())
-                        self.identify_fat_wheel_jar(tar_file.getnames())
+                        self._identify_fat_wheel_jar(tar_file.getnames())
                         tar_file.close()
 
     def get_output_folder(self) -> str:
