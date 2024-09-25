@@ -229,7 +229,7 @@ local:
         - 'Qualified Cluster Recommendation'
         - 'Full Cluster Config Recommendations*'
         - 'GPU Config Recommendation Breakdown*'
-      noneligibleCategory:
+      ineligibleCategory:
         - 'Not Recommended'
       eligibleCategories:
         - 'Small'
