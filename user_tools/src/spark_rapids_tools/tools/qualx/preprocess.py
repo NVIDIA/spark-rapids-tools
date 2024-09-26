@@ -278,7 +278,7 @@ def load_profiles(
             }
         return app_meta_inner
 
-    plugins = []
+    plugins = {}
     all_raw_features = []
     # get list of csv files from each profile
     for ds_name, ds_meta in datasets.items():
@@ -287,7 +287,7 @@ def load_profiles(
         platform = ds_meta.get('platform', 'onprem')
         scale_factor_meta = ds_meta.get('scaleFactorFromSqlIDRank', None)
         if 'load_profiles_hook' in ds_meta:
-            plugins.append(ds_meta['load_profiles_hook'])
+            plugins[ds_name] = ds_meta['load_profiles_hook']
 
         if not app_meta:
             # if no 'app_meta' key provided, infer app_meta from directory structure of eventlogs
@@ -380,10 +380,17 @@ def load_profiles(
     )
 
     # run any plugin hooks on profile_df
-    for p in plugins:
-        plugin = load_plugin(p)
-        profile_df = plugin.load_profiles_hook(profile_df)
-
+    for ds_name, plugin_path in plugins.items():
+        plugin = load_plugin(plugin_path)
+        if plugin:
+            dataset_df = profile_df.loc[
+                (profile_df.appName == ds_name) | (profile_df.appName.str.startswith(f'{ds_name}:'))
+            ]
+            modified_dataset_df = plugin.load_profiles_hook(dataset_df)
+            if modified_dataset_df.index.equals(dataset_df.index):
+                profile_df.update(modified_dataset_df)
+            else:
+                raise ValueError('Plugin: load_profiles_hook for %s unexpectedly modified row indices.' % ds_name)
     return profile_df
 
 
