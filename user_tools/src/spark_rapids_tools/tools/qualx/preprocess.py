@@ -383,12 +383,14 @@ def load_profiles(
     for ds_name, plugin_path in plugins.items():
         plugin = load_plugin(plugin_path)
         if plugin:
+            df_schema = profile_df.dtypes
             dataset_df = profile_df.loc[
                 (profile_df.appName == ds_name) | (profile_df.appName.str.startswith(f'{ds_name}:'))
             ]
             modified_dataset_df = plugin.load_profiles_hook(dataset_df)
             if modified_dataset_df.index.equals(dataset_df.index):
                 profile_df.update(modified_dataset_df)
+                profile_df.astype(df_schema)
             else:
                 raise ValueError(f'Plugin: load_profiles_hook for {ds_name} unexpectedly modified row indices.')
     return profile_df

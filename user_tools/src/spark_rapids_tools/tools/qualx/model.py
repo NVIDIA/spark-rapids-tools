@@ -320,6 +320,9 @@ def extract_model_features(
         if 'split' not in cpu_aug_tbl.columns:
             cpu_aug_tbl['split'] = pd.Series(dtype='str')
 
+        # save schema, since df.update() defaults all dtypes to floats
+        df_schema = cpu_aug_tbl.dtypes
+
         # extract default split function, if present
         default_split_fn = split_functions.pop('default') if 'default' in split_functions else None
 
@@ -331,6 +334,7 @@ def extract_model_features(
             modified_df = split_fn(dataset_df)
             if modified_df.index.equals(dataset_df.index):
                 cpu_aug_tbl.update(modified_df)
+                cpu_aug_tbl.astype(df_schema)
             else:
                 raise ValueError(f'Plugin: split_function for {ds_name} unexpectedly modified row indices.')
             cpu_aug_tbl.update(dataset_df)
@@ -343,6 +347,7 @@ def extract_model_features(
             modified_default_df = default_split_fn(default_df)
             if modified_default_df.index.equals(default_df.index):
                 cpu_aug_tbl.update(default_df)
+                cpu_aug_tbl.astype(df_schema)
             else:
                 raise ValueError('Default split_function unexpectedly modified row indices.')
     return cpu_aug_tbl, feature_cols, label_col
