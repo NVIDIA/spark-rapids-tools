@@ -332,7 +332,7 @@ def extract_model_features(
             if modified_df.index.equals(dataset_df.index):
                 cpu_aug_tbl.update(modified_df)
             else:
-                raise ValueError('Plugin: split_function for %s unexpectedly modified row indices.' % ds_name)
+                raise ValueError(f'Plugin: split_function for {ds_name} unexpectedly modified row indices.')
             cpu_aug_tbl.update(dataset_df)
 
         # handle default split function

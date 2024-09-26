@@ -390,7 +390,7 @@ def load_profiles(
             if modified_dataset_df.index.equals(dataset_df.index):
                 profile_df.update(modified_dataset_df)
             else:
-                raise ValueError('Plugin: load_profiles_hook for %s unexpectedly modified row indices.' % ds_name)
+                raise ValueError(f'Plugin: load_profiles_hook for {ds_name} unexpectedly modified row indices.')
     return profile_df
 
 
