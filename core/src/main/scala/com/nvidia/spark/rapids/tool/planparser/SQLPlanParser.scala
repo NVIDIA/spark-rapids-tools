@@ -953,8 +953,8 @@ object SQLPlanParser extends Logging {
     }
   }
 
-  def parseNestedLoopJoinExpressions(exprStr: String, buildSide: String, joinType: String)
-  : (Array[String], Boolean) = {
+  def parseNestedLoopJoinExpressions(exprStr: String, buildSide: String,
+      joinType: String): (Array[String], Boolean) = {
     // BuildRight, LeftOuter, ((CEIL(cast(id1#1490 as double)) <= cast(id2#1496 as bigint))
     // AND (cast(id1#1490 as bigint) < CEIL(cast(id2#1496 as double))))
     // Get joinType and buildSide by splitting the input string.
