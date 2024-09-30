@@ -18,12 +18,12 @@ package com.nvidia.spark.rapids
 
 import org.apache.spark.scheduler.SparkListenerEvent
 import org.apache.spark.sql.rapids.tool.annotation.ToolsReflection
-import org.apache.spark.sql.rapids.tool.util.stubs.ToolsSparkListenerEvent
 
 
 /**
  * This is a copy from spark-rapids: https://github.com/NVIDIA/spark-rapids/blob/
  * branch-24.10/sql-plugin/src/main/scala/com/nvidia/spark/rapids/Plugin.scala#L416.
+ * https://stackoverflow.com/questions/43659148/strange-scala-error-when-using-scala-reflect
  *
  * TODO: set up a automated job to sync this with spark-rapids plugin.
  */
@@ -32,7 +32,7 @@ case class SparkRapidsBuildInfoEvent(
   sparkRapidsJniBuildInfo: Map[String, String],
   cudfBuildInfo: Map[String, String],
   sparkRapidsPrivateBuildInfo: Map[String, String]
-) extends SparkListenerEvent with ToolsSparkListenerEvent {
+) extends SparkListenerEvent {
   @ToolsReflection("BD-3.2.1", "Ignore")
   override val eventTime: Long = 0
   @ToolsReflection("BD-3.2.1", "Ignore")

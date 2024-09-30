@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.rapids.tool.util.stubs
+package org.apache.spark.scheduler
 
 import org.apache.spark.sql.rapids.tool.annotation.ToolsReflection
 
 /**
- * Base trait for events related to SparkRapids build info. This used as a stub to be compatible in
+ * Base trait for events related to SparkRapids build info. This used to add extra APIs that are
+ * not defined in the base Spark trait. This is a work around to be compatible in
  * runtime with custom Spark implementations that define abstract methods in the trait.
+ * see https://github.com/NVIDIA/spark-rapids-tools/issues/1360
  */
-trait ToolsSparkListenerEvent {
+trait ToolsListenerEventExtraAPIs {
   @ToolsReflection("BD-3.2.1",
     "Ignore the implementation: The definition is to needed to override abstract field the Trait.")
   val eventTime: Long = 0

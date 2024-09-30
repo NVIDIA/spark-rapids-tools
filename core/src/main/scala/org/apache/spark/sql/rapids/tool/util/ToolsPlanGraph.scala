@@ -23,22 +23,49 @@ import scala.collection.mutable
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphEdge, SparkPlanGraphNode, SQLPlanMetric}
 import org.apache.spark.sql.rapids.tool.store.AccumNameRef
-import org.apache.spark.sql.rapids.tool.util.stubs.GraphReflectionAPIHelper
+import org.apache.spark.sql.rapids.tool.util.stubs.{GraphReflectionAPI, GraphReflectionAPIHelper}
 
 /**
  * This code is mostly copied from org.apache.spark.sql.execution.ui.SparkPlanGraph
  * with changes to handle GPU nodes. Without this special handle, the default SparkPlanGraph
- * would not be able to recognize reused/exchange nodes leading to duplicating nodes.
+ * would not recognize reused/exchange nodes leading to duplicating nodes.
  *
  * Build a SparkPlanGraph from the root of a SparkPlan tree.
  */
 object ToolsPlanGraph {
-  // By default call the Spark constructor. If this fails, we fall back to the DB constructor
+  // Captures the API loaded at runtime if any.
+  var api: GraphReflectionAPI = _
+
+  // The actual code used to build the graph. If the API is not available, then fallback to the
+  // Spark default API.
+  private lazy val graphBuilder: SparkPlanInfo => SparkPlanGraph = {
+    GraphReflectionAPIHelper.api match {
+      case Some(_) =>
+        // set the api to the available one
+        api = GraphReflectionAPIHelper.api.get
+        (planInfo: SparkPlanInfo) => {
+          val nodeIdGenerator = new AtomicLong(0)
+          val nodes = mutable.ArrayBuffer[SparkPlanGraphNode]()
+          val edges = mutable.ArrayBuffer[SparkPlanGraphEdge]()
+          val exchanges = mutable.HashMap[SparkPlanInfo, SparkPlanGraphNode]()
+          buildSparkPlanGraphNode(planInfo, nodeIdGenerator, nodes, edges, null, null, exchanges)
+          new SparkPlanGraph(nodes, edges)
+        }
+      case _ =>
+        // Fallback to the default SparkPlanGraph
+        (planInfo: SparkPlanInfo) => {
+          SparkPlanGraph(planInfo)
+        }
+    }
+  }
+
+  // used for testing purpose
   def constructGraphNode(id: Long, name: String, desc: String,
       metrics: collection.Seq[SQLPlanMetric]): SparkPlanGraphNode = {
     GraphReflectionAPIHelper.api.get.constructNode(id, name, desc, metrics)
   }
 
+  // Normalize the accumName before creating it.
   private def constructSQLPlanMetric(name: String,
       accumulatorId: Long,
       metricType: String): SQLPlanMetric = {
@@ -47,37 +74,12 @@ object ToolsPlanGraph {
       metricType)
   }
 
-  private def constructCluster(id: Long,
-      name: String,
-      desc: String,
-      nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
-      metrics: collection.Seq[SQLPlanMetric]): SparkPlanGraphCluster = {
-    GraphReflectionAPIHelper.api.get.constructCluster(id, name, desc, nodes, metrics)
-  }
-
-  private def constructEdge(fromId: Long, toId: Long): SparkPlanGraphEdge = {
-    GraphReflectionAPIHelper.api.get.constructEdge(fromId, toId)
-  }
-
   /**
    * Build a SparkPlanGraph from the root of a SparkPlan tree.
    */
   def apply(planInfo: SparkPlanInfo): SparkPlanGraph = {
     try {
-      val nodeIdGenerator = new AtomicLong(0)
-      val nodes = mutable.ArrayBuffer[SparkPlanGraphNode]()
-      val edges = mutable.ArrayBuffer[SparkPlanGraphEdge]()
-      val exchanges = mutable.HashMap[SparkPlanInfo, SparkPlanGraphNode]()
-      GraphReflectionAPIHelper.api match {
-        case Some(_) =>
-          // If we have a runtime API, use it to build a graph.
-          buildSparkPlanGraphNode(planInfo, nodeIdGenerator, nodes, edges, null, null, exchanges)
-          new SparkPlanGraph(nodes, edges)
-        case None =>
-          // If the runtime API is not available, fall back to the default constructor defined in
-          // Spark Runtime.
-          SparkPlanGraph(planInfo)
-      }
+      graphBuilder(planInfo)
     } catch {
       // If the construction of the graph fails due to NoSuchMethod, then it is possible the
       // runtime is not compatible with the constructors and we fallback to the loaded runtime jars
@@ -108,7 +110,7 @@ object ToolsPlanGraph {
           constructSQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
         }
 
-        val cluster = constructCluster(
+        val cluster = api.constructCluster(
           nodeIdGenerator.getAndIncrement(),
           planInfo.nodeName,
           planInfo.simpleString,
@@ -125,7 +127,7 @@ object ToolsPlanGraph {
         if (exchanges.contains(planInfo.children.head)) {
           // Point to the re-used exchange
           val node = exchanges(planInfo.children.head)
-          edges += constructEdge(node.id, parent.id)
+          edges += api.constructEdge(node.id, parent.id)
         } else {
           buildSparkPlanGraphNode(
             planInfo.children.head, nodeIdGenerator, nodes, edges, parent, null, exchanges)
@@ -139,7 +141,7 @@ object ToolsPlanGraph {
       case "Subquery" | "SubqueryBroadcast" if exchanges.contains(planInfo) =>
         // Point to the re-used subquery
         val node = exchanges(planInfo)
-        edges += constructEdge(node.id, parent.id)
+        edges += api.constructEdge(node.id, parent.id)
       case "ReusedSubquery" =>
         // Re-used subquery might appear before the original subquery, so skip this node and let
         // the previous `case` make sure the re-used and the original point to the same node.
@@ -148,12 +150,12 @@ object ToolsPlanGraph {
       case "ReusedExchange" if exchanges.contains(planInfo.children.head) =>
         // Point to the re-used exchange
         val node = exchanges(planInfo.children.head)
-        edges += constructEdge(node.id, parent.id)
+        edges += api.constructEdge(node.id, parent.id)
       case name =>
         val metrics = planInfo.metrics.map { metric =>
           constructSQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
         }
-        val node = constructGraphNode(nodeIdGenerator.getAndIncrement(),
+        val node = api.constructNode(nodeIdGenerator.getAndIncrement(),
           planInfo.nodeName, planInfo.simpleString, metrics)
         if (subgraph == null) {
           nodes += node
@@ -165,7 +167,7 @@ object ToolsPlanGraph {
         }
 
         if (parent != null) {
-          edges += constructEdge(node.id, parent.id)
+          edges += api.constructEdge(node.id, parent.id)
         }
         planInfo.children.foreach(
           buildSparkPlanGraphNode(_, nodeIdGenerator, nodes, edges, node, subgraph, exchanges))

@@ -19,17 +19,22 @@ package org.apache.spark.scheduler
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 import org.apache.spark.annotation.DeveloperApi
-import org.apache.spark.sql.rapids.tool.annotation.ToolsReflection
 
 /**
  * This code is mostly copied from org.apache.spark.scheduler.SparkListenerEvent
  * to make it compatible at runtime with custom Spark implementation that defines abstract methods
  * in the trait.
+ *
+ * This class is packaged due to a bug in Scala 2.12 that links the method
+ * to the abstract trait, which might not exist in the classpath.
+ * See the related Scala issues:
+ *   https://github.com/scala/bug/issues/10477
+ *   https://github.com/scala/scala-dev/issues/219
+ *   https://github.com/scala/scala-dev/issues/268
  */
-@ToolsReflection("BD-3.2.1", "Tools jar needs to come first in the classpath")
 @DeveloperApi
 @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, include = JsonTypeInfo.As.PROPERTY, property = "Event")
-trait SparkListenerEvent {
+trait SparkListenerEvent extends ToolsListenerEventExtraAPIs {
   /* Whether output this event to the event log */
   protected[spark] def logEvent: Boolean = true
 }
