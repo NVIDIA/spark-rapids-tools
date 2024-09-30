@@ -250,7 +250,7 @@ def _predict(
             else 'raw'
         )
         logger.info('Predicting dataset (%s): %s', filter_str, dataset)
-        features, feature_cols, label_col = extract_model_features(input_df, [split_fn])
+        features, feature_cols, label_col = extract_model_features(input_df, {'default': split_fn})
         # note: dataset name is already stored in the 'appName' field
         try:
             results = predict_model(xgb_model, features, feature_cols, label_col)
@@ -462,13 +462,13 @@ def train(
             'Training data contained datasets: %s, expected: %s', profile_datasets, dataset_list
         )
 
-    split_functions = [split_train_val]
+    split_functions = {'default': split_train_val}
     for ds_name, ds_meta in datasets.items():
         if 'split_function' in ds_meta:
             plugin_path = ds_meta['split_function']
             logger.info('Using split function for %s dataset from plugin: %s', ds_name, plugin_path)
             plugin = load_plugin(plugin_path)
-            split_functions.append(plugin.split_function)
+            split_functions[ds_name] = plugin.split_function
 
     features, feature_cols, label_col = extract_model_features(profile_df, split_functions)
 
