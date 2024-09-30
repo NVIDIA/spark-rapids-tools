@@ -23,7 +23,6 @@ import org.apache.spark.sql.rapids.tool.annotation.ToolsReflection
 /**
  * This is a copy from spark-rapids: https://github.com/NVIDIA/spark-rapids/blob/
  * branch-24.10/sql-plugin/src/main/scala/com/nvidia/spark/rapids/Plugin.scala#L416.
- * https://stackoverflow.com/questions/43659148/strange-scala-error-when-using-scala-reflect
  *
  * TODO: set up a automated job to sync this with spark-rapids plugin.
  */
