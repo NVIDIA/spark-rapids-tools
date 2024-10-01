@@ -26,9 +26,9 @@ import org.apache.spark.sql.rapids.tool.annotation.ToolsReflection
  */
 trait ToolsListenerEventExtraAPIs {
   @ToolsReflection("BD-3.2.1",
-    "Ignore the implementation: The definition is to needed to override abstract field the Trait.")
+    "Ignore the implementation: Definition for an abstract field in the SparkListenerEvent.")
   val eventTime: Long = 0
   @ToolsReflection("BD-3.2.1",
-    "Ignore the implementation: The definition is to needed to override abstract field the Trait.")
+    "Ignore the implementation: Definition for an abstract field in the SparkListenerEvent.")
   val eventType: String = ""
 }
