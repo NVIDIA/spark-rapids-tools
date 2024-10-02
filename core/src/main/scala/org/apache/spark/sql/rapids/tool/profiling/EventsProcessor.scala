@@ -22,7 +22,6 @@ import com.nvidia.spark.rapids.tool.profiling._
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
-import org.apache.spark.sql.execution.ui.{SparkListenerSQLAdaptiveExecutionUpdate, SparkListenerSQLExecutionStart}
 import org.apache.spark.sql.rapids.tool.EventProcessorBase
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
@@ -88,26 +87,10 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
     logDebug(s"App's GPU Mode = ${app.gpuMode}")
   }
 
-  override def doSparkListenerSQLExecutionStart(
-      app: ApplicationInfo,
-      event: SparkListenerSQLExecutionStart): Unit = {
-    super.doSparkListenerSQLExecutionStart(app, event)
-    app.physicalPlanDescription += (event.executionId -> event.physicalPlanDescription)
-  }
-
   override def doSparkListenerTaskGettingResult(
       app: ApplicationInfo,
       event: SparkListenerTaskGettingResult): Unit = {
     logDebug("Processing event: " + event.getClass)
-  }
-
-  override def doSparkListenerSQLAdaptiveExecutionUpdate(
-      app: ApplicationInfo,
-      event: SparkListenerSQLAdaptiveExecutionUpdate): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    // AQE plan can override the ones got from SparkListenerSQLExecutionStart
-    app.physicalPlanDescription += (event.executionId -> event.physicalPlanDescription)
-    super.doSparkListenerSQLAdaptiveExecutionUpdate(app, event)
   }
 
   // To process all other unknown events

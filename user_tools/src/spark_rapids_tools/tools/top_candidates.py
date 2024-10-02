@@ -85,12 +85,15 @@ class TopCandidates:
         """
         Internal implementation to prepare the output table. This can be overridden by the child classes.
         """
+        # Create and append 'Speedup Category Order' column to output_df for sorting order
+        speedup_category_order = self.props.get('ineligibleCategory') + self.props.get('eligibleCategories')
+        output_df['Speedup Category Order'] = \
+            output_df['Estimated GPU Speedup Category'].map({name: i for i, name in enumerate(speedup_category_order)})
+        # Sort columns and select output columns
         output_columns = self.props.get('outputColumns')
         sorting_columns = self.props.get('sortingColumns')
         valid_output_columns = list(output_df.columns.intersection(output_columns))
-        valid_sorting_columns = list(output_df.columns.intersection(sorting_columns))
-        # Sort columns and select output columns
-        res_df = output_df.sort_values(by=valid_sorting_columns, ascending=False)[valid_output_columns]
+        res_df = output_df.sort_values(by=sorting_columns, ascending=False)[valid_output_columns]
         # this is a bit weird since hardcoding, but we don't want this to have ** for csv output
         if 'Estimated GPU Speedup Category' in res_df:
             res_df.rename(columns={'Estimated GPU Speedup Category': 'Estimated GPU Speedup Category**'},

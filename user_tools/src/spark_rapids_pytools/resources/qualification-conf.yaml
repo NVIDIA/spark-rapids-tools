@@ -32,6 +32,7 @@ toolOutput:
         - SQL Stage Durations Sum
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
+        - Total Core Seconds
       mapColumns:
       groupColumns:
          enabled: false
@@ -61,6 +62,7 @@ toolOutput:
 sparkRapids:
   mvnUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
   repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
+  toolsJarRegex: 'rapids-4-spark-tools_2.12-.*.jar'
   mainClass: 'com.nvidia.spark.rapids.tool.qualification.QualificationMain'
   outputDocURL: 'https://docs.nvidia.com/spark-rapids/user-guide/latest/qualification/quickstart.html#qualification-output'
   enableAutoTuner: true
@@ -226,12 +228,15 @@ local:
         - 'Qualified Cluster Recommendation'
         - 'Full Cluster Config Recommendations*'
         - 'GPU Config Recommendation Breakdown*'
+      ineligibleCategory:
+        - 'Not Recommended'
       eligibleCategories:
         - 'Small'
         - 'Medium'
         - 'Large'
       sortingColumns:
-        - 'Estimated GPU Speedup'
+        - 'Speedup Category Order'
+        - 'Total Core Seconds'
         - 'Unsupported Operators Stage Duration Percent'
       joinColumns:
         - 'App ID'
@@ -273,6 +278,9 @@ local:
         - 'App ID'
         - 'Skip by Heuristics'
         - 'Reason'
+      totalCoreSecBased:
+        # This is total core seconds of an 8-core machine running for 24 hours
+        totalCoreSecThreshold: 691200
       spillBased:
         stageAggMetrics:
           fileName: 'stage_level_aggregated_task_metrics.csv'

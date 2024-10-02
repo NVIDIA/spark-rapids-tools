@@ -16,13 +16,10 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import scala.collection.mutable.Map
-
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.SqlPlanInfoGraphEntry
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
-
 
 // Class defines the SQLPlan context by implementations that walk through the SQLPlanInfo
 class SQLPlanInfoContext(sqlPIGEntry: SqlPlanInfoGraphEntry) {
@@ -66,7 +63,7 @@ trait SparkSQLPlanInfoVisitor[R <: SQLPlanInfoContext] {
   }
 
   // Walks through all the SQLPlans in the given map
-  def walkPlans(plans: Map[Long, SparkPlanInfo]): Unit = {
+  def walkPlans(plans: collection.immutable.Map[Long, SparkPlanInfo]): Unit = {
     for ((sqlId, planInfo) <- plans) {
       val planCtxt = createPlanCtxt(sqlId, planInfo)
       walkPlan(planCtxt)

@@ -2,8 +2,18 @@
   "dependencies": {
     "deployMode": {
       "LOCAL": {
-        "//activeBuildVer": "Define this key in order to set the default buildVer for that platform",
+        "activeBuildVer": "342",
         "350": [
+          {
+            "name": "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.4.2/spark-3.4.2-bin-hadoop3.tgz",
+            "type": "archive",
+            "relativePath": "jars/*",
+            "sha512": "c9470a557c96fe899dd1c9ea8d0dda3310eaf0155b2bb972f70a6d97fee8cdaf838b425c30df3d5856b2c31fc2be933537c111db72d0427eabb76c6abd92c1f1",
+            "size": 388664780
+          }
+        ],
+        "342": [
           {
             "name": "Apache Spark",
             "uri": "https://archive.apache.org/dist/spark/spark-3.4.2/spark-3.4.2-bin-hadoop3.tgz",

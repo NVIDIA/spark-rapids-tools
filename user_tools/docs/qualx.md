@@ -189,16 +189,27 @@ any of the following functions:
 import pandas as pd
 
 def load_profiles_hook(profile_df: pd.DataFrame) -> pd.DataFrame:
-    """Custom post processing on the load_profiles dataframe."""
+    """Custom post processing on the load_profiles dataframe.
+
+    Notes:
+    - profile_df contains "raw" features for the target dataset, extracted from the Profiler tool's output CSV files.
+    - profile_df is a slice of the original dataframe, so the original indices must be preserved,
+      and any new columns will be ignored/dropped.
+    """
     # Insert custom code to modify the profile_df as needed.
-    # Note: profile_df contains "raw" features extracted from the Profiler tool's output CSV files.
     return profile_df
 
 
 def split_function(cpu_aug_tbl: pd.DataFrame) -> pd.DataFrame:
-    """Custom train/test/val split function."""
+    """Custom train/test/val split function.
+
+    Notes:
+    - cpu_aug_tbl contains the "model" features for the target dataset, which will be used in training.
+    - cpu_aug_tbl is a slice of the original dataframe, so the original indices must be preserved,
+      and any new columns will be ignored/dropped.
+    - if not supplied, the default split function will randomly split the data by ratios of 60/20/20.
+    """
     # Insert custom code to set cpu_aug_tbl['split'] to 'train', 'test', or 'val'.
-    # Note: the default split function randomly splits the data by ratios of 60/20/20.
     return cpu_aug_tbl
 ```
 
