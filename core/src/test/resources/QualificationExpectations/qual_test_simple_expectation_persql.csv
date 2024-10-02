@@ -1,18 +1,18 @@
-App Name,App ID,Root SQL ID,SQL ID,SQL Description,SQL DF Duration,GPU Opportunity,Estimated GPU Duration,Estimated GPU Time Saved,Photon App
-"Rapids Spark Profiling Tool Unit Tests","local-1622043423018","",1,"count at QualificationInfoUtils.scala:94",7143,6719,2078.49,5064.5,false
-"Rapids Spark Profiling Tool Unit Tests","local-1622043423018","",3,"count at QualificationInfoUtils.scala:94",2052,1660,800.56,1251.43,false
-"Rapids Spark Profiling Tool Unit Tests","local-1622043423018","",2,"count at QualificationInfoUtils.scala:94",1933,1551,763.96,1169.03,false
-"Spark shell","local-1651188809790","",1,"show at <console>:26",196,75,165.75,30.24,false
-"Spark shell","local-1651187225439","",0,"show at <console>:26",498,168,430.53,67.46,false
-"Spark shell","local-1651187225439","",1,"show at <console>:26",262,80,240.22,21.77,false
-"Rapids Spark Profiling Tool Unit Tests","local-1622043423018","",0,"json at QualificationInfoUtils.scala:76",1306,164,1267.14,38.85,false
-"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",0,"json at QualificationInfoUtils.scala:130",1209,0,1209.0,0.0,false
-"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",2,"json at QualificationInfoUtils.scala:136",321,0,321.0,0.0,false
-"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",6,"json at QualificationInfoUtils.scala:130",110,0,110.0,0.0,false
-"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",3,"json at QualificationInfoUtils.scala:130",108,0,108.0,0.0,false
-"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",4,"createOrReplaceTempView at QualificationInfoUtils.scala:133",22,22,22.0,0.0,false
-"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",7,"createOrReplaceTempView at QualificationInfoUtils.scala:133",4,4,4.0,0.0,false
-"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",1,"createOrReplaceTempView at QualificationInfoUtils.scala:133",2,2,2.0,0.0,false
-"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",5,"json at QualificationInfoUtils.scala:136",129,0,129.47,-0.48,false
-"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",8,"json at QualificationInfoUtils.scala:136",127,0,127.88,-0.89,false
-"Spark shell","local-1651188809790","",0,"show at <console>:26",715,5,720.56,-5.57,false
+App Name,App ID,Root SQL ID,SQL ID,SQL Description,SQL DF Duration,GPU Opportunity,Estimated GPU Duration,Estimated GPU Time Saved
+"Rapids Spark Profiling Tool Unit Tests","local-1622043423018","",1,"count at QualificationInfoUtils.scala:94",7143,6719,2078.49,5064.5
+"Rapids Spark Profiling Tool Unit Tests","local-1622043423018","",3,"count at QualificationInfoUtils.scala:94",2052,1660,800.56,1251.43
+"Rapids Spark Profiling Tool Unit Tests","local-1622043423018","",2,"count at QualificationInfoUtils.scala:94",1933,1551,763.96,1169.03
+"Spark shell","local-1651188809790","",1,"show at <console>:26",196,75,165.75,30.24
+"Spark shell","local-1651187225439","",0,"show at <console>:26",498,168,430.53,67.46
+"Spark shell","local-1651187225439","",1,"show at <console>:26",262,80,240.22,21.77
+"Rapids Spark Profiling Tool Unit Tests","local-1622043423018","",0,"json at QualificationInfoUtils.scala:76",1306,164,1267.14,38.85
+"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",0,"json at QualificationInfoUtils.scala:130",1209,0,1209.0,0.0
+"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",2,"json at QualificationInfoUtils.scala:136",321,0,321.0,0.0
+"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",6,"json at QualificationInfoUtils.scala:130",110,0,110.0,0.0
+"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",3,"json at QualificationInfoUtils.scala:130",108,0,108.0,0.0
+"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",4,"createOrReplaceTempView at QualificationInfoUtils.scala:133",22,22,22.0,0.0
+"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",7,"createOrReplaceTempView at QualificationInfoUtils.scala:133",4,4,4.0,0.0
+"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",1,"createOrReplaceTempView at QualificationInfoUtils.scala:133",2,2,2.0,0.0
+"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",5,"json at QualificationInfoUtils.scala:136",129,0,129.47,-0.48
+"Rapids Spark Profiling Tool Unit Tests","local-1623281204390","",8,"json at QualificationInfoUtils.scala:136",127,0,127.88,-0.89
+"Spark shell","local-1651188809790","",0,"show at <console>:26",715,5,720.56,-5.57

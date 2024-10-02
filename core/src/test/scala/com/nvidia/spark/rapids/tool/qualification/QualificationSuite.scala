@@ -64,8 +64,7 @@ case class TestQualificationSummary(
     unsupportedExecs: String,
     unsupportedExprs: String,
     estimatedFrequency: Long,
-    toalCoreSecs: Long,
-    isPhoton: Boolean)
+    toalCoreSecs: Long)
 
 class QualificationSuite extends BaseTestSuite {
 
@@ -97,8 +96,7 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.UNSUPPORTED_EXECS, StringType),
     (QualOutputWriter.UNSUPPORTED_EXPRS, StringType),
     (QualOutputWriter.ESTIMATED_FREQUENCY, LongType),
-    (QualOutputWriter.TOTAL_CORE_SEC, LongType),
-    (QualOutputWriter.IS_PHOTON, BooleanType))
+    (QualOutputWriter.TOTAL_CORE_SEC, LongType))
 
   private val csvPerSQLFields = Seq(
     (QualOutputWriter.APP_NAME_STR, StringType),
@@ -141,7 +139,7 @@ class QualificationSuite extends BaseTestSuite {
         sum.sqlStageDurationsSum, sum.nonSqlTaskDurationAndOverhead,
         sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration,
         sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs,
-        sum.estimatedFrequency, sum.totalCoreSec, sum.isPhoton)
+        sum.estimatedFrequency, sum.totalCoreSec)
     }
   }
 
