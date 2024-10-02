@@ -500,6 +500,7 @@ trait BaseJobStageAggTaskMetricsProfileResult extends ProfileResult {
       swRecordsWrittenSum.toString,
       swWriteTimeSum.toString)
   }
+
   override def convertToCSVSeq: Seq[String] = {
     Seq(appIndex.toString,
       id.toString,
@@ -606,6 +607,132 @@ case class StageAggTaskMetricsProfileResult(
     swRecordsWrittenSum: Long,
     swWriteTimeSum: Long) extends BaseJobStageAggTaskMetricsProfileResult {
   override def idHeader = "stageId"
+}
+
+case class StageDiagnosticTaskMetricsProfileResult(
+    appIndex: Int,
+    id: Long,
+    duration: Option[Long],
+    diskBytesSpilledSum: Long,
+    diskBytesSpilledMin: Long,
+    diskBytesSpilledMed: Long,
+    diskBytesSpilledMax: Long,
+    memoryBytesSpilledSum: Long,
+    memoryBytesSpilledMin: Long,
+    memoryBytesSpilledMed: Long,
+    memoryBytesSpilledMax: Long,
+    inputBytesReadSum: Long,
+    inputBytesReadMin: Long,
+    inputBytesReadMed: Long,
+    inputBytesReadMax: Long,
+    outputBytesWrittenSum: Long,
+    outputBytesWrittenMin: Long,
+    outputBytesWrittenMed: Long,
+    outputBytesWrittenMax: Long,
+    srTotalBytesReadSum: Long,
+    srTotalBytesReadMin: Long,
+    srTotalBytesReadMed: Long,
+    srTotalBytesReadMax: Long,
+    swBytesWrittenSum: Long,
+    swBytesWrittenMin: Long,
+    swBytesWrittenMed: Long,
+    swBytesWrittenMax: Long,
+    gpuSemaphoreWait: Long,
+    numTasks: Int) extends ProfileResult {
+
+  val durStr = duration match {
+    case Some(dur) => dur.toString
+    case None => "null"
+  }
+
+  override val outputHeaders = Seq("appIndex", "stageId", "Duration",
+    "diskBytesSpilledTotal", "diskBytesSpilledMin", "diskBytesSpilledMedian",
+    "diskBytesSpilledMax", "memoryBytesSpilledTotal", "memoryBytesSpilledMin",
+    "memoryBytesSpilledMedian", "memoryBytesSpilledMax", "inputBytesReadTotal",
+    "inputBytesReadMin", "inputBytesReadMedian", "inputBytesReadMax",
+    "outputBytesWrittenTotal", "outputBytesWrittenMin", "outputBytesWrittenMedian",
+    "outputBytesWrittenMax", "shuffleReadBytesTotal", "shuffleReadBytesMin",
+    "shuffleReadBytesMedian", "shuffleReadBytesMax", "shuffleWriteBytesTotal",
+    "shuffleWriteBytesMin", "shuffleWriteBytesMedian", "shuffleWriteBytesMax",
+    "gpuSemaphoreTime", "numTasks")
+
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      id.toString,
+      durStr,
+      diskBytesSpilledSum.toString,
+      diskBytesSpilledMin.toString,
+      diskBytesSpilledMed.toString,
+      diskBytesSpilledMax.toString,
+      memoryBytesSpilledSum.toString,
+      memoryBytesSpilledMin.toString,
+      memoryBytesSpilledMed.toString,
+      memoryBytesSpilledMax.toString,
+      inputBytesReadSum.toString,
+      inputBytesReadMin.toString,
+      inputBytesReadMed.toString,
+      inputBytesReadMax.toString,
+      outputBytesWrittenSum.toString,
+      outputBytesWrittenMin.toString,
+      outputBytesWrittenMed.toString,
+      outputBytesWrittenMax.toString,
+      srTotalBytesReadSum.toString,
+      srTotalBytesReadMin.toString,
+      srTotalBytesReadMed.toString,
+      srTotalBytesReadMax.toString,
+      swBytesWrittenSum.toString,
+      swBytesWrittenMin.toString,
+      swBytesWrittenMed.toString,
+      swBytesWrittenMax.toString,
+      gpuSemaphoreWait.toString,
+      numTasks.toString)
+  }
+
+  override def convertToCSVSeq: Seq[String] = convertToSeq
+}
+
+case class StageDiagnosticAggMetricsProfileResult(
+    appIndex: Int,
+    appId: String,
+    appName: String,
+    id: Long,
+    duration: Option[Long],
+    numTasks: Int,
+    memoryBytesSpilledSumMB: Long,
+    diskBytesSpilledSumMB: Long,
+    nodeNames: Seq[String]) extends ProfileResult {
+
+  val durStr = duration match {
+    case Some(dur) => dur.toString
+    case None => "null"
+  }
+
+  override val outputHeaders = Seq("appIndex", "appId", "appName",
+    "stageId", "Duration", "numTasks", "memoryBytesSpilledTotalMB",
+    "diskBytesSpilledTotalMB", "SQL Nodes(IDs)")
+
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      appId,
+      appName,
+      id.toString,
+      durStr,
+      numTasks.toString,
+      memoryBytesSpilledSumMB.toString,
+      diskBytesSpilledSumMB.toString,
+      nodeNames.mkString(","))
+  }
+
+  override def convertToCSVSeq: Seq[String] =
+    Seq(appIndex.toString,
+      appId,
+      appName,
+      id.toString,
+      durStr,
+      numTasks.toString,
+      memoryBytesSpilledSumMB.toString,
+      diskBytesSpilledSumMB.toString,
+      StringUtils.reformatCSVString(nodeNames.mkString(",")))
 }
 
 case class SQLMaxTaskInputSizes(

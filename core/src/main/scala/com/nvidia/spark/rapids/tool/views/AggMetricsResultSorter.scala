@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.profiling.{BaseJobStageAggTaskMetricsProfileResult, IOAnalysisProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{BaseJobStageAggTaskMetricsProfileResult, IOAnalysisProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult, StageDiagnosticTaskMetricsProfileResult, StageDiagnosticAggMetricsProfileResult}
 
 /**
  * Contains the sort logic for the aggregated Spark RawMetrics.
@@ -88,6 +88,34 @@ object AggMetricsResultSorter {
     } else {
       rows.sortBy { cols =>
         (cols.appIndex, cols.sqlId)
+      }
+    }
+  }
+
+  def sortStageDiagnosticsAggs(
+      rows: Seq[StageDiagnosticAggMetricsProfileResult]):
+  Seq[StageDiagnosticAggMetricsProfileResult] = {
+    if (rows.isEmpty) {
+      Seq.empty
+    } else {
+      rows.sortBy { cols =>
+        val sortDur = cols.duration.getOrElse(0L)
+        (cols.appIndex, -sortDur, -cols.memoryBytesSpilledSumMB, cols.appName)
+      }
+    }
+  }
+
+  def sortStageDiagnostics(
+      rows: Seq[StageDiagnosticTaskMetricsProfileResult]):
+  Seq[StageDiagnosticTaskMetricsProfileResult] = {
+    System.err.println("sortStageDiagnostics")
+    System.err.println(rows)
+    if (rows.isEmpty) {
+      Seq.empty
+    } else {
+      rows.sortBy { cols =>
+        val sortDur = cols.duration.getOrElse(0L)
+        (cols.appIndex, -sortDur, cols.id)
       }
     }
   }

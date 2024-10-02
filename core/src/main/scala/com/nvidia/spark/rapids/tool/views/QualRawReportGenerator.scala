@@ -36,7 +36,9 @@ object QualRawReportGenerator {
       AggMetricsResultSorter.sortSqlAgg(aggRawResult.sqlAggs),
       AggMetricsResultSorter.sortIO(aggRawResult.ioAggs),
       AggMetricsResultSorter.sortSqlDurationAgg(aggRawResult.sqlDurAggs),
-      aggRawResult.maxTaskInputSizes)
+      aggRawResult.maxTaskInputSizes,
+      AggMetricsResultSorter.sortStageDiagnosticsAggs(aggRawResult.stageDiagnosticsAggs),
+      AggMetricsResultSorter.sortStageDiagnostics(aggRawResult.stageDiagnostics))
     Map(
       STAGE_AGG_LABEL -> sortedRes.stageAggs,
       JOB_AGG_LABEL -> sortedRes.jobAggs,

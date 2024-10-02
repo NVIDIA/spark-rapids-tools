@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticTaskMetricsProfileResult, StageDiagnosticAggMetricsProfileResult}
 
 /**
  * The result of the aggregation of the raw metrics. It contains the aggregated metrics for an
@@ -32,6 +32,8 @@ import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTa
  * @param ioAggs            lists the SQLs along their IO metrics
  * @param sqlDurAggs        the aggregated duration and CPU time for SQLs
  * @param maxTaskInputSizes a sequence of SQLMaxTaskInputSizes that contains the maximum input size
+ * @param stageDiagnosticsAggs  the aggregated stage level diagnostic Spark metrics
+ * @param stageDiagnostics  the stage level Spark metrics for diagnostic purposes
  */
 case class AggRawMetricsResult(
     jobAggs: Seq[JobAggTaskMetricsProfileResult],
@@ -40,4 +42,6 @@ case class AggRawMetricsResult(
     sqlAggs: Seq[SQLTaskAggMetricsProfileResult],
     ioAggs: Seq[IOAnalysisProfileResult],
     sqlDurAggs: Seq[SQLDurationExecutorTimeProfileResult],
-    maxTaskInputSizes: Seq[SQLMaxTaskInputSizes])
+    maxTaskInputSizes: Seq[SQLMaxTaskInputSizes],
+    stageDiagnosticsAggs: Seq[StageDiagnosticAggMetricsProfileResult],
+    stageDiagnostics: Seq[StageDiagnosticTaskMetricsProfileResult])

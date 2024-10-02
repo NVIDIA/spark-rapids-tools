@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.ProfSparkMetricsAnalyzer
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticTaskMetricsProfileResult, StageDiagnosticAggMetricsProfileResult}
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
@@ -30,11 +30,15 @@ case class ProfilerAggregatedView(
     sqlAggs: Seq[SQLTaskAggMetricsProfileResult],
     ioAggs: Seq[IOAnalysisProfileResult],
     sqlDurAggs: Seq[SQLDurationExecutorTimeProfileResult],
-    maxTaskInputSizes: Seq[SQLMaxTaskInputSizes])
+    maxTaskInputSizes: Seq[SQLMaxTaskInputSizes],
+    stageDiagnosticsAggs: Seq[StageDiagnosticAggMetricsProfileResult],
+    stageDiagnostics: Seq[StageDiagnosticTaskMetricsProfileResult])
 
 object RawMetricProfilerView  {
   def getAggMetrics(apps: Seq[ApplicationInfo]): ProfilerAggregatedView = {
     val aggMetricsResults = ProfSparkMetricsAnalyzer.getAggregateRawMetrics(apps)
+    System.out.println("AggMetricsResultSorter.sortStageDiagnostics(aggMetricsResults.stageDiagnostics)")
+    System.out.println(AggMetricsResultSorter.sortStageDiagnostics(aggMetricsResults.stageDiagnostics))
     ProfilerAggregatedView(
       AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.jobAggs),
       AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.stageAggs),
@@ -42,6 +46,8 @@ object RawMetricProfilerView  {
       AggMetricsResultSorter.sortSqlAgg(aggMetricsResults.sqlAggs),
       AggMetricsResultSorter.sortIO(aggMetricsResults.ioAggs),
       AggMetricsResultSorter.sortSqlDurationAgg(aggMetricsResults.sqlDurAggs),
-      aggMetricsResults.maxTaskInputSizes)
+      aggMetricsResults.maxTaskInputSizes,
+      AggMetricsResultSorter.sortStageDiagnosticsAggs(aggMetricsResults.stageDiagnosticsAggs),
+      AggMetricsResultSorter.sortStageDiagnostics(aggMetricsResults.stageDiagnostics))
   }
 }

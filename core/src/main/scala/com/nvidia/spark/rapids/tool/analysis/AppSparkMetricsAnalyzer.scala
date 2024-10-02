@@ -18,9 +18,10 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticTaskMetricsProfileResult, StageDiagnosticAggMetricsProfileResult}
 
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
+import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.store.TaskModel
 
 /**
@@ -318,6 +319,66 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   }
 
   /**
+   * Aggregates the diagnostic SparkMetrics by stage.
+   * @param index the App-index (used by the profiler tool)
+   * @return sequence of StageDiagnosticAggTaskMetricsProfileResult
+   */
+  def aggregateDiagnosticSparkMetricsByStage(index: Int): Seq[StageDiagnosticTaskMetricsProfileResult] = {
+    // TODO: this has stage attempts. we should handle different attempts
+    val rows = app.stageManager.getAllStages.map { sm =>
+      System.out.println("In aggregateDiagnosticSparkMetricsByStage!\n")
+      // TODO: Should we only consider successful tasks?
+      val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
+        sm.stageInfo.attemptNumber())
+      val (diskSpilledMin, diskSpilledMed, diskSpilledMax, diskSpilledSum) =
+        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.diskBytesSpilled))
+      val (memSpilledMin, memSpilledMed, memSpilledMax, memSpilledSum) =
+        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.memoryBytesSpilled))
+      val (inputBytesMin, inputBytesMed, inputBytesMax, inputBytesSum) =
+        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.input_bytesRead))
+      val (ouputBytesMin, ouputBytesMed, ouputBytesMax, ouputBytesSum) =
+        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.output_bytesWritten))
+      val (srBytesMin, srBytesMed, srBytesMax, srBytesSum) =
+        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_totalBytesRead))
+      val (swBytesMin, swBytesMed, swBytesMax, swBytesSum) =
+        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sw_bytesWritten))
+      val x = StageDiagnosticTaskMetricsProfileResult(index,
+        sm.stageInfo.stageId,
+        sm.duration,
+        diskSpilledSum,
+        diskSpilledMin,
+        diskSpilledMed,
+        diskSpilledMax,
+        memSpilledSum,
+        memSpilledMin,
+        memSpilledMed,
+        memSpilledMax,
+        inputBytesSum,
+        inputBytesMin,
+        inputBytesMed,
+        inputBytesMax,
+        ouputBytesSum,
+        ouputBytesMin,
+        ouputBytesMed,
+        ouputBytesMax,
+        srBytesSum,
+        srBytesMin,
+        srBytesMed,
+        srBytesMax,
+        swBytesSum,
+        swBytesMin,
+        swBytesMed,
+        swBytesMax,
+        0L,  // TODO: add gpu semaphore metrics
+        tasksInStage.size
+      )
+      System.out.println(x)
+      x
+    }
+    rows.toSeq
+  }
+
+  /**
    * Aggregates the SparkMetrics by stage. This is an internal method to populate the cached metrics
    * to be used by other aggregators.
    * @param index AppIndex (used by the profiler tool)
@@ -367,6 +428,29 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
     }
   }
+
+  def aggregateStageAggDiagnosticsSparkMetrics(index: Int): Seq[StageDiagnosticAggMetricsProfileResult] = {
+    // TODO: this has stage attempts. we should handle different attempts
+    val rows = app.stageManager.getAllStages.map { sm =>
+      // TODO: Should we only consider successful tasks?
+      val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
+        sm.stageInfo.attemptNumber())
+
+      val nodeNames = app.asInstanceOf[ApplicationInfo].planMetricProcessor.stageToNodeNames.getOrElse(sm.stageInfo.stageId, Seq.empty[String])
+
+      StageDiagnosticAggMetricsProfileResult(index,
+        app.appId,
+        app.getAppName,
+        sm.stageInfo.stageId,
+        sm.duration,
+        tasksInStage.size,  // TODO: why is this numAttempts and not numTasks?
+        tasksInStage.map(_.memoryBytesSpilled).sum / (1024 * 1024),
+        tasksInStage.map(_.diskBytesSpilled).sum / (1024 * 1024),
+        nodeNames
+      )
+    }
+    rows.toSeq
+  }
 }
 
 
@@ -379,6 +463,23 @@ object AppSparkMetricsAnalyzer  {
     } else {
       (0L, 0L, 0L, 0.toDouble)
     }
+  }
+
+  /**
+   * Given an input iterable, returns its min, median, max and sum.
+   */
+  def getStatistics(arr: Iterable[Long]): (Long, Long, Long, Long) = {
+    if (arr.isEmpty) {
+      (0L, 0L, 0L, 0L)
+    }
+    val sortedArr = arr.toSeq.sorted
+    val len = sortedArr.size
+    val med = if (len % 2 == 0) {
+      (sortedArr(len / 2) + sortedArr(len / 2 - 1)) / 2
+    } else {
+      sortedArr(len / 2)
+    }
+    (sortedArr.head, med, sortedArr(len - 1), sortedArr.sum)
   }
 
   def maxWithEmptyHandling(arr: Iterable[Long]): Long = {
