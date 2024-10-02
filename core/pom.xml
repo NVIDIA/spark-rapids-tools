@@ -161,6 +161,21 @@
             </properties>
         </profile>
         <profile>
+            <id>bd321</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>321</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>321</buildver>
+                <spark.version>${bdspark321.version}</spark.version>
+                <delta.core.version>${delta20x.version}</delta.core.version>
+                <hadoop.version>3.3.6</hadoop.version>
+            </properties>
+        </profile>
+        <profile>
             <id>release322</id>
             <activation>
                 <property>
@@ -443,6 +458,7 @@
         <spark314.version>3.1.4-SNAPSHOT</spark314.version>
         <spark320.version>3.2.0</spark320.version>
         <spark321.version>3.2.1</spark321.version>
+        <bdspark321.version>3.2.1-bd1-SNAPSHOT</bdspark321.version>
         <spark322.version>3.2.2</spark322.version>
         <spark323.version>3.2.3</spark323.version>
         <spark324.version>3.2.4</spark324.version>
@@ -502,6 +518,7 @@
         <project.build.sourceEncoding>${platform-encoding}</project.build.sourceEncoding>
         <project.reporting.sourceEncoding>${platform-encoding}</project.reporting.sourceEncoding>
         <project.reporting.outputEncoding>${platform-encoding}</project.reporting.outputEncoding>
+        <hive.version>1.2.2-bd103</hive.version>
     </properties>
 
     <dependencies>
@@ -581,6 +598,40 @@
             <artifactId>spark-hive_${scala.binary.version}</artifactId>
             <version>${spark.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-common</artifactId>
+            <version>${hive.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-exec</artifactId>
+            <version>${hive.version}</version>
+            <scope>provided</scope>
+            <!--            <exclusions>-->
+            <!--                <exclusion>-->
+            <!--                    <groupId>org.codehaus.jackson</groupId>-->
+            <!--                    <artifactId>jackson-core-asl</artifactId>-->
+            <!--                </exclusion>-->
+            <!--                <exclusion>-->
+            <!--                    <groupId>org.codehaus.jackson</groupId>-->
+            <!--                    <artifactId>jackson-mapper-asl</artifactId>-->
+            <!--                </exclusion>-->
+            <!--                <exclusion>-->
+            <!--                    <groupId>org.codehaus.jackson</groupId>-->
+            <!--                    <artifactId>jackson-jaxrs</artifactId>-->
+            <!--                </exclusion>-->
+            <!--                <exclusion>-->
+            <!--                    <groupId>org.codehaus.jackson</groupId>-->
+            <!--                    <artifactId>jackson-xc</artifactId>-->
+            <!--                </exclusion>-->
+            <!--                <exclusion>-->
+            <!--                    <groupId>com.google.protobuf</groupId>-->
+            <!--                    <artifactId>protobuf-java</artifactId>-->
+            <!--                </exclusion>-->
+            <!--            </exclusions>-->
         </dependency>
     </dependencies>
 
