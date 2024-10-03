@@ -34,7 +34,7 @@ Run `mvn help:all-profiles` to list supported Spark versions.
 
 ### Running tests
 
-The unit tests are run by default when building unless their are explicitly skipped with `-DskipTests`
+The unit tests are run by default when building unless they are explicitly skipped by specifying `-DskipTests`.
 
 To run an individual test the `-Dsuites` option can be specified:
 
