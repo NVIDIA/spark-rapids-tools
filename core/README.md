@@ -34,9 +34,9 @@ Run `mvn help:all-profiles` to list supported Spark versions.
 
 ### Running tests
 
-The unit tests get run by default when building unless their are explicitly skipped with -DskipTests
+The unit tests are run by default when building unless their are explicitly skipped with `-DskipTests`
 
-To run an individual test the -Dsuites option can be specified:
+To run an individual test the `-Dsuites` option can be specified:
 
 ```bash
 mvn test -Dsuites=com.nvidia.spark.rapids.tool.qualification.QualificationSuite
