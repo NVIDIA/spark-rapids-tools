@@ -1598,7 +1598,6 @@ class QualificationSuite extends BaseTestSuite {
       Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
         numExecsPerNode = -1, numExecutors = 4, numWorkerNodes = 3, executorHeapMemory = 0L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.59.184.210"))),
-    // TODO - this doesn't have spark.dynamicAllocation.enabled in the eventlog
     "eventlog_4nodes_8cores_dynamic_alloc.zstd" -> // using dynamic allocation, total of 5 nodes, each with max 7
       // executor running having 4 cores. At the end it had 1 active executor.
       Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 4,

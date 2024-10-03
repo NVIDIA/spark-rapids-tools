@@ -280,7 +280,7 @@ local:
         - 'Reason'
       totalCoreSecBased:
         # This is total core seconds of an 8-core machine running for 24 hours
-        totalCoreSecThreshold: 1
+        totalCoreSecThreshold: 691200
       spillBased:
         stageAggMetrics:
           fileName: 'stage_level_aggregated_task_metrics.csv'
