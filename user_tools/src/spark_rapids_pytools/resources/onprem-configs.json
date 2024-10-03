@@ -4,7 +4,6 @@
       "LOCAL": {
         "activeBuildVer": "342",
         "350": [
-        "350": [
           {
             "name": "Apache Spark",
             "uri": "https://archive.apache.org/dist/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3.tgz",

@@ -1599,10 +1599,13 @@ class QualificationSuite extends BaseTestSuite {
         numExecsPerNode = -1, numExecutors = 4, numWorkerNodes = 3, executorHeapMemory = 0L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.59.184.210"))),
     // TODO - this doesn't have spark.dynamicAllocation.enabled in the eventlog
-    "eventlog_4nodes_8cores_dynamic_alloc" -> // 4 nodes, each with 2 executor having 8 cores, with dynamic allocation.
-      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
-        numExecsPerNode = 2, numExecutors = 8, numWorkerNodes = 4, executorHeapMemory = 0L,
-        dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("test-cpu-cluster-m"))),
+    "eventlog_4nodes_8cores_dynamic_alloc.zstd" -> // using dynamic allocation, total of 5 nodes, each with max 7
+      // executor running having 4 cores. At the end it had 1 active executor.
+      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 4,
+        numExecsPerNode = -1, numExecutors = 7, numWorkerNodes = 5, executorHeapMemory = 20480L,
+        dynamicAllocationEnabled = true, dynamicAllocationMaxExecutors = "2147483647",
+        dynamicAllocationMinExecutors = "0", dynamicAllocationInitialExecutors = "2",
+        driverHost = Some("10.10.6.9"))),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 nodes with varying cores: 8, 12, and 8, each with 1 executor.
       Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
         numExecsPerNode = 1, numExecutors = 3, numWorkerNodes = 3, executorHeapMemory = 0L,
