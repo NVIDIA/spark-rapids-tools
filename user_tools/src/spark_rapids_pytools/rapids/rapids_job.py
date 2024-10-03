@@ -192,8 +192,9 @@ class RapidsLocalJob(RapidsJob):
                 if jvm_k.startswith('D'):
                     if jvm_k == 'Dlog4j.configuration':
                         rapids_output_folder = self.exec_ctxt.get_rapids_output_folder()
+                        log4j_file_name = self.exec_ctxt.get_log4j_properties_file()
                         jvm_arg = ToolLogging.modify_log4j_properties(
-                            jvm_arg, f'{rapids_output_folder}')
+                            jvm_arg, f'{rapids_output_folder}/{log4j_file_name}')
                         self.exec_ctxt.set_local('tmp_log4j', jvm_arg)
                     val = f'-{jvm_k}={jvm_arg}'
                 else:

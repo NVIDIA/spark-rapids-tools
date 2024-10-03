@@ -215,6 +215,9 @@ class ToolContext(YAMLPropertiesContainer):
             return root_dir
         return FSUtil.build_path(root_dir, rapids_subfolder)
 
+    def get_log4j_properties_file(self) -> str:
+        return self.get_value_silent('toolOutput', 'textFormat', 'log4jFileName')
+
     def get_platform_name(self) -> str:
         """
         This used to get the lower case of the platform of the runtime.
