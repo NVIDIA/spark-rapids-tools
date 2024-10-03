@@ -50,7 +50,7 @@ class AdditionalHeuristics:
         """
         Returns a list of heuristics functions to apply to each application.
         """
-        return [self.heuristics_based_on_total_core_seconds, self.heuristics_based_on_spills]
+        return [self.heuristics_based_on_spills]
 
     def _apply_heuristics(self, app_ids: list) -> pd.DataFrame:
         """

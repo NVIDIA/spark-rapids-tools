@@ -246,6 +246,8 @@ local:
         compactWidth: true
         timeUnits: 's'
         columnWidth: 14
+      # This is total core seconds of an 8-core machine running for 24 hours
+      totalCoreSecThreshold: 691200
     speedupCategories:
       speedupColumnName: 'Estimated GPU Speedup'
       categoryColumnName: 'Estimated GPU Speedup Category'

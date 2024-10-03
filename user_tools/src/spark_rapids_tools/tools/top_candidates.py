@@ -75,6 +75,8 @@ class TopCandidates:
         Generic method to generate the output table from the output dataframe
         """
         res_df = self._generate_output_table_internal(output_df)
+        if res_df.empty:
+            return ''
         # squeeze the header titles if enabled
         squeeze_header_enabled = self.props.get('summaryReport', {}).get('compactWidth', False)
         header_width = self.props.get('summaryReport', {}).get('columnWidth', 0) if squeeze_header_enabled else 0
@@ -85,6 +87,12 @@ class TopCandidates:
         """
         Internal implementation to prepare the output table. This can be overridden by the child classes.
         """
+        print("\n\n\noutput df before")
+        print(output_df[['App ID', 'Total Core Seconds']])
+        # Preprocess output df
+        output_df = self._preprocess_apps_in_output_table(output_df)
+        print("\n\n\noutput df after")
+        print(output_df[['App ID', 'Total Core Seconds']])
         # Create and append 'Speedup Category Order' column to output_df for sorting order
         speedup_category_order = self.props.get('ineligibleCategory') + self.props.get('eligibleCategories')
         output_df['Speedup Category Order'] = \
@@ -99,6 +107,12 @@ class TopCandidates:
             res_df.rename(columns={'Estimated GPU Speedup Category': 'Estimated GPU Speedup Category**'},
                           inplace=True)
         return res_df
+
+    def _preprocess_apps_in_output_table(self, output_df: pd.DataFrame) -> pd.DataFrame:
+        # Filter out apps with low total core seconds
+        total_core_seconds_threshold = self.props.get('totalCoreSecThreshold')
+        total_core_seconds_cond = output_df['Total Core Seconds'] > total_core_seconds_threshold
+        return output_df[total_core_seconds_cond]
 
     def _pre_check_app_processing_status(self, app_name: str) -> (bool, str):
         """
