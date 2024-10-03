@@ -145,7 +145,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         case _ => // No action needed for other cases
       }
       val startTime = System.currentTimeMillis()
-      // we want a platform per application because its storing cluster information
+      // we need a platform per application because it's storing cluster information which could
+      // vary between applications, especially when using dynamic allocation
       val platform = {
         val clusterPropsOpt = AutoTuner.loadClusterProps(workerInfoPath)
         PlatformFactory.createInstance(platformArg, clusterPropsOpt)

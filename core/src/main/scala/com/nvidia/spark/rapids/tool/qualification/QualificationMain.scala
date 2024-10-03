@@ -71,7 +71,9 @@ object QualificationMain extends Logging {
     // Note we need the platform to get the correct files we use in the PluginTypeChecker.
     // Here we create one dummy global one just to get those files as the platform should
     // be the same for all applications but then later we create a per application one for
-    // properly tracking the cluster info and recommended cluster info.
+    // properly tracking the cluster info and recommended cluster info per application.
+    // This platform instance should not be used for anything other then referencing the
+    // files for this particular Platform.
     val referencePlatform = try {
       val clusterPropsOpt = loadClusterProps(appArgs.workerInfo())
       PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
@@ -113,8 +115,7 @@ object QualificationMain extends Logging {
     }
     // create the AutoTuner context object
     val tunerContext = if (appArgs.autoTuner()) {
-      TunerContext(outputDirectory,
-        Option(hadoopConf))
+      TunerContext(outputDirectory, Option(hadoopConf))
     } else {
       None
     }

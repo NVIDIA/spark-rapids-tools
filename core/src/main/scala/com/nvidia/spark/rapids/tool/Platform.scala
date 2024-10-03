@@ -489,7 +489,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       val instanceName = finalInstanceInfo.map(_.name).getOrElse("")
       val numGpus = finalInstanceInfo.map(_.numGpus).getOrElse(1)
       val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
-
       // Num of executors per node is the number of GPUs
       recommendedClusterInfo = Some(RecommendedClusterInfo(vendor, coresPerExec,
         finalNumNodes, numGpus, numExecs, gpuDevice = getGpuOrDefault.toString,

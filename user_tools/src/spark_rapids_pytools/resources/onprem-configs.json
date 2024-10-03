@@ -4,13 +4,14 @@
       "LOCAL": {
         "activeBuildVer": "342",
         "350": [
+        "350": [
           {
             "name": "Apache Spark",
-            "uri": "https://archive.apache.org/dist/spark/spark-3.4.2/spark-3.4.2-bin-hadoop3.tgz",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3.tgz",
             "type": "archive",
             "relativePath": "jars/*",
-            "sha512": "c9470a557c96fe899dd1c9ea8d0dda3310eaf0155b2bb972f70a6d97fee8cdaf838b425c30df3d5856b2c31fc2be933537c111db72d0427eabb76c6abd92c1f1",
-            "size": 388664780
+            "sha512": "8883c67e0a138069e597f3e7d4edbbd5c3a565d50b28644aad02856a1ec1da7cb92b8f80454ca427118f69459ea326eaa073cf7b1a860c3b796f4b07c2101319",
+            "size": 400395283
           }
         ],
         "342": [

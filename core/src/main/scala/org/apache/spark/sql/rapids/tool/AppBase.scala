@@ -56,7 +56,6 @@ abstract class AppBase(
 
   lazy val attemptId: Int = appMetaData.map(_.attemptId).getOrElse(1)
 
-
   // This is to keep track of the high water mark for maximum number of executors
   // active at any point in time.
   // Dynamic allocation and failures could change the number of
@@ -208,7 +207,7 @@ abstract class AppBase(
 
   // this is to keep track of the high water mark for number of executors
   // active at anyone instant in time
-  def updateMaxExecutorsIfNeeded(): Unit = {
+  def updateMaxExecutors(): Unit = {
     val numActiveExecutors = executorIdToInfo.values.filter(_.isActive).size
     if (numActiveExecutors > maxNumExecutorsRunning) {
       maxNumExecutorsRunning = numActiveExecutors
@@ -217,7 +216,7 @@ abstract class AppBase(
 
   // this is to keep track of the high water mark for number of nodes
   // active at anyone instant in time
-  def updateMaxNodesIfNeeded(): Unit = {
+  def updateMaxNodes(): Unit = {
     // make this a set to make it dedup nodes
     val numActiveNodes = executorIdToInfo.values.filter(_.isActive).map(_.host).toSet.size
     if (numActiveNodes > maxNumNodesRunning) {
