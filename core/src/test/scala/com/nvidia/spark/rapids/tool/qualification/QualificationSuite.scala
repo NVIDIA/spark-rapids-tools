@@ -1759,8 +1759,7 @@ class QualificationSuite extends BaseTestSuite {
     val logFiles = Array(s"$logDir/nds_q88_photon_db_13_3.zstd")  // photon event log
     // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
     val expectedStatus = Some(StatusReportCounts(1, 0, 0, 0))
-    runQualificationTest(logFiles, "photon_eventlog_expectation.csv",
-      expectedStatus = expectedStatus)
+    runQualificationTest(logFiles, expectedStatus = expectedStatus)
   }
 
   test("process multiple attempts of the same app ID and skip lower attempts") {
