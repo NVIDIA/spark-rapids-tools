@@ -342,38 +342,50 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_totalBytesRead))
       val (swBytesMin, swBytesMed, swBytesMax, swBytesSum) =
         AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sw_bytesWritten))
-      val x = StageDiagnosticTaskMetricsProfileResult(index,
+      val (srFetchWaitTimeMin, srFetchWaitTimeMed, srFetchWaitTimeMax, srFetchWaitTimeSum) =
+        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_fetchWaitTime))
+      val (swWriteTimeMin, swWriteTimeMed, swWriteTimeMax, swWriteTimeSum) =
+        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sw_writeTime))
+      val nodeNames = app.asInstanceOf[ApplicationInfo].planMetricProcessor.stageToNodeNames.getOrElse(sm.stageInfo.stageId, Seq.empty[String])
+      StageDiagnosticTaskMetricsProfileResult(index,
+        app.appId,
+        app.getAppName,
         sm.stageInfo.stageId,
         sm.duration,
-        diskSpilledSum,
-        diskSpilledMin,
-        diskSpilledMed,
-        diskSpilledMax,
-        memSpilledSum,
-        memSpilledMin,
-        memSpilledMed,
-        memSpilledMax,
-        inputBytesSum,
+        tasksInStage.size,  // TODO: why is this numAttempts and not numTasks?
+        memSpilledMin / (1024 * 1024),
+        memSpilledMed / (1024 * 1024),
+        memSpilledMax / (1024 * 1024),
+        memSpilledSum / (1024 * 1024),
+        diskSpilledMin / (1024 * 1024),
+        diskSpilledMed / (1024 * 1024),
+        diskSpilledMax / (1024 * 1024),
+        diskSpilledSum / (1024 * 1024),
         inputBytesMin,
         inputBytesMed,
         inputBytesMax,
-        ouputBytesSum,
+        inputBytesSum,
         ouputBytesMin,
         ouputBytesMed,
         ouputBytesMax,
-        srBytesSum,
+        ouputBytesSum,
         srBytesMin,
         srBytesMed,
         srBytesMax,
-        swBytesSum,
+        srBytesSum,
         swBytesMin,
         swBytesMed,
         swBytesMax,
-        0L,  // TODO: add gpu semaphore metrics
-        tasksInStage.size
-      )
-      System.out.println(x)
-      x
+        swBytesSum,
+        srFetchWaitTimeMin,
+        srFetchWaitTimeMed,
+        srFetchWaitTimeMax,
+        srFetchWaitTimeSum,
+        swWriteTimeMin,
+        swWriteTimeMed,
+        swWriteTimeMax,
+        swWriteTimeSum,
+        nodeNames)
     }
     rows.toSeq
   }

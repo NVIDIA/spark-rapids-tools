@@ -108,14 +108,12 @@ object AggMetricsResultSorter {
   def sortStageDiagnostics(
       rows: Seq[StageDiagnosticTaskMetricsProfileResult]):
   Seq[StageDiagnosticTaskMetricsProfileResult] = {
-    System.err.println("sortStageDiagnostics")
-    System.err.println(rows)
     if (rows.isEmpty) {
       Seq.empty
     } else {
       rows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
-        (cols.appIndex, -sortDur, cols.id)
+        (cols.appIndex, -sortDur, -cols.memoryBytesSpilledMBSum, cols.appName)
       }
     }
   }
