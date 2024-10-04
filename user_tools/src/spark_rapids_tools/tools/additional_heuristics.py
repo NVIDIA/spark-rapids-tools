@@ -93,20 +93,6 @@ class AdditionalHeuristics:
 
         return pd.DataFrame(result_arr, columns=self.props.get_value('resultCols'))
 
-    def heuristics_based_on_total_core_seconds(self, app_id_path: str) -> (bool, str):
-        """
-        Apply heuristics based on total core seconds to determine if the app can be accelerated on GPU.
-        """
-        # Load app total core seconds from qualification summary dataframe
-        app_id = FSUtil.get_resource_name(app_id_path)
-        app_qual_output = self.all_apps[self.all_apps['App ID'] == app_id]  # type: ignore
-        total_core_seconds = app_qual_output['Total Core Seconds'].astype(int).iloc[0]
-        total_core_seconds_threshold = self.props.get_value('totalCoreSecBased', 'totalCoreSecThreshold')
-        if total_core_seconds <= total_core_seconds_threshold:
-            return True, f'Skipping due to total core seconds = {total_core_seconds} lower than ' + \
-                f'{total_core_seconds_threshold}.'
-        return False, ''
-
     def heuristics_based_on_spills(self, app_id_path: str) -> (bool, str):
         """
         Apply heuristics based on spills to determine if the app can be accelerated on GPU.

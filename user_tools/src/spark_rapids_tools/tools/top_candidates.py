@@ -59,7 +59,7 @@ class TopCandidates:
 
     def _filter_apps(self) -> None:
         """
-        Filters the applications based on the eligible categories (Small/Medium/Large)
+        Filters the applications based on the eligible categories (Small/Medium/Large) and total core seconds threshold.
         """
         if not self._has_tools_processed_apps():
             self.filtered_apps = pd.DataFrame(columns=self.tools_processed_apps.columns)
@@ -67,8 +67,13 @@ class TopCandidates:
 
         category_col_name = self.props.get('categoryColumnName')
         eligible_categories = self.props.get('eligibleCategories')
+        # Filter based on eligible categories (Small/Medium/Large)
         filter_condition = self.tools_processed_apps[category_col_name].isin(eligible_categories)
-        self.filtered_apps = self.tools_processed_apps[filter_condition]
+        # Filter based on total core seconds threshold
+        total_core_sec_col = self.props.get('totalCoreSecCol')
+        total_core_sec_threshold = self.props.get('totalCoreSecThreshold')
+        total_core_sec_cond = self.tools_processed_apps[total_core_sec_col] > total_core_sec_threshold
+        self.filtered_apps = self.tools_processed_apps[filter_condition][total_core_sec_cond]
 
     def _generate_output_table(self, output_df: pd.DataFrame) -> str:
         """
@@ -87,12 +92,6 @@ class TopCandidates:
         """
         Internal implementation to prepare the output table. This can be overridden by the child classes.
         """
-        print("\n\n\noutput df before")
-        print(output_df[['App ID', 'Total Core Seconds']])
-        # Preprocess output df
-        output_df = self._preprocess_apps_in_output_table(output_df)
-        print("\n\n\noutput df after")
-        print(output_df[['App ID', 'Total Core Seconds']])
         # Create and append 'Speedup Category Order' column to output_df for sorting order
         speedup_category_order = self.props.get('ineligibleCategory') + self.props.get('eligibleCategories')
         output_df['Speedup Category Order'] = \
@@ -107,12 +106,6 @@ class TopCandidates:
             res_df.rename(columns={'Estimated GPU Speedup Category': 'Estimated GPU Speedup Category**'},
                           inplace=True)
         return res_df
-
-    def _preprocess_apps_in_output_table(self, output_df: pd.DataFrame) -> pd.DataFrame:
-        # Filter out apps with low total core seconds
-        total_core_seconds_threshold = self.props.get('totalCoreSecThreshold')
-        total_core_seconds_cond = output_df['Total Core Seconds'] > total_core_seconds_threshold
-        return output_df[total_core_seconds_cond]
 
     def _pre_check_app_processing_status(self, app_name: str) -> (bool, str):
         """
