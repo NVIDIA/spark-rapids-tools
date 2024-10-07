@@ -213,7 +213,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   def getRetainedSystemProps: Set[String] = Set.empty
 
-
   def getExecutorHeapMemoryMB(sparkProperties: Map[String, String]): Long = {
     // Potentially enhance this to handle if no config then check the executor
     // added or resource profile added events for the heap size
@@ -288,17 +287,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       recommendedNodeInstanceInfo.map(_.numGpus).getOrElse(1)
     }
     math.max(1, gpus)
-  }
-
-  // Get the number of nodes that were used in the source cluster.
-  def getSourceNumNodes(): Int = {
-    if (clusterProperties.isDefined) {
-      Math.max(1, clusterProperties.get.system.numWorkers)
-    } else if (clusterInfoFromEventLog.isDefined) {
-      clusterInfoFromEventLog.get.numWorkerNodes
-    } else {
-      1
-    }
   }
 
   // we want to keep the number of executors used between runs the same
@@ -393,14 +381,21 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def getGPUInstanceTypeRecommendation(
       sparkProperties: Map[String, String]): Option[RecommendedClusterInfo] = {
     val vendor = clusterInfoFromEventLog.map(_.vendor).getOrElse("")
-    val initialNumExecInstances = getNumExecutorInstances(sparkProperties)
+    val numExecs = getNumExecutorInstances(sparkProperties)
     // If the cluster properties were specified make sure to use those and not
     // the eventlog inference. This is broken in my mind but is backwards compatible,
     // or maybe use number gpus per node as an improvement.
+    val origClusterNumExecsPerNode = clusterInfoFromEventLog.map(_.numExecsPerNode).getOrElse(1)
     val numExecsPerNode = if (clusterProperties.isEmpty) {
       // numExecsPerNode can be -1 if dynamic allocation so just make it 1 for
-      // this set of calculations
-      Math.max(clusterInfoFromEventLog.map(_.numExecsPerNode).getOrElse(1), 1)
+      // this set of calculations. However if we are on a CSP then we want to recommend
+      // the best size machine so use the number of GPUs as proxy to be the number of executors
+      // we could put on a node.
+      if (origClusterNumExecsPerNode == -1) {
+        maxGpusSupported
+      }  else {
+        origClusterNumExecsPerNode
+      }
     } else {
       1
     }
@@ -408,6 +403,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     // should be handled automatically unless heterogeneous nodes
     val gpusToUse =
       Math.max(this.numGpus, Math.min(numExecsPerNode, maxGpusSupported))
+
     // update the global numGpus based on the instance type we are using
     this.numGpus = gpusToUse
     val nodeCores = if (clusterProperties.isDefined) {
@@ -463,17 +459,9 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     } else {
       instanceInfoOpt
     }
-    val numExistingNodes = getSourceNumNodes
-    // check if instance type supports that number of gpus, if not we add extra executors
-    val (numExecs, numNodes) = if (finalInstanceInfo.get.numGpus >= numExecsPerNode) {
-      // TODO - really if instance has more GPUs we should calculate the other way to
-      // recommend less nodes but leave that open for now
-      (initialNumExecInstances, numExistingNodes)
-    } else {
-      // just flatten to use 1 but we should really see if multiples
-      val numGpusLeft = numExecsPerNode / finalInstanceInfo.get.numGpus
-      (initialNumExecInstances, numExistingNodes * numGpusLeft)
-    }
+    // note this is going over as for instance if you have 4 gpus per node but only need
+    // 10 executors, this would tell you to allocate enough to fit 12.
+    val numNodes = math.ceil(numExecs.toDouble / finalInstanceInfo.get.numGpus).toInt
     val coresPerExec = if (finalInstanceInfo.isDefined) {
       finalInstanceInfo.get.cores / finalInstanceInfo.get.numGpus
     } else {
