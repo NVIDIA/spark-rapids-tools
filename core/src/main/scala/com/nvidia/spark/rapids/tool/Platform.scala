@@ -463,7 +463,15 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     // 10 executors, this would tell you to allocate enough to fit 12.
     val numNodes = math.ceil(numExecs.toDouble / finalInstanceInfo.get.numGpus).toInt
     val coresPerExec = if (finalInstanceInfo.isDefined) {
-      finalInstanceInfo.get.cores / finalInstanceInfo.get.numGpus
+      // We may not be able to match instance type up exactly, this means the number of
+      // cores per executor could come out to be more then the original application.
+      // For now we want the cores per executor to stay the same as original app so if
+      // that is set, use it first.
+      if (clusterInfoFromEventLog.isDefined) {
+        clusterInfoFromEventLog.get.coresPerExecutor
+      } else {
+        finalInstanceInfo.get.cores / finalInstanceInfo.get.numGpus
+      }
     } else {
       1
     }
