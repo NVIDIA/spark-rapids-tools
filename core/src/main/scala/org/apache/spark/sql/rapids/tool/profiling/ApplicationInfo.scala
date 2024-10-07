@@ -16,7 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool.profiling
 
-import scala.collection.{mutable, Map}
+import scala.collection.Map
 
 import com.nvidia.spark.rapids.tool.EventLogInfo
 import com.nvidia.spark.rapids.tool.analysis.AppSQLPlanAnalyzer
@@ -186,9 +186,6 @@ class ApplicationInfo(
     eLogInfo: EventLogInfo,
     val index: Int)
   extends AppBase(Some(eLogInfo), Some(hadoopConf)) with Logging {
-
-  // physicalPlanDescription stores HashMap (sqlID <-> physicalPlanDescription)
-  var physicalPlanDescription: mutable.HashMap[Long, String] = mutable.HashMap.empty[Long, String]
 
   private lazy val eventProcessor =  new EventsProcessor(this)
 

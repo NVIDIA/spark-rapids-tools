@@ -17,6 +17,7 @@
 package com.nvidia.spark.rapids
 
 import org.apache.spark.scheduler.SparkListenerEvent
+import org.apache.spark.sql.rapids.tool.annotation.ToolsReflection
 
 
 /**
@@ -30,4 +31,9 @@ case class SparkRapidsBuildInfoEvent(
   sparkRapidsJniBuildInfo: Map[String, String],
   cudfBuildInfo: Map[String, String],
   sparkRapidsPrivateBuildInfo: Map[String, String]
-) extends SparkListenerEvent
+) extends SparkListenerEvent {
+  @ToolsReflection("BD-3.2.1", "Ignore")
+  override val eventTime: Long = 0
+  @ToolsReflection("BD-3.2.1", "Ignore")
+  override val eventType: String = ""
+}

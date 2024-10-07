@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Implementation class representing wrapper around the RAPIDS acceleration Qualification tool."""
+
 import json
 import re
 from dataclasses import dataclass, field

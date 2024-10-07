@@ -617,7 +617,8 @@ class ProfileUserArgModel(ToolUserArgModel):
                 'remoteFolder': None,
                 'platformArgs': {
                     'jvmMaxHeapSize': self.p_args['toolArgs']['jvmMaxHeapSize'],
-                    'jvmGC': self.p_args['toolArgs']['jvmGC']
+                    'jvmGC': self.p_args['toolArgs']['jvmGC'],
+                    'Dlog4j.configuration': self.p_args['toolArgs']['log4jPath']
                 },
                 'jobResources': self.p_args['toolArgs']['jobResources']
             },
