@@ -48,6 +48,7 @@ ignored_features = {
     'pluginEnabled',
     'runType',
     'scaleFactor',
+    'sparkRuntime',
     'sparkVersion',
     'sqlID'
 }
