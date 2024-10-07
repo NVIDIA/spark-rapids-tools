@@ -67,13 +67,19 @@ class TopCandidates:
 
         category_col_name = self.props.get('categoryColumnName')
         eligible_categories = self.props.get('eligibleCategories')
+
+        # Note: `filter_condition` can be a combination of multiple filters
         # Filter based on eligible categories (Small/Medium/Large)
         filter_condition = self.tools_processed_apps[category_col_name].isin(eligible_categories)
+
         # Filter based on total core seconds threshold
         total_core_sec_col = self.props.get('totalCoreSecCol')
         total_core_sec_threshold = self.props.get('totalCoreSecThreshold')
         total_core_sec_cond = self.tools_processed_apps[total_core_sec_col] > total_core_sec_threshold
-        self.filtered_apps = self.tools_processed_apps[filter_condition][total_core_sec_cond]
+        filter_condition = filter_condition & total_core_sec_cond
+
+        # Apply all filter conditions to get top candidate view apps
+        self.filtered_apps = self.tools_processed_apps[filter_condition]
 
     def _generate_output_table(self, output_df: pd.DataFrame) -> str:
         """
