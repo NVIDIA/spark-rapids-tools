@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.planparser.photon
 import com.nvidia.spark.rapids.tool.planparser.BroadcastNestedLoopJoinExecParserBase
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.sql.rapids.tool.util.PhotonSparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.util.plangraph.PhotonSparkPlanGraphNode
 
 case class PhotonBroadcastNestedLoopJoinExecParser(
     node: PhotonSparkPlanGraphNode,

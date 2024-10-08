@@ -28,7 +28,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, ExecHelper, JoinType, RDDCheckHelper, ToolUtils, UnsupportedExpr}
-import org.apache.spark.sql.rapids.tool.util.{PhotonSparkPlanGraphCluster, PhotonSparkPlanGraphNode, ToolsPlanGraph}
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
+import org.apache.spark.sql.rapids.tool.util.plangraph.{PhotonSparkPlanGraphCluster, PhotonSparkPlanGraphNode}
 
 object OpActions extends Enumeration {
   type OpAction = Value

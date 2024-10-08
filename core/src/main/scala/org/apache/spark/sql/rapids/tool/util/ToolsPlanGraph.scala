@@ -23,59 +23,8 @@ import scala.collection.mutable
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphEdge, SparkPlanGraphNode, SQLPlanMetric}
 import org.apache.spark.sql.rapids.tool.store.AccumNameRef
+import org.apache.spark.sql.rapids.tool.util.plangraph.PlanGraphTransformer
 import org.apache.spark.sql.rapids.tool.util.stubs.{GraphReflectionAPI, GraphReflectionAPIHelper}
-
-/**
- * Extension of SparkPlanGraphNode to handle Photon nodes.
- * Note:
- * - photonName and photonDesc are the name and description of the Photon node
- * - name and desc are the name and description of the equivalent Spark node
- */
-class PhotonSparkPlanGraphNode(
-    id: Long,
-    val photonName: String,
-    val photonDesc: String,
-    sparkName: String,
-    sparkDesc: String,
-    metrics: collection.Seq[SQLPlanMetric])
-  extends SparkPlanGraphNode(id, sparkName, sparkDesc, metrics)
-
-object PhotonSparkPlanGraphNode {
-  def apply(id: Long, photonName: String, photonDesc: String,
-            metrics: collection.Seq[SQLPlanMetric]): PhotonSparkPlanGraphNode = {
-    val sparkName = DatabricksParseHelper.mapPhotonToSpark(photonName)
-    val sparkDesc = DatabricksParseHelper.mapPhotonToSpark(photonDesc)
-    new PhotonSparkPlanGraphNode(id, photonName, photonDesc, sparkName, sparkDesc, metrics)
-  }
-}
-
-/**
- * Extension of SparkPlanGraphCluster to handle Photon nodes that are
- * mapped to WholeStageCodegen.
- * Note:
- * - photonName and photonDesc are the name and description of the Photon node
- * - name and desc are the name and description of the equivalent Spark node
- */
-class PhotonSparkPlanGraphCluster(
-    id: Long,
-    val photonName: String,
-    val photonDesc: String,
-    sparkName: String,
-    sparkDesc: String,
-    nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
-    metrics: collection.Seq[SQLPlanMetric])
-  extends SparkPlanGraphCluster(id, sparkName, sparkDesc, nodes, metrics)
-
-object PhotonSparkPlanGraphCluster {
-  def apply(id: Long, photonName: String, photonDesc: String,
-      nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
-      metrics: collection.Seq[SQLPlanMetric]): PhotonSparkPlanGraphCluster = {
-    val sparkName = DatabricksParseHelper.mapPhotonToSpark(photonName)
-    val sparkDesc = DatabricksParseHelper.mapPhotonToSpark(photonDesc)
-    new PhotonSparkPlanGraphCluster(id, photonName, photonDesc, sparkName,
-      sparkDesc, nodes, metrics)
-  }
-}
 
 /**
  * This code is mostly copied from org.apache.spark.sql.execution.ui.SparkPlanGraph
@@ -159,20 +108,20 @@ object ToolsPlanGraph {
       parent: SparkPlanGraphNode,
       subgraph: SparkPlanGraphCluster,
       exchanges: mutable.HashMap[SparkPlanInfo, SparkPlanGraphNode]): Unit = {
-    val isPhotonNode = DatabricksParseHelper.isPhotonNode(planInfo.nodeName)
     processPlanInfo(planInfo.nodeName) match {
       case name if name.startsWith("WholeStageCodegen") =>
         val metrics = planInfo.metrics.map { metric =>
           constructSQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
         }
 
-        val cluster = api.constructCluster(
+        var cluster = api.constructCluster(
           nodeIdGenerator.getAndIncrement(),
           planInfo.nodeName,
           planInfo.simpleString,
           mutable.ArrayBuffer[SparkPlanGraphNode](),
-          metrics,
-          isPhotonNode = isPhotonNode)
+          metrics)
+        // Transform if it is a specialized type(e.g. Photon)
+        cluster = PlanGraphTransformer.transformPlanCluster(cluster)
         nodes += cluster
 
         buildSparkPlanGraphNode(
@@ -212,8 +161,10 @@ object ToolsPlanGraph {
         val metrics = planInfo.metrics.map { metric =>
           constructSQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
         }
-        val node = api.constructNode(nodeIdGenerator.getAndIncrement(),
-          planInfo.nodeName, planInfo.simpleString, metrics, isPhotonNode = isPhotonNode)
+        var node = api.constructNode(nodeIdGenerator.getAndIncrement(),
+          planInfo.nodeName, planInfo.simpleString, metrics)
+        // Transform if it is a specialized type(e.g. Photon)
+        node = PlanGraphTransformer.transformPlanNode(node)
         if (subgraph == null) {
           nodes += node
         } else {

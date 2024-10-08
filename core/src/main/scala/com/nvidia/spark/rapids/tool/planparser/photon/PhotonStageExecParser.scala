@@ -20,7 +20,7 @@ import com.nvidia.spark.rapids.tool.planparser.WholeStageExecParserBase
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
-import org.apache.spark.sql.rapids.tool.util.PhotonSparkPlanGraphCluster
+import org.apache.spark.sql.rapids.tool.util.plangraph.PhotonSparkPlanGraphCluster
 
 /**
  * Parses Photon Stage Exec equivalent to Spark's `WholeStageCodegenExec`

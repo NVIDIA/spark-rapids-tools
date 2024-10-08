@@ -20,7 +20,7 @@ import com.nvidia.spark.rapids.tool.planparser._
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
-import org.apache.spark.sql.rapids.tool.util.PhotonSparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.util.plangraph.PhotonSparkPlanGraphNode
 
 object PhotonPlanParser {
   /**
