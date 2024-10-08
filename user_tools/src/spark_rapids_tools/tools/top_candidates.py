@@ -75,8 +75,8 @@ class TopCandidates:
         # Filter based on total core seconds threshold
         total_core_sec_col = self.props.get('totalCoreSecCol')
         total_core_sec_threshold = self.props.get('totalCoreSecThreshold')
-        total_core_sec_cond = self.tools_processed_apps[total_core_sec_col] > total_core_sec_threshold
-        filter_condition = filter_condition & total_core_sec_cond
+        total_core_sec_condition = self.tools_processed_apps[total_core_sec_col] > total_core_sec_threshold
+        filter_condition = filter_condition & total_core_sec_condition
 
         # Apply all filter conditions to get top candidate view apps
         self.filtered_apps = self.tools_processed_apps[filter_condition]
