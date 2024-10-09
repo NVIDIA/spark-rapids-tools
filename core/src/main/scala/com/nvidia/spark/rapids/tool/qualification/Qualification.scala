@@ -20,7 +20,8 @@ import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import scala.collection.JavaConverters._
 
-import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, ToolBase}
+import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, PlatformFactory, ToolBase}
+import com.nvidia.spark.rapids.tool.profiling.AutoTuner
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import com.nvidia.spark.rapids.tool.tuning.TunerContext
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
@@ -37,7 +38,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     printStdout: Boolean, enablePB: Boolean,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean,
     penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
-    clusterReport: Boolean) extends ToolBase(timeout) {
+    clusterReport: Boolean, platformArg: String, workerInfoPath: String) extends ToolBase(timeout) {
 
   override val simpleName: String = "qualTool"
   override val outputDir = s"$outputPath/rapids_4_spark_qualification_output"
@@ -144,8 +145,14 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
         case _ => // No action needed for other cases
       }
       val startTime = System.currentTimeMillis()
+      // we need a platform per application because it's storing cluster information which could
+      // vary between applications, especially when using dynamic allocation
+      val platform = {
+        val clusterPropsOpt = AutoTuner.loadClusterProps(workerInfoPath)
+        PlatformFactory.createInstance(platformArg, clusterPropsOpt)
+      }
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
-        reportSqlLevel, mlOpsEnabled, penalizeTransitions)
+        reportSqlLevel, mlOpsEnabled, penalizeTransitions, platform)
       val qualAppResult = appResult match {
         case Left(FailureApp("skipped", errorMessage)) =>
           // Case to be skipped, e.g. encountered Databricks Photon event log
@@ -174,14 +181,14 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
               // Note that we call the autotuner anyway without checking the aggregate results
               // because the Autotuner can still make some recommendations based on the information
               // enclosed by the QualificationInfo object
-              tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo)
+              tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo, platform)
             }
           }
           if (qualSumInfo.isDefined) {
             // add the recommend cluster info into the summary
             val tempSummary = qualSumInfo.get
             val newClusterSummary = tempSummary.clusterSummary.copy(
-              recommendedClusterInfo = pluginTypeChecker.platform.recommendedClusterInfo)
+              recommendedClusterInfo = platform.recommendedClusterInfo)
             AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
               val newQualSummary = tempSummary.copy(clusterSummary = newClusterSummary)
               // check if the app is already in the map

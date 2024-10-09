@@ -56,6 +56,13 @@ abstract class AppBase(
 
   lazy val attemptId: Int = appMetaData.map(_.attemptId).getOrElse(1)
 
+  // This is to keep track of the high water mark for maximum number of executors
+  // active at any point in time.
+  // Dynamic allocation and failures could change the number of
+  // executors over time so we are tracking what was the maximum used.
+  var maxNumExecutorsRunning = 0
+  // high water mark for maximum number of nodes in use at any point in time
+  var maxNumNodesRunning = 0
   // Store map of executorId to executor info
   val executorIdToInfo = new HashMap[String, ExecutorInfoClass]()
   // resourceProfile id to resource profile info
@@ -196,6 +203,25 @@ abstract class AppBase(
     executorIdToInfo.getOrElseUpdate(executorId, {
       new ExecutorInfoClass(executorId, addTime)
     })
+  }
+
+  // this is to keep track of the high water mark for number of executors
+  // active at anyone instant in time
+  def updateMaxExecutors(): Unit = {
+    val numActiveExecutors = executorIdToInfo.values.filter(_.isActive).size
+    if (numActiveExecutors > maxNumExecutorsRunning) {
+      maxNumExecutorsRunning = numActiveExecutors
+    }
+  }
+
+  // this is to keep track of the high water mark for number of nodes
+  // active at anyone instant in time
+  def updateMaxNodes(): Unit = {
+    // make this a set to make it dedup nodes
+    val numActiveNodes = executorIdToInfo.values.filter(_.isActive).map(_.host).toSet.size
+    if (numActiveNodes > maxNumNodesRunning) {
+      maxNumNodesRunning = numActiveNodes
+    }
   }
 
   def getOrCreateStage(info: StageInfo): StageModel = {

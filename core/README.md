@@ -32,6 +32,17 @@ mvn -Dbuildver=351 clean package
 
 Run `mvn help:all-profiles` to list supported Spark versions.
 
+### Running tests
+
+The unit tests are run by default when building unless they are explicitly skipped by specifying `-DskipTests`.
+
+To run an individual test the `-Dsuites` option can be specified:
+
+```bash
+mvn test -Dsuites=com.nvidia.spark.rapids.tool.qualification.QualificationSuite
+```
+
+
 ### Setting up an Integrated Development Environment
 
 Before proceeding with importing spark-rapids-tools into IDEA or switching to a different Spark release

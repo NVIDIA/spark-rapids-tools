@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
+import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.analysis.AppSQLPlanAnalyzer
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.SQL_DESC_STR
@@ -71,8 +72,10 @@ import org.apache.spark.sql.rapids.tool.qualification._
  */
 class RunningQualificationApp(
     perSqlOnly: Boolean = false,
-    pluginTypeChecker: PluginTypeChecker = new PluginTypeChecker())
-  extends QualificationAppInfo(None, None, pluginTypeChecker, reportSqlLevel=false, perSqlOnly) {
+    pluginTypeChecker: PluginTypeChecker = new PluginTypeChecker(),
+    platform: Platform = PlatformFactory.createInstance())
+  extends QualificationAppInfo(None, None, pluginTypeChecker, reportSqlLevel=false,
+    perSqlOnly, platform = platform) {
   // note we don't use the per sql reporting providing by QualificationAppInfo so we always
   // send down false for it
 
