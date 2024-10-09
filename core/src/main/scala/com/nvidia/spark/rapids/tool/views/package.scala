@@ -28,7 +28,6 @@ package object views {
   val IO_LABEL = "IO Metrics"
   val SQL_DUR_LABEL = "SQL Duration and Executor CPU Time Percent"
   val SQL_MAX_INPUT_SIZE = "SQL Max Task Input Size"
-  val STAGE_AGGS_DIAGNOSTICS_LABEL = "Stage agg diagnostics metrics"
   val STAGE_DIAGNOSTICS_LABEL = "Stage level diagnostic metrics"
 
   val AGG_DESCRIPTION = Map(

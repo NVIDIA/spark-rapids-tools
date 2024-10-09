@@ -395,7 +395,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, sqlToStages, wholeStage, maxTaskInputInfo,
       appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo,
-      analysis.stageDiagnosticsAggs, analysis.stageDiagnostics), compareRes)
+      analysis.stageDiagnostics), compareRes)
   }
 
   /**
@@ -492,8 +492,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         combineProps("system", appsSum).sortBy(_.key),
         appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex),
         appsSum.flatMap(_.sparkRapidsBuildInfo),
-        appsSum.flatMap(_.stageDiagnosticsAggs),
-        appsSum.flatMap(_.stageDiagnostics).sortBy(_.duration)(Ordering[Option[Long]].reverse)
+        appsSum.flatMap(_.stageDiagnostics)
       )
       Seq(reduced)
     } else {
@@ -541,7 +540,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
       profileOutputWriter.write(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
       profileOutputWriter.write(STAGE_DIAGNOSTICS_LABEL, app.stageDiagnostics)
-      profileOutputWriter.write(STAGE_AGGS_DIAGNOSTICS_LABEL, app.stageDiagnosticsAggs)
 
       profileOutputWriter.writeText("\n### C. Health Check###\n")
       profileOutputWriter.write(ProfFailedTaskView.getLabel, app.failedTasks)

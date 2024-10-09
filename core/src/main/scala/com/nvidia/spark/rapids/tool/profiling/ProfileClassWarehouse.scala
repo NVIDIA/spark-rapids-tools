@@ -185,9 +185,7 @@ case class AppStatusResult(
     Seq(path, status, appId, message)
   }
 
-  override def convertToCSVSeq: Seq[String] = {
-    Seq(path, status, appId, message)
-  }
+  override def convertToCSVSeq: Seq[String] = convertToSeq
 }
 
 // note that some things might not be set until after sqlMetricsAggregation called
@@ -501,40 +499,7 @@ trait BaseJobStageAggTaskMetricsProfileResult extends ProfileResult {
       swWriteTimeSum.toString)
   }
 
-  override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString,
-      id.toString,
-      numTasks.toString,
-      durStr,
-      diskBytesSpilledSum.toString,
-      durationSum.toString,
-      durationMax.toString,
-      durationMin.toString,
-      durationAvg.toString,
-      executorCPUTimeSum.toString,
-      executorDeserializeCpuTimeSum.toString,
-      executorDeserializeTimeSum.toString,
-      executorRunTimeSum.toString,
-      inputBytesReadSum.toString,
-      inputRecordsReadSum.toString,
-      jvmGCTimeSum.toString,
-      memoryBytesSpilledSum.toString,
-      outputBytesWrittenSum.toString,
-      outputRecordsWrittenSum.toString,
-      peakExecutionMemoryMax.toString,
-      resultSerializationTimeSum.toString,
-      resultSizeMax.toString,
-      srFetchWaitTimeSum.toString,
-      srLocalBlocksFetchedSum.toString,
-      srcLocalBytesReadSum.toString,
-      srRemoteBlocksFetchSum.toString,
-      srRemoteBytesReadSum.toString,
-      srRemoteBytesReadToDiskSum.toString,
-      srTotalBytesReadSum.toString,
-      swBytesWrittenSum.toString,
-      swRecordsWrittenSum.toString,
-      swWriteTimeSum.toString)
-  }
+  override def convertToCSVSeq: Seq[String] = convertToSeq
 }
 
 case class JobAggTaskMetricsProfileResult(
@@ -609,7 +574,7 @@ case class StageAggTaskMetricsProfileResult(
   override def idHeader = "stageId"
 }
 
-case class StageDiagnosticTaskMetricsProfileResult(
+case class StageDiagnosticMetricsProfileResult(
     appIndex: Int,
     appId: String,
     appName: String,
@@ -709,54 +674,50 @@ case class StageDiagnosticTaskMetricsProfileResult(
       swWriteTimeMed.toString,
       swWriteTimeMax.toString,
       swWriteTimeSum.toString,
-      StringUtils.reformatCSVString(nodeNames.mkString(",")))
-  }
-
-  override def convertToCSVSeq: Seq[String] = convertToSeq
-}
-
-case class StageDiagnosticAggMetricsProfileResult(
-    appIndex: Int,
-    appId: String,
-    appName: String,
-    id: Long,
-    duration: Option[Long],
-    numTasks: Int,
-    memoryBytesSpilledSumMB: Long,
-    diskBytesSpilledSumMB: Long,
-    nodeNames: Seq[String]) extends ProfileResult {
-
-  val durStr = duration match {
-    case Some(dur) => dur.toString
-    case None => "null"
-  }
-
-  override val outputHeaders = Seq("appIndex", "appId", "appName",
-    "stageId", "Duration", "numTasks", "memoryBytesSpilledTotalMB",
-    "diskBytesSpilledTotalMB", "SQL Nodes(IDs)")
-
-  override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString,
-      appId,
-      appName,
-      id.toString,
-      durStr,
-      numTasks.toString,
-      memoryBytesSpilledSumMB.toString,
-      diskBytesSpilledSumMB.toString,
       nodeNames.mkString(","))
   }
 
-  override def convertToCSVSeq: Seq[String] =
+  override def convertToCSVSeq: Seq[String] = {
     Seq(appIndex.toString,
       appId,
       appName,
       id.toString,
       durStr,
       numTasks.toString,
-      memoryBytesSpilledSumMB.toString,
-      diskBytesSpilledSumMB.toString,
+      memoryBytesSpilledMBMin.toString,
+      memoryBytesSpilledMBMed.toString,
+      memoryBytesSpilledMBMax.toString,
+      memoryBytesSpilledMBSum.toString,
+      diskBytesSpilledMBMin.toString,
+      diskBytesSpilledMBMed.toString,
+      diskBytesSpilledMBMax.toString,
+      diskBytesSpilledMBSum.toString,
+      inputBytesReadMin.toString,
+      inputBytesReadMed.toString,
+      inputBytesReadMax.toString,
+      inputBytesReadSum.toString,
+      outputBytesWrittenMin.toString,
+      outputBytesWrittenMed.toString,
+      outputBytesWrittenMax.toString,
+      outputBytesWrittenSum.toString,
+      srTotalBytesReadMin.toString,
+      srTotalBytesReadMed.toString,
+      srTotalBytesReadMax.toString,
+      srTotalBytesReadSum.toString,
+      swBytesWrittenMin.toString,
+      swBytesWrittenMed.toString,
+      swBytesWrittenMax.toString,
+      swBytesWrittenSum.toString,
+      srFetchWaitTimeMin.toString,
+      srFetchWaitTimeMed.toString,
+      srFetchWaitTimeMax.toString,
+      srFetchWaitTimeSum.toString,
+      swWriteTimeMin.toString,
+      swWriteTimeMed.toString,
+      swWriteTimeMax.toString,
+      swWriteTimeSum.toString,
       StringUtils.reformatCSVString(nodeNames.mkString(",")))
+  }
 }
 
 case class SQLMaxTaskInputSizes(

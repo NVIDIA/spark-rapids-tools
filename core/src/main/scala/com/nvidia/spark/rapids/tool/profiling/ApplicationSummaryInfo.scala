@@ -48,8 +48,7 @@ case class ApplicationSummaryInfo(
     sysProps: Seq[RapidsPropertyProfileResult],
     sqlCleanedAlignedIds: Seq[SQLCleanAndAlignIdsProfileResult],
     sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent],
-    stageDiagnosticsAggs: Seq[StageDiagnosticAggMetricsProfileResult],
-    stageDiagnostics: Seq[StageDiagnosticTaskMetricsProfileResult])
+    stageDiagnostics: Seq[StageDiagnosticMetricsProfileResult])
 
 trait AppInfoPropertyGetter {
   // returns all the properties (i.e., spark)

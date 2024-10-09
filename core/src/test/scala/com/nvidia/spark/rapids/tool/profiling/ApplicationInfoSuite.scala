@@ -841,7 +841,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 20)
+      assert(dotDirs.length === 21)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -875,7 +875,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 16)
+      assert(dotDirs.length === 17)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -912,7 +912,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 20)
+      assert(dotDirs.length === 21)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -949,7 +949,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 18)
+      assert(dotDirs.length === 19)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly

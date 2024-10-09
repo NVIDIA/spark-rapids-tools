@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticTaskMetricsProfileResult, StageDiagnosticAggMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticMetricsProfileResult}
 
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -323,13 +323,15 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
    * @param index the App-index (used by the profiler tool)
    * @return sequence of StageDiagnosticAggTaskMetricsProfileResult
    */
-  def aggregateDiagnosticSparkMetricsByStage(index: Int): Seq[StageDiagnosticTaskMetricsProfileResult] = {
+  def aggregateDiagnosticSparkMetricsByStage(index: Int):
+      Seq[StageDiagnosticMetricsProfileResult] = {
     // TODO: this has stage attempts. we should handle different attempts
     val rows = app.stageManager.getAllStages.map { sm =>
-      System.out.println("In aggregateDiagnosticSparkMetricsByStage!\n")
       // TODO: Should we only consider successful tasks?
       val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
         sm.stageInfo.attemptNumber())
+      // count duplicate task attempts
+      val numAttempts = tasksInStage.size
       val (diskSpilledMin, diskSpilledMed, diskSpilledMax, diskSpilledSum) =
         AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.diskBytesSpilled))
       val (memSpilledMin, memSpilledMed, memSpilledMax, memSpilledSum) =
@@ -346,13 +348,14 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_fetchWaitTime))
       val (swWriteTimeMin, swWriteTimeMed, swWriteTimeMax, swWriteTimeSum) =
         AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sw_writeTime))
-      val nodeNames = app.asInstanceOf[ApplicationInfo].planMetricProcessor.stageToNodeNames.getOrElse(sm.stageInfo.stageId, Seq.empty[String])
-      StageDiagnosticTaskMetricsProfileResult(index,
+      val nodeNames = app.asInstanceOf[ApplicationInfo].planMetricProcessor.stageToNodeNames.
+        getOrElse(sm.stageInfo.stageId, Seq.empty[String])
+      StageDiagnosticMetricsProfileResult(index,
         app.appId,
         app.getAppName,
         sm.stageInfo.stageId,
         sm.duration,
-        tasksInStage.size,  // TODO: why is this numAttempts and not numTasks?
+        numAttempts,  // TODO: why is this numAttempts and not numTasks?
         memSpilledMin / (1024 * 1024),
         memSpilledMed / (1024 * 1024),
         memSpilledMax / (1024 * 1024),
@@ -439,29 +442,6 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       )
       stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
     }
-  }
-
-  def aggregateStageAggDiagnosticsSparkMetrics(index: Int): Seq[StageDiagnosticAggMetricsProfileResult] = {
-    // TODO: this has stage attempts. we should handle different attempts
-    val rows = app.stageManager.getAllStages.map { sm =>
-      // TODO: Should we only consider successful tasks?
-      val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
-        sm.stageInfo.attemptNumber())
-
-      val nodeNames = app.asInstanceOf[ApplicationInfo].planMetricProcessor.stageToNodeNames.getOrElse(sm.stageInfo.stageId, Seq.empty[String])
-
-      StageDiagnosticAggMetricsProfileResult(index,
-        app.appId,
-        app.getAppName,
-        sm.stageInfo.stageId,
-        sm.duration,
-        tasksInStage.size,  // TODO: why is this numAttempts and not numTasks?
-        tasksInStage.map(_.memoryBytesSpilled).sum / (1024 * 1024),
-        tasksInStage.map(_.diskBytesSpilled).sum / (1024 * 1024),
-        nodeNames
-      )
-    }
-    rows.toSeq
   }
 }
 
