@@ -22,7 +22,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.ui.SparkPlanGraphCluster
 import org.apache.spark.sql.rapids.tool.AppBase
 
-case class WholeStageExecParser(
+abstract class WholeStageExecParserBase(
     node: SparkPlanGraphCluster,
     checker: PluginTypeChecker,
     sqlID: Long,
@@ -67,3 +67,11 @@ case class WholeStageExecParser(
     Seq(execInfo)
   }
 }
+
+case class WholeStageExecParser(
+  node: SparkPlanGraphCluster,
+  checker: PluginTypeChecker,
+  sqlID: Long,
+  app: AppBase,
+  reusedNodeIds: Set[Long])
+  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds)

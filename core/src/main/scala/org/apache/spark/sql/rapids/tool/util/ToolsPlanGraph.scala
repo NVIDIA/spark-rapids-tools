@@ -16,13 +16,14 @@
 
 package org.apache.spark.sql.rapids.tool.util
 
+import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import java.util.concurrent.atomic.AtomicLong
-
 import scala.collection.mutable
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphEdge, SparkPlanGraphNode, SQLPlanMetric}
 import org.apache.spark.sql.rapids.tool.store.AccumNameRef
+import org.apache.spark.sql.rapids.tool.util.plangraph.PlanGraphTransformer
 import org.apache.spark.sql.rapids.tool.util.stubs.{GraphReflectionAPI, GraphReflectionAPIHelper}
 
 /**
@@ -39,7 +40,8 @@ object ToolsPlanGraph {
   // The actual code used to build the graph. If the API is not available, then fallback to the
   // Spark default API.
   private lazy val graphBuilder: SparkPlanInfo => SparkPlanGraph = {
-    GraphReflectionAPIHelper.api match {
+
+  GraphReflectionAPIHelper.api match {
       case Some(_) =>
         // set the api to the available one
         api = GraphReflectionAPIHelper.api.get
@@ -91,6 +93,8 @@ object ToolsPlanGraph {
   private def processPlanInfo(nodeName: String): String = {
     if (nodeName.startsWith("Gpu")) {
       nodeName.replaceFirst("Gpu", "")
+    } else if (DatabricksParseHelper.isPhotonNode(nodeName)) {
+      DatabricksParseHelper.mapPhotonToSpark(nodeName)
     } else {
       nodeName
     }
@@ -110,12 +114,14 @@ object ToolsPlanGraph {
           constructSQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
         }
 
-        val cluster = api.constructCluster(
+        var cluster = api.constructCluster(
           nodeIdGenerator.getAndIncrement(),
           planInfo.nodeName,
           planInfo.simpleString,
           mutable.ArrayBuffer[SparkPlanGraphNode](),
           metrics)
+        // Transform if it is a specialized type(e.g. Photon)
+        cluster = PlanGraphTransformer.transformPlanCluster(cluster)
         nodes += cluster
 
         buildSparkPlanGraphNode(
@@ -155,8 +161,10 @@ object ToolsPlanGraph {
         val metrics = planInfo.metrics.map { metric =>
           constructSQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
         }
-        val node = api.constructNode(nodeIdGenerator.getAndIncrement(),
+        var node = api.constructNode(nodeIdGenerator.getAndIncrement(),
           planInfo.nodeName, planInfo.simpleString, metrics)
+        // Transform if it is a specialized type(e.g. Photon)
+        node = PlanGraphTransformer.transformPlanNode(node)
         if (subgraph == null) {
           nodes += node
         } else {
