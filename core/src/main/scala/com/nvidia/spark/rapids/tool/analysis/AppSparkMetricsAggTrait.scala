@@ -38,7 +38,8 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
       analysisObj.aggregateSparkMetricsBySql(index),
       analysisObj.aggregateIOMetricsBySql(analysisObj.aggregateSparkMetricsBySql(index)),
       analysisObj.aggregateDurationAndCPUTimeBySql(index),
-      Seq(analysisObj.maxTaskInputSizeBytesPerSQL(index)))
+      Seq(analysisObj.maxTaskInputSizeBytesPerSQL(index)),
+      analysisObj.aggregateDiagnosticSparkMetricsByStage(index))
   }
 
   /**
@@ -59,7 +60,8 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
         agg1.sqlAggs ++ agg2.sqlAggs,
         agg1.ioAggs ++ agg2.ioAggs,
         agg1.sqlDurAggs ++ agg2.sqlDurAggs,
-        agg1.maxTaskInputSizes ++ agg2.maxTaskInputSizes)
+        agg1.maxTaskInputSizes ++ agg2.maxTaskInputSizes,
+        agg1.stageDiagnostics ++ agg2.stageDiagnostics)
     }
   }
 }

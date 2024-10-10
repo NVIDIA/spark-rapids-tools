@@ -326,6 +326,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val stageMetrics = collect.getStageLevelMetrics
     val wholeStage = collect.getWholeStageCodeGenMapping
     val sparkRapidsBuildInfo = collect.getSparkRapidsInfo
+    val sqlToStages = collect.getSQLToStage
+
     // for compare mode we just add in extra tables for matching across applications
     // the rest of the tables simply list all applications specified
     val compareRes = if (appArgs.compare()) {
@@ -391,8 +393,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       rapidsJar, sqlMetrics, stageMetrics, analysis.jobAggs, analysis.stageAggs,
       analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
-      unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
-      appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo), compareRes)
+      unsupportedOps, sparkProps, sqlToStages, wholeStage, maxTaskInputInfo,
+      appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo,
+      analysis.stageDiagnostics), compareRes)
   }
 
   /**
@@ -488,7 +491,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex),
         combineProps("system", appsSum).sortBy(_.key),
         appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex),
-        appsSum.flatMap(_.sparkRapidsBuildInfo)
+        appsSum.flatMap(_.sparkRapidsBuildInfo),
+        appsSum.flatMap(_.stageDiagnostics)
       )
       Seq(reduced)
     } else {
@@ -535,6 +539,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       val skewHeader = TASK_SHUFFLE_SKEW
       val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
       profileOutputWriter.write(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
+      profileOutputWriter.write(STAGE_DIAGNOSTICS_LABEL, app.stageDiagnostics)
 
       profileOutputWriter.writeText("\n### C. Health Check###\n")
       profileOutputWriter.write(ProfFailedTaskView.getLabel, app.failedTasks)
