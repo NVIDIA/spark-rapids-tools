@@ -874,9 +874,8 @@ class QualificationAppInfo(
         numExecsPerNode, maxNumExecutorsRunning, maxNumNodesRunning,
         sparkProperties, systemProperties)
     } else {
-      // if no executors do we want to qualify at all?  maybe not, else we could look at
-      // properties like spark.executor.cores
-      logWarning("Active executor info is empty so can't build existing cluster information!")
+      logWarning("Could not determine if any executors were allocated or the number of cores " +
+        "used per executor. Can't build existing cluster information!")
     }
   }
 
