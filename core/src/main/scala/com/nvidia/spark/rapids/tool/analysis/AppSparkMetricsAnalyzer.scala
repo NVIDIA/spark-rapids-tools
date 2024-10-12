@@ -351,8 +351,8 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       val nodeNames = app.asInstanceOf[ApplicationInfo].planMetricProcessor.stageToNodeNames.
         getOrElse(sm.stageInfo.stageId, Seq.empty[String])
       StageDiagnosticMetricsProfileResult(index,
-        app.appId,
         app.getAppName,
+        app.appId,
         sm.stageInfo.stageId,
         sm.duration,
         numAttempts,  // TODO: why is this numAttempts and not numTasks?
@@ -388,6 +388,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         swWriteTimeMed,
         swWriteTimeMax,
         swWriteTimeSum,
+        0L,
         nodeNames)
     }
     rows.toSeq

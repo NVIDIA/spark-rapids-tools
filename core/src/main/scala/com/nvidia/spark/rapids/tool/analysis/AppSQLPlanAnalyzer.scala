@@ -303,6 +303,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         val med = Math.max(taskInfo.med, driverInfo.med)
         val total = Math.max(taskInfo.total, driverInfo.total)
 
+        // TODO - use this to create view 2
         Some(SQLAccumProfileResults(appIndex, metric.sqlID,
           metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
           min, med, max, total, metric.metricType, metric.stageIds.mkString(",")))

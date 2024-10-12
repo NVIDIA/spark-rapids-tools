@@ -576,8 +576,8 @@ case class StageAggTaskMetricsProfileResult(
 
 case class StageDiagnosticMetricsProfileResult(
     appIndex: Int,
-    appId: String,
     appName: String,
+    appId: String,
     id: Long,
     duration: Option[Long],
     numTasks: Int,
@@ -613,6 +613,7 @@ case class StageDiagnosticMetricsProfileResult(
     swWriteTimeMed: Long,
     swWriteTimeMax: Long,
     swWriteTimeSum: Long,
+    gpuSemaphoreWait: Long,
     nodeNames: Seq[String]) extends ProfileResult {
 
   val durStr = duration match {
@@ -620,8 +621,8 @@ case class StageDiagnosticMetricsProfileResult(
     case None => "null"
   }
 
-  override val outputHeaders = Seq("appIndex", "appId", "appName", "stageId",
-    "Duration", "numTasks", "memoryBytesSpilledMBMin", "memoryBytesSpilledMBMedian",
+  override val outputHeaders = Seq("appIndex", "appName", "appId", "stageId",
+    "stageDuration", "numTasks", "memoryBytesSpilledMBMin", "memoryBytesSpilledMBMedian",
     "memoryBytesSpilledMBMax", "memoryBytesSpilledMBTotal", "diskBytesSpilledMBMin",
     "diskBytesSpilledMBMedian", "diskBytesSpilledMBMax", "diskBytesSpilledMBTotal",
     "inputBytesReadMin", "inputBytesReadMedian", "inputBytesReadMax",
@@ -631,14 +632,14 @@ case class StageDiagnosticMetricsProfileResult(
     "shuffleWriteBytesMin", "shuffleWriteBytesMedian", "shuffleWriteBytesMax",
     "shuffleWriteBytesTotal", "shuffleReadFetchWaitTimeMin",
     "shuffleReadFetchWaitTimeMedian", "shuffleReadFetchWaitTimeMax",
-    "shuffleReadFetchWaitTimeTotal", "shuffleWrtieWriteTimeMin",
-    "shuffleWrtieWriteTimeMedian", "shuffleWrtieWriteTimeMax",
-    "shuffleWrtieWriteTimeTotal", "SQL Nodes(IDs)")
+    "shuffleReadFetchWaitTimeTotal", "shuffleWriteWriteTimeMin",
+    "shuffleWriteWriteTimeMedian", "shuffleWriteWriteTimeMax",
+    "shuffleWriteWriteTimeTotal", "gpuSemaphoreWaitTime", "SQL Nodes(IDs)")
 
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString,
-      appId,
       appName,
+      appId,
       id.toString,
       durStr,
       numTasks.toString,
@@ -674,13 +675,14 @@ case class StageDiagnosticMetricsProfileResult(
       swWriteTimeMed.toString,
       swWriteTimeMax.toString,
       swWriteTimeSum.toString,
+      gpuSemaphoreWait.toString,
       nodeNames.mkString(","))
   }
 
   override def convertToCSVSeq: Seq[String] = {
     Seq(appIndex.toString,
-      appId,
       appName,
+      appId,
       id.toString,
       durStr,
       numTasks.toString,
@@ -716,6 +718,7 @@ case class StageDiagnosticMetricsProfileResult(
       swWriteTimeMed.toString,
       swWriteTimeMax.toString,
       swWriteTimeSum.toString,
+      gpuSemaphoreWait.toString,
       StringUtils.reformatCSVString(nodeNames.mkString(",")))
   }
 }
