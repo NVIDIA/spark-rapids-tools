@@ -58,6 +58,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
 
   val stageToNodeNames: HashMap[Long, Seq[String]] = HashMap.empty[Long, Seq[String]]
+  val stageToGpuSemaphoreWaitTime: HashMap[Long, Long] = HashMap.empty[Long, Long]
 
   /**
    * Connects Operators to Stages using AccumulatorIDs.
@@ -342,6 +343,9 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
             (taskUpatesSubset(mid) + taskUpatesSubset(mid - 1)) / 2
           } else {
             taskUpatesSubset(taskUpatesSubset.size / 2)
+          }
+          if (accumInfo.infoRef.getName.contains("gpuSemaphoreWait")) {
+            stageToGpuSemaphoreWaitTime(stageId) = sum
           }
           Some(AccumProfileResults(
             appIndex,

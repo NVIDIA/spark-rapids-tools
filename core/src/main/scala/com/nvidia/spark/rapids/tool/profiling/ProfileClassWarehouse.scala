@@ -622,7 +622,7 @@ case class StageDiagnosticMetricsProfileResult(
   }
 
   override val outputHeaders = Seq("appIndex", "appName", "appId", "stageId",
-    "stageDuration", "numTasks", "memoryBytesSpilledMBMin", "memoryBytesSpilledMBMedian",
+    "stageDurationMs", "numTasks", "memoryBytesSpilledMBMin", "memoryBytesSpilledMBMedian",
     "memoryBytesSpilledMBMax", "memoryBytesSpilledMBTotal", "diskBytesSpilledMBMin",
     "diskBytesSpilledMBMedian", "diskBytesSpilledMBMax", "diskBytesSpilledMBTotal",
     "inputBytesReadMin", "inputBytesReadMedian", "inputBytesReadMax",

@@ -350,6 +350,8 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sw_writeTime))
       val nodeNames = app.asInstanceOf[ApplicationInfo].planMetricProcessor.stageToNodeNames.
         getOrElse(sm.stageInfo.stageId, Seq.empty[String])
+      val gpuSemaphoreWait = app.asInstanceOf[ApplicationInfo].planMetricProcessor.stageToGpuSemaphoreWaitTime.
+        getOrElse(sm.stageInfo.stageId, 0L)
       StageDiagnosticMetricsProfileResult(index,
         app.getAppName,
         app.appId,
@@ -388,7 +390,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         swWriteTimeMed,
         swWriteTimeMax,
         swWriteTimeSum,
-        0L,
+        gpuSemaphoreWait,
         nodeNames)
     }
     rows.toSeq
