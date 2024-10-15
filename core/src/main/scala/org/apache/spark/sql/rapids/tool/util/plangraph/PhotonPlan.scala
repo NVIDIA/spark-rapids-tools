@@ -26,7 +26,7 @@ import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphN
  * Extension of SparkPlanGraphNode to handle Photon nodes.
  * Note:
  * - photonName and photonDesc are the name and description of the Photon node
- * - name and desc are the name and description of the equivalent Spark node
+ * - sparkName and sparkDesc are the name and description of the equivalent Spark node
  */
 class PhotonSparkPlanGraphNode(
     id: Long,

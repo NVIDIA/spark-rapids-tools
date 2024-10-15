@@ -571,12 +571,15 @@ object SQLPlanParser extends Logging {
     }
 
     node match {
-      // this is special because it is a SparkPlanGraphCluster vs SparkPlanGraphNode
+      // For WholeStageCodegen clusters, use PhotonStageExecParser if the cluster is of Photon type.
+      // Else, fall back to WholeStageExecParser to parse the cluster.
       case photonCluster: PhotonSparkPlanGraphCluster =>
         PhotonStageExecParser(photonCluster, checker, sqlID, app, reusedNodeIds).parse
       case cluster: SparkPlanGraphCluster =>
         WholeStageExecParser(cluster, checker, sqlID, app, reusedNodeIds).parse
       case _ =>
+        // For individual nodes, use PhotonPlanParser if the node is of Photon type.
+        // Else, fall back to the Spark node parsing logic to parse the node.
         val execInfo = try {
           node match {
             case photonNode: PhotonSparkPlanGraphNode =>

@@ -22,7 +22,8 @@ import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphN
 
 
 /**
- * Object responsible for transforming instances of SparkPlanGraphNode and SparkPlanGraphCluster.
+ * Object responsible for transforming instances of SparkPlanGraphNode and SparkPlanGraphCluster
+ * to specialized instances (e.g. PhotonSparkPlanGraphNode) if they are of a specialized type.
  *
  * This can be extended to handle other types of nodes or clusters (e.g. GPU nodes or Velox nodes).
  */

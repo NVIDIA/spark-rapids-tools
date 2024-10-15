@@ -114,14 +114,14 @@ object ToolsPlanGraph {
           constructSQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
         }
 
-        var cluster = api.constructCluster(
+        val baseCluster = api.constructCluster(
           nodeIdGenerator.getAndIncrement(),
           planInfo.nodeName,
           planInfo.simpleString,
           mutable.ArrayBuffer[SparkPlanGraphNode](),
           metrics)
         // Transform if it is a specialized type(e.g. Photon)
-        cluster = PlanGraphTransformer.transformPlanCluster(cluster)
+        val cluster = PlanGraphTransformer.transformPlanCluster(baseCluster)
         nodes += cluster
 
         buildSparkPlanGraphNode(
@@ -161,10 +161,10 @@ object ToolsPlanGraph {
         val metrics = planInfo.metrics.map { metric =>
           constructSQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
         }
-        var node = api.constructNode(nodeIdGenerator.getAndIncrement(),
+        val baseNode = api.constructNode(nodeIdGenerator.getAndIncrement(),
           planInfo.nodeName, planInfo.simpleString, metrics)
         // Transform if it is a specialized type(e.g. Photon)
-        node = PlanGraphTransformer.transformPlanNode(node)
+        val node = PlanGraphTransformer.transformPlanNode(baseNode)
         if (subgraph == null) {
           nodes += node
         } else {
