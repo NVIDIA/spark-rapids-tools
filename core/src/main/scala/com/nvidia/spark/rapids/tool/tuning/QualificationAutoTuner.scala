@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.tuning
 
 import scala.util.{Failure, Success, Try}
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ToolTextFileWriter}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform, ToolTextFileWriter}
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
 import com.nvidia.spark.rapids.tool.profiling.{AutoTuner, DataSourceProfileResult, Profiler}
 import org.apache.hadoop.conf.Configuration
@@ -64,9 +64,8 @@ class QualificationAutoTuner(val appInfoProvider: QualAppSummaryInfoProvider,
     }
   }
 
-  def runAutoTuner(): TuningResult = {
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(
-      tunerContext.workerInfoPath, appInfoProvider, tunerContext.platform)
+  def runAutoTuner(platform: Platform): TuningResult = {
+    val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(appInfoProvider, platform)
     val (recommendations, comments) =
       autoTuner.getRecommendedProperties(showOnlyUpdatedProps = filterByUpdatedPropsEnabled)
     // Combine the GPU recommendations with all others.

@@ -331,6 +331,9 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     val rpId = event.executorInfo.resourceProfileId
     exec.resources = event.executorInfo.resourcesInfo
     exec.resourceProfileId = rpId
+    // make sure updateMaxExecutorsIfNeeded is called after added executor information
+    app.updateMaxExecutors()
+    app.updateMaxNodes()
   }
 
   override def onExecutorAdded(executorAdded: SparkListenerExecutorAdded): Unit = {

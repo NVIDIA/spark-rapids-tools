@@ -19,7 +19,7 @@ package org.apache.spark.sql.rapids.tool.qualification
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.EventLogInfo
+import com.nvidia.spark.rapids.tool.{EventLogInfo, Platform}
 import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo, SQLPlanParser}
 import com.nvidia.spark.rapids.tool.qualification._
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
@@ -39,7 +39,8 @@ class QualificationAppInfo(
     reportSqlLevel: Boolean,
     val perSqlOnly: Boolean = false,
     mlOpsEnabled: Boolean = false,
-    penalizeTransitions: Boolean = true)
+    penalizeTransitions: Boolean = true,
+    platform: Platform)
   extends AppBase(eventLogInfo, hadoopConf) with Logging {
 
   var lastJobEndTime: Option[Long] = None
@@ -66,7 +67,7 @@ class QualificationAppInfo(
    * any additional properties based on platform.
    */
   override def getRetainedSystemProps: Set[String] =
-    super.getRetainedSystemProps ++ pluginTypeChecker.platform.getRetainedSystemProps
+    super.getRetainedSystemProps ++ platform.getRetainedSystemProps
 
   /**
    * Get the event listener the qualification tool uses to process Spark events.
@@ -628,7 +629,7 @@ class QualificationAppInfo(
         mlFuncReportInfo.mlWallClockDur, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
 
       val clusterSummary = ClusterSummary(info.appName, appId,
-        eventLogInfo.map(_.eventLog.toString), pluginTypeChecker.platform.clusterInfoFromEventLog,
+        eventLogInfo.map(_.eventLog.toString), platform.clusterInfoFromEventLog,
         None)
 
       QualificationSummaryInfo(info.appName, appId, problems,
@@ -845,33 +846,33 @@ class QualificationAppInfo(
    * and extracts executor and driver instance types (databricks only)
    */
   override def buildClusterInfo: Unit = {
-    // TODO: Handle dynamic allocation when determining the number of nodes.
-    sparkProperties.get("spark.dynamicAllocation.enabled").foreach { value =>
-      if (value.toBoolean) {
-        logWarning(s"Application $appId: Dynamic allocation is not supported. " +
-          s"Cluster information may be inaccurate.")
-      }
-    }
     // try to figure out number of executors per node based on the executor info
     // Group by host name, find max executors per host
     val execsPerNodeList = executorIdToInfo.values.groupBy(_.host).mapValues(_.size).values
-    val numExecsPerNode = execsPerNodeList.reduceOption(_ max _).getOrElse(0)
-    val activeExecInfo = executorIdToInfo.values.collect {
-      case execInfo if execInfo.isActive => (execInfo.host, execInfo.totalCores)
+    // if we have different number of execs per node, then we blank it out to indicate
+    // not applicable (like when dynamic allocation is on in multi-tenant cluster)
+    // Since with dynamic allocation you could end up with more executors on a node then it
+    // has slots, just always set numExecsPerNode to -1 when its enabled.
+    val dynamicAllocEnabled = Platform.isDynamicAllocationEnabled(sparkProperties)
+    val numExecsPerNode = if (!dynamicAllocEnabled && execsPerNodeList.size > 0 &&
+      execsPerNodeList.forall(_ == execsPerNodeList.head)) {
+      execsPerNodeList.head
+    } else {
+      -1
     }
-    if (activeExecInfo.nonEmpty) {
-      val (activeHosts, coresPerExecutor) = activeExecInfo.unzip
-      if (coresPerExecutor.toSet.size != 1) {
+    val execCoreCounts = executorIdToInfo.values.map(_.totalCores)
+    if (execCoreCounts.size > 0) {
+      if (execCoreCounts.toSet.size != 1) {
         logWarning(s"Application $appId: Cluster with variable executor cores detected. " +
           s"Using maximum value.")
       }
       // Create cluster information based on platform type
-      pluginTypeChecker.platform.configureClusterInfoFromEventLog(coresPerExecutor.max,
-        numExecsPerNode, activeHosts.toSet.size, sparkProperties, systemProperties)
+      platform.configureClusterInfoFromEventLog(execCoreCounts.max,
+        numExecsPerNode, maxNumExecutorsRunning, maxNumNodesRunning,
+        sparkProperties, systemProperties)
     } else {
-      // if no executors do we want to qualify at all?  maybe not, else we could look at
-      // properties like spark.executor.cores
-      logWarning("Active executor info is empty so can't build existing cluster information!")
+      logWarning("Could not determine if any executors were allocated or the number of cores " +
+        "used per executor. Can't build existing cluster information!")
     }
   }
 
@@ -1093,10 +1094,11 @@ object QualificationAppInfo extends Logging {
       pluginTypeChecker: PluginTypeChecker,
       reportSqlLevel: Boolean,
       mlOpsEnabled: Boolean,
-      penalizeTransitions: Boolean): Either[FailureApp, QualificationAppInfo] = {
+      penalizeTransitions: Boolean,
+      platform: Platform): Either[FailureApp, QualificationAppInfo] = {
     try {
       val app = new QualificationAppInfo(Some(path), Some(hadoopConf), pluginTypeChecker,
-        reportSqlLevel, false, mlOpsEnabled, penalizeTransitions)
+        reportSqlLevel, false, mlOpsEnabled, penalizeTransitions, platform)
       if (!app.isAppMetaDefined) {
         throw IncorrectAppStatusException()
       }
