@@ -57,6 +57,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   var unsupportedSQLPlan: ArrayBuffer[UnsupportedSQLPlan] = ArrayBuffer[UnsupportedSQLPlan]()
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
 
+  val stageToNodeNames: HashMap[Long, Seq[String]] = HashMap.empty[Long, Seq[String]]
+
   /**
    * Connects Operators to Stages using AccumulatorIDs.
    * TODO: This function can be fused in the visitNode function to avoid the extra iteration.
@@ -261,6 +263,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           }
           validNodes.map(n => s"${n.name}(${n.id.toString})")
         }.getOrElse(Seq.empty)
+        stageToNodeNames(sModel.stageInfo.stageId) = nodeNames
         SQLStageInfoProfileResult(appIndex, j.sqlID.get, jobId, sModel.stageInfo.stageId,
           sModel.stageInfo.attemptNumber(), sModel.duration, nodeNames)
       }
@@ -300,6 +303,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         val med = Math.max(taskInfo.med, driverInfo.med)
         val total = Math.max(taskInfo.total, driverInfo.total)
 
+        // TODO - use this to create view 2
         Some(SQLAccumProfileResults(appIndex, metric.sqlID,
           metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
           min, med, max, total, metric.metricType, metric.stageIds.mkString(",")))
