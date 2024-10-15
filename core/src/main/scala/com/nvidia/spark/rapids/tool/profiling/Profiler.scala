@@ -409,10 +409,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     if (appInfo.isDefined && appInfo.get.appInfo.head.pluginEnabled) {
       val appInfoProvider = AppSummaryInfoBaseProvider.fromAppInfo(appInfo)
       val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
-      val platform = appArgs.platform()
       val clusterPropsOpt = loadClusterProps(workerInfoPath)
-      val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(workerInfoPath, appInfoProvider,
-        PlatformFactory.createInstance(platform, clusterPropsOpt), driverInfoProvider)
+      val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(appInfoProvider,
+        PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt), driverInfoProvider)
 
       // The autotuner allows skipping some properties,
       // e.g., getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
