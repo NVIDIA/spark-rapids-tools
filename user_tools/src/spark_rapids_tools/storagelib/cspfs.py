@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -100,6 +100,20 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
         return self._path_meta.path_class(entry_path=entry_path, fs_obj=self)
 
     @classmethod
+    def copy_file(cls, src: BoundedCspPath, dest: BoundedCspPath):
+        """
+        Copy a single file between FileSystems. This function assumes that
+        :param src:
+        :param dest:
+        :return:
+        """
+        arrow_fs.copy_files(src.no_scheme, dest.no_scheme,
+                            source_filesystem=src.fs_obj.fs,
+                            destination_filesystem=dest.fs_obj.fs,
+                            # 64 MB chunk size
+                            chunk_size=64 * 1024 * 1024)
+
+    @classmethod
     def copy_resources(cls, src: BoundedCspPath, dest: BoundedCspPath):
         """
         Copy files between FileSystems.
@@ -132,6 +146,8 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
             dest.create_dirs()
             dest = dest.fs_obj.create_as_path(entry_path=dest_path)
 
-        arrow_fs.copy_files(src.no_prefix, dest.no_prefix,
+        arrow_fs.copy_files(src.no_scheme, dest.no_scheme,
                             source_filesystem=src.fs_obj.fs,
-                            destination_filesystem=dest.fs_obj.fs)
+                            destination_filesystem=dest.fs_obj.fs,
+                            # 64 MB chunk size
+                            chunk_size=64 * 1024 * 1024)
