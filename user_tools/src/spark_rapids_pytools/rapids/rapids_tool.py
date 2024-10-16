@@ -413,6 +413,7 @@ class RapidsJarTool(RapidsTool):
     """
 
     def _process_jar_arg(self):
+        # TODO: use the StorageLib to download the jar file
         jar_path = ''
         tools_jar_url = self.wrapper_options.get('toolsJar')
         try:

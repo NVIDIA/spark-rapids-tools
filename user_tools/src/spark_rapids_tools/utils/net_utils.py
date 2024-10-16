@@ -18,26 +18,75 @@ import concurrent
 import dataclasses
 import datetime
 import json
+import logging
 import os
+import shutil
+import ssl
 import time
+import urllib
 from concurrent.futures import Future, ThreadPoolExecutor
 from functools import cached_property
+from logging import Logger
 from typing import Optional, List
 
+import certifi
+import requests
 from fastcore.all import urlsave
 from fastprogress.fastprogress import progress_bar
 from pydantic import Field, AnyUrl
 from pydantic.dataclasses import dataclass
 from typing_extensions import Annotated
 
+from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_tools import CspPath
 from spark_rapids_tools.storagelib import LocalPath, CspFs
 from spark_rapids_tools.storagelib.tools.fs_utils import FileVerificationResult
 
 
-def fast_download_url(url: str, fpath: str, timeout=None, pbar_enabled=False) -> str:
+def download_url_request(url: str, fpath: str, timeout: float = None,
+                         chunk_size: int = 32 * 1024 * 1024) -> str:
     """
-    Download the given url and display a progress bar
+    Downloads a file from url source using the requests library.
+    This implementation is more suitable for large files as the chunk size is set to 32 MB.
+    For smaller file sizes, it might represent an overhead on memory consumption.
+    :param url: The source of the file to download.
+    :param fpath: The file path where the resource is saved.
+    :param timeout: Time in seconds before the requests times out.
+    :param chunk_size: Default buffer size to download the file.
+    :return: Local path where the file is downloaded.
+    """
+    # disable the urllib3 debug messages
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+    with requests.get(url, stream=True, timeout=timeout) as r:
+        r.raise_for_status()
+        with open(fpath, 'wb') as f:
+            # set chunk size to 16 MB to lower the count of iterations.
+            for chunk in r.iter_content(chunk_size=chunk_size):
+                f.write(chunk)
+    return fpath
+
+
+def download_url_urllib(url: str, fpath: str) -> str:
+    """
+    Download the given url to the file path. This function is a simple wrapper around the urllib.request.urlopen
+    :param url: URL to download.
+    :param fpath: the destination of the saved file.
+    :return: Local path to the saved file.
+    """
+    # disable the urllib3 debug messages
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+    # We create a context here to fix and issue with urlib requests issue.
+    context = ssl.create_default_context(cafile=certifi.where())
+    with urllib.request.urlopen(url, context=context) as resp:
+        with open(fpath, 'wb') as f:
+            shutil.copyfileobj(resp, f, 64 * 1024 * 1024)
+    return fpath
+
+
+def download_url_fastcore(url: str, fpath: str, timeout=None, pbar_enabled=False) -> str:
+    """
+    Download the given url and display a progress bar. This implementation uses the fastcore library.
+    We used this by default because it is faster than the download_from_url function.
     """
     pbar = progress_bar([])
 
@@ -178,7 +227,9 @@ class DownloadTask:
         :return: A DownloadResult object.
         """
         def download_from_weburl() -> None:
-            fast_download_url(opts['srcUrl'], opts['destPath'], timeout=opts['timeOut'])
+            # by default use the requests library to download the file as it performs better for
+            # larger files.
+            download_url_request(opts['srcUrl'], opts['destPath'], timeout=opts['timeOut'])
 
         def download_from_csfs() -> None:
             csp_src = CspPath(opts['srcUrl'])
@@ -201,7 +252,8 @@ class DownloadTask:
             downloaded = True
         except Exception as e:    # pylint: disable=broad-except
             download_exception = e
-        return DownloadResult(resource=self.dest_res,
+        # we need to create a new CsPath in order to refresh the fileInfo cached with the instance.
+        return DownloadResult(resource=CspPath(self.dest_res),
                               origin_url=opts['srcUrl'],
                               success=success,
                               downloaded=downloaded,
@@ -273,19 +325,41 @@ class DownloadManager:
     max_workers: Optional[int] = 4
     # set the timeout to 60 minutes.
     time_out: Optional[int] = 3600
+    raise_on_error: Optional[bool] = True
+    enable_logging: Optional[bool] = False
+
+    @cached_property
+    def get_logger(self) -> Logger:
+        return ToolLogging.get_and_setup_logger('rapids.tools.download_manager', debug_mode=True)
+
+    def loginfo(self, msg: str) -> None:
+        if self.enable_logging:
+            self.get_logger.info(msg)
 
     def submit(self) -> List[DownloadResult]:
         futures_list = []
         results = []
         final_results = []
+        failed_downloads = []
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             try:
                 for task in self.download_tasks:
+                    self.loginfo(f'Submitting download task: {task.src_url}')
                     task.async_submit(executor, futures_list)
                 # set the timeout to 30 minutes.
                 for future in concurrent.futures.as_completed(futures_list, timeout=self.time_out):
                     results.append(future.result())
-                final_results = [res for res in results if res is not None]
+                for res in results:
+                    if res is not None:
+                        final_results.append(res)
+                        self.loginfo(f'download result: {res.pretty_print()}')
+                        if not res.success:
+                            failed_downloads.append(res)
+                if self.raise_on_error:
+                    if failed_downloads:
+                        raise ValueError(f'Failed to download the following resources: {failed_downloads}')
+                    if len(final_results) != len(self.download_tasks):
+                        raise ValueError('Not all tasks are completed')
             except concurrent.futures.TimeoutError as e:
-                print('Time out waiting for as_completed()', e)
+                raise ValueError('Timed out while downloading all tasks') from e
         return final_results
