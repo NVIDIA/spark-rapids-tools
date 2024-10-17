@@ -431,10 +431,6 @@ case class GpuEventLogException(
     message: String = "Cannot parse event logs from GPU run: skipping this file")
     extends AppEventlogProcessException(message)
 
-case class PhotonEventLogException(
-    message: String = "Encountered Databricks Photon event log: skipping this file!")
-    extends AppEventlogProcessException(message)
-
 case class StreamingEventLogException(
     message: String = "Encountered Spark Structured Streaming Job: skipping this file!")
     extends AppEventlogProcessException(message)

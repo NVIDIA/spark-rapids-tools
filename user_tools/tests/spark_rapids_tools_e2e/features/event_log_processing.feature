@@ -21,16 +21,16 @@ Feature: Event Log Processing
       """
       <expected_stderr>
       """
-    And processed applications is "0"
+    And processed applications is "<processed_apps_count>"
     And return code is "0"
 
     Examples:
-      | event_logs                         | expected_stderr                                                                                                       |
-      | invalid_path_eventlog              | process.failure.count = 1;invalid_path_eventlog not found, skipping!                                                  |
-      | gpu_eventlog.zstd                  | process.skipped.count = 1;GpuEventLogException: Cannot parse event logs from GPU run: skipping this file              |
-      | photon_eventlog.zstd               | process.skipped.count = 1;PhotonEventLogException: Encountered Databricks Photon event log: skipping this file!       |
-      | streaming_eventlog.zstd            | process.skipped.count = 1;StreamingEventLogException: Encountered Spark Structured Streaming Job: skipping this file! |
-      | incorrect_app_status_eventlog.zstd | process.NA.count = 1;IncorrectAppStatusException: Application status is incorrect. Missing AppInfo                    |
+      | event_logs                         | expected_stderr                                                                                                       | processed_apps_count |
+      | invalid_path_eventlog              | process.failure.count = 1;invalid_path_eventlog not found, skipping!                                                  | 0                    |
+      | gpu_eventlog.zstd                  | process.skipped.count = 1;GpuEventLogException: Cannot parse event logs from GPU run: skipping this file              | 0                    |
+      | photon_eventlog.zstd               | process.success.count = 1;                                                                                            | 1                    |
+      | streaming_eventlog.zstd            | process.skipped.count = 1;StreamingEventLogException: Encountered Spark Structured Streaming Job: skipping this file! | 0                    |
+      | incorrect_app_status_eventlog.zstd | process.NA.count = 1;IncorrectAppStatusException: Application status is incorrect. Missing AppInfo                    | 0                    |
 
   @test_id_ELP_0002
   Scenario: Qualification tool JAR crashes

@@ -16,12 +16,17 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
-import scala.util.control.NonFatal
+import java.nio.file.Paths
 
-import org.json4s.DefaultFormats
+import scala.util.control.NonFatal
+import scala.util.matching.Regex
+
+import org.json4s.{DefaultFormats, Formats}
+import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
 // Utilities used to handle Databricks and Photon Ops
 object DatabricksParseHelper extends Logging {
@@ -42,6 +47,11 @@ object DatabricksParseHelper extends Logging {
   val SUB_PROP_CLUSTER_ID = "ClusterId"
   val SUB_PROP_JOB_ID = "JobId"
   val SUB_PROP_RUN_NAME = "RunName"
+
+  private val PHOTON_PATTERN: Regex = "Photon[a-zA-Z]*".r
+  private val PHOTON_OPS_MAPPING_DIR = "photonOperatorMappings"
+  // TODO: Create separate mapping file for different Photon/Databricks versions
+  private val DEFAULT_PHOTON_OPS_MAPPING_FILE = "databricks-13_3.json"
   /**
    * Checks if the properties indicate that the application is a Photon app.
    * This ca be checked by looking for keywords in one of the keys defined in PHOTON_SPARK_PROPS
@@ -107,5 +117,34 @@ object DatabricksParseHelper extends Logging {
         logWarning(s"There was an exception parsing cluster tags string: $clusterTag, skipping")
         Map.empty
     }
+  }
+
+  /**
+   * Maps the Photon operator names to Spark operator names using a mapping JSON file.
+   */
+  private lazy val photonToSparkMapping: Map[String, String] = {
+    val mappingFile = Paths.get(PHOTON_OPS_MAPPING_DIR, DEFAULT_PHOTON_OPS_MAPPING_FILE).toString
+    val jsonString = UTF8Source.fromResource(mappingFile).mkString
+    val json = JsonMethods.parse(jsonString)
+    // Implicitly define JSON formats for deserialization using DefaultFormats
+    implicit val formats: Formats = DefaultFormats
+    // Extract and deserialize the JValue object into a Map[String, String]
+    // TODO: Currently, only the first mapping in the list is used.
+    //       This limitation exists because we cannot differentiate between
+    //       these operators in the SparkPlan.
+    json.extract[Map[String, List[String]]].mapValues(_.head)
+  }
+
+  def isPhotonNode(nodeName: String): Boolean = PHOTON_PATTERN.findFirstIn(nodeName).isDefined
+
+  /**
+   * Replaces all occurrences in the input string that match the PHOTON_PATTERN
+   * with corresponding values from the photonToSparkMapping map.
+   *
+   * @param inputStr the node name, potentially containing a Photon identifier
+   * @return an `Option[String]` with the Spark node name, or `None` if no match is found
+   */
+  def mapPhotonToSpark(inputStr: String): String = {
+    PHOTON_PATTERN.replaceAllIn(inputStr, m => photonToSparkMapping.getOrElse(m.matched, m.matched))
   }
 }
