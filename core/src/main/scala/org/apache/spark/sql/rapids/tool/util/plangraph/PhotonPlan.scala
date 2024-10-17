@@ -63,10 +63,10 @@ class PhotonSparkPlanGraphCluster(
   extends SparkPlanGraphCluster(id, sparkName, sparkDesc, nodes, metrics)
 
 object PhotonSparkPlanGraphCluster {
-    def from(cluster: SparkPlanGraphCluster): PhotonSparkPlanGraphCluster = {
-      val sparkName = DatabricksParseHelper.mapPhotonToSpark(cluster.name)
-      val sparkDesc = DatabricksParseHelper.mapPhotonToSpark(cluster.desc)
-      new PhotonSparkPlanGraphCluster(cluster.id, cluster.name, cluster.desc, sparkName,
-        sparkDesc, cluster.nodes, cluster.metrics)
-    }
+  def from(cluster: SparkPlanGraphCluster): PhotonSparkPlanGraphCluster = {
+    val sparkName = DatabricksParseHelper.mapPhotonToSpark(cluster.name)
+    val sparkDesc = DatabricksParseHelper.mapPhotonToSpark(cluster.desc)
+    new PhotonSparkPlanGraphCluster(cluster.id, cluster.name, cluster.desc, sparkName,
+      sparkDesc, cluster.nodes, cluster.metrics)
+  }
 }

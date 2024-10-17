@@ -40,8 +40,7 @@ object ToolsPlanGraph {
   // The actual code used to build the graph. If the API is not available, then fallback to the
   // Spark default API.
   private lazy val graphBuilder: SparkPlanInfo => SparkPlanGraph = {
-
-  GraphReflectionAPIHelper.api match {
+    GraphReflectionAPIHelper.api match {
       case Some(_) =>
         // set the api to the available one
         api = GraphReflectionAPIHelper.api.get
