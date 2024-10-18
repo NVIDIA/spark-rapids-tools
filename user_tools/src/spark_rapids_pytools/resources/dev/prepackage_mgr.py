@@ -20,7 +20,6 @@ without need to access the web during runtime.
 import os
 import shutil
 import tarfile
-from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 import fire
@@ -30,6 +29,7 @@ from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.rapids.rapids_tool import RapidsTool
 from spark_rapids_tools import CspEnv
 from spark_rapids_tools.utils import Utilities
+from spark_rapids_tools.utils.net_utils import DownloadManager, DownloadTask
 
 # Defines the constants and static configurations
 prepackage_conf = {
@@ -122,30 +122,23 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
                 if uri:
                     resource_uris[uri] = {'name': name, 'pbar_enabled': False}
                     resource_uris[uri + '.asc'] = {'name': name + '.asc', 'pbar_enabled': False}
-
-            # Add pricing files as resources
-            if platform_conf.get_value_silent('pricing'):
-                for pricing_entry in platform_conf.get_value('pricing', 'catalog', 'onlineResources'):
-                    uri = pricing_entry.get('onlineURL')
-                    name = pricing_entry.get('localFile')
-                    if uri and name:
-                        resource_uris[uri] = {'name': name, 'pbar_enabled': False}
-
         return resource_uris
 
     def _download_resources(self, resource_uris: dict):
-        resource_uris_list = list(resource_uris.items())
-
-        def download_task(resource_uri, resource_info):
-            resource_name = resource_info['name']
-            pbar_enabled = resource_info['pbar_enabled']
-            resource_file_path = FSUtil.build_full_path(self.dest_dir, resource_name)
-
-            print(f'Downloading {resource_name}')
-            FSUtil.fast_download_url(resource_uri, resource_file_path, pbar_enabled=pbar_enabled)
-
-        with ThreadPoolExecutor() as executor:
-            executor.map(lambda x: download_task(x[0], x[1]), resource_uris_list)
+        download_tasks = []
+        for res_uri, res_info in resource_uris.items():
+            resource_name = res_info.get('name')
+            print(f'Creating download task: {resource_name}')
+            # All the downloadTasks enforces download
+            download_tasks.append(DownloadTask(src_url=res_uri,     # pylint: disable=no-value-for-parameter)
+                                               dest_folder=self.dest_dir,
+                                               configs={'forceDownload': True}))
+        # Begin downloading the resources
+        download_results = DownloadManager(download_tasks, max_workers=12).submit()
+        print('----Download summary---')
+        for res in download_results:
+            print(res.pretty_print())
+        print('-----------------------')
 
     def _compress_resources(self) -> Optional[str]:
         if not self.archive_enabled:
