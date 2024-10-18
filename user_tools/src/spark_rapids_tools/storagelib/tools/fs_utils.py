@@ -67,7 +67,7 @@ def raise_invalid_file(file_path: CspPath, msg: str, error_type: str = 'invalid_
 @dataclass
 class FileHashAlgorithm:
     """
-    A class that represents a file hash algorithm and its value. USed for verification against an
+    Represents a file hash algorithm and its value. Used for verification against an
     existing file.
     ```py
     try:
@@ -120,8 +120,8 @@ class CspFileChecker:
     """
     A class that represents a file checker. It is used as a pydantic model to validate the file.
     :param file_path: The path to the file. It accepts any valid CspPath or AnyHttpUrl in case we want to
-           verify a url path extension even before we download it.
-    :param must_exist: When True, the file must exists.
+           verify an url path extension even before we download it.
+    :param must_exist: When True, the file must exist.
     :param is_file: When True, the file must be a file. Otherwise, it is a directory.
     :param size: The expected size of the file. When 0, it is not checked.
     :param extensions: A list of expected extensions. When None, it is not checked.

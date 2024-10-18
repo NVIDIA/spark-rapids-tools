@@ -14,7 +14,7 @@
 
 """
 Abstract representation of a file path that can access local/URI values.
-Similar to cloudpathlib project, this implementation uses dict registry to
+Like to cloudpathlib project, this implementation uses dict registry to
 register an implementation. However, the path representation is built on top of
 pyArrow FS API. As a result, there is no need to write a full storage client to
 access remote files. This comes with a tradeoff in providing limited set of file
@@ -324,6 +324,19 @@ class CspPath(metaclass=CspPathMeta):
         return self.fs_obj.open_output_stream(self.no_scheme)
 
     def create_sub_path(self, relative: str) -> 'CspPath':
+        """
+        Given a relative path, it will return a new CspPath object with the relative path appended to
+        the current path. This is just for building a path, and it does not call mkdirs.
+        For example,
+        ```py
+        root_folder = CspPath('gs://bucket-name/folder_00/subfolder_01')
+        new_path = root_folder.create_sub_path('subfolder_02')
+        print(new_path)
+        >> gs://bucket-name/folder_00/subfolder_01/subfolder_02
+        ```
+        :param relative: A relative path to append to the current path.
+        :return: A new path without creating the directory/file.
+        """
         postfix = '/'
         sub_path = relative
         if relative.startswith('/'):
@@ -345,15 +358,6 @@ class CspPath(metaclass=CspPathMeta):
     def extension_from_path(self) -> str:
         # if file does not exist then get extension cannot use pull_info
         return self.no_scheme.split('.')[-1]
-
-    def strip_extension(self) -> 'CspPath':
-        """
-        Given a cspPath with a file extension, it will return a new CspPath without the file
-        extension. This can be used to create an object from compressed files.
-        :return: A new cspPath object without the file extension.
-        """
-        new_path = self._fpath.rsplit('.', 1)[0]
-        return CspPath(new_path)
 
     @classmethod
     def download_files(cls, src_url: str, dest_url: str):

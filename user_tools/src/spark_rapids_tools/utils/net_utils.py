@@ -39,7 +39,7 @@ from typing_extensions import Annotated
 
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_tools import CspPath
-from spark_rapids_tools.storagelib import LocalPath, CspFs
+from spark_rapids_tools.storagelib import CspFs
 from spark_rapids_tools.storagelib.tools.fs_utils import FileVerificationResult
 
 
@@ -156,7 +156,7 @@ class DownloadResult:
           i.e., if the file already exists, and the download is not enforced, then the downloaded
           value should be false.
     :param download_time: The elapsed download time in seconds.
-    :param verified: Whether the resource has been verified.
+    :param verified: Whether the resource is verified.
     :param download_error: The error that occurred during the download if any.
     """
     resource: CspPath
@@ -207,7 +207,7 @@ class DownloadTask:
         return CspPath(self.src_url.path).base_name()
 
     @cached_property
-    def dest_dir(self) -> LocalPath:
+    def dest_dir(self) -> CspPath:
         dest_root = CspPath(self.dest_folder)
         dest_root.create_dirs(exist_ok=True)
         return dest_root
@@ -231,7 +231,8 @@ class DownloadTask:
             # larger files.
             download_url_request(opts['srcUrl'], opts['destPath'], timeout=opts['timeOut'])
 
-        def download_from_csfs() -> None:
+        def download_from_cs() -> None:
+            # download the file from the Cloud storage including local file system.
             csp_src = CspPath(opts['srcUrl'])
             CspFs.copy_file(csp_src, self.dest_res)
 
@@ -244,7 +245,7 @@ class DownloadTask:
             if self.src_url.scheme == 'https':
                 download_from_weburl()
             else:
-                download_from_csfs()
+                download_from_cs()
             FileVerificationResult(res_path=self.dest_res, opts=self.verification, raise_on_error=True)
             # update modified time and access time
             os.utime(opts['destPath'], times=(curr_time_stamp, curr_time_stamp))
