@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Callable, Union
 
 import yaml
+from pyaml_env import parse_config
 
 from spark_rapids_tools import get_elem_from_dict, get_elem_non_safe
 
@@ -106,7 +107,7 @@ class AbstractPropertiesContainer(object):
         try:
             with open(self.prop_arg, 'r', encoding='utf-8') as yaml_file:
                 try:
-                    self.props = yaml.safe_load(yaml_file)
+                    self.props = parse_config(self.prop_arg)#yaml.safe_load(yaml_file)
                 except yaml.YAMLError as e:
                     raise RuntimeError('Incorrect format of Yaml File') from e
         except OSError as err:
