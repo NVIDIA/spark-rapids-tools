@@ -75,7 +75,7 @@ def _get_model_path(platform: str, model: Optional[str]) -> Path:
                     f'Custom model file [{model}] is invalid. Please specify a valid JSON file.')
             # TODO: If the path is remote, we need to copy it locally in order to successfully
             #       load it with xgboost.
-            model_path = Path(CspPath(model).no_prefix)
+            model_path = Path(CspPath(model).no_scheme)
             if not model_path.exists():
                 raise FileNotFoundError(f'Model JSON file not found: {model_path}')
         else:

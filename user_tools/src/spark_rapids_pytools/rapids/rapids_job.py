@@ -166,7 +166,7 @@ class RapidsLocalJob(RapidsJob):
                     conf_dir_path = LocalPath(conf_dir)
                     if conf_dir_path.is_dir() and conf_dir_path.exists():
                         # return the first valid directory found without the URI prefix
-                        return conf_dir_path.no_prefix
+                        return conf_dir_path.no_scheme
                 except Exception as e:  # pylint: disable=broad-except
                     self.logger.debug(
                         'Could not build hadoop classpath from %s. Reason: %s', dir_key, e)

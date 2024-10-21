@@ -24,7 +24,7 @@ dependencies = [
     "numpy<=1.24.4",
     "chevron==0.14.0",
     "fastprogress==1.0.3",
-    "fastcore==1.5.29",
+    "fastcore==1.7.10",
     "fire>=0.5.0",
     "pandas==1.4.3",
     "pyYAML>=6.0",
@@ -37,8 +37,8 @@ dependencies = [
     "urllib3==1.26.19",
     "beautifulsoup4==4.11.2",
     "pygments==2.15.0",
-    # used to apply validator on objects and models
-    "pydantic==2.1.1",
+    # used to apply validator on objects and models. "2.9.2" contains from_json method.
+    "pydantic==2.9.2",
     # used to help pylint understand pydantic
     "pylint-pydantic==0.3.0",
     # used for common API to access remote filesystems like local/s3/gcs/hdfs
@@ -76,7 +76,11 @@ version = {attr = "spark_rapids_pytools.__version__"}
 repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
 [project.optional-dependencies]
 test = [
-    "tox", 'pytest', 'cli_test_helpers', 'behave'
+    "tox", 'pytest', 'cli_test_helpers', 'behave',
+    # use flak-8 plugin for pydantic
+    'flake8-pydantic',
+    # use pylint specific version
+    'pylint==3.2.7',
 ]
 qualx = [
     "holoviews",
