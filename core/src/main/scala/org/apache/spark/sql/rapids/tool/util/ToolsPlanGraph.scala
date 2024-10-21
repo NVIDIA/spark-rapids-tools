@@ -16,13 +16,14 @@
 
 package org.apache.spark.sql.rapids.tool.util
 
+import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import java.util.concurrent.atomic.AtomicLong
-
 import scala.collection.mutable
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphEdge, SparkPlanGraphNode, SQLPlanMetric}
 import org.apache.spark.sql.rapids.tool.store.AccumNameRef
+import org.apache.spark.sql.rapids.tool.util.plangraph.PlanGraphTransformer
 import org.apache.spark.sql.rapids.tool.util.stubs.{GraphReflectionAPI, GraphReflectionAPIHelper}
 
 /**
@@ -91,6 +92,8 @@ object ToolsPlanGraph {
   private def processPlanInfo(nodeName: String): String = {
     if (nodeName.startsWith("Gpu")) {
       nodeName.replaceFirst("Gpu", "")
+    } else if (DatabricksParseHelper.isPhotonNode(nodeName)) {
+      DatabricksParseHelper.mapPhotonToSpark(nodeName)
     } else {
       nodeName
     }
@@ -110,12 +113,14 @@ object ToolsPlanGraph {
           constructSQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
         }
 
-        val cluster = api.constructCluster(
+        val baseCluster = api.constructCluster(
           nodeIdGenerator.getAndIncrement(),
           planInfo.nodeName,
           planInfo.simpleString,
           mutable.ArrayBuffer[SparkPlanGraphNode](),
           metrics)
+        // Transform if it is a specialized type(e.g. Photon)
+        val cluster = PlanGraphTransformer.transformPlanCluster(baseCluster)
         nodes += cluster
 
         buildSparkPlanGraphNode(
@@ -155,8 +160,10 @@ object ToolsPlanGraph {
         val metrics = planInfo.metrics.map { metric =>
           constructSQLPlanMetric(metric.name, metric.accumulatorId, metric.metricType)
         }
-        val node = api.constructNode(nodeIdGenerator.getAndIncrement(),
+        val baseNode = api.constructNode(nodeIdGenerator.getAndIncrement(),
           planInfo.nodeName, planInfo.simpleString, metrics)
+        // Transform if it is a specialized type(e.g. Photon)
+        val node = PlanGraphTransformer.transformPlanNode(baseNode)
         if (subgraph == null) {
           nodes += node
         } else {

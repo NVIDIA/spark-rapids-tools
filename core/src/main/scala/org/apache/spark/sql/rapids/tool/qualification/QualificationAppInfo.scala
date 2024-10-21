@@ -27,7 +27,7 @@ import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
-import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterSummary, FailureApp, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, PhotonEventLogException, SupportedMLFuncsName, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppEventlogProcessException, ClusterSummary, FailureApp, GpuEventLogException, IncorrectAppStatusException, MlOps, MlOpsEventLogType, SupportedMLFuncsName, ToolUtils}
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, WallClock}
 import org.apache.spark.sql.rapids.tool.store.StageModel
 
@@ -111,9 +111,6 @@ class QualificationAppInfo(
   override def validateAppEventlogProperties(): Unit = {
     if (gpuMode) {
       throw GpuEventLogException()
-    }
-    if (isPhoton) {
-      throw PhotonEventLogException()
     }
   }
 
