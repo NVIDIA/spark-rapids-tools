@@ -109,7 +109,8 @@ class AdditionalHeuristics:
                                                                    'sqlToStageInfo', 'columns')]
 
         # Identify stages with significant spills
-        spill_threshold_bytes = self.props.get_value('spillBased', 'spillThresholdBytes')
+        # Convert the string to int because the parse_config method returns a string
+        spill_threshold_bytes = int(self.props.get_value('spillBased', 'spillThresholdBytes'))
         spill_condition = stage_agg_metrics['memoryBytesSpilled_sum'] > spill_threshold_bytes
         stages_with_spills = stage_agg_metrics[spill_condition]
 

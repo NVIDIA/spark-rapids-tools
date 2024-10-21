@@ -74,7 +74,8 @@ class TopCandidates:
 
         # Filter based on total core seconds threshold
         total_core_sec_col = self.props.get('totalCoreSecCol')
-        total_core_sec_threshold = self.props.get('totalCoreSecThreshold')
+        # Convert the string to int because the parse_config method returns a string
+        total_core_sec_threshold = int(self.props.get('totalCoreSecThreshold'))
         total_core_sec_condition = self.tools_processed_apps[total_core_sec_col] > total_core_sec_threshold
         filter_condition = filter_condition & total_core_sec_condition
 
