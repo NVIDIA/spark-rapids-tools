@@ -19,6 +19,8 @@ package org.apache.spark.rapids.tool.benchmarks
 import com.nvidia.spark.rapids.tool.qualification.QualificationArgs
 import com.nvidia.spark.rapids.tool.qualification.QualificationMain.mainInternal
 
+import com.nvidia.spark.rapids.tool.profiling.{ProfileArgs, ProfileMain}
+
 /**
  * This class is used to run the QualificationMain class as a benchmark.
  * This can be used as a reference to write any benchmark class
@@ -41,6 +43,22 @@ object SingleThreadedQualToolBenchmark extends BenchmarkBase {
       }
       addCase("Disable_Per_SQL_Arg_Qualification") { _ =>
         mainInternal(new QualificationArgs(prefix :+ "--num-threads" :+ "1" :+ suffix.head),
+          enablePB = true)
+      }
+      run()
+    }
+  }
+}
+
+object ProfToolBenchmark extends BenchmarkBase {
+  override def runBenchmarkSuite(inputArgs: Array[String]): Unit = {
+    // Currently the input arguments are assumed to be common across cases
+    // This will be improved in a follow up PR to enable passing as a config
+    // file with argument support for different cases
+    runBenchmark("Benchmark_Per_SQL_Arg_Profiling") {
+      val (prefix, suffix) = inputArgs.splitAt(inputArgs.length - 1)
+      addCase("Disable_Per_SQL_Arg_Profiling") { _ =>
+        ProfileMain.mainInternal(new ProfileArgs(prefix :+ suffix.head),
           enablePB = true)
       }
       run()
