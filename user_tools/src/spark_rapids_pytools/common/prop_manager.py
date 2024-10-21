@@ -107,7 +107,7 @@ class AbstractPropertiesContainer(object):
         try:
             with open(self.prop_arg, 'r', encoding='utf-8') as yaml_file:
                 try:
-                    self.props = parse_config(self.prop_arg)#yaml.safe_load(yaml_file)
+                    self.props = parse_config(self.prop_arg)
                 except yaml.YAMLError as e:
                     raise RuntimeError('Incorrect format of Yaml File') from e
         except OSError as err:
