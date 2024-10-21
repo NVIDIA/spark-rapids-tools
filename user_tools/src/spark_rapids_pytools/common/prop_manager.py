@@ -105,14 +105,13 @@ class AbstractPropertiesContainer(object):
 
     def __open_yaml_file(self):
         try:
-            with open(self.prop_arg, 'r', encoding='utf-8') as yaml_file:
-                try:
-                    self.props = parse_config(self.prop_arg)
-                except yaml.YAMLError as e:
-                    raise RuntimeError('Incorrect format of Yaml File') from e
+            # parse_config sets the default encoding to utf-8
+            self.props = parse_config(path=self.prop_arg)
+        except yaml.YAMLError as e:
+            raise RuntimeError('Incorrect format of Yaml File') from e
         except OSError as err:
-            raise RuntimeError('Please ensure the properties file exists '
-                               'and you have the required access privileges.') from err
+            raise RuntimeError('Please ensure the properties file exists and you have the required '
+                               'access privileges.') from err
 
     def _load_as_yaml(self):
         if self.file_load:
