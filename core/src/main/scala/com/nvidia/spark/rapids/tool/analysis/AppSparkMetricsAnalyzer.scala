@@ -340,7 +340,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
     val photonShuffleWriteTimeAccumInfos = mutable.ArrayBuffer[AccumInfo]()
 
     if (app.isPhoton) {
-      app.accumManager.applyToAccumInfoMap { case (_, accumInfo) =>
+      app.accumManager.applyToAccumInfoMap { accumInfo =>
         accumInfo.infoRef.name.value match {
           case name if name.contains(
             DatabricksParseHelper.PHOTON_METRIC_PEAK_MEMORY_LABEL) =>

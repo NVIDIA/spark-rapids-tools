@@ -68,11 +68,9 @@ class AccumManager {
   }
 
   /**
-   * Applies the function `f` to each entry in the accumInfoMap.
+   * Applies the function `f` to each AccumInfo in the accumInfoMap.
    */
-  def applyToAccumInfoMap(f: (Long, AccumInfo) => Unit): Unit = {
-    accumInfoMap.foreach { case (id, accInfo) =>
-      f(id, accInfo)
-    }
+  def applyToAccumInfoMap(f: AccumInfo => Unit): Unit = {
+    accumInfoMap.values.foreach(f)
   }
 }
