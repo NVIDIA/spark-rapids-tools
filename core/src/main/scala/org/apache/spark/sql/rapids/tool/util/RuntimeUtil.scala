@@ -84,10 +84,7 @@ object RuntimeUtil extends Logging {
   }
 
   def getJVMHeapArguments: Map[String, String] = {
-    val gcMxBeans = ManagementFactory.getGarbageCollectorMXBeans
-    gcMxBeans.foreach(_.getName)
-
-    val jvmHeapGCArgs = ManagementFactory.getRuntimeMXBean.getInputArguments.filter(
+    ManagementFactory.getRuntimeMXBean.getInputArguments.filter(
       p => p.startsWith("-Xmx") || p.startsWith("-Xms") || p.startsWith("-XX:")).map {
       sizeArg =>
         if (sizeArg.startsWith("-Xmx")) {
@@ -104,8 +101,6 @@ object RuntimeUtil extends Logging {
             (s"jvm.arg.gc.${parts(0)}", "")
           }
         }
-    }
-    // get remaining GC arguments
-    jvmHeapGCArgs.toMap
+    }.toMap
   }
 }
