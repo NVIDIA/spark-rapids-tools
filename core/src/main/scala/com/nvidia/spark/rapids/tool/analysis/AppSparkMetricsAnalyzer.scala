@@ -323,10 +323,16 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
    * @param index the App-index (used by the profiler tool)
    * @return sequence of StageDiagnosticAggTaskMetricsProfileResult
    */
-  def aggregateDiagnosticSparkMetricsByStage(index: Int):
-      Seq[StageDiagnosticMetricsProfileResult] = {
+  def aggregateDiagnosticSparkMetricsByStage(index: Int,
+      analyzerInput: Option[AppSQLPlanAnalyzer] = None):
+        Seq[StageDiagnosticMetricsProfileResult] = {
+    def bytesToMB(numBytes: Long): Long = numBytes / (1024 * 1024)
+    val sqlAnalyzer = analyzerInput match {
+      case Some(res) => res
+      case None => app.asInstanceOf[ApplicationInfo].planMetricProcessor
+    }
     // TODO: this has stage attempts. we should handle different attempts
-    val rows = app.stageManager.getAllStages.map { sm =>
+    app.stageManager.getAllStages.map { sm =>
       // TODO: Should we only consider successful tasks?
       val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
         sm.stageInfo.attemptNumber())
@@ -348,9 +354,9 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_fetchWaitTime))
       val (swWriteTimeMin, swWriteTimeMed, swWriteTimeMax, swWriteTimeSum) =
         AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sw_writeTime))
-      val nodeNames = app.asInstanceOf[ApplicationInfo].planMetricProcessor.stageToNodeNames.
+      val nodeNames = sqlAnalyzer.stageToNodeNames.
         getOrElse(sm.stageInfo.stageId, Seq.empty[String])
-      val gpuSemaphoreWait = app.asInstanceOf[ApplicationInfo].planMetricProcessor.stageToGpuSemaphoreWaitTime.
+      val gpuSemaphoreWaitSum = sqlAnalyzer.stageToGpuSemaphoreWaitTime.
         getOrElse(sm.stageInfo.stageId, 0L)
       StageDiagnosticMetricsProfileResult(index,
         app.getAppName,
@@ -358,14 +364,14 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         sm.stageInfo.stageId,
         sm.duration,
         numAttempts,  // TODO: why is this numAttempts and not numTasks?
-        memSpilledMin / (1024 * 1024),
-        memSpilledMed / (1024 * 1024),
-        memSpilledMax / (1024 * 1024),
-        memSpilledSum / (1024 * 1024),
-        diskSpilledMin / (1024 * 1024),
-        diskSpilledMed / (1024 * 1024),
-        diskSpilledMax / (1024 * 1024),
-        diskSpilledSum / (1024 * 1024),
+        bytesToMB(memSpilledMin),
+        bytesToMB(memSpilledMed),
+        bytesToMB(memSpilledMax),
+        bytesToMB(memSpilledSum),
+        bytesToMB(diskSpilledMin),
+        bytesToMB(diskSpilledMed),
+        bytesToMB(diskSpilledMax),
+        bytesToMB(diskSpilledSum),
         inputBytesMin,
         inputBytesMed,
         inputBytesMax,
@@ -390,10 +396,9 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         swWriteTimeMed,
         swWriteTimeMax,
         swWriteTimeSum,
-        gpuSemaphoreWait,
+        gpuSemaphoreWaitSum,
         nodeNames)
-    }
-    rows.toSeq
+    }.toSeq
   }
 
   /**

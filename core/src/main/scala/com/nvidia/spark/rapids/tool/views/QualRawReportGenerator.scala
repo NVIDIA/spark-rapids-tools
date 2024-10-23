@@ -93,11 +93,11 @@ object QualRawReportGenerator {
         SystemQualPropertiesView.getRawView(Seq(app)),
         Some(SystemQualPropertiesView.getDescription))
       pWriter.writeText("\n### B. Analysis ###\n")
-      constructLabelsMaps(
-        QualSparkMetricsAnalyzer.getAggRawMetrics(app, appIndex)).foreach { case (label, metrics) =>
-        pWriter.write(label,
-          metrics,
-          AGG_DESCRIPTION.get(label))
+      constructLabelsMaps(QualSparkMetricsAnalyzer.
+        getAggRawMetrics(app, appIndex, Some(sqlPlanAnalyzer))).foreach { case (label, metrics) =>
+          pWriter.write(label,
+            metrics,
+            AGG_DESCRIPTION.get(label))
       }
       pWriter.writeText("\n### C. Health Check###\n")
       pWriter.write(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))

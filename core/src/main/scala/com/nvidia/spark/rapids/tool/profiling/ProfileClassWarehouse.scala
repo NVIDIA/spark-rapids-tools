@@ -96,9 +96,7 @@ case class SQLCleanAndAlignIdsProfileResult(
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, sqlID.toString)
   }
-  override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString)
-  }
+  override def convertToCSVSeq: Seq[String] = convertToSeq
 }
 
 case class SQLStageInfoProfileResult(
@@ -613,7 +611,7 @@ case class StageDiagnosticMetricsProfileResult(
     swWriteTimeMed: Long,
     swWriteTimeMax: Long,
     swWriteTimeSum: Long,
-    gpuSemaphoreWait: Long,
+    gpuSemaphoreWaitSum: Long,
     nodeNames: Seq[String]) extends ProfileResult {
 
   val durStr = duration match {
@@ -621,20 +619,48 @@ case class StageDiagnosticMetricsProfileResult(
     case None => "null"
   }
 
-  override val outputHeaders = Seq("appIndex", "appName", "appId", "stageId",
-    "stageDurationMs", "numTasks", "memoryBytesSpilledMBMin", "memoryBytesSpilledMBMedian",
-    "memoryBytesSpilledMBMax", "memoryBytesSpilledMBTotal", "diskBytesSpilledMBMin",
-    "diskBytesSpilledMBMedian", "diskBytesSpilledMBMax", "diskBytesSpilledMBTotal",
-    "inputBytesReadMin", "inputBytesReadMedian", "inputBytesReadMax",
-    "inputBytesReadTotal", "outputBytesWrittenMin", "outputBytesWrittenMedian",
-    "outputBytesWrittenMax", "outputBytesWrittenTotal", "shuffleReadBytesMin",
-    "shuffleReadBytesMedian", "shuffleReadBytesMax", "shuffleReadBytesTotal",
-    "shuffleWriteBytesMin", "shuffleWriteBytesMedian", "shuffleWriteBytesMax",
-    "shuffleWriteBytesTotal", "shuffleReadFetchWaitTimeMin",
-    "shuffleReadFetchWaitTimeMedian", "shuffleReadFetchWaitTimeMax",
-    "shuffleReadFetchWaitTimeTotal", "shuffleWriteWriteTimeMin",
-    "shuffleWriteWriteTimeMedian", "shuffleWriteWriteTimeMax",
-    "shuffleWriteWriteTimeTotal", "gpuSemaphoreWaitTime", "SQL Nodes(IDs)")
+  override val outputHeaders = {
+    Seq("appIndex",
+      "appName",
+      "appId",
+      "stageId",
+      "stageDurationMs",
+      "numTasks",
+      "memoryBytesSpilledMBMin",
+      "memoryBytesSpilledMBMedian",
+      "memoryBytesSpilledMBMax",
+      "memoryBytesSpilledMBTotal",
+      "diskBytesSpilledMBMin",
+      "diskBytesSpilledMBMedian",
+      "diskBytesSpilledMBMax",
+      "diskBytesSpilledMBTotal",
+      "inputBytesReadMin",
+      "inputBytesReadMedian",
+      "inputBytesReadMax",
+      "inputBytesReadTotal",
+      "outputBytesWrittenMin",
+      "outputBytesWrittenMedian",
+      "outputBytesWrittenMax",
+      "outputBytesWrittenTotal",
+      "shuffleReadBytesMin",
+      "shuffleReadBytesMedian",
+      "shuffleReadBytesMax",
+      "shuffleReadBytesTotal",
+      "shuffleWriteBytesMin",
+      "shuffleWriteBytesMedian",
+      "shuffleWriteBytesMax",
+      "shuffleWriteBytesTotal",
+      "shuffleReadFetchWaitTimeMin",
+      "shuffleReadFetchWaitTimeMedian",
+      "shuffleReadFetchWaitTimeMax",
+      "shuffleReadFetchWaitTimeTotal",
+      "shuffleWriteWriteTimeMin",
+      "shuffleWriteWriteTimeMedian",
+      "shuffleWriteWriteTimeMax",
+      "shuffleWriteWriteTimeTotal",
+      "gpuSemaphoreWaitTimeTotal",
+      "SQL Nodes(IDs)")
+  }
 
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString,
@@ -675,7 +701,7 @@ case class StageDiagnosticMetricsProfileResult(
       swWriteTimeMed.toString,
       swWriteTimeMax.toString,
       swWriteTimeSum.toString,
-      gpuSemaphoreWait.toString,
+      gpuSemaphoreWaitSum.toString,
       nodeNames.mkString(","))
   }
 
@@ -718,7 +744,7 @@ case class StageDiagnosticMetricsProfileResult(
       swWriteTimeMed.toString,
       swWriteTimeMax.toString,
       swWriteTimeSum.toString,
-      gpuSemaphoreWait.toString,
+      gpuSemaphoreWaitSum.toString,
       StringUtils.reformatCSVString(nodeNames.mkString(",")))
   }
 }

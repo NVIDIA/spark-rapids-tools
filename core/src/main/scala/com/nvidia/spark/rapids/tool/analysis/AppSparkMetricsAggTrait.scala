@@ -29,7 +29,8 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
    * @return a single record of AggRawMetricsResult containing all the raw aggregated Spark
    *         metrics
    */
-  def getAggRawMetrics(app: AppBase, index: Int): AggRawMetricsResult = {
+  def getAggRawMetrics(app: AppBase, index: Int, sqlAnalyzer: Option[AppSQLPlanAnalyzer] = None):
+      AggRawMetricsResult = {
     val analysisObj = new AppSparkMetricsAnalyzer(app)
     AggRawMetricsResult(
       analysisObj.aggregateSparkMetricsByJob(index),
@@ -39,7 +40,7 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
       analysisObj.aggregateIOMetricsBySql(analysisObj.aggregateSparkMetricsBySql(index)),
       analysisObj.aggregateDurationAndCPUTimeBySql(index),
       Seq(analysisObj.maxTaskInputSizeBytesPerSQL(index)),
-      analysisObj.aggregateDiagnosticSparkMetricsByStage(index))
+      analysisObj.aggregateDiagnosticSparkMetricsByStage(index, sqlAnalyzer))
   }
 
   /**
