@@ -17,6 +17,9 @@
 package org.apache.spark.sql.rapids.tool.util
 
 import java.io.{PrintWriter, StringWriter}
+import java.lang.management.ManagementFactory
+
+import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import org.apache.hadoop.conf.Configuration
@@ -49,6 +52,12 @@ object RuntimeUtil extends Logging {
     // Add the Spark version used in runtime.
     // Note that it is different from the Spark version used in the build.
     buildProps.setProperty("runtime.spark.version", ToolUtils.sparkRuntimeVersion)
+    // Add the JVM and OS information
+    getJVMOSInfo.foreach {
+      kv => buildProps.setProperty(s"runtime.${kv._1}", kv._2)
+    }
+    // get the JVM memory arguments
+    getJVMHeapArguments.foreach(kv => buildProps.setProperty(s"runtime.${kv._1}", kv._2))
     val reportWriter = new ToolTextFileWriter(outputDir, REPORT_FILE_NAME, REPORT_LABEL, hadoopConf)
     try {
       reportWriter.writeProperties(buildProps, REPORT_LABEL)
@@ -73,6 +82,30 @@ object RuntimeUtil extends Logging {
       "os.version" -> System.getProperty("os.version")
     )
   }
+
+  def getJVMHeapArguments: Map[String, String] = {
+    val gcMxBeans = ManagementFactory.getGarbageCollectorMXBeans
+    gcMxBeans.foreach(_.getName)
+
+    val jvmHeapGCArgs = ManagementFactory.getRuntimeMXBean.getInputArguments.filter(
+      p => p.startsWith("-Xmx") || p.startsWith("-Xms") || p.startsWith("-XX:")).map {
+      sizeArg =>
+        if (sizeArg.startsWith("-Xmx")) {
+          ("jvm.arg.heap.max", sizeArg.drop(4))
+        } else if (sizeArg.startsWith("-Xms")) {
+          ("jvm.arg.heap.min", sizeArg.drop(4))
+        } else { // this is heap argument
+          // drop the first "-XX:"
+          val dropSize = if (sizeArg.startsWith("-XX:+")) 5 else 4
+          val parts = sizeArg.drop(dropSize).split("=")
+          if (parts.length == 2) {
+            (s"jvm.arg.gc.${parts(0)}", parts(1))
+          } else {
+            (s"jvm.arg.gc.${parts(0)}", "")
+          }
+        }
+    }
+    // get remaining GC arguments
+    jvmHeapGCArgs.toMap
+  }
 }
-
-

@@ -291,13 +291,18 @@ class Utilities:
         else:
             prof_threads = max(1, jvm_threads - num_threads_unit) if concurrent_mode else jvm_threads
 
+        # calculate the min heap size based on the max heap size
+        min_heap = max(1, heap_unit // 2)
+
         return {
             'qualification': {
                 'jvmMaxHeapSize': heap_unit,
+                'jvmMinHeapSize': min_heap,
                 'rapidsThreads': num_threads_unit
             },
             'profiling': {
                 'jvmMaxHeapSize': prof_heap,
+                'jvmMinHeapSize': min_heap,
                 'rapidsThreads': prof_threads
             }
         }
