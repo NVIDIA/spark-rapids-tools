@@ -66,6 +66,15 @@ class AnalysisSuite extends FunSuite {
       expectFile("sql"), expectFile("job"), expectFile("stage"))
   }
 
+  test("test photon sql metrics aggregation") {
+    val fileName = "nds_q88_photon_db_13_3"
+    val expectFile = (metric: String) => {
+      s"${fileName}_${metric}_metrics_agg_expectation.csv"
+    }
+    testSqlMetricsAggregation(Array(s"${qualLogDir}/${fileName}.zstd"),
+      expectFile("sql"), expectFile("job"), expectFile("stage"))
+  }
+
   private def testSqlMetricsAggregation(logs: Array[String], expectFileSQL: String,
       expectFileJob: String, expectFileStage: String): Unit = {
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
