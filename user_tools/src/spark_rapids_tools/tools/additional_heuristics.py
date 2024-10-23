@@ -22,7 +22,6 @@ from logging import Logger
 import pandas as pd
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
-from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_tools.tools.qualx.util import find_paths, RegexPattern
 from spark_rapids_tools.utils import Utilities
@@ -50,7 +49,7 @@ class AdditionalHeuristics:
         """
         Returns a list of heuristics functions to apply to each application.
         """
-        return [self.heuristics_based_on_total_core_seconds, self.heuristics_based_on_spills]
+        return [self.heuristics_based_on_spills]
 
     def _apply_heuristics(self, app_ids: list) -> pd.DataFrame:
         """
@@ -93,20 +92,6 @@ class AdditionalHeuristics:
 
         return pd.DataFrame(result_arr, columns=self.props.get_value('resultCols'))
 
-    def heuristics_based_on_total_core_seconds(self, app_id_path: str) -> (bool, str):
-        """
-        Apply heuristics based on total core seconds to determine if the app can be accelerated on GPU.
-        """
-        # Load app total core seconds from qualification summary dataframe
-        app_id = FSUtil.get_resource_name(app_id_path)
-        app_qual_output = self.all_apps[self.all_apps['App ID'] == app_id]  # type: ignore
-        total_core_seconds = app_qual_output['Total Core Seconds'].astype(int).iloc[0]
-        total_core_seconds_threshold = self.props.get_value('totalCoreSecBased', 'totalCoreSecThreshold')
-        if total_core_seconds <= total_core_seconds_threshold:
-            return True, f'Skipping due to total core seconds = {total_core_seconds} lower than ' + \
-                f'{total_core_seconds_threshold}.'
-        return False, ''
-
     def heuristics_based_on_spills(self, app_id_path: str) -> (bool, str):
         """
         Apply heuristics based on spills to determine if the app can be accelerated on GPU.
@@ -124,7 +109,8 @@ class AdditionalHeuristics:
                                                                    'sqlToStageInfo', 'columns')]
 
         # Identify stages with significant spills
-        spill_threshold_bytes = self.props.get_value('spillBased', 'spillThresholdBytes')
+        # Convert the string to int because the parse_config method returns a string
+        spill_threshold_bytes = int(self.props.get_value('spillBased', 'spillThresholdBytes'))
         spill_condition = stage_agg_metrics['memoryBytesSpilled_sum'] > spill_threshold_bytes
         stages_with_spills = stage_agg_metrics[spill_condition]
 

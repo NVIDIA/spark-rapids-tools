@@ -1,5 +1,7 @@
 toolOutput:
   subFolder: rapids_4_spark_profile
+  textFormat:
+    log4jFileName: rapids_4_spark_profile_stderr.log
   recommendations:
     fileName: profile.log
     headers:

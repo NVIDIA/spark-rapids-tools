@@ -36,14 +36,10 @@ case class TuningResult(
 /**
  * Container which holds metadata and arguments specific to the execution of the AutoTuner.
  * TODO: we need to use the same class in constructing the AutoTuner in the Profiling tools.
- * @param platform object representing the host platform on which the application was executed.
- * @param workerInfoPath the path of the GPU workers
  * @param outputRootDir the output directory to dump the recommendation/comments.
  * @param hadoopConf optional configuration to access the remote storage.
  */
 case class TunerContext (
-    platform: Platform,
-    workerInfoPath: String,
     outputRootDir: String,
     hadoopConf: Configuration) extends Logging {
 
@@ -55,14 +51,15 @@ case class TunerContext (
       appInfo: QualificationAppInfo,
       appAggStats: Option[QualificationSummaryInfo],
       appIndex: Int = 1,
-      dsInfo: Seq[DataSourceProfileResult]): Option[TuningResult] = {
+      dsInfo: Seq[DataSourceProfileResult],
+      platform: Platform): Option[TuningResult] = {
     val sqlAnalyzer = AppSQLPlanAnalyzer(appInfo, appIndex)
     val rawAggMetrics =
       QualSparkMetricsAnalyzer.getAggRawMetrics(appInfo, appIndex, Some(sqlAnalyzer))
     QualificationAutoTuner(appInfo, appAggStats, this, rawAggMetrics, dsInfo).collect {
       case qualTuner =>
         Try {
-          qualTuner.runAutoTuner()
+          qualTuner.runAutoTuner(platform)
         } match {
           case Success(r) => r
           case Failure(e) =>
@@ -74,13 +71,12 @@ case class TunerContext (
 }
 
 object TunerContext extends Logging {
-  def apply(platform: Platform,
-      workerInfoPath: String,
+  def apply(
       outputRootDir: String,
       hadoopConf: Option[Configuration] = None): Option[TunerContext] = {
     Try {
       val hConf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf())
-      TunerContext(platform, workerInfoPath, outputRootDir, hConf)
+      TunerContext(outputRootDir, hConf)
     } match {
       case Success(c) => Some(c)
       case Failure(e) =>

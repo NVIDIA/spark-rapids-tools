@@ -1393,14 +1393,12 @@ object AutoTuner extends Logging {
   }
 
   def buildAutoTuner(
-      workerInfoFilePath: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
+      platform: Platform,
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
-      val clusterPropsOpt = loadClusterProps(workerInfoFilePath)
-      val autoT = new AutoTuner(clusterPropsOpt.getOrElse(new ClusterProperties()),
+      val autoT = new AutoTuner(platform.clusterProperties.getOrElse(new ClusterProperties()),
         singleAppProvider, platform, driverInfoProvider)
       autoT
     } catch {

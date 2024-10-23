@@ -20,7 +20,6 @@ import logging
 import os
 import re
 import sys
-import tarfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -34,13 +33,16 @@ from spark_rapids_pytools import get_spark_dep_version
 from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer, AbstractPropertiesContainer
-from spark_rapids_pytools.common.sys_storage import FSUtil, FileVerifier
+from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils, ToolsSpinner
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
-from spark_rapids_tools.storagelib import LocalPath
+from spark_rapids_tools.enums import HashAlgorithm
+from spark_rapids_tools.storagelib import LocalPath, CspFs
+from spark_rapids_tools.storagelib.tools.fs_utils import untar_file, FileHashAlgorithm
 from spark_rapids_tools.utils import Utilities
+from spark_rapids_tools.utils.net_utils import DownloadTask
 
 
 @dataclass
@@ -139,7 +141,7 @@ class RapidsTool(object):
             self.output_folder = Utils.get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
         try:
             output_folder_path = LocalPath(self.output_folder)
-            self.output_folder = output_folder_path.no_prefix
+            self.output_folder = output_folder_path.no_scheme
         except Exception as ex:  # pylint: disable=broad-except
             self.logger.error('Failed in processing output arguments. Output_folder must be a local directory')
             raise ex
@@ -411,6 +413,7 @@ class RapidsJarTool(RapidsTool):
     """
 
     def _process_jar_arg(self):
+        # TODO: use the StorageLib to download the jar file
         jar_path = ''
         tools_jar_url = self.wrapper_options.get('toolsJar')
         try:
@@ -533,43 +536,40 @@ class RapidsJarTool(RapidsTool):
             """
             Downloads the specified URL and saves it to disk
             """
-            start_time = time.monotonic()
             self.logger.info('Checking dependency %s', dep['name'])
             dest_folder = self.ctxt.get_cache_folder()
-            resource_file_name = FSUtil.get_resource_name(dep['uri'])
-            resource_file = FSUtil.build_path(dest_folder, resource_file_name)
-            file_check_dict = {'size': dep['size']}
-            signature_file = FileVerifier.get_signature_file(dep['uri'], dest_folder)
-            if signature_file is not None:
-                file_check_dict['signatureFile'] = signature_file
-            algorithm = FileVerifier.get_integrity_algorithm(dep)
-            if algorithm is not None:
-                file_check_dict['hashlib'] = {
-                    'algorithm': algorithm,
-                    'hash': dep[algorithm]
-                }
-            is_created = FSUtil.cache_from_url(dep['uri'], resource_file, file_checks=file_check_dict)
-            if is_created:
-                self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],
-                                 resource_file)
-                # check if we need to decompress files
+            verify_opts = {}
+            dep_verification = dep.get('verification')
+            if dep_verification is not None:
+                if 'size' in dep_verification:
+                    verify_opts['size'] = dep_verification['size']
+                hash_lib_alg = dep_verification.get('hashLib')
+                if hash_lib_alg:
+                    verify_opts['file_hash'] = FileHashAlgorithm(HashAlgorithm(hash_lib_alg['type']),
+                                                                 hash_lib_alg['value'])
+            download_task = DownloadTask(src_url=dep['uri'],     # pylint: disable=no-value-for-parameter)
+                                         dest_folder=dest_folder,
+                                         verification=verify_opts)
+            download_result = download_task.run_task()
+            self.logger.info('Completed downloading of dependency [%s] => %s',
+                             dep['name'],
+                             f'{download_result.pretty_print()}')
+            if not download_result.success:
+                msg = f'Failed to download dependency {dep["name"]}, reason: {download_result.download_error}'
+                raise RuntimeError(f'Could not download all dependencies. Aborting Executions.\n\t{msg}')
+            destination_path = self.ctxt.get_local_work_dir()
+            destination_cspath = LocalPath(destination_path)
             if dep['type'] == 'archive':
-                destination_path = self.ctxt.get_local_work_dir()
-                with tarfile.open(resource_file, mode='r:*') as tar:
-                    tar.extractall(destination_path)
-                    tar.close()
-                dep_item = FSUtil.remove_ext(resource_file_name)
-                if dep.get('relativePath') is not None:
-                    dep_item = FSUtil.build_path(dep_item, dep.get('relativePath'))
-                dep_item = FSUtil.build_path(destination_path, dep_item)
+                uncompressed_cspath = untar_file(download_result.resource, destination_cspath)
+                dep_item = uncompressed_cspath.no_scheme
+                relative_path = dep.get('relativePath')
+                if relative_path is not None:
+                    dep_item = f'{dep_item}/{relative_path}'
             else:
                 # copy the jar into dependency folder
-                dep_item = self.ctxt.platform.storage.download_resource(resource_file,
-                                                                        self.ctxt.get_local_work_dir())
-            end_time = time.monotonic()
-            self.logger.info('Completed downloading of dependency [%s] => %s seconds',
-                             dep['name'],
-                             f'{(end_time-start_time):,.3f}')
+                CspFs.copy_resources(download_result.resource, destination_cspath)
+                final_dep_csp = destination_cspath.create_sub_path(download_result.resource.base_name())
+                dep_item = final_dep_csp.no_scheme
             return dep_item
 
         def cache_all_dependencies(dep_arr: List[dict]):
@@ -593,7 +593,6 @@ class RapidsJarTool(RapidsTool):
                     raise ex
             return results
 
-        # TODO: Verify the downloaded file by checking their MD5
         deploy_mode = DeployMode.tostring(self.ctxt.get_deploy_mode())
         depend_arr = self.get_rapids_tools_dependencies(deploy_mode, self.ctxt.platform.configs)
         if depend_arr:

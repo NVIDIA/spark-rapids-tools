@@ -59,7 +59,7 @@ class TopCandidates:
 
     def _filter_apps(self) -> None:
         """
-        Filters the applications based on the eligible categories (Small/Medium/Large)
+        Filters the applications based on the eligible categories (Small/Medium/Large) and total core seconds threshold.
         """
         if not self._has_tools_processed_apps():
             self.filtered_apps = pd.DataFrame(columns=self.tools_processed_apps.columns)
@@ -67,7 +67,19 @@ class TopCandidates:
 
         category_col_name = self.props.get('categoryColumnName')
         eligible_categories = self.props.get('eligibleCategories')
+
+        # Note: `filter_condition` can be a combination of multiple filters
+        # Filter based on eligible categories (Small/Medium/Large)
         filter_condition = self.tools_processed_apps[category_col_name].isin(eligible_categories)
+
+        # Filter based on total core seconds threshold
+        total_core_sec_col = self.props.get('totalCoreSecCol')
+        # Convert the string to int because the parse_config method returns a string
+        total_core_sec_threshold = int(self.props.get('totalCoreSecThreshold'))
+        total_core_sec_condition = self.tools_processed_apps[total_core_sec_col] > total_core_sec_threshold
+        filter_condition = filter_condition & total_core_sec_condition
+
+        # Apply all filter conditions to get top candidate view apps
         self.filtered_apps = self.tools_processed_apps[filter_condition]
 
     def _generate_output_table(self, output_df: pd.DataFrame) -> str:
@@ -75,6 +87,8 @@ class TopCandidates:
         Generic method to generate the output table from the output dataframe
         """
         res_df = self._generate_output_table_internal(output_df)
+        if res_df.empty:
+            return ''
         # squeeze the header titles if enabled
         squeeze_header_enabled = self.props.get('summaryReport', {}).get('compactWidth', False)
         header_width = self.props.get('summaryReport', {}).get('columnWidth', 0) if squeeze_header_enabled else 0

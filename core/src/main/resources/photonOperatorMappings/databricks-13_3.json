@@ -1,0 +1,106 @@
+{
+  "//comments": [
+    "This file contains the mapping between Photon operators and Spark operators generated from Databricks Runtime 13.3",
+    "Some entries have one-to-many mappings. For example, 'PhotonAgg' can map to either 'HashAggregate', 'SortAggregate', or 'ObjectHashAggregate'.",
+    "Currently, only the first mapping in the list is used.",
+    "This limitation exists because we cannot differentiate between these operators in the SparkPlan.",
+    "TODO: Create separate mapping file for different Photon/Databricks versions"
+  ],
+  "PhotonAdapter": [
+    "Scan"
+  ],
+  "PhotonScan": [
+    "Scan"
+  ],
+  "PhotonSubqueryBroadcast": [
+    "SubqueryBroadcast"
+  ],
+  "PhotonResultStage": [
+    "WholeStageCodegen"
+  ],
+  "PhotonUnionShuffleExchangeSink": [
+    "Union"
+  ],
+  "PhotonUnionShuffleMapStage": [
+    "WholeStageCodegen"
+  ],
+  "PhotonTopK": [
+    "TakeOrderedAndProject"
+  ],
+  "PhotonAgg": [
+    "HashAggregate",
+    "SortAggregate",
+    "ObjectHashAggregate"
+  ],
+  "PhotonBroadcastExchange": [
+    "BroadcastExchange"
+  ],
+  "PhotonBroadcastHashJoin": [
+    "BroadcastHashJoin"
+  ],
+  "PhotonBroadcastNestedLoopJoin": [
+    "BroadcastNestedLoopJoin"
+  ],
+  "PhotonExpand": [
+    "Expand"
+  ],
+  "PhotonFilter": [
+    "Filter"
+  ],
+  "PhotonGenerate": [
+    "Generate"
+  ],
+  "PhotonGlobalLimit": [
+    "GlobalLimit"
+  ],
+  "PhotonGroupingAgg": [
+    "HashAggregate",
+    "SortAggregate",
+    "ObjectHashAggregate"
+  ],
+  "PhotonGroupingAggWithRollup": [
+    "HashAggregate"
+  ],
+  "PhotonHashJoin": [
+    "BroadcastHashJoin"
+  ],
+  "PhotonLocalLimit": [
+    "LocalLimit"
+  ],
+  "PhotonProject": [
+    "Project"
+  ],
+  "PhotonRowToColumnar": [
+    "RowToColumnar"
+  ],
+  "PhotonShuffledHashJoin": [
+    "SortMergeJoin"
+  ],
+  "PhotonShuffleExchangeSink": [
+    "Exchange",
+    "StageBoundary",
+    "BroadcastExchange"
+  ],
+  "PhotonShuffleExchangeSource": [
+    "Exchange",
+    "StageBoundary",
+    "AQEShuffleRead",
+    "ShuffleQueryStage"
+  ],
+  "PhotonShuffleHashJoin": [
+    "ShuffledHashJoin"
+  ],
+  "PhotonShuffleMapStage": [
+    "WholeStageCodegen"
+  ],
+  "PhotonSort": [
+    "Sort"
+  ],
+  "PhotonUnion": [
+    "Union"
+  ],
+  "PhotonWindow": [
+    "Window",
+    "RunningWindowFunction"
+  ]
+}

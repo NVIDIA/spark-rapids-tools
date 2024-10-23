@@ -55,8 +55,13 @@ case class ExistingClusterInfo(
     vendor: String,
     coresPerExecutor: Int,
     numExecsPerNode: Int,
+    numExecutors: Int, // note that with dynamic allocation this is high water mark
     numWorkerNodes: Int,
     executorHeapMemory: Long,
+    dynamicAllocationEnabled: Boolean,
+    dynamicAllocationMaxExecutors: String,
+    dynamicAllocationMinExecutors: String,
+    dynamicAllocationInitialExecutors: String,
     driverNodeType: Option[String] = None,
     workerNodeType: Option[String] = None,
     driverHost: Option[String] = None,
@@ -70,6 +75,10 @@ case class RecommendedClusterInfo(
     numGpus: Int,
     numExecutors: Int,
     gpuDevice: String,
+    dynamicAllocationEnabled: Boolean,
+    dynamicAllocationMaxExecutors: String,
+    dynamicAllocationMinExecutors: String,
+    dynamicAllocationInitialExecutors: String,
     driverNodeType: Option[String] = None,
     workerNodeType: Option[String] = None) extends ClusterInfo {
     // The number of executors per node is the same as the number of GPUs

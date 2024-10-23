@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 """
 Abstract representation of a file path that can access local/URI values.
-Similar to cloudpathlib project, this implementation uses dict registry to
+Like to cloudpathlib project, this implementation uses dict registry to
 register an implementation. However, the path representation is built on top of
 pyArrow FS API. As a result, there is no need to write a full storage client to
 access remote files. This comes with a tradeoff in providing limited set of file
@@ -279,11 +279,15 @@ class CspPath(metaclass=CspPathMeta):
         return value.lower().startswith(cls.protocol_prefix.lower())
 
     @cached_property
-    def no_prefix(self) -> str:
+    def no_scheme(self) -> str:
+        """
+        Get the path without the scheme. i.e., file:///path/to/file returns /path/to/file
+        :return: the full url without scheme part.
+        """
         return self._fpath[len(self.protocol_prefix):]
 
     def _pull_file_info(self) -> FileInfo:
-        return self.fs_obj.get_file_info(self.no_prefix)
+        return self.fs_obj.get_file_info(self.no_scheme)
 
     @cached_property
     def file_info(self) -> FileInfo:
@@ -308,16 +312,52 @@ class CspPath(metaclass=CspPathMeta):
             # check that the file does not exist
             if self.exists():
                 raise CspFileExistsError(f'Path already Exists: {self}')
-        self.fs_obj.create_dir(self.no_prefix)
+        self.fs_obj.create_dir(self.no_scheme)
         # force the file information object to be retrieved again by invalidating the cached property
         if 'file_info' in self.__dict__:
             del self.__dict__['file_info']
 
     def open_input_stream(self):
-        return self.fs_obj.open_input_stream(self.no_prefix)
+        return self.fs_obj.open_input_stream(self.no_scheme)
 
     def open_output_stream(self):
-        return self.fs_obj.open_output_stream(self.no_prefix)
+        return self.fs_obj.open_output_stream(self.no_scheme)
+
+    def create_sub_path(self, relative: str) -> 'CspPath':
+        """
+        Given a relative path, it will return a new CspPath object with the relative path appended to
+        the current path. This is just for building a path, and it does not call mkdirs.
+        For example,
+        ```py
+        root_folder = CspPath('gs://bucket-name/folder_00/subfolder_01')
+        new_path = root_folder.create_sub_path('subfolder_02')
+        print(new_path)
+        >> gs://bucket-name/folder_00/subfolder_01/subfolder_02
+        ```
+        :param relative: A relative path to append to the current path.
+        :return: A new path without creating the directory/file.
+        """
+        postfix = '/'
+        sub_path = relative
+        if relative.startswith('/'):
+            sub_path = relative[1:]
+        if self._fpath.endswith('/'):
+            postfix = ''
+        new_path = f'{self._fpath}{postfix}{sub_path}'
+        return CspPath(new_path)
+
+    @property
+    def size(self) -> int:
+        return self.file_info.size
+
+    @property
+    def extension(self) -> str:
+        # this is used for existing files
+        return self.file_info.extension
+
+    def extension_from_path(self) -> str:
+        # if file does not exist then get extension cannot use pull_info
+        return self.no_scheme.split('.')[-1]
 
     @classmethod
     def download_files(cls, src_url: str, dest_url: str):
