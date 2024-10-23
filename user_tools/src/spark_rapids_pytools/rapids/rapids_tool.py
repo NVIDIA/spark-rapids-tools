@@ -878,11 +878,16 @@ class RapidsJarTool(RapidsTool):
         job_args = self.ctxt.get_ctxt('jobArgs')
         result = copy.deepcopy(job_args)
         job_resources = self._get_job_submission_resources(tool_name)
+        jvm_min_heap = job_resources['jvmMinHeapSize']
         jvm_max_heap = job_resources['jvmMaxHeapSize']
-        jvm_heap_key = f'Xmx{jvm_max_heap}g'
+        jvm_max_heap_key = f'Xmx{jvm_max_heap}g'
+        jvm_min_heap_key = f'Xms{jvm_min_heap}g'
         # At this point, we need to set the heap argument for the JVM. Otherwise, the process uses
         # its default values.
-        result['platformArgs']['jvmArgs'].update({jvm_heap_key: ''})
+        result['platformArgs']['jvmArgs'].update({
+            jvm_min_heap_key: '',
+            jvm_max_heap_key: ''
+        })
         return result
 
     @timeit('Building Job Arguments and Executing Job CMD')  # pylint: disable=too-many-function-args
