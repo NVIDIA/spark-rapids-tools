@@ -52,10 +52,12 @@ object DatabricksParseHelper extends Logging {
   val SUB_PROP_JOB_ID = "JobId"
   val SUB_PROP_RUN_NAME = "RunName"
 
-  // Labels for Photon metrics that
-  val PHOTON_METRIC_CUMULATIVE_TIME_LABEL = "cumulative time"
-  val PHOTON_METRIC_PEAK_MEMORY_LABEL = "peak memory usage"
-  val PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL = "part of shuffle file write"
+  // scalastyle:off
+  // Photon metric labels that are used as alternatives to Spark metric labels
+  val PHOTON_METRIC_CUMULATIVE_TIME_LABEL = "cumulative time"               // Alternative for "scan time"
+  val PHOTON_METRIC_PEAK_MEMORY_LABEL = "peak memory usage"                 // Alternative for "peak execution memory"
+  val PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL = "part of shuffle file write" // Alternative for "shuffle write time"
+  // scalastyle:on
 
   private val PHOTON_PATTERN: Regex = "Photon[a-zA-Z]*".r
   private val PHOTON_OPS_MAPPING_DIR = "photonOperatorMappings"

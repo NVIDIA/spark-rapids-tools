@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.io.File
 
 import com.nvidia.spark.rapids.tool.ToolTestUtils
-import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
+import com.nvidia.spark.rapids.tool.views.{ProfDataSourceView, RawMetricProfilerView}
 import org.scalatest.FunSuite
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -166,5 +166,13 @@ class AnalysisSuite extends FunSuite {
     val aggResults = RawMetricProfilerView.getAggMetrics(apps)
     val metrics = aggResults.sqlDurAggs
     metrics.foreach(m => assert(m.appDuration.get == 0L))
+  }
+
+  test("test photon scan metrics") {
+    val fileName = "nds_q88_photon_db_13_3"
+    val logs = Array(s"${qualLogDir}/${fileName}.zstd")
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    val dataSourceResults = ProfDataSourceView.getRawView(apps)
+    assert(dataSourceResults.exists(_.scan_time > 0))
   }
 }
