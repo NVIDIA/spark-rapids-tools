@@ -66,4 +66,13 @@ class AccumManager {
   def getMaxStageValue(id: Long): Option[Long] = {
     accumInfoMap.get(id).map(_.getMaxStageValue.get)
   }
+
+  /**
+   * Applies the function `f` to each entry in the accumInfoMap.
+   */
+  def applyToAccumInfoMap(f: (Long, AccumInfo) => Unit): Unit = {
+    accumInfoMap.foreach { case (id, accInfo) =>
+      f(id, accInfo)
+    }
+  }
 }

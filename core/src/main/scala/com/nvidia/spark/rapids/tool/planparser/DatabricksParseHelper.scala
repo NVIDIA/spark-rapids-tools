@@ -17,15 +17,19 @@
 package com.nvidia.spark.rapids.tool.planparser
 
 import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
+import com.nvidia.spark.rapids.tool.profiling.SQLAccumProfileResults
+import com.nvidia.spark.rapids.tool.views.IoMetrics
 import org.json4s.{DefaultFormats, Formats}
 import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.UnsupportedMetricNameException
 import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
 // Utilities used to handle Databricks and Photon Ops
@@ -47,6 +51,11 @@ object DatabricksParseHelper extends Logging {
   val SUB_PROP_CLUSTER_ID = "ClusterId"
   val SUB_PROP_JOB_ID = "JobId"
   val SUB_PROP_RUN_NAME = "RunName"
+
+  // Labels for Photon metrics that
+  val PHOTON_METRIC_CUMULATIVE_TIME_LABEL = "cumulative time"
+  val PHOTON_METRIC_PEAK_MEMORY_LABEL = "peak memory usage"
+  val PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL = "part of shuffle file write"
 
   private val PHOTON_PATTERN: Regex = "Photon[a-zA-Z]*".r
   private val PHOTON_OPS_MAPPING_DIR = "photonOperatorMappings"
@@ -146,5 +155,22 @@ object DatabricksParseHelper extends Logging {
    */
   def mapPhotonToSpark(inputStr: String): String = {
     PHOTON_PATTERN.replaceAllIn(inputStr, m => photonToSparkMapping.getOrElse(m.matched, m.matched))
+  }
+
+  /**
+   * Checks if 'accum' is a Photon I/O metric.
+   */
+  def isPhotonIoMetric(accum: SQLAccumProfileResults): Boolean =
+    accum.name == PHOTON_METRIC_CUMULATIVE_TIME_LABEL && accum.nodeName.contains("Scan")
+
+  /**
+   * Updates the I/O metrics for Photon apps based on the accumulator values.
+   */
+  def updatePhotonIoMetric(accum: SQLAccumProfileResults, ioMetrics: IoMetrics): Unit = {
+    accum.name match {
+      case PHOTON_METRIC_CUMULATIVE_TIME_LABEL if accum.nodeName.contains("Scan") =>
+        ioMetrics.scanTime = TimeUnit.NANOSECONDS.toMillis(accum.total)
+      case _ => throw UnsupportedMetricNameException(accum.name)
+    }
   }
 }
