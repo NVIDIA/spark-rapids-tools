@@ -50,7 +50,7 @@
               "uri": "https://archive.apache.org/dist/spark/spark-3.3.3/spark-3.3.3-bin-hadoop3.tgz",
               "verification": {
                 "fileHash": {
-                  "type": "sha512",
+                  "algorithm": "sha512",
                   "value": "ebf79c7861f3120d5ed9465fdd8d5302a734ff30713a0454b714bbded7ab9f218b3108dc46a5de4cc2102c86e7be53908f84d2c7a19e59bc75880766eeefeef9"
                 },
                 "size": 299426263
