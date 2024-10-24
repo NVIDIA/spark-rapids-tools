@@ -18,7 +18,6 @@ without need to access the web during runtime.
 """
 
 import os
-import shutil
 import tarfile
 from typing import Optional
 
@@ -27,7 +26,8 @@ import fire
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.rapids.rapids_tool import RapidsTool
-from spark_rapids_tools import CspEnv
+from spark_rapids_tools import CspEnv, CspPath
+from spark_rapids_tools.configuration.common import RuntimeDependency
 from spark_rapids_tools.utils import Utilities
 from spark_rapids_tools.utils.net_utils import DownloadManager, DownloadTask
 
@@ -100,16 +100,18 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
 
         # Add RAPIDS JAR as dependency
         if self.tools_jar:
-            # copy from existing file. replace snapshot
-            jar_file_name = FSUtil.get_resource_name(self.tools_jar)
-            FSUtil.make_dirs(self.dest_dir)
-            dest_file = FSUtil.build_path(self.dest_dir, jar_file_name)
-            shutil.copy2(self.tools_jar, dest_file)
+            # copy from existing file.
+            tools_jar_cspath = CspPath(self.tools_jar)
+            tools_jar_url = str(tools_jar_cspath)
+            jar_file_name = tools_jar_cspath.base_name()
+            print(f'Using the provided tools_jar {tools_jar_url}')
         else:
-            # get the latest tools_jar from mvn
-            rapids_url = self._get_spark_rapids_jar_url()
-            rapids_name = FSUtil.get_resource_name(rapids_url)
-            resource_uris[rapids_url] = {'name': rapids_name, 'pbar_enabled': False}
+            tools_jar_url = self._get_spark_rapids_jar_url()
+            jar_file_name = FSUtil.get_resource_name(tools_jar_url)
+        resource_uris[tools_jar_url] = {
+            'depItem': RuntimeDependency(name=jar_file_name, uri=tools_jar_url),
+            'prettyName': jar_file_name
+        }
 
         for platform in self._supported_platforms:  # pylint: disable=no-member
             config_file = FSUtil.build_full_path(self.resource_dir,
@@ -117,17 +119,19 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
             platform_conf = JSONPropertiesContainer(config_file)
             dependency_list = RapidsTool.get_rapids_tools_dependencies('LOCAL', platform_conf)
             for dependency in dependency_list:
-                uri = dependency.get('uri')
-                name = FSUtil.get_resource_name(uri)
-                if uri:
-                    resource_uris[uri] = {'name': name, 'pbar_enabled': False}
-                    resource_uris[uri + '.asc'] = {'name': name + '.asc', 'pbar_enabled': False}
+                if dependency.uri:
+                    uri_str = str(dependency.uri)
+                    pretty_name = FSUtil.get_resource_name(uri_str)
+                    resource_uris[uri_str] = {
+                        'depItem': dependency,
+                        'prettyName': pretty_name
+                    }
         return resource_uris
 
     def _download_resources(self, resource_uris: dict):
         download_tasks = []
         for res_uri, res_info in resource_uris.items():
-            resource_name = res_info.get('name')
+            resource_name = res_info.get('prettyName')
             print(f'Creating download task: {resource_name}')
             # All the downloadTasks enforces download
             download_tasks.append(DownloadTask(src_url=res_uri,     # pylint: disable=no-value-for-parameter)
