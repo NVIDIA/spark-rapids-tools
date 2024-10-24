@@ -29,6 +29,7 @@ from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_tools.cloud import ClientCluster
 from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
+from ..configuration.tools_config import ToolsConfig
 from ..enums import QualFilterApp, CspEnv, QualEstimationModel
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
@@ -349,6 +350,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
     eventlogs: Optional[str] = None
     jvm_heap_size: Optional[int] = None
     jvm_threads: Optional[int] = None
+    tools_config_path: Optional[str] = None
 
     def is_concurrent_submission(self) -> bool:
         return False
@@ -369,6 +371,23 @@ class ToolUserArgModel(AbsToolUserArgModel):
         self.p_args['toolArgs']['jvmMaxHeapSize'] = jvm_heap
         self.p_args['toolArgs']['jobResources'] = adjusted_resources
         self.p_args['toolArgs']['log4jPath'] = Utils.resource_path('dev/log4j.properties')
+
+    def process_tools_config(self) -> None:
+        """
+        Load the tools config file if it is provided. it creates a ToolsConfig object and sets it
+        in the toolArgs without processing the actual dependencies.
+        :return: None
+        """
+        self.p_args['toolArgs']['toolsConfig'] = None
+        if self.tools_config_path is not None:
+            # the CLI provides a tools config file
+            try:
+                self.p_args['toolArgs']['toolsConfig'] = ToolsConfig.load_from_file(self.tools_config_path)
+            except ValidationError as ve:
+                raise PydanticCustomError(
+                    'invalid_argument',
+                    f'Tools config file path {self.tools_config_path} could not be loaded. '
+                    'It is expected to be a valid YAML file.\n  Error:') from ve
 
     def init_extra_arg_cases(self) -> list:
         if self.eventlogs is None:
@@ -481,11 +500,14 @@ class QualifyUserArgModel(ToolUserArgModel):
         runtime_platform = self.get_or_set_platform()
         # process JVM arguments
         self.process_jvm_args()
+        # process the tools config file
+        self.process_tools_config()
 
         # finally generate the final values
         wrapped_args = {
             'runtimePlatform': runtime_platform,
             'outputFolder': self.output_folder,
+            'toolsConfig': self.p_args['toolArgs']['toolsConfig'],
             'platformOpts': {
                 'credentialFile': None,
                 'deployMode': DeployMode.LOCAL
@@ -601,10 +623,12 @@ class ProfileUserArgModel(ToolUserArgModel):
 
         # process JVM arguments
         self.process_jvm_args()
-
+        # process the tools config file
+        self.process_tools_config()
         # finally generate the final values
         wrapped_args = {
             'runtimePlatform': runtime_platform,
+            'toolsConfig': self.p_args['toolArgs']['toolsConfig'],
             'outputFolder': self.output_folder,
             'platformOpts': {
                 'credentialFile': None,

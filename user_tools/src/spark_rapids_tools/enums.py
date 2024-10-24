@@ -101,6 +101,21 @@ class HashAlgorithm(EnumeratedType):
         }
         return hash_functions[self]
 
+
+class DependencyType(EnumeratedType):
+    """Represents the dependency type for the jar cmd"""
+    JAR = 'jar'
+    ARCHIVE = 'archive'
+    # When classpath is used, it means that the url of a dependency is used as is.
+    # i.e., it is a folder, or a path that is added to the classPath for java CLI.
+    CLASSPATH = 'classpath'
+
+    @classmethod
+    def get_default(cls):
+        """Returns the default dependency type"""
+        return cls.JAR
+
+
 ###########
 # CSP Enums
 ###########

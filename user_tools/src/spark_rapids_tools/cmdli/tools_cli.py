@@ -45,6 +45,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       jvm_heap_size: int = None,
                       jvm_threads: int = None,
                       verbose: bool = None,
+                      tools_config_file: str = None,
                       **rapids_options) -> None:
         """The Qualification cmd provides estimated speedups by migrating Apache Spark applications
         to GPU accelerated clusters.
@@ -79,6 +80,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param jvm_threads: Number of threads to use for parallel processing on the eventlogs batch.
                 Default is calculated as a function of the total number of cores and the heap size on the host.
         :param verbose: True or False to enable verbosity of the script.
+        :param tools_config_file: Path to a configuration file that contains the tools' options.
         :param rapids_options: A list of valid Qualification tool options.
                 Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
                 multiple "spark-property" arguments.
@@ -112,7 +114,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          jvm_heap_size=jvm_heap_size,
                                                          jvm_threads=jvm_threads,
                                                          filter_apps=filter_apps,
-                                                         estimation_model_args=estimation_model_args)
+                                                         estimation_model_args=estimation_model_args,
+                                                         tools_config_path=tools_config_file)
         if qual_args:
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
                                             output_folder=qual_args['outputFolder'],
@@ -131,6 +134,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                   jvm_heap_size: int = None,
                   jvm_threads: int = None,
                   verbose: bool = None,
+                  tools_config_file: str = None,
                   **rapids_options):
         """The Profiling cmd provides information which can be used for debugging and profiling
         Apache Spark applications running on GPU accelerated clusters.
@@ -158,6 +162,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param jvm_threads: Number of thread to use for parallel processing on the eventlogs batch.
                 Default is calculated as a function of the total number of cores and the heap size on the host.
         :param verbose: True or False to enable verbosity of the script.
+        :param tools_config_file: Path to a configuration file that contains the tools' options.
         :param rapids_options: A list of valid Profiling tool options.
                 Note that the wrapper ignores ["output-directory", "worker-info"] flags, and it does not support
                 multiple "spark-property" arguments.
@@ -182,7 +187,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          jvm_heap_size=jvm_heap_size,
                                                          jvm_threads=jvm_threads,
                                                          output_folder=output_folder,
-                                                         tools_jar=tools_jar)
+                                                         tools_jar=tools_jar,
+                                                         tools_config_path=tools_config_file)
         if prof_args:
             rapids_options.update(prof_args['rapidOptions'])
             tool_obj = ProfilingAsLocal(platform_type=prof_args['runtimePlatform'],
