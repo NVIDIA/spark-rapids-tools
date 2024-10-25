@@ -66,6 +66,24 @@ class AnalysisSuite extends FunSuite {
       expectFile("sql"), expectFile("job"), expectFile("stage"))
   }
 
+  test("test stage-level diagnostic aggregation simple") {
+    val expectFile = "rapids_join_eventlog_stagediagnosticmetricsagg_expectation.csv"
+    val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    assert(apps.size == logs.size)
+
+    // This step is to compute stage to node names mapping
+    val collect = new CollectInformation(apps)
+    collect.getSQLToStage
+
+    val aggResults = RawMetricProfilerView.getAggMetrics(apps)
+    import org.apache.spark.sql.functions._
+    import sparkSession.implicits._
+    val actualDf = aggResults.stageDiagnostics.toDF.
+      withColumn("nodeNames", concat_ws(",", col("nodeNames")))
+    compareMetrics(actualDf, expectFile)
+  }
+
   private def testSqlMetricsAggregation(logs: Array[String], expectFileSQL: String,
       expectFileJob: String, expectFileStage: String): Unit = {
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)

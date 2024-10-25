@@ -44,6 +44,7 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * @param app the Application info objects that contains the SQL plans to be processed
  */
 class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(app) {
+  val GPU_SEMAPHORE_WAIT_METRIC_NAME = "gpuSemaphoreWait"
   // A map between (SQL ID, Node ID) and the set of stage IDs
   // TODO: The Qualification should use this map instead of building a new set for each exec.
   private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
@@ -344,7 +345,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           } else {
             taskUpatesSubset(taskUpatesSubset.size / 2)
           }
-          if (accumInfo.infoRef.getName.contains("gpuSemaphoreWait")) {
+          if (accumInfo.infoRef.getName.contains(GPU_SEMAPHORE_WAIT_METRIC_NAME)) {
             stageToGpuSemaphoreWaitTime(stageId) = sum
           }
           Some(AccumProfileResults(

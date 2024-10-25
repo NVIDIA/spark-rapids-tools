@@ -19,7 +19,6 @@ package org.apache.spark.rapids.tool.benchmarks
 import com.nvidia.spark.rapids.tool.qualification.QualificationArgs
 import com.nvidia.spark.rapids.tool.qualification.QualificationMain.mainInternal
 
-
 /**
  * This class is used to run the QualificationMain class as a benchmark.
  * This can be used as a reference to write any benchmark class
