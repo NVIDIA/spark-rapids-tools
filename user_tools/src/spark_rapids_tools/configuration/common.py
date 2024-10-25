@@ -68,7 +68,7 @@ class RuntimeDependency(BaseModel):
                   'https://mvn-url/24.08.1/rapids-4-spark-tools_2.12-24.08.1.jar',
                   'gs://bucket-name/path/to/file.jar'])
     dependency_type: RuntimeDependencyType = Field(
-        default_factory=lambda: RuntimeDependencyType(dep_type=DependencyType.JAR),
+        default_factory=lambda: RuntimeDependencyType(dep_type=DependencyType.get_default()),
         description='The type of the dependency and how to find the lib files after decompression.',
         validation_alias=AliasChoices('dependency_type', 'dependencyType'))
     verification: DependencyVerification = Field(
