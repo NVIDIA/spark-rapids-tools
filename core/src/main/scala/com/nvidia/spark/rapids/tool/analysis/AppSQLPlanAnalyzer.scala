@@ -44,6 +44,7 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * @param app the Application info objects that contains the SQL plans to be processed
  */
 class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(app) {
+  val GPU_SEMAPHORE_WAIT_METRIC_NAME = "gpuSemaphoreWait"
   // A map between (SQL ID, Node ID) and the set of stage IDs
   // TODO: The Qualification should use this map instead of building a new set for each exec.
   private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
@@ -56,6 +57,10 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   //      SQLPlanParser.
   var unsupportedSQLPlan: ArrayBuffer[UnsupportedSQLPlan] = ArrayBuffer[UnsupportedSQLPlan]()
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
+  // A map between stage ID and the set of node names
+  val stageToNodeNames: HashMap[Long, Seq[String]] = HashMap.empty[Long, Seq[String]]
+  // A map between stage ID and total GPU semaphore wait time
+  val stageToGpuSemaphoreWaitTime: HashMap[Long, Long] = HashMap.empty[Long, Long]
 
   /**
    * Connects Operators to Stages using AccumulatorIDs.
@@ -261,6 +266,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           }
           validNodes.map(n => s"${n.name}(${n.id.toString})")
         }.getOrElse(Seq.empty)
+        stageToNodeNames(sModel.stageInfo.stageId) = nodeNames
         SQLStageInfoProfileResult(appIndex, j.sqlID.get, jobId, sModel.stageInfo.stageId,
           sModel.stageInfo.attemptNumber(), sModel.duration, nodeNames)
       }
@@ -338,6 +344,9 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
             (taskUpatesSubset(mid) + taskUpatesSubset(mid - 1)) / 2
           } else {
             taskUpatesSubset(taskUpatesSubset.size / 2)
+          }
+          if (accumInfo.infoRef.getName.contains(GPU_SEMAPHORE_WAIT_METRIC_NAME)) {
+            stageToGpuSemaphoreWaitTime(stageId) = sum
           }
           Some(AccumProfileResults(
             appIndex,
