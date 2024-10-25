@@ -16,13 +16,16 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
+import java.util.concurrent.TimeUnit
+
 import scala.collection.mutable
 
+import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticMetricsProfileResult}
 
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
-import org.apache.spark.sql.rapids.tool.store.TaskModel
+import org.apache.spark.sql.rapids.tool.store.{AccumInfo, TaskModel}
 
 /**
  * Does analysis on the DataFrames from object of AppBase.
@@ -408,12 +411,62 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
    */
   private def aggregateSparkMetricsByStageInternal(index: Int): Unit = {
     // TODO: this has stage attempts. we should handle different attempts
+
+    // For Photon apps, peak memory and shuffle write time need to be calculated from accumulators
+    // instead of task metrics.
+    // Approach:
+    //   1. Collect accumulators for each metric type.
+    //   2. For each stage, retrieve the relevant accumulators and calculate aggregated values.
+    // Note:
+    //  - A HashMap could be used instead of separate mutable.ArrayBuffer for each metric type,
+    //    but avoiding it for readability.
+    val photonPeakMemoryAccumInfos = mutable.ArrayBuffer[AccumInfo]()
+    val photonShuffleWriteTimeAccumInfos = mutable.ArrayBuffer[AccumInfo]()
+
+    if (app.isPhoton) {
+      app.accumManager.applyToAccumInfoMap { accumInfo =>
+        accumInfo.infoRef.name.value match {
+          case name if name.contains(
+            DatabricksParseHelper.PHOTON_METRIC_PEAK_MEMORY_LABEL) =>
+              // Collect accumulators for peak memory
+              photonPeakMemoryAccumInfos += accumInfo
+          case name if name.contains(
+            DatabricksParseHelper.PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL) =>
+              // Collect accumulators for shuffle write time
+              photonShuffleWriteTimeAccumInfos += accumInfo
+          case _ => // Ignore other accumulators
+        }
+      }
+    }
+
     app.stageManager.getAllStages.foreach { sm =>
       // TODO: Should we only consider successful tasks?
       val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
         sm.stageInfo.attemptNumber())
       // count duplicate task attempts
       val numAttempts = tasksInStage.size
+
+      val (peakMemoryMax, shuffleWriteTimeSum) = if (app.isPhoton) {
+        // For max peak memory, we need to look at the accumulators at the task level.
+        val peakMemoryValues = tasksInStage.flatMap { taskModel =>
+          photonPeakMemoryAccumInfos.flatMap { accumInfo =>
+            accumInfo.taskUpdatesMap.get(taskModel.taskId)
+          }
+        }
+        // For sum of shuffle write time, we need to look at the accumulators at the stage level.
+        val shuffleWriteValues = photonShuffleWriteTimeAccumInfos.flatMap { accumInfo =>
+          accumInfo.stageValuesMap.get(sm.stageInfo.stageId)
+        }
+        (AppSparkMetricsAnalyzer.maxWithEmptyHandling(peakMemoryValues),
+          TimeUnit.NANOSECONDS.toMillis(shuffleWriteValues.sum))
+      } else {
+        // For non-Photon apps, use the task metrics directly.
+        val peakMemoryValues = tasksInStage.map(_.peakExecutionMemory)
+        val shuffleWriteTime = tasksInStage.map(_.sw_writeTime)
+        (AppSparkMetricsAnalyzer.maxWithEmptyHandling(peakMemoryValues),
+          shuffleWriteTime.sum)
+      }
+
       val (durSum, durMax, durMin, durAvg) = AppSparkMetricsAnalyzer.getDurations(tasksInStage)
       val stageRow = StageAggTaskMetricsProfileResult(index,
         sm.stageInfo.stageId,
@@ -434,7 +487,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         tasksInStage.map(_.memoryBytesSpilled).sum,
         tasksInStage.map(_.output_bytesWritten).sum,
         tasksInStage.map(_.output_recordsWritten).sum,
-        AppSparkMetricsAnalyzer.maxWithEmptyHandling(tasksInStage.map(_.peakExecutionMemory)),
+        peakMemoryMax,
         tasksInStage.map(_.resultSerializationTime).sum,
         AppSparkMetricsAnalyzer.maxWithEmptyHandling(tasksInStage.map(_.resultSize)),
         tasksInStage.map(_.sr_fetchWaitTime).sum,
@@ -446,7 +499,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         tasksInStage.map(_.sr_totalBytesRead).sum,
         tasksInStage.map(_.sw_bytesWritten).sum,
         tasksInStage.map(_.sw_recordsWritten).sum,
-        tasksInStage.map(_.sw_writeTime).sum
+        shuffleWriteTimeSum
       )
       stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
     }

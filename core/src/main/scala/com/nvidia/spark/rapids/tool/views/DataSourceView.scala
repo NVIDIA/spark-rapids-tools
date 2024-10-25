@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.views
 import scala.collection.Seq
 
 import com.nvidia.spark.rapids.tool.analysis.{ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
+import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, SQLAccumProfileResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
@@ -40,6 +41,12 @@ object IoMetrics {
   val DECODE_TIME_LABEL = "GPU decode time"
 
   val EMPTY_IO_METRICS: IoMetrics = IoMetrics(0, 0, 0, 0)
+
+  /**
+   * Get all labels for IoMetrics
+   */
+  def getAllLabels: Seq[String] = Seq(
+    BUFFER_TIME_LABEL, SCAN_TIME_LABEL, DATA_SIZE_LABEL, DECODE_TIME_LABEL)
 }
 
 trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
@@ -48,11 +55,13 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
   private def getIoMetrics(sqlAccums: Seq[SQLAccumProfileResults]): IoMetrics = {
     val finalRes = IoMetrics(0, 0, 0, 0)
     try {
-      sqlAccums.map(accum => accum.name match {
+      sqlAccums.foreach(accum => accum.name match {
         case IoMetrics.BUFFER_TIME_LABEL => finalRes.bufferTime = accum.total
         case IoMetrics.SCAN_TIME_LABEL => finalRes.scanTime = accum.total
         case IoMetrics.DATA_SIZE_LABEL => finalRes.dataSize = accum.total
         case IoMetrics.DECODE_TIME_LABEL => finalRes.decodeTime = accum.total
+        case _ if DatabricksParseHelper.isPhotonIoMetric(accum) =>
+          DatabricksParseHelper.updatePhotonIoMetric(accum, finalRes)
         case _ => throw UnsupportedMetricNameException(accum.name)
       })
     } catch {
@@ -98,11 +107,9 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
       index: Int,
       appSqlAccums: Seq[SQLAccumProfileResults]): Seq[DataSourceProfileResult] = {
     // Filter appSqlAccums to get only required metrics
-    val dataSourceMetrics = appSqlAccums.filter(
-      sqlAccum => sqlAccum.name.contains(IoMetrics.BUFFER_TIME_LABEL)
-        || sqlAccum.name.contains(IoMetrics.SCAN_TIME_LABEL)
-        || sqlAccum.name.contains(IoMetrics.DECODE_TIME_LABEL)
-        || sqlAccum.name.equals(IoMetrics.DATA_SIZE_LABEL))
+    val dataSourceMetrics = appSqlAccums.filter(sqlAccum =>
+      IoMetrics.getAllLabels.contains(sqlAccum.name) ||
+        app.isPhoton && DatabricksParseHelper.isPhotonIoMetric(sqlAccum))
 
     val dsFromLastPlan = app.dataSourceInfo.map { ds =>
       val sqlIdtoDs = dataSourceMetrics.filter(
