@@ -379,10 +379,10 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       } else {
         // For non-Photon apps, use the task metrics directly.
         val peakMemoryValues = tasksInStage.map(_.peakExecutionMemory)
-        val shuffleWriteTime = tasksInStage.map(_.sw_writeTime)
+        val shuffleWriteValues = tasksInStage.map(_.sw_writeTime)
         val diskSpillSizeValues = tasksInStage.map(_.diskBytesSpilled)
         (AppSparkMetricsAnalyzer.maxWithEmptyHandling(peakMemoryValues),
-          shuffleWriteTime.sum,
+          shuffleWriteValues.sum,
             diskSpillSizeValues.sum)
       }
 
