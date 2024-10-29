@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.analysis
 import java.util.concurrent.TimeUnit
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult}
@@ -328,29 +329,24 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   private def aggregateSparkMetricsByStageInternal(index: Int): Unit = {
     // TODO: this has stage attempts. we should handle different attempts
 
-    // For Photon apps, peak memory and shuffle write time need to be calculated from accumulators
+    // For Photon apps, certain metrics need to be calculated from accumulators
     // instead of task metrics.
     // Approach:
     //   1. Collect accumulators for each metric type.
     //   2. For each stage, retrieve the relevant accumulators and calculate aggregated values.
-    // Note:
-    //  - A HashMap could be used instead of separate mutable.ArrayBuffer for each metric type,
-    //    but avoiding it for readability.
-    val photonPeakMemoryAccumInfos = mutable.ArrayBuffer[AccumInfo]()
-    val photonShuffleWriteTimeAccumInfos = mutable.ArrayBuffer[AccumInfo]()
+    val photonAccumInfos = mutable.HashMap[String, ArrayBuffer[AccumInfo]](
+      DatabricksParseHelper.PHOTON_METRIC_PEAK_MEMORY_LABEL -> ArrayBuffer[AccumInfo](),
+      DatabricksParseHelper.PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL -> ArrayBuffer[AccumInfo](),
+      DatabricksParseHelper.PHOTON_METRIC_DISK_SPILL_SIZE_LABEL -> ArrayBuffer[AccumInfo]()
+    )
 
     if (app.isPhoton) {
       app.accumManager.applyToAccumInfoMap { accumInfo =>
-        accumInfo.infoRef.name.value match {
-          case name if name.contains(
-            DatabricksParseHelper.PHOTON_METRIC_PEAK_MEMORY_LABEL) =>
-              // Collect accumulators for peak memory
-              photonPeakMemoryAccumInfos += accumInfo
-          case name if name.contains(
-            DatabricksParseHelper.PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL) =>
-              // Collect accumulators for shuffle write time
-              photonShuffleWriteTimeAccumInfos += accumInfo
-          case _ => // Ignore other accumulators
+        val metricName = accumInfo.infoRef.name.value
+        // Append to the corresponding metric buffer
+        photonAccumInfos.keys.find(metricName.contains) match {
+          case Some(metricLabel) => photonAccumInfos(metricLabel) += accumInfo
+          case None => // Ignore other accumulators
         }
       }
     }
@@ -362,25 +358,34 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       // count duplicate task attempts
       val numAttempts = tasksInStage.size
 
-      val (peakMemoryMax, shuffleWriteTimeSum) = if (app.isPhoton) {
+      val (peakMemoryMax, shuffleWriteTimeSum, diskSpillSizeSum) = if (app.isPhoton) {
         // For max peak memory, we need to look at the accumulators at the task level.
         val peakMemoryValues = tasksInStage.flatMap { taskModel =>
-          photonPeakMemoryAccumInfos.flatMap { accumInfo =>
-            accumInfo.taskUpdatesMap.get(taskModel.taskId)
+          photonAccumInfos(DatabricksParseHelper.PHOTON_METRIC_PEAK_MEMORY_LABEL).flatMap {
+            accumInfo => accumInfo.taskUpdatesMap.get(taskModel.taskId)
           }
         }
         // For sum of shuffle write time, we need to look at the accumulators at the stage level.
-        val shuffleWriteValues = photonShuffleWriteTimeAccumInfos.flatMap { accumInfo =>
-          accumInfo.stageValuesMap.get(sm.stageInfo.stageId)
-        }
+        val shuffleWriteValues =
+          photonAccumInfos(DatabricksParseHelper.PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL).flatMap {
+            accumInfo => accumInfo.stageValuesMap.get(sm.stageInfo.stageId)
+          }
+        // For sum of disk spill size, we need to look at the accumulators at the stage level.
+        val diskSpillSizeValues =
+          photonAccumInfos(DatabricksParseHelper.PHOTON_METRIC_DISK_SPILL_SIZE_LABEL).flatMap {
+            accumInfo => accumInfo.stageValuesMap.get(sm.stageInfo.stageId)
+          }
         (AppSparkMetricsAnalyzer.maxWithEmptyHandling(peakMemoryValues),
-          TimeUnit.NANOSECONDS.toMillis(shuffleWriteValues.sum))
+          TimeUnit.NANOSECONDS.toMillis(shuffleWriteValues.sum),
+            diskSpillSizeValues.sum)
       } else {
         // For non-Photon apps, use the task metrics directly.
         val peakMemoryValues = tasksInStage.map(_.peakExecutionMemory)
         val shuffleWriteTime = tasksInStage.map(_.sw_writeTime)
+        val diskSpillSizeValues = tasksInStage.map(_.diskBytesSpilled)
         (AppSparkMetricsAnalyzer.maxWithEmptyHandling(peakMemoryValues),
-          shuffleWriteTime.sum)
+          shuffleWriteTime.sum,
+            diskSpillSizeValues.sum)
       }
 
       val (durSum, durMax, durMin, durAvg) = AppSparkMetricsAnalyzer.getDurations(tasksInStage)
@@ -388,7 +393,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         sm.stageInfo.stageId,
         numAttempts,  // TODO: why is this numAttempts and not numTasks?
         sm.duration,
-        tasksInStage.map(_.diskBytesSpilled).sum,
+        diskSpillSizeSum,
         durSum,
         durMax,
         durMin,

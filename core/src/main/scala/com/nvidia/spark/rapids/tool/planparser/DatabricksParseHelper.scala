@@ -57,6 +57,7 @@ object DatabricksParseHelper extends Logging {
   val PHOTON_METRIC_CUMULATIVE_TIME_LABEL = "cumulative time"               // Alternative for "scan time"
   val PHOTON_METRIC_PEAK_MEMORY_LABEL = "peak memory usage"                 // Alternative for "peak execution memory"
   val PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL = "part of shuffle file write" // Alternative for "shuffle write time"
+  val PHOTON_METRIC_DISK_SPILL_SIZE_LABEL = "num bytes spilled to disk"     // Alternative for "spill size"
   // scalastyle:on
 
   private val PHOTON_PATTERN: Regex = "Photon[a-zA-Z]*".r
