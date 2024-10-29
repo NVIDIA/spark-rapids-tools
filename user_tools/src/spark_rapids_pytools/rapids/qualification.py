@@ -321,12 +321,12 @@ class Qualification(RapidsJarTool):
         # Add a column for speedup categories, using different categorization strategies based on application type
         spark_properties = self._read_qualification_metric_file('spark_properties.csv')
         speedup_category_confs = self.ctxt.get_value('local', 'output', 'speedupCategories')
-        speedup_strategy = SpeedupStrategyBuilder.build_speedup_strategy(
+        speedup_strategies = SpeedupStrategyBuilder.build_speedup_strategies(
             platform=self.ctxt.platform,
             spark_properties=spark_properties,
             speedup_strategy_props=speedup_category_confs.get('strategies'))
-        speedup_category_ob = SpeedupCategory(speedup_category_confs, speedup_strategy)
-        df_final_result = speedup_category_ob.build_category_column(apps_grouped_df)
+        speedup_category_ob = SpeedupCategory(speedup_category_confs)
+        df_final_result = speedup_category_ob.build_category_column(apps_grouped_df, speedup_strategies)
 
         # Generate the cluster shape report
         reshaped_notes = self.__generate_cluster_shape_report()
