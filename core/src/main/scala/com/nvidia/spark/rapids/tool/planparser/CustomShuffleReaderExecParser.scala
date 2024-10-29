@@ -21,22 +21,11 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 
 case class CustomShuffleReaderExecParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long) extends ExecParser {
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long) extends GenericExecParser(node, checker,sqlID) {
 
   // note this is called either AQEShuffleRead and CustomShuffleReader depending
   // on the Spark version, our supported ops list it as CustomShuffleReader
-  val fullExecName = "CustomShuffleReaderExec"
-
-  override def parse: ExecInfo = {
-    // doesn't have duration
-    val duration = None
-    val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName)) {
-      (checker.getSpeedupFactor(fullExecName), true)
-    } else {
-      (1.0, false)
-    }
-    ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None)
-  }
+  override val fullExecName = "CustomShuffleReaderExec"
 }

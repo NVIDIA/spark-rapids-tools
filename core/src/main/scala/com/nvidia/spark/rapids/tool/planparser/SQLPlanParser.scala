@@ -462,91 +462,49 @@ object SQLPlanParser extends Logging {
       checker: PluginTypeChecker,
       app: AppBase): ExecInfo = {
     val normalizedNodeName = node.name.stripSuffix("$")
-    normalizedNodeName match {
-      case "AggregateInPandas" =>
-        AggregateInPandasExecParser(node, checker, sqlID).parse
-      case "ArrowEvalPython" =>
-        ArrowEvalPythonExecParser(node, checker, sqlID).parse
-      case "BatchScan" =>
-        BatchScanExecParser(node, checker, sqlID, app).parse
-      case "BroadcastExchange" =>
-        BroadcastExchangeExecParser(node, checker, sqlID, app).parse
-      case "BroadcastHashJoin" =>
-        BroadcastHashJoinExecParser(node, checker, sqlID).parse
-      case "BroadcastNestedLoopJoin" =>
-        BroadcastNestedLoopJoinExecParser(node, checker, sqlID).parse
-      case "CartesianProduct" =>
-        CartesianProductExecParser(node, checker, sqlID).parse
-      case "Coalesce" =>
-        CoalesceExecParser(node, checker, sqlID).parse
-      case "CollectLimit" =>
-        CollectLimitExecParser(node, checker, sqlID).parse
-      case "CustomShuffleReader" | "AQEShuffleRead" =>
-        CustomShuffleReaderExecParser(node, checker, sqlID).parse
-      case "Exchange" =>
-        ShuffleExchangeExecParser(node, checker, sqlID, app).parse
-      case "Expand" =>
-        ExpandExecParser(node, checker, sqlID).parse
-      case "Filter" =>
-        FilterExecParser(node, checker, sqlID).parse
-      case "FlatMapGroupsInPandas" =>
-        FlatMapGroupsInPandasExecParser(node, checker, sqlID).parse
-      case "Generate" =>
-        GenerateExecParser(node, checker, sqlID).parse
-      case "GlobalLimit" =>
-        GlobalLimitExecParser(node, checker, sqlID).parse
-      case "HashAggregate" =>
-        HashAggregateExecParser(node, checker, sqlID, app).parse
-      case "LocalLimit" =>
-        LocalLimitExecParser(node, checker, sqlID).parse
-      case "InMemoryTableScan" =>
-        InMemoryTableScanExecParser(node, checker, sqlID).parse
-      case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
-        DataWritingCommandExecParser.parseNode(node, checker, sqlID)
-      case "MapInPandas" =>
-        MapInPandasExecParser(node, checker, sqlID).parse
-      case "ObjectHashAggregate" =>
-        ObjectHashAggregateExecParser(node, checker, sqlID, app).parse
-      case "Project" =>
-        ProjectExecParser(node, checker, sqlID).parse
-      case "PythonMapInArrow" | "MapInArrow" =>
-        PythonMapInArrowExecParser(node, checker, sqlID).parse
-      case "Range" =>
-        RangeExecParser(node, checker, sqlID).parse
-      case "Sample" =>
-        SampleExecParser(node, checker, sqlID).parse
-      case "ShuffledHashJoin" =>
-        ShuffledHashJoinExecParser(node, checker, sqlID, app).parse
-      case "Sort" =>
-        SortExecParser(node, checker, sqlID).parse
-      case s if ReadParser.isScanNode(s) =>
-        FileSourceScanExecParser(node, checker, sqlID, app).parse
-      case "SortAggregate" =>
-        SortAggregateExecParser(node, checker, sqlID).parse
-      case smj if SortMergeJoinExecParser.accepts(smj) =>
-        SortMergeJoinExecParser(node, checker, sqlID).parse
-      case "SubqueryBroadcast" =>
-        SubqueryBroadcastExecParser(node, checker, sqlID, app).parse
-      case sqe if SubqueryExecParser.accepts(sqe) =>
-        SubqueryExecParser.parseNode(node, checker, sqlID, app)
-      case "TakeOrderedAndProject" =>
-        TakeOrderedAndProjectExecParser(node, checker, sqlID).parse
-      case "Union" =>
-        UnionExecParser(node, checker, sqlID).parse
-      case "Window" =>
-        WindowExecParser(node, checker, sqlID).parse
-      case "WindowInPandas" =>
-        WindowInPandasExecParser(node, checker, sqlID).parse
-      case "WindowGroupLimit" =>
-        WindowGroupLimitParser(node, checker, sqlID).parse
-      case wfe if WriteFilesExecParser.accepts(wfe) =>
-        WriteFilesExecParser(node, checker, sqlID).parse
-      case _ =>
-        // Execs that are members of reuseExecs (i.e., ReusedExchange) should be marked as
-        // supported but with shouldRemove flag set to True.
-        // Setting the "shouldRemove" is handled at the end of the function.
-        ExecInfo(node, sqlID, normalizedNodeName, expr = "", 1, duration = None, node.id,
-          isSupported = reuseExecs.contains(normalizedNodeName), None)
+    val parserConfig = ExecParserLoader.getConfig(normalizedNodeName)
+    parserConfig match {
+      case Some(_) =>
+        new GenericExecParser(node, checker, sqlID).parse
+      case None =>
+        normalizedNodeName match {
+          case "BatchScan" =>
+            BatchScanExecParser(node, checker, sqlID, app).parse
+          case "BroadcastExchange" =>
+            BroadcastExchangeExecParser(node, checker, sqlID, app).parse
+          case "BroadcastHashJoin" =>
+            BroadcastHashJoinExecParser(node, checker, sqlID).parse
+          case "BroadcastNestedLoopJoin" =>
+            BroadcastNestedLoopJoinExecParser(node, checker, sqlID).parse
+          case "CustomShuffleReader" | "AQEShuffleRead" =>
+            CustomShuffleReaderExecParser(node, checker, sqlID).parse
+          case "Exchange" =>
+            ShuffleExchangeExecParser(node, checker, sqlID, app).parse
+          case "HashAggregate" =>
+            HashAggregateExecParser(node, checker, sqlID, app).parse
+          case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
+            DataWritingCommandExecParser.parseNode(node, checker, sqlID)
+          case "ShuffledHashJoin" =>
+            ShuffledHashJoinExecParser(node, checker, sqlID, app).parse
+          case s if ReadParser.isScanNode(s) =>
+            FileSourceScanExecParser(node, checker, sqlID, app).parse
+          case smj if SortMergeJoinExecParser.accepts(smj) =>
+            SortMergeJoinExecParser(node, checker, sqlID).parse
+          case "SubqueryBroadcast" =>
+            SubqueryBroadcastExecParser(node, checker, sqlID, app).parse
+          case sqe if SubqueryExecParser.accepts(sqe) =>
+            SubqueryExecParser.parseNode(node, checker, sqlID, app)
+          case "WindowGroupLimit" =>
+            WindowGroupLimitParser(node, checker, sqlID).parse
+          case wfe if WriteFilesExecParser.accepts(wfe) =>
+            WriteFilesExecParser(node, checker, sqlID).parse
+          case _ =>
+            // Execs that are members of reuseExecs (i.e., ReusedExchange) should be marked as
+            // supported but with shouldRemove flag set to True.
+            // Setting the "shouldRemove" is handled at the end of the function.
+            ExecInfo(node, sqlID, normalizedNodeName, expr = "", 1, duration = None, node.id,
+              isSupported = reuseExecs.contains(normalizedNodeName), None)
+        }
     }
   }
 

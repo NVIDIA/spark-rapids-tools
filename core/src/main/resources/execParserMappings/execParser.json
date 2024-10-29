@@ -1,0 +1,117 @@
+{
+  "parsers": [
+    {
+      "execName": "AggregateInPandas",
+      "parseExpressions": false
+    },
+    {
+      "execName": "ArrowEvalPython",
+        "parseExpressions": false
+    },
+    {
+      "execName": "CartesianProduct",
+      "parseExpressions": false
+    },
+    {
+      "execName": "Coalesce",
+      "parseExpressions": false
+    },
+    {
+      "execName": "CollectLimit",
+      "parseExpressions": false
+    },
+    {
+      "execName": "CustomShuffleReader",
+      "parseExpressions": false
+    },
+    {
+      "execName": "FlatMapGroupsInPandas",
+      "parseExpressions": false
+    },
+    {
+      "execName": "InMemoryTableScan",
+      "parseExpressions": false
+    },
+    {
+      "execName": "LocalLimit",
+      "parseExpressions": false
+    },
+    {
+      "execName": "GlobalLimit",
+      "parseExpressions": false
+    },
+    {
+      "execName": "MapInArrow",
+      "parseExpressions": false
+    },
+    {
+      "execName": "MapInPandas",
+      "parseExpressions": false
+    },
+    {
+      "execName": "PythonMapInArrow",
+      "parseExpressions": false
+    },
+    {
+      "execName": "Range",
+      "parseExpressions": false
+    },
+    {
+      "execName": "Sample",
+      "parseExpressions": false
+    },
+    {
+      "execName": "Union",
+      "parseExpressions": false
+    },
+    {
+      "execName": "WindowInPandas",
+      "parseExpressions": false
+    },
+    {
+      "execName": "Expand",
+      "parseExpressions": true,
+      "expressionParserMethod": "parseExpandExpressions"
+    },
+    {
+      "execName": "Filter",
+      "parseExpressions": true,
+      "expressionParserMethod": "parseFilterExpressions"
+    },
+    {
+      "execName": "Generate",
+      "parseExpressions": true,
+      "expressionParserMethod": "parseGenerateExpressions"
+    },
+    {
+      "execName": "ObjectHashAggregate",
+      "parseExpressions": true,
+      "expressionParserMethod": "parseAggregateExpressions"
+    },
+    {
+      "execName": "Project",
+      "parseExpressions": true,
+      "expressionParserMethod": "parseProjectExpressions"
+    },
+    {
+      "execName": "SortAggregate",
+      "parseExpressions": true,
+      "expressionParserMethod": "parseAggregateExpressions"
+    },
+    {
+      "execName": "Sort",
+      "parseExpressions": true,
+      "expressionParserMethod": "parseSortExpressions"
+    },
+    {
+      "execName": "TakeOrderedAndProject",
+      "parseExpressions": true,
+      "expressionParserMethod": "parseTakeOrderedExpressions"
+    },
+    {
+      "execName": "Window",
+      "parseExpressions": true,
+      "expressionParserMethod": "parseWindowExpressions"
+    }
+  ]
+}
