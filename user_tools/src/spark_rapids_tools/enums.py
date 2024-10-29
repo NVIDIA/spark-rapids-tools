@@ -210,3 +210,16 @@ class QualEstimationModel(EnumeratedType):
             'xgboostEnabled': model_type == QualEstimationModel.XGBOOST,
             'customModelFile': None,
         }
+
+
+class AppExecutionType(EnumeratedType):
+    """
+    Represents the execution type for the application (e.g. Spark, Photon or GPU).
+    """
+    SPARK = 'spark'
+    PHOTON = 'photon'
+    GPU = 'gpu'
+
+    @classmethod
+    def get_default(cls) -> 'AppExecutionType':
+        return cls.SPARK

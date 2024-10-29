@@ -19,6 +19,75 @@ from typing import Optional
 
 import pandas as pd
 
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
+from spark_rapids_tools import CspEnv
+from spark_rapids_tools.enums import AppExecutionType
+from spark_rapids_tools.utils import Utilities
+
+
+@dataclass
+class SpeedupStrategy:
+    """
+    Wrapper class for speedup strategy properties.
+    """
+    _categories: list = field(default_factory=list, init=False)
+    _eligibility_conditions: list = field(default_factory=list, init=False)
+
+    def __init__(self, props: dict):
+        self._categories = props.get('categories', [])
+        self._eligibility_conditions = props.get('eligibilityConditions', [])
+
+    def get_categories(self) -> list:
+        return self._categories
+
+    def get_eligibility_conditions(self) -> list:
+        return self._eligibility_conditions
+
+
+@dataclass
+class SpeedupStrategyBuilder:
+    """"
+    Builder class for creating speedup strategy based on Spark properties.
+    TODO: This class can be extended to support different speedup strategies for a mixed set of application types.
+    """
+
+    @classmethod
+    def build_speedup_strategy(cls,
+                               platform: PlatformBase,
+                               spark_properties: dict,
+                               speedup_strategy_props: dict) -> SpeedupStrategy:
+        """
+        Builds a SpeedupStrategy based on the provided Spark properties of the applications.
+        This function verifies that all applications belong to the same type and returns the appropriate strategy.
+
+        :param platform: Platform for which the speedup strategy is being built.
+        :param spark_properties: Dictionary of App IDs and corresponding Spark properties.
+        :param speedup_strategy_props: Dictionary containing the properties for different speedup strategies.
+        """
+        # For non-Databricks platforms, return the default speedup strategy (i.e. Spark CPU based)
+        if platform.get_platform_name() not in [CspEnv.DATABRICKS_AWS, CspEnv.DATABRICKS_AZURE]:
+            default_app_type = AppExecutionType.get_default()
+            return SpeedupStrategy(speedup_strategy_props.get(default_app_type))
+
+        detected_app_type = set()
+        spark_version_key = 'spark.databricks.clusterUsageTags.sparkVersion'
+
+        # Detect the application type based on the Spark version
+        for spark_properties_df in spark_properties.values():
+            spark_props_dict = Utilities.convert_df_to_dict(spark_properties_df)
+            spark_version = spark_props_dict.get(spark_version_key, '').lower()
+            if AppExecutionType.PHOTON in spark_version:
+                detected_app_type.add(AppExecutionType.PHOTON)
+            else:
+                detected_app_type.add(AppExecutionType.get_default())
+
+        if len(detected_app_type) != 1:
+            app_types_str = ', '.join([app_type.value for app_type in detected_app_type])
+            raise ValueError(f'Expected applications of a single type but found a mix: {app_types_str}')
+
+        # Return the SpeedupStrategy based on the detected application type
+        return SpeedupStrategy(speedup_strategy_props.get(next(iter(detected_app_type))))
+
 
 @dataclass
 class SpeedupCategory:
@@ -26,6 +95,7 @@ class SpeedupCategory:
     Encapsulates the logic to categorize the speedup values based on the range values.
     """
     props: dict = field(default=None, init=True)
+    speedup_strategy: SpeedupStrategy = field(default=None, init=True)
 
     def __build_category_column(self, all_apps: pd.DataFrame) -> pd.DataFrame:
         """
@@ -44,7 +114,7 @@ class SpeedupCategory:
            output: row_2 = pd.Series({'speedup': 3.5, 'speedup category': 'Large'})
            reason: Speedup Category will be 'Large' because the speedup is within the range (3-100000).
         """
-        categories = self.props.get('categories')
+        categories = self.speedup_strategy.get_categories()
         category_col_name = self.props.get('categoryColumnName')
         speedup_col_name = self.props.get('speedupColumnName')
 
@@ -74,11 +144,12 @@ class SpeedupCategory:
            output: row_2 = pd.Series({'criteriaCol1': 15, 'criteriaCol2': 85, 'speedup category': 'Not Recommended'})
            reason: Category will be set to 'Not Recommended' because the criteriaCol1 is not within the range (18-30)
         """
+        eligibility_conditions = self.speedup_strategy.get_eligibility_conditions()
         category_col_name = self.props.get('categoryColumnName')
         heuristics_col_name = self.props.get('heuristicsColumnName')
 
         def process_row(single_row: pd.Series) -> str:
-            for entry in self.props.get('eligibilityConditions'):
+            for entry in eligibility_conditions:
                 col_value = single_row[entry.get('columnName')]
                 # If the row is marked to be skipped by heuristics or the value is not within the range,
                 # set the category to default category (Not Recommended)

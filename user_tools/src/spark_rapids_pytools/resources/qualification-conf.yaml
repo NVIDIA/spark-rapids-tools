@@ -1,6 +1,7 @@
 toolOutput:
   completeOutput: true
   subFolder: rapids_4_spark_qualification_output
+  metricsSubFolder: raw_metrics
   textFormat:
     summaryLog:
       fileName: rapids_4_spark_qualification_output.log
@@ -254,27 +255,50 @@ local:
       speedupColumnName: 'Estimated GPU Speedup'
       categoryColumnName: 'Estimated GPU Speedup Category'
       heuristicsColumnName: 'Skip by Heuristics'
-      categories:
-        - title: 'Not Applicable'
-          lowerBound: -1000000.0
-          upperBound: 1.3
-        - title: 'Small'
-          lowerBound: 1.3
-          upperBound: 2.0
-        - title: 'Medium'
-          lowerBound: 2.0
-          upperBound: 3.0
-        - title: 'Large'
-          lowerBound: 3.0
-          upperBound: 1000000.0
-      eligibilityConditions:
-        - columnName: 'Estimated GPU Speedup'
-          lowerBound: 1.3
-          upperBound: 1000000.0
-        - columnName: 'Unsupported Operators Stage Duration Percent'
-          lowerBound: 0.0
-          upperBound: 25.0
       defaultCategory: 'Not Recommended'
+      strategies:
+        spark:  # Spark specific speedup categories
+          categories:
+            - title: 'Not Applicable'
+              lowerBound: -1000000.0
+              upperBound: 1.3
+            - title: 'Small'
+              lowerBound: 1.3
+              upperBound: 2.0
+            - title: 'Medium'
+              lowerBound: 2.0
+              upperBound: 3.0
+            - title: 'Large'
+              lowerBound: 3.0
+              upperBound: 1000000.0
+          eligibilityConditions:
+            - columnName: 'Estimated GPU Speedup'
+              lowerBound: 1.3
+              upperBound: 1000000.0
+            - columnName: 'Unsupported Operators Stage Duration Percent'
+              lowerBound: 0.0
+              upperBound: 25.0
+        photon:  # Photon specific speedup categories
+          categories:
+            - title: 'Not Applicable'
+              lowerBound: -1000000.0
+              upperBound: 1.0
+            - title: 'Small'
+              lowerBound: 1.0
+              upperBound: 2.0
+            - title: 'Medium'
+              lowerBound: 2.0
+              upperBound: 3.0
+            - title: 'Large'
+              lowerBound: 3.0
+              upperBound: 1000000.0
+          eligibilityConditions:
+            - columnName: 'Estimated GPU Speedup'
+              lowerBound: 1.0
+              upperBound: 1000000.0
+            - columnName: 'Unsupported Operators Stage Duration Percent'
+              lowerBound: 0.0
+              upperBound: 25.0
     additionalHeuristics:
       appInfo:
         fileName: 'application_information.csv'

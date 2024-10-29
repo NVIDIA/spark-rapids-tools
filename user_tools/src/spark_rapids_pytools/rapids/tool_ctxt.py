@@ -215,6 +215,11 @@ class ToolContext(YAMLPropertiesContainer):
             return root_dir
         return FSUtil.build_path(root_dir, rapids_subfolder)
 
+    def get_metrics_output_folder(self) -> str:
+        root_dir = self.get_rapids_output_folder()
+        metrics_subfolder = self.get_value('toolOutput', 'metricsSubFolder')
+        return FSUtil.build_path(root_dir, metrics_subfolder)
+
     def get_log4j_properties_file(self) -> str:
         return self.get_value_silent('toolOutput', 'textFormat', 'log4jFileName')
 
