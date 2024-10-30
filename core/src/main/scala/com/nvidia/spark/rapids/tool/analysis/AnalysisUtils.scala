@@ -16,10 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-/**
- * object Utils provides toolkit functions
- *
- */
 object AnalysisUtils {
   val MEMORY_SPILLED_METRIC = "internal.metrics.memoryBytesSpilled"
   val DISK_SPILLED_METRIC = "internal.metrics.diskBytesSpilled"
