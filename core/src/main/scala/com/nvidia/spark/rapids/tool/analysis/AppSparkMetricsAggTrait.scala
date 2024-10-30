@@ -26,6 +26,9 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
    * object to aggregate the Raw metrics and returns the result
    * @param app the AppBase to be analyzed
    * @param index the application index
+   * @param sqlAnalyzer optional AppSQLPlanAnalyzer used to aggregate diagnostic metrics,
+   *                    this is already present in ApplicationInfo for Profiler, but for
+   *                    Qualification this argument needs to be provided.
    * @return a single record of AggRawMetricsResult containing all the raw aggregated Spark
    *         metrics
    */

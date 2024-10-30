@@ -325,6 +325,9 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   /**
    * Aggregates the diagnostic SparkMetrics by stage.
    * @param index the App-index (used by the profiler tool)
+   * @param analyzerInput optional AppSQLPlanAnalyzer which is used to pull stage level
+   *                      information like node names and diagnostic metrics results, only
+   *                      Qualification needs to provide this argument.
    * @return sequence of StageDiagnosticAggTaskMetricsProfileResult
    */
   def aggregateDiagnosticSparkMetricsByStage(index: Int,
@@ -335,7 +338,9 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
 
     val sqlAnalyzer = analyzerInput match {
       case Some(res) => res
-      case None => app.asInstanceOf[ApplicationInfo].planMetricProcessor
+      case None =>
+        // for Profiler this is present in ApplicationInfo
+        app.asInstanceOf[ApplicationInfo].planMetricProcessor
     }
 
     // TODO: this has stage attempts. we should handle different attempts
@@ -358,7 +363,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       val srFetchWaitTimeMetrics = disgnosticMetrics.getOrElse(SR_FETCH_WAIT_TIME_METRIC, zeroStats)
       val swWriteTimeMetrics = disgnosticMetrics.getOrElse(SW_WRITE_TIME_METRIC, zeroStats)
       val gpuSemaphoreMetrics = disgnosticMetrics.getOrElse(GPU_SEMAPHORE_WAIT_METRIC, zeroStats)
-      val (srBytesMin, srBytesMed, srBytesMax, srBytesSum) =
+      val srTotalBytesMetrics =
         AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_totalBytesRead))
 
       StageDiagnosticResult(index,
@@ -383,10 +388,10 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         outputBytesMetrics.med,
         outputBytesMetrics.max,
         outputBytesMetrics.total,
-        srBytesMin,
-        srBytesMed,
-        srBytesMax,
-        srBytesSum,
+        srTotalBytesMetrics.min,
+        srTotalBytesMetrics.med,
+        srTotalBytesMetrics.max,
+        srTotalBytesMetrics.total,
         swTotalBytesMetrics.min,
         swTotalBytesMetrics.med,
         swTotalBytesMetrics.max,
@@ -521,9 +526,9 @@ object AppSparkMetricsAnalyzer  {
   /**
    * Given an input iterable, returns its min, median, max and sum.
    */
-  def getStatistics(arr: Iterable[Long]): (Long, Long, Long, Long) = {
+  def getStatistics(arr: Iterable[Long]): StatisticsMetrics = {
     if (arr.isEmpty) {
-      (0L, 0L, 0L, 0L)
+      StatisticsMetrics(0L, 0L, 0L, 0L)
     }
     val sortedArr = arr.toSeq.sorted
     val len = sortedArr.size
@@ -532,7 +537,7 @@ object AppSparkMetricsAnalyzer  {
     } else {
       sortedArr(len / 2)
     }
-    (sortedArr.head, med, sortedArr(len - 1), sortedArr.sum)
+    StatisticsMetrics(sortedArr.head, med, sortedArr(len - 1), sortedArr.sum)
   }
 
   def maxWithEmptyHandling(arr: Iterable[Long]): Long = {
