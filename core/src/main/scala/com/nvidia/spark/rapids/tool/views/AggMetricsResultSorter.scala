@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.profiling.{BaseJobStageAggTaskMetricsProfileResult, IOAnalysisProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult, StageDiagnosticMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{BaseJobStageAggTaskMetricsProfileResult, IOAnalysisProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult, StageDiagnosticResult}
 
 /**
  * Contains the sort logic for the aggregated Spark RawMetrics.
@@ -93,8 +93,8 @@ object AggMetricsResultSorter {
   }
 
   def sortStageDiagnostics(
-      rows: Seq[StageDiagnosticMetricsProfileResult]):
-  Seq[StageDiagnosticMetricsProfileResult] = {
+      rows: Seq[StageDiagnosticResult]):
+  Seq[StageDiagnosticResult] = {
     if (rows.isEmpty) {
       Seq.empty
     } else {

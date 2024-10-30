@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 
 /**
  * The result of the aggregation of the raw metrics. It contains the aggregated metrics for an
@@ -42,4 +42,4 @@ case class AggRawMetricsResult(
     ioAggs: Seq[IOAnalysisProfileResult],
     sqlDurAggs: Seq[SQLDurationExecutorTimeProfileResult],
     maxTaskInputSizes: Seq[SQLMaxTaskInputSizes],
-    stageDiagnostics: Seq[StageDiagnosticMetricsProfileResult])
+    stageDiagnostics: Seq[StageDiagnosticResult])

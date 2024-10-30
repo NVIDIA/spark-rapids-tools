@@ -572,7 +572,7 @@ case class StageAggTaskMetricsProfileResult(
   override def idHeader = "stageId"
 }
 
-case class StageDiagnosticMetricsProfileResult(
+case class StageDiagnosticResult(
     appIndex: Int,
     appName: String,
     appId: String,

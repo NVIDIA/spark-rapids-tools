@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
+import com.nvidia.spark.rapids.tool.analysis.AnalysisUtils._
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
 import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
@@ -44,7 +45,6 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * @param app the Application info objects that contains the SQL plans to be processed
  */
 class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(app) {
-  val GPU_SEMAPHORE_WAIT_METRIC_NAME = "gpuSemaphoreWait"
   // A map between (SQL ID, Node ID) and the set of stage IDs
   // TODO: The Qualification should use this map instead of building a new set for each exec.
   private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
@@ -59,8 +59,31 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
   // A map between stage ID and the set of node names
   val stageToNodeNames: HashMap[Long, Seq[String]] = HashMap.empty[Long, Seq[String]]
-  // A map between stage ID and total GPU semaphore wait time
-  val stageToGpuSemaphoreWaitTime: HashMap[Long, Long] = HashMap.empty[Long, Long]
+  // A map between stage ID and diagnostic metrics values
+  val stageToDiagnosticMetrics: HashMap[Long, HashMap[String, StatisticsMetrics]] =
+    HashMap.empty[Long, HashMap[String, StatisticsMetrics]]
+
+  /**
+   * Check if the input is one of the diagnostic metric names and update the mapping between
+   * stage ID and diagnostic metrics.
+   * @param stageId    stage ID of the metric
+   * @param metricName name of the metric
+   * @param statistics contains min, median, max and total of the input metric
+   */
+  private def updateStageDiagnosticMetrics(stageId: Long, metricName: String,
+      statistics: StatisticsMetrics): Unit = {
+    metricName match {
+      case MEMORY_SPILLED_METRIC | DISK_SPILLED_METRIC | INPUT_BYTES_READ_METRIC |
+        OUTPUT_BYTES_WRITTEN_METRIC | SW_TOTAL_BYTES_METRIC | SR_FETCH_WAIT_TIME_METRIC |
+        SW_WRITE_TIME_METRIC | GPU_SEMAPHORE_WAIT_METRIC => {
+          if (!stageToDiagnosticMetrics.contains(stageId)) {
+            stageToDiagnosticMetrics(stageId) = HashMap.empty[String, StatisticsMetrics]
+          }
+          stageToDiagnosticMetrics(stageId)(metricName) = statistics
+        }
+      case _ => ()
+    }
+  }
 
   /**
    * Connects Operators to Stages using AccumulatorIDs.
@@ -345,9 +368,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           } else {
             taskUpatesSubset(taskUpatesSubset.size / 2)
           }
-          if (accumInfo.infoRef.getName.contains(GPU_SEMAPHORE_WAIT_METRIC_NAME)) {
-            stageToGpuSemaphoreWaitTime(stageId) = sum
-          }
+          updateStageDiagnosticMetrics(stageId, accumInfo.infoRef.getName,
+            StatisticsMetrics(min, median, max, sum))
           Some(AccumProfileResults(
             appIndex,
             stageId,

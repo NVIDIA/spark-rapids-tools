@@ -81,9 +81,11 @@ class AnalysisSuite extends FunSuite {
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
     assert(apps.size == logs.size)
 
-    // This step is to compute stage to node names mapping
+    // This step is to compute stage to node names and diagnostic metrics mappings,
+    // which is used in collecting diagnostic metrics.
     val collect = new CollectInformation(apps)
     collect.getSQLToStage
+    collect.getStageLevelMetrics
 
     val aggResults = RawMetricProfilerView.getAggMetrics(apps)
     import org.apache.spark.sql.functions._

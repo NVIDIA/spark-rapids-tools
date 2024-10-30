@@ -20,8 +20,9 @@ import java.util.concurrent.TimeUnit
 
 import scala.collection.mutable
 
+import com.nvidia.spark.rapids.tool.analysis.AnalysisUtils._
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -328,12 +329,15 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
    */
   def aggregateDiagnosticSparkMetricsByStage(index: Int,
       analyzerInput: Option[AppSQLPlanAnalyzer] = None):
-        Seq[StageDiagnosticMetricsProfileResult] = {
+        Seq[StageDiagnosticResult] = {
     def bytesToMB(numBytes: Long): Long = numBytes / (1024 * 1024)
+    def nanoToMilliSec(numNano: Long): Long = numNano / 1000000
+
     val sqlAnalyzer = analyzerInput match {
       case Some(res) => res
       case None => app.asInstanceOf[ApplicationInfo].planMetricProcessor
     }
+
     // TODO: this has stage attempts. we should handle different attempts
     app.stageManager.getAllStages.map { sm =>
       // TODO: Should we only consider successful tasks?
@@ -341,65 +345,61 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         sm.stageInfo.attemptNumber())
       // count duplicate task attempts
       val numAttempts = tasksInStage.size
-      val (diskSpilledMin, diskSpilledMed, diskSpilledMax, diskSpilledSum) =
-        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.diskBytesSpilled))
-      val (memSpilledMin, memSpilledMed, memSpilledMax, memSpilledSum) =
-        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.memoryBytesSpilled))
-      val (inputBytesMin, inputBytesMed, inputBytesMax, inputBytesSum) =
-        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.input_bytesRead))
-      val (ouputBytesMin, ouputBytesMed, ouputBytesMax, ouputBytesSum) =
-        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.output_bytesWritten))
-      val (srBytesMin, srBytesMed, srBytesMax, srBytesSum) =
-        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_totalBytesRead))
-      val (swBytesMin, swBytesMed, swBytesMax, swBytesSum) =
-        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sw_bytesWritten))
-      val (srFetchWaitTimeMin, srFetchWaitTimeMed, srFetchWaitTimeMax, srFetchWaitTimeSum) =
-        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_fetchWaitTime))
-      val (swWriteTimeMin, swWriteTimeMed, swWriteTimeMax, swWriteTimeSum) =
-        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sw_writeTime))
       val nodeNames = sqlAnalyzer.stageToNodeNames.
         getOrElse(sm.stageInfo.stageId, Seq.empty[String])
-      val gpuSemaphoreWaitSum = sqlAnalyzer.stageToGpuSemaphoreWaitTime.
-        getOrElse(sm.stageInfo.stageId, 0L)
-      StageDiagnosticMetricsProfileResult(index,
+      val disgnosticMetrics = sqlAnalyzer.stageToDiagnosticMetrics.
+        getOrElse(sm.stageInfo.stageId, mutable.HashMap.empty[String, StatisticsMetrics])
+      val zeroStats = StatisticsMetrics.ZERO_RECORD
+      val memorySpilledMetrics = disgnosticMetrics.getOrElse(MEMORY_SPILLED_METRIC, zeroStats)
+      val diskSpilledMetrics = disgnosticMetrics.getOrElse(DISK_SPILLED_METRIC, zeroStats)
+      val inputBytesReadMetrics = disgnosticMetrics.getOrElse(INPUT_BYTES_READ_METRIC, zeroStats)
+      val outputBytesMetrics = disgnosticMetrics.getOrElse(OUTPUT_BYTES_WRITTEN_METRIC, zeroStats)
+      val swTotalBytesMetrics = disgnosticMetrics.getOrElse(SW_TOTAL_BYTES_METRIC, zeroStats)
+      val srFetchWaitTimeMetrics = disgnosticMetrics.getOrElse(SR_FETCH_WAIT_TIME_METRIC, zeroStats)
+      val swWriteTimeMetrics = disgnosticMetrics.getOrElse(SW_WRITE_TIME_METRIC, zeroStats)
+      val gpuSemaphoreMetrics = disgnosticMetrics.getOrElse(GPU_SEMAPHORE_WAIT_METRIC, zeroStats)
+      val (srBytesMin, srBytesMed, srBytesMax, srBytesSum) =
+        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_totalBytesRead))
+
+      StageDiagnosticResult(index,
         app.getAppName,
         app.appId,
         sm.stageInfo.stageId,
         sm.duration,
         numAttempts,  // TODO: why is this numAttempts and not numTasks?
-        bytesToMB(memSpilledMin),
-        bytesToMB(memSpilledMed),
-        bytesToMB(memSpilledMax),
-        bytesToMB(memSpilledSum),
-        bytesToMB(diskSpilledMin),
-        bytesToMB(diskSpilledMed),
-        bytesToMB(diskSpilledMax),
-        bytesToMB(diskSpilledSum),
-        inputBytesMin,
-        inputBytesMed,
-        inputBytesMax,
-        inputBytesSum,
-        ouputBytesMin,
-        ouputBytesMed,
-        ouputBytesMax,
-        ouputBytesSum,
+        bytesToMB(memorySpilledMetrics.min),
+        bytesToMB(memorySpilledMetrics.med),
+        bytesToMB(memorySpilledMetrics.max),
+        bytesToMB(memorySpilledMetrics.total),
+        bytesToMB(diskSpilledMetrics.min),
+        bytesToMB(diskSpilledMetrics.med),
+        bytesToMB(diskSpilledMetrics.max),
+        bytesToMB(diskSpilledMetrics.total),
+        inputBytesReadMetrics.min,
+        inputBytesReadMetrics.med,
+        inputBytesReadMetrics.max,
+        inputBytesReadMetrics.total,
+        outputBytesMetrics.min,
+        outputBytesMetrics.med,
+        outputBytesMetrics.max,
+        outputBytesMetrics.total,
         srBytesMin,
         srBytesMed,
         srBytesMax,
         srBytesSum,
-        swBytesMin,
-        swBytesMed,
-        swBytesMax,
-        swBytesSum,
-        srFetchWaitTimeMin,
-        srFetchWaitTimeMed,
-        srFetchWaitTimeMax,
-        srFetchWaitTimeSum,
-        swWriteTimeMin,
-        swWriteTimeMed,
-        swWriteTimeMax,
-        swWriteTimeSum,
-        gpuSemaphoreWaitSum,
+        swTotalBytesMetrics.min,
+        swTotalBytesMetrics.med,
+        swTotalBytesMetrics.max,
+        swTotalBytesMetrics.total,
+        nanoToMilliSec(srFetchWaitTimeMetrics.min),
+        nanoToMilliSec(srFetchWaitTimeMetrics.med),
+        nanoToMilliSec(srFetchWaitTimeMetrics.max),
+        nanoToMilliSec(srFetchWaitTimeMetrics.total),
+        nanoToMilliSec(swWriteTimeMetrics.min),
+        nanoToMilliSec(swWriteTimeMetrics.med),
+        nanoToMilliSec(swWriteTimeMetrics.max),
+        nanoToMilliSec(swWriteTimeMetrics.total),
+        gpuSemaphoreMetrics.total,
         nodeNames)
     }.toSeq
   }

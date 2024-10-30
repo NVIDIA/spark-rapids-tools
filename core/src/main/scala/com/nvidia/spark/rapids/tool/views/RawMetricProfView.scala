@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.ProfSparkMetricsAnalyzer
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
@@ -31,7 +31,7 @@ case class ProfilerAggregatedView(
     ioAggs: Seq[IOAnalysisProfileResult],
     sqlDurAggs: Seq[SQLDurationExecutorTimeProfileResult],
     maxTaskInputSizes: Seq[SQLMaxTaskInputSizes],
-    stageDiagnostics: Seq[StageDiagnosticMetricsProfileResult])
+    stageDiagnostics: Seq[StageDiagnosticResult])
 
 object RawMetricProfilerView  {
   def getAggMetrics(apps: Seq[ApplicationInfo]): ProfilerAggregatedView = {
