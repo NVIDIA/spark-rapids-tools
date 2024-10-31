@@ -359,9 +359,9 @@ class ToolUserArgModel(AbsToolUserArgModel):
         jvm_heap = self.jvm_heap_size
         if jvm_heap is None:
             # set default GC heap size based on the virtual memory of the host.
-            jvm_heap = Utilities.get_system_memory_in_gb()
+            jvm_heap = Utilities.calculate_jvm_max_heap_in_gb()
         # check if both tools are going to run concurrently, then we need to reduce the heap size
-        # To reduce possibility of OOME, each core-tools thread should be running with at least 6 GB
+        # To reduce possibility of OOME, each core-tools thread should be running with at least 8 GB
         # of heap.
         adjusted_resources = Utilities.adjust_tools_resources(jvm_heap,
                                                               jvm_processes=2 if self.is_concurrent_submission() else 1,
