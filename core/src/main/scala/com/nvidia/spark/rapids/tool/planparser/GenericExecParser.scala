@@ -16,8 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
-import scala.reflect.runtime.universe._
-
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
@@ -27,14 +25,11 @@ class GenericExecParser(
     val node: SparkPlanGraphNode,
     val checker: PluginTypeChecker,
     val sqlID: Long,
+    val expressionFunction: Option[String => Array[String]] = None,
     val app: Option[AppBase] = None
 ) extends ExecParser {
 
   val fullExecName: String = node.name + "Exec"
-  val parserConfig: Option[ExecParserLoader.ParserConfig] =
-    ExecParserLoader.getConfig(node.name)
-  // Cache to store reflected methods to avoid redundant reflection calls
-  private val methodCache = scala.collection.mutable.Map[String, MethodMirror]()
 
   override def parse: ExecInfo = {
     val duration = computeDuration
@@ -54,35 +49,12 @@ class GenericExecParser(
   }
 
   protected def parseExpressions(): Array[String] = {
-    parserConfig match {
-      case Some(config) if config.parseExpressions =>
+    expressionFunction match {
+      case Some(func) =>
         val exprString = getExprString
-        val methodSymbol = config.expressionParserMethod.getOrElse {
-          throw new IllegalArgumentException(
-            s"Expression parser method not specified for ${node.name}")
-        }
-        invokeCachedParserMethod(methodSymbol, exprString)
-
-      case _ => Array.empty[String] // Default behavior when parsing is not required
-    }
-  }
-
-  // Helper method to invoke the parser method with caching
-  private def invokeCachedParserMethod(
-      methodSymbol: MethodSymbol, exprString: String): Array[String] = {
-    // This is to  check if the method is already cached, else reflect and cache it
-    val cachedMethod = methodCache.getOrElseUpdate(methodSymbol.fullName, {
-      val mirror = runtimeMirror(getClass.getClassLoader)
-      val module = mirror.reflectModule(mirror.staticModule(
-        "com.nvidia.spark.rapids.tool.planparser.SQLPlanParser"))
-      val instanceMirror = mirror.reflect(module.instance)
-      instanceMirror.reflectMethod(methodSymbol) // Cache this reflected method
-    })
-
-    cachedMethod(exprString) match {
-      case expressions: Array[String] => expressions
-      case _ => throw new IllegalArgumentException(
-        s"Unexpected return type from method: ${methodSymbol.name}")
+        func(exprString)
+      case None =>
+        Array.empty[String]
     }
   }
 
@@ -119,5 +91,17 @@ class GenericExecParser(
       None,
       unsupportedExprs = notSupportedExprs
     )
+  }
+}
+
+object GenericExecParser {
+  def apply(
+      node: SparkPlanGraphNode,
+      checker: PluginTypeChecker,
+      sqlID: Long,
+      expressionFunction: Option[String => Array[String]] = None,
+      app: Option[AppBase] = None
+  ): GenericExecParser = {
+    new GenericExecParser(node, checker, sqlID, expressionFunction, app)
   }
 }
