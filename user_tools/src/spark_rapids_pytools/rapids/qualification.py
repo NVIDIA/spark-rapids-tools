@@ -29,12 +29,12 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, co
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
-from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel
+from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, CspEnv, AppExecutionEngine
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
 from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
-from spark_rapids_tools.tools.speedup_category import SpeedupCategory, SpeedupStrategyBuilder
+from spark_rapids_tools.tools.speedup_category import SpeedupCategory
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
 from spark_rapids_tools.utils.util import Utilities
@@ -318,15 +318,12 @@ class Qualification(RapidsJarTool):
         # Group the applications and recalculate metrics
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
 
-        # Add a column for speedup categories, using different categorization strategies based on application type
-        spark_properties = self._read_qualification_metric_file('spark_properties.csv')
+        # Assign execution engine (Spark/Photon etc.) and speedup categories (Small/Medium/Large) to each application.
+        # Note: Strategy for speedup categorization will be based on the execution engine of the application.
+        apps_with_exec_engine_df = self._assign_app_execution_engine(apps_grouped_df)
         speedup_category_confs = self.ctxt.get_value('local', 'output', 'speedupCategories')
-        speedup_strategies = SpeedupStrategyBuilder.build_speedup_strategies(
-            platform=self.ctxt.platform,
-            spark_properties=spark_properties,
-            speedup_strategy_props=speedup_category_confs.get('strategies'))
         speedup_category_ob = SpeedupCategory(speedup_category_confs)
-        df_final_result = speedup_category_ob.build_category_column(apps_grouped_df, speedup_strategies)
+        df_final_result = speedup_category_ob.build_category_column(apps_with_exec_engine_df)
 
         # Generate the cluster shape report
         reshaped_notes = self.__generate_cluster_shape_report()
@@ -640,6 +637,38 @@ class Qualification(RapidsJarTool):
                 self.logger.warning('Unable to read metrics file for app %s. Reason - %s:%s',
                                     app_id_name, type(e).__name__, e)
         return metrics
+
+    def _assign_app_execution_engine(self, tools_processed_apps: pd.DataFrame) -> pd.DataFrame:
+        """
+        Assigns the application execution engine (Spark/Photon) to each application. This will be used to categorize
+        applications into speedup categories (Small/Medium/Large) based on the execution engine.
+        """
+        spark_properties = self._read_qualification_metric_file('spark_properties.csv')
+        default_exec_type = AppExecutionEngine.get_default().value
+        app_exec_col_name = self.ctxt.get_value('local', 'output', 'speedupCategories', 'appExecTypeColumnName')
+
+        # Default to CPU-based execution type for non-Databricks platforms
+        if self.ctxt.platform.get_platform_name() not in {CspEnv.DATABRICKS_AWS, CspEnv.DATABRICKS_AZURE}:
+            tools_processed_apps[app_exec_col_name] = default_exec_type
+            return tools_processed_apps
+
+        # Create a map of app IDs to execution types based on spark version
+        spark_version_key = 'spark.databricks.clusterUsageTags.sparkVersion'
+        app_exec_engine_map = {}
+
+        for app_id, props_df in spark_properties.items():
+            props_dict = Utilities.convert_df_to_dict(props_df)
+            spark_version = props_dict.get(spark_version_key, '').lower()
+            if AppExecutionEngine.PHOTON.value.lower() in spark_version:
+                app_exec_engine_map[app_id] = AppExecutionEngine.PHOTON.value
+            else:
+                app_exec_engine_map[app_id] = default_exec_type
+
+        # Map the execution type to each application based on app ID
+        tools_processed_apps[app_exec_col_name] = (
+            tools_processed_apps['App ID'].map(app_exec_engine_map).fillna(default_exec_type)
+        )
+        return tools_processed_apps
 
 
 @dataclass
