@@ -81,6 +81,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 Default is calculated as a function of the total number of cores and the heap size on the host.
         :param verbose: True or False to enable verbosity of the script.
         :param tools_config_file: Path to a configuration file that contains the tools' options.
+               For sample configuration files, please visit
+               https://github.com/NVIDIA/spark-rapids-tools/tree/main/user_tools/tests/spark_rapids_tools_ut/resources/tools_config/valid
         :param rapids_options: A list of valid Qualification tool options.
                 Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
                 multiple "spark-property" arguments.
@@ -163,6 +165,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 Default is calculated as a function of the total number of cores and the heap size on the host.
         :param verbose: True or False to enable verbosity of the script.
         :param tools_config_file: Path to a configuration file that contains the tools' options.
+               For sample configuration files, please visit
+               https://github.com/NVIDIA/spark-rapids-tools/tree/main/user_tools/tests/spark_rapids_tools_ut/resources/tools_config/valid
         :param rapids_options: A list of valid Profiling tool options.
                 Note that the wrapper ignores ["output-directory", "worker-info"] flags, and it does not support
                 multiple "spark-property" arguments.

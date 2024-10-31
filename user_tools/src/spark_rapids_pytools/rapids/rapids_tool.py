@@ -583,7 +583,7 @@ class RapidsJarTool(RapidsTool):
                 raise ValueError(f'Invalid dependency type [{defined_dep_type}]')
             return dep_item
 
-        def cache_all_dependencies(dep_arr: List[RuntimeDependency]):
+        def cache_all_dependencies(dep_arr: List[RuntimeDependency]) -> List[str]:
             """
             Create a thread pool and download specified urls
             """

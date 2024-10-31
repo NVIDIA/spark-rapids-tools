@@ -24,5 +24,7 @@ from spark_rapids_tools.configuration.common import RuntimeDependency
 class ToolsRuntimeConfig(BaseModel):
     """The runtime configurations of the tools as defined by the user."""
     dependencies: List[RuntimeDependency] = Field(
-        description='The list of runtime dependencies required by the tools Jar cmd. '
-                    'All elements are downloaded and added to the classPath')
+        description='The list of runtime dependencies required by the tools java cmd. '
+                    'Set this list to specify Spark binaries along with any other required jar '
+                    'files (i.e., hadoop jars, gcp connectors,..etc.). '
+                    'When specified, the default predefined dependencies will be ignored.')

@@ -19,7 +19,6 @@ import json
 from typing import Union, Optional
 
 from pydantic import BaseModel, Field, ValidationError
-from pydantic_core import PydanticCustomError
 
 from spark_rapids_tools import CspPathT
 from spark_rapids_tools.configuration.runtime_conf import ToolsRuntimeConfig
@@ -31,12 +30,12 @@ class ToolsConfig(BaseModel):
     api_version: float = Field(
         description='The version of the API that the tools are using. '
                     'This is used to test the compatibility of the '
-                    'configuration file against the current tools release',
+                    'configuration file against the current tools release.',
         examples=['1.0'],
         le=1.0,  # minimum version compatible with the current tools implementation
         ge=1.0)
     runtime: ToolsRuntimeConfig = Field(
-        description='Configuration related to the runtime environment of the tools')
+        description='Configuration related to the runtime environment of the tools.')
 
     @classmethod
     def load_from_file(cls, file_path: Union[str, CspPathT]) -> Optional['ToolsConfig']:
@@ -45,9 +44,9 @@ class ToolsConfig(BaseModel):
             prop_container = AbstractPropContainer.load_from_file(file_path)
             return cls(**prop_container.props)
         except ValidationError as e:
+            # Do nothing. This is kept as a place holder if we want to log the error inside the
+            # class first
             raise e
-            # raise PydanticCustomError('invalid_argument',
-            #                           'Invalid Tools Configuration File\n Error:') from e
 
     @classmethod
     def get_schema(cls) -> str:

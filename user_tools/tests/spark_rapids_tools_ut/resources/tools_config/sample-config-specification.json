@@ -1,0 +1,182 @@
+{
+  "$defs": {
+    "DependencyType": {
+      "description": "Represents the dependency type for the tools' java cmd.",
+      "enum": [
+        "jar",
+        "archive"
+      ],
+      "title": "DependencyType",
+      "type": "string"
+    },
+    "DependencyVerification": {
+      "description": "The verification information of a runtime dependency required by the tools' java cmd.",
+      "properties": {
+        "size": {
+          "default": 0,
+          "description": "The size of the dependency file.",
+          "examples": [
+            3265393
+          ],
+          "title": "Size",
+          "type": "integer"
+        },
+        "file_hash": {
+          "$ref": "#/$defs/FileHashAlgorithm",
+          "default": null,
+          "description": "The hash function to verify the file.",
+          "examples": [
+            {
+              "algorithm": "md5",
+              "value": "bc9bf7fedde0e700b974426fbd8d869c"
+            }
+          ]
+        }
+      },
+      "title": "DependencyVerification",
+      "type": "object"
+    },
+    "FileHashAlgorithm": {
+      "description": "Represents a file hash algorithm and its value. Used for verification against an existing file.",
+      "properties": {
+        "algorithm": {
+          "$ref": "#/$defs/HashAlgorithm"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "title": "FileHashAlgorithm",
+      "type": "object"
+    },
+    "HashAlgorithm": {
+      "description": "Represents the supported hashing algorithms",
+      "enum": [
+        "md5",
+        "sha1",
+        "sha256",
+        "sha512"
+      ],
+      "title": "HashAlgorithm",
+      "type": "string"
+    },
+    "RuntimeDependency": {
+      "description": "Holds information about a runtime dependency required by the tools' java cmd.",
+      "properties": {
+        "name": {
+          "description": "The name of the dependency.",
+          "examples": [
+            "Spark-3.5.0",
+            "AWS Java SDK"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "uri": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "format": "file-path",
+              "type": "string"
+            }
+          ],
+          "description": "The location of the dependency file. It can be a URL to a remote web/storage or a file path.",
+          "examples": [
+            "file:///path/to/file.tgz",
+            "https://mvn-url/24.08.1/rapids-4-spark-tools_2.12-24.08.1.jar",
+            "gs://bucket-name/path/to/file.jar"
+          ],
+          "title": "Uri"
+        },
+        "dependency_type": {
+          "$ref": "#/$defs/RuntimeDependencyType",
+          "description": "Specifies the dependency type to determine how the item is processed. For example, jar files are appended to the java classpath while archive files such as spark are extracted first before adding subdirectory _/jars/* to the classpath."
+        },
+        "verification": {
+          "$ref": "#/$defs/DependencyVerification",
+          "default": null,
+          "description": "Optional specification to verify the dependency file."
+        }
+      },
+      "required": [
+        "name",
+        "uri"
+      ],
+      "title": "RuntimeDependency",
+      "type": "object"
+    },
+    "RuntimeDependencyType": {
+      "description": "Defines the type of runtime dependency required by the tools' java cmd.",
+      "properties": {
+        "dep_type": {
+          "$ref": "#/$defs/DependencyType",
+          "description": "The type of the dependency."
+        },
+        "relative_path": {
+          "default": null,
+          "description": "Specifies the relative path from within the archive file which will be added to the java cmd. Requires field dep_type to be set to (archive).",
+          "examples": [
+            "*"
+          ],
+          "title": "Relative Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dep_type"
+      ],
+      "title": "RuntimeDependencyType",
+      "type": "object"
+    },
+    "ToolsRuntimeConfig": {
+      "description": "The runtime configurations of the tools as defined by the user.",
+      "properties": {
+        "dependencies": {
+          "description": "The list of runtime dependencies required by the tools java cmd. Set this list to specify Spark binaries along with any other required jar files (i.e., hadoop jars, gcp connectors,..etc.). When specified, the default predefined dependencies will be ignored.",
+          "items": {
+            "$ref": "#/$defs/RuntimeDependency"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        }
+      },
+      "required": [
+        "dependencies"
+      ],
+      "title": "ToolsRuntimeConfig",
+      "type": "object"
+    }
+  },
+  "description": "Main container for the user's defined tools configuration",
+  "properties": {
+    "api_version": {
+      "description": "The version of the API that the tools are using. This is used to test the compatibility of the configuration file against the current tools release.",
+      "examples": [
+        "1.0"
+      ],
+      "maximum": 1.0,
+      "minimum": 1.0,
+      "title": "Api Version",
+      "type": "number"
+    },
+    "runtime": {
+      "$ref": "#/$defs/ToolsRuntimeConfig",
+      "description": "Configuration related to the runtime environment of the tools."
+    }
+  },
+  "required": [
+    "api_version",
+    "runtime"
+  ],
+  "title": "ToolsConfig",
+  "type": "object"
+}

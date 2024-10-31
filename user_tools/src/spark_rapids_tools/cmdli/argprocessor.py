@@ -372,7 +372,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
         self.p_args['toolArgs']['jobResources'] = adjusted_resources
         self.p_args['toolArgs']['log4jPath'] = Utils.resource_path('dev/log4j.properties')
 
-    def process_tools_config(self) -> None:
+    def load_tools_config(self) -> None:
         """
         Load the tools config file if it is provided. It creates a ToolsConfig object and sets it
         in the toolArgs without processing the actual dependencies.
@@ -384,10 +384,13 @@ class ToolUserArgModel(AbsToolUserArgModel):
             try:
                 self.p_args['toolArgs']['toolsConfig'] = ToolsConfig.load_from_file(self.tools_config_path)
             except ValidationError as ve:
+                # If required, we can dump the expected specification by appending
+                # 'ToolsConfig.get_schema()' to the error message
                 raise PydanticCustomError(
-                    'invalid_argument',
+                    'invalid_config',
                     f'Tools config file path {self.tools_config_path} could not be loaded. '
-                    f'It is expected to be a valid YAML file.\n  Error:{ve}')
+                    f'It is expected to be a valid configuration YAML file.'
+                    f'\n  Error:{ve}\n') from ve
 
     def init_extra_arg_cases(self) -> list:
         if self.eventlogs is None:
@@ -501,7 +504,7 @@ class QualifyUserArgModel(ToolUserArgModel):
         # process JVM arguments
         self.process_jvm_args()
         # process the tools config file
-        self.process_tools_config()
+        self.load_tools_config()
 
         # finally generate the final values
         wrapped_args = {
@@ -624,7 +627,7 @@ class ProfileUserArgModel(ToolUserArgModel):
         # process JVM arguments
         self.process_jvm_args()
         # process the tools config file
-        self.process_tools_config()
+        self.load_tools_config()
         # finally generate the final values
         wrapped_args = {
             'runtimePlatform': runtime_platform,
