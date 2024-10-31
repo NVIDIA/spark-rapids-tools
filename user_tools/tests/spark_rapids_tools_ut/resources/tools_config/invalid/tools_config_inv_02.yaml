@@ -1,0 +1,17 @@
+# This yaml file is a configuration file for a tool that uses Spark 3.5.0 as dependency
+# invalid: Local file can be verified during the initialization and it should fail because no such
+# file exists.
+#   Error:2 validation errors for ToolsConfig
+# runtime.dependencies.0.uri.url
+#  Input should be a valid URL, relative URL without a base [type=url_parsing, input_value='/home/user/workdir...k-3.5.0-bin-hadoop3.tgz', input_type=str]
+#    For further information visit https://errors.pydantic.dev/2.9/v/url_parsing
+# runtime.dependencies.0.uri.function-after[validate_file(), lax-or-strict[lax=union[json-or-python[json=function-after[path_validator(), str],python=is-instance[Path]],function-after[path_validator(), str]],strict=json-or-python[json=function-after[path_validator(), str],python=is-instance[Path]]]]
+#  Path does not point to a file [type=path_not_file, input_value='/home/archive.apache.org...k-3.5.0-bin-hadoop3.tgz', input_type=str]
+api_version: '1.0'
+runtime:
+  dependencies:
+    - name: my-spark350
+      uri:  /home/user/workdir/spark-3.5.0-bin-hadoop3.tgz
+      dependency_type:
+        dep_type: archive
+        relative_path: jars/*

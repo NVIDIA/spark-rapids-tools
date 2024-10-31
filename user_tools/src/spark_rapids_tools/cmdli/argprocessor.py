@@ -374,7 +374,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
 
     def process_tools_config(self) -> None:
         """
-        Load the tools config file if it is provided. it creates a ToolsConfig object and sets it
+        Load the tools config file if it is provided. It creates a ToolsConfig object and sets it
         in the toolArgs without processing the actual dependencies.
         :return: None
         """
@@ -387,7 +387,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
                 raise PydanticCustomError(
                     'invalid_argument',
                     f'Tools config file path {self.tools_config_path} could not be loaded. '
-                    'It is expected to be a valid YAML file.\n  Error:') from ve
+                    f'It is expected to be a valid YAML file.\n  Error:{ve}')
 
     def init_extra_arg_cases(self) -> list:
         if self.eventlogs is None:

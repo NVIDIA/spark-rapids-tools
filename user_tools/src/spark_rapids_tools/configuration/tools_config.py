@@ -26,11 +26,8 @@ from spark_rapids_tools.configuration.runtime_conf import ToolsRuntimeConfig
 from spark_rapids_tools.utils import AbstractPropContainer
 
 
-class ToolsConfigInfo(BaseModel):
-    """
-    High level metadata about the tools configurations (i.e., the api-version and any other relevant
-    metadata).
-    """
+class ToolsConfig(BaseModel):
+    """Main container for the user's defined tools configuration"""
     api_version: float = Field(
         description='The version of the API that the tools are using. '
                     'This is used to test the compatibility of the '
@@ -38,12 +35,6 @@ class ToolsConfigInfo(BaseModel):
         examples=['1.0'],
         le=1.0,  # minimum version compatible with the current tools implementation
         ge=1.0)
-
-
-class ToolsConfig(BaseModel):
-    """Main container for the user's defined tools configuration"""
-    info: ToolsConfigInfo = Field(
-        description='Metadata information of the tools configuration')
     runtime: ToolsRuntimeConfig = Field(
         description='Configuration related to the runtime environment of the tools')
 
@@ -54,7 +45,9 @@ class ToolsConfig(BaseModel):
             prop_container = AbstractPropContainer.load_from_file(file_path)
             return cls(**prop_container.props)
         except ValidationError as e:
-            raise PydanticCustomError('Invalid Tools Configuration File', e) from e
+            raise e
+            # raise PydanticCustomError('invalid_argument',
+            #                           'Invalid Tools Configuration File\n Error:') from e
 
     @classmethod
     def get_schema(cls) -> str:
