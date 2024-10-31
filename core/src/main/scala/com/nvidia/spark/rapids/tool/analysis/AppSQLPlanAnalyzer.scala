@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
-import com.nvidia.spark.rapids.tool.analysis.AnalysisUtils._
+import com.nvidia.spark.rapids.tool.analysis.DiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
 import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
@@ -72,16 +72,11 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    */
   private def updateStageDiagnosticMetrics(stageId: Long, metricName: String,
       statistics: StatisticsMetrics): Unit = {
-    metricName match {
-      case MEMORY_SPILLED_METRIC | DISK_SPILLED_METRIC | INPUT_BYTES_READ_METRIC |
-        OUTPUT_BYTES_WRITTEN_METRIC | SW_TOTAL_BYTES_METRIC | SR_FETCH_WAIT_TIME_METRIC |
-        SW_WRITE_TIME_METRIC | GPU_SEMAPHORE_WAIT_METRIC => {
-          if (!stageToDiagnosticMetrics.contains(stageId)) {
-            stageToDiagnosticMetrics(stageId) = HashMap.empty[String, StatisticsMetrics]
-          }
-          stageToDiagnosticMetrics(stageId)(metricName) = statistics
-        }
-      case _ => ()
+    if (getAllDiagnosticMetrics.contains(metricName)) {
+      if (!stageToDiagnosticMetrics.contains(stageId)) {
+        stageToDiagnosticMetrics(stageId) = HashMap.empty[String, StatisticsMetrics]
+      }
+      stageToDiagnosticMetrics(stageId)(metricName) = statistics
     }
   }
 

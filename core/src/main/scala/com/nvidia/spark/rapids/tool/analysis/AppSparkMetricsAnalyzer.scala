@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.analysis.AnalysisUtils._
+import com.nvidia.spark.rapids.tool.analysis.DiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 

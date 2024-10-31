@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-object AnalysisUtils {
+object DiagnosticMetrics {
   val MEMORY_SPILLED_METRIC = "internal.metrics.memoryBytesSpilled"
   val DISK_SPILLED_METRIC = "internal.metrics.diskBytesSpilled"
   val INPUT_BYTES_READ_METRIC = "internal.metrics.input.bytesRead"
@@ -25,4 +25,12 @@ object AnalysisUtils {
   val SR_FETCH_WAIT_TIME_METRIC = "internal.metrics.shuffle.read.fetchWaitTime"
   val SW_WRITE_TIME_METRIC = "internal.metrics.shuffle.write.writeTime"
   val GPU_SEMAPHORE_WAIT_METRIC = "gpuSemaphoreWait"
+
+  /**
+   * Get all diagnostic metrics
+   */
+  def getAllDiagnosticMetrics: Set[String] = Set(MEMORY_SPILLED_METRIC,
+    DISK_SPILLED_METRIC, INPUT_BYTES_READ_METRIC, OUTPUT_BYTES_WRITTEN_METRIC,
+    SW_TOTAL_BYTES_METRIC, SR_FETCH_WAIT_TIME_METRIC, SW_WRITE_TIME_METRIC,
+    GPU_SEMAPHORE_WAIT_METRIC)
 }
