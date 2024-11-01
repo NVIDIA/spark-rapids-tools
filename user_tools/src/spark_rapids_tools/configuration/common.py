@@ -33,7 +33,7 @@ class RuntimeDependencyType(BaseModel):
         description='Specifies the relative path from within the archive file which will be added to the java cmd. '
                     'Requires field dep_type to be set to (archive).',
         validation_alias=AliasChoices('relative_path', 'relativePath'),
-        examples=['*'])
+        examples=['jars/*'])
 
 
 class DependencyVerification(BaseModel):

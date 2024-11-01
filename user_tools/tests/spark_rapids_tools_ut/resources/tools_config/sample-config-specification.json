@@ -125,7 +125,7 @@
           "default": null,
           "description": "Specifies the relative path from within the archive file which will be added to the java cmd. Requires field dep_type to be set to (archive).",
           "examples": [
-            "*"
+            "jars/*"
           ],
           "title": "Relative Path",
           "type": "string"

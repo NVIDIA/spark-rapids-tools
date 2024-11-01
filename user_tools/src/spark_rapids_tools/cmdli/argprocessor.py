@@ -389,7 +389,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
                 raise PydanticCustomError(
                     'invalid_config',
                     f'Tools config file path {self.tools_config_path} could not be loaded. '
-                    f'It is expected to be a valid configuration YAML file.'
+                    'It is expected to be a valid configuration YAML file.'
                     f'\n  Error:{ve}\n') from ve
 
     def init_extra_arg_cases(self) -> list:
