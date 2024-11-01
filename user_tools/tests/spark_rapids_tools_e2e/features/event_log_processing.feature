@@ -41,3 +41,16 @@ Feature: Event Log Processing
       Qualification. Raised an error in phase [Execution]
       """
     And return code is "1"
+
+  @test_id_ELP_0003
+  Scenario Outline: Qualification tool processes event logs with different execution engine
+    Given platform is "<platform>"
+    When spark-rapids tool is executed with "<event_logs>" eventlogs
+    Then "app_metadata.json" contains execution engine as "<execution_engines>"
+    And return code is "0"
+
+    Examples:
+      | platform        | event_logs                                            | execution_engines |
+      | databricks-aws  | join_agg_on_yarn_eventlog.zstd                        | spark             |
+      | databricks-aws  | join_agg_on_yarn_eventlog.zstd,photon_eventlog.zstd   | spark;photon      |
+      | dataproc        | join_agg_on_yarn_eventlog.zstd                        | spark             |

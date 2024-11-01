@@ -15,13 +15,14 @@
 """
 This module defines steps to be used by the end-to-end tests using behave.
 """
-
+import json
 import os
 import shutil
 import tempfile
 import threading
 from time import sleep
 from typing import Callable
+from urllib.parse import urlparse
 
 from behave import given, when, then
 
@@ -131,11 +132,13 @@ def step_hdfs_has_eventlogs(context, event_logs) -> None:
 @when('spark-rapids tool is executed with "{event_logs}" eventlogs')
 def step_execute_spark_rapids_tool(context, event_logs) -> None:
     event_logs_list = E2ETestUtils.resolve_event_logs(event_logs.split(","))
+    context.event_logs_list = event_logs_list
     if hasattr(context, 'platform'):
         cmd = E2ETestUtils.create_spark_rapids_cmd(event_logs_list, context.temp_dir, context.platform)
     else:
         cmd = E2ETestUtils.create_spark_rapids_cmd(event_logs_list, context.temp_dir)
     context.result = E2ETestUtils.run_sys_cmd(cmd)
+    context.tools_output_dir = E2ETestUtils.get_tools_output_dir(context.result.stdout)
 
 
 @then('stderr contains the following')
@@ -170,3 +173,26 @@ def step_verify_num_apps(context, expected_num_apps) -> None:
 def step_verify_return_code(context, return_code) -> None:
     assert context.result.returncode == return_code, \
         f"Expected return code: {return_code}, Actual return code: {context.result.returncode}"
+
+
+@then('"{metadata_file}" contains execution engine as "{execution_engines}"')
+def step_verify_metadata_file(context, metadata_file: str, execution_engines: str) -> None:
+    # Create a mapping between event log paths and their expected execution engines
+    exec_engine_map = dict(zip(context.event_logs_list, execution_engines.split(';')))
+    app_metadata_file = os.path.join(context.tools_output_dir, metadata_file)
+    try:
+        with open(app_metadata_file, 'r') as file:
+            app_metadata = json.load(file)
+        assert len(app_metadata) == len(exec_engine_map), (
+            f"{app_metadata_file} expected {len(exec_engine_map)} apps, found {len(app_metadata)}"
+        )
+        # Verify that each app's execution engine matches the expected value
+        for metadata in app_metadata:
+            actual_engine = metadata.get('appExecutionEngine')
+            event_log_path = urlparse(metadata.get('eventLog')).path
+            expected_engine = exec_engine_map.get(event_log_path)
+            assert actual_engine == expected_engine, (
+                f"{app_metadata_file} expected {expected_engine}, found {actual_engine}"
+            )
+    except Exception as e:
+        raise RuntimeError(f"Failed to verify metadata file: {e}") from e

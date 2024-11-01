@@ -18,11 +18,12 @@ This module defines utility functions used by the end-to-end tests using behave.
 
 import logging
 import os
+import re
 import subprocess
 from attr import dataclass
 from enum import auto
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from urllib.parse import urlparse
 
 from spark_rapids_tools import EnumeratedType
@@ -90,6 +91,17 @@ class E2ETestUtils:
     @staticmethod
     def get_tools_root_path() -> str:
         return str(Path(__file__).parents[5])
+
+    @staticmethod
+    def get_tools_output_dir(log_str: str) -> Optional[str]:
+        """
+        Extracts the output directory path from the given log string.
+
+        :param log_str: Log string containing the output directory path.
+        :return: Directory path if found, otherwise None.
+        """
+        match = re.search(r"tool output: (\/\S+)", log_str)
+        return os.path.dirname(match.group(1)) if match else None
 
     @staticmethod
     def get_e2e_tests_root_path() -> str:
