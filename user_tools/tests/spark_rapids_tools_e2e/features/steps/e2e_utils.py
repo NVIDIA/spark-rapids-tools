@@ -95,7 +95,7 @@ class E2ETestUtils:
     @staticmethod
     def get_tools_output_dir(log_str: str) -> Optional[str]:
         """
-        Extracts the output directory path from the given log string.
+        Extracts the output directory path from the given log string (e.g. /path/to/qual_2024xxx)
 
         :param log_str: Log string containing the output directory path.
         :return: Directory path if found, otherwise None.

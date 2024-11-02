@@ -149,7 +149,7 @@ local:
           - 'App Name'
           - 'Event Log'
           - 'Cluster Info'
-          - 'App Execution Engine'
+          - 'Execution Engine'
           - 'Estimated GPU Speedup Category'
           - 'Full Cluster Config Recommendations*'
           - 'GPU Config Recommendation Breakdown*'
@@ -256,7 +256,7 @@ local:
       speedupColumnName: 'Estimated GPU Speedup'
       categoryColumnName: 'Estimated GPU Speedup Category'
       heuristicsColumnName: 'Skip by Heuristics'
-      appExecTypeColumnName: 'App Execution Engine'
+      execEngineColumnName: 'Execution Engine'
       defaultCategory: 'Not Recommended'
       strategies:
         spark:  # Spark specific speedup categories

@@ -212,7 +212,7 @@ class QualEstimationModel(EnumeratedType):
         }
 
 
-class AppExecutionEngine(EnumeratedType):
+class ExecutionEngine(EnumeratedType):
     """
     Represents the execution engine for the application (Spark or Photon).
     """
@@ -220,5 +220,5 @@ class AppExecutionEngine(EnumeratedType):
     PHOTON = 'photon'
 
     @classmethod
-    def get_default(cls) -> 'AppExecutionEngine':
+    def get_default(cls) -> 'ExecutionEngine':
         return cls.SPARK

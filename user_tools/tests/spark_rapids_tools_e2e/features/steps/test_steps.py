@@ -188,7 +188,7 @@ def step_verify_metadata_file(context, metadata_file: str, execution_engines: st
         )
         # Verify that each app's execution engine matches the expected value
         for metadata in app_metadata:
-            actual_engine = metadata.get('appExecutionEngine')
+            actual_engine = metadata.get('executionEngine')
             event_log_path = urlparse(metadata.get('eventLog')).path
             expected_engine = exec_engine_map.get(event_log_path)
             assert actual_engine == expected_engine, (
