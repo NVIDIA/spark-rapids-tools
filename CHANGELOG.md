@@ -1,6 +1,43 @@
 
 <br/>
 
+## Release [v24.10.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.10.0)
+Generated on 2024-11-04
+### User Tools
+
+- [FEA] Allow users to specify custom Dependency jars ([#1395](https://github.com/NVIDIA/spark-rapids-tools/pull/1395))
+- Reduce default memory allocation to the java process ([#1407](https://github.com/NVIDIA/spark-rapids-tools/pull/1407))
+- Update error handling in python for parsing cluster information ([#1394](https://github.com/NVIDIA/spark-rapids-tools/pull/1394))
+- user-tools should add xms argument to java cmd ([#1391](https://github.com/NVIDIA/spark-rapids-tools/pull/1391))
+- Use environment variables to set thresholds in static yaml configurations ([#1389](https://github.com/NVIDIA/spark-rapids-tools/pull/1389))
+- Use StorageLib to download dependencies ([#1383](https://github.com/NVIDIA/spark-rapids-tools/pull/1383))
+- Remove total core second heuristic and filter apps only in top candidate view ([#1376](https://github.com/NVIDIA/spark-rapids-tools/pull/1376))
+- Generate log files for Python Profiling cli ([#1366](https://github.com/NVIDIA/spark-rapids-tools/pull/1366))
+- Update models for updated datasets and latest code ([#1365](https://github.com/NVIDIA/spark-rapids-tools/pull/1365))
+- Isolate dataset for qualx plugin invocations ([#1361](https://github.com/NVIDIA/spark-rapids-tools/pull/1361))
+- [FEA] Add total core seconds into top candidate view ([#1342](https://github.com/NVIDIA/spark-rapids-tools/pull/1342))
+- Fix python tool picking up wrong JAR version in Fat wheel mode ([#1357](https://github.com/NVIDIA/spark-rapids-tools/pull/1357))
+- [FOLLOWUP-1326] Set Spark version to 3.4.2 by default for onprem environment ([#1358](https://github.com/NVIDIA/spark-rapids-tools/pull/1358))
+- Disable `too-many-positional-arguments` in pylintrc ([#1353](https://github.com/NVIDIA/spark-rapids-tools/pull/1353))
+- Reduce console output tree level, exclude JAR tool output files and remove incorrect logging ([#1340](https://github.com/NVIDIA/spark-rapids-tools/pull/1340))
+
+### Core
+
+- Add support for Photon-specific SQL Metrics ([#1390](https://github.com/NVIDIA/spark-rapids-tools/pull/1390))
+- Add support for processing Photon event logs in Scala ([#1338](https://github.com/NVIDIA/spark-rapids-tools/pull/1338))
+- Add Reflection to support custom Spark Implementation at Runtime ([#1362](https://github.com/NVIDIA/spark-rapids-tools/pull/1362))
+- Improve AQE support by capturing SQLPlan versions ([#1354](https://github.com/NVIDIA/spark-rapids-tools/pull/1354))
+- Add PartitionFilters and DataFilters to the dataSourceInfo table ([#1346](https://github.com/NVIDIA/spark-rapids-tools/pull/1346))
+- Add support to ArrayJoin in Qualification tool ([#1345](https://github.com/NVIDIA/spark-rapids-tools/pull/1345))
+
+### Miscellaneous
+
+- Cluster information should handle dynamic allocation and nodes being removed and added ([#1369](https://github.com/NVIDIA/spark-rapids-tools/pull/1369))
+- Rename tag core to core_tools ([#1350](https://github.com/NVIDIA/spark-rapids-tools/pull/1350))
+
+
+<br/>
+
 ## Release [v24.08.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.08.2)
 Generated on 2024-09-10
 ### User Tools
