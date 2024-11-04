@@ -67,19 +67,21 @@ def raise_invalid_file(file_path: CspPath, msg: str, error_type: str = 'invalid_
 @dataclass
 class FileHashAlgorithm:
     """
-    Represents a file hash algorithm and its value. Used for verification against an
-    existing file.
-    ```py
-    try:
-        file_algo = FileHashAlgorithm(algorithm=HashAlgorithm.SHA256, value='...')
-        file_algo.verify_file(CspPath('file://path/to/file'))
-    except ValidationError as e:
-        print(e)
-    ```
+    Represents a file hash algorithm and its value. Used for verification against an existing file.
     """
     algorithm: HashAlgorithm
     value: str
 
+    """
+    Example usage for the class:
+    ```py
+        try:
+            file_algo = FileHashAlgorithm(algorithm=HashAlgorithm.SHA256, value='...')
+            file_algo.verify_file(CspPath('file://path/to/file'))
+        except ValidationError as e:
+            print(e)
+    ```
+    """
     def verify_file(self, file_path: CspPath) -> bool:
         cb = self.algorithm.get_hash_func()
         with file_path.open_input_stream() as stream:
