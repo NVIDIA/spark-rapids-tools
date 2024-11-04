@@ -27,7 +27,7 @@ case class ObjectHashAggregateExecParser(
     override val checker: PluginTypeChecker,
     override val sqlID: Long,
     appParam: AppBase) extends
-  GenericExecParser(node, checker, sqlID) with Logging {
+  GenericExecParser(node, checker, sqlID, app = Some(appParam)) with Logging {
   override def computeDuration: Option[Long] = {
     val accumId = node.metrics.find(_.name == "time in aggregation build").map(_.accumulatorId)
     SQLPlanParser.getTotalDuration(accumId, appParam)

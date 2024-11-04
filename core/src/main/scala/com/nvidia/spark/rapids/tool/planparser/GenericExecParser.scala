@@ -25,11 +25,12 @@ class GenericExecParser(
     val node: SparkPlanGraphNode,
     val checker: PluginTypeChecker,
     val sqlID: Long,
+    val execName: Option[String] = None,
     val expressionFunction: Option[String => Array[String]] = None,
     val app: Option[AppBase] = None
 ) extends ExecParser {
 
-  val fullExecName: String = node.name + "Exec"
+  val fullExecName: String = execName.getOrElse(node.name + "Exec")
 
   override def parse: ExecInfo = {
     val duration = computeDuration
@@ -99,9 +100,11 @@ object GenericExecParser {
       node: SparkPlanGraphNode,
       checker: PluginTypeChecker,
       sqlID: Long,
+      execName: Option[String] = None,
       expressionFunction: Option[String => Array[String]] = None,
       app: Option[AppBase] = None
   ): GenericExecParser = {
-    new GenericExecParser(node, checker, sqlID, expressionFunction, app)
+    val fullExecName = execName.getOrElse(node.name + "Exec")
+    new GenericExecParser(node, checker, sqlID, Some(fullExecName), expressionFunction, app)
   }
 }
