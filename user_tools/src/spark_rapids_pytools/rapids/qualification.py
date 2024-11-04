@@ -623,19 +623,19 @@ class Qualification(RapidsJarTool):
        :param file_name: Name of the metric file to read from each application's folder
        """
         metrics = {}
-        metric_dir = self.ctxt.get_metrics_output_folder()
-        for app_id_dir in FSUtil.get_subdirectories(metric_dir):
-            app_id_name = FSUtil.get_resource_name(app_id_dir)
-            report_file_path = FSUtil.build_path(app_id_dir, file_name)
+        root_metric_dir = self.ctxt.get_metrics_output_folder()
+        for metric_dir in FSUtil.get_subdirectories(root_metric_dir):
+            app_id_str = FSUtil.get_resource_name(metric_dir)
+            report_file_path = FSUtil.build_path(metric_dir, file_name)
             try:
-                metrics[app_id_name] = pd.read_csv(report_file_path)
+                metrics[app_id_str] = pd.read_csv(report_file_path)
             except Exception as e:  # pylint: disable=broad-except
                 # Some apps may not have the given metrics file, we should ensure
                 # that the dictionary contains entries for all apps to avoid KeyErrors
                 # and maintain consistency in processing.
-                metrics[app_id_name] = pd.DataFrame()
+                metrics[app_id_str] = pd.DataFrame()
                 self.logger.warning('Unable to read metrics file for app %s. Reason - %s:%s',
-                                    app_id_name, type(e).__name__, e)
+                                    app_id_str, type(e).__name__, e)
         return metrics
 
     def _assign_execution_engine_to_apps(self, tools_processed_apps: pd.DataFrame) -> pd.DataFrame:
@@ -644,7 +644,7 @@ class Qualification(RapidsJarTool):
         applications into speedup categories (Small/Medium/Large).
         """
         spark_properties = self._read_qualification_metric_file('spark_properties.csv')
-        default_exec_engine_type = ExecutionEngine.get_default().value
+        default_exec_engine_type = ExecutionEngine.get_default()
         exec_engine_col_name = self.ctxt.get_value('local', 'output', 'speedupCategories', 'execEngineColumnName')
 
         # Default to Spark-based execution type for non-Databricks platforms
@@ -659,8 +659,8 @@ class Qualification(RapidsJarTool):
         for app_id, props_df in spark_properties.items():
             props_dict = Utilities.convert_df_to_dict(props_df)
             spark_version = props_dict.get(spark_version_key, '').lower()
-            if ExecutionEngine.PHOTON.value.lower() in spark_version:
-                exec_engine_map[app_id] = ExecutionEngine.PHOTON.value
+            if ExecutionEngine.PHOTON.lower() in spark_version:
+                exec_engine_map[app_id] = ExecutionEngine.PHOTON
             else:
                 exec_engine_map[app_id] = default_exec_engine_type
 
