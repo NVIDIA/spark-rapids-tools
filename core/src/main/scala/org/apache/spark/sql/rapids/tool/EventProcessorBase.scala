@@ -152,7 +152,8 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       hasDatasetOrRDD = false
     )
     app.sqlIdToInfo.put(event.executionId, sqlExecution)
-    app.sqlPlans += (event.executionId -> event.sparkPlanInfo)
+    app.sqlManager.addNewExecution(event.executionId, event.sparkPlanInfo,
+      event.physicalPlanDescription)
   }
 
   def doSparkListenerSQLExecutionEnd(
@@ -183,7 +184,8 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       app: T,
       event: SparkListenerSQLAdaptiveExecutionUpdate): Unit = {
     // AQE plan can override the ones got from SparkListenerSQLExecutionStart
-    app.sqlPlans += (event.executionId -> event.sparkPlanInfo)
+    app.sqlManager.addAQE(event.executionId, event.sparkPlanInfo,
+      event.physicalPlanDescription)
   }
 
   def doSparkListenerSQLAdaptiveSQLMetricUpdates(
@@ -329,6 +331,9 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     val rpId = event.executorInfo.resourceProfileId
     exec.resources = event.executorInfo.resourcesInfo
     exec.resourceProfileId = rpId
+    // make sure updateMaxExecutorsIfNeeded is called after added executor information
+    app.updateMaxExecutors()
+    app.updateMaxNodes()
   }
 
   override def onExecutorAdded(executorAdded: SparkListenerExecutorAdded): Unit = {

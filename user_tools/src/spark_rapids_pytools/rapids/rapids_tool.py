@@ -20,7 +20,6 @@ import logging
 import os
 import re
 import sys
-import tarfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -34,13 +33,18 @@ from spark_rapids_pytools import get_spark_dep_version
 from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
     ClusterBase, DeployMode, NodeHWInfo
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer, AbstractPropertiesContainer
-from spark_rapids_pytools.common.sys_storage import FSUtil, FileVerifier
+from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils, ToolsSpinner
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
-from spark_rapids_tools.storagelib import LocalPath
+from spark_rapids_tools.configuration.common import RuntimeDependency
+from spark_rapids_tools.configuration.tools_config import ToolsConfig
+from spark_rapids_tools.enums import DependencyType
+from spark_rapids_tools.storagelib import LocalPath, CspFs
+from spark_rapids_tools.storagelib.tools.fs_utils import untar_file
 from spark_rapids_tools.utils import Utilities
+from spark_rapids_tools.utils.net_utils import DownloadTask
 
 
 @dataclass
@@ -67,6 +71,13 @@ class RapidsTool(object):
     ctxt: ToolContext = field(default=None, init=False)
     logger: Logger = field(default=None, init=False)
     spinner: ToolsSpinner = field(default=None, init=False)
+
+    def get_tools_config_obj(self) -> Optional['ToolsConfig']:
+        """
+        Get the tools configuration object if provided in the CLI arguments.
+        :return: An object containing all the tools configuration or None if not provided.
+        """
+        return self.wrapper_options.get('toolsConfig')
 
     def pretty_name(self):
         return self.name.capitalize()
@@ -134,12 +145,12 @@ class RapidsTool(object):
 
     def _process_output_args(self):
         self.logger.debug('Processing Output Arguments')
-        # make sure that output_folder is being absolute
+        # make sure output_folder is absolute
         if self.output_folder is None:
             self.output_folder = Utils.get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
         try:
             output_folder_path = LocalPath(self.output_folder)
-            self.output_folder = output_folder_path.no_prefix
+            self.output_folder = output_folder_path.no_scheme
         except Exception as ex:  # pylint: disable=broad-except
             self.logger.error('Failed in processing output arguments. Output_folder must be a local directory')
             raise ex
@@ -391,7 +402,8 @@ class RapidsTool(object):
         return res
 
     @classmethod
-    def get_rapids_tools_dependencies(cls, deploy_mode: str, json_props: AbstractPropertiesContainer) -> Optional[list]:
+    def get_rapids_tools_dependencies(cls, deploy_mode: str,
+                                      json_props: AbstractPropertiesContainer) -> Optional[list]:
         """
         Get the tools dependencies from the platform configuration.
         """
@@ -401,7 +413,9 @@ class RapidsTool(object):
         depend_arr = json_props.get_value_silent('dependencies', 'deployMode', deploy_mode, active_buildver)
         if depend_arr is None:
             raise ValueError(f'Invalid SPARK dependency version [{active_buildver}]')
-        return depend_arr
+        # convert the json array to a list of RuntimeDependency objects
+        runtime_dep_arr = [RuntimeDependency(**dep) for dep in depend_arr]
+        return runtime_dep_arr
 
 
 @dataclass
@@ -411,6 +425,7 @@ class RapidsJarTool(RapidsTool):
     """
 
     def _process_jar_arg(self):
+        # TODO: use the StorageLib to download the jar file
         jar_path = ''
         tools_jar_url = self.wrapper_options.get('toolsJar')
         try:
@@ -529,50 +544,46 @@ class RapidsJarTool(RapidsTool):
             if exception:
                 self.logger.error('Error while downloading dependency: %s', exception)
 
-        def cache_single_dependency(dep: dict) -> str:
+        def cache_single_dependency(dep: RuntimeDependency) -> str:
             """
             Downloads the specified URL and saves it to disk
             """
-            start_time = time.monotonic()
-            self.logger.info('Checking dependency %s', dep['name'])
+            self.logger.info('Checking dependency %s', dep.name)
             dest_folder = self.ctxt.get_cache_folder()
-            resource_file_name = FSUtil.get_resource_name(dep['uri'])
-            resource_file = FSUtil.build_path(dest_folder, resource_file_name)
-            file_check_dict = {'size': dep['size']}
-            signature_file = FileVerifier.get_signature_file(dep['uri'], dest_folder)
-            if signature_file is not None:
-                file_check_dict['signatureFile'] = signature_file
-            algorithm = FileVerifier.get_integrity_algorithm(dep)
-            if algorithm is not None:
-                file_check_dict['hashlib'] = {
-                    'algorithm': algorithm,
-                    'hash': dep[algorithm]
-                }
-            is_created = FSUtil.cache_from_url(dep['uri'], resource_file, file_checks=file_check_dict)
-            if is_created:
-                self.logger.info('The dependency %s has been downloaded into %s', dep['uri'],
-                                 resource_file)
-                # check if we need to decompress files
-            if dep['type'] == 'archive':
-                destination_path = self.ctxt.get_local_work_dir()
-                with tarfile.open(resource_file, mode='r:*') as tar:
-                    tar.extractall(destination_path)
-                    tar.close()
-                dep_item = FSUtil.remove_ext(resource_file_name)
-                if dep.get('relativePath') is not None:
-                    dep_item = FSUtil.build_path(dep_item, dep.get('relativePath'))
-                dep_item = FSUtil.build_path(destination_path, dep_item)
-            else:
+            verify_opts = {}
+            if dep.verification is not None:
+                verify_opts = dict(dep.verification)
+            download_task = DownloadTask(src_url=dep.uri,     # pylint: disable=no-value-for-parameter)
+                                         dest_folder=dest_folder,
+                                         verification=verify_opts)
+            download_result = download_task.run_task()
+            self.logger.info('Completed downloading of dependency [%s] => %s',
+                             dep.name,
+                             f'{download_result.pretty_print()}')
+            if not download_result.success:
+                msg = f'Failed to download dependency {dep.name}, reason: {download_result.download_error}'
+                raise RuntimeError(f'Could not download all dependencies. Aborting Executions.\n\t{msg}')
+            destination_path = self.ctxt.get_local_work_dir()
+            destination_cspath = LocalPath(destination_path)
+            # set the default dependency type to jar
+            defined_dep_type = DependencyType.get_default()
+            if dep.dependency_type:
+                defined_dep_type = dep.dependency_type.dep_type
+            if defined_dep_type == DependencyType.ARCHIVE:
+                uncompressed_cspath = untar_file(download_result.resource, destination_cspath)
+                dep_item = uncompressed_cspath.no_scheme
+                if dep.dependency_type.relative_path is not None:
+                    dep_item = f'{dep_item}/{dep.dependency_type.relative_path}'
+            elif defined_dep_type == DependencyType.JAR:
                 # copy the jar into dependency folder
-                dep_item = self.ctxt.platform.storage.download_resource(resource_file,
-                                                                        self.ctxt.get_local_work_dir())
-            end_time = time.monotonic()
-            self.logger.info('Completed downloading of dependency [%s] => %s seconds',
-                             dep['name'],
-                             f'{(end_time-start_time):,.3f}')
+                CspFs.copy_resources(download_result.resource, destination_cspath)
+                final_dep_csp = destination_cspath.create_sub_path(download_result.resource.base_name())
+                dep_item = final_dep_csp.no_scheme
+            else:
+                raise ValueError(f'Invalid dependency type [{defined_dep_type}]')
             return dep_item
 
-        def cache_all_dependencies(dep_arr: List[dict]):
+        def cache_all_dependencies(dep_arr: List[RuntimeDependency]) -> List[str]:
             """
             Create a thread pool and download specified urls
             """
@@ -593,9 +604,19 @@ class RapidsJarTool(RapidsTool):
                     raise ex
             return results
 
-        # TODO: Verify the downloaded file by checking their MD5
-        deploy_mode = DeployMode.tostring(self.ctxt.get_deploy_mode())
-        depend_arr = self.get_rapids_tools_dependencies(deploy_mode, self.ctxt.platform.configs)
+        def populate_dependency_list() -> List[RuntimeDependency]:
+            # check if the dependencies is defined in a config file
+            config_obj = self.get_tools_config_obj()
+            if config_obj is not None:
+                if config_obj.runtime.dependencies:
+                    return config_obj.runtime.dependencies
+                self.logger.info('The ToolsConfig did not specify the dependencies. '
+                                 'Falling back to the default dependencies.')
+            # load dependency list from the platform configuration
+            deploy_mode = DeployMode.tostring(self.ctxt.get_deploy_mode())
+            return self.get_rapids_tools_dependencies(deploy_mode, self.ctxt.platform.configs)
+
+        depend_arr = populate_dependency_list()
         if depend_arr:
             dep_list = cache_all_dependencies(depend_arr)
             if any(dep_item is None for dep_item in dep_list):
@@ -879,11 +900,16 @@ class RapidsJarTool(RapidsTool):
         job_args = self.ctxt.get_ctxt('jobArgs')
         result = copy.deepcopy(job_args)
         job_resources = self._get_job_submission_resources(tool_name)
+        jvm_min_heap = job_resources['jvmMinHeapSize']
         jvm_max_heap = job_resources['jvmMaxHeapSize']
-        jvm_heap_key = f'Xmx{jvm_max_heap}g'
+        jvm_max_heap_key = f'Xmx{jvm_max_heap}g'
+        jvm_min_heap_key = f'Xms{jvm_min_heap}g'
         # At this point, we need to set the heap argument for the JVM. Otherwise, the process uses
         # its default values.
-        result['platformArgs']['jvmArgs'].update({jvm_heap_key: ''})
+        result['platformArgs']['jvmArgs'].update({
+            jvm_min_heap_key: '',
+            jvm_max_heap_key: ''
+        })
         return result
 
     @timeit('Building Job Arguments and Executing Job CMD')  # pylint: disable=too-many-function-args

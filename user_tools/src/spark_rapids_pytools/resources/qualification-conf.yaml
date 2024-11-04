@@ -4,6 +4,7 @@ toolOutput:
   textFormat:
     summaryLog:
       fileName: rapids_4_spark_qualification_output.log
+    log4jFileName: rapids_4_spark_qualification_stderr.log
   csv:
     unsupportedOperatorsReport:
       fileName: rapids_4_spark_qualification_output_unsupportedOperators.csv
@@ -32,6 +33,7 @@ toolOutput:
         - SQL Stage Durations Sum
         - Unsupported Operators Stage Duration
         - Unsupported Operators Stage Duration Percent
+        - Total Core Seconds
       mapColumns:
       groupColumns:
          enabled: false
@@ -61,6 +63,7 @@ toolOutput:
 sparkRapids:
   mvnUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
   repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
+  toolsJarRegex: 'rapids-4-spark-tools_2.12-.*.jar'
   mainClass: 'com.nvidia.spark.rapids.tool.qualification.QualificationMain'
   outputDocURL: 'https://docs.nvidia.com/spark-rapids/user-guide/latest/qualification/quickstart.html#qualification-output'
   enableAutoTuner: true
@@ -111,10 +114,7 @@ local:
     files:
       summary:
         name: qualification_summary.csv
-        outputComment: "Summarized savings and speedups CSV report"
-      full:
-        name: qualification_summary_full.csv
-        outputComment: "Full savings and speedups CSV report"
+        outputComment: "Summarized speedups CSV report"
       statistics:
         name: qualification_statistics.csv
         outputComment: "Statistics CSV report"
@@ -180,7 +180,7 @@ local:
         - 'Estimated GPU Speedup'
     treeDirectory:
       enabled: true
-      depthLevel: 4
+      depthLevel: 2
       indentation: '    '
       excludedPatterns:
         directories:
@@ -193,6 +193,7 @@ local:
           - '^(\.+).*'
           - '^(\$+).*'
           - '^.+(_\$folder\$)$'
+          - '^rapids_4_spark_qualification_output.*'
     unsupportedOperators:
       mask:
         - operator: 'NOT_EQUAL'
@@ -228,12 +229,15 @@ local:
         - 'Qualified Cluster Recommendation'
         - 'Full Cluster Config Recommendations*'
         - 'GPU Config Recommendation Breakdown*'
+      ineligibleCategory:
+        - 'Not Recommended'
       eligibleCategories:
         - 'Small'
         - 'Medium'
         - 'Large'
       sortingColumns:
-        - 'Estimated GPU Speedup'
+        - 'Speedup Category Order'
+        - 'Total Core Seconds'
         - 'Unsupported Operators Stage Duration Percent'
       joinColumns:
         - 'App ID'
@@ -243,6 +247,9 @@ local:
         compactWidth: true
         timeUnits: 's'
         columnWidth: 14
+      totalCoreSecCol: 'Total Core Seconds'
+      # This is total core seconds of an 8-core machine running for 24 hours
+      totalCoreSecThreshold: !ENV ${RAPIDS_USER_TOOLS_CORE_SECONDS_THRESHOLD:691200}
     speedupCategories:
       speedupColumnName: 'Estimated GPU Speedup'
       categoryColumnName: 'Estimated GPU Speedup Category'
@@ -286,7 +293,7 @@ local:
           columns:
             - 'stageId'
             - 'SQL Nodes(IDs)'
-        spillThresholdBytes: 10737418240
+        spillThresholdBytes: !ENV ${RAPIDS_USER_TOOLS_SPILL_BYTES_THRESHOLD:10737418240}
         allowedExecs:
           - 'Aggregate'
           - 'Join'

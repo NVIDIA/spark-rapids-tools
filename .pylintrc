@@ -56,6 +56,8 @@ disable=
         # R0913: Too many arguments
         too-many-arguments,
         # R0914: Too many local variables
+        too-many-positional-arguments,
+        # R0917: Too many positional arguments
         too-many-locals,
         # R0801: Similar lines in 2 files
         duplicate-code,

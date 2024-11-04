@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ from pathlib import Path as PathlibPath
 from typing import Union, Any, TypeVar, ClassVar, Type, Tuple, Optional
 
 import yaml
+from pyaml_env import parse_config
 from pydantic import BaseModel, ConfigDict, model_validator, ValidationError
 
 from spark_rapids_tools.exceptions import JsonLoadException, YamlLoadException, InvalidPropertiesSchema
@@ -45,7 +46,7 @@ def load_yaml(file_path: Union[str, CspPathT]) -> Any:
         file_path = CspPath(file_path)
     with file_path.open_input_stream() as fis:
         try:
-            return yaml.safe_load(fis)
+            return parse_config(data=fis.readall())
         except yaml.YAMLError as e:
             raise YamlLoadException('Incorrect format of Yaml File') from e
 

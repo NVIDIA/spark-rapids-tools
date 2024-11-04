@@ -7,36 +7,56 @@
           {
             "name": "Apache Spark",
             "uri": "https://archive.apache.org/dist/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3.tgz",
-            "type": "archive",
-            "relativePath": "jars/*",
-            "sha512": "8883c67e0a138069e597f3e7d4edbbd5c3a565d50b28644aad02856a1ec1da7cb92b8f80454ca427118f69459ea326eaa073cf7b1a860c3b796f4b07c2101319",
-            "size": 400395283
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha512",
+                "value": "8883c67e0a138069e597f3e7d4edbbd5c3a565d50b28644aad02856a1ec1da7cb92b8f80454ca427118f69459ea326eaa073cf7b1a860c3b796f4b07c2101319"
+              },
+              "size": 400395283
+            },
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            }
           },
           {
             "name": "GCS Connector Hadoop3",
             "uri": "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.19/gcs-connector-hadoop3-2.2.19-shaded.jar",
-            "type": "jar",
-            "md5": "2ee6ad7215304cf5da8e731afb36ad72",
-            "sha1": "3bea6d5e62663a2a5c03d8ca44dff4921aeb3170",
-            "size": 39359477
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha1",
+                "value": "3bea6d5e62663a2a5c03d8ca44dff4921aeb3170"
+              },
+              "size": 39359477
+            }
           }
         ],
         "333": [
           {
             "name": "Apache Spark",
             "uri": "https://archive.apache.org/dist/spark/spark-3.3.3/spark-3.3.3-bin-hadoop3.tgz",
-            "type": "archive",
-            "relativePath": "jars/*",
-            "sha512": "ebf79c7861f3120d5ed9465fdd8d5302a734ff30713a0454b714bbded7ab9f218b3108dc46a5de4cc2102c86e7be53908f84d2c7a19e59bc75880766eeefeef9",
-            "size": 299426263
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha512",
+                "value": "ebf79c7861f3120d5ed9465fdd8d5302a734ff30713a0454b714bbded7ab9f218b3108dc46a5de4cc2102c86e7be53908f84d2c7a19e59bc75880766eeefeef9"
+              },
+              "size": 299426263
+            },
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            }
           },
           {
             "name": "GCS Connector Hadoop3",
             "uri": "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.17/gcs-connector-hadoop3-2.2.17-shaded.jar",
-            "type": "jar",
-            "md5": "41aea3add826dfbf3384a2c638148709",
-            "sha1": "06438f562692ff8fae5e8555eba2b9f95cb74f66",
-            "size": 38413466
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha1",
+                "value": "06438f562692ff8fae5e8555eba2b9f95cb74f66"
+              },
+              "size": 38413466
+            }
           }
         ]
       }
@@ -137,28 +157,6 @@
               "varKey": "GOOGLE_APPLICATION_CREDENTIALS"
             }
           ]
-        }
-      }
-    }
-  },
-  "pricing": {
-    "catalog": {
-      "onlineResources": [
-        {
-          "resourceKey": "gcloud-catalog",
-          "onlineURL": "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json",
-          "//localFile": "the name of the file after downloading",
-          "localFile": "gcloud-catalog.json",
-          "backupArchive": {
-            "//description-1": "In case the file is stuck, we use this archive as a backup.",
-            "//description-2": "It is stored in the resources",
-            "archiveName": "gcloud-catalog.tgz"
-          }
-        }
-      ],
-      "components": {
-        "ssd": {
-          "unitSizeFactor": 0.513698630136986
         }
       }
     }

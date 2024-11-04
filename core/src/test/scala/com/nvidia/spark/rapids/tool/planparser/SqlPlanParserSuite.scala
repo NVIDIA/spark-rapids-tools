@@ -21,8 +21,7 @@ import java.io.{File, PrintWriter}
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.BaseTestSuite
-import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.ToolTestUtils
 import com.nvidia.spark.rapids.tool.qualification._
 import org.scalatest.Matchers.{be, contain, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
@@ -32,65 +31,9 @@ import org.apache.spark.sql.execution.ui.SQLPlanMetric
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
-import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, ToolsPlanGraph, UTF8Source}
 
-class SQLPlanParserSuite extends BaseTestSuite {
-
-  private val profileLogDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
-  private val qualLogDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
-
-  private def assertSizeAndNotSupported(size: Int, execs: Seq[ExecInfo],
-      checkDurations: Boolean = true): Unit = {
-    for (t <- Seq(execs)) {
-      assert(t.size == size, t)
-      assert(t.forall(_.speedupFactor == 1), t)
-      assert(t.forall(_.isSupported == false), t)
-      assert(t.forall(_.children.isEmpty), t)
-      if (checkDurations) {
-        assert(t.forall(_.duration.isEmpty), t)
-      }
-    }
-  }
-
-  private def assertSizeAndSupported(size: Int, execs: Seq[ExecInfo],
-    expectedDur: Seq[Option[Long]] = Seq.empty, extraText: String = "",
-      checkDurations: Boolean = true): Unit = {
-    for (t <- Seq(execs)) {
-      assert(t.size == size, s"$extraText $t")
-      assert(t.forall(_.isSupported == true), s"$extraText $t")
-      assert(t.forall(_.children.isEmpty), s"$extraText $t")
-      if (expectedDur.nonEmpty) {
-        val durations = t.map(_.duration)
-        assert(durations.diff(expectedDur).isEmpty,
-          s"$extraText durations differ expected ${expectedDur.mkString(",")} " +
-            s"but got ${durations.mkString(",")}")
-      } else if (checkDurations) {
-        assert(t.forall(_.duration.isEmpty), s"$extraText $t")
-      }
-    }
-  }
-
-  private def createAppFromEventlog(eventLog: String): QualificationAppInfo = {
-    val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
-    val (_, allEventLogs) = EventLogPathProcessor.processAllPaths(
-      None, None, List(eventLog), hadoopConf)
-    val pluginTypeChecker = new PluginTypeChecker()
-    assert(allEventLogs.size == 1)
-    val appResult = QualificationAppInfo.createApp(allEventLogs.head, hadoopConf,
-      pluginTypeChecker, reportSqlLevel = false, mlOpsEnabled = false, penalizeTransitions = true)
-    appResult match {
-      case Right(app) => app
-      case Left(_) => throw new AssertionError("Cannot create application")
-    }
-  }
-
-  private def getAllExecsFromPlan(plans: Seq[PlanInfo]): Seq[ExecInfo] = {
-    val topExecInfo = plans.flatMap(_.execInfo)
-    topExecInfo.flatMap { e =>
-      e.children.getOrElse(Seq.empty) :+ e
-    }
-  }
+class SQLPlanParserSuite extends BasePlanParserSuite {
 
   test("Error parser does not cause entire app to fail") {
     // The purpose of this test is to make sure that the SQLParser won't trigger an exception that
@@ -1857,6 +1800,34 @@ class SQLPlanParserSuite extends BaseTestSuite {
       val hashAggExecs =
         getAllExecsFromPlan(parsedPlans.toSeq).filter(_.exec.equals("HashAggregate"))
       assertSizeAndSupported(2, hashAggExecs)
+    }
+  }
+
+  test("array_join is supported") {
+    TrampolineUtil.withTempDir { outputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, "arrayjoin") { spark =>
+          import spark.implicits._
+          val df = Seq(
+            (List("a", "b", "c"), List("b", "c")),
+            (List("a", "a"), List("b", "c")),
+            (List("aa"), List("b", "c"))
+          ).toDF("x", "y")
+          df.write.parquet(s"$outputLoc/test_arrayjoin")
+          val df2 = spark.read.parquet(s"$outputLoc/test_arrayjoin")
+          val df3 = df2.withColumn("arr_join", array_join(col("x"), "."))
+          df3
+        }
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val pluginTypeChecker = new PluginTypeChecker()
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val projectExecs = allExecInfo.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projectExecs)
+      }
     }
   }
 }

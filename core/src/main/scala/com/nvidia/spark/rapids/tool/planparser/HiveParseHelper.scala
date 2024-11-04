@@ -25,7 +25,7 @@ case class HiveScanSerdeClasses(className: String, format: String) extends Loggi
   def parseReadNode(node: SparkPlanGraphNode): ReadMetaData = {
     logDebug(s"Parsing node as ScanHiveTable: ${node.desc}")
     // Schema, pushedFilters empty for now as we cannot extract them yet from eventlogs
-    ReadMetaData("", "HiveTableRelation", "unknown", format)
+    ReadMetaData("", "HiveTableRelation", format)
   }
   def accepts(str: String): Boolean = {
     str.equals(className)
@@ -75,7 +75,8 @@ object HiveParseHelper extends Logging {
   // If the SerDe class does not match the lookups, it returns an "unknown" format.
   def parseReadNode(node: SparkPlanGraphNode): ReadMetaData = {
     LOADED_SERDE_CLASSES.find(k => node.desc.contains(k.className)).map(
-      _.parseReadNode(node)).getOrElse(ReadMetaData("", "HiveTableRelation", "unknown", "unknown"))
+      _.parseReadNode(node)).getOrElse(
+      ReadMetaData("", "HiveTableRelation", ReadParser.UNKNOWN_METAFIELD))
   }
 
   // Given a "scan hive" NodeGraph, construct the MetaData of the write operation based on the

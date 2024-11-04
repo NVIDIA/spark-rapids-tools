@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.io.File
 
 import com.nvidia.spark.rapids.tool.ToolTestUtils
-import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
+import com.nvidia.spark.rapids.tool.views.{ProfDataSourceView, RawMetricProfilerView}
 import org.scalatest.FunSuite
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -63,6 +63,15 @@ class AnalysisSuite extends FunSuite {
     }
     testSqlMetricsAggregation(
       Array(s"$logDir/rapids_join_eventlog.zstd", s"$logDir/rapids_join_eventlog2.zstd"),
+      expectFile("sql"), expectFile("job"), expectFile("stage"))
+  }
+
+  test("test photon sql metrics aggregation") {
+    val fileName = "nds_q88_photon_db_13_3"
+    val expectFile = (metric: String) => {
+      s"${fileName}_${metric}_metrics_agg_expectation.csv"
+    }
+    testSqlMetricsAggregation(Array(s"${qualLogDir}/${fileName}.zstd"),
       expectFile("sql"), expectFile("job"), expectFile("stage"))
   }
 
@@ -157,5 +166,13 @@ class AnalysisSuite extends FunSuite {
     val aggResults = RawMetricProfilerView.getAggMetrics(apps)
     val metrics = aggResults.sqlDurAggs
     metrics.foreach(m => assert(m.appDuration.get == 0L))
+  }
+
+  test("test photon scan metrics") {
+    val fileName = "nds_q88_photon_db_13_3"
+    val logs = Array(s"${qualLogDir}/${fileName}.zstd")
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    val dataSourceResults = ProfDataSourceView.getRawView(apps)
+    assert(dataSourceResults.exists(_.scan_time > 0))
   }
 }

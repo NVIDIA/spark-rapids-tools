@@ -21,6 +21,7 @@ import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
+import com.nvidia.spark.rapids.tool.planparser.photon.{PhotonPlanParser, PhotonStageExecParser}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
@@ -28,6 +29,7 @@ import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, ExecHelper, JoinType, RDDCheckHelper, ToolUtils, UnsupportedExpr}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
+import org.apache.spark.sql.rapids.tool.util.plangraph.{PhotonSparkPlanGraphCluster, PhotonSparkPlanGraphNode}
 
 object OpActions extends Enumeration {
   type OpAction = Value
@@ -451,6 +453,103 @@ object SQLPlanParser extends Logging {
   // Note that Spark graph may create duplicate nodes when any of the following execs exists.
   private val reuseExecs = Set("ReusedExchange")
 
+  /**
+   * Parse the SparkPlanGraphNode and return ExecInfo.
+   */
+  def parseSparkNode(
+      node: SparkPlanGraphNode,
+      sqlID: Long,
+      checker: PluginTypeChecker,
+      app: AppBase): ExecInfo = {
+    val normalizedNodeName = node.name.stripSuffix("$")
+    normalizedNodeName match {
+      case "AggregateInPandas" =>
+        AggregateInPandasExecParser(node, checker, sqlID).parse
+      case "ArrowEvalPython" =>
+        ArrowEvalPythonExecParser(node, checker, sqlID).parse
+      case "BatchScan" =>
+        BatchScanExecParser(node, checker, sqlID, app).parse
+      case "BroadcastExchange" =>
+        BroadcastExchangeExecParser(node, checker, sqlID, app).parse
+      case "BroadcastHashJoin" =>
+        BroadcastHashJoinExecParser(node, checker, sqlID).parse
+      case "BroadcastNestedLoopJoin" =>
+        BroadcastNestedLoopJoinExecParser(node, checker, sqlID).parse
+      case "CartesianProduct" =>
+        CartesianProductExecParser(node, checker, sqlID).parse
+      case "Coalesce" =>
+        CoalesceExecParser(node, checker, sqlID).parse
+      case "CollectLimit" =>
+        CollectLimitExecParser(node, checker, sqlID).parse
+      case "CustomShuffleReader" | "AQEShuffleRead" =>
+        CustomShuffleReaderExecParser(node, checker, sqlID).parse
+      case "Exchange" =>
+        ShuffleExchangeExecParser(node, checker, sqlID, app).parse
+      case "Expand" =>
+        ExpandExecParser(node, checker, sqlID).parse
+      case "Filter" =>
+        FilterExecParser(node, checker, sqlID).parse
+      case "FlatMapGroupsInPandas" =>
+        FlatMapGroupsInPandasExecParser(node, checker, sqlID).parse
+      case "Generate" =>
+        GenerateExecParser(node, checker, sqlID).parse
+      case "GlobalLimit" =>
+        GlobalLimitExecParser(node, checker, sqlID).parse
+      case "HashAggregate" =>
+        HashAggregateExecParser(node, checker, sqlID, app).parse
+      case "LocalLimit" =>
+        LocalLimitExecParser(node, checker, sqlID).parse
+      case "InMemoryTableScan" =>
+        InMemoryTableScanExecParser(node, checker, sqlID).parse
+      case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
+        DataWritingCommandExecParser.parseNode(node, checker, sqlID)
+      case "MapInPandas" =>
+        MapInPandasExecParser(node, checker, sqlID).parse
+      case "ObjectHashAggregate" =>
+        ObjectHashAggregateExecParser(node, checker, sqlID, app).parse
+      case "Project" =>
+        ProjectExecParser(node, checker, sqlID).parse
+      case "PythonMapInArrow" | "MapInArrow" =>
+        PythonMapInArrowExecParser(node, checker, sqlID).parse
+      case "Range" =>
+        RangeExecParser(node, checker, sqlID).parse
+      case "Sample" =>
+        SampleExecParser(node, checker, sqlID).parse
+      case "ShuffledHashJoin" =>
+        ShuffledHashJoinExecParser(node, checker, sqlID, app).parse
+      case "Sort" =>
+        SortExecParser(node, checker, sqlID).parse
+      case s if ReadParser.isScanNode(s) =>
+        FileSourceScanExecParser(node, checker, sqlID, app).parse
+      case "SortAggregate" =>
+        SortAggregateExecParser(node, checker, sqlID).parse
+      case smj if SortMergeJoinExecParser.accepts(smj) =>
+        SortMergeJoinExecParser(node, checker, sqlID).parse
+      case "SubqueryBroadcast" =>
+        SubqueryBroadcastExecParser(node, checker, sqlID, app).parse
+      case sqe if SubqueryExecParser.accepts(sqe) =>
+        SubqueryExecParser.parseNode(node, checker, sqlID, app)
+      case "TakeOrderedAndProject" =>
+        TakeOrderedAndProjectExecParser(node, checker, sqlID).parse
+      case "Union" =>
+        UnionExecParser(node, checker, sqlID).parse
+      case "Window" =>
+        WindowExecParser(node, checker, sqlID).parse
+      case "WindowInPandas" =>
+        WindowInPandasExecParser(node, checker, sqlID).parse
+      case "WindowGroupLimit" =>
+        WindowGroupLimitParser(node, checker, sqlID).parse
+      case wfe if WriteFilesExecParser.accepts(wfe) =>
+        WriteFilesExecParser(node, checker, sqlID).parse
+      case _ =>
+        // Execs that are members of reuseExecs (i.e., ReusedExchange) should be marked as
+        // supported but with shouldRemove flag set to True.
+        // Setting the "shouldRemove" is handled at the end of the function.
+        ExecInfo(node, sqlID, normalizedNodeName, expr = "", 1, duration = None, node.id,
+          isSupported = reuseExecs.contains(normalizedNodeName), None)
+    }
+  }
+
   def parsePlanNode(
       node: SparkPlanGraphNode,
       sqlID: Long,
@@ -470,121 +569,47 @@ object SQLPlanParser extends Logging {
       logDebug(s"Marking [sqlID = ${sqlID}, node = ${normalizedNodeName}] as shouldRemove. " +
         s"Reason: duplicate - ancestor of ReusedExchange")
     }
-    if (normalizedNodeName.contains("WholeStageCodegen")) {
-      // this is special because it is a SparkPlanGraphCluster vs SparkPlanGraphNode
-      WholeStageExecParser(node.asInstanceOf[SparkPlanGraphCluster], checker, sqlID, app,
-        reusedNodeIds).parse
-    } else {
-      val execInfos = try {
-        normalizedNodeName match {
-          case "AggregateInPandas" =>
-            AggregateInPandasExecParser(node, checker, sqlID).parse
-          case "ArrowEvalPython" =>
-            ArrowEvalPythonExecParser(node, checker, sqlID).parse
-          case "BatchScan" =>
-            BatchScanExecParser(node, checker, sqlID, app).parse
-          case "BroadcastExchange" =>
-            BroadcastExchangeExecParser(node, checker, sqlID, app).parse
-          case "BroadcastHashJoin" =>
-            BroadcastHashJoinExecParser(node, checker, sqlID).parse
-          case "BroadcastNestedLoopJoin" =>
-            BroadcastNestedLoopJoinExecParser(node, checker, sqlID).parse
-          case "CartesianProduct" =>
-            CartesianProductExecParser(node, checker, sqlID).parse
-          case "Coalesce" =>
-            CoalesceExecParser(node, checker, sqlID).parse
-          case "CollectLimit" =>
-            CollectLimitExecParser(node, checker, sqlID).parse
-          case "CustomShuffleReader" | "AQEShuffleRead" =>
-            CustomShuffleReaderExecParser(node, checker, sqlID).parse
-          case "Exchange" =>
-            ShuffleExchangeExecParser(node, checker, sqlID, app).parse
-          case "Expand" =>
-            ExpandExecParser(node, checker, sqlID).parse
-          case "Filter" =>
-            FilterExecParser(node, checker, sqlID).parse
-          case "FlatMapGroupsInPandas" =>
-            FlatMapGroupsInPandasExecParser(node, checker, sqlID).parse
-          case "Generate" =>
-            GenerateExecParser(node, checker, sqlID).parse
-          case "GlobalLimit" =>
-            GlobalLimitExecParser(node, checker, sqlID).parse
-          case "HashAggregate" =>
-            HashAggregateExecParser(node, checker, sqlID, app).parse
-          case "LocalLimit" =>
-            LocalLimitExecParser(node, checker, sqlID).parse
-          case "InMemoryTableScan" =>
-            InMemoryTableScanExecParser(node, checker, sqlID).parse
-          case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
-            DataWritingCommandExecParser.parseNode(node, checker, sqlID)
-          case "MapInPandas" =>
-            MapInPandasExecParser(node, checker, sqlID).parse
-          case "ObjectHashAggregate" =>
-            ObjectHashAggregateExecParser(node, checker, sqlID, app).parse
-          case "Project" =>
-            ProjectExecParser(node, checker, sqlID).parse
-          case "PythonMapInArrow" | "MapInArrow" =>
-            PythonMapInArrowExecParser(node, checker, sqlID).parse
-          case "Range" =>
-            RangeExecParser(node, checker, sqlID).parse
-          case "Sample" =>
-            SampleExecParser(node, checker, sqlID).parse
-          case "ShuffledHashJoin" =>
-            ShuffledHashJoinExecParser(node, checker, sqlID, app).parse
-          case "Sort" =>
-            SortExecParser(node, checker, sqlID).parse
-          case s if ReadParser.isScanNode(s) =>
-            FileSourceScanExecParser(node, checker, sqlID, app).parse
-          case "SortAggregate" =>
-            SortAggregateExecParser(node, checker, sqlID).parse
-          case smj if SortMergeJoinExecParser.accepts(smj) =>
-            SortMergeJoinExecParser(node, checker, sqlID).parse
-          case "SubqueryBroadcast" =>
-            SubqueryBroadcastExecParser(node, checker, sqlID, app).parse
-          case sqe if SubqueryExecParser.accepts(sqe) =>
-            SubqueryExecParser.parseNode(node, checker, sqlID, app)
-          case "TakeOrderedAndProject" =>
-            TakeOrderedAndProjectExecParser(node, checker, sqlID).parse
-          case "Union" =>
-            UnionExecParser(node, checker, sqlID).parse
-          case "Window" =>
-            WindowExecParser(node, checker, sqlID).parse
-          case "WindowInPandas" =>
-            WindowInPandasExecParser(node, checker, sqlID).parse
-          case "WindowGroupLimit" =>
-            WindowGroupLimitParser(node, checker, sqlID).parse
-          case wfe if WriteFilesExecParser.accepts(wfe) =>
-            WriteFilesExecParser(node, checker, sqlID).parse
-          case _ =>
-            // Execs that are members of reuseExecs (i.e., ReusedExchange) should be marked as
-            // supported but with shouldRemove flag set to True.
-            // Setting the "shouldRemove" is handled at the end of the function.
+
+    node match {
+      // For WholeStageCodegen clusters, use PhotonStageExecParser if the cluster is of Photon type.
+      // Else, fall back to WholeStageExecParser to parse the cluster.
+      case photonCluster: PhotonSparkPlanGraphCluster =>
+        PhotonStageExecParser(photonCluster, checker, sqlID, app, reusedNodeIds).parse
+      case cluster: SparkPlanGraphCluster =>
+        WholeStageExecParser(cluster, checker, sqlID, app, reusedNodeIds).parse
+      case _ =>
+        // For individual nodes, use PhotonPlanParser if the node is of Photon type.
+        // Else, fall back to the Spark node parsing logic to parse the node.
+        val execInfo = try {
+          node match {
+            case photonNode: PhotonSparkPlanGraphNode =>
+              PhotonPlanParser.parseNode(photonNode, sqlID, checker, app)
+            case _ =>
+              parseSparkNode(node, sqlID, checker, app)
+          }
+        } catch {
+          // Error parsing expression could trigger an exception. If the exception is not handled,
+          // the application will be skipped. We need to suppress exceptions here to avoid
+          // sacrificing the entire app analysis.
+          // Note that:
+          //  - The exec will be considered unsupported.
+          //  - No need to add the SQL to the failed SQLs, because this will cause the app to be
+          //    labeled as "Not Applicable" which is not preferred at this point.
+          case NonFatal(e) =>
+            logWarning(s"Unexpected error parsing plan node ${normalizedNodeName}. " +
+            s" sqlID = ${sqlID}", e)
             ExecInfo(node, sqlID, normalizedNodeName, expr = "", 1, duration = None, node.id,
-              isSupported = reuseExecs.contains(normalizedNodeName), None)
+              isSupported = false, None)
         }
-      } catch {
-        // Error parsing expression could trigger an exception. If the exception is not handled,
-        // the application will be skipped. We need to suppress exceptions here to avoid
-        // sacrificing the entire app analysis.
-        // Note that:
-        //  - The exec will be considered unsupported.
-        //  - No need to add the SQL to the failed SQLs, because this will cause the app to be
-        //    labeled as "Not Applicable" which is not preferred at this point.
-        case NonFatal(e) =>
-          logWarning(s"Unexpected error parsing plan node ${normalizedNodeName}. " +
-          s" sqlID = ${sqlID}", e)
-          ExecInfo(node, sqlID, normalizedNodeName, expr = "", 1, duration = None, node.id,
-            isSupported = false, None)
-      }
-      val stagesInNode = getStagesInSQLNode(node, app)
-      execInfos.setStages(stagesInNode)
-      // shouldRemove is set to true if the exec is a member of "execsToBeRemoved" or if the node
-      // is a duplicate
-      execInfos.setShouldRemove(isDupNode)
-      // Set the custom reasons for unsupported execs
-      val unsupportedExecsReason = checker.getNotSupportedExecsReason(execInfos.exec)
-      execInfos.setUnsupportedExecReason(unsupportedExecsReason)
-      Seq(execInfos)
+        val stagesInNode = getStagesInSQLNode(node, app)
+        execInfo.setStages(stagesInNode)
+        // shouldRemove is set to true if the exec is a member of "execsToBeRemoved" or if the node
+        // is a duplicate
+        execInfo.setShouldRemove(isDupNode)
+        // Set the custom reasons for unsupported execs
+        val unsupportedExecsReason = checker.getNotSupportedExecsReason(execInfo.exec)
+        execInfo.setUnsupportedExecReason(unsupportedExecsReason)
+        Seq(execInfo)
     }
   }
 
@@ -932,14 +957,12 @@ object SQLPlanParser extends Logging {
     }
   }
 
-  def parseNestedLoopJoinExpressions(exprStr: String): (Array[String], Boolean) = {
+  def parseNestedLoopJoinExpressions(exprStr: String, buildSide: String,
+      joinType: String): (Array[String], Boolean) = {
     // BuildRight, LeftOuter, ((CEIL(cast(id1#1490 as double)) <= cast(id2#1496 as bigint))
     // AND (cast(id1#1490 as bigint) < CEIL(cast(id2#1496 as double))))
     // Get joinType and buildSide by splitting the input string.
     val nestedLoopParameters = exprStr.split(",", 3)
-    val buildSide = nestedLoopParameters(0).trim
-    val joinType = nestedLoopParameters(1).trim
-
     // Check if condition present on join columns else return empty array
     val parsedExpressions = if (nestedLoopParameters.size > 2) {
       parseConditionalExpressions(exprStr)

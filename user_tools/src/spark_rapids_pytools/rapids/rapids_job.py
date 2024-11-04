@@ -166,7 +166,7 @@ class RapidsLocalJob(RapidsJob):
                     conf_dir_path = LocalPath(conf_dir)
                     if conf_dir_path.is_dir() and conf_dir_path.exists():
                         # return the first valid directory found without the URI prefix
-                        return conf_dir_path.no_prefix
+                        return conf_dir_path.no_scheme
                 except Exception as e:  # pylint: disable=broad-except
                     self.logger.debug(
                         'Could not build hadoop classpath from %s. Reason: %s', dir_key, e)
@@ -192,8 +192,9 @@ class RapidsLocalJob(RapidsJob):
                 if jvm_k.startswith('D'):
                     if jvm_k == 'Dlog4j.configuration':
                         rapids_output_folder = self.exec_ctxt.get_rapids_output_folder()
+                        log4j_file_name = self.exec_ctxt.get_log4j_properties_file()
                         jvm_arg = ToolLogging.modify_log4j_properties(
-                            jvm_arg, f'{rapids_output_folder}')
+                            jvm_arg, f'{rapids_output_folder}/{log4j_file_name}')
                         self.exec_ctxt.set_local('tmp_log4j', jvm_arg)
                     val = f'-{jvm_k}={jvm_arg}'
                 else:

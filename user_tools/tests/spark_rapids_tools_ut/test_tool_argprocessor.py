@@ -24,7 +24,8 @@ import pytest  # pylint: disable=import-error
 from spark_rapids_tools import CspEnv
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel, ArgValueCase
 from spark_rapids_tools.enums import QualFilterApp
-from .conftest import SparkRapidsToolsUT, autotuner_prop_path, all_cpu_cluster_props, all_csps
+from .conftest import SparkRapidsToolsUT, autotuner_prop_path, all_cpu_cluster_props, all_csps, \
+    valid_tools_conf_files, invalid_tools_conf_files
 
 
 @dataclasses.dataclass
@@ -77,22 +78,24 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
 
     @staticmethod
     def create_tool_args_should_pass(tool_name: str, platform=None, cluster=None,
-                                     eventlogs=None, tools_jar=None):
+                                     eventlogs=None, tools_jar=None, tools_config_path=None):
         return AbsToolUserArgModel.create_tool_args(tool_name,
                                                     platform=platform,
                                                     cluster=cluster,
                                                     eventlogs=eventlogs,
-                                                    tools_jar=tools_jar)
+                                                    tools_jar=tools_jar,
+                                                    tools_config_path=tools_config_path)
 
     @staticmethod
     def create_tool_args_should_fail(tool_name: str, platform=None, cluster=None,
-                                     eventlogs=None, tools_jar=None):
+                                     eventlogs=None, tools_jar=None, tools_config_path=None):
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             AbsToolUserArgModel.create_tool_args(tool_name,
                                                  platform=platform,
                                                  cluster=cluster,
                                                  eventlogs=eventlogs,
-                                                 tools_jar=tools_jar)
+                                                 tools_jar=tools_jar,
+                                                 tools_config_path=tools_config_path)
         assert pytest_wrapped_e.type == SystemExit
 
     @staticmethod
@@ -320,6 +323,31 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                                          driverlog=f'{get_ut_data_dir}/{prop_path}')
         assert not prof_args['requiresEventlogs']
         assert prof_args['rapidOptions']['driverlog'] == f'{get_ut_data_dir}/{prop_path}'
+
+    @pytest.mark.parametrize('tool_name', ['profiling', 'qualification'])
+    @pytest.mark.parametrize('csp', all_csps)
+    @pytest.mark.parametrize('tools_conf_fname', valid_tools_conf_files)
+    def test_tools_configs(self, get_ut_data_dir, tool_name, csp, tools_conf_fname):
+        tools_conf_path = f'{get_ut_data_dir}/tools_config/valid/{tools_conf_fname}'
+        # should pass: tools config file is provided
+        tool_args = self.create_tool_args_should_pass(tool_name,
+                                                      platform=csp,
+                                                      eventlogs=f'{get_ut_data_dir}/eventlogs',
+                                                      tools_config_path=tools_conf_path)
+        assert tool_args['toolsConfig'] is not None
+
+    @pytest.mark.parametrize('tool_name', ['profiling', 'qualification'])
+    @pytest.mark.parametrize('csp', all_csps)
+    @pytest.mark.parametrize('tools_conf_fname', invalid_tools_conf_files)
+    def test_invalid_tools_configs(self, get_ut_data_dir, tool_name, csp, tools_conf_fname):
+        tools_conf_path = f'{get_ut_data_dir}/tools_config/invalid/{tools_conf_fname}'
+        # should pass: tools config file is provided
+        with pytest.raises(SystemExit) as pytest_wrapped_e:
+            AbsToolUserArgModel.create_tool_args(tool_name,
+                                                 platform=csp,
+                                                 eventlogs=f'{get_ut_data_dir}/eventlogs',
+                                                 tools_config_path=tools_conf_path)
+            assert pytest_wrapped_e.type == SystemExit
 
     def test_arg_cases_coverage(self):
         """

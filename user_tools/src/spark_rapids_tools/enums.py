@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """Enumeration types commonly used through the AS python implementations."""
-
+import hashlib
 from enum import Enum, auto
 from typing import Union, cast, Callable
 
@@ -67,10 +67,56 @@ class EnumeratedType(str, Enum):
         value = cast(Enum, value)
         return str(value._value_)  # pylint: disable=protected-access
 
+###############
+# Utility Enums
+###############
+
+
+class HashAlgorithm(EnumeratedType):
+    """Represents the supported hashing algorithms"""
+    MD5 = 'md5'
+    SHA1 = 'sha1'
+    SHA256 = 'sha256'
+    SHA512 = 'sha512'
+
+    @classmethod
+    def get_default(cls):
+        return cls.SHA256
+
+    @classmethod
+    def _missing_(cls, value):
+        value = value.lower()
+        for member in cls:
+            if member.lower() == value:
+                return member
+        return None
+
+    def get_hash_func(self) -> Callable:
+        """Maps the hash function to the appropriate hashing algorithm."""
+        hash_functions = {
+            self.MD5: hashlib.md5,
+            self.SHA1: hashlib.sha1,
+            self.SHA256: hashlib.sha256,
+            self.SHA512: hashlib.sha512,
+        }
+        return hash_functions[self]
+
+
+class DependencyType(EnumeratedType):
+    """Represents the dependency type for the tools' java cmd."""
+    JAR = 'jar'
+    ARCHIVE = 'archive'
+
+    @classmethod
+    def get_default(cls) -> 'DependencyType':
+        """Returns the default dependency type."""
+        return cls.JAR
+
 
 ###########
 # CSP Enums
 ###########
+
 
 class CspEnv(EnumeratedType):
     """Represents the supported types of runtime CSP"""

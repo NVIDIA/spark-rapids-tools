@@ -14,7 +14,7 @@
 
 """ Model training and prediction functions for QualX """
 
-from typing import Callable, Optional, List, Tuple
+from typing import Callable, Mapping, Optional, List, Tuple
 import json
 import random
 import shap
@@ -217,7 +217,7 @@ def predict(
 
 
 def extract_model_features(
-    df: pd.DataFrame, split_fn: List[Callable[[pd.DataFrame], pd.DataFrame]] = None
+    df: pd.DataFrame, split_functions: Mapping[str, Callable[[pd.DataFrame], pd.DataFrame]] = None
 ) -> Tuple[pd.DataFrame, List[str], str]:
     """Extract model features from raw features."""
     missing = expected_raw_features - set(df.columns)
@@ -314,11 +314,42 @@ def extract_model_features(
         logger.warning('Input data has extra features (removed): %s', extra)
         feature_cols = [c for c in feature_cols if c not in extra]
 
-    # add train/val/test split column, if split function provided
-    if split_fn:
-        for fn in split_fn:
-            cpu_aug_tbl = fn(cpu_aug_tbl)
+    # add train/val/test split column, if split function(s) provided
+    if split_functions:
+        # ensure 'split' column in cpu_aug_tbl
+        if 'split' not in cpu_aug_tbl.columns:
+            cpu_aug_tbl['split'] = pd.Series(dtype='str')
 
+        # save schema, since df.update() defaults all dtypes to floats
+        df_schema = cpu_aug_tbl.dtypes
+
+        # extract default split function, if present
+        default_split_fn = split_functions.pop('default') if 'default' in split_functions else None
+
+        # handle all other dataset-specific split functions
+        for ds_name, split_fn in split_functions.items():
+            dataset_df = cpu_aug_tbl.loc[
+                (cpu_aug_tbl.appName == ds_name) | (cpu_aug_tbl.appName.str.startswith(f'{ds_name}:'))
+            ]
+            modified_df = split_fn(dataset_df)
+            if modified_df.index.equals(dataset_df.index):
+                cpu_aug_tbl.update(modified_df)
+                cpu_aug_tbl.astype(df_schema)
+            else:
+                raise ValueError(f'Plugin: split_function for {ds_name} unexpectedly modified row indices.')
+            cpu_aug_tbl.update(dataset_df)
+
+        # handle default split function
+        if default_split_fn:
+            default_df = cpu_aug_tbl.loc[~cpu_aug_tbl.appName.isin(split_functions.keys())]
+            for ds_name in split_functions.keys():
+                default_df = default_df.loc[~default_df.appName.str.startswith(f'{ds_name}:')]
+            modified_default_df = default_split_fn(default_df)
+            if modified_default_df.index.equals(default_df.index):
+                cpu_aug_tbl.update(default_df)
+                cpu_aug_tbl.astype(df_schema)
+            else:
+                raise ValueError('Default split_function unexpectedly modified row indices.')
     return cpu_aug_tbl, feature_cols, label_col
 
 

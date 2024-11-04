@@ -16,12 +16,21 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
-import scala.util.control.NonFatal
+import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 
-import org.json4s.DefaultFormats
+import scala.util.control.NonFatal
+import scala.util.matching.Regex
+
+import com.nvidia.spark.rapids.tool.profiling.SQLAccumProfileResults
+import com.nvidia.spark.rapids.tool.views.IoMetrics
+import org.json4s.{DefaultFormats, Formats}
+import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.UnsupportedMetricNameException
+import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
 // Utilities used to handle Databricks and Photon Ops
 object DatabricksParseHelper extends Logging {
@@ -42,6 +51,18 @@ object DatabricksParseHelper extends Logging {
   val SUB_PROP_CLUSTER_ID = "ClusterId"
   val SUB_PROP_JOB_ID = "JobId"
   val SUB_PROP_RUN_NAME = "RunName"
+
+  // scalastyle:off
+  // Photon metric labels that are used as alternatives to Spark metric labels
+  val PHOTON_METRIC_CUMULATIVE_TIME_LABEL = "cumulative time"               // Alternative for "scan time"
+  val PHOTON_METRIC_PEAK_MEMORY_LABEL = "peak memory usage"                 // Alternative for "peak execution memory"
+  val PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL = "part of shuffle file write" // Alternative for "shuffle write time"
+  // scalastyle:on
+
+  private val PHOTON_PATTERN: Regex = "Photon[a-zA-Z]*".r
+  private val PHOTON_OPS_MAPPING_DIR = "photonOperatorMappings"
+  // TODO: Create separate mapping file for different Photon/Databricks versions
+  private val DEFAULT_PHOTON_OPS_MAPPING_FILE = "databricks-13_3.json"
   /**
    * Checks if the properties indicate that the application is a Photon app.
    * This ca be checked by looking for keywords in one of the keys defined in PHOTON_SPARK_PROPS
@@ -106,6 +127,52 @@ object DatabricksParseHelper extends Logging {
       case NonFatal(_) =>
         logWarning(s"There was an exception parsing cluster tags string: $clusterTag, skipping")
         Map.empty
+    }
+  }
+
+  /**
+   * Maps the Photon operator names to Spark operator names using a mapping JSON file.
+   */
+  private lazy val photonToSparkMapping: Map[String, String] = {
+    val mappingFile = Paths.get(PHOTON_OPS_MAPPING_DIR, DEFAULT_PHOTON_OPS_MAPPING_FILE).toString
+    val jsonString = UTF8Source.fromResource(mappingFile).mkString
+    val json = JsonMethods.parse(jsonString)
+    // Implicitly define JSON formats for deserialization using DefaultFormats
+    implicit val formats: Formats = DefaultFormats
+    // Extract and deserialize the JValue object into a Map[String, String]
+    // TODO: Currently, only the first mapping in the list is used.
+    //       This limitation exists because we cannot differentiate between
+    //       these operators in the SparkPlan.
+    json.extract[Map[String, List[String]]].mapValues(_.head)
+  }
+
+  def isPhotonNode(nodeName: String): Boolean = PHOTON_PATTERN.findFirstIn(nodeName).isDefined
+
+  /**
+   * Replaces all occurrences in the input string that match the PHOTON_PATTERN
+   * with corresponding values from the photonToSparkMapping map.
+   *
+   * @param inputStr the node name, potentially containing a Photon identifier
+   * @return an `Option[String]` with the Spark node name, or `None` if no match is found
+   */
+  def mapPhotonToSpark(inputStr: String): String = {
+    PHOTON_PATTERN.replaceAllIn(inputStr, m => photonToSparkMapping.getOrElse(m.matched, m.matched))
+  }
+
+  /**
+   * Checks if 'accum' is a Photon I/O metric.
+   */
+  def isPhotonIoMetric(accum: SQLAccumProfileResults): Boolean =
+    accum.name == PHOTON_METRIC_CUMULATIVE_TIME_LABEL && accum.nodeName.contains("Scan")
+
+  /**
+   * Updates the I/O metrics for Photon apps based on the accumulator values.
+   */
+  def updatePhotonIoMetric(accum: SQLAccumProfileResults, ioMetrics: IoMetrics): Unit = {
+    accum.name match {
+      case PHOTON_METRIC_CUMULATIVE_TIME_LABEL if accum.nodeName.contains("Scan") =>
+        ioMetrics.scanTime = TimeUnit.NANOSECONDS.toMillis(accum.total)
+      case _ => throw UnsupportedMetricNameException(accum.name)
     }
   }
 }

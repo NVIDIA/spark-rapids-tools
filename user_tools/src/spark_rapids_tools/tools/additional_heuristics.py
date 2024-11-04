@@ -36,12 +36,20 @@ class AdditionalHeuristics:
     props: JSONPropertiesContainer = field(default=None, init=False)
     tools_output_dir: str = field(default=None, init=False)
     output_file: str = field(default=None, init=False)
+    # Contains apps info needed for applying heuristics
+    all_apps: pd.DataFrame = field(default=None, init=False)
 
     def __init__(self, props: dict, tools_output_dir: str, output_file: str):
         self.props = JSONPropertiesContainer(props, file_load=False)
         self.tools_output_dir = tools_output_dir
         self.output_file = output_file
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.{self.__class__.__name__}')
+
+    def _get_all_heuristics_functions(self) -> list:
+        """
+        Returns a list of heuristics functions to apply to each application.
+        """
+        return [self.heuristics_based_on_spills]
 
     def _apply_heuristics(self, app_ids: list) -> pd.DataFrame:
         """
@@ -68,15 +76,19 @@ class AdditionalHeuristics:
         else:
             for app_id in app_ids:
                 app_id_path = os.path.join(metrics_path, app_id)
-                try:
-                    # Apply heuristics and determine if the application should be skipped.
-                    # Note: `should_skip` flag can be a combination of multiple heuristic checks.
-                    should_skip, reason = self.heuristics_based_on_spills(app_id_path)
-                except Exception as e:  # pylint: disable=broad-except
-                    should_skip = False
-                    reason = f'Cannot apply heuristics for qualification. Reason - {type(e).__name__}:{e}'
-                    self.logger.error(reason)
-                result_arr.append([app_id, should_skip, reason])
+                # Apply a list of heuristics and determine if the application should be skipped.
+                should_skip_overall = False
+                reasons = []
+                for heuristic_func in self._get_all_heuristics_functions():
+                    try:
+                        should_skip, reason = heuristic_func(app_id_path)
+                    except Exception as e:  # pylint: disable=broad-except
+                        should_skip = False
+                        reason = f' Cannot apply heuristics for qualification. Reason - {type(e).__name__}:{e}.'
+                        self.logger.error(reason)
+                    should_skip_overall = should_skip_overall or should_skip
+                    reasons.append(reason)
+                result_arr.append([app_id, should_skip_overall, ' '.join(reasons)])
 
         return pd.DataFrame(result_arr, columns=self.props.get_value('resultCols'))
 
@@ -97,7 +109,8 @@ class AdditionalHeuristics:
                                                                    'sqlToStageInfo', 'columns')]
 
         # Identify stages with significant spills
-        spill_threshold_bytes = self.props.get_value('spillBased', 'spillThresholdBytes')
+        # Convert the string to int because the parse_config method returns a string
+        spill_threshold_bytes = int(self.props.get_value('spillBased', 'spillThresholdBytes'))
         spill_condition = stage_agg_metrics['memoryBytesSpilled_sum'] > spill_threshold_bytes
         stages_with_spills = stage_agg_metrics[spill_condition]
 
@@ -113,12 +126,13 @@ class AdditionalHeuristics:
         if not relevant_stages_with_spills.empty:
             stages_str = '; '.join(relevant_stages_with_spills['stageId'].astype(str))
             spill_threshold_human_readable = Utilities.bytes_to_human_readable(spill_threshold_bytes)
-            reason = f'Skipping due to spills in stages [{stages_str}] exceeding {spill_threshold_human_readable}'
+            reason = f'Skipping due to spills in stages [{stages_str}] exceeding {spill_threshold_human_readable}.'
             return True, reason
         return False, ''
 
     def apply_heuristics(self, all_apps: pd.DataFrame) -> pd.DataFrame:
         try:
+            self.all_apps = all_apps
             heuristics_df = self._apply_heuristics(all_apps['App ID'].unique())
             # Save the heuristics results to a file and drop the reason column
             heuristics_df.to_csv(self.output_file, index=False)

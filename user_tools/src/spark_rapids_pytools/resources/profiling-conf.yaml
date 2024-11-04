@@ -1,5 +1,7 @@
 toolOutput:
   subFolder: rapids_4_spark_profile
+  textFormat:
+    log4jFileName: rapids_4_spark_profile_stderr.log
   recommendations:
     fileName: profile.log
     headers:
@@ -9,6 +11,7 @@ toolOutput:
 sparkRapids:
   mvnUrl: 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12'
   repoUrl: '{}/{}/rapids-4-spark-tools_2.12-{}.jar'
+  toolsJarRegex: 'rapids-4-spark-tools_2.12-.*.jar'
   mainClass: 'com.nvidia.spark.rapids.tool.profiling.ProfileMain'
   outputDocURL: 'https://docs.nvidia.com/spark-rapids/user-guide/latest/profiling/quickstart.html#profiling-output'
   enableAutoTuner: true

@@ -29,6 +29,7 @@ from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_tools.cloud import ClientCluster
 from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
+from ..configuration.tools_config import ToolsConfig
 from ..enums import QualFilterApp, CspEnv, QualEstimationModel
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
@@ -349,6 +350,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
     eventlogs: Optional[str] = None
     jvm_heap_size: Optional[int] = None
     jvm_threads: Optional[int] = None
+    tools_config_path: Optional[str] = None
 
     def is_concurrent_submission(self) -> bool:
         return False
@@ -359,9 +361,9 @@ class ToolUserArgModel(AbsToolUserArgModel):
         jvm_heap = self.jvm_heap_size
         if jvm_heap is None:
             # set default GC heap size based on the virtual memory of the host.
-            jvm_heap = Utilities.get_system_memory_in_gb()
+            jvm_heap = Utilities.calculate_jvm_max_heap_in_gb()
         # check if both tools are going to run concurrently, then we need to reduce the heap size
-        # To reduce possibility of OOME, each core-tools thread should be running with at least 6 GB
+        # To reduce possibility of OOME, each core-tools thread should be running with at least 8 GB
         # of heap.
         adjusted_resources = Utilities.adjust_tools_resources(jvm_heap,
                                                               jvm_processes=2 if self.is_concurrent_submission() else 1,
@@ -369,6 +371,26 @@ class ToolUserArgModel(AbsToolUserArgModel):
         self.p_args['toolArgs']['jvmMaxHeapSize'] = jvm_heap
         self.p_args['toolArgs']['jobResources'] = adjusted_resources
         self.p_args['toolArgs']['log4jPath'] = Utils.resource_path('dev/log4j.properties')
+
+    def load_tools_config(self) -> None:
+        """
+        Load the tools config file if it is provided. It creates a ToolsConfig object and sets it
+        in the toolArgs without processing the actual dependencies.
+        :return: None
+        """
+        self.p_args['toolArgs']['toolsConfig'] = None
+        if self.tools_config_path is not None:
+            # the CLI provides a tools config file
+            try:
+                self.p_args['toolArgs']['toolsConfig'] = ToolsConfig.load_from_file(self.tools_config_path)
+            except ValidationError as ve:
+                # If required, we can dump the expected specification by appending
+                # 'ToolsConfig.get_schema()' to the error message
+                raise PydanticCustomError(
+                    'invalid_config',
+                    f'Tools config file path {self.tools_config_path} could not be loaded. '
+                    'It is expected to be a valid configuration YAML file.'
+                    f'\n  Error:{ve}\n') from ve
 
     def init_extra_arg_cases(self) -> list:
         if self.eventlogs is None:
@@ -481,11 +503,14 @@ class QualifyUserArgModel(ToolUserArgModel):
         runtime_platform = self.get_or_set_platform()
         # process JVM arguments
         self.process_jvm_args()
+        # process the tools config file
+        self.load_tools_config()
 
         # finally generate the final values
         wrapped_args = {
             'runtimePlatform': runtime_platform,
             'outputFolder': self.output_folder,
+            'toolsConfig': self.p_args['toolArgs']['toolsConfig'],
             'platformOpts': {
                 'credentialFile': None,
                 'deployMode': DeployMode.LOCAL
@@ -601,10 +626,12 @@ class ProfileUserArgModel(ToolUserArgModel):
 
         # process JVM arguments
         self.process_jvm_args()
-
+        # process the tools config file
+        self.load_tools_config()
         # finally generate the final values
         wrapped_args = {
             'runtimePlatform': runtime_platform,
+            'toolsConfig': self.p_args['toolArgs']['toolsConfig'],
             'outputFolder': self.output_folder,
             'platformOpts': {
                 'credentialFile': None,
@@ -617,7 +644,8 @@ class ProfileUserArgModel(ToolUserArgModel):
                 'remoteFolder': None,
                 'platformArgs': {
                     'jvmMaxHeapSize': self.p_args['toolArgs']['jvmMaxHeapSize'],
-                    'jvmGC': self.p_args['toolArgs']['jvmGC']
+                    'jvmGC': self.p_args['toolArgs']['jvmGC'],
+                    'Dlog4j.configuration': self.p_args['toolArgs']['log4jPath']
                 },
                 'jobResources': self.p_args['toolArgs']['jobResources']
             },
