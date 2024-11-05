@@ -181,12 +181,6 @@ class QualificationAppInfo(
     all.map(_.unsupportedTaskDur).sum
   }
 
-  private def calculateSpeedupFactor(all: Seq[StageQualSummaryInfo]): Double = {
-    val allSpeedupFactors = all.filter(_.stageTaskTime > 0).map(_.averageSpeedup)
-    val res = SQLPlanParser.averageSpeedup(allSpeedupFactors)
-    res
-  }
-
   private def getAllReadFileFormats: Seq[String] = {
     dataSourceInfo.map { ds =>
       s"${ds.format.toLowerCase()}[${ds.schema}]"
@@ -575,7 +569,6 @@ class QualificationAppInfo(
       // note that these ratios are based off the stage times which may be missing some stage
       // overhead or execs that didn't have associated stages
       val supportedSQLTaskDuration = calculateSQLSupportedTaskDuration(allStagesSummary)
-      val taskSpeedupFactor = calculateSpeedupFactor(allStagesSummary)
       // Get all the unsupported Execs from the plan
       val unSupportedExecs = planInfos.flatMap { p =>
         // WholeStageCodeGen is excluded from the result.
@@ -635,7 +628,7 @@ class QualificationAppInfo(
         notSupportFormatAndTypesString, getAllReadFileFormats, writeFormat,
         allComplexTypes, nestedComplexTypes, longestSQLDuration, sqlDataframeTaskDuration,
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
-        taskSpeedupFactor, info.sparkUser, info.startTime, estimatedInfo.sqlDfDuration,
+        info.sparkUser, info.startTime, estimatedInfo.sqlDfDuration,
         origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap,
@@ -961,7 +954,6 @@ case class QualificationSummaryInfo(
     nonSqlTaskDurationAndOverhead: Long,
     unsupportedSQLTaskDuration: Long,
     supportedSQLTaskDuration: Long,
-    taskSpeedupFactor: Double,
     user: String,
     startTime: Long,
     sparkSqlDFWallClockDuration: Long,
