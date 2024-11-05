@@ -792,7 +792,7 @@ class QualificationSuite extends BaseTestSuite {
         assert(mlOpsRes.mlFunctions.get.head.mlOps.mkString.contains(
           "org.apache.spark.ml.feature.PCA.fit"))
         assert(mlOpsRes.mlFunctionsStageDurations.get.head.mlFuncName.equals("PCA"))
-        // estimated GPU time is for ML function, there are no Spark Dataframe/SQL functions.
+        // For ML function, there are no Spark Dataframe/SQL functions. GPU opportunity is 0.
         assert(mlOpsRes.estimatedInfo.gpuOpportunity >= 0)
       }
     }
