@@ -37,8 +37,7 @@ class GenericExecParser(
     val expressions = parseExpressions()
     val notSupportedExprs = getNotSupportedExprs(expressions)
     val isExecSupported = checker.isExecSupported(fullExecName) &&
-      notSupportedExprs.isEmpty &&
-      isSupportedByDefault
+      notSupportedExprs.isEmpty
 
     val (speedupFactor, isSupported) = if (isExecSupported) {
       (checker.getSpeedupFactor(fullExecName), true)
@@ -67,12 +66,17 @@ class GenericExecParser(
     checker.getNotSupportedExprs(expressions)
   }
 
-  // Compute duration based on the node metrics of that ExecNode
-  protected def computeDuration: Option[Long] = {
-    None
+  protected def getDurationMetricIds: Seq[Long] = {
+    Seq.empty
   }
 
-  protected def isSupportedByDefault: Boolean = true
+  protected def computeDuration: Option[Long] = {
+    // Sum the durations for all metrics returned by getDurationMetricIds
+    val durations = getDurationMetricIds.flatMap { metricId =>
+      app.flatMap(appInstance => SQLPlanParser.getTotalDuration(Some(metricId), appInstance))
+    }
+    durations.reduceOption(_ + _)
+  }
 
   protected def createExecInfo(
       speedupFactor: Double,

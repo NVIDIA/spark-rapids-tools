@@ -465,10 +465,11 @@ object SQLPlanParser extends Logging {
     val normalizedNodeName = node.name.stripSuffix("$")
     normalizedNodeName match {
       // Generalize all the execs that call GenericExecParser in one case
-      case "AggregateInPandas" | "ArrowEvalPython" | "CartesianProduct" | "Coalesce"
-           | "CollectLimit" | "FlatMapGroupsInPandas" | "GlobalLimit" | "LocalLimit"
-           | "InMemoryTableScan" | "MapInPandas" | "PythonMapInArrow" | "MapInArrow" | "Range"
-           | "Sample" | "Union" | "WindowInPandas" =>
+      case "AggregateInPandas" | "ArrowEvalPython" | "AQEShuffleRead" | "CartesianProduct"
+           | "Coalesce" | "CollectLimit" | "CustomShuffleReader" | "FlatMapGroupsInPandas"
+           | "GlobalLimit" | "LocalLimit" | "InMemoryTableScan" | "MapInPandas"
+           | "PythonMapInArrow" | "MapInArrow" | "Range" | "Sample" | "Union"
+           | "WindowInPandas" =>
         GenericExecParser(node, checker, sqlID, app = Some(app)).parse
       case "BatchScan" =>
         BatchScanExecParser(node, checker, sqlID, app).parse
@@ -478,11 +479,6 @@ object SQLPlanParser extends Logging {
         BroadcastHashJoinExecParser(node, checker, sqlID).parse
       case "BroadcastNestedLoopJoin" =>
         BroadcastNestedLoopJoinExecParser(node, checker, sqlID).parse
-      // This is called either AQEShuffleRead and CustomShuffleReader depending
-      // on the Spark version, our supported ops list it as CustomShuffleReader
-      case "CustomShuffleReader" | "AQEShuffleRead" =>
-        GenericExecParser(
-          node, checker, sqlID, execName = Some("CustomShuffleReaderExec")).parse
       case "Exchange" =>
         ShuffleExchangeExecParser(node, checker, sqlID, app).parse
       case "Expand" =>
@@ -499,7 +495,7 @@ object SQLPlanParser extends Logging {
       case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
         DataWritingCommandExecParser.parseNode(node, checker, sqlID)
       case "ObjectHashAggregate" =>
-        ObjectHashAggregateExecParser(node, checker, sqlID, appParam = app).parse
+        ObjectHashAggregateExecParser(node, checker, sqlID, app).parse
       case "Project" =>
         GenericExecParser(
           node, checker, sqlID, expressionFunction = Some(parseProjectExpressions)).parse
