@@ -175,8 +175,14 @@ def init_environment(short_name: str):
 
 class Utilities:
     """Utility class used to enclose common helpers and utilities."""
+    # Assume that the minimum xmx jvm heap allowed to the java cmd is 8 GB.
+    min_jvm_xmx: ClassVar[int] = 8
+    # Assume that the maximum xmx jvm heap allowed to the java cmd is 32 GB.
+    max_jvm_xmx: ClassVar[int] = 32
     # Assume that any tools thread would need at least 8 GB of heap memory.
     min_jvm_heap_per_thread: ClassVar[int] = 8
+    # Assume that maximum allowed number of threads to be passed to the tools java cmd is 8.
+    max_tools_threads: ClassVar[int] = 8
     # Flag used to disable running tools in parallel. This is a temporary hack to reduce possibility
     # of OOME. Later we can re-enable it.
     conc_mode_enabled: ClassVar[bool] = False
@@ -228,7 +234,7 @@ class Utilities:
     def get_base_release(cls) -> str:
         """
         For now the tools_jar is always with major.minor.0.
-        this method makes sure that even if the package version is incremented, we will still
+        This method makes sure that even if the package version is incremented, we will still
         get the correct url.
         :return: a string containing the release number 22.12.0, 23.02.0, amd 23.04.0..etc
         """
@@ -244,22 +250,37 @@ class Utilities:
         return [col for col in input_cols if col in input_df.columns]
 
     @classmethod
-    def get_system_memory_in_gb(cls) -> int:
+    def calculate_jvm_max_heap_in_gb(cls) -> int:
         """
-        Get the total system memory in GB. Ideally we only grab 80% of teh total-memory
+        Calculates the maximum heap size to pass to the java cmd based on the memory system.
+        By default, the calculation should not be too aggressive because it would lead to reserving
+        large memory from the system. In some environments, the OOM killer might kill the tools
+        process when the OS runs out of resources.
+        To achieve this, we calculate the heap based on the available memory
+        (not total memory) capping the value to 32 GB.
+        :return: The maximum JVM heap size in GB. It is in the range [8-32] GB.
         """
         ps_memory = psutil.virtual_memory()
-        return int(0.8 * ps_memory.total / (1024 ** 3))
+        # get the available memory in the system
+        available_sys_gb = ps_memory.available / (1024 ** 3)
+        # set the max heap to 30% of total available memory
+        heap_based_on_sys = int(0.3 * available_sys_gb)
+        # enforce the xmx heap argument to be in the range [8, 32] GB
+        return max(cls.min_jvm_xmx, min(heap_based_on_sys, cls.max_jvm_xmx))
 
     @classmethod
-    def get_max_jvm_threads(cls) -> int:
+    def calculate_max_tools_threads(cls) -> int:
         """
-        Get the total cpu_count.
+        Calculates the maximum number of threads that can be passed to the tools' java cmd based on
+        the cores of the system. We cap it to 8 threads to reduce teh risk of OOME on the java side.
+        :return: The maximum thread pool size in the tools' java cmd in the range [1, 8].
         """
-        # Maximum number of threads that can be used in the tools JVM.
-        # cpu_count returns the logical number of cores. So, we take a 50% to get better representation
-        # of physical cores.
-        return min(3, (psutil.cpu_count() + 1) // 2)
+        # Get the number of physical cores in the system. The logical cores is usually higher,
+        # but we are being a little bit conservative here to avoid running high number of threads concurrently.
+        # Note that on MacOS, the result of both physical/logical count is the same.
+        physical_cores = psutil.cpu_count(logical=False)
+        # Enforce a safe range [1, 8]
+        return max(1, min(cls.max_tools_threads, physical_cores))
 
     @classmethod
     def adjust_tools_resources(cls,
@@ -275,7 +296,7 @@ class Utilities:
         concurrent_mode = cls.conc_mode_enabled and jvm_processes > 1
         heap_unit = max(cls.min_jvm_heap_per_thread, jvm_heap // 3 if concurrent_mode else jvm_heap)
         # calculate the maximum number of threads.
-        upper_threads = cls.get_max_jvm_threads() // 3 if concurrent_mode else cls.get_max_jvm_threads()
+        upper_threads = cls.calculate_max_tools_threads() // 3 if concurrent_mode else cls.calculate_max_tools_threads()
         if jvm_threads is None:
             # make sure that the qual threads cannot exceed maximum allowed threads
             num_threads_unit = min(upper_threads, max(1, heap_unit // cls.min_jvm_heap_per_thread))
