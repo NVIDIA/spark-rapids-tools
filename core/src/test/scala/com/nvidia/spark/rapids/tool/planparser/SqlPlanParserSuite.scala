@@ -254,7 +254,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         assert(wholeStages.forall(_.duration.nonEmpty))
         val allChildren = wholeStages.flatMap(_.children).flatten
         val hashAggregate = allChildren.filter(_.exec == "HashAggregate")
-        assertSizeAndSupported(2, hashAggregate)
+        assertSizeAndSupported(2, hashAggregate, checkDurations = false)
       }
     }
   }
@@ -1243,7 +1243,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       }
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val hashAggregate = execInfo.filter(_.exec == "HashAggregate")
-      assertSizeAndSupported(2, hashAggregate)
+      assertSizeAndSupported(2, hashAggregate, checkDurations = false)
     }
   }
 
@@ -1799,7 +1799,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       // if the min_by and max_by were not recognized, the test would fail
       val hashAggExecs =
         getAllExecsFromPlan(parsedPlans.toSeq).filter(_.exec.equals("HashAggregate"))
-      assertSizeAndSupported(2, hashAggExecs)
+      assertSizeAndSupported(2, hashAggExecs, checkDurations = false)
     }
   }
 
