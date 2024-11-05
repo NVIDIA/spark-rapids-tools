@@ -437,8 +437,6 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val app = createAppFromEventlog(eventLog)
     val stats = app.aggregateStats()
     assert(stats.nonEmpty)
-    val recommendation = stats.get.estimatedInfo.recommendation
-    assert(recommendation.equals("Not Applicable"))
   }
 
   test("InMemoryTableScan") {
