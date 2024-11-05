@@ -42,8 +42,6 @@ import org.apache.spark.sql.types._
 case class TestQualificationSummary(
     appName: String,
     appId: String,
-    estimatedGpuDur: Double,
-    estimatedGpuTimeSaved: Double,
     sqlDataframeDuration: Long,
     sqlDataframeTaskDuration: Long,
     appDuration: Long,
@@ -64,7 +62,7 @@ case class TestQualificationSummary(
     unsupportedExecs: String,
     unsupportedExprs: String,
     estimatedFrequency: Long,
-    toalCoreSecs: Long)
+    totalCoreSecs: Long)
 
 class QualificationSuite extends BaseTestSuite {
 
@@ -74,8 +72,6 @@ class QualificationSuite extends BaseTestSuite {
   private val csvDetailedFields = Seq(
     (QualOutputWriter.APP_NAME_STR, StringType),
     (QualOutputWriter.APP_ID_STR, StringType),
-    (QualOutputWriter.ESTIMATED_GPU_DURATION, DoubleType),
-    (QualOutputWriter.ESTIMATED_GPU_TIMESAVED, DoubleType),
     (QualOutputWriter.SQL_DUR_STR, LongType),
     (QualOutputWriter.TASK_DUR_STR, LongType),
     (QualOutputWriter.APP_DUR_STR, LongType),
@@ -105,9 +101,7 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.SQL_ID_STR, StringType),
     (QualOutputWriter.SQL_DESC_STR, StringType),
     (QualOutputWriter.SQL_DUR_STR, LongType),
-    (QualOutputWriter.GPU_OPPORTUNITY_STR, LongType),
-    (QualOutputWriter.ESTIMATED_GPU_DURATION, DoubleType),
-    (QualOutputWriter.ESTIMATED_GPU_TIMESAVED, DoubleType))
+    (QualOutputWriter.GPU_OPPORTUNITY_STR, LongType))
 
   val schema = new StructType(csvDetailedFields.map(f => StructField(f._1, f._2, true)).toArray)
   val perSQLSchema = new StructType(csvPerSQLFields.map(f => StructField(f._1, f._2, true)).toArray)
@@ -130,8 +124,7 @@ class QualificationSuite extends BaseTestSuite {
       appSums: Seq[QualificationSummaryInfo]): Seq[TestQualificationSummary] = {
     appSums.map { appInfoRec =>
       val sum = QualOutputWriter.createFormattedQualSummaryInfo(appInfoRec, ",")
-      TestQualificationSummary(sum.appName, sum.appId, sum.estimatedGpuDur,
-        sum.estimatedGpuTimeSaved, sum.sqlDataframeDuration,
+      TestQualificationSummary(sum.appName, sum.appId, sum.sqlDataframeDuration,
         sum.sqlDataframeTaskDuration, sum.appDuration,
         sum.gpuOpportunity, sum.executorCpuTimePercent, sum.failedSQLIds,
         sum.readFileFormatAndTypesNotSupported, sum.writeDataFormat,
@@ -230,7 +223,7 @@ class QualificationSuite extends BaseTestSuite {
           val allFiles = fs.listStatus(outputDirPath)
           assert(allFiles.size == 6)
           val dfPerSqlActual = readPerSqlFile(new File(csvOutput0))
-          assert(dfPerSqlActual.columns.size == 9)
+          assert(dfPerSqlActual.columns.size == 7)
           val rows = dfPerSqlActual.collect()
           assert(rows.size == 2)
           val firstRow = rows(1)
@@ -799,8 +792,8 @@ class QualificationSuite extends BaseTestSuite {
         assert(mlOpsRes.mlFunctions.get.head.mlOps.mkString.contains(
           "org.apache.spark.ml.feature.PCA.fit"))
         assert(mlOpsRes.mlFunctionsStageDurations.get.head.mlFuncName.equals("PCA"))
-        // estimated GPU time is for ML function, there are no Spark Dataframe/SQL functions.
-        assert(mlOpsRes.estimatedInfo.estimatedGpuTimeSaved > 0)
+        // For ML function, there are no Spark Dataframe/SQL functions. GPU opportunity is 0.
+        assert(mlOpsRes.estimatedInfo.gpuOpportunity >= 0)
       }
     }
   }
@@ -1029,7 +1022,7 @@ class QualificationSuite extends BaseTestSuite {
         val dfPerSqlActual = readPerSqlFile(new File(persqlResults))
         // the number of columns actually won't be wrong if sql description is malformatted
         // because spark seems to drop extra column so need more checking
-        assert(dfPerSqlActual.columns.size == 9)
+        assert(dfPerSqlActual.columns.size == 7)
         val rows = dfPerSqlActual.collect()
         assert(rows.size == 3)
         val firstRow = rows(1)
@@ -1258,17 +1251,14 @@ class QualificationSuite extends BaseTestSuite {
         // just basic testing that line exists and has right separator
         val csvHeader = qualApp.getPerSqlCSVHeader
         assert(csvHeader.contains("App Name,App ID,Root SQL ID,SQL ID,SQL Description," +
-            "SQL DF Duration,GPU Opportunity,Estimated GPU Duration," +
-            "Estimated GPU Time Saved"))
+            "SQL DF Duration,GPU Opportunity"))
         val txtHeader = qualApp.getPerSqlTextHeader
         assert(txtHeader.contains("|                              App Name|             App ID|" +
             "Root SQL ID|SQL ID|                                                              " +
-            "                       SQL Description|SQL DF Duration|GPU Opportunity|" +
-            "Estimated GPU Duration|Estimated GPU Time Saved|"))
+            "                       SQL Description|SQL DF Duration|GPU Opportunity|"))
         val randHeader = qualApp.getPerSqlHeader(";", true, 20)
         assert(randHeader.contains(";                              App Name;             App ID;" +
-            "Root SQL ID;SQL ID;     SQL Description;SQL DF Duration;GPU Opportunity;" +
-            "Estimated GPU Duration;Estimated GPU Time Saved"))
+            "Root SQL ID;SQL ID;     SQL Description;SQL DF Duration;GPU Opportunity;"))
         val allSQLIds = qualApp.getAvailableSqlIDs
         val numSQLIds = allSQLIds.size
         assert(numSQLIds > 0)

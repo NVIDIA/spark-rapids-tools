@@ -181,12 +181,6 @@ class QualificationAppInfo(
     all.map(_.unsupportedTaskDur).sum
   }
 
-  private def calculateSpeedupFactor(all: Seq[StageQualSummaryInfo]): Double = {
-    val allSpeedupFactors = all.filter(_.stageTaskTime > 0).map(_.averageSpeedup)
-    val res = SQLPlanParser.averageSpeedup(allSpeedupFactors)
-    res
-  }
-
   private def getAllReadFileFormats: Seq[String] = {
     dataSourceInfo.map { ds =>
       s"${ds.format.toLowerCase()}[${ds.schema}]"
@@ -542,8 +536,7 @@ class QualificationAppInfo(
             val wallClockDur = info.duration.getOrElse(0L)
             // get task duration ratio
             val sqlStageSums = perSqlStageSummary.filter(_.sqlID == pInfo.sqlID)
-            val estimatedInfo = getPerSQLWallClockSummary(sqlStageSums, wallClockDur,
-              sqlIDtoFailures.get(pInfo.sqlID).nonEmpty, appName)
+            val estimatedInfo = getPerSQLWallClockSummary(sqlStageSums, wallClockDur, appName)
             EstimatedPerSQLSummaryInfo(pInfo.sqlID, info.rootExecutionID, pInfo.sqlDesc,
               estimatedInfo)
           }
@@ -576,7 +569,6 @@ class QualificationAppInfo(
       // note that these ratios are based off the stage times which may be missing some stage
       // overhead or execs that didn't have associated stages
       val supportedSQLTaskDuration = calculateSQLSupportedTaskDuration(allStagesSummary)
-      val taskSpeedupFactor = calculateSpeedupFactor(allStagesSummary)
       // Get all the unsupported Execs from the plan
       val unSupportedExecs = planInfos.flatMap { p =>
         // WholeStageCodeGen is excluded from the result.
@@ -624,9 +616,8 @@ class QualificationAppInfo(
       // set the format to match the output. Removing the truncation from here requires modifying
       // TestQualificationSummary to truncate the same fields to match the CSV static samples.
       val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(appDurationNoOverhead,
-        sqlDfWallEstimatedRatio, supportedsqlDfWallEstimatedRatio, taskSpeedupFactor,
-        appDuration, appName, appId, sqlIdsWithFailures.nonEmpty, mlFuncReportInfo.speedup,
-        mlFuncReportInfo.mlWallClockDur, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
+        sqlDfWallEstimatedRatio, supportedsqlDfWallEstimatedRatio,
+        appDuration, appName, appId, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
 
       val clusterSummary = ClusterSummary(info.appName, appId,
         eventLogInfo.map(_.eventLog.toString), platform.clusterInfoFromEventLog,
@@ -637,7 +628,7 @@ class QualificationAppInfo(
         notSupportFormatAndTypesString, getAllReadFileFormats, writeFormat,
         allComplexTypes, nestedComplexTypes, longestSQLDuration, sqlDataframeTaskDuration,
         nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
-        taskSpeedupFactor, info.sparkUser, info.startTime, estimatedInfo.sqlDfDuration,
+        info.sparkUser, info.startTime, estimatedInfo.sqlDfDuration,
         origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
         perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
         unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap,
@@ -676,11 +667,10 @@ class QualificationAppInfo(
   }
 
   def getPerSQLWallClockSummary(sqlStageSums: Seq[SQLStageSummary], sqlDataFrameDuration: Long,
-      hasFailures: Boolean, appName: String): EstimatedAppInfo = {
+      appName: String): EstimatedAppInfo = {
     val allStagesSummary = sqlStageSums.flatMap(_.stageSum)
     val sqlDataframeTaskDuration = allStagesSummary.map(_.stageTaskTime).sum
     val supportedSQLTaskDuration = calculateSQLSupportedTaskDuration(allStagesSummary)
-    val taskSpeedupFactor = calculateSpeedupFactor(allStagesSummary)
 
     // since this is per sql output we are ignoring stages outside the sql so the
     // ratio here should just be 1
@@ -702,8 +692,8 @@ class QualificationAppInfo(
     val appDuration = appDurationNoOverhead
 
     QualificationAppInfo.calculateEstimatedInfoSummary(appDurationNoOverhead,
-      sqlDfWallEstimatedRatio, supportedsqlDfWallEstimatedRatio, taskSpeedupFactor,
-      appDuration, appName, appId, hasFailures)
+      sqlDfWallEstimatedRatio, supportedsqlDfWallEstimatedRatio,
+      appDuration, appName, appId)
   }
 
   private def getAllSQLDurations: Seq[Long] = {
@@ -897,10 +887,6 @@ case class EstimatedAppInfo(
     appDur: Long,
     sqlDfDuration: Long,
     gpuOpportunity: Long, // Projected opportunity for acceleration on GPU in ms
-    estimatedGpuDur: Double, // Predicted runtime for the app if it was run on the GPU
-    estimatedGpuSpeedup: Double, // app_duration / estimated_gpu_duration
-    estimatedGpuTimeSaved: Double, // app_duration - estimated_gpu_duration
-    recommendation: String,
     unsupportedExecs: String,
     unsupportedExprs: String,
     allTagsMap: Map[String, String])
@@ -968,7 +954,6 @@ case class QualificationSummaryInfo(
     nonSqlTaskDurationAndOverhead: Long,
     unsupportedSQLTaskDuration: Long,
     supportedSQLTaskDuration: Long,
-    taskSpeedupFactor: Double,
     user: String,
     startTime: Long,
     sparkSqlDFWallClockDuration: Long,
@@ -1002,38 +987,21 @@ case class StageQualSummaryInfo(
     unsupportedExecs: Seq[ExecInfo] = Seq.empty)
 
 object QualificationAppInfo extends Logging {
-  // define recommendation constants
-  val RECOMMENDED = "Recommended"
-  val NOT_RECOMMENDED = "Not Recommended"
-  val STRONGLY_RECOMMENDED = "Strongly Recommended"
-  val NOT_APPLICABLE = "Not Applicable"
-  val LOWER_BOUND_RECOMMENDED = 1.3
-  val LOWER_BOUND_STRONGLY_RECOMMENDED = 2.5
   // Below is the total time taken whenever there are ColumnarToRow or RowToColumnar transitions
   // This includes the time taken to convert the data from one format to another and the time taken
   // to transfer the data from CPU to GPU and vice versa. Current transfer rate is 1GB/s and is
   // based on the testing on few candidate eventlogs.
   val CPU_GPU_TRANSFER_RATE = 1000000000L
 
-  def getRecommendation(totalSpeedup: Double,
-      hasFailures: Boolean): String = {
-    if (hasFailures) {
-      NOT_APPLICABLE
-    } else if (totalSpeedup >= LOWER_BOUND_STRONGLY_RECOMMENDED) {
-      STRONGLY_RECOMMENDED
-    } else if (totalSpeedup >= LOWER_BOUND_RECOMMENDED) {
-      RECOMMENDED
-    } else {
-      NOT_RECOMMENDED
-    }
-  }
-
-  def calculateEstimatedInfoSummary(appDurationNoOverhead: Long,
+  def calculateEstimatedInfoSummary(
+      appDurationNoOverhead: Long,
       sqlDfWallEstimatedRatio: Double,
-      supportedsqlDfWallEstimatedRatio: Double, taskSpeedupFactor: Double,
-      appDuration: Long,  appName: String, appId: String,
-      hasFailures: Boolean, mlSpeedup: Double = 1.0, mlWallClockDur: Double = 0.0,
-      unSupportedExecs: String = "", unSupportedExprs: String = "",
+      supportedsqlDfWallEstimatedRatio: Double,
+      appDuration: Long,
+      appName: String,
+      appId: String,
+      unSupportedExecs: String = "",
+      unSupportedExprs: String = "",
       allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedAppInfo = {
 
     // apply the task ratio we calculated above to the app duration wall clock to get
@@ -1044,27 +1012,6 @@ object QualificationAppInfo extends Logging {
     // SQL and Dataframe operations
     val supportedSqlDfWallDuration = appDurationNoOverhead * supportedsqlDfWallEstimatedRatio
 
-    // this includes the not supported SQL, nonSQL (excluding supported ml) and job overhead
-    // Note that the wall clock for ml here is not completely the same since using stage
-    // wall clock and not ratio of task time to app duration but good enough for now
-    val estWallClockDurNotOnGpuNoSupportedML = appDuration - supportedSqlDfWallDuration -
-      mlWallClockDur
-    val mlWallClockDurWithSpeedup = if (mlWallClockDur > 0) {
-      (mlWallClockDur / mlSpeedup)
-    } else {
-      0
-    }
-    // this is the new estimated wall clock time when we apply the GPU speedup factors
-    val estWallClockDurWithGpuAccel = (supportedSqlDfWallDuration / taskSpeedupFactor) +
-      estWallClockDurNotOnGpuNoSupportedML + mlWallClockDurWithSpeedup
-    val appDurSpeedupWithGPUAccel = if (appDuration == 0 || estWallClockDurWithGpuAccel == 0) {
-      0
-    } else {
-      appDuration / estWallClockDurWithGpuAccel
-    }
-    val estGpuTimeSaved = appDuration - estWallClockDurWithGpuAccel
-    val recommendation = getRecommendation(appDurSpeedupWithGPUAccel, hasFailures)
-
     // truncate the double fields to double precision to ensure that unit-tests do not explicitly
     // set the format to match the output. Removing the truncation from here requires modifying
     // TestQualificationSummary to truncate the same fields to match the CSV static samples.
@@ -1073,10 +1020,6 @@ object QualificationAppInfo extends Logging {
       appDuration,
       sqlDfWallDuration.toLong,
       supportedSqlDfWallDuration.toLong,
-      estWallClockDurWithGpuAccel,
-      appDurSpeedupWithGPUAccel,
-      estGpuTimeSaved,
-      recommendation,
       unSupportedExecs,
       unSupportedExprs,
       allClusterTagsMap)
