@@ -334,7 +334,11 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       withDefaultValue(StatisticsMetrics.ZERO_RECORD)
     diagnosticMetrics.foreach { accum =>
       val statistics = StatisticsMetrics(accum.min, accum.median, accum.max, accum.total)
-      diagnosticMap(accum.accMetaRef.getName) = statistics
+      val metricName = accum.accMetaRef.getName
+      if (diagnosticMap.contains(metricName)) {
+        throw new Exception(s"Metric $metricName already exists in stage.")
+      }
+      diagnosticMap(metricName) = statistics
     }
     diagnosticMap
   }
