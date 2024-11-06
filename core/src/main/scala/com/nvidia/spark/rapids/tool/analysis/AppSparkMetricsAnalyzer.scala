@@ -18,11 +18,11 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import java.util.concurrent.TimeUnit
 
-import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, Map}
 
-import com.nvidia.spark.rapids.tool.analysis.DiagnosticMetrics._
+import com.nvidia.spark.rapids.tool.analysis.StageAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
+import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -52,14 +52,14 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   // Hashmap to cache the stage level metrics. It is initialized to None just in case the caller
   // does not call methods in order starting with stage level metrics.
   private var stageLevelCache:
-    Option[mutable.LinkedHashMap[Int, StageAggTaskMetricsProfileResult]] = None
+    Option[LinkedHashMap[Int, StageAggTaskMetricsProfileResult]] = None
 
   // Getter method used to protect the cache from out-of-order calls.
   // If the stage-level metrics are not generated yet, generates and add them to the cache
   private def stageLevelSparkMetrics(
-      index: Int): mutable.LinkedHashMap[Int, StageAggTaskMetricsProfileResult] = {
+      index: Int): LinkedHashMap[Int, StageAggTaskMetricsProfileResult] = {
     if (stageLevelCache.isEmpty) {
-      stageLevelCache = Some(mutable.LinkedHashMap[Int, StageAggTaskMetricsProfileResult]())
+      stageLevelCache = Some(LinkedHashMap[Int, StageAggTaskMetricsProfileResult]())
       aggregateSparkMetricsByStageInternal(index)
     }
     stageLevelCache.get
@@ -323,6 +323,23 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   }
 
   /**
+   * Create a mapping between diagnostic metric name to metric statistic results (min, median,
+   * max, total).
+   * @param diagnosticMetrics a list of AccumProfileResults to be converted to a map
+   * @return map between metric name and its StatisticsMetrics
+   */
+  private def diagnosticMetricsMap(
+      diagnosticMetrics: ArrayBuffer[AccumProfileResults]): Map[String, StatisticsMetrics] = {
+    val diagnosticMap = Map[String, StatisticsMetrics]().
+      withDefaultValue(StatisticsMetrics.ZERO_RECORD)
+    diagnosticMetrics.foreach { accum =>
+      val statistics = StatisticsMetrics(accum.min, accum.median, accum.max, accum.total)
+      diagnosticMap(accum.accMetaRef.getName) = statistics
+    }
+    diagnosticMap
+  }
+
+  /**
    * Aggregates the diagnostic SparkMetrics by stage.
    * @param index the App-index (used by the profiler tool)
    * @param analyzerInput optional AppSQLPlanAnalyzer which is used to pull stage level
@@ -352,17 +369,9 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       val numAttempts = tasksInStage.size
       val nodeNames = sqlAnalyzer.stageToNodeNames.
         getOrElse(sm.stageInfo.stageId, Seq.empty[String])
-      val disgnosticMetrics = sqlAnalyzer.stageToDiagnosticMetrics.
-        getOrElse(sm.stageInfo.stageId, mutable.HashMap.empty[String, StatisticsMetrics])
-      val zeroStats = StatisticsMetrics.ZERO_RECORD
-      val memorySpilledMetrics = disgnosticMetrics.getOrElse(MEMORY_SPILLED_METRIC, zeroStats)
-      val diskSpilledMetrics = disgnosticMetrics.getOrElse(DISK_SPILLED_METRIC, zeroStats)
-      val inputBytesReadMetrics = disgnosticMetrics.getOrElse(INPUT_BYTES_READ_METRIC, zeroStats)
-      val outputBytesMetrics = disgnosticMetrics.getOrElse(OUTPUT_BYTES_WRITTEN_METRIC, zeroStats)
-      val swTotalBytesMetrics = disgnosticMetrics.getOrElse(SW_TOTAL_BYTES_METRIC, zeroStats)
-      val srFetchWaitTimeMetrics = disgnosticMetrics.getOrElse(SR_FETCH_WAIT_TIME_METRIC, zeroStats)
-      val swWriteTimeMetrics = disgnosticMetrics.getOrElse(SW_WRITE_TIME_METRIC, zeroStats)
-      val gpuSemaphoreMetrics = disgnosticMetrics.getOrElse(GPU_SEMAPHORE_WAIT_METRIC, zeroStats)
+      val diagnosticMetrics = sqlAnalyzer.stageToDiagnosticMetrics.
+        getOrElse(sm.stageInfo.stageId, ArrayBuffer[AccumProfileResults]())
+      val metricToStatistics = diagnosticMetricsMap(diagnosticMetrics)
       val srTotalBytesMetrics =
         AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_totalBytesRead))
 
@@ -372,39 +381,39 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         sm.stageInfo.stageId,
         sm.duration,
         numAttempts,  // TODO: why is this numAttempts and not numTasks?
-        bytesToMB(memorySpilledMetrics.min),
-        bytesToMB(memorySpilledMetrics.med),
-        bytesToMB(memorySpilledMetrics.max),
-        bytesToMB(memorySpilledMetrics.total),
-        bytesToMB(diskSpilledMetrics.min),
-        bytesToMB(diskSpilledMetrics.med),
-        bytesToMB(diskSpilledMetrics.max),
-        bytesToMB(diskSpilledMetrics.total),
-        inputBytesReadMetrics.min,
-        inputBytesReadMetrics.med,
-        inputBytesReadMetrics.max,
-        inputBytesReadMetrics.total,
-        outputBytesMetrics.min,
-        outputBytesMetrics.med,
-        outputBytesMetrics.max,
-        outputBytesMetrics.total,
+        bytesToMB(metricToStatistics(MEMORY_SPILLED_METRIC).min),
+        bytesToMB(metricToStatistics(MEMORY_SPILLED_METRIC).med),
+        bytesToMB(metricToStatistics(MEMORY_SPILLED_METRIC).max),
+        bytesToMB(metricToStatistics(MEMORY_SPILLED_METRIC).total),
+        bytesToMB(metricToStatistics(DISK_SPILLED_METRIC).min),
+        bytesToMB(metricToStatistics(DISK_SPILLED_METRIC).med),
+        bytesToMB(metricToStatistics(DISK_SPILLED_METRIC).max),
+        bytesToMB(metricToStatistics(DISK_SPILLED_METRIC).total),
+        metricToStatistics(INPUT_BYTES_READ_METRIC).min,
+        metricToStatistics(INPUT_BYTES_READ_METRIC).med,
+        metricToStatistics(INPUT_BYTES_READ_METRIC).max,
+        metricToStatistics(INPUT_BYTES_READ_METRIC).total,
+        metricToStatistics(OUTPUT_BYTES_WRITTEN_METRIC).min,
+        metricToStatistics(OUTPUT_BYTES_WRITTEN_METRIC).med,
+        metricToStatistics(OUTPUT_BYTES_WRITTEN_METRIC).max,
+        metricToStatistics(OUTPUT_BYTES_WRITTEN_METRIC).total,
         srTotalBytesMetrics.min,
         srTotalBytesMetrics.med,
         srTotalBytesMetrics.max,
         srTotalBytesMetrics.total,
-        swTotalBytesMetrics.min,
-        swTotalBytesMetrics.med,
-        swTotalBytesMetrics.max,
-        swTotalBytesMetrics.total,
-        nanoToMilliSec(srFetchWaitTimeMetrics.min),
-        nanoToMilliSec(srFetchWaitTimeMetrics.med),
-        nanoToMilliSec(srFetchWaitTimeMetrics.max),
-        nanoToMilliSec(srFetchWaitTimeMetrics.total),
-        nanoToMilliSec(swWriteTimeMetrics.min),
-        nanoToMilliSec(swWriteTimeMetrics.med),
-        nanoToMilliSec(swWriteTimeMetrics.max),
-        nanoToMilliSec(swWriteTimeMetrics.total),
-        gpuSemaphoreMetrics.total,
+        metricToStatistics(SW_TOTAL_BYTES_METRIC).min,
+        metricToStatistics(SW_TOTAL_BYTES_METRIC).med,
+        metricToStatistics(SW_TOTAL_BYTES_METRIC).max,
+        metricToStatistics(SW_TOTAL_BYTES_METRIC).total,
+        nanoToMilliSec(metricToStatistics(SR_FETCH_WAIT_TIME_METRIC).min),
+        nanoToMilliSec(metricToStatistics(SR_FETCH_WAIT_TIME_METRIC).med),
+        nanoToMilliSec(metricToStatistics(SR_FETCH_WAIT_TIME_METRIC).max),
+        nanoToMilliSec(metricToStatistics(SR_FETCH_WAIT_TIME_METRIC).total),
+        nanoToMilliSec(metricToStatistics(SW_WRITE_TIME_METRIC).min),
+        nanoToMilliSec(metricToStatistics(SW_WRITE_TIME_METRIC).med),
+        nanoToMilliSec(metricToStatistics(SW_WRITE_TIME_METRIC).max),
+        nanoToMilliSec(metricToStatistics(SW_WRITE_TIME_METRIC).total),
+        metricToStatistics(GPU_SEMAPHORE_WAIT_METRIC).total,
         nodeNames)
     }.toSeq
   }
@@ -425,8 +434,8 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
     // Note:
     //  - A HashMap could be used instead of separate mutable.ArrayBuffer for each metric type,
     //    but avoiding it for readability.
-    val photonPeakMemoryAccumInfos = mutable.ArrayBuffer[AccumInfo]()
-    val photonShuffleWriteTimeAccumInfos = mutable.ArrayBuffer[AccumInfo]()
+    val photonPeakMemoryAccumInfos = ArrayBuffer[AccumInfo]()
+    val photonShuffleWriteTimeAccumInfos = ArrayBuffer[AccumInfo]()
 
     if (app.isPhoton) {
       app.accumManager.applyToAccumInfoMap { accumInfo =>

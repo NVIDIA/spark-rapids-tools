@@ -326,7 +326,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val stageMetrics = collect.getStageLevelMetrics
     val wholeStage = collect.getWholeStageCodeGenMapping
     val sparkRapidsBuildInfo = collect.getSparkRapidsInfo
-    val sqlToStages = collect.getSQLToStage
 
     // for compare mode we just add in extra tables for matching across applications
     // the rest of the tables simply list all applications specified
@@ -393,7 +392,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       rapidsJar, sqlMetrics, stageMetrics, analysis.jobAggs, analysis.stageAggs,
       analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
-      unsupportedOps, sparkProps, sqlToStages, wholeStage, maxTaskInputInfo,
+      unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
       appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo,
       analysis.stageDiagnostics), compareRes)
   }

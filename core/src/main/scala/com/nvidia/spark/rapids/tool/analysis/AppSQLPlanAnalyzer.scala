@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
-import com.nvidia.spark.rapids.tool.analysis.DiagnosticMetrics._
+// import com.nvidia.spark.rapids.tool.analysis.StageAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
 import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
@@ -57,26 +57,23 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   //      SQLPlanParser.
   var unsupportedSQLPlan: ArrayBuffer[UnsupportedSQLPlan] = ArrayBuffer[UnsupportedSQLPlan]()
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
-  // A map between stage ID and the set of node names
+  // A map between stage ID and a set of node names
   val stageToNodeNames: HashMap[Long, Seq[String]] = HashMap.empty[Long, Seq[String]]
-  // A map between stage ID and diagnostic metrics values
-  val stageToDiagnosticMetrics: HashMap[Long, HashMap[String, StatisticsMetrics]] =
-    HashMap.empty[Long, HashMap[String, StatisticsMetrics]]
+  // A map between stage ID and a list of diagnostic metrics results
+  val stageToDiagnosticMetrics: HashMap[Long, ArrayBuffer[AccumProfileResults]] =
+    HashMap.empty[Long, ArrayBuffer[AccumProfileResults]]
 
   /**
-   * Check if the input is one of the diagnostic metric names and update the mapping between
-   * stage ID and diagnostic metrics.
-   * @param stageId    stage ID of the metric
-   * @param metricName name of the metric
-   * @param statistics contains min, median, max and total of the input metric
+   * Check if the input is a diagnostic metric and update stageToDiagnosticMetrics mapping
+   * @param accum AccumProfileResults to be analyzed
    */
-  private def updateStageDiagnosticMetrics(stageId: Long, metricName: String,
-      statistics: StatisticsMetrics): Unit = {
-    if (getAllDiagnosticMetrics.contains(metricName)) {
+  private def updateStageDiagnosticMetrics(accum: AccumProfileResults): Unit = {
+    if (accum.accMetaRef.name.isDiagnosticMetrics()) {
+      val stageId = accum.stageId
       if (!stageToDiagnosticMetrics.contains(stageId)) {
-        stageToDiagnosticMetrics(stageId) = HashMap.empty[String, StatisticsMetrics]
+        stageToDiagnosticMetrics(stageId) = ArrayBuffer[AccumProfileResults]()
       }
-      stageToDiagnosticMetrics(stageId)(metricName) = statistics
+      stageToDiagnosticMetrics(stageId) += accum
     }
   }
 
@@ -363,16 +360,17 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           } else {
             taskUpatesSubset(taskUpatesSubset.size / 2)
           }
-          updateStageDiagnosticMetrics(stageId, accumInfo.infoRef.getName,
-            StatisticsMetrics(min, median, max, sum))
-          Some(AccumProfileResults(
+          // reuse AccumProfileResults to avoid generating extra memory from allocating new objects
+          val accumProfileResults = AccumProfileResults(
             appIndex,
             stageId,
             accumInfo.infoRef,
             min = min,
             median = median,
             max = max,
-            total = sum))
+            total = sum)
+          updateStageDiagnosticMetrics(accumProfileResults)
+          Some(accumProfileResults)
         }
       })
     }

@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-object DiagnosticMetrics {
+object StageAccumDiagnosticMetrics {
   val MEMORY_SPILLED_METRIC = "internal.metrics.memoryBytesSpilled"
   val DISK_SPILLED_METRIC = "internal.metrics.diskBytesSpilled"
   val INPUT_BYTES_READ_METRIC = "internal.metrics.input.bytesRead"
