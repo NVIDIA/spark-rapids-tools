@@ -25,7 +25,7 @@ from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
-from spark_rapids_tools import CspEnv
+from spark_rapids_tools import CspEnv, CspPath
 from spark_rapids_tools.utils import Utilities
 
 
@@ -215,10 +215,10 @@ class ToolContext(YAMLPropertiesContainer):
             return root_dir
         return FSUtil.build_path(root_dir, rapids_subfolder)
 
-    def get_metrics_output_folder(self) -> str:
-        root_dir = self.get_rapids_output_folder()
+    def get_metrics_output_folder(self) -> CspPath:
+        root_dir = CspPath(self.get_rapids_output_folder())
         metrics_subfolder = self.get_value('toolOutput', 'metricsSubFolder')
-        return FSUtil.build_path(root_dir, metrics_subfolder)
+        return root_dir.create_sub_path(metrics_subfolder)
 
     def get_log4j_properties_file(self) -> str:
         return self.get_value_silent('toolOutput', 'textFormat', 'log4jFileName')

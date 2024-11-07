@@ -48,9 +48,9 @@ class SpeedupCategory:
 
     def __post_init__(self):
         strategy_properties = self.props.get('strategies', {})
-        # Create a SpeedupStrategy for each execution engine type.
-        for exec_engine, properties in strategy_properties.items():  # type: str, dict
-            self.speedup_strategies[exec_engine] = SpeedupStrategy(properties)
+        # Create a SpeedupStrategy for each runtime type.
+        for spark_runtime, properties in strategy_properties.items():  # type: str, dict
+            self.speedup_strategies[spark_runtime] = SpeedupStrategy(properties)
 
     def _build_category_column(self, all_apps: pd.DataFrame) -> pd.DataFrame:
         """
@@ -71,13 +71,13 @@ class SpeedupCategory:
         """
         category_col_name = self.props.get('categoryColumnName')
         speedup_col_name = self.props.get('speedupColumnName')
-        exec_engine_col_name = self.props.get('execEngineColumnName')
+        spark_runtime_col_name = self.props.get('sparkRuntimeColumnName')
 
         # Calculate the category based on the speedup value
         def calculate_category(single_row: pd.Series) -> Optional[str]:
-            exec_engine = single_row.get(exec_engine_col_name)
-            # Get the speedup strategy and its categories for the given execution engine type.
-            categories = self.speedup_strategies.get(exec_engine).get_categories()
+            spark_runtime = single_row.get(spark_runtime_col_name).lower()
+            # Get the speedup strategy and its categories for the given runtime type.
+            categories = self.speedup_strategies.get(spark_runtime).get_categories()
             col_value = single_row.get(speedup_col_name)
             for category in categories:
                 if category.get('lowerBound') <= col_value < category.get('upperBound'):
@@ -105,12 +105,12 @@ class SpeedupCategory:
         """
         category_col_name = self.props.get('categoryColumnName')
         heuristics_col_name = self.props.get('heuristicsColumnName')
-        exec_engine_col_name = self.props.get('execEngineColumnName')
+        spark_runtime_col_name = self.props.get('sparkRuntimeColumnName')
 
         def process_row(single_row: pd.Series) -> str:
-            exec_engine = single_row.get(exec_engine_col_name)
-            # Get the speedup strategy and its eligibility conditions for the given execution engine type.
-            eligibility_conditions = self.speedup_strategies.get(exec_engine).get_eligibility_conditions()
+            spark_runtime = single_row.get(spark_runtime_col_name).lower()
+            # Get the speedup strategy and its eligibility conditions for the given runtime type.
+            eligibility_conditions = self.speedup_strategies.get(spark_runtime).get_eligibility_conditions()
             for entry in eligibility_conditions:
                 col_value = single_row[entry.get('columnName')]
                 # If the row is marked to be skipped by heuristics or the value is not within the range,

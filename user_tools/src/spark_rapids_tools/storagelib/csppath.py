@@ -366,3 +366,10 @@ class CspPath(metaclass=CspPathMeta):
     @classmethod
     def get_storage_name(cls) -> str:
         return cls._path_meta.name
+
+    def get_subdirectories(self) -> List['CspPath']:
+        """
+        Retrieve the subdirectories in the current path.
+        """
+        dir_info_list = self.fs_obj.get_file_info(fs.FileSelector(self.no_scheme, recursive=False))
+        return [CspPath(f.path) for f in dir_info_list if f.type == FileType.Directory]

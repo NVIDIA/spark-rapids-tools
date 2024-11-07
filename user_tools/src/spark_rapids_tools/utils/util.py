@@ -349,13 +349,3 @@ class Utilities:
             num_bytes /= 1024.0
             i += 1
         return f'{num_bytes:.2f} {size_units[i]}'
-
-    @classmethod
-    def convert_df_to_dict(cls, df: pd.DataFrame) -> dict:
-        """
-        Converts a DataFrame with exactly two columns into a dictionary. The first column is used as keys
-        and the second column as values.
-        """
-        assert len(df.columns) == 2, 'Cannot convert DataFrame to dict, expected 2 columns'
-        key_col, value_col = df.columns[0], df.columns[1]
-        return df.set_index(key_col)[value_col].to_dict()

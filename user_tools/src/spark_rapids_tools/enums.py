@@ -222,15 +222,3 @@ class QualEstimationModel(EnumeratedType):
             'xgboostEnabled': model_type == QualEstimationModel.XGBOOST,
             'customModelFile': None,
         }
-
-
-class ExecutionEngine(EnumeratedType):
-    """
-    Represents the execution engine for the application (Spark or Photon).
-    """
-    SPARK = 'spark'
-    PHOTON = 'photon'
-
-    @classmethod
-    def get_default(cls) -> 'ExecutionEngine':
-        return cls.SPARK
