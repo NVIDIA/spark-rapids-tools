@@ -25,6 +25,15 @@ import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListener
 import org.apache.spark.sql.rapids.tool.AppEventlogProcessException
 import org.apache.spark.util.Utils.REDACTION_REPLACEMENT_TEXT
 
+
+/**
+ * Enum to represent different spark runtimes.
+ */
+object SparkRuntime extends Enumeration {
+  type SparkRuntime = Value
+  val SPARK, SPARK_RAPIDS, PHOTON = Value
+}
+
 // Handles updating and caching Spark Properties for a Spark application.
 // Properties stored in this container can be accessed to make decision about certain analysis
 // that depends on the context of the Spark properties.
@@ -68,10 +77,12 @@ trait CacheablePropsHandler {
 
   // caches the spark-version from the eventlogs
   var sparkVersion: String = ""
+  // caches the spark runtime based on the application properties
+  var sparkRuntime: SparkRuntime.Value = SparkRuntime.SPARK
   var gpuMode = false
   // A flag whether hive is enabled or not. Note that we assume that the
   // property is global to the entire application once it is set. a.k.a, it cannot be disabled
-  // once it is was set to true.
+  // once it was set to true.
   var hiveEnabled = false
   // Indicates the ML eventlogType (i.e., Scala or pyspark). It is set only when MLOps are detected.
   // By default, it is empty.

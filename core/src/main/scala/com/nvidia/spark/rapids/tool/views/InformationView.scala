@@ -29,7 +29,7 @@ trait AppInformationViewTrait extends ViewableTrait[AppInfoProfileResults] {
     app.appMetaData.map { a =>
       AppInfoProfileResults(index, a.appName, a.appId,
         a.sparkUser, a.startTime, a.endTime, app.getAppDuration,
-        a.getDurationString, app.sparkVersion, app.gpuMode)
+        a.getDurationString, app.sparkRuntime.toString, app.sparkVersion, app.gpuMode)
     }.toSeq
   }
   override def sortView(rows: Seq[AppInfoProfileResults]): Seq[AppInfoProfileResults] = {
