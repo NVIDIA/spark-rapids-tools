@@ -624,18 +624,23 @@ class Qualification(RapidsJarTool):
        """
         metrics = {}
         root_metric_dir = self.ctxt.get_metrics_output_folder()
+        apps_with_missing_metrics = []
         for metric_dir in root_metric_dir.get_subdirectories():
             app_id_str = metric_dir.base_name()
             report_file_path = metric_dir.create_sub_path(file_name)
             try:
                 metrics[app_id_str] = pd.read_csv(str(report_file_path))
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception:  # pylint: disable=broad-except
                 # Some apps may not have the given metrics file, we should ensure
                 # that the dictionary contains entries for all apps to avoid KeyErrors
                 # and maintain consistency in processing.
                 metrics[app_id_str] = pd.DataFrame()
-                self.logger.warning('Unable to read metrics file for app %s. Reason - %s:%s',
-                                    app_id_str, type(e).__name__, e)
+                apps_with_missing_metrics.append(app_id_str)
+
+        # Log apps with missing metrics files
+        if apps_with_missing_metrics:
+            self.logger.warning('Unable to read metrics file \'%s\' for apps: %s', file_name,
+                                ', '.join(apps_with_missing_metrics))
         return metrics
 
     def _assign_spark_runtime_to_apps(self, tools_processed_apps: pd.DataFrame) -> pd.DataFrame:
