@@ -92,7 +92,7 @@ class HashAlgorithm(EnumeratedType):
         return None
 
     def get_hash_func(self) -> Callable:
-        """Maps the hash function to the appropriate hashing algorithm"""
+        """Maps the hash function to the appropriate hashing algorithm."""
         hash_functions = {
             self.MD5: hashlib.md5,
             self.SHA1: hashlib.sha1,
@@ -100,6 +100,18 @@ class HashAlgorithm(EnumeratedType):
             self.SHA512: hashlib.sha512,
         }
         return hash_functions[self]
+
+
+class DependencyType(EnumeratedType):
+    """Represents the dependency type for the tools' java cmd."""
+    JAR = 'jar'
+    ARCHIVE = 'archive'
+
+    @classmethod
+    def get_default(cls) -> 'DependencyType':
+        """Returns the default dependency type."""
+        return cls.JAR
+
 
 ###########
 # CSP Enums

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,6 +47,26 @@ csp_cpu_cluster_props = [(e_1, e_2) for (e_1, e_2) in all_cpu_cluster_props if e
 csps = ['dataproc', 'dataproc_gke', 'emr', 'databricks_aws', 'databricks_azure']
 all_csps = csps + ['onprem']
 autotuner_prop_path = 'worker_info.yaml'
+# valid tools config files
+valid_tools_conf_files = ['tools_config_00.yaml']
+# invalid tools config files
+invalid_tools_conf_files = [
+    # test older API_version
+    #  Error:1 validation error for ToolsConfig
+    #  api_version
+    #    Input should be greater than or equal to 1 [type=greater_than_equal, input_value='0.9', input_type=str]
+    'tools_config_inv_00.yaml',
+    # test empty runtime configs
+    #  Error:1 validation error for ToolsConfig
+    #  runtime.dependencies
+    #   Input should be a valid list [type=list_type, input_value=None, input_type=NoneType]
+    'tools_config_inv_01.yaml',
+    # test local dependency file does not exist
+    #  Error:1 validation error for ToolsConfig
+    #  runtime.dependencies
+    #   Input should be a valid list [type=list_type, input_value=None, input_type=NoneType]
+    'tools_config_inv_02.yaml'
+]
 
 
 class SparkRapidsToolsUT:  # pylint: disable=too-few-public-methods

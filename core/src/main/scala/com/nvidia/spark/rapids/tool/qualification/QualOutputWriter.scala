@@ -201,8 +201,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       sums: Seq[QualificationSummaryInfo]): Seq[EstimatedPerSQLSummaryInfo] = {
     val estSumPerSql = sums.flatMap(_.perSQLEstimatedInfo).flatten
     val sortedAsc = estSumPerSql.sortBy(sum => {
-      (sum.info.recommendation, sum.info.estimatedGpuSpeedup,
-        sum.info.estimatedGpuTimeSaved, sum.info.appDur, sum.info.appId)
+      (sum.info.gpuOpportunity, sum.info.appDur, sum.info.appId)
     })
     if (QualificationArgs.isOrderAsc(prettyPrintOrder)) {
       sortedAsc
@@ -362,8 +361,6 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
 case class FormattedQualificationSummaryInfo(
     appName: String,
     appId: String,
-    estimatedGpuDur: Double,
-    estimatedGpuTimeSaved: Double,
     sqlDataframeDuration: Long,
     sqlDataframeTaskDuration: Long,
     appDuration: Long,
@@ -426,8 +423,6 @@ object QualOutputWriter {
   val EXEC_CHILDREN = "Exec Children"
   val EXEC_CHILDREN_NODE_IDS = "Exec Children Node Ids"
   val GPU_OPPORTUNITY_STR = "GPU Opportunity"
-  val ESTIMATED_GPU_DURATION = "Estimated GPU Duration"
-  val ESTIMATED_GPU_TIMESAVED = "Estimated GPU Time Saved"
   val STAGE_ESTIMATED_STR = "Stage Estimated"
   val NUM_TRANSITIONS = "Number of transitions from or to GPU"
   val UNSUPPORTED_EXECS = "Unsupported Execs"
@@ -623,8 +618,6 @@ object QualOutputWriter {
     val detailedHeadersAndFields = LinkedHashMap[String, Int](
       APP_NAME_STR -> getMaxSizeForHeader(appInfos.map(_.appName.size), APP_NAME_STR),
       APP_ID_STR -> QualOutputWriter.getAppIdSize(appInfos),
-      ESTIMATED_GPU_DURATION -> ESTIMATED_GPU_DURATION.size,
-      ESTIMATED_GPU_TIMESAVED -> ESTIMATED_GPU_TIMESAVED.size,
       SQL_DUR_STR -> SQL_DUR_STR_SIZE,
       TASK_DUR_STR -> TASK_DUR_STR.size,
       APP_DUR_STR -> APP_DUR_STR_SIZE,
@@ -683,8 +676,6 @@ object QualOutputWriter {
       APP_DUR_STR -> APP_DUR_STR_SIZE,
       SQL_DUR_STR -> SQL_DUR_STR_SIZE,
       GPU_OPPORTUNITY_STR -> GPU_OPPORTUNITY_STR_SIZE,
-      ESTIMATED_GPU_DURATION -> ESTIMATED_GPU_DURATION.size,
-      ESTIMATED_GPU_TIMESAVED -> ESTIMATED_GPU_TIMESAVED.size,
       UNSUPPORTED_EXECS -> unSupExecMaxSize,
       UNSUPPORTED_EXPRS -> unSupExprMaxSize,
       ESTIMATED_FREQUENCY -> estimatedFrequencyMaxSize
@@ -716,10 +707,6 @@ object QualOutputWriter {
       sumInfo.estimatedInfo.appDur.toString -> APP_DUR_STR_SIZE,
       sumInfo.estimatedInfo.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
       sumInfo.estimatedInfo.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
-      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuDur) ->
-        ESTIMATED_GPU_DURATION.size,
-      ToolUtils.formatDoublePrecision(sumInfo.estimatedInfo.estimatedGpuTimeSaved) ->
-        ESTIMATED_GPU_TIMESAVED.size,
       sumInfo.estimatedInfo.unsupportedExecs -> unSupExecMaxSize,
       sumInfo.estimatedInfo.unsupportedExprs -> unSupExprMaxSize,
       sumInfo.estimatedFrequency.toString -> estimatedFrequencyMaxSize
@@ -750,9 +737,7 @@ object QualOutputWriter {
       SQL_ID_STR -> SQL_ID_STR.size,
       SQL_DESC_STR -> sqlDescLength,
       SQL_DUR_STR -> SQL_DUR_STR_SIZE,
-      GPU_OPPORTUNITY_STR -> GPU_OPPORTUNITY_STR_SIZE,
-      ESTIMATED_GPU_DURATION -> ESTIMATED_GPU_DURATION.size,
-      ESTIMATED_GPU_TIMESAVED -> ESTIMATED_GPU_TIMESAVED.size
+      GPU_OPPORTUNITY_STR -> GPU_OPPORTUNITY_STR_SIZE
     )
     detailedHeadersAndFields
   }
@@ -783,10 +768,7 @@ object QualOutputWriter {
       reformatCSVFunc(formatSQLDescription(sumInfo.sqlDesc, maxSQLDescLength, delimiter)) ->
         headersAndSizes(SQL_DESC_STR),
       sumInfo.info.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
-      sumInfo.info.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
-      ToolUtils.formatDoublePrecision(sumInfo.info.estimatedGpuDur) -> ESTIMATED_GPU_DURATION.size,
-      ToolUtils.formatDoublePrecision(sumInfo.info.estimatedGpuTimeSaved) ->
-        ESTIMATED_GPU_TIMESAVED.size
+      sumInfo.info.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE
     )
     constructOutputRow(data, delimiter, prettyPrint)
   }
@@ -1113,8 +1095,6 @@ object QualOutputWriter {
     FormattedQualificationSummaryInfo(
       appInfo.appName,
       appInfo.appId,
-      ToolUtils.truncateDoubleToTwoDecimal(appInfo.estimatedInfo.estimatedGpuDur),
-      ToolUtils.truncateDoubleToTwoDecimal(appInfo.estimatedInfo.estimatedGpuTimeSaved),
       appInfo.estimatedInfo.sqlDfDuration,
       appInfo.sqlDataframeTaskDuration,
       appInfo.estimatedInfo.appDur,
@@ -1150,8 +1130,6 @@ object QualOutputWriter {
     val data = ListBuffer[(String, Int)](
       reformatCSVFunc(appInfo.appName) -> headersAndSizes(APP_NAME_STR),
       reformatCSVFunc(appInfo.appId) -> headersAndSizes(APP_ID_STR),
-      appInfo.estimatedGpuDur.toString -> ESTIMATED_GPU_DURATION.size,
-      appInfo.estimatedGpuTimeSaved.toString -> ESTIMATED_GPU_TIMESAVED.size,
       appInfo.sqlDataframeDuration.toString -> headersAndSizes(SQL_DUR_STR),
       appInfo.sqlDataframeTaskDuration.toString -> headersAndSizes(TASK_DUR_STR),
       appInfo.appDuration.toString -> headersAndSizes(APP_DUR_STR),

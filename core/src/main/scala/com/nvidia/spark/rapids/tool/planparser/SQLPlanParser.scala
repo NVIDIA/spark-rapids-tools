@@ -26,6 +26,7 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.SparkPlanInfo
+//import org.apache.spark.sql.execution.joins.CartesianProductExec
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, ExecHelper, JoinType, RDDCheckHelper, ToolUtils, UnsupportedExpr}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
@@ -463,10 +464,13 @@ object SQLPlanParser extends Logging {
       app: AppBase): ExecInfo = {
     val normalizedNodeName = node.name.stripSuffix("$")
     normalizedNodeName match {
-      case "AggregateInPandas" =>
-        AggregateInPandasExecParser(node, checker, sqlID).parse
-      case "ArrowEvalPython" =>
-        ArrowEvalPythonExecParser(node, checker, sqlID).parse
+      // Generalize all the execs that call GenericExecParser in one case
+      case "AggregateInPandas" | "ArrowEvalPython" | "AQEShuffleRead" | "CartesianProduct"
+           | "Coalesce" | "CollectLimit" | "CustomShuffleReader" | "FlatMapGroupsInPandas"
+           | "GlobalLimit" | "LocalLimit" | "InMemoryTableScan" | "MapInPandas"
+           | "PythonMapInArrow" | "MapInArrow" | "Range" | "Sample" | "Union"
+           | "WindowInPandas" =>
+        GenericExecParser(node, checker, sqlID, app = Some(app)).parse
       case "BatchScan" =>
         BatchScanExecParser(node, checker, sqlID, app).parse
       case "BroadcastExchange" =>
@@ -475,54 +479,36 @@ object SQLPlanParser extends Logging {
         BroadcastHashJoinExecParser(node, checker, sqlID).parse
       case "BroadcastNestedLoopJoin" =>
         BroadcastNestedLoopJoinExecParser(node, checker, sqlID).parse
-      case "CartesianProduct" =>
-        CartesianProductExecParser(node, checker, sqlID).parse
-      case "Coalesce" =>
-        CoalesceExecParser(node, checker, sqlID).parse
-      case "CollectLimit" =>
-        CollectLimitExecParser(node, checker, sqlID).parse
-      case "CustomShuffleReader" | "AQEShuffleRead" =>
-        CustomShuffleReaderExecParser(node, checker, sqlID).parse
       case "Exchange" =>
         ShuffleExchangeExecParser(node, checker, sqlID, app).parse
       case "Expand" =>
-        ExpandExecParser(node, checker, sqlID).parse
+        GenericExecParser(
+          node, checker, sqlID, expressionFunction = Some(parseExpandExpressions)).parse
       case "Filter" =>
-        FilterExecParser(node, checker, sqlID).parse
-      case "FlatMapGroupsInPandas" =>
-        FlatMapGroupsInPandasExecParser(node, checker, sqlID).parse
+        GenericExecParser(
+          node, checker, sqlID, expressionFunction = Some(parseFilterExpressions)).parse
       case "Generate" =>
-        GenerateExecParser(node, checker, sqlID).parse
-      case "GlobalLimit" =>
-        GlobalLimitExecParser(node, checker, sqlID).parse
+        GenericExecParser(
+          node, checker, sqlID, expressionFunction = Some(parseGenerateExpressions)).parse
       case "HashAggregate" =>
         HashAggregateExecParser(node, checker, sqlID, app).parse
-      case "LocalLimit" =>
-        LocalLimitExecParser(node, checker, sqlID).parse
-      case "InMemoryTableScan" =>
-        InMemoryTableScanExecParser(node, checker, sqlID).parse
       case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
         DataWritingCommandExecParser.parseNode(node, checker, sqlID)
-      case "MapInPandas" =>
-        MapInPandasExecParser(node, checker, sqlID).parse
       case "ObjectHashAggregate" =>
         ObjectHashAggregateExecParser(node, checker, sqlID, app).parse
       case "Project" =>
-        ProjectExecParser(node, checker, sqlID).parse
-      case "PythonMapInArrow" | "MapInArrow" =>
-        PythonMapInArrowExecParser(node, checker, sqlID).parse
-      case "Range" =>
-        RangeExecParser(node, checker, sqlID).parse
-      case "Sample" =>
-        SampleExecParser(node, checker, sqlID).parse
+        GenericExecParser(
+          node, checker, sqlID, expressionFunction = Some(parseProjectExpressions)).parse
       case "ShuffledHashJoin" =>
         ShuffledHashJoinExecParser(node, checker, sqlID, app).parse
       case "Sort" =>
-        SortExecParser(node, checker, sqlID).parse
+        GenericExecParser(
+          node, checker, sqlID, expressionFunction = Some(parseSortExpressions)).parse
       case s if ReadParser.isScanNode(s) =>
         FileSourceScanExecParser(node, checker, sqlID, app).parse
       case "SortAggregate" =>
-        SortAggregateExecParser(node, checker, sqlID).parse
+        GenericExecParser(
+          node, checker, sqlID, expressionFunction = Some(parseAggregateExpressions)).parse
       case smj if SortMergeJoinExecParser.accepts(smj) =>
         SortMergeJoinExecParser(node, checker, sqlID).parse
       case "SubqueryBroadcast" =>
@@ -530,13 +516,11 @@ object SQLPlanParser extends Logging {
       case sqe if SubqueryExecParser.accepts(sqe) =>
         SubqueryExecParser.parseNode(node, checker, sqlID, app)
       case "TakeOrderedAndProject" =>
-        TakeOrderedAndProjectExecParser(node, checker, sqlID).parse
-      case "Union" =>
-        UnionExecParser(node, checker, sqlID).parse
+        GenericExecParser(
+          node, checker, sqlID, expressionFunction = Some(parseTakeOrderedExpressions)).parse
       case "Window" =>
-        WindowExecParser(node, checker, sqlID).parse
-      case "WindowInPandas" =>
-        WindowInPandasExecParser(node, checker, sqlID).parse
+        GenericExecParser(
+          node, checker, sqlID, expressionFunction = Some(parseWindowExpressions)).parse
       case "WindowGroupLimit" =>
         WindowGroupLimitParser(node, checker, sqlID).parse
       case wfe if WriteFilesExecParser.accepts(wfe) =>

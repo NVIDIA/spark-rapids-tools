@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2024, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the spark_rapids_pytools package."""
+"""init file of the tools configurations module"""
 
-from spark_rapids_pytools.build import get_version, get_spark_dep_version
+from .common import RuntimeDependencyType, DependencyVerification, RuntimeDependency
 
-VERSION = '24.10.1'
-# defines the default runtime build version for the user tools environment
-SPARK_DEP_VERSION = '350'
-__version__ = get_version(VERSION)
-__spark_dep_version__ = get_spark_dep_version()
+__all__ = [
+    'RuntimeDependency',
+    'RuntimeDependencyType',
+    'DependencyVerification'
+]
