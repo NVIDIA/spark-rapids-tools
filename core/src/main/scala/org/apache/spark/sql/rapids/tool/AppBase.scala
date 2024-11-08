@@ -37,7 +37,7 @@ import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager}
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, SparkRuntime, ToolsPlanGraph, UTF8Source}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
 import org.apache.spark.util.Utils
 
 abstract class AppBase(
@@ -475,7 +475,6 @@ abstract class AppBase(
   protected def postCompletion(): Unit = {
     registerAttemptId()
     calculateAppDuration()
-    setSparkRuntime()
   }
 
   /**
@@ -485,19 +484,6 @@ abstract class AppBase(
   def processEvents(): Unit = {
     processEventsInternal()
     postCompletion()
-  }
-
-  /**
-   * Sets the spark runtime based on the properties of the application.
-   */
-  private def setSparkRuntime(): Unit = {
-    sparkRuntime = if (isPhoton) {
-      SparkRuntime.PHOTON
-    } else if (gpuMode) {
-      SparkRuntime.SPARK_RAPIDS
-    } else {
-      SparkRuntime.SPARK
-    }
   }
 }
 

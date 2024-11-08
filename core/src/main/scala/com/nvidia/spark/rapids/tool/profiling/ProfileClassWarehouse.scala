@@ -20,7 +20,7 @@ import scala.collection.Map
 
 import org.apache.spark.resource.{ExecutorResourceRequest, TaskResourceRequest}
 import org.apache.spark.sql.rapids.tool.store.AccumMetaRef
-import org.apache.spark.sql.rapids.tool.util.StringUtils
+import org.apache.spark.sql.rapids.tool.util.{SparkRuntime, StringUtils}
 
 /**
  * This is a warehouse to store all Classes
@@ -292,7 +292,7 @@ case class UnsupportedOpsProfileResult(appIndex: Int,
 case class AppInfoProfileResults(appIndex: Int, appName: String,
     appId: Option[String], sparkUser: String,
     startTime: Long, endTime: Option[Long], duration: Option[Long],
-    durationStr: String, sparkRuntime: String, sparkVersion: String,
+    durationStr: String, sparkRuntime: SparkRuntime.SparkRuntime, sparkVersion: String,
     pluginEnabled: Boolean)  extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "appName", "appId",
     "sparkUser", "startTime", "endTime", "duration", "durationStr",
@@ -315,14 +315,14 @@ case class AppInfoProfileResults(appIndex: Int, appName: String,
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, appName, appId.getOrElse(""),
       sparkUser,  startTime.toString, endTimeToStr, durToStr,
-      durationStr, sparkRuntime, sparkVersion, pluginEnabled.toString)
+      durationStr, sparkRuntime.toString, sparkVersion, pluginEnabled.toString)
   }
   override def convertToCSVSeq: Seq[String] = {
     Seq(appIndex.toString, StringUtils.reformatCSVString(appName),
       StringUtils.reformatCSVString(appId.getOrElse("")), StringUtils.reformatCSVString(sparkUser),
       startTime.toString, endTimeToStr, durToStr, StringUtils.reformatCSVString(durationStr),
-      StringUtils.reformatCSVString(sparkRuntime), StringUtils.reformatCSVString(sparkVersion),
-      pluginEnabled.toString)
+      StringUtils.reformatCSVString(sparkRuntime.toString),
+      StringUtils.reformatCSVString(sparkVersion), pluginEnabled.toString)
   }
 }
 

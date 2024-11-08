@@ -1119,14 +1119,14 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   val sparkRuntimeTestCases: Seq[(SparkRuntime.Value, String)] = Seq(
     SparkRuntime.SPARK -> s"$qualLogDir/nds_q86_test",
     SparkRuntime.SPARK_RAPIDS -> s"$logDir/nds_q66_gpu.zstd",
-    SparkRuntime.PHOTON-> s"$qualLogDir/nds_q88_photon_db_13_3.zstd"
+    SparkRuntime.PHOTON -> s"$qualLogDir/nds_q88_photon_db_13_3.zstd"
   )
 
   sparkRuntimeTestCases.foreach { case (expectedSparkRuntime, eventLog) =>
     test(s"test spark runtime property for ${expectedSparkRuntime.toString} eventlog") {
       val apps = ToolTestUtils.processProfileApps(Array(eventLog), sparkSession)
       assert(apps.size == 1)
-      assert(apps.head.sparkRuntime == expectedSparkRuntime)
+      assert(apps.head.getSparkRuntime == expectedSparkRuntime)
     }
   }
 }

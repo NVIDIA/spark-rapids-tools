@@ -27,11 +27,42 @@ import org.apache.spark.util.Utils.REDACTION_REPLACEMENT_TEXT
 
 
 /**
- * Enum to represent different spark runtimes.
+ * SparkRuntime enumeration is used to identify the specific runtime environment
+ * in which the application is being executed.
  */
 object SparkRuntime extends Enumeration {
   type SparkRuntime = Value
-  val SPARK, SPARK_RAPIDS, PHOTON = Value
+
+  /**
+   * Represents the default Apache Spark runtime environment.
+   */
+  val SPARK: SparkRuntime = Value
+
+  /**
+   * Represents the Spark RAPIDS runtime environment.
+   */
+  val SPARK_RAPIDS: SparkRuntime = Value
+
+  /**
+   * Represents the Photon runtime environment on Databricks.
+   */
+  val PHOTON: SparkRuntime = Value
+
+  /**
+   * Returns the SparkRuntime value based on the given parameters.
+   * @param isPhoton Boolean flag indicating whether the application is running on Photon.
+   * @param isGpu    Boolean flag indicating whether the application is running on GPU.
+   * @return
+   */
+  def getRuntime(isPhoton: Boolean, isGpu: Boolean): SparkRuntime.SparkRuntime = {
+    if (isPhoton) {
+      PHOTON
+    } else if (isGpu) {
+      SPARK_RAPIDS
+    } else {
+      SPARK
+    }
+  }
 }
 
 // Handles updating and caching Spark Properties for a Spark application.
@@ -77,9 +108,10 @@ trait CacheablePropsHandler {
 
   // caches the spark-version from the eventlogs
   var sparkVersion: String = ""
-  // caches the spark runtime based on the application properties
-  var sparkRuntime: SparkRuntime.Value = SparkRuntime.SPARK
+  // A flag to indicate whether the eventlog is an eventlog with Spark RAPIDS runtime.
   var gpuMode = false
+  // A flag to indicate whether the eventlog is an eventlog from Photon runtime.
+  var isPhoton = false
   // A flag whether hive is enabled or not. Note that we assume that the
   // property is global to the entire application once it is set. a.k.a, it cannot be disabled
   // once it was set to true.
@@ -142,5 +174,13 @@ trait CacheablePropsHandler {
 
   def isGPUModeEnabledForJob(event: SparkListenerJobStart): Boolean = {
     gpuMode || ProfileUtils.isPluginEnabled(event.properties.asScala)
+  }
+
+  /**
+   * Returns the SparkRuntime environment in which the application is being executed.
+   * This is calculated based on other cached properties.
+   */
+  def getSparkRuntime: SparkRuntime.SparkRuntime = {
+    SparkRuntime.getRuntime(isPhoton, gpuMode)
   }
 }
