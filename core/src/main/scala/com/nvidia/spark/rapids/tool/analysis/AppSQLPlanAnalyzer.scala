@@ -59,9 +59,10 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
   // A map between stage ID and a set of node names
   val stageToNodeNames: HashMap[Long, Seq[String]] = HashMap.empty[Long, Seq[String]]
-  // A map between stage ID and a list of diagnostic metrics results
-  val stageToDiagnosticMetrics: HashMap[Long, ArrayBuffer[AccumProfileResults]] =
-    HashMap.empty[Long, ArrayBuffer[AccumProfileResults]]
+  // A map between stage ID and diagnostic metrics results (stored as a map between metric name
+  // and AccumProfileResults)
+  val stageToDiagnosticMetrics: HashMap[Long, HashMap[String, AccumProfileResults]] =
+    HashMap.empty[Long, HashMap[String, AccumProfileResults]]
 
   /**
    * Check if the input is a diagnostic metric and update stageToDiagnosticMetrics mapping
@@ -71,9 +72,9 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     if (accum.accMetaRef.name.isDiagnosticMetrics()) {
       val stageId = accum.stageId
       if (!stageToDiagnosticMetrics.contains(stageId)) {
-        stageToDiagnosticMetrics(stageId) = ArrayBuffer[AccumProfileResults]()
+        stageToDiagnosticMetrics(stageId) = HashMap.empty[String, AccumProfileResults]
       }
-      stageToDiagnosticMetrics(stageId) += accum
+      stageToDiagnosticMetrics(stageId)(accum.accMetaRef.getName()) = accum
     }
   }
 

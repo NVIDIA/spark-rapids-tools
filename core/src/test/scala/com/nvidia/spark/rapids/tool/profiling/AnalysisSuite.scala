@@ -25,7 +25,74 @@ import org.scalatest.FunSuite
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
 
+case class TestStageDiagnosticResult(
+    appIndex: Int,
+    appName: String,
+    appId: String,
+    stageId: Long,
+    duration: Option[Long],
+    numTasks: Int,
+    memoryBytesSpilledMBMin: Long,
+    memoryBytesSpilledMBMed: Long,
+    memoryBytesSpilledMBMax: Long,
+    memoryBytesSpilledMBSum: Long,
+    diskBytesSpilledMBMin: Long,
+    diskBytesSpilledMBMed: Long,
+    diskBytesSpilledMBMax: Long,
+    diskBytesSpilledMBSum: Long,
+    inputBytesReadMin: Long,
+    inputBytesReadMed: Long,
+    inputBytesReadMax: Long,
+    inputBytesReadSum: Long,
+    outputBytesWrittenMin: Long,
+    outputBytesWrittenMed: Long,
+    outputBytesWrittenMax: Long,
+    outputBytesWrittenSum: Long,
+    srTotalBytesReadMin: Long,
+    srTotalBytesReadMed: Long,
+    srTotalBytesReadMax: Long,
+    srTotalBytesReadSum: Long,
+    swBytesWrittenMin: Long,
+    swBytesWrittenMed: Long,
+    swBytesWrittenMax: Long,
+    swBytesWrittenSum: Long,
+    srFetchWaitTimeMin: Long,
+    srFetchWaitTimeMed: Long,
+    srFetchWaitTimeMax: Long,
+    srFetchWaitTimeSum: Long,
+    swWriteTimeMin: Long,
+    swWriteTimeMed: Long,
+    swWriteTimeMax: Long,
+    swWriteTimeSum: Long,
+    gpuSemaphoreWaitSum: Long,
+    nodeNames: Seq[String])
+
 class AnalysisSuite extends FunSuite {
+
+  private def createTestStageDiagnosticResult(diagnosticsResults: Seq[StageDiagnosticResult]):
+      Seq[TestStageDiagnosticResult] = {
+    def bytesToMB(numBytes: Long): Long = numBytes / (1024 * 1024)
+    def nanoToMilliSec(numNano: Long): Long = numNano / 1000000
+    diagnosticsResults.map {result =>
+      TestStageDiagnosticResult(result.appIndex, result.appName, result.appId, result.stageId,
+        result.duration, result.numTasks, bytesToMB(result.memoryBytesSpilled.min),
+        bytesToMB(result.memoryBytesSpilled.median), bytesToMB(result.memoryBytesSpilled.max),
+        bytesToMB(result.memoryBytesSpilled.total), bytesToMB(result.diskBytesSpilled.min),
+        bytesToMB(result.diskBytesSpilled.median), bytesToMB(result.diskBytesSpilled.max),
+        bytesToMB(result.diskBytesSpilled.total), result.inputBytesRead.min,
+        result.inputBytesRead.median, result.inputBytesRead.max, result.inputBytesRead.total,
+        result.outputBytesWritten.min, result.outputBytesWritten.median,
+        result.outputBytesWritten.max, result.outputBytesWritten.total,
+        result.srTotalBytesReadMin, result.srTotalBytesReadMed, result.srTotalBytesReadMax,
+        result.srTotalBytesReadSum, result.swBytesWritten.min, result.swBytesWritten.median,
+        result.swBytesWritten.max, result.swBytesWritten.total,
+        nanoToMilliSec(result.srFetchWaitTime.min), nanoToMilliSec(result.srFetchWaitTime.median),
+        nanoToMilliSec(result.srFetchWaitTime.max), nanoToMilliSec(result.srFetchWaitTime.total),
+        nanoToMilliSec(result.swWriteTime.min), nanoToMilliSec(result.swWriteTime.median),
+        nanoToMilliSec(result.swWriteTime.max), nanoToMilliSec(result.swWriteTime.total),
+        result.gpuSemaphoreWait.total, result.nodeNames)
+    }
+  }
 
   lazy val sparkSession = {
     SparkSession
@@ -90,7 +157,7 @@ class AnalysisSuite extends FunSuite {
     val aggResults = RawMetricProfilerView.getAggMetrics(apps)
     import org.apache.spark.sql.functions._
     import sparkSession.implicits._
-    val actualDf = aggResults.stageDiagnostics.toDF.
+    val actualDf = createTestStageDiagnosticResult(aggResults.stageDiagnostics).toDF.
       withColumn("nodeNames", concat_ws(",", col("nodeNames")))
     compareMetrics(actualDf, expectFile)
   }

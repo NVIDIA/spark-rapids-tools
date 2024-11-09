@@ -100,7 +100,7 @@ object AggMetricsResultSorter {
     } else {
       rows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
-        (cols.appIndex, -sortDur, -cols.memoryBytesSpilledMBSum)
+        (cols.appIndex, -sortDur, -cols.memoryBytesSpilled.total)
       }
     }
   }
