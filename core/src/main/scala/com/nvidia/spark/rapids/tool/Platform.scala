@@ -22,7 +22,7 @@ import com.nvidia.spark.rapids.tool.profiling.ClusterProperties
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{ExistingClusterInfo, RecommendedClusterInfo}
-import org.apache.spark.sql.rapids.tool.util.StringUtils
+import org.apache.spark.sql.rapids.tool.util.{SparkRuntime, StringUtils}
 
 /**
  *  Utility object containing constants for various platform names.
@@ -132,6 +132,19 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   var recommendedClusterInfo: Option[RecommendedClusterInfo] = None
   // the number of GPUs to use, this might be updated as we handle different cases
   var numGpus: Int = 1
+  // Default runtime for the platform
+  val defaultRuntime: SparkRuntime.SparkRuntime = SparkRuntime.SPARK
+  // Set of supported runtimes for the platform
+  protected val supportedRuntimes: Set[SparkRuntime.SparkRuntime] = Set(
+    SparkRuntime.SPARK, SparkRuntime.SPARK_RAPIDS
+  )
+
+  /**
+   * Checks if the given runtime is supported by the platform.
+   */
+  def isRuntimeSupported(runtime: SparkRuntime.SparkRuntime): Boolean = {
+    supportedRuntimes.contains(runtime)
+  }
 
   // This function allow us to have one gpu type used by the auto
   // tuner recommendations but have a different GPU used for speedup
@@ -505,6 +518,10 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
   override val defaultGpuDevice: GpuDevice = T4Gpu
   override def isPlatformCSP: Boolean = true
+
+  override val supportedRuntimes: Set[SparkRuntime.SparkRuntime] = Set(
+    SparkRuntime.SPARK, SparkRuntime.SPARK_RAPIDS, SparkRuntime.PHOTON
+  )
 
   // note that Databricks generally sets the spark.executor.memory for the user.  Our
   // auto tuner heuristics generally sets it lower then Databricks so go ahead and

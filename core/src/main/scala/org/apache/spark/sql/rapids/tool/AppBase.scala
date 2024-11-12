@@ -23,7 +23,7 @@ import scala.collection.immutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, Map}
 
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
-import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
+import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo, Platform}
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
@@ -37,12 +37,13 @@ import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager}
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, SparkRuntime, ToolsPlanGraph, UTF8Source}
 import org.apache.spark.util.Utils
 
 abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
-    val hadoopConf: Option[Configuration]) extends Logging with ClusterTagPropHandler {
+    val hadoopConf: Option[Configuration],
+    val platform: Option[Platform] = None) extends Logging with ClusterTagPropHandler {
 
   var appMetaData: Option[AppMetaData] = None
 
@@ -484,6 +485,27 @@ abstract class AppBase(
   def processEvents(): Unit = {
     processEventsInternal()
     postCompletion()
+  }
+
+  /**
+   * Returns the SparkRuntime environment in which the application is being executed.
+   * This is calculated based on other cached properties.
+   *
+   * If the platform is provided, and it does not support the parsed runtime,
+   * the method will log a warning and fall back to the platform’s default runtime.
+   */
+  override def getSparkRuntime: SparkRuntime.SparkRuntime = {
+    val parsedRuntime = super.getSparkRuntime
+    platform.map { p =>
+      if (p.isRuntimeSupported(parsedRuntime)) {
+        parsedRuntime
+      } else {
+        logWarning(s"Application $appId: Platform '${p.platformName}' does not support " +
+          s"the parsed runtime '$parsedRuntime'. Falling back to default runtime - " +
+          s"'${p.defaultRuntime}'.")
+        p.defaultRuntime
+      }
+    }.getOrElse(parsedRuntime)
   }
 }
 
