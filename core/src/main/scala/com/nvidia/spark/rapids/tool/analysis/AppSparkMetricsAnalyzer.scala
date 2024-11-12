@@ -347,7 +347,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
         sm.stageInfo.attemptNumber())
       // count duplicate task attempts
-      val numAttempts = tasksInStage.size
+      val numTasks = tasksInStage.size
       val nodeNames = sqlAnalyzer.stageToNodeNames.
         getOrElse(sm.stageInfo.stageId, Seq.empty[String])
       val diagnosticMetricsMap = sqlAnalyzer.stageToDiagnosticMetrics.
@@ -361,7 +361,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         app.appId,
         sm.stageInfo.stageId,
         sm.duration,
-        numAttempts,  // TODO: why is this numAttempts and not numTasks?
+        numTasks,
         srTotalBytesMetrics.min,
         srTotalBytesMetrics.med,
         srTotalBytesMetrics.max,
