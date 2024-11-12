@@ -32,7 +32,6 @@ import org.yaml.snakeyaml.{DumperOptions, Yaml}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.util.WebCrawlerUtil
 
-
 case class DriverInfoProviderMockTest(unsupportedOps: Seq[DriverLogUnsupportedOperators])
   extends BaseDriverLogInfoProvider(None) {
   override def getUnsupportedOperators: Seq[DriverLogUnsupportedOperators] = unsupportedOps
@@ -2560,7 +2559,7 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
         "spark.executor.instances" -> "1",
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.instances" -> "1",
+        "spark.executor.instances" -> "1"
       )
     val emrWorkerInfo = buildWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
