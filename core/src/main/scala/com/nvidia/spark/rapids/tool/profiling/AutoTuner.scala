@@ -26,7 +26,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory, PlatformNames}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
@@ -757,6 +757,14 @@ class AutoTuner(
           case ver if ver.contains("11.3") => "330db"
           case _ => "332db"
         }
+      } else if (sparkVersion.contains("amzn")) {
+        sparkVersion match {
+          case ver if ver.contains("3.5.1") => "351"
+          case ver if ver.contains("3.5.0") => "350"
+          case ver if ver.contains("3.4.1") => "341"
+          case ver if ver.contains("3.4.0") => "340"
+          case _ => "332"
+        }
       } else {
         shuffleManagerVersion
       }
@@ -888,6 +896,10 @@ class AutoTuner(
   private def recommendClassPathEntries(): Unit = {
     val missingRapidsJarsEntry = classPathComments("rapids.jars.missing")
     val multipleRapidsJarsEntry = classPathComments("rapids.jars.multiple")
+
+    if (platform.platformName == PlatformNames.EMR) {
+      return
+    }
 
     appInfoProvider.getRapidsJars match {
       case Seq() =>
