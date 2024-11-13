@@ -324,7 +324,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
 
   /**
    * Aggregates the diagnostic SparkMetrics by stage.
-   * @param index the App-index (used by the profiler tool)
+   * @param index    the App-index (used by the profiler tool)
    * @param analyzer optional AppSQLPlanAnalyzer which is used to pull stage level
    *                 information like node names and diagnostic metrics results, only
    *                 Qualification needs to provide this argument.
