@@ -43,7 +43,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private val outputCombined: Boolean = appArgs.combined()
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
-  // Unlike qualification tool, profiler tool does not platform per app
+  // Unlike qualification tool, profiler tool does not require platform per app
   private val platform: Platform = PlatformFactory.createInstance(appArgs.platform())
 
   override def getNumThreads: Int = appArgs.numThreads.getOrElse(
