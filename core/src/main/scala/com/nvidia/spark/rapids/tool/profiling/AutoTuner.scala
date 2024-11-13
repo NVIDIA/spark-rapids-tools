@@ -558,8 +558,8 @@ class AutoTuner(
 
   private def warnNotEnoughMem(minSize: Long): Unit = {
     // in the future it would be nice to enhance the error message with a recommendation of size
-    val msg = "This node/worker configuration is not ideal for using the Spark Rapids \n" +
-      "Accelerator because it doesn't have enough memory for the executors. \n" +
+    val msg = "This node/worker configuration is not ideal for using the Spark Rapids\n" +
+      "Accelerator because it doesn't have enough memory for the executors.\n" +
       s"We recommend using nodes/workers with more memory. Need at least ${minSize}MB memory."
     appendComment(msg)
   }

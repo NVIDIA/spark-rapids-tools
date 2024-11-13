@@ -314,8 +314,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     // scalastyle:off line.size.limit
     val expectedComment =
       s"""This node/worker configuration is not ideal for using the Spark Rapids
- Accelerator because it doesn't have enough memory for the executors.
- We recommend using nodes/workers with more memory. Need at least 7796MB memory.""".stripMargin.replaceAll("\n", "")
+Accelerator because it doesn't have enough memory for the executors.
+We recommend using nodes/workers with more memory. Need at least 7796MB memory.""".stripMargin.replaceAll("\n", "")
     // scalastyle:on line.size.limit
     assert(autoTunerOutput.replaceAll("\n", "").contains(expectedComment))
   }
