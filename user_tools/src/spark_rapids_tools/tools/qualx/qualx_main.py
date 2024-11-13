@@ -62,7 +62,7 @@ from spark_rapids_pytools.common.utilities import Utils
 logger = get_logger(__name__)
 
 
-def _get_model_path(platform: str, model: Optional[str]) -> Path:
+def _get_model_path(platform: str, model: Optional[str], variant: Optional[str] = None) -> Path:
     if model is not None:
         # if "model" is provided
         if CspPath.is_file_path(model, raise_on_error=False):
@@ -84,29 +84,65 @@ def _get_model_path(platform: str, model: Optional[str]) -> Path:
             if not model_path.exists():
                 raise FileNotFoundError(f'Model JSON file for {model} not found at: {model_path}')
     else:
-        # if "model" not provided, try loading pre-trained model by "platform"
-        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
+        # if "model" not provided, try loading pre-trained model by "platform" (and "variant")
+        variant_suffixes = {
+            'SPARK': '',
+            'SPARK_RAPIDS': '',
+            'PHOTON': '_photon'
+        }
+        variant_suffix = variant_suffixes.get(variant, '')
+        model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}{variant_suffix}.json'))
         if not model_path.exists():
-            raise ValueError(f'Platform [{platform}] does not have a pre-trained model, '
-                             'please specify --model or choose another platform.')
+            if not variant_suffix:
+                raise ValueError(
+                    f'Platform [{platform}] does not have a pre-trained model, '
+                    'please specify --model or choose another platform.'
+                )
+            # variant model not found, try base platform model
+            model_path = Path(Utils.resource_path(f'qualx/models/xgboost/{platform}.json'))
+            if model_path.exists():
+                logger.warning(
+                    'Platform [%s%s] does not have a pretrained model, using [%s] model',
+                    platform,
+                    variant_suffix,
+                    platform,
+                )
+            else:
+                raise ValueError(
+                    f'Platform [{platform}{variant_suffix}] does not have a pre-trained model, '
+                    'please specify --model or choose another platform.'
+                )
     return model_path
 
 
 def _get_model(platform: str,
-               model: Optional[str] = None) -> Booster:
+               model: Optional[str] = None,
+               variant: Optional[str] = None) -> Booster:
     """
-    Load the XGBoost model from the specified path or use the pre-trained model for the platform.
-    The "model" has a precedence over the other input options. If it is undefined, this function checks
-    if it is a valid path or a string literal that represents a model name.
-    Finally, the platform will be used to define the path of the model file if the model is not defined.
-    :param platform: name of the platform used to define the path of the pre-trained model.
-                     The platform should match a JSON file in the "resources" directory.
-    :param model: Either a file or a pre-trained model name. If the input is a string literal that
-                 cannot be a file path, then it is assumed that the file is located under the
-                 resources directory.
-    :return: xgb.Booster loading the model file.
+    Load the XGBoost model from a specified path or use the pre-trained model for the platform.
+
+    The "model" argument has a precedence over the other input options. If it is defined, this function checks
+    if it is a valid path to an XGBoost model or a string literal matching a pre-trained model name.
+    If "model" is not defined, then the pre-trained model matching "platform" will be used.
+
+    Parameters
+    ----------
+    platform: str
+        Name of the platform used to define the path of the pre-trained model.
+        The platform should match a JSON file in the "resources" directory.
+    model: str
+        Either a path to a model file or the name of a pre-trained model.
+        If the input is a string literal that cannot be a file path, then it is assumed that the file
+        is located under the resources directory.
+    variant: str
+        Value of the `sparkRuntime` column from the `application_information.csv` file from the profiler tool.
+        If set, will be used to load a pre-trained model matching the platform and variant.
+
+    Returns
+    -------
+    xgb.Booster model file.
     """
-    model_path = _get_model_path(platform, model)
+    model_path = _get_model_path(platform, model, variant)
     logger.info('Loading model from: %s', model_path)
     xgb_model = xgb.Booster()
     xgb_model.load_model(model_path)
@@ -550,7 +586,6 @@ def predict(
         qual_tool_filter: Optional[str] = 'stage') -> pd.DataFrame:
     """Predict GPU speedup given CPU logs."""
 
-    xgb_model = _get_model(platform, model=model)
     node_level_supp, qual_tool_output, qual_metrics = _get_qual_data(qual)
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.
@@ -581,8 +616,33 @@ def predict(
     )
     if profile_df.empty:
         raise ValueError('Data preprocessing resulted in an empty dataset. Speedup predictions will default to 1.0.')
+
     # reset appName to original
     profile_df['appName'] = profile_df['appId'].map(app_id_name_map)
+
+    # handle platform variants (for CPU eventlogs)
+    variants = profile_df.loc[profile_df.runType == 'CPU']['sparkRuntime'].unique().tolist()
+    if len(variants) > 1:
+        # platform variants found in dataset
+        if model and model != platform:
+            # mixing platform and model args w/ variants is ambiguous
+            raise ValueError(
+                f'Platform variants found in data, but model ({model}) does not match platform ({platform}).'
+            )
+        # group input data by model variant
+        prediction_groups = {}
+        for variant in variants:
+            xgb_model = _get_model(platform, None, variant)  # variants only supported for pre-trained platform models
+            variant_profile_df = profile_df.loc[
+                (profile_df['sparkRuntime'] == variant) | (profile_df['sparkRuntime'] == 'SPARK_RAPIDS')
+            ]
+            prediction_groups[xgb_model] = variant_profile_df
+    else:
+        # single platform
+        xgb_model = _get_model(platform, model)
+        prediction_groups = {
+            xgb_model: profile_df
+        }
 
     filter_str = (
         f'with {qual_tool_filter} filtering'
@@ -590,12 +650,29 @@ def predict(
         else 'raw'
     )
     logger.info('Predicting dataset (%s): %s', filter_str, dataset_name)
-    features, feature_cols, label_col = extract_model_features(profile_df)
 
-    per_sql_summary = None
+    try:
+        features_list = []
+        predictions_list = []
+        for xgb_model, prof_df in prediction_groups.items():
+            features, feature_cols, label_col = extract_model_features(prof_df)
+            features_index = features.index
+            features_list.append(features)
+            predictions = predict_model(xgb_model, features, feature_cols, label_col)
+            predictions.index = features_index
+            predictions_list.append(predictions)
+        features = pd.concat(features_list)
+        features.sort_index(inplace=True)
+        predictions = pd.concat(predictions_list)
+        predictions.sort_index(inplace=True)
+    except XGBoostError as e:
+        # ignore and continue
+        logger.error(e)
+
+    # write output files
     per_app_summary = None
     try:
-        per_sql_summary = predict_model(xgb_model, features, feature_cols, label_col)
+        per_sql_summary = predictions
 
         # save features, feature importance, and shapley values per dataset name
         if output_info:
@@ -625,9 +702,6 @@ def predict(
                 per_app_summary['appDuration'].sum() / per_app_summary['appDuration_pred'].sum()
             )
             print(f'Dataset estimated speedup: {dataset_speedup:.2f}')
-    except XGBoostError as e:
-        # ignore and continue
-        logger.error(e)
     except Exception as e:  # pylint: disable=broad-except
         # ignore and continue
         logger.error(e)
