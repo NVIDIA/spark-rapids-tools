@@ -177,7 +177,7 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
 
         dir_info_list = path.fs_obj.get_file_info(arrow_fs.FileSelector(path.no_scheme, recursive=False))
         return [
-            path.fs_obj.create_as_path(entry_path=dir_info.path)
+            path.create_sub_path(dir_info.base_name)
             for dir_info in dir_info_list
             if item_type is None or dir_info.type == item_type
         ]
