@@ -284,7 +284,7 @@ local:
           categories:
             - title: 'Not Applicable'
               lowerBound: -1000000.0
-              upperBound: 1.0
+              upperBound: 1.0  # Lower threshold than Spark since Photon is faster and smaller speedups are valuable
             - title: 'Small'
               lowerBound: 1.0
               upperBound: 2.0

@@ -30,6 +30,7 @@ from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel
+from spark_rapids_tools.storagelib import CspFs
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
 from spark_rapids_tools.tools.qualx.qualx_main import predict
@@ -625,7 +626,7 @@ class Qualification(RapidsJarTool):
         metrics = {}
         root_metric_dir = self.ctxt.get_metrics_output_folder()
         apps_with_missing_metrics = []
-        for metric_dir in root_metric_dir.get_subdirectories():
+        for metric_dir in CspFs.list_all_dirs(root_metric_dir):
             app_id_str = metric_dir.base_name()
             report_file_path = metric_dir.create_sub_path(file_name)
             try:

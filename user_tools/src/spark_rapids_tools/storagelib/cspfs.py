@@ -16,14 +16,15 @@
 
 import abc
 import os
-from typing import Generic, Callable, TypeVar, Any, Union
+from typing import Generic, Callable, TypeVar, Any, Union, List, Optional
 
 from pyarrow import fs as arrow_fs
+from pyarrow.fs import FileType
 
 from .csppath import CspPathImplementation, CspPath, path_impl_registry
 
 from ..exceptions import (
-    CspPathNotFoundException
+    CspPathNotFoundException, CspPathTypeMismatchError
 )
 
 BoundedCspPath = TypeVar('BoundedCspPath', bound=CspPath)
@@ -151,3 +152,32 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
                             destination_filesystem=dest.fs_obj.fs,
                             # 64 MB chunk size
                             chunk_size=64 * 1024 * 1024)
+
+    @classmethod
+    def list_all_files(cls, path: BoundedCspPath) -> List[BoundedCspPath]:
+        return cls._list_items_by_type(path, FileType.File)
+
+    @classmethod
+    def list_all_dirs(cls, path: BoundedCspPath) -> List[BoundedCspPath]:
+        return cls._list_items_by_type(path, FileType.Directory)
+
+    @classmethod
+    def list_all(cls, path: BoundedCspPath) -> List[BoundedCspPath]:
+        return cls._list_items_by_type(path, None)
+
+    @staticmethod
+    def _list_items_by_type(path: BoundedCspPath, item_type: Optional[FileType]) -> List[BoundedCspPath]:
+        """
+        Helper function to list files, directories, or all items in the given path.
+        """
+        if not path.exists():
+            raise CspPathNotFoundException(f'Path does not exist: {path}')
+        if not path.is_dir():
+            raise CspPathTypeMismatchError(f'Path is not a directory: {path}')
+
+        dir_info_list = path.fs_obj.get_file_info(arrow_fs.FileSelector(path.no_scheme, recursive=False))
+        return [
+            path.fs_obj.create_as_path(entry_path=dir_info.path)
+            for dir_info in dir_info_list
+            if item_type is None or dir_info.type == item_type
+        ]
