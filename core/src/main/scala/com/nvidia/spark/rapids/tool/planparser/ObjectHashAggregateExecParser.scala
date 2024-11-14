@@ -23,29 +23,13 @@ import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.AppBase
 
 case class ObjectHashAggregateExecParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long,
-    app: AppBase) extends ExecParser with Logging {
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    appBase: AppBase) extends
+  GenericExecParser(node, checker, sqlID, app = Some(appBase)) with Logging {
 
-  val fullExecName = node.name + "Exec"
-
-  override def parse: ExecInfo = {
-    // TODO - Its partial duration only. We need a way to specify it as partial.
-    val accumId = node.metrics.find(_.name == "time in aggregation build").map(_.accumulatorId)
-    val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
-    val exprString = node.desc.replaceFirst("ObjectHashAggregate", "")
-    val expressions = SQLPlanParser.parseAggregateExpressions(exprString)
-    val notSupportedExprs = checker.getNotSupportedExprs(expressions)
-    val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
-        notSupportedExprs.isEmpty) {
-      (checker.getSpeedupFactor(fullExecName), true)
-    } else {
-      (1.0, false)
-    }
-
-    // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, node.name, "", speedupFactor,
-      maxDuration, node.id, isSupported, None, unsupportedExprs = notSupportedExprs)
+  override def getDurationMetricIds: Seq[Long] = {
+    node.metrics.find(_.name == "time in aggregation build").map(_.accumulatorId).toSeq
   }
 }

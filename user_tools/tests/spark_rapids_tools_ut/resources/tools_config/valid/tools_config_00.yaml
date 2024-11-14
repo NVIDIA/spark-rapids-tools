@@ -1,0 +1,11 @@
+# This yaml file is a configuration file for a tool that uses Spark 3.5.0 as dependency
+# Minimal file content.
+api_version: '1.0'
+runtime:
+  dependencies:
+    - name: my-spark350
+      uri: https:///archive.apache.org/dist/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3.tgz
+      dependency_type:
+        dep_type: archive
+        # for tgz files, it is required to give the subfolder where the jars are located
+        relative_path: jars/*
