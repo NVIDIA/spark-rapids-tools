@@ -15,9 +15,27 @@
 """Implementation class for Speedup Category logic."""
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Dict
 
 import pandas as pd
+
+
+class SpeedupStrategy:
+    """
+    Wrapper class for speedup strategy properties.
+    """
+    _categories: list
+    _eligibility_conditions: list
+
+    def __init__(self, props: dict):
+        self._categories = props.get('categories', [])
+        self._eligibility_conditions = props.get('eligibilityConditions', [])
+
+    def get_categories(self) -> list:
+        return self._categories
+
+    def get_eligibility_conditions(self) -> list:
+        return self._eligibility_conditions
 
 
 @dataclass
@@ -26,8 +44,15 @@ class SpeedupCategory:
     Encapsulates the logic to categorize the speedup values based on the range values.
     """
     props: dict = field(default=None, init=True)
+    speedup_strategies: Dict[str, SpeedupStrategy] = field(default_factory=dict, init=False)
 
-    def __build_category_column(self, all_apps: pd.DataFrame) -> pd.DataFrame:
+    def __post_init__(self):
+        strategy_properties = self.props.get('strategies', {})
+        # Create a SpeedupStrategy for each runtime type.
+        for spark_runtime, properties in strategy_properties.items():  # type: str, dict
+            self.speedup_strategies[spark_runtime] = SpeedupStrategy(properties)
+
+    def _build_category_column(self, all_apps: pd.DataFrame) -> pd.DataFrame:
         """
         Build the category column based on the range values of the speedup column.
         Example:
@@ -44,20 +69,24 @@ class SpeedupCategory:
            output: row_2 = pd.Series({'speedup': 3.5, 'speedup category': 'Large'})
            reason: Speedup Category will be 'Large' because the speedup is within the range (3-100000).
         """
-        categories = self.props.get('categories')
         category_col_name = self.props.get('categoryColumnName')
         speedup_col_name = self.props.get('speedupColumnName')
+        spark_runtime_col_name = self.props.get('sparkRuntimeColumnName')
 
         # Calculate the category based on the speedup value
-        def calculate_category(col_value) -> Optional[str]:
+        def calculate_category(single_row: pd.Series) -> Optional[str]:
+            spark_runtime = single_row.get(spark_runtime_col_name).lower()
+            # Get the speedup strategy and its categories for the given runtime type.
+            categories = self.speedup_strategies.get(spark_runtime).get_categories()
+            col_value = single_row.get(speedup_col_name)
             for category in categories:
                 if category.get('lowerBound') <= col_value < category.get('upperBound'):
                     return category.get('title')
             return None
-        all_apps[category_col_name] = all_apps[speedup_col_name].apply(calculate_category)
+        all_apps[category_col_name] = all_apps.apply(calculate_category, axis=1)
         return all_apps
 
-    def __process_category(self, all_apps: pd.DataFrame) -> pd.DataFrame:
+    def _process_category(self, all_apps: pd.DataFrame) -> pd.DataFrame:
         """
         Process the speedup category column based on the eligibility criteria. If the row does not match
         the criteria, the category column will be set to the `Not Recommended` category.
@@ -76,9 +105,13 @@ class SpeedupCategory:
         """
         category_col_name = self.props.get('categoryColumnName')
         heuristics_col_name = self.props.get('heuristicsColumnName')
+        spark_runtime_col_name = self.props.get('sparkRuntimeColumnName')
 
         def process_row(single_row: pd.Series) -> str:
-            for entry in self.props.get('eligibilityConditions'):
+            spark_runtime = single_row.get(spark_runtime_col_name).lower()
+            # Get the speedup strategy and its eligibility conditions for the given runtime type.
+            eligibility_conditions = self.speedup_strategies.get(spark_runtime).get_eligibility_conditions()
+            for entry in eligibility_conditions:
                 col_value = single_row[entry.get('columnName')]
                 # If the row is marked to be skipped by heuristics or the value is not within the range,
                 # set the category to default category (Not Recommended)
@@ -91,6 +124,6 @@ class SpeedupCategory:
         return all_apps
 
     def build_category_column(self, all_apps: pd.DataFrame) -> pd.DataFrame:
-        apps_with_category = self.__build_category_column(all_apps)
-        processed_apps = self.__process_category(apps_with_category)
+        apps_with_category = self._build_category_column(all_apps)
+        processed_apps = self._process_category(apps_with_category)
         return processed_apps
