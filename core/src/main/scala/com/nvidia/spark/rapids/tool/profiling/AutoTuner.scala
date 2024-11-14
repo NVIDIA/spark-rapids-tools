@@ -26,7 +26,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory, PlatformNames}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
@@ -723,7 +723,9 @@ class AutoTuner(
     recommendShufflePartitions()
     recommendKryoSerializerSetting()
     recommendGCProperty()
-    recommendClassPathEntries()
+    if (platform.requirePathRecommendations) {
+      recommendClassPathEntries()
+    }
     recommendSystemProperties()
   }
 
@@ -896,10 +898,6 @@ class AutoTuner(
   private def recommendClassPathEntries(): Unit = {
     val missingRapidsJarsEntry = classPathComments("rapids.jars.missing")
     val multipleRapidsJarsEntry = classPathComments("rapids.jars.multiple")
-
-    if (platform.platformName == PlatformNames.EMR) {
-      return
-    }
 
     appInfoProvider.getRapidsJars match {
       case Seq() =>
