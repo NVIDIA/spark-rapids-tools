@@ -28,9 +28,6 @@ trait ClusterTagPropHandler extends CacheablePropsHandler {
   var clusterTagClusterId: String = ""
   var clusterTagClusterName: String = ""
 
-  // A flag to indicate whether the eventlog being processed is an eventlog from Photon.
-  var isPhoton = false
-
   // Flag used to indicate that the App was a Databricks App.
   def isDatabricks: Boolean = {
     clusterTags.nonEmpty && clusterTagClusterId.nonEmpty && clusterTagClusterName.nonEmpty

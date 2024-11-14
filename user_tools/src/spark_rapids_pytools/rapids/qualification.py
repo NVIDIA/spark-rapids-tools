@@ -30,6 +30,7 @@ from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel
+from spark_rapids_tools.storagelib import CspFs
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
 from spark_rapids_tools.tools.qualx.qualx_main import predict
@@ -289,12 +290,12 @@ class Qualification(RapidsJarTool):
                                       total_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
                                       output_files_info: JSONPropertiesContainer) -> QualificationSummary:
+        # TODO: This method does a lot of critical but unrelated work. Refactor this into smaller steps/methods
+        #  to improve readability and maintainability.
         if all_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(total_apps=total_apps, tools_processed_apps=all_apps)
 
-        unsupported_ops_obj = UnsupportedOpsStageDuration(self.ctxt.get_value('local', 'output',
-                                                                              'unsupportedOperators'))
         # Generate the statistics report
         try:
             stats_report = SparkQualificationStats(ctxt=self.ctxt)
@@ -303,37 +304,52 @@ class Qualification(RapidsJarTool):
             self.logger.error('Failed to generate the statistics report: %s', e)
 
         # Calculate unsupported operators stage duration before grouping
+        unsupported_ops_obj = UnsupportedOpsStageDuration(
+            self.ctxt.get_value('local', 'output', 'unsupportedOperators'))
         all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
         apps_pruned_df = self.__remap_columns_and_prune(all_apps)
+
         # Apply additional heuristics to skip apps not suitable for GPU acceleration
         heuristics_ob = AdditionalHeuristics(
             props=self.ctxt.get_value('local', 'output', 'additionalHeuristics'),
             tools_output_dir=self.ctxt.get_rapids_output_folder(),
             output_file=output_files_info.get_value('intermediateOutput', 'files', 'heuristics', 'path'))
         apps_pruned_df = heuristics_ob.apply_heuristics(apps_pruned_df)
-        speedup_category_ob = SpeedupCategory(self.ctxt.get_value('local', 'output', 'speedupCategories'))
+
         # Group the applications and recalculate metrics
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
-        df_final_result = speedup_category_ob.build_category_column(apps_grouped_df)
+
+        # Assign the runtime type (Spark/Photon etc.) and speedup categories (Small/Medium/Large) to each application.
+        # Note: Strategy for speedup categorization will be based on the execution engine of the application.
+        apps_with_runtime_df = self._assign_spark_runtime_to_apps(apps_grouped_df)
+        speedup_category_confs = self.ctxt.get_value('local', 'output', 'speedupCategories')
+        speedup_category_ob = SpeedupCategory(speedup_category_confs)
+        df_final_result = speedup_category_ob.build_category_column(apps_with_runtime_df)
+
+        # Generate the cluster shape report
         reshaped_notes = self.__generate_cluster_shape_report()
         report_comments = [group_notes] if group_notes else []
         if reshaped_notes:
             report_comments.append(reshaped_notes)
 
+        # Write the final result to the output file
         csv_out = output_files_info.get_value('summary', 'path')
         if not df_final_result.empty:
             self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
             df_final_result.to_csv(csv_out, float_format='%.2f')
+
         # Add columns for cluster configuration recommendations and tuning configurations to the processed_apps.
         recommender = ClusterConfigRecommender(self.ctxt)
         df_final_result = recommender.add_cluster_and_tuning_recommendations(df_final_result)
-        # Merge the total_apps with the processed_apps to get the Event Log
         df_final_result = pd.merge(df_final_result, total_apps[['Event Log', 'AppID']],
                                    left_on='App ID', right_on='AppID')
+
         # Write the app metadata
         app_metadata_info = output_files_info.get_value('appMetadata')
         config_recommendations_info = output_files_info.get_value('configRecommendations')
         self._write_app_metadata(df_final_result, app_metadata_info, config_recommendations_info)
+
+        # Return the summary
         return QualificationSummary(total_apps=total_apps,
                                     tools_processed_apps=df_final_result,
                                     comments=report_comments)
@@ -594,6 +610,54 @@ class Qualification(RapidsJarTool):
         report_file_name = self.ctxt.get_value('toolOutput', file_format_key, report_name_key, 'fileName')
         report_file_path = FSUtil.build_path(self.ctxt.get_rapids_output_folder(), report_file_name)
         return pd.read_csv(report_file_path)
+
+    def _read_qualification_metric_file(self, file_name: str) -> Dict[str, pd.DataFrame]:
+        """
+        Helper method to read metric files from the qualification tool's output metric folder.
+        Returns a dictionary of DataFrames, where each key is an application ID, and each
+        DataFrame contains the corresponding application's metrics data.
+        Example:
+            {
+                'appId1': pd.DataFrame(...),
+                'appId2': pd.DataFrame(...),
+            }
+       :param file_name: Name of the metric file to read from each application's folder
+       """
+        metrics = {}
+        root_metric_dir = self.ctxt.get_metrics_output_folder()
+        apps_with_missing_metrics = []
+        for metric_dir in CspFs.list_all_dirs(root_metric_dir):
+            app_id_str = metric_dir.base_name()
+            report_file_path = metric_dir.create_sub_path(file_name)
+            try:
+                metrics[app_id_str] = pd.read_csv(str(report_file_path))
+            except Exception:  # pylint: disable=broad-except
+                # Some apps may not have the given metrics file, we should ensure
+                # that the dictionary contains entries for all apps to avoid KeyErrors
+                # and maintain consistency in processing.
+                metrics[app_id_str] = pd.DataFrame()
+                apps_with_missing_metrics.append(app_id_str)
+
+        # Log apps with missing metrics files
+        if apps_with_missing_metrics:
+            self.logger.warning('Unable to read metrics file \'%s\' for apps: %s', file_name,
+                                ', '.join(apps_with_missing_metrics))
+        return metrics
+
+    def _assign_spark_runtime_to_apps(self, tools_processed_apps: pd.DataFrame) -> pd.DataFrame:
+        """
+        Assigns the Spark Runtime (Spark/Photon) to each application. This will be used to categorize
+        applications into speedup categories (Small/Medium/Large).
+        """
+        app_info_dict = self._read_qualification_metric_file('application_information.csv')
+        # Rename columns from each DataFrame in the app_info_dict and merge them with the tools_processed_apps
+        merged_dfs = []
+        for df in app_info_dict.values():
+            merged_dfs.append(
+                df[['appId', 'sparkRuntime']].rename(columns={'appId': 'App ID', 'sparkRuntime': 'Spark Runtime'})
+            )
+        spark_runtime_df = pd.concat(merged_dfs, ignore_index=True)
+        return tools_processed_apps.merge(spark_runtime_df, on='App ID', how='left')
 
 
 @dataclass

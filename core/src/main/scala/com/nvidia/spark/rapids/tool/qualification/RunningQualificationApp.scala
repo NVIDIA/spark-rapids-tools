@@ -295,8 +295,7 @@ class RunningQualificationApp(
         val wallClockDur = sqlInfo.duration.getOrElse(0L)
         // get task duration ratio
         val sqlStageSums = perSqlStageSummary.filter(_.sqlID == pInfo.sqlID)
-        val estimatedInfo = getPerSQLWallClockSummary(sqlStageSums, wallClockDur,
-          sqlIDtoFailures.get(pInfo.sqlID).nonEmpty, getAppName)
+        val estimatedInfo = getPerSQLWallClockSummary(sqlStageSums, wallClockDur, getAppName)
         EstimatedPerSQLSummaryInfo(pInfo.sqlID, sqlInfo.rootExecutionID, pInfo.sqlDesc,
           estimatedInfo)
       }
