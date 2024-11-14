@@ -722,7 +722,9 @@ class AutoTuner(
     recommendShufflePartitions()
     recommendKryoSerializerSetting()
     recommendGCProperty()
-    recommendClassPathEntries()
+    if (platform.requirePathRecommendations) {
+      recommendClassPathEntries()
+    }
     recommendSystemProperties()
   }
 
@@ -755,6 +757,14 @@ class AutoTuner(
           case ver if ver.contains("10.4") => "321db"
           case ver if ver.contains("11.3") => "330db"
           case _ => "332db"
+        }
+      } else if (sparkVersion.contains("amzn")) {
+        sparkVersion match {
+          case ver if ver.contains("3.5.1") => "351"
+          case ver if ver.contains("3.5.0") => "350"
+          case ver if ver.contains("3.4.1") => "341"
+          case ver if ver.contains("3.4.0") => "340"
+          case _ => "332"
         }
       } else {
         shuffleManagerVersion
