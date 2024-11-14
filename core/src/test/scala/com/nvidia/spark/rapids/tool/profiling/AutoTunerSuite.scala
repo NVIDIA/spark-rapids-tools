@@ -310,7 +310,15 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
-    assertThrows[IllegalArgumentException](autoTuner.getRecommendedProperties())
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedComment =
+      s"""This node/worker configuration is not ideal for using the Spark Rapids
+Accelerator because it doesn't have enough memory for the executors.
+We recommend using nodes/workers with more memory. Need at least 7796MB memory.""".stripMargin.replaceAll("\n", "")
+    // scalastyle:on line.size.limit
+    assert(autoTunerOutput.replaceAll("\n", "").contains(expectedComment))
   }
 
   test("Load cluster properties with CPU memory missing") {
