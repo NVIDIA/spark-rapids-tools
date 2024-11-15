@@ -104,6 +104,7 @@ class Benchmark(
     val gcTimes = ArrayBuffer[Long]()
     //For tracking maximum GC over iterations
     for (i <- 0 until minIters) {
+      System.gc()  // ensures GC for a consistent state across different iterations
       val timer = new ToolsTimer(i)
       val memoryTracker = new MemoryMetricsTracker
       f(timer)
