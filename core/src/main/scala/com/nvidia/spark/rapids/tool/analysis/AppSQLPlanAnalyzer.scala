@@ -300,12 +300,60 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         val med = Math.max(taskInfo.med, driverInfo.med)
         val total = Math.max(taskInfo.total, driverInfo.total)
 
+        metric.stageIds.map { stageId =>
+          val accumInfo = app.accumManager.accumInfoMap.get(metric.accumulatorId)
+          val taskIdsInStage =
+            accumInfo.taskUpdatesMap.keys.filter(id => app.taskManager.getAllTasksStageAttempt(stageId).contains(id))
+          // TODO: calculate stats of above set of task ids, this is the result for this stage
+        }
+
         Some(SQLAccumProfileResults(appIndex, metric.sqlID,
           metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
           min, med, max, total, metric.metricType, metric.stageIds.mkString(",")))
       } else {
         None
       }
+    }
+  }
+
+  def generateIODiagnosticAccums(sqlAccums: Seq[SQLAccumProfileResults]):
+      Seq[IODiagnosticProfileResult] = {
+    // TODO: filter node names only for io
+    sqlAccums.flatMap { sqlAccum =>
+      sqlAccum.stageIds.split(",").map { stageIdStr =>
+        val stageId = stageIdStr.toInt
+        val stageTaskIds = app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet
+        val accumInfo = app.accumManager.accumInfoMap.get(sqlAccum.accumulatorId)
+        // val taskAccumsInStage = accumInfo.taskUpdatesMap.collect {
+        //   case (id, accum) if app.taskManager.getAllTasksStageAttempt(stageId).contains(id) =>
+        //     accum
+        // }
+        val taskUpatesSubset = accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
+        // val sortedTaskUpdates = taskAccumsInStage.toSeq.sorted
+        if (taskUpatesSubset.isEmpty) {
+          None
+        } else {
+          val min = taskUpatesSubset.head
+          val max = taskUpatesSubset.last
+          val sum = taskUpatesSubset.sum
+          val median = if (taskUpatesSubset.size % 2 == 0) {
+            val mid = taskUpatesSubset.size / 2
+            (taskUpatesSubset(mid) + taskUpatesSubset(mid - 1)) / 2
+          } else {
+            taskUpatesSubset(taskUpatesSubset.size / 2)
+          }
+        Some(IODiagnosticProfileResult(
+          appIndex,
+          app.getAppName,
+          app.appId,
+          stageId,
+          sqlAccum.sqlID,
+          app.stageManager.getDurationById(stageId),
+          sqlAccum.nodeName,
+          // TODO
+        ))
+      }
+
     }
   }
 

@@ -206,9 +206,19 @@ class SQLExecutionInfoClass(
   }
 }
 
-case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
-    nodeName: String, accumulatorId: Long, name: String, min: Long, median:Long,
-    max: Long, total: Long, metricType: String, stageIds: String) extends ProfileResult {
+case class SQLAccumProfileResults(
+    appIndex: Int,
+    sqlID: Long,
+    nodeID: Long,
+    nodeName: String,
+    accumulatorId: Long,
+    name: String,
+    min: Long,
+    median:Long,
+    max: Long,
+    total: Long,
+    metricType: String,
+    stageIds: String) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "sqlID", "nodeID", "nodeName", "accumulatorId",
     "name", "min", "median", "max", "total", "metricType", "stageIds")
   override def convertToSeq: Seq[String] = {
@@ -751,6 +761,29 @@ case class SQLTaskAggMetricsProfileResult(
       swRecordsWrittenSum.toString,
       swWriteTimeSum.toString)
   }
+}
+
+case class IODiagnosticProfileResult(
+    appIndex: Int,
+    appName: String,
+    appId: String,
+    stageId: Long,
+    sqlId: Long,
+    stageDuration: Option[Long],
+    nodeName: String,
+    outputRows: SQLAccumProfileResults,
+    scanTime: SQLAccumProfileResults,
+    serializationTime: SQLAccumProfileResults,
+    outputBatches: SQLAccumProfileResults,
+    buffeTime: SQLAccumProfileResults,
+    shuffleWriteTime: SQLAccumProfileResults,
+    gpuDecodeTime: SQLAccumProfileResults) extends ProfileResult {
+
+  val durStr = duration match {
+    case Some(dur) => dur.toString
+    case None => "null"
+  }
+
 }
 
 case class IOAnalysisProfileResult(
