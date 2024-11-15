@@ -44,7 +44,8 @@ object QualRawReportGenerator {
       TASK_SHUFFLE_SKEW -> sortedRes.taskShuffleSkew,
       SQL_AGG_LABEL -> sortedRes.sqlAggs,
       IO_LABEL -> sortedRes.ioAggs,
-      SQL_DUR_LABEL -> sortedRes.sqlDurAggs)
+      SQL_DUR_LABEL -> sortedRes.sqlDurAggs,
+      STAGE_DIAGNOSTICS_LABEL -> sortedRes.stageDiagnostics)
   }
 
   private def generateSQLProcessingView(
