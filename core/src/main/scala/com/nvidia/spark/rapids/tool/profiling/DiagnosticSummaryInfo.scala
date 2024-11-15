@@ -17,7 +17,8 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 /**
- * Stores Profiler diagnostic info. We plan to add two more fields shortly.
+ * Stores Profiler diagnostic info.
+ * TODO: We plan to add two more fields/views in upcoming PRs.
  */
 case class DiagnosticSummaryInfo(
     stageDiagnostics: Seq[StageDiagnosticResult]

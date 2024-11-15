@@ -567,6 +567,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profileOutputWriter.writeSparkRapidsBuildInfo("Spark Rapids Build Info",
         app.sparkRapidsBuildInfo)
     }
+    // Write diagnostic related results to CSV files
     val diagnostics = if (outputCombined) {
       Seq(DiagnosticSummaryInfo(diagnosticSum.flatMap(_.stageDiagnostics)))
     } else {

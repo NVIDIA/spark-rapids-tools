@@ -64,17 +64,15 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     HashMap.empty[Long, HashMap[String, AccumProfileResults]]
 
   /**
-   * Check if the input is a diagnostic metric and update stageToDiagnosticMetrics mapping
+   * Given an input diagnostic metric result, update stageToDiagnosticMetrics mapping
    * @param accum AccumProfileResults to be analyzed
    */
   private def updateStageDiagnosticMetrics(accum: AccumProfileResults): Unit = {
-    if (accum.accMetaRef.name.isDiagnosticMetrics()) {
-      val stageId = accum.stageId
-      if (!stageToDiagnosticMetrics.contains(stageId)) {
-        stageToDiagnosticMetrics(stageId) = HashMap.empty[String, AccumProfileResults]
-      }
-      stageToDiagnosticMetrics(stageId)(accum.accMetaRef.getName()) = accum
+    val stageId = accum.stageId
+    if (!stageToDiagnosticMetrics.contains(stageId)) {
+      stageToDiagnosticMetrics(stageId) = HashMap.empty[String, AccumProfileResults]
     }
+    stageToDiagnosticMetrics(stageId)(accum.accMetaRef.getName()) = accum
   }
 
   /**
@@ -369,7 +367,9 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
             median = median,
             max = max,
             total = sum)
-          updateStageDiagnosticMetrics(accumProfileResults)
+          if (accumInfo.infoRef.name.isDiagnosticMetrics()) {
+            updateStageDiagnosticMetrics(accumProfileResults)
+          }
           Some(accumProfileResults)
         }
       })
