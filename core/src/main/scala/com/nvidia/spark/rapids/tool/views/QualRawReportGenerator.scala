@@ -96,9 +96,11 @@ object QualRawReportGenerator {
       pWriter.writeText("\n### B. Analysis ###\n")
       constructLabelsMaps(QualSparkMetricsAnalyzer.
         getAggRawMetrics(app, appIndex, Some(sqlPlanAnalyzer))).foreach { case (label, metrics) =>
-          pWriter.write(label,
-            metrics,
-            AGG_DESCRIPTION.get(label))
+          if (label == STAGE_DIAGNOSTICS_LABEL) {
+            pWriter.writeCSVTable(label, metrics)
+          } else {
+            pWriter.write(label, metrics, AGG_DESCRIPTION.get(label))
+          }
       }
       pWriter.writeText("\n### C. Health Check###\n")
       pWriter.write(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))
