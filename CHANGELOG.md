@@ -1,6 +1,25 @@
 
 <br/>
 
+## Release [v24.10.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.10.1)
+Generated on 2024-11-15
+### User Tools
+
+- Add qualification support for Photon jobs in the Python Tool ([#1409](https://github.com/NVIDIA/spark-rapids-tools/pull/1409))
+- Add qualx support for platform runtime variants (DB AWS) ([#1417](https://github.com/NVIDIA/spark-rapids-tools/pull/1417))
+- Update models for latest emr, onprem eventlogs ([#1410](https://github.com/NVIDIA/spark-rapids-tools/pull/1410))
+
+### Core
+
+- Adding EMR-specific tunings for shuffle manager and ignoring jar ([#1419](https://github.com/NVIDIA/spark-rapids-tools/pull/1419))
+- Changing autotuner memory error to warning in comments ([#1418](https://github.com/NVIDIA/spark-rapids-tools/pull/1418))
+- Add sparkRuntime property to capture runtime type in application_information ([#1414](https://github.com/NVIDIA/spark-rapids-tools/pull/1414))
+- Refactor Exec Parsers - remove individual parser classes ([#1396](https://github.com/NVIDIA/spark-rapids-tools/pull/1396))
+- Remove estimated GPU duration from qualification output ([#1412](https://github.com/NVIDIA/spark-rapids-tools/pull/1412))
+
+
+<br/>
+
 ## Release [v24.10.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.10.0)
 Generated on 2024-11-04
 ### User Tools
