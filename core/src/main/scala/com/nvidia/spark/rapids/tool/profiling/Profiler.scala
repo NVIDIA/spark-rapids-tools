@@ -119,6 +119,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     progressBar.foreach(_.finishAll())
 
     // Write status reports for all event logs to a CSV file
+    logOutputPath()
     val reportResults = generateStatusResults(appStatusReporter.asScala.values.toSeq)
     ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir)
   }
