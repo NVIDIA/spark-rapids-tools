@@ -4,4 +4,4 @@ api_version: '1.0'
 distributed_tools:
   spark_properties:
     - name: 'spark.executor.memory'
-      value: '32g'
+      value: '20g'
