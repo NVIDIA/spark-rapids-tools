@@ -21,9 +21,9 @@ from pydantic import BaseModel, Field
 class SparkProperty(BaseModel):
     """Represents a single Spark property with a name and value."""
     name: str = Field(
-        description='The name of the Spark property, e.g., "spark.executor.memory".')
+        description='Name of the Spark property, e.g., "spark.executor.memory".')
     value: str = Field(
-        description='The value of the Spark property, e.g., "4g".')
+        description='Value of the Spark property, e.g., "4g".')
 
 
 class DistributedToolsConfig(BaseModel):

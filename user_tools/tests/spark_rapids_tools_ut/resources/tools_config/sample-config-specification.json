@@ -166,12 +166,12 @@
       "description": "Represents a single Spark property with a name and value.",
       "properties": {
         "name": {
-          "description": "The name of the Spark property, e.g., \"spark.executor.memory\".",
+          "description": "Name of the Spark property, e.g., \"spark.executor.memory\".",
           "title": "Name",
           "type": "string"
         },
         "value": {
-          "description": "The value of the Spark property, e.g., \"4g\".",
+          "description": "Value of the Spark property, e.g., \"4g\".",
           "title": "Value",
           "type": "string"
         }
