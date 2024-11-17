@@ -961,8 +961,12 @@ class RapidsJarTool(RapidsTool):
         executors_cnt = len(rapids_job_containers) if Utilities.conc_mode_enabled else 1
         with ThreadPoolExecutor(max_workers=executors_cnt) as executor:
             for rapids_job in rapids_job_containers:
-                job_obj = self.ctxt.platform.create_local_submission_job(job_prop=rapids_job,
-                                                                         ctxt=self.ctxt)
+                if self.ctxt.is_distributed_mode():
+                    job_obj = self.ctxt.platform.create_distributed_submission_job(job_prop=rapids_job,
+                                                                                   ctxt=self.ctxt)
+                else:
+                    job_obj = self.ctxt.platform.create_local_submission_job(job_prop=rapids_job,
+                                                                             ctxt=self.ctxt)
                 futures = executor.submit(job_obj.run_job)
                 futures_list.append(futures)
             try:
@@ -970,5 +974,5 @@ class RapidsJarTool(RapidsTool):
                     result = future.result()
                     results.append(result)
             except Exception as ex:    # pylint: disable=broad-except
-                self.logger.error('Failed to download dependencies %s', ex)
+                self.logger.error('Failed to submit jobs %s', ex)
                 raise ex

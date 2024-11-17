@@ -470,6 +470,7 @@ class QualifyUserArgModel(ToolUserArgModel):
     """
     filter_apps: Optional[QualFilterApp] = None
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
+    distributed_mode_args: Optional[Dict] = dataclasses.field(default_factory=dict)
 
     def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
@@ -532,7 +533,8 @@ class QualifyUserArgModel(ToolUserArgModel):
             'eventlogs': self.eventlogs,
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
-            'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs']
+            'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
+            'distributedModeArgs': self.distributed_mode_args
         }
         return wrapped_args
 
@@ -753,4 +755,28 @@ class InstanceDescriptionUserArgModel(AbsToolUserArgModel):
             'targetPlatform': CspEnv(self.target_platform),
             'output_folder': self.output_folder,
             'platformOpts': {},
+        }
+
+
+@dataclass
+@register_tool_arg_validator('distributed_mode')
+class DistributedModeArgProcessor(AbsToolUserArgModel):
+    """
+    Class to validate the arguments of Distributed Mode
+    """
+    distributed_mode: Optional[bool] = None
+    spark_config_file: Optional[str] = None
+
+    def validate_spark_conf_file(self) -> None:
+        # validate the spark configuration file path is valid
+        if self.spark_config_file is not None:
+            if not CspPath.is_file_path(self.spark_config_file, extensions=['conf']):
+                raise PydanticCustomError(
+                    'spark_conf_file',
+                    f'spark configuration file path {self.spark_config_file} is not valid\n  Error:')
+
+    def build_tools_args(self) -> dict:
+        return {
+            'distributedModeEnabled': self.distributed_mode,
+            'sparkConfigFile': self.spark_config_file,
         }

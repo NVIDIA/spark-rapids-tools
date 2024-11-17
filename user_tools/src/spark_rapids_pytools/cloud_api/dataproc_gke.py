@@ -29,6 +29,7 @@ from spark_rapids_pytools.pricing.dataproc_gke_pricing import DataprocGkePricePr
 from spark_rapids_tools import CspEnv
 
 
+# pylint: disable=abstract-method
 @dataclass
 class DataprocGkePlatform(DataprocPlatform):
     """

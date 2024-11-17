@@ -31,6 +31,7 @@ from spark_rapids_pytools.pricing.emr_pricing import EMREc2PriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
+# pylint: disable=abstract-method
 @dataclass
 class EMRPlatform(PlatformBase):
     """

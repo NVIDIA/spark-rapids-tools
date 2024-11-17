@@ -29,6 +29,7 @@ from spark_rapids_pytools.pricing.databricks_azure_pricing import DatabricksAzur
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
+# pylint: disable=abstract-method
 @dataclass
 class DBAzurePlatform(PlatformBase):
     """

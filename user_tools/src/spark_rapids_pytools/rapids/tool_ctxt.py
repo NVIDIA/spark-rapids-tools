@@ -89,6 +89,10 @@ class ToolContext(YAMLPropertiesContainer):
     def is_fat_wheel_mode(self) -> bool:
         return self.get_ctxt('fatWheelModeEnabled')
 
+    def is_distributed_mode(self) -> bool:
+        distributed_mode_args = self.get_ctxt('distributedModeArgs')
+        return distributed_mode_args is not None and distributed_mode_args.get('distributedModeEnabled', False)
+
     def set_ctxt(self, key: str, val: Any):
         self.props['wrapperCtx'][key] = val
 

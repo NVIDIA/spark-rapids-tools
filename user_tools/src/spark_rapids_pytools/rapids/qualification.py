@@ -153,6 +153,10 @@ class Qualification(RapidsJarTool):
             estimation_model_args = QualEstimationModel.create_default_model_args(selected_model)
         self.ctxt.set_ctxt('estimationModelArgs', estimation_model_args)
 
+    def _process_distributed_mode_args(self) -> None:
+        distributed_mode_args = self.wrapper_options.get('distributedModeArgs')
+        self.ctxt.set_ctxt('distributedModeArgs', distributed_mode_args)
+
     def _process_custom_args(self) -> None:
         """
         Qualification tool processes extra arguments:
@@ -181,6 +185,7 @@ class Qualification(RapidsJarTool):
         self._process_estimation_model_args()
         self._process_offline_cluster_args()
         self._process_eventlogs_args()
+        self._process_distributed_mode_args()
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 
@@ -375,7 +380,7 @@ class Qualification(RapidsJarTool):
 
         df = self._read_qualification_output_file('summaryReport')
         # 1. Operations related to XGboost modelling
-        if self.ctxt.get_ctxt('estimationModelArgs')['xgboostEnabled']:
+        if not df.empty and self.ctxt.get_ctxt('estimationModelArgs')['xgboostEnabled']:
             try:
                 df = self.__update_apps_with_prediction_info(df,
                                                              self.ctxt.get_ctxt('estimationModelArgs'))

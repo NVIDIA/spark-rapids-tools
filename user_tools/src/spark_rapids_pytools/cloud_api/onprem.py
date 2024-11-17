@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from typing import Any, List, Optional
 
 from spark_rapids_tools import CspEnv
-from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, ClusterNode, \
     CMDDriverBase, ClusterGetAccessor, GpuDevice, \
     GpuHWInfo, NodeHWInfo, SparkNodeType, SysInfo
@@ -27,6 +26,7 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import StorageDriver
 from spark_rapids_pytools.pricing.dataproc_pricing import DataprocPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
+from spark_rapids_pytools.rapids.rapids_job import RapidsLocalJob, RapidsDistributedJob
 
 
 @dataclass
@@ -48,6 +48,9 @@ class OnPremPlatform(PlatformBase):
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return OnPremLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
+
+    def create_distributed_submission_job(self, job_prop, ctxt) -> RapidsDistributedJob:
+        return OnPremDistributedRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
     def _construct_cluster_from_props(self, cluster: str, props: str = None, is_inferred: bool = False,
                                       is_props_file: bool = False):
@@ -152,6 +155,14 @@ class OnPremLocalRapidsJob(RapidsLocalJob):
     Implementation of a RAPIDS job that runs on a local machine.
     """
     job_label = 'onpremLocal'
+
+
+@dataclass
+class OnPremDistributedRapidsJob(RapidsDistributedJob):
+    """
+    Implementation of a RAPIDS job that runs on a distributed cluster
+    """
+    job_label = 'onpremDistributed'
 
 
 @dataclass

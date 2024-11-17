@@ -32,6 +32,7 @@ from spark_rapids_pytools.pricing.dataproc_pricing import DataprocPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
+# pylint: disable=abstract-method
 @dataclass
 class DataprocPlatform(PlatformBase):
     """

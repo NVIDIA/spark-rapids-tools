@@ -46,6 +46,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       jvm_threads: int = None,
                       verbose: bool = None,
                       tools_config_file: str = None,
+                      distributed: bool = None,
+                      spark_config_file: str = None,
                       **rapids_options) -> None:
         """The Qualification cmd provides estimated speedups by migrating Apache Spark applications
         to GPU accelerated clusters.
@@ -83,6 +85,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param tools_config_file: Path to a configuration file that contains the tools' options.
                For sample configuration files, please visit
                https://github.com/NVIDIA/spark-rapids-tools/tree/main/user_tools/tests/spark_rapids_tools_ut/resources/tools_config/valid
+        :param distributed: True or False to enable distributed mode.
+        :param spark_config_file: Path to a Spark configuration file to be used in distributed mode.
         :param rapids_options: A list of valid Qualification tool options.
                 Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
                 multiple "spark-property" arguments.
@@ -107,6 +111,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                                      custom_model_file=custom_model_file)
         if estimation_model_args is None:
             return None
+        distributed_mode_args = AbsToolUserArgModel.create_tool_args('distributed_mode',
+                                                                     distributed_mode=distributed,
+                                                                     spark_config_file=spark_config_file)
         qual_args = AbsToolUserArgModel.create_tool_args('qualification',
                                                          eventlogs=eventlogs,
                                                          cluster=cluster,
@@ -117,7 +124,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          jvm_threads=jvm_threads,
                                                          filter_apps=filter_apps,
                                                          estimation_model_args=estimation_model_args,
-                                                         tools_config_path=tools_config_file)
+                                                         tools_config_path=tools_config_file,
+                                                         distributed_mode_args=distributed_mode_args)
         if qual_args:
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
                                             output_folder=qual_args['outputFolder'],
