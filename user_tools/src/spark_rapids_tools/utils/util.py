@@ -17,6 +17,7 @@
 import os
 import pathlib
 import re
+import shutil
 import ssl
 import sys
 import textwrap
@@ -349,3 +350,44 @@ class Utilities:
             num_bytes /= 1024.0
             i += 1
         return f'{num_bytes:.2f} {size_units[i]}'
+
+    @classmethod
+    def parse_memory_size_in_gb(cls, memory_str: str) -> float:
+        """
+        Helper function to convert JVM memory string to float in gigabytes.
+        E.g. '512m' -> 0.5, '2g' -> 2.0
+        """
+        if not memory_str or len(memory_str) < 2:
+            raise ValueError("Memory size string must include a value and a unit (e.g., '512m', '2g').")
+
+        unit = memory_str[-1].lower()
+        size_value = float(memory_str[:-1])
+
+        if unit == 'g':
+            return size_value
+        if unit == 'm':
+            return size_value / 1024  # Convert MB to GB
+        if unit == 'k':
+            return size_value / (1024 ** 2)  # Convert KB to GB
+
+        raise ValueError(f'Invalid memory unit {unit} in memory size: {memory_str}')
+
+    @staticmethod
+    def zip_folder(source_folder: str, dest_zip_path: str) -> str:
+        """
+        Zips the specified folder, keeping the folder at the top level in the zip file.
+
+        :param source_folder: Path to the folder to be zipped.
+        :param dest_zip_path: Full path for the resulting zip file (should end with .zip).
+        :return: Path to the zipped file.
+        """
+        assert dest_zip_path.endswith('.zip'), 'dest_zip_path should end with .zip'
+
+        if os.path.exists(dest_zip_path):
+            os.remove(dest_zip_path)
+
+        # Create the zip file with the folder at the top level
+        shutil.make_archive(dest_zip_path.rstrip('.zip'), 'zip',
+                            root_dir=os.path.dirname(source_folder),
+                            base_dir=os.path.basename(source_folder))
+        return dest_zip_path

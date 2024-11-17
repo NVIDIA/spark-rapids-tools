@@ -14,6 +14,7 @@
 
 """ Jar command arguments for running the Tools JAR on Spark """
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import List
 
 
@@ -28,3 +29,25 @@ class JarCmdArgs:
     jar_main_class: str = field(default=None, init=True)
     jar_output_dir_args: List[str] = field(default=None, init=True)
     extra_rapids_args: List[str] = field(default=None, init=True)
+
+    @cached_property
+    def jvm_log_file(self) -> str:
+        """ Return the log4j properties file from JVM arguments """
+        for arg in self.jvm_args:
+            if 'Dlog4j.configuration' in arg:
+                return arg.split('=')[1]
+        raise ValueError('log4j properties file not found in JVM arguments')
+
+    @cached_property
+    def tools_jar_path(self) -> str:
+        return self.classpath_arr[1]
+
+    @cached_property
+    def rapids_args(self) -> List[str]:
+        """ Return the Rapids arguments """
+        return self.extra_rapids_args[:-1]
+
+    @cached_property
+    def event_logs_path(self) -> str:
+        """ Return the path to the event logs directory """
+        return self.extra_rapids_args[-1]

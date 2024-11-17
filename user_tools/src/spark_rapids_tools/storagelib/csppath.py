@@ -323,6 +323,9 @@ class CspPath(metaclass=CspPathMeta):
     def open_output_stream(self):
         return self.fs_obj.open_output_stream(self.no_scheme)
 
+    def open_append_stream(self):
+        return self.fs_obj.open_append_stream(self.no_scheme)
+
     def create_sub_path(self, relative: str) -> 'CspPath':
         """
         Given a relative path, it will return a new CspPath object with the relative path appended to

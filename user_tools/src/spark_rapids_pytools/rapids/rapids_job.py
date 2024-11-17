@@ -23,6 +23,7 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools.storagelib import LocalPath
+from spark_rapids_tools_distributed.distributed_main import DistributedToolsExecutor
 from spark_rapids_tools_distributed.jar_cmd_args import JarCmdArgs
 
 
@@ -251,5 +252,12 @@ class RapidsDistributedJob(RapidsJob):
         return ['-cp', self.prop_container.get_jar_file()]
 
     def _submit_job(self, cmd_args: JarCmdArgs) -> None:
-        # TODO: Support for submitting the Tools JAR to a Spark cluster
-        raise NotImplementedError('Distributed job submission is not yet supported')
+        """
+        Submit the Tools JAR cmd to the Spark cluster.
+        """
+        distributed_tools_configs = self.prop_container.get_distribution_tools_configs()
+        executor = DistributedToolsExecutor(distributed_tools_configs=distributed_tools_configs,
+                                            platform=self.exec_ctxt.platform.get_platform_name(),
+                                            output_folder=self.exec_ctxt.get_output_folder(),
+                                            jar_cmd_args=cmd_args)
+        executor.run_as_spark_app()

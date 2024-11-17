@@ -1,0 +1,12 @@
+tool:
+  qualification:
+    jarOutputDirName: 'rapids_4_spark_qualification_output'
+    statusCsvFileName: 'rapids_4_spark_qualification_output_status.csv'
+outputFiles:
+  cacheDirPath: '/var/tmp/spark_rapids_distributed_tools_cache'
+  logFileName: 'spark_rapids_distributed_tools.log'
+sparkSessionBuilder:
+  distributedToolsAppName: 'Distributed SPARK Rapids Tools'
+  defaultExecutorMemory: '32g'
+  protectedSparkConfigs:
+    - 'spark.submit.deployMode'
