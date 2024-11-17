@@ -39,6 +39,7 @@ from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
 from spark_rapids_tools.configuration.common import RuntimeDependency
+from spark_rapids_tools.configuration.distributed_tools_config import DistributedToolsConfig
 from spark_rapids_tools.configuration.tools_config import ToolsConfig
 from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib import LocalPath, CspFs
@@ -608,7 +609,7 @@ class RapidsJarTool(RapidsTool):
             # check if the dependencies is defined in a config file
             config_obj = self.get_tools_config_obj()
             if config_obj is not None:
-                if config_obj.runtime.dependencies:
+                if config_obj.runtime and config_obj.runtime.dependencies:
                     return config_obj.runtime.dependencies
                 self.logger.info('The ToolsConfig did not specify the dependencies. '
                                  'Falling back to the default dependencies.')
@@ -939,9 +940,32 @@ class RapidsJarTool(RapidsTool):
             'sparkConfArgs': spark_conf_args,
             'platformArgs': platform_args
         }
+        # Set the configuration for the distributed tools
+        distributed_tools_configs = self._get_distributed_tools_configs()
+        if distributed_tools_configs:
+            job_properties_json['distributedToolsConfigs'] = distributed_tools_configs
         rapids_job_container = RapidsJobPropContainer(prop_arg=job_properties_json,
                                                       file_load=False)
         self.ctxt.set_ctxt('rapidsJobContainers', [rapids_job_container])
+
+    def _get_distributed_tools_configs(self) -> Optional[DistributedToolsConfig]:
+        """
+        Get the distributed tools configurations from the tools config file
+        """
+        config_obj = self.get_tools_config_obj()
+        if config_obj and config_obj.distributed_tools:
+            if self.ctxt.is_distributed_mode():
+                return config_obj.distributed_tools
+            self.logger.warning(
+                'Distributed tool configurations detected, but distributed mode is not active. '
+                'Switching to local mode.'
+            )
+        elif self.ctxt.is_distributed_mode():
+            self.logger.warning(
+                'Distributed mode is enabled, but no distributed tool configurations were provided. '
+                'Using default settings.'
+            )
+        return None
 
     def _archive_results(self):
         self._archive_local_results()

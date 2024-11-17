@@ -39,6 +39,8 @@ class RapidsJobPropContainer(JSONPropertiesContainer):
             self.props['sparkConfArgs'] = {}
         if self.get_value_silent('platformArgs') is None:
             self.props['platformArgs'] = {}
+        if self.get_value_silent('distributedToolsConfigs') is None:
+            self.props['distributedToolsConfigs'] = {}
 
     def get_jar_file(self):
         return self.get_value('rapidsArgs', 'jarFile')
@@ -48,6 +50,9 @@ class RapidsJobPropContainer(JSONPropertiesContainer):
 
     def get_rapids_args(self):
         return self.get_value('rapidsArgs', 'jarArgs')
+
+    def get_distribution_tools_configs(self):
+        return self.get_value('distributedToolsConfigs')
 
 
 @dataclass

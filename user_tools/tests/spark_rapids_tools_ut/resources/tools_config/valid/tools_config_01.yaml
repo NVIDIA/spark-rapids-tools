@@ -1,0 +1,7 @@
+# This yaml file is a configuration file for a tool that uses defines the spark properties
+# for the distributed tools.
+api_version: '1.0'
+distributed_tools:
+  spark_properties:
+    - name: 'spark.executor.memory'
+      value: '32g'

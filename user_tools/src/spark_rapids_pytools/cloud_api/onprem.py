@@ -162,7 +162,7 @@ class OnPremDistributedRapidsJob(RapidsDistributedJob):
     """
     Implementation of a RAPIDS job that runs on a distributed cluster
     """
-    job_label = 'onpremDistributed'
+    job_label = 'onprem.distributed'
 
 
 @dataclass

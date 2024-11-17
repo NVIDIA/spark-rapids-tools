@@ -36,6 +36,31 @@
       "title": "DependencyVerification",
       "type": "object"
     },
+    "DistributedToolsConfig": {
+      "description": "Configuration class for distributed tools",
+      "properties": {
+        "spark_properties": {
+          "description": "List of Spark properties to be used for the Spark session.",
+          "examples": [
+            {
+              "name": "spark.executor.memory",
+              "value": "4g"
+            },
+            {
+              "name": "spark.executor.cores",
+              "value": "4"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/SparkProperty"
+          },
+          "title": "Spark Properties",
+          "type": "array"
+        }
+      },
+      "title": "DistributedToolsConfig",
+      "type": "object"
+    },
     "FileHashAlgorithm": {
       "description": "Represents a file hash algorithm and its value. Used for verification against an existing file.",
       "properties": {
@@ -137,6 +162,27 @@
       "title": "RuntimeDependencyType",
       "type": "object"
     },
+    "SparkProperty": {
+      "description": "Represents a single Spark property with a name and value.",
+      "properties": {
+        "name": {
+          "description": "The name of the Spark property, e.g., \"spark.executor.memory\".",
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "description": "The value of the Spark property, e.g., \"4g\".",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "title": "SparkProperty",
+      "type": "object"
+    },
     "ToolsRuntimeConfig": {
       "description": "The runtime configurations of the tools as defined by the user.",
       "properties": {
@@ -169,13 +215,32 @@
       "type": "number"
     },
     "runtime": {
-      "$ref": "#/$defs/ToolsRuntimeConfig",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ToolsRuntimeConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
       "description": "Configuration related to the runtime environment of the tools."
+    },
+    "distributed_tools": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DistributedToolsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Configuration related to the distributed tools."
     }
   },
   "required": [
-    "api_version",
-    "runtime"
+    "api_version"
   ],
   "title": "ToolsConfig",
   "type": "object"

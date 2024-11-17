@@ -153,9 +153,9 @@ class Qualification(RapidsJarTool):
             estimation_model_args = QualEstimationModel.create_default_model_args(selected_model)
         self.ctxt.set_ctxt('estimationModelArgs', estimation_model_args)
 
-    def _process_distributed_mode_args(self) -> None:
-        distributed_mode_args = self.wrapper_options.get('distributedModeArgs')
-        self.ctxt.set_ctxt('distributedModeArgs', distributed_mode_args)
+    def _process_distributed_tools_args(self) -> None:
+        distributed_tools_enabled = self.wrapper_options.get('distributedToolsEnabled')
+        self.ctxt.set_ctxt('distributedToolsEnabled', distributed_tools_enabled)
 
     def _process_custom_args(self) -> None:
         """
@@ -185,7 +185,7 @@ class Qualification(RapidsJarTool):
         self._process_estimation_model_args()
         self._process_offline_cluster_args()
         self._process_eventlogs_args()
-        self._process_distributed_mode_args()
+        self._process_distributed_tools_args()
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 
