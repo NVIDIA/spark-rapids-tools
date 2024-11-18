@@ -957,8 +957,8 @@ class RapidsJarTool(RapidsTool):
             if self.ctxt.is_distributed_mode():
                 return config_obj.distributed_tools
             self.logger.warning(
-                'Distributed tool configurations detected, but distributed mode is not active. '
-                'Switching to local mode.'
+                'Distributed tool configurations detected, but distributed mode is not enabled.'
+                'Use \'--distributed\' flag to enable distributed mode. Switching to local mode.'
             )
         elif self.ctxt.is_distributed_mode():
             self.logger.warning(
