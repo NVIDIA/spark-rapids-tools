@@ -157,6 +157,7 @@ class OnPremLocalRapidsJob(RapidsLocalJob):
     job_label = 'onpremLocal'
 
 
+# pylint: disable=abstract-method
 @dataclass
 class OnPremDistributedRapidsJob(RapidsDistributedJob):
     """
