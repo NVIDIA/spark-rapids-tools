@@ -107,7 +107,9 @@ case class ExecInfo(
     unsupportedExprs: Seq[UnsupportedExpr],
     dataSet: Boolean,
     udf: Boolean,
-    shouldIgnore: Boolean) {
+    shouldIgnore: Boolean,
+    execsRef: ExecRef,
+    exprsRef: Seq[ExprRef]) {
 
   private def childrenToString = {
     val str = children.map { c =>
@@ -238,7 +240,9 @@ object ExecInfo {
       unsupportedExecReason: String = "",
       unsupportedExprs: Seq[UnsupportedExpr] = Seq.empty,
       dataSet: Boolean = false,
-      udf: Boolean = false): ExecInfo = {
+      udf: Boolean = false,
+      execsRef: ExecRef = ExecRef.Empty,
+      exprsRef: Seq[ExprRef] = Seq(ExprRef.Empty)): ExecInfo = {
     // Set the ignoreFlag
     // 1- we ignore any exec with UDF
     // 2- we ignore any exec with dataset
@@ -274,7 +278,9 @@ object ExecInfo {
       unsupportedExprs,
       finalDataSet,
       udf,
-      shouldIgnore
+      shouldIgnore,
+      execsRef,
+      exprsRef
     )
   }
 
@@ -294,7 +300,9 @@ object ExecInfo {
       unsupportedExprs: Seq[UnsupportedExpr] = Seq.empty,
       dataSet: Boolean = false,
       udf: Boolean = false,
-      opType: OpTypes.OpType = OpTypes.Exec): ExecInfo = {
+      opType: OpTypes.OpType = OpTypes.Exec,
+      execsRef: ExecRef = ExecRef.Empty,
+      exprsRef: Seq[ExprRef] = Seq(ExprRef.Empty)): ExecInfo = {
     // Some execs need to be trimmed such as "Scan"
     // Example: Scan parquet . ->  Scan parquet.
     // scan nodes needs trimming
@@ -327,7 +335,9 @@ object ExecInfo {
       unsupportedExecReason,
       finalUnsupportedExpr,
       ds,
-      containsUDF
+      containsUDF,
+      execsRef,
+      exprsRef
     )
   }
 }
@@ -491,11 +501,13 @@ object SQLPlanParser extends Logging {
         GenericExecParser(
           node, checker, sqlID, expressionFunction = Some(parseGenerateExpressions)).parse
       case "HashAggregate" =>
-        HashAggregateExecParser(node, checker, sqlID, app).parse
+        HashAggregateExecParser(
+          node, checker, sqlID, Some(parseAggregateExpressions), app).parse
       case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
         DataWritingCommandExecParser.parseNode(node, checker, sqlID)
       case "ObjectHashAggregate" =>
-        ObjectHashAggregateExecParser(node, checker, sqlID, app).parse
+        ObjectHashAggregateExecParser(
+          node, checker, sqlID, Some(parseAggregateExpressions), app).parse
       case "Project" =>
         GenericExecParser(
           node, checker, sqlID, expressionFunction = Some(parseProjectExpressions)).parse

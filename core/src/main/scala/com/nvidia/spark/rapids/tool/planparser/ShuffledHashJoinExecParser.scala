@@ -29,6 +29,7 @@ case class ShuffledHashJoinExecParser(
     app: AppBase) extends ExecParser with Logging {
 
   val fullExecName = node.name + "Exec"
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
 
   override def parse: ExecInfo = {
     // TODO - Its partial duration only. We need a way to specify it as partial.
@@ -36,6 +37,7 @@ case class ShuffledHashJoinExecParser(
     val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
     val exprString = node.desc.replaceFirst("ShuffledHashJoin ", "")
     val (expressions, supportedJoinType) = SQLPlanParser.parseEquijoinsExpressions(exprString)
+    val exprRefs: Seq[ExprRef] = expressions.map(ExprRef.getOrCreate)
     val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
     val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
       notSupportedExprs.isEmpty && supportedJoinType) {
@@ -46,6 +48,7 @@ case class ShuffledHashJoinExecParser(
 
     // TODO - add in parsing expressions - average speedup across?
     ExecInfo(node, sqlID, node.name, "", speedupFactor,
-      maxDuration, node.id, isSupported, None)
+      maxDuration, node.id, isSupported, None, execsRef = execNameRef,
+      exprsRef = exprRefs)
   }
 }

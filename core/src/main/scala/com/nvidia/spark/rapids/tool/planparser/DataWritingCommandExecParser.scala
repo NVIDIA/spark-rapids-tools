@@ -29,6 +29,7 @@ case class DataWritingCommandExecParser(
   // and InsertIntoHadoopFsRelationCommand doesn't have an entry in the
   // supported execs file
   val fullExecName: String = DataWritingCommandExecParser.dataWriteCMD
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
 
   override def parse: ExecInfo = {
     // At this point we are sure that the wrapper is defined
@@ -41,7 +42,8 @@ case class DataWritingCommandExecParser(
     // We do not want to parse the node description to avoid mistakenly marking the node as RDD/UDF
     ExecInfo.createExecNoNode(sqlID, s"${node.name.trim} ${wStub.dataFormat.toLowerCase.trim}",
       s"Format: ${wStub.dataFormat.toLowerCase.trim}",
-      finalSpeedup, duration, node.id, opType = OpTypes.WriteExec, writeSupported,  None)
+      finalSpeedup, duration, node.id, opType = OpTypes.WriteExec, writeSupported,  None,
+      execsRef = execNameRef)
   }
 }
 

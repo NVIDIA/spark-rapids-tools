@@ -33,6 +33,7 @@ case class WriteFilesExecParser(
   // marked as supported, but the error is should not a big deal since the operator has no
   // duration associated with it.
   override val fullExecName: String = WriteFilesExecParser.execName + "Exec"
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
 
   override def parse: ExecInfo = {
     // the WriteFiles does not have duration
@@ -44,7 +45,7 @@ case class WriteFilesExecParser(
       "",
       speedupFactor,
       duration,
-      node.id, opType = OpTypes.WriteExec, true, None)
+      node.id, opType = OpTypes.WriteExec, true, None, execsRef = execNameRef)
   }
 }
 

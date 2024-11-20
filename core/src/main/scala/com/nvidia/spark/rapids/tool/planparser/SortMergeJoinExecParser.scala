@@ -27,6 +27,7 @@ case class SortMergeJoinExecParser(
   private val opName = "SortMergeJoin"
 
   val fullExecName = opName + "Exec"
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
 
   override def parse: ExecInfo = {
     // SortMergeJoin doesn't have duration
@@ -43,7 +44,8 @@ case class SortMergeJoinExecParser(
       (1.0, false)
     }
     // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, opName, "", speedupFactor, duration, node.id, isSupported, None)
+    ExecInfo(node, sqlID, opName, "", speedupFactor, duration, node.id, isSupported, None,
+      execsRef = execNameRef)
   }
 }
 

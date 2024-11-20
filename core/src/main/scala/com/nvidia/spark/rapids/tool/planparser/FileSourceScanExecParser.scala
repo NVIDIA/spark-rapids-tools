@@ -30,6 +30,7 @@ case class FileSourceScanExecParser(
 
   // The node name for Scans is Scan <format> so here we hardcode
   val fullExecName = "FileSourceScanExec"
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
 
   override def parse: ExecInfo = {
     // Remove trailing spaces from node name
@@ -45,8 +46,9 @@ case class FileSourceScanExecParser(
       } else {
         nodeName
       }
+      val nameRef = ExecRef.getOrCreate(newNodeName)
       ExecInfo.createExecNoNode(sqlID, newNodeName, "", 1.0, duration = None,
-        node.id, OpTypes.ReadRDD, false, None)
+        node.id, OpTypes.ReadRDD, false, None, execsRef = nameRef)
     } else {
       val accumId = node.metrics.find(_.name == "scan time").map(_.accumulatorId)
       val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
@@ -64,7 +66,7 @@ case class FileSourceScanExecParser(
 
       // TODO - add in parsing expressions - average speedup across?
       ExecInfo.createExecNoNode(sqlID, nodeName, "", overallSpeedup, maxDuration,
-        node.id, OpTypes.ReadExec, score > 0, None)
+        node.id, OpTypes.ReadExec, score > 0, None, execsRef = execNameRef)
     }
   }
 }

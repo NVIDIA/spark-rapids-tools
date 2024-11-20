@@ -22,6 +22,7 @@ import scala.collection.mutable
 import scala.collection.mutable.{Buffer, LinkedHashMap, ListBuffer}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
+import com.nvidia.spark.rapids.tool.analysis.ExecInfoAnalyzer
 import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, ExecInfo, PlanInfo, UnsupportedExecSummary}
 import com.nvidia.spark.rapids.tool.profiling.AppStatusResult
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
@@ -166,6 +167,24 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
         QualOutputWriter.constructUnsupportedDetailedStagesDurationInfo(csvFileWriter,
           sum, headersAndSizes,
           QualOutputWriter.CSV_DELIMITER, false)
+      }
+    } finally {
+      csvFileWriter.close()
+    }
+  }
+
+  def writeAllOpsSummaryCSVreport(
+      sums: Seq[QualificationSummaryInfo]): Unit = {
+    val csvFileWriter = new ToolTextFileWriter(outputDir,
+      s"${QualOutputWriter.LOGFILE_NAME}_allOperators.csv",
+      "All Operators CSV Report", hadoopConf)
+    try {
+      val headersAndSizes = QualOutputWriter.getAllOperatorsHeaderStrings
+      csvFileWriter.write(QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
+        QualOutputWriter.CSV_DELIMITER))
+      sums.foreach { sum =>
+        QualOutputWriter.constructAllOperatorsInfo(csvFileWriter, sum.planInfo, sum.appId,
+          headersAndSizes, QualOutputWriter.CSV_DELIMITER, false)
       }
     } finally {
       csvFileWriter.close()
@@ -428,6 +447,11 @@ object QualOutputWriter {
   val UNSUPPORTED_EXECS = "Unsupported Execs"
   val UNSUPPORTED_EXPRS = "Unsupported Expressions"
   val UNSUPPORTED_OPERATOR = "Unsupported Operator"
+  val COUNT = "Count"
+  val IS_SUPPORTED = "Supported"
+  val OPERATOR_TYPE = "Operator Type"
+  val OPERATOR_NAME = "Operator Name"
+  val STAGES = "Stages"
   val CLUSTER_TAGS = "Cluster Tags"
   val CLUSTER_ID = DatabricksParseHelper.SUB_PROP_CLUSTER_ID
   val JOB_ID = DatabricksParseHelper.SUB_PROP_JOB_ID
@@ -609,6 +633,19 @@ object QualOutputWriter {
       STAGE_WALLCLOCK_DUR_STR -> STAGE_WALLCLOCK_DUR_STR.size,
       APP_DUR_STR -> APP_DUR_STR.size,
       EXEC_ACTION -> EXEC_ACTION.size
+    )
+    detailedHeaderAndFields
+  }
+
+  private def getAllOperatorsHeaderStrings: LinkedHashMap[String, Int] = {
+    val detailedHeaderAndFields = LinkedHashMap[String, Int](
+      APP_ID_STR -> APP_ID_STR.size,
+      SQL_ID_STR -> SQL_ID_STR.size,
+      OPERATOR_TYPE -> OPERATOR_TYPE.size,
+      OPERATOR_NAME -> OPERATOR_NAME.size,
+      COUNT -> COUNT.size,
+      IS_SUPPORTED -> IS_SUPPORTED.size,
+      STAGES -> STAGES.size
     )
     detailedHeaderAndFields
   }
@@ -1018,6 +1055,50 @@ object QualOutputWriter {
         val allExecs = flattenedExecs(execInfos)
         allExecs.filter(exec => exec.stages.isEmpty && !exec.isSupported)
     }.flatten.toSet
+  }
+
+  private def constructAllOperatorsInfo(
+      csvWriter: ToolTextFileWriter,
+      planInfo: Seq[PlanInfo],
+      appId: String,
+      headersAndSizes: LinkedHashMap[String, Int],
+      delimiter: String,
+      prettyPrint: Boolean): Unit = {
+
+    val execInfos = planInfo.flatMap(_.execInfo)
+    val analyzer = ExecInfoAnalyzer(execInfos)
+    analyzer.analyze()
+    val allOperators = analyzer.getResults
+
+    allOperators.foreach { sqlResult =>
+      val sqlID = sqlResult.sqlID.toString
+      sqlResult.operators.foreach { operator =>
+        val data = ListBuffer[(String, Int)](
+          StringUtils.reformatCSVString(appId) -> headersAndSizes(APP_ID_STR),
+          sqlID -> headersAndSizes(SQL_ID_STR),
+          operator.opType.toString -> headersAndSizes(OPERATOR_TYPE),
+          operator.execRef.value -> headersAndSizes(OPERATOR_NAME),
+          operator.count.toString -> headersAndSizes(COUNT),
+          operator.isSupported.toString -> headersAndSizes(IS_SUPPORTED),
+          operator.stages.mkString(":") -> headersAndSizes(STAGES)
+        )
+        csvWriter.write(constructOutputRow(data, delimiter, prettyPrint))
+
+        // Write expression data
+        operator.expressions.foreach { expr =>
+          val exprData = ListBuffer[(String, Int)](
+            StringUtils.reformatCSVString(appId) -> headersAndSizes(APP_ID_STR),
+            sqlID -> headersAndSizes(SQL_ID_STR),
+            expr.opType.toString -> headersAndSizes(OPERATOR_TYPE),
+            expr.exprRef.value -> headersAndSizes(OPERATOR_NAME),
+            expr.count.toString -> headersAndSizes(COUNT),
+            expr.isSupported.toString -> headersAndSizes(IS_SUPPORTED),
+            expr.stages.mkString(":") -> headersAndSizes(STAGES)
+          )
+          csvWriter.write(constructOutputRow(exprData, delimiter, prettyPrint))
+        }
+      }
+    }
   }
 
   private def constructUnsupportedDetailedStagesDurationInfo(

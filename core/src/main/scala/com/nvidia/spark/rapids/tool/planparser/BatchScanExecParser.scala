@@ -29,6 +29,7 @@ case class BatchScanExecParser(
     app: AppBase) extends ExecParser with Logging {
 
   val fullExecName = "BatchScanExec"
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
 
   override def parse: ExecInfo = {
     val accumId = node.metrics.find(_.name == "scan time").map(_.accumulatorId)
@@ -41,6 +42,6 @@ case class BatchScanExecParser(
 
     // TODO - add in parsing expressions - average speedup across?
     ExecInfo(node, sqlID, s"${node.name} ${readInfo.format}", s"Format: ${readInfo.format}",
-      overallSpeedup, maxDuration, node.id, score > 0, None)
+      overallSpeedup, maxDuration, node.id, score > 0, None, execsRef = execNameRef)
   }
 }

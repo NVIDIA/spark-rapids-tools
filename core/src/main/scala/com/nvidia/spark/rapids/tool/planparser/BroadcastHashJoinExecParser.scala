@@ -26,12 +26,14 @@ case class BroadcastHashJoinExecParser(
     sqlID: Long) extends ExecParser {
 
   val fullExecName = node.name + "Exec"
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
 
   override def parse: ExecInfo = {
     // BroadcastHashJoin doesn't have duration
     val duration = None
     val exprString = node.desc.replaceFirst("BroadcastHashJoin ", "")
     val (expressions, supportedJoinType) = SQLPlanParser.parseEquijoinsExpressions(exprString)
+    val exprRefs: Seq[ExprRef] = expressions.map(ExprRef.getOrCreate)
     val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
     val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
       notSupportedExprs.isEmpty && supportedJoinType) {
@@ -40,6 +42,7 @@ case class BroadcastHashJoinExecParser(
       (1.0, false)
     }
     // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None)
+    ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None,
+      execsRef = execNameRef, exprsRef = exprRefs)
   }
 }

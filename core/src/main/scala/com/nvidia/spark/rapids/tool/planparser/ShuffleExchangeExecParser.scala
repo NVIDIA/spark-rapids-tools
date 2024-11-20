@@ -31,6 +31,7 @@ case class ShuffleExchangeExecParser(
     app: AppBase) extends ExecParser with Logging {
 
   val fullExecName = "ShuffleExchangeExec"
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
 
   override def parse: ExecInfo = {
     val writeId = node.metrics.find(_.name == "shuffle write time").map(_.accumulatorId)
@@ -45,6 +46,7 @@ case class ShuffleExchangeExecParser(
       (1.0, false)
     }
     // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, node.name, "", filterSpeedupFactor, duration, node.id, isSupported, None)
+    ExecInfo(node, sqlID, node.name, "", filterSpeedupFactor, duration, node.id, isSupported, None,
+      execsRef = execNameRef)
   }
 }

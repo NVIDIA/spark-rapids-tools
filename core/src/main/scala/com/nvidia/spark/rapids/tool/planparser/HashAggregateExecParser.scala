@@ -26,8 +26,10 @@ case class HashAggregateExecParser(
     override val node: SparkPlanGraphNode,
     override val checker: PluginTypeChecker,
     override val sqlID: Long,
+    override val expressionFunction: Option[String => Array[String]],
     appBase: AppBase) extends
-  GenericExecParser(node, checker, sqlID, app = Some(appBase)) with Logging {
+  GenericExecParser(node, checker, sqlID, expressionFunction = expressionFunction ,
+    app = Some(appBase)) with Logging {
 
   override def getDurationMetricIds: Seq[Long] = {
     node.metrics.find(_.name == "time in aggregation build").map(_.accumulatorId).toSeq

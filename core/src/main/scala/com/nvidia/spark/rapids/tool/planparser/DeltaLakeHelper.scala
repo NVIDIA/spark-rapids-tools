@@ -31,6 +31,7 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
     sqlID: Long) extends ExecParser {
   // We use "DataWritingCommandExec" to get the speedupFactor of AppendDataExecV1
   val fullExecName: String = DataWritingCommandExecParser.getPhysicalExecName(node.name)
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
   override def parse: ExecInfo = {
     // The node description has information about the table schema and its format.
     // We do not want the op to me marked as RDD or UDF if the node description contains some
@@ -48,7 +49,7 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
     val nodeName = node.name.replace("Execute ", "")
     ExecInfo.createExecNoNode(sqlID, nodeName,
       s"Format: $dataFormat", finalSpeedupFactor, None, node.id, OpTypes.WriteExec,
-      isSupported = writeSupported && isExecSupported, children = None)
+      isSupported = writeSupported && isExecSupported, children = None, execsRef = execNameRef)
   }
 }
 

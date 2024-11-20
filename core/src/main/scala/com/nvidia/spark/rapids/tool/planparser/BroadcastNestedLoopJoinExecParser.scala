@@ -26,6 +26,7 @@ abstract class BroadcastNestedLoopJoinExecParserBase(
     sqlID: Long) extends ExecParser {
 
   val fullExecName: String = node.name + "Exec"
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
 
   protected def extractBuildAndJoinTypes(exprStr: String): (String, String) = {
     // BuildRight, LeftOuter, ((CEIL(cast(id1#1490 as double)) <= cast(id2#1496 as bigint))
@@ -43,6 +44,7 @@ abstract class BroadcastNestedLoopJoinExecParserBase(
     val (buildSide, joinType) = extractBuildAndJoinTypes(exprString)
     val (expressions, supportedJoinType) =
       SQLPlanParser.parseNestedLoopJoinExpressions(exprString, buildSide, joinType)
+    val exprRefs: Seq[ExprRef] = expressions.map(ExprRef.getOrCreate)
     val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
     val duration = None
     val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
@@ -52,7 +54,8 @@ abstract class BroadcastNestedLoopJoinExecParserBase(
       (1.0, false)
     }
     // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None)
+    ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None,
+      execsRef = execNameRef, exprsRef = exprRefs)
   }
 }
 

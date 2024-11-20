@@ -31,10 +31,12 @@ class GenericExecParser(
 ) extends ExecParser {
 
   val fullExecName: String = execName.getOrElse(node.name + "Exec")
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
 
   override def parse: ExecInfo = {
     val duration = computeDuration
     val expressions = parseExpressions()
+    val exprRefs: Seq[ExprRef] = expressions.map(ExprRef.getOrCreate)
     val notSupportedExprs = getNotSupportedExprs(expressions)
     val isExecSupported = checker.isExecSupported(fullExecName) &&
       notSupportedExprs.isEmpty
@@ -45,7 +47,7 @@ class GenericExecParser(
       (1.0, false)
     }
 
-    createExecInfo(speedupFactor, isSupported, duration, notSupportedExprs)
+    createExecInfo(speedupFactor, isSupported, duration, notSupportedExprs, execNameRef, exprRefs)
   }
 
   protected def parseExpressions(): Array[String] = {
@@ -59,7 +61,7 @@ class GenericExecParser(
   }
 
   protected def getExprString: String = {
-    node.desc.replaceFirst(s"${node.name} ", "")
+    node.desc.replaceFirst(s"${node.name}\\s*", "")
   }
 
   protected def getNotSupportedExprs(expressions: Array[String]): Seq[UnsupportedExpr] = {
@@ -82,7 +84,9 @@ class GenericExecParser(
       speedupFactor: Double,
       isSupported: Boolean,
       duration: Option[Long],
-      notSupportedExprs: Seq[UnsupportedExpr]
+      notSupportedExprs: Seq[UnsupportedExpr],
+      execNameRef: ExecRef,
+      exprsRefs: Seq[ExprRef]
   ): ExecInfo = {
     ExecInfo(
       node,
@@ -94,7 +98,9 @@ class GenericExecParser(
       node.id,
       isSupported,
       None,
-      unsupportedExprs = notSupportedExprs
+      unsupportedExprs = notSupportedExprs,
+      execsRef = execNameRef,
+      exprsRef = exprsRefs
     )
   }
 }

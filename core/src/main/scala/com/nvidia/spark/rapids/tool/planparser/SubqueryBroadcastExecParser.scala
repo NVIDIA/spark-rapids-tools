@@ -28,6 +28,7 @@ case class SubqueryBroadcastExecParser(
     app: AppBase) extends ExecParser {
 
   val fullExecName = node.name + "Exec"
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
 
   override def parse: ExecInfo = {
     val collectTimeId =
@@ -40,6 +41,7 @@ case class SubqueryBroadcastExecParser(
     }
     // TODO - check is broadcast associated can be replaced
     // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, node.name, "", filterSpeedupFactor, duration, node.id, isSupported, None)
+    ExecInfo(node, sqlID, node.name, "", filterSpeedupFactor, duration, node.id, isSupported, None,
+      execsRef = execNameRef)
   }
 }

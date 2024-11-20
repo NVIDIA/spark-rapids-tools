@@ -27,6 +27,7 @@ case class WindowGroupLimitParser(
     sqlID: Long) extends ExecParser {
 
   val fullExecName: String = node.name + "Exec"
+  val execNameRef = ExecRef.getOrCreate(fullExecName)
   // row_number() is currently not supported by the plugin (v24.04)
   // Ref: https://github.com/NVIDIA/spark-rapids/pull/10500
   val supportedRankingExprs = Set("rank", "dense_rank")
@@ -59,6 +60,7 @@ case class WindowGroupLimitParser(
   override def parse: ExecInfo = {
     val exprString = node.desc.replaceFirst("WindowGroupLimit ", "")
     val expressions = SQLPlanParser.parseWindowGroupLimitExpressions(exprString)
+    val exprRefs: Seq[ExprRef] = expressions.map(ExprRef.getOrCreate)
     val notSupportedExprs = checker.getNotSupportedExprs(expressions) ++
         getUnsupportedExprReasonsForExec(expressions)
     // Check if exec is supported and ranking expression is supported.
@@ -71,6 +73,6 @@ case class WindowGroupLimitParser(
     }
     // TODO - add in parsing expressions - average speedup across?
     ExecInfo(node, sqlID, node.name, "", speedupFactor, None, node.id, isSupported, None,
-      unsupportedExprs = notSupportedExprs)
+      unsupportedExprs = notSupportedExprs, execsRef = execNameRef, exprsRef = exprRefs)
   }
 }
