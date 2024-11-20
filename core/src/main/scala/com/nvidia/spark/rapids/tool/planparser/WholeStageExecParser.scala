@@ -16,18 +16,21 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser.getStagesInSQLNode
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.ui.SparkPlanGraphCluster
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 abstract class WholeStageExecParserBase(
     node: SparkPlanGraphCluster,
     checker: PluginTypeChecker,
     sqlID: Long,
     app: AppBase,
-    reusedNodeIds: Set[Long]) extends Logging {
+    reusedNodeIds: Set[Long],
+    toolsGraph: Option[ToolsPlanGraph]) extends Logging {
 
   val fullExecName = "WholeStageCodegenExec"
 
@@ -38,12 +41,15 @@ abstract class WholeStageExecParserBase(
     // Perhaps take the max of those in Stage?
     val accumId = node.metrics.find(_.name == "duration").map(_.accumulatorId)
     val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
-    val stagesInNode = SQLPlanParser.getStagesInSQLNode(node, app)
+    val stagesInNode = toolsGraph match {
+      case Some(g) => g.getNodeStageClusters(node)
+      case _ => getStagesInSQLNode(node, app)
+    }
     // We could skip the entire wholeStage if it is duplicate; but we will lose the information of
     // the children nodes.
     val isDupNode = reusedNodeIds.contains(node.id)
     val childNodes = node.nodes.flatMap { c =>
-      SQLPlanParser.parsePlanNode(c, sqlID, checker, app, reusedNodeIds)
+      SQLPlanParser.parsePlanNode(c, sqlID, checker, app, reusedNodeIds, toolsGraph)
     }
     // For the childNodes, we need to append the stages. Otherwise, nodes without metrics won't be
     // assigned to stage
@@ -73,5 +79,6 @@ case class WholeStageExecParser(
   checker: PluginTypeChecker,
   sqlID: Long,
   app: AppBase,
-  reusedNodeIds: Set[Long])
-  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds)
+  reusedNodeIds: Set[Long],
+  toolsGraph: Option[ToolsPlanGraph])
+  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds, toolsGraph)

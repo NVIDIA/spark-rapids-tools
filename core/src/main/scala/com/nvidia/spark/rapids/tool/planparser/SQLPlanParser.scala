@@ -433,13 +433,24 @@ object SQLPlanParser extends Logging {
       sqlDesc: String,
       checker: PluginTypeChecker,
       app: AppBase): PlanInfo = {
-    val planGraph = ToolsPlanGraph(planInfo)
+    if (false) {
+      // debugging the planStageAssignment
+      //      val myToolsGraph = new ToolsPlanGraph(app, planGraph)
+      println(s"===Plan Stage Assignment=== ${sqlID}")
+      if (sqlID == 24) {
+        println("debug")
+      }
+      //      myToolsGraph.assignNodesToStageClusters()
+      //      println(myToolsGraph.nodeToStageCluster)
+    }
+    val toolsGraph = ToolsPlanGraph.createGraphWithStageClusters(app, planInfo)
+
     // Find all the node graphs that should be excluded and send it to the parsePlanNode
-    val excludedNodes = buildSkippedReusedNodesForPlan(planGraph)
+    val excludedNodes = buildSkippedReusedNodesForPlan(toolsGraph.sparkGraph)
     // we want the sub-graph nodes to be inside of the wholeStageCodeGen so use nodes
     // vs allNodes
-    val execInfos = planGraph.nodes.flatMap { node =>
-      parsePlanNode(node, sqlID, checker, app, reusedNodeIds = excludedNodes)
+    val execInfos = toolsGraph.nodes.flatMap { node =>
+      parsePlanNode(node, sqlID, checker, app,reusedNodeIds = excludedNodes, Some(toolsGraph))
     }
     PlanInfo(appID, sqlID, sqlDesc, execInfos)
   }
@@ -541,7 +552,8 @@ object SQLPlanParser extends Logging {
       sqlID: Long,
       checker: PluginTypeChecker,
       app: AppBase,
-      reusedNodeIds: Set[Long]
+      reusedNodeIds: Set[Long],
+      toolsGraph: Option[ToolsPlanGraph] = None,
   ): Seq[ExecInfo] = {
     // Avoid counting duplicate nodes. We mark them as shouldRemove to neutralize their impact on
     // speedups.
@@ -560,9 +572,9 @@ object SQLPlanParser extends Logging {
       // For WholeStageCodegen clusters, use PhotonStageExecParser if the cluster is of Photon type.
       // Else, fall back to WholeStageExecParser to parse the cluster.
       case photonCluster: PhotonSparkPlanGraphCluster =>
-        PhotonStageExecParser(photonCluster, checker, sqlID, app, reusedNodeIds).parse
+        PhotonStageExecParser(photonCluster, checker, sqlID, app, reusedNodeIds, toolsGraph).parse
       case cluster: SparkPlanGraphCluster =>
-        WholeStageExecParser(cluster, checker, sqlID, app, reusedNodeIds).parse
+        WholeStageExecParser(cluster, checker, sqlID, app, reusedNodeIds, toolsGraph).parse
       case _ =>
         // For individual nodes, use PhotonPlanParser if the node is of Photon type.
         // Else, fall back to the Spark node parsing logic to parse the node.
@@ -587,7 +599,10 @@ object SQLPlanParser extends Logging {
             ExecInfo(node, sqlID, normalizedNodeName, expr = "", 1, duration = None, node.id,
               isSupported = false, None)
         }
-        val stagesInNode = getStagesInSQLNode(node, app)
+        val stagesInNode = toolsGraph match {
+          case Some(g) => g.getNodeStageClusters(node)
+          case _ => getStagesInSQLNode(node, app)
+        }
         execInfo.setStages(stagesInNode)
         // shouldRemove is set to true if the exec is a member of "execsToBeRemoved" or if the node
         // is a duplicate

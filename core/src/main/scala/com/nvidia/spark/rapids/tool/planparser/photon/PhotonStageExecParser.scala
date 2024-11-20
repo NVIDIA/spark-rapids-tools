@@ -18,8 +18,8 @@ package com.nvidia.spark.rapids.tool.planparser.photon
 
 import com.nvidia.spark.rapids.tool.planparser.WholeStageExecParserBase
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
-
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 import org.apache.spark.sql.rapids.tool.util.plangraph.PhotonSparkPlanGraphCluster
 
 /**
@@ -35,5 +35,6 @@ case class PhotonStageExecParser(
     checker: PluginTypeChecker,
     sqlID: Long,
     app: AppBase,
-    reusedNodeIds: Set[Long])
-  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds)
+    reusedNodeIds: Set[Long],
+    toolsGraph: Option[ToolsPlanGraph])
+  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds, toolsGraph)
