@@ -59,7 +59,7 @@ class GenericExecParser(
   }
 
   protected def getExprString: String = {
-    node.desc.replaceFirst(s"${node.name} ", "")
+    node.desc.replaceFirst(s"${node.name}\\s*", "")
   }
 
   protected def getNotSupportedExprs(expressions: Array[String]): Seq[UnsupportedExpr] = {
