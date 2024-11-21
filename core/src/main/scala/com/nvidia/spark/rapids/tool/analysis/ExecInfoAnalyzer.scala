@@ -91,12 +91,12 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
       expressions: Seq[ExpressionResult]
   )
 
-  case class SqlResult(
+  case class SqlOperatorsResult(
       sqlID: Long,
       operators: Seq[OperatorResult]
   )
 
-  def getResults: Seq[SqlResult] = {
+  def getResults: Seq[SqlOperatorsResult] = {
     aggregatedData.map { case (sqlID, operatorMap) =>
       val operatorResults = operatorMap.map { case (operatorKey, (operatorData, exprDataMap)) =>
         val expressionResults = exprDataMap.map { case (exprKey, exprData) =>
@@ -117,7 +117,7 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
           expressions = expressionResults
         )
       }.toSeq
-      SqlResult(sqlID, operatorResults)
+      SqlOperatorsResult(sqlID, operatorResults)
     }.toSeq
   }
 }
