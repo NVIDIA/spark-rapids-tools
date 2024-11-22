@@ -56,6 +56,24 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   //      SQLPlanParser.
   var unsupportedSQLPlan: ArrayBuffer[UnsupportedSQLPlan] = ArrayBuffer[UnsupportedSQLPlan]()
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
+  // A map between stage ID and a set of node names
+  val stageToNodeNames: HashMap[Long, Seq[String]] = HashMap.empty[Long, Seq[String]]
+  // A map between stage ID and diagnostic metrics results (stored as a map between metric name
+  // and AccumProfileResults)
+  val stageToDiagnosticMetrics: HashMap[Long, HashMap[String, AccumProfileResults]] =
+    HashMap.empty[Long, HashMap[String, AccumProfileResults]]
+
+  /**
+   * Given an input diagnostic metric result, update stageToDiagnosticMetrics mapping
+   * @param accum AccumProfileResults to be analyzed
+   */
+  private def updateStageDiagnosticMetrics(accum: AccumProfileResults): Unit = {
+    val stageId = accum.stageId
+    if (!stageToDiagnosticMetrics.contains(stageId)) {
+      stageToDiagnosticMetrics(stageId) = HashMap.empty[String, AccumProfileResults]
+    }
+    stageToDiagnosticMetrics(stageId)(accum.accMetaRef.getName()) = accum
+  }
 
   /**
    * Connects Operators to Stages using AccumulatorIDs.
@@ -261,6 +279,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           }
           validNodes.map(n => s"${n.name}(${n.id.toString})")
         }.getOrElse(Seq.empty)
+        stageToNodeNames(sModel.stageInfo.stageId) = nodeNames
         SQLStageInfoProfileResult(appIndex, j.sqlID.get, jobId, sModel.stageInfo.stageId,
           sModel.stageInfo.attemptNumber(), sModel.duration, nodeNames)
       }
@@ -339,14 +358,19 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           } else {
             taskUpatesSubset(taskUpatesSubset.size / 2)
           }
-          Some(AccumProfileResults(
+          // reuse AccumProfileResults to avoid generating extra memory from allocating new objects
+          val accumProfileResults = AccumProfileResults(
             appIndex,
             stageId,
             accumInfo.infoRef,
             min = min,
             median = median,
             max = max,
-            total = sum))
+            total = sum)
+          if (accumInfo.infoRef.name.isDiagnosticMetrics()) {
+            updateStageDiagnosticMetrics(accumProfileResults)
+          }
+          Some(accumProfileResults)
         }
       })
     }
