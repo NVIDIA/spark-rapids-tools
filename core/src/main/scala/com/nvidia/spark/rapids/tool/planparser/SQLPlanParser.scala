@@ -433,7 +433,7 @@ object SQLPlanParser extends Logging {
       sqlDesc: String,
       checker: PluginTypeChecker,
       app: AppBase): PlanInfo = {
-    if (true) {
+    if (false) {
       // debugging the planStageAssignment
       //      val myToolsGraph = new ToolsPlanGraph(app, planGraph)
       println(s"===Plan Stage Assignment=== ${sqlID}")

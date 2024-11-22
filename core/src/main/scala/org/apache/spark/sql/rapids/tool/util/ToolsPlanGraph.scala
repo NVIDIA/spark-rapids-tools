@@ -29,13 +29,35 @@ import org.apache.spark.sql.rapids.tool.store.AccumNameRef
 import org.apache.spark.sql.rapids.tool.util.plangraph.PlanGraphTransformer
 import org.apache.spark.sql.rapids.tool.util.stubs.{GraphReflectionAPI, GraphReflectionAPIHelper}
 
-
+/**
+ * A wrapper of the original SparkPlanGraph with additional information about the
+ * node-to-stage mapping.
+ * 1- The graph is constructed by visiting PlanInfos and creating GraphNodes and Edges.
+ *    Although it is more efficient to assign stages during the construction of the nodes,
+ *    the design is intentionally keeping those two phases separate to make the code more modular
+ *    and easier to maintain.
+ * 2- Traverse the nodes and assign them to stages based on the metrics.
+ * 3- Nodes that belong to a graph cluster (childs of WholeStageCodeGen) and which are missing
+ *    metrics, are assigned same as their WholeStageCodeGen node.
+ * 4- Iterate on all the orphanNodes and assign them to stages based on their neighbors.
+ * 5- The iterative process is repeated until no assignment can be made.
+ *
+ * @param app the application to which the graph belongs
+ * @param sparkGraph the original SparkPlanGraph to wrap
+ */
 class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
-  val nodeToStageCluster = mutable.HashMap[Long, Set[Int]]()
-  val EMPTY_SET: Set[Int] = Set.empty
-
+  private val EMPTY_CLUSTERS: Set[Int] = Set.empty
+  // A map between SQLNode Id and the slusterIds that the node belongs to. A clusterId by definition
+  // means a stageId.
+  // Note: It is possible to represent the clusters as map [clusterId, Set[SQLNodeIds]].
+  //       While this is more memory efficient, it is more time-consuming to find the clusters a
+  //       node belongs to since we have to iterate through all the keys.
+  val nodeToStageCluster: mutable.Map[Long, Set[Int]] = mutable.HashMap[Long, Set[Int]]()
+  // shortcut to the nodes
   def nodes: collection.Seq[SparkPlanGraphNode] = sparkGraph.nodes
+  // shortcut to the edges
   def edges: collection.Seq[SparkPlanGraphEdge] = sparkGraph.edges
+  // delegate the call to the original graph
   def allNodes: collection.Seq[SparkPlanGraphNode] = sparkGraph.allNodes
 
   /**
@@ -52,14 +74,14 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
 
   /**
    * Get the stage clusters that the node belongs to.
-   * Use this method if the purpose is to a logical representation about the node-stage
-   * relationship. For example, an "Exchange" node will return only a single stageID which is
-   * responsible for writing the data.
+   * Use this method if this logical representation of the node-to-stage relationship.
+   * For example, an "Exchange" node returns only a single stageID which is the stage that writes
+   * the data.
    * @param node the node to get the stages for
    * @return a set of stageIds or empty if None
    */
   def getNodeStageClusters(node: SparkPlanGraphNode): Set[Int] = {
-    nodeToStageCluster.getOrElse(node.id, EMPTY_SET)
+    nodeToStageCluster.getOrElse(node.id, EMPTY_CLUSTERS)
   }
 
   /**
@@ -82,7 +104,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
    * @param nodeName normalized node name (i.e., no GPU prefix)
    * @return true if the node is an epilogue exec
    */
-  def isEpilogueExec(nodeName: String): Boolean = {
+  private def isEpilogueExec(nodeName: String): Boolean = {
     nodeName match {
       case "Exchange" | "BroadcastQueryStage" | "ShuffleQueryStage" | "TableCacheQueryStage"
            | "ResultQueryStage" | "BroadcastExchange" =>
@@ -96,7 +118,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
    * @param nodeName normalized node name (i.e., no GPU prefix)
    * @return true if the node is a prologue exec
    */
-  def isPrologueExec(nodeName: String): Boolean = {
+  private def isPrologueExec(nodeName: String): Boolean = {
     nodeName match {
       case nName if nName.contains("ShuffleRead") =>
         true
@@ -117,7 +139,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
    *             all nodes except the tail of stage like shuffleWrite/exchange.
    *         (3) if the node can be assigned based on both incoming and outgoing edges.
    */
-  def multiplexCases(nodeName: String): Int = {
+  private def multiplexCases(nodeName: String): Int = {
     // nodes like shuffleRead should not be assigned to incoming edges
     var result = 0
     if (!isPrologueExec(nodeName)) {
@@ -137,9 +159,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
    * @param node the sparkNode to assign
    * @return the clusterId that the node belongs to
    */
-  def getStageClusterId(node: SparkPlanGraphNode): Set[Int] = {
-    // Nodes like exchange, shuffleWrite, etc. should not be assigned to metrics that belongs to
-    // ReadMetrics
+  private def populateNodeClusters(node: SparkPlanGraphNode): Set[Int] = {
     // First normalize the name.
     val normalizedName = ToolsPlanGraph.processPlanInfo(node.name)
     normalizedName match {
@@ -150,7 +170,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
         if (stageIds.size >= 1) {
           Set[Int](stageIds.min)
         } else {
-          EMPTY_SET
+          EMPTY_CLUSTERS
         }
       case nName if isPrologueExec(nName) =>
         // cases that are supposed to be head of a new stage. We should pick the stages associated
@@ -159,7 +179,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
         if (stageIds.size >= 1) {
           Set[Int](stageIds.max)
         } else {
-          EMPTY_SET
+          EMPTY_CLUSTERS
         }
       case _ =>
         // Everything else should be handled here. If a node a has more than one stage,
@@ -171,9 +191,9 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
     }
   }
 
-  def removeNodeFromOrphans(node: SparkPlanGraphNode,
-    orphanNodes: mutable.ArrayBuffer[SparkPlanGraphNode],
-    clusters: Set[Int]): Unit = {
+  private def removeNodeFromOrphans(node: SparkPlanGraphNode,
+      orphanNodes: mutable.ArrayBuffer[SparkPlanGraphNode],
+      clusters: Set[Int]): Unit = {
     nodeToStageCluster.put(node.id, clusters)
     orphanNodes -= node
   }
@@ -196,7 +216,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
       // Node is assigned to the same cluster before. Nothing to be done.
       false
     } else {
-      val newClusterIds = clusters ++ nodeToStageCluster.getOrElse(wNode.id, EMPTY_SET)
+      val newClusterIds = clusters ++ nodeToStageCluster.getOrElse(wNode.id, EMPTY_CLUSTERS)
       // remove the wNode from orphanNodes if it exists
       removeNodeFromOrphans(wNode, orphanNodes, newClusterIds)
       // assign the children to the same clusters if any of them is not assigned already
@@ -251,7 +271,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
     allNodes.foreach { node =>
       if (!nodeToStageCluster.contains(node.id)) {
         // maybe it was added when we visited the wholeStageCodeGen
-        val clusterIds = getStageClusterId(node)
+        val clusterIds = populateNodeClusters(node)
         if (clusterIds.nonEmpty) {
           // found assignment
           commitNodeToStageCluster(node, orphanNodes, clusterIds)
@@ -290,7 +310,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
             // check what type of node to deal with, to determine the restrictions on assigning
             // nodes to stages
             val nodeCase = multiplexCases(normalOrphName)
-            var clusterIDs = EMPTY_SET
+            var clusterIDs = EMPTY_CLUSTERS
             if ((nodeCase & 1) > 0) {
               // get all the incoming edges that can propagate a cluster assignment
               val inEdgesWithIds =
@@ -319,7 +339,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
             if (clusterIDs.nonEmpty) {
               commitNodeToStageCluster(orphanNode, orphanNodes, clusterIDs)
             } else {
-              if (!normalOrphName.contains("CreateViewCommand")) {
+              if (false && !normalOrphName.contains("CreateViewCommand")) {
                 println("could not belong anywhere")
               }
               false
