@@ -35,6 +35,7 @@ class GenericExecParser(
   override def parse: ExecInfo = {
     val duration = computeDuration
     val expressions = parseExpressions()
+
     val notSupportedExprs = getNotSupportedExprs(expressions)
     val isExecSupported = checker.isExecSupported(fullExecName) &&
       notSupportedExprs.isEmpty
@@ -59,7 +60,7 @@ class GenericExecParser(
   }
 
   protected def getExprString: String = {
-    node.desc.replaceFirst(s"${node.name}\\s*", "")
+    node.desc.replaceFirst(s"^${node.name}\\s*", "")
   }
 
   protected def getNotSupportedExprs(expressions: Array[String]): Seq[UnsupportedExpr] = {
