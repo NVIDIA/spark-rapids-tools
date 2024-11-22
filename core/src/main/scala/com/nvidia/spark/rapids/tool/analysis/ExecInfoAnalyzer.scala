@@ -22,21 +22,35 @@ import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, ExecRef, ExprRef, OpTy
 
 case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
 
+  // Internal case classes for uniquely identifying execs and expressions
   private case class OperatorKey(nameRef: ExecRef, opType: OpTypes.OpType, isSupported: Boolean)
-
   private case class ExpressionKey(nameRef: ExprRef, opType: OpTypes.OpType, isSupported: Boolean)
 
+  /**
+   * Holds aggregated data for an exec.
+   *
+   * @param count  Number of times the exec occurs.
+   * @param stages Set of stages where the exec is found.
+   */
   case class ExecData(
       var count: Int = 0,
       var stages: Set[Int] = Set()
   )
 
+  /**
+   * Holds aggregated data for an expression.
+   *
+   * @param count  Number of times the expression occurs.
+   * @param stages Set of stages where the expression is found.
+   */
   case class ExpressionData(
       var count: Int = 0,
       var stages: Set[Int] = Set()
   )
 
-  // Internal data structure for aggregation
+  // Internal data structure for aggregating execs and expressions by SQL ID.
+  // The structure is a Map from SQL ID to a Map of OperatorKey to a tuple containing
+  // ExecData and a Map of ExpressionKey to ExpressionData.
   private val aggregatedData: mutable.Map[Long, mutable.Map[OperatorKey,
       (ExecData, mutable.Map[ExpressionKey, ExpressionData])]] = mutable.Map()
 
@@ -44,6 +58,11 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
     execInfos.foreach(traverse)
   }
 
+  /**
+   * Recursively traverses the execution tree to collect exec and expression statistics
+   *
+   * @param execInfo The execution information node to process
+   */
   private def traverse(execInfo: ExecInfo): Unit = {
     val sqlID = execInfo.sqlID
     val operatorName = execInfo.execsRef.value
@@ -69,11 +88,9 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
         }
       }
     }
-    // Traverse children
     execInfo.children.foreach(_.foreach(traverse))
   }
 
-  // Result classes using references
   case class ExpressionResult(
       exprRef: ExprRef,
       opType: OpTypes.OpType,
@@ -82,7 +99,7 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
       stages: Set[Int]
   )
 
-  case class OperatorResult(
+  case class ExecResult(
       execRef: ExecRef,
       opType: OpTypes.OpType,
       isSupported: Boolean,
@@ -91,12 +108,12 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
       expressions: Seq[ExpressionResult]
   )
 
-  case class SqlOperatorsResult(
+  case class AllOperatorsResult(
       sqlID: Long,
-      operators: Seq[OperatorResult]
+      operators: Seq[ExecResult]
   )
 
-  def getResults: Seq[SqlOperatorsResult] = {
+  def getResults: Seq[AllOperatorsResult] = {
     aggregatedData.map { case (sqlID, operatorMap) =>
       val operatorResults = operatorMap.map { case (operatorKey, (operatorData, exprDataMap)) =>
         val expressionResults = exprDataMap.map { case (exprKey, exprData) =>
@@ -108,7 +125,7 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
             stages = exprData.stages
           )
         }.toSeq
-        OperatorResult(
+        ExecResult(
           execRef = operatorKey.nameRef,
           opType = operatorKey.opType,
           isSupported = operatorKey.isSupported,
@@ -117,7 +134,7 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
           expressions = expressionResults
         )
       }.toSeq
-      SqlOperatorsResult(sqlID, operatorResults)
+      AllOperatorsResult(sqlID, operatorResults)
     }.toSeq
   }
 }
