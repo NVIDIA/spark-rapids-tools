@@ -23,10 +23,11 @@ object ProfToolBenchmark extends BenchmarkBase {
     // Currently the input arguments are assumed to be common across cases
     // This will be improved in a follow up PR to enable passing as a config
     // file with argument support for different cases
-    runBenchmark("Benchmark_Per_SQL_Arg_Profiling") {
+    runBenchmark("Benchmark_Profiling_CSV") {
       val (prefix, suffix) = inputArgs.splitAt(inputArgs.length - 1)
-      addCase("Disable_Per_SQL_Arg_Profiling") { _ =>
-        ProfileMain.mainInternal(new ProfileArgs(prefix :+ suffix.head),
+      addCase("Profiling_CSV") { _ =>
+        ProfileMain.mainInternal(new ProfileArgs(prefix :+ "--num-threads"
+          :+ "1" :+ "--csv" :+ suffix.head),
           enablePB = true)
       }
       run()
