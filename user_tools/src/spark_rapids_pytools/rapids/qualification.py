@@ -621,6 +621,9 @@ class Qualification(RapidsJarTool):
         # extract the file name of report from the YAML config (e.g., toolOutput -> csv -> summaryReport -> fileName)
         report_file_name = self.ctxt.get_value('toolOutput', file_format_key, report_name_key, 'fileName')
         report_file_path = FSUtil.build_path(self.ctxt.get_rapids_output_folder(), report_file_name)
+        if not FSUtil.resource_exists(report_file_path):
+            self.logger.warning('Unable to read the report file \'%s\'. File does not exist.', report_file_path)
+            return pd.DataFrame()
         return pd.read_csv(report_file_path)
 
     def _read_qualification_metric_file(self, file_name: str) -> Dict[str, pd.DataFrame]:

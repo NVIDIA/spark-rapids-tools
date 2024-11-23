@@ -19,6 +19,7 @@ Main module for distributed execution of Spark Rapids Tools JAR on Spark.
 import os
 import traceback
 from dataclasses import dataclass, field
+from logging import Logger
 from typing import List, ClassVar
 
 import pandas as pd
@@ -42,13 +43,13 @@ class DistributedToolsExecutor:
     """
     Class to orchestrate the execution of the Spark Rapids Tools JAR on Spark.
     """
-    distributed_tools_configs: DistributedToolsConfig = field(default=None, init=True)
+    user_configs: DistributedToolsConfig = field(default=None, init=True)
     platform: str = field(default=None, init=True)
     output_folder: str = field(default=None, init=True)
     jar_cmd_args: JarCmdArgs = field(default=None, init=True)
     props: YAMLPropertiesContainer = field(default=None, init=False)
     spark_session_builder: SparkSessionBuilder = field(default=None, init=False)
-    logger: ToolLogging = field(default=None, init=False)
+    logger: Logger = field(default=None, init=False)
     env_vars: dict = field(default_factory=dict, init=False)
     name: ClassVar[str] = 'distributed-tools'
 
@@ -66,14 +67,14 @@ class DistributedToolsExecutor:
             FSUtil.make_dirs(cache_dir)
 
     def _validate_environment(self):
-        """Validate required environment variables."""
+        """Validate required environment variables and populate the env_vars dictionary."""
         required_vars = ['SPARK_HOME', 'HADOOP_HOME', 'JAVA_HOME', 'PYTHONPATH']
         for var in required_vars:
             assert os.getenv(var) is not None, f'{var} environment variable is not set.'
             self.env_vars[var] = os.getenv(var)
 
-        assert os.getenv('SPARK_HOME') in os.getenv('PYTHONPATH'), ('SPARK_HOME is not in PYTHONPATH. '
-                                                                    'Include \'$SPARK_HOME/python\' in PYTHONPATH.')
+        assert os.getenv('SPARK_HOME') in os.getenv('PYTHONPATH'), \
+            'SPARK_HOME is not in PYTHONPATH. Set \'export PYTHONPATH=$SPARK_HOME/python:$PYTHONPATH\'.'
 
     def run_as_spark_app(self):
         """
@@ -94,6 +95,7 @@ class DistributedToolsExecutor:
         # Get HDFS path for executor output and create necessary directories
         executor_output_path = self._get_hdfs_executor_output_path()
         executor_output_path.create_dirs()
+        self.logger.info('Setting executor output path to: %s', executor_output_path)
 
         # List all event log files from the provided event logs path
         event_log_path = CspPath(self.jar_cmd_args.event_logs_path)
@@ -126,7 +128,7 @@ class DistributedToolsExecutor:
 
     def _create_spark_session_builder(self) -> SparkSessionBuilder:
         """Submit the Spark job using the SparkJobManager."""
-        spark_properties = self.distributed_tools_configs.spark_properties if self.distributed_tools_configs else []
+        spark_properties = self.user_configs.spark_properties if self.user_configs else []
         return SparkSessionBuilder(
             spark_properties=spark_properties,
             props=self.props.get_value('sparkSessionBuilder'),
@@ -159,11 +161,16 @@ class DistributedToolsExecutor:
 
     # Getter methods
     def _get_local_cache_dir(self) -> str:
-        return self.props.get_value('outputFiles', 'cacheDirPath')
+        return self.props.get_value('cacheDirPath')
 
     def _get_hdfs_executor_output_path(self) -> HdfsPath:
         output_folder_name = os.path.basename(self.output_folder)
-        hdfs_cache_dir = HdfsPath(f'{HdfsPath.protocol_prefix}{self._get_local_cache_dir()}')
+        if not self.user_configs or not self.user_configs.hdfs_output_dir:
+            raise ValueError('Please provide the HDFS output directory in the configuration file.')
+        if self.user_configs.hdfs_output_dir.startswith(HdfsPath.protocol_prefix):
+            hdfs_cache_dir = HdfsPath(self.user_configs.hdfs_output_dir)
+        else:
+            hdfs_cache_dir = HdfsPath(f'{HdfsPath.protocol_prefix}{self.user_configs.hdfs_output_dir}')
         return hdfs_cache_dir.create_sub_path(output_folder_name)
 
     def _get_jar_output_path(self) -> LocalPath:

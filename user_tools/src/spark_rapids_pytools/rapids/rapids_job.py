@@ -255,8 +255,8 @@ class RapidsDistributedJob(RapidsJob):
         """
         Submit the Tools JAR cmd to the Spark cluster.
         """
-        distributed_tools_configs = self.prop_container.get_distribution_tools_configs()
-        executor = DistributedToolsExecutor(distributed_tools_configs=distributed_tools_configs,
+        user_configs = self.prop_container.get_distribution_tools_configs()
+        executor = DistributedToolsExecutor(user_configs=user_configs,
                                             platform=self.exec_ctxt.platform.get_platform_name(),
                                             output_folder=self.exec_ctxt.get_output_folder(),
                                             jar_cmd_args=cmd_args)

@@ -19,7 +19,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 from logging import Logger
 
 from pyspark import SparkContext
@@ -49,43 +49,25 @@ class SparkSessionBuilder:
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.distributed.spark_session_builder')
         self._initialize_spark_context()
 
-    def _parse_spark_conf(self) -> Dict[str, str]:
-        """Parse the Spark configurations"""
-        return {prop.name: prop.value for prop in self.spark_properties}
-
-    def _generate_spark_conf(self, min_heap_memory_per_task=4, task_cpus=1) -> Dict[str, str]:
-        """ Generate Spark configurations """
-        user_spark_confs = self._parse_spark_conf()
-        executor_memory_str = user_spark_confs.get('spark.executor.memory')
-        # Default memory configuration if not provided by user
-        if not executor_memory_str:
-            default_memory = self.props.get_value('defaultExecutorMemory')
-            spark = SparkSession.builder.appName('Generate Spark Config').getOrCreate()
-            executor_memory_str = spark.conf.get('spark.executor.memory', default_memory)
-            spark.stop()
-
-        executor_memory_gb = Utilities.parse_memory_size_in_gb(executor_memory_str)
-        max_tasks_per_executor = int(executor_memory_gb // min_heap_memory_per_task)
-        spark_conf = {
-            'spark.executor.instances': 1,
-            'spark.executor.cores': max_tasks_per_executor,
-            'spark.executor.memory': f'{int(executor_memory_gb)}g',
-            'spark.task.cpus': task_cpus
-        }
-
-        # Merge user provided configurations after removing protected configurations
-        spark_conf.update(self._filter_protected_spark_conf(user_spark_confs))
-        return spark_conf
+    def _generate_spark_conf(self) -> Dict[str, Any]:
+        """Generate Spark configurations by merging default and user-provided configurations."""
+        # Retrieve default Spark configurations from properties
+        default_spark_confs = self.props.get_value('sparkConfigs', 'default') or []
+        default_confs = {conf['name']: conf['value'] for conf in default_spark_confs}
+        # Retrieve user-provided Spark configurations, filtering protected ones
+        user_confs = {prop.name: prop.value for prop in self.spark_properties}
+        filtered_user_confs = self._filter_protected_spark_conf(user_confs)
+        return {**default_confs, **filtered_user_confs}
 
     def _filter_protected_spark_conf(self, spark_conf: Dict[str, str]) -> Dict[str, str]:
         """ Remove protected Spark configurations """
-        return {k: v for k, v in spark_conf.items() if k not in self.props.get_value('protectedSparkConfigs')}
+        return {k: v for k, v in spark_conf.items() if k not in self.props.get_value('sparkConfigs', 'protected')}
 
     def _initialize_spark_context(self):
         """ Initialize the Spark session context with configurations """
         spark_builder = SparkSession.builder.appName(self.props.get_value('distributedToolsAppName'))
         spark_confs = self._generate_spark_conf()
-        self.logger.info('Setting Spark configurations: %s', json.dumps(spark_confs, indent=4))
+        self.logger.info('Setting Spark configurations: \n%s', json.dumps(spark_confs, indent=4))
 
         for key, value in spark_confs.items():
             spark_builder.config(key, value)
