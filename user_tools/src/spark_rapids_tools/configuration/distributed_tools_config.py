@@ -28,6 +28,12 @@ class SparkProperty(BaseModel):
 
 class DistributedToolsConfig(BaseModel):
     """Configuration class for distributed tools"""
+    hdfs_output_dir: str = Field(
+        description='HDFS output directory where the output data from the distributed '
+                    'tools will be stored.',
+        examples=['hdfs:///path/to/output/dir']
+    )
+
     spark_properties: List[SparkProperty] = Field(
         default_factory=list,
         description='List of Spark properties to be used for the Spark session.',

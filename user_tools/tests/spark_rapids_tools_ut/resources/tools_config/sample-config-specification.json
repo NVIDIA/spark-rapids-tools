@@ -39,6 +39,14 @@
     "DistributedToolsConfig": {
       "description": "Configuration class for distributed tools",
       "properties": {
+        "hdfs_output_dir": {
+          "description": "HDFS output directory where the output data from the distributed tools will be stored.",
+          "examples": [
+            "hdfs:///path/to/output/dir"
+          ],
+          "title": "Hdfs Output Dir",
+          "type": "string"
+        },
         "spark_properties": {
           "description": "List of Spark properties to be used for the Spark session.",
           "examples": [
@@ -58,6 +66,9 @@
           "type": "array"
         }
       },
+      "required": [
+        "hdfs_output_dir"
+      ],
       "title": "DistributedToolsConfig",
       "type": "object"
     },
