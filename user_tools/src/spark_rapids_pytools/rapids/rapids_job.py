@@ -245,7 +245,8 @@ class RapidsDistributedJob(RapidsJob):
     def _build_classpath(self) -> List[str]:
         """
         Only the Spark RAPIDS Tools JAR file is needed for the classpath.
-        Each worker node should the Spark Jars pre-installed.
+        Assumption: Each worker node should have the Spark Jars pre-installed.
+        TODO: Ship the Spark JARs to the cluster to avoid version mismatch issues.
         """
         return ['-cp', self.prop_container.get_jar_file()]
 
