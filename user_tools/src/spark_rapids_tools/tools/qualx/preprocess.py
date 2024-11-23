@@ -30,7 +30,9 @@ from spark_rapids_tools.tools.qualx.util import (
     get_logger,
     get_dataset_platforms,
     load_plugin,
-    run_profiler_tool, log_fallback,
+    log_fallback,
+    run_profiler_tool,
+    RegexPattern
 )
 
 PREPROCESSED_FILE = 'preprocessed.parquet'
@@ -269,10 +271,12 @@ def load_profiles(
         app_meta_inner = {}
         for e in eventlog_list:
             parts = Path(e).parts
-            app_id_inner = parts[-1]
+            app_id_part = parts[-1]
+            match = RegexPattern.app_id.search(app_id_part)
+            app_id = match.group() if match else app_id_part
             run_type = parts[-2].upper()
             job_name = parts[-4]
-            app_meta_inner[app_id_inner] = {
+            app_meta_inner[app_id] = {
                 'jobName': job_name,
                 'runType': run_type,
                 'scaleFactor': 1,
