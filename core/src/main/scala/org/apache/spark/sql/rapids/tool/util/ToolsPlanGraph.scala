@@ -24,7 +24,7 @@ import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui._
-import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.AccumToStageRetriever
 import org.apache.spark.sql.rapids.tool.store.AccumNameRef
 import org.apache.spark.sql.rapids.tool.util.plangraph.PlanGraphTransformer
 import org.apache.spark.sql.rapids.tool.util.stubs.{GraphReflectionAPI, GraphReflectionAPIHelper}
@@ -37,22 +37,23 @@ import org.apache.spark.sql.rapids.tool.util.stubs.{GraphReflectionAPI, GraphRef
  *    the design is intentionally keeping those two phases separate to make the code more modular
  *    and easier to maintain.
  * 2- Traverse the nodes and assign them to stages based on the metrics.
- * 3- Nodes that belong to a graph cluster (childs of WholeStageCodeGen) and which are missing
+ * 3- Nodes that belong to a graph cluster (childs of WholeStageCodeGen) which are missing
  *    metrics, are assigned same as their WholeStageCodeGen node.
- * 4- Iterate on all the orphanNodes and assign them to stages based on their neighbors.
+ * 4- Iterate on all the orphanNodes and assign them to stages based on their adjacents nodes.
  * 5- The iterative process is repeated until no assignment can be made.
  *
- * @param app the application to which the graph belongs
  * @param sparkGraph the original SparkPlanGraph to wrap
+ * @param accumToStageRetriever The object that eventually can retrieve StageIDs from AccumIds.
  */
-class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
+class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
+    accumToStageRetriever: AccumToStageRetriever) {
   private val EMPTY_CLUSTERS: Set[Int] = Set.empty
-  // A map between SQLNode Id and the slusterIds that the node belongs to. A clusterId by definition
-  // means a stageId.
+  // A map between SQLNode Id and the clusterIds that the node belongs to.
+  // Here, a clusterId means a stageId.
   // Note: It is possible to represent the clusters as map [clusterId, Set[SQLNodeIds]].
   //       While this is more memory efficient, it is more time-consuming to find the clusters a
   //       node belongs to since we have to iterate through all the keys.
-  val nodeToStageCluster: mutable.Map[Long, Set[Int]] = mutable.HashMap[Long, Set[Int]]()
+  private val nodeToStageCluster: mutable.Map[Long, Set[Int]] = mutable.HashMap[Long, Set[Int]]()
   // shortcut to the nodes
   def nodes: collection.Seq[SparkPlanGraphNode] = sparkGraph.nodes
   // shortcut to the edges
@@ -69,7 +70,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
    */
   def getNodeStagesByAccum(node: SparkPlanGraphNode): Set[Int] = {
     val nodeAccums = node.metrics.map(_.accumulatorId)
-    nodeAccums.flatMap(app.accumManager.getAccStageIds).toSet
+    accumToStageRetriever.getStageIDsFromAccumIds(nodeAccums)
   }
 
   /**
@@ -82,6 +83,10 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
    */
   def getNodeStageClusters(node: SparkPlanGraphNode): Set[Int] = {
     nodeToStageCluster.getOrElse(node.id, EMPTY_CLUSTERS)
+  }
+
+  def getNodeStageClusters(nodeId: Long): Set[Int] = {
+    nodeToStageCluster.getOrElse(nodeId, EMPTY_CLUSTERS)
   }
 
   /**
@@ -132,7 +137,7 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
    * beginning of a stage and so.
  *
    * @param nodeName the normalized name of the sparkNode (i.e., no GPU prefix).
-   * @return a code representing the type of the node:
+   * @return a code representing thenode type:
    *         (1) if the node can be assigned based on incoming edges. i.e., all nodes except the
    *             head of stage like shuffleRead.
    *         (2) if the node can be assigned based on outgoing edges. i.e.,
@@ -143,11 +148,11 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
     // nodes like shuffleRead should not be assigned to incoming edges
     var result = 0
     if (!isPrologueExec(nodeName)) {
-      // Those are the nodes that can be assigned stages based on incoming edges.
+      // Those are the nodes that can be assigned based on incoming edges.
       result |= 1
     }
     if (!isEpilogueExec(nodeName)) {
-      // Those are the nodes that can be assigned stages based on outgoing edges.
+      // Those are the nodes that can be assigned based on outgoing edges.
       result |= 2
     }
     result
@@ -162,35 +167,40 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
   private def populateNodeClusters(node: SparkPlanGraphNode): Set[Int] = {
     // First normalize the name.
     val normalizedName = ToolsPlanGraph.processPlanInfo(node.name)
+    val stageIds = getNodeStagesByAccum(node)
     normalizedName match {
       case nName if isEpilogueExec(nName) =>
         // cases that are supposed to be tail of the stage cluster
-        val stageIds = getNodeStagesByAccum(node)
-        // only use the smalled StageId for now
-        if (stageIds.size >= 1) {
-          Set[Int](stageIds.min)
+        // only use the smallest StageId for now
+        if (stageIds.size <= 1) {
+          stageIds
         } else {
-          EMPTY_CLUSTERS
+          Set[Int](stageIds.min)
         }
       case nName if isPrologueExec(nName) =>
         // cases that are supposed to be head of a new stage. We should pick the stages associated
         // with the reading metrics (pick the highest number for simplicity).
-        val stageIds = getNodeStagesByAccum(node)
-        if (stageIds.size >= 1) {
-          Set[Int](stageIds.max)
-        } else {
+        if (stageIds.size <= 1) {
           EMPTY_CLUSTERS
+        } else {
+          Set[Int](stageIds.max)
         }
       case _ =>
         // Everything else should be handled here. If a node a has more than one stage,
         // we should handle that here
-        val stageIds = getNodeStagesByAccum(node)
         //TODO: assert(stageIds.size <= 1)
         //stageIds.headOption
         stageIds
     }
   }
 
+  /**
+   * Updates the data structure that keeps track of the nodes cluster assignment.
+   * It adds the node to the map and remove the node from the orphans list if it exists.
+   * @param node the node to be assigned
+   * @param orphanNodes the list of nodes that are not assigned to any cluster
+   * @param clusters the clusterIds to assign the node to
+   */
   private def removeNodeFromOrphans(node: SparkPlanGraphNode,
       orphanNodes: mutable.ArrayBuffer[SparkPlanGraphNode],
       clusters: Set[Int]): Unit = {
@@ -199,19 +209,18 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
   }
 
   /**
-   * Assign a wholeStageNode to a clusterId. A WholeStageNode is visited after its children are.
-   * If any of the children is not assigned to a cluster, the wNode will transfer its assignment to
-   * the child.
+   * Commits a wholeStageNode to a cluster.
+   * A WholeStageNode is visited after its children are. If any of the children is not assigned to
+   * a cluster, the wNode will transfer its assignment to the child.
    * @param wNode the wholeStageCodeGen node to be visited
-   * @param orphanNodes the list of nodes that are not assigned to any cluster
-   * @param clusterId the clusterId to assign the node to
-   * @return true if a change was made.
+   * @param orphanNodes the list of nodes that are not assigned to any cluster.
+   * @param clusters the clusterId to assign the node to.
+   * @return true if a change is made.
    */
-  def commitNodeToStageCluster(
+  private def commitNodeToStageCluster(
     wNode: SparkPlanGraphCluster,
     orphanNodes: mutable.ArrayBuffer[SparkPlanGraphNode],
     clusters: Set[Int]): Boolean = {
-    // node assigned cluster
     if (nodeToStageCluster.contains(wNode.id) && clusters.subsetOf(nodeToStageCluster(wNode.id))) {
       // Node is assigned to the same cluster before. Nothing to be done.
       false
@@ -219,11 +228,11 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
       val newClusterIds = clusters ++ nodeToStageCluster.getOrElse(wNode.id, EMPTY_CLUSTERS)
       // remove the wNode from orphanNodes if it exists
       removeNodeFromOrphans(wNode, orphanNodes, newClusterIds)
-      // assign the children to the same clusters if any of them is not assigned already
+      // assign the children to the same clusters if any of them is not assigned already.
       wNode.nodes.foreach { childNode =>
         // TODO assert that the child node is not assigned something different than the wStage
         if (!nodeToStageCluster.contains(childNode.id)) {
-          // assign the node to the same stage of wNode and remove it from orphans
+          // assign the child node to the same stage of wNode and remove it from orphans
           removeNodeFromOrphans(childNode, orphanNodes, newClusterIds)
         }
       }
@@ -237,15 +246,15 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
    * @param node sparkNode to be assigned
    * @param orphanNodes the list of nodes that are not assigned to any cluster
    * @param clusters the clusterIds to assign the node to
-   * @return true if a change was made.
+   * @return true if a change is made.
    */
-  def commitNodeToStageCluster(
+  private def commitNodeToStageCluster(
     node: SparkPlanGraphNode,
     orphanNodes: mutable.ArrayBuffer[SparkPlanGraphNode],
     clusters: Set[Int]): Boolean = {
     node match {
-      // while we are iterating capture which ones are wholeStageCodeGen
       case cluster: SparkPlanGraphCluster =>
+        // codeGens are special because they propagate their assignment to children nodes.
         commitNodeToStageCluster(cluster, orphanNodes, clusters)
       case _ =>
         removeNodeFromOrphans(node, orphanNodes, clusters)
@@ -253,8 +262,12 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
     }
   }
 
-  def getAllWStageNodes(): Seq[SparkPlanGraphCluster] = {
-    allNodes.collect {
+  /**
+   * Get all the wholeStageNodes in the graph.
+   * @return a list of wholeStageNodes if any.
+   */
+  def getWholeStageNodes(): Seq[SparkPlanGraphCluster] = {
+    nodes.collect {
       case cluster: SparkPlanGraphCluster if cluster.isInstanceOf[SparkPlanGraphCluster] =>
         cluster
     }
@@ -263,17 +276,18 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
   /**
    * Walk through the graph nodes and assign them to the correct stage cluster.
    */
-  def assignNodesToStageClusters(): Unit = {
-    // nodes that are not assigned to any cluster
+  protected def assignNodesToStageClusters(): Unit = {
+    // Keep track of nodes that have no assignment to any cluster.
     val orphanNodes = mutable.ArrayBuffer[SparkPlanGraphNode]()
-    // 1st- visit all the nodes and assign them to the correct cluster based on their metrics.
-    //      In the process, we can assign the children of cWholeStageCodeGen to the same clusters.
+    // Step(1): Visit all the nodes and assign them to the correct cluster based on AccumIDs.
+    //      In the process, WholeStageCodeGens propagate their assignment to the child nodes if
+    //      they are orphans.
     allNodes.foreach { node =>
       if (!nodeToStageCluster.contains(node.id)) {
-        // maybe it was added when we visited the wholeStageCodeGen
+        // Get clusterIDs based on AccumIds
         val clusterIds = populateNodeClusters(node)
         if (clusterIds.nonEmpty) {
-          // found assignment
+          // Found assignment
           commitNodeToStageCluster(node, orphanNodes, clusterIds)
         } else {
           // This node has no assignment. Add it to the orphanNodes
@@ -281,103 +295,131 @@ class ToolsPlanGraph(app: AppBase, val sparkGraph: SparkPlanGraph) {
         }
       }
     }
-    // At this point, we made a quick visit handling all the straightforward cases
-    // 2nd- we iterate on the orphanNodes and try to assign them to the correct cluster.
+    // Step(2): At this point, we made a quick visit handling all the straightforward cases.
+    //    Iterate on the orphanNodes and try to assign them based on the adjacent nodes.
     var changeFlag = orphanNodes.nonEmpty
     while (changeFlag) {
-      // We keep iterating assigning nodes until there is no change in a single iteration.
+      // Iterate on the orphanNodes and try to assign them based on the adjacent nodes until no
+      // changes can be done in a single iteration.
       changeFlag = false
-      // Pick the orphans and try to check their neighbors
       // P.S: Copy the orphanNodes because we cannot remove objects inside the loop.
       val orphanNodesCopy = orphanNodes.clone()
-      orphanNodesCopy.foreach { orphanNode =>
-        // if this this a wholeStageNode, then it won't have any edges and the only way to connect
-        // it is through the child nodes
-        val normalOrphName = ToolsPlanGraph.processPlanInfo(orphanNode.name)
-        val updatedFlag = orphanNode match {
-          case wNode: SparkPlanGraphCluster =>
-            // WholeStageCodeGen represents a corner case because it is not connected by edges.
-            // The only way to set the clusterID is to get it from the children if any.
-            wNode.nodes.find { childNode => nodeToStageCluster.contains(childNode.id) } match {
-              case Some(childNode) =>
-                val clusterIDs = nodeToStageCluster(childNode.id)
-                commitNodeToStageCluster(wNode, orphanNodes, clusterIDs)
-              case _ => // do nothing
+      orphanNodesCopy.foreach { currNode =>
+        if (orphanNodes.contains(currNode)) { // Avoid dup processing caused by wholeStageCodeGen
+          val currNodeName = ToolsPlanGraph.processPlanInfo(currNode.name)
+          val updatedFlag = currNode match {
+            case wNode: SparkPlanGraphCluster =>
+              // WholeStageCodeGen is a corner case because it is not connected by edges.
+              // The only way to set the clusterID is to get it from the children if any.
+              wNode.nodes.find { childNode => nodeToStageCluster.contains(childNode.id) } match {
+                case Some(childNode) =>
+                  val clusterIDs = nodeToStageCluster(childNode.id)
+                  commitNodeToStageCluster(wNode, orphanNodes, clusterIDs)
+                case _ => // do nothing if we could not find a child node with a clusterId
+                  false
+              }
+            case _ =>
+              // Handle all other nodes.
+              // Set the node type to determine the restrictions (i.e., exchange is
+              // positioned at the tail of a stage and shuffleRead should be the head of a stage).
+              val nodeCase = multiplexCases(currNodeName)
+              var clusterIDs = EMPTY_CLUSTERS
+              if ((nodeCase & 1) > 0) {
+                // Assign cluster based on incoming edges.
+                val inEdgesWithIds =
+                  edges.filter(e => e.toId == currNode.id && nodeToStageCluster.contains(e.fromId))
+                if (inEdgesWithIds.nonEmpty) {
+                  // For simplicity, assign the node based on the first incoming adjacent node.
+                  // TODO: Assert that all the source nodes have the same clusterId.
+                  clusterIDs = nodeToStageCluster(inEdgesWithIds.head.fromId)
+                }
+              }
+              if (clusterIDs.isEmpty && (nodeCase & 2) > 0) {
+                // Assign cluster based on outgoing edges (i.e., ShuffleRead).
+                // Corner case: TPC-DS Like Bench q2 (sqlID 24).
+                //              A shuffleReader is reading on driver followed by an exchange without
+                //              merics.
+                //              The metrics will not have a valid accumID.
+                //              In that case, it is not feasible to match it to a cluster without
+                //              considering the incoming node (exchange in that case). This corner
+                //              case is handled later as a last-ditch effort.
+                val outEdgesWithIds =
+                  edges.filter(e => e.fromId == currNode.id && nodeToStageCluster.contains(e.toId))
+                if (outEdgesWithIds.nonEmpty) {
+                  // TODO: Assert that all the source nodes have the same clusterId
+                  // For simplicity, assign the node based on the first outgoing adjacent node.
+                  clusterIDs = nodeToStageCluster(outEdgesWithIds.head.toId)
+                }
+              }
+              if (clusterIDs.nonEmpty) {
+                // There is a possible assignment. Commit it.
+                commitNodeToStageCluster(currNode, orphanNodes, clusterIDs)
+              } else {
+                if (false && !currNodeName.contains("CreateViewCommand")) {
+                  println("could not belong anywhere")
+                }
                 false
-            }
-          case _ =>
-            // Handle all non wholeStageCodeGen nodes
-            // check what type of node to deal with, to determine the restrictions on assigning
-            // nodes to stages
-            val nodeCase = multiplexCases(normalOrphName)
-            var clusterIDs = EMPTY_CLUSTERS
-            if ((nodeCase & 1) > 0) {
-              // get all the incoming edges that can propagate a cluster assignment
-              val inEdgesWithIds =
-                edges.filter(e => e.toId == orphanNode.id && nodeToStageCluster.contains(e.fromId))
-              if (inEdgesWithIds.nonEmpty) {
-                // TODO: Assert that all the source nodes have the same clusterId
-                // get the clusterId of the first non orphan node
-                clusterIDs = nodeToStageCluster(inEdgesWithIds.head.fromId)
               }
-            }
-            if (clusterIDs.isEmpty && (nodeCase & 2) > 0) {
-              // Try to match based on the sinkNodes
-              val outEdgesWithIds =
-                edges.filter(e => e.fromId == orphanNode.id && nodeToStageCluster.contains(e.toId))
-              if (outEdgesWithIds.isEmpty && isPrologueExec(normalOrphName)) {
-                // corner case that a shuffle reader is reading on driver so, it is not feasible to
-                // match it to stage without looking to the exchange that passed the data to it.
-                // in that case, we need to grab if there is an exchange pointing to this node
-              }
-              if (outEdgesWithIds.nonEmpty) {
-                // TODO: Assert that all the source nodes have the same clusterId
-                // get the clusterId of the first non orphan node
-                clusterIDs = nodeToStageCluster(outEdgesWithIds.head.toId)
-              }
-            }
-            if (clusterIDs.nonEmpty) {
-              commitNodeToStageCluster(orphanNode, orphanNodes, clusterIDs)
-            } else {
-              if (false && !normalOrphName.contains("CreateViewCommand")) {
-                println("could not belong anywhere")
-              }
-              false
-            }
-        }
-        changeFlag |= updatedFlag
-      }
+          } // end of assigning "UpdatedFlag"
+          changeFlag |= updatedFlag
+        } // end of if orphanNodes.contains(currNode)
+      } // end of looping on orphanNodes
       // corner case for shuffleRead when it is reading from teh driver followed by an exchange that
-      // has no metric
+      // has no metrics.
       if (!changeFlag && orphanNodes.nonEmpty) {
-        // we could not assign any node to a cluster. This means that we have a cycle in the graph
+        // This is to handle the special case of a shuffleRead that is reading from the driver.
+        // We could not assign any node to a cluster. This means that we have a cycle in the graph,
         // and we need to break it.
-        // We need to assign the nodes to a cluster based on the order of the nodes in the graph.
-        // This is a corner case that we need to handle.
-        // Pick customShuffleRead if any
+        // This is done by breaking the rule, allowing the shuffleRead to pick the highest stage
+        // order of the ancestor node.
         changeFlag |= orphanNodes.filter(
-          n => isPrologueExec(ToolsPlanGraph.processPlanInfo(n.name))).exists {
+          n => isPrologueExec(ToolsPlanGraph.processPlanInfo(n.name))).exists { // Picks shuffleRead
           orphanNode =>
-            // try to get if there is a node pointing to it
+            // Get adjacent nodes to the shuffleRead that have cluster assignment.
             val inEdgesWithIds =
               edges.filter(e => e.toId == orphanNode.id && nodeToStageCluster.contains(e.fromId))
             if (inEdgesWithIds.nonEmpty) {
-              // assign the maximum clusterId to the node
+              // At this point, we need to get all the possible stageIDs that can be assigned to the
+              // adjacent nodes because and not only the logical ones.
               val possibleIds = inEdgesWithIds.map { e =>
-                val nodeObj = allNodes.find(no => no.id == e.fromId).get
-                // we need to get all the Ids and not only the logical ones.
-                getAllNodeStages(nodeObj)
+                val adjacentNode = allNodes.find(eN => eN.id == e.fromId).get
+                getAllNodeStages(adjacentNode)
               }.reduce(_ ++ _)
+              // Assign the maximum value clusterId to the node.
               val newIDs = Set[Int](possibleIds.max)
               commitNodeToStageCluster(orphanNode, orphanNodes, newIDs)
             } else {
               false
             }
         }
-      }
+      } // end of corner case handling
+    } // end of changeFlag loop
+  } // end of assignNodesToStageClusters
+  // Start the construction of the graph
+  assignNodesToStageClusters()
+
+  // Start Definitions of utility functions to handle nodes
+
+  def isWholeStageCodeGen(node: SparkPlanGraphNode): Boolean = {
+    node match {
+      case _: SparkPlanGraphCluster => true
+      case _ => false
     }
   }
-}
+
+  def findNodesByPredicate(
+    predicateFunc: SparkPlanGraphNode => Boolean): Iterable[SparkPlanGraphNode] = {
+    allNodes.filter(predicateFunc)
+  }
+
+  def applyToExecNode[A](node: SparkPlanGraphNode)(f: SparkPlanGraphNode => A): A = {
+    f(node)
+  }
+
+  def applyToAllNodes[A](f: SparkPlanGraphNode => A): Seq[A] = {
+    allNodes.map(f)
+  }
+} // end of class ToolsPlanGraph
 
 /**
  * This code is mostly copied from org.apache.spark.sql.execution.ui.SparkPlanGraph
@@ -442,11 +484,10 @@ object ToolsPlanGraph {
     }
   }
 
-  def createGraphWithStageClusters(app: AppBase, planInfo: SparkPlanInfo): ToolsPlanGraph = {
+  def createGraphWithStageClusters(planInfo: SparkPlanInfo,
+      accumStageMapper: AccumToStageRetriever): ToolsPlanGraph = {
     val sGraph = ToolsPlanGraph(planInfo)
-    val toolsGraph = new ToolsPlanGraph(app, sGraph)
-    toolsGraph.assignNodesToStageClusters()
-    toolsGraph
+    new ToolsPlanGraph(sGraph, accumStageMapper)
   }
 
   private def processPlanInfo(nodeName: String): String = {

@@ -18,7 +18,6 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
-import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
 import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
@@ -88,7 +87,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       // Maps stages to operators by checking for non-zero intersection
       // between nodeMetrics and stageAccumulateIDs
       val nodeIdToStage = planGraph.allNodes.map { node =>
-        val mappedStages = SQLPlanParser.getStagesInSQLNode(node, app)
+        val nodeAccums = node.metrics.map(_.accumulatorId)
+        val mappedStages = app.getStageIDsFromAccumIds(nodeAccums)
         ((sqlId, node.id), mappedStages)
       }.toMap
       sqlPlanNodeIdToStageIds ++= nodeIdToStage

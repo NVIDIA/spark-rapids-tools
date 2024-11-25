@@ -26,7 +26,6 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.SparkPlanInfo
-//import org.apache.spark.sql.execution.joins.CartesianProductExec
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AppBase, BuildSide, ExecHelper, JoinType, RDDCheckHelper, ToolUtils, UnsupportedExpr}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
@@ -433,31 +432,17 @@ object SQLPlanParser extends Logging {
       sqlDesc: String,
       checker: PluginTypeChecker,
       app: AppBase): PlanInfo = {
-    if (false) {
-      // debugging the planStageAssignment
-      //      val myToolsGraph = new ToolsPlanGraph(app, planGraph)
-      println(s"===Plan Stage Assignment=== ${sqlID}")
-      if (sqlID == 24) {
-        println("debug")
-      }
-      //      myToolsGraph.assignNodesToStageClusters()
-      //      println(myToolsGraph.nodeToStageCluster)
-    }
-    val toolsGraph = ToolsPlanGraph.createGraphWithStageClusters(app, planInfo)
+    val toolsGraph = ToolsPlanGraph.createGraphWithStageClusters(planInfo, app)
 
     // Find all the node graphs that should be excluded and send it to the parsePlanNode
     val excludedNodes = buildSkippedReusedNodesForPlan(toolsGraph.sparkGraph)
     // we want the sub-graph nodes to be inside of the wholeStageCodeGen so use nodes
     // vs allNodes
     val execInfos = toolsGraph.nodes.flatMap { node =>
-      parsePlanNode(node, sqlID, checker, app,reusedNodeIds = excludedNodes, Some(toolsGraph))
+      parsePlanNode(node, sqlID, checker, app, reusedNodeIds = excludedNodes,
+        nodeIdToStagesFunc = toolsGraph.getNodeStageClusters)
     }
     PlanInfo(appID, sqlID, sqlDesc, execInfos)
-  }
-
-  def getStagesInSQLNode(node: SparkPlanGraphNode, app: AppBase): Set[Int] = {
-    val nodeAccums = node.metrics.map(_.accumulatorId)
-    nodeAccums.flatMap(app.accumManager.getAccStageIds).toSet
   }
 
   // Set containing execs that refers to other expressions. We need this to be a list to allow
@@ -553,7 +538,7 @@ object SQLPlanParser extends Logging {
       checker: PluginTypeChecker,
       app: AppBase,
       reusedNodeIds: Set[Long],
-      toolsGraph: Option[ToolsPlanGraph] = None,
+      nodeIdToStagesFunc: Long => Set[Int],
   ): Seq[ExecInfo] = {
     // Avoid counting duplicate nodes. We mark them as shouldRemove to neutralize their impact on
     // speedups.
@@ -572,9 +557,11 @@ object SQLPlanParser extends Logging {
       // For WholeStageCodegen clusters, use PhotonStageExecParser if the cluster is of Photon type.
       // Else, fall back to WholeStageExecParser to parse the cluster.
       case photonCluster: PhotonSparkPlanGraphCluster =>
-        PhotonStageExecParser(photonCluster, checker, sqlID, app, reusedNodeIds, toolsGraph).parse
+        PhotonStageExecParser(photonCluster, checker, sqlID, app, reusedNodeIds,
+          nodeIdToStagesFunc = nodeIdToStagesFunc).parse
       case cluster: SparkPlanGraphCluster =>
-        WholeStageExecParser(cluster, checker, sqlID, app, reusedNodeIds, toolsGraph).parse
+        WholeStageExecParser(cluster, checker, sqlID, app, reusedNodeIds,
+          nodeIdToStagesFunc = nodeIdToStagesFunc).parse
       case _ =>
         // For individual nodes, use PhotonPlanParser if the node is of Photon type.
         // Else, fall back to the Spark node parsing logic to parse the node.
@@ -599,10 +586,7 @@ object SQLPlanParser extends Logging {
             ExecInfo(node, sqlID, normalizedNodeName, expr = "", 1, duration = None, node.id,
               isSupported = false, None)
         }
-        val stagesInNode = toolsGraph match {
-          case Some(g) => g.getNodeStageClusters(node)
-          case _ => getStagesInSQLNode(node, app)
-        }
+        val stagesInNode = nodeIdToStagesFunc(node.id)
         execInfo.setStages(stagesInNode)
         // shouldRemove is set to true if the exec is a member of "execsToBeRemoved" or if the node
         // is a duplicate
