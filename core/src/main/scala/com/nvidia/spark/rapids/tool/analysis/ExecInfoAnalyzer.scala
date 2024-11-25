@@ -18,9 +18,9 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, ExecRef, ExprRef, OpTypes}
+import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, ExecRef, ExprRef, OpTypes, PlanInfo}
 
-case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
+case class ExecInfoAnalyzer(planInfo: PlanInfo) {
 
   // Internal case classes for uniquely identifying execs and expressions
   private case class OperatorKey(nameRef: ExecRef, opType: OpTypes.OpType, isSupported: Boolean)
@@ -55,7 +55,7 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
       (ExecData, mutable.Map[ExpressionKey, ExpressionData])]] = mutable.Map()
 
   def analyze(): Unit = {
-    execInfos.foreach(traverse)
+    planInfo.execInfo.foreach(traverse)
   }
 
   /**
@@ -114,13 +114,14 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
    * Represents the aggregated analysis result of an Exec operator within an execution plan.
    *
    * This case class is used to store metadata about operators encountered during the analysis
-   * of execution plans. It includes the operator reference, operation type, support status,
+   * of execution plans. It includes the sqlID, operator reference, operation type, support status,
    * occurrence count, stages where the operator is used,
    * and a sequence of associated expressions.
    *
    * Used in analysis reports to summarize execution nodes, including their expressions.
    */
   case class ExecResult(
+      sqlID: Long,
       execRef: ExecRef,
       opType: OpTypes.OpType,
       isSupported: Boolean,
@@ -129,14 +130,9 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
       expressions: Seq[ExpressionResult]
   )
 
-  case class AllOperatorsResult(
-      sqlID: Long,
-      operators: Seq[ExecResult]
-  )
-
-  def getResults: Seq[AllOperatorsResult] = {
-    aggregatedData.map { case (sqlID, operatorMap) =>
-      val operatorResults = operatorMap.map { case (operatorKey, (operatorData, exprDataMap)) =>
+  def getResults: Seq[ExecResult] = {
+    aggregatedData.flatMap { case (sqlID, operatorMap) =>
+      operatorMap.map { case (operatorKey, (operatorData, exprDataMap)) =>
         val expressionResults = exprDataMap.map { case (exprKey, exprData) =>
           ExpressionResult(
             exprRef = exprKey.nameRef,
@@ -147,6 +143,7 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
           )
         }.toSeq
         ExecResult(
+          sqlID = sqlID,
           execRef = operatorKey.nameRef,
           opType = operatorKey.opType,
           isSupported = operatorKey.isSupported,
@@ -154,8 +151,7 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
           stages = operatorData.stages,
           expressions = expressionResults
         )
-      }.toSeq
-      AllOperatorsResult(sqlID, operatorResults)
+      }
     }.toSeq
   }
 }

@@ -1059,44 +1059,48 @@ object QualOutputWriter {
 
   private def constructAllOperatorsInfo(
       csvWriter: ToolTextFileWriter,
-      planInfo: Seq[PlanInfo],
+      planInfos: Seq[PlanInfo],
       appId: String,
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String,
       prettyPrint: Boolean): Unit = {
 
-    val execInfos = planInfo.flatMap(_.execInfo)
-    val analyzer = ExecInfoAnalyzer(execInfos)
-    analyzer.analyze()
-    val allOperators = analyzer.getResults
+    // Collect all ExecResults from all PlanInfo
+    val allExecResults = planInfos.flatMap { planInfo =>
+      val analyzer = ExecInfoAnalyzer(planInfo)
+      analyzer.analyze()
+      analyzer.getResults
+    }
 
-    allOperators.foreach { sqlResult =>
-      val sqlID = sqlResult.sqlID.toString
-      sqlResult.operators.foreach { operator =>
-        val data = ListBuffer[(String, Int)](
+    // Sort operators by count (descending) and then by SQLID (ascending)
+    val sortedExecResults = allExecResults.sortBy(exec => (-exec.count, exec.sqlID))
+
+    sortedExecResults.foreach { operator =>
+      val sqlID = operator.sqlID.toString
+      val data = ListBuffer[(String, Int)](
+        StringUtils.reformatCSVString(appId) -> headersAndSizes(APP_ID_STR),
+        sqlID -> headersAndSizes(SQL_ID_STR),
+        operator.opType.toString -> headersAndSizes(OPERATOR_TYPE),
+        operator.execRef.value -> headersAndSizes(OPERATOR_NAME),
+        operator.count.toString -> headersAndSizes(COUNT),
+        operator.isSupported.toString -> headersAndSizes(IS_SUPPORTED),
+        operator.stages.mkString(":") -> headersAndSizes(STAGES)
+      )
+      csvWriter.write(constructOutputRow(data, delimiter, prettyPrint))
+
+      // Sort expressions by count (descending) and then by SQLID (ascending)
+      val sortedExpressions = operator.expressions.sortBy(expr => (-expr.count, operator.sqlID))
+      sortedExpressions.foreach { expr =>
+        val exprData = ListBuffer[(String, Int)](
           StringUtils.reformatCSVString(appId) -> headersAndSizes(APP_ID_STR),
           sqlID -> headersAndSizes(SQL_ID_STR),
-          operator.opType.toString -> headersAndSizes(OPERATOR_TYPE),
-          operator.execRef.value -> headersAndSizes(OPERATOR_NAME),
-          operator.count.toString -> headersAndSizes(COUNT),
-          operator.isSupported.toString -> headersAndSizes(IS_SUPPORTED),
-          operator.stages.mkString(":") -> headersAndSizes(STAGES)
+          expr.opType.toString -> headersAndSizes(OPERATOR_TYPE),
+          expr.exprRef.value -> headersAndSizes(OPERATOR_NAME),
+          expr.count.toString -> headersAndSizes(COUNT),
+          expr.isSupported.toString -> headersAndSizes(IS_SUPPORTED),
+          expr.stages.mkString(":") -> headersAndSizes(STAGES)
         )
-        csvWriter.write(constructOutputRow(data, delimiter, prettyPrint))
-
-        // Write expression data
-        operator.expressions.foreach { expr =>
-          val exprData = ListBuffer[(String, Int)](
-            StringUtils.reformatCSVString(appId) -> headersAndSizes(APP_ID_STR),
-            sqlID -> headersAndSizes(SQL_ID_STR),
-            expr.opType.toString -> headersAndSizes(OPERATOR_TYPE),
-            expr.exprRef.value -> headersAndSizes(OPERATOR_NAME),
-            expr.count.toString -> headersAndSizes(COUNT),
-            expr.isSupported.toString -> headersAndSizes(IS_SUPPORTED),
-            expr.stages.mkString(":") -> headersAndSizes(STAGES)
-          )
-          csvWriter.write(constructOutputRow(exprData, delimiter, prettyPrint))
-        }
+        csvWriter.write(constructOutputRow(exprData, delimiter, prettyPrint))
       }
     }
   }
