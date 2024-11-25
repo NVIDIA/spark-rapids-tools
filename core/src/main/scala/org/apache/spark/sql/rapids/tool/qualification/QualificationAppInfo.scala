@@ -41,7 +41,7 @@ class QualificationAppInfo(
     mlOpsEnabled: Boolean = false,
     penalizeTransitions: Boolean = true,
     platform: Platform)
-  extends AppBase(eventLogInfo, hadoopConf) with Logging {
+  extends AppBase(eventLogInfo, hadoopConf, Some(platform)) with Logging {
 
   var lastJobEndTime: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None

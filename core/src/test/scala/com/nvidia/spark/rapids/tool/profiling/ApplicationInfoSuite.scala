@@ -22,7 +22,7 @@ import java.nio.file.{Files, Paths, StandardOpenOption}
 
 import scala.collection.mutable.ArrayBuffer
 
-import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
 import org.apache.hadoop.io.IOUtils
 import org.scalatest.FunSuite
@@ -1116,17 +1116,37 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
   }
 
-  val sparkRuntimeTestCases: Seq[(SparkRuntime.Value, String)] = Seq(
-    SparkRuntime.SPARK -> s"$qualLogDir/nds_q86_test",
-    SparkRuntime.SPARK_RAPIDS -> s"$logDir/nds_q66_gpu.zstd",
-    SparkRuntime.PHOTON -> s"$qualLogDir/nds_q88_photon_db_13_3.zstd"
+  // scalastyle:off line.size.limit
+  val sparkRuntimeTestCases: Map[String, Seq[(String, SparkRuntime.Value)]] = Map(
+    // tests for standard Spark runtime
+    s"$qualLogDir/nds_q86_test" -> Seq(
+      (PlatformNames.DATABRICKS_AWS, SparkRuntime.SPARK),                    // Expected: SPARK on Databricks AWS
+      (PlatformNames.ONPREM, SparkRuntime.SPARK)                             // Expected: SPARK on Onprem
+    ),
+    // tests for Spark Rapids runtime
+    s"$logDir/nds_q66_gpu.zstd" -> Seq(
+      (PlatformNames.DATABRICKS_AWS, SparkRuntime.SPARK_RAPIDS),             // Expected: SPARK_RAPIDS on Databricks AWS
+      (PlatformNames.ONPREM, SparkRuntime.SPARK_RAPIDS)                      // Expected: SPARK_RAPIDS on Onprem
+    ),
+    // tests for Photon runtime with fallback to SPARK for unsupported platforms
+    s"$qualLogDir/nds_q88_photon_db_13_3.zstd" -> Seq(
+      (PlatformNames.DATABRICKS_AWS, SparkRuntime.PHOTON),                   // Expected: PHOTON on Databricks AWS
+      (PlatformNames.DATABRICKS_AZURE, SparkRuntime.PHOTON),                 // Expected: PHOTON on Databricks Azure
+      (PlatformNames.ONPREM, SparkRuntime.SPARK),                            // Expected: Fallback to SPARK on Onprem
+      (PlatformNames.DATAPROC, SparkRuntime.SPARK)                           // Expected: Fallback to SPARK on Dataproc
+    )
   )
+  // scalastyle:on line.size.limit
 
-  sparkRuntimeTestCases.foreach { case (expectedSparkRuntime, eventLog) =>
-    test(s"test spark runtime property for ${expectedSparkRuntime.toString} eventlog") {
-      val apps = ToolTestUtils.processProfileApps(Array(eventLog), sparkSession)
-      assert(apps.size == 1)
-      assert(apps.head.getSparkRuntime == expectedSparkRuntime)
+  sparkRuntimeTestCases.foreach { case (logPath, platformRuntimeCases) =>
+    val baseFileName = logPath.split("/").last
+    platformRuntimeCases.foreach { case (platform, expectedRuntime) =>
+      test(s"test eventlog $baseFileName on $platform has runtime: $expectedRuntime") {
+        val args = Array("--platform", platform, logPath)
+        val apps = ToolTestUtils.processProfileApps(args, sparkSession)
+        assert(apps.size == 1)
+        assert(apps.head.getSparkRuntime == expectedRuntime)
+      }
     }
   }
 }

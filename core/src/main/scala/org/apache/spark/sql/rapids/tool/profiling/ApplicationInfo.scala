@@ -18,7 +18,7 @@ package org.apache.spark.sql.rapids.tool.profiling
 
 import scala.collection.Map
 
-import com.nvidia.spark.rapids.tool.EventLogInfo
+import com.nvidia.spark.rapids.tool.{EventLogInfo, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.analysis.AppSQLPlanAnalyzer
 import org.apache.hadoop.conf.Configuration
 
@@ -184,8 +184,9 @@ object SparkPlanInfoWithStage {
 class ApplicationInfo(
     hadoopConf: Configuration,
     eLogInfo: EventLogInfo,
-    val index: Int)
-  extends AppBase(Some(eLogInfo), Some(hadoopConf)) with Logging {
+    val index: Int,
+    platform: Platform = PlatformFactory.createInstance())
+  extends AppBase(Some(eLogInfo), Some(hadoopConf), Some(platform)) with Logging {
 
   private lazy val eventProcessor =  new EventsProcessor(this)
 
