@@ -65,11 +65,11 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
    */
   private def traverse(execInfo: ExecInfo): Unit = {
     val sqlID = execInfo.sqlID
-    val operatorName = execInfo.execsRef.value
+    val operatorName = execInfo.execRef.value
 
     // Check if the operator name is non-empty
     if (operatorName.nonEmpty) {
-      val operatorKey = OperatorKey(execInfo.execsRef, execInfo.opType, execInfo.isSupported)
+      val operatorKey = OperatorKey(execInfo.execRef, execInfo.opType, execInfo.isSupported)
       val sqlMap = aggregatedData.getOrElseUpdate(sqlID, mutable.Map())
 
       val (operatorData, exprDataMap) =
@@ -91,6 +91,17 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
     execInfo.children.foreach(_.foreach(traverse))
   }
 
+  /**
+   * Represents the aggregated analysis result of an expression within an execution
+   * plan per SQL ID.
+   *
+   * This case class is used to store metadata about expressions encountered during the analysis
+   * of execution plans. It holds information such as the expression reference, operation type,
+   * support status, occurrence count, and the stages where the expression appears. This
+   * data is per SQL ID.
+   *
+   * This is used within ExecResult to encapsulate expression-specific data
+   */
   case class ExpressionResult(
       exprRef: ExprRef,
       opType: OpTypes.OpType,
@@ -99,6 +110,16 @@ case class ExecInfoAnalyzer(execInfos: Seq[ExecInfo]) {
       stages: Set[Int]
   )
 
+  /**
+   * Represents the aggregated analysis result of an Exec operator within an execution plan.
+   *
+   * This case class is used to store metadata about operators encountered during the analysis
+   * of execution plans. It includes the operator reference, operation type, support status,
+   * occurrence count, stages where the operator is used,
+   * and a sequence of associated expressions.
+   *
+   * Used in analysis reports to summarize execution nodes, including their expressions.
+   */
   case class ExecResult(
       execRef: ExecRef,
       opType: OpTypes.OpType,

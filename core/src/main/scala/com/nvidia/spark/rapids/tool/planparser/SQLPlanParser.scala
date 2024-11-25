@@ -108,7 +108,7 @@ case class ExecInfo(
     dataSet: Boolean,
     udf: Boolean,
     shouldIgnore: Boolean,
-    execsRef: ExecRef,
+    execRef: ExecRef,
     exprsRef: Seq[ExprRef]) {
 
   private def childrenToString = {
@@ -211,10 +211,10 @@ case class ExecInfo(
         case _ => UnsupportedReasons.IS_UNSUPPORTED
       }
 
-      unsupportedExprs.foreach { expr =>
-        val exprUnsupportedReason = determineUnsupportedReason(expr.unsupportedReason,
+      unsupportedExprs.foreach { exprression =>
+        val exprUnsupportedReason = determineUnsupportedReason(exprression.unsupportedReason,
           exprKnownReason)
-        res += UnsupportedExecSummary(sqlID, execId, expr.exprName, OpTypes.Expr,
+        res += UnsupportedExecSummary(sqlID, execId, exprression.expr.value, OpTypes.Expr,
           exprUnsupportedReason, getOpAction, isExpression = true)
       }
     }
@@ -234,15 +234,15 @@ object ExecInfo {
       nodeId: Long,
       opType: OpTypes.OpType,
       isSupported: Boolean,
-      children: Option[Seq[ExecInfo]], // only one level deep
+      children: Option[Seq[ExecInfo]] = None, // only one level deep
       stages: Set[Int] = Set.empty,
       shouldRemove: Boolean = false,
       unsupportedExecReason: String = "",
       unsupportedExprs: Seq[UnsupportedExpr] = Seq.empty,
       dataSet: Boolean = false,
       udf: Boolean = false,
-      execsRef: ExecRef = ExecRef.Empty,
-      exprsRef: Seq[ExprRef] = Seq(ExprRef.Empty)): ExecInfo = {
+      execRef: ExecRef = ExecRef.EMPTY,
+      exprsRef: Seq[ExprRef] = Seq.empty): ExecInfo = {
     // Set the ignoreFlag
     // 1- we ignore any exec with UDF
     // 2- we ignore any exec with dataset
@@ -279,7 +279,7 @@ object ExecInfo {
       finalDataSet,
       udf,
       shouldIgnore,
-      execsRef,
+      execRef,
       exprsRef
     )
   }
@@ -293,7 +293,7 @@ object ExecInfo {
       duration: Option[Long],
       nodeId: Long,
       isSupported: Boolean,
-      children: Option[Seq[ExecInfo]], // only one level deep
+      children: Option[Seq[ExecInfo]] = None, // only one level deep
       stages: Set[Int] = Set.empty,
       shouldRemove: Boolean = false,
       unsupportedExecReason:String = "",
@@ -301,8 +301,8 @@ object ExecInfo {
       dataSet: Boolean = false,
       udf: Boolean = false,
       opType: OpTypes.OpType = OpTypes.Exec,
-      execsRef: ExecRef = ExecRef.Empty,
-      exprsRef: Seq[ExprRef] = Seq(ExprRef.Empty)): ExecInfo = {
+      execRef: ExecRef = ExecRef.EMPTY,
+      exprsRef: Seq[ExprRef] = Seq.empty): ExecInfo = {
     // Some execs need to be trimmed such as "Scan"
     // Example: Scan parquet . ->  Scan parquet.
     // scan nodes needs trimming
@@ -336,7 +336,7 @@ object ExecInfo {
       finalUnsupportedExpr,
       ds,
       containsUDF,
-      execsRef,
+      execRef,
       exprsRef
     )
   }

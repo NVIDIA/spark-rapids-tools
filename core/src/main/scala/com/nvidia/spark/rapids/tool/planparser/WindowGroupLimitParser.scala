@@ -40,7 +40,7 @@ case class WindowGroupLimitParser(
       expressions: Array[String]): Seq[UnsupportedExpr] = {
     expressions.flatMap { expr =>
       if (!supportedRankingExprs.contains(expr)) {
-        Some(UnsupportedExpr(expr,
+        Some(UnsupportedExpr(ExprRef.getOrCreate(expr),
           s"Ranking function $expr is not supported in $fullExecName"))
       } else {
         None
@@ -71,8 +71,18 @@ case class WindowGroupLimitParser(
     } else {
       (1.0, false)
     }
-    // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, node.name, "", speedupFactor, None, node.id, isSupported, None,
-      unsupportedExprs = notSupportedExprs, execsRef = execNameRef, exprsRef = exprRefs)
+
+    ExecInfo(
+      node = node,
+      sqlID = sqlID,
+      exec = node.name,
+      expr = "",
+      duration = None,
+      speedupFactor = speedupFactor,
+      nodeId = node.id,
+      isSupported = isSupported,
+      unsupportedExprs = notSupportedExprs,
+      execRef = execNameRef,
+      exprsRef = exprRefs)
   }
 }

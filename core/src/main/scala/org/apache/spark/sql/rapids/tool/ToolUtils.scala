@@ -19,7 +19,7 @@ package org.apache.spark.sql.rapids.tool
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
-import com.nvidia.spark.rapids.tool.planparser.SubqueryExecParser
+import com.nvidia.spark.rapids.tool.planparser.{ExprRef, SubqueryExecParser}
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
 import org.apache.maven.artifact.versioning.ComparableVersion
@@ -401,7 +401,8 @@ object ExecHelper {
   }
 }
 
-case class UnsupportedExpr(exprName: String, unsupportedReason: String)
+//case class UnsupportedExpr(exprName: String, unsupportedReason: String)
+case class UnsupportedExpr(expr: ExprRef, unsupportedReason: String)
 
 object MlOps {
   val sparkml = "spark.ml."

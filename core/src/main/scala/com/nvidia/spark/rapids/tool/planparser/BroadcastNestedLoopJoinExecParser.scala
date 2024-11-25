@@ -53,9 +53,19 @@ abstract class BroadcastNestedLoopJoinExecParserBase(
     } else {
       (1.0, false)
     }
-    // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported, None,
-      execsRef = execNameRef, exprsRef = exprRefs)
+
+    ExecInfo(
+      node = node,
+      sqlID = sqlID,
+      exec = node.name,
+      expr = "",
+      speedupFactor = speedupFactor,
+      duration = duration,
+      nodeId = node.id,
+      isSupported = isSupported,
+      execRef = execNameRef,
+      exprsRef = exprRefs
+    )
   }
 }
 

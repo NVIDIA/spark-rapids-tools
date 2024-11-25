@@ -43,9 +43,17 @@ case class SortMergeJoinExecParser(
     } else {
       (1.0, false)
     }
-    // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, opName, "", speedupFactor, duration, node.id, isSupported, None,
-      execsRef = execNameRef)
+
+    ExecInfo(
+      node = node,
+      sqlID = sqlID,
+      exec = opName,
+      expr = "",
+      speedupFactor = speedupFactor,
+      duration = duration,
+      nodeId = node.id,
+      isSupported = isSupported,
+      execRef = execNameRef)
   }
 }
 

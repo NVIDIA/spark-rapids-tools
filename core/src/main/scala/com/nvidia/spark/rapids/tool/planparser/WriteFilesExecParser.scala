@@ -39,13 +39,18 @@ case class WriteFilesExecParser(
     // the WriteFiles does not have duration
     val duration = None
     val speedupFactor = checker.getSpeedupFactor(fullExecName)
+
     ExecInfo.createExecNoNode(
-      sqlID,
-      WriteFilesExecParser.execName,
-      "",
-      speedupFactor,
-      duration,
-      node.id, opType = OpTypes.WriteExec, true, None, execsRef = execNameRef)
+      sqlID=sqlID,
+      exec=WriteFilesExecParser.execName,
+      expr="",
+      speedupFactor=speedupFactor,
+      duration=duration,
+      nodeId=node.id,
+      opType=OpTypes.WriteExec,
+      isSupported=true,
+      execRef = execNameRef
+    )
   }
 }
 

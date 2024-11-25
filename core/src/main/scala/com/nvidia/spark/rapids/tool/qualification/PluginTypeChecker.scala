@@ -21,6 +21,7 @@ import scala.io.BufferedSource
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.planparser.ExprRef
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -391,7 +392,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
     exprs.collect {
       case expr if !isExprSupported(expr) =>
         val reason = unsupportedOpsReasons.getOrElse(expr, "")
-        UnsupportedExpr(expr, reason)
+        UnsupportedExpr(ExprRef.getOrCreate(expr), reason)
     }
   }
 

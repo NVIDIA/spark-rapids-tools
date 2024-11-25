@@ -37,11 +37,18 @@ case class SubqueryExecParser(
     // Note: the name of the metric may not be trailed by "(ms)" So, we only check for the prefix
     val collectTimeId =
       node.metrics.find(_.name.contains("time to collect")).map(_.accumulatorId)
-    // TODO: Should we also collect the "data size" metric?
     val duration = SQLPlanParser.getDriverTotalDuration(collectTimeId, app)
     // should remove is kept in 1 place. So no need to set it here.
-    ExecInfo(node, sqlID, node.name, "", 1.0, duration, node.id, isSupported = false, None,
-      execsRef = execNameRef)
+    ExecInfo(
+      node = node,
+      sqlID = sqlID,
+      exec = node.name,
+      expr = "",
+      speedupFactor = 1.0,
+      duration = duration,
+      nodeId = node.id,
+      isSupported = false,
+      execRef = execNameRef)
   }
 }
 

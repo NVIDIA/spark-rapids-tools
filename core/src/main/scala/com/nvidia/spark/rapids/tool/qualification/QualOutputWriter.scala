@@ -176,7 +176,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
   def writeAllOpsSummaryCSVreport(
       sums: Seq[QualificationSummaryInfo]): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
-      s"${QualOutputWriter.LOGFILE_NAME}_allOperators.csv",
+      s"${QualOutputWriter.LOGFILE_NAME}_operatorsStats.csv",
       "All Operators CSV Report", hadoopConf)
     try {
       val headersAndSizes = QualOutputWriter.getAllOperatorsHeaderStrings

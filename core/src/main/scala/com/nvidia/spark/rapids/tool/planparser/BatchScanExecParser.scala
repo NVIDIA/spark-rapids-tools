@@ -40,8 +40,16 @@ case class BatchScanExecParser(
     val speedupFactor = checker.getSpeedupFactor(fullExecName)
     val overallSpeedup = Math.max((speedupFactor * score), 1.0)
 
-    // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, s"${node.name} ${readInfo.format}", s"Format: ${readInfo.format}",
-      overallSpeedup, maxDuration, node.id, score > 0, None, execsRef = execNameRef)
+    ExecInfo(
+      node = node,
+      sqlID = sqlID,
+      exec = s"${node.name} ${readInfo.format}",
+      expr = s"Format: ${readInfo.format}",
+      speedupFactor = overallSpeedup,
+      duration = maxDuration,
+      nodeId = node.id,
+      isSupported = score > 0,
+      execRef = execNameRef
+    )
   }
 }
