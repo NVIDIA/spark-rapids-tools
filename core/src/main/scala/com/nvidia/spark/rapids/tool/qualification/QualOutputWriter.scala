@@ -255,17 +255,43 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
-  def writeExecReport(sums: Seq[QualificationSummaryInfo], order: String) : Unit = {
+  def writeExecReport(sums: Seq[QualificationSummaryInfo]) : Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_execs.csv",
       "Plan Exec Info", hadoopConf)
     try {
-      val headersAndSizes = QualOutputWriter.getDetailedExecsHeaderStrings
       csvFileWriter.write(QualOutputWriter.constructDetailedHeader(
         QualOutputWriter.getDetailedExecsHeaderStrings, ",", false))
+      val delimiter = ","
+      val booleanTrue = "true"
+      val booleanFalse = "false"
       sums.foreach { sumInfo =>
-        val appRows = QualOutputWriter.constructExecsInfo(sumInfo, headersAndSizes, ",", false)
-        appRows.foreach(csvFileWriter.write(_))
+        val appIDCSVStr = StringUtils.reformatCSVString(sumInfo.appId)
+        sumInfo.planInfo.foreach { pInfo =>
+          val execInfos = pInfo.execInfo.flatMap { eInfo =>
+            eInfo.children.getOrElse(Seq.empty) :+ eInfo
+          }.sortBy(eInfo => eInfo.nodeId)
+          val sqlIDStr = pInfo.sqlID.toString
+          val rows = execInfos.map { info =>
+            val childrenExecsStr = info.children.getOrElse(Seq.empty).map(_.exec).mkString(":")
+            val nodeIdsStr = info.children.getOrElse(Seq.empty).map(_.nodeId).mkString(":")
+            Seq(appIDCSVStr, sqlIDStr, StringUtils.reformatCSVString(info.exec),
+              StringUtils.reformatCSVString(info.expr),
+              info.duration.getOrElse(0).toString,
+              info.nodeId.toString,
+              if (info.isSupported) booleanTrue else booleanFalse,
+              StringUtils.reformatCSVString(info.stages.mkString(":")),
+              StringUtils.reformatCSVString(childrenExecsStr),
+              StringUtils.reformatCSVString(nodeIdsStr),
+              if (info.shouldRemove) booleanTrue else booleanFalse,
+              if (info.shouldIgnore) booleanTrue else booleanFalse,
+              StringUtils.reformatCSVString(info.getOpAction.toString)
+            ).mkString(delimiter)
+          }
+          if (rows.nonEmpty) {
+            csvFileWriter.write(s"${rows.mkString("\n")}\n")
+          }
+        }
       }
     } finally {
       csvFileWriter.close()
@@ -941,33 +967,6 @@ object QualOutputWriter {
     detailedHeadersAndFields
   }
 
-  private def constructExecInfoBuffer(
-      info: ExecInfo,
-      appId: String,
-      delimiter: String,
-      prettyPrint: Boolean,
-      headersAndSizes: LinkedHashMap[String, Int],
-      reformatCSV: Boolean = true): String = {
-    val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
-    val data = ListBuffer[(String, Int)](
-      reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-      info.sqlID.toString -> headersAndSizes(SQL_ID_STR),
-      reformatCSVFunc(info.exec) -> headersAndSizes(EXEC_STR),
-      reformatCSVFunc(info.expr) -> headersAndSizes(EXEC_STR),
-      info.duration.getOrElse(0).toString -> headersAndSizes(EXEC_DURATION),
-      info.nodeId.toString -> headersAndSizes(EXEC_NODEID),
-      info.isSupported.toString -> headersAndSizes(EXEC_IS_SUPPORTED),
-      reformatCSVFunc(info.stages.mkString(":")) -> headersAndSizes(EXEC_STAGES),
-      reformatCSVFunc(info.children.getOrElse(Seq.empty).map(_.exec).mkString(":")) ->
-        headersAndSizes(EXEC_CHILDREN),
-      reformatCSVFunc(info.children.getOrElse(Seq.empty).map(_.nodeId).mkString(":")) ->
-        headersAndSizes(EXEC_CHILDREN_NODE_IDS),
-      info.shouldRemove.toString -> headersAndSizes(EXEC_SHOULD_REMOVE),
-      info.shouldIgnore.toString -> headersAndSizes(EXEC_SHOULD_IGNORE),
-      reformatCSVFunc(info.getOpAction.toString) -> headersAndSizes(EXEC_ACTION)
-    )
-    constructOutputRow(data, delimiter, prettyPrint)
-  }
 
   private def getDetailedStagesHeaderStrings: LinkedHashMap[String, Int] = {
     val detailedHeadersAndFields = LinkedHashMap[String, Int](
@@ -1075,18 +1074,6 @@ object QualOutputWriter {
     topExecInfo.flatMap { e =>
       e.children.getOrElse(Seq.empty) :+ e
     }.toSet
-  }
-
-  private def constructExecsInfo(
-      sumInfo: QualificationSummaryInfo,
-      headersAndSizes: LinkedHashMap[String, Int],
-      delimiter: String,
-      prettyPrint: Boolean): Set[String] = {
-    // No need to visit the execInfo children because the result returned from
-    // "getAllExecsFromPlan" is already flattened
-    getAllExecsFromPlan(sumInfo.planInfo).collect { case info =>
-      constructExecInfoBuffer(info, sumInfo.appId, delimiter, prettyPrint, headersAndSizes)
-    }
   }
 
   def createFormattedQualSummaryInfo(
