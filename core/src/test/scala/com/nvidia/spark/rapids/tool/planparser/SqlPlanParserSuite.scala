@@ -1384,7 +1384,13 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
-        verifyExecToStageMapping(parsedPlans.toSeq, app)
+        if (ToolUtils.isSpark331OrLater()) {
+          // Spark 3.2.4 shows a weird behavior as the entire plan with SQL 65 loses the metrics
+          // and the associated jobs. The UI won't be able to visualize that job anymore. So,
+          // we skip verifying the exec-to-stage mapping for those old spark.
+          verifyExecToStageMapping(parsedPlans.toSeq, app)
+        }
+
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val deltaLakeWrites = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD"))
         assertSizeAndSupported(1, deltaLakeWrites)
