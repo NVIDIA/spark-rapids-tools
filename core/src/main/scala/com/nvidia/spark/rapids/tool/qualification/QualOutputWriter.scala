@@ -19,14 +19,14 @@ package com.nvidia.spark.rapids.tool.qualification
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.collection.mutable
-import scala.collection.mutable.{Buffer, LinkedHashMap, ListBuffer}
+import scala.collection.mutable.{ArrayBuffer, Buffer, LinkedHashMap, ListBuffer}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import com.nvidia.spark.rapids.tool.analysis.ExecInfoAnalyzer
 import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, ExecInfo, PlanInfo, UnsupportedExecSummary}
 import com.nvidia.spark.rapids.tool.profiling.AppStatusResult
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
-import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.{CLUSTER_ID, CLUSTER_ID_STR_SIZE, JOB_ID, JOB_ID_STR_SIZE, RUN_NAME, RUN_NAME_STR_SIZE, TEXT_DELIMITER}
+import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter._
 import org.apache.hadoop.conf.Configuration
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization
@@ -184,7 +184,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
         QualOutputWriter.CSV_DELIMITER))
       sums.foreach { sum =>
         QualOutputWriter.constructAllOperatorsInfo(csvFileWriter, sum.planInfo, sum.appId,
-          headersAndSizes, QualOutputWriter.CSV_DELIMITER, false)
+          QualOutputWriter.CSV_DELIMITER)
       }
     } finally {
       csvFileWriter.close()
@@ -513,6 +513,28 @@ object QualOutputWriter {
 
   // a file extension will be added to this later
   val LOGFILE_NAME = "rapids_4_spark_qualification_output"
+
+
+  /**
+   * A wrapper to construct the records of the Spark operators report. The wrapper is compact to
+   * avoid storing unecessary data that's hsraed between multiple records (i.e., appID, SQLID).
+   * @param operatorType the type of the operator (Exec, ReadExec, Expr, etc.)
+   * @param operatorName the name of the spark operator.
+   * @param count how many times an operator appears in the SQL plan.
+   * @param isSupported flag to indicate if the operator is supported by the GPU plugin.
+   * @param stages a set of integer.
+   */
+  case class AllOpsSummaryResultInfo(
+    operatorType: String,
+    operatorName: String,
+    count: Int,
+    isSupported: String,
+    stages: Set[Int]) {
+    def convertToCSVSeq(appID: String, sqlID: String): Seq[String] = {
+      Seq(appID, sqlID, operatorType, operatorName, count.toString, isSupported,
+        stages.mkString(":"))
+    }
+  }
 
   private def getReformatCSVFunc(reformatCSV: Boolean): String => String = {
     if (reformatCSV) str => StringUtils.reformatCSVString(str) else str => stringIfEmpty(str)
@@ -1061,46 +1083,41 @@ object QualOutputWriter {
       csvWriter: ToolTextFileWriter,
       planInfos: Seq[PlanInfo],
       appId: String,
-      headersAndSizes: LinkedHashMap[String, Int],
-      delimiter: String,
-      prettyPrint: Boolean): Unit = {
-
-    // Collect all ExecResults from all PlanInfo
-    val allExecResults = planInfos.flatMap { planInfo =>
+      delimiter: String): Unit = {
+    // This method iterates on PlanInfo which are sorted by SqlID. It constructs the operators per
+    // SQLPlan and sumps it to the CSV as a bufferedString instead of writing one row at a time.
+    val appIDCSVStr = StringUtils.reformatCSVString(appId)
+    val supportedCSVStr = "true"
+    val unsupportedCSVStr = "false"
+    planInfos.foreach { planInfo =>
+      val sqlIDCSVStr = planInfo.sqlID.toString
       val analyzer = ExecInfoAnalyzer(planInfo)
       analyzer.analyze()
-      analyzer.getResults
-    }
-
-    // Sort operators by count (descending) and then by SQLID (ascending)
-    val sortedExecResults = allExecResults.sortBy(exec => (-exec.count, exec.sqlID))
-
-    sortedExecResults.foreach { operator =>
-      val sqlID = operator.sqlID.toString
-      val data = ListBuffer[(String, Int)](
-        StringUtils.reformatCSVString(appId) -> headersAndSizes(APP_ID_STR),
-        sqlID -> headersAndSizes(SQL_ID_STR),
-        operator.opType.toString -> headersAndSizes(OPERATOR_TYPE),
-        operator.execRef.value -> headersAndSizes(OPERATOR_NAME),
-        operator.count.toString -> headersAndSizes(COUNT),
-        operator.isSupported.toString -> headersAndSizes(IS_SUPPORTED),
-        operator.stages.mkString(":") -> headersAndSizes(STAGES)
-      )
-      csvWriter.write(constructOutputRow(data, delimiter, prettyPrint))
-
-      // Sort expressions by count (descending) and then by SQLID (ascending)
-      val sortedExpressions = operator.expressions.sortBy(expr => (-expr.count, operator.sqlID))
-      sortedExpressions.foreach { expr =>
-        val exprData = ListBuffer[(String, Int)](
-          StringUtils.reformatCSVString(appId) -> headersAndSizes(APP_ID_STR),
-          sqlID -> headersAndSizes(SQL_ID_STR),
-          expr.opType.toString -> headersAndSizes(OPERATOR_TYPE),
-          expr.exprRef.value -> headersAndSizes(OPERATOR_NAME),
-          expr.count.toString -> headersAndSizes(COUNT),
-          expr.isSupported.toString -> headersAndSizes(IS_SUPPORTED),
-          expr.stages.mkString(":") -> headersAndSizes(STAGES)
-        )
-        csvWriter.write(constructOutputRow(exprData, delimiter, prettyPrint))
+      val allPlanOps = ArrayBuffer[AllOpsSummaryResultInfo]()
+      val opResults = analyzer.getResults
+      opResults.foreach { op =>
+        val rec = AllOpsSummaryResultInfo(
+          op.opType.toString,
+          op.execRef.value,
+          op.count,
+          if (op.isSupported) supportedCSVStr else unsupportedCSVStr,
+          op.stages)
+        allPlanOps += rec
+        op.expressions.foreach { expr =>
+          val rec = AllOpsSummaryResultInfo(
+            expr.opType.toString,
+            expr.exprRef.value,
+            expr.count,
+            if (op.isSupported) supportedCSVStr else unsupportedCSVStr,
+            expr.stages)
+          allPlanOps += rec
+        }
+      }
+      val rows =
+        allPlanOps.sortBy(op => (-op.count, op.operatorName)).map(
+          r => r.convertToCSVSeq(appIDCSVStr, sqlIDCSVStr).mkString(delimiter))
+      if (rows.nonEmpty) { // avoid adding empty line if no rows to add
+        csvWriter.write(s"${rows.mkString("\n")}\n")
       }
     }
   }
