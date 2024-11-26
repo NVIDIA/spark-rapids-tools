@@ -31,7 +31,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.resource.ResourceProfile
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.profiling._
-import org.apache.spark.sql.rapids.tool.util.FSUtils
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, SparkRuntime}
 
 class ApplicationInfoSuite extends FunSuite with Logging {
 
@@ -841,7 +841,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 20)
+      assert(dotDirs.length === 21)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -875,7 +875,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 16)
+      assert(dotDirs.length === 17)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -912,7 +912,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 20)
+      assert(dotDirs.length === 21)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -949,7 +949,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 18)
+      assert(dotDirs.length === 19)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -1113,6 +1113,20 @@ class ApplicationInfoSuite extends FunSuite with Logging {
             |} ]""".stripMargin
       // assert that the spark rapids build info json file is same as expected
       assert(actualResult == expectedResult)
+    }
+  }
+
+  val sparkRuntimeTestCases: Seq[(SparkRuntime.Value, String)] = Seq(
+    SparkRuntime.SPARK -> s"$qualLogDir/nds_q86_test",
+    SparkRuntime.SPARK_RAPIDS -> s"$logDir/nds_q66_gpu.zstd",
+    SparkRuntime.PHOTON -> s"$qualLogDir/nds_q88_photon_db_13_3.zstd"
+  )
+
+  sparkRuntimeTestCases.foreach { case (expectedSparkRuntime, eventLog) =>
+    test(s"test spark runtime property for ${expectedSparkRuntime.toString} eventlog") {
+      val apps = ToolTestUtils.processProfileApps(Array(eventLog), sparkSession)
+      assert(apps.size == 1)
+      assert(apps.head.getSparkRuntime == expectedSparkRuntime)
     }
   }
 }

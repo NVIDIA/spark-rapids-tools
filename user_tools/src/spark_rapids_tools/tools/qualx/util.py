@@ -123,14 +123,30 @@ def get_cache_dir() -> str:
 def get_dataset_platforms(dataset: str) -> Tuple[List[str], str]:
     """Return list of platforms and dataset parent directory from a string path.
 
+    Note: the '_' character is reserved to delimit variants of a platform, e.g. different execution engines
+    like Photon or Velox.  Example: `databricks-aws_photon`.
+
+    Platform variants may be used when separate qualx models are trained for the base platform and the variant.
+    The platform variant will be used to identify the qualx model, while the base platform will be used when
+    invoking the Profiler/Qualification tools.
+
     Parameters
     ----------
     dataset: str
         Path to datasets directory, datasets/platform directory, or datasets/platform/dataset.json file.
+
+    Returns
+    -------
+    platforms: List[str]
+        List of platforms associated with the dataset path.
+    dataset_base: str
+        Parent directory of datasets directory.
     """
     supported_platforms = [
         'databricks-aws',
+        'databricks-aws_photon',
         'databricks-azure',
+        'databricks-azure_photon',
         'dataproc',
         'emr',
         'onprem'
@@ -139,17 +155,23 @@ def get_dataset_platforms(dataset: str) -> Tuple[List[str], str]:
     splits = Path(dataset).parts
     basename = splits[-1]
     if basename.endswith('.json'):
-        # dataset JSON
+        # single dataset JSON
         platforms = [splits[-2]]
         dataset_base = os.path.join(*splits[:-2])
     elif basename in supported_platforms:
-        # platform directory
+        # single platform directory
         platforms = [basename]
         dataset_base = os.path.join(*splits[:-1])
     else:
-        # datasets directory
+        # otherwise, assume "datasets" directory
         platforms = os.listdir(dataset)
         dataset_base = dataset
+
+    # validate platforms
+    for platform in platforms:
+        if platform not in supported_platforms:
+            raise ValueError(f'Unsupported platform: {platform}')
+
     return platforms, dataset_base
 
 
@@ -230,6 +252,7 @@ def run_profiler_tool(platform: str, eventlog: str, output_dir: str) -> None:
     logger.info('Running profiling on: %s', eventlog)
     logger.info('Saving output to: %s', output_dir)
 
+    platform_base = platform.split('_')[0]  # remove any platform variants when invoking profiler
     cmds = []
     eventlogs = find_eventlogs(eventlog)
     for log in eventlogs:
@@ -244,7 +267,7 @@ def run_profiler_tool(platform: str, eventlog: str, output_dir: str) -> None:
             # f'spark_rapids_user_tools {platform} profiling --csv --eventlogs {log} --local_folder {output}'
             'java -Xmx64g -cp $SPARK_RAPIDS_TOOLS_JAR:$SPARK_HOME/jars/*:$SPARK_HOME/assembly/target/scala-2.12/jars/* '
             'com.nvidia.spark.rapids.tool.profiling.ProfileMain '
-            f'--platform {platform} --csv --output-sql-ids-aligned -o {output} {log}'
+            f'--platform {platform_base} --csv --output-sql-ids-aligned -o {output} {log}'
         )
         cmds.append(cmd)
     run_commands(cmds)
@@ -255,6 +278,7 @@ def run_qualification_tool(platform: str, eventlog: str, output_dir: str) -> Non
     logger.info('Running qualification on: %s', eventlog)
     logger.info('Saving output to: %s', output_dir)
 
+    platform_base = platform.split('_')[0]  # remove any platform variants when invoking qualification
     cmds = []
     eventlogs = find_eventlogs(eventlog)
     for log in eventlogs:
@@ -268,7 +292,7 @@ def run_qualification_tool(platform: str, eventlog: str, output_dir: str) -> Non
             # --per-sql --eventlogs {log} --local_folder {output}'
             'java -Xmx32g -cp $SPARK_RAPIDS_TOOLS_JAR:$SPARK_HOME/jars/*:$SPARK_HOME/assembly/target/scala-2.12/jars/* '
             'com.nvidia.spark.rapids.tool.qualification.QualificationMain '
-            f'--platform {platform} --per-sql -o {output} {log}'
+            f'--platform {platform_base} --per-sql -o {output} {log}'
         )
         cmds.append(cmd)
     run_commands(cmds)

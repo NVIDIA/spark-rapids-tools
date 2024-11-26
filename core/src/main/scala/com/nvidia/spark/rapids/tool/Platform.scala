@@ -366,6 +366,11 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def isPlatformCSP: Boolean = false
 
   /**
+   * Indicate if the platform requires path recommendations
+   */
+  def requirePathRecommendations: Boolean = true
+
+  /**
    * The maximum number of Gpus any instance in this platform supports.
    */
   def maxGpusSupported: Int = 1
@@ -641,6 +646,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
   override val defaultGpuDevice: GpuDevice = A10GGpu
 
   override def isPlatformCSP: Boolean = true
+  override def requirePathRecommendations: Boolean = false
 
   override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
 
