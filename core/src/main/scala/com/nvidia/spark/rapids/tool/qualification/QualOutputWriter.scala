@@ -265,6 +265,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       val delimiter = ","
       val booleanTrue = "true"
       val booleanFalse = "false"
+      val zeroDurationStr = "0"
       sums.foreach { sumInfo =>
         val appIDCSVStr = StringUtils.reformatCSVString(sumInfo.appId)
         sumInfo.planInfo.foreach { pInfo =>
@@ -273,16 +274,22 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
           }.sortBy(eInfo => eInfo.nodeId)
           val sqlIDStr = pInfo.sqlID.toString
           val rows = execInfos.map { info =>
-            val childrenExecsStr = info.children.getOrElse(Seq.empty).map(_.exec).mkString(":")
-            val nodeIdsStr = info.children.getOrElse(Seq.empty).map(_.nodeId).mkString(":")
+            val (childrenExecsStr, nodeIdsStr) = if (info.children.isDefined) {
+              (StringUtils.reformatCSVString(
+                info.children.get.map(_.exec).mkString(":")),
+                StringUtils.reformatCSVString(
+                  info.children.get.map(_.nodeId).mkString(":")))
+            } else {
+              ("", "")
+            }
             Seq(appIDCSVStr, sqlIDStr, StringUtils.reformatCSVString(info.exec),
               StringUtils.reformatCSVString(info.expr),
-              info.duration.getOrElse(0).toString,
+              if (info.duration.isDefined) info.duration.get.toString else zeroDurationStr,
               info.nodeId.toString,
               if (info.isSupported) booleanTrue else booleanFalse,
               StringUtils.reformatCSVString(info.stages.mkString(":")),
-              StringUtils.reformatCSVString(childrenExecsStr),
-              StringUtils.reformatCSVString(nodeIdsStr),
+              childrenExecsStr,
+              nodeIdsStr,
               if (info.shouldRemove) booleanTrue else booleanFalse,
               if (info.shouldIgnore) booleanTrue else booleanFalse,
               StringUtils.reformatCSVString(info.getOpAction.toString)
