@@ -47,7 +47,6 @@ import org.apache.spark.sql.rapids.tool.util.stubs.{GraphReflectionAPI, GraphRef
  */
 class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
     accumToStageRetriever: AccumToStageRetriever) {
-  private val EMPTY_CLUSTERS: Set[Int] = Set.empty
   // A map between SQLNode Id and the clusterIds that the node belongs to.
   // Here, a clusterId means a stageId.
   // Note: It is possible to represent the clusters as map [clusterId, Set[SQLNodeIds]].
@@ -68,30 +67,14 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
    * @param node the node to get the stages for
    * @return a set of stageIds or empty if None
    */
-  def getNodeStagesByAccum(node: SparkPlanGraphNode): Set[Int] = {
+  private def getNodeStagesByAccum(node: SparkPlanGraphNode): Set[Int] = {
     val nodeAccums = node.metrics.map(_.accumulatorId)
     accumToStageRetriever.getStageIDsFromAccumIds(nodeAccums)
   }
 
   /**
-   * Get the stage clusters that the node belongs to.
-   * Use this method if this logical representation of the node-to-stage relationship.
-   * For example, an "Exchange" node returns only a single stageID which is the stage that writes
-   * the data.
-   * @param node the node to get the stages for
-   * @return a set of stageIds or empty if None
-   */
-  def getNodeStageClusters(node: SparkPlanGraphNode): Set[Int] = {
-    nodeToStageCluster.getOrElse(node.id, EMPTY_CLUSTERS)
-  }
-
-  def getNodeStageClusters(nodeId: Long): Set[Int] = {
-    nodeToStageCluster.getOrElse(nodeId, EMPTY_CLUSTERS)
-  }
-
-  /**
    * Get the stages that the node belongs to. This function is used to get all the stages that can
-   * be assigned to a node. For exmple, if we want to get the "Exchange" node stages, then we call
+   * be assigned to a node. For example, if we want to get the "Exchange" node stages, then we call
    * that method.
    * @param node the node to get the stages for
    * @return a set of stageIds or empty if None
@@ -181,7 +164,7 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
         // cases that are supposed to be head of a new stage. We should pick the stages associated
         // with the reading metrics (pick the highest number for simplicity).
         if (stageIds.size <= 1) {
-          EMPTY_CLUSTERS
+          ToolsPlanGraph.EMPTY_CLUSTERS
         } else {
           Set[Int](stageIds.max)
         }
@@ -225,7 +208,8 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
       // Node is assigned to the same cluster before. Nothing to be done.
       false
     } else {
-      val newClusterIds = clusters ++ nodeToStageCluster.getOrElse(wNode.id, EMPTY_CLUSTERS)
+      val newClusterIds =
+        clusters ++ nodeToStageCluster.getOrElse(wNode.id, ToolsPlanGraph.EMPTY_CLUSTERS)
       // remove the wNode from orphanNodes if it exists
       removeNodeFromOrphans(wNode, orphanNodes, newClusterIds)
       // assign the children to the same clusters if any of them is not assigned already.
@@ -323,7 +307,7 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
               // Set the node type to determine the restrictions (i.e., exchange is
               // positioned at the tail of a stage and shuffleRead should be the head of a stage).
               val nodeCase = multiplexCases(currNodeName)
-              var clusterIDs = EMPTY_CLUSTERS
+              var clusterIDs = ToolsPlanGraph.EMPTY_CLUSTERS
               if ((nodeCase & 1) > 0) {
                 // Assign cluster based on incoming edges.
                 val inEdgesWithIds =
@@ -398,6 +382,23 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
   // Start the construction of the graph
   assignNodesToStageClusters()
 
+  // Define public interface methods
+  /**
+   * Get the stage clusters that the node belongs to.
+   * Use this method if this logical representation of the node-to-stage relationship.
+   * For example, an "Exchange" node returns only a single stageID which is the stage that writes
+   * the data.
+   * @param node the node to get the stages for
+   * @return a set of stageIds or empty if None
+   */
+  def getNodeStageClusters(node: SparkPlanGraphNode): Set[Int] = {
+    nodeToStageCluster.getOrElse(node.id, ToolsPlanGraph.EMPTY_CLUSTERS)
+  }
+
+  def getNodeStageClusters(nodeId: Long): Set[Int] = {
+    nodeToStageCluster.getOrElse(nodeId, ToolsPlanGraph.EMPTY_CLUSTERS)
+  }
+
   // Start Definitions of utility functions to handle nodes
 
   def isWholeStageCodeGen(node: SparkPlanGraphNode): Boolean = {
@@ -429,6 +430,8 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
  * Build a SparkPlanGraph from the root of a SparkPlan tree.
  */
 object ToolsPlanGraph {
+  // Empty cluster set used to represent a node that is not assigned to any cluster.
+  private val EMPTY_CLUSTERS: Set[Int] = Set.empty
   // Captures the API loaded at runtime if any.
   var api: GraphReflectionAPI = _
 
