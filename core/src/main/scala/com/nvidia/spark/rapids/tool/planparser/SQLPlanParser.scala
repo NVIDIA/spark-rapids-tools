@@ -538,7 +538,7 @@ object SQLPlanParser extends Logging {
       checker: PluginTypeChecker,
       app: AppBase,
       reusedNodeIds: Set[Long],
-      nodeIdToStagesFunc: Long => Set[Int],
+      nodeIdToStagesFunc: Long => Set[Int]
   ): Seq[ExecInfo] = {
     // Avoid counting duplicate nodes. We mark them as shouldRemove to neutralize their impact on
     // speedups.
