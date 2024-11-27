@@ -23,7 +23,7 @@ import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, ExecRef, ExprRef, OpTy
 case class ExecInfoAnalyzer(planInfo: PlanInfo) {
 
   // Internal case classes for uniquely identifying execs and expressions
-  private case class OperatorKey(nameRef: ExecRef, opType: OpTypes.OpType, isSupported: Boolean)
+  private case class ExecKey(nameRef: ExecRef, opType: OpTypes.OpType, isSupported: Boolean)
   private case class ExpressionKey(nameRef: ExprRef, opType: OpTypes.OpType, isSupported: Boolean)
 
   /**
@@ -48,11 +48,10 @@ case class ExecInfoAnalyzer(planInfo: PlanInfo) {
       var stages: Set[Int] = Set()
   )
 
-  // Internal data structure for aggregating execs and expressions by SQL ID.
-  // The structure is a Map from SQL ID to a Map of OperatorKey to a tuple containing
-  // ExecData and a Map of ExpressionKey to ExpressionData.
-  private val aggregatedData: mutable.Map[Long, mutable.Map[OperatorKey,
-      (ExecData, mutable.Map[ExpressionKey, ExpressionData])]] = mutable.Map()
+  private val execData: mutable.Map[Long, mutable.Map[ExecKey, ExecData]] = mutable.Map()
+
+  private val expressionData: mutable.Map[Long,
+      mutable.Map[ExpressionKey, ExpressionData]] = mutable.Map()
 
   def analyze(): Unit = {
     planInfo.execInfo.foreach(traverse)
@@ -69,11 +68,11 @@ case class ExecInfoAnalyzer(planInfo: PlanInfo) {
 
     // Check if the operator name is non-empty
     if (operatorName.nonEmpty) {
-      val operatorKey = OperatorKey(execInfo.execRef, execInfo.opType, execInfo.isSupported)
-      val sqlMap = aggregatedData.getOrElseUpdate(sqlID, mutable.Map())
+      val execKey = ExecKey(execInfo.execRef, execInfo.opType, execInfo.isSupported)
+      val sqlMap = execData.getOrElseUpdate(sqlID, mutable.Map())
 
-      val (operatorData, exprDataMap) =
-        sqlMap.getOrElseUpdate(operatorKey, (ExecData(), mutable.Map()))
+      val operatorData =
+        sqlMap.getOrElseUpdate(execKey, (ExecData()))
       operatorData.count += 1
       operatorData.stages ++= execInfo.stages
 
@@ -82,7 +81,8 @@ case class ExecInfoAnalyzer(planInfo: PlanInfo) {
         // Check if the expression name is non-empty
         if (exprName.nonEmpty) {
           val exprKey = ExpressionKey(exprRef, OpTypes.Expr, execInfo.isSupported)
-          val exprData = exprDataMap.getOrElseUpdate(exprKey, ExpressionData())
+          val exprSqlMap = expressionData.getOrElseUpdate(sqlID, mutable.Map())
+          val exprData = exprSqlMap.getOrElseUpdate(exprKey, ExpressionData())
           exprData.count += 1
           exprData.stages ++= execInfo.stages
         }
@@ -103,6 +103,7 @@ case class ExecInfoAnalyzer(planInfo: PlanInfo) {
    * This is used within ExecResult to encapsulate expression-specific data
    */
   case class ExpressionResult(
+      sqlID: Long,
       exprRef: ExprRef,
       opType: OpTypes.OpType,
       isSupported: Boolean,
@@ -126,32 +127,36 @@ case class ExecInfoAnalyzer(planInfo: PlanInfo) {
       opType: OpTypes.OpType,
       isSupported: Boolean,
       count: Int,
-      stages: Set[Int],
-      expressions: Seq[ExpressionResult]
+      stages: Set[Int]
   )
 
-  def getResults: Seq[ExecResult] = {
-    aggregatedData.flatMap { case (sqlID, operatorMap) =>
-      operatorMap.map { case (operatorKey, (operatorData, exprDataMap)) =>
-        val expressionResults = exprDataMap.map { case (exprKey, exprData) =>
-          ExpressionResult(
-            exprRef = exprKey.nameRef,
-            opType = exprKey.opType,
-            isSupported = exprKey.isSupported,
-            count = exprData.count,
-            stages = exprData.stages
-          )
-        }.toSeq
+  def getResults: (Seq[ExecResult], Seq[ExpressionResult]) = {
+    val execResults = execData.flatMap { case (sqlID, operatorMap) =>
+      operatorMap.map { case (operatorKey, operatorData) =>
         ExecResult(
           sqlID = sqlID,
           execRef = operatorKey.nameRef,
           opType = operatorKey.opType,
           isSupported = operatorKey.isSupported,
           count = operatorData.count,
-          stages = operatorData.stages,
-          expressions = expressionResults
+          stages = operatorData.stages
         )
       }
     }.toSeq
+
+    val exprResults = expressionData.flatMap { case (sqlID, expressionMap) =>
+      expressionMap.map { case (exprKey, exprDataEntry) =>
+        ExpressionResult(
+          sqlID = sqlID,
+          exprRef = exprKey.nameRef,
+          opType = exprKey.opType,
+          isSupported = exprKey.isSupported,
+          count = exprDataEntry.count,
+          stages = exprDataEntry.stages
+        )
+      }
+    }.toSeq
+
+    (execResults, exprResults)
   }
 }

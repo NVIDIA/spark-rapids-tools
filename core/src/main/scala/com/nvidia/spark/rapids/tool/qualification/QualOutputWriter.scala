@@ -1093,25 +1093,33 @@ object QualOutputWriter {
       val sqlIDCSVStr = planInfo.sqlID.toString
       val analyzer = ExecInfoAnalyzer(planInfo)
       analyzer.analyze()
+      val (execResults, exprResults) = analyzer.getResults
       val allPlanOps = ArrayBuffer[AllOpsSummaryResultInfo]()
-      val opResults = analyzer.getResults
-      opResults.foreach { op =>
+
+      // Process exec operators
+      execResults.foreach { op =>
+        val isSupportedStr = if (op.isSupported) supportedCSVStr else unsupportedCSVStr
         val rec = AllOpsSummaryResultInfo(
-          op.opType.toString,
-          op.execRef.value,
-          op.count,
-          if (op.isSupported) supportedCSVStr else unsupportedCSVStr,
-          op.stages)
+          operatorType = op.opType.toString,
+          operatorName = op.execRef.value,
+          count = op.count,
+          isSupported = isSupportedStr,
+          stages = op.stages
+        )
         allPlanOps += rec
-        op.expressions.foreach { expr =>
-          val rec = AllOpsSummaryResultInfo(
-            expr.opType.toString,
-            expr.exprRef.value,
-            expr.count,
-            if (op.isSupported) supportedCSVStr else unsupportedCSVStr,
-            expr.stages)
-          allPlanOps += rec
-        }
+      }
+
+      // Process expressions
+      exprResults.foreach { expr =>
+        val isSupportedStr = if (expr.isSupported) supportedCSVStr else unsupportedCSVStr
+        val rec = AllOpsSummaryResultInfo(
+          operatorType = expr.opType.toString,
+          operatorName = expr.exprRef.value,
+          count = expr.count,
+          isSupported = isSupportedStr,
+          stages = expr.stages
+        )
+        allPlanOps += rec
       }
       val rows =
         allPlanOps.sortBy(op => (-op.count, op.operatorName)).map(
