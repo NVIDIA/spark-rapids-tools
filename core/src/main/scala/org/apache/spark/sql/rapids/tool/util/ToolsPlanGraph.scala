@@ -339,9 +339,7 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
                 // There is a possible assignment. Commit it.
                 commitNodeToStageCluster(currNode, orphanNodes, clusterIDs)
               } else {
-                if (false && !currNodeName.contains("CreateViewCommand")) {
-                  println("could not belong anywhere")
-                }
+                // nothing has changed
                 false
               }
           } // end of assigning "UpdatedFlag"
