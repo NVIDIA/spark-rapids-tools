@@ -21,6 +21,7 @@ from typing import Union, Optional
 from pydantic import BaseModel, Field, ValidationError
 
 from spark_rapids_tools import CspPathT
+from spark_rapids_tools.configuration.distributed_tools_config import DistributedToolsConfig
 from spark_rapids_tools.configuration.runtime_conf import ToolsRuntimeConfig
 from spark_rapids_tools.utils import AbstractPropContainer
 
@@ -34,8 +35,14 @@ class ToolsConfig(BaseModel):
         examples=['1.0'],
         le=1.0,  # minimum version compatible with the current tools implementation
         ge=1.0)
-    runtime: ToolsRuntimeConfig = Field(
+
+    runtime: Optional[ToolsRuntimeConfig] = Field(
+        default=None,
         description='Configuration related to the runtime environment of the tools.')
+
+    distributed_tools: Optional[DistributedToolsConfig] = Field(
+        default=None,
+        description='Configuration related to the distributed tools.')
 
     @classmethod
     def load_from_file(cls, file_path: Union[str, CspPathT]) -> Optional['ToolsConfig']:

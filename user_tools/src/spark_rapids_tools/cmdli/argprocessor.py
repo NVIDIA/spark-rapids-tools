@@ -470,6 +470,7 @@ class QualifyUserArgModel(ToolUserArgModel):
     """
     filter_apps: Optional[QualFilterApp] = None
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
+    distributed_tools_enabled: Optional[bool] = None
 
     def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
@@ -532,7 +533,8 @@ class QualifyUserArgModel(ToolUserArgModel):
             'eventlogs': self.eventlogs,
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
-            'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs']
+            'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
+            'distributedToolsEnabled': self.distributed_tools_enabled
         }
         return wrapped_args
 
