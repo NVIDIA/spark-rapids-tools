@@ -105,7 +105,7 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
         self.execs_df = (self.execs_df.explode('Exec Stages').
                          dropna(subset=['Exec Stages']).
                          rename(columns={'Exec Stages': 'Stage ID'}))
-        self.execs_df['Stage ID'] = self.execs_df['Stage ID'].astype(float)
+        self.execs_df['Stage ID'] = self.execs_df['Stage ID'].astype(int)
 
         # Remove duplicate 'Stage ID' rows and rename some columns so that join on dataframes
         # can be done easily
