@@ -498,15 +498,16 @@ object AppSparkMetricsAnalyzer  {
   def getStatistics(arr: Iterable[Long]): StatisticsMetrics = {
     if (arr.isEmpty) {
       StatisticsMetrics(0L, 0L, 0L, 0L)
-    }
-    val sortedArr = arr.toSeq.sorted
-    val len = sortedArr.size
-    val med = if (len % 2 == 0) {
-      (sortedArr(len / 2) + sortedArr(len / 2 - 1)) / 2
     } else {
-      sortedArr(len / 2)
+      val sortedArr = arr.toSeq.sorted
+      val len = sortedArr.size
+      val med = if (len % 2 == 0) {
+        (sortedArr(len / 2) + sortedArr(len / 2 - 1)) / 2
+      } else {
+        sortedArr(len / 2)
+      }
+      StatisticsMetrics(sortedArr.head, med, sortedArr(len - 1), sortedArr.sum)
     }
-    StatisticsMetrics(sortedArr.head, med, sortedArr(len - 1), sortedArr.sum)
   }
 
   def maxWithEmptyHandling(arr: Iterable[Long]): Long = {
