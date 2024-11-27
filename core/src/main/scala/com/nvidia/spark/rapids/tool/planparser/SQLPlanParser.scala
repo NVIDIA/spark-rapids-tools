@@ -491,11 +491,13 @@ object SQLPlanParser extends Logging {
         GenericExecParser(
           node, checker, sqlID, expressionFunction = Some(parseGenerateExpressions)).parse
       case "HashAggregate" =>
-        HashAggregateExecParser(node, checker, sqlID, app).parse
+        HashAggregateExecParser(
+          node, checker, sqlID, Some(parseAggregateExpressions), app).parse
       case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
         DataWritingCommandExecParser.parseNode(node, checker, sqlID)
       case "ObjectHashAggregate" =>
-        ObjectHashAggregateExecParser(node, checker, sqlID, app).parse
+        ObjectHashAggregateExecParser(
+          node, checker, sqlID, Some(parseAggregateExpressions), app).parse
       case "Project" =>
         GenericExecParser(
           node, checker, sqlID, expressionFunction = Some(parseProjectExpressions)).parse

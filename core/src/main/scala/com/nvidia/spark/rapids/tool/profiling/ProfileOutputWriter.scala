@@ -74,6 +74,12 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
     }
   }
 
+  def writeCSVTable(headerText: String, outRows: Seq[ProfileResult]): Unit = {
+    if (outputCSV) {
+      ProfileOutputWriter.writeCSVTable(headerText, outRows, outputDir)
+    }
+  }
+
   def close(): Unit = {
     textFileWriter.close()
   }

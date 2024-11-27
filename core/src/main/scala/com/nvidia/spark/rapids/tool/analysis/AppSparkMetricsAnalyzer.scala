@@ -18,13 +18,15 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import java.util.concurrent.TimeUnit
 
-import scala.collection.mutable
+import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap}
 
+import com.nvidia.spark.rapids.tool.analysis.StageAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
-import org.apache.spark.sql.rapids.tool.store.{AccumInfo, TaskModel}
+import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.store.{AccumInfo, AccumMetaRef, AccumNameRef, TaskModel}
 
 /**
  * Does analysis on the DataFrames from object of AppBase.
@@ -50,14 +52,14 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   // Hashmap to cache the stage level metrics. It is initialized to None just in case the caller
   // does not call methods in order starting with stage level metrics.
   private var stageLevelCache:
-    Option[mutable.LinkedHashMap[Int, StageAggTaskMetricsProfileResult]] = None
+    Option[LinkedHashMap[Int, StageAggTaskMetricsProfileResult]] = None
 
   // Getter method used to protect the cache from out-of-order calls.
   // If the stage-level metrics are not generated yet, generates and add them to the cache
   private def stageLevelSparkMetrics(
-      index: Int): mutable.LinkedHashMap[Int, StageAggTaskMetricsProfileResult] = {
+      index: Int): LinkedHashMap[Int, StageAggTaskMetricsProfileResult] = {
     if (stageLevelCache.isEmpty) {
-      stageLevelCache = Some(mutable.LinkedHashMap[Int, StageAggTaskMetricsProfileResult]())
+      stageLevelCache = Some(LinkedHashMap[Int, StageAggTaskMetricsProfileResult]())
       aggregateSparkMetricsByStageInternal(index)
     }
     stageLevelCache.get
@@ -321,6 +323,62 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   }
 
   /**
+   * Aggregates the diagnostic SparkMetrics by stage.
+   * @param index    the App-index (used by the profiler tool)
+   * @param analyzer optional AppSQLPlanAnalyzer which is used to pull stage level
+   *                 information like node names and diagnostic metrics results, only
+   *                 Qualification needs to provide this argument.
+   * @return sequence of StageDiagnosticAggTaskMetricsProfileResult
+   */
+  def aggregateDiagnosticMetricsByStage(index: Int, analyzer: Option[AppSQLPlanAnalyzer] = None):
+      Seq[StageDiagnosticResult] = {
+    val sqlAnalyzer = analyzer match {
+      case Some(res) => res
+      case None =>
+        // for Profiler this is present in ApplicationInfo
+        app.asInstanceOf[ApplicationInfo].planMetricProcessor
+    }
+    val zeroAccumProfileResults =
+      AccumProfileResults(0, 0, AccumMetaRef(0L, AccumNameRef("")), 0L, 0L, 0L, 0L)
+
+    // TODO: this has stage attempts. we should handle different attempts
+    app.stageManager.getAllStages.map { sm =>
+      // TODO: Should we only consider successful tasks?
+      val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
+        sm.stageInfo.attemptNumber())
+      // count duplicate task attempts
+      val numTasks = tasksInStage.size
+      val nodeNames = sqlAnalyzer.stageToNodeNames.
+        getOrElse(sm.stageInfo.stageId, Seq.empty[String])
+      val diagnosticMetricsMap = sqlAnalyzer.stageToDiagnosticMetrics.
+        getOrElse(sm.stageInfo.stageId, HashMap.empty[String, AccumProfileResults]).
+        withDefaultValue(zeroAccumProfileResults)
+      val srTotalBytesMetrics =
+        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_totalBytesRead))
+
+      StageDiagnosticResult(index,
+        app.getAppName,
+        app.appId,
+        sm.stageInfo.stageId,
+        sm.duration,
+        numTasks,
+        srTotalBytesMetrics.min,
+        srTotalBytesMetrics.med,
+        srTotalBytesMetrics.max,
+        srTotalBytesMetrics.total,
+        diagnosticMetricsMap(MEMORY_SPILLED_METRIC),
+        diagnosticMetricsMap(DISK_SPILLED_METRIC),
+        diagnosticMetricsMap(INPUT_BYTES_READ_METRIC),
+        diagnosticMetricsMap(OUTPUT_BYTES_WRITTEN_METRIC),
+        diagnosticMetricsMap(SW_TOTAL_BYTES_METRIC),
+        diagnosticMetricsMap(SR_FETCH_WAIT_TIME_METRIC),
+        diagnosticMetricsMap(SW_WRITE_TIME_METRIC),
+        diagnosticMetricsMap(GPU_SEMAPHORE_WAIT_METRIC),
+        nodeNames)
+    }.toSeq
+  }
+
+  /**
    * Aggregates the SparkMetrics by stage. This is an internal method to populate the cached metrics
    * to be used by other aggregators.
    * @param index AppIndex (used by the profiler tool)
@@ -336,8 +394,8 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
     // Note:
     //  - A HashMap could be used instead of separate mutable.ArrayBuffer for each metric type,
     //    but avoiding it for readability.
-    val photonPeakMemoryAccumInfos = mutable.ArrayBuffer[AccumInfo]()
-    val photonShuffleWriteTimeAccumInfos = mutable.ArrayBuffer[AccumInfo]()
+    val photonPeakMemoryAccumInfos = ArrayBuffer[AccumInfo]()
+    val photonShuffleWriteTimeAccumInfos = ArrayBuffer[AccumInfo]()
 
     if (app.isPhoton) {
       app.accumManager.applyToAccumInfoMap { accumInfo =>
@@ -432,6 +490,23 @@ object AppSparkMetricsAnalyzer  {
     } else {
       (0L, 0L, 0L, 0.toDouble)
     }
+  }
+
+  /**
+   * Given an input iterable, returns its min, median, max and sum.
+   */
+  def getStatistics(arr: Iterable[Long]): StatisticsMetrics = {
+    if (arr.isEmpty) {
+      StatisticsMetrics(0L, 0L, 0L, 0L)
+    }
+    val sortedArr = arr.toSeq.sorted
+    val len = sortedArr.size
+    val med = if (len % 2 == 0) {
+      (sortedArr(len / 2) + sortedArr(len / 2 - 1)) / 2
+    } else {
+      sortedArr(len / 2)
+    }
+    StatisticsMetrics(sortedArr.head, med, sortedArr(len - 1), sortedArr.sum)
   }
 
   def maxWithEmptyHandling(arr: Iterable[Long]): Long = {
