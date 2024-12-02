@@ -582,7 +582,7 @@ class QualificationAppInfo(
 
       // Get all the unsupported Expressions from the plan
       val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(
-        _.unsupportedExprs.map(_.exprName))).flatten.filter(_.nonEmpty).toSet.mkString(";")
+        _.unsupportedExprs.map(_.getOpName))).flatten.filter(_.nonEmpty).toSet.mkString(";")
         .trim.replaceAll("\n", "").replace(",", ":")
 
       // TODO - this is not correct as this is using the straight stage wall

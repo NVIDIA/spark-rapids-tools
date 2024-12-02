@@ -59,8 +59,12 @@ abstract class WholeStageExecParserBase(
     // wholeStageCodeGen are marked as shouldRemove.
     val removeNode = isDupNode || childNodes.forall(_.shouldRemove)
     val execInfo = ExecInfo(node, sqlID, node.name, node.name, avSpeedupFactor, maxDuration,
-      node.id, anySupported, Some(childNodes), stagesInNode,
-      shouldRemove = removeNode, unsupportedExprs = unSupportedExprsArray)
+      node.id, anySupported,
+      Some(childNodes), stages = stagesInNode,
+      shouldRemove = removeNode,
+      unsupportedExprs = unSupportedExprsArray,
+      // expressions of wholeStageCodeGen should not be set. They belong to the children nodes.
+      expressions = Seq.empty)
     Seq(execInfo)
   }
 }

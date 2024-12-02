@@ -46,6 +46,6 @@ case class BroadcastExchangeExecParser(
     }
     // TODO - add in parsing expressions - average speedup across?
     ExecInfo(node, sqlID, node.name, "", filterSpeedupFactor,
-      duration, node.id, isSupported, None)
+      duration, node.id, isSupported, children = None, expressions = Seq.empty)
   }
 }

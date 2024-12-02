@@ -41,6 +41,8 @@ case class BatchScanExecParser(
 
     // TODO - add in parsing expressions - average speedup across?
     ExecInfo(node, sqlID, s"${node.name} ${readInfo.format}", s"Format: ${readInfo.format}",
-      overallSpeedup, maxDuration, node.id, score > 0, None)
+      overallSpeedup, maxDuration, node.id, score > 0,
+      children = None,
+      expressions = Seq.empty)
   }
 }

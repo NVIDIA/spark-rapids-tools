@@ -46,7 +46,7 @@ case class FileSourceScanExecParser(
         nodeName
       }
       ExecInfo.createExecNoNode(sqlID, newNodeName, "", 1.0, duration = None,
-        node.id, OpTypes.ReadRDD, false, None)
+        node.id, OpTypes.ReadRDD, false, children = None, expressions = Seq.empty)
     } else {
       val accumId = node.metrics.find(_.name == "scan time").map(_.accumulatorId)
       val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
@@ -64,7 +64,7 @@ case class FileSourceScanExecParser(
 
       // TODO - add in parsing expressions - average speedup across?
       ExecInfo.createExecNoNode(sqlID, nodeName, "", overallSpeedup, maxDuration,
-        node.id, OpTypes.ReadExec, score > 0, None)
+        node.id, OpTypes.ReadExec, score > 0, children = None, expressions = Seq.empty)
     }
   }
 }

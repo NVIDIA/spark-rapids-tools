@@ -21,11 +21,11 @@ import scala.io.BufferedSource
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.UnsupportedExpr
 import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
 object OpSuppLevel extends Enumeration {
@@ -387,11 +387,11 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
     exprSupported.isSupported
   }
 
-  def getNotSupportedExprs(exprs: Seq[String]): Seq[UnsupportedExpr] = {
+  def getNotSupportedExprs(exprs: Seq[String]): Seq[UnsupportedExprOpRef] = {
     exprs.collect {
       case expr if !isExprSupported(expr) =>
         val reason = unsupportedOpsReasons.getOrElse(expr, "")
-        UnsupportedExpr(expr, reason)
+        UnsupportedExprOpRef(expr, reason)
     }
   }
 

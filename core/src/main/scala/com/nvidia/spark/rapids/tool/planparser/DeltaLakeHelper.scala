@@ -48,7 +48,7 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
     val nodeName = node.name.replace("Execute ", "")
     ExecInfo.createExecNoNode(sqlID, nodeName,
       s"Format: $dataFormat", finalSpeedupFactor, None, node.id, OpTypes.WriteExec,
-      isSupported = writeSupported && isExecSupported, children = None)
+      isSupported = writeSupported && isExecSupported, children = None, expressions = Seq.empty)
   }
 }
 

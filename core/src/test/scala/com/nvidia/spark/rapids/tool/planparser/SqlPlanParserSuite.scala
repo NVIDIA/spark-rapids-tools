@@ -1224,7 +1224,8 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val projects = allExecInfo.filter(_.exec.contains("Project"))
         assertSizeAndNotSupported(1, projects)
         val expectedExprss = Seq("parse_url_ref", "parse_url_userinfo")
-        projects(0).unsupportedExprs.map(_.exprName) should contain theSameElementsAs expectedExprss
+        projects(0)
+          .unsupportedExprs.map(_.getOpName) should contain theSameElementsAs expectedExprss
       }
     }
   }
@@ -1802,7 +1803,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val windowExecNotSupportedExprs = allExecInfo.filter(
         _.exec.contains(windowGroupLimitExecCmd)).flatMap(x => x.unsupportedExprs)
-      windowExecNotSupportedExprs.head.exprName shouldEqual "row_number"
+      windowExecNotSupportedExprs.head.getOpName shouldEqual "row_number"
       windowExecNotSupportedExprs.head.unsupportedReason shouldEqual
           "Ranking function row_number is not supported in WindowGroupLimitExec"
       val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
