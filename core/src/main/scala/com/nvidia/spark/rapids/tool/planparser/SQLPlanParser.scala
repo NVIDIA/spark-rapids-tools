@@ -21,7 +21,7 @@ import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.planparser.ops.{OpRef, UnsupportedExprOpRef}
+import com.nvidia.spark.rapids.tool.planparser.ops.{OperatorRefBase, OpRef, UnsupportedExprOpRef}
 import com.nvidia.spark.rapids.tool.planparser.photon.{PhotonPlanParser, PhotonStageExecParser}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
@@ -75,11 +75,10 @@ object UnsupportedReasons extends Enumeration {
 case class UnsupportedExecSummary(
     sqlId: Long,
     execId: Long,
-    execValue: String,
+    execRef: OperatorRefBase,
     opType: OpTypes.OpType,
     reason: UnsupportedReasons.UnsupportedReason,
-    opAction: OpActions.OpAction,
-    isExpression: Boolean = false) {
+    opAction: OpActions.OpAction) {
 
   val finalOpType: String = if (opType.equals(OpTypes.UDF) || opType.equals(OpTypes.DataSet)) {
     s"${OpTypes.Exec.toString}"
@@ -87,9 +86,11 @@ case class UnsupportedExecSummary(
     s"${opType.toString}"
   }
 
-  val unsupportedOperator: String = execValue
+  val unsupportedOperatorCSVFormat: String = execRef.getOpNameCSV
 
   val details: String = UnsupportedReasons.reportUnsupportedReason(reason)
+
+  def isExpression: Boolean = execRef.isInstanceOf[UnsupportedExprOpRef]
 }
 
 case class ExecInfo(
@@ -123,6 +124,10 @@ case class ExecInfo(
   }
 
   def exec: String = execRef.value
+
+  def isClusterNode: Boolean = {
+    execRef.getOpName.contains("StageCodegen") || execRef.getOpName.contains("PhotonResultStage")
+  }
 
   override def toString: String = {
     s"exec: $exec, expr: $expr, sqlID: $sqlID , speedupFactor: $speedupFactor, " +
@@ -199,7 +204,7 @@ case class ExecInfo(
       getUnsupportedReason)
 
     // Initialize the result with the exec summary
-    val res = ArrayBuffer(UnsupportedExecSummary(sqlID, execId, exec, opType,
+    val res = ArrayBuffer(UnsupportedExecSummary(sqlID, execId, execRef, opType,
       execUnsupportedReason, getOpAction))
 
     // TODO: Should we iterate on exec children?
@@ -216,8 +221,8 @@ case class ExecInfo(
       unsupportedExprs.foreach { expr =>
         val exprUnsupportedReason = determineUnsupportedReason(expr.unsupportedReason,
           exprKnownReason)
-        res += UnsupportedExecSummary(sqlID, execId, expr.getOpNameCSV, OpTypes.Expr,
-          exprUnsupportedReason, getOpAction, isExpression = true)
+        res += UnsupportedExecSummary(sqlID, execId, expr, OpTypes.Expr,
+          exprUnsupportedReason, getOpAction)
       }
     }
     res
@@ -345,8 +350,18 @@ case class PlanInfo(
     appID: String,
     sqlID: Long,
     sqlDesc: String,
-    execInfo: Seq[ExecInfo]
-)
+    execInfo: Seq[ExecInfo]) {
+  def getUnsupportedExpressions: Seq[OperatorRefBase] = {
+    execInfo.flatMap { e =>
+      if (e.isClusterNode) {
+        // wholeStageCodeGen does not have expressions/unsupported-expressions
+        e.children.getOrElse(Seq.empty).flatMap(_.unsupportedExprs)
+      } else {
+        e.unsupportedExprs
+      }
+    }
+  }
+}
 
 object SQLPlanParser extends Logging {
 

@@ -50,8 +50,8 @@ abstract class WholeStageExecParserBase(
     }
     // if any of the execs in WholeStageCodegen supported mark this entire thing as supported
     val anySupported = childNodes.exists(_.isSupported == true)
-    val unSupportedExprsArray =
-      childNodes.filter(_.unsupportedExprs.nonEmpty).flatMap(x => x.unsupportedExprs).toArray
+//    val unSupportedExprsArray =
+//      childNodes.filter(_.unsupportedExprs.nonEmpty).flatMap(x => x.unsupportedExprs).toArray
     // average speedup across the execs in the WholeStageCodegen for now
     val supportedChildren = childNodes.filterNot(_.shouldRemove)
     val avSpeedupFactor = SQLPlanParser.averageSpeedup(supportedChildren.map(_.speedupFactor))
@@ -62,7 +62,8 @@ abstract class WholeStageExecParserBase(
       node.id, anySupported,
       Some(childNodes), stages = stagesInNode,
       shouldRemove = removeNode,
-      unsupportedExprs = unSupportedExprsArray,
+      // unsupportyed expressions should not be set for the cluster nodes.
+      unsupportedExprs = Seq.empty,
       // expressions of wholeStageCodeGen should not be set. They belong to the children nodes.
       expressions = Seq.empty)
     Seq(execInfo)
