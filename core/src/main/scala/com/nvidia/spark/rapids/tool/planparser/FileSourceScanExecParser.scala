@@ -30,6 +30,9 @@ case class FileSourceScanExecParser(
 
   // The node name for Scans is Scan <format> so here we hardcode
   val fullExecName = "FileSourceScanExec"
+  // Matches the first alphaneumeric characters of a string after trimming leading/trailing
+  // white spaces.
+  val nodeNameRegeX = """^\s*(\w+).*""".r
 
   override def parse: ExecInfo = {
     // Remove trailing spaces from node name
@@ -37,7 +40,7 @@ case class FileSourceScanExecParser(
     val nodeName = node.name.trim
     val rddCheckRes = RDDCheckHelper.isDatasetOrRDDPlan(nodeName, node.desc)
     if (rddCheckRes.nodeNameRDD) {
-      // This is a scanRDD. we do not need to parse it as a normal node.
+      // This is a scanRDD. We do not need to parse it as a normal node.
       // cleanup the node name if possible:
       val newNodeName = if (nodeName.contains("ExistingRDD")) {
         val nodeNameLength = nodeName.indexOf("ExistingRDD") + "ExistingRDD".length
@@ -57,14 +60,36 @@ case class FileSourceScanExecParser(
         // Use the default parser
         (fullExecName, ReadParser.parseReadNode(node))
       }
+      // 1- Set the exec name to nodeLabel + format
+      // 2- If the format is not found, then put the entire node description to make it easy to
+      // troubleshoot by reading the output files.
+      val nodeLabel = nodeNameRegeX.findFirstMatchIn(nodeName) match {
+        case Some(m) => m.group(1)
+        // in case not found, use the full exec name
+        case None => execName
+      }
+      val readFormat = readInfo.getReadFormatLC
+      val exexExpr = if (readInfo.hasUnknownFormat) {
+        node.desc
+      } else {
+        s"Format: ${readFormat}"
+      }
       val speedupFactor = checker.getSpeedupFactor(execName)
       // don't use the isExecSupported because we have finer grain.
       val score = ReadParser.calculateReadScoreRatio(readInfo, checker)
       val overallSpeedup = Math.max(speedupFactor * score, 1.0)
 
-      // TODO - add in parsing expressions - average speedup across?
-      ExecInfo.createExecNoNode(sqlID, nodeName, "", overallSpeedup, maxDuration,
-        node.id, OpTypes.ReadExec, score > 0, children = None, expressions = Seq.empty)
+      ExecInfo.createExecNoNode(
+        sqlID = sqlID,
+        exec = s"$nodeLabel $readFormat",
+        expr = exexExpr,
+        speedupFactor = overallSpeedup,
+        duration = maxDuration,
+        nodeId = node.id,
+        opType = OpTypes.ReadExec,
+        isSupported = score > 0,
+        children = None,
+        expressions = Seq.empty)
     }
   }
 }

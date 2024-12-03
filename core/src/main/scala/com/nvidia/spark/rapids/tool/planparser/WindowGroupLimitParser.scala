@@ -57,7 +57,7 @@ case class WindowGroupLimitParser(
    * 3. Ranking function is supported by plugin's implementation of WindowGroupLimitExec.
    */
   override def parse: ExecInfo = {
-    val exprString = node.desc.replaceFirst("WindowGroupLimit ", "")
+    val exprString = node.desc.replaceFirst("WindowGroupLimit\\s*", "")
     val expressions = SQLPlanParser.parseWindowGroupLimitExpressions(exprString)
     val notSupportedExprs = checker.getNotSupportedExprs(expressions) ++
         getUnsupportedExprReasonsForExec(expressions)

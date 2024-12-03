@@ -38,7 +38,6 @@ case class SubqueryBroadcastExecParser(
     } else {
       (1.0, false)
     }
-    // TODO - check is broadcast associated can be replaced
     ExecInfo(node, sqlID, node.name, "", filterSpeedupFactor, duration, node.id, isSupported,
       children = None, expressions = Seq.empty)
   }

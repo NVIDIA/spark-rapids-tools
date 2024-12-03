@@ -37,7 +37,6 @@ case class DataWritingCommandExecParser(
     val duration = None
     val speedupFactor = checker.getSpeedupFactor(wStub.mappedExec)
     val finalSpeedup = if (writeSupported) speedupFactor else 1
-    // TODO - add in parsing expressions - average speedup across?
     // We do not want to parse the node description to avoid mistakenly marking the node as RDD/UDF
     ExecInfo.createExecNoNode(sqlID, s"${node.name.trim} ${wStub.dataFormat.toLowerCase.trim}",
       s"Format: ${wStub.dataFormat.toLowerCase.trim}",

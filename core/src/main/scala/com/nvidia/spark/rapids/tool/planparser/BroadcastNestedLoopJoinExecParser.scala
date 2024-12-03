@@ -39,7 +39,7 @@ abstract class BroadcastNestedLoopJoinExecParserBase(
 
   override def parse: ExecInfo = {
     // BroadcastNestedLoopJoin doesn't have duration
-    val exprString = node.desc.replaceFirst("BroadcastNestedLoopJoin ", "")
+    val exprString = node.desc.replaceFirst("^BroadcastNestedLoopJoin\\s*", "")
     val (buildSide, joinType) = extractBuildAndJoinTypes(exprString)
     val (expressions, supportedJoinType) =
       SQLPlanParser.parseNestedLoopJoinExpressions(exprString, buildSide, joinType)
@@ -51,7 +51,6 @@ abstract class BroadcastNestedLoopJoinExecParserBase(
     } else {
       (1.0, false)
     }
-    // TODO - add in parsing expressions - average speedup across?
     ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported,
       children = None, expressions = expressions)
   }

@@ -44,7 +44,10 @@ case class WriteFilesExecParser(
       "",
       speedupFactor,
       duration,
-      node.id, opType = OpTypes.WriteExec, true, children = None, expressions = Seq.empty)
+      node.id, opType = OpTypes.WriteExec,
+      isSupported = true,
+      children = None,
+      expressions = Seq.empty)
   }
 }
 

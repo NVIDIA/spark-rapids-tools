@@ -29,6 +29,14 @@ case class ReadMetaData(schema: String, location: String, format: String,
   def pushedFilters: String = tags(ReadParser.METAFIELD_TAG_PUSHED_FILTERS)
   def dataFilters: String = tags(ReadParser.METAFIELD_TAG_DATA_FILTERS)
   def partitionFilters: String = tags(ReadParser.METAFIELD_TAG_PARTITION_FILTERS)
+
+  def hasUnknownFormat: Boolean = format.equals(ReadParser.UNKNOWN_METAFIELD)
+
+  /**
+   * Returns the read format in lowercase. This is used to be consistent.
+   * @return the lower case of the read format
+   */
+  def getReadFormatLC: String = format.toLowerCase
 }
 
 object ReadParser extends Logging {

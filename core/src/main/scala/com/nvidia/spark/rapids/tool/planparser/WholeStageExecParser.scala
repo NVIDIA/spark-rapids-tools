@@ -31,6 +31,9 @@ abstract class WholeStageExecParserBase(
     nodeIdToStagesFunc: Long => Set[Int]) extends Logging {
 
   val fullExecName = "WholeStageCodegenExec"
+  // Matches the first alphaneumeric characters of a string after trimming leading/trailing
+  // white spaces.
+  val nodeNameRegeX = """^\s*(\w+).*""".r
 
   def parse: Seq[ExecInfo] = {
     // TODO - does metrics for time have previous ops?  per op thing, only some do
@@ -50,19 +53,31 @@ abstract class WholeStageExecParserBase(
     }
     // if any of the execs in WholeStageCodegen supported mark this entire thing as supported
     val anySupported = childNodes.exists(_.isSupported == true)
-//    val unSupportedExprsArray =
-//      childNodes.filter(_.unsupportedExprs.nonEmpty).flatMap(x => x.unsupportedExprs).toArray
     // average speedup across the execs in the WholeStageCodegen for now
     val supportedChildren = childNodes.filterNot(_.shouldRemove)
     val avSpeedupFactor = SQLPlanParser.averageSpeedup(supportedChildren.map(_.speedupFactor))
     // The node should be marked as shouldRemove when all the children of the
     // wholeStageCodeGen are marked as shouldRemove.
     val removeNode = isDupNode || childNodes.forall(_.shouldRemove)
-    val execInfo = ExecInfo(node, sqlID, node.name, node.name, avSpeedupFactor, maxDuration,
-      node.id, anySupported,
-      Some(childNodes), stages = stagesInNode,
+    // Remove any suffix in order to get the node label without any trailing number.
+    val nodeLabel = nodeNameRegeX.findFirstMatchIn(node.name) match {
+      case Some(m) => m.group(1)
+      // in case not found, use the full exec name
+      case None => fullExecName
+    }
+    val execInfo = ExecInfo(
+      node = node,
+      sqlID = sqlID,
+      exec = nodeLabel,
+      expr = node.name,
+      speedupFactor = avSpeedupFactor,
+      duration = maxDuration,
+      nodeId = node.id,
+      isSupported = anySupported,
+      children = Some(childNodes),
+      stages = stagesInNode,
       shouldRemove = removeNode,
-      // unsupportyed expressions should not be set for the cluster nodes.
+      // unsupported expressions should not be set for the cluster nodes.
       unsupportedExprs = Seq.empty,
       // expressions of wholeStageCodeGen should not be set. They belong to the children nodes.
       expressions = Seq.empty)

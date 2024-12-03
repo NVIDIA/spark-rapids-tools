@@ -1066,7 +1066,7 @@ class QualificationSuite extends BaseTestSuite {
       val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3)
       // index of unsupportedExprs
       val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 2)
-      val expectedstdOutExecs = "Scan;Filter;SerializeF..."
+      val expectedstdOutExecs = "Scan unknown;Filter;Se..."
       assert(stdOutunsupportedExecs == expectedstdOutExecs)
       // Exec value is Scan;Filter;SerializeFromObject and UNSUPPORTED_EXECS_MAX_SIZE is 25
       val expectedStdOutExecsMaxLength = 25
@@ -1096,7 +1096,7 @@ class QualificationSuite extends BaseTestSuite {
         val rows = outputActual.collect()
         assert(rows.size == 1)
 
-        val expectedExecs = "Scan;Filter;SerializeFromObject" // Unsupported Execs
+        val expectedExecs = "Scan unknown;Filter;SerializeFromObject" // Unsupported Execs
         val expectedExprs = "hex" //Unsupported Exprs
         val unsupportedExecs =
           outputActual.select(QualOutputWriter.UNSUPPORTED_EXECS).first.getString(0)
