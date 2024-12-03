@@ -27,7 +27,8 @@ abstract class WholeStageExecParserBase(
     checker: PluginTypeChecker,
     sqlID: Long,
     app: AppBase,
-    reusedNodeIds: Set[Long]) extends Logging {
+    reusedNodeIds: Set[Long],
+    nodeIdToStagesFunc: Long => Set[Int]) extends Logging {
 
   val fullExecName = "WholeStageCodegenExec"
 
@@ -38,16 +39,15 @@ abstract class WholeStageExecParserBase(
     // Perhaps take the max of those in Stage?
     val accumId = node.metrics.find(_.name == "duration").map(_.accumulatorId)
     val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
-    val stagesInNode = SQLPlanParser.getStagesInSQLNode(node, app)
+    val stagesInNode = nodeIdToStagesFunc.apply(node.id)
     // We could skip the entire wholeStage if it is duplicate; but we will lose the information of
     // the children nodes.
     val isDupNode = reusedNodeIds.contains(node.id)
     val childNodes = node.nodes.flatMap { c =>
-      SQLPlanParser.parsePlanNode(c, sqlID, checker, app, reusedNodeIds)
+      // Pass the nodeToStagesFunc to the child nodes so they can get the stages.
+      SQLPlanParser.parsePlanNode(c, sqlID, checker, app, reusedNodeIds,
+        nodeIdToStagesFunc = nodeIdToStagesFunc)
     }
-    // For the childNodes, we need to append the stages. Otherwise, nodes without metrics won't be
-    // assigned to stage
-    childNodes.foreach(_.appendToStages(stagesInNode))
     // if any of the execs in WholeStageCodegen supported mark this entire thing as supported
     val anySupported = childNodes.exists(_.isSupported == true)
     val unSupportedExprsArray =
@@ -55,14 +55,11 @@ abstract class WholeStageExecParserBase(
     // average speedup across the execs in the WholeStageCodegen for now
     val supportedChildren = childNodes.filterNot(_.shouldRemove)
     val avSpeedupFactor = SQLPlanParser.averageSpeedup(supportedChildren.map(_.speedupFactor))
-    // can't rely on the wholeStagecodeGen having a stage if children do so aggregate them together
-    // for now
-    val allStagesIncludingChildren = childNodes.flatMap(_.stages).toSet ++ stagesInNode.toSet
-    // Finally, the node should be marked as shouldRemove when all the children of the
+    // The node should be marked as shouldRemove when all the children of the
     // wholeStageCodeGen are marked as shouldRemove.
     val removeNode = isDupNode || childNodes.forall(_.shouldRemove)
     val execInfo = ExecInfo(node, sqlID, node.name, node.name, avSpeedupFactor, maxDuration,
-      node.id, anySupported, Some(childNodes), allStagesIncludingChildren,
+      node.id, anySupported, Some(childNodes), stagesInNode,
       shouldRemove = removeNode, unsupportedExprs = unSupportedExprsArray)
     Seq(execInfo)
   }
@@ -73,5 +70,6 @@ case class WholeStageExecParser(
   checker: PluginTypeChecker,
   sqlID: Long,
   app: AppBase,
-  reusedNodeIds: Set[Long])
-  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds)
+  reusedNodeIds: Set[Long],
+  nodeIdToStagesFunc: Long => Set[Int])
+  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds, nodeIdToStagesFunc)

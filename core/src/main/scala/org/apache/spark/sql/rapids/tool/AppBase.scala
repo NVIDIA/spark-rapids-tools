@@ -42,7 +42,9 @@ import org.apache.spark.util.Utils
 
 abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
-    val hadoopConf: Option[Configuration]) extends Logging with ClusterTagPropHandler {
+    val hadoopConf: Option[Configuration]) extends Logging
+  with ClusterTagPropHandler
+  with AccumToStageRetriever {
 
   var appMetaData: Option[AppMetaData] = None
 
@@ -104,6 +106,10 @@ abstract class AppBase(
     immutable.Map(), immutable.Map(), immutable.Map())
 
   def sqlPlans: immutable.Map[Long, SparkPlanInfo] = sqlManager.getPlanInfos
+
+  def getStageIDsFromAccumIds(accumIds: Seq[Long]): Set[Int] = {
+    accumIds.flatMap(accumManager.getAccStageIds).toSet
+  }
 
   // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
   // won't be defined for running applications

@@ -80,4 +80,27 @@ class BasePlanParserSuite extends BaseTestSuite {
       e.children.getOrElse(Seq.empty) :+ e
     }
   }
+  def verifyPlanExecToStageMap(toolsPlanInfo: PlanInfo): Unit = {
+    val allExecInfos = toolsPlanInfo.execInfo.flatMap { e =>
+      e.children.getOrElse(Seq.empty) :+ e
+    }
+    // Test that all execs are assigned to stages
+    assert (allExecInfos.forall(_.stages.nonEmpty))
+    // assert that exchange is assigned to a single stage
+    val exchangeExecs = allExecInfos.filter(_.exec == "Exchange")
+    if (exchangeExecs.nonEmpty) {
+      assert (exchangeExecs.forall(_.stages.size == 1))
+    }
+  }
+
+  def verifyExecToStageMapping(plans: Seq[PlanInfo],
+    qualApp: QualificationAppInfo, funcCB: Option[PlanInfo => Unit] = None): Unit = {
+    // Only iterate on plans with that are associated to jobs
+    val associatedSqls = qualApp.jobIdToSqlID.values.toSeq
+    val filteredPlans = plans.filter(p => associatedSqls.contains(p.sqlID))
+    val func = funcCB.getOrElse(verifyPlanExecToStageMap(_))
+    filteredPlans.foreach { plan =>
+      func(plan)
+    }
+  }
 }
