@@ -20,7 +20,17 @@ import com.nvidia.spark.rapids.tool.planparser.OpTypes
 
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
+/**
+ * Base class representing a reference to an operator (either exec operator or expression operator).
+ * It provides methods to retrieve the operator's name and type in both raw and
+ * CSV-friendly formats.
+ *
+ * @param value  The name of the operator.
+ * @param opType The type of the operator (e.g., Exec, Expr).
+ */
+
 class OperatorRefBase(val value: String, val opType: OpTypes.OpType) extends OperatorRefTrait {
+  // Preformatted values for CSV output to avoid reformatting multiple times.
   val csvValue: String = StringUtils.reformatCSVString(value)
   val csvOpType: String = StringUtils.reformatCSVString(opType.toString)
 

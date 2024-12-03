@@ -21,6 +21,12 @@ import java.util.concurrent.ConcurrentHashMap
 import com.nvidia.spark.rapids.tool.planparser.OpTypes
 
 
+/**
+ * A reference to an operator(either Exec operator or expression operator) in a Spark plan.
+ *
+ * @param value  The name of the operator.
+ * @param opType The type of the operator (e.g., Exec, Expr).
+ */
 case class OpRef(override val value: String,
   override val opType: OpTypes.OpType) extends OperatorRefBase(value, opType)
 
@@ -38,10 +44,20 @@ object OpRef {
     initMap
   }
 
+  /**
+   * Retrieves an `OpRef` for an expression operator.
+   * If the operator name already exists in the cache, it returns the existing `OpRef`.
+   * Otherwise, it creates a new `OpRef` with the given name and `OpTypes.Expr`.
+   */
   def fromExpr(name: String): OpRef = {
     OP_NAMES.computeIfAbsent(name, OpRef.apply(_, OpTypes.Expr))
   }
 
+  /**
+   * Retrieves an `OpRef` for an exec operator.
+   * If the operator name already exists in the cache, it returns the existing `OpRef`.
+   * Otherwise, it creates a new `OpRef` with the given name and `OpTypes.Exec`.
+   */
   def fromExec(name: String): OpRef = {
     OP_NAMES.computeIfAbsent(name, OpRef.apply(_, OpTypes.Exec))
   }

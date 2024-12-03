@@ -31,7 +31,7 @@ abstract class WholeStageExecParserBase(
     nodeIdToStagesFunc: Long => Set[Int]) extends Logging {
 
   val fullExecName = "WholeStageCodegenExec"
-  // Matches the first alphaneumeric characters of a string after trimming leading/trailing
+  // Matches the first alphanumeric characters of a string after trimming leading/trailing
   // white spaces.
   val nodeNameRegeX = """^\s*(\w+).*""".r
 
