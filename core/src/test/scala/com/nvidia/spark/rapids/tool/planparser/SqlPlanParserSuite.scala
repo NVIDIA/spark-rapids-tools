@@ -276,12 +276,12 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val parquet = allExecInfo.filter(_.exec.contains("Scan parquet"))
     val text = allExecInfo.filter(_.exec.contains("Scan text"))
     val csv = allExecInfo.filter(_.exec.contains("Scan csv"))
-    assertSizeAndNotSupported(2, json.toSeq)
-    assertSizeAndNotSupported(1, text.toSeq)
+    assertSizeAndNotSupported(2, json)
+    assertSizeAndNotSupported(1, text)
     for (t <- Seq(parquet, csv)) {
-      assertSizeAndSupported(1, t.toSeq)
+      assertSizeAndSupported(1, t)
     }
-    assertSizeAndSupported(2, orc.toSeq)
+    assertSizeAndSupported(2, orc)
   }
 
   test("BatchScan") {
@@ -299,10 +299,10 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val orc = allExecInfo.filter(_.exec.contains("BatchScan orc"))
     val parquet = allExecInfo.filter(_.exec.contains("BatchScan parquet"))
     val csv = allExecInfo.filter(_.exec.contains("BatchScan csv"))
-    assertSizeAndNotSupported(3, json.toSeq)
-    assertSizeAndSupported(1, csv.toSeq)
+    assertSizeAndNotSupported(3, json)
+    assertSizeAndSupported(1, csv)
     for (t <- Seq(orc, parquet)) {
-      assertSizeAndSupported(2, t.toSeq)
+      assertSizeAndSupported(2, t)
     }
   }
 
@@ -1224,7 +1224,8 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val projects = allExecInfo.filter(_.exec.contains("Project"))
         assertSizeAndNotSupported(1, projects)
         val expectedExprss = Seq("parse_url_ref", "parse_url_userinfo")
-        projects(0).unsupportedExprs.map(_.exprName) should contain theSameElementsAs expectedExprss
+        projects(0)
+          .unsupportedExprs.map(_.getOpName) should contain theSameElementsAs expectedExprss
       }
     }
   }
@@ -1802,7 +1803,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val windowExecNotSupportedExprs = allExecInfo.filter(
         _.exec.contains(windowGroupLimitExecCmd)).flatMap(x => x.unsupportedExprs)
-      windowExecNotSupportedExprs.head.exprName shouldEqual "row_number"
+      windowExecNotSupportedExprs.head.getOpName shouldEqual "row_number"
       windowExecNotSupportedExprs.head.unsupportedReason shouldEqual
           "Ranking function row_number is not supported in WindowGroupLimitExec"
       val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))

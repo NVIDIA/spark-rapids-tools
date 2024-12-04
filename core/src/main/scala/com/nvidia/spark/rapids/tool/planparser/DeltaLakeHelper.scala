@@ -45,10 +45,10 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
     val finalSpeedupFactor = if (writeSupported) speedupFactor else 1.0
 
     // execs like SaveIntoDataSourceCommand has prefix "Execute". So, we need to get rid of it.
-    val nodeName = node.name.replace("Execute ", "")
+    val nodeName = node.name.replaceFirst("Execute\\s*", "")
     ExecInfo.createExecNoNode(sqlID, nodeName,
       s"Format: $dataFormat", finalSpeedupFactor, None, node.id, OpTypes.WriteExec,
-      isSupported = writeSupported && isExecSupported, children = None)
+      isSupported = writeSupported && isExecSupported, children = None, expressions = Seq.empty)
   }
 }
 

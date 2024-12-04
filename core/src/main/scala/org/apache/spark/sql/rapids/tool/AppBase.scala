@@ -378,11 +378,11 @@ abstract class AppBase(
     allMetaWithSchema.foreach { plan =>
       val meta = plan.metadata
       val readSchema = ReadParser.formatSchemaStr(meta.getOrElse("ReadSchema", ""))
-      val scanNode = allNodes.filter(node => {
+      val scanNode = allNodes.filter(ReadParser.isScanNode(_)).filter(node => {
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = AppBase.trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
-      }).filter(ReadParser.isScanNode(_))
+      })
 
       // If the ReadSchema is empty or if it is PhotonScan, then we don't need to
       // add it to the dataSourceInfo

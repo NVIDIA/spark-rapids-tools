@@ -16,10 +16,10 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.UnsupportedExpr
 
 case class WindowGroupLimitParser(
     node: SparkPlanGraphNode,
@@ -36,10 +36,10 @@ case class WindowGroupLimitParser(
   }
 
   override def getUnsupportedExprReasonsForExec(
-      expressions: Array[String]): Seq[UnsupportedExpr] = {
+      expressions: Array[String]): Seq[UnsupportedExprOpRef] = {
     expressions.flatMap { expr =>
       if (!supportedRankingExprs.contains(expr)) {
-        Some(UnsupportedExpr(expr,
+        Some(UnsupportedExprOpRef(expr,
           s"Ranking function $expr is not supported in $fullExecName"))
       } else {
         None
@@ -57,7 +57,7 @@ case class WindowGroupLimitParser(
    * 3. Ranking function is supported by plugin's implementation of WindowGroupLimitExec.
    */
   override def parse: ExecInfo = {
-    val exprString = node.desc.replaceFirst("WindowGroupLimit ", "")
+    val exprString = node.desc.replaceFirst("WindowGroupLimit\\s*", "")
     val expressions = SQLPlanParser.parseWindowGroupLimitExpressions(exprString)
     val notSupportedExprs = checker.getNotSupportedExprs(expressions) ++
         getUnsupportedExprReasonsForExec(expressions)
@@ -69,8 +69,7 @@ case class WindowGroupLimitParser(
     } else {
       (1.0, false)
     }
-    // TODO - add in parsing expressions - average speedup across?
     ExecInfo(node, sqlID, node.name, "", speedupFactor, None, node.id, isSupported, None,
-      unsupportedExprs = notSupportedExprs)
+      unsupportedExprs = notSupportedExprs, expressions = expressions)
   }
 }

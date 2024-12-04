@@ -27,8 +27,8 @@ case class BatchScanExecParser(
     checker: PluginTypeChecker,
     sqlID: Long,
     app: AppBase) extends ExecParser with Logging {
-
-  val fullExecName = "BatchScanExec"
+  val nodeName = "BatchScan"
+  val fullExecName = nodeName + "Exec"
 
   override def parse: ExecInfo = {
     val accumId = node.metrics.find(_.name == "scan time").map(_.accumulatorId)
@@ -39,8 +39,26 @@ case class BatchScanExecParser(
     val speedupFactor = checker.getSpeedupFactor(fullExecName)
     val overallSpeedup = Math.max((speedupFactor * score), 1.0)
 
-    // TODO - add in parsing expressions - average speedup across?
-    ExecInfo(node, sqlID, s"${node.name} ${readInfo.format}", s"Format: ${readInfo.format}",
-      overallSpeedup, maxDuration, node.id, score > 0, None)
+    // 1- Set the exec name to be the batchScan + format
+    // 2- If the format cannot be found, then put the entire node description to make it easy to
+    // troubleshoot by reading the output files.
+    val readFormat = readInfo.getReadFormatLC
+    val execExpression = if (readInfo.hasUnknownFormat) {
+      node.desc
+    } else {
+      s"Format: $readFormat"
+    }
+
+    ExecInfo.createExecNoNode(
+      sqlID = sqlID,
+      exec = s"$nodeName $readFormat",
+      expr = execExpression,
+      speedupFactor = overallSpeedup,
+      duration = maxDuration,
+      nodeId = node.id,
+      opType = OpTypes.ReadExec,
+      isSupported = score > 0.0,
+      children = None,
+      expressions = Seq.empty)
   }
 }
