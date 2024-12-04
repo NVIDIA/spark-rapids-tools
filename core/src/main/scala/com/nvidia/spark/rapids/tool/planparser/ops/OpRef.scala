@@ -40,7 +40,7 @@ object OpRef {
   val OP_NAMES: ConcurrentHashMap[String, OpRef] = {
     val initMap = new ConcurrentHashMap[String, OpRef]()
     initMap.put(EMPTY_OP_NAME_REF.value, EMPTY_OP_NAME_REF)
-    // Add the accum to the map because it is being used internally.
+    // Add the operator to the map because it is being used internally.
     initMap
   }
 

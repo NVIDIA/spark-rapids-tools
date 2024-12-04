@@ -112,6 +112,7 @@ expected_raw_features = \
         'sqlOp_Execute InsertIntoHadoopFsRelationCommand parquet',
         'sqlOp_Execute InsertIntoHadoopFsRelationCommand orc',
         'sqlOp_Execute InsertIntoHadoopFsRelationCommand json',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand text',
         'sqlOp_Execute InsertIntoHadoopFsRelationCommand unknown',
         'sqlOp_Expand',
         'sqlOp_Filter',
