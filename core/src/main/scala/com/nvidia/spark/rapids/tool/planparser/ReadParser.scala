@@ -42,6 +42,8 @@ case class ReadMetaData(schema: String, location: String, format: String,
 object ReadParser extends Logging {
   // It was found that some eventlogs could have "NativeScan" instead of "Scan"
   val SCAN_NODE_PREFIXES = Seq("Scan", "NativeScan")
+  // Do not include OneRowRelation in the scan nodes, consider it as regular Exec
+  val SCAN_ONE_ROW_RELATION = "Scan OneRowRelation"
   // DatasourceV2 node names that exactly match the following labels
   val DATASOURCE_V2_NODE_EXACT_PREF = Set(
     "BatchScan")
@@ -66,7 +68,7 @@ object ReadParser extends Logging {
   )
 
   def isScanNode(nodeName: String): Boolean = {
-    SCAN_NODE_PREFIXES.exists(nodeName.startsWith(_))
+    SCAN_NODE_PREFIXES.exists(nodeName.startsWith(_)) && !nodeName.startsWith(SCAN_ONE_ROW_RELATION)
   }
 
   def isScanNode(node: SparkPlanGraphNode): Boolean = {
