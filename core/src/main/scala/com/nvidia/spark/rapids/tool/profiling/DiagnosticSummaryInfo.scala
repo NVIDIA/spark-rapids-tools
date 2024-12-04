@@ -21,5 +21,6 @@ package com.nvidia.spark.rapids.tool.profiling
  * TODO: We plan to add two more fields/views in upcoming PRs.
  */
 case class DiagnosticSummaryInfo(
-    stageDiagnostics: Seq[StageDiagnosticResult]
+    stageDiagnostics: Seq[StageDiagnosticResult],
+    IODiagnostics: Seq[IODiagnosticProfileResult]
 )

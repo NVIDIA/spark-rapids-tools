@@ -95,6 +95,10 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfStageMetricView.getRawView(apps)
   }
 
+  def getIODiagnosticMetrics: Seq[IODiagnosticProfileResult] = {
+    ProfIODiagnosticMetricsView.getRawView(apps)
+  }
+
   /**
    * This function is meant to clean up Delta log execs so that you could align
    * SQL ids between CPU and GPU eventlogs. It attempts to remove any delta log

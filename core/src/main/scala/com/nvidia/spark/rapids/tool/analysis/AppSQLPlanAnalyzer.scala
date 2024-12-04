@@ -18,8 +18,9 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
+import com.nvidia.spark.rapids.tool.analysis.IOAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
-import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnosticProfileResult, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
@@ -27,7 +28,7 @@ import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster,
 import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
-import org.apache.spark.sql.rapids.tool.store.DataSourceRecord
+import org.apache.spark.sql.rapids.tool.store.{AccumInfo, AccumMetaRef, AccumNameRef, DataSourceRecord}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 /**
@@ -62,6 +63,11 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   // and AccumProfileResults)
   val stageToDiagnosticMetrics: HashMap[Long, HashMap[String, AccumProfileResults]] =
     HashMap.empty[Long, HashMap[String, AccumProfileResults]]
+  // A map between (sql ID, node name, stage IDs) and a list of IO diagnostic metrics results
+  // (stored as an array of SQLAccumProfileResults) - we need all info in the key to uniquely
+  // identify each SQLAccumProfileResults
+  val IODiagnosticMetrics: HashMap[(Long, String, String), ArrayBuffer[SQLAccumProfileResults]] =
+    HashMap.empty[(Long, String, String), ArrayBuffer[SQLAccumProfileResults]]
 
   /**
    * Given an input diagnostic metric result, update stageToDiagnosticMetrics mapping
@@ -73,6 +79,18 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       stageToDiagnosticMetrics(stageId) = HashMap.empty[String, AccumProfileResults]
     }
     stageToDiagnosticMetrics(stageId)(accum.accMetaRef.getName()) = accum
+  }
+
+  /**
+   * Given an input IO diagnostic metric result, update IODiagnosticMetrics mapping
+   * @param accum SQLAccumProfileResults to be analyzed
+   */
+  private def updateIODiagnosticMetrics(accum: SQLAccumProfileResults): Unit = {
+    val key = (accum.sqlID, accum.nodeName, accum.stageIds)
+    if (!IODiagnosticMetrics.contains(key)) {
+      IODiagnosticMetrics(key) = ArrayBuffer[SQLAccumProfileResults]()
+    }
+    IODiagnosticMetrics(key) += accum
   }
 
   /**
@@ -319,61 +337,72 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         val med = Math.max(taskInfo.med, driverInfo.med)
         val total = Math.max(taskInfo.total, driverInfo.total)
 
-        metric.stageIds.map { stageId =>
-          val accumInfo = app.accumManager.accumInfoMap.get(metric.accumulatorId)
-          val taskIdsInStage =
-            accumInfo.taskUpdatesMap.keys.filter(id => app.taskManager.getAllTasksStageAttempt(stageId).contains(id))
-          // TODO: calculate stats of above set of task ids, this is the result for this stage
+        val sqlAccumProileResult = SQLAccumProfileResults(appIndex, metric.sqlID,
+          metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
+          min, med, max, total, metric.metricType, metric.stageIds.mkString(","))
+
+        if (isIODiagnosticMetric(metric.name)) {
+          updateIODiagnosticMetrics(sqlAccumProileResult)
         }
 
-        Some(SQLAccumProfileResults(appIndex, metric.sqlID,
-          metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
-          min, med, max, total, metric.metricType, metric.stageIds.mkString(",")))
+        Some(sqlAccumProileResult)
       } else {
         None
       }
     }
   }
 
-  def generateIODiagnosticAccums(sqlAccums: Seq[SQLAccumProfileResults]):
-      Seq[IODiagnosticProfileResult] = {
-    // TODO: filter node names only for io
-    sqlAccums.flatMap { sqlAccum =>
-      sqlAccum.stageIds.split(",").map { stageIdStr =>
-        val stageId = stageIdStr.toInt
-        val stageTaskIds = app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet
-        val accumInfo = app.accumManager.accumInfoMap.get(sqlAccum.accumulatorId)
-        // val taskAccumsInStage = accumInfo.taskUpdatesMap.collect {
-        //   case (id, accum) if app.taskManager.getAllTasksStageAttempt(stageId).contains(id) =>
-        //     accum
-        // }
-        val taskUpatesSubset = accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
-        // val sortedTaskUpdates = taskAccumsInStage.toSeq.sorted
-        if (taskUpatesSubset.isEmpty) {
+  def generateIODiagnosticAccums(): Seq[IODiagnosticProfileResult] = {
+    val zeroRecord = StatisticsMetrics.ZERO_RECORD
+    IODiagnosticMetrics.toSeq.flatMap { case ((sqlId, nodeName, stageIds), sqlAccums) =>
+      stageIds.split(",").map(_.toInt).flatMap { stageId =>
+        val stageDiagnosticInfo = HashMap.empty[String, StatisticsMetrics]
+
+        sqlAccums.foreach { sqlAccum =>
+          val stageTaskIds = app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet
+          val accumInfo = app.accumManager.accumInfoMap.getOrElse(sqlAccum.accumulatorId,
+            new AccumInfo(AccumMetaRef(0L, AccumNameRef(""))))
+          val taskUpatesSubset = accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
+          if (!taskUpatesSubset.isEmpty) {
+            val min = taskUpatesSubset.head
+            val max = taskUpatesSubset.last
+            val sum = taskUpatesSubset.sum
+            val median = if (taskUpatesSubset.size % 2 == 0) {
+              val mid = taskUpatesSubset.size / 2
+              (taskUpatesSubset(mid) + taskUpatesSubset(mid - 1)) / 2
+            } else {
+              taskUpatesSubset(taskUpatesSubset.size / 2)
+            }
+            val metricName = if (sqlAccum.name.contains(OUTPUT_ROWS_METRIC)) {
+              OUTPUT_ROWS_METRIC
+            } else {
+              sqlAccum.name
+            }
+            stageDiagnosticInfo(metricName) = StatisticsMetrics(min, median, max, sum)
+          }
+        }
+
+        if (stageDiagnosticInfo.isEmpty) {
           None
         } else {
-          val min = taskUpatesSubset.head
-          val max = taskUpatesSubset.last
-          val sum = taskUpatesSubset.sum
-          val median = if (taskUpatesSubset.size % 2 == 0) {
-            val mid = taskUpatesSubset.size / 2
-            (taskUpatesSubset(mid) + taskUpatesSubset(mid - 1)) / 2
-          } else {
-            taskUpatesSubset(taskUpatesSubset.size / 2)
-          }
-        Some(IODiagnosticProfileResult(
-          appIndex,
-          app.getAppName,
-          app.appId,
-          stageId,
-          sqlAccum.sqlID,
-          app.stageManager.getDurationById(stageId),
-          sqlAccum.nodeName,
-          // TODO
-        ))
+          Some(IODiagnosticProfileResult(
+            appIndex,
+            app.getAppName,
+            app.appId,
+            stageId,
+            sqlId,
+            app.stageManager.getDurationById(stageId),
+            nodeName,
+            stageDiagnosticInfo.getOrElse(OUTPUT_ROWS_METRIC, zeroRecord),
+            stageDiagnosticInfo.getOrElse(SCAN_TIME_METRIC, zeroRecord),
+            stageDiagnosticInfo.getOrElse(OUTPUT_BATCHES_METRIC, zeroRecord),
+            stageDiagnosticInfo.getOrElse(BUFFER_TIME_METRIC, zeroRecord),
+            stageDiagnosticInfo.getOrElse(SHUFFLE_WRITE_TIME_METRIC, zeroRecord),
+            stageDiagnosticInfo.getOrElse(FETCH_WAIT_TIME_METRIC, zeroRecord),
+            stageDiagnosticInfo.getOrElse(GPU_DECODE_TIME_METRIC, zeroRecord)))
+        }
       }
-
-    }
+    }.toSeq
   }
 
   /**
