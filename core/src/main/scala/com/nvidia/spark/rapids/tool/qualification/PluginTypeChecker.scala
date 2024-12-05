@@ -388,7 +388,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
   }
 
   def getNotSupportedExprs(exprs: Seq[String]): Seq[UnsupportedExprOpRef] = {
-    exprs.collect {
+    exprs.distinct.collect {
       case expr if !isExprSupported(expr) =>
         val reason = unsupportedOpsReasons.getOrElse(expr, "")
         UnsupportedExprOpRef(expr, reason)

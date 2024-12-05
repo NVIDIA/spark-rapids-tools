@@ -22,6 +22,7 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.ToolTestUtils
+import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OpRef}
 import com.nvidia.spark.rapids.tool.qualification._
 import org.scalatest.Matchers.{be, contain, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
@@ -1319,46 +1320,69 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
 
   test("Parsing Conditional Expressions") {
     // scalastyle:off line.size.limit
-    val expressionsMap: mutable.HashMap[String, Array[String]] = mutable.HashMap(
-      "(((lower(partition_act#90) = moduleview) && (isnotnull(productarr#22) && NOT (productarr#22=[]))) || (lower(moduletype#13) = saveforlater))" ->
-        Array("lower", "isnotnull", "EqualTo", "And",  "Not", "Or"),
+    val expressionsMap: mutable.HashMap[String, Map[String, Int]] = mutable.HashMap(
+      "(((lower(partition_act#90) = moduleview) && (isnotnull(productarr#22) && NOT (productarr#22 = []))) || (lower(moduletype#13) = saveforlater))" ->
+        Map("lower" -> 2,
+          "isnotnull" -> 1,
+          "EqualTo" -> 3,
+          "And" -> 2,
+          "Not" -> 1,
+          "Or" -> 1),
       "(IsNotNull(c_customer_id))" ->
-        Array("IsNotNull"),
+        Map("IsNotNull" -> 1),
       "(isnotnull(names#15) AND StartsWith(names#15, OR))" ->
-        Array("isnotnull", "And", "StartsWith"),
+        Map("isnotnull" -> 1,
+          "StartsWith" -> 1,
+          "And" -> 1),
       "((isnotnull(s_state#68) AND (s_state#68 = TN)) OR (hex(cast(value#0 as bigint)) = B))" ->
-        Array("isnotnull", "And", "Or", "hex", "EqualTo"),
+        Map("isnotnull" -> 1,
+          "And" -> 1,
+          "Or" -> 1,
+          "hex" -> 1,
+          "EqualTo" -> 2),
       // Test that AND followed by '(' without space can be parsed
       "((isnotnull(s_state#68) AND(s_state#68 = TN)) OR (hex(cast(value#0 as bigint)) = B))" ->
-        Array("isnotnull", "And", "Or", "hex", "EqualTo"),
+        Map("isnotnull" -> 1,
+          "And" -> 1,
+          "Or" -> 1,
+          "hex" -> 1,
+          "EqualTo" -> 2),
       "(((isnotnull(d_year#498) AND isnotnull(d_moy#500)) AND (d_year#498 = 1998)) AND (d_moy#500 = 12))" ->
-        Array("isnotnull", "And", "EqualTo"),
+        Map("isnotnull" -> 2,
+          "And" -> 3,
+          "EqualTo" -> 2),
       "IsNotNull(d_year) AND IsNotNull(d_moy) AND EqualTo(d_year,1998) AND EqualTo(d_moy,12)" ->
-        Array("IsNotNull", "And", "EqualTo"),
+        Map("IsNotNull" -> 2,
+          "EqualTo" -> 2,
+          "And" -> 3),
       // check that a predicate with a single variable name is fine
       "flagVariable" ->
-        Array(),
+        Map(),
       // check that a predicate with a single function call
       "isnotnull(c_customer_sk#412)" ->
-        Array("isnotnull"),
+        Map("isnotnull" -> 1),
       "((substr(ca_zip#457, 1, 5) IN (85669,86197,88274,83405,86475,85392,85460,80348,81792) OR ca_state#456 IN (CA,WA,GA)) OR (cs_sales_price#20 > 500.00))" ->
-        Array("substr", "In", "Or", "GreaterThan"),
+        Map("substr" -> 1,
+          "In" -> 2,
+          "Or" -> 2,
+          "GreaterThan" -> 1),
       // test the operator is at the beginning of expression and not followed by space
       "NOT(isnotnull(d_moy))" ->
-        Array("Not", "isnotnull"),
+        Map("isnotnull" -> 1,
+          "Not" -> 1),
       // test the shiftright operator(since spark-4.0)
       "((isnotnull(d_year#498) AND isnotnull(d_moy#500)) AND (d_year#498 >> 1) >= 100)" ->
-        Array("isnotnull", "And", "GreaterThanOrEqual", "ShiftRight")
+        Map("isnotnull" -> 2,
+          "And" -> 2,
+          "ShiftRight" -> 1,
+          "GreaterThanOrEqual" -> 1)
     )
     // scalastyle:on line.size.limit
-    for ((condExpr, expectedExpression) <- expressionsMap) {
-      val parsedExpressionsMine = SQLPlanParser.parseConditionalExpressions(condExpr)
-      val currOutput = parsedExpressionsMine.sorted
-      val expectedOutput = expectedExpression.sorted
-      assert(currOutput sameElements expectedOutput,
-        s"The parsed expressions are not as expected. Expression: ${condExpr}, " +
-          s"Expected: ${expectedOutput.mkString}, " +
-          s"Output: ${currOutput.mkString}")
+    for ((condExpr, expectedExpressionCounts) <- expressionsMap) {
+      val rawExpressions = SQLPlanParser.parseConditionalExpressions(condExpr)
+      val expected = expectedExpressionCounts.map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
+      val actualExpressions =  ExprOpRef.fromRawExprSeq(rawExpressions)
+      actualExpressions should ===(expected)
     }
   }
 
@@ -1403,10 +1427,18 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       "AND (content_name_16#197L = 1)) AND NOT (split(split(split(replace(replace(replace" +
       "(replace(trim(replace(cast(unbase64(content#192) as string),  , ), Some( )), *., ), *, ), " +
       "https://, ), http://, ), /, -1)[0], :, -1)[0], \\?, -1)[0] = ))"
-    val expected = Array("isnotnull", "split", "replace", "trim", "unbase64", "And",
-      "EqualTo", "Not")
-    val expressions = SQLPlanParser.parseFilterExpressions(exprString)
-    expressions should ===(expected)
+    val expected = Map(
+      "isnotnull" -> 3,
+      "split" -> 3,
+      "replace" -> 5,
+      "trim" -> 1,
+      "unbase64" -> 1,
+      "And" -> 6,
+      "EqualTo" -> 4, // EqualTo comes from the = operator
+      "Not" -> 2).map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
+    val rawExpressions = SQLPlanParser.parseFilterExpressions(exprString)
+    val actualExpressions =  ExprOpRef.fromRawExprSeq(rawExpressions)
+    actualExpressions should ===(expected)
   }
 
 
@@ -1418,9 +1450,16 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       "THEN concat(replace(cast(unbase64(content#192) as string),  , ), %) " +
       "ELSE replace(replace(replace(cast(unbase64(content#192) as string),  , ), %, " +
       "\\%), *, %) END#200])"
-    val expected = Array("replace", "concat", "instr", "split", "trim", "unbase64")
-    val expressions = SQLPlanParser.parseAggregateExpressions(exprString)
-    expressions should ===(expected)
+    val expected = Map(
+      "replace" -> 10,
+      "concat" -> 1,
+      "instr" -> 1,
+      "split" -> 3,
+      "trim" -> 1,
+      "unbase64" -> 4).map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
+    val rawExpressions = SQLPlanParser.parseAggregateExpressions(exprString)
+    val actualExpressions =  ExprOpRef.fromRawExprSeq(rawExpressions)
+    actualExpressions should ===(expected)
   }
 
   runConditionalTest("promote_precision is supported for Spark LT 3.4.0: issue-517",
@@ -1522,7 +1561,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       "gid#1296," +
       "CAST((IF((supersql_t12.`ret_type` = 2), 1, 0)) AS BIGINT)#1300L]]"
     // Only "IF" should be picked up as a function name
-    val expected = Array("IF")
+    val expected = Array("IF", "IF", "IF")
     val expressions = SQLPlanParser.parseExpandExpressions(exprString)
     expressions should ===(expected)
   }
