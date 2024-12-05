@@ -25,17 +25,7 @@ package com.nvidia.spark.rapids.tool.planparser.ops
  * @param unsupportedReason A string describing why the expression is unsupported.
  */
 case class UnsupportedExprOpRef(opRef: OpRef,
-    unsupportedReason: String) extends OpRefWrapperBase(opRef) {
-
-  override def getOpName: String = opRef.getOpName
-
-  override def getOpNameCSV: String = opRef.getOpNameCSV
-
-  override def getOpType: String = opRef.getOpType
-
-  override def getOpTypeCSV: String = opRef.getOpTypeCSV
-
-}
+    unsupportedReason: String) extends OpRefWrapperBase(opRef)
 
 // Provides a factory method to create an instance from an expression name and unsupported reason.
 object UnsupportedExprOpRef {
