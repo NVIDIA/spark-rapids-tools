@@ -37,7 +37,7 @@ case class WindowGroupLimitParser(
 
   override def getUnsupportedExprReasonsForExec(
       expressions: Array[String]): Seq[UnsupportedExprOpRef] = {
-    expressions.flatMap { expr =>
+    expressions.distinct.flatMap { expr =>
       if (!supportedRankingExprs.contains(expr)) {
         Some(UnsupportedExprOpRef(expr,
           s"Ranking function $expr is not supported in $fullExecName"))

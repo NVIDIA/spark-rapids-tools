@@ -166,7 +166,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       sums.foreach { sum =>
         QualOutputWriter.constructUnsupportedDetailedStagesDurationInfo(csvFileWriter,
           sum, headersAndSizes,
-          QualOutputWriter.CSV_DELIMITER, false)
+          QualOutputWriter.CSV_DELIMITER, prettyPrint = false)
       }
     } finally {
       csvFileWriter.close()
@@ -888,15 +888,15 @@ object QualOutputWriter {
     planInfos.foreach { planInfo =>
       val sqlIDCSVStr = planInfo.sqlID.toString
       val allOpsCount = OperatorCounter(planInfo)
-        .getOpsCountSummary().sortBy(oInfo => (-oInfo.opData.count, oInfo.opData.opRef.getOpName))
+        .getOpsCountSummary.sortBy(oInfo => (-oInfo.opData.count, oInfo.opData.opRef.getOpName))
       if (allOpsCount.nonEmpty) {
         val planBuffer = allOpsCount.map { opInfo =>
           val supportFlag = if (opInfo.isSupported) supportedCSVStr else unsupportedCSVStr
           val stageStr = StringUtils.reformatCSVString(opInfo.opData.stages.mkString(":"))
           s"$appIDCSVStr$delimiter" +
             s"$sqlIDCSVStr$delimiter" +
-            s"${opInfo.opData.opRef.getOpTypeCSV}$delimiter" +
-            s"${opInfo.opData.opRef.getOpNameCSV}$delimiter${opInfo.opData.count}$delimiter" +
+            s"${opInfo.opData.getOpTypeCSV}$delimiter" +
+            s"${opInfo.opData.getOpNameCSV}$delimiter${opInfo.opData.count}$delimiter" +
             s"$supportFlag$delimiter" +
             s"$stageStr"
         }
@@ -1102,32 +1102,36 @@ object QualOutputWriter {
       reformatCSV: Boolean = true): Unit = {
     val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
     val appId = sumInfo.appId
+    val appIDStr = reformatCSVFunc(appId)
     val appDuration = sumInfo.estimatedInfo.appDur
     val dummyStageID = -1
     val dummyStageDur = 0
     val execIdGenerator = new AtomicLong(0)
 
-    def constructDetailedUnsupportedRow(unSupExecInfo: UnsupportedExecSummary,
-        stageId: Int, stageAppDuration: Long): String = {
-      val data = ListBuffer[(String, Int)](
-        reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-        unSupExecInfo.sqlId.toString -> headersAndSizes(SQL_ID_STR),
-        stageId.toString -> headersAndSizes(STAGE_ID_STR),
-        reformatCSVFunc(unSupExecInfo.execId.toString) -> headersAndSizes(EXEC_ID),
-        reformatCSVFunc(unSupExecInfo.finalOpType) -> headersAndSizes(UNSUPPORTED_TYPE),
-        unSupExecInfo.unsupportedOperatorCSVFormat -> headersAndSizes(UNSUPPORTED_OPERATOR),
-        reformatCSVFunc(unSupExecInfo.details) -> headersAndSizes(DETAILS),
-        stageAppDuration.toString -> headersAndSizes(STAGE_WALLCLOCK_DUR_STR),
-        appDuration.toString -> headersAndSizes(APP_DUR_STR),
-        reformatCSVFunc(unSupExecInfo.opAction.toString) -> headersAndSizes(EXEC_ACTION)
-      )
-      constructOutputRow(data, delimiter, prettyPrint)
+    def constructDetailedUnsupportedRow(
+      appID: String,
+      unSupExecInfo: UnsupportedExecSummary,
+      stageId: String,
+      stageAppDuration: String): String = {
+      val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
+      s"$appID" + delimiter +
+        s"${unSupExecInfo.sqlId}" + delimiter +
+        s"$stageId" + delimiter +
+        s"${unSupExecInfo.execId.toString}" + delimiter +
+        s"${reformatCSVFunc(unSupExecInfo.finalOpType)}" + delimiter +
+        s"${unSupExecInfo.unsupportedOperatorCSVFormat}" + delimiter +
+        s"${reformatCSVFunc(unSupExecInfo.details)}" + delimiter +
+        s"$stageAppDuration" + delimiter +
+        s"$appDuration" + delimiter +
+        s"${unSupExecInfo.opAction}\n"
     }
 
     def getUnsupportedRows(execI: ExecInfo, stageId: Int, stageDur: Long): String = {
       val results = execI.getUnsupportedExecSummaryRecord(execIdGenerator.getAndIncrement())
+      val stageIDStr = stageId.toString
+      val stageDurStr = stageDur.toString
       results.map { unsupportedExecSummary =>
-        constructDetailedUnsupportedRow(unsupportedExecSummary, stageId, stageDur)
+        constructDetailedUnsupportedRow(appIDStr, unsupportedExecSummary, stageIDStr, stageDurStr)
       }.mkString
     }
 
