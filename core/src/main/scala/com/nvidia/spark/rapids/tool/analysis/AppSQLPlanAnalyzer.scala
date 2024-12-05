@@ -63,11 +63,12 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   // and AccumProfileResults)
   val stageToDiagnosticMetrics: HashMap[Long, HashMap[String, AccumProfileResults]] =
     HashMap.empty[Long, HashMap[String, AccumProfileResults]]
-  // A map between (sql ID, node name, stage IDs) and a list of IO diagnostic metrics results
-  // (stored as an array of SQLAccumProfileResults) - we need all info in the key to uniquely
-  // identify each SQLAccumProfileResults
-  val IODiagnosticMetrics: HashMap[(Long, String, String), ArrayBuffer[SQLAccumProfileResults]] =
-    HashMap.empty[(Long, String, String), ArrayBuffer[SQLAccumProfileResults]]
+  // A map between (sql ID, node ID, node name, stage IDs) and a list of IO diagnostic metrics
+  // results (stored as an array of SQLAccumProfileResults) - we need all info in the key to
+  // uniquely identify each SQLAccumProfileResults
+  val IODiagnosticMetrics:
+    HashMap[(Long, Long, String, String), ArrayBuffer[SQLAccumProfileResults]] =
+      HashMap.empty[(Long, Long, String, String), ArrayBuffer[SQLAccumProfileResults]]
 
   /**
    * Given an input diagnostic metric result, update stageToDiagnosticMetrics mapping
@@ -86,7 +87,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * @param accum SQLAccumProfileResults to be analyzed
    */
   private def updateIODiagnosticMetrics(accum: SQLAccumProfileResults): Unit = {
-    val key = (accum.sqlID, accum.nodeName, accum.stageIds)
+    val key = (accum.sqlID, accum.nodeID, accum.nodeName, accum.stageIds)
     if (!IODiagnosticMetrics.contains(key)) {
       IODiagnosticMetrics(key) = ArrayBuffer[SQLAccumProfileResults]()
     }
@@ -352,9 +353,17 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     }
   }
 
+  /**
+   * Generate IO-related diagnostic metrics for the SQL plan:
+   * output rows, scan time, output batches, buffer time, shuffle write time, fetch wait time, GPU
+   * decode time.
+   * @return a sequence of IODiagnosticProfileResult
+   */
   def generateIODiagnosticAccums(): Seq[IODiagnosticProfileResult] = {
     val zeroRecord = StatisticsMetrics.ZERO_RECORD
-    IODiagnosticMetrics.toSeq.flatMap { case ((sqlId, nodeName, stageIds), sqlAccums) =>
+    IODiagnosticMetrics.toSeq.flatMap { case ((sqlId, nodeId, nodeName, stageIds), sqlAccums) =>
+      // System.err.println(s"nodeId = $nodeId")
+      // System.err.println(s"stageIds = $stageIds\n")
       stageIds.split(",").map(_.toInt).flatMap { stageId =>
         val stageDiagnosticInfo = HashMap.empty[String, StatisticsMetrics]
 
@@ -363,7 +372,11 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           val accumInfo = app.accumManager.accumInfoMap.getOrElse(sqlAccum.accumulatorId,
             new AccumInfo(AccumMetaRef(0L, AccumNameRef(""))))
           val taskUpatesSubset = accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
-          if (!taskUpatesSubset.isEmpty) {
+          // System.err.println(s"node name = $nodeName")
+          // System.err.println(s"stage id = $stageId")
+          // System.err.println(s"metricName = ${sqlAccum.name}")
+          // System.err.println(s"taskUpatesSubset = ${taskUpatesSubset.toList}")
+          if (taskUpatesSubset.nonEmpty) {
             val min = taskUpatesSubset.head
             val max = taskUpatesSubset.last
             val sum = taskUpatesSubset.sum
@@ -392,6 +405,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
             stageId,
             sqlId,
             app.stageManager.getDurationById(stageId),
+            nodeId,
             nodeName,
             stageDiagnosticInfo.getOrElse(OUTPUT_ROWS_METRIC, zeroRecord),
             stageDiagnosticInfo.getOrElse(SCAN_TIME_METRIC, zeroRecord),
