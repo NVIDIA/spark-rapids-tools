@@ -577,7 +577,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
     diagnostics.foreach { diagnostoic =>
       profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL, diagnostoic.stageDiagnostics)
-      profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel, diagnostoic.IODiagnostics)
+      profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
+        diagnostoic.IODiagnostics)
     }
   }
 

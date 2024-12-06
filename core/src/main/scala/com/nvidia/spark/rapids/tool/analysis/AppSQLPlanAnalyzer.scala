@@ -362,20 +362,15 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   def generateIODiagnosticAccums(): Seq[IODiagnosticProfileResult] = {
     val zeroRecord = StatisticsMetrics.ZERO_RECORD
     IODiagnosticMetrics.toSeq.flatMap { case ((sqlId, nodeId, nodeName, stageIds), sqlAccums) =>
-      // System.err.println(s"nodeId = $nodeId")
-      // System.err.println(s"stageIds = $stageIds\n")
-      stageIds.split(",").map(_.toInt).flatMap { stageId =>
+      stageIds.split(",").filter(_.nonEmpty).map(_.toInt).flatMap { stageId =>
         val stageDiagnosticInfo = HashMap.empty[String, StatisticsMetrics]
 
         sqlAccums.foreach { sqlAccum =>
           val stageTaskIds = app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet
           val accumInfo = app.accumManager.accumInfoMap.getOrElse(sqlAccum.accumulatorId,
             new AccumInfo(AccumMetaRef(0L, AccumNameRef(""))))
-          val taskUpatesSubset = accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
-          // System.err.println(s"node name = $nodeName")
-          // System.err.println(s"stage id = $stageId")
-          // System.err.println(s"metricName = ${sqlAccum.name}")
-          // System.err.println(s"taskUpatesSubset = ${taskUpatesSubset.toList}")
+          val taskUpatesSubset =
+            accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
           if (taskUpatesSubset.nonEmpty) {
             val min = taskUpatesSubset.head
             val max = taskUpatesSubset.last
@@ -402,8 +397,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
             appIndex,
             app.getAppName,
             app.appId,
-            stageId,
             sqlId,
+            stageId,
             app.stageManager.getDurationById(stageId),
             nodeId,
             nodeName,

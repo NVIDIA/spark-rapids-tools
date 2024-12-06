@@ -109,7 +109,8 @@ object ProfSQLPlanMetricsView extends AppSQLPlanMetricsViewTrait with ProfAppInd
   }
 }
 
-object ProfIODiagnosticMetricsView extends ViewableTrait[IODiagnosticProfileResult] with ProfAppIndexMapperTrait {
+object ProfIODiagnosticMetricsView extends ViewableTrait[IODiagnosticProfileResult]
+    with ProfAppIndexMapperTrait {
   override def getLabel: String = "IO Diagnostic Metrics"
   override def getDescription: String = "IO Diagnostic Metrics"
 
