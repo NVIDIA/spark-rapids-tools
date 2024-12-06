@@ -107,7 +107,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       // Maps stages to operators by checking for non-zero intersection
       // between nodeMetrics and stageAccumulateIDs
       val nodeIdToStage = planGraph.allNodes.map { node =>
-        val mappedStages = SQLPlanParser.getStagesInSQLNode(node, app)
+        val nodeAccums = node.metrics.map(_.accumulatorId)
+        val mappedStages = app.getStageIDsFromAccumIds(nodeAccums)
         ((sqlId, node.id), mappedStages)
       }.toMap
       sqlPlanNodeIdToStageIds ++= nodeIdToStage
