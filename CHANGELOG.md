@@ -1,6 +1,36 @@
 
 <br/>
 
+## Release [v24.10.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.10.2)
+Generated on 2024-12-06
+### User Tools
+
+- Update models for latest tools code ([#1448](https://github.com/NVIDIA/spark-rapids-tools/pull/1448))
+- More flexible regexes; fix default split function ([#1443](https://github.com/NVIDIA/spark-rapids-tools/pull/1443))
+- Update models for latest code and dataset JSON ([#1442](https://github.com/NVIDIA/spark-rapids-tools/pull/1442))
+- Add model for databricks-azure_photon and update combined model ([#1427](https://github.com/NVIDIA/spark-rapids-tools/pull/1427))
+- Remove custom-speedup module from user-tools ([#1425](https://github.com/NVIDIA/spark-rapids-tools/pull/1425))
+
+### Core
+
+- Count expressions per Exec in SQLPlanParser ([#1449](https://github.com/NVIDIA/spark-rapids-tools/pull/1449))
+- Report all operators in the output file ([#1444](https://github.com/NVIDIA/spark-rapids-tools/pull/1444))
+- Fix missing exec-to-stageId mapping in Qual tool ([#1437](https://github.com/NVIDIA/spark-rapids-tools/pull/1437))
+- [BUG] Fix Profiler tool index out of bound exception when generating diagnostic metrics ([#1439](https://github.com/NVIDIA/spark-rapids-tools/pull/1439))
+- Sort Qual execs report by sqlId and nodeId ([#1436](https://github.com/NVIDIA/spark-rapids-tools/pull/1436))
+- Include expression parsers for HashAggregate and ObjectHashAggregate ([#1432](https://github.com/NVIDIA/spark-rapids-tools/pull/1432))
+- [FEA] Add stage/task level diagnostic output for GPU slowness in Profiler tool ([#1375](https://github.com/NVIDIA/spark-rapids-tools/pull/1375))
+- Reduce the log noise caused by core report summary ([#1426](https://github.com/NVIDIA/spark-rapids-tools/pull/1426))
+- Trigger GC at the beginning of each benchmark iteration ([#1424](https://github.com/NVIDIA/spark-rapids-tools/pull/1424))
+
+### Miscellaneous
+
+- [BUG] Fix sync plugin files script to handle empty or non-existing cvs files ([#1446](https://github.com/NVIDIA/spark-rapids-tools/pull/1446))
+- Enable license header check ([#1440](https://github.com/NVIDIA/spark-rapids-tools/pull/1440))
+
+
+<br/>
+
 ## Release [v24.10.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.10.1)
 Generated on 2024-11-15
 ### User Tools
