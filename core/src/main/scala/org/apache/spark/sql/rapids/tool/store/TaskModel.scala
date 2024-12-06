@@ -109,7 +109,7 @@ object TaskModel {
       event.taskMetrics.shuffleReadMetrics.localBytesRead,
       event.taskMetrics.shuffleReadMetrics.totalBytesRead,
       event.taskMetrics.shuffleWriteMetrics.bytesWritten,
-      TimeUnit.NANOSECONDS.toMillis(event.taskMetrics.shuffleWriteMetrics.writeTime),
+      event.taskMetrics.shuffleWriteMetrics.writeTime,
       event.taskMetrics.shuffleWriteMetrics.recordsWritten,
       event.taskMetrics.inputMetrics.bytesRead,
       event.taskMetrics.inputMetrics.recordsRead,

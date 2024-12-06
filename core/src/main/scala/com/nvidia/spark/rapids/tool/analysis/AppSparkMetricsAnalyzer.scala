@@ -438,7 +438,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         val peakMemoryValues = tasksInStage.map(_.peakExecutionMemory)
         val shuffleWriteTime = tasksInStage.map(_.sw_writeTime)
         (AppSparkMetricsAnalyzer.maxWithEmptyHandling(peakMemoryValues),
-          shuffleWriteTime.sum)
+          TimeUnit.NANOSECONDS.toMillis(shuffleWriteTime.sum))
       }
 
       val (durSum, durMax, durMin, durAvg) = AppSparkMetricsAnalyzer.getDurations(tasksInStage)
