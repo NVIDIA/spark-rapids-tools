@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.analysis
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.analysis.IOAccumDiagnosticMetrics._
-import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnosticProfileResult, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnosticResult, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
@@ -357,9 +357,9 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * Generate IO-related diagnostic metrics for the SQL plan:
    * output rows, scan time, output batches, buffer time, shuffle write time, fetch wait time, GPU
    * decode time.
-   * @return a sequence of IODiagnosticProfileResult
+   * @return a sequence of IODiagnosticResult
    */
-  def generateIODiagnosticAccums(): Seq[IODiagnosticProfileResult] = {
+  def generateIODiagnosticAccums(): Seq[IODiagnosticResult] = {
     val zeroRecord = StatisticsMetrics.ZERO_RECORD
     IODiagnosticMetrics.toSeq.flatMap { case ((sqlId, nodeId, nodeName, stageIds), sqlAccums) =>
       stageIds.split(",").filter(_.nonEmpty).map(_.toInt).flatMap { stageId =>
@@ -393,7 +393,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         if (stageDiagnosticInfo.isEmpty) {
           None
         } else {
-          Some(IODiagnosticProfileResult(
+          Some(IODiagnosticResult(
             appIndex,
             app.getAppName,
             app.appId,

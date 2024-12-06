@@ -95,7 +95,7 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfStageMetricView.getRawView(apps)
   }
 
-  def getIODiagnosticMetrics: Seq[IODiagnosticProfileResult] = {
+  def getIODiagnosticMetrics: Seq[IODiagnosticResult] = {
     ProfIODiagnosticMetricsView.getRawView(apps)
   }
 
