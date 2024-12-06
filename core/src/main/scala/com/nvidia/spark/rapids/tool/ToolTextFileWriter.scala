@@ -70,7 +70,7 @@ class ToolTextFileWriter(
     // No need to close the outputStream.
     // Java should handle nested streams automatically.
     utf8Writer.foreach { writer =>
-      logInfo(s"$finalLocationText output location: $textOutputLoc")
+      logDebug(s"$finalLocationText output location: $textOutputLoc")
       writer.flush()
       writer.close()
     }

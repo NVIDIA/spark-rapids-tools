@@ -238,13 +238,6 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
   }
 
   /**
-   * The outputPath of the current instance of the provider
-   */
-  def getReportOutputPath: String = {
-    s"$outputDir/rapids_4_spark_qualification_output"
-  }
-
-  /**
    * Generates a qualification report based on the provided summary information.
    */
   private def generateQualificationReport(allAppsSum: Seq[QualificationSummaryInfo],
@@ -259,10 +252,12 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       qWriter.writePerSqlTextReport(allAppsSum, numRows, maxSQLDescLength)
       qWriter.writePerSqlCSVReport(allAppsSum, maxSQLDescLength)
     }
-    qWriter.writeExecReport(allAppsSum, order)
+    qWriter.writeExecReport(allAppsSum)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
+    qWriter.writeAllOpsSummaryCSVReport(allAppsSum)
     val appStatusResult = generateStatusResults(appStatusReporter.asScala.values.toSeq)
+    logOutputPath()
     qWriter.writeStatusReport(appStatusResult, order)
     if (mlOpsEnabled) {
       if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {

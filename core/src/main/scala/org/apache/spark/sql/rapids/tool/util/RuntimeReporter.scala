@@ -27,6 +27,9 @@ trait RuntimeReporter extends Logging {
   def generateRuntimeReport(hadoopConf: Option[Configuration] = None): Unit = {
     RuntimeUtil.generateReport(outputDir, hadoopConf)
   }
+  def logOutputPath(): Unit = {
+    logInfo(s"Tools output directory: $outputDir")
+  }
 
   /**
    * Updates the status of "SUCCESS" applications to "SKIPPED" if newer attempts with

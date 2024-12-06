@@ -241,6 +241,6 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     val expressions = SQLPlanParser.parseAggregateExpressions(hashAggregateExpr)
     assert(expressions.contains("decimalsum"))
     val notSupportedExprs = checker.getNotSupportedExprs(expressions)
-    assert(notSupportedExprs.find(_.exprName == "decimalsum").isEmpty)
+    assert(notSupportedExprs.find(_.getOpName == "decimalsum").isEmpty)
   }
 }

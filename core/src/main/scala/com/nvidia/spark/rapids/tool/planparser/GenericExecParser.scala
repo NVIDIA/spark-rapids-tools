@@ -16,10 +16,11 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.{AppBase, UnsupportedExpr}
+import org.apache.spark.sql.rapids.tool.AppBase
 
 class GenericExecParser(
     val node: SparkPlanGraphNode,
@@ -35,6 +36,7 @@ class GenericExecParser(
   override def parse: ExecInfo = {
     val duration = computeDuration
     val expressions = parseExpressions()
+
     val notSupportedExprs = getNotSupportedExprs(expressions)
     val isExecSupported = checker.isExecSupported(fullExecName) &&
       notSupportedExprs.isEmpty
@@ -45,7 +47,8 @@ class GenericExecParser(
       (1.0, false)
     }
 
-    createExecInfo(speedupFactor, isSupported, duration, notSupportedExprs)
+    createExecInfo(speedupFactor, isSupported, duration,
+      notSupportedExprs = notSupportedExprs, expressions = expressions)
   }
 
   protected def parseExpressions(): Array[String] = {
@@ -59,10 +62,10 @@ class GenericExecParser(
   }
 
   protected def getExprString: String = {
-    node.desc.replaceFirst(s"${node.name} ", "")
+    node.desc.replaceFirst(s"^${node.name}\\s*", "")
   }
 
-  protected def getNotSupportedExprs(expressions: Array[String]): Seq[UnsupportedExpr] = {
+  protected def getNotSupportedExprs(expressions: Array[String]): Seq[UnsupportedExprOpRef] = {
     checker.getNotSupportedExprs(expressions)
   }
 
@@ -82,7 +85,8 @@ class GenericExecParser(
       speedupFactor: Double,
       isSupported: Boolean,
       duration: Option[Long],
-      notSupportedExprs: Seq[UnsupportedExpr]
+      notSupportedExprs: Seq[UnsupportedExprOpRef],
+      expressions: Array[String]
   ): ExecInfo = {
     ExecInfo(
       node,
@@ -94,7 +98,8 @@ class GenericExecParser(
       node.id,
       isSupported,
       None,
-      unsupportedExprs = notSupportedExprs
+      unsupportedExprs = notSupportedExprs,
+      expressions = expressions
     )
   }
 }

@@ -401,8 +401,6 @@ object ExecHelper {
   }
 }
 
-case class UnsupportedExpr(exprName: String, unsupportedReason: String)
-
 object MlOps {
   val sparkml = "spark.ml."
   val xgBoost = "spark.XGBoost"

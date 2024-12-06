@@ -30,7 +30,9 @@ from spark_rapids_tools.tools.qualx.util import (
     get_logger,
     get_dataset_platforms,
     load_plugin,
-    run_profiler_tool, log_fallback,
+    log_fallback,
+    run_profiler_tool,
+    RegexPattern
 )
 
 PREPROCESSED_FILE = 'preprocessed.parquet'
@@ -106,7 +108,12 @@ expected_raw_features = \
         'sqlOp_CustomShuffleReader',
         'sqlOp_DeserializeToObject',
         'sqlOp_Exchange',
-        'sqlOp_Execute InsertIntoHadoopFsRelationCommand',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand csv',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand parquet',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand orc',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand json',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand text',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand unknown',
         'sqlOp_Expand',
         'sqlOp_Filter',
         'sqlOp_Generate',
@@ -123,15 +130,17 @@ expected_raw_features = \
         'sqlOp_Project',
         'sqlOp_ReusedSort',
         'sqlOp_RunningWindowFunction',
-        'sqlOp_Scan csv ',
+        'sqlOp_Scan csv',
         'sqlOp_Scan ExistingRDD Delta Table Checkpoint',
         'sqlOp_Scan ExistingRDD Delta Table State',
-        'sqlOp_Scan JDBCRelation',
-        'sqlOp_Scan json ',
+        'sqlOp_Scan ExistingRDD',
+        'sqlOp_Scan jdbc',
+        'sqlOp_Scan json',
         'sqlOp_Scan OneRowRelation',
-        'sqlOp_Scan orc ',
-        'sqlOp_Scan parquet ',
-        'sqlOp_Scan text ',
+        'sqlOp_Scan orc',
+        'sqlOp_Scan parquet',
+        'sqlOp_Scan text',
+        'sqlOp_Scan unknown',
         'sqlOp_SerializeFromObject',
         'sqlOp_Sort',
         'sqlOp_SortAggregate',
@@ -269,10 +278,12 @@ def load_profiles(
         app_meta_inner = {}
         for e in eventlog_list:
             parts = Path(e).parts
-            app_id_inner = parts[-1]
+            app_id_part = parts[-1]
+            match = RegexPattern.app_id.search(app_id_part)
+            app_id = match.group() if match else app_id_part
             run_type = parts[-2].upper()
             job_name = parts[-4]
-            app_meta_inner[app_id_inner] = {
+            app_meta_inner[app_id] = {
                 'jobName': job_name,
                 'runType': run_type,
                 'scaleFactor': 1,
@@ -477,8 +488,8 @@ def extract_raw_features(
         'Scan DeltaCDFRelation',
         'Scan ExistingRDD Delta Table Checkpoint',
         'Scan ExistingRDD Delta Table State',
-        'Scan JDBCRelation',
-        'Scan parquet ',  # trailing space is also in default sql op name
+        'Scan jdbc',
+        'Scan parquet',
         # GPU
         'GpuScan parquet',
     ]
