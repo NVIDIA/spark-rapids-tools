@@ -30,6 +30,7 @@ import org.scalatest.FunSuite
 import org.apache.spark.internal.Logging
 import org.apache.spark.resource.ResourceProfile
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
+import org.apache.spark.sql.rapids.tool.UnsupportedSparkRuntimeException
 import org.apache.spark.sql.rapids.tool.profiling._
 import org.apache.spark.sql.rapids.tool.util.{FSUtils, SparkRuntime}
 
@@ -1117,7 +1118,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
   }
 
   // scalastyle:off line.size.limit
-  val sparkRuntimeTestCases: Map[String, Seq[(String, SparkRuntime.Value)]] = Map(
+  val supportedSparkRuntimeTestCases: Map[String, Seq[(String, SparkRuntime.SparkRuntime)]] = Map(
     // tests for standard Spark runtime
     s"$qualLogDir/nds_q86_test" -> Seq(
       (PlatformNames.DATABRICKS_AWS, SparkRuntime.SPARK),                    // Expected: SPARK on Databricks AWS
@@ -1132,20 +1133,39 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     s"$qualLogDir/nds_q88_photon_db_13_3.zstd" -> Seq(
       (PlatformNames.DATABRICKS_AWS, SparkRuntime.PHOTON),                   // Expected: PHOTON on Databricks AWS
       (PlatformNames.DATABRICKS_AZURE, SparkRuntime.PHOTON),                 // Expected: PHOTON on Databricks Azure
-      (PlatformNames.ONPREM, SparkRuntime.SPARK),                            // Expected: Fallback to SPARK on Onprem
-      (PlatformNames.DATAPROC, SparkRuntime.SPARK)                           // Expected: Fallback to SPARK on Dataproc
     )
   )
   // scalastyle:on line.size.limit
 
-  sparkRuntimeTestCases.foreach { case (logPath, platformRuntimeCases) =>
+  supportedSparkRuntimeTestCases.foreach { case (logPath, platformRuntimeCases) =>
     val baseFileName = logPath.split("/").last
     platformRuntimeCases.foreach { case (platform, expectedRuntime) =>
-      test(s"test eventlog $baseFileName on $platform has runtime: $expectedRuntime") {
+      test(s"test eventlog $baseFileName on $platform has supported runtime: $expectedRuntime") {
         val args = Array("--platform", platform, logPath)
         val apps = ToolTestUtils.processProfileApps(args, sparkSession)
         assert(apps.size == 1)
         assert(apps.head.getSparkRuntime == expectedRuntime)
+      }
+    }
+  }
+
+  // scalastyle:off line.size.limit
+  val unsupportedSparkRuntimeTestCases: Map[String, Seq[String]] = Map(
+    s"$qualLogDir/nds_q88_photon_db_13_3.zstd" -> Seq(
+      PlatformNames.ONPREM,                                                // Expected: PHOTON runtime on Onprem is not supported
+      PlatformNames.DATAPROC                                               // Expected: PHOTON runtime on Dataproc is not supported
+    )
+  )
+  // scalastyle:on line.size.limit
+
+  unsupportedSparkRuntimeTestCases.foreach { case (logPath, platformNames) =>
+    val baseFileName = logPath.split("/").last
+    platformNames.foreach { platform =>
+      test(s"test eventlog $baseFileName on $platform has unsupported runtime") {
+        val args = Array("--platform", platform, logPath)
+        intercept[UnsupportedSparkRuntimeException] {
+          ToolTestUtils.processProfileApps(args, sparkSession)
+        }
       }
     }
   }

@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.profiling
 
 import java.io.File
 
-import com.nvidia.spark.rapids.tool.ToolTestUtils
+import com.nvidia.spark.rapids.tool.{PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.views.{ProfDataSourceView, RawMetricProfilerView}
 import org.scalatest.FunSuite
 
@@ -139,7 +139,8 @@ class AnalysisSuite extends FunSuite {
       s"${fileName}_${metric}_metrics_agg_expectation.csv"
     }
     testSqlMetricsAggregation(Array(s"${qualLogDir}/${fileName}.zstd"),
-      expectFile("sql"), expectFile("job"), expectFile("stage"))
+      expectFile("sql"), expectFile("job"), expectFile("stage"),
+      platformName = PlatformNames.DATABRICKS_AWS)
   }
 
   test("test stage-level diagnostic aggregation simple") {
@@ -163,8 +164,10 @@ class AnalysisSuite extends FunSuite {
   }
 
   private def testSqlMetricsAggregation(logs: Array[String], expectFileSQL: String,
-      expectFileJob: String, expectFileStage: String): Unit = {
-    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+      expectFileJob: String, expectFileStage: String,
+      platformName: String = PlatformNames.DEFAULT): Unit = {
+    val args = Array("--platform", platformName) ++ logs
+    val apps = ToolTestUtils.processProfileApps(args, sparkSession)
     assert(apps.size == logs.size)
     val aggResults = RawMetricProfilerView.getAggMetrics(apps)
     import sparkSession.implicits._
@@ -256,9 +259,12 @@ class AnalysisSuite extends FunSuite {
   }
 
   test("test photon scan metrics") {
-    val fileName = "nds_q88_photon_db_13_3"
-    val logs = Array(s"${qualLogDir}/${fileName}.zstd")
-    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    val args = Array(
+      "--platform",
+      PlatformNames.DATABRICKS_AWS,
+      s"$qualLogDir/nds_q88_photon_db_13_3.zstd"
+    )
+    val apps = ToolTestUtils.processProfileApps(args, sparkSession)
     val dataSourceResults = ProfDataSourceView.getRawView(apps)
     assert(dataSourceResults.exists(_.scan_time > 0))
   }

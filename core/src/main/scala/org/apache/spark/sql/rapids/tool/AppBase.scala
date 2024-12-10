@@ -37,7 +37,7 @@ import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager}
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, SparkRuntime, ToolsPlanGraph, UTF8Source}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
 import org.apache.spark.util.Utils
 
 abstract class AppBase(
@@ -482,6 +482,7 @@ abstract class AppBase(
   protected def postCompletion(): Unit = {
     registerAttemptId()
     calculateAppDuration()
+    validateSparkRuntime()
   }
 
   /**
@@ -494,24 +495,17 @@ abstract class AppBase(
   }
 
   /**
-   * Returns the SparkRuntime environment in which the application is being executed.
-   * This is calculated based on other cached properties.
-   *
-   * If the platform is provided, and it does not support the parsed runtime,
-   * the method will log a warning and fall back to the platform’s default runtime.
+   * Validates if the spark runtime (parsed from event log) is supported by the platform.
+   * If the runtime is not supported, an `UnsupportedSparkRuntimeException`
+   * is thrown.
    */
-  override def getSparkRuntime: SparkRuntime.SparkRuntime = {
-    val parsedRuntime = super.getSparkRuntime
-    platform.map { p =>
-      if (p.isRuntimeSupported(parsedRuntime)) {
-        parsedRuntime
-      } else {
-        logWarning(s"Application $appId: Platform '${p.platformName}' does not support " +
-          s"the parsed runtime '$parsedRuntime'. Falling back to default runtime - " +
-          s"'${p.defaultRuntime}'.")
-        p.defaultRuntime
-      }
-    }.getOrElse(parsedRuntime)
+  private def validateSparkRuntime(): Unit = {
+    val parsedRuntime = getSparkRuntime
+    platform.foreach { p =>
+      require(p.isRuntimeSupported(parsedRuntime),
+        throw UnsupportedSparkRuntimeException(p, parsedRuntime)
+      )
+    }
   }
 }
 
