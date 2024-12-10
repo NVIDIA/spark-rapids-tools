@@ -264,20 +264,46 @@ case class SQLAccumProfileResults(
   }
 }
 
-case class AccumProfileResults(appIndex: Int, stageId: Int, accMetaRef: AccumMetaRef,
-    min: Long, median: Long, max: Long, total: Long) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "stageId", "accumulatorId", "name", "min",
-    "median", "max", "total")
+case class AccumProfileResults(
+    appIndex: Int,
+    stageId: Int,
+    accMetaRef: AccumMetaRef,
+    min: Long,
+    median: Long,
+    max: Long,
+    total: Long) extends ProfileResult {
+
+  override val outputHeaders = {
+    Seq("appIndex",
+      "stageId",
+      "accumulatorId",
+      "name",
+      "min",
+      "median",
+      "max",
+      "total")
+  }
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, stageId.toString, accMetaRef.id.toString, accMetaRef.getName(),
-      min.toString, median.toString, max.toString, total.toString)
+    Seq(appIndex.toString,
+      stageId.toString,
+      accMetaRef.id.toString,
+      accMetaRef.getName(),
+      min.toString,
+      median.toString,
+      max.toString,
+      total.toString)
   }
 
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, stageId.toString, accMetaRef.id.toString,
-      accMetaRef.name.csvValue, min.toString,
-      median.toString, max.toString, total.toString)
+    Seq(appIndex.toString,
+      stageId.toString,
+      accMetaRef.id.toString,
+      accMetaRef.name.csvValue,
+      min.toString,
+      median.toString,
+      max.toString,
+      total.toString)
   }
 }
 

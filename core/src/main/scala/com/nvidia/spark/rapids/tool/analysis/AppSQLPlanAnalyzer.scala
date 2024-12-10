@@ -58,39 +58,96 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
   // A map between stage ID and a set of node names
   val stageToNodeNames: HashMap[Long, Seq[String]] = HashMap.empty[Long, Seq[String]]
-  // A map between stage ID and diagnostic metrics results (stored as a map between metric name
-  // and AccumProfileResults)
+
+  // A mapping from stage ID to diagnostic metrics results.
+  // Each stage ID maps to another HashMap, where:
+  //   - The key is the diagnostic metric name (String).
+  //   - The value is an AccumProfileResults object containing the diagnostic data for that metric.
   val stageToDiagnosticMetrics: HashMap[Long, HashMap[String, AccumProfileResults]] =
     HashMap.empty[Long, HashMap[String, AccumProfileResults]]
-  // A map between (sql ID, node ID, node name, stage IDs) and a list of IO diagnostic metrics
-  // results (stored as an array of SQLAccumProfileResults) - we need all info in the key to
-  // uniquely identify each SQLAccumProfileResults
-  val IODiagnosticMetrics:
-    HashMap[(Long, Long, String, String), ArrayBuffer[SQLAccumProfileResults]] =
-      HashMap.empty[(Long, Long, String, String), ArrayBuffer[SQLAccumProfileResults]]
+
+  // A mapping from a unique combination of SQL execution identifiers to a list of IO diagnostic
+  // metrics results.
+  // The key is a tuple consisting of:
+  //   - sqlID (Long): The unique identifier for the SQL query.
+  //   - nodeID (Long): The unique identifier for the node.
+  //   - stageIDs (String): A comma-separated string representing the stage IDs involved.
+  // The value is an ArrayBuffer of SQLAccumProfileResults objects, storing the IO diagnostic
+  // metrics for the given key.
+  val IODiagnosticMetricsMap: HashMap[(Long, Long, String), ArrayBuffer[SQLAccumProfileResults]] =
+    HashMap.empty[(Long, Long, String), ArrayBuffer[SQLAccumProfileResults]]
 
   /**
-   * Given an input diagnostic metric result, update stageToDiagnosticMetrics mapping
-   * @param accum AccumProfileResults to be analyzed
+   * Updates the stageToDiagnosticMetrics mapping with the provided AccumProfileResults.
+   * @param accum AccumProfileResults instance containing diagnostic metrics to be added
+   *              to stageToDiagnosticMetrics mapping.
    */
   private def updateStageDiagnosticMetrics(accum: AccumProfileResults): Unit = {
     val stageId = accum.stageId
+
+    // Initialize an empty mapping for the stage if it doesn't already exist
     if (!stageToDiagnosticMetrics.contains(stageId)) {
       stageToDiagnosticMetrics(stageId) = HashMap.empty[String, AccumProfileResults]
     }
+
     stageToDiagnosticMetrics(stageId)(accum.accMetaRef.getName()) = accum
   }
 
   /**
-   * Given an input IO diagnostic metric result, update IODiagnosticMetrics mapping
-   * @param accum SQLAccumProfileResults to be analyzed
+   * Updates the IODiagnosticMetricsMap with the provided SQLAccumProfileResults.
+   * @param accum SQLAccumProfileResults instance containing IO diagnostics metrics
+   *              to be added to IODiagnosticMetricsMap.
    */
-  private def updateIODiagnosticMetrics(accum: SQLAccumProfileResults): Unit = {
-    val key = (accum.sqlID, accum.nodeID, accum.nodeName, accum.stageIds)
-    if (!IODiagnosticMetrics.contains(key)) {
-      IODiagnosticMetrics(key) = ArrayBuffer[SQLAccumProfileResults]()
+  private def updateIODiagnosticMetricsMap(accum: SQLAccumProfileResults): Unit = {
+    val key = (accum.sqlID, accum.nodeID, accum.stageIds)
+
+    // Initialize an entry if the key does not exist
+    if (!IODiagnosticMetricsMap.contains(key)) {
+      IODiagnosticMetricsMap(key) = ArrayBuffer[SQLAccumProfileResults]()
     }
-    IODiagnosticMetrics(key) += accum
+
+    IODiagnosticMetricsMap(key) += accum
+  }
+
+  /**
+   * Retrieves the set of task IDs associated with a specific stage.
+   *
+   * @param stageId  The ID of the stage.
+   * @return         A set of task IDs corresponding to the given stage ID.
+   */
+  private def getStageTaskIds(stageId: Int): Set[Long] = {
+    app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet
+  }
+
+  /**
+   * Computes statistical metrics (min, median, max, sum) for task updates
+   * in a given stage based on a provided set of task IDs.
+   * @param accumInfo     AccumInfo object containing task update data.
+   * @param stageTaskIds  Set of task IDs corresponding to the stage.
+   * @return              Option containing a tuple of (min, median, max, sum)
+   *                      if there are task updates, or None if no updates exist.
+   */
+  private def getAccumStatisticsInStage(accumInfo: AccumInfo, stageTaskIds: Set[Long]):
+      Option[(Long, Long, Long, Long)] = {
+    // Filter task updates to only include those matching the stage's task IDs
+    val filteredTaskUpdates =
+      accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
+
+    if (filteredTaskUpdates.isEmpty) {
+      None
+    } else {
+      val min = filteredTaskUpdates.head
+      val max = filteredTaskUpdates.last
+      val sum = filteredTaskUpdates.sum
+      val median = if (filteredTaskUpdates.size % 2 == 0) {
+        val mid = filteredTaskUpdates.size / 2
+        (filteredTaskUpdates(mid) + filteredTaskUpdates(mid - 1)) / 2
+      } else {
+        filteredTaskUpdates(filteredTaskUpdates.size / 2)
+      }
+
+      Some((min, median, max, sum))
+    }
   }
 
   /**
@@ -342,8 +399,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
           min, med, max, total, metric.metricType, metric.stageIds.mkString(","))
 
-        if (isIODiagnosticMetric(metric.name)) {
-          updateIODiagnosticMetrics(sqlAccumProileResult)
+        if (isIODiagnosticMetricName(metric.name)) {
+          updateIODiagnosticMetricsMap(sqlAccumProileResult)
         }
 
         Some(sqlAccumProileResult)
@@ -361,31 +418,20 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    */
   def generateIODiagnosticAccums(): Seq[IODiagnosticResult] = {
     val zeroRecord = StatisticsMetrics.ZERO_RECORD
-    IODiagnosticMetrics.toSeq.flatMap { case ((sqlId, nodeId, nodeName, stageIds), sqlAccums) =>
+    IODiagnosticMetricsMap.toSeq.flatMap { case ((sqlId, nodeId, stageIds), sqlAccums) =>
       stageIds.split(",").filter(_.nonEmpty).map(_.toInt).flatMap { stageId =>
+        val nodeName = sqlAccums.head.nodeName
         val stageDiagnosticInfo = HashMap.empty[String, StatisticsMetrics]
+        val stageTaskIds = getStageTaskIds(stageId)
 
         sqlAccums.foreach { sqlAccum =>
-          val stageTaskIds = app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet
           val accumInfo = app.accumManager.accumInfoMap.getOrElse(sqlAccum.accumulatorId,
             new AccumInfo(AccumMetaRef(0L, AccumNameRef(""))))
-          val taskUpatesSubset =
-            accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
-          if (taskUpatesSubset.nonEmpty) {
-            val min = taskUpatesSubset.head
-            val max = taskUpatesSubset.last
-            val sum = taskUpatesSubset.sum
-            val median = if (taskUpatesSubset.size % 2 == 0) {
-              val mid = taskUpatesSubset.size / 2
-              (taskUpatesSubset(mid) + taskUpatesSubset(mid - 1)) / 2
-            } else {
-              taskUpatesSubset(taskUpatesSubset.size / 2)
-            }
-            val metricName = if (sqlAccum.name.contains(OUTPUT_ROWS_METRIC)) {
-              OUTPUT_ROWS_METRIC
-            } else {
-              sqlAccum.name
-            }
+          val accumStatistics = getAccumStatisticsInStage(accumInfo, stageTaskIds)
+
+          if (accumStatistics.nonEmpty) {
+            val (min, median, max, sum) = accumStatistics.get
+            val metricName = normalizeToIODiagnosticMetric(sqlAccum.name)
             stageDiagnosticInfo(metricName) = StatisticsMetrics(min, median, max, sum)
           }
         }
@@ -428,36 +474,22 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     app.accumManager.accumInfoMap.flatMap { accumMapEntry =>
       val accumInfo = accumMapEntry._2
       accumInfo.stageValuesMap.keySet.flatMap( stageId => {
-        val stageTaskIds = app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet
-        // get the task updates that belong to that stage
-        val taskUpatesSubset =
-          accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
-        if (taskUpatesSubset.isEmpty) {
-          None
-        } else {
-          val min = taskUpatesSubset.head
-          val max = taskUpatesSubset.last
-          val sum = taskUpatesSubset.sum
-          val median = if (taskUpatesSubset.size % 2 == 0) {
-            val mid = taskUpatesSubset.size / 2
-            (taskUpatesSubset(mid) + taskUpatesSubset(mid - 1)) / 2
-          } else {
-            taskUpatesSubset(taskUpatesSubset.size / 2)
-          }
-          // reuse AccumProfileResults to avoid generating extra memory from allocating new objects
+        getAccumStatisticsInStage(accumInfo, getStageTaskIds(stageId)).map( stats => {
+          val (min, median, max, sum) = stats
+          // create and reuse AccumProfileResults object to avoid generating extra memory
           val accumProfileResults = AccumProfileResults(
             appIndex,
             stageId,
             accumInfo.infoRef,
-            min = min,
-            median = median,
-            max = max,
-            total = sum)
+            min,
+            median,
+            max,
+            sum)
           if (accumInfo.infoRef.name.isDiagnosticMetrics()) {
             updateStageDiagnosticMetrics(accumProfileResults)
           }
-          Some(accumProfileResults)
-        }
+          accumProfileResults
+        })
       })
     }
   }.toSeq

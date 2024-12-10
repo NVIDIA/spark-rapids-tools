@@ -45,16 +45,32 @@ object IOAccumDiagnosticMetrics {
   val GPU_DECODE_TIME_METRIC = "GPU decode time"
 
   /**
-   * Get all IO diagnostic metrics
+   * Get all IO diagnostic metrics names
    */
-  def getAllIODiagnosticMetrics: Set[String] = Set(OUTPUT_ROWS_METRIC,
-    SCAN_TIME_METRIC, OUTPUT_BATCHES_METRIC, BUFFER_TIME_METRIC,
-    SHUFFLE_WRITE_TIME_METRIC, FETCH_WAIT_TIME_METRIC, GPU_DECODE_TIME_METRIC)
+  def getAllIODiagnosticMetrics: Set[String] = Set(
+    OUTPUT_ROWS_METRIC,
+    SCAN_TIME_METRIC,
+    OUTPUT_BATCHES_METRIC,
+    BUFFER_TIME_METRIC,
+    SHUFFLE_WRITE_TIME_METRIC,
+    FETCH_WAIT_TIME_METRIC,
+    GPU_DECODE_TIME_METRIC)
 
   /**
-   * Check if input is an IO diagnostic metric
+   * Check if a metric name belongs to IO diagnostic metrics
    */
-  def isIODiagnosticMetric(metric: String): Boolean = {
+  def isIODiagnosticMetricName(metric: String): Boolean = {
     getAllIODiagnosticMetrics.contains(metric) || metric.contains(OUTPUT_ROWS_METRIC)
+  }
+
+  /**
+   * Normalize a metric name to its IO diagnostic metric constant
+   */
+  def normalizeToIODiagnosticMetric(metric: String): String = {
+    if (metric.contains(OUTPUT_ROWS_METRIC)) {
+      OUTPUT_ROWS_METRIC
+    } else {
+      metric
+    }
   }
 }
