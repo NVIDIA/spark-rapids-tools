@@ -281,7 +281,7 @@ class QualificationAppInfo(
     // need to remove the WholeStageCodegen wrappers since they aren't actual
     // execs that we want to get timings of
     execs.flatMap { e =>
-      if (e.exec.contains("WholeStageCodegen")) {
+      if (e.isClusterNode) {
         e.children.getOrElse(Seq.empty)
       } else {
         e.children.getOrElse(Seq.empty) :+ e
@@ -573,7 +573,7 @@ class QualificationAppInfo(
       val unSupportedExecs = planInfos.flatMap { p =>
         // WholeStageCodeGen is excluded from the result.
         val topLevelExecs = p.execInfo.filterNot(_.isSupported).filterNot(
-          x => x.exec.startsWith("WholeStage"))
+          x => x.isClusterNode)
         val childrenExecs = p.execInfo.flatMap { e =>
           e.children.map(x => x.filterNot(_.isSupported))
         }.flatten
@@ -581,9 +581,8 @@ class QualificationAppInfo(
       }.map(_.exec).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
 
       // Get all the unsupported Expressions from the plan
-      val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(
-        _.unsupportedExprs.map(_.exprName))).flatten.filter(_.nonEmpty).toSet.mkString(";")
-        .trim.replaceAll("\n", "").replace(",", ":")
+      val unSupportedExprs = origPlanInfos.flatMap(p => p.getUnsupportedExpressions)
+        .map(s => s.getOpName).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
 
       // TODO - this is not correct as this is using the straight stage wall
       // clock time and hasn't been adjusted to the app duration wall clock

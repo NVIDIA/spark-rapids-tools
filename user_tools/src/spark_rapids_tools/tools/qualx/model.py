@@ -48,6 +48,7 @@ ignored_features = {
     'pluginEnabled',
     'runType',
     'scaleFactor',
+    'sparkRuntime',
     'sparkVersion',
     'sqlID'
 }
@@ -346,7 +347,7 @@ def extract_model_features(
                 default_df = default_df.loc[~default_df.appName.str.startswith(f'{ds_name}:')]
             modified_default_df = default_split_fn(default_df)
             if modified_default_df.index.equals(default_df.index):
-                cpu_aug_tbl.update(default_df)
+                cpu_aug_tbl.update(modified_default_df)
                 cpu_aug_tbl.astype(df_schema)
             else:
                 raise ValueError('Default split_function unexpectedly modified row indices.')

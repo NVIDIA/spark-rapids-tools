@@ -43,7 +43,9 @@ import org.apache.spark.util.Utils
 abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
     val hadoopConf: Option[Configuration],
-    val platform: Option[Platform] = None) extends Logging with ClusterTagPropHandler {
+    val platform: Option[Platform] = None) extends Logging
+  with ClusterTagPropHandler
+  with AccumToStageRetriever {
 
   var appMetaData: Option[AppMetaData] = None
 
@@ -105,6 +107,10 @@ abstract class AppBase(
     immutable.Map(), immutable.Map(), immutable.Map())
 
   def sqlPlans: immutable.Map[Long, SparkPlanInfo] = sqlManager.getPlanInfos
+
+  def getStageIDsFromAccumIds(accumIds: Seq[Long]): Set[Int] = {
+    accumIds.flatMap(accumManager.getAccStageIds).toSet
+  }
 
   // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
   // won't be defined for running applications
@@ -373,11 +379,11 @@ abstract class AppBase(
     allMetaWithSchema.foreach { plan =>
       val meta = plan.metadata
       val readSchema = ReadParser.formatSchemaStr(meta.getOrElse("ReadSchema", ""))
-      val scanNode = allNodes.filter(node => {
+      val scanNode = allNodes.filter(ReadParser.isScanNode(_)).filter(node => {
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = AppBase.trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
-      }).filter(ReadParser.isScanNode(_))
+      })
 
       // If the ReadSchema is empty or if it is PhotonScan, then we don't need to
       // add it to the dataSourceInfo

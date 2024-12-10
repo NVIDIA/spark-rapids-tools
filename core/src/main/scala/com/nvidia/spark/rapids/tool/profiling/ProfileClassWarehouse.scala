@@ -96,9 +96,7 @@ case class SQLCleanAndAlignIdsProfileResult(
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, sqlID.toString)
   }
-  override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString)
-  }
+  override def convertToCSVSeq: Seq[String] = convertToSeq
 }
 
 case class SQLStageInfoProfileResult(
@@ -185,9 +183,7 @@ case class AppStatusResult(
     Seq(path, status, appId, message)
   }
 
-  override def convertToCSVSeq: Seq[String] = {
-    Seq(path, status, appId, message)
-  }
+  override def convertToCSVSeq: Seq[String] = convertToSeq
 }
 
 // note that some things might not be set until after sqlMetricsAggregation called
@@ -501,40 +497,8 @@ trait BaseJobStageAggTaskMetricsProfileResult extends ProfileResult {
       swRecordsWrittenSum.toString,
       swWriteTimeSum.toString)
   }
-  override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString,
-      id.toString,
-      numTasks.toString,
-      durStr,
-      diskBytesSpilledSum.toString,
-      durationSum.toString,
-      durationMax.toString,
-      durationMin.toString,
-      durationAvg.toString,
-      executorCPUTimeSum.toString,
-      executorDeserializeCpuTimeSum.toString,
-      executorDeserializeTimeSum.toString,
-      executorRunTimeSum.toString,
-      inputBytesReadSum.toString,
-      inputRecordsReadSum.toString,
-      jvmGCTimeSum.toString,
-      memoryBytesSpilledSum.toString,
-      outputBytesWrittenSum.toString,
-      outputRecordsWrittenSum.toString,
-      peakExecutionMemoryMax.toString,
-      resultSerializationTimeSum.toString,
-      resultSizeMax.toString,
-      srFetchWaitTimeSum.toString,
-      srLocalBlocksFetchedSum.toString,
-      srcLocalBytesReadSum.toString,
-      srRemoteBlocksFetchSum.toString,
-      srRemoteBytesReadSum.toString,
-      srRemoteBytesReadToDiskSum.toString,
-      srTotalBytesReadSum.toString,
-      swBytesWrittenSum.toString,
-      swRecordsWrittenSum.toString,
-      swWriteTimeSum.toString)
-  }
+
+  override def convertToCSVSeq: Seq[String] = convertToSeq
 }
 
 case class JobAggTaskMetricsProfileResult(
@@ -607,6 +571,166 @@ case class StageAggTaskMetricsProfileResult(
     swRecordsWrittenSum: Long,
     swWriteTimeSum: Long) extends BaseJobStageAggTaskMetricsProfileResult {
   override def idHeader = "stageId"
+}
+
+case class StageDiagnosticResult(
+    appIndex: Int,
+    appName: String,
+    appId: String,
+    stageId: Long,
+    duration: Option[Long],
+    numTasks: Int,
+    srTotalBytesReadMin: Long,
+    srTotalBytesReadMed: Long,
+    srTotalBytesReadMax: Long,
+    srTotalBytesReadSum: Long,
+    memoryBytesSpilled: AccumProfileResults,
+    diskBytesSpilled: AccumProfileResults,
+    inputBytesRead: AccumProfileResults,
+    outputBytesWritten: AccumProfileResults,
+    swBytesWritten: AccumProfileResults,
+    srFetchWaitTime: AccumProfileResults,
+    swWriteTime: AccumProfileResults,
+    gpuSemaphoreWait: AccumProfileResults,
+    nodeNames: Seq[String]) extends ProfileResult {
+
+  def bytesToMB(numBytes: Long): Long = numBytes / (1024 * 1024)
+
+  def nanoToMilliSec(numNano: Long): Long = numNano / 1000000
+
+  val durStr = duration match {
+    case Some(dur) => dur.toString
+    case None => "null"
+  }
+
+  override val outputHeaders = {
+    Seq("appIndex",
+      "appName",
+      "appId",
+      "stageId",
+      "stageDurationMs",
+      "numTasks",
+      "memoryBytesSpilledMBMin",
+      "memoryBytesSpilledMBMedian",
+      "memoryBytesSpilledMBMax",
+      "memoryBytesSpilledMBTotal",
+      "diskBytesSpilledMBMin",
+      "diskBytesSpilledMBMedian",
+      "diskBytesSpilledMBMax",
+      "diskBytesSpilledMBTotal",
+      "inputBytesReadMin",
+      "inputBytesReadMedian",
+      "inputBytesReadMax",
+      "inputBytesReadTotal",
+      "outputBytesWrittenMin",
+      "outputBytesWrittenMedian",
+      "outputBytesWrittenMax",
+      "outputBytesWrittenTotal",
+      "shuffleReadBytesMin",
+      "shuffleReadBytesMedian",
+      "shuffleReadBytesMax",
+      "shuffleReadBytesTotal",
+      "shuffleWriteBytesMin",
+      "shuffleWriteBytesMedian",
+      "shuffleWriteBytesMax",
+      "shuffleWriteBytesTotal",
+      "shuffleReadFetchWaitTimeMin",
+      "shuffleReadFetchWaitTimeMedian",
+      "shuffleReadFetchWaitTimeMax",
+      "shuffleReadFetchWaitTimeTotal",
+      "shuffleWriteWriteTimeMin",
+      "shuffleWriteWriteTimeMedian",
+      "shuffleWriteWriteTimeMax",
+      "shuffleWriteWriteTimeTotal",
+      "gpuSemaphoreWaitTimeTotal",
+      "SQL Nodes(IDs)")
+  }
+
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      appName,
+      appId,
+      stageId.toString,
+      durStr,
+      numTasks.toString,
+      bytesToMB(memoryBytesSpilled.min).toString,
+      bytesToMB(memoryBytesSpilled.median).toString,
+      bytesToMB(memoryBytesSpilled.max).toString,
+      bytesToMB(memoryBytesSpilled.total).toString,
+      bytesToMB(diskBytesSpilled.min).toString,
+      bytesToMB(diskBytesSpilled.median).toString,
+      bytesToMB(diskBytesSpilled.max).toString,
+      bytesToMB(diskBytesSpilled.total).toString,
+      inputBytesRead.min.toString,
+      inputBytesRead.median.toString,
+      inputBytesRead.max.toString,
+      inputBytesRead.total.toString,
+      outputBytesWritten.min.toString,
+      outputBytesWritten.median.toString,
+      outputBytesWritten.max.toString,
+      outputBytesWritten.total.toString,
+      srTotalBytesReadMin.toString,
+      srTotalBytesReadMed.toString,
+      srTotalBytesReadMax.toString,
+      srTotalBytesReadSum.toString,
+      swBytesWritten.min.toString,
+      swBytesWritten.median.toString,
+      swBytesWritten.max.toString,
+      swBytesWritten.total.toString,
+      nanoToMilliSec(srFetchWaitTime.min).toString,
+      nanoToMilliSec(srFetchWaitTime.median).toString,
+      nanoToMilliSec(srFetchWaitTime.max).toString,
+      nanoToMilliSec(srFetchWaitTime.total).toString,
+      nanoToMilliSec(swWriteTime.min).toString,
+      nanoToMilliSec(swWriteTime.median).toString,
+      nanoToMilliSec(swWriteTime.max).toString,
+      nanoToMilliSec(swWriteTime.total).toString,
+      gpuSemaphoreWait.total.toString,
+      nodeNames.mkString(","))
+  }
+
+  override def convertToCSVSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      appName,
+      appId,
+      stageId.toString,
+      durStr,
+      numTasks.toString,
+      bytesToMB(memoryBytesSpilled.min).toString,
+      bytesToMB(memoryBytesSpilled.median).toString,
+      bytesToMB(memoryBytesSpilled.max).toString,
+      bytesToMB(memoryBytesSpilled.total).toString,
+      bytesToMB(diskBytesSpilled.min).toString,
+      bytesToMB(diskBytesSpilled.median).toString,
+      bytesToMB(diskBytesSpilled.max).toString,
+      bytesToMB(diskBytesSpilled.total).toString,
+      inputBytesRead.min.toString,
+      inputBytesRead.median.toString,
+      inputBytesRead.max.toString,
+      inputBytesRead.total.toString,
+      outputBytesWritten.min.toString,
+      outputBytesWritten.median.toString,
+      outputBytesWritten.max.toString,
+      outputBytesWritten.total.toString,
+      srTotalBytesReadMin.toString,
+      srTotalBytesReadMed.toString,
+      srTotalBytesReadMax.toString,
+      srTotalBytesReadSum.toString,
+      swBytesWritten.min.toString,
+      swBytesWritten.median.toString,
+      swBytesWritten.max.toString,
+      swBytesWritten.total.toString,
+      nanoToMilliSec(srFetchWaitTime.min).toString,
+      nanoToMilliSec(srFetchWaitTime.median).toString,
+      nanoToMilliSec(srFetchWaitTime.max).toString,
+      nanoToMilliSec(srFetchWaitTime.total).toString,
+      nanoToMilliSec(swWriteTime.min).toString,
+      nanoToMilliSec(swWriteTime.median).toString,
+      nanoToMilliSec(swWriteTime.max).toString,
+      nanoToMilliSec(swWriteTime.total).toString,
+      gpuSemaphoreWait.total.toString,
+      StringUtils.reformatCSVString(nodeNames.mkString(",")))
+  }
 }
 
 case class SQLMaxTaskInputSizes(

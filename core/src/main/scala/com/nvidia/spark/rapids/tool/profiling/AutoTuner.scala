@@ -539,12 +539,12 @@ class AutoTuner(
         // For now just throw so we don't get any tunings and its obvious to user this isn't a good
         // setup. In the future we may just recommend them to use larger nodes. This would be more
         // ideal once we hook up actual executor heap from an eventlog vs what user passes in.
-        throwNotEnoughMemException(minExecHeapMem + minOverhead)
+        warnNotEnoughMem(minExecHeapMem + minOverhead)
         (0, 0, 0, false)
       } else {
         val leftOverMemUsingMinHeap = containerMem - minExecHeapMem
         if (leftOverMemUsingMinHeap < 0) {
-          throwNotEnoughMemException(minExecHeapMem + minOverhead)
+          warnNotEnoughMem(minExecHeapMem + minOverhead)
         }
         // Pinned memory uses any unused space up to 4GB. Spill memory is same size as pinned.
         val pinnedMem = Math.min(MAX_PINNED_MEMORY_MB, (leftOverMemUsingMinHeap / 2)).toLong
@@ -556,13 +556,12 @@ class AutoTuner(
     }
   }
 
-  private def throwNotEnoughMemException(minSize: Long): Unit = {
+  private def warnNotEnoughMem(minSize: Long): Unit = {
     // in the future it would be nice to enhance the error message with a recommendation of size
-    val msg = "This node/worker configuration is not ideal for using the Spark Rapids " +
-      "Accelerator because it doesn't have enough memory for the executors. " +
+    val msg = "This node/worker configuration is not ideal for using the Spark Rapids\n" +
+      "Accelerator because it doesn't have enough memory for the executors.\n" +
       s"We recommend using nodes/workers with more memory. Need at least ${minSize}MB memory."
-    logError(msg)
-    throw new IllegalArgumentException(msg)
+    appendComment(msg)
   }
 
   /**
@@ -723,7 +722,9 @@ class AutoTuner(
     recommendShufflePartitions()
     recommendKryoSerializerSetting()
     recommendGCProperty()
-    recommendClassPathEntries()
+    if (platform.requirePathRecommendations) {
+      recommendClassPathEntries()
+    }
     recommendSystemProperties()
   }
 
@@ -756,6 +757,14 @@ class AutoTuner(
           case ver if ver.contains("10.4") => "321db"
           case ver if ver.contains("11.3") => "330db"
           case _ => "332db"
+        }
+      } else if (sparkVersion.contains("amzn")) {
+        sparkVersion match {
+          case ver if ver.contains("3.5.1") => "351"
+          case ver if ver.contains("3.5.0") => "350"
+          case ver if ver.contains("3.4.1") => "341"
+          case ver if ver.contains("3.4.0") => "340"
+          case _ => "332"
         }
       } else {
         shuffleManagerVersion

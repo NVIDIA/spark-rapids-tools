@@ -118,7 +118,11 @@ def unify_all_files(root_dir, file_name, key_names):
     for dir_name in os.listdir(root_dir):  # List entries in root_dir
         if os.path.isdir(os.path.join(root_dir, dir_name)):
             csv_file_path = os.path.join(root_dir, dir_name, file_name)
-            cur_df = pd.read_csv(csv_file_path, keep_default_na=False)
+            try:
+                cur_df = pd.read_csv(csv_file_path, keep_default_na=False)
+            except Exception as e:
+                logging.debug(f"Encountered exception when reading file {csv_file_path}: {e}")
+                continue
 
             if final_df.empty:
                 final_df = pd.DataFrame(columns=cur_df.columns.tolist())
