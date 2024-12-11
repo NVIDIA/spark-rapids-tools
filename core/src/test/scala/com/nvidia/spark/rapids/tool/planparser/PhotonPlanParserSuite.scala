@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import com.nvidia.spark.rapids.tool.PlatformNames
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 
@@ -34,7 +35,7 @@ class PhotonPlanParserSuite extends BasePlanParserSuite {
     test(s"$photonName is parsed as Spark $sparkName") {
       val eventLog = s"$qualLogDir/nds_q88_photon_db_13_3.zstd"
       val pluginTypeChecker = new PluginTypeChecker()
-      val app = createAppFromEventlog(eventLog)
+      val app = createAppFromEventlog(eventLog, platformName = PlatformNames.DATABRICKS_AWS)
       assert(app.sqlPlans.nonEmpty)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
