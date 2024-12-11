@@ -1132,7 +1132,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     // tests for Photon runtime with fallback to SPARK for unsupported platforms
     s"$qualLogDir/nds_q88_photon_db_13_3.zstd" -> Seq(
       (PlatformNames.DATABRICKS_AWS, SparkRuntime.PHOTON),                   // Expected: PHOTON on Databricks AWS
-      (PlatformNames.DATABRICKS_AZURE, SparkRuntime.PHOTON),                 // Expected: PHOTON on Databricks Azure
+      (PlatformNames.DATABRICKS_AZURE, SparkRuntime.PHOTON)                  // Expected: PHOTON on Databricks Azure
     )
   )
   // scalastyle:on line.size.limit
