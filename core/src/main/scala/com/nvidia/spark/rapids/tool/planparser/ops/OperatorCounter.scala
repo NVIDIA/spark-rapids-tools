@@ -38,21 +38,21 @@ case class OperatorCounter(planInfo: PlanInfo) {
    * @param stages The set of stages where the operator appears.
    */
   case class OperatorData(
-      opRef: OperatorRefBase,
+      opRef: OpRef,
       var count: Int = 0,
-      var stages: Set[Int] = Set())
+      var stages: Set[Int] = Set()) extends OpRefWrapperBase(opRef)
 
   // Summarizes the count information for an exec or expression, including whether it is supported.
   case class OperatorCountSummary(
     opData: OperatorData,
     isSupported: Boolean)
 
-  private val supportedMap: mutable.Map[OperatorRefBase, OperatorData] = mutable.Map()
-  private val unsupportedMap: mutable.Map[OperatorRefBase, OperatorData] = mutable.Map()
+  private val supportedMap: mutable.Map[OpRef, OperatorData] = mutable.Map()
+  private val unsupportedMap: mutable.Map[OpRef, OperatorData] = mutable.Map()
 
   // Returns a sequence of `OperatorCountSummary`, combining both supported and
   // unsupported operators.
-  def getOpsCountSummary(): Seq[OperatorCountSummary] = {
+  def getOpsCountSummary: Seq[OperatorCountSummary] = {
     supportedMap.values.map(OperatorCountSummary(_, isSupported = true)).toSeq ++
       unsupportedMap.values.map(OperatorCountSummary(_, isSupported = false)).toSeq
   }
@@ -60,44 +60,49 @@ case class OperatorCounter(planInfo: PlanInfo) {
 
   // Updates the operator data in the given map (supported or unsupported).
   // Increments the count and updates the stages where the operator appears.
-  private def updateOpRefEntry(opRef: OperatorRefBase, stages: Set[Int],
-    targetMap: mutable.Map[OperatorRefBase, OperatorData]): Unit = {
+  private def updateOpRefEntry(opRef: OpRef, stages: Set[Int],
+    targetMap: mutable.Map[OpRef, OperatorData], incrValue: Int = 1): Unit = {
     val operatorData = targetMap.getOrElseUpdate(opRef, OperatorData(opRef))
-    operatorData.count += 1
+    operatorData.count += incrValue
     operatorData.stages ++= stages
   }
 
   // Processes an `ExecInfo` node to update exec and expression counts.
   // Separates supported and unsupported execs and expressions into their respective maps.
   private def processExecInfo(execInfo: ExecInfo): Unit = {
-    val opMap = execInfo.isSupported match {
-      case true => supportedMap
-      case false => unsupportedMap
+    val opMap = if (execInfo.isSupported) {
+      supportedMap
+    } else {
+      unsupportedMap
     }
     updateOpRefEntry(execInfo.execRef, execInfo.stages, opMap)
-    // update the map for supported expressions. We should exclude the unsupported expressions.
-    execInfo.expressions.filterNot(
-      e => execInfo.unsupportedExprs.exists(exp => exp.opRef.equals(e))).foreach { expr =>
-      updateOpRefEntry(expr, execInfo.stages, supportedMap)
-    }
-    // update the map for unsupported expressions
-    execInfo.unsupportedExprs.foreach { expr =>
-      updateOpRefEntry(expr, execInfo.stages, unsupportedMap)
+    // Update the map for supported expressions. For unsupported expressions,
+    // we use the count stored in the supported expressions.
+    execInfo.expressions.foreach { expr =>
+      val exprMap =
+        if (execInfo.unsupportedExprs.exists(unsupExec =>
+          unsupExec.getOpRef.equals(expr.getOpRef))) {
+          // The expression skips because it exists in the unsupported expressions.
+          unsupportedMap
+        } else {
+          supportedMap
+        }
+      updateOpRefEntry(expr.getOpRef, execInfo.stages, exprMap, expr.count)
     }
   }
 
-  // Counts the execs and expressions in the execution plan.
+  // Counts the execs and expressions in the execution plan excluding clusterNodes
+  // (i.e., WholeStageCodeGen).
   private def countOperators(): Unit = {
     planInfo.execInfo.foreach { exec =>
-      exec.isClusterNode match {
-        // we do not want to count the cluster nodes in that aggregation
-        case true =>
-          if (exec.children.nonEmpty) {
-            exec.children.get.foreach { child =>
-              processExecInfo(child)
-            }
+      if (exec.isClusterNode) {
+        if (exec.children.nonEmpty) {
+          exec.children.get.foreach { child =>
+            processExecInfo(child)
           }
-        case false => processExecInfo(exec)
+        }
+      } else {
+        processExecInfo(exec)
       }
     }
   }

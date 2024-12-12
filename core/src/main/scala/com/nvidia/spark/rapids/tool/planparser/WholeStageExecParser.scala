@@ -59,7 +59,7 @@ abstract class WholeStageExecParserBase(
     // The node should be marked as shouldRemove when all the children of the
     // wholeStageCodeGen are marked as shouldRemove.
     val removeNode = isDupNode || childNodes.forall(_.shouldRemove)
-    // Remove any suffix in order to get the node label without any trailing number.
+    // Remove any suffix to get the node label without any trailing number.
     val nodeLabel = nodeNameRegeX.findFirstMatchIn(node.name) match {
       case Some(m) => m.group(1)
       // in case not found, use the full exec name
