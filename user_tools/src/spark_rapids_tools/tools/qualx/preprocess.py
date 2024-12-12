@@ -461,7 +461,7 @@ def extract_raw_features(
 
     # normalize WholeStageCodegen labels
     ops_tbl.loc[
-        ops_tbl['nodeName'].str.startswith('WholeStageCodegen'), 'nodeName'
+        ops_tbl['nodeName'].astype(str).str.startswith('WholeStageCodegen'), 'nodeName'
     ] = 'WholeStageCodegen'
 
     # format WholeStageCodegen for merging
@@ -1140,7 +1140,7 @@ def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
         node_level_supp['Exec Is Supported'] = (
             node_level_supp['Exec Is Supported']
             | node_level_supp['Action'].apply(_is_ignore_no_perf)
-            | node_level_supp['Exec Name'].apply(
+            | node_level_supp['Exec Name'].astype(str).apply(
                 lambda x: x.startswith('WholeStageCodegen')
             )
         )

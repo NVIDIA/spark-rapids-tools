@@ -75,7 +75,10 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
             'toolOutput', 'csv', 'unsupportedOperatorsReport', 'fileName')
         rapids_unsupported_operators_file = FSUtil.build_path(
             qual_output_dir, unsupported_operator_report_file)
-        self.unsupported_operators_df = pd.read_csv(rapids_unsupported_operators_file)
+        # load the unsupported operators and drop operators that have no names.
+        self.unsupported_operators_df = (
+            pd.read_csv(rapids_unsupported_operators_file,
+                        dtype={'Unsupported Operator': str})).dropna(subset=['Unsupported Operator'])
 
         stages_report_file = self.ctxt.get_value('toolOutput', 'csv', 'stagesInformation',
                                                  'fileName')
@@ -84,7 +87,14 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
 
         rapids_execs_file = self.ctxt.get_value('toolOutput', 'csv', 'execsInformation',
                                                 'fileName')
-        self.execs_df = pd.read_csv(FSUtil.build_path(qual_output_dir, rapids_execs_file))
+        # Load the execs CSV file and drop execs that have no stages or name
+        self.execs_df = (
+            pd.read_csv(FSUtil.build_path(qual_output_dir, rapids_execs_file),
+                        dtype={'Exec Name': str,
+                               'Exec Stages': str,
+                               'Exec Children': str,
+                               'Exec Children Node Ids': str})
+            .dropna(subset=['Exec Stages', 'Exec Name']))
         self.logger.info('Reading CSV files completed.')
 
     def _convert_durations(self) -> None:
@@ -103,7 +113,6 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
         # from this dataframe can be matched with the stageID of stages dataframe
         self.execs_df['Exec Stages'] = self.execs_df['Exec Stages'].str.split(':')
         self.execs_df = (self.execs_df.explode('Exec Stages').
-                         dropna(subset=['Exec Stages']).
                          rename(columns={'Exec Stages': 'Stage ID'}))
         self.execs_df['Stage ID'] = self.execs_df['Stage ID'].astype(int)
 
