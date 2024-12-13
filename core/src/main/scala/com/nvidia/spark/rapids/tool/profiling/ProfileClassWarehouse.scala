@@ -643,6 +643,20 @@ case class StageAggTaskMetricsProfileResult(
   override def idHeader = "stageId"
 }
 
+/**
+ * Represents diagnostic metrics results at task/stage level in a Spark SQL execution plan.
+ * Output file: stage_level_diagnostic_metrics.csv.
+ * Collected metrics include:
+ * - Memory spilled (MB)
+ * - Disk spilled (MB)
+ * - Input bytes read
+ * - Output bytes written
+ * - Shuffle read total bytes (remote + local)
+ * - Shuffle write bytes
+ * - Shuffle read fetch wait time (ms)
+ * - Shuffle write time (ms)
+ * - GPU semaphore time (ns)
+ */
 case class StageDiagnosticResult(
     appIndex: Int,
     appName: String,
@@ -948,6 +962,18 @@ case class SQLTaskAggMetricsProfileResult(
   }
 }
 
+/**
+ * Represents IO-related diagnostic metrics results in a Spark SQL execution plan.
+ * Output file: io_diagnostic_metrics.csv.
+ * Collected metrics include:
+ * - Output rows
+ * - Scan time (ns)
+ * - Output batches
+ * - Buffer time (ns)
+ * - Shuffle write time (ns)
+ * - Fetch wait time (ns)
+ * - GPU decode time (ns)
+ */
 case class IODiagnosticResult(
     appIndex: Int,
     appName: String,
@@ -960,7 +986,7 @@ case class IODiagnosticResult(
     outputRows: StatisticsMetrics,
     scanTime: StatisticsMetrics,
     outputBatches: StatisticsMetrics,
-    buffeTime: StatisticsMetrics,
+    bufferTime: StatisticsMetrics,
     shuffleWriteTime: StatisticsMetrics,
     fetchWaitTime: StatisticsMetrics,
     gpuDecodeTime: StatisticsMetrics) extends ProfileResult {
@@ -986,10 +1012,10 @@ case class IODiagnosticResult(
       "outputBatchesMedian",
       "outputBatchesMax",
       "outputBatchesTotal",
-      "buffeTimeMin",
-      "buffeTimeMedian",
-      "buffeTimeMax",
-      "buffeTimeTotal",
+      "bufferTimeMin",
+      "bufferTimeMedian",
+      "bufferTimeMax",
+      "bufferTimeTotal",
       "shuffleWriteTimeMin",
       "shuffleWriteTimeMedian",
       "shuffleWriteTimeMax",
@@ -1025,10 +1051,10 @@ case class IODiagnosticResult(
       outputBatches.med.toString,
       outputBatches.max.toString,
       outputBatches.total.toString,
-      buffeTime.min.toString,
-      buffeTime.med.toString,
-      buffeTime.max.toString,
-      buffeTime.total.toString,
+      bufferTime.min.toString,
+      bufferTime.med.toString,
+      bufferTime.max.toString,
+      bufferTime.total.toString,
       shuffleWriteTime.min.toString,
       shuffleWriteTime.med.toString,
       shuffleWriteTime.max.toString,
@@ -1064,10 +1090,10 @@ case class IODiagnosticResult(
       outputBatches.med.toString,
       outputBatches.max.toString,
       outputBatches.total.toString,
-      buffeTime.min.toString,
-      buffeTime.med.toString,
-      buffeTime.max.toString,
-      buffeTime.total.toString,
+      bufferTime.min.toString,
+      bufferTime.med.toString,
+      bufferTime.max.toString,
+      bufferTime.total.toString,
       shuffleWriteTime.min.toString,
       shuffleWriteTime.med.toString,
       shuffleWriteTime.max.toString,

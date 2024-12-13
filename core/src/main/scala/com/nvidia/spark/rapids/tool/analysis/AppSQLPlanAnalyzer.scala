@@ -423,8 +423,6 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * @return A sequence of `IODiagnosticResult` objects containing diagnostic metrics.
    */
   def generateIODiagnosticAccums(): Seq[IODiagnosticResult] = {
-    val zeroRecord = StatisticsMetrics.ZERO_RECORD
-
     // Transform the diagnostic metrics map into a sequence of results
     IODiagnosticMetricsMap.toSeq.flatMap { case ((sqlId, nodeId, stageIds), sqlAccums) =>
       // Process each stage ID and compute diagnostic results
@@ -432,7 +430,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         val nodeName = sqlAccums.head.nodeName
         val stageTaskIds = getStageTaskIds(stageId)
         // A mapping from metric name to its statistical results (min, median, max, sum)
-        val metricNameToStatistics = HashMap.empty[String, StatisticsMetrics]
+        val metricNameToStatistics = HashMap.empty[String, StatisticsMetrics].
+          withDefaultValue(StatisticsMetrics.ZERO_RECORD)
 
         // Iterate through each IO metric
         sqlAccums.foreach { sqlAccum =>
@@ -440,14 +439,14 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
             sqlAccum.accumulatorId,
             new AccumInfo(AccumMetaRef(0L, AccumNameRef("")))
           )
-          // Compute the metric's statistics (min, median, max, sum) for the given stage
-          val accumInfoStatistics = getAccumInfoStatisticsInStage(accumInfo, stageTaskIds)
-          // If statistics are available, store the results
-          if (accumInfoStatistics.nonEmpty) {
-            val (min, median, max, sum) = accumInfoStatistics.get
-            val metricName = normalizeToIODiagnosticMetric(sqlAccum.name)
-            metricNameToStatistics(metricName) = StatisticsMetrics(min, median, max, sum)
-          }
+          // Compute the metric's statistics (min, median, max, sum) for the given stage.
+          // Store the results if available.
+          getAccumInfoStatisticsInStage(accumInfo, stageTaskIds).map( {
+            case (min, median, max, sum) => {
+              val metricName = normalizeToIODiagnosticMetric(sqlAccum.name)
+              metricNameToStatistics(metricName) = StatisticsMetrics(min, median, max, sum)
+            }
+          })
         }
 
         if (metricNameToStatistics.isEmpty) {
@@ -463,13 +462,13 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
             app.stageManager.getDurationById(stageId),
             nodeId,
             nodeName,
-            metricNameToStatistics.getOrElse(OUTPUT_ROWS_METRIC, zeroRecord),
-            metricNameToStatistics.getOrElse(SCAN_TIME_METRIC, zeroRecord),
-            metricNameToStatistics.getOrElse(OUTPUT_BATCHES_METRIC, zeroRecord),
-            metricNameToStatistics.getOrElse(BUFFER_TIME_METRIC, zeroRecord),
-            metricNameToStatistics.getOrElse(SHUFFLE_WRITE_TIME_METRIC, zeroRecord),
-            metricNameToStatistics.getOrElse(FETCH_WAIT_TIME_METRIC, zeroRecord),
-            metricNameToStatistics.getOrElse(GPU_DECODE_TIME_METRIC, zeroRecord)))
+            metricNameToStatistics(OUTPUT_ROWS_METRIC),
+            metricNameToStatistics(SCAN_TIME_METRIC),
+            metricNameToStatistics(OUTPUT_BATCHES_METRIC),
+            metricNameToStatistics(BUFFER_TIME_METRIC),
+            metricNameToStatistics(SHUFFLE_WRITE_TIME_METRIC),
+            metricNameToStatistics(FETCH_WAIT_TIME_METRIC),
+            metricNameToStatistics(GPU_DECODE_TIME_METRIC)))
         }
       }
     }.toSeq
@@ -489,22 +488,23 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     app.accumManager.accumInfoMap.flatMap { accumMapEntry =>
       val accumInfo = accumMapEntry._2
       accumInfo.stageValuesMap.keySet.flatMap( stageId => {
-        getAccumInfoStatisticsInStage(accumInfo, getStageTaskIds(stageId)).map( stats => {
-          val (min, median, max, sum) = stats
-          // create and reuse AccumProfileResults object to avoid generating extra memory
-          val accumProfileResults = AccumProfileResults(
-            appIndex,
-            stageId,
-            accumInfo.infoRef,
-            min,
-            median,
-            max,
-            sum)
-          // update stageToDiagnosticMetrics mapping if accumInfo is a diagnostic metric
-          if (accumInfo.infoRef.name.isDiagnosticMetrics()) {
-            updateStageDiagnosticMetrics(accumProfileResults)
+        getAccumInfoStatisticsInStage(accumInfo, getStageTaskIds(stageId)).map( {
+          case (min, median, max, sum) => {
+            // create and reuse AccumProfileResults object to avoid generating extra memory
+            val accumProfileResults = AccumProfileResults(
+              appIndex,
+              stageId,
+              accumInfo.infoRef,
+              min,
+              median,
+              max,
+              sum)
+            // update stageToDiagnosticMetrics mapping if accumInfo is a diagnostic metric
+            if (accumInfo.infoRef.name.isDiagnosticMetrics()) {
+              updateStageDiagnosticMetrics(accumProfileResults)
+            }
+            accumProfileResults
           }
-          accumProfileResults
         })
       })
     }

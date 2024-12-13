@@ -64,7 +64,9 @@ object IOAccumDiagnosticMetrics {
   }
 
   /**
-   * Normalize a metric name to its IO diagnostic metric constant
+   * Normalize a metric name to its IO diagnostic metric constant because we want to
+   * support variations in metric naming, e.g. "join output rows", "number of output rows"
+   * are different names for output rows metric.
    */
   def normalizeToIODiagnosticMetric(metric: String): String = {
     if (metric.contains(OUTPUT_ROWS_METRIC)) {
