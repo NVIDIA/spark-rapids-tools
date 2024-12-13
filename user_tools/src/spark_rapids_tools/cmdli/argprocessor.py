@@ -400,6 +400,15 @@ class ToolUserArgModel(AbsToolUserArgModel):
     def define_invalid_arg_cases(self) -> None:
         super().define_invalid_arg_cases()
         self.define_rejected_missing_eventlogs()
+        self.rejected['Missing Platform argument'] = {
+            'valid': False,
+            'callable': partial(self.raise_validation_exception,
+                                'Cannot run tool cmd without platform argument. Re-run the command '
+                                'providing the platform argument.'),
+            'cases': [
+                [ArgValueCase.UNDEFINED, ArgValueCase.IGNORE, ArgValueCase.IGNORE]
+            ]
+        }
         self.rejected['Cluster By Name Without Platform Hints'] = {
             'valid': False,
             'callable': partial(self.raise_validation_exception,
