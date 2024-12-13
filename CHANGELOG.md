@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v24.10.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.10.3)
+Generated on 2024-12-13
+### User Tools
+
+- Fix dataframe handling of column-types ([#1458](https://github.com/NVIDIA/spark-rapids-tools/pull/1458))
+
+
+<br/>
+
 ## Release [v24.10.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.10.2)
 Generated on 2024-12-06
 ### User Tools
