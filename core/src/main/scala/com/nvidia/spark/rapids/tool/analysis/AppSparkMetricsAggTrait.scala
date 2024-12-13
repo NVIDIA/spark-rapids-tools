@@ -35,12 +35,13 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
   def getAggRawMetrics(app: AppBase, index: Int, sqlAnalyzer: Option[AppSQLPlanAnalyzer] = None):
       AggRawMetricsResult = {
     val analysisObj = new AppSparkMetricsAnalyzer(app)
+    val sqlMetricsAgg = analysisObj.aggregateSparkMetricsBySql(index)
     AggRawMetricsResult(
       analysisObj.aggregateSparkMetricsByJob(index),
       analysisObj.aggregateSparkMetricsByStage(index),
       analysisObj.shuffleSkewCheck(index),
-      analysisObj.aggregateSparkMetricsBySql(index),
-      analysisObj.aggregateIOMetricsBySql(analysisObj.aggregateSparkMetricsBySql(index)),
+      sqlMetricsAgg,
+      analysisObj.aggregateIOMetricsBySql(sqlMetricsAgg),
       analysisObj.aggregateDurationAndCPUTimeBySql(index),
       Seq(analysisObj.maxTaskInputSizeBytesPerSQL(index)),
       analysisObj.aggregateDiagnosticMetricsByStage(index, sqlAnalyzer))
