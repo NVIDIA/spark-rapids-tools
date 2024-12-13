@@ -1,7 +1,8 @@
 # This yaml file is a sample configuration file for the distributed tools.
 api_version: '1.0'
-distributed_tools:
-  hdfs_output_dir: 'hdfs:///tmp/spark_rapids_distributed_tools_cache'
-  spark_properties:
-  - name: 'spark.executor.memory'
-    value: '20g'
+distributed:
+  config:
+    remote_cache_dir: 'hdfs:///tmp/spark_rapids_distributed_tools_cache'
+    spark_properties:
+    - name: 'spark.executor.memory'
+      value: '20g'

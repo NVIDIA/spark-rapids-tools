@@ -39,7 +39,7 @@ from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
 from spark_rapids_tools.configuration.common import RuntimeDependency
-from spark_rapids_tools.configuration.distributed_tools_config import DistributedToolsConfig
+from spark_rapids_tools.configuration.distributed_tools_config import DistributedConfig
 from spark_rapids_tools.configuration.tools_config import ToolsConfig
 from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib import LocalPath, CspFs
@@ -948,7 +948,7 @@ class RapidsJarTool(RapidsTool):
                                                       file_load=False)
         self.ctxt.set_ctxt('rapidsJobContainers', [rapids_job_container])
 
-    def _get_distributed_tools_configs(self) -> Optional[DistributedToolsConfig]:
+    def _get_distributed_tools_configs(self) -> Optional[DistributedConfig]:
         """
         Get the distributed tools configurations from the tools config file
         """

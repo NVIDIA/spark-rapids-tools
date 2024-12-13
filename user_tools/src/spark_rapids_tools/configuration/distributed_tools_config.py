@@ -13,25 +13,20 @@
 # limitations under the License.
 
 """ Configuration file for distributed tools """
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-
-class SparkProperty(BaseModel):
-    """Represents a single Spark property with a name and value."""
-    name: str = Field(
-        description='Name of the Spark property, e.g., "spark.executor.memory".')
-    value: str = Field(
-        description='Value of the Spark property, e.g., "4g".')
+from spark_rapids_tools.configuration.common import ConfigBase, SparkProperty
+from spark_rapids_tools.configuration.tools_config_base import ToolsConfigBase
 
 
-class DistributedToolsConfig(BaseModel):
+class DistributedConfig(ConfigBase):
     """Configuration class for distributed tools"""
-    hdfs_output_dir: str = Field(
-        description='HDFS output directory where the output data from the distributed '
-                    'tools will be stored.',
-        examples=['hdfs:///path/to/output/dir']
+    remote_cache_dir: str = Field(
+        description='Remote cache directory where the intermediate output data from each task will be stored. '
+                    'Default is hdfs:///tmp/spark_rapids_distributed_tools_cache.',
+        default=['hdfs:///tmp/spark_rapids_distributed_tools_cache']
     )
 
     spark_properties: List[SparkProperty] = Field(
@@ -40,3 +35,10 @@ class DistributedToolsConfig(BaseModel):
         examples=[{'name': 'spark.executor.memory', 'value': '4g'},
                   {'name': 'spark.executor.cores', 'value': '4'}]
     )
+
+class DistributedToolsConfig(ToolsConfigBase):
+    """Container for the distributed tools configurations. This is the parts of the configuration
+    that can be passed as an input to the CLI"""
+    config: Optional[DistributedConfig] = Field(
+        default=None,
+        description='Configuration related to the distributed tools.')

@@ -29,8 +29,10 @@ from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_tools.cloud import ClientCluster
 from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
+from ..configuration.distributed_tools_config import DistributedToolsConfig
+from ..configuration.local_mode_config import LocalToolsConfig
 from ..configuration.tools_config import ToolsConfig
-from ..enums import QualFilterApp, CspEnv, QualEstimationModel
+from ..enums import QualFilterApp, CspEnv, QualEstimationModel, SubmissionMode
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
 from ..utils.util import dump_tool_usage, Utilities
@@ -351,6 +353,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
     jvm_heap_size: Optional[int] = None
     jvm_threads: Optional[int] = None
     tools_config_path: Optional[str] = None
+    submission_mode: SubmissionMode = SubmissionMode.get_default()
 
     def is_concurrent_submission(self) -> bool:
         return False
@@ -470,7 +473,6 @@ class QualifyUserArgModel(ToolUserArgModel):
     """
     filter_apps: Optional[QualFilterApp] = None
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
-    distributed_tools_enabled: Optional[bool] = None
 
     def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
@@ -534,7 +536,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
-            'distributedToolsEnabled': self.distributed_tools_enabled
+            'submissionMode': self.submission_mode
         }
         return wrapped_args
 

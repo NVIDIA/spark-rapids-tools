@@ -29,7 +29,7 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, co
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
-from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel
+from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, SubmissionMode
 from spark_rapids_tools.storagelib import CspFs
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
@@ -153,9 +153,13 @@ class Qualification(RapidsJarTool):
             estimation_model_args = QualEstimationModel.create_default_model_args(selected_model)
         self.ctxt.set_ctxt('estimationModelArgs', estimation_model_args)
 
-    def _process_distributed_tools_args(self) -> None:
-        distributed_tools_enabled = self.wrapper_options.get('distributedToolsEnabled')
-        self.ctxt.set_ctxt('distributedToolsEnabled', distributed_tools_enabled)
+    def _process_submission_mode_arg(self) -> None:
+        submission_mode_arg = self.wrapper_options.get('submissionMode')
+        if submission_mode_arg is None or not submission_mode_arg:
+            submission_mode = SubmissionMode.get_default()
+        else:
+            submission_mode = SubmissionMode.fromstring(submission_mode_arg)
+        self.ctxt.set_ctxt('submissionMode', submission_mode)
 
     def _process_custom_args(self) -> None:
         """
@@ -185,7 +189,7 @@ class Qualification(RapidsJarTool):
         self._process_estimation_model_args()
         self._process_offline_cluster_args()
         self._process_eventlogs_args()
-        self._process_distributed_tools_args()
+        self._process_submission_mode_arg()
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 

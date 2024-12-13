@@ -22,9 +22,8 @@ from pydantic import BaseModel, Field, ValidationError
 
 from spark_rapids_tools import CspPathT
 from spark_rapids_tools.configuration.distributed_tools_config import DistributedToolsConfig
-from spark_rapids_tools.configuration.runtime_conf import ToolsRuntimeConfig
+from spark_rapids_tools.configuration.local_mode_config import LocalToolsConfig
 from spark_rapids_tools.utils import AbstractPropContainer
-
 
 class ToolsConfig(BaseModel):
     """Main container for the user's defined tools configuration"""
@@ -36,11 +35,11 @@ class ToolsConfig(BaseModel):
         le=1.0,  # minimum version compatible with the current tools implementation
         ge=1.0)
 
-    runtime: Optional[ToolsRuntimeConfig] = Field(
+    local: Optional[LocalToolsConfig] = Field(
         default=None,
-        description='Configuration related to the runtime environment of the tools.')
+        description='Configuration related to the local tools.')
 
-    distributed_tools: Optional[DistributedToolsConfig] = Field(
+    distributed: Optional[DistributedToolsConfig] = Field(
         default=None,
         description='Configuration related to the distributed tools.')
 

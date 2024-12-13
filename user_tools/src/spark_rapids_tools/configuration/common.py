@@ -72,3 +72,14 @@ class RuntimeDependency(BaseModel):
     verification: DependencyVerification = Field(
         default=None,
         description='Optional specification to verify the dependency file.')
+
+class SparkProperty(BaseModel):
+    """Represents a single Spark property with a name and value."""
+    name: str = Field(
+        description='Name of the Spark property, e.g., "spark.executor.memory".')
+    value: str = Field(
+        description='Value of the Spark property, e.g., "4g".')
+
+class ConfigBase(BaseModel):
+    """Base class for the configuration."""
+    pass

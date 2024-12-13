@@ -18,7 +18,7 @@
 import fire
 
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
-from spark_rapids_tools.enums import CspEnv, QualEstimationModel
+from spark_rapids_tools.enums import CspEnv, QualEstimationModel, SubmissionMode
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.qualx.prediction import Prediction
@@ -46,7 +46,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       jvm_threads: int = None,
                       verbose: bool = None,
                       tools_config_file: str = None,
-                      distributed: bool = None,
+                      submission_mode: str = None,
                       **rapids_options) -> None:
         """The Qualification cmd provides estimated speedups by migrating Apache Spark applications
         to GPU accelerated clusters.
@@ -84,7 +84,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param tools_config_file: Path to a configuration file that contains the tools' options.
                For sample configuration files, please visit
                https://github.com/NVIDIA/spark-rapids-tools/tree/main/user_tools/tests/spark_rapids_tools_ut/resources/tools_config/valid
-        :param distributed: True or False to enable distributed mode.
+        :param submission_mode: Submission mode to run the qualification tool. Supported modes are "local" and "distributed".
         :param rapids_options: A list of valid Qualification tool options.
                 Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
                 multiple "spark-property" arguments.
@@ -97,6 +97,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         output_folder = Utils.get_value_or_pop(output_folder, rapids_options, 'o')
         filter_apps = Utils.get_value_or_pop(filter_apps, rapids_options, 'f')
         verbose = Utils.get_value_or_pop(verbose, rapids_options, 'v', False)
+        submission_mode = Utils.get_value_or_pop(submission_mode, rapids_options, 's')
         if verbose:
             ToolLogging.enable_debug_mode()
         init_environment('qual')
@@ -120,7 +121,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          filter_apps=filter_apps,
                                                          estimation_model_args=estimation_model_args,
                                                          tools_config_path=tools_config_file,
-                                                         distributed_tools_enabled=distributed)
+                                                         submission_mode=submission_mode)
         if qual_args:
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
                                             output_folder=qual_args['outputFolder'],

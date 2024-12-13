@@ -222,3 +222,14 @@ class QualEstimationModel(EnumeratedType):
             'xgboostEnabled': model_type == QualEstimationModel.XGBOOST,
             'customModelFile': None,
         }
+
+
+
+class SubmissionMode(EnumeratedType):
+    """Values used to define the submission mode of the applications"""
+    LOCAL = 'local'
+    DISTRIBUTED = 'distributed'
+
+    @classmethod
+    def get_default(cls):
+        return cls.LOCAL

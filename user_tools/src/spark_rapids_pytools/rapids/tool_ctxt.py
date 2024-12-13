@@ -26,6 +26,7 @@ from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_tools import CspEnv, CspPath
+from spark_rapids_tools.enums import SubmissionMode
 from spark_rapids_tools.utils import Utilities
 
 
@@ -90,7 +91,10 @@ class ToolContext(YAMLPropertiesContainer):
         return self.get_ctxt('fatWheelModeEnabled')
 
     def is_distributed_mode(self) -> bool:
-        return self.get_ctxt('distributedToolsEnabled') or False
+        return self.get_ctxt('submissionMode') == SubmissionMode.DISTRIBUTED
+
+    def is_local_mode(self) -> bool:
+        return self.get_ctxt('submissionMode') == SubmissionMode.LOCAL
 
     def set_ctxt(self, key: str, val: Any):
         self.props['wrapperCtx'][key] = val
