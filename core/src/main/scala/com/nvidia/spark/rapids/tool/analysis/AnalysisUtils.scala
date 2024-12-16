@@ -38,7 +38,7 @@ object StageAccumDiagnosticMetrics {
 object IOAccumDiagnosticMetrics {
   val OUTPUT_ROWS_METRIC = "output rows" // other names: join output rows, number of output rows
   val SCAN_TIME_METRIC = "scan time"
-  val OUTPUT_BATCHES_METRIC = "output columnar batches"
+  val OUTPUT_BATCHES_METRIC = "output columnar batches" // other names: number of output batches
   val BUFFER_TIME_METRIC = "buffer time"
   val SHUFFLE_WRITE_TIME_METRIC = "shuffle write time"
   val FETCH_WAIT_TIME_METRIC = "fetch wait time"
