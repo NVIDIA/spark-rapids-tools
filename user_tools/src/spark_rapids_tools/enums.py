@@ -230,5 +230,5 @@ class SubmissionMode(EnumeratedType):
     DISTRIBUTED = 'distributed'
 
     @classmethod
-    def get_default(cls):
+    def get_default(cls) -> 'SubmissionMode':
         return cls.LOCAL

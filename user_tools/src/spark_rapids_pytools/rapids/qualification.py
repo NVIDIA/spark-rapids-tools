@@ -154,6 +154,9 @@ class Qualification(RapidsJarTool):
         self.ctxt.set_ctxt('estimationModelArgs', estimation_model_args)
 
     def _process_submission_mode_arg(self) -> None:
+        """
+        Process the value provided by `--submission_mode` argument.
+        """
         submission_mode_arg = self.wrapper_options.get('submissionMode')
         if submission_mode_arg is None or not submission_mode_arg:
             submission_mode = SubmissionMode.get_default()
