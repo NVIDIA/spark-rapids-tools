@@ -22,7 +22,18 @@ from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib.tools.fs_utils import FileHashAlgorithm
 
 
-class RuntimeDependencyType(BaseModel):
+class BaseConfig(BaseModel, extra='forbid'):
+    """
+    BaseConfig class for Pydantic models that enforces the `extra = forbid`
+    setting. This ensures that no extra keys are allowed in any model or
+    subclass that inherits from this base class.
+
+    This base class is meant to be inherited by other Pydantic models related
+    to tools configurations so that we can enforce a global rule.
+    """
+
+
+class RuntimeDependencyType(BaseConfig):
     """Defines the type of runtime dependency required by the tools' java cmd."""
 
     dep_type: DependencyType = Field(
@@ -36,7 +47,7 @@ class RuntimeDependencyType(BaseModel):
         examples=['jars/*'])
 
 
-class DependencyVerification(BaseModel):
+class DependencyVerification(BaseConfig):
     """The verification information of a runtime dependency required by the tools' java cmd."""
     size: int = Field(
         default=0,
@@ -53,7 +64,7 @@ class DependencyVerification(BaseModel):
             }])
 
 
-class RuntimeDependency(BaseModel):
+class RuntimeDependency(BaseConfig):
     """Holds information about a runtime dependency required by the tools' java cmd."""
     name: str = Field(
         description='The name of the dependency.',
@@ -73,13 +84,14 @@ class RuntimeDependency(BaseModel):
         default=None,
         description='Optional specification to verify the dependency file.')
 
-class SparkProperty(BaseModel):
+
+class SparkProperty(BaseConfig):
     """Represents a single Spark property with a name and value."""
     name: str = Field(
         description='Name of the Spark property, e.g., "spark.executor.memory".')
     value: str = Field(
         description='Value of the Spark property, e.g., "4g".')
 
-class ConfigBase(BaseModel):
-    """Base class for the configuration."""
-    pass
+
+class SubmissionConfig(BaseConfig):
+    """Base class for the tools configuration."""

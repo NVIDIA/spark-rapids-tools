@@ -17,17 +17,17 @@ from typing import Optional
 
 from pydantic import Field
 
-from spark_rapids_tools.configuration.common import ConfigBase
-from spark_rapids_tools.configuration.tools_config_base import ToolsConfigBase
+from spark_rapids_tools.configuration.common import SubmissionConfig
+from spark_rapids_tools.configuration.tools_config import ToolsConfig
 
 
-class LocalConfig(ConfigBase):
+class LocalSubmissionConfig(SubmissionConfig):
     """Configuration class for local submission mode"""
-    pass
 
-class LocalToolsConfig(ToolsConfigBase):
-    """Container for the local tools configurations. This is the parts of the configuration that
+
+class LocalToolsConfig(ToolsConfig):
+    """Container for the local submission mode configurations. This is the parts of the configuration that
     can be passed as an input to the CLI"""
-    config: Optional[LocalConfig] = Field(
+    submission: Optional[LocalSubmissionConfig] = Field(
         default=None,
-        description='Configuration related to the local tools.')
+        description='Configuration related to local submission mode.')

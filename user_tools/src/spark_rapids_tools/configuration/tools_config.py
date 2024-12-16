@@ -18,14 +18,15 @@ be passed as an input to the CLI"""
 import json
 from typing import Union, Optional
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import Field, ValidationError
 
 from spark_rapids_tools import CspPathT
-from spark_rapids_tools.configuration.distributed_tools_config import DistributedToolsConfig
-from spark_rapids_tools.configuration.local_mode_config import LocalToolsConfig
+from spark_rapids_tools.configuration.common import BaseConfig, SubmissionConfig
+from spark_rapids_tools.configuration.runtime_conf import ToolsRuntimeConfig
 from spark_rapids_tools.utils import AbstractPropContainer
 
-class ToolsConfig(BaseModel):
+
+class ToolsConfig(BaseConfig):
     """Main container for the user's defined tools configuration"""
     api_version: float = Field(
         description='The version of the API that the tools are using. '
@@ -35,13 +36,13 @@ class ToolsConfig(BaseModel):
         le=1.0,  # minimum version compatible with the current tools implementation
         ge=1.0)
 
-    local: Optional[LocalToolsConfig] = Field(
+    runtime: Optional[ToolsRuntimeConfig] = Field(
         default=None,
-        description='Configuration related to the local tools.')
+        description='Configuration related to the runtime environment of the tools.')
 
-    distributed: Optional[DistributedToolsConfig] = Field(
+    submission: Optional[SubmissionConfig] = Field(
         default=None,
-        description='Configuration related to the distributed tools.')
+        description='Configuration related to the submission.')
 
     @classmethod
     def load_from_file(cls, file_path: Union[str, CspPathT]) -> Optional['ToolsConfig']:
@@ -50,7 +51,7 @@ class ToolsConfig(BaseModel):
             prop_container = AbstractPropContainer.load_from_file(file_path)
             return cls(**prop_container.props)
         except ValidationError as e:
-            # Do nothing. This is kept as a place holder if we want to log the error inside the
+            # Do nothing. This is kept as a placeholder if we want to log the error inside the
             # class first
             raise e
 

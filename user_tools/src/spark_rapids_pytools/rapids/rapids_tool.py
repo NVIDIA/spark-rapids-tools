@@ -39,7 +39,7 @@ from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
 from spark_rapids_tools.configuration.common import RuntimeDependency
-from spark_rapids_tools.configuration.distributed_tools_config import DistributedConfig
+from spark_rapids_tools.configuration.submission.distributed_config import DistributedToolsConfig
 from spark_rapids_tools.configuration.tools_config import ToolsConfig
 from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib import LocalPath, CspFs
@@ -948,14 +948,15 @@ class RapidsJarTool(RapidsTool):
                                                       file_load=False)
         self.ctxt.set_ctxt('rapidsJobContainers', [rapids_job_container])
 
-    def _get_distributed_tools_configs(self) -> Optional[DistributedConfig]:
+    def _get_distributed_tools_configs(self) -> Optional[DistributedToolsConfig]:
         """
-        Get the distributed tools configurations from the tools config file
+        Parse the tools configuration and return as distributed tools configuration object
         """
         config_obj = self.get_tools_config_obj()
-        if config_obj and config_obj.distributed_tools:
+        print(config_obj.get_schema())
+        if config_obj and config_obj.submission:
             if self.ctxt.is_distributed_mode():
-                return config_obj.distributed_tools
+                return config_obj
             self.logger.warning(
                 'Distributed tool configurations detected, but distributed mode is not enabled.'
                 'Use \'--distributed\' flag to enable distributed mode. Switching to local mode.'

@@ -10,6 +10,7 @@
       "type": "string"
     },
     "DependencyVerification": {
+      "additionalProperties": false,
       "description": "The verification information of a runtime dependency required by the tools' java cmd.",
       "properties": {
         "size": {
@@ -34,42 +35,6 @@
         }
       },
       "title": "DependencyVerification",
-      "type": "object"
-    },
-    "DistributedToolsConfig": {
-      "description": "Configuration class for distributed tools",
-      "properties": {
-        "hdfs_output_dir": {
-          "description": "HDFS output directory where the output data from the distributed tools will be stored.",
-          "examples": [
-            "hdfs:///path/to/output/dir"
-          ],
-          "title": "Hdfs Output Dir",
-          "type": "string"
-        },
-        "spark_properties": {
-          "description": "List of Spark properties to be used for the Spark session.",
-          "examples": [
-            {
-              "name": "spark.executor.memory",
-              "value": "4g"
-            },
-            {
-              "name": "spark.executor.cores",
-              "value": "4"
-            }
-          ],
-          "items": {
-            "$ref": "#/$defs/SparkProperty"
-          },
-          "title": "Spark Properties",
-          "type": "array"
-        }
-      },
-      "required": [
-        "hdfs_output_dir"
-      ],
-      "title": "DistributedToolsConfig",
       "type": "object"
     },
     "FileHashAlgorithm": {
@@ -101,7 +66,15 @@
       "title": "HashAlgorithm",
       "type": "string"
     },
+    "LocalSubmissionConfig": {
+      "additionalProperties": false,
+      "description": "Configuration class for local submission mode",
+      "properties": {},
+      "title": "LocalSubmissionConfig",
+      "type": "object"
+    },
     "RuntimeDependency": {
+      "additionalProperties": false,
       "description": "Holds information about a runtime dependency required by the tools' java cmd.",
       "properties": {
         "name": {
@@ -151,6 +124,7 @@
       "type": "object"
     },
     "RuntimeDependencyType": {
+      "additionalProperties": false,
       "description": "Defines the type of runtime dependency required by the tools' java cmd.",
       "properties": {
         "dep_type": {
@@ -173,28 +147,8 @@
       "title": "RuntimeDependencyType",
       "type": "object"
     },
-    "SparkProperty": {
-      "description": "Represents a single Spark property with a name and value.",
-      "properties": {
-        "name": {
-          "description": "Name of the Spark property, e.g., \"spark.executor.memory\".",
-          "title": "Name",
-          "type": "string"
-        },
-        "value": {
-          "description": "Value of the Spark property, e.g., \"4g\".",
-          "title": "Value",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "value"
-      ],
-      "title": "SparkProperty",
-      "type": "object"
-    },
     "ToolsRuntimeConfig": {
+      "additionalProperties": false,
       "description": "The runtime configurations of the tools as defined by the user.",
       "properties": {
         "dependencies": {
@@ -213,7 +167,8 @@
       "type": "object"
     }
   },
-  "description": "Main container for the user's defined tools configuration",
+  "additionalProperties": false,
+  "description": "Container for the local submission mode configurations. This is the parts of the configuration that\ncan be passed as an input to the CLI",
   "properties": {
     "api_version": {
       "description": "The version of the API that the tools are using. This is used to test the compatibility of the configuration file against the current tools release.",
@@ -237,22 +192,22 @@
       "default": null,
       "description": "Configuration related to the runtime environment of the tools."
     },
-    "distributed_tools": {
+    "submission": {
       "anyOf": [
         {
-          "$ref": "#/$defs/DistributedToolsConfig"
+          "$ref": "#/$defs/LocalSubmissionConfig"
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "Configuration related to the distributed tools."
+      "description": "Configuration related to local submission mode."
     }
   },
   "required": [
     "api_version"
   ],
-  "title": "ToolsConfig",
+  "title": "LocalToolsConfig",
   "type": "object"
 }

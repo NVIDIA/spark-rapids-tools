@@ -224,7 +224,6 @@ class QualEstimationModel(EnumeratedType):
         }
 
 
-
 class SubmissionMode(EnumeratedType):
     """Values used to define the submission mode of the applications"""
     LOCAL = 'local'

@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" Configuration file for distributed tools """
+""" Configuration file for distributed submission mode """
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from spark_rapids_tools.configuration.common import ConfigBase, SparkProperty
-from spark_rapids_tools.configuration.tools_config_base import ToolsConfigBase
+from spark_rapids_tools.configuration.common import SparkProperty, SubmissionConfig
+from spark_rapids_tools.configuration.tools_config import ToolsConfig
 
 
-class DistributedConfig(ConfigBase):
-    """Configuration class for distributed tools"""
+class DistributedSubmissionConfig(SubmissionConfig):
+    """Configuration class for distributed submission mode"""
     remote_cache_dir: str = Field(
         description='Remote cache directory where the intermediate output data from each task will be stored. '
                     'Default is hdfs:///tmp/spark_rapids_distributed_tools_cache.',
@@ -36,9 +36,10 @@ class DistributedConfig(ConfigBase):
                   {'name': 'spark.executor.cores', 'value': '4'}]
     )
 
-class DistributedToolsConfig(ToolsConfigBase):
-    """Container for the distributed tools configurations. This is the parts of the configuration
+
+class DistributedToolsConfig(ToolsConfig):
+    """Container for the distributed submission mode configurations. This is the parts of the configuration
     that can be passed as an input to the CLI"""
-    config: Optional[DistributedConfig] = Field(
+    submission: Optional[DistributedSubmissionConfig] = Field(
         default=None,
-        description='Configuration related to the distributed tools.')
+        description='Configuration related to distributed submission mode.')

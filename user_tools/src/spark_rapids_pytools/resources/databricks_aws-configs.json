@@ -28,8 +28,7 @@
                   "value": "a65839fbf1869f81a1632e09f415e586922e4f80"
                 },
                 "size": 962685
-              },
-              "type": "jar"
+              }
             },
             {
               "name": "AWS Java SDK Bundled",
@@ -40,8 +39,7 @@
                   "value": "02deec3a0ad83d13d032b1812421b23d7a961eea"
                 },
                 "size": 280645251
-              },
-              "type": "jar"
+              }
             }
           ],
           "333": [

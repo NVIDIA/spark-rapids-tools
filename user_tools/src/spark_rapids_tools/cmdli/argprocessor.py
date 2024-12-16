@@ -29,9 +29,8 @@ from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_tools.cloud import ClientCluster
 from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
-from ..configuration.distributed_tools_config import DistributedToolsConfig
-from ..configuration.local_mode_config import LocalToolsConfig
-from ..configuration.tools_config import ToolsConfig
+from ..configuration.submission.distributed_config import DistributedToolsConfig
+from ..configuration.submission.local_config import LocalToolsConfig
 from ..enums import QualFilterApp, CspEnv, QualEstimationModel, SubmissionMode
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
@@ -353,7 +352,6 @@ class ToolUserArgModel(AbsToolUserArgModel):
     jvm_heap_size: Optional[int] = None
     jvm_threads: Optional[int] = None
     tools_config_path: Optional[str] = None
-    submission_mode: SubmissionMode = SubmissionMode.get_default()
 
     def is_concurrent_submission(self) -> bool:
         return False
@@ -385,7 +383,11 @@ class ToolUserArgModel(AbsToolUserArgModel):
         if self.tools_config_path is not None:
             # the CLI provides a tools config file
             try:
-                self.p_args['toolArgs']['toolsConfig'] = ToolsConfig.load_from_file(self.tools_config_path)
+                if self.p_args['toolArgs']['submissionMode'] == SubmissionMode.DISTRIBUTED:
+                    tools_config = DistributedToolsConfig.load_from_file(self.tools_config_path)
+                else:
+                    tools_config = LocalToolsConfig.load_from_file(self.tools_config_path)
+                self.p_args['toolArgs']['toolsConfig'] = tools_config
             except ValidationError as ve:
                 # If required, we can dump the expected specification by appending
                 # 'ToolsConfig.get_schema()' to the error message
@@ -473,6 +475,7 @@ class QualifyUserArgModel(ToolUserArgModel):
     """
     filter_apps: Optional[QualFilterApp] = None
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
+    submission_mode: Optional[SubmissionMode] = None
 
     def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
@@ -490,6 +493,10 @@ class QualifyUserArgModel(ToolUserArgModel):
             self.p_args['toolArgs']['estimationModelArgs'] = QualEstimationModel.create_default_model_args(def_model)
         else:
             self.p_args['toolArgs']['estimationModelArgs'] = self.estimation_model_args
+        if self.submission_mode is None or not self.submission_mode:
+            self.p_args['toolArgs']['submissionMode'] = SubmissionMode.get_default()
+        else:
+            self.p_args['toolArgs']['submissionMode'] = self.submission_mode
 
     @model_validator(mode='after')
     def validate_arg_cases(self) -> 'QualifyUserArgModel':
@@ -536,7 +543,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
-            'submissionMode': self.submission_mode
+            'submissionMode': self.p_args['toolArgs']['submissionMode']
         }
         return wrapped_args
 

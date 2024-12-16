@@ -18,7 +18,7 @@
 import fire
 
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
-from spark_rapids_tools.enums import CspEnv, QualEstimationModel, SubmissionMode
+from spark_rapids_tools.enums import CspEnv, QualEstimationModel
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.qualx.prediction import Prediction
@@ -84,7 +84,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param tools_config_file: Path to a configuration file that contains the tools' options.
                For sample configuration files, please visit
                https://github.com/NVIDIA/spark-rapids-tools/tree/main/user_tools/tests/spark_rapids_tools_ut/resources/tools_config/valid
-        :param submission_mode: Submission mode to run the qualification tool. Supported modes are "local" and "distributed".
+        :param submission_mode: Submission mode to run the qualification tool.
+                Supported modes are "local" and "distributed".
         :param rapids_options: A list of valid Qualification tool options.
                 Note that the wrapper ignores ["output-directory", "platform"] flags, and it does not support
                 multiple "spark-property" arguments.
