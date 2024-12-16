@@ -483,8 +483,8 @@ object SQLPlanParser extends Logging {
       case "AggregateInPandas" | "ArrowEvalPython" | "AQEShuffleRead" | "CartesianProduct"
            | "Coalesce" | "CollectLimit" | "CustomShuffleReader" | "FlatMapGroupsInPandas"
            | "GlobalLimit" | "LocalLimit" | "InMemoryTableScan" | "MapInPandas"
-           | "PythonMapInArrow" | "MapInArrow" | "Range" | "Sample" | "Union"
-           | "WindowInPandas" =>
+           | "PythonMapInArrow" | "MapInArrow" | "Range" | "RunningWindowFunction"
+           | "Sample" | "Union" | "WindowInPandas" =>
         GenericExecParser(node, checker, sqlID, app = Some(app)).parse
       case "BatchScan" =>
         BatchScanExecParser(node, checker, sqlID, app).parse
