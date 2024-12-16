@@ -953,7 +953,6 @@ class RapidsJarTool(RapidsTool):
         Parse the tools configuration and return as distributed tools configuration object
         """
         config_obj = self.get_tools_config_obj()
-        print(config_obj.get_schema())
         if config_obj and config_obj.submission:
             if self.ctxt.is_distributed_mode():
                 return config_obj
