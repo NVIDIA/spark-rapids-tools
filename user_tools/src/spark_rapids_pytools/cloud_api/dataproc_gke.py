@@ -92,6 +92,9 @@ class DataprocGkePlatform(DataprocPlatform):
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return DataprocGkeLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
 
+    def create_distributed_submission_job(self, job_prop, ctxt) -> Any:
+        pass
+
 
 @dataclass
 class DataprocGkeCMDDriver(DataprocCMDDriver):
