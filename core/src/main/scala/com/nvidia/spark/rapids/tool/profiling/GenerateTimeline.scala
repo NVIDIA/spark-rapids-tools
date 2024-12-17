@@ -304,7 +304,7 @@ object GenerateTimeline {
         tc.sr_fetchWaitTime
       val opTimeMs = opMetrics.flatMap(_.taskUpdatesMap.get(taskId)).sum / 1000000
       val writeTimeMs = writeMetrics.flatMap(_.taskUpdatesMap.get(taskId)).sum / 1000000 +
-        tc.sw_writeTime
+        tc.sw_writeTime / 1000000
       val taskInfo = new TimelineTaskInfo(stageId, taskId, launchTime, finishTime, duration,
         tc.executorDeserializeTime, readTimeMs, semTimeMs, opTimeMs, writeTimeMs)
       val execHost = s"$execId/$host"
