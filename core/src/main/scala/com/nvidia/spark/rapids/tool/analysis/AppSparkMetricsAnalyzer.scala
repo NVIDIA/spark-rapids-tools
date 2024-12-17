@@ -431,14 +431,12 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         val shuffleWriteValues = photonShuffleWriteTimeAccumInfos.flatMap { accumInfo =>
           accumInfo.stageValuesMap.get(sm.stageInfo.stageId)
         }
-        (AppSparkMetricsAnalyzer.maxWithEmptyHandling(peakMemoryValues),
-          TimeUnit.NANOSECONDS.toMillis(shuffleWriteValues.sum))
+        (AppSparkMetricsAnalyzer.maxWithEmptyHandling(peakMemoryValues), shuffleWriteValues.sum)
       } else {
         // For non-Photon apps, use the task metrics directly.
         val peakMemoryValues = tasksInStage.map(_.peakExecutionMemory)
         val shuffleWriteTime = tasksInStage.map(_.sw_writeTime)
-        (AppSparkMetricsAnalyzer.maxWithEmptyHandling(peakMemoryValues),
-          TimeUnit.NANOSECONDS.toMillis(shuffleWriteTime.sum))
+        (AppSparkMetricsAnalyzer.maxWithEmptyHandling(peakMemoryValues), shuffleWriteTime.sum)
       }
 
       val (durSum, durMax, durMin, durAvg) = AppSparkMetricsAnalyzer.getDurations(tasksInStage)
@@ -451,8 +449,8 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         durMax,
         durMin,
         durAvg,
-        tasksInStage.map(_.executorCPUTime).sum,
-        tasksInStage.map(_.executorDeserializeCPUTime).sum,
+        TimeUnit.NANOSECONDS.toMillis(tasksInStage.map(_.executorCPUTime).sum),
+        TimeUnit.NANOSECONDS.toMillis(tasksInStage.map(_.executorDeserializeCPUTime).sum),
         tasksInStage.map(_.executorDeserializeTime).sum,
         tasksInStage.map(_.executorRunTime).sum,
         tasksInStage.map(_.input_bytesRead).sum,
@@ -473,7 +471,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         tasksInStage.map(_.sr_totalBytesRead).sum,
         tasksInStage.map(_.sw_bytesWritten).sum,
         tasksInStage.map(_.sw_recordsWritten).sum,
-        shuffleWriteTimeSum
+        TimeUnit.NANOSECONDS.toMillis(shuffleWriteTimeSum) // nanoseconds
       )
       stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
     }

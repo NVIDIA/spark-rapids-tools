@@ -16,8 +16,6 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-import java.util.concurrent.TimeUnit
-
 import org.apache.spark.TaskFailedReason
 import org.apache.spark.scheduler.SparkListenerTaskEnd
 import org.apache.spark.sql.rapids.tool.annotation.Since
@@ -40,9 +38,9 @@ case class TaskModel(
     speculative: Boolean,
     gettingResultTime: Long,
     executorDeserializeTime: Long,
-    executorDeserializeCPUTime: Long,
-    executorRunTime: Long,
-    executorCPUTime: Long,
+    executorDeserializeCPUTime: Long, // nanoseconds
+    executorRunTime: Long, // milliseconds
+    executorCPUTime: Long, // nanoseconds
     peakExecutionMemory: Long,
     resultSize: Long,
     jvmGCTime: Long,
@@ -59,7 +57,7 @@ case class TaskModel(
     sr_totalBytesRead: Long,
     // Note: sw stands for ShuffleWrite
     sw_bytesWritten: Long,
-    sw_writeTime: Long,
+    sw_writeTime: Long, // nanoseconds
     sw_recordsWritten: Long,
     input_bytesRead: Long,
     input_recordsRead: Long,
@@ -92,9 +90,9 @@ object TaskModel {
       event.taskInfo.speculative,
       event.taskInfo.gettingResultTime,
       event.taskMetrics.executorDeserializeTime,
-      TimeUnit.NANOSECONDS.toMillis(event.taskMetrics.executorDeserializeCpuTime),
-      event.taskMetrics.executorRunTime,
-      TimeUnit.NANOSECONDS.toMillis(event.taskMetrics.executorCpuTime),
+      event.taskMetrics.executorDeserializeCpuTime, // nanoseconds
+      event.taskMetrics.executorRunTime, // milliseconds
+      event.taskMetrics.executorCpuTime, // nanoseconds
       event.taskMetrics.peakExecutionMemory,
       event.taskMetrics.resultSize,
       event.taskMetrics.jvmGCTime,
@@ -109,7 +107,7 @@ object TaskModel {
       event.taskMetrics.shuffleReadMetrics.localBytesRead,
       event.taskMetrics.shuffleReadMetrics.totalBytesRead,
       event.taskMetrics.shuffleWriteMetrics.bytesWritten,
-      event.taskMetrics.shuffleWriteMetrics.writeTime,
+      event.taskMetrics.shuffleWriteMetrics.writeTime, // nanoseconds
       event.taskMetrics.shuffleWriteMetrics.recordsWritten,
       event.taskMetrics.inputMetrics.bytesRead,
       event.taskMetrics.inputMetrics.recordsRead,
