@@ -1004,9 +1004,15 @@ case class SQLDurationExecutorTimeProfileResult(
   }
 
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, StringUtils.reformatCSVString(appId), rootsqlID.getOrElse("").toString,
-      sqlID.toString, durStr, containsDataset.toString, appDurStr,
-      StringUtils.reformatCSVString(potentialStr), execCpuTimePercent)
+    Seq(appIndex.toString,
+      StringUtils.reformatCSVString(appId),
+      rootsqlID.getOrElse("").toString,
+      sqlID.toString,
+      durStr,
+      containsDataset.toString,
+      appDurStr,
+      StringUtils.reformatCSVString(potentialStr),
+      execCpuTimePercent)
   }
 }
 
