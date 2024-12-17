@@ -471,7 +471,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         tasksInStage.map(_.sr_totalBytesRead).sum,
         tasksInStage.map(_.sw_bytesWritten).sum,
         tasksInStage.map(_.sw_recordsWritten).sum,
-        TimeUnit.NANOSECONDS.toMillis(shuffleWriteTimeSum) // nanoseconds
+        TimeUnit.NANOSECONDS.toMillis(shuffleWriteTimeSum)
       )
       stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
     }
