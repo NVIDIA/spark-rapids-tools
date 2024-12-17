@@ -32,7 +32,6 @@ from spark_rapids_pytools.pricing.dataproc_pricing import DataprocPriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
-# pylint: disable=abstract-method
 @dataclass
 class DataprocPlatform(PlatformBase):
     """
@@ -130,6 +129,9 @@ class DataprocPlatform(PlatformBase):
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return DataprocLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
+
+    def create_distributed_submission_job(self, job_prop, ctxt) -> Any:
+        pass
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass

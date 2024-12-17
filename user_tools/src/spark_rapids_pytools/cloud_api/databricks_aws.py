@@ -31,7 +31,6 @@ from spark_rapids_pytools.pricing.databricks_aws_pricing import DatabricksAWSPri
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
-# pylint: disable=abstract-method
 @dataclass
 class DBAWSPlatform(EMRPlatform):
     """

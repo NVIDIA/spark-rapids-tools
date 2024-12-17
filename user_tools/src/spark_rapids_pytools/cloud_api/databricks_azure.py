@@ -29,7 +29,6 @@ from spark_rapids_pytools.pricing.databricks_azure_pricing import DatabricksAzur
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
-# pylint: disable=abstract-method
 @dataclass
 class DBAzurePlatform(PlatformBase):
     """
@@ -88,6 +87,9 @@ class DBAzurePlatform(PlatformBase):
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return DBAzureLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
+
+    def create_distributed_submission_job(self, job_prop, ctxt) -> Any:
+        pass
 
     def validate_job_submission_args(self, submission_args: dict) -> dict:
         pass

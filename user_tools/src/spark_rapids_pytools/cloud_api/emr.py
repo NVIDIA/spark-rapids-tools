@@ -31,7 +31,6 @@ from spark_rapids_pytools.pricing.emr_pricing import EMREc2PriceProvider
 from spark_rapids_pytools.pricing.price_provider import SavingsEstimator
 
 
-# pylint: disable=abstract-method
 @dataclass
 class EMRPlatform(PlatformBase):
     """
@@ -115,6 +114,9 @@ class EMRPlatform(PlatformBase):
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return EmrLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
+
+    def create_distributed_submission_job(self, job_prop, ctxt) -> Any:
+        pass
 
     def generate_cluster_configuration(self, render_args: dict):
         image_version = self.configs.get_value_silent('clusterInference', 'defaultImage')
