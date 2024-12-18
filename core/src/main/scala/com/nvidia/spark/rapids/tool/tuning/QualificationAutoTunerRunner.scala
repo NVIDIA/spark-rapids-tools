@@ -21,17 +21,18 @@ import scala.util.{Failure, Success, Try}
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform, ToolTextFileWriter}
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
 import com.nvidia.spark.rapids.tool.profiling.{AutoTuner, DataSourceProfileResult, Profiler}
+import com.nvidia.spark.rapids.tool.qualification.QualificationAutoTunerConfigsProvider
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
 
 /**
- * Implementation of the AutoTuner for Qualification.
+ * A wrapper class to run the AutoTuner for Qualification Tool.
  * @param appInfoProvider Provider of the qualification analysis data
  * @param tunerContext Container which holds the arguments passed to the AutoTuner execution
  */
-class QualificationAutoTuner(val appInfoProvider: QualAppSummaryInfoProvider,
+class QualificationAutoTunerRunner(val appInfoProvider: QualAppSummaryInfoProvider,
     val tunerContext: TunerContext) {
 
   // When enabled, the profiler recommendations should only include updated settings.
@@ -65,7 +66,8 @@ class QualificationAutoTuner(val appInfoProvider: QualAppSummaryInfoProvider,
   }
 
   def runAutoTuner(platform: Platform): TuningResult = {
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(appInfoProvider, platform)
+    val autoTuner: AutoTuner =
+      QualificationAutoTunerConfigsProvider.buildAutoTuner(appInfoProvider, platform)
     val (recommendations, comments) =
       autoTuner.getRecommendedProperties(showOnlyUpdatedProps = filterByUpdatedPropsEnabled)
     // Combine the GPU recommendations with all others.
@@ -82,17 +84,17 @@ class QualificationAutoTuner(val appInfoProvider: QualAppSummaryInfoProvider,
   }
 }
 
-object QualificationAutoTuner extends Logging {
+object QualificationAutoTunerRunner extends Logging {
   def apply(appInfo: QualificationAppInfo,
       appAggStats: Option[QualificationSummaryInfo],
       tunerContext: TunerContext,
       rawAggMetrics: AggRawMetricsResult,
-      dsInfo: Seq[DataSourceProfileResult]): Option[QualificationAutoTuner] = {
+      dsInfo: Seq[DataSourceProfileResult]): Option[QualificationAutoTunerRunner] = {
     Try {
       val qualInfoProvider: QualAppSummaryInfoProvider =
         AppSummaryInfoBaseProvider.fromQualAppInfo(appInfo, appAggStats, rawAggMetrics, dsInfo)
           .asInstanceOf[QualAppSummaryInfoProvider]
-      new QualificationAutoTuner(qualInfoProvider, tunerContext)
+      new QualificationAutoTunerRunner(qualInfoProvider, tunerContext)
     } match {
       case Success(q) => Some(q)
       case Failure(e) =>
