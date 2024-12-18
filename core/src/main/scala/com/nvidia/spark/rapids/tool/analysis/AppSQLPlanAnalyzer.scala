@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
+import scala.collection.breakOut
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
@@ -28,6 +29,8 @@ import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.store.DataSourceRecord
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
+
+
 
 /**
  * This class processes SQL plan to build some information such as: metrics, wholeStage nodes, and
@@ -265,7 +268,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     val jobsWithSQL = app.jobIdToInfo.filter { case (_, j) =>
       j.sqlID.nonEmpty
     }
-    val sqlToStages = jobsWithSQL.flatMap { case (jobId, j) =>
+    jobsWithSQL.flatMap { case (jobId, j) =>
       val stages = j.stageIds
       val stagesInJob = app.stageManager.getStagesByIds(stages)
       stagesInJob.map { sModel =>
@@ -283,8 +286,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         SQLStageInfoProfileResult(appIndex, j.sqlID.get, jobId, sModel.stageInfo.stageId,
           sModel.stageInfo.attemptNumber(), sModel.duration, nodeNames)
       }
-    }
-    sqlToStages.toSeq
+    }(breakOut)
   }
 
   def generateSQLAccums(): Seq[SQLAccumProfileResults] = {
@@ -294,20 +296,11 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       val driverAccumsOpt = app.driverAccumMap.get(metric.accumulatorId)
       val driverMax = driverAccumsOpt match {
         case Some(accums) =>
-          val filtered = accums.filter { a =>
-            a.sqlID == metric.sqlID
-          }
-          val accumValues = filtered.map(_.value).sortWith(_ < _)
-          if (accumValues.isEmpty) {
-            None
-          } else if (accumValues.length <= 1) {
-            Some(StatisticsMetrics(0L, 0L, 0L, accumValues.sum))
-          } else {
-            Some(StatisticsMetrics(accumValues(0), accumValues(accumValues.size / 2),
-              accumValues(accumValues.size - 1), accumValues.sum))
-          }
-        case None =>
-          None
+          StatisticsMetrics.createOptionalFromArr(accums.collect {
+            case a if a.sqlID == metric.sqlID =>
+              a.value
+          }(breakOut))
+        case _ => None
       }
 
       if (accumTaskStats.isDefined || driverMax.isDefined) {
@@ -325,7 +318,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
       } else {
         None
       }
-    }
+    }(breakOut)
   }
 
   /**
@@ -341,40 +334,31 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   def generateStageLevelAccums(): Seq[AccumProfileResults] = {
     app.accumManager.accumInfoMap.flatMap { accumMapEntry =>
       val accumInfo = accumMapEntry._2
-      accumInfo.stageValuesMap.keySet.flatMap( stageId => {
-        val stageTaskIds = app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet
-        // get the task updates that belong to that stage
-        val taskUpatesSubset =
-          accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
-        if (taskUpatesSubset.isEmpty) {
-          None
-        } else {
-          val min = taskUpatesSubset.head
-          val max = taskUpatesSubset.last
-          val sum = taskUpatesSubset.sum
-          val median = if (taskUpatesSubset.size % 2 == 0) {
-            val mid = taskUpatesSubset.size / 2
-            (taskUpatesSubset(mid) + taskUpatesSubset(mid - 1)) / 2
-          } else {
-            taskUpatesSubset(taskUpatesSubset.size / 2)
-          }
-          // reuse AccumProfileResults to avoid generating extra memory from allocating new objects
-          val accumProfileResults = AccumProfileResults(
-            appIndex,
-            stageId,
-            accumInfo.infoRef,
-            min = min,
-            median = median,
-            max = max,
-            total = sum)
-          if (accumInfo.infoRef.name.isDiagnosticMetrics()) {
-            updateStageDiagnosticMetrics(accumProfileResults)
-          }
-          Some(accumProfileResults)
+      accumInfo.stageValuesMap.keys.flatMap( stageId => {
+        val stageTaskIds: Set[Long] =
+          app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId)(breakOut)
+        // Get the task updates that belong to that stage
+        StatisticsMetrics.createOptionalFromArr(
+          accumInfo.taskUpdatesMap.filterKeys(stageTaskIds).map(_._2)(breakOut)) match {
+          case Some(stat) =>
+            // Reuse AccumProfileResults to avoid generating allocating new objects
+            val accumProfileResults = AccumProfileResults(
+              appIndex,
+              stageId,
+              accumInfo.infoRef,
+              min = stat.min,
+              median = stat.med,
+              max = stat.max,
+              total = stat.total)
+            if (accumInfo.infoRef.name.isDiagnosticMetrics()) {
+              updateStageDiagnosticMetrics(accumProfileResults)
+            }
+            Some(accumProfileResults)
+          case _ => None
         }
       })
-    }
-  }.toSeq
+    }(breakOut)
+  }
 }
 
 object AppSQLPlanAnalyzer {
