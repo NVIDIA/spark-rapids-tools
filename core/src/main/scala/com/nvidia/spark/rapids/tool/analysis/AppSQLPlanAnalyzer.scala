@@ -443,8 +443,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           // Store the results if available.
           getAccumInfoStatisticsInStage(accumInfo, stageTaskIds).map( {
             case (min, median, max, sum) => {
-              val metricName = normalizeToIODiagnosticMetric(sqlAccum.name)
-              metricNameToStatistics(metricName) = StatisticsMetrics(min, median, max, sum)
+              val metricKey = normalizeToIODiagnosticMetricKey(sqlAccum.name)
+              metricNameToStatistics(metricKey) = StatisticsMetrics(min, median, max, sum)
             }
           })
         }
@@ -462,13 +462,13 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
             app.stageManager.getDurationById(stageId),
             nodeId,
             nodeName,
-            metricNameToStatistics(OUTPUT_ROWS_METRIC),
-            metricNameToStatistics(SCAN_TIME_METRIC),
-            metricNameToStatistics(OUTPUT_BATCHES_METRIC),
-            metricNameToStatistics(BUFFER_TIME_METRIC),
-            metricNameToStatistics(SHUFFLE_WRITE_TIME_METRIC),
-            metricNameToStatistics(FETCH_WAIT_TIME_METRIC),
-            metricNameToStatistics(GPU_DECODE_TIME_METRIC)))
+            metricNameToStatistics(OUTPUT_ROWS_METRIC_KEY),
+            metricNameToStatistics(SCAN_TIME_METRIC_KEY),
+            metricNameToStatistics(OUTPUT_BATCHES_METRIC_KEY),
+            metricNameToStatistics(BUFFER_TIME_METRIC_KEY),
+            metricNameToStatistics(SHUFFLE_WRITE_TIME_METRIC_KEY),
+            metricNameToStatistics(FETCH_WAIT_TIME_METRIC_KEY),
+            metricNameToStatistics(GPU_DECODE_TIME_METRIC_KEY)))
         }
       }
     }.toSeq
