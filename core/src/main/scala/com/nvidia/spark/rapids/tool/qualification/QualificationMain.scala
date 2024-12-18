@@ -19,7 +19,6 @@ package com.nvidia.spark.rapids.tool.qualification
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
-import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterProps
 import com.nvidia.spark.rapids.tool.tuning.TunerContext
 
 import org.apache.spark.internal.Logging
@@ -75,7 +74,8 @@ object QualificationMain extends Logging {
     // This platform instance should not be used for anything other then referencing the
     // files for this particular Platform.
     val referencePlatform = try {
-      val clusterPropsOpt = loadClusterProps(appArgs.workerInfo())
+      val clusterPropsOpt =
+        QualificationAutoTunerConfigsProvider.loadClusterProps(appArgs.workerInfo())
       PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
     } catch {
       case NonFatal(e) =>
