@@ -120,37 +120,6 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   }
 
   /**
-   * Computes statistical metrics (min, median, max, sum) for task updates
-   * in a given stage based on a provided set of task IDs.
-   * @param accumInfo     AccumInfo object containing task update data.
-   * @param stageTaskIds  Set of task IDs corresponding to the stage.
-   * @return              Option containing a tuple of (min, median, max, sum)
-   *                      if there are task updates, or None if no updates exist.
-   */
-  private def getAccumInfoStatisticsInStage(accumInfo: AccumInfo, stageTaskIds: Set[Long]):
-      Option[(Long, Long, Long, Long)] = {
-    // Filter task updates to only include those matching the stage's task IDs
-    val filteredTaskUpdates =
-      accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
-
-    if (filteredTaskUpdates.isEmpty) {
-      None
-    } else {
-      val min = filteredTaskUpdates.head
-      val max = filteredTaskUpdates.last
-      val sum = filteredTaskUpdates.sum
-      val median = if (filteredTaskUpdates.size % 2 == 0) {
-        val mid = filteredTaskUpdates.size / 2
-        (filteredTaskUpdates(mid) + filteredTaskUpdates(mid - 1)) / 2
-      } else {
-        filteredTaskUpdates(filteredTaskUpdates.size / 2)
-      }
-
-      Some((min, median, max, sum))
-    }
-  }
-
-  /**
    * Connects Operators to Stages using AccumulatorIDs.
    * TODO: This function can be fused in the visitNode function to avoid the extra iteration.
    *
@@ -441,12 +410,22 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           )
           // Compute the metric's statistics (min, median, max, sum) for the given stage.
           // Store the results if available.
-          getAccumInfoStatisticsInStage(accumInfo, stageTaskIds).map( {
-            case (min, median, max, sum) => {
-              val metricKey = normalizeToIODiagnosticMetricKey(sqlAccum.name)
-              metricNameToStatistics(metricKey) = StatisticsMetrics(min, median, max, sum)
+          val filteredTaskUpdates =
+            accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
+          if (filteredTaskUpdates.nonEmpty) {
+            val min = filteredTaskUpdates.head
+            val max = filteredTaskUpdates.last
+            val sum = filteredTaskUpdates.sum
+            val median = if (filteredTaskUpdates.size % 2 == 0) {
+              val mid = filteredTaskUpdates.size / 2
+              (filteredTaskUpdates(mid) + filteredTaskUpdates(mid - 1)) / 2
+            } else {
+              filteredTaskUpdates(filteredTaskUpdates.size / 2)
             }
-          })
+
+            val metricKey = normalizeToIODiagnosticMetricKey(sqlAccum.name)
+            metricNameToStatistics(metricKey) = StatisticsMetrics(min, median, max, sum)
+          }
         }
 
         if (metricNameToStatistics.isEmpty) {
@@ -488,24 +467,37 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     app.accumManager.accumInfoMap.flatMap { accumMapEntry =>
       val accumInfo = accumMapEntry._2
       accumInfo.stageValuesMap.keySet.flatMap( stageId => {
-        getAccumInfoStatisticsInStage(accumInfo, getStageTaskIds(stageId)).map( {
-          case (min, median, max, sum) => {
-            // create and reuse AccumProfileResults object to avoid generating extra memory
-            val accumProfileResults = AccumProfileResults(
-              appIndex,
-              stageId,
-              accumInfo.infoRef,
-              min,
-              median,
-              max,
-              sum)
-            // update stageToDiagnosticMetrics mapping if accumInfo is a diagnostic metric
-            if (accumInfo.infoRef.name.isDiagnosticMetrics()) {
-              updateStageDiagnosticMetrics(accumProfileResults)
-            }
-            accumProfileResults
+        val stageTaskIds = getStageTaskIds(stageId)
+        val filteredTaskUpdates =
+          accumInfo.taskUpdatesMap.filterKeys(stageTaskIds.contains).values.toSeq.sorted
+
+        if (filteredTaskUpdates.isEmpty) {
+          None
+        } else {
+          val min = filteredTaskUpdates.head
+          val max = filteredTaskUpdates.last
+          val sum = filteredTaskUpdates.sum
+          val median = if (filteredTaskUpdates.size % 2 == 0) {
+            val mid = filteredTaskUpdates.size / 2
+            (filteredTaskUpdates(mid) + filteredTaskUpdates(mid - 1)) / 2
+          } else {
+            filteredTaskUpdates(filteredTaskUpdates.size / 2)
           }
-        })
+
+          val accumProfileResults = AccumProfileResults(
+            appIndex,
+            stageId,
+            accumInfo.infoRef,
+            min,
+            median,
+            max,
+            sum)
+          // update stageToDiagnosticMetrics mapping if accumInfo is a diagnostic metric
+          if (accumInfo.infoRef.name.isDiagnosticMetrics()) {
+            updateStageDiagnosticMetrics(accumProfileResults)
+          }
+          Some(accumProfileResults)
+        }
       })
     }
   }.toSeq
