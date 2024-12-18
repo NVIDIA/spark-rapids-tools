@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.rapids.tool.store
+package com.nvidia.spark.rapids.tool.analysis.util
 
 /**
- * Accumulator Meta Reference
- * This maintains the reference to the metadata associated with an accumulable
- * @param id - Accumulable id
- * @param name - Reference to the accumulator name
+ * Implementation of AggAccumHelper for Photon.
+ * It takes the shuffleWriteValues and peakMemValues Accumulables as an argument because those
+ * values are not available in the TaskModel.
  */
-case class AccumMetaRef(id: Long, name: AccumNameRef) {
-  def getName(): String = name.value
-}
+class AggAccumPhotonHelper(
+  shuffleWriteValues: Iterable[Long],
+  peakMemValues: Iterable[Long]) extends AggAccumHelper {
 
-object AccumMetaRef {
-  val EMPTY_ACCUM_META_REF: AccumMetaRef = new AccumMetaRef(0L, AccumNameRef.EMPTY_ACC_NAME_REF)
-  def apply(id: Long, name: Option[String]): AccumMetaRef =
-    new AccumMetaRef(id, AccumNameRef.getOrCreateAccumNameRef(name))
+  override def createStageAccumRecord(): TaskMetricsAccumRec = {
+    StageAggPhoton(shuffleWriteValues, peakMemValues)
+  }
 }
