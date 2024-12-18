@@ -25,10 +25,9 @@ from typing import List, ClassVar
 import pandas as pd
 
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
-from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_tools import CspPath
-from spark_rapids_tools.configuration.distributed_tools_config import DistributedToolsConfig
+from spark_rapids_tools.configuration.submission.distributed_config import DistributedSubmissionConfig
 from spark_rapids_tools.storagelib import HdfsPath, LocalPath, CspFs
 from spark_rapids_tools_distributed.jar_cmd_args import JarCmdArgs
 from spark_rapids_tools_distributed.output_processing.combiner import QualificationOutputCombiner
@@ -43,32 +42,37 @@ class DistributedToolsExecutor:
     """
     Class to orchestrate the execution of the Spark Rapids Tools JAR on Spark.
     """
-    user_configs: DistributedToolsConfig = field(default=None, init=True)
-    platform: str = field(default=None, init=True)
-    output_folder: str = field(default=None, init=True)
+    # Submission configuration provided by the user
+    user_submission_configs: DistributedSubmissionConfig = field(default=None, init=True)
+    # Path where the CLI stores the output from JAR tool
+    cli_output_path: CspPath = field(default=None, init=True)
+    # Command line arguments to run the JAR tool
     jar_cmd_args: JarCmdArgs = field(default=None, init=True)
+    # Configuration properties defined by the tool
     props: YAMLPropertiesContainer = field(default=None, init=False)
+    # Environment variables to be passed to the Spark job
+    env_vars: dict = field(default_factory=dict, init=False)
     spark_session_builder: SparkSessionBuilder = field(default=None, init=False)
     logger: Logger = field(default=None, init=False)
-    env_vars: dict = field(default_factory=dict, init=False)
     name: ClassVar[str] = 'distributed-tools'
 
     def __post_init__(self):
-        self._validate_environment()
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.distributed')
-
-        # Load the configuration properties
+        # Load the configuration properties defined by the tool
         config_path = Utils.resource_path(f'{self.name}-conf.yaml')
         self.props = YAMLPropertiesContainer(prop_arg=config_path)
-
+        # Validate the environment
+        self._validate_environment()
         # Create the cache directory if it does not exist
-        cache_dir = self._get_local_cache_dir()
-        if not FSUtil.resource_exists(cache_dir):
-            FSUtil.make_dirs(cache_dir)
+        local_cache_path = self._get_local_cache_path()
+        if not local_cache_path.exists():
+            local_cache_path.create_dirs(exist_ok=True)
 
     def _validate_environment(self):
-        """Validate required environment variables and populate the env_vars dictionary."""
-        required_vars = ['SPARK_HOME', 'HADOOP_HOME', 'JAVA_HOME', 'PYTHONPATH']
+        """
+        Validate required environment variables and populate the env_vars dictionary.
+        """
+        required_vars = self.props.get_value('requiredEnvVariables')
         for var in required_vars:
             assert os.getenv(var) is not None, f'{var} environment variable is not set.'
             self.env_vars[var] = os.getenv(var)
@@ -78,10 +82,12 @@ class DistributedToolsExecutor:
 
     def run_as_spark_app(self):
         """
-        Public method to run the tool as a Spark application.
+        Entry method to run the tool as a Spark application.
+        This method includes try-except block to catch any exceptions and log FAILED status
+        in the output directory.
         """
-        jar_output_path = self._get_jar_output_path()
-        jar_output_path.create_dirs()
+        cli_jar_output_path = self._get_cli_jar_output_path()
+        cli_jar_output_path.create_dirs()
         try:
             self._run_as_spark_app_internal()
         except Exception as e:  # pylint: disable=broad-except
@@ -89,22 +95,24 @@ class DistributedToolsExecutor:
             traceback.print_exc()
             exception_msg = f'Failed to run the tool as a Spark application: {str(e)}'
             app_status = FailureAppStatus(eventlog_path=self.jar_cmd_args.event_logs_path, description=exception_msg)
-            self._write_to_csv(app_status, jar_output_path)
+            self._write_to_csv(app_status, cli_jar_output_path)
 
     def _run_as_spark_app_internal(self):
-        # Get HDFS path for executor output and create necessary directories
-        executor_output_path = self._get_hdfs_executor_output_path()
-        executor_output_path.create_dirs()
-        self.logger.info('Setting executor output path to: %s', executor_output_path)
+        """
+        Internal method to run the tool as a Spark application.
+        """
+        # Get remote path for executor output and create necessary directories
+        remote_executor_output_path = self._get_remote_executor_output_path()
+        remote_executor_output_path.create_dirs()
+        self.logger.info('Setting remote executor output path to: %s', remote_executor_output_path)
 
         # List all event log files from the provided event logs path
         event_log_path = CspPath(self.jar_cmd_args.event_logs_path)
         eventlog_files = CspFs.list_all_files(event_log_path)
 
         # Initialize the JAR runner. We convert submission_cmd to a dictionary to pass it to the runner.
-        # Assumption: Path to SPARK_HOME, JAVA_HOME etc, on worker nodes are same as the driver node.
-        jar_runner = SparkJarRunner(platform=self.platform,
-                                    output_dir=str(executor_output_path),
+        # Assumption: Path to SPARK_HOME, JAVA_HOME etc., on worker nodes are same as the driver node.
+        jar_runner = SparkJarRunner(remote_executor_output_path=str(remote_executor_output_path),
                                     jar_cmd_args=self.jar_cmd_args,
                                     env_vars=self.env_vars)
         run_jar_command_fn = jar_runner.construct_jar_cmd_map_func()
@@ -116,68 +124,89 @@ class DistributedToolsExecutor:
         app_statuses = job_submitter.submit_map_job(map_func=run_jar_command_fn, input_list=eventlog_files)
 
         # Write any failed app statuses to HDFS
-        self._write_failed_app_statuses_to_hdfs(app_statuses, executor_output_path)
+        self._write_failed_app_statuses_to_remote(app_statuses, remote_executor_output_path)
 
         # Combine output from the Spark job and qualification results
-        output_combiner = QualificationOutputCombiner(jar_output_folder=self._get_jar_output_path(),
-                                                      executor_output_dir=executor_output_path)
+        output_combiner = QualificationOutputCombiner(cli_jar_output_path=self._get_cli_jar_output_path(),
+                                                      remote_executor_output_path=remote_executor_output_path)
         output_combiner.combine()
 
         # Clean up any resources after processing
         self._cleanup()
 
     def _create_spark_session_builder(self) -> SparkSessionBuilder:
-        """Submit the Spark job using the SparkJobManager."""
-        spark_properties = self.user_configs.spark_properties if self.user_configs else []
+        """
+        Submit the Spark job using the SparkJobManager
+        """
+        spark_properties = self.user_submission_configs.spark_properties if self.user_submission_configs else []
         return SparkSessionBuilder(
             spark_properties=spark_properties,
             props=self.props.get_value('sparkSessionBuilder'),
-            cache_dir=self._get_local_cache_dir(),
+            local_cache_path=self._get_local_cache_path(),
             dependencies_paths=[self.jar_cmd_args.tools_jar_path, self.jar_cmd_args.jvm_log_file])
 
-    def _write_failed_app_statuses_to_hdfs(self, app_statuses: List[AppStatusResult], executor_output_path: CspPath):
+    def _write_failed_app_statuses_to_remote(self,
+                                             app_statuses: List[AppStatusResult],
+                                             remote_executor_output_path: CspPath):
         """
-        Write the failed application statuses to each application's output directory in HDFS.
+        Write the failed application statuses to each application's output directory in remote storage.
         E.g. hdfs:///path/qual_2024xxx/<eventlog_name>/rapids_4_spark_qualification_output/
         """
         jar_output_dir_name = self.props.get_value('tool', 'qualification', 'jarOutputDirName')
         for app_status in app_statuses:
             if app_status.status == AppStatus.FAILURE:
                 file_name = os.path.basename(app_status.eventlog_path)
-                jar_output_path = (executor_output_path
-                                   .create_sub_path(file_name)
-                                   .create_sub_path(jar_output_dir_name))
-                self._write_to_csv(app_status, jar_output_path)
+                remote_jar_output_path = (remote_executor_output_path
+                                          .create_sub_path(file_name)
+                                          .create_sub_path(jar_output_dir_name))
+                self._write_to_csv(app_status, remote_jar_output_path)
 
     def _write_to_csv(self, app_status: AppStatusResult, jar_output_path: CspPath) -> None:
+        """
+        Helper function to write the application status to status CSV file.
+        """
         status_csv_file_name = self.props.get_value('tool', 'qualification', 'statusCsvFileName')
         status_csv_file_path = jar_output_path.create_sub_path(status_csv_file_name)
         with status_csv_file_path.open_output_stream() as f:
             pd.DataFrame([app_status.to_dict()]).to_csv(f, index=False)
 
     def _cleanup(self):
-        """Perform any necessary cleanup."""
+        """
+        Perform any necessary cleanup
+        """
         self.spark_session_builder.cleanup()
 
     # Getter methods
-    def _get_local_cache_dir(self) -> str:
-        return self.props.get_value('cacheDirPath')
+    def _get_local_cache_path(self) -> LocalPath:
+        """
+        Get path to local cache directory.
+        """
+        return LocalPath(self.props.get_value('cacheDirPath'))
 
-    def _get_hdfs_executor_output_path(self) -> HdfsPath:
-        output_folder_name = os.path.basename(self.output_folder)
-        if not self.user_configs or not self.user_configs.hdfs_output_dir:
-            raise ValueError('Please provide the HDFS output directory in the configuration file.')
-        if self.user_configs.hdfs_output_dir.startswith(HdfsPath.protocol_prefix):
-            hdfs_cache_dir = HdfsPath(self.user_configs.hdfs_output_dir)
-        else:
-            hdfs_cache_dir = HdfsPath(f'{HdfsPath.protocol_prefix}{self.user_configs.hdfs_output_dir}')
-        return hdfs_cache_dir.create_sub_path(output_folder_name)
+    def _get_remote_executor_output_path(self) -> CspPath:
+        """
+        Get path to remote executor output directory.
+        Note: currently only HDFS is supported.
+        """
+        output_dir_name = self.cli_output_path.base_name()
+        if not self.user_submission_configs or not self.user_submission_configs.remote_cache_dir:
+            raise ValueError('Please provide the remote cache directory in the configuration file.')
+        remote_cache_path = CspPath(self.user_submission_configs.remote_cache_dir)
+        if remote_cache_path.protocol_prefix != HdfsPath.protocol_prefix:
+            # TODO: Add support for other protocols
+            remote_cache_path = HdfsPath(f'{HdfsPath.protocol_prefix}{remote_cache_path.no_scheme}')
+        return remote_cache_path.create_sub_path(output_dir_name)
 
-    def _get_jar_output_path(self) -> LocalPath:
+    def _get_cli_jar_output_path(self) -> CspPath:
+        """
+        Function to get the CLI's jar output path
+        """
         jar_output_dir_name = self.props.get_value('tool', 'qualification', 'jarOutputDirName')
-        jar_output_path = os.path.join(self.output_folder, jar_output_dir_name)
-        return LocalPath(jar_output_path)
+        return self.cli_output_path.create_sub_path(jar_output_dir_name)
 
-    def _get_log_file_path(self) -> str:
+    def _get_log_file_path(self) -> CspPath:
+        """
+        Function to get the log file path for the distributed tool.
+        """
         log_file_name = self.props.get_value('outputFiles', 'logFileName')
-        return os.path.join(self.output_folder, log_file_name)
+        return self.cli_output_path.create_sub_path(log_file_name)

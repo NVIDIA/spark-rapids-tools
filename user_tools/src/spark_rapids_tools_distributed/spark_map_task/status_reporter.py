@@ -20,14 +20,18 @@ from typing import Dict
 
 
 class AppStatus(Enum):
-    """ Enumerated type for the status of an application. """
+    """
+    Enumerated type for the status of an application.
+    """
     SUCCESS = 'SUCCESS'
     FAILURE = 'FAILURE'
 
 
 @dataclass
 class AppStatusResult:
-    """ Class for storing the status of an application. """
+    """
+    Class for storing the status of an application.
+    """
     eventlog_path: str = field(default=None, init=True)
     status: AppStatus = field(default=None, init=False)
     description: str = field(default='', init=True)
@@ -50,11 +54,15 @@ class AppStatusResult:
 
 @dataclass
 class FailureAppStatus(AppStatusResult):
-    """ Class for storing the status of a failed application. """
+    """
+    Class for storing the status of a failed application.
+    """
     status: AppStatus = AppStatus.FAILURE
 
 
 @dataclass
 class SuccessAppStatus(AppStatusResult):
-    """ Class for storing the status of a successful application. """
+    """
+    Class for storing the status of a successful application.
+    """
     status: AppStatus = AppStatus.SUCCESS

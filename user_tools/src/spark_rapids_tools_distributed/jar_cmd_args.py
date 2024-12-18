@@ -32,7 +32,9 @@ class JarCmdArgs:
 
     @cached_property
     def jvm_log_file(self) -> str:
-        """ Return the log4j properties file from JVM arguments """
+        """
+        Return the log4j properties file from JVM arguments
+        """
         for arg in self.jvm_args:
             if 'Dlog4j.configuration' in arg:
                 return arg.split('=')[1]
@@ -40,14 +42,21 @@ class JarCmdArgs:
 
     @cached_property
     def tools_jar_path(self) -> str:
+        """
+        Tools JAR is the first element in the classpath array
+        """
         return self.classpath_arr[1]
 
     @cached_property
     def rapids_args(self) -> List[str]:
-        """ Return the Rapids arguments """
+        """
+        Return the Rapids arguments
+        """
         return self.extra_rapids_args[:-1]
 
     @cached_property
     def event_logs_path(self) -> str:
-        """ Return the path to the event logs directory """
+        """
+        Return the path to the event logs directory
+        """
         return self.extra_rapids_args[-1]

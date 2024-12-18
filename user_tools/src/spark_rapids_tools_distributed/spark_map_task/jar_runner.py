@@ -16,7 +16,7 @@
 Module containing the SparkJarRunner class to run a JAR file in a Spark job.
 This class defines the map function to be used in the Spark job to run JAR files.
 """
-
+import hashlib
 import os
 import re
 import socket
@@ -33,13 +33,16 @@ from spark_rapids_tools_distributed.spark_map_task.status_reporter import AppSta
 
 @dataclass
 class SparkJarRunner:
-    """ Class to run a JAR file in a Spark job. """
-
-    platform: str = field(init=True)
-    output_dir: str = field(init=True)
+    """
+    Class to run a JAR file in a Spark job.
+    """
+    remote_executor_output_path: str = field(init=True)
     jar_cmd_args: JarCmdArgs = field(init=True)
     env_vars: dict = field(init=True)  # Environment variables to be used in the Spark job
-    max_file_length: ClassVar[int] = 100
+    # Maximum length of the file name to be used as a directory name
+    # Reference: https://en.wikipedia.org/wiki/Comparison_of_file_systems#Limits
+    max_file_name_bytes: ClassVar[int] = 200
+    default_file_name_sep: ClassVar[str] = '_'
 
     def get_env_var(self, key: str) -> str:
         """
@@ -58,16 +61,16 @@ class SparkJarRunner:
         def run_jar_map_func(file_path: str):
             # Sanitize the file name and create the output directory for the map task
             sanitized_file_name = self.sanitize_for_posix(os.path.basename(file_path))
-            executor_output_dir = os.path.join(self.output_dir, sanitized_file_name)
+            executor_output_path = os.path.join(self.remote_executor_output_path, sanitized_file_name)
             # Construct the JAR command and submit it as a map task
-            jar_command = self._construct_jar_cmd(file_path, executor_output_dir)
+            jar_command = self._construct_jar_cmd(file_path, executor_output_path)
             # Execute the JAR command and capture the status, output, and execution time
             app_status, processing_time = self._submit_jar_cmd(jar_command)
-            logs = self._generate_log_lines(file_path, executor_output_dir, jar_command, processing_time, app_status)
+            logs = self._generate_log_lines(file_path, executor_output_path, jar_command, processing_time, app_status)
             return logs, app_status
         return run_jar_map_func
 
-    def _construct_jar_cmd(self, file_path: str, executor_output_dir: str) -> List[str]:
+    def _construct_jar_cmd(self, file_path: str, executor_output_path: str) -> List[str]:
         """
         Reconstructs the JAR command to be executed by the workers.
         """
@@ -88,7 +91,7 @@ class SparkJarRunner:
             *self.jar_cmd_args.jvm_args,                       # JVM Arguments: Log configuration, memory settings, etc.
             '-cp', classpath,                                  # Classpath for dependencies
             self.jar_cmd_args.jar_main_class,                  # Spark RAPIDS Tools main class
-            '--output-directory', executor_output_dir,         # Tools Argument: Specify the output directory
+            '--output-directory', executor_output_path,        # Tools Argument: Specify the output directory
             *self.jar_cmd_args.rapids_args,                    # Tools Argument: Other arguments for the Tools JAR
             file_path                                          # Tools Argument: Event logs path
         ]
@@ -152,18 +155,26 @@ class SparkJarRunner:
         :return: A sanitized version of the filename safe for use as a directory name.
         """
         sanitized = filename.strip()  # Remove leading/trailing whitespace
-        sanitized = sanitized.replace(' ', '_')  # Replace spaces with underscores
-        sanitized = sanitized.replace('.', '_')  # Replace dots with underscores
-        sanitized = re.sub(r'[\/]', '_', sanitized)  # Replace slashes with underscores
-        sanitized = re.sub(r'[^\w\-]', '_', sanitized)  # Replace any non-word or dash characters with underscores
+        sanitized = sanitized.replace(' ', cls.default_file_name_sep)  # Replace spaces with underscores
+        sanitized = sanitized.replace('.', cls.default_file_name_sep)  # Replace dots with underscores
+        sanitized = re.sub(r'[\/]', cls.default_file_name_sep, sanitized)  # Replace slashes with underscores
+        sanitized = re.sub(r'[^\w\-]', cls.default_file_name_sep, sanitized)  # Replace any non-word or dash characters with underscores
 
-        if len(sanitized) > cls.max_file_length:
-            sanitized = sanitized[:cls.max_file_length]
+        if len(sanitized) > cls.max_file_name_bytes:
+            # If the sanitized file name is too long, hash it to ensure it fits within the FileSystem limits
+            file_name_hash = str(hashlib.md5(sanitized.encode()).hexdigest())
+            # Calculate how much space is available for truncating the file name
+            remaining_space = cls.max_file_name_bytes - (len(file_name_hash) + 1)
+            if remaining_space > 0:
+                # Truncate the file name and append the hash
+                sanitized = f'{sanitized[:remaining_space]}_{file_name_hash}'
+            else:
+                sanitized = file_name_hash
 
         return sanitized
 
     @staticmethod
-    def _generate_log_lines(file_path: str, executor_output_dir: str, jar_command: List[str],
+    def _generate_log_lines(file_path: str, executor_output_path: str, jar_command: List[str],
                             processing_time: timedelta, app_status: AppStatusResult) -> List[str]:
         """
         Generate the log lines to be written to the output file.
@@ -173,7 +184,7 @@ class SparkJarRunner:
             '-------------------',
             f'Host: {socket.gethostname()}',
             f'Event Log Path: {file_path}',
-            f'Executor Output Directory: {executor_output_dir}',
+            f'Executor Output Path: {executor_output_path}',
             f'Command: {" ".join(jar_command)}',
             f'Processing Time: {processing_time}',
             f'Status: {app_status.status.value}',

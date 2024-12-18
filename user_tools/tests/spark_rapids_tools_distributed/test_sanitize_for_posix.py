@@ -43,10 +43,9 @@ class TestSanitizeForPosix(unittest.TestCase):
         self.assertEqual('Project__1_Final-Version__Draft_', result)
 
     def test_too_long_filename(self):
-        long_name = 'a' * 300
-        expected_output = 'a' * SparkJarRunner.max_file_length
+        long_name = 'a' * (SparkJarRunner.max_file_name_bytes + 50)
         result = SparkJarRunner.sanitize_for_posix(long_name)
-        self.assertEqual(expected_output, result)
+        assert len(result) == SparkJarRunner.max_file_name_bytes
 
     def test_already_clean_filename(self):
         result = SparkJarRunner.sanitize_for_posix('valid_filename-123.txt')

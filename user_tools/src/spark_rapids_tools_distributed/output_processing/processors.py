@@ -25,33 +25,40 @@ import pandas as pd
 import pyarrow
 
 from spark_rapids_pytools.common.utilities import ToolLogging
-from spark_rapids_tools.storagelib import HdfsPath, CspFs, LocalPath
+from spark_rapids_tools import CspPath
+from spark_rapids_tools.storagelib import HdfsPath, CspFs
 
 
 @dataclass
 class OutputProcessor(ABC):
-    """ Base class for all output processors """
-    jar_output_folder: LocalPath = field(default=None, init=True)
+    """
+    Base class for all output processors
+    """
+    cli_jar_output_path: CspPath = field(default=None, init=True)
     logger: Logger = field(default=None, init=False)
 
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.distributed.output_processor')
 
     @abstractmethod
-    def process(self, app_metric_directory: HdfsPath, **kwargs) -> None:
-        """Abstract method for processing files."""
+    def process(self, app_metric_path: HdfsPath, **kwargs) -> None:
+        """
+        Abstract method for processing files.
+        """
         raise NotImplementedError
 
 
 @dataclass
 class CopyOutputProcessor(OutputProcessor):
-    """ Class to process files by copying them to the output folder. """
+    """
+    Class to process files by copying them to the output folder.
+    """
 
-    def process(self, app_metric_directory: HdfsPath, **kwargs) -> None:
+    def process(self, app_metric_path: HdfsPath, **kwargs) -> None:
         resource_name = kwargs.get('resource_name')
-        resource_path = app_metric_directory.create_sub_path(resource_name)
+        resource_path = app_metric_path.create_sub_path(resource_name)
         if resource_path.exists():
-            CspFs.copy_resources(src=resource_path, dest=self.jar_output_folder)
+            CspFs.copy_resources(src=resource_path, dest=self.cli_jar_output_path)
 
 
 @dataclass
@@ -63,16 +70,20 @@ class MergeOutputProcessor(OutputProcessor):
     pattern: str = field(default=None, init=False)
 
     @staticmethod
-    def get_matching_files(app_metric_directory: HdfsPath, pattern: str) -> List[HdfsPath]:
-        """Get files matching a given pattern in the directory."""
-        return [info for info in CspFs.list_all_files(app_metric_directory)
+    def get_matching_files(app_metric_path: HdfsPath, pattern: str) -> List[HdfsPath]:
+        """
+        Get files matching a given pattern in the directory.
+        """
+        return [info for info in CspFs.list_all_files(app_metric_path)
                 if fnmatch.fnmatch(info.base_name(), pattern)]
 
-    def process(self, app_metric_directory: HdfsPath, **kwargs) -> None:
-        """Process files and add data to the combined data dictionary."""
-        files = self.get_matching_files(app_metric_directory, pattern=self.pattern)
+    def process(self, app_metric_path: HdfsPath, **kwargs) -> None:
+        """
+        Process files and add data to the combined data dictionary.
+        """
+        files = self.get_matching_files(app_metric_path, pattern=self.pattern)
         if not files:
-            self.logger.warning('No files found matching pattern %s in %s', self.pattern, app_metric_directory)
+            self.logger.warning('No files found matching pattern %s in %s', self.pattern, app_metric_path)
             return
 
         for file_info in files:
@@ -87,10 +98,12 @@ class MergeOutputProcessor(OutputProcessor):
                 raise RuntimeError(f'Error processing file {file_name}: {e}') from e
 
     def write_data(self) -> None:
-        """Write the combined data to the output folder."""
+        """
+        Write the combined data to the output folder.
+        """
         for filename, data in self.combined_data_dict.items():
             combined_data = self.combine_data(data)
-            output_path = self.jar_output_folder.create_sub_path(filename)
+            output_path = self.cli_jar_output_path.create_sub_path(filename)
             try:
                 with output_path.open_output_stream() as file:
                     self.write_combined_data(combined_data, file)
@@ -99,22 +112,30 @@ class MergeOutputProcessor(OutputProcessor):
 
     @abstractmethod
     def read_file(self, file: pyarrow.NativeFile) -> object:
-        """Abstract method to read file contents."""
+        """
+        Abstract method to read file contents.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def combine_data(self, data_list: List[object]) -> object:
-        """Abstract method to combine data from multiple executors."""
+        """
+        Abstract method to combine data from multiple executors.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def write_combined_data(self, combined_data: object, file: pyarrow.NativeFile) -> None:
-        """Abstract method to write the combined data to the output file."""
+        """
+        Abstract method to write the combined data to the output file.
+        """
         raise NotImplementedError
 
 
 class CSVOutputProcessor(MergeOutputProcessor):
-    """Class to implement processing of CSV files."""
+    """
+    Class to implement processing of CSV files.
+    """
     pattern = '*.csv'
 
     def read_file(self, file: pyarrow.NativeFile) -> pd.DataFrame:
@@ -128,7 +149,9 @@ class CSVOutputProcessor(MergeOutputProcessor):
 
 
 class JSONOutputProcessor(MergeOutputProcessor):
-    """Class to implement processing of JSON files."""
+    """
+    Class to implement processing of JSON files.
+    """
     pattern = '*.json'
 
     def read_file(self, file: pyarrow.NativeFile) -> List[dict]:
@@ -146,7 +169,9 @@ class JSONOutputProcessor(MergeOutputProcessor):
 
 
 class LogOutputProcessor(MergeOutputProcessor):
-    """Class to implement processing of log files"""
+    """
+    Class to implement processing of log files
+    """
     pattern = '*.log'
 
     def read_file(self, file: pyarrow.NativeFile) -> str:

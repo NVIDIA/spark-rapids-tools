@@ -373,21 +373,26 @@ class Utilities:
         raise ValueError(f'Invalid memory unit {unit} in memory size: {memory_str}')
 
     @staticmethod
-    def zip_folder(source_folder: str, dest_zip_path: str) -> str:
+    def archive_directory(source_folder: str, base_name: str, archive_format: str = 'zip') -> str:
         """
-        Zips the specified folder, keeping the folder at the top level in the zip file.
+        Archives the specified directory, keeping the directory at the top level in the
+        archived file.
 
-        :param source_folder: Path to the folder to be zipped.
-        :param dest_zip_path: Full path for the resulting zip file (should end with .zip).
+        Example:
+        source_folder = '/path/to/directory'
+        base_name = '/path/to/archived_directory'
+        archive_format = 'zip'
+
+        The above example will create a zip file at '/path/to/archived_directory.zip'
+        with 'directory' at the top level.
+
+        :param source_folder: Path to the directory to be zipped.
+        :param base_name: Base name for the zipped file (without any format extension).
+        :param archive_format: Format of the zipped file (default is 'zip').
         :return: Path to the zipped file.
         """
-        assert dest_zip_path.endswith('.zip'), 'dest_zip_path should end with .zip'
-
-        if os.path.exists(dest_zip_path):
-            os.remove(dest_zip_path)
-
-        # Create the zip file with the folder at the top level
-        shutil.make_archive(dest_zip_path.rstrip('.zip'), 'zip',
-                            root_dir=os.path.dirname(source_folder),
-                            base_dir=os.path.basename(source_folder))
-        return dest_zip_path
+        # Create the zip file with the directory at the top level
+        return shutil.make_archive(base_name=base_name,
+                                   format=archive_format,
+                                   root_dir=os.path.dirname(source_folder),
+                                   base_dir=os.path.basename(source_folder))
