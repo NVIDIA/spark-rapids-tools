@@ -25,7 +25,7 @@ import com.nvidia.spark.rapids.tool.profiling._
 
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
-import org.apache.spark.sql.rapids.tool.store.{AccumInfo, AccumMetaRef, AccumNameRef}
+import org.apache.spark.sql.rapids.tool.store.{AccumInfo, AccumMetaRef}
 
 /**
  * Does analysis on the DataFrames from object of AppBase.
@@ -85,10 +85,10 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       } else {
         val jobAggAccumulator = new AggAccumHelper()
         val perJobRec = jobAggAccumulator.accumPerJob(
-          jc.stageIds.filter(stageLevelSparkMetrics(index).contains)
-            .map { stageId =>
+          jc.stageIds.collect {
+            case stageId if stageLevelSparkMetrics(index).contains(stageId) =>
               stageLevelSparkMetrics(index)(stageId)
-            })
+          })
         if (perJobRec.isEmptyAggregates) {
           None
         } else {
@@ -178,10 +178,10 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         // TODO: Should we only consider successful tasks?
         val sqlAggAccumulator = new AggAccumHelper()
         val preSqlRec = sqlAggAccumulator.accumPerSQL(
-          stagesInSQL.filter(stageLevelSparkMetrics(index).contains)
-            .map { stageId =>
+          stagesInSQL.collect {
+            case stageId if stageLevelSparkMetrics(index).contains(stageId) =>
               stageLevelSparkMetrics(index)(stageId)
-            })
+          })
         if (preSqlRec.isEmptyAggregates) {
           None
         } else {
@@ -322,8 +322,9 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         app.asInstanceOf[ApplicationInfo].planMetricProcessor
     }
     val zeroAccumProfileResults =
-      AccumProfileResults(0, 0, AccumMetaRef(0L, AccumNameRef("")), 0L, 0L, 0L, 0L)
-
+      AccumProfileResults(0, 0, AccumMetaRef.EMPTY_ACCUM_META_REF, 0L, 0L, 0L, 0L)
+    val emptyNodeNames = Seq.empty[String]
+    val emptyDiagnosticMetrics = HashMap.empty[String, AccumProfileResults]
     // TODO: this has stage attempts. we should handle different attempts
     app.stageManager.getAllStages.map { sm =>
       // TODO: Should we only consider successful tasks?
@@ -331,11 +332,11 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         sm.stageInfo.attemptNumber())
       // count duplicate task attempts
       val numTasks = tasksInStage.size
-      val nodeNames = sqlAnalyzer.stageToNodeNames.
-        getOrElse(sm.stageInfo.stageId, Seq.empty[String])
-      val diagnosticMetricsMap = sqlAnalyzer.stageToDiagnosticMetrics.
-        getOrElse(sm.stageInfo.stageId, HashMap.empty[String, AccumProfileResults]).
-        withDefaultValue(zeroAccumProfileResults)
+      val nodeNames = sqlAnalyzer.stageToNodeNames.getOrElse(sm.stageInfo.stageId, emptyNodeNames)
+      val diagnosticMetricsMap =
+        sqlAnalyzer.stageToDiagnosticMetrics
+          .getOrElse(sm.stageInfo.stageId, emptyDiagnosticMetrics)
+          .withDefaultValue(zeroAccumProfileResults)
       val srTotalBytesMetrics =
         AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_totalBytesRead))
 
@@ -450,8 +451,6 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         perStageRec.srTotalBytesReadSum,
         perStageRec.swBytesWrittenSum,
         perStageRec.swRecordsWrittenSum,
-        // Leave this timeUnit in NanoSeconds so that it will be more accurate when we take
-        // aggregates on higher levels (i.e., SQL/Job)
         perStageRec.swWriteTimeSum)
       stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
     }
@@ -475,14 +474,6 @@ object AppSparkMetricsAnalyzer  {
         sortedArr(len / 2)
       }
       StatisticsMetrics(sortedArr.head, med, sortedArr(len - 1), sortedArr.sum)
-    }
-  }
-
-  def maxWithEmptyHandling(arr: Iterable[Long]): Long = {
-    if (arr.isEmpty) {
-      0L
-    } else {
-      arr.max
     }
   }
 }

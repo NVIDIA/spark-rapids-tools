@@ -39,11 +39,15 @@ case class StageAggPhoton(
     // the peakMemValues.
     swWriteTimeSum = 0
     peakExecutionMemoryMax = 0
-    if (shuffleWriteValues.nonEmpty) {
-      swWriteTimeSum = TimeUnit.NANOSECONDS.toMillis(shuffleWriteValues.sum)
-    }
-    if (peakMemValues.nonEmpty) {
-      peakExecutionMemoryMax = peakMemValues.max
+    if (!isEmptyAggregates) {
+      // Re-calculate the photon specific fields only if the accumulator has tasks.
+      // Otherwise, leave it as 0.
+      if (shuffleWriteValues.nonEmpty) {
+        swWriteTimeSum = TimeUnit.NANOSECONDS.toMillis(shuffleWriteValues.sum)
+      }
+      if (peakMemValues.nonEmpty) {
+        peakExecutionMemoryMax = peakMemValues.max
+      }
     }
     super.finalizeAggregation()
   }

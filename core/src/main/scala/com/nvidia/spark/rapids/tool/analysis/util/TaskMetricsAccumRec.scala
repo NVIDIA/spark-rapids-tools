@@ -63,12 +63,17 @@ class TaskMetricsAccumRec {
    */
   def isEmptyAggregates: Boolean = numTasks == 0
 
+  /**
+   * Reset all fields to 0. This is used to reset the fields when the Task iterator is empty.
+   * When the iterator is empty, then fields such as "max" should be reset to 0.
+   */
   def resetFields(): Unit = {
     durationMax = 0
     durationMin = 0
     peakExecutionMemoryMax = 0
     resultSizeMax = 0
   }
+
   def addRecord(rec: TaskModel): Unit = {
     numTasks += 1
     // SumFields
@@ -102,6 +107,7 @@ class TaskMetricsAccumRec {
     // Min Fields
     durationMin = math.min(durationMin, rec.duration)
   }
+
   def addRecord(rec: StageAggTaskMetricsProfileResult): Unit = {
     // Sums
     numTasks += rec.numTasks
@@ -143,5 +149,9 @@ class TaskMetricsAccumRec {
    */
   def finalizeAggregation(): Unit = {
     durationAvg = ToolUtils.calculateAverage(durationSum, numTasks, 1)
+    if (numTasks < 1) {
+      // number of tasks is 0, then we should reset fields such as (max, min) to 0.
+      resetFields()
+    }
   }
 }

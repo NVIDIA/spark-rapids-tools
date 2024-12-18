@@ -26,11 +26,6 @@ import org.apache.spark.sql.rapids.tool.store.TaskModel
  * a parellel processor can be used to split the iterables without changing the caller side.
  */
 class AggAccumHelper {
-  private def initializeRecord(rec: TaskMetricsAccumRec, iterable: Iterable[Any]): Unit = {
-    if (iterable.isEmpty) { // Reset aggregate fields for empty collections
-      rec.resetFields()
-    }
-  }
 
   private def accumCachedRecords[R <: TaskMetricsAccumRec](
       stageRecords: Iterable[StageAggTaskMetricsProfileResult],
@@ -45,7 +40,6 @@ class AggAccumHelper {
 
   def accumPerStage(taskRecords: Iterable[TaskModel]): TaskMetricsAccumRec = {
     val resRec = createStageAccumRecord()
-    initializeRecord(resRec, taskRecords)
     taskRecords.foreach(resRec.addRecord)
     resRec.finalizeAggregation()
     resRec
@@ -53,14 +47,12 @@ class AggAccumHelper {
 
   def accumPerSQL(stageRecords: Iterable[StageAggTaskMetricsProfileResult]): SQLAggAccum = {
     val resRec = SQLAggAccum()
-    initializeRecord(resRec, stageRecords)
     accumCachedRecords(stageRecords, resRec)
     resRec
   }
 
   def accumPerJob(stageRecords: Iterable[StageAggTaskMetricsProfileResult]): JobAggAccum = {
     val resRec = JobAggAccum()
-    initializeRecord(resRec, stageRecords)
     accumCachedRecords(stageRecords, resRec)
     resRec
   }
