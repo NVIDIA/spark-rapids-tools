@@ -16,7 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-import scala.collection.mutable
+import scala.collection.{breakOut, mutable}
 
 import com.nvidia.spark.rapids.tool.analysis.StatisticsMetrics
 
@@ -98,22 +98,8 @@ class AccumInfo(val infoRef: AccumMetaRef) {
   }
 
   def calculateAccStats(): StatisticsMetrics = {
-    val sortedTaskUpdates = taskUpdatesMap.values.toSeq.sorted
-    if (sortedTaskUpdates.isEmpty) {
-      // do not check stage values because the stats is only meant for task updates
-      StatisticsMetrics.ZERO_RECORD
-    } else {
-      val min = sortedTaskUpdates.head
-      val max = sortedTaskUpdates.last
-      val sum = sortedTaskUpdates.sum
-      val median = if (sortedTaskUpdates.size % 2 == 0) {
-        val mid = sortedTaskUpdates.size / 2
-        (sortedTaskUpdates(mid) + sortedTaskUpdates(mid - 1)) / 2
-      } else {
-        sortedTaskUpdates(sortedTaskUpdates.size / 2)
-      }
-      StatisticsMetrics(min, median, max, sum)
-    }
+    // do not check stage values because the stats is only meant for task updates
+    StatisticsMetrics.createFromArr(taskUpdatesMap.map(_._2)(breakOut))
   }
 
   def getMaxStageValue: Option[Long] = {

@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
+import org.apache.spark.sql.rapids.tool.util.InPlaceMedianArrView.{chooseMidpointPivotInPlace, findMedianInPlace}
+
 // Store (min, median, max, total) for a given metric
 case class StatisticsMetrics(min: Long, med: Long, max: Long, total: Long)
 
@@ -23,4 +25,31 @@ object StatisticsMetrics {
   // a static variable used to represent zero-statistics instead of allocating a dummy record
   // on every calculation.
   val ZERO_RECORD: StatisticsMetrics = StatisticsMetrics(0L, 0L, 0L, 0L)
+
+  def createFromArr(arr: Array[Long]): StatisticsMetrics = {
+    if (arr.isEmpty) {
+      return ZERO_RECORD
+    }
+    val medV = findMedianInPlace(arr)(chooseMidpointPivotInPlace)
+    var minV = Long.MaxValue
+    var maxV = Long.MinValue
+    var totalV = 0L
+    arr.foreach { v =>
+      if (v < minV) {
+        minV = v
+      }
+      if (v > maxV) {
+        maxV = v
+      }
+      totalV += v
+    }
+    StatisticsMetrics(minV, medV, maxV, totalV)
+  }
+
+  def createOptionalFromArr(arr: Array[Long]): Option[StatisticsMetrics] = {
+    if (arr.isEmpty) {
+      return None
+    }
+    Some(createFromArr(arr))
+  }
 }
