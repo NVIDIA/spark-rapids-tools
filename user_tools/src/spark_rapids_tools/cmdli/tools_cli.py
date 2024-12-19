@@ -35,7 +35,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
     """
 
     def qualification(self,
-                      *,
+                      *,  # force named arguments
                       platform: str,
                       eventlogs: str = None,
                       cluster: str = None,
@@ -128,7 +128,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         return None
 
     def profiling(self,
-                  *,
+                  *,  # force named arguments
                   platform: str,
                   eventlogs: str = None,
                   cluster: str = None,
