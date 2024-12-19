@@ -30,8 +30,6 @@ import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.store.DataSourceRecord
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
-
-
 /**
  * This class processes SQL plan to build some information such as: metrics, wholeStage nodes, and
  * connecting operators to nodes. The implementation used to be directly under Profiler's
